@@ -306,10 +306,10 @@ jobs:
             exit 1
           fi
           mkdir -p report
-          shopt -s nullglob
-          measured=(shards/*/outcomes.json)
-          python3 .github/scripts/mutants-merge.py --expect "$SHARDS" \
-            "${measured[@]}" > report/outcomes.json
+          # The directory, not a glob: a lone shard's artifact lands in it
+          # directly and several land one per subdirectory (#992).
+          mkdir -p shards
+          python3 .github/scripts/mutants-merge.py --expect "$SHARDS" shards > report/outcomes.json
           scope=$(tr '\n' ' ' < scope.txt | sed 's/ *$//')
           python3 .github/scripts/mutants-summary.py report/outcomes.json \
             "$scope" --in-scope "$IN_SCOPE" > report/report.md

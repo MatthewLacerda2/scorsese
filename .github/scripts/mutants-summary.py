@@ -156,7 +156,24 @@ def elapsed(data: dict) -> str:
     return f"{seconds / 60:.0f}m {seconds % 60:.0f}s" if seconds >= 60 else f"{seconds:.0f}s"
 
 
-def headline(data: dict, scope: str) -> list[str]:
+# A run that planned mutations and measured none. Its total reads zero — the
+# merge sums what the shards reported, and none did — which the headline once
+# read as *nothing to run*, the clean bill of health over an absence this file
+# exists to refuse (#992: 171 mutants planned, all tested, two survivors, and
+# the report said there was nothing in scope). The planned count is the only
+# thing that tells the two apart, so this needs `--in-scope`.
+NOTHING_REPORTED = [
+    "## Mutation",
+    "",
+    "### Nothing was measured",
+    "",
+    "The plan had mutations to run and no shard's results reached this report."
+    " This is not a clean run: read the shard jobs' logs for what they found.",
+    "",
+]
+
+
+def headline(data: dict, scope: str, in_scope: int | None = None) -> list[str]:
     total = data["total_mutants"]
     missed, caught = data["missed"], data["caught"]
     timeout, unviable = data["timeout"], data["unviable"]
@@ -168,6 +185,8 @@ def headline(data: dict, scope: str) -> list[str]:
     # instead of reassuring.
     where = [f"*{scope}*", ""] if scope else []
 
+    if total == 0 and in_scope:
+        return [*NOTHING_REPORTED, *where]
     if total == 0:
         return [
             "## Mutation",
@@ -175,8 +194,7 @@ def headline(data: dict, scope: str) -> list[str]:
             "### No mutants to run",
             "",
             "Nothing in the changed lines is in the mutated surface"
-            " (`crates/core`, `crates/compositor`, and the plan and audio"
-            " arithmetic of `crates/render` — see `.cargo/mutants.toml`).",
+            " (`.cargo/mutants.toml`'s `examine_globs`).",
             "",
             *where,
         ]
@@ -615,7 +633,7 @@ def main() -> None:
 
     tally = census(outcomes)
 
-    out = headline(data, scope)
+    out = headline(data, scope, args.in_scope)
     out += shortfall(data, args.in_scope)
     timeouts = mutant_rows(outcomes, "Timeout")
     survivors = mutant_rows(outcomes, "MissedMutant")
