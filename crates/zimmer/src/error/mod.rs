@@ -631,6 +631,14 @@ pub enum SynthError {
         seconds: f32,
     },
 
+    /// A `fit` with no length to land on: neither `seconds` nor `to`, both
+    /// at once, or a `to` that nobody resolved into seconds before the render
+    /// — this crate cannot read a clip, so it cannot guess one.
+    FitLength {
+        /// What is wrong with it, and what to write instead.
+        why: &'static str,
+    },
+
     /// A fade that runs for a negative or nonsensical time.
     BadFade {
         /// The offending length.

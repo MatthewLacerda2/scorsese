@@ -115,10 +115,7 @@ fn a_bake_of_a_song_is_sectioned_by_its_arrangement() {
 fn the_document_says_where_the_bake_cut_its_sections() {
     let mut song = songs::song();
     // Two seconds as written, stretched to 2.2: every boundary moves with it.
-    song.fit = Some(Fit {
-        seconds: 2.2,
-        mode: FitMode::Stretch,
-    });
+    song.fit = Some(Fit::lasting(2.2, FitMode::Stretch));
     let bake = bake_song(&song, &InlineOnly).expect("the fixture song renders");
     let said: Vec<f64> = song.sections().iter().map(|cut| cut.end_seconds).collect();
     let cut: Vec<f64> = bake

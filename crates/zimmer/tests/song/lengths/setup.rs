@@ -27,7 +27,7 @@ pub(crate) fn samples(seconds: f32) -> usize {
 /// tests is a deliberate multiple or non-multiple of that.
 pub(crate) fn fitted(seconds: f32, mode: FitMode) -> Song {
     Song {
-        fit: Some(Fit { seconds, mode }),
+        fit: Some(Fit::lasting(seconds, mode)),
         ..song()
     }
 }

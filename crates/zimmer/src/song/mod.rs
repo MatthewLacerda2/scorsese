@@ -85,7 +85,7 @@ pub use key::{Degree, DegreeNote, Key, Mode};
 pub use render::{InlineOnly, PatchResolver, render_excerpt, render_song};
 pub use steps::Steps;
 pub use tempo::TempoChange;
-pub use timing::{Fade, Fit, FitMode, Tail};
+pub use timing::{Fade, Fit, FitMode, FitTo, Tail};
 
 /// Default for a per-track or per-note gain: unity, i.e. "as written".
 fn one() -> f32 {

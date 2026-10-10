@@ -228,15 +228,35 @@ impl Song {
         let Some(fit) = self.fit else {
             return Ok(());
         };
-        if !(fit.seconds.is_finite() && fit.seconds > 0.0) {
-            return Err(SynthError::BadFitSeconds {
-                seconds: fit.seconds,
-            });
+        let seconds = match (fit.seconds, fit.to) {
+            (Some(seconds), None) => seconds,
+            (None, None) => {
+                return Err(SynthError::FitLength {
+                    why: "needs a length: `seconds`, or `to: \"clip\"` for as long as the \
+                          clip that plays the song",
+                });
+            }
+            (Some(_), Some(_)) => {
+                return Err(SynthError::FitLength {
+                    why: "takes `seconds` or `to`, not both — `to` says where the length \
+                          comes from, so a number beside it would be ignored",
+                });
+            }
+            (None, Some(_)) => {
+                return Err(SynthError::FitLength {
+                    why: "is `to: \"clip\"`, and nothing has said how long that clip is — \
+                          it is resolved by whatever bakes the song from a project, which \
+                          reads the clip; rendering the recipe alone needs `seconds`",
+                });
+            }
+        };
+        if !(seconds.is_finite() && seconds > 0.0) {
+            return Err(SynthError::BadFitSeconds { seconds });
         }
         // A stretch beyond the bound would deliver something nobody would use,
         // so it is refused with the tempo it would have needed — which is the
         // number a caller needs to decide what to do instead.
-        if let Some(ratio) = super::shape::stretch_ratio(self, fit)
+        if let Some(ratio) = super::shape::stretch_ratio(self, fit, seconds)
             && ratio.abs() > MAX_STRETCH
         {
             return Err(SynthError::StretchTooFar {

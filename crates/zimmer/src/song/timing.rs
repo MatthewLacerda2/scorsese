@@ -25,14 +25,57 @@ use crate::error::SynthError;
 pub(crate) const MAX_STRETCH: f32 = 0.25;
 
 /// A length the song must come out at.
+///
+/// Written one of two ways, and exactly one: as a number of `seconds`, or as
+/// `to` — where the number comes from, for a caller that knows a length this
+/// crate cannot. The second is how a video says "as long as the clip that
+/// plays me": the edit decides that length and moves it, so a number copied
+/// into the recipe by hand goes stale the first time the cut changes (#1000).
+///
+/// This crate never learns what a clip is. Whoever reads a `to` resolves it
+/// into seconds with [`Fit::resolved`] before rendering, and a song still
+/// carrying an unresolved `to` is refused by [`crate::Song::validate`] rather
+/// than rendered at some length nobody chose.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Fit {
-    /// The target length in seconds — the hole in the cut.
-    pub seconds: f32,
+    /// The target length in seconds — the hole in the cut. Absent when `to`
+    /// says where the length comes from instead.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seconds: Option<f32>,
+    /// Where the target length comes from, when it is not written down.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to: Option<FitTo>,
     /// How to get there.
     #[serde(default)]
     pub mode: FitMode,
+}
+
+impl Fit {
+    /// A fit to a written number of seconds — what every fit was before `to`.
+    pub fn lasting(seconds: f32, mode: FitMode) -> Self {
+        Self {
+            seconds: Some(seconds),
+            to: None,
+            mode,
+        }
+    }
+
+    /// This fit with its length decided: `seconds`, and no `to` left to
+    /// resolve. The mode is kept, which is the whole of what a `to` fit was
+    /// asking for besides the number.
+    pub fn resolved(self, seconds: f32) -> Self {
+        Self::lasting(seconds, self.mode)
+    }
+}
+
+/// Where a [`Fit`]'s length comes from, when the recipe does not write it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FitTo {
+    /// The length of the clip that plays this song, read from the project by
+    /// whoever bakes it — so a cut that gets shorter takes its music with it.
+    Clip,
 }
 
 /// What a song does when it is not already the length it has to be.
