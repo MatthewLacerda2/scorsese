@@ -10,6 +10,7 @@
 !tools/icons/
 # The agent-facing guides: `scorsese-core`'s `guide` module compiles them in
 # with `include_str!` (#909, #916). Only these; the rest of docs/ is for developers.
+# `.github/scripts/tests/test_server_image_docs.py` holds this list to the code.
 !docs/pages.md
 !docs/project-format.md
 !docs/recipes.md
@@ -17,6 +18,7 @@
 !docs/prompts.md
 !docs/prices.md
 !docs/stock.md
+!docs/styles.md
 # The Chromium pin: `scorsese-providers` reads it at compile time, and the
 # image's `chromium` stage fetches the build it names (#778).
 !tools/chromium/
