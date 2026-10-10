@@ -24,8 +24,8 @@ use crate::projects::{self, ProjectError, media::library_path};
 pub(super) const LIBRARY: &str = "library";
 
 /// What the listing does.
-pub(super) const LIBRARY_SAYS: &str = "List the files in your library — every video, picture, \
-sound and MIDI file you uploaded or generated — with the id import takes, newest first. Each line is the id, the name, the kind, what probing found (length, size) and the \
+pub(super) const LIBRARY_SAYS: &str = "List the files in your library — every video, picture \
+and sound you uploaded or generated — with the id import takes, newest first. Each line is the id, the name, the kind, what probing found (length, size) and the \
 description, when it has one: read the descriptions to choose a file. Narrow it by kind, by a \
 word in the name, or to the files one project already uses. A generated file says so.";
 
@@ -36,7 +36,7 @@ pub(super) fn library_schema() -> Value {
         "properties": {
             "kind": {
                 "type": "string",
-                "enum": ["video", "image", "audio", "midi"],
+                "enum": ["video", "image", "audio"],
                 "description": "Only files of this kind."
             },
             "search": {
@@ -60,7 +60,7 @@ table, ready for a clip to reference — the hosted server's import. Name them b
 `library` lists. Nothing is copied: the project refers to the library's file, so a file used \
 in ten projects is stored once. A file the project already has is not added twice; its \
 existing asset id is the answer. The reply names the asset id each file got, which is what \
-place_clip takes. A MIDI file is not imported: it is notes, not media. New files reach the library by uploading them in the web app.";
+place_clip takes. New files reach the library by uploading them in the web app.";
 
 /// `import`'s arguments.
 pub(super) fn import_schema() -> Value {
@@ -144,13 +144,7 @@ pub(super) async fn import(caller: &Caller<'_>, arguments: &Value) -> Result<Rep
                     LibraryError::NotFound => format!("there is no file {id} in your library"),
                     other => said(other),
                 })?;
-        let Some(kind) = item.kind.asset_kind() else {
-            return Err(format!(
-                "{id} “{}” is a MIDI file — notes, not media a clip can show; nothing was \
-                 imported",
-                item.name
-            ));
-        };
+        let kind = item.kind.asset_kind();
         files.push((item, kind));
     }
     let pool = &caller.toolbox.pool;

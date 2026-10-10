@@ -1,12 +1,9 @@
 // Opening a file: the picture, or the video or sound playing. The browser
 // streams it from `GET /api/library/{id}/file` in ranges, so a long video
-// starts at once and seeks without being fetched whole. A MIDI file is notes,
-// with nothing for a browser to play, so it says what it is for instead.
+// starts at once and seeks without being fetched whole.
 
 import { api, type FileKind } from "@/api";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { useT } from "@/i18n/I18nProvider";
-import { KIND_ICON } from "./FileTile";
 
 export interface Opened {
   id: number;
@@ -30,7 +27,6 @@ export function Viewer({ file, onClose }: { file: Opened | null; onClose: () => 
 }
 
 function Media({ file }: { file: Opened }) {
-  const t = useT();
   const src = api.library.fileUrl(file.id);
   switch (file.kind) {
     case "image":
@@ -41,14 +37,5 @@ function Media({ file }: { file: Opened }) {
     case "audio":
       // biome-ignore lint/a11y/useMediaCaption: a user's own recording has no caption track to offer.
       return <audio src={src} controls autoPlay className="w-full" />;
-    case "midi": {
-      const Icon = KIND_ICON.midi;
-      return (
-        <div className="flex flex-col items-center gap-3 py-8 text-center text-muted-foreground">
-          <Icon className="size-12" aria-hidden />
-          <p>{t.files.viewer.midi}</p>
-        </div>
-      );
-    }
   }
 }

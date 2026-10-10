@@ -1,6 +1,6 @@
 // The library modal's body draws the library page's own grid in picking
-// mode: a file in the project and a MIDI file are greyed with the reason, the
-// rest are offered, and the page's details panel is not there. Rendered to a
+// mode: a file in the project is greyed with the reason, the rest are
+// offered, and the page's details panel is not there. Rendered to a
 // string, as App.test.tsx does, so the modal's portal (and Radix's Esc and
 // focus trap) are not what is checked here — the content is.
 
@@ -33,7 +33,7 @@ test("the picker offers the library, greying what cannot be added", () => {
   const client = createQueryClient();
   client.setQueryData(
     ["library", "list", {}],
-    [tile(1, "beach.mp4", "video"), tile(2, "song.mid", "midi"), tile(3, "voice.wav", "audio")],
+    [tile(1, "beach.mp4", "video"), tile(2, "still.png", "image"), tile(3, "voice.wav", "audio")],
   );
   client.setQueryData(["library", "list", { project: 4 }], [tile(3, "voice.wav", "audio")]);
   const html = renderToString(
@@ -46,8 +46,8 @@ test("the picker offers the library, greying what cannot be added", () => {
     </QueryClientProvider>,
   );
   expect(html).toContain('title="Add beach.mp4"');
-  expect(html).toContain("can&#x27;t go on a track");
+  expect(html).toContain('title="Add still.png"');
   expect(html).toContain("in this project");
-  expect(html.match(/disabled=""/g)?.length).toBe(2);
+  expect(html.match(/disabled=""/g)?.length).toBe(1);
   expect(html).toContain("Upload");
 });

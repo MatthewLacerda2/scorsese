@@ -4,7 +4,7 @@
 import type { Messages } from "@/i18n/catalogue";
 
 export const files: Messages["files"] = {
-  kinds: { video: "Video", image: "Imagen", audio: "Audio", midi: "MIDI" },
+  kinds: { video: "Video", image: "Imagen", audio: "Audio" },
   sorts: {
     newest: "Más recientes",
     oldest: "Más antiguos",
@@ -20,14 +20,11 @@ export const files: Messages["files"] = {
     upload: "Subir",
     noMatch: "Ningún archivo coincide.",
     emptyLibrary:
-      "Tu biblioteca está vacía. Sube videos, imágenes, sonidos y archivos MIDI — o suéltalos aquí — para usarlos en cualquier proyecto.",
+      "Tu biblioteca está vacía. Sube videos, imágenes y sonidos — o suéltalos aquí — para usarlos en cualquier proyecto.",
     emptyProject: "Este proyecto todavía no usa archivos de tu biblioteca.",
     add: (name: string) => `Añadir ${name}`,
   },
   edit: (label: string) => `Editar ${label.toLowerCase()}`,
-  viewer: {
-    midi: "Un archivo MIDI son notas, no sonido. Pídele al asistente que musicalice tu video con él.",
-  },
   download: {
     button: "Descargar",
     file: (name: string) => `Descargar ${name}`,
@@ -37,7 +34,6 @@ export const files: Messages["files"] = {
     name: "Nombre",
     generated: "generado",
     view: "Ver",
-    open: "Abrir",
     play: "Reproducir",
     size: "Tamaño",
     dimensions: "Dimensiones",

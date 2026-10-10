@@ -21,7 +21,6 @@ export const assets: Messages["assets"] = {
     description:
       "Elige un archivo para añadirlo a los recursos de este proyecto y luego arrástralo desde " +
       "ahí a una pista. Puedes subir archivos nuevos aquí o soltarlos en esta ventana.",
-    notTrack: "no puede ir en una pista",
     inProject: "ya está en el proyecto",
   },
   kinds: {

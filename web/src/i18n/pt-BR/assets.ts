@@ -20,7 +20,6 @@ export const assets: Messages["assets"] = {
     description:
       "Escolha um arquivo para adicioná-lo aos recursos deste projeto e depois arraste-o de lá " +
       "para uma faixa. Você pode enviar arquivos novos aqui ou soltá-los nesta janela.",
-    notTrack: "não pode ir para uma faixa",
     inProject: "já está no projeto",
   },
   kinds: {

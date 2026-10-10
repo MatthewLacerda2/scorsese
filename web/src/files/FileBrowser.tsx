@@ -39,8 +39,6 @@ export interface Picking {
   pick: (tile: LibraryTile) => void;
   /** Why a file cannot be picked, or `null` when it can. */
   refuse: (tile: LibraryTile) => string | null;
-  /** The kinds the filter offers. */
-  kinds: readonly FileKind[];
 }
 
 interface Props {
@@ -111,7 +109,7 @@ export function FileBrowser({ project, picking }: Props) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>{words.allKinds}</SelectItem>
-            {(picking?.kinds ?? FILE_KINDS).map((k) => (
+            {FILE_KINDS.map((k) => (
               <SelectItem key={k} value={k}>
                 {t.files.kinds[k]}
               </SelectItem>
@@ -207,9 +205,8 @@ function UploadButton() {
         multiple
         hidden
         // A hint for the picker; the server holds files to exactly the
-        // extensions `scorsese import` takes, and MIDI, and says so when it
-        // refuses one.
-        accept="video/*,image/*,audio/*,.mid,.midi"
+        // extensions `scorsese import` takes, and says so when it refuses one.
+        accept="video/*,image/*,audio/*"
         onChange={(event) => {
           const picked = Array.from(event.target.files ?? []);
           event.target.value = "";

@@ -2,7 +2,7 @@
 // `?download=1`, which the server answers as an attachment named for the file
 // with its real extension. A plain link, not a fetch, so the browser streams a
 // gigabyte straight to disk and shows its own progress, as a render's
-// download does. Every kind downloads the same way — MIDI included.
+// download does. Every kind downloads the same way.
 
 import { DownloadIcon } from "lucide-react";
 import { api } from "@/api";

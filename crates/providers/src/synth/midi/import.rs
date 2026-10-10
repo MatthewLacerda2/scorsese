@@ -115,13 +115,3 @@ pub fn import_midi(
         left_out: imported.left_out,
     })
 }
-
-/// Whether `bytes` are a MIDI file [`import_midi`] would read — in the reader's
-/// own words when not, which name no path.
-///
-/// For a host that keeps `.mid` files to import later, the web app's library
-/// (#678): a file this refuses is refused when it arrives, not the first time
-/// somebody asks for it as a song.
-pub fn check_midi(bytes: &[u8]) -> Result<(), String> {
-    midi::import(bytes).map(drop).map_err(|why| why.to_string())
-}

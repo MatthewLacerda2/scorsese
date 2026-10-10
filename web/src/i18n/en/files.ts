@@ -3,7 +3,7 @@
 // what the server says (a refusal, a duplicate's sentence) stay as they come.
 
 export const files = {
-  kinds: { video: "Video", image: "Image", audio: "Audio", midi: "MIDI" },
+  kinds: { video: "Video", image: "Image", audio: "Audio" },
   sorts: {
     newest: "Newest first",
     oldest: "Oldest first",
@@ -19,15 +19,12 @@ export const files = {
     upload: "Upload",
     noMatch: "No files match.",
     emptyLibrary:
-      "Your library is empty. Upload videos, pictures, sounds and MIDI files — or drop them here — to use in any project.",
+      "Your library is empty. Upload videos, pictures and sounds — or drop them here — to use in any project.",
     emptyProject: "This project uses no files from your library yet.",
     add: (name: string) => `Add ${name}`,
   },
   /** The button that turns a piece of text into a field; `label` is the field's name. */
   edit: (label: string) => `Edit ${label.toLowerCase()}`,
-  viewer: {
-    midi: "A MIDI file is notes, not sound. Ask the assistant to score your video with it.",
-  },
   download: {
     button: "Download",
     file: (name: string) => `Download ${name}`,
@@ -37,7 +34,6 @@ export const files = {
     name: "Name",
     generated: "generated",
     view: "View",
-    open: "Open",
     play: "Play",
     size: "Size",
     dimensions: "Dimensions",

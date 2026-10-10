@@ -20,7 +20,7 @@ import {
 import { FileBrowser, type Picking } from "@/files/FileBrowser";
 import { useT } from "@/i18n/I18nProvider";
 import type { EditOutcome } from "../project";
-import { importEdit, PICKABLE_KINDS, refusal } from "./picking";
+import { importEdit, refusal } from "./picking";
 
 interface Props {
   projectId: number;
@@ -59,7 +59,6 @@ export function Picker({ projectId, edit }: Props) {
   const picking: Picking = {
     pick: (tile) => void edit.run(importEdit(tile.id)),
     refuse: (tile) => refusal(tile, added, t.assets.library),
-    kinds: PICKABLE_KINDS,
   };
   return (
     <>
