@@ -62,6 +62,7 @@ fn every_prompt_says_what_it_needs_from_the_person() {
 fn a_platform_reads_back_from_its_id_and_serde_name() {
     for platform in Platform::ALL {
         assert_eq!(platform.id().parse(), Ok(platform));
+        assert_eq!(platform.to_string(), platform.id());
         let json = serde_json::to_string(&platform).expect("serialises");
         assert_eq!(json, format!("\"{}\"", platform.id()));
     }
@@ -77,4 +78,19 @@ fn youtube_is_landscape_and_every_feed_upright() {
     }
     let ads: Vec<_> = Platform::ALL.into_iter().filter(|p| p.is_ad()).collect();
     assert_eq!(ads.len(), 3);
+}
+
+#[test]
+fn a_platform_lists_only_the_styles_made_for_it() {
+    let offer = style("flash_offer").expect("in the library");
+    assert!(!offer.suits(Platform::Youtube) && offer.suits(Platform::TiktokAd));
+    assert!(styles_for(Platform::Youtube).all(|s| s.suits(Platform::Youtube)));
+    assert!(styles_for(Platform::Youtube).count() < STYLES.len());
+}
+
+#[test]
+fn every_platform_has_its_own_name() {
+    let names: HashSet<_> = Platform::ALL.map(Platform::name).into_iter().collect();
+    assert_eq!(names.len(), Platform::ALL.len());
+    assert_eq!(Platform::TiktokAd.name(), "Anúncio no TikTok");
 }
