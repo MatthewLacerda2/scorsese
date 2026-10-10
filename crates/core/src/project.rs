@@ -247,13 +247,45 @@ impl Project {
     /// Reads and validates `project.json` from a `*.scor/` directory. This is
     /// the strict path: an invalid project does not load.
     pub fn load(project_dir: &Path) -> Result<Self, LoadError> {
+        Self::read(project_dir, Self::validate)
+    }
+
+    /// Reads `project.json` to **measure it again**: everything
+    /// [`Project::load`] checks, except what reads the `media` blocks a probe
+    /// is about to replace.
+    ///
+    /// A clip held to its source's recorded length is the case (#1007): a file
+    /// regenerated outside scorsese grows, a clip grows with it, and the
+    /// recorded length — now stale — makes the project fail to load. Re-probing
+    /// is what fixes it, so the command that re-probes cannot be refused by it.
+    /// The checks are held back, not dropped: whoever loads this way measures
+    /// and then validates before saving, and a file that really is too short
+    /// is refused then, against its real length.
+    pub fn load_to_measure(project_dir: &Path) -> Result<Self, LoadError> {
+        Self::read(project_dir, |project| project.unmeasured().validate())
+    }
+
+    /// The document as it would be if no file in it had ever been measured —
+    /// what is left for validation to read is the document alone.
+    fn unmeasured(&self) -> Self {
+        let mut bare = self.clone();
+        for asset in &mut bare.assets {
+            asset.media = None;
+        }
+        bare
+    }
+
+    fn read(
+        project_dir: &Path,
+        check: impl FnOnce(&Self) -> Result<(), ValidationErrors>,
+    ) -> Result<Self, LoadError> {
         let file = project_dir.join(PROJECT_FILE_NAME);
         let json = fs::read_to_string(&file).map_err(|source| LoadError::Io {
             path: file.clone(),
             source,
         })?;
         let project = Self::from_json(&json)?;
-        project.validate()?;
+        check(&project)?;
         // Recorded here and nowhere else in this file: `from_json` parses a
         // string that was not necessarily read from anything, and inventing a
         // baseline for one would be asserting something nobody checked.

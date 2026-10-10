@@ -367,7 +367,8 @@ pub(crate) enum Command {
     Probe {
         /// Read every file again, replacing metadata that is already
         /// recorded. For when what is written down is wrong; without it, only
-        /// the assets nobody has looked at are probed.
+        /// the assets nobody has looked at are probed. A project refused only
+        /// because a clip outruns a stale recorded length still opens for it.
         #[arg(long)]
         all: bool,
     },
