@@ -38,7 +38,8 @@ once: asking again answers with the file already made. The reply is either the d
 address, or the job making it; `jobs` says when that job is done and what it made. Download \
 with an HTTP GET on this server, with the same token. Sketch and stale generated assets render \
 as slug cards rather than failing; narration_bands: false leaves the narration lines' bands \
-off the picture.";
+off the picture. loudness: -14 (any LUFS) brings the soundtrack to that loudness, with a \
+limiter holding its peaks; the finished job's notes say how loud the file came out.";
 
 /// `render`'s arguments: the shape of the file, as the stdio tool spells it.
 pub(super) fn render_schema() -> Value {
@@ -77,6 +78,16 @@ pub(super) fn render_schema() -> Value {
                                 ducks the music, and the finished job's notes name every line \
                                 left out. Default true, every band drawn. Refused for a \
                                 sound-only container."
+            },
+            "loudness": {
+                "type": "number",
+                "description": "Deliver the soundtrack at this integrated loudness, in LUFS, \
+                                e.g. -14: the mix is measured, raised or lowered to it, and \
+                                its peaks held under -1 dBTP by a limiter, so a quiet mix \
+                                arrives as loud as the feed around it. Between -40 and -5. \
+                                Without it the mix is delivered as balanced. The finished \
+                                job's notes give the loudness before and after, and the gain \
+                                and limiting it took."
             }
         },
         "required": ["project"]

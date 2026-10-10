@@ -234,7 +234,7 @@ struct Places {
 }
 
 /// Lay the project out, have its pages captured, and render it to `out`;
-/// what the render said. Blocking: a render is minutes of CPU, and waiting
+/// what the render said: the delivered soundtrack's loudness, then its notes. Blocking: a render is minutes of CPU, and waiting
 /// on captures minutes more, so it runs off the server's async threads.
 fn produce(
     tools: &Tools,
@@ -296,7 +296,11 @@ fn produce(
     let report = renderer
         .render(project, laid.root(), FrameRange::ALL, out)
         .map_err(rendering)?;
-    Ok(dispatch::said(&report.notes, project, &failed))
+    // How loud the file came out and what reaching a loudness target took,
+    // in the words `scorsese render` and the stdio tool say it in (#990).
+    let mut said = scorsese_render::say::delivery(&report);
+    said.extend(dispatch::said(&report.notes, project, &failed));
+    Ok(said)
 }
 
 /// Where each of the owner's library files `project` names is, by hash —
