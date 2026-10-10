@@ -32,8 +32,7 @@ pages, and how a kind of video is made goes here.
 paid — where the voice says the message and the same words are on screen as
 it says them. The picture behind is support: b-roll, a product, a page. A
 person asks for it as "a Reels ad", "one of those videos with the text", or
-by bringing a script and nothing to film. Most feed viewers watch with the
-sound off, which is why the words are the picture's job too.
+by bringing a script and nothing to film.
 
 **Write the script first, and agree it.** Everything else is cut to the
 voice, so a changed line later is a re-cut. Short spoken sentences, a hook in
@@ -45,23 +44,23 @@ keeps the timing of every word it says, and those timings are what the rest of
 the cut is placed on. Each scene ends **0.2 s after its line's last word**, and
 the next scene starts there. Not at the end of the clip: a generated line has
 a silent tail, and cutting on the clip's end leaves a pause after every
-sentence that reads as hesitation. Lay the scenes out from the line lengths,
-reading where each last word ends from `project_describe` at the line's end,
-and move them with `clip_move`.
+sentence. `cut_to_voice` does this arithmetic: name the scenes in order, each
+its line and the visuals seen while it is said, with `gap_seconds: 0.2`. Re-run
+it whenever a line is regenerated or re-worded.
 
-**Two overlapping scene tracks.** Put the scenes on two video tracks,
-alternating, so a scene can run on a little under the next one's arrival
-instead of the cut landing on a hard edge. One track forces every scene to
-end exactly where the next begins.
+**Two overlapping scene tracks.** Give `cut_to_voice` an `overlap_seconds`
+and each scene's visuals run on a little under the next one's arrival, so an
+exit and an entrance play together instead of the cut landing on a hard edge.
+The scenes end up alternating between two video tracks; that is the layout.
 
 **Each chunk of text arrives on its first word, whole.** `caption_narration`
 does exactly this: it cuts each line at its sentences, commas and pauses into
 pieces of about two lines, and each piece arrives whole on its first spoken
 word and leaves when the next arrives. Its default look is the one this ad
 landed on: heavy Montserrat, white, rimmed in black, in the lower third, clear
-of the buttons a phone draws over the bottom of a reel. Run it **after** the cut is final: it places captions where the words
-are now, and a line moved afterwards leaves its captions behind until it is
-run again. A page that has to land on a word reads the same timings
+of the buttons a phone draws over the bottom of a reel. Run it **after** the
+cut is final: it places captions where the words are now, and a line moved
+afterwards leaves its captions behind until it is run again. A page that has to land on a word reads the same timings
 (`guide pages`, section "Start on a spoken word").
 
 **The music is ducked.** Lay the music bed under the whole cut, then
@@ -94,7 +93,7 @@ a soft panel or a device frame, with a slow push-in toward the part being
 named, and a short label or highlight marking it. The voice decides when a
 screen changes, the same way as in a narrated ad (the section above): the next
 screen arrives shortly after the sentence about the last one ends, not on a
-fixed beat. Neutral music under it, ducked with `duck_music`.
+fixed beat, and `cut_to_voice` lays that out. Neutral music under it, ducked with `duck_music`.
 
 **Close on where to get it.** The product's name and where to find it, held
 long enough to read.

@@ -94,3 +94,24 @@ fn every_platform_has_its_own_name() {
     assert_eq!(names.len(), Platform::ALL.len());
     assert_eq!(Platform::TiktokAd.name(), "Anúncio no TikTok");
 }
+
+/// A prompt sends the editor to a guide's section by its words, so the words
+/// must find exactly one section of that guide.
+#[test]
+fn every_section_a_prompt_names_is_one_the_guide_finds() {
+    for style in STYLES {
+        for name in crate::guide::names() {
+            let pointer = format!("`guide {name}`, section \"");
+            for (at, _) in style.prompt.match_indices(&pointer) {
+                let rest = &style.prompt[at + pointer.len()..];
+                let words = &rest[..rest.find('"').expect("a closing quote")];
+                let found = crate::guide::read(name, Some(words));
+                assert!(
+                    found.is_ok(),
+                    "{} names {name} \"{words}\": {found:?}",
+                    style.id
+                );
+            }
+        }
+    }
+}
