@@ -141,8 +141,8 @@ restate them; invoke them rather than reconstructing a procedure from memory, an
 name them when briefing a subagent.
 
 Where a rule below is stated in one line and a skill has ten, the line is the
-rule and the skill is how to keep it. Where they disagree, this file wins and the
-skill is wrong.
+rule and the skill is how to keep it. The two are written to agree: a
+disagreement between them is a bug, fixed in the change that finds it.
 
 ## Architecture — decided, do not redesign
 
@@ -221,21 +221,10 @@ side effect of a feature PR.
   a browser, a phone or curl is calling. Claude is who we develop and test
   against, not a dependency. Nothing in the server may assume otherwise.
 - **The web app's built-in assistant runs on the model each project picks**
-  (#705, decided 2026-10-03): Claude Sonnet 5.5 by default, Claude Opus 5.5,
-  Gemini 3.8 Flash or Gemini 3.5 Flash Lite, from a dropdown in the chat
-  panel, changeable mid-conversation. This reverses #540's *Claude Opus 5.5,
-  never downgraded* (2026-09-25): choice lets a user trade quality for credits.
-  The default was Gemini 3.8 Flash, on cost, until the maintainer moved it to
-  Sonnet on 2026-10-07 as the balance of quality and price; a new project
-  starts there and an existing one keeps what it is on. Each turn is charged at its own model's rates; the
-  conversation is kept in a vendor-neutral record so it survives a switch
-  (`crates/providers/src/chat`). The local MCP server and the desktop app get
-  no picker: there, the user's own client *is* the model. None of this
-  contradicts the rule above: choosing models for **our own client** is a
-  product decision, while the **tool surface** it calls — the registry, every
-  description, web MCP — still assumes nothing about who is calling. A user's
-  own Gemini or GPT pointed at web MCP gets exactly what the built-in assistant
-  gets.
+  (#705): Claude Sonnet 5.5 by default, from a dropdown in the chat panel.
+  Choosing models for **our own client** is a product decision; the **tool
+  surface** it calls still assumes nothing about who is calling.
+  `crates/server/CLAUDE.md` has the rest.
 
 ### Crate map
 
@@ -259,107 +248,16 @@ graphics dependency tree never slows `cargo test --workspace`). Each `lib.rs` do
 states what its crate must never depend on — those boundaries are enforced in
 review.
 
-**`zimmer` is ours, and its name is the joke told twice.** The project is named
-for Martin Scorsese; the crate that writes the music is named for Hans Zimmer,
-surname only both times. It is not a vendor, not a third-party dependency and
-not an acronym. The name deliberately says nothing about what the crate does —
-the first line of its own `lib.rs` doc does that instead (*sound from a
-document*), and `missing_docs` is a merge gate, so that line cannot quietly go
-missing. **The rename stops at the crate boundary**: `scorsese synth`, the
-`synth_*` MCP tools and `"kind": "synth_audio"` all stay, because an
-agent-facing surface has to describe itself and the asset kind is the format
-contract.
-
-**`zimmer` has a second consumer: [rusty](https://github.com/MatthewLacerda2/rusty)**,
-the owner's game engine, which depends on it as a git dependency pinned to a
-commit (rusty#413) instead of keeping its own copy. Three things follow. Its
-**public API is rusty's contract** — renaming, removing or narrowing anything
-`pub` still lands, but breaks rusty the next time it moves its pin, so the pull
-request that does it says so. **`SYNTH_VERSION` governs rusty's bakes too** —
-the same rule, one more reader. And **game-facing needs are in scope** for
-`zimmer`, inside its no-I/O boundary: a game loops music forever where a video
-never does, and the north star's "must add to this vision" does not exclude
-them. None of this makes it a vendor here; everything above still holds.
+**`zimmer` is ours** (the joke told twice: Scorsese directs, Zimmer scores),
+and **[rusty](https://github.com/MatthewLacerda2/rusty)**, the owner's game
+engine, depends on it too, so its public API is rusty's contract.
+`crates/zimmer/CLAUDE.md` has the name, the rusty rules and `SYNTH_VERSION`.
 
 ## How we work
 
-**Where this is developed.** One person, on the operator's own machine or in a
-cloud session. That is a current fact and not a decided invariant; the day
-there are other contributors it is up for review. Until then it is the premise
-several rules below are shaped by, and it is written down so nobody re-derives
-the industry default of many contributors on many cold machines and proposes
-the tooling that goes with it. **The machine's specs are deliberately not
-written here**: the operator works on more than one, and a core count or a
-free-space figure in a doc goes stale while still reading as fact. Check the
-machine you are on — cores, free memory, free disk — before a heavy build.
-
-- **One of the operator's machines also hosts the service** (#527, #532): the
-  web app runs on it in Docker Compose and reaches the internet through a
-  Cloudflare Tunnel. So on that machine the cores are shared with other people
-  — **their renders and generations queue on it**, behind a concurrency limit
-  per kind of job, and a heavy local build competes with a paying user's
-  render. A power cut is an outage for them too, which is why the job queue
-  recovers on restart and backups leave the machine.
-- **Worktrees are cheap, simultaneous builds are not.** Several branches
-  checked out costs disk; several concurrent `make gates` runs can cost more
-  memory than the machine has, and rustc's linking is where it runs out.
-  Parallelise the work, stagger the compiles, and size the parallelism from the
-  machine you are on, measured, never from a figure written down somewhere —
-  `issue-batch` has the method. A batch may also hand branches to **cloud
-  sessions** as extra coders: that lifts the local build limit, never the
-  one-at-a-time merge. `issue-batch` says when, and how to prove a session
-  really is remote.
-- **One worktree, one `target/`. Never a shared `CARGO_TARGET_DIR`.** Cargo
-  keys build artifacts by package, version, features and profile — never by
-  source path — so worktrees pointed at one target directory overwrite each
-  other's output for every crate a given build did not itself rebuild. The
-  phantom failures that causes waste an hour; the false *green* is the reason
-  this is a rule, because it says the gates passed on code that was never
-  compiled, which is exactly the claim a **ready** pull request makes.
-  Cargo's default is already correct — unset, every worktree gets its own
-  `target/` — so the rule is to stop overriding it, not to configure anything,
-  and `make gates` refuses to run under an override rather than trusting
-  anyone to remember. This is unrelated to staggering the compiles above:
-  that one is about memory during linking, this one about artifacts colliding.
-- **Merging stays serialized; the *waiting* is what may be automated.** Two pull
-  requests can each be green alone and break `main` together, because Rust
-  type-checks and links across crate boundaries — a changed signature in one
-  crate and a new caller in another compile apart and not together. That is the
-  compiler's doing and no tooling repeals it, so **speculative CI and parallel
-  merging stay out**: they answer a question this repo does not have.
-  What *was* wrong is the reason this rule used to give — "at one contributor,
-  rebase-and-verify is a minute by hand". The rebase is a minute; the verify is a
-  **cold CI run**, and it is the verify that serialises. A batch of 31 issues on
-  2026-08-29 paid that twenty times, twice over on one branch whose code did not
-  change between attempts. At a branch a week that is invisible; at fifteen in a
-  night it is most of the wall clock. So automating **who does the waiting** is
-  legitimate work (#491, #492) — under three constraints that are not negotiable:
-  a conflict is never resolved by a machine that cannot say *why* the code is
-  shaped as it is, **local green is never CI green** (see *CI is a different
-  computer* below — it is why golden renders compare with tolerance), and the
-  mutation signal never becomes a precondition, because a gate people route
-  around teaches everyone to route around gates.
-  That work is **`make queue`**, and `ci-merge` has when to reach for it. The
-  cheaper answer it was weighed against — *skip the run when the rebase changed
-  nothing that matters* — turns out not to exist: a run's verdict is about a
-  **tree**, and it carries only to the same tree. Anything weaker than that is
-  speculative merging under a friendlier name, and measured over the batch above
-  the sound rule would have skipped **none** of its twenty-three re-runs. So the
-  ten minutes are real and the only thing to take off the critical path is who
-  spends them.
-- **A warm `target/` is the fast path.** Cross-machine compilation caches
-  (`sccache` and the like) buy cold-build speed by turning off cargo's
-  incremental compilation, which is the wrong trade on a machine that is
-  always warm.
-- **The GPU is real and CI has none.** The compositor is CPU tiny-skia first
-  regardless — that is settled architecture, not a consequence of hardware.
-  The consequence to hold onto is narrower: anything GPU-dependent can be
-  built and tried here, but **can never be a merge gate.**
-- **CI is a different computer.** GitHub-hosted `ubuntu-24.04`: cold, no GPU,
-  and — Arch being a rolling release — very often a different ffmpeg build
-  than the one that produced a frame locally. "Works here" and "passes CI"
-  are separate claims, which is why golden renders compare frames with
-  tolerance rather than encoded bytes.
+The steps live in the skills; what follows is each rule in a line or two, so it
+is in front of every session. One person develops this, on their own machine or
+in a cloud session; `issue-batch` has what that premise shapes.
 
 - **The gates (push back before you build).** An idea becomes an issue only
   when all three hold; if any fails, **push back instead of complying**:
@@ -381,259 +279,119 @@ machine you are on — cores, free memory, free disk — before a heavy build.
   architecture above, the `project.json` format, the shape of the tool surface,
   the conventions in this file — where Claude proposes and the user decides,
   unless one option is a plain win-win, which Claude takes. Initiative still
-  runs through the normal flow (an issue where the work needs planning; a
-  branch; a PR; the gates). An issue that needs the user's approval is not a
-  clear win by definition: its decisions go to the user first (*Stage labels*
-  below), and a `planning` issue is still never started. And nothing that spends the user's
-  money — a provider generation, `make live-check` — is done on initiative: it
-  is asked first, every time.
+  runs through the normal flow, and nothing that spends the user's money — a
+  provider generation, `make live-check` — is done on initiative: it is asked
+  first, every time.
 - **Flow:** idea → (issue) → branch → PR → CI green → merge. **Nothing is
   committed to `main` directly**: every change, however small, arrives as a
-  pull request. An issue is how work is *planned*, not a toll on every change:
-  work that needs planning, a decision, or to wait (a stage label) is an issue
-  first; work that needs none of that can go straight to a branch and a pull
-  request (the user, 2026-10-04). A PR that has an issue references the one it
-  closes, and every PR's description clears the three gates.
-  **The `issue-write` skill** has what an issue must contain and which label it
-  carries; **`issue-batch`** has how a set of them is worked; **`ci-merge`** has
-  how a branch gets from finished to merged. Invoke them rather than
-  reconstructing the steps, and tell a subagent to invoke them too.
-- **A ready pull request claims it passes; a draft makes no such claim.** CI runs
-  on ready pull requests and on `main`, nowhere else, so a red run always means a
-  claim was broken — worth a notification every time. A draft is not decoration
-  on unfinished work; it is **how work survives** a session that ends badly, and
-  the durable context is the **issue**, written to be read cold. Never rely on a
-  hand-back comment existing. A red ready pull request **stays ready** and is
-  fixed forward.
-- **Merging is serialized, one branch at a time**, because Rust is compiled: two
-  pull requests can each be green alone and break `main` together. The only
-  exception is a PR touching **only** Markdown, which CI skips.
-  **`make mergeable` is not optional and its answer is not negotiable** — it asks
-  whether a run genuinely happened on the head commit, because "the checks look
-  green" and "the checks ran" are different claims, and #153 is what happens when
-  they diverge. `gh pr checks` is not a substitute; it blends runs.
-- **Coding parallelises; merging does not**, so the merge queue is the
-  bottleneck and every branch behind another pays a rebase per merge ahead of it.
-  Two branches in flight — one merging, one being written — is the shape that
-  keeps a queue moving without paying for it twice. The binding constraint is
-  **file collision**, not branch count. `issue-batch` has the arithmetic.
+  pull request. An issue is how work is planned, not a toll on every change
+  (`issue-write`). A PR that has an issue references the one it closes, and
+  every PR's description clears the three gates.
 - **One worktree per branch**, off the latest `main`, removed the moment it
-  merges. The isolation is what makes a branch's gates mean anything, and each
-  worktree carries a full `target/` measured in gigabytes.
+  merges, and **never a shared `CARGO_TARGET_DIR`** — it makes worktrees
+  overwrite each other's artifacts and produces a false green; `make gates`
+  refuses to run under one. Compiles are staggered and sized from the machine
+  you are on, measured. One of the operator's machines also hosts the web app,
+  so a heavy build there competes with a paying user's render. `issue-batch`
+  has all of it, and when to hand branches to cloud sessions.
+- **Merging is serialized, one branch at a time**, because Rust is compiled:
+  two pull requests can each be green alone and break `main` together. The only
+  exception is a PR touching **only** Markdown, which CI skips. What may be
+  automated is who does the waiting (`make queue`). **`make mergeable` is not
+  optional and its answer is not negotiable**; `gh pr checks` is not a
+  substitute. `ci-merge` has why and how.
+- **A ready pull request claims it passes; a draft makes no such claim.** CI
+  runs on ready pull requests and on `main`, nowhere else. A draft is how work
+  survives a session that ends badly; a red ready pull request stays ready and
+  is fixed forward.
+- **Run the gates before marking a pull request ready**, not after CI says so.
+  `make gates` runs every gate CI blocks on and `make help` lists them; the app
+  and web gates report **skipped** when a branch touches nothing under `app/` or
+  `web/`, and skipped is never green. `make setup`, once per clone, installs the
+  pre-commit hook (formatting and the size gate). **CI is a different
+  computer** — cold, no GPU, often a different ffmpeg — so local green is never
+  CI green, and nothing GPU-dependent is ever a merge gate.
+- **Gates vs. signals — block on correctness, inform on quality.** Build, test,
+  `clippy -D warnings`, the golden renders and the size gate are **hard
+  gates**. Coverage, mutation testing and perf tracking are **signals**: opt-in,
+  on a schedule or when asked, never in a pull request's CI run, never holding a
+  merge. Ask for a mutation run (`make mutants-remote`) when a branch adds
+  mechanism, before marking it ready. `ci-merge` has how to triage the report.
+- **Size gate:** source files ≤ 300 **lines of code**, test files ≤ 150; blank
+  and comment lines do not count. **Group by subfolder, not filename prefix** —
+  a shared prefix on sibling files is a subfolder waiting to happen. Nothing is
+  grandfathered: a file over the limit gets split, not excused. `make size`
+  runs it; `tools/lint/src/classify.rs` decides which cap applies.
 - **Infrastructure- then architecture-first (NOT "make it up as we go").**
   When we find a problem — something that bites or will bite more than once, a
   pattern worth adopting, or a gold-standard practice we should have had — we
   document it and fix it **before** continuing. Infrastructure and
-  architecture problems **halt feature work**. Infrastructure (the tools we
-  build with) leads because it makes every later branch cheaper: a faster or
-  safer build, test or merge loop pays off on all the work queued behind it,
-  architecture included. Each such fix gets its own issue when it carries its
-  own responsibility.
-- **The dependency graph is the plan.** Record how issues relate with GitHub's
-  **Blocked by / Blocks** and **sub-issues**; there are no rigid batches. Split
-  by responsibility, never by parallelism — sub-issues that all touch the same
-  type are one branch.
-- **A stage label is the only thing that stops an issue being started.**
-  `planning` and `human` mean *not yet*, and they are absolute. Absent one, an
-  issue is startable the moment it exists, including one Claude filed a minute
-  ago. The judgement lives in the label; asking the question a second time at
-  the moment work begins adds nothing.
-- **Gates vs. signals — block on correctness, inform on quality.** A check
-  that proves **correctness** — build, test, `clippy -D warnings`, the golden
-  renders, the size gate — is a **hard gate**: green-to-merge, no exceptions.
-  A check that *audits quality* (coverage, mutation testing, perf tracking) is
-  an **informational signal**: it runs on a schedule or when an agent asks for
-  it, **never in a pull request's CI run**, and never blocks a merge. The run is
-  what the merge queue waits on, so a signal inside it holds every merge for a
-  report that cannot change the outcome — coverage alone was three minutes a
-  merge (#651). Don't reach for a hard gate where a signal does the job.
-- **Run the gates before claiming the work is finished, not after CI says so.**
-  In practice that is before marking a pull request **ready for review**, which is
-  the moment CI is asked to check anything at all. `make gates` runs every gate CI
-  blocks on and `make help` lists them, so the target list — not `ci.yml` — is the
-  answer to "what has to be green?". The app and web gates are the only
-  conditional ones, and each reports **skipped** when a branch touches nothing
-  under `app/` or `web/`; skipped is never green over a check that did not run.
-  `make setup`, once per clone, points git at the committed hooks; from then on
-  `make pre-commit` — formatting and the size gate, no build — runs before every
-  commit, so an oversized file never reaches a branch. `git commit --no-verify` bypasses it for a deliberate work-in-progress.
-- **Signals stay opt-in, off the pull request and out of `make gates`.**
-  Coverage runs weekly on `main`; mutation sweeps one crate a week and otherwise
-  runs **when asked**: `make mutants-remote SCOPE=…` on GitHub's runners, over
-  exactly a crate, path globs or the branch's diff, with the report printed in
-  the terminal — or `make mutants` on this machine. Running either is never part
-  of passing, and **a signal never holds a merge** — that is what makes it a
-  signal. Ask for a mutation run when a branch adds mechanism, before marking it
-  ready: nothing reports survivors afterwards, so that is the last point one is
-  cheap. Read the report when it lists survivors in code **this branch wrote**; a report with nothing in it,
-  or whose survivors sit in untouched code, needs no reading at all. The exits are
-  **fix it**, **exclude it with a written reason**, or **file it as its own
-  issue** — there is no fourth, and none of them blocks the queue. The
-  **`ci-merge` skill** has how to sort them and how to triage a survivor;
-  `docs/mutation-testing.md` has what the report deliberately does not list.
-- **Size gate:** source files ≤ 300 **lines of code**, test files ≤ 150. Blank
-  and comment lines do not count — `missing_docs` is a merge gate and the house
-  style is to explain the *why*, so a cap that counted prose put those two rules
-  in opposition and split files whose code was never the problem. **Group by
-  subfolder, not filename prefix** — a shared prefix on sibling files
-  (`draw_*`, `probe_*`) is a subfolder waiting to happen; make it one and drop
-  the prefix. Enforced in CI by `tools/lint` — run it yourself with
-  `make size`, and the pre-commit hook runs it too. Which cap applies to a
-  given path is decided and documented in `tools/lint/src/classify.rs`, and
-  nothing is grandfathered: a file over the limit gets split, not excused.
-- **Which model does what — a hint, not a rule.** Design, implementation,
-  triage and anything needing a judgement call want the strongest model
-  available; a rebase, a merge conflict in a module list, moving an attribute
-  between files and other mechanical work do not. Most of an agent's sessions on
-  a branch are the second kind, and paying top rate for them is where a night's
-  budget quietly goes. A hint because the line is not crisp — a "mechanical"
-  rebase that turns out to need two authors' prose reconciled is not mechanical —
-  so whoever spawns the work calls it, and gets it wrong upwards.
-
+  architecture problems **halt feature work**, and each such fix gets its own
+  issue when it carries its own responsibility.
 - **Agent velocity is first-class.** Agents drive this repo, often unattended.
-  Write code that is readable by design and lean — clear code is cheaper to
-  reason about and faster for the next agent to extend. Keep CI fast. This is
-  part of **Craft**, not a trade-off against it.
-- When working through issues unattended: if in doubt on an issue,
-  leave a comment on the issue and continue if possible, rather than stalling
-  the night on a chat question. Questions during *planning* conversations are
-  asked right away. **Decisions are written down, never waited on**: a
-  judgement call the issue left open takes the default the issue, this file or
-  Filmora 9 (for taste) points to, and the choice and its reason go on the
-  issue or PR. A check only a human can do (a real window, real speakers,
-  taste) is **never a merge hold** — the checklist goes on the PR for the user
-  to run later, and a failure found then is a bug. `issue-batch` has the rest.
+  Write code that is readable by design and lean, and keep CI fast. This is part
+  of **Craft**, not a trade-off against it. Use the strongest model for
+  judgement work and a cheaper one for mechanical work (`issue-batch`).
+- **Working unattended, decisions are written down, never waited on**: a
+  judgement call an issue left open takes the default the issue, this file or
+  Filmora 9 (for taste) points to, and the choice and its reason go on the issue
+  or PR. A check only a human can do (a real window, real speakers, taste) is
+  **never a merge hold**. Questions during *planning* conversations are asked
+  right away. `issue-batch` has the rest.
 
 ## Repo-specific conventions
 
 - **No real provider calls in tests, ever.** Veo and ElevenLabs are mocked
   behind traits; golden-render tests use local fixture media only. A test that
   spends money or needs a network is a bug.
-- **Secrets resolve in one order, through one resolver**: the environment
-  first (an exported variable, or the gitignored `.env` a checkout keeps,
-  documented by `.env.example`), then the per-machine settings file a shipped
-  build reads — `crates/providers`' `credentials` module, and
-  **docs/credentials.md** for the whole of it. `.env` is the development path
-  and stops existing the moment somebody installs a build, which is why there
-  is a second place and why there is only one resolver. Never in
-  `project.json`, never in code, never in fixtures.
+- **Secrets resolve in one order, through one resolver** (`crates/providers`'
+  `credentials` module, **docs/credentials.md**): the environment first (an
+  exported variable or the gitignored `.env`), then the per-machine settings
+  file a shipped build reads. Never in `project.json`, never in code, never in
+  fixtures.
 - **All ffmpeg invocations go through `scorsese-render`'s command builder.**
-  ffmpeg is an external binary on PATH in dev/CI and is bundled beside the
-  binary in shipped builds; that indirection lives in one place. No ad-hoc
-  `Command::new("ffmpeg")` anywhere else.
-- **Golden-render tests compare frames with tolerance** — never byte-equality of
-  encoded output. Encoders are not deterministic across versions and platforms;
-  frames are what we control. The harness is `crates/golden`, and
-  **docs/golden-renders.md** is the rulebook — including the one that matters:
-  re-blessing a reference to make CI green is never legitimate.
+  ffmpeg is on PATH in dev/CI and bundled beside the binary in shipped builds;
+  that indirection lives in one place. No ad-hoc `Command::new("ffmpeg")`
+  anywhere else.
+- **Golden-render tests compare frames with tolerance**, never byte-equality of
+  encoded output. **docs/golden-renders.md** is the rulebook — including the
+  one that matters: re-blessing a reference to make CI green is never
+  legitimate.
 - **Documentation an agent acts on is gated like code.** `cargo doc` runs with
   `-D warnings`; `docs/project-format.md`'s JSON examples are parsed as
   projects and its animatable-property table is held to what the code
   publishes; every CLI command and flag must carry help text. Any new
   agent-facing surface inherits the rule — MCP tools first among them. What
-  this never proves is that the prose is *true*: it stops the shape from
-  drifting silently, and reading is still how correctness gets checked.
+  this never proves is that the prose is *true*: reading is still how
+  correctness gets checked.
 - **`project.json` format changes are `architecture`-label work** and require
-  a schema version bump. The format is the contract between the CLI, the MCP
-  server and the GUI — the contract *now*, not across time.
-- **A change to what a recipe renders to requires a `SYNTH_VERSION` bump**, in
-  the same commit, for the same reason a format change requires a
-  `schema_version` bump: breaking loudly is the point. A bake in `generated/`
-  is addressed by a hash of the recipe **and** that number, so bumping it is
-  what makes every affected file miss the cache and be re-rendered — and not
-  bumping it leaves every project on disk holding audio its own recipe no
-  longer describes, silently. The number is declared rather than derived
-  because deriving it means hashing rendered output, and a digest has no
-  tolerance to spend on a platform's `sin` and `exp` differing; the constant's
-  own doc in `crates/zimmer/src/lib.rs` carries the whole argument. So: touch a
-  source, a filter, an envelope or an effect in `zimmer` and the samples move —
-  bump it. Touch only prose, a name or a document type — leave it alone.
-  **Verify by rendering only when the change touches rendering maths.** Baking a
-  probe corpus against two checkouts settles a genuine doubt — an edited note
-  loop, a shared helper moved, a stage reordered — and is waste when the diff
-  already answers it: a new optional field defaulting to old behaviour cannot
-  move an existing recipe's bytes. Say so in one line and move on. The
-  constant's own doc records what previous branches checked, and why.
-- **A schema bump ships with a migration.** This used to read *there is no
-  backwards compatibility*, and said the day somebody had a project they could
-  not afford to lose was the day to revisit it — and that it was the user's
-  call. The user made it on 2026-09-25: other people's projects now live in
-  Postgres (#534), and a bump that makes them unloadable breaks paying users.
-  So:
-  - **Every `schema_version` bump carries a migration** from the previous
-    version to the new one, in the same pull request, written in `core` as a
-    step over the JSON document (`vN-1 → vN`). Steps chain, so a document
-    several versions behind walks forward one step at a time. The migration is
-    what is compatible — **`Project::load` still refuses any version that is
-    not this build's**, so the bump still turns a silent reinterpretation into
-    a loud refusal, and the only way past the refusal is the migration.
-  - **The server migrates every stored document** when it starts on a new
-    build, before serving a request — a stored project is never read by code
-    that does not understand it.
-  - **Local `.scor` folders are migrated by the same steps, through the CLI**:
-    one command that rewrites a folder's `project.json` to this build's
-    version. One implementation, two callers; the desktop and CLI user is the
-    maintainer, and a separate path for them is a second thing to get wrong.
-  - Each step has a test: a document at the old version, migrated, loads and
-    validates. A step that cannot be written — a change whose old meaning has
-    no new equivalent — is a question for the user **before** the bump, not
-    after it.
-  Nothing else is compatibility: no reading an older version in place, no
-  field kept alive because something might still write it. The migration is the
-  whole of it, and it is what makes the rest unnecessary.
+  a schema version bump; **`crates/core/CLAUDE.md`** has what the bump carries.
 - **The lint set is chosen, not inherited.** `[workspace.lints]` in the root
-  `Cargo.toml` is the whole policy; every crate takes it with
-  `lints.workspace = true`. Because CI denies warnings, **each lint there is a
-  merge gate**, so the bar for adding one is the gates-vs-signals rule: it must
-  prove correctness or an invariant we have actually stated, never a style
-  preference we would wave through. That is why `clippy::pedantic` is not on —
-  a gate people route around teaches everyone to route around gates. What is on:
-  `unsafe_code = "forbid"` (there is none, and it stays that way),
-  `missing_docs` (each `lib.rs` doc is a crate's stated boundary, so the docs
-  are architecture), `unreachable_pub` (`pub` nobody can reach is API surface
-  nobody meant to add), and `clippy::unwrap_used`, `dbg_macro`, `todo`.
-  `clippy.toml` holds `allow-unwrap-in-tests`, because a failed `unwrap` in a
-  test *is* the assertion — library code, and shared helpers under
-  `tests/common/`, say what they assume with `expect("…")` instead. Adding or
-  removing a lint is a change to this rule, so it belongs in its own PR with
-  the reason recorded here.
+  `Cargo.toml` is the whole policy, and each lint there is a merge gate; the
+  comment above it has the bar for adding one.
+- **Nested `CLAUDE.md` files** hold what only matters inside one folder
+  (`crates/zimmer`, `crates/core`, `crates/server`). They load when a file
+  there is read, so a rule needed before that stays here.
 - **Nothing in the codebase is temporary**, except small JSON or log files.
   Anything added must benefit the project long-term or be necessary to its
   development — technically, or as a project.
 
 ## Issues, labels & priority
 
-- **Issues are how work is planned.** The unit of planned work is a well-specified issue: the
-  **what**, **why it belongs**, and the **roadmap — not the implementation
-  intrinsics**. A future Claude reads it cold and says *"I understand the
-  assignment, I know how to proceed."* That is what lets an issue run unattended,
-  even overnight.
+`issue-write` has the whole of this: what an issue contains, the labels, how
+relationships are recorded. The rules every session needs:
+
+- **Issues are how work is planned.** A future Claude reads one cold and says
+  *"I understand the assignment, I know how to proceed."* The **what**, **why it
+  belongs**, and the **roadmap — not the implementation intrinsics**.
 - **File what you notice — it is a duty, not an option** (the user,
-  2026-10-04, #757). The strongest issues come out of doing the work, and a
-  finding left in a transcript is lost.
-  - **Whatever Claude finds is never dropped** — a bug, a missing feature, a
-    gap in the design, a quality-of-life improvement (a more telling colour on
-    a button; a page that plots history it already has). Bugs are not a class
-    apart: each is **folded into the task at hand or filed as an issue**, and
-    which of the two is Claude's call (keep the branch reviewable; *file rather
-    than fix* when it is outside the branch). A finding that questions a
-    decision or surfaces a foundational problem is also told to the user.
-  - **A change that needs the user's approval is never folded in.** That is
-    any change that **changes how the user sees or understands their existing
-    data or project** (what something means, how it is shown to them),
-    **changes stored data**, or **needs a migration** — besides the changes to
-    scorsese's design itself that *Take the initiative* already reserves for
-    the user. Its decisions are put to the user and settled before it is filed
-    (*Stage labels* below). This is what keeps a breaking change from being
-    merged on an agent's say-so.
-  - **Anything else carries no stage label** and can be worked right away,
-    including a finding the design docs or the settled design (this file,
-    `docs/`, the decided architecture, Filmora 9 for taste) already say how to
-    close. A new read-only view of data, a clearer control, a fix that touches
-    no stored data are all this kind.
-  - **Every issue Claude writes on its own carries the `agent` label**, so the
-    user can tell it from one they asked for. It is not a stage label and never
-    stops work.
+  2026-10-04, #757). Whatever Claude finds — a bug, a missing feature, a gap in
+  the design, a quality-of-life improvement — is folded into the task at hand
+  or filed as an issue, never dropped. **A change that needs the user's
+  approval is never folded in**: one that changes how the user sees or
+  understands their existing data or project, changes stored data, or needs a
+  migration. **Every issue Claude writes on its own carries the `agent`
+  label.**
   - **While a video is being made, the findings wait for the debrief** (the
     user, 2026-10-10). Making a real video is the hardest test scorsese gets
     and where most findings come from: bugs, missing tools, papercuts, things
@@ -651,40 +409,22 @@ machine you are on — cores, free memory, free disk — before a heavy build.
     (CLI, MCP, the desktop app). **The web app's assistant never does it**:
     its user is making a video, not developing scorsese.
 - **Priority by label:** **infrastructure → architecture → bug → foundation →
-  feature.** If the way we build isn't solid — a tool or guardrail missing
-  (**infrastructure**), a structural shape or convention missing
-  (**architecture**), or something broken (**bug**) — we halt and fix that
-  first. Infrastructure leads because every branch after it runs on the faster,
-  safer loop. A bug in the **development tooling itself** — CI, the gates, the
-  hooks, `make queue` / `make mergeable` — ranks as **infrastructure**, whatever
-  its label: while it stands, every branch pays for it. Then **foundation**
-  work makes the editor itself more complete. Then **feature** work serves Claude,
-  the user or the video being made with it. **documentation** can be done at any
-  time and never waits its turn. Priority orders what gets **merged**, never what
-  gets **worked**.
-- **Stage labels — at most one, and absence means ready.** `planning` (the
-  user has not finished understanding and agreeing on a design or
-  architecture), `human` (needs a human end-to-end). Both mean **do not
-  start**.
+  feature.** A bug in the development tooling itself (CI, the gates, the hooks,
+  `make queue` / `make mergeable`) ranks as infrastructure. **documentation**
+  never waits its turn. Priority orders what gets **merged**, never what gets
+  **worked**.
+- **Stage labels — at most one, and absence means ready.** `planning` (the user
+  has not finished agreeing on a design) and `human` (needs a human end-to-end)
+  both mean **do not start**, and they are the only thing that does.
 - **Stage labels are the user's to ask for; Claude settles the design instead**
-  (the user, 2026-10-07). An issue that is a breaking change, needs a judgement
-  call, proposes a structural change, or meets *File what you notice*'s approval
-  test (changes how the user sees or understands their existing data or project,
-  changes stored data, or needs a migration) is **not** parked under a label.
-  Claude states the problems and the decisions they need, plainly and with a
-  recommendation for each, the user answers, and the answers go into the issue
-  as decided, so it is filed **startable**. `planning` or `human` goes on only
-  when the user asks for it, usually because they are out of time to agree on
-  the design now, and they say so out loud. **The one exception Claude applies
-  itself:** a finding made while working **unattended** (a batch, a cloud
-  session, overnight) that needs the user's approval is filed with `planning`,
-  because the user has not seen it, so it is literally not agreed yet. Its
-  open decisions are listed in the issue and raised with the user at the next
-  check-in, so the label comes off in one conversation. A bug is held to the
-  same test as any other finding: most need no decision at all.
-- **The `issue-write` skill** has the rest: what each type label means, what a
-  good issue body contains, how relationships are recorded, and the three gates in
-  full.
+  (the user, 2026-10-07). An issue that needs a decision is not parked under a
+  label: Claude states the decisions with a recommendation each, the user
+  answers, and the answers go into the issue, filed **startable**. **The one
+  exception Claude applies itself:** a finding made **unattended** that needs
+  the user's approval is filed with `planning`, and raised at the next
+  check-in.
+- **The dependency graph is the plan.** Blocked by / Blocks and sub-issues;
+  split by responsibility, never by parallelism.
 
 ## Overrides
 

@@ -33,10 +33,17 @@ license = "MIT OR Apache-2.0"
 # every dependency to the allow-list.
 publish = false
 
-# Every lint here is a merge gate: CI runs `cargo clippy -D warnings`, so a
-# warning fails the build. The set is deliberately small — each entry states an
-# invariant the codebase already holds, not a style preference. See CLAUDE.md's
-# "Repo-specific conventions" for the policy.
+# The lint set is chosen, not inherited: these two tables are the whole policy,
+# and every crate takes it with `lints.workspace = true`. CI runs `cargo clippy
+# -D warnings`, so each lint here is a merge gate, and the bar for adding one is
+# CLAUDE.md's gates-vs-signals rule: it must prove correctness or an invariant
+# we have stated, never a style preference we would wave through. That is why
+# `clippy::pedantic` is off: a gate people route around teaches everyone to
+# route around gates. `clippy.toml` holds `allow-unwrap-in-tests`, because a
+# failed `unwrap` in a test *is* the assertion; shared helpers under
+# `tests/common/` still say what they assume with `expect("…")`. Adding or
+# removing a lint is a change to this rule, so it is its own pull request with
+# the reason written beside it.
 [workspace.lints.rust]
 # There is no `unsafe` in this workspace. `forbid` makes that a guarantee
 # rather than a coincidence — it cannot be un-done by a local `allow`.

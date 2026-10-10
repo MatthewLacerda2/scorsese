@@ -84,7 +84,7 @@ items, and an assistant can read a filtered list of names and descriptions.
 Revisit only if libraries get large.
 
 **A schema bump migrates every stored document.** The format rule in
-`CLAUDE.md` (*A schema bump ships with a migration*) exists because of this
+`crates/core/CLAUDE.md` (*A schema bump ships with a migration*) exists because of this
 page: the server runs the migration over stored projects when it starts on a
 new build, before it serves anything.
 

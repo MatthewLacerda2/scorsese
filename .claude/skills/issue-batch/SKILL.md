@@ -9,6 +9,16 @@ The user rarely has one issue. An idea becomes several, and more appear as codin
 starts. This is how a set of them gets worked without the batch costing more than
 the work.
 
+**The premise: one person, on their own machine or in a cloud session.** That is
+a current fact, not a decided invariant; the day there are other contributors it
+is up for review. Several rules here are shaped by it, and it is written down so
+nobody re-derives the industry default of many contributors on many cold
+machines and proposes the tooling that goes with it. **The machine's specs are
+deliberately not written down**: the operator works on more than one, and a core
+count or a free-space figure in a doc goes stale while still reading as fact.
+Check the machine you are on before a heavy build (*Each branch gets its own
+worktree* has how).
+
 ## Two branches in flight, pipelined
 
 Coding parallelises. **Merging does not** — Rust is compiled, so merges are
@@ -111,8 +121,14 @@ MatthewLacerda2/rusty#547; the rules carried over, the numbers did not):
   If you do not know what one cold build costs here, measure one first and keep
   a margin. Running out still shows up as a link-step failure or a killed rustc,
   not as "no disk" — the machine's fault, not the branch's (`ci-merge`).
-- **On the machine that hosts the service**, a heavy build also competes with
-  users' renders (CLAUDE.md); leave it headroom.
+- **On the machine that hosts the service** (#527, #532: the web app in Docker
+  Compose behind a Cloudflare Tunnel), the cores are shared with other people:
+  their renders and generations queue on it, and a heavy build competes with a
+  paying user's render. Leave it headroom.
+- **A warm `target/` is the fast path.** Cross-machine compilation caches
+  (`sccache` and the like) buy cold-build speed by turning off cargo's
+  incremental compilation, which is the wrong trade on a machine that is
+  always warm.
 - **When disk is what binds** (a laptop: 26 GB free on 2026-09-30, and a
   worktree's `target/` 8–14 GB, most of it `debug/incremental`), a
   git-excluded `.cargo/config.toml` in each worktree with `debug =
@@ -181,7 +197,7 @@ Compute that time, never type it: `date -u -d '+2 min' +%Y-%m-%dT%H:%M:00Z` on
 Linux (`date -u -v+2M …` on macOS). On rusty a hand-typed time fired 45 minutes
 late, and the API refuses a time already past. Set its **model** on purpose: the `schedule`
 skill's example body defaults to a Sonnet, and writing a feature branch is
-judgement work (CLAUDE.md, *Which model does what*). Its example
+judgement work (*Model, as a hint* below). Its example
 `allowed_tools` lists only shell and file tools, so check it leaves room for
 what the brief uses (ToolSearch, the GitHub MCP tools). Two traps
 decide whether it is really remote:
@@ -447,7 +463,10 @@ read cold. Beyond that:
 
 Judgement work — design, implementation, triage — wants the strongest model. A
 rebase, a module-list conflict, an attribute moved between files does not. Most
-sessions on a branch are the second kind. The line is not crisp, so err upwards.
+sessions on a branch are the second kind, and paying top rate for them is where
+a night's budget quietly goes. A hint because the line is not crisp — a
+"mechanical" rebase that turns out to need two authors' prose reconciled is not
+mechanical — so whoever spawns the work calls it, and gets it wrong upwards.
 
 ## When to hand back to the user
 
