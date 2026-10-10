@@ -129,6 +129,7 @@ mod model;
 mod prompt;
 mod quote;
 mod relay;
+mod retarget;
 mod start;
 mod store;
 mod turn;
@@ -142,6 +143,7 @@ use scorsese_providers::credentials::resolve;
 pub use ask::{Answering, answer as answer_question, set_aside};
 pub use model::{Choice, choose};
 pub use quote::{Answer, Answered, answer as answer_quote};
+pub use retarget::{Retargeted, retarget};
 pub use start::{Opening, start};
 pub use store::{
     BriefKind, CandidateView, Conversation, QuestionView, QuoteItem, QuoteView, ToolCallView,

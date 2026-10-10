@@ -19,32 +19,58 @@ use super::AppState;
 use super::auth::Member;
 use super::error::ApiError;
 use super::ranges;
+use crate::projects;
 use crate::renders::request::{self, AskError, Asked};
 use crate::renders::{Ask, PreviewAsk, RenderView, Settings, store};
 
 /// `POST /api/projects/{id}/renders`: the render of the project as it is now,
 /// in the shape asked for — kept (`200`) or on its way (`202`).
+///
+/// A picture with no size asked for is delivered at the size of the platform
+/// the project is made for (#1016), when it names one.
 pub async fn request(
     State(state): State<AppState>,
     member: Member,
     Path(id): Path<i64>,
-    Json(ask): Json<Ask>,
+    Json(mut ask): Json<Ask>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     // First, before the project is read: a shape we do not write is the
     // cheapest thing to refuse, as it is for `scorsese render`.
-    let settings = Settings::from_ask(&ask).map_err(ApiError::BadRequest)?;
+    let mut settings = Settings::from_ask(&ask).map_err(ApiError::BadRequest)?;
+    if ask.resolution.is_none() && settings.resolution.is_some() {
+        ask.resolution = platform_size(&state, &member, id).await?;
+        settings = Settings::from_ask(&ask).map_err(ApiError::BadRequest)?;
+    }
     answer(&state, &member, id, settings).await
+}
+
+/// The delivery size of the platform project `id` is made for, as
+/// `WIDTHxHEIGHT` — `None` when it names none.
+async fn platform_size(
+    state: &AppState,
+    member: &Member,
+    id: i64,
+) -> Result<Option<String>, ApiError> {
+    let stored = projects::open(&state.pool, member.user, id).await?;
+    Ok(stored.summary.platform.map(|platform| {
+        let (width, height) = platform.size();
+        format!("{width}x{height}")
+    }))
 }
 
 /// `POST /api/projects/{id}/previews`: the editor's preview video of the
 /// project as it is now (#542) — a render at a preview quality, answered in
-/// the same shape as a render.
+/// the same shape as a render — at the platform's size, like a render, when
+/// none is asked for.
 pub async fn preview(
     State(state): State<AppState>,
     member: Member,
     Path(id): Path<i64>,
-    Json(ask): Json<PreviewAsk>,
+    Json(mut ask): Json<PreviewAsk>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
+    if ask.resolution.is_none() {
+        ask.resolution = platform_size(&state, &member, id).await?;
+    }
     let settings = Settings::from_preview(&ask).map_err(ApiError::BadRequest)?;
     answer(&state, &member, id, settings).await
 }

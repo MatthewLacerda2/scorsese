@@ -793,11 +793,29 @@ updating. Local folders go through the same steps with `scorsese migrate`.
 | route | who | what |
 | --- | --- | --- |
 | `GET /api/projects` | a member | their projects, newest write first, without documents |
-| `POST /api/projects` | a member | `{name, fps?}` → a new empty project, `201` |
+| `POST /api/projects` | a member | `{name, fps?, platform?, style?, assets?}` → a new project, `201`: with the starting brief in `script.md` when a platform or style is chosen, and the library files in `assets` imported; `400` for a platform, style or file the server refuses, and nothing is kept |
 | `GET /api/projects/{id}` | a member | the project, its `document` and `revision` |
 | `PUT /api/projects/{id}` | a member | `{revision, document}` → `{revision}`; `409` if it moved on, `400` for a document this build does not read |
 | `PATCH /api/projects/{id}` | a member | `{name}` → `{revision}` |
 | `DELETE /api/projects/{id}` | a member | `204`; `404` for an id that is not theirs |
+| `PUT /api/projects/{id}/start` | a member | `{platform?, style?, message?}` → `{turn, note}`: the project is made for that now, and when it changed a turn starts with `message` and a note saying so; `400` for a choice the library refuses |
+| `GET /api/styles` | a member | the menu a project starts from: `{platforms, styles}`, each style with its name, description, platforms and `preview` (`null` until #1017) |
+
+**What a project is started for** (#1016): a placement (`scorsese_core::style::Platform`)
+and a kind of video (a style from the library), both optional, chosen in the
+new-project dialog. They do two separate things. The **brief** —
+`style::Start::brief`, the same words `scorsese new` and the local `project_new`
+write — goes into the project's script, `script.md`, which is what the
+assistant reads and from then on edits like any other text. The **columns**
+`projects.platform` and `projects.style` are the web's memory of the choice:
+what the editor shows as chosen, and the size a render or preview that asks for
+none is delivered at. Neither enters the document; a platform is a render
+preset and a style a prompt. Changing either later (`PUT …/start`) rewrites no
+script: like a confirmed quote, it starts a turn whose server note says what
+changed, with the new choice's brief, and the assistant updates the script.
+Every conversation is told when its project has a script, and the system
+prompt puts the script first for every project: scenes proposed, nothing
+edited until the person answers.
 
 Deliberately storage verbs only: what a project *says* is changed by `core`'s
 editing functions, through the tools (*Web MCP*, #540) and the editor (#545).
@@ -1057,7 +1075,7 @@ while its render streams.
 
 | route | who | what |
 | --- | --- | --- |
-| `POST /api/projects/{id}/renders` | a member | `{container?, video_codec?, audio_codec?, resolution?, narration_bands?, loudness?}` → `200 {render}` when kept, `202 {job}` when queued or already on its way; `400` for a shape `docs/output-formats.md` does not allow |
+| `POST /api/projects/{id}/renders` | a member | `{container?, video_codec?, audio_codec?, resolution?, narration_bands?, loudness?}` → `200 {render}` when kept, `202 {job}` when queued or already on its way; `400` for a shape `docs/output-formats.md` does not allow. No `resolution` is the project's platform's size, or 1920x1080 |
 | `GET /api/projects/{id}/renders` | a member | the project's kept renders, most recently used first |
 | `GET /api/renders/{id}/file` | a member | the file as an attachment, in HTTP ranges; counts as use |
 

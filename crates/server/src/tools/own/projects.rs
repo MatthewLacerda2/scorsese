@@ -7,6 +7,7 @@
 //! stores a new document — `Project::new`, exactly as `scorsese new` makes
 //! one — rather than creating a directory.
 
+use scorsese_core::style::{Platform, Start};
 use scorsese_core::{Fps, Project};
 use scorsese_mcp::Reply;
 use serde_json::{Value, json};
@@ -29,7 +30,11 @@ pub(super) const NEW: &str = "project_new";
 pub(super) const NEW_SAYS: &str = "Create an empty project in your account and answer with its \
 id, which every other tool takes as `project`. The project starts with no assets and no tracks, \
 on a 30 fps grid unless fps says otherwise; its files come from your library with import, and \
-its tracks from track_new.";
+its tracks from track_new. Give platform and/or style when the person has said where the video \
+is going or what kind it is: the project then starts with a brief in script.md (script_read), \
+and its renders default to the platform's size. Either way, before editing anything, propose \
+the script to the person and agree it: scene by scene, each with its narration, what is on \
+screen, and the music or sound.";
 
 /// `project_new`'s arguments.
 pub(super) fn new_schema() -> Value {
@@ -46,6 +51,20 @@ pub(super) fn new_schema() -> Value {
                 "description": "The timeline's frame rate: a whole number like 30, or a \
                                 ratio written \"30000/1001\". Default 30. Every start and \
                                 duration is counted in these frames."
+            },
+            "platform": {
+                "type": "string",
+                "enum": Platform::ALL.map(Platform::id),
+                "description": "The placement the video is made for. Written into the brief \
+                                with the render size it means, which the project's renders \
+                                then default to."
+            },
+            "style": {
+                "type": "string",
+                "description": "The kind of video, by id: kinetic_type, whiteboard, \
+                                narrated_captions… An unknown id, or one not made for \
+                                platform, is refused with the ids that fit. Its prompt is \
+                                written into the brief."
             }
         },
         "required": ["name"]
@@ -91,13 +110,33 @@ pub(super) async fn new(caller: &Caller<'_>, arguments: &Value) -> Result<Reply,
                 format!("fps: {given} is not a frame rate — a whole number like 30, or 30000/1001")
             })?,
     };
+    let start = start(
+        arguments.get("platform").and_then(Value::as_str),
+        arguments.get("style").and_then(Value::as_str),
+    )?;
     let project = Project::new(name, fps);
-    let stored = projects::create(&caller.toolbox.pool, caller.user, &project)
+    let stored = projects::begin(&caller.toolbox.pool, caller.user, project, &start)
         .await
         .map_err(database)?;
-    Ok(format!(
-        "Created project \"{}\" — its id is {}. Pass project: {} to every other tool.",
-        stored.name, stored.id, stored.id
-    )
-    .into())
+    let id = stored.summary.id;
+    let mut reply = format!(
+        "Created project \"{}\" — its id is {id}. Pass project: {id} to every other tool.",
+        stored.summary.name
+    );
+    if let Some(script) = &stored.document.script {
+        reply.push_str(&format!(
+            "\n{script}: the brief. Read it, then propose the script, scene by scene."
+        ));
+    }
+    Ok(reply.into())
+}
+
+/// The platform and style asked for, checked before anything is written, in
+/// the words the local `project_new` refuses them in.
+fn start(platform: Option<&str>, style: Option<&str>) -> Result<Start, String> {
+    let platform = platform
+        .map(str::parse::<Platform>)
+        .transpose()
+        .map_err(|problem| format!("platform: {problem}"))?;
+    Start::new(platform, style).map_err(|problem| format!("style: {problem}"))
 }

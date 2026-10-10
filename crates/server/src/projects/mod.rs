@@ -64,14 +64,17 @@
 
 pub mod files;
 pub mod media;
+mod start;
 mod startup;
 mod store;
 
 pub use files::ProjectFiles;
+pub use start::{begin, retarget};
 pub use startup::migrate_stored;
 pub use store::{create, delete, edit, list, open, open_with_files, save, save_with_files};
 
 use scorsese_core::migrate::MigrateError;
+use scorsese_core::style::Platform;
 use scorsese_core::{LoadError, Project};
 use serde::Serialize;
 
@@ -88,6 +91,10 @@ pub struct Summary {
     pub created_at: i64,
     /// When it was last written.
     pub updated_at: i64,
+    /// The placement it was started for, if one was chosen (#1016).
+    pub platform: Option<Platform>,
+    /// The id of the kind of video it was started as, if one was chosen.
+    pub style: Option<&'static str>,
 }
 
 /// A project opened for editing: the row, and its document.
