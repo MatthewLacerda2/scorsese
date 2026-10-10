@@ -143,6 +143,15 @@ developer needs to run it.
 One prefix is one routing rule — for `web/`'s dev proxy, which forwards `/api`
 unchanged to `SCORSESE_API`, and for whatever fronts the server in production.
 
+| route | who | what |
+| --- | --- | --- |
+| `GET /api/health` | anyone | `200 ok` when the database answers, `503` when it does not |
+
+**Every route is declared once**, in `crates/server/src/http/routes.rs`, and
+the server is built from that list. Every route row on this page is held to
+it by a test (#994): a route with no row, or a row with no route, fails the
+build. Adding a route is one line there and one row here.
+
 **Configuration** comes from the environment, through the same lookup the
 provider keys use, and is documented in `.env.example`:
 
@@ -1187,6 +1196,12 @@ and `DELETE` are `405` — because no tool reports progress mid-call (long work
 is a job) and every call names its project, exactly as over stdio. What a
 message *means* is `scorsese_mcp::protocol`, the code the stdio server answers
 with, so the handshake and every refusal read the same either way.
+
+| route | who | what |
+| --- | --- | --- |
+| `POST /api/mcp` | a member, by token | JSON-RPC in, JSON-RPC out; a batch answered with a batch |
+| `GET /api/mcp` | anyone | `405`: no server-initiated stream |
+| `DELETE /api/mcp` | anyone | `405`: no sessions to end |
 
 **Stopping a call: `notifications/cancelled`.** Over this transport the
 cancel arrives in a `POST` of its own while the call's is still waiting, so
