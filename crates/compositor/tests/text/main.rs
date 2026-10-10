@@ -3,6 +3,7 @@
 mod bands;
 mod block;
 mod cards;
+mod catalogue;
 mod coverage;
 mod cubic;
 mod drawing;

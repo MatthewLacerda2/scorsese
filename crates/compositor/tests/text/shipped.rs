@@ -160,12 +160,34 @@ fn a_drawn_family_has_an_italic_at_each_weight_it_drew() {
     );
 }
 
-/// Every family that publishes a name has to answer for both slants, or
-/// `italic: true` is a coin flip depending on which font somebody picked.
+/// A family with an italic table answers for it at its default weight, and one
+/// drawn upright only refuses — by name, never by leaning the upright over.
 #[test]
-fn every_published_name_has_an_italic() {
-    for name in text::names() {
-        Font::shipped(name, None, Slant::Italic)
-            .unwrap_or_else(|error| panic!("`{name}` has no italic: {error}"));
+fn italic_is_there_exactly_where_a_family_drew_one() {
+    for family in text::SHIPPED {
+        let asked = Font::shipped(family.name, None, Slant::Italic);
+        match family.italic {
+            Some(_) => {
+                asked.unwrap_or_else(|error| panic!("`{}` italic: {error}", family.name));
+            }
+            None => assert!(
+                matches!(&asked, Err(FontError::NoItalic { .. })),
+                "`{}` has no italic and has to say so",
+                family.name
+            ),
+        }
     }
+    assert!(text::family("anton").is_some_and(|anton| anton.italic.is_none()));
+}
+
+/// Anton was drawn once. 700 is refused with the one weight there is, not
+/// thickened — the same rule as Liberation, at its smallest.
+#[test]
+fn a_face_drawn_once_refuses_any_other_weight() {
+    assert!(Font::shipped("anton", None, Slant::Upright).is_ok());
+    let error = Font::shipped("anton", Some(700), Slant::Upright).expect_err("one weight");
+    assert!(
+        matches!(&error, FontError::WeightNotDrawn { drawn, .. } if drawn == "400"),
+        "got `{error}`"
+    );
 }

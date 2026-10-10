@@ -615,19 +615,63 @@ the rule is the format's rather than this table's: `max_width` and
 
 **A bare word is a font scorsese ships; anything with a slash or a dot in it is
 a font file the project carries** — `assets/Manrope[wght].ttf`, relative to the
-project root like every other path. Eight families ship, all under the SIL Open
-Font License:
+project root like every other path. Forty families ship, every one of them free
+— the SIL Open Font License, and Apache 2.0 for Permanent Marker — and every one
+sets Portuguese, accents and cedilla included. Ask for them by what the video
+is: a rounded face for a children's or church video, a display face for a
+thumbnail, a handwriting face for a whiteboard.
 
-| name | family | weights | for |
-| --- | --- | --- | --- |
-| `inter` | Inter | 100 – 900 | the default sans; a modern interface face |
-| `source-serif` | Source Serif 4 | 200 – 900 | the default serif; readable at caption size |
-| `liberation-sans` | Liberation Sans | 400, 700 | **the Arial look** |
-| `liberation-serif` | Liberation Serif | 400, 700 | **the Times New Roman look** |
-| `montserrat` | Montserrat | 100 – 900 | geometric, for titles |
-| `lora` | Lora | 400 – 700 | a warm text serif |
-| `playfair-display` | Playfair Display | 400 – 900 | high contrast, for a title card |
-| `jetbrains-mono` | JetBrains Mono | 100 – 800 | monospace |
+| name | family | weights | italic | for |
+| --- | --- | --- | --- | --- |
+| `inter` | Inter | 100 – 900 | yes | the default sans; a modern interface face |
+| `source-serif` | Source Serif 4 | 200 – 900 | yes | the default serif; readable at caption size |
+| `liberation-sans` | Liberation Sans | 400, 700 | yes | **the Arial look** |
+| `montserrat` | Montserrat | 100 – 900 | yes | geometric, for titles |
+| `poppins` | Poppins | 100, 200, 300, 400, 500, 600, 700, 800, 900 | yes | geometric and round; captions, explainers |
+| `roboto` | Roboto | 100 – 900 | yes | the Android and YouTube face |
+| `open-sans` | Open Sans | 300 – 800 | yes | neutral, very legible captions |
+| `lato` | Lato | 100, 200, 300, 400, 500, 600, 700, 800, 900 | yes | warm corporate sans |
+| `raleway` | Raleway | 100 – 900 | yes | elegant thin-to-black titles |
+| `dm-sans` | DM Sans | 100 – 1000 | yes | clean, low-contrast interface face |
+| `work-sans` | Work Sans | 100 – 900 | yes | plain and sturdy, for on-screen text |
+| `rubik` | Rubik | 300 – 900 | yes | slightly rounded corners, friendly |
+| `liberation-serif` | Liberation Serif | 400, 700 | yes | **the Times New Roman look** |
+| `lora` | Lora | 400 – 700 | yes | a warm text serif |
+| `merriweather` | Merriweather | 300 – 900 | yes | sturdy screen serif, for quotes |
+| `cormorant-garamond` | Cormorant Garamond | 300 – 700 | yes | delicate, high-contrast display serif |
+| `eb-garamond` | EB Garamond | 400 – 800 | yes | classic book serif, documentary titles |
+| `libre-baskerville` | Libre Baskerville | 400 – 700 | yes | traditional editorial serif |
+| `dm-serif-display` | DM Serif Display | 400 | yes | bold high-contrast headline serif |
+| `nunito` | Nunito | 200 – 1000 | yes | rounded; children, church, education |
+| `quicksand` | Quicksand | 300 – 700 | — | rounded and light, gentle titles |
+| `fredoka` | Fredoka | 300 – 700 | — | rounded and chunky, playful |
+| `baloo-2` | Baloo 2 | 400 – 800 | — | rounded and heavy, cartoon-like |
+| `comfortaa` | Comfortaa | 300 – 700 | — | rounded geometric, soft |
+| `playfair-display` | Playfair Display | 400 – 900 | yes | high contrast, for a title card |
+| `anton` | Anton | 400 | — | tall condensed impact, thumbnails |
+| `bebas-neue` | Bebas Neue | 400 | — | all-caps condensed, hooks and headlines |
+| `oswald` | Oswald | 200 – 700 | — | condensed sans, sport and news |
+| `archivo-black` | Archivo Black | 400 | — | heavy grotesque, punchy titles |
+| `bangers` | Bangers | 400 | — | comic-book lettering, memes |
+| `lilita-one` | Lilita One | 400 | — | fat rounded display, gaming and kids |
+| `jetbrains-mono` | JetBrains Mono | 100 – 800 | yes | monospace |
+| `caveat` | Caveat | 400 – 700 | — | quick handwriting, notes |
+| `patrick-hand` | Patrick Hand | 400 | — | neat handwriting, whiteboard |
+| `kalam` | Kalam | 300, 400, 700 | — | felt-pen handwriting |
+| `gochi-hand` | Gochi Hand | 400 | — | casual marker handwriting |
+| `indie-flower` | Indie Flower | 400 | — | loose, bubbly handwriting |
+| `permanent-marker` | Permanent Marker | 400 | — | thick marker, a sign or a scrawl |
+| `dancing-script` | Dancing Script | 400 – 700 | — | lively script, invitations |
+| `pacifico` | Pacifico | 400 | — | brush script, retro and surf |
+| `great-vibes` | Great Vibes | 400 | — | formal calligraphy, weddings |
+
+**A weight is a range or a list, and the difference matters.** A range is a
+variable file, and any weight inside it is real; a list is files somebody drew,
+and a weight between them is refused with the ones there are. Most display,
+handwriting and script faces were drawn **once**, at 400 — `anton` at `700` is
+refused rather than thickened. **A `—` under italic means the family has
+none**, and `italic: true` on it is refused rather than slanted, because a
+leaned upright is not an italic and looks like one.
 
 **`sans` and `serif` are aliases**, for `inter` and `source-serif`. They are what
 every project written before this list existed says, and they go on meaning the
@@ -970,9 +1014,12 @@ columns they started in, the way an odometer's do. The padding is room, not a
 place to wrap: it is never broken at or collapsed.
 
 **Which faces have tabular figures.** `inter` (`sans`), `source-serif`
-(`serif`), `montserrat` and `lora` have `tnum`; `liberation-sans`,
-`liberation-serif` and `jetbrains-mono` draw every digit the same width
-already. `playfair-display` has neither: its digits keep their own widths, so
+(`serif`), `montserrat`, `lora`, `lato`, `roboto`, `open-sans`, `work-sans`,
+`rubik`, `merriweather`, `cormorant-garamond`, `eb-garamond`, `baloo-2` and
+`bebas-neue` have `tnum`; `liberation-sans`, `liberation-serif`,
+`jetbrains-mono`, `nunito`, `archivo-black` and `caveat` draw every digit the
+same width already. Every other shipped face has neither — `playfair-display`
+and `poppins` among them: their digits keep their own widths, so
 the padding still holds the line to the right number of columns but a `1` is
 narrower than an `8`, and the line can drift by a fraction of a digit as it
 counts. A font file the project carries is whatever it is — if it has no
