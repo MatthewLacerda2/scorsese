@@ -103,6 +103,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `caption_narration` | Put the narration's own words on screen as captions, timed from the word timings saved when each line was generated. | nothing |
 | `set_volume` | Set how loud one clip plays — a level, a mute, or a fade between two points — by writing the ordinary volume keyframes you would place by hand, which stay editable afterwards. | nothing |
 | `scale_pacing` | Move some clips toward or away from one instant, all by the same factor — the operation for pacing. | nothing |
+| `cut_to_voice` | Cut a narrated video to its voice: each scene ends a gap after its line's last word, and the next begins there. | nothing |
 | `page_write` | Write a web page — a title card, a lower third, an animated chart — as an html asset the timeline plays like footage with alpha. | nothing |
 | `page_read` | Read a web page's HTML exactly as it is on disk — or, with `file`, a file beside the pages such as lib.js. | nothing |
 | `synth_new` | Start a new sound: writes a starter recipe into recipes/ and adds the synth_audio asset that points at it. | nothing |
@@ -891,6 +892,55 @@ owns — that can open a gap or a collision, and a collision is refused.
 Refusals change nothing at all: a factor that is not positive, a clip that
 would land before the start of the timeline, a clip that would round away to
 less than a frame, and any result the document would not load.
+
+## Cutting to the voice: `cut_to_voice`
+
+In a narrated video the voice decides the pace and the picture follows it.
+`cut_to_voice` lays the cut out from what the lines actually say: **each scene
+ends a gap after its line's last word, and the next scene begins there.**
+
+```
+cut_to_voice  { "project": "ad.scor", "gap_seconds": 0.2, "overlap_seconds": 0.2,
+                "scenes": [
+                  { "line": "vo-1", "visuals": ["page-1"] },
+                  { "line": "vo-2", "visuals": ["page-2", "bg-2"],
+                    "moves_with": ["whoosh-2"], "lead_in_seconds": 0.3 } ] }
+```
+
+**Scenes are named in order, never inferred** from the tracks: a wrong guess
+would silently re-time the whole cut. Each is a narration clip, the visual clips
+seen while it is said — each runs the whole scene — and optionally the clips
+that `moves_with` it, which keep their offset from the scene's start. A clip
+named nowhere stays exactly where it is, and the reply lists any whose scene
+changed under it.
+
+- **The end is the last word**, from the word timings kept beside a generated
+  line. A line without them (imported speech, or one generated before timings
+  were kept) is measured to the end of its clip, and the reply says which.
+- **`lead_in_seconds`** puts the line that long after its scene begins; a scene
+  can set its own.
+- **`overlap_seconds`** runs each scene's visuals on under the next, so an exit
+  and an entrance play together. Two visuals cannot share a track while they
+  overlap, so the incoming one moves to the next video track with room, or one
+  made directly above; the reply names each move. Consecutive scenes end up
+  alternating between two tracks.
+- A line's trailing silence that would run into the next line on its track is
+  cut where the next line starts — after the last word and the gap, so nothing
+  said is lost.
+
+It writes **clip starts, durations and tracks only**, so it is safe to re-run
+after a line is regenerated, re-worded or re-voiced. A page or a title simply
+stretches, and a page reads its own clip's length, so its exit lands on the new
+end. Footage that would now run past the end of its file is refused, and so is
+anything else the document would not load — **a refusal changes nothing**.
+
+What was worked out from the old positions is named in the reply rather than
+redone silently: captions (run `caption_narration` again), ducking (run
+`duck_music` again), a score fitted to its clip (bake it again), and keyframes
+past a visual's new end, such as a fade-out written for its old length.
+
+The CLI twin is `scorsese cut-to-voice --scene vo-1=page-1 --scene
+vo-2=page-2,bg-2+whoosh-2@0.3 --overlap 0.2`: one `--scene` per scene, in order.
 
 ## Where things land on the frame: `project_describe` with `at`
 

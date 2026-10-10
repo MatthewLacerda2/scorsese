@@ -662,6 +662,10 @@ pub(crate) enum Command {
     /// word timings saved beside each generated line. Safe to re-run: it
     /// replaces only its own captions.
     Caption(crate::commands::caption::Options),
+    /// Cut a narrated video to its voice: each scene ends a gap after its
+    /// line's last word, and the next begins there. Name the scenes in order;
+    /// clips named nowhere stay put. Safe to re-run after a line changes.
+    CutToVoice(crate::commands::voice::Options),
     /// Say how a finished sound file came out — over its whole length, over
     /// time, and across the spectrum — and optionally how it differs from
     /// another. A signal, never a gate: there is no correct loudness, so

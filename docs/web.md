@@ -1267,6 +1267,7 @@ the web — or be left off it — without a reason written down.
 - `caption_narration`
 - `set_volume`
 - `scale_pacing`
+- `cut_to_voice`
 - `icons`
 - `guide`
 - `voices`

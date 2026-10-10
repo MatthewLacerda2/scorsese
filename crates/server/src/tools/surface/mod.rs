@@ -65,6 +65,7 @@ const STORED: &[&str] = &[
     "caption_narration",
     "set_volume",
     "scale_pacing",
+    "cut_to_voice",
     "icons",
     "guide",
     "voices",
