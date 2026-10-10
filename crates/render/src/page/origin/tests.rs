@@ -147,6 +147,25 @@ fn the_shipped_libraries_come_from_their_own_origin() {
 }
 
 #[test]
+fn opentype_and_the_index_of_faces_it_reads_are_shipped() {
+    let dir = project();
+    let Answer::Shipped { body } = answer("https://lib.scorsese/opentype.min.js", &dir.0, &[])
+    else {
+        panic!("opentype.js is shipped");
+    };
+    assert!(body.starts_with(b"/*! opentype.js 2.0.0"));
+    let Answer::Shipped { body } = answer("https://lib.scorsese/fonts/index.json", &dir.0, &[])
+    else {
+        panic!("the faces are listed");
+    };
+    let faces: serde_json::Value = serde_json::from_slice(&body).expect("JSON");
+    let inter = serde_json::json!({
+        "file": "inter.ttf", "family": "Inter", "name": "inter", "weight": null, "italic": false,
+    });
+    assert!(faces.as_array().is_some_and(|all| all.contains(&inter)));
+}
+
+#[test]
 fn a_shipped_file_is_recorded_by_its_url_and_hashed_as_this_build_serves_it() {
     let key = record_key("https://lib.scorsese/lottie.min.js?v=2#x").unwrap();
     assert_eq!(key, "https://lib.scorsese/lottie.min.js");

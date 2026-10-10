@@ -44,7 +44,10 @@ pub const SHIPPED_ORIGIN: &str = "https://lib.scorsese";
 /// brings in: a page drives it from the clock with `goToAndStop`, never its
 /// own playback. Both MIT, each licence vendored beside it. And scorsese's
 /// own motion kit (#812), `kit.js`: the helpers every timed page was writing
-/// for itself, on the page's seconds.
+/// for itself, on the page's seconds. opentype.js 2.0.0 (#997, MIT), for
+/// `kit.write`: a browser cannot hand a page a glyph's outline, and this reads
+/// one from a shipped face, variable ones at any weight. Vendored with its
+/// source-map comment dropped, since nothing serves the map.
 ///
 /// Every file served from here is part of the capture of a page that loads it
 /// (`record`'s key), so changing one draws again only the pages that loaded
@@ -61,6 +64,14 @@ const SHIPPED: &[(&str, &[u8])] = &[
         include_bytes!("../shipped/lottie.LICENSE.txt"),
     ),
     ("kit.js", include_bytes!("../shipped/kit.js")),
+    (
+        "opentype.min.js",
+        include_bytes!("../shipped/opentype.min.js"),
+    ),
+    (
+        "opentype.LICENSE.txt",
+        include_bytes!("../shipped/opentype.LICENSE.txt"),
+    ),
 ];
 
 /// What a request for a shipped file is kept under in a capture's record:
@@ -129,6 +140,26 @@ impl Answer {
     }
 }
 
+/// Every shipped face as a page reads it, at `fonts/index.json`: its file,
+/// its family as CSS names it, its scorsese name, its weight (`null` for a
+/// variable one) and whether it is italic. `kit.font` finds a face by family
+/// in it, so a page asks for `Montserrat` rather than a file name.
+fn font_index() -> Vec<u8> {
+    let faces: Vec<_> = super::fonts::faces()
+        .into_iter()
+        .map(|face| {
+            serde_json::json!({
+                "file": face.file,
+                "family": face.family,
+                "name": face.name,
+                "weight": face.weight,
+                "italic": face.italic,
+            })
+        })
+        .collect();
+    serde_json::to_vec(&faces).expect("a list of plain values serialises")
+}
+
 /// The URL a project path is served at.
 pub(crate) fn url_of(path: &str) -> String {
     format!("{ORIGIN}/{path}")
@@ -142,6 +173,11 @@ pub(crate) fn answer(url: &str, project_root: &Path, follow: &[PathBuf]) -> Answ
         .and_then(|rest| rest.strip_prefix('/'))
     {
         let name = name.split(['?', '#']).next().unwrap_or_default();
+        if name == "fonts/index.json" {
+            return Answer::Shipped {
+                body: font_index().into(),
+            };
+        }
         if let Some(body) = name.strip_prefix("fonts/").and_then(super::fonts::bytes) {
             return Answer::Shipped { body: body.into() };
         }
