@@ -49,6 +49,7 @@
 //! serde data that round-trips losslessly, the same "document as truth" rule
 //! the patch follows.
 
+pub(crate) mod anchor;
 pub(crate) mod arrangement;
 pub(crate) mod articulation;
 pub(crate) mod automate;
@@ -75,6 +76,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::SynthError;
 use crate::patch::{Fx, Patch};
 
+pub use anchor::Anchor;
 pub use arrangement::{ArrangementEntry, Layer, Layers, Play};
 pub use articulation::Articulation;
 pub use automate::{Automation, Easing, Param, Point};
@@ -192,6 +194,13 @@ pub struct Song {
     /// rather than the music. Absent means the song is as long as it is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fit: Option<Fit>,
+    /// Sections pinned to times in the piece — the reveal on the logo, the
+    /// last hit on the end card — with the tempo moved between them so each
+    /// lands. Empty means every section falls where the tempo puts it, which
+    /// is what every song written before this field existed meant. [`Anchor`]
+    /// has the whole of it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub anchors: Vec<Anchor>,
     /// Level moves on the finished piece. Absent means neither end moves.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fade: Option<Fade>,

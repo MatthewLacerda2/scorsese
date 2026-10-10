@@ -5,6 +5,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod anchoring;
 mod fitting;
 mod instruments;
 mod safety;

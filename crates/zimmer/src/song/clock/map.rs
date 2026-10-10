@@ -129,6 +129,69 @@ impl Map {
         map
     }
 
+    /// This map with each stretch between two of `landings` — `(beat,
+    /// seconds)`, in order, after beat 0 — scaled by the one factor that puts
+    /// its far end on its time, and everything after the last as it was.
+    ///
+    /// Scaling a stretch is scaling every tempo in it, ramps included (a ramp
+    /// scaled is still a ramp: its start and its slope move together), so its
+    /// shape is kept and only its speed changes. Each segment's start is
+    /// counted from its landing's time rather than summed from the piece's,
+    /// so every landing is exact however many come before it. Played once:
+    /// a pinned time has no meaning in a second pass.
+    pub(super) fn anchored(&self, landings: &[(f64, f64)]) -> Self {
+        let mut bounds = vec![(0.0, 0.0)];
+        bounds.extend_from_slice(landings);
+        let mut segments = Vec::new();
+        for (index, &(from, at)) in bounds.iter().enumerate() {
+            let (until, scale) = match bounds.get(index + 1) {
+                Some(&(beat, seconds)) => (
+                    beat,
+                    (self.seconds_within(beat) - self.seconds_within(from)) / (seconds - at),
+                ),
+                None => (f64::INFINITY, 1.0),
+            };
+            let base = self.seconds_within(from);
+            for (next, segment) in self.segments.iter().enumerate() {
+                let end = self
+                    .segments
+                    .get(next + 1)
+                    .map_or(f64::INFINITY, |it| it.from);
+                if end <= from || segment.from >= until {
+                    continue;
+                }
+                let start = segment.from.max(from);
+                segments.push(Segment {
+                    from: start,
+                    at: at + (self.seconds_within(start) - base) / scale,
+                    bpm: (segment.bpm + segment.slope * (start - segment.from)) * scale,
+                    slope: segment.slope * scale,
+                });
+            }
+        }
+        let mut map = Self {
+            segments,
+            period: self.period,
+            pass: 0.0,
+            passes: 1,
+        };
+        map.pass = map.seconds_within(map.period);
+        map
+    }
+
+    /// The tempo on the first beat.
+    pub(super) fn opening(&self) -> f64 {
+        self.segments[0].bpm
+    }
+
+    /// The tempo on beat `beats` of the piece.
+    pub(super) fn tempo(&self, beats: f64) -> f64 {
+        let pass = self.pass_of(beats / self.period);
+        let beat = (beats - pass * self.period).max(0.0);
+        let segment = self.segment(self.segments.partition_point(|it| it.from <= beat));
+        segment.bpm + segment.slope * (beat - segment.from)
+    }
+
     /// Seconds into the piece that `beats` from its start falls at.
     pub(super) fn seconds(&self, beats: f64) -> f64 {
         let pass = self.pass_of(beats / self.period);
@@ -259,5 +322,29 @@ mod tests {
         for beats in [3.0, 16.0, 30.0] {
             assert!((faster.seconds(beats) * 1.25 - written.seconds(beats)).abs() < 1e-9);
         }
+    }
+
+    /// A ramp cut by a landing is still a ramp on both sides — each scaled
+    /// by its own stretch's factor — and every landing is exact, the ramp's
+    /// curved integral and all.
+    #[test]
+    fn landings_are_exact_and_a_ramp_keeps_its_shape_between_them() {
+        let written = accelerando();
+        let anchored = written.anchored(&[(8.0, 5.0), (24.0, 12.0)]);
+        assert!((anchored.seconds(8.0) - 5.0).abs() < 1e-12);
+        assert!((anchored.seconds(24.0) - 12.0).abs() < 1e-12);
+        let factor = written.seconds(8.0) / 5.0;
+        for beats in [1.0, 4.0, 7.5] {
+            let scaled = written.seconds(beats) / factor;
+            assert!(
+                (anchored.seconds(beats) - scaled).abs() < 1e-12,
+                "beat {beats}"
+            );
+            assert!((anchored.tempo(beats) - written.tempo(beats) * factor).abs() < 1e-9);
+        }
+        // Past the last landing the written tempo holds: 180, a third of a
+        // second a beat.
+        assert!((anchored.seconds(27.0) - 13.0).abs() < 1e-12);
+        assert!((anchored.beats(anchored.seconds(20.0)) - 20.0).abs() < 1e-9);
     }
 }

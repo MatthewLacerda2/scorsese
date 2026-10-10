@@ -5,6 +5,7 @@
 //! that only asked whether something came out would pass on a song of the
 //! wrong length.
 
+mod anchors;
 mod fitting;
 mod levels;
 mod resolving;
