@@ -2,6 +2,7 @@
 
 mod layout;
 mod refusals;
+mod reports;
 
 use std::path::PathBuf;
 

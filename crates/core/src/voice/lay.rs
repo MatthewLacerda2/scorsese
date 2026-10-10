@@ -106,9 +106,9 @@ pub(super) fn plan(project: &Project, root: &Path, voicing: &Voicing) -> Result<
         let mut line = line.clone();
         line.start = start + lead;
         let (spoken, measured) = spoken(project, root, &line);
-        let end = fps
-            .frames(spoken + voicing.gap)
-            .max(Frames(start.get() + 1));
+        // At least the scene's own start; a scene of no length is refused by
+        // validation as the zero-length clip it would make.
+        let end = fps.frames(spoken + voicing.gap).max(start);
         let runs_on = if index == last {
             Frames::ZERO
         } else {
@@ -186,10 +186,9 @@ fn trim_tails(project: &Project, moves: &mut [Move], scenes: &[Scene]) {
         }
         let next = starts.iter().find(|(id, _)| id == &pair[1].line);
         let line = moves.iter_mut().find(|m| m.clip == pair[0].line);
-        if let (Some((_, next)), Some(line)) = (next, line)
-            && line.start + line.duration > *next
-        {
-            line.duration = Frames(next.get() - line.start.get());
+        if let (Some((_, next)), Some(line)) = (next, line) {
+            let room = Frames(next.get().saturating_sub(line.start.get()));
+            line.duration = line.duration.min(room);
         }
     }
 }

@@ -20,14 +20,6 @@ pub(super) fn crossed(
     plan: &Plan,
 ) -> Vec<ClipId> {
     let named = named(voicing);
-    let under = |clip: &Clip, spans: &[(Frames, Frames)]| -> Vec<usize> {
-        spans
-            .iter()
-            .enumerate()
-            .filter(|(_, (start, end))| clip.start < *end && *start < clip.end())
-            .map(|(index, _)| index)
-            .collect()
-    };
     before
         .clips()
         .map(|(_, clip)| clip)
@@ -38,6 +30,17 @@ pub(super) fn crossed(
             now.is_some_and(|(_, now)| under(clip, &plan.before) != under(now, &plan.after))
         })
         .map(|clip| clip.id.clone())
+        .collect()
+}
+
+/// Which of `spans` the clip shares a frame with. Touching is not sharing:
+/// a clip ending where a scene begins is not under it.
+pub(super) fn under(clip: &Clip, spans: &[(Frames, Frames)]) -> Vec<usize> {
+    spans
+        .iter()
+        .enumerate()
+        .filter(|(_, (start, end))| clip.start < *end && *start < clip.end())
+        .map(|(index, _)| index)
         .collect()
 }
 

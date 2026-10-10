@@ -92,6 +92,7 @@ fn an_overlap_runs_the_outgoing_visual_on_and_moves_the_incoming_one_up() {
         voiced.rearranged,
         [(ClipId::new("page-2"), TrackId::new("v2"), true)]
     );
+    assert!(voiced.crossed.is_empty(), "named clips are never reported");
     let order: Vec<&str> = project.tracks.iter().map(|t| t.id.as_str()).collect();
     assert_eq!(order[..2], ["v1", "v2"], "made directly above its own");
 }
