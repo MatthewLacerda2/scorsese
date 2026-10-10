@@ -215,7 +215,7 @@ NEXTEST_CHECK = command -v cargo-nextest >/dev/null 2>&1 || { \
 # directories called `app/` and `web/`, so without it make sees the target as
 # already built and `make app` prints "up to date" without running a thing. A
 # check that silently does nothing is worse than no check.
-.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates web-gates web-e2e-run release format-fix mcp-table landing-hero coverage mutants mutants-remote mutants-status mergeable queue live-check
+.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates web-gates web-e2e-run release format-fix mcp-table style-menu landing-hero coverage mutants mutants-remote mutants-status mergeable queue live-check
 
 ##@ Everyday
 
@@ -789,6 +789,15 @@ mcp-table: ## Rewrite docs/mcp.md's tool table and docs/web.md's served-tool lis
 	UPDATE_MCP_TABLE=1 cargo test --locked -p scorsese-mcp --test table
 	UPDATE_WEB_TOOLS=1 cargo test --locked -p scorsese-server --lib tools::surface::page
 	@echo "mcp-table: docs/mcp.md and docs/web.md now say what the code says."
+
+# The web app's copy of the style menu (#1051): `GET /api/styles` as served,
+# so the web gate can hold its per-language words to the library without a
+# server. The server's own test is what rewrites it, and what fails when it is
+# stale; biome then formats it the way the web gate checks.
+style-menu: ## Rewrite web/src/start/menu.json from the style library
+	UPDATE_STYLE_MENU=1 cargo test --locked -p scorsese-server --lib http::styles
+	cd web && bun install --frozen-lockfile && bun x biome format --write src/start/menu.json
+	@echo "style-menu: web/src/start/menu.json now says what the library says."
 
 # The landing page's film and pictures (#904) are renders of two projects kept
 # beside it in web/landing/, made only of pages, native text and a synthesised

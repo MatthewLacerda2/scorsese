@@ -63,10 +63,10 @@ test("the steps run name, files, platform, style, and the style step is filtered
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
   expect(screen.getByText(/Pick files from your library/)).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
-  fireEvent.click(screen.getByRole("radio", { name: /Anúncio no TikTok/ }));
+  fireEvent.click(screen.getByRole("radio", { name: /TikTok ad/ }));
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
   expect(screen.getByText("Step 4 of 4")).toBeTruthy();
-  expect(screen.getByRole("radio", { name: /Oferta relâmpago/ })).toBeTruthy();
-  expect(screen.queryByRole("radio", { name: /Lista \/ Top N/ })).toBeNull();
+  expect(screen.getByRole("radio", { name: /Flash offer/ })).toBeTruthy();
+  expect(screen.queryByRole("radio", { name: /Top N list/ })).toBeNull();
   expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
 });
