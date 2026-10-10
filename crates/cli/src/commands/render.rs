@@ -3,6 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
+use scorsese_core::style::Platform;
 use scorsese_core::{Fps, Project};
 use scorsese_render::say;
 use scorsese_render::{
@@ -15,9 +16,12 @@ use scorsese_render::{
 /// `Option<Bitrate>` next to each other are a bug waiting to be written.
 pub(crate) struct Options {
     /// The canvas every layer is composited onto, and so the size of the file.
-    /// `None` means 1920x1080, which is also what a sound-only render takes,
-    /// having no canvas to ask about.
+    /// `None` means the platform's size, or 1920x1080 without one — which is
+    /// also what a sound-only render takes, having no canvas to ask about.
     pub(crate) resolution: Option<Resolution>,
+    /// The placement the file is made for, which sizes it when `resolution`
+    /// does not. `None` leaves the size to `resolution`.
+    pub(crate) platform: Option<Platform>,
     /// `None` means the project's own timeline rate — the one output rate that
     /// conforms nothing.
     pub(crate) fps: Option<Fps>,
@@ -67,6 +71,7 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
     // that silently does nothing is the worse of the two.
     for (given, setting) in [
         (options.resolution.is_some(), "a resolution"),
+        (options.platform.is_some(), "a platform"),
         (options.fps.is_some(), "a frame rate"),
         (options.bitrate.is_some(), "a video bitrate"),
         (options.threads.is_some(), "a compositing thread count"),
@@ -87,7 +92,10 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
     // The project's own grid is the right default: rendering at the rate the
     // edit was authored against is the one output rate that needs no conform.
     let fps = options.fps.unwrap_or(project.timeline_fps);
-    let resolution = options.resolution.unwrap_or(Resolution::HD);
+    let resolution = options
+        .resolution
+        .or(options.platform.map(Resolution::of))
+        .unwrap_or(Resolution::HD);
     let settings = RenderSettings::new(resolution, fps)
         .with_bitrate(options.bitrate)
         .with_audio(options.sample_rate, options.audio_bitrate)

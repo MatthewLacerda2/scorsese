@@ -188,6 +188,7 @@ fn dispatch(cli: Cli) -> Result<()> {
         Command::Render {
             out,
             resolution,
+            platform,
             fps,
             bitrate,
             sample_rate,
@@ -206,6 +207,7 @@ fn dispatch(cli: Cli) -> Result<()> {
             &out,
             commands::render::Options {
                 resolution,
+                platform,
                 fps,
                 bitrate,
                 sample_rate,

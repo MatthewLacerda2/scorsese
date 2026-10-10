@@ -107,6 +107,7 @@ fn a_picture_flag_for_a_sound_only_file_never_gets_as_far_as_ffmpeg() {
     let dir = new_project("sound-only");
     for flag in [
         &["--resolution", "1280x720"][..],
+        &["--platform", "tiktok"],
         &["--fps", "24"],
         &["--video-codec", "h264"],
         &["--no-narration-bands"],

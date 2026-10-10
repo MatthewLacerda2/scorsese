@@ -9,6 +9,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use scorsese_core::Rgba;
+use scorsese_core::style::Platform;
 
 /// Bytes per pixel in the interchange format.
 pub const BYTES_PER_PIXEL: usize = 4;
@@ -37,6 +38,14 @@ impl Resolution {
         width: 1920,
         height: 1080,
     };
+
+    /// The size a render for `platform` is delivered at when nobody names
+    /// another: 1920x1080 for YouTube, 1080x1920 for every upright feed. Both
+    /// even, so the encoder's rule holds without a check.
+    pub const fn of(platform: Platform) -> Self {
+        let (width, height) = platform.size();
+        Self { width, height }
+    }
 
     /// Both dimensions must be non-zero and even.
     ///

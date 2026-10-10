@@ -3,6 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use schemars::JsonSchema;
+use scorsese_core::style::Platform;
 use scorsese_render::{
     AudioCodec, Bands, Cancel, Container, FrameRange, LoudnessTarget, OutputFormat, RenderSettings,
     Renderer, Resolution, Tools, VideoCodec, say,
@@ -46,6 +47,12 @@ struct Arguments {
     /// each clip's fit says, and are never stretched. Default 1920x1080.
     /// Refused for a sound-only container, which has no picture to size.
     resolution: Option<String>,
+    /// The placement the video is delivered for, which sizes it: youtube
+    /// (1920x1080), or youtube_shorts, instagram_reels, instagram_reels_ad,
+    /// instagram_stories_ad, tiktok or tiktok_ad (1080x1920). A preset for this
+    /// render only; the project is not changed. Cannot be given with
+    /// resolution, and refused for a sound-only container.
+    platform: Option<String>,
     /// true to answer only when the file is written, the way a short render you
     /// need before your next step is best asked for. Default false: the render
     /// runs in the background and the answer is its job id, so you can tell the
@@ -90,7 +97,8 @@ impl Tool for Render {
          composites a frame. Sketch and stale generated assets render as slug \
          cards rather than failing, so a preview cut always produces something; \
          narration_bands: false leaves the narration lines' bands off the picture. \
-         loudness: -14 (any LUFS) brings the soundtrack to that loudness, with a \
+         platform: tiktok (or youtube, instagram_reels…) sizes it for that \
+         placement. loudness: -14 (any LUFS) brings the soundtrack to that loudness, with a \
          limiter holding its peaks. \
          The reply says how loud the delivered file came out, and when the \
          soundtrack had to be turned down to keep a lossy codec from clipping, \
@@ -179,15 +187,28 @@ fn prepared(dir: &Path, arguments: &Arguments) -> Result<(String, PathBuf, Work)
 
     // Refused for a format with no picture rather than ignored, in the
     // words `scorsese render --resolution` is refused in.
-    let resolution = match &arguments.resolution {
-        Some(text) => {
+    let resolution = match (&arguments.resolution, &arguments.platform) {
+        (Some(_), Some(_)) => {
+            return Err("resolution and platform both size the render; give one".to_owned());
+        }
+        (Some(text), None) => {
             format
                 .picture_setting("a resolution")
                 .map_err(|problem| format!("{problem}"))?;
             text.parse()
                 .map_err(|problem| format!("resolution: {problem}"))?
         }
-        None => Resolution::HD,
+        // In `scorsese render --platform`'s words, refusal included.
+        (None, Some(text)) => {
+            format
+                .picture_setting("a platform")
+                .map_err(|problem| format!("{problem}"))?;
+            Resolution::of(
+                text.parse::<Platform>()
+                    .map_err(|problem| format!("platform: {problem}"))?,
+            )
+        }
+        (None, None) => Resolution::HD,
     };
 
     // The CLI's `--no-narration-bands`, refused for a format with no picture

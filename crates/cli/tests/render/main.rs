@@ -42,8 +42,9 @@ pub(crate) fn render(dir: &Path, name: &str, arguments: &[&str]) -> Rendered {
     let mut all = vec!["render", "--out", &out];
     // The fixtures are tiny, and the default raster is a 1080p one. Filled in
     // here rather than by every caller, and only when nobody asked — a test of
-    // `--resolution` has to be the one that decides it.
-    if !arguments.contains(&"--resolution") {
+    // `--resolution` (or of `--platform`, which sizes it too) has to be the
+    // one that decides it.
+    if !arguments.contains(&"--resolution") && !arguments.contains(&"--platform") {
         all.extend(["--resolution", media::SIZE]);
     }
     all.extend_from_slice(arguments);
