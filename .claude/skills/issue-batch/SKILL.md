@@ -522,8 +522,8 @@ exactly one of:
 batch time — a tooling bug that stalls the queue, a brief that makes every agent
 re-solve the same trap — fix it now. It is infrastructure, so it outranks
 whatever was next. A skill or doc edit is Markdown-only and merges without
-queuing (except `docs/project-format.md`, which tests parse; `ci-merge` has
-how). One that changes a **rule in `CLAUDE.md`** rather than recording a step
+queuing (except a page the code reads, which `ci.yml`'s `paths:` lists;
+`ci-merge` has how). One that changes a **rule in `CLAUDE.md`** rather than recording a step
 is a change to scorsese's conventions: open it and leave it for the user
 (*Take the initiative*). On rusty's
 2026-09-30 batch, five tooling and skill fixes landed within the hour their

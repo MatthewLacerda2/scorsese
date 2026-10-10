@@ -1,13 +1,20 @@
 name: CI
 
-# Markdown-only changes skip CI — except for the pages tests hold to the code,
-# and that is the whole point of the exceptions. `docs/project-format.md`'s
-# JSON examples are parsed and its animatable-property table is compared to
-# the code; `docs/mcp.md`'s tool table is generated from the registry; and
-# `docs/web.md`'s route tables are held to the server's router (#994).
-# Skipping CI for them would mean the documents under test are the ones that
-# can be broken without anything noticing. Patterns are ordered: a later one
-# overrides an earlier one for a path both match.
+# Markdown-only changes skip CI — except for the pages the code reads, and that
+# is the whole point of the exceptions. `docs/project-format.md`'s JSON
+# examples are parsed and its animatable-property table is compared to the
+# code; `docs/mcp.md`'s tool table is generated from the registry;
+# `docs/web.md`'s route tables are held to the server's router (#994); and the
+# guides an agent is served (`scorsese guide`) are `include_str!`'d into the
+# binary, with tests reading their examples and pointers. Skipping CI for them
+# would mean the documents under test are the ones that can be broken without
+# anything noticing. Patterns are ordered: a later one overrides an earlier one
+# for a path both match.
+#
+# The list is held to the code (#1040): `.github/scripts/tests/
+# test_ci_read_docs.py` fails when a Rust source reads a page not listed here,
+# or when a listed page is gone. A page nothing reads stays off it, so editing
+# it is still the Markdown-only fast path.
 #
 # CI speaks in two situations and no others: a pull request **claims to be
 # finished**, and `main` moves. Every job below carries `if: ${{ !DRAFT }}` —
@@ -42,16 +49,30 @@ on:
     paths:
       - "**"
       - "!**.md"
-      - "docs/project-format.md"
       - "docs/mcp.md"
+      - "docs/output-formats.md"
+      - "docs/pages.md"
+      - "docs/prices.md"
+      - "docs/project-format.md"
+      - "docs/prompts.md"
+      - "docs/recipes.md"
+      - "docs/references.md"
+      - "docs/stock.md"
       - "docs/web.md"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "**"
       - "!**.md"
-      - "docs/project-format.md"
       - "docs/mcp.md"
+      - "docs/output-formats.md"
+      - "docs/pages.md"
+      - "docs/prices.md"
+      - "docs/project-format.md"
+      - "docs/prompts.md"
+      - "docs/recipes.md"
+      - "docs/references.md"
+      - "docs/stock.md"
       - "docs/web.md"
 
 # `ubuntu-24.04` and not `ubuntu-latest`, everywhere below, and the reason is
