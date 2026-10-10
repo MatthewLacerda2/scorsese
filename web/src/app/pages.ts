@@ -2,7 +2,7 @@
 // import and never imported statically anywhere else, so each one lands in a
 // chunk of its own and the entry chunk carries only what every signed-in page
 // needs: the router, the query cache, the session, the shell and its uploads,
-// the languages and the theme. Opening the login page no longer downloads the
+// the languages and the theme. Opening the landing page no longer downloads the
 // editor. `vite.config.ts`'s budget fails the build if the entry grows past
 // that, which is how this stays true without anyone remembering it.
 //
@@ -29,7 +29,8 @@ export function lazyPage<M, K extends keyof M>(load: () => Promise<M>, name: K):
   return Object.assign(page, { preload });
 }
 
-export const LoginPage = lazyPage(() => import("@/pages/LoginPage"), "LoginPage");
+export const LandingPage = lazyPage(() => import("@/landing/LandingPage"), "LandingPage");
+export const LoginPage = lazyPage(() => import("@/landing/LandingPage"), "LoginPage");
 export const ProjectsPage = lazyPage(() => import("@/pages/ProjectsPage"), "ProjectsPage");
 export const LibraryPage = lazyPage(() => import("@/pages/FilesPages"), "LibraryPage");
 export const ProjectFilesPage = lazyPage(() => import("@/pages/FilesPages"), "ProjectFilesPage");

@@ -1,10 +1,25 @@
-// Logging in, and making a project: the first two things anybody does.
+// Arriving, logging in, and making a project: the first things anybody does.
 
 import { expect, test } from "@playwright/test";
-import { logIn, newProject } from "./session";
+import { account, logIn, newProject } from "./session";
 
 test("logging in lands on the projects list", async ({ page }) => {
   await logIn(page);
+  await expect(page).toHaveURL(/\/projects$/);
+});
+
+test("a first visit is the landing page, and its Sign in opens the popup", async ({ page }) => {
+  const { email, password } = account();
+  await page.goto("/");
+  await expect(page.getByText("It gets made.")).toBeVisible();
+  await page.getByRole("button", { name: "Sign in" }).first().click();
+  const popup = page.getByRole("dialog");
+  await popup.getByLabel("Email").fill(email);
+  await popup.getByLabel("Password").fill(password);
+  await popup.getByRole("button", { name: "Log in" }).click();
+  await expect(page).toHaveURL(/\/projects$/);
+  // Signed in, `/` is where the work is.
+  await page.goto("/");
   await expect(page).toHaveURL(/\/projects$/);
 });
 

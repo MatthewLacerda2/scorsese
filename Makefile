@@ -215,7 +215,7 @@ NEXTEST_CHECK = command -v cargo-nextest >/dev/null 2>&1 || { \
 # directories called `app/` and `web/`, so without it make sees the target as
 # already built and `make app` prints "up to date" without running a thing. A
 # check that silently does nothing is worse than no check.
-.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates web-gates web-e2e-run release format-fix mcp-table coverage mutants mutants-remote mutants-status mergeable queue live-check
+.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates web-gates web-e2e-run release format-fix mcp-table landing-hero coverage mutants mutants-remote mutants-status mergeable queue live-check
 
 ##@ Everyday
 
@@ -789,6 +789,24 @@ mcp-table: ## Rewrite docs/mcp.md's tool table and docs/web.md's served-tool lis
 	UPDATE_MCP_TABLE=1 cargo test --locked -p scorsese-mcp --test table
 	UPDATE_WEB_TOOLS=1 cargo test --locked -p scorsese-server --lib tools::surface::page
 	@echo "mcp-table: docs/mcp.md and docs/web.md now say what the code says."
+
+# The landing page's film and pictures (#904) are renders of two projects kept
+# beside it in web/landing/, made only of pages, native text and a synthesised
+# score, so this costs nothing and needs no key. Their output is committed under
+# web/public/landing/, because the deploy's web image builds no Rust; run this
+# after editing either project and commit what it writes.
+LANDING := web/landing
+LANDING_OUT := web/public/landing
+landing-hero: ## Re-render the landing page's film, poster and example stills from web/landing/
+	cargo build --locked -p scorsese-cli
+	target/debug/scorsese synth bake --project $(LANDING)/hero.scor
+	target/debug/scorsese render --project $(LANDING)/hero.scor --out $(LANDING_OUT)/hero.mp4 \
+		--resolution 1280x720 --audio-bitrate 96k --loudness -16
+	target/debug/scorsese still --project $(LANDING)/hero.scor --at 3.5s --resolution 1280x720 --out $(LANDING_OUT)/poster.png
+	target/debug/scorsese still --project $(LANDING)/hero.scor --at 18s --resolution 1200x630 --out $(LANDING_OUT)/og.png
+	target/debug/scorsese still --project $(LANDING)/showcase.scor --at 1.5s --resolution 960x540 --out $(LANDING_OUT)/promo.png
+	target/debug/scorsese still --project $(LANDING)/showcase.scor --at 3.5s --resolution 960x540 --out $(LANDING_OUT)/event.png
+	target/debug/scorsese still --project $(LANDING)/showcase.scor --at 5.5s --resolution 540x960 --out $(LANDING_OUT)/ad.png
 
 # Neither a gate nor a signal: it checks the room the gates are about to run
 # in, so it comes before them and is not one of them. `inventory` below is the

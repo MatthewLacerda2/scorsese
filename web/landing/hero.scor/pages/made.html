@@ -1,0 +1,81 @@
+<!doctype html>
+<html>
+<head>
+<link rel="stylesheet" href="look.css">
+<script src="https://lib.scorsese/kit.js"></script>
+<script src="out.js"></script>
+<style>
+  .screen {
+    position: absolute; left: 50%; top: 190px; width: 720px; height: 405px; margin-left: -360px;
+    border-radius: 18px; overflow: hidden;
+    background: linear-gradient(170deg, #ffcf7a, #e4572e 60%, #5b1d3a);
+    box-shadow: 0 40px 100px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+    animation: rise 800ms var(--enter) both;
+  }
+  .sun {
+    position: absolute; left: 50%; width: 220px; height: 220px; margin-left: -110px;
+    border-radius: 50%; background: radial-gradient(circle, #fff6dc, #ffd27a 60%, transparent 72%);
+  }
+  .promo { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; color: #fff; }
+  .promo b { font: 800 66px/1 Montserrat; letter-spacing: 4px; text-shadow: 0 6px 24px rgba(0, 0, 0, 0.35); }
+  .promo i { margin-top: 14px; font: italic 500 34px "Playfair Display"; }
+  .timeline { position: absolute; left: 50%; top: 640px; width: 1240px; margin-left: -620px; }
+  .lane { position: relative; height: 34px; margin-bottom: 12px; border-radius: 8px; background: rgba(244, 239, 230, 0.05); }
+  .clip { position: absolute; top: 0; bottom: 0; border-radius: 8px; opacity: 0; }
+  .v { background: linear-gradient(90deg, #f2b134, #e4572e); }
+  .t { background: #f4efe6; }
+  .a { background: repeating-linear-gradient(90deg, #6c8ebf 0 3px, #2b4c7e 3px 7px); }
+  .head { position: absolute; top: -14px; bottom: -14px; width: 4px; margin-left: -2px; background: #fff; box-shadow: 0 0 18px var(--gold); }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="step">03 · Watch it come together</div>
+  <div class="screen">
+    <div class="sun" id="sun"></div>
+    <div class="promo"><b id="title">GRAND OPENING</b><i id="when">Saturday · 9 am</i></div>
+  </div>
+  <div class="timeline" id="timeline">
+    <div class="lane"></div><div class="lane"></div><div class="lane"></div>
+    <div class="head" id="head"></div>
+  </div>
+  <div class="say" style="--at: 1.9s">Your <em>video</em>, made.</div>
+</div>
+<script>
+  // The edit assembles itself lane by lane, then the playhead plays it and
+  // the little promo above answers to it.
+  const clips = [
+    [0, "v", 0, 0.34], [0, "v", 0.35, 0.66], [0, "v", 0.67, 1],
+    [1, "t", 0.08, 0.3], [1, "t", 0.5, 0.8],
+    [2, "a", 0, 1],
+  ];
+  const lanes = document.querySelectorAll(".lane");
+  const drawn = clips.map(([lane, kind, from, to]) => {
+    const clip = document.createElement("div");
+    clip.className = `clip ${kind}`;
+    clip.style.left = `${from * 100}%`;
+    clip.style.width = `calc(${(to - from) * 100}% - 4px)`;
+    lanes[lane].appendChild(clip);
+    return clip;
+  });
+  const head = document.getElementById("head");
+  const sun = document.getElementById("sun");
+  const title = document.getElementById("title");
+  const when = document.getElementById("when");
+  kit.frame((t) => {
+    drawn.forEach((clip, i) => {
+      const p = kit.enter(t, kit.stagger(i, 0.12, 0.2), 0.5, kit.ease.back);
+      clip.style.opacity = kit.clamp(p);
+      clip.style.transform = `translateX(${(1 - p) * 80}px)`;
+    });
+    const play = kit.remap(t, 1.1, scorsese.duration - 0.2, 0, 1);
+    head.style.left = `${play * 100}%`;
+    head.style.opacity = kit.enter(t, 1, 0.3);
+    sun.style.top = `${kit.remap(play, 0, 0.6, 260, 40, kit.ease.out)}px`;
+    title.style.opacity = kit.remap(play, 0.08, 0.2);
+    title.style.transform = `translateY(${kit.remap(play, 0.08, 0.25, 30, 0, kit.ease.out)}px)`;
+    when.style.opacity = kit.remap(play, 0.5, 0.6);
+  });
+</script>
+</body>
+</html>

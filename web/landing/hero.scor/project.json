@@ -1,0 +1,234 @@
+{
+  "schema_version": 47,
+  "name": "scorsese landing hero",
+  "timeline_fps": {
+    "num": 30,
+    "den": 1
+  },
+  "script": "script.md",
+  "assets": [
+    {
+      "id": "files",
+      "kind": "html",
+      "path": "pages/files.html"
+    },
+    {
+      "id": "describe",
+      "kind": "html",
+      "path": "pages/describe.html"
+    },
+    {
+      "id": "made",
+      "kind": "html",
+      "path": "pages/made.html"
+    },
+    {
+      "id": "end",
+      "kind": "html",
+      "path": "pages/end.html"
+    },
+    {
+      "id": "wordmark",
+      "kind": "text",
+      "text": "scorsese",
+      "style": {
+        "font": "playfair-display",
+        "weight": 600,
+        "italic": false,
+        "size": 0.17,
+        "color": "#f4efe6",
+        "align": "center",
+        "line_height": 1.25,
+        "max_width": 0.9,
+        "stroke_width": 0.002
+      }
+    },
+    {
+      "id": "score",
+      "kind": "synth_audio",
+      "path": "generated/137ff01bd89f7c303eb0ef40ec44b59c66692c425e2e517ac508101632c12224.wav",
+      "sha256": "deb03203838add3802f0df5037da2475acff59cdb4b06707dc087b5871eb88b0",
+      "media": {
+        "duration_seconds": 27.771020408163267,
+        "audio_channels": 2,
+        "sample_rate": 44100
+      },
+      "recipe": "recipes/score.json",
+      "state": "generated"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "scenes",
+      "kind": "video",
+      "name": "Scenes",
+      "clips": [
+        {
+          "id": "c-files",
+          "asset": "files",
+          "start": 0,
+          "duration": 144,
+          "source_in": 0
+        },
+        {
+          "id": "c-describe",
+          "asset": "describe",
+          "start": 144,
+          "duration": 144,
+          "source_in": 0
+        },
+        {
+          "id": "c-made",
+          "asset": "made",
+          "start": 288,
+          "duration": 144,
+          "source_in": 0
+        },
+        {
+          "id": "c-end",
+          "asset": "end",
+          "start": 432,
+          "duration": 216,
+          "source_in": 0,
+          "keyframes": [
+            {
+              "property": "opacity",
+              "keyframes": [
+                {
+                  "t": 192,
+                  "value": 1.0,
+                  "easing": "ease_in"
+                },
+                {
+                  "t": 215,
+                  "value": 0.0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "titles",
+      "kind": "video",
+      "name": "Name",
+      "clips": [
+        {
+          "id": "c-wordmark",
+          "asset": "wordmark",
+          "start": 438,
+          "duration": 210,
+          "source_in": 0,
+          "keyframes": [
+            {
+              "property": "opacity",
+              "keyframes": [
+                {
+                  "t": 0,
+                  "value": 0.0,
+                  "easing": "ease_out"
+                },
+                {
+                  "t": 27,
+                  "value": 1.0,
+                  "easing": "linear"
+                },
+                {
+                  "t": 186,
+                  "value": 1.0,
+                  "easing": "ease_in"
+                },
+                {
+                  "t": 209,
+                  "value": 0.0
+                }
+              ]
+            },
+            {
+              "property": "transform.position.y",
+              "keyframes": [
+                {
+                  "t": 0,
+                  "value": -0.03,
+                  "easing": "ease_out"
+                },
+                {
+                  "t": 45,
+                  "value": -0.06,
+                  "easing": "linear"
+                }
+              ]
+            },
+            {
+              "property": "transform.scale.x",
+              "keyframes": [
+                {
+                  "t": 0,
+                  "value": 1.08,
+                  "easing": "ease_out"
+                },
+                {
+                  "t": 45,
+                  "value": 1.0,
+                  "easing": "linear"
+                }
+              ]
+            },
+            {
+              "property": "transform.scale.y",
+              "keyframes": [
+                {
+                  "t": 0,
+                  "value": 1.08,
+                  "easing": "ease_out"
+                },
+                {
+                  "t": 45,
+                  "value": 1.0,
+                  "easing": "linear"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "music",
+      "kind": "audio",
+      "name": "Score",
+      "clips": [
+        {
+          "id": "c-score",
+          "asset": "score",
+          "start": 0,
+          "duration": 648,
+          "source_in": 0,
+          "keyframes": [
+            {
+              "property": "volume",
+              "keyframes": [
+                {
+                  "t": 0,
+                  "value": 1.0,
+                  "easing": "linear"
+                },
+                {
+                  "t": 588,
+                  "value": 1.0,
+                  "easing": "linear"
+                },
+                {
+                  "t": 647,
+                  "value": 0.0,
+                  "easing": "linear"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+/* The film's one look, shared by every scene: a warm dark stage, gold light,
+   Playfair Display for what is said and Inter for what is shown. The landing
+   page (web/src/landing/landing.css) is dressed the same way, so the film and
+   the page around it read as one piece. */
+:root {
+  --ink: #07070a;
+  --paper: #f4efe6;
+  --gold: #f2b134;
+  --ember: #e4572e;
+  --dim: rgba(244, 239, 230, 0.62);
+  --enter: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body {
+  background:
+    radial-gradient(1200px 700px at 50% 115%, rgba(228, 87, 46, 0.22), transparent 70%),
+    radial-gradient(900px 600px at 15% -10%, rgba(242, 177, 52, 0.16), transparent 70%),
+    var(--ink);
+  color: var(--paper);
+  font-family: Inter, sans-serif;
+}
+.stage { position: absolute; inset: 0; animation: leave 450ms var(--out) ease-in forwards; }
+.say {
+  position: absolute; left: 0; right: 0; bottom: 150px; text-align: center;
+  font: italic 500 120px/1 "Playfair Display"; letter-spacing: -2px;
+  animation: rise 900ms var(--at, 0.4s) var(--enter) both;
+}
+.say em { font-style: normal; color: var(--gold); }
+.step {
+  position: absolute; left: 0; right: 0; top: 120px; text-align: center;
+  font: 600 28px Montserrat; letter-spacing: 12px; text-transform: uppercase;
+  color: var(--gold); animation: rise 700ms 150ms var(--enter) both;
+}
+.icon {
+  display: inline-block; width: 64px; height: 64px; background: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat; mask: var(--icon) center / contain no-repeat;
+}
+@keyframes rise { from { opacity: 0; transform: translateY(40px); } }
+@keyframes leave { to { opacity: 0; transform: scale(1.02); } }

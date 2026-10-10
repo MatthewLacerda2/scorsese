@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+<link rel="stylesheet" href="look.css">
+<script src="https://lib.scorsese/kit.js"></script>
+<style>
+  /* The last scene stays to the end: the film fades on its own black. */
+  .glow {
+    position: absolute; left: 50%; top: 50%; width: 1600px; height: 1600px;
+    margin: -800px 0 0 -800px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(242, 177, 52, 0.28), rgba(228, 87, 46, 0.1) 35%, transparent 62%);
+  }
+  .rays { position: absolute; inset: 0; }
+  .tag {
+    position: absolute; left: 0; right: 0; top: 660px; text-align: center;
+    font: 400 40px Inter; color: var(--dim); letter-spacing: 1px;
+    animation: rise 900ms 1.1s var(--enter) both;
+  }
+  .made {
+    position: absolute; left: 0; right: 0; bottom: 110px; text-align: center;
+    font: 500 24px "JetBrains Mono"; color: var(--gold); letter-spacing: 3px;
+    animation: rise 900ms 1.8s var(--enter) both;
+  }
+  .line {
+    position: absolute; left: 50%; top: 625px; width: 560px; height: 2px; margin-left: -280px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    transform-origin: center;
+  }
+</style>
+</head>
+<body>
+  <div class="glow" id="glow"></div>
+  <svg class="rays" id="rays" viewBox="0 0 1920 1080"></svg>
+  <div class="line" id="line"></div>
+  <div class="tag">Send your files. Describe the video. It gets made.</div>
+  <div class="made">this film was made with scorsese · $0.00</div>
+<script>
+  // Slow light turning behind the name, and a gold rule drawn under it.
+  const rays = document.getElementById("rays");
+  const glow = document.getElementById("glow");
+  const line = document.getElementById("line");
+  const seed = kit.random(904);
+  const beams = Array.from({ length: 14 }, () => ({ angle: seed() * 360, width: 2 + seed() * 5, alpha: 0.03 + seed() * 0.05 }));
+  const paths = beams.map(() => kit.svg("path", { fill: "#f2b134" }, rays));
+  kit.frame((t) => {
+    const turn = t * 4;
+    beams.forEach((beam, i) => {
+      const a = ((beam.angle + turn) * Math.PI) / 180;
+      const b = a + (beam.width * Math.PI) / 180;
+      const r = 1400;
+      paths[i].setAttribute("d", `M 960 540 L ${960 + r * Math.cos(a)} ${540 + r * Math.sin(a)} L ${960 + r * Math.cos(b)} ${540 + r * Math.sin(b)} Z`);
+      paths[i].setAttribute("opacity", beam.alpha * kit.enter(t, 0, 1.4));
+    });
+    glow.style.opacity = kit.enter(t, 0, 1.2);
+    glow.style.transform = `scale(${kit.lerp(0.85, 1.05, kit.remap(t, 0, scorsese.duration))})`;
+    line.style.transform = `scaleX(${kit.enter(t, 0.6, 0.8)})`;
+  });
+</script>
+</body>
+</html>

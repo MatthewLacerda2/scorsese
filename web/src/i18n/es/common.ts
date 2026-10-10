@@ -20,7 +20,6 @@ export const common: Messages["common"] = {
   },
   theme: { light: "Claro", dark: "Oscuro", system: "Sistema" },
   login: {
-    tagline: "Inicia sesión para ver tus proyectos y archivos.",
     email: "Correo electrónico",
     password: "Contraseña",
     submit: "Iniciar sesión",

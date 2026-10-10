@@ -8,6 +8,7 @@ import { common } from "@/i18n/en/common";
 import { editor } from "@/i18n/en/editor";
 import { files } from "@/i18n/en/files";
 import { inspector } from "@/i18n/en/inspector";
+import { landing } from "@/i18n/en/landing";
 import { pages } from "@/i18n/en/pages";
 
-export const en = { common, files, pages, editor, chat, assets, inspector };
+export const en = { common, files, pages, editor, chat, assets, inspector, landing };

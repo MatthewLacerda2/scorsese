@@ -9,6 +9,7 @@ import { MemoryRouter } from "react-router";
 import { App } from "@/App";
 import { createQueryClient, ME } from "@/app/queryClient";
 import type { Language } from "@/i18n/language";
+import { prerenderHtml } from "@/test/prerender";
 
 function render(url: string, language: Language, signedIn: boolean) {
   const client = createQueryClient();
@@ -24,10 +25,22 @@ function render(url: string, language: Language, signedIn: boolean) {
   ).replaceAll(" ", " ");
 }
 
-test("the login page reads in each language", () => {
-  expect(render("/login", "en", false)).toContain("Log in");
-  expect(render("/login", "pt-BR", false)).toContain("Entrar");
-  expect(render("/login", "es", false)).toContain("Iniciar sesión");
+test("the landing page reads in each language", async () => {
+  // Through `prerender`, which waits for the lazy page (#896); `renderToString` does not.
+  const landing = (language: Language) => {
+    const client = createQueryClient();
+    client.setQueryData(ME, null);
+    return prerenderHtml(
+      <App
+        language={language}
+        queryClient={client}
+        router={(routes) => <MemoryRouter initialEntries={["/login"]}>{routes}</MemoryRouter>}
+      />,
+    );
+  };
+  expect(await landing("en")).toContain("It gets made.");
+  expect(await landing("pt-BR")).toContain("Ele fica pronto.");
+  expect(await landing("es")).toContain("Queda hecho.");
 });
 
 test("the shell and the library switch language together, and money stays in dollars", () => {

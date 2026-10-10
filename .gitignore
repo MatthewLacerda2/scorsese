@@ -61,3 +61,7 @@ cache/
 !.claude/skills/
 !.claude/settings.json
 !.claude/hooks/
+
+# The landing page's projects (#904): their baked score is rebuilt by
+# `make landing-hero`, the same bytes every time, so only the recipe is kept.
+web/landing/*.scor/generated/

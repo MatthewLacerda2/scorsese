@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<link rel="stylesheet" href="look.css">
+<style>
+  body { background: linear-gradient(170deg, #ffcf7a, #e4572e 58%, #3b1230); }
+  .sun { position: absolute; left: 50%; top: 120px; width: 520px; height: 520px; margin-left: -260px; border-radius: 50%;
+    background: radial-gradient(circle, #fff6dc, #ffd27a 55%, transparent 71%); animation: rise 1s var(--enter) both; }
+  .hills { position: absolute; left: -10%; right: -10%; bottom: -140px; height: 520px; border-radius: 50% 50% 0 0; background: #2a0d22; opacity: .85; }
+  .copy { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; color: #fff; }
+  .kicker { font: 600 30px Montserrat; letter-spacing: 14px; text-transform: uppercase; opacity: .9; }
+  h1 { margin: 18px 0; font: 800 150px/0.95 Montserrat; letter-spacing: 6px; text-shadow: 0 10px 40px rgba(0,0,0,.35); animation: rise .9s .2s var(--enter) both; }
+  .when { font: italic 500 56px "Playfair Display"; animation: rise .9s .4s var(--enter) both; }
+</style>
+</head>
+<body>
+  <div class="sun"></div><div class="hills"></div>
+  <div class="copy"><div class="kicker">Café Aurora</div><h1>GRAND<br>OPENING</h1><div class="when">Saturday · 9 am · free first coffee</div></div>
+</body>
+</html>
