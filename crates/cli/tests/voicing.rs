@@ -45,7 +45,7 @@ fn at(dir: &std::path::Path, id: &str) -> (u64, u64) {
     let (_, clip) = project
         .clips()
         .find(|(_, clip)| clip.id.as_str() == id)
-        .unwrap();
+        .expect("the clip is still in the project");
     (clip.start.get(), clip.end().get())
 }
 

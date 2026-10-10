@@ -7,20 +7,18 @@ use crate::{call, said};
 
 /// Where clip `id` sits in the saved document: its start and duration.
 fn placed(dir: &std::path::Path, id: &str) -> (u64, u64) {
-    let document: Value =
-        serde_json::from_str(&std::fs::read_to_string(dir.join("project.json")).unwrap()).unwrap();
+    let text = std::fs::read_to_string(dir.join("project.json")).expect("the project is saved");
+    let document: Value = serde_json::from_str(&text).expect("the project is JSON");
     let clip = document["tracks"]
         .as_array()
-        .unwrap()
-        .iter()
-        .flat_map(|track| track["clips"].as_array().unwrap())
+        .into_iter()
+        .flatten()
+        .filter_map(|track| track["clips"].as_array())
+        .flatten()
         .find(|clip| clip["id"] == id)
-        .unwrap()
-        .clone();
-    (
-        clip["start"].as_u64().unwrap(),
-        clip["duration"].as_u64().unwrap(),
-    )
+        .expect("the clip is still in the project");
+    let frames = |key: &str| clip[key].as_u64().expect("a whole number of frames");
+    (frames("start"), frames("duration"))
 }
 
 #[test]
