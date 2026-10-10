@@ -302,22 +302,7 @@ fn dispatch(cli: Cli) -> Result<()> {
         Command::Dissolve { from, to, seconds } => {
             commands::dissolve::run(&directory, &from, &to, seconds)
         }
-        Command::Duck {
-            music,
-            depth,
-            attack,
-            release,
-            under,
-        } => commands::duck::run(
-            &directory,
-            &music,
-            &commands::duck::Options {
-                depth,
-                attack,
-                release,
-                under,
-            },
-        ),
+        Command::Duck(options) => commands::duck::run(&directory, &options),
         Command::Caption(options) => commands::caption::run(&directory, &options),
         Command::CutToVoice(options) => commands::voice::run(&directory, &options),
         Command::Stock { action } => commands::stock::run(&directory, action),

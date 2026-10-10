@@ -637,27 +637,7 @@ pub(crate) enum Command {
     },
     /// Lower the music while narration plays, by writing ordinary volume
     /// keyframes. Safe to re-run: it replaces only its own work.
-    Duck {
-        /// The audio track to duck — the music.
-        #[arg(long)]
-        music: String,
-        /// How far down, as a multiplier on the clip's own level: `0.25` is a
-        /// quarter as loud.
-        #[arg(long, default_value = "0.25")]
-        depth: f64,
-        /// Seconds to reach the ducked level. The dip is fully down by the
-        /// moment the narration starts, not after it.
-        #[arg(long, default_value = "0.3")]
-        attack: f64,
-        /// Seconds to come back up. Longer than the attack on purpose —
-        /// returning early is audible as a lurch.
-        #[arg(long, default_value = "0.6")]
-        release: f64,
-        /// Which tracks count as narration. Repeatable; without it, every
-        /// other audio track does.
-        #[arg(long)]
-        under: Vec<String>,
-    },
+    Duck(crate::commands::duck::Options),
     /// Put the narration's own words on screen as captions, timed from the
     /// word timings saved beside each generated line. Safe to re-run: it
     /// replaces only its own captions.

@@ -6,23 +6,37 @@ use anyhow::{Context, Result, bail};
 use scorsese_core::{Dip, Ducked, Frames, Project, PropertyPath, TrackId, Under, duck_track};
 use scorsese_render::audio::path::VOLUME;
 
-/// How the dip is shaped, before it is put on the project's frame grid.
+/// What `scorsese duck` takes: the music, and how the dip is shaped before it
+/// is put on the project's frame grid.
+#[derive(Debug, clap::Args)]
 pub(crate) struct Options {
-    /// How far down, as a multiplier on the clip's own level.
-    pub(crate) depth: f64,
-    /// Seconds to get there.
-    pub(crate) attack: f64,
-    /// Seconds to come back.
-    pub(crate) release: f64,
-    /// Which tracks count as narration. Empty means every other audio track.
-    pub(crate) under: Vec<String>,
+    /// The audio track to duck — the music.
+    #[arg(long)]
+    music: String,
+    /// How far down, as a multiplier on the clip's own level: `0.25` is a
+    /// quarter as loud.
+    #[arg(long, default_value = "0.25")]
+    depth: f64,
+    /// Seconds to reach the ducked level. The dip is fully down by the
+    /// moment the narration starts, not after it.
+    #[arg(long, default_value = "0.3")]
+    attack: f64,
+    /// Seconds to come back up. Longer than the attack on purpose —
+    /// returning early is audible as a lurch.
+    #[arg(long, default_value = "0.6")]
+    release: f64,
+    /// Which tracks count as narration. Repeatable; without it, every
+    /// other audio track does.
+    #[arg(long)]
+    under: Vec<String>,
 }
 
 /// Writes volume keyframes on the music track so it steps aside for narration.
 ///
 /// Safe to re-run: it replaces only the tracks it signed, so a second run
 /// redoes the ducking and leaves anything you set by hand exactly as it was.
-pub(crate) fn run(project_dir: &Path, music: &str, options: &Options) -> Result<()> {
+pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
+    let music = options.music.as_str();
     let mut project = Project::load(project_dir)
         .with_context(|| format!("opening the project in {}", project_dir.display()))?;
 
