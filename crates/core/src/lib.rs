@@ -60,7 +60,8 @@
 //! document written by an older build forward to this one; [`mod@template`]
 //! lifts clips out of one edit and copies them into another; [`mod@words`]
 //! reads when a narration says each word and places them on the timeline;
-//! [`mod@captions`] turns those words into on-screen captions;
+//! [`mod@captions`] turns those words into on-screen captions; [`mod@voice`]
+//! cuts a narrated video to its lines;
 //! [`mod@write`] is the one way a file leaves here; and [`mod@guide`] hands
 //! back the agent-facing pages of `docs/`, compiled in, so an installed build
 //! can still read them; and [`mod@style`] is the menu a video starts from — the
@@ -107,6 +108,7 @@ pub(crate) mod time;
 pub(crate) mod timeline;
 pub(crate) mod validate;
 pub(crate) mod vhs;
+pub mod voice;
 pub mod words;
 pub mod write;
 

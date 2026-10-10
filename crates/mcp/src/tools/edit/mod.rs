@@ -2,7 +2,8 @@
 //! retime an image sequence, place, move (in time or onto another track),
 //! remove, group and ungroup clips, set a clip's plain values, animate one of
 //! them, send one along an arrow, dissolve a cut, duck the music, caption the
-//! narration, set a clip's volume, scale a run of clips, render.
+//! narration, set a clip's volume, scale a run of clips, cut a narrated
+//! video to its voice, render.
 //!
 //! One file per tool. They were one file until the dissolve arrived and put
 //! it over the size gate, which is the gate doing its job: tools that happen
@@ -24,6 +25,7 @@ mod remove;
 mod render;
 mod sequence;
 mod sequenced;
+mod voice;
 mod volume;
 mod write;
 
@@ -41,6 +43,7 @@ pub(crate) use relocate::ClipMove;
 pub(crate) use remove::ClipRemove;
 pub(crate) use render::Render;
 pub(crate) use sequence::Sequence;
+pub(crate) use voice::CutToVoice;
 pub(crate) use volume::SetVolume;
 pub(crate) use write::Write;
 

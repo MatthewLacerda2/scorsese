@@ -319,6 +319,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(edit::CaptionNarration),
         Box::new(edit::SetVolume),
         Box::new(edit::ScalePacing),
+        Box::new(edit::CutToVoice),
         // Beside the other authored documents, and before the synth tools:
         // a page is a picture, written whole and looked at with still.
         Box::new(page::Write),

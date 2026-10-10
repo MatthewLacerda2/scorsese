@@ -52,6 +52,7 @@ mod spilling;
 mod starting;
 mod syncing;
 mod tuning;
+mod voicing;
 mod watching;
 
 use serde_json::Value;
