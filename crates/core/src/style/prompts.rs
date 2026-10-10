@@ -16,12 +16,14 @@ it, stock otherwise; the voice is theirs recorded, or generated.\n\
 Shape: a hook in the first two seconds that states the payoff, then the argument in short \
 spoken sentences, then one clear close (a call to action on an ad). Write the script \
 first and agree it before building anything.\n\
-Make: the narration, then its words, then the captions from those words — large, centred \
-in the safe middle of the frame, two to five words a chunk, the current word picked out. \
-Cut the b-roll to the chunk boundaries, one shot every one to three seconds. Music sits \
-low and ducks under the voice.\n\
+Make: the narration one line per scene, so every word has a timing; cut the scenes to \
+the voice, each ending shortly after its line's last word; then the captions from those \
+words, once the cut is final. Each chunk (about two lines, cut at sentences, commas and \
+pauses) arrives whole on its first spoken word, heavy white type rimmed in black, in the \
+lower third, clear of the buttons a phone draws over the bottom. Music sits low and ducks \
+under the voice, laid last.\n\
 Read `guide styles`, section \"Narrated captions\" first: the tools and timings a made \
-video of this kind used. Where it and this disagree, it wins.";
+video of this kind used.";
 
 /// [`kinetic_type`](super::STYLES).
 pub(super) const KINETIC_TYPE: &str = "\
@@ -48,9 +50,10 @@ summary.\n\
 Make: write and agree the script, record or generate the narration, then draw each beat \
 as a page whose strokes are timed to the words that name them (`guide pages`). Dark ink \
 on white, one accent colour, simple line art; the camera may push in to the drawing \
-being made and pull back for the summary. Light music, well under the voice.\n\
+being made and pull back for the summary. Anchor every mark on the spoken word that names \
+it, and draw at one constant stroke speed. Light music, well under the voice.\n\
 Read `guide styles`, section \"Whiteboard\" first: the tools and timings a made video of \
-this kind used. Where it and this disagree, it wins.";
+this kind used.";
 
 /// [`flat_explainer`](super::STYLES).
 pub(super) const FLAT_EXPLAINER: &str = "\
@@ -76,11 +79,12 @@ Shape: the problem the product solves in one line, then three to five features e
 shown on its own screen, then where to get it.\n\
 Make: the script follows the screens, a sentence or two each. Show every screen large, \
 framed inside a device or a soft panel, and push in slowly to the part being named; a \
-short label or highlight marks it. Cut on the narration's sentences. Neutral music, \
-ducked under the voice. On an ad, the product and the call to action both appear in \
-the first five seconds and again at the end.\n\
+short label or highlight marks it. Write the narration to inform, not as ad copy: what \
+each screen is, what you do on it, what you get. The next screen arrives shortly after the \
+sentence about the last one ends. Neutral music, ducked under the voice. Close on where \
+to get it.\n\
 Read `guide styles`, section \"Product tour\" first: the tools and timings a made video \
-of this kind used. Where it and this disagree, it wins.";
+of this kind used.";
 
 /// [`photo_montage`](super::STYLES).
 pub(super) const PHOTO_MONTAGE: &str = "\
