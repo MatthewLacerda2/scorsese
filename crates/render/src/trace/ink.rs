@@ -113,12 +113,12 @@ fn nearest(ink: &Mask, sides: &[u32]) -> (Vec<u32>, Vec<u32>) {
     let mut nearest = vec![UNSET; ink.bits.len()];
     let mut depth = vec![0; ink.bits.len()];
     let mut frontier = Vec::new();
-    for at in 0..ink.bits.len() {
+    for (at, side) in nearest.iter_mut().enumerate() {
         if !ink.bits[at] {
             continue;
         }
-        if let Some(side) = beside(ink, at).find(|&next| !ink.bits[next]) {
-            nearest[at] = sides[side];
+        if let Some(outside) = beside(ink, at).find(|&next| !ink.bits[next]) {
+            *side = sides[outside];
             frontier.push(at);
         }
     }
