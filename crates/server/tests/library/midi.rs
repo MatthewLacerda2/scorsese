@@ -1,66 +1,40 @@
-//! A MIDI file is a library file like any other (#678): uploaded, listed and
-//! opened the same way — checked as MIDI rather than probed, and with no
-//! thumbnail, since there is no picture of notes to draw.
+//! MIDI is not a library kind (#964): with `synth_import` and `synth_export`
+//! off the tool list (#785) nothing on the web could use a `.mid`, so one is
+//! refused when it is announced, like any other file scorsese cannot use, and
+//! the database holds no row of the kind.
 
 use sqlx::postgres::PgPool;
 
 use crate::common::{self, TUNE, request};
-use crate::{announce, member, patch, upload};
+use crate::{announce, member};
 
 #[sqlx::test]
-async fn a_midi_file_is_kept_listed_and_served_without_a_picture(pool: PgPool) {
+async fn a_midi_file_is_refused_before_a_byte_is_sent(pool: PgPool) {
     let (address, _) = common::serve_with(pool.clone(), common::files("upload-midi")).await;
     let (_, ana) = member(&pool, "ana@example.com").await;
-    let id = upload(address, &ana, "Rag.MID", TUNE).await;
-
-    let listed = request(address, "GET", "/api/library?kind=midi", &[&ana], None).await;
-    let tile = &listed.json()[0];
-    assert_eq!(tile["id"], id);
-    assert_eq!(tile["kind"], "midi");
-
-    let details = request(address, "GET", &format!("/api/library/{id}"), &[&ana], None).await;
-    assert_eq!(details.json()["extension"], "mid", "{}", details.body);
-    assert_eq!(details.json()["media"], serde_json::json!({}));
-
-    let file = request(
-        address,
-        "GET",
-        &format!("/api/library/{id}/file"),
-        &[&ana],
-        None,
-    )
-    .await;
-    assert_eq!(file.status, 200, "{}", file.body);
-    assert_eq!(file.header("content-type"), Some("audio/midi"));
-
-    let picture = format!("/api/library/{id}/thumbnail");
-    let thumbnail = request(address, "GET", &picture, &[&ana], None).await;
-    assert_eq!(thumbnail.status, 404, "{}", thumbnail.body);
-    let queued: i64 = sqlx::query_scalar("SELECT count(*) FROM jobs WHERE kind = 'thumbnail'")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    assert_eq!(
-        queued, 0,
-        "nothing is drawn for a MIDI file, now or when asked"
-    );
+    for name in ["Rag.MID", "rag.midi"] {
+        let refused = announce(address, &ana, name, TUNE).await;
+        assert_eq!(refused.status, 415, "{name}: {}", refused.body);
+        assert!(refused.body.contains("cannot use"), "{}", refused.body);
+    }
+    let listed = request(address, "GET", "/api/library", &[&ana], None).await;
+    assert_eq!(listed.json(), serde_json::json!([]));
 }
 
 #[sqlx::test]
-async fn a_mid_that_is_not_midi_is_refused_in_the_readers_words(pool: PgPool) {
-    let (address, _) = common::serve_with(pool.clone(), common::files("upload-not-midi")).await;
-    let (_, ana) = member(&pool, "ana@example.com").await;
-    let junk = b"not midi, whatever its name says".to_vec();
-    let created = announce(address, &ana, "notes.mid", &junk).await;
-    assert_eq!(created.status, 201, "{}", created.body);
-    let location = created.header("location").unwrap().to_owned();
-    let refused = patch(address, &ana, &location, 0, &junk).await;
-    assert_eq!(refused.status, 422, "{}", refused.body);
+async fn no_row_can_hold_the_retired_kind(pool: PgPool) {
+    let (user, _) = member(&pool, "ana@example.com").await;
+    let stored = sqlx::query(
+        "INSERT INTO library_items (user_id, sha256, name, kind, extension, size_bytes, media)
+         VALUES ($1, $2, 'Rag.mid', 'midi', 'mid', 42, '{}')",
+    )
+    .bind(user.get())
+    .bind("c".repeat(64))
+    .execute(&pool)
+    .await;
+    let refused = stored.expect_err("the kind is gone from the constraint");
     assert!(
-        refused.body.contains("could not be read as MIDI"),
-        "{}",
-        refused.body
+        refused.to_string().contains("library_items_kind_check"),
+        "{refused}"
     );
-    let listed = request(address, "GET", "/api/library", &[&ana], None).await;
-    assert_eq!(listed.json(), serde_json::json!([]));
 }

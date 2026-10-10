@@ -9,8 +9,7 @@
 //! rebuildable rather than merely described as such.
 //!
 //! What a thumbnail shows: a video's frame one second in (or halfway through a
-//! shorter one), a picture scaled down, a sound's waveform. A MIDI file has
-//! none: it is notes, and the web app shows its kind's icon instead (#678).
+//! shorter one), a picture scaled down, a sound's waveform.
 
 use std::path::{Path, PathBuf};
 
@@ -23,27 +22,20 @@ use crate::db::UserId;
 use crate::jobs::{Context, Handler, Job, Outcome, kinds, store as jobs};
 use crate::storage::Storage;
 
-/// Where the thumbnail of `user`'s file with this hash and kind is kept —
-/// `None` for a kind that has none.
-pub fn path(storage: &Storage, user: UserId, sha256: &str, kind: Kind) -> Option<PathBuf> {
-    let extension = drawing(kind, None)?.extension();
-    Some(storage.thumbnail(user, sha256, extension))
-}
-
-/// Whether a file of `kind` gets a thumbnail at all.
-pub(super) fn drawn(kind: Kind) -> bool {
-    drawing(kind, None).is_some()
+/// Where the thumbnail of `user`'s file with this hash and kind is kept.
+pub fn path(storage: &Storage, user: UserId, sha256: &str, kind: Kind) -> PathBuf {
+    let extension = drawing(kind, None).extension();
+    storage.thumbnail(user, sha256, extension)
 }
 
 /// How a file of `kind` is drawn, given how long it lasts.
-fn drawing(kind: Kind, duration: Option<f64>) -> Option<Thumbnail> {
+fn drawing(kind: Kind, duration: Option<f64>) -> Thumbnail {
     match kind {
-        Kind::Video => Some(Thumbnail::Frame {
+        Kind::Video => Thumbnail::Frame {
             at_seconds: duration.map_or(0.0, |seconds| (seconds / 2.0).min(1.0)),
-        }),
-        Kind::Image => Some(Thumbnail::Picture),
-        Kind::Audio => Some(Thumbnail::Waveform),
-        Kind::Midi => None,
+        },
+        Kind::Image => Thumbnail::Picture,
+        Kind::Audio => Thumbnail::Waveform,
     }
 }
 
@@ -81,12 +73,8 @@ async fn draw(
         }
     };
     let source = storage.library_file(job.user, &item.sha256, &item.extension);
-    let (Some(out), Some(what)) = (
-        path(storage, job.user, &item.sha256, item.kind),
-        drawing(item.kind, item.media.duration_seconds),
-    ) else {
-        return Ok(json!({ "item": id, "drawn": false }));
-    };
+    let out = path(storage, job.user, &item.sha256, item.kind);
+    let what = drawing(item.kind, item.media.duration_seconds);
     let tools = tools.clone();
     tokio::task::spawn_blocking(move || write(&tools, &source, what, &out))
         .await
@@ -111,13 +99,10 @@ impl Library {
     /// When it has not, and no job is already drawing it, one is queued, and
     /// `None` says to ask again later. A file whose thumbnail just failed is
     /// left an hour before trying again, so a list that keeps asking does not
-    /// keep a broken file's job running. A kind with no thumbnail is always
-    /// `None`, and queues nothing.
+    /// keep a broken file's job running.
     pub async fn thumbnail(&self, user: UserId, id: i64) -> Result<Option<PathBuf>, LibraryError> {
         let item = self.get(user, id).await?;
-        let Some(file) = path(&self.storage, user, &item.sha256, item.kind) else {
-            return Ok(None);
-        };
+        let file = path(&self.storage, user, &item.sha256, item.kind);
         if file.is_file() {
             return Ok(Some(file));
         }
