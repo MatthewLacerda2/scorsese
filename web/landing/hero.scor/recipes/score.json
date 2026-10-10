@@ -1,0 +1,682 @@
+{
+  "recipe": "song",
+  "bpm": 100.0,
+  "seed": 904,
+  "key": "D major",
+  "tracks": [
+    {
+      "name": "pad",
+      "patch": {
+        "source": {
+          "kind": "osc_stack",
+          "oscs": [
+            {
+              "wave": "saw",
+              "detune_cents": 0.0,
+              "gain": 1.0,
+              "octave": 0,
+              "voices": 5,
+              "spread": 18.0
+            },
+            {
+              "wave": "triangle",
+              "detune_cents": 0.0,
+              "gain": 0.2,
+              "octave": -1
+            }
+          ]
+        },
+        "amp": {
+          "a": 0.6,
+          "d": 0.8,
+          "s": 0.8,
+          "r": 1.4,
+          "curve": 2.0
+        },
+        "filter": {
+          "kind": "lowpass",
+          "cutoff": 1800.0,
+          "resonance": 0.15,
+          "env_octaves": 0.0,
+          "vel_octaves": 0.0,
+          "adsr": {
+            "a": 0.005,
+            "d": 0.0,
+            "s": 1.0,
+            "r": 0.05
+          }
+        },
+        "lfo": {
+          "rate": 0.3,
+          "depth": 0.4,
+          "target": "cutoff"
+        },
+        "fx": [
+          {
+            "fx": "eq",
+            "bands": [
+              {
+                "kind": "lowshelf",
+                "freq": 200.0,
+                "gain_db": -4.0,
+                "q": 0.707
+              }
+            ]
+          },
+          {
+            "fx": "chorus",
+            "rate": 0.5,
+            "depth": 0.6,
+            "voices": 3,
+            "mix": 0.5
+          },
+          {
+            "fx": "reverb",
+            "size": 0.75,
+            "damp": 0.5,
+            "mix": 0.3
+          }
+        ]
+      },
+      "gain": 0.6,
+      "send": 0.5
+    },
+    {
+      "name": "keys",
+      "patch": {
+        "source": {
+          "kind": "fm2",
+          "ratio": 1.0,
+          "index": 1.2,
+          "vel_index": 4.0,
+          "mod_decay": 0.35
+        },
+        "amp": {
+          "a": 0.002,
+          "d": 2.2,
+          "s": 0.0,
+          "r": 0.3,
+          "curve": 3.5
+        },
+        "filter": {
+          "kind": "lowpass",
+          "cutoff": 1800.0,
+          "resonance": 0.0,
+          "env_octaves": 0.0,
+          "vel_octaves": 1.5,
+          "adsr": {
+            "a": 0.001,
+            "d": 0.6,
+            "s": 0.4,
+            "r": 0.2,
+            "curve": 2.0
+          }
+        },
+        "lfo": {
+          "rate": 4.5,
+          "depth": 0.15,
+          "target": "amp"
+        },
+        "fx": [
+          {
+            "fx": "chorus",
+            "rate": 0.8,
+            "depth": 0.3,
+            "voices": 2,
+            "mix": 0.3
+          },
+          {
+            "fx": "reverb",
+            "size": 0.4,
+            "damp": 0.5,
+            "mix": 0.12
+          }
+        ]
+      },
+      "gain": 0.6,
+      "pan": 0.15,
+      "send": 0.35
+    },
+    {
+      "name": "bass",
+      "patch": {
+        "source": {
+          "kind": "osc_stack",
+          "oscs": [
+            {
+              "wave": "saw",
+              "detune_cents": -4.0,
+              "gain": 1.0,
+              "octave": 0
+            },
+            {
+              "wave": "square",
+              "detune_cents": 0.0,
+              "gain": 0.6,
+              "octave": -1
+            }
+          ]
+        },
+        "amp": {
+          "a": 0.003,
+          "d": 0.3,
+          "s": 0.7,
+          "r": 0.08,
+          "curve": 2.0
+        },
+        "filter": {
+          "kind": "lowpass",
+          "cutoff": 280.0,
+          "slope": "24db",
+          "resonance": 0.25,
+          "env_octaves": 2.2,
+          "vel_octaves": 0.8,
+          "adsr": {
+            "a": 0.001,
+            "d": 0.22,
+            "s": 0.15,
+            "r": 0.08,
+            "curve": 3.0
+          }
+        },
+        "lfo": null,
+        "fx": [
+          {
+            "fx": "saturate",
+            "drive": 1.5,
+            "mix": 1.0
+          }
+        ]
+      },
+      "gain": 0.28
+    },
+    {
+      "name": "kick",
+      "patch": {
+        "source": {
+          "kind": "osc_stack",
+          "oscs": [
+            {
+              "wave": "sine",
+              "detune_cents": 0.0,
+              "gain": 1.0,
+              "octave": -2
+            }
+          ]
+        },
+        "amp": {
+          "a": 0.001,
+          "d": 0.38,
+          "s": 0.0,
+          "r": 0.04,
+          "curve": 4.0
+        },
+        "filter": null,
+        "pitch_env": {
+          "semitones": 20.0,
+          "adsr": {
+            "a": 0.0,
+            "d": 0.05,
+            "s": 0.0,
+            "r": 0.0,
+            "curve": 5.0
+          }
+        },
+        "lfo": null,
+        "fx": [
+          {
+            "fx": "saturate",
+            "drive": 1.5,
+            "mix": 1.0
+          }
+        ]
+      },
+      "gain": 0.6
+    },
+    {
+      "name": "snare",
+      "patch": {
+        "source": {
+          "kind": "noise",
+          "color": "pink"
+        },
+        "amp": {
+          "a": 0.001,
+          "d": 0.2,
+          "s": 0.0,
+          "r": 0.08,
+          "curve": 4.0
+        },
+        "filter": {
+          "kind": "lowpass",
+          "cutoff": 7000.0,
+          "resonance": 0.1,
+          "env_octaves": 1.2,
+          "vel_octaves": 0.0,
+          "adsr": {
+            "a": 0.0,
+            "d": 0.08,
+            "s": 0.0,
+            "r": 0.05,
+            "curve": 3.0
+          }
+        },
+        "lfo": null,
+        "fx": [
+          {
+            "fx": "eq",
+            "bands": [
+              {
+                "kind": "highpass",
+                "freq": 140.0,
+                "gain_db": 0.0,
+                "q": 0.707
+              },
+              {
+                "kind": "peak",
+                "freq": 220.0,
+                "gain_db": 4.0,
+                "q": 1.2
+              }
+            ]
+          },
+          {
+            "fx": "reverb",
+            "size": 0.25,
+            "damp": 0.6,
+            "mix": 0.12
+          }
+        ]
+      },
+      "gain": 0.75,
+      "send": 0.25
+    },
+    {
+      "name": "hat",
+      "patch": {
+        "source": {
+          "kind": "noise"
+        },
+        "amp": {
+          "a": 0.0005,
+          "d": 0.05,
+          "s": 0.0,
+          "r": 0.03,
+          "curve": 4.0
+        },
+        "filter": {
+          "kind": "highpass",
+          "cutoff": 7500.0,
+          "slope": "24db",
+          "resonance": 0.15,
+          "env_octaves": 0.0,
+          "vel_octaves": 0.0,
+          "adsr": {
+            "a": 0.005,
+            "d": 0.0,
+            "s": 1.0,
+            "r": 0.05
+          }
+        },
+        "lfo": null,
+        "fx": []
+      },
+      "gain": 0.5,
+      "pan": -0.25
+    },
+    {
+      "name": "crash",
+      "patch": {
+        "source": {
+          "kind": "noise"
+        },
+        "amp": {
+          "a": 0.001,
+          "d": 1.8,
+          "s": 0.0,
+          "r": 0.9,
+          "curve": 3.0
+        },
+        "filter": {
+          "kind": "highpass",
+          "cutoff": 3500.0,
+          "resonance": 0.1,
+          "env_octaves": -0.8,
+          "vel_octaves": 0.0,
+          "adsr": {
+            "a": 0.0,
+            "d": 1.2,
+            "s": 0.0,
+            "r": 0.5,
+            "curve": 2.0
+          }
+        },
+        "lfo": null,
+        "fx": [
+          {
+            "fx": "reverb",
+            "size": 0.5,
+            "damp": 0.4,
+            "mix": 0.2
+          }
+        ]
+      },
+      "gain": 0.5,
+      "send": 0.4
+    }
+  ],
+  "patterns": {
+    "away": {
+      "beats": 8.0,
+      "notes": [
+        {
+          "track": "pad",
+          "chord": "Gmaj9",
+          "oct": 3,
+          "start": 0.0,
+          "dur": 4.0,
+          "vel": 0.7
+        },
+        {
+          "track": "pad",
+          "chord": "Asus4",
+          "oct": 3,
+          "start": 4.0,
+          "dur": 2.0,
+          "vel": 0.7
+        },
+        {
+          "track": "pad",
+          "chord": "A",
+          "oct": 3,
+          "start": 6.0,
+          "dur": 2.0,
+          "vel": 0.7
+        },
+        {
+          "track": "keys",
+          "chord": "Gmaj9",
+          "oct": 3,
+          "start": 0.0,
+          "dur": 4.0,
+          "vel": 0.6,
+          "arp": "up_down",
+          "div": 0.5
+        },
+        {
+          "track": "keys",
+          "chord": "Asus4",
+          "oct": 3,
+          "start": 4.0,
+          "dur": 2.0,
+          "vel": 0.65,
+          "arp": "up",
+          "div": 0.5
+        },
+        {
+          "track": "keys",
+          "chord": "A7",
+          "oct": 3,
+          "start": 6.0,
+          "dur": 2.0,
+          "vel": 0.7,
+          "arp": "up",
+          "div": 0.5
+        }
+      ]
+    },
+    "groove": {
+      "beats": 8.0,
+      "notes": [
+        {
+          "track": "kick",
+          "steps": "x-----x-x-------x-----x-x-----x-",
+          "div": 0.25,
+          "vel": 1.0
+        },
+        {
+          "track": "snare",
+          "steps": "----x-------x-------x-------x-xo",
+          "div": 0.25,
+          "vel": 0.8
+        },
+        {
+          "track": "hat",
+          "steps": "x-xXx-xXx-xXx-xXx-xXx-xXx-xXx-xX",
+          "div": 0.25,
+          "vel": 0.45
+        }
+      ]
+    },
+    "home": {
+      "beats": 8.0,
+      "notes": [
+        {
+          "track": "pad",
+          "chord": "Dmaj7",
+          "oct": 3,
+          "start": 0.0,
+          "dur": 4.0,
+          "vel": 0.7
+        },
+        {
+          "track": "pad",
+          "chord": "Bm7",
+          "oct": 3,
+          "start": 4.0,
+          "dur": 4.0,
+          "vel": 0.7
+        },
+        {
+          "track": "keys",
+          "chord": "Dmaj7",
+          "oct": 4,
+          "start": 0.0,
+          "dur": 4.0,
+          "vel": 0.6,
+          "arp": "up_down",
+          "div": 0.5
+        },
+        {
+          "track": "keys",
+          "chord": "Bm7",
+          "oct": 3,
+          "start": 4.0,
+          "dur": 4.0,
+          "vel": 0.6,
+          "arp": "up_down",
+          "div": 0.5
+        }
+      ]
+    },
+    "lift": {
+      "beats": 8.0,
+      "notes": [
+        {
+          "track": "crash",
+          "note": "C4",
+          "start": 0.0,
+          "dur": 4.0,
+          "vel": 0.9
+        }
+      ]
+    },
+    "low-away": {
+      "beats": 8.0,
+      "notes": [
+        {
+          "track": "bass",
+          "note": "G1",
+          "start": 0.0,
+          "dur": 1.5,
+          "vel": 1.0
+        },
+        {
+          "track": "bass",
+          "note": "G1",
+          "start": 1.5,
+          "dur": 0.5,
+          "vel": 0.7
+        },
+        {
+          "track": "bass",
+          "note": "D2",
+          "start": 2.5,
+          "dur": 1.5,
+          "vel": 1.0
+        },
+        {
+          "track": "bass",
+          "note": "A1",
+          "start": 4.0,
+          "dur": 1.5,
+          "vel": 1.0
+        },
+        {
+          "track": "bass",
+          "note": "A1",
+          "start": 5.5,
+          "dur": 0.5,
+          "vel": 0.7
+        },
+        {
+          "track": "bass",
+          "note": "C#2",
+          "start": 6.5,
+          "dur": 1.5,
+          "vel": 1.0
+        }
+      ]
+    },
+    "low-home": {
+      "beats": 8.0,
+      "notes": [
+        {
+          "track": "bass",
+          "note": "D2",
+          "start": 0.0,
+          "dur": 1.5,
+          "vel": 1.0
+        },
+        {
+          "track": "bass",
+          "note": "D2",
+          "start": 1.5,
+          "dur": 0.5,
+          "vel": 0.7
+        },
+        {
+          "track": "bass",
+          "note": "A1",
+          "start": 2.5,
+          "dur": 1.5,
+          "vel": 1.0
+        },
+        {
+          "track": "bass",
+          "note": "B1",
+          "start": 4.0,
+          "dur": 1.5,
+          "vel": 1.0
+        },
+        {
+          "track": "bass",
+          "note": "B1",
+          "start": 5.5,
+          "dur": 0.5,
+          "vel": 0.7
+        },
+        {
+          "track": "bass",
+          "note": "F#2",
+          "start": 6.5,
+          "dur": 1.5,
+          "vel": 1.0
+        }
+      ]
+    },
+    "rest": {
+      "beats": 4.0,
+      "notes": [
+        {
+          "track": "pad",
+          "chord": "Dmaj9",
+          "oct": 3,
+          "start": 0.0,
+          "dur": 4.0,
+          "vel": 0.75
+        },
+        {
+          "track": "keys",
+          "chord": "Dmaj9",
+          "oct": 3,
+          "start": 0.0,
+          "dur": 1.5,
+          "vel": 0.6,
+          "arp": "up",
+          "div": 0.25,
+          "gate": 6.0
+        },
+        {
+          "track": "bass",
+          "note": "D2",
+          "start": 0.0,
+          "dur": 4.0,
+          "vel": 1.0
+        },
+        {
+          "track": "kick",
+          "note": "C4",
+          "start": 0.0,
+          "dur": 0.5,
+          "vel": 1.0
+        }
+      ]
+    },
+    "tick": {
+      "beats": 8.0,
+      "notes": [
+        {
+          "track": "hat",
+          "steps": "--x---x---x---x---x---x---x--xxx",
+          "div": 0.25,
+          "vel": 0.5
+        }
+      ]
+    }
+  },
+  "arrangement": [
+    "home",
+    {
+      "layers": [
+        "away",
+        "low-away",
+        "tick"
+      ]
+    },
+    {
+      "layers": [
+        "home",
+        "low-home",
+        "groove"
+      ]
+    },
+    {
+      "layers": [
+        "away",
+        "low-away",
+        "groove",
+        "lift"
+      ]
+    },
+    "rest"
+  ],
+  "fx": [
+    {
+      "fx": "reverb",
+      "size": 0.75,
+      "damp": 0.45,
+      "mix": 0.2
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "schema_version": 47,
+  "name": "scorsese landing showcase",
+  "timeline_fps": {
+    "num": 30,
+    "den": 1
+  },
+  "assets": [
+    {
+      "id": "promo",
+      "kind": "html",
+      "path": "pages/promo.html"
+    },
+    {
+      "id": "event",
+      "kind": "html",
+      "path": "pages/event.html"
+    },
+    {
+      "id": "ad",
+      "kind": "html",
+      "path": "pages/ad.html"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "examples",
+      "kind": "video",
+      "name": "Examples",
+      "clips": [
+        {
+          "id": "c-promo",
+          "asset": "promo",
+          "start": 0,
+          "duration": 60
+        },
+        {
+          "id": "c-event",
+          "asset": "event",
+          "start": 60,
+          "duration": 60
+        },
+        {
+          "id": "c-ad",
+          "asset": "ad",
+          "start": 120,
+          "duration": 60
+        }
+      ]
+    }
+  ],
+  "script": "script.md"
+}

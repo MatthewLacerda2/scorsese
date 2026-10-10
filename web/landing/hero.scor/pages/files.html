@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+<link rel="stylesheet" href="look.css">
+<script src="https://lib.scorsese/kit.js"></script>
+<script src="out.js"></script>
+<style>
+  .fan { position: absolute; left: 50%; top: 470px; }
+  .card {
+    position: absolute; width: 300px; height: 380px; margin: -190px 0 0 -150px;
+    border-radius: 22px; overflow: hidden; color: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 40px 80px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+    display: grid; place-items: center; opacity: 0;
+  }
+  .card .label {
+    position: absolute; left: 24px; bottom: 20px;
+    font: 500 22px "JetBrains Mono"; opacity: 0.85;
+  }
+  .sun { background: linear-gradient(160deg, #ffcf7a, #e4572e 55%, #5b1d3a); }
+  .cafe { background: linear-gradient(200deg, #3a2a20, #a0663b 60%, #f1c48b); }
+  .crowd { background: linear-gradient(140deg, #1d2b53, #7e2553 60%, #ff77a8); }
+  .song { background: linear-gradient(180deg, #14213d, #2b4c7e); }
+  .logo { background: radial-gradient(circle at 50% 40%, #fff3d6, #f2b134 70%); color: #3a2410; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="step">01 · Send your files</div>
+  <div class="fan">
+    <div class="card sun"><span class="icon" style="--icon: url(https://lib.scorsese/icons/image.svg)"></span><span class="label">opening.jpg</span></div>
+    <div class="card cafe"><span class="icon" style="--icon: url(https://lib.scorsese/icons/video.svg)"></span><span class="label">counter.mp4</span></div>
+    <div class="card logo"><span class="icon" style="--icon: url(https://lib.scorsese/icons/coffee.svg); width: 120px; height: 120px"></span><span class="label">logo.png</span></div>
+    <div class="card crowd"><span class="icon" style="--icon: url(https://lib.scorsese/icons/users.svg)"></span><span class="label">guests.mov</span></div>
+    <div class="card song"><span class="icon" style="--icon: url(https://lib.scorsese/icons/music.svg)"></span><span class="label">our-song.mp3</span></div>
+  </div>
+  <div class="say" style="--at: 1.3s">Your <em>files</em>, as they are.</div>
+</div>
+<script>
+  // Each card flies in from below the frame and settles into a fan, the
+  // middle one last and on top.
+  const cards = [...document.querySelectorAll(".card")];
+  const fan = [-2, -1, 0, 1, 2];
+  const order = [0, 1, 4, 2, 3];
+  cards.forEach((card, i) => { card.style.zIndex = 10 - Math.abs(fan[i]); });
+  kit.frame((t) => {
+    cards.forEach((card, i) => {
+      const p = kit.enter(t, kit.stagger(order[i], 0.14, 0.1), 0.9);
+      const drift = kit.remap(t, 0, scorsese.duration, 0, 1);
+      const x = fan[i] * 250 * p + fan[i] * 14 * drift;
+      const y = (1 - p) * 720 + Math.abs(fan[i]) * 28;
+      const turn = fan[i] * 7 * p + (1 - p) * fan[i] * -20;
+      card.style.opacity = kit.clamp(p * 1.6);
+      card.style.transform = `translate(${x}px, ${y}px) rotate(${turn}deg) scale(${0.92 + 0.08 * p})`;
+    });
+  });
+</script>
+</body>
+</html>

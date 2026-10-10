@@ -8,6 +8,7 @@ import { common } from "@/i18n/es/common";
 import { editor } from "@/i18n/es/editor";
 import { files } from "@/i18n/es/files";
 import { inspector } from "@/i18n/es/inspector";
+import { landing } from "@/i18n/es/landing";
 import { pages } from "@/i18n/es/pages";
 
-export const es: Messages = { common, files, pages, editor, chat, assets, inspector };
+export const es: Messages = { common, files, pages, editor, chat, assets, inspector, landing };

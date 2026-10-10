@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+<head>
+<link rel="stylesheet" href="look.css">
+<style>
+  body { background: #0b0d14; }
+  .grid { position: absolute; inset: 0; display: grid; grid-template-columns: 1.3fr 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 14px; padding: 14px; }
+  .tile { border-radius: 10px; }
+  .a { grid-row: span 2; background: radial-gradient(circle at 30% 30%, #ffd9a0, transparent 40%), linear-gradient(160deg, #3d2c8d, #916bbf 50%, #c996cc); }
+  .b { background: linear-gradient(200deg, #1c1c3c, #ff6f3c); }
+  .c { background: radial-gradient(circle at 70% 60%, #fbe8a6, transparent 35%), linear-gradient(140deg, #0f3057, #00587a); }
+  .d { background: linear-gradient(120deg, #f7d794, #f19066 60%, #c44569); }
+  .e { background: radial-gradient(circle at 50% 40%, #ffffff55, transparent 30%), linear-gradient(180deg, #303952, #596275); }
+  .shade { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(5,6,10,.85), transparent 55%); }
+  .third { position: absolute; left: 96px; bottom: 110px; color: #fff; animation: rise .8s var(--enter) both; }
+  .third b { display: block; font: 700 92px/1 "Playfair Display"; }
+  .third span { display: inline-block; margin-top: 18px; padding: 10px 20px; border-left: 6px solid var(--gold); background: rgba(12,14,20,.7); font: 500 36px Inter; }
+</style>
+</head>
+<body>
+  <div class="grid"><div class="tile a"></div><div class="tile b"></div><div class="tile c"></div><div class="tile d"></div><div class="tile e"></div></div>
+  <div class="shade"></div>
+  <div class="third"><b>Design Week, day three</b><span>420 guests · 12 talks · one long night</span></div>
+</body>
+</html>
