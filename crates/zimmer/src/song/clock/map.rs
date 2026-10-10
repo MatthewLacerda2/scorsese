@@ -283,6 +283,37 @@ mod tests {
         assert!((map.seconds(22.0) - (ramp + 2.0)).abs() < 1e-9);
     }
 
+    /// A landing in the middle of a ramp that does not start the piece: the
+    /// ramp's tempo there is picked up where the ramp had got to.
+    #[test]
+    fn a_landing_mid_ramp_carries_on_from_the_tempo_the_ramp_reached() {
+        let changes = [TempoChange::jump(4.0, 60.0), TempoChange::ramp(16.0, 120.0)];
+        let written = Map::new(120.0, &changes, 1.0, 32.0, 1);
+        let anchored = written.anchored(&[(10.0, 9.0)]);
+        // Written: 2 s, then a ramp from 60 that is at 90 by beat 10.
+        assert!((written.tempo(10.0) - 90.0).abs() < 1e-9);
+        assert!(
+            (anchored.tempo(10.0) - 90.0).abs() < 1e-9,
+            "after the last landing"
+        );
+        let factor = written.seconds(10.0) / 9.0;
+        assert!((anchored.tempo(6.0) - 70.0 * factor).abs() < 1e-9);
+    }
+
+    /// The tempo a beat is played at, read off the map: 150 halfway up the
+    /// ramp, 180 once it has arrived, and back to 120 at a new pass.
+    #[test]
+    fn the_tempo_on_a_beat_is_the_map_read_there() {
+        let map = accelerando();
+        assert_eq!(map.tempo(0.0), 120.0);
+        assert!((map.tempo(8.0) - 150.0).abs() < 1e-9);
+        assert!((map.tempo(4.0) - 135.0).abs() < 1e-9);
+        assert_eq!(map.tempo(20.0), 180.0);
+        let twice = Map::new(120.0, &[TempoChange::jump(2.0, 60.0)], 1.0, 4.0, 2);
+        assert_eq!(twice.tempo(3.0), 60.0);
+        assert_eq!(twice.tempo(5.0), 120.0, "the second pass starts again");
+    }
+
     #[test]
     fn seconds_to_beats_undoes_beats_to_seconds() {
         let map = accelerando();
@@ -334,6 +365,14 @@ mod tests {
         assert!((anchored.seconds(8.0) - 5.0).abs() < 1e-12);
         assert!((anchored.seconds(24.0) - 12.0).abs() < 1e-12);
         let factor = written.seconds(8.0) / 5.0;
+        assert!((anchored.opening() - 120.0 * factor).abs() < 1e-9);
+        // The second stretch, beats 8 to 24, has its own factor — and the
+        // ramp's end at 16 sits inside it, counted from the landing at 8.
+        let second = (written.seconds(24.0) - written.seconds(8.0)) / 7.0;
+        for beats in [10.0, 16.0, 20.0] {
+            let at = 5.0 + (written.seconds(beats) - written.seconds(8.0)) / second;
+            assert!((anchored.seconds(beats) - at).abs() < 1e-12, "beat {beats}");
+        }
         for beats in [1.0, 4.0, 7.5] {
             let scaled = written.seconds(beats) / factor;
             assert!(
@@ -345,6 +384,11 @@ mod tests {
         // Past the last landing the written tempo holds: 180, a third of a
         // second a beat.
         assert!((anchored.seconds(27.0) - 13.0).abs() < 1e-12);
-        assert!((anchored.beats(anchored.seconds(20.0)) - 20.0).abs() < 1e-9);
+        // And back again, across every stretch and both sides of the ramp's
+        // end — which only works if each time maps to the one segment it is in.
+        for half in 0..64 {
+            let beats = f64::from(half) / 2.0;
+            assert!((anchored.beats(anchored.seconds(beats)) - beats).abs() < 1e-9);
+        }
     }
 }

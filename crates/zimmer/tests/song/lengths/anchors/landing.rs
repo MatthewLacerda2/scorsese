@@ -44,12 +44,23 @@ fn a_stretch_fit_lands_the_end_after_the_last_anchor() {
 }
 
 /// The first section starts the song, so pinning it at zero says nothing new
-/// and changes nothing.
+/// and changes nothing — not a sample.
 #[test]
 fn an_anchor_on_the_first_section_at_zero_changes_nothing() {
     let song = four_sections(vec![Anchor::at(0, 0.0)]);
     song.validate().expect("valid");
-    assert_eq!(ends(&song), ends(&four_sections(vec![])));
+    assert_eq!(render(&song), render(&four_sections(vec![])));
+}
+
+/// A `once` fit is not an anchor: the sections land, the song plays out at
+/// the written tempo after the last, and the file is cut to the fit.
+#[test]
+fn a_once_fit_keeps_the_written_tempo_after_the_last_anchor() {
+    let mut song = four_sections(vec![Anchor::at(2, 4.4)]);
+    song.fit = Some(Fit::lasting(5.0, FitMode::Once));
+    song.validate().expect("valid");
+    close(&ends(&song), &[2.2, 4.4, 6.4, 8.4]);
+    assert_eq!(render(&song).len(), samples(5.0));
 }
 
 /// A song that writes its own tempo map keeps its shape inside each
