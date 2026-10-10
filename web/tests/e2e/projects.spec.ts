@@ -37,3 +37,28 @@ test("creating a project opens its editor, and the list then has it", async ({ p
   await page.goto("/projects");
   await expect(page.getByText("Lighthouse")).toBeVisible();
 });
+
+test("a project started for a platform and a style opens upright, and says so", async ({
+  page,
+}) => {
+  await logIn(page);
+  await page.getByRole("button", { name: "Create" }).click();
+  const modal = page.getByRole("dialog");
+  await modal.getByLabel("Project's name").fill("Flash sale");
+  await modal.getByRole("button", { name: "3. Platform" }).click();
+  await expect(modal.getByText("You can choose or change the platform later.")).toBeVisible();
+  await modal.getByRole("radio", { name: /Anúncio no TikTok/ }).click();
+  await modal.getByRole("button", { name: "Next" }).click();
+  await expect(modal.getByText("You can choose or change the style later.")).toBeVisible();
+  // Only the styles made for a TikTok ad, each with a placeholder until #1017.
+  await expect(modal.getByRole("radio", { name: /Quadro que se desenha/ })).toHaveCount(0);
+  await expect(modal.getByTestId("style-placeholder").first()).toBeVisible();
+  await modal.getByRole("radio", { name: /Oferta relâmpago/ }).click();
+  await modal.getByRole("button", { name: "Create" }).click();
+
+  await expect(page).toHaveURL(/\/projects\/\d+\/edit$/);
+  await expect(page.getByRole("combobox", { name: "Frame shape" })).toHaveValue("portrait");
+  await expect(page.getByRole("button", { name: "Platform and style" })).toContainText(
+    "Oferta relâmpago",
+  );
+});

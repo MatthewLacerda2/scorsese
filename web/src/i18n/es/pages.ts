@@ -13,10 +13,7 @@ export const pages: Messages["pages"] = {
     introEnd: ".",
   },
   projects: {
-    empty: "Todavía no hay proyectos. Ponle nombre a uno arriba para empezar.",
-    newName: "Nombre del proyecto",
-    newPlaceholder: "Nombre del proyecto",
-    nameMissing: "Escribe el nombre del proyecto",
+    empty: "Todavía no hay proyectos. Pulsa Crear para empezar.",
     create: "Crear",
     name: "Nombre del proyecto",
     changed: (date: string) => `Modificado el ${date}`,

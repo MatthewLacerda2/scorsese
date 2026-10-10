@@ -65,7 +65,17 @@ test("the projects page lists what the user has", async () => {
     client.setQueryData(ME, ana);
     client.setQueryData(
       ["projects"],
-      [{ id: 4, name: "teaser", revision: 2, created_at: 0, updated_at: 0 }],
+      [
+        {
+          id: 4,
+          name: "teaser",
+          revision: 2,
+          created_at: 0,
+          updated_at: 0,
+          platform: null,
+          style: null,
+        },
+      ],
     );
   });
   expect(html).toContain("teaser");
@@ -83,6 +93,8 @@ test("the editor draws the stored document: its tracks, clips and assets", async
     revision: 9,
     created_at: 0,
     updated_at: 0,
+    platform: null,
+    style: null,
     document: {
       schema_version: 47,
       name: "teaser",

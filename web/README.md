@@ -44,7 +44,8 @@ It expects the server on `http://localhost:8080`; point it elsewhere with
 | `public/` | the square icon (favicon, account button), resized from `app/assets/`, and `landing/`: the landing page's film, poster and pictures, rendered by `make landing-hero` from the projects in `landing/` | — |
 | `landing/` | the landing page's two scorsese projects (`hero.scor`, `showcase.scor`): pages, native text and a synthesised score, so re-rendering them costs nothing | changing the film — edit the project, run `make landing-hero`, commit what it writes |
 | `src/landing/` | the landing page at `/` (#904): its sections, the sign-in popup, and `motion.ts`, which drives the motion kit's helpers (`crates/render/src/page/shipped/kit.js`, imported as it is) with the scroll as their clock. Its type is the shipped faces, loaded from `crates/compositor/fonts/` | — |
-| `src/pages/` | projects, the two file views, the spending history | — |
+| `src/pages/` | projects (with the new-project modal, #1016), the two file views, the spending history | — |
+| `src/start/` | what a project is started for (#1016): the platform and style pickers, the menu query (`GET /api/styles`) and its plain decisions (`menu.ts`) — shared by the new-project modal and the editor's Platform and style control | choosing a platform or a style anywhere |
 | `src/editor/` | the editor (`/projects/:id/edit`): `timeline/` (the time↔pixel maths, drag, snap and the tool call a drag becomes, all plain functions), `preview/`, `inspector/`, `assets/`, `templates/` (save the selection, insert at the playhead — #546), `selection.ts` (one clip, or several with Shift), `chat/` (the assistant's panel, its transcript a pure reducer over the event stream); every edit goes through `project.ts`'s `useEdit`, a tool call — docs/web.md, *The editor* | — |
 
 **Uploads** hash a file in the browser first (streamed, so a large file is

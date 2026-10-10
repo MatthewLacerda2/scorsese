@@ -2,6 +2,7 @@
 // tables as functions. A page imports `api` and never builds a URL itself, so
 // when a route changes there is one file to change with it.
 
+import type { TurnView } from "./chat";
 import { query, request } from "./client";
 import type { JobView } from "./events";
 import type {
@@ -13,9 +14,11 @@ import type {
   HistoryKind,
   LibraryItem,
   LibraryTile,
+  NewProject,
   ProjectSummary,
   RenderView,
   StoredProject,
+  StyleMenu,
   TemplateSummary,
   ToolAnswer,
 } from "./types";
@@ -76,11 +79,30 @@ export const api = {
   },
   projects: {
     list: () => request<ProjectSummary[]>("GET", "/projects"),
-    create: (name: string) => request<StoredProject>("POST", "/projects", { name }),
+    /** A project, with its starting brief when a platform or style is chosen (#1016). */
+    create: (project: NewProject) => request<StoredProject>("POST", "/projects", project),
     open: (id: number) => request<StoredProject>("GET", `/projects/${id}`),
     rename: (id: number, name: string) =>
       request<{ revision: number }>("PATCH", `/projects/${id}`, { name }),
     remove: (id: number) => request<void>("DELETE", `/projects/${id}`),
+    /**
+     * Change what the project is made for (#1016). When it changed, the
+     * assistant is told in a turn that opens with `message`; `note` says why
+     * none started.
+     */
+    retarget: (
+      id: number,
+      start: { platform: string | null; style: string | null; message: string },
+    ) =>
+      request<{ turn: TurnView | null; note: string | null }>(
+        "PUT",
+        `/projects/${id}/start`,
+        start,
+      ),
+  },
+  /** Every placement and style a project can start from. */
+  styles: {
+    menu: () => request<StyleMenu>("GET", "/styles"),
   },
   library: {
     list: (filter: LibraryFilter = {}) =>

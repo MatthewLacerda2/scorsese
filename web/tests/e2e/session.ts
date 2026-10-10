@@ -18,11 +18,16 @@ export async function logIn(page: Page) {
   await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
 }
 
-/** Logs in and creates a project named `name`, and waits for its editor. */
+/**
+ * Logs in and creates a project named `name` through the new-project modal
+ * (#1016) — the name alone, every other step skipped — and waits for its editor.
+ */
 export async function newProject(page: Page, name: string) {
   await logIn(page);
-  await page.getByPlaceholder("Project's name").fill(name);
   await page.getByRole("button", { name: "Create" }).click();
+  const modal = page.getByRole("dialog");
+  await modal.getByLabel("Project's name").fill(name);
+  await modal.getByRole("button", { name: "Create" }).click();
   await expect(page).toHaveURL(/\/projects\/\d+\/edit$/);
   await expect(page.getByRole("heading", { name: "Assets" })).toBeVisible();
 }
