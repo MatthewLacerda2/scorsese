@@ -634,6 +634,22 @@ machine you are on — cores, free memory, free disk — before a heavy build.
   - **Every issue Claude writes on its own carries the `agent` label**, so the
     user can tell it from one they asked for. It is not a stage label and never
     stops work.
+  - **While a video is being made, the findings wait for the debrief** (the
+    user, 2026-10-10). Making a real video is the hardest test scorsese gets
+    and where most findings come from: bugs, missing tools, papercuts, things
+    learned about where it is posted (Instagram's recommended loudness). But
+    the session is about the video, so during the edit Claude files nothing,
+    opens no branch and does not stop to discuss them; it writes each one down
+    as it is noticed (a scratch file named for the project, so a compaction
+    does not lose it) and keeps editing. The debrief comes **after**: when the
+    user says the video is done, or when Claude has rendered and delivered the
+    video or audio and considers it finished. Then every finding on the list is
+    filed or folded under the rules above, and the user is told what went
+    where. The one exception is a bug that **stops the video being made**:
+    worked around if it can be, fixed then if it cannot, because otherwise
+    there is no video. This is for someone working in a clone of the repo
+    (CLI, MCP, the desktop app). **The web app's assistant never does it**:
+    its user is making a video, not developing scorsese.
 - **Priority by label:** **infrastructure → architecture → bug → foundation →
   feature.** If the way we build isn't solid — a tool or guardrail missing
   (**infrastructure**), a structural shape or convention missing
