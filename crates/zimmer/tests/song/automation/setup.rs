@@ -55,6 +55,7 @@ pub(crate) fn voiced(patch: Patch, gain: f32) -> Song {
         fx: vec![],
         automation: vec![],
         fit: None,
+        anchors: Vec::new(),
         fade: None,
         tail: None,
     }

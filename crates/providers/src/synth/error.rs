@@ -113,6 +113,41 @@ pub enum SynthesisError {
         clips: String,
     },
 
+    /// A song section anchored at a clip (#1009) whose start cannot be read
+    /// as a time in the song: no such clip, no clip playing the song on its
+    /// timeline, a clip starting before the music does, or clips playing the
+    /// song that put it at different points of it.
+    #[error("asset `{id}`: the anchor at clip `{clip}` {why}")]
+    AnchorClip {
+        /// The song's asset.
+        id: AssetId,
+        /// The clip the anchor names.
+        clip: String,
+        /// What is wrong, already worded, and what to do instead.
+        why: String,
+    },
+
+    /// Two anchors whose clips are the wrong way round on the timeline: the
+    /// later section would start before the earlier one, which no tempo can
+    /// play (#1009).
+    #[error(
+        "asset `{id}`: the anchor at clip `{later}` ({later_seconds:.3} s into the song) \
+         lands before the one at {earlier} ({earlier_seconds:.3} s) — move a clip, or \
+         anchor the sections the other way round"
+    )]
+    AnchorsOutOfOrder {
+        /// The song's asset.
+        id: AssetId,
+        /// The earlier anchor: `clip `…`` or the seconds it was written at.
+        earlier: String,
+        /// Where the earlier one lands, in seconds of the song.
+        earlier_seconds: f32,
+        /// The clip of the later anchor.
+        later: String,
+        /// Where the later one lands, in seconds of the song.
+        later_seconds: f32,
+    },
+
     /// Whoever started the bake asked it to stop, and it did (#661).
     ///
     /// Not a fault in the recipe: nothing was refused, and nothing half-made

@@ -110,6 +110,12 @@ pub(crate) fn shape(song: &Song, buf: &mut Stereo, arrangement_end: usize) {
 /// the tempo — all of it, map and all, by one factor. The caller renders the result and then calls [`shape`], which is
 /// what actually lands it on the target sample.
 pub(crate) fn plan(song: &Song) -> (Clock, u32) {
+    // Pinned sections decide the tempo stretch by stretch, a `stretch` fit's
+    // end among them, and are played once: `validate` refuses them under a
+    // `loop`, and `once` pads after the last as it always did.
+    if let Some(landings) = super::anchor::landings(song) {
+        return (Clock::anchored(song, &landings), 1);
+    }
     let written = Clock::written(song, 1);
     let Some((fit, seconds)) = fitted(song) else {
         return (written, 1);

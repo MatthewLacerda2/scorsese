@@ -94,6 +94,7 @@ pub(super) fn song(score: Score) -> Result<Imported, MidiError> {
         fx: vec![],
         automation: vec![],
         fit: None,
+        anchors: Vec::new(),
         fade: None,
         tail: None,
     };

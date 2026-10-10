@@ -10,11 +10,11 @@
 //! compile, and the error names it.
 //!
 //! **One small group is worded in [`length`]**: the refusals of `fit`,
-//! `fade` and `tail`, split off when this file reached the size gate. The
+//! `fade`, `tail` and `anchors`, split off when this file reached the size gate. The
 //! match here still names each of them, in the one arm that hands them over,
 //! so a new variant still does not compile until it has a home. What the
 //! compiler cannot check is that `length`'s match has an arm for every name
-//! in that list — which is why the list is six names long and the words sit
+//! in that list — which is why the list is seven names long and the words sit
 //! right beside it, rather than a whole group of thirty being moved.
 
 mod length;
@@ -322,6 +322,7 @@ impl SynthError {
             // their words in `length`, the one group spelled out of this match.
             Self::BadFitSeconds { .. }
             | Self::FitLength { .. }
+            | Self::BadAnchor { .. }
             | Self::BadFade { .. }
             | Self::StretchTooFar { .. }
             | Self::WrapWith { .. }

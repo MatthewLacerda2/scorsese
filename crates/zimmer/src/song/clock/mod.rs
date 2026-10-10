@@ -27,6 +27,7 @@
 mod map;
 
 use super::Song;
+use super::anchor::Landing;
 use crate::core::RATE;
 use map::Map;
 
@@ -82,6 +83,25 @@ impl Clock {
         Self::mapped(song, passes, once * f64::from(passes) / f64::from(seconds))
     }
 
+    /// The clock that puts each of `landings` on its time: the written one,
+    /// with every stretch between two landings sped up or slowed by the one
+    /// factor that lands it, and the stretch after the last as written — see
+    /// [`super::anchor`]. Always mapped, since the tempo now moves.
+    pub(crate) fn anchored(song: &Song, landings: &[Landing]) -> Self {
+        let written = Map::new(song.bpm, &song.tempo, 1.0, song.arrangement_beats(), 1);
+        let points: Vec<(f64, f64)> = landings.iter().map(|it| (it.beat, it.seconds)).collect();
+        let map = written.anchored(&points);
+        Self::at(map.opening() as f32).with(map)
+    }
+
+    /// This clock, reading its beats through `map`.
+    fn with(self, map: Map) -> Self {
+        Self {
+            map: Some(map),
+            ..self
+        }
+    }
+
     /// `song`'s tempo map with every tempo in it multiplied by `scale`.
     fn mapped(song: &Song, passes: u32, scale: f64) -> Self {
         let bpm = (f64::from(song.bpm) * scale) as f32;
@@ -100,6 +120,14 @@ impl Clock {
     /// The tempo on the first beat.
     pub(crate) fn bpm(&self) -> f32 {
         self.bpm
+    }
+
+    /// The tempo on beat `beats` of the piece, in beats per minute.
+    pub(crate) fn tempo(&self, beats: f32) -> f32 {
+        match &self.map {
+            None => self.bpm,
+            Some(map) => map.tempo(f64::from(beats)) as f32,
+        }
     }
 
     /// How many seconds into the piece `beats` from its start is.

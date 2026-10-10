@@ -13,6 +13,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::Song;
 use crate::error::SynthError;
 
 /// How far a tempo may be moved to make a song fit, as a fraction either way.
@@ -195,4 +196,65 @@ pub(crate) fn check_wrap(fit: Option<Fit>, fade: Option<Fade>) -> Result<(), Syn
         Some(FitMode::Stretch) | None => return Ok(()),
     };
     Err(SynthError::WrapWith { field, why })
+}
+
+/// The length and level fields, checked here rather than at render time so
+/// a song that cannot be made to fit says so before anything is rendered.
+pub(super) fn check(song: &Song) -> Result<(), SynthError> {
+    if let Some(fade) = song.fade
+        && !(fade.in_seconds.is_finite()
+            && fade.in_seconds >= 0.0
+            && fade.out_seconds.is_finite()
+            && fade.out_seconds >= 0.0)
+    {
+        return Err(SynthError::BadFade {
+            seconds: fade.in_seconds.max(fade.out_seconds),
+        });
+    }
+    if song.tail() == Tail::Wrap {
+        check_wrap(song.fit, song.fade)?;
+    }
+    let Some(fit) = song.fit else {
+        return Ok(());
+    };
+    let seconds = match (fit.seconds, fit.to) {
+        (Some(seconds), None) => seconds,
+        (None, None) => {
+            return Err(SynthError::FitLength {
+                why: "needs a length: `seconds`, or `to: \"clip\"` for as long as the \
+                      clip that plays the song",
+            });
+        }
+        (Some(_), Some(_)) => {
+            return Err(SynthError::FitLength {
+                why: "takes `seconds` or `to`, not both — `to` says where the length \
+                      comes from, so a number beside it would be ignored",
+            });
+        }
+        (None, Some(_)) => {
+            return Err(SynthError::FitLength {
+                why: "is `to: \"clip\"`, and nothing has said how long that clip is — \
+                      it is resolved by whatever bakes the song from a project, which \
+                      reads the clip; rendering the recipe alone needs `seconds`",
+            });
+        }
+    };
+    if !(seconds.is_finite() && seconds > 0.0) {
+        return Err(SynthError::BadFitSeconds { seconds });
+    }
+    // A stretch beyond the bound would deliver something nobody would use,
+    // so it is refused with the tempo it would have needed — which is the
+    // number a caller needs to decide what to do instead. A song with
+    // anchors is stretched span by span, and `anchor::check` bounds each.
+    if song.anchors.is_empty()
+        && let Some(ratio) = super::shape::stretch_ratio(song, fit, seconds)
+        && ratio.abs() > MAX_STRETCH
+    {
+        return Err(SynthError::StretchTooFar {
+            bpm: song.bpm,
+            needed: song.bpm * (1.0 + ratio),
+            limit: MAX_STRETCH,
+        });
+    }
+    Ok(())
 }

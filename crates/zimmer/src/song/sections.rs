@@ -131,6 +131,7 @@ mod tests {
             fx: Vec::new(),
             automation: Vec::new(),
             fit: None,
+            anchors: Vec::new(),
             fade: None,
             tail: None,
         }

@@ -639,6 +639,18 @@ pub enum SynthError {
         why: &'static str,
     },
 
+    /// An anchor the clock cannot honour: a section that does not exist, a
+    /// time that is not one, a `clip` nobody resolved into seconds, anchors out
+    /// of order, one beside a `loop` fit, or a stretch whose tempo would move
+    /// further than a `stretch` fit may. A `section` equal to the
+    /// arrangement's length is its end, which a `stretch` fit lands.
+    BadAnchor {
+        /// The section the anchor pins.
+        section: usize,
+        /// What is wrong with it, with the numbers, and what to do instead.
+        why: String,
+    },
+
     /// A fade that runs for a negative or nonsensical time.
     BadFade {
         /// The offending length.
