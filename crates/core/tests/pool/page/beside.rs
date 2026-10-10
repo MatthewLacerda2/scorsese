@@ -109,3 +109,13 @@ fn reading_a_file_nobody_wrote_says_so() {
     assert!(matches!(error, PageFileError::Missing { .. }));
     assert_eq!(error.to_string(), "there is no pages/lib.js");
 }
+
+/// Only an absent file is "no such file"; one the system will not read says
+/// what the system said.
+#[test]
+fn a_file_that_cannot_be_read_is_not_called_missing() {
+    let (dir, _) = new_project("page-file-unreadable");
+    std::fs::create_dir_all(dir.join("pages/lib.js")).expect("a folder in its place");
+    let error = read_page_file(&dir, "lib.js").expect_err("a folder");
+    assert!(matches!(error, PageFileError::Io { .. }), "{error}");
+}
