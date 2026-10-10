@@ -14,9 +14,13 @@
 //! stand-in in `fixtures/lottie/` (see `lottie.rs`), written into every
 //! project, since a LottieFiles animation may not be redistributed on its own.
 //!
+//! A worked page that draws a traced picture loads `figure.svg` beside it,
+//! traced when the test runs from a picture made in memory.
+//!
 //! These need the pinned browser, as `pages.rs` does.
 
 use scorsese_core::{Asset, AssetId, AssetKind, Fps, Frames, ProjectPath};
+use scorsese_render::trace::{Tracing, trace};
 use scorsese_render::{Frame, RenderSettings, Renderer, Resolution};
 
 use crate::common::ffmpeg::{fixture_dir, tools};
@@ -53,6 +57,23 @@ fn shared(text: &str) -> Vec<(String, String)> {
     blocks(text, "```js file ")
 }
 
+/// The drawing a worked page draws on, as `vectorize` writes it: a red disc
+/// in a dark ring, traced here rather than kept as a file.
+fn figure() -> String {
+    let side = 120;
+    let rgba: Vec<u8> = (0..side * side)
+        .flat_map(|at| {
+            let (dx, dy) = ((at % side) as f64 - 60.0, (at / side) as f64 - 60.0);
+            match (dx * dx + dy * dy).sqrt() {
+                r if r < 30.0 => [200, 40, 30, 255],
+                r if r < 40.0 => [20, 20, 24, 255],
+                _ => [255, 255, 255, 255],
+            }
+        })
+        .collect();
+    trace(&rgba, side, side, Tracing::default(), "figure").svg
+}
+
 /// Whether any pixel differs from the first: a page that drew nothing over
 /// nothing is one flat colour.
 fn drew_something(frame: &Frame) -> bool {
@@ -61,7 +82,7 @@ fn drew_something(frame: &Frame) -> bool {
 }
 
 #[test]
-fn the_guide_has_its_eleven_worked_pages_and_the_file_two_share() {
+fn the_guide_has_its_twelve_worked_pages_and_the_file_two_share() {
     let names: Vec<String> = worked(&guide()).into_iter().map(|(name, _)| name).collect();
     assert_eq!(
         names,
@@ -76,7 +97,8 @@ fn the_guide_has_its_eleven_worked_pages_and_the_file_two_share() {
             "diagram",
             "close-up",
             "lottie",
-            "board"
+            "board",
+            "traced"
         ],
         "the guide's worked pages, in order"
     );
@@ -99,6 +121,7 @@ fn every_worked_page_captures_without_a_warning_and_draws() {
             include_str!("../fixtures/lottie/wave.json"),
         )
         .expect("the stand-in Lottie");
+        std::fs::write(dir.join("pages/figure.svg"), figure()).expect("the traced figure");
         for (path, contents) in shared(&guide()) {
             std::fs::write(dir.join(path), contents).expect("a shared file");
         }

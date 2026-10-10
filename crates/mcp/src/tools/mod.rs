@@ -33,6 +33,7 @@ mod script;
 mod still;
 mod stock;
 mod synth;
+mod vectorize;
 mod voices;
 
 pub use stock::{Stock, stocked_from};
@@ -344,6 +345,9 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         // shot is found here first, and a client reads this list in order.
         Box::new(stock::Search::default()),
         Box::new(stock::Import::default()),
+        // Beside stock_import, the other free way a file lands beside the
+        // pages for one to draw: a picture, traced.
+        Box::new(vectorize::Vectorize),
         Box::new(voices::Voices),
         Box::new(design::VoiceDesign),
         Box::new(generate::Generate),

@@ -37,6 +37,7 @@ mod threads;
 mod told;
 mod tracing;
 mod typing;
+mod vectorizing;
 mod warnings;
 mod words;
 

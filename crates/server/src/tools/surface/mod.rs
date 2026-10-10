@@ -88,6 +88,7 @@ const PROJECT_FILES: &[&str] = &[
     "synth_write",
     "synth_set",
     "synth_check",
+    "vectorize",
 ];
 
 /// The registry tools the server serves its own tool of the same name in

@@ -1308,6 +1308,7 @@ recipes:
 - `synth_write`
 - `synth_set`
 - `synth_check`
+- `vectorize`
 
 <!-- END PROJECT_FILES -->
 

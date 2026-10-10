@@ -37,6 +37,7 @@ mod out;
 
 mod cli;
 mod commands;
+mod renderer;
 
 use anyhow::Result;
 use clap::Parser;
@@ -49,24 +50,8 @@ use scorsese_render::contact::Look;
 
 /// Parses the command line and runs it.
 pub fn run() -> Result<()> {
-    supply_page_renderer();
+    renderer::supply();
     out::until_reader_leaves(|| dispatch(Cli::parse()))
-}
-
-/// Lets a render download the page renderer the first time an `html` clip
-/// needs drawing (#776), saying so in one line on stderr — so `stdout` stays
-/// what the command answers, and a person running it once sees why it paused.
-fn supply_page_renderer() {
-    use scorsese_providers::chromium;
-    use scorsese_render::page::{self, Supply};
-    page::supply(Supply::new(chromium::installed, || {
-        chromium::fetch(&mut |at| {
-            if at.received == 0 {
-                eprintln!("{}", at.starting());
-            }
-        })
-        .map_err(|error| error.to_string())
-    }));
 }
 
 fn dispatch(cli: Cli) -> Result<()> {
@@ -307,6 +292,7 @@ fn dispatch(cli: Cli) -> Result<()> {
         Command::CutToVoice(options) => commands::voice::run(&directory, &options),
         Command::Stock { action } => commands::stock::run(&directory, action),
         Command::Level { file, against } => commands::level::run(&file, against.as_deref()),
+        Command::Vectorize(options) => commands::vectorize::run(&directory, &options),
         Command::Assets {
             action: None,
             verify,

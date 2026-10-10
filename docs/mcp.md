@@ -117,6 +117,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `guide` | Read one of scorsese's guides: the how-to that no tool's description has room for. | nothing |
 | `stock_search` | Search free stock footage and photos (Pixabay) or free Lottie animations (LottieFiles, kind lottie), and see the candidates before choosing. | a key and a network, but no money |
 | `stock_import` | Bring stock footage, a photo or a Lottie animation that stock_search found into the project, by its id and kind. | a key and a network, but no money |
+| `vectorize` | Trace a picture into an SVG a page draws on, stroke by stroke. | ffmpeg |
 | `voices` | List the ElevenLabs voices a narration can be read in, or check that one still exists. | a key and a network, but no money |
 | `voice_design` | Design a new ElevenLabs voice from a description, for when no voice in either list is the one the video needs. | money, at a provider |
 | `generate` | Realise the sketched briefs — the one tool here that costs money, and it quotes before it spends. | money, at a provider |
@@ -446,6 +447,41 @@ stock_import  { "project": "teaser.scor", "id": 121035, "kind": "lottie" }
              at 48 fps (4.00s), 118 KB — …
              from a page in pages/ it is \"lottie-121035.json\""
 ```
+
+## A picture a page draws on: `vectorize`
+
+The whiteboard explainer draws its figures stroke by stroke, and an agent
+writing path data by hand is a poor illustrator (#999). A generated
+illustration is a good one, but it arrives as pixels, and `kit.draw` draws
+paths. `vectorize` is the step between: it traces an `image` or a generated
+`generated_image` into an SVG beside the pages, **free and offline**, and the
+reply hands back the page that draws it on.
+
+```
+asset_set  { "project": "sermon.scor", "asset": "jesus", "kind": "generated_image",
+             "prompt": "Jesus teaching, flat vector illustration, thick dark outlines, …" }
+generate   { "project": "sermon.scor" }                  → quoted first, as always
+vectorize  { "project": "sermon.scor", "asset": "jesus" }
+       → "pages/jesus.svg — 1024x1024, 17 pen strokes then 12 filled shapes, in 6 colours
+             (#eae4d4 #1c1b1b #593b25 #deac7a #b83229 #f1b133), 75 KB. …"
+         + a page that draws it on over four seconds
+```
+
+**Not an asset.** Like a Lottie, the SVG is a file a page loads, at
+`pages/<name>.svg` (the asset id unless `name` says otherwise); the page is what
+goes on the timeline. Tracing again under the same name replaces the file, which
+is how a tracing is adjusted.
+
+**Drawn the way a hand would.** The dark outlines come first, top to bottom,
+each traced as one pen stroke rather than the two edges of a filled band; then
+each colour is sketched and filled, largest first. The marks are one group,
+`id="<name>"`: hand that to `kit.draw`. `docs/pages.md`, *A traced picture,
+drawn on*, has the worked page.
+
+**Three choices, all with defaults.** `colours` (at most this many, 8), `detail`
+(`low`, `medium`, `high`) and `keep_background` (false: the page shows around
+the drawing). Flat art traces cleanly — thick dark outlines, solid colours, a
+plain background; a photograph becomes a mosaic of blobs.
 
 ## Finding the symbol you meant: `icons`
 
