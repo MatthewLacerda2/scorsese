@@ -143,6 +143,19 @@ It refuses a directory that already holds anything, and writes nothing at all
 when it refuses: half a project laid over what was already there is worse than
 an error, and there is no way afterwards to tell which half is whose.
 
+**Started for a platform and a style, it writes the brief.** `platform` (where
+the video is going) and `style` (what kind it is) are both optional; either one
+starts the project with a brief in `script.md` — the placement and its render
+preset, the style's prompt, and the next step. The next step is the same with
+or without them, and the tool's description says it to every client: **propose
+the script first**, scene by scene, each with its narration, what is on screen
+and the music or sound, and agree it before editing anything.
+
+```
+project_new  { "project": "ad.scor", "platform": "tiktok_ad", "style": "kinetic_type" }
+             → "… script.md: the brief. Read it, then propose the script, scene by scene."
+```
+
 **The edit is the document.** `project_read` and `project_write` are the pair
 that makes everything else possible: the whole cut is one JSON file, so any
 change at all is read it, change it, write it back. The format is

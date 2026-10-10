@@ -26,6 +26,8 @@ fn a_new_project_is_a_directory_of_the_shape_the_format_documents() {
     assert_eq!(project.schema_version, SCHEMA_VERSION);
     assert!(project.assets.is_empty(), "a new project owns no media");
     assert!(project.tracks.is_empty(), "and has nothing on a timeline");
+    assert_eq!(project.script, None, "nor a script nobody has written");
+    assert!(!holds(&dir, "script.md"));
     std::fs::remove_dir_all(&dir).ok();
 }
 
@@ -102,4 +104,35 @@ fn a_directory_that_exists_but_holds_no_project_is_filled_in() {
     assert!(holds(&dir, PROJECT_FILE_NAME));
     assert_eq!(reload(&dir).name, stem(&dir));
     std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn a_platform_and_a_style_start_the_project_with_a_brief() {
+    let dir = scratch("started");
+    let run = new_at(
+        &dir,
+        &["--platform", "tiktok_ad", "--style", "kinetic_type"],
+    )
+    .ok();
+
+    let script = reload(&dir)
+        .script
+        .expect("a started project carries its brief");
+    let brief = std::fs::read_to_string(script.resolve(&dir)).expect("the brief is on disk");
+    assert!(brief.contains("--platform tiktok_ad"), "{brief}");
+    assert!(brief.contains("Kinetic typography"), "{brief}");
+    assert!(brief.contains("propose the script"), "{brief}");
+    assert!(run.output.contains("propose the script"), "{}", run.output);
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn a_style_that_does_not_fit_is_refused_before_anything_is_made() {
+    // `whiteboard` is not made for TikTok ads; the answer names what is.
+    let dir = scratch("unsuited");
+    let run = new_at(&dir, &["--platform", "tiktok_ad", "--style", "whiteboard"]);
+
+    assert!(run.failed, "an unsuited style must refuse:\n{}", run.output);
+    assert!(run.output.contains("kinetic_type"), "{}", run.output);
+    assert!(!dir.exists(), "a refused start leaves no directory behind");
 }

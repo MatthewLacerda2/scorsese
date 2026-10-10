@@ -13,13 +13,16 @@
 //!
 //! [`style`] finds one by id, [`styles_for`] lists the ones that suit a
 //! platform, and [`STYLES`] is the whole library in the order it is shown.
+//! A project started for either begins with a [`Start::brief`] in its script.
 
+mod brief;
 mod library;
 mod platform;
 mod prompts;
 #[cfg(test)]
 mod tests;
 
+pub use brief::{SCRIPT_FILE, Start, StartError};
 pub use library::STYLES;
 pub use platform::{Platform, UnknownPlatform};
 

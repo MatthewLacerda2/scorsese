@@ -9,7 +9,7 @@ use serde_json::json;
 use crate::{call, said};
 
 /// A path where no project is, and where none will be left behind.
-fn somewhere(label: &str) -> PathBuf {
+pub(crate) fn somewhere(label: &str) -> PathBuf {
     static COUNTER: AtomicU32 = AtomicU32::new(0);
     let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
     let dir = std::env::temp_dir().join(format!(

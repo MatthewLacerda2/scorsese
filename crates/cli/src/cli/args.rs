@@ -9,10 +9,37 @@
 
 use std::path::PathBuf;
 
-use clap::{Subcommand, ValueEnum};
+use clap::{Args, Subcommand, ValueEnum};
 
-use scorsese_core::AssetKind;
+use scorsese_core::style::Platform;
+use scorsese_core::{AssetKind, Fps};
 use scorsese_providers::synth::{Drum, Span, Starter};
+
+/// What `new` takes.
+#[derive(Debug, Args)]
+pub(crate) struct NewArgs {
+    /// Where to create it, e.g. `teaser.scor`.
+    pub(crate) directory: PathBuf,
+    /// Project name. Defaults to the directory's name.
+    #[arg(long)]
+    pub(crate) name: Option<String>,
+    /// The timeline framerate every clip and keyframe time is counted
+    /// in: `30`, or a rational like `30000/1001` for 29.97. Chosen once,
+    /// here — changing it later is a real operation, not a field edit.
+    #[arg(long, default_value = "30")]
+    pub(crate) fps: Fps,
+    /// The placement the video is made for: `youtube`, `youtube_shorts`,
+    /// `instagram_reels`, `instagram_reels_ad`, `instagram_stories_ad`,
+    /// `tiktok` or `tiktok_ad`. Written into the brief with the render
+    /// preset it means (`render --platform`); the project stores no platform.
+    #[arg(long)]
+    pub(crate) platform: Option<Platform>,
+    /// The kind of video, by id: `kinetic_type`, `whiteboard`… An unknown id,
+    /// or one not made for `--platform`, is refused with the ones that fit.
+    /// Its prompt is written into the brief.
+    #[arg(long)]
+    pub(crate) style: Option<String>,
+}
 
 /// The things `sequence` does: bring a folder of frames in as one, or make
 /// or change one from stills already in the pool.
