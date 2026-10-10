@@ -30,8 +30,9 @@ from stock, and `guide stock` says when that is the right call. A character,
 a mascot, an animated icon or illustration is usually a free Lottie from
 LottieFiles (`stock_search` with `kind: lottie`), played by a page.
 
-The paid lessons are all Veo, because that is what has been generated most.
-Image and speech lessons belong beside them, when there are some.
+The paid lessons are mostly Veo, because that is what has been generated
+most; the image lessons follow them, and speech lessons belong beside them
+when there are some.
 
 ## Never name the medium
 
@@ -143,6 +144,43 @@ tier and raster, exactly as reference images do, and `scorsese check` refuses
 anything shorter before it is sent. Standard was not tried; the rule is the
 same one Lite and Fast keep, and is held for it too.
 
+## Nano Banana draws a photograph unless the medium is named
+
+A sentence that only describes its subject comes back **photoreal**. On
+2026-10-10 the same character was generated twice for `vectorize` (#1036,
+`nano_banana_2.1`, 2K, 1:1): *"A friendly young woman waving hello, full body,
+standing, on a white background."* came back as a photograph — a real woman in
+a studio, soft shading, a shadow on the floor — where an illustration had been
+meant.
+
+Nothing in that sentence was wrong; it just never said what kind of picture
+it was. The default is a photograph, so anything else is asked for by name:
+"flat vector illustration", "pencil sketch", "watercolour". (Veo is the
+opposite case: [Never name the medium](#never-name-the-medium) is about a
+*physical* medium drawn into a video as an object. An illustration style
+named for a still is the picture itself.)
+
+## A picture to trace is asked for flat
+
+`vectorize` (`guide pages`, section "A traced picture, drawn on") turns a picture
+into the strokes a page draws on, and what it makes of one depends almost
+entirely on the words that bought it. The two generations above, traced at
+`vectorize`'s defaults (8 colours, `detail: medium`, background dropped) and
+drawn on with `kit.draw`:
+
+| prompt ended with | Nano Banana drew | `vectorize` said | drawn on |
+|---|---|---|---|
+| *"Flat vector illustration, thick dark outlines, solid colours, no gradients or shading, plain white background."* | a flat cartoon: dark outlines, flat fills, white ground | 41 pen strokes then 35 filled shapes, 6 colours, 220 KB | a hand drawing it: every outline as one clean pen line — a complete line drawing at one second — then the colours filling in |
+| *"…on a white background."* | a photograph | 13 pen strokes then 177 filled shapes, 7 colours, 524 KB | posterised blobs: hair and jeans traced as smears, the face and cardigan as patches of colour, the floor shadow as a grey slab. Unusable as a drawing |
+
+So a picture meant for `vectorize` ends with **"flat vector illustration,
+thick dark outlines, solid colours, no gradients or shading, plain white
+background"**, and each phrase is doing work: the outlines become the pen
+strokes, "solid colours, no gradients or shading" is what keeps the shapes to
+a few dozen instead of nearly two hundred, and the plain white background is
+what `vectorize` drops so the drawing sits on the page's board. The subject
+and what it is doing go before it, as usual.
+
 ## What the vendors advise
 
 Everything from here to *Adding to this page* is the vendors' guidance, not
@@ -234,6 +272,9 @@ templates are shaped like this:
   doing [activity]. The design features [bold outlines, cel shading…] and
   [colour or background].* Naming the visual qualities is what keeps a series
   consistent.
+  *But see* [A picture to trace is asked for flat](#a-picture-to-trace-is-asked-for-flat):
+  for a picture `vectorize` will trace, shading of any kind (cel shading
+  included) traces as extra shapes, so it asks for none.
 - **A product shot**: high-resolution, studio-lit, the surface it stands on,
   the lighting set-up, the camera angle, the detail in sharp focus.
 - **Room for a title**: *A minimalist composition with a single [subject] in

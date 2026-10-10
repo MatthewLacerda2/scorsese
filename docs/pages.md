@@ -960,8 +960,10 @@ only a fill, no stroke, appears at its turn rather than being drawn.
 ### A traced picture, drawn on
 
 A figure drawn by hand in SVG is only as good as the agent drawing it. A
-generated illustration is better, and `vectorize` traces it into
-`pages/<name>.svg`, beside the pages, for a page like this one to draw. The
+generated illustration is better — asked for flat, in the words `guide
+prompts` (section "A picture to trace is asked for flat") tested — and
+`vectorize` traces it into `pages/<name>.svg`, beside the pages, for a page
+like this one to draw. The
 SVG's marks are already in the order a hand would make them: the dark
 outlines first, each one a single pen stroke, then every colour sketched and
 filled. So the page only loads the file, sizes it, and hands its drawing group
