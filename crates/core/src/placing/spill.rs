@@ -86,7 +86,6 @@ pub fn place_spilling(
         &mut proposed,
         &Placement {
             track: track.clone(),
-            duration: Some(duration),
             ..placement.clone()
         },
     )?;
