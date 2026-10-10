@@ -32,6 +32,9 @@
 //! printing, and a second caller for any of it would be the sign that the logic
 //! belongs in `scorsese-core` or `scorsese-render` instead.
 
+#[macro_use]
+mod out;
+
 mod cli;
 mod commands;
 
@@ -48,7 +51,7 @@ use scorsese_render::contact::Look;
 /// Parses the command line and runs it.
 pub fn run() -> Result<()> {
     supply_page_renderer();
-    dispatch(Cli::parse())
+    out::until_reader_leaves(|| dispatch(Cli::parse()))
 }
 
 /// Lets a render download the page renderer the first time an `html` clip
