@@ -11,6 +11,7 @@
 //! What is built here is vendor-neutral ([`Message`]); the model a turn runs
 //! on writes it in its own wire (`scorsese_providers::chat::freeze`).
 
+use scorsese_core::style::{Platform, Start};
 use scorsese_providers::chat::{Message, Part, ResultPart, Tool};
 use serde_json::Value;
 
@@ -25,6 +26,16 @@ tools you have. A system message at the start of the conversation says which \
 project it is; every tool that takes `project` takes that id.
 
 How to work:
+- Script first. A video is built from its script: before you import, \
+generate or place anything for a new video, or a new part of one, propose the \
+script and stop. Scene by scene, each with its narration (the words spoken, or \
+none), what is on screen, and the music or sound under it, with the timing the \
+kind of video and the place it is going to ask for. Change nothing in that \
+turn: the person answers the script in plain words, and only then does the \
+edit start. Write the agreed script with script_write and build from it. When \
+the project already has a script (script_read), start from what it says. A \
+small change to a cut that exists, a clip moved or a title fixed, needs no \
+script.
 - Look before you change anything: project_describe, project_assets and \
 library show what is there. Build the edit with the tools; never ask the \
 person to do by hand what a tool can do.
@@ -151,10 +162,68 @@ pub(super) fn opening(history: &[Message], prompt: &str, notes: &[String]) -> Ve
     messages
 }
 
-/// What a new conversation is told about its project.
-pub(super) fn about(project: i64, name: &str) -> String {
-    format!(
+/// What a new conversation is told about its project — and, when it has a
+/// script, that the script comes first: a project started for a platform or a
+/// style (#1016) carries its brief there.
+pub(super) fn about(project: i64, name: &str, script: Option<&str>) -> String {
+    let mut said = format!(
         "This conversation is about the person's project {project}, named {name:?}. Every \
          tool that takes `project` takes {project}."
-    )
+    );
+    if let Some(script) = script {
+        said.push_str(&format!(
+            " It has a script, {script}: read it with script_read before anything else. A \
+             project started for a platform or a style holds its brief there."
+        ));
+    }
+    said
+}
+
+/// What the model is told when the person changes what the project is made
+/// for after it was started (#1016): what changed, and what the new choice
+/// asks for, in the words a project started for it would carry.
+pub(super) fn retargeted(before: &Start, now: &Start) -> String {
+    let mut changes = Vec::new();
+    if before.platform != now.platform {
+        changes.push(changed(
+            "platform",
+            before.platform.map(Platform::name),
+            now.platform.map(Platform::name),
+        ));
+    }
+    if before.style != now.style {
+        changes.push(changed(
+            "style",
+            before.style.map(|style| style.name),
+            now.style.map(|style| style.name),
+        ));
+    }
+    let mut said = format!(
+        "The person changed what this project is made for, in its settings: {}. The script \
+         was written for the old choice, and nothing has changed it. Read it with \
+         script_read, rewrite what no longer holds for the new choice with script_write, \
+         and tell them in a few lines what that changes in the scenes. Change nothing in \
+         the edit until they answer.",
+        changes.join("; ")
+    );
+    match now.brief() {
+        Some(brief) => {
+            said.push_str(
+                "\n\nWhat the project is made for now, as a new project's brief says it:\n\n",
+            );
+            said.push_str(&brief);
+        }
+        None => said.push_str(" Neither a platform nor a style is chosen now."),
+    }
+    said
+}
+
+/// One choice's change, in words.
+fn changed(what: &str, before: Option<&str>, now: Option<&str>) -> String {
+    match (before, now) {
+        (Some(before), Some(now)) => format!("the {what} from {before} to {now}"),
+        (None, Some(now)) => format!("the {what} set to {now}"),
+        (Some(before), None) => format!("the {what} {before} cleared"),
+        (None, None) => format!("the {what} unchanged"),
+    }
 }

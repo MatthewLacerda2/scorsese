@@ -1,5 +1,5 @@
-// The editor's controls in the app header (#764): the project's name, Save as
-// template, the frame shape and Render. They used to be a strip of the
+// The editor's controls in the app header (#764): the project's name, its
+// platform and style (#1016), Save as template, the frame shape and Render. They used to be a strip of the
 // editor's own under the header, which took height the timeline needs while
 // the header sat half empty; `HeaderSlot` puts them in that room instead.
 //
@@ -23,6 +23,7 @@ import {
 import { useT } from "@/i18n/I18nProvider";
 import type { EditOutcome } from "./project";
 import { RenderPanel } from "./RenderPanel";
+import { StartControl } from "./StartControl";
 import { SHAPES, type Shape } from "./shape";
 import { SaveTemplate } from "./templates/SaveTemplate";
 
@@ -61,6 +62,7 @@ export function EditorActions({
         {name}
       </h1>
       <div className="ml-auto flex shrink-0 items-center gap-2">
+        <StartControl projectId={projectId} onShape={onShape} />
         <SaveTemplate clips={selected} edit={edit} />
         <select
           aria-label={t.editor.page.frameShape}

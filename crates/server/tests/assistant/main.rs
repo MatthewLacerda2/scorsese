@@ -20,6 +20,7 @@ mod quotes;
 mod recorded;
 mod resume;
 mod script;
+mod started;
 mod turns;
 
 use std::net::SocketAddr;

@@ -13,10 +13,7 @@ export const pages = {
     introEnd: ".",
   },
   projects: {
-    empty: "No projects yet. Name one above to start.",
-    newName: "Project's name",
-    newPlaceholder: "Project's name",
-    nameMissing: "Write the name of the project",
+    empty: "No projects yet. Create one to start.",
     create: "Create",
     name: "Project name",
     changed: (date: string) => `Changed ${date}`,

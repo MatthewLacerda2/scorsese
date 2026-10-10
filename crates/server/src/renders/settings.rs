@@ -26,7 +26,8 @@ pub struct Ask {
     /// The sound codec; defaults to the container's.
     #[serde(default)]
     pub audio_codec: Option<String>,
-    /// `WIDTHxHEIGHT`; defaults to 1920x1080. Refused for sound only.
+    /// `WIDTHxHEIGHT`; defaults to 1920x1080, or over HTTP to the size of the
+    /// platform the project is made for (#1016). Refused for sound only.
     #[serde(default)]
     pub resolution: Option<String>,
     /// `false` leaves out the band an ungenerated narration line draws across
@@ -85,7 +86,8 @@ fn is_drawn(narration_bands: &bool) -> bool {
 #[serde(deny_unknown_fields)]
 pub struct PreviewAsk {
     /// The size the film would be delivered at, `WIDTHxHEIGHT`: the shape,
-    /// and what the quality is a fraction of. Defaults to 1920x1080.
+    /// and what the quality is a fraction of. Defaults to 1920x1080, or over
+    /// HTTP to the size of the platform the project is made for (#1016).
     #[serde(default)]
     pub resolution: Option<String>,
     /// `full`, `half` or `quarter`; defaults to half.

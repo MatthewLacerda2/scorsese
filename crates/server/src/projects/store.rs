@@ -2,6 +2,7 @@
 //! owner filter — the row-level policy is the filter (`db::scope`).
 
 use scorsese_core::Project;
+use scorsese_core::style::{Start, style};
 use scorsese_providers::chat::Model;
 use sqlx::postgres::PgPool;
 
@@ -13,19 +14,23 @@ use crate::db::{self, Tx, UserId};
 macro_rules! summary_columns {
     () => {
         "id, name, revision, extract(epoch FROM created_at)::bigint, \
-         extract(epoch FROM updated_at)::bigint"
+         extract(epoch FROM updated_at)::bigint, platform, style"
     };
 }
 
-type SummaryRow = (i64, String, i64, i64, i64);
+type SummaryRow = (i64, String, i64, i64, i64, Option<String>, Option<String>);
 
-fn summary((id, name, revision, created_at, updated_at): SummaryRow) -> Summary {
+/// A row as a [`Summary`]. A platform or style id this build no longer has
+/// reads as none chosen, rather than failing the whole list.
+fn summary((id, name, revision, created_at, updated_at, platform, chosen): SummaryRow) -> Summary {
     Summary {
         id,
         name,
         revision,
         created_at,
         updated_at,
+        platform: platform.and_then(|id| id.parse().ok()),
+        style: chosen.as_deref().and_then(style).map(|style| style.id),
     }
 }
 
@@ -49,18 +54,41 @@ pub async fn create(
     user: UserId,
     project: &Project,
 ) -> Result<Summary, ProjectError> {
+    insert(
+        pool,
+        user,
+        project,
+        &Start::default(),
+        &ProjectFiles::default(),
+    )
+    .await
+}
+
+/// Store `project` as a new project of `user`'s, started for `start` and
+/// keeping `kept` beside it — one transaction, so a project never exists
+/// without the brief its document names.
+pub(super) async fn insert(
+    pool: &PgPool,
+    user: UserId,
+    project: &Project,
+    start: &Start,
+    kept: &ProjectFiles,
+) -> Result<Summary, ProjectError> {
     let json = serde_json::to_string(project)?;
     let mut tx = db::scoped(pool, user).await?;
     let row: SummaryRow = sqlx::query_as(concat!(
-        "INSERT INTO projects (user_id, document, assistant_model) \
-         VALUES (member_id(), $1::jsonb, $2) RETURNING ",
+        "INSERT INTO projects (user_id, document, assistant_model, platform, style) \
+         VALUES (member_id(), $1::jsonb, $2, $3, $4) RETURNING ",
         summary_columns!()
     ))
     .bind(json)
     .bind(Model::DEFAULT.id())
+    .bind(start.platform.map(|platform| platform.id()))
+    .bind(start.style.map(|style| style.id))
     .fetch_one(&mut *tx)
     .await?;
     media::record(&mut tx, row.0, project).await?;
+    files::write(&mut tx, row.0, kept).await?;
     tx.commit().await?;
     Ok(summary(row))
 }
@@ -225,7 +253,17 @@ async fn read(tx: &mut Tx, id: i64, lock: bool) -> Result<Stored, ProjectError> 
     } else {
         select!()
     };
-    let (id, name, revision, created_at, updated_at, json): (i64, String, i64, i64, i64, String) =
+    type Row = (
+        i64,
+        String,
+        i64,
+        i64,
+        i64,
+        Option<String>,
+        Option<String>,
+        String,
+    );
+    let (id, name, revision, created_at, updated_at, platform, style, json): Row =
         sqlx::query_as(sql)
             .bind(id)
             .fetch_optional(&mut **tx)
@@ -234,7 +272,7 @@ async fn read(tx: &mut Tx, id: i64, lock: bool) -> Result<Stored, ProjectError> 
     let document =
         Project::from_json(&json).map_err(|source| ProjectError::Unreadable { id, source })?;
     Ok(Stored {
-        summary: summary((id, name, revision, created_at, updated_at)),
+        summary: summary((id, name, revision, created_at, updated_at, platform, style)),
         document,
     })
 }

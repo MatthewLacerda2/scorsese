@@ -22,6 +22,7 @@ pub mod projects;
 mod ranges;
 pub mod renders;
 pub mod routes;
+pub mod styles;
 pub mod templates;
 pub mod tokens;
 pub mod uploads;

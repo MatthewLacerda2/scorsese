@@ -1,65 +1,72 @@
-// Create with no name (#770): it looks unavailable but still answers a click,
-// with a red line saying what is missing — and creates nothing. Rendered to a
-// string like the other component tests: there is no DOM to click in, so the
-// click is `attemptCreate` and the form is drawn in each state it leads to.
+// The new-project modal (#1016): only the name is needed, Create with none
+// creates nothing and says so, every step is reachable, and the request is
+// exactly what the steps chose — a style never outliving a platform it was
+// not made for.
 
 import { expect, test } from "bun:test";
-import { renderToString } from "react-dom/server";
-import { attemptCreate, NewProjectForm } from "./ProjectsPage";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
+import { createQueryClient } from "@/app/queryClient";
+import { UploadsProvider } from "@/files/uploads";
+import { MENU } from "@/start/fixture";
+import { bodyOf, EMPTY, onPlatform, toggled, Wizard } from "./NewProjectDialog";
 
-function form(name: string, missing: boolean, pending = false) {
-  return renderToString(
-    <NewProjectForm
-      name={name}
-      missing={missing}
-      pending={pending}
-      error={null}
-      onName={() => {}}
-      onSubmit={() => {}}
-    />,
+function wizard() {
+  const client = createQueryClient();
+  client.setQueryData(["styles"], MENU);
+  client.setQueryData(["library", "list", {}], []);
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <UploadsProvider>
+          <Wizard />
+        </UploadsProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
-function button(html: string) {
-  return html.match(/<button[^>]*>/)?.[0] ?? "";
-}
-
-test("a blank name creates nothing and says the name is missing", () => {
-  const created: string[] = [];
-  expect(attemptCreate("", (name) => created.push(name))).toBe(true);
-  expect(attemptCreate("   ", (name) => created.push(name))).toBe(true);
-  expect(created).toEqual([]);
+test("a blank name makes no request; a name is sent trimmed with what was chosen", () => {
+  expect(bodyOf({ ...EMPTY, name: "   " })).toBeNull();
+  const draft = { name: " Beach ", assets: [3], platform: "youtube", style: "top_list" };
+  expect(bodyOf(draft)).toEqual({ ...draft, name: "Beach" });
 });
 
-test("a name is created trimmed, as before", () => {
-  const created: string[] = [];
-  expect(attemptCreate("  Beach trip ", (name) => created.push(name))).toBe(false);
-  expect(created).toEqual(["Beach trip"]);
+test("a file picked twice is unpicked", () => {
+  const once = toggled(EMPTY, 7);
+  expect(once.assets).toEqual([7]);
+  expect(toggled(once, 7).assets).toEqual([]);
 });
 
-test("with no name, Create looks unavailable but can still be clicked", () => {
-  const create = button(form("", false));
-  expect(create).toContain('aria-disabled="true"');
-  expect(create).toContain("font-normal");
-  expect(create).not.toMatch(/ disabled=""/);
+test("a platform the style is not made for drops the style", () => {
+  const offer = { ...EMPTY, platform: "tiktok_ad", style: "flash_offer" };
+  expect(onPlatform(offer, MENU, "youtube")).toMatchObject({ platform: "youtube", style: null });
+  const kinetic = { ...offer, style: "kinetic_type" };
+  expect(onPlatform(kinetic, MENU, "youtube").style).toBe("kinetic_type");
 });
 
-test("the missing name is said in red under the field, and the field is marked", () => {
-  const html = form("", true);
-  expect(html).toContain("Write the name of the project");
-  expect(html).toContain("text-destructive");
-  expect(html).toContain('aria-invalid="true"');
-  expect(html).toContain('placeholder="Project&#x27;s name"');
+test("Create with no name stays on the name and says what is missing", () => {
+  wizard();
+  fireEvent.click(screen.getByRole("button", { name: /Style/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Create" }));
+  const field = screen.getByLabelText("Project's name");
+  expect(field.getAttribute("aria-invalid")).toBe("true");
+  expect(screen.getByText("Write the name of the project")).toBeTruthy();
+  fireEvent.change(field, { target: { value: "Beach" } });
+  expect(screen.queryByText("Write the name of the project")).toBeNull();
 });
 
-test("typing a name clears the message and Create reads as available", () => {
-  // `onName` clears `missing`; this is the form it then draws.
-  const html = form("Beach trip", false);
-  expect(html).not.toContain("Write the name of the project");
-  expect(html).not.toContain("aria-invalid=");
-  expect(button(html)).not.toContain("aria-disabled=");
-});
-
-test("while a create is in flight, Create is truly disabled", () => {
-  expect(button(form("Beach trip", false, true))).toMatch(/ disabled=""/);
+test("the steps run name, files, platform, style, and the style step is filtered", () => {
+  wizard();
+  expect(screen.getByText("Step 1 of 4")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  expect(screen.getByText(/Pick files from your library/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  fireEvent.click(screen.getByRole("radio", { name: /Anúncio no TikTok/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  expect(screen.getByText("Step 4 of 4")).toBeTruthy();
+  expect(screen.getByRole("radio", { name: /Oferta relâmpago/ })).toBeTruthy();
+  expect(screen.queryByRole("radio", { name: /Lista \/ Top N/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
 });

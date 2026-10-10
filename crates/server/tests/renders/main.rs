@@ -12,6 +12,7 @@ mod cancelled;
 mod evict;
 mod job;
 mod loudness;
+mod platform;
 mod previews;
 mod progress;
 mod request;

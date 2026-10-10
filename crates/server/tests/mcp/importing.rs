@@ -62,3 +62,28 @@ async fn another_users_file_is_not_in_your_library(pool: PgPool) {
     let (listed, _) = call(address, &token, "library", json!({})).await;
     assert!(listed.starts_with("No files match"), "{listed}");
 }
+
+#[sqlx::test]
+async fn a_project_made_over_http_brings_its_library_files_in(pool: PgPool) {
+    let address = common::serve(pool.clone()).await;
+    let (ana, token) = member(&pool, "ana@example.com").await;
+    let item = common::hold(&pool, ana, SHA).await;
+    let body = json!({ "name": "Reel", "platform": "instagram_reels", "assets": [item] });
+    let made = common::request(address, "POST", "/api/projects", &[&token], Some(&body)).await;
+    assert_eq!(made.status, 201, "{}", made.body);
+    let made = made.json();
+    assert_eq!(made["document"]["assets"][0]["sha256"], SHA, "{made}");
+    assert_eq!(made["platform"], "instagram_reels");
+}
+
+#[sqlx::test]
+async fn project_new_starts_a_project_for_a_platform_and_a_style(pool: PgPool) {
+    let address = common::serve(pool.clone()).await;
+    let (_, token) = member(&pool, "ana@example.com").await;
+    let args = json!({ "name": "Ad", "platform": "tiktok_ad", "style": "flash_offer" });
+    let (made, refused) = call(address, &token, "project_new", args).await;
+    assert!(!refused && made.contains("script.md: the brief"), "{made}");
+    let args = json!({ "name": "Ad", "platform": "youtube", "style": "flash_offer" });
+    let (said, refused) = call(address, &token, "project_new", args).await;
+    assert!(refused && said.contains("not made for"), "{said}");
+}

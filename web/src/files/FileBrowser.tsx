@@ -39,6 +39,8 @@ export interface Picking {
   pick: (tile: LibraryTile) => void;
   /** Why a file cannot be picked, or `null` when it can. */
   refuse: (tile: LibraryTile) => string | null;
+  /** Whether a file is picked already, for a picker that holds several (#1016). */
+  chosen?: (tile: LibraryTile) => boolean;
 }
 
 interface Props {
@@ -176,7 +178,7 @@ function PickTile({ tile, picking }: { tile: LibraryTile; picking: Picking }) {
   return (
     <FileTile
       tile={tile}
-      selected={false}
+      selected={picking.chosen?.(tile) ?? false}
       onSelect={() => picking.pick(tile)}
       onOpen={() => {}}
       disabled={refused !== null}

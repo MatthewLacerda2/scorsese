@@ -10,5 +10,16 @@ import { files } from "@/i18n/pt-BR/files";
 import { inspector } from "@/i18n/pt-BR/inspector";
 import { landing } from "@/i18n/pt-BR/landing";
 import { pages } from "@/i18n/pt-BR/pages";
+import { start } from "@/i18n/pt-BR/start";
 
-export const ptBR: Messages = { common, files, pages, editor, chat, assets, inspector, landing };
+export const ptBR: Messages = {
+  common,
+  files,
+  pages,
+  editor,
+  chat,
+  assets,
+  inspector,
+  landing,
+  start,
+};
