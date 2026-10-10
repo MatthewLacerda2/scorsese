@@ -53,14 +53,11 @@ fn every_pixel_of_ink_is_reached_by_the_edge_nearest_it() {
     assert!(holds(&strands[2], false, 4, 8) && !holds(&strands[1], false, 4, 8));
     // A corner is the outside's alone.
     assert!(holds(&strands[0], false, 0, 0) && !holds(&strands[1], false, 0, 0));
-    // No hole is reached: a reach is ink.
-    assert!(!holds(&strands[0], false, 4, 3) && !holds(&strands[1], false, 4, 3));
     for y in 0..HEIGHT {
-        for x in (0..WIDTH).filter(|&x| !hole(x, y)) {
-            assert!(
-                strands.iter().any(|strand| holds(strand, false, x, y)),
-                "({x}, {y}) is ink nobody draws"
-            );
+        for x in 0..WIDTH {
+            let reached = strands.iter().any(|strand| holds(strand, false, x, y));
+            // Every pixel of ink is drawn, and no reach strays off the ink.
+            assert_eq!(reached, !hole(x, y), "({x}, {y})");
         }
     }
 }
