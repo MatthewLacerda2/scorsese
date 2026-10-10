@@ -37,13 +37,14 @@
 //! redrawn. The drawn one is what `italic: true` reaches, every time.
 //!
 //! A family with no italic is [`Family::italic`] of `None`, and asking for one
-//! is refused rather than faked. None of the eight is that today; the shape
-//! exists so that adding a family without one cannot quietly start shearing.
+//! is refused rather than faked. Most display, handwriting and script faces are
+//! that — Anton, Bangers and Pacifico were drawn upright and nothing else — and
+//! `italic: true` on one of them is an error naming the family, never a shear.
 
 /// Where the files sit, relative to this source file.
 macro_rules! face {
     ($file:literal) => {
-        include_bytes!(concat!("../../../fonts/", $file))
+        include_bytes!(concat!("../../../../fonts/", $file))
     };
 }
 
@@ -93,9 +94,40 @@ pub struct Family {
     pub italic: Option<Cut>,
 }
 
-/// Every face this build ships, in the order a list of them should read:
-/// the two defaults first, then sans, serif, display, mono.
-pub const SHIPPED: &[Family] = &[
+mod display;
+mod hand;
+mod rounded;
+mod sans;
+mod serif;
+
+/// Every face this build ships, in the order a list of them should read: the
+/// two defaults first, then sans, serif, rounded, display (monospace among
+/// them), and handwriting and script last.
+///
+/// One slice, assembled at compile time from a file per kind, because a
+/// catalogue of forty families does not fit one file and its readers — the
+/// lookup below, the page's font declarations — want one list, not six.
+pub const SHIPPED: &[Family] = &ALL;
+
+const ALL: [Family; COUNT] = concat(&[
+    &DEFAULTS,
+    &sans::FAMILIES,
+    &serif::FAMILIES,
+    &rounded::FAMILIES,
+    &display::FAMILIES,
+    &hand::FAMILIES,
+]);
+
+const COUNT: usize = DEFAULTS.len()
+    + sans::FAMILIES.len()
+    + serif::FAMILIES.len()
+    + rounded::FAMILIES.len()
+    + display::FAMILIES.len()
+    + hand::FAMILIES.len();
+
+/// What `sans` and `serif` mean. Kept here, above the kinds, because every
+/// document written before the list grew names one of these two.
+const DEFAULTS: [Family; 2] = [
     Family {
         name: "inter",
         aliases: &["sans"],
@@ -110,61 +142,66 @@ pub const SHIPPED: &[Family] = &[
         cut: Cut::Variable(face!("SourceSerif4Variable-Roman.ttf")),
         italic: Some(Cut::Variable(face!("SourceSerif4Variable-Italic.ttf"))),
     },
-    Family {
-        name: "liberation-sans",
-        aliases: &[],
-        family: "Liberation Sans",
-        cut: Cut::Drawn(&[
-            (400, face!("LiberationSans-Regular.ttf")),
-            (700, face!("LiberationSans-Bold.ttf")),
-        ]),
-        italic: Some(Cut::Drawn(&[
-            (400, face!("LiberationSans-Italic.ttf")),
-            (700, face!("LiberationSans-BoldItalic.ttf")),
-        ])),
-    },
-    Family {
-        name: "liberation-serif",
-        aliases: &[],
-        family: "Liberation Serif",
-        cut: Cut::Drawn(&[
-            (400, face!("LiberationSerif-Regular.ttf")),
-            (700, face!("LiberationSerif-Bold.ttf")),
-        ]),
-        italic: Some(Cut::Drawn(&[
-            (400, face!("LiberationSerif-Italic.ttf")),
-            (700, face!("LiberationSerif-BoldItalic.ttf")),
-        ])),
-    },
-    Family {
-        name: "montserrat",
-        aliases: &[],
-        family: "Montserrat",
-        cut: Cut::Variable(face!("Montserrat[wght].ttf")),
-        italic: Some(Cut::Variable(face!("Montserrat-Italic[wght].ttf"))),
-    },
-    Family {
-        name: "lora",
-        aliases: &[],
-        family: "Lora",
-        cut: Cut::Variable(face!("Lora[wght].ttf")),
-        italic: Some(Cut::Variable(face!("Lora-Italic[wght].ttf"))),
-    },
-    Family {
-        name: "playfair-display",
-        aliases: &[],
-        family: "Playfair Display",
-        cut: Cut::Variable(face!("PlayfairDisplay[wght].ttf")),
-        italic: Some(Cut::Variable(face!("PlayfairDisplay-Italic[wght].ttf"))),
-    },
-    Family {
-        name: "jetbrains-mono",
-        aliases: &[],
-        family: "JetBrains Mono",
-        cut: Cut::Variable(face!("JetBrainsMono[wght].ttf")),
-        italic: Some(Cut::Variable(face!("JetBrainsMono-Italic[wght].ttf"))),
-    },
 ];
+
+/// The kinds' lists laid end to end. `N` is checked against what arrived, so
+/// a family added to a kind without [`COUNT`] seeing it fails the build.
+const fn concat<const N: usize>(parts: &[&[Family]]) -> [Family; N] {
+    let mut all = [DEFAULTS[0]; N];
+    let (mut at, mut part) = (0, 0);
+    while part < parts.len() {
+        let mut i = 0;
+        while i < parts[part].len() {
+            all[at] = parts[part][i];
+            (at, i) = (at + 1, i + 1);
+        }
+        part += 1;
+    }
+    assert!(at == N, "COUNT disagrees with the kinds' lists");
+    all
+}
+
+impl Family {
+    /// A variable family with no alias: one file per slant, the `wght` axis
+    /// answering for every weight. `italic` is `None` where none is drawn.
+    const fn variable(
+        name: &'static str,
+        family: &'static str,
+        upright: &'static [u8],
+        italic: Option<&'static [u8]>,
+    ) -> Self {
+        Self {
+            name,
+            aliases: &[],
+            family,
+            cut: Cut::Variable(upright),
+            italic: match italic {
+                Some(bytes) => Some(Cut::Variable(bytes)),
+                None => None,
+            },
+        }
+    }
+
+    /// A drawn family with no alias, from its tables. A display or script
+    /// face drawn once, Regular and upright, is `&[(400, file)]` and `None`.
+    const fn drawn(
+        name: &'static str,
+        family: &'static str,
+        upright: &'static [(u16, &'static [u8])],
+        italic: Option<&'static [(u16, &'static [u8])]>,
+    ) -> Self {
+        Self {
+            name,
+            aliases: &[],
+            family,
+            cut: Cut::Drawn(upright),
+            italic: match italic {
+                Some(files) => Some(Cut::Drawn(files)),
+                None => None,
+            },
+        }
+    }
+}
 
 impl Family {
     /// Whether `wanted` names this face, by its own name or by an alias.
