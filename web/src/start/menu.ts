@@ -5,6 +5,29 @@
 
 import type { StyleMenu, StyleView } from "@/api";
 import type { Shape } from "@/editor/shape";
+import type { Messages } from "@/i18n/catalogue";
+
+/** A catalogue's words for the menu, read by any id — one it lacks is `undefined`. */
+interface Words {
+  platforms: Partial<Record<string, string>>;
+  styles: Partial<Record<string, { name: string; description: string }>>;
+}
+
+/**
+ * The menu in the reader's language (#1051). The server sends the library's
+ * pt-BR; each platform and style is shown in the catalogue's words for its
+ * id instead, and one the catalogue does not know yet keeps the server's.
+ */
+export function localized(menu: StyleMenu, catalogue: Messages["menu"]): StyleMenu {
+  const words: Words = catalogue;
+  return {
+    platforms: menu.platforms.map((platform) => ({
+      ...platform,
+      name: words.platforms[platform.id] ?? platform.name,
+    })),
+    styles: menu.styles.map((style) => ({ ...style, ...words.styles[style.id] })),
+  };
+}
 
 /** The styles offered for `platform`, in the menu's order — all of them with none chosen. */
 export function stylesFor(menu: StyleMenu, platform: string | null): StyleView[] {

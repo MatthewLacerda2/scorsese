@@ -1,0 +1,186 @@
+{
+  "platforms": [
+    {
+      "ad": false,
+      "height": 1080,
+      "id": "youtube",
+      "name": "YouTube",
+      "width": 1920
+    },
+    {
+      "ad": false,
+      "height": 1920,
+      "id": "youtube_shorts",
+      "name": "YouTube Shorts",
+      "width": 1080
+    },
+    {
+      "ad": false,
+      "height": 1920,
+      "id": "instagram_reels",
+      "name": "Instagram Reels",
+      "width": 1080
+    },
+    {
+      "ad": true,
+      "height": 1920,
+      "id": "instagram_reels_ad",
+      "name": "Anúncio no Reels",
+      "width": 1080
+    },
+    {
+      "ad": true,
+      "height": 1920,
+      "id": "instagram_stories_ad",
+      "name": "Anúncio nos Stories",
+      "width": 1080
+    },
+    {
+      "ad": false,
+      "height": 1920,
+      "id": "tiktok",
+      "name": "TikTok",
+      "width": 1080
+    },
+    {
+      "ad": true,
+      "height": 1920,
+      "id": "tiktok_ad",
+      "name": "Anúncio no TikTok",
+      "width": 1080
+    }
+  ],
+  "styles": [
+    {
+      "description": "A narração vira o texto na tela, cada trecho entrando na sua primeira palavra, sobre imagens de apoio. A voz comanda os cortes.",
+      "id": "narrated_captions",
+      "name": "Narração em legenda",
+      "platforms": [
+        "youtube_shorts",
+        "instagram_reels",
+        "instagram_reels_ad",
+        "instagram_stories_ad",
+        "tiktok",
+        "tiktok_ad"
+      ],
+      "preview": null
+    },
+    {
+      "description": "Palavras grandes e fortes entrando no ritmo da música. Não precisa de nenhuma filmagem.",
+      "id": "kinetic_type",
+      "name": "Tipografia em movimento",
+      "platforms": [
+        "youtube",
+        "youtube_shorts",
+        "instagram_reels",
+        "instagram_reels_ad",
+        "instagram_stories_ad",
+        "tiktok",
+        "tiktok_ad"
+      ],
+      "preview": null
+    },
+    {
+      "description": "Um quadro branco que se desenha sozinho enquanto a narração explica a ideia, traço a traço.",
+      "id": "whiteboard",
+      "name": "Quadro que se desenha",
+      "platforms": ["youtube", "youtube_shorts", "instagram_reels", "tiktok"],
+      "preview": null
+    },
+    {
+      "description": "Personagens ilustrados em estilo flat encenando uma ideia, com narração e cenários simples.",
+      "id": "flat_explainer",
+      "name": "Explicador ilustrado",
+      "platforms": ["youtube", "youtube_shorts", "instagram_reels", "instagram_reels_ad", "tiktok"],
+      "preview": null
+    },
+    {
+      "description": "As telas reais do seu produto, mostradas uma a uma com uma narração que explica o que cada parte faz.",
+      "id": "product_tour",
+      "name": "Tour do produto",
+      "platforms": [
+        "youtube",
+        "youtube_shorts",
+        "instagram_reels_ad",
+        "instagram_stories_ad",
+        "tiktok_ad"
+      ],
+      "preview": null
+    },
+    {
+      "description": "Suas fotos com aproximações lentas, cortadas no ritmo da música.",
+      "id": "photo_montage",
+      "name": "Montagem de fotos",
+      "platforms": [
+        "youtube",
+        "youtube_shorts",
+        "instagram_reels",
+        "instagram_stories_ad",
+        "tiktok"
+      ],
+      "preview": null
+    },
+    {
+      "description": "Uma contagem regressiva, um item por cena, guardando o melhor para o final.",
+      "id": "top_list",
+      "name": "Lista / Top N",
+      "platforms": ["youtube", "youtube_shorts", "instagram_reels", "tiktok"],
+      "preview": null
+    },
+    {
+      "description": "O problema, depois o resultado — lado a lado ou em corte — para a diferença falar sozinha.",
+      "id": "before_after",
+      "name": "Antes e depois",
+      "platforms": [
+        "instagram_reels",
+        "instagram_reels_ad",
+        "instagram_stories_ad",
+        "tiktok",
+        "tiktok_ad"
+      ],
+      "preview": null
+    },
+    {
+      "description": "Imagens cinematográficas sob uma voz que conta uma história, com trilha e respiros.",
+      "id": "narrated_documentary",
+      "name": "Documentário narrado",
+      "platforms": ["youtube", "youtube_shorts", "instagram_reels"],
+      "preview": null
+    },
+    {
+      "description": "Frases e avaliações de clientes em cartões, uma de cada vez, fechando com o seu chamado.",
+      "id": "testimonial",
+      "name": "Depoimento",
+      "platforms": ["youtube", "instagram_reels_ad", "instagram_stories_ad", "tiktok_ad"],
+      "preview": null
+    },
+    {
+      "description": "Um texto de gancho em estilo meme (\"POV: …\") sobre a filmagem, que faz quem rola o feed parar.",
+      "id": "pov_hook",
+      "name": "POV",
+      "platforms": ["youtube_shorts", "instagram_reels", "tiktok", "tiktok_ad"],
+      "preview": null
+    },
+    {
+      "description": "O produto, o preço, a urgência e o chamado para comprar, em poucos segundos.",
+      "id": "flash_offer",
+      "name": "Oferta relâmpago",
+      "platforms": ["instagram_reels_ad", "instagram_stories_ad", "tiktok_ad"],
+      "preview": null
+    },
+    {
+      "description": "Um tutorial, um passo por cena, cada um numerado e mostrado enquanto é explicado.",
+      "id": "step_by_step",
+      "name": "Passo a passo",
+      "platforms": ["youtube", "youtube_shorts", "instagram_reels", "tiktok"],
+      "preview": null
+    },
+    {
+      "description": "Números e gráficos animados carregando o argumento, um dado de cada vez.",
+      "id": "numbers_story",
+      "name": "Números que contam",
+      "platforms": ["youtube", "youtube_shorts", "instagram_reels_ad"],
+      "preview": null
+    }
+  ]
+}

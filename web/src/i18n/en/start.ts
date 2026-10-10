@@ -1,6 +1,6 @@
 // Starting a project (#1016): the new-project dialog and the editor's
-// platform-and-style control. Platform and style names come from the server
-// and stay as they arrive.
+// platform-and-style control. The platforms' and styles' own words are in
+// `menu.ts`.
 
 export const start = {
   title: "New project",

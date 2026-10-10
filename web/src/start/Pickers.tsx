@@ -6,14 +6,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "cn";
 import { ClapperboardIcon } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useCallback, useState } from "react";
 import { api, type PlatformView, type StyleMenu, type StyleView } from "@/api";
 import { useT } from "@/i18n/I18nProvider";
-import { stylesFor } from "./menu";
+import { localized, stylesFor } from "./menu";
 
-/** The menu, read once: it is compiled into the server and never changes under a page. */
+/**
+ * The menu, read once — it is compiled into the server and never changes
+ * under a page — and shown in the page's language.
+ */
 export function useStyleMenu() {
-  return useQuery({ queryKey: ["styles"], queryFn: api.styles.menu, staleTime: Infinity });
+  const words = useT().menu;
+  const select = useCallback((menu: StyleMenu) => localized(menu, words), [words]);
+  return useQuery({ queryKey: ["styles"], queryFn: api.styles.menu, staleTime: Infinity, select });
 }
 
 interface Choosing {

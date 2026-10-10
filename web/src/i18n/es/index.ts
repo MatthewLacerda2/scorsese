@@ -9,6 +9,7 @@ import { editor } from "@/i18n/es/editor";
 import { files } from "@/i18n/es/files";
 import { inspector } from "@/i18n/es/inspector";
 import { landing } from "@/i18n/es/landing";
+import { menu } from "@/i18n/es/menu";
 import { pages } from "@/i18n/es/pages";
 import { start } from "@/i18n/es/start";
 
@@ -22,4 +23,5 @@ export const es: Messages = {
   inspector,
   landing,
   start,
+  menu,
 };
