@@ -609,7 +609,8 @@ pub(crate) enum Command {
     /// draws on stroke by stroke with the kit's `kit.draw`: the outlines first,
     /// each a single pen stroke, then the colours. Written to pages/<name>.svg.
     /// Free and offline; made for flat art, where a photograph traces into
-    /// blobs.
+    /// blobs. `scorsese guide prompts`, section "A picture to trace is asked
+    /// for flat", has the generation prompt that traces cleanly, tested.
     Vectorize(crate::commands::vectorize::Options),
     /// Make sound from a recipe the project carries: an effect, or a score.
     /// No key, no network, no cost, and the same bytes every time this build

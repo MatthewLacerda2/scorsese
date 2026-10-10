@@ -57,8 +57,7 @@ impl Tool for Vectorize {
          an image asset, or a generated_image once generated, and makes what \
          the kit's kit.draw draws for the whiteboard 'board that draws itself'. FREE: local, offline, no key \
          and no quote. The usual loop is asset_set a generated_image sketch in a \
-         flat illustration style (thick dark outlines, solid colours, plain \
-         white background), generate, vectorize, then page_write a page that \
+         flat illustration style, generate, vectorize, then page_write a page that \
          draws it — the reply hands that page back. The SVG is written to \
          pages/<name>.svg, beside the pages, and is not an asset: the page is \
          what goes on the timeline. Its marks come in the order a hand would \
@@ -66,8 +65,12 @@ impl Tool for Vectorize {
          to bottom, then each colour sketched and filled, largest first. The \
          background is dropped unless kept, so the drawing sits on the page's \
          board. Made for flat art — a character, a logo, a scanned drawing; a \
-         photograph traces into a mosaic of blobs. `guide pages` has the \
-         worked page."
+         photograph traces into a mosaic of blobs. The prompt that traces \
+         cleanly was tested 2026-10-10: end it with 'flat vector illustration, \
+         thick dark outlines, solid colours, no gradients or shading, plain \
+         white background' — without naming the illustration, Nano Banana \
+         draws a photograph. `guide prompts`, section 'A picture to trace is \
+         asked for flat', has the comparison; `guide pages` has the worked page."
     }
 
     fn costs(&self) -> Costs {

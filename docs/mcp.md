@@ -494,7 +494,10 @@ drawn on*, has the worked page.
 **Three choices, all with defaults.** `colours` (at most this many, 8), `detail`
 (`low`, `medium`, `high`) and `keep_background` (false: the page shows around
 the drawing). Flat art traces cleanly — thick dark outlines, solid colours, a
-plain background; a photograph becomes a mosaic of blobs.
+plain background; a photograph becomes a mosaic of blobs. That prompt shape was
+tested on 2026-10-10 (`guide prompts`, section "A picture to trace is asked for
+flat"): 35 filled shapes against a photograph's 177, and Nano Banana draws a
+photograph unless the illustration is asked for by name.
 
 ## Finding the symbol you meant: `icons`
 
