@@ -5,9 +5,13 @@
 // `transcript.ts`, which is where the logic lives and is tested. Above it, the
 // model the project's assistant runs on (`ModelPicker.tsx`, #705); beside
 // Send, how hard it thinks on the next message (`EffortPicker.tsx`, #769).
+// Beside the model, "Full" (#1027): the editor gives the chat the whole page,
+// and this panel draws its column at a readable width. It is the same mounted
+// panel in both modes, so a draft, a running turn or an open picker outlives
+// the switch.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { SendIcon, SquareIcon } from "lucide-react";
+import { Maximize2Icon, Minimize2Icon, SendIcon, SquareIcon } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { chatApi } from "@/api/chat";
 import type { ServerEvent } from "@/api/events";
@@ -32,7 +36,19 @@ import {
   upsert,
 } from "./transcript";
 
-export function ChatPanel({ projectId }: { projectId: number }) {
+/** Full mode's column: wide enough to read, never lines across the whole screen. */
+const COLUMN = "mx-auto w-full max-w-3xl";
+
+export function ChatPanel({
+  projectId,
+  full,
+  onFull,
+}: {
+  projectId: number;
+  /** Whether the chat has the whole page. */
+  full: boolean;
+  onFull: (full: boolean) => void;
+}) {
   const t = useT();
   const queryClient = useQueryClient();
   const conversation = useQuery({
@@ -68,41 +84,52 @@ export function ChatPanel({ projectId }: { projectId: number }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {conversation.data && (
-        <div className="border-b px-3 py-2">
-          <ModelPicker
-            projectId={projectId}
-            model={conversation.data.model}
-            models={conversation.data.models}
-            turns={transcript.entries.map((entry) => entry.turn)}
-          />
+      <div className="border-b px-3 py-2">
+        <div className={`flex items-start gap-2 ${full ? COLUMN : ""}`}>
+          <div className="min-w-0 flex-1">
+            {conversation.data && (
+              <ModelPicker
+                projectId={projectId}
+                model={conversation.data.model}
+                models={conversation.data.models}
+                turns={transcript.entries.map((entry) => entry.turn)}
+              />
+            )}
+          </div>
+          <Button size="sm" variant="ghost" className="shrink-0" onClick={() => onFull(!full)}>
+            {full ? <Minimize2Icon /> : <Maximize2Icon />}
+            {full ? t.chat.full.leave : t.chat.full.enter}
+          </Button>
         </div>
-      )}
-      <div ref={scroller} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-3">
-        {conversation.isPending && (
-          <p className="text-sm text-muted-foreground">{t.chat.loading}</p>
-        )}
-        {conversation.isError && (
-          <p className="text-sm text-destructive">{conversation.error.message}</p>
-        )}
-        <ol className="flex flex-col gap-5">
-          {transcript.entries.map((entry) => (
-            <Turn key={entry.turn.id} entry={entry} />
-          ))}
-        </ol>
-        {transcript.jobs.length > 0 && (
-          <ul className="flex flex-col gap-0.5 border-t pt-2 text-xs text-muted-foreground">
-            {transcript.jobs.map((job) => (
-              <li key={job.id}>
-                {(t.chat.jobs as Record<string, string>)[job.kind] ?? job.kind} #{job.id}:{" "}
-                {jobState(job, t.chat)}
-              </li>
+      </div>
+      <div ref={scroller} className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3">
+        <div className={`flex flex-col gap-4 ${full ? COLUMN : ""}`}>
+          {conversation.isPending && (
+            <p className="text-sm text-muted-foreground">{t.chat.loading}</p>
+          )}
+          {conversation.isError && (
+            <p className="text-sm text-destructive">{conversation.error.message}</p>
+          )}
+          <ol className="flex flex-col gap-5">
+            {transcript.entries.map((entry) => (
+              <Turn key={entry.turn.id} entry={entry} />
             ))}
-          </ul>
-        )}
+          </ol>
+          {transcript.jobs.length > 0 && (
+            <ul className="flex flex-col gap-0.5 border-t pt-2 text-xs text-muted-foreground">
+              {transcript.jobs.map((job) => (
+                <li key={job.id}>
+                  {(t.chat.jobs as Record<string, string>)[job.kind] ?? job.kind} #{job.id}:{" "}
+                  {jobState(job, t.chat)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
       <Composer
         projectId={projectId}
+        column={full ? COLUMN : ""}
         runningTurn={current?.id ?? null}
         askingTurn={paused?.id ?? null}
         onStarted={(turn) => setTranscript((previous) => upsert(previous, turn))}
@@ -118,11 +145,14 @@ export function ChatPanel({ projectId }: { projectId: number }) {
  */
 function Composer({
   projectId,
+  column,
   runningTurn,
   askingTurn,
   onStarted,
 }: {
   projectId: number;
+  /** Extra classes for its content: full mode's column. */
+  column: string;
   runningTurn: number | null;
   askingTurn: number | null;
   onStarted: (turn: Awaited<ReturnType<typeof chatApi.send>>) => void;
@@ -159,50 +189,52 @@ function Composer({
     }
   };
   return (
-    <div className="flex flex-col gap-2 border-t p-3">
-      {refused && (
-        <div
-          className={`rounded-md px-2 py-1.5 text-xs ${refused.tone === "note" ? "bg-muted text-muted-foreground" : "bg-destructive/10 text-destructive"}`}
-        >
-          {refused.lead && <p className="font-medium">{refused.lead}</p>}
-          <p>{refused.detail}</p>
-        </div>
-      )}
-      <Textarea
-        value={prompt}
-        onChange={(event) => setPrompt(event.target.value)}
-        onKeyDown={keyed}
-        placeholder={
-          askingTurn !== null && !fresh
-            ? t.chat.composer.answerPlaceholder
-            : t.chat.composer.placeholder
-        }
-        className="max-h-40 min-h-16 resize-none"
-      />
-      <div className="flex items-center gap-2">
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={fresh}
-            onChange={(event) => setFresh(event.target.checked)}
-          />
-          {t.chat.composer.fresh}
-        </label>
-        <div className="ml-auto flex gap-2">
-          <EffortPicker effort={effort} onChange={choose} />
-          {stoppable !== null && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={stop.isPending}
-              onClick={() => stop.mutate(stoppable)}
-            >
-              <SquareIcon /> {t.chat.composer.stop}
+    <div className="border-t p-3">
+      <div className={`flex flex-col gap-2 ${column}`}>
+        {refused && (
+          <div
+            className={`rounded-md px-2 py-1.5 text-xs ${refused.tone === "note" ? "bg-muted text-muted-foreground" : "bg-destructive/10 text-destructive"}`}
+          >
+            {refused.lead && <p className="font-medium">{refused.lead}</p>}
+            <p>{refused.detail}</p>
+          </div>
+        )}
+        <Textarea
+          value={prompt}
+          onChange={(event) => setPrompt(event.target.value)}
+          onKeyDown={keyed}
+          placeholder={
+            askingTurn !== null && !fresh
+              ? t.chat.composer.answerPlaceholder
+              : t.chat.composer.placeholder
+          }
+          className="max-h-40 min-h-16 resize-none"
+        />
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={fresh}
+              onChange={(event) => setFresh(event.target.checked)}
+            />
+            {t.chat.composer.fresh}
+          </label>
+          <div className="ml-auto flex gap-2">
+            <EffortPicker effort={effort} onChange={choose} />
+            {stoppable !== null && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={stop.isPending}
+                onClick={() => stop.mutate(stoppable)}
+              >
+                <SquareIcon /> {t.chat.composer.stop}
+              </Button>
+            )}
+            <Button size="sm" disabled={!ready} onClick={() => send.mutate()}>
+              <SendIcon /> {t.chat.composer.send}
             </Button>
-          )}
-          <Button size="sm" disabled={!ready} onClick={() => send.mutate()}>
-            <SendIcon /> {t.chat.composer.send}
-          </Button>
+          </div>
         </div>
       </div>
     </div>
