@@ -45,7 +45,6 @@ pub use cli::Cli;
 
 use cli::{AssetsAction, Command, SequenceAction, SynthAction};
 use scorsese_providers::voices::Filters;
-use scorsese_render::Bands;
 use scorsese_render::contact::Look;
 
 /// Parses the command line and runs it.
@@ -219,11 +218,7 @@ fn dispatch(cli: Cli) -> Result<()> {
                 threads,
                 stills,
                 at,
-                bands: if no_narration_bands {
-                    Bands::Omitted
-                } else {
-                    Bands::Drawn
-                },
+                bands: commands::render::bands(no_narration_bands),
                 loudness,
             },
         ),

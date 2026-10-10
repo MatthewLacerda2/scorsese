@@ -53,6 +53,15 @@ pub(crate) struct Options {
     pub(crate) loudness: Option<LoudnessTarget>,
 }
 
+/// What `--no-narration-bands` asks of a narration line not yet generated.
+pub(crate) fn bands(no_narration_bands: bool) -> Bands {
+    if no_narration_bands {
+        Bands::Omitted
+    } else {
+        Bands::Drawn
+    }
+}
+
 /// Renders the project to `out`, then prints what was written — for a headless
 /// render those lines are the only report anyone gets.
 pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()> {
