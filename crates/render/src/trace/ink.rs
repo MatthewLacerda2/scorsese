@@ -26,10 +26,6 @@ pub(super) struct Strand {
     pub(super) reach: Mask,
     /// How far, in pixels, the deepest of them is from the boundary.
     pub(super) depth: u32,
-    /// The top of the boundary, for the order strands are drawn in.
-    pub(super) top: usize,
-    /// Its left.
-    pub(super) left: usize,
 }
 
 /// A cell of the mask that is no part of the ink, and not yet in a hole.
@@ -46,7 +42,7 @@ pub(super) fn strands(region: &Region, width: usize) -> Vec<Strand> {
     }
     let (sides, count) = sides(&ink);
     let (nearest, depth) = nearest(&ink, &sides);
-    let mut strands: Vec<Strand> = (0..count)
+    (0..count)
         .map(|side| {
             let mut edge = blank(&ink);
             let mut reach = blank(&ink);
@@ -64,27 +60,23 @@ pub(super) fn strands(region: &Region, width: usize) -> Vec<Strand> {
                 .max()
                 .unwrap_or(0);
             overlap(&mut reach, &ink);
-            let first = edge.bits.iter().position(|&bit| bit).unwrap_or(0);
-            let (column, row) = (first % ink.width, first / ink.width);
             Strand {
-                top: usize::try_from(ink.top + isize::try_from(row).unwrap_or(0)).unwrap_or(0),
-                left: usize::try_from(ink.left + isize::try_from(column).unwrap_or(0)).unwrap_or(0),
                 edge,
                 reach,
                 depth: deepest,
             }
         })
         .filter(|strand| strand.reach.bits.iter().any(|&bit| bit))
-        .collect();
-    if strands.len() > 1 {
-        strands[1..].sort_by_key(|strand| (strand.top, strand.left));
-    }
-    strands
+        .collect()
 }
 
 /// Which side of the ink each cell that is not ink is on: 0 for outside (the
 /// margin is outside), 1 and up for each hole. Ink cells are [`UNSET`]. Also
 /// answers how many sides there are.
+///
+/// The cells are walked in reading order, so the holes are numbered from top
+/// to bottom, and left to right along a row, by their first cell: the order
+/// [`strands`] promises without sorting anything.
 fn sides(ink: &Mask) -> (Vec<u32>, u32) {
     let mut sides = vec![UNSET; ink.bits.len()];
     let mut count = 0;

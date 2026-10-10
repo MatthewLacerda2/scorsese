@@ -1,3 +1,5 @@
+mod strands;
+
 use super::{Detail, Tracing, trace};
 
 const WHITE: [u8; 4] = [255, 255, 255, 255];
