@@ -48,3 +48,24 @@ async fn the_page_tools_are_offered(pool: PgPool) {
         assert!(names.contains(&served), "{served}: {names:?}");
     }
 }
+
+/// A file beside the pages (#954) is kept with the project like a page, and
+/// is no asset: the document is left as it was.
+#[sqlx::test]
+async fn a_file_beside_the_pages_is_written_kept_and_read_back(pool: PgPool) {
+    let address = common::serve(pool.clone()).await;
+    let (ana, token) = member(&pool, "ana@example.com").await;
+    let id = super::stored(&pool, ana, json!({})).await;
+
+    let lib = "function rise(t) { return t * t; }";
+    let written = json!({ "project": id, "file": "lib.js", "html": lib });
+    let (said, refused) = call(address, &token, "page_write", written).await;
+    assert!(!refused && said.contains("pages/lib.js"), "{said}");
+    let (stored, kept) = projects::open_with_files(&pool, ana, id).await.unwrap();
+    assert!(stored.document.assets.is_empty(), "not an asset");
+    assert_eq!(kept.get("pages/lib.js"), Some(lib));
+
+    let asked = json!({ "project": id, "file": "lib.js" });
+    let (read, refused) = call(address, &token, "page_read", asked).await;
+    assert!(!refused && read == lib, "{read}");
+}

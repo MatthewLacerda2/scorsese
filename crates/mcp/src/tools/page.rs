@@ -8,12 +8,18 @@
 //! `sequence` makes the sequence it is asked to change, and every name on the
 //! tool list is paid for on every model call (#780).
 //!
+//! **The files beside the pages go through the same two tools** (#954): a
+//! script or stylesheet several pages load by relative path is named with
+//! `file` instead of `page`, rather than by a tool of its own — on the web
+//! there is no other way to write one, and a third name would be paid for on
+//! every call.
+//!
 //! How a page is written well — the contract it is drawn under, what it can
 //! load offline, why seekable animation beats an integrated loop — is
 //! `docs/pages.md`, which the descriptions point at as `guide pages` (#909).
 
 use schemars::JsonSchema;
-use scorsese_core::{AssetId, AssetKind, write_page};
+use scorsese_core::{AssetId, AssetKind, read_page_file, write_page, write_page_file};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -23,7 +29,35 @@ use super::{Costs, Reply, Tool};
 
 /// The `page` argument, described the same way in both tools.
 const PAGE: &str = "The page's asset id, e.g. lower-third. project_assets lists the \
-                    html assets a project has.";
+                    html assets a project has. Give this or `file`.";
+
+/// The `file` argument, described the same way in both tools.
+const FILE: &str = "Instead of `page`: a file beside the pages that pages load by \
+                    relative path, e.g. lib.js for <script src=\"lib.js\">, at \
+                    pages/<file>. A .js, .css, .json or .svg of at most 1 MB; not an \
+                    asset, never placed. Every page that loads it is drawn again \
+                    when it changes.";
+
+/// Which of the two a call names: a page by its asset id, or a file beside
+/// the pages by its name — exactly one.
+fn target(page: Option<Name>, file: Option<Name>) -> Result<Target, String> {
+    match (page, file) {
+        (Some(page), None) => Ok(Target::Page(page)),
+        (None, Some(file)) => Ok(Target::File(file)),
+        (None, None) => Err("`page` is required: the page's asset id — or `file` for a \
+                             file beside the pages"
+            .to_owned()),
+        (Some(_), Some(_)) => Err("give `page` or `file`, not both — one call writes one \
+                                   file"
+            .to_owned()),
+    }
+}
+
+/// What [`target`] decided.
+enum Target {
+    Page(Name),
+    File(Name),
+}
 
 /// Write a page, making it when the name is new.
 pub(super) struct Write;
@@ -35,15 +69,18 @@ struct WriteArguments {
     /// The page's asset id, e.g. lower-third. A name no asset has yet makes
     /// an html asset of that id, its file at pages/<id>.html; the id of a page
     /// already there rewrites that page's file. The id of any other kind of
-    /// asset is refused.
-    page: Name,
-    /// The complete HTML document. Not a patch — whatever is here replaces
-    /// the file. `guide pages` has the contract it is drawn under.
+    /// asset is refused. Give this or `file`.
+    page: Option<Name>,
+    #[schemars(description = FILE)]
+    file: Option<Name>,
+    /// The complete HTML document — or, with `file`, the file's whole text.
+    /// Not a patch: whatever is here replaces the file. `guide pages` has the
+    /// contract a page is drawn under.
     html: String,
 }
 
 impl args::Arguments for WriteArguments {
-    const REQUIRED: Required = &[("page", "the page's asset id"), ("html", "the page's HTML")];
+    const REQUIRED: Required = &[("html", "the page's HTML, or the file's text")];
 }
 
 impl Tool for Write {
@@ -69,7 +106,9 @@ impl Tool for Write {
          https://lib.scorsese/anime.min.js and lottie-web at \
          https://lib.scorsese/lottie.min.js, to play a Lottie stock_import \
          wrote beside the pages; where it draws nothing, the tracks \
-         below show through. Read `guide pages` before writing one."
+         below show through. Pages that share helpers load one file beside \
+         them by relative path: write it with `file` (lib.js, look.css) \
+         instead of `page`. Read `guide pages` before writing one."
     }
 
     fn costs(&self) -> Costs {
@@ -83,9 +122,13 @@ impl Tool for Write {
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let arguments: WriteArguments = args::parse(arguments)?;
         let dir = arguments.project.dir();
-        let mut project = load(dir)?;
         let html = &arguments.html;
-        let written = write_page(&mut project, dir, arguments.page.as_str(), html)
+        let page = match target(arguments.page, arguments.file)? {
+            Target::Page(page) => page,
+            Target::File(file) => return write_file(dir, file.as_str(), html),
+        };
+        let mut project = load(dir)?;
+        let written = write_page(&mut project, dir, page.as_str(), html)
             .map_err(|error| format!("refused, nothing written — {error}"))?;
         let bytes = html.len();
         if !written.created {
@@ -108,6 +151,28 @@ impl Tool for Write {
     }
 }
 
+/// `page_write` with `file`: the text lands beside the pages, and the
+/// document is not touched — so not even loaded, beyond the folder being a
+/// project.
+fn write_file(dir: &std::path::Path, name: &str, text: &str) -> Result<Reply, String> {
+    load(dir)?;
+    let written = write_page_file(dir, name, text)
+        .map_err(|error| format!("refused, nothing written — {error}"))?;
+    let bytes = text.len();
+    let what = if written.created {
+        "written"
+    } else {
+        "rewritten"
+    };
+    Ok(format!(
+        "{} {what} ({bytes} bytes). Every page that loads it is drawn again at \
+         the next still or render; a page loads it by relative path, e.g. \
+         <script src=\"{name}\">.",
+        written.path
+    )
+    .into())
+}
+
 /// A page as it is on disk.
 pub(super) struct Read;
 
@@ -116,12 +181,12 @@ pub(super) struct Read;
 struct ReadArguments {
     project: ProjectDir,
     #[schemars(description = PAGE)]
-    page: Name,
+    page: Option<Name>,
+    #[schemars(description = FILE)]
+    file: Option<Name>,
 }
 
-impl args::Arguments for ReadArguments {
-    const REQUIRED: Required = &[("page", "the page's asset id")];
-}
+impl args::Arguments for ReadArguments {}
 
 impl Tool for Read {
     fn name(&self) -> &'static str {
@@ -129,8 +194,9 @@ impl Tool for Read {
     }
 
     fn description(&self) -> &'static str {
-        "Read a web page's HTML exactly as it is on disk. Pair with page_write \
-         to change one: read it, change it, write it back, look with still."
+        "Read a web page's HTML exactly as it is on disk — or, with `file`, a \
+         file beside the pages such as lib.js. Pair with page_write to change \
+         one: read it, change it, write it back, look with still."
     }
 
     fn costs(&self) -> Costs {
@@ -144,8 +210,17 @@ impl Tool for Read {
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let arguments: ReadArguments = args::parse(arguments)?;
         let dir = arguments.project.dir();
+        let page = match target(arguments.page, arguments.file)? {
+            Target::Page(page) => page,
+            Target::File(file) => {
+                load(dir)?;
+                return read_page_file(dir, file.as_str())
+                    .map(Reply::from)
+                    .map_err(|error| error.to_string());
+            }
+        };
         let project = load(dir)?;
-        let id = AssetId::new(arguments.page.as_str());
+        let id = AssetId::new(page.as_str());
         let asset = project
             .asset(&id)
             .ok_or_else(|| format!("there is no asset `{id}`; page_write starts a page"))?;
