@@ -1,0 +1,5 @@
+{
+  "source": { "kind": "fm2", "ratio": 2.7, "index": 3.0, "mod_decay": 0.01 },
+  "amp": { "a": 0.0005, "d": 0.018, "s": 0.0, "r": 0.01, "curve": 5.0 },
+  "filter": { "kind": "highpass", "cutoff": 600 }
+}

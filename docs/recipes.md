@@ -2088,7 +2088,8 @@ halves to each other.
 
 Most songs reach for the same handful of instruments, and every one of them is
 five to ten numbers that have to be right before it sounds like itself at all.
-So there is a library of them, and a track asks for one by name:
+So there is a library of them — and of the everyday
+[sound effects](#effects-to-start-from) — and a track asks for one by name:
 
 ```json recipe
 {
@@ -2158,6 +2159,71 @@ Three things worth knowing:
 that instrument's patch before anything is copied anywhere. Every patch in it is
 an ordinary one, written in exactly the vocabulary this page documents, so
 reading one is also the quickest way to see what a working kick is made of.
+
+### Effects to start from
+
+The kit also has the sound effects editors reach for over and over. Each is an
+ordinary one-shot patch — `synth_new` with `"instrument": "whoosh"` writes one
+hit of it — and each is a **starting point, not a finished sound**: twenty pops
+in one video, or the same whoosh in two, should not be the same file.
+
+| name | is | vary |
+| --- | --- | --- |
+| `kit:whoosh` | air rushing past, swelling and falling away | `amp.a` with `filter.adsr.a` (where it peaks), the decays, `cutoff` |
+| `kit:riser` | hiss climbing for a second into a cut | `amp.a`, `filter.adsr.a` and `duration` together, `env_octaves` |
+| `kit:pop` | a round bubble-pop bouncing up onto its note | `note`, `pitch_env.semitones`, `amp.d` |
+| `kit:click` | a short, dry interface tick | `note`, `ratio` (fractional is metallic), `amp.d` |
+| `kit:ding` | a notification bell that rings and fades | `note`, `ratio` and `index`, `amp.d` |
+| `kit:key` | one keystroke — typing is a run of them | `cutoff` (the keyboard's size), `velocity` |
+| `kit:scribble` | pencil scratching on paper, for as long as it is held | `duration`, `lfo.rate` (strokes a second), `cutoff` |
+| `kit:page` | a page turning, a soft papery swish | `amp.a` and `amp.d`, `cutoff` |
+| `kit:thud` | a heavy impact, low and dull, in a room | `note` (lower is heavier), `pitch_env.semitones`, `amp.d` |
+
+**Which number makes a different take is the one in the last column, not the
+seed.** A one-shot's `seed` re-rolls the grain of its noise and the phase its
+oscillators start at, which is a different file and the same sound to the ear.
+And the five made of noise — whoosh, riser, key, scribble, page — **ignore
+`note`**, because noise has no pitch to move: their `cutoff` is where they sit.
+A test holds both halves of that claim, per effect.
+
+**A run of hits is a song, and there the seed does vary them.** Typing is a
+track of `kit:key` played on `steps`, and `humanize` makes every keystroke land,
+hit and sound a little differently — re-rolled as a whole by `seed`:
+
+```json recipe
+{
+  "recipe": "song",
+  "bpm": 150,
+  "seed": 3,
+  "humanize": { "timing": 0.03, "velocity": 0.3, "timbre": 0.4 },
+  "tracks": [{ "name": "typing", "patch": "kit:key", "gain": 0.8 }],
+  "patterns": { "a": { "beats": 4, "notes": [
+    { "track": "typing", "steps": "xx-x-xxx-xx--x-x", "div": 0.25, "vel": 0.8 }
+  ] } },
+  "arrangement": ["a", "a"]
+}
+```
+
+**A scribble is a texture of whatever length the drawing is.** Held as one note,
+`duration` is the stroke: `"duration": 3.5` under a drawing that takes 3.5 s.
+Its strokes come from an LFO, so they are even; a hand is not, and short
+scratches of it in a song, scattered by `humanize`, sound like one:
+
+```json recipe
+{
+  "recipe": "song",
+  "bpm": 120,
+  "humanize": { "timing": 0.04, "velocity": 0.3 },
+  "tracks": [{ "name": "pencil", "patch": "kit:scribble" }],
+  "patterns": { "a": { "beats": 2, "notes": [
+    { "track": "pencil", "note": "C4", "start": 0,    "dur": 0.4 },
+    { "track": "pencil", "note": "C4", "start": 0.5,  "dur": 0.25 },
+    { "track": "pencil", "note": "C4", "start": 0.9,  "dur": 0.5 },
+    { "track": "pencil", "note": "C4", "start": 1.5,  "dur": 0.3 }
+  ] } },
+  "arrangement": ["a", "a", "a"]
+}
+```
 
 ## What a bake is, and when it happens
 

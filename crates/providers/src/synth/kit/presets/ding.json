@@ -1,0 +1,5 @@
+{
+  "source": { "kind": "fm2", "ratio": 3.5, "index": 1.4, "vel_index": 1.5, "mod_decay": 0.25 },
+  "amp": { "a": 0.002, "d": 1.4, "s": 0.0, "r": 0.4, "curve": 3.5 },
+  "fx": [{ "fx": "reverb", "size": 0.45, "damp": 0.4, "mix": 0.2 }]
+}
