@@ -67,6 +67,48 @@ afterwards leaves its captions behind until it is run again. A page that has to 
 `duck_music` against the narration track, last, for the same reason as the
 captions: it writes its dips where the narration is now.
 
+## Whiteboard: a board that draws itself
+
+*From a church video (`verdade-liberta.scor`, 2026-10-09), made in the manner
+of "Desenhando a Bíblia".*
+
+**What it is.** A narrated explainer where drawings and words appear stroke by
+stroke on one large board, in step with the voice, while a camera moves from
+one part of the board to the next. A person asks for it as "a whiteboard
+video", "one of those drawn explanations", or names a channel that makes them.
+Nothing is filmed: the board is a page, and the narration carries it.
+
+**Write the script first, and agree it.** Each beat of the script is a scene:
+a region of the board with its drawing and its words. Generate the narration
+before drawing anything, because the drawing is timed to its words.
+
+**The board is a page, built on the kit.** `kit.draw` draws any SVG stroke by
+stroke, `kit.write` sets text as outlines with one group per word, named the way
+the narration's words are, and `kit.camera` moves a canvas larger than the frame
+under a fixed camera. The worked page is the starting point: copy it and grow
+it (`guide pages`, section "A board that draws itself"), and read the kit's
+table before writing more (`guide pages`, section "The kit").
+
+**Every mark is anchored on a spoken word.** A drawing starts when the voice
+names it and a word is written as it is said, from `scorsese.words`. A mark
+timed in plain seconds drifts the first time a line is re-generated; one
+anchored on a word moves with it. The worked page falls back to following the
+previous mark when a word has no timing, so nothing goes missing.
+
+**One constant stroke speed.** Draw at `kit.draw`'s `speed`, the same for the
+whole board, so a long line takes longer than a short one, as a hand would,
+rather than fitting each drawing into a fixed time.
+
+**The camera moves ahead of the line.** The camera arrives on the next scene
+just as its first mark starts, so a line's opening words, said before the word
+that mark is anchored on, play over the scene it is leaving.
+
+**Hold about a second before each move.** Let a finished scene sit still for
+about 1 s before the camera leaves it, so it can be read whole.
+
+**Pull out at the end.** The last move goes back to the whole board, every
+scene drawn, as the summary, held to the end of the clip.
+
 ## Product tour: real app screens under an informative narration
 
 *From the Truss Cockpit video (`truss-cockpit-promo.scor`, 2026-10).*

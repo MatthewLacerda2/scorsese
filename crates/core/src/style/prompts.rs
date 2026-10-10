@@ -48,7 +48,9 @@ summary.\n\
 Make: write and agree the script, record or generate the narration, then draw each beat \
 as a page whose strokes are timed to the words that name them (`guide pages`). Dark ink \
 on white, one accent colour, simple line art; the camera may push in to the drawing \
-being made and pull back for the summary. Light music, well under the voice.";
+being made and pull back for the summary. Light music, well under the voice.\n\
+Read `guide styles`, section \"Whiteboard\" first: the tools and timings a made video of \
+this kind used. Where it and this disagree, it wins.";
 
 /// [`flat_explainer`](super::STYLES).
 pub(super) const FLAT_EXPLAINER: &str = "\
