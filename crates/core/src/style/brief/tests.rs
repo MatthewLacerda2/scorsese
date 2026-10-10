@@ -42,6 +42,10 @@ fn a_platform_and_a_style_are_written_into_the_script() {
     assert!(text.contains("--platform tiktok_ad"), "{text}");
     assert!(text.contains("1080x1920"), "{text}");
     assert!(text.contains("paid ad"), "{text}");
+    assert!(
+        text.contains("upright") && text.contains("faces in the middle"),
+        "{text}"
+    );
     assert!(text.contains(style("kinetic_type").expect("in the library").prompt));
     assert!(text.contains("propose the script"), "{text}");
     let _ = std::fs::remove_dir_all(&dir);
@@ -56,7 +60,7 @@ fn either_alone_still_carries_the_next_step() {
         "{text}"
     );
     assert!(
-        !text.contains("## Style") && !text.contains("upright"),
+        !text.contains("## Style") && !text.contains("faces in the middle"),
         "{text}"
     );
     assert!(text.contains("propose the script"), "{text}");

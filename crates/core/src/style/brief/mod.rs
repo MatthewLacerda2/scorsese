@@ -12,6 +12,7 @@ use std::fmt::Write as _;
 use std::path::Path;
 
 use super::{Platform, STYLES, Style, style, styles_for};
+use crate::asset::Aspect;
 use crate::project::{Project, SaveError};
 use crate::{ProjectPath, write};
 
@@ -113,11 +114,8 @@ impl Start {
 /// Which placement, and what it asks of the render and the cut.
 fn platform_section(text: &mut String, platform: Platform) {
     let (width, height) = platform.size();
-    let shape = if width > height {
-        "landscape"
-    } else {
-        "upright"
-    };
+    let upright = platform.aspect() == Aspect::Tall;
+    let shape = if upright { "upright" } else { "landscape" };
     let _ = write!(
         text,
         "## Platform: {name} (`{id}`)\n\n\
@@ -127,7 +125,7 @@ fn platform_section(text: &mut String, platform: Platform) {
         name = platform.name(),
         id = platform.id(),
     );
-    if shape == "upright" {
+    if upright {
         text.push_str(
             "Upright feeds lay their own buttons and captions over the frame's edges \
              and bottom: keep text and faces in the middle of the frame.\n\n",
