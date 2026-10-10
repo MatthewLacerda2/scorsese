@@ -392,22 +392,9 @@ relationships are recorded. The rules every session needs:
   understands their existing data or project, changes stored data, or needs a
   migration. **Every issue Claude writes on its own carries the `agent`
   label.**
-  - **While a video is being made, the findings wait for the debrief** (the
-    user, 2026-10-10). Making a real video is the hardest test scorsese gets
-    and where most findings come from: bugs, missing tools, papercuts, things
-    learned about where it is posted (Instagram's recommended loudness). But
-    the session is about the video, so during the edit Claude files nothing,
-    opens no branch and does not stop to discuss them; it writes each one down
-    as it is noticed (a scratch file named for the project, so a compaction
-    does not lose it) and keeps editing. The debrief comes **after**: when the
-    user says the video is done, or when Claude has rendered and delivered the
-    video or audio and considers it finished. Then every finding on the list is
-    filed or folded under the rules above, and the user is told what went
-    where. The one exception is a bug that **stops the video being made**:
-    worked around if it can be, fixed then if it cannot, because otherwise
-    there is no video. This is for someone working in a clone of the repo
-    (CLI, MCP, the desktop app). **The web app's assistant never does it**:
-    its user is making a video, not developing scorsese.
+  - **When the user is using the Claude CLI to create or edit a video, no new
+    issues are filed until the video is delivered.** The findings wait for
+    the **`post-edit-feedback`** skill.
 - **Priority by label:** **infrastructure → architecture → bug → foundation →
   feature.** A bug in the development tooling itself (CI, the gates, the hooks,
   `make queue` / `make mergeable`) ranks as infrastructure. **documentation**
