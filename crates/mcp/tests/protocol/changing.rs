@@ -56,6 +56,31 @@ fn ducking_writes_keyframes_and_says_how_many() {
     std::fs::remove_dir_all(dir).ok();
 }
 
+/// The defaults live in `scorsese-core` (#1071): `duck_music` with no knobs
+/// writes exactly what core's own default dip plans on the same project.
+#[test]
+fn ducking_with_no_knobs_is_cores_default_dip() {
+    use scorsese_core::{Dip, Project, PropertyPath, TrackId, Under, duck_track};
+    let dir = project("duck-defaults");
+    let mut expected = Project::load(&dir).expect("load");
+    let under = Under {
+        music: TrackId::new("music"),
+        narration: Vec::new(),
+    };
+    let dip = Dip::default_for(expected.timeline_fps.as_f64());
+    let volume = PropertyPath::new(scorsese_render::audio::path::VOLUME);
+    duck_track(&mut expected, &under, &volume, dip).expect("the music track");
+
+    let (text, failed) = said(&call(
+        "duck_music",
+        json!({ "project": dir, "music": "music" }),
+    ));
+    assert!(!failed, "{text}");
+    let written = Project::load(&dir).expect("reload");
+    assert_eq!(written.tracks, expected.tracks);
+    std::fs::remove_dir_all(dir).ok();
+}
+
 #[test]
 fn setting_a_level_writes_one_keyframe_and_says_what_the_clip_plays_at() {
     let dir = project("volume");

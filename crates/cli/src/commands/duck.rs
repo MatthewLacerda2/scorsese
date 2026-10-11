@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
-use scorsese_core::{Dip, Ducked, Frames, Project, PropertyPath, TrackId, Under, duck_track};
+use scorsese_core::{Dip, Ducked, Project, PropertyPath, TrackId, Under, duck_track};
 use scorsese_render::audio::path::VOLUME;
 
 /// What `scorsese duck` takes: the music, and how the dip is shaped before it
@@ -13,17 +13,17 @@ pub(crate) struct Options {
     /// The audio track to duck — the music.
     #[arg(long)]
     music: String,
-    /// How far down, as a multiplier on the clip's own level: `0.25` is a
-    /// quarter as loud.
-    #[arg(long, default_value = "0.25")]
+    /// How far down, as a multiplier on the clip's own level: `0.5` is half
+    /// as loud.
+    #[arg(long, default_value_t = Dip::UNDER)]
     depth: f64,
     /// Seconds to reach the ducked level. The dip is fully down by the
     /// moment the narration starts, not after it.
-    #[arg(long, default_value = "0.3")]
+    #[arg(long, default_value_t = Dip::ATTACK_SECONDS)]
     attack: f64,
     /// Seconds to come back up. Longer than the attack on purpose —
     /// returning early is audible as a lurch.
-    #[arg(long, default_value = "0.6")]
+    #[arg(long, default_value_t = Dip::RELEASE_SECONDS)]
     release: f64,
     /// Which tracks count as narration. Repeatable; without it, every
     /// other audio track does.
@@ -41,12 +41,7 @@ pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
         .with_context(|| format!("opening the project in {}", project_dir.display()))?;
 
     let fps = project.timeline_fps.as_f64();
-    let dip = Dip {
-        under: options.depth,
-        over: 1.0,
-        attack: seconds(options.attack, fps),
-        release: seconds(options.release, fps),
-    };
+    let dip = Dip::from_seconds(options.depth, options.attack, options.release, fps);
     let under = Under {
         music: TrackId::new(music),
         narration: options.under.iter().map(TrackId::new).collect(),
@@ -66,15 +61,6 @@ pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
     project.save(project_dir).context("saving the project")?;
     describe(&report, options.depth);
     Ok(())
-}
-
-/// Seconds on the project's own grid, at least one frame when anything was
-/// asked for — a ramp rounded to zero frames is a switch, not a ramp.
-fn seconds(seconds: f64, fps: f64) -> Frames {
-    if seconds <= 0.0 {
-        return Frames::ZERO;
-    }
-    Frames(((seconds * fps).round() as u64).max(1))
 }
 
 fn describe(report: &Ducked, depth: f64) {
