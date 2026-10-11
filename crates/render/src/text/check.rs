@@ -1,5 +1,6 @@
 //! What `scorsese check` says about a project's text before anything is drawn:
-//! a face nothing ships, and characters no face can draw.
+//! a face nothing ships, a shipped face asked for a cut it was never drawn in,
+//! and characters no face can draw.
 
 use std::path::Path;
 
@@ -7,6 +8,7 @@ use scorsese_compositor::text;
 use scorsese_core::{AssetKind, FontChoice, Project};
 
 use super::Painter;
+use crate::error::RenderError;
 
 /// A text asset naming a font this build does not ship.
 ///
@@ -52,6 +54,61 @@ pub fn unknown_fonts(project: &Project) -> Vec<UnknownFont> {
                 named,
                 available: text::names().collect::<Vec<_>>().join(", "),
             })
+        })
+        .collect()
+}
+
+/// A text asset asking a **shipped** family for an italic or a weight it does
+/// not have — an italic of Anton, Liberation Sans at 600, Inter at 50.
+///
+/// A **problem**, for the reason [`UnknownFont`] is one: the render refuses it
+/// rather than substituting a nearby cut, so a title written this way leaves no
+/// render at all. The words are the render's own, because both come from the
+/// same painter.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnusableFace {
+    /// The text asset asking.
+    pub asset: String,
+    /// The family's name as authored.
+    pub named: String,
+    /// Why it cannot be set as asked, and what it does have.
+    pub detail: String,
+}
+
+impl std::fmt::Display for UnusableFace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "`{}` cannot be set as asked: {}",
+            self.named, self.detail
+        )
+    }
+}
+
+/// Every text asset asking a shipped family for a cut it does not have.
+///
+/// Resolves each face through the same painter a render uses, so this refuses
+/// exactly what the render would. Only shipped names: one this build does not
+/// ship is [`unknown_fonts`]'s, and a file the project carries is the media
+/// pass's, so neither fault is reported twice.
+pub fn unusable_faces(project: &Project, project_root: &Path) -> Vec<UnusableFace> {
+    let mut painter = Painter::default();
+    project
+        .assets
+        .iter()
+        .filter(|asset| asset.kind == AssetKind::Text)
+        .filter_map(|asset| {
+            let style = asset.text_style();
+            let named = style.font.name()?.to_owned();
+            text::family(&named)?;
+            match painter.font(&style, asset, project_root) {
+                Err(RenderError::UnusableFont { detail, .. }) => Some(UnusableFace {
+                    asset: asset.id.to_string(),
+                    named,
+                    detail,
+                }),
+                _ => None,
+            }
         })
         .collect()
 }
@@ -104,9 +161,9 @@ impl std::fmt::Display for UncoveredGlyphs {
 ///
 /// Resolves each asset's face exactly as a render would, through the same
 /// painter, so this can never disagree with what the frames do. A face that
-/// will not open at all is not reported here — that is `unknown_fonts` above,
-/// or the media pass, and reporting it twice would be two findings for one
-/// fault.
+/// will not open at all is not reported here — that is `unknown_fonts` or
+/// `unusable_faces` above, or the media pass, and reporting it twice would be
+/// two findings for one fault.
 pub fn uncovered_glyphs(project: &Project, project_root: &Path) -> Vec<UncoveredGlyphs> {
     let mut painter = Painter::default();
     let mut found = Vec::new();

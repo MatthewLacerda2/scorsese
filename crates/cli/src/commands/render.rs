@@ -18,9 +18,11 @@ pub(crate) struct Options {
     /// The canvas every layer is composited onto, and so the size of the file.
     /// `None` means the platform's size, or 1920x1080 without one — which is
     /// also what a sound-only render takes, having no canvas to ask about.
+    /// Never given beside `platform`: clap refuses the pair, as the MCP
+    /// `render` tool does, since both would size the render.
     pub(crate) resolution: Option<Resolution>,
-    /// The placement the file is made for, which sizes it when `resolution`
-    /// does not. `None` leaves the size to `resolution`.
+    /// The placement the file is made for, which sizes it instead of
+    /// `resolution`. `None` leaves the size to `resolution`.
     pub(crate) platform: Option<Platform>,
     /// `None` means the project's own timeline rate — the one output rate that
     /// conforms nothing.

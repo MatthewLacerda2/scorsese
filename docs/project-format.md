@@ -855,7 +855,7 @@ That is every family with a `—` in the table's italic column: the rounded face
 (`quicksand`, `fredoka`, `baloo-2`, `comfortaa`), most display faces (`anton`,
 `bebas-neue`, `oswald`, `archivo-black`, `bangers`, `lilita-one`) and every
 handwriting and script face. `italic: true` on `anton` is an error naming the
-family, at the render.
+family, at the render and by `scorsese check`.
 
 #### The stroke, which is what makes a caption survive the shot behind it
 

@@ -243,6 +243,8 @@ pub use settings::{
 };
 pub use slug::{Absent, wording};
 pub use symbol::{UnknownIcon, unknown_icons};
-pub use text::{UncoveredGlyphs, UnknownFont, uncovered_glyphs, unknown_fonts};
+pub use text::{
+    UncoveredGlyphs, UnknownFont, UnusableFace, uncovered_glyphs, unknown_fonts, unusable_faces,
+};
 pub use tools::{Tools, ToolsError};
 pub use workers::Workers;

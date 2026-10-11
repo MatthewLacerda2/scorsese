@@ -10,6 +10,7 @@
 mod common;
 
 mod exit_codes;
+mod faces;
 mod glyphs;
 mod icons;
 mod scripts;
