@@ -135,8 +135,10 @@ still), 2.1 is the better picture for less, and Google recommends it for new
 work. 2K is what covers a 1080p frame with room left to push into or pan
 across; a 1K still is enlarged before it moves.
 
-`flash` is still the only model drawing 0.5K, the cheapest test of a prompt.
-`lite` draws 1K only, for a picture that matters less than the money. `pro` is
+`flash` is still the only model drawing 0.5K, though at $0.045 that is dearer
+than a 1K picture from 2.1 or `lite` ($0.0336), so it is not the cheap way to
+test a prompt. `lite` draws 1K only, at 2.1's 1K price on a sixth of its input
+rate, for a picture that matters less than the money. `pro` is
 for the most complex compositions, at more than twice 2.1's 2K price.
 
 ### What the estimate counts, and what it does not
