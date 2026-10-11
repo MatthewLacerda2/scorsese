@@ -10,8 +10,8 @@
 //! before drawing (`Renderer` does this itself), and anything else may call it
 //! ahead of time: the web app captures in a different container from the one
 //! that renders (#778), and a desktop app may want to capture while the person
-//! is still editing (#776). [`cached`] is the half that needs no browser —
-//! whether a capture is already there for a request.
+//! is still editing (#776). [`cached_frames`] is the half that needs no
+//! browser — whether a capture of the frames asked for is already there.
 //!
 //! **Only the frames asked for are drawn** (#809). [`capture_frames`] captures a
 //! stretch of the page — the few frames around a still, a clip's stretch from
@@ -182,7 +182,7 @@ pub fn capture(
 ///
 /// For a caller that lays a project out with links to files kept elsewhere:
 /// the web app links each media file into the owner's library, and names that
-/// library here (#857). Where a link really leads is what is checked, so one
+/// library to [`capture_frames`], which is this for a stretch of frames (#857). Where a link really leads is what is checked, so one
 /// from a named folder on to anywhere else is still refused.
 ///
 /// One browser, drawing from the first frame: the web app captures in a

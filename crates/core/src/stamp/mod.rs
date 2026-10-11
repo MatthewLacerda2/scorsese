@@ -10,8 +10,10 @@
 //! A stamp inside a brief hash would make an unchanged prompt look changed and
 //! bill for it again; a stamp reaching the compositor would make a golden
 //! render depend on the day it ran. The type carries no arithmetic for the same
-//! reason it carries no clock: reading the current time is the business of
-//! whichever crate stamps a document, not of the model that stores one.
+//! reason: it is a record of when, not a duration. It can read the clock
+//! ([`Timestamp::now`], [`Timestamp::unix_now`]) so that every crate that
+//! stamps a document spells the instant the same way, but nothing in the model
+//! ever calls either; only the crates that stamp do.
 
 use std::fmt;
 

@@ -12,7 +12,7 @@ Reach for stock first when the shot is **generic**: a city at night, hands
 typing on a laptop, a sunrise, an office, coffee being poured, a cat asleep,
 a crowd, traffic, nature. A large share of the shots in a promotional, product
 or social video are this kind, and Pixabay covers them for **$0**. The
-cheapest Veo shot is $0.64 for 8 s (`guide prices`); real users have found a
+cheapest 1080p Veo shot is $0.64 for 8 s (`guide prices`); real users have found a
 few of those a video too expensive to repeat.
 
 Generate when the shot has to be **unique**: the user's product, a specific

@@ -1,7 +1,9 @@
 # app/ — the desktop window
 
 The one part of scorsese a person looks at. An `egui` application in Rust,
-shipping as a standalone binary on Windows, macOS and Linux.
+built from source for Windows, macOS and Linux; no release ships it yet (the
+`v*` release builds the CLI only). Pages (`html` clips) are captured on Linux
+and macOS, not yet on Windows (#797), where capturing one is refused.
 
 ```
 cargo run --manifest-path app/Cargo.toml

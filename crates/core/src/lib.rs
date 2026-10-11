@@ -46,7 +46,7 @@
 //! [`Project`] remembers about the file it was read from, so that saving it
 //! cannot quietly land on somebody else's edit.
 //!
-//! **Fourteen modules keep their path**, because what they publish is an
+//! **Sixteen modules keep their path**, because what they publish is an
 //! *operation* on a project rather than a part of one, and the verb needs the
 //! noun in front of it: [`mod@pool`] brings media in, hashes it, probes it and
 //! collects what nothing references; [`mod@authoring`] writes down the assets
@@ -62,7 +62,9 @@
 //! reads when a narration says each word and places them on the timeline;
 //! [`mod@captions`] turns those words into on-screen captions; [`mod@voice`]
 //! cuts a narrated video to its lines;
-//! [`mod@write`] is the one way a file leaves here; and [`mod@guide`] hands
+//! [`mod@write`] is the one way a document is written into a project (an
+//! imported file is copied in plainly, under a name nothing references until
+//! the copy is done); and [`mod@guide`] hands
 //! back the agent-facing pages of `docs/`, compiled in, so an installed build
 //! can still read them; and [`mod@style`] is the menu a video starts from — the
 //! platforms it can be made for and the styles it can be made in. [`note`] keeps its own as well — the paragraph

@@ -182,8 +182,10 @@ pub(crate) fn fitted_inside(source: Resolution, raster: Resolution) -> Resolutio
 
 /// What a crop leaves of a source, in pixels.
 ///
-/// ffmpeg's `crop` rounds the same way — `iw*w` truncated to whole pixels — and
-/// the two must agree, because one sizes the buffer and the other fills it.
+/// `iw*w` truncated to whole pixels. The two must agree, because this sizes the
+/// buffer and ffmpeg's `crop` fills it, and today they do not always: ffmpeg
+/// rounds to nearest, and to an even width on 4:2:0 input, so a fraction that
+/// is not a whole number of pixels can come back a pixel or two apart (#1089).
 /// At least one pixel each way: a rectangle that rounds to nothing is a raster
 /// nothing can be read into, and validation has already established that the
 /// fractions themselves enclose some of the source.

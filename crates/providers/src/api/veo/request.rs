@@ -84,7 +84,7 @@ pub struct Parameters {
     pub aspect_ratio: String,
     /// 4, 6 or 8.
     pub duration_seconds: u32,
-    /// `720p` or `1080p`.
+    /// `720p`, `1080p` or `4k`.
     pub resolution: String,
 }
 

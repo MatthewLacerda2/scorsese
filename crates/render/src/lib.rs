@@ -90,7 +90,7 @@
 //! `project_check` returns — one assembly, so the two can never come to
 //! different conclusions about the same project.
 //!
-//! **Seven modules keep their path.** Three of them publish *verbs*, which need
+//! **Eleven modules keep their path.** Three of them publish *verbs*, which need
 //! their noun in front of them to read: [`mod@audio`] mixes
 //! ([`audio::mixdown`]), measures ([`audio::measure`]) and owns the one
 //! property name a volume keyframe spells ([`audio::path::VOLUME`]);
@@ -99,7 +99,7 @@
 //! [`frames::write_png`]) and makes a small picture of a source for a list to
 //! show ([`frames::thumbnail`]); and [`mod@say`] turns a measurement into rows a
 //! person reads ([`say::summary`], [`say::sections`], [`say::layers`],
-//! [`say::survey`], [`say::comparison`]) — and what a render says about the
+//! [`say::survey`], [`say::comparison`], [`say::grid`]) — and what a render says about the
 //! file it delivered ([`say::written`], [`say::delivery`]), so the two clients
 //! that render say it in the same words. [`mod@tools`] holds the two
 //! environment variables that point the binaries somewhere else
@@ -119,11 +119,18 @@
 //! [`Renderer`] reads a proxy only when handed a [`Preview`], which nothing
 //! delivering a file ever does.
 //!
-//! [`mod@page`] keeps its path for the same reason: [`page::capture`] and
-//! [`page::cached`] are verbs, and [`page::Request`] is what they are asked.
-//! So does [`mod@trace`] (#999): [`trace::vectorize`] traces a project's picture
-//! into an SVG beside its pages, and [`trace::trace`] does the tracing on
-//! pixels alone.
+//! [`mod@page`] keeps its path for the same reason: [`page::capture`],
+//! [`page::capture_frames`] and [`page::cached_frames`] are verbs, and
+//! [`page::Request`] is what they are asked. So does [`mod@trace`] (#999):
+//! [`trace::vectorize`] traces a project's picture into an SVG beside its
+//! pages, and [`trace::trace`] does the tracing on pixels alone. So does
+//! [`mod@contact`]: [`contact::sheet`] tiles frames of a file into one picture,
+//! [`contact::timeline_sheet`] does the same for instants of the edit and
+//! [`contact::pictures`] for one picture from each of several files, while
+//! the [`Sheet`] and [`Look`] a caller holds are at the root. [`mod@layout`]
+//! is the odd one: everything it publishes — [`Layout`] and what one is made
+//! of — is reachable from the root too, the same one path more than anything
+//! needs that [`mod@plan`] has.
 //!
 //! **Everything else is `pub(crate)`.** The ffmpeg processes themselves, the
 //! rasters a fit is worked out on, the slug-card furniture, the font cache and

@@ -17,8 +17,13 @@
 //! anything between.
 //!
 //! Everything that writes a document into a project comes through here rather
-//! than repeating the pattern: `project.json`, authored recipes, and baked
-//! media.
+//! than repeating the pattern: `project.json`, authored recipes and pages, and
+//! baked media.
+//!
+//! Importing does not, and needs not: `pool` copies a file in under a name no
+//! asset points at yet and records it only once the copy is whole, so a copy
+//! cut short leaves a stray file nothing reads, never a half-written one a
+//! project does.
 
 use std::fs::{self, File};
 use std::io::{self, Write};

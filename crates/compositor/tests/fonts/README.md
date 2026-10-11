@@ -1,7 +1,7 @@
 # Three fonts, for the tests only
 
-Neither is shipped. Neither is compiled into the crate, neither is a face
-`style.font` can name, and nothing under `src/` reads either. They are test
+None is shipped. None is compiled into the crate, none is a face
+`style.font` can name, and nothing under `src/` reads any of them. They are test
 data, and they are here because the rules they test cannot be tested without
 real files.
 
@@ -39,15 +39,17 @@ check from the document and what only opening the file can answer.
 
 ## Why the static one
 
-Because "a weight beside a file that has only one" is a rule too, and since
-#267 **both shipped faces are variable** — so neither can stand in for a static
-file any more. Space Mono is the smallest thing that can: no `fvar` at all, 97
+Because "a weight beside a file that has only one" is a rule too, and when it
+arrived (#267) **both shipped faces were variable**, so neither could stand in
+for a static file. The catalogue has static faces now (Anton, Bebas Neue and
+the other **drawn** rows of `fonts/README.md`), and the test still keeps its
+own file, so that changing what ships can never change what it tests. Space Mono is the smallest thing that can: no `fvar` at all, 97
 KB, and a family nothing else here uses, so a test failing on it cannot be
 confused with a test failing on a face scorsese draws with.
 
 ## Why the CFF one
 
-Because every other font in the repository — both above, all the shipped
+Because every other font in the repository — the two above, all the shipped
 faces, the golden fixture's — is TrueType, whose outlines are quadratic only,
 so the pen's cubic segment (`curve_to` in `src/text/draw.rs`) was never drawn by
 any test (#671). It is not dead code: `Font::from_bytes` takes a user's own

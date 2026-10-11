@@ -3,12 +3,12 @@
 Forty families, compiled into `scorsese-compositor` with `include_bytes!`. These are the names a `text` asset's `style` can write; a
 project may name a font file of its own instead.
 
-A ninth face is compiled in beside them and is **not** in that list, because
+A forty-first face is compiled in beside them and is **not** in that list, because
 nothing names it: Noto Color Emoji, the **fallback**. *The face nobody names*
 below is the whole of it.
 
-**The list itself lives in `src/text/font/shipped.rs`**, beside the
-`include_bytes!` that make each one real. This file is the provenance: where
+**The list itself lives in `src/text/font/shipped/`**, a file per kind beside
+the `include_bytes!` that make each one real. This file is the provenance: where
 each came from, what it weighs, and what its licence asks for.
 
 | name | family | weights | shape | italic |

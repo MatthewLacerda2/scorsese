@@ -56,8 +56,7 @@ and what would hold up instead. If they still want it, it is done their way,
 and done as well as it can be.
 
 The paid lessons are mostly Veo, because that is what has been generated
-most; the image lessons follow them, and speech lessons belong beside them
-when there are some.
+most; the image lessons follow them, and the speech lessons close the half.
 
 ## Ask Veo for a scene that needs no fine detail
 
@@ -259,6 +258,32 @@ a few dozen instead of nearly two hundred, and the plain white background is
 what `vectorize` drops so the drawing sits on the page's board. The subject
 and what it is doing go before it, as usual.
 
+## For narration, the model carries the language
+
+An English voice reads Portuguese **cleanly on `expressive`** (Eleven v3) and
+**with an English accent on `standard`** (Multilingual v2), at the same price
+per character (`guide prices`). The voice was the same and the text was the
+same; only the model changed.
+
+So for a line in a language other than the voice's own, the model is the
+choice that matters, and a voice native to the language is a nicety rather
+than a requirement. Name `expressive`; hunting the Voice Library for a native
+speaker of the language is a search that the model makes unnecessary.
+
+## A free key lists library voices it cannot speak with
+
+An ElevenLabs key on the free plan **lists** Voice Library voices
+(`scorsese voices`, the `voices` tool) like any other key, and is refused
+when it asks one of them to speak: a `402` with `paid_plan_required`, *"Free
+users cannot use library voices via the API."* Nothing was charged, but a
+narration planned around a library voice found from the listing is a plan
+that cannot be carried out on that key.
+
+The built-in voices speak on a free key the same way they do on a paid one.
+So on a free key, pick from the built-in voices, or ask `voices` to `check`
+the one chosen (`guide mcp`, section "Choosing a voice") before a script is written
+around it. The refusal names the plan limit, never a missing voice.
+
 ## What the vendors advise
 
 Everything from here to *Adding to this page* is the vendors' guidance, not
@@ -375,8 +400,9 @@ statement of what to leave out works where a list of banned words does not.
 **Text in a picture** is asked for in quotes, with the font described and the
 placement stated: *the large bold words "…" in a serif font… No other text.*
 
-**Editing with a picture given** — reference images in scorsese's `image`
-block:
+**Editing with a picture given** — the pictures in scorsese's `image` block:
+`reference_images` (objects), `character_images` (characters to keep looking
+like themselves) and `style_images` (a style to draw in, `pro` only):
 
 - **Add, remove or change one thing**: *Using the provided image of
   [subject], [add/remove/modify] [element]. Make sure the change [fits how].*

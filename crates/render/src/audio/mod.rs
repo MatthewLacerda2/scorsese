@@ -13,9 +13,9 @@
 //!
 //! The mix is produced in full before the encoder starts, because ffmpeg takes
 //! raw video on stdin and there is only one stdin. Writing it to a file next to
-//! the output and handing that over as a second input keeps the render to two
-//! processes at a time and needs no named pipes, which do not portably exist
-//! everywhere this has to run.
+//! the output and handing that over as a second input means no audio decoder
+//! runs beside the picture's decoders and the encoder, and needs no named
+//! pipes, which do not portably exist everywhere this has to run.
 
 pub(crate) mod gain;
 pub(crate) mod headroom;

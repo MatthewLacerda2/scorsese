@@ -28,7 +28,8 @@
 //! crate's currency; `scorsese-render` re-exports them.
 //!
 //! [`text`] is the other thing that turns a model into pixels: a glyph
-//! pipeline, and **the two font files this build ships**, since a system-font
+//! pipeline, and **the font families this build ships** (forty, and an emoji
+//! fallback; `fonts/README.md`), since a system-font
 //! lookup would render differently on every platform and the golden gate is
 //! pixels. What it produces is an ordinary layer, so a title fades and moves
 //! through the properties above rather than through anything of its own. The
@@ -63,11 +64,13 @@
 //!
 //! [`sheet`] tiles several frames into one labelled picture, so an assistant
 //! can look at footage. It is the same two modules again — a label is a card,
-//! and placing a cell is a layer — which is why it is forty lines of layout
-//! rather than a path of its own.
+//! and placing a cell is a layer — so its couple of hundred lines are layout
+//! rather than a path of its own. [`waveform`] is its analogue one medium
+//! over: amplitude over time, drawn so a client with no ears can read a sound
+//! file.
 //!
 //! [`card`] is that same text over a panel of colour, which is all a slug card
-//! is. It is a hundred lines that call the other two modules, and it is not a
+//! is. It is a dozen lines that call the other two modules, and it is not a
 //! rendering path of its own — that is the point of it.
 //!
 //! `aberration` is the lens to `grain`'s film: red and blue sampled at slightly
@@ -154,11 +157,11 @@
 //! size a transparent source with, each through its own
 //! [`CpuCompositor::resample`].
 //!
-//! [`text`], [`card`], [`mod@shape`], [`mod@icon`], [`mod@grid`] and
-//! [`mod@dissolve`] keep
+//! [`text`], [`card`], [`mod@shape`], [`mod@icon`], [`mod@grid`],
+//! [`mod@dissolve`], [`mod@gradient`], [`mod@sheet`] and [`mod@waveform`] keep
 //! their module path as well, because what they publish are *verbs* — `draw`,
-//! `draw_in`, `draw_line`, `dissolve` — and a verb that general needs the noun
-//! in front of it to read. `text::draw`, `card::draw` and `shape::draw` could
+//! `draw_in`, `draw_line`, `dissolve`, `paint`, `tile` — and a verb that
+//! general needs the noun in front of it to read. `text::draw`, `card::draw` and `shape::draw` could
 //! not all sit at the root in any case.
 //! The face those verbs set words in is [`text::Font`], and that is its only
 //! spelling: the root re-export it also had was a second name for a type every
