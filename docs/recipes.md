@@ -850,7 +850,10 @@ beats.
 - **`tracks`** — the instruments. `patch` is either the document inline or a
   project-relative path to a bare patch file, so several songs can share one
   instrument. That path obeys the same rules every path in a project does: no
-  absolute paths, no `..`, forward slashes. `gain` is how loud it sits and
+  absolute paths, no `..`, forward slashes. A patch file is the patch alone,
+  with no `recipe` tag — that missing tag is how it is told from a recipe —
+  and `synth_write` writes one like any recipe, refusing a patch a song could
+  not play. `gain` is how loud it sits and
   `pan` is where — see [Where a part sits](#where-a-part-sits) — and `send`
   is how much of it reaches the song's room, in
   [Where an effect goes](#where-an-effect-goes).

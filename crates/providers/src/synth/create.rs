@@ -6,6 +6,8 @@ use scorsese_core::{
     Asset, AssetId, AssetKind, Project, ProjectPath, RECIPES_DIR, asset_id_for, write,
 };
 
+use scorsese_zimmer::Patch;
+
 use super::error::SynthesisError;
 use super::recipe::Recipe;
 use super::starter::Starter;
@@ -73,4 +75,30 @@ pub(super) fn start(
 /// milliseconds, not after a bake it was never going to keep.
 pub fn check(json: &str) -> Result<Recipe, serde_json::Error> {
     Recipe::from_json(json)
+}
+
+/// Whether a document in `recipes/` is a bare patch file rather than a recipe.
+///
+/// Told by the one key that separates them: a recipe carries a `recipe` tag
+/// and a patch file never can, since a patch refuses every field it does not
+/// know. So this is not guessing from the keys present, which the recipe
+/// format rules out: anything that is not a JSON object, or that has the tag,
+/// is a recipe, and parsing it as one says what is wrong.
+pub fn is_patch_file(json: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(json)
+        .ok()
+        .and_then(|value| {
+            value
+                .as_object()
+                .map(|object| !object.contains_key("recipe"))
+        })
+        .unwrap_or(false)
+}
+
+/// Checks a bare patch file — the kind a song names by path, so several songs
+/// share one instrument — by the rules it meets when a song plays it: parsed
+/// as the resolver parses it, then held to the bounds every note is.
+pub fn check_patch(json: &str) -> Result<(), String> {
+    let patch = Patch::from_json(json).map_err(|error| error.to_string())?;
+    patch.validate().map_err(|error| error.to_string())
 }

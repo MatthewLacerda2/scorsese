@@ -33,6 +33,7 @@ mod moving;
 mod overlapping;
 mod pacing;
 mod paging;
+mod patching;
 mod paying;
 mod placing;
 mod probing;

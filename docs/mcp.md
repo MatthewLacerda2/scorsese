@@ -108,10 +108,10 @@ the tools relate to each other, which is knowledge no single tool has.
 | `page_read` | Read a web page's HTML exactly as it is on disk — or, with `file`, a file beside the pages such as lib.js. | nothing |
 | `synth_new` | Start a new sound: writes a starter recipe into recipes/ and adds the synth_audio asset that points at it. | nothing |
 | `synth_kit` | List the ready-made instruments a recipe can start from, or show one instrument's patch. | nothing |
-| `synth_read` | Read a recipe file as it is on disk. | nothing |
+| `synth_read` | Read a recipe file as it is on disk — a recipe, or a bare patch file a song names by path. | nothing |
 | `synth_write` | Replace a recipe file with the document given. | nothing |
 | `synth_set` | Change one number in a recipe and leave the rest of the document alone: a track's gain, pan or send, or the recipe's own bpm, seed, swing, duration or velocity. | nothing |
-| `synth_check` | Check a recipe file that was changed outside synth_write — edited with your own file tools, or copied in — and say what it is, without rendering it. | nothing |
+| `synth_check` | Check a recipe or patch file that was changed outside synth_write — edited with your own file tools, or copied in — and say what it is, without rendering it. | nothing |
 | `synth_bake` | Render every synth_audio recipe whose sound is not already on disk, into generated/. | nothing |
 | `icons` | Find an icon by a word, and answer with names — each one a string to give `asset_set` as `icon` (an icon asset's `name` in the document) or write into a page. | nothing |
 | `guide` | Read one of scorsese's guides: the how-to that no tool's description has room for. | nothing |
