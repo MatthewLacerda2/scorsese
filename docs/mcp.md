@@ -76,7 +76,7 @@ the tools relate to each other, which is knowledge no single tool has.
 
 | Tool | What it does | Costs |
 | --- | --- | --- |
-| `project_new` | Create a *.scor project directory: project.json, and the assets/, generated/, recipes/ and cache/ folders beside it. | nothing |
+| `project_new` | Create a *.scor project directory: project.json, and the assets/, generated/, recipes/, pages/ and cache/ folders beside it. | nothing |
 | `project_read` | Read a project's project.json: the document on disk, every field in its order, as compact JSON with the indentation taken out. | nothing |
 | `project_describe` | Say what the cut contains, shot by shot and sound by sound. | nothing |
 | `project_check` | Report everything wrong or questionable about a project — the document, the media it references, and the layers it draws over each other — without rendering. | nothing |
@@ -115,12 +115,12 @@ the tools relate to each other, which is knowledge no single tool has.
 | `synth_bake` | Render every synth_audio recipe whose sound is not already on disk, into generated/. | nothing |
 | `icons` | Find an icon by a word, and answer with names — each one a string to give `asset_set` as `icon` (an icon asset's `name` in the document) or write into a page. | nothing |
 | `guide` | Read one of scorsese's guides: the how-to that no tool's description has room for. | nothing |
-| `stock_search` | Search free stock footage and photos (Pixabay) or free Lottie animations (LottieFiles, kind lottie), and see the candidates before choosing. | a key and a network, but no money |
-| `stock_import` | Bring stock footage, a photo or a Lottie animation that stock_search found into the project, by its id and kind. | a key and a network, but no money |
+| `stock_search` | Search free stock footage and photos (Pixabay) or free Lottie animations (LottieFiles, kind lottie), and see the candidates before choosing. | a network, and a key where the vendor needs one, but no money |
+| `stock_import` | Bring stock footage, a photo or a Lottie animation that stock_search found into the project, by its id and kind. | a network, and a key where the vendor needs one, but no money |
 | `vectorize` | Trace a picture into an SVG a page draws on, stroke by stroke. | ffmpeg |
-| `voices` | List the ElevenLabs voices a narration can be read in, or check that one still exists. | a key and a network, but no money |
+| `voices` | List the ElevenLabs voices a narration can be read in, or check that one still exists. | a network, and a key where the vendor needs one, but no money |
 | `voice_design` | Design a new ElevenLabs voice from a description, for when no voice in either list is the one the video needs. | money, at a provider |
-| `generate` | Realise the sketched briefs — the one tool here that costs money, and it quotes before it spends. | money, at a provider |
+| `generate` | Realise the sketched briefs — this costs money (voice_design is the only other tool that does), and it quotes before it spends. | money, at a provider |
 | `render` | Render the timeline to a video file, or to a sound file of its mix alone. | ffmpeg, and real time |
 | `jobs` | Say how far your renders of a project have got, and what each one made. | nothing |
 | `still` | Look at the edit. | ffmpeg, and seconds |
@@ -129,7 +129,7 @@ the tools relate to each other, which is knowledge no single tool has.
 <!-- END TOOLS -->
 
 **A project is a directory, and `project_new` is what makes one.**
-`project.json` plus `assets/`, `generated/`, `recipes/` and `cache/` — the same
+`project.json` plus `assets/`, `generated/`, `recipes/`, `pages/` and `cache/` — the same
 thing `scorsese new` lays out, so an assistant pointed at a machine with no
 project on it can start rather than ask for a terminal. The name defaults to the
 directory's own and the grid to 30 fps, which makes the usual call one argument.
@@ -225,9 +225,11 @@ a tool of its own, `project_probe`, that a client had to remember to call
 
 ## Getting media into the project
 
-`import` is how media that is not already in the project gets in, and it is the
-only way over the protocol: writing an asset into `project.json` names a path
-the project already has to contain.
+`import` is how the person's own media gets into the project. The other ways
+in are downloads and generations — `stock_import` brings stock into `assets/`,
+and `generate` writes into `generated/` — and nothing else brings a file in:
+writing an asset into `project.json` names a path the project already has to
+contain.
 
 ```
 import  { "project": "teaser.scor", "path": "~/Desktop/footage" }
@@ -247,8 +249,12 @@ clip and gets the wrong shot. **Take the id from the reply, not from the file
 name.** Bytes already in the pool are a different thing and not a collision —
 see below.
 
+**`path` takes a list**, so a set of files arrives in one call; one that fails
+does not cost the others, which are saved and reported, with the failures named
+at the end.
+
 **`path` may be a directory, and a directory imports its contents, never
-itself.** A folder has no duration, no pixels and no samples, so no clip could
+itself** — unless `sequence: true` says it is one picture (below). A folder has no duration, no pixels and no samples, so no clip could
 ever point at one; assets are the things a clip references and the compositor
 draws or hears, and the assets table is that list rather than a file browser.
 
@@ -271,15 +277,43 @@ What a folder import does is fixed so that it can be relied on:
 The reply names what came in, what each was measured to be, and what was
 passed over — so nothing needs measuring after it.
 
+**A file edited after it came in is caught by `verify`.** Every asset records
+the hash of its bytes. `project_check` and `project_assets` check that each
+file is *there* on every call, which costs nothing; `verify: true` re-hashes
+every file as well, to catch media changed behind the project's back. It is off
+by default because `project_check` is the call after every edit, and re-reading
+a whole pool is slow.
+
+**A folder of numbered frames is one asset with `sequence: true`.** A
+timelapse, stop motion or a rendered frame directory comes in as a single
+`image_sequence` asset whose stills play in number order (`frame_9` before
+`frame_10`), one frame each and once; the `sequence` tool changes the hold and
+the loop afterwards.
+
+```
+import  { "project": "teaser.scor", "path": "~/Desktop/timelapse", "sequence": true }
+```
+
 ## The assets nothing brings in
 
-Four asset kinds have no file behind them — `text`, `color`, `shape`, `icon` —
-and that is deliberate: a caption, a colour card, a panel and a symbol are
+Four asset kinds that `asset_set` makes have no file behind them — `text`,
+`color`, `shape`, `icon` — and that is deliberate (a `group` and an
+`image_sequence` have none of their own either, but are made from other assets,
+by `group` and `sequence`): a caption, a colour card, a panel and a symbol are
 things a cut should not need to import a megabyte of, go soft at the next
 resolution, or leave the tool to change. The document *is* the asset.
 They are the fast path for a caption, a plain title or a colour card; for a
 title card, a lower third or a diagram of more than a couple of layers, write
 a page instead (`page_write`, [docs/pages.md](pages.md)).
+
+**The native graphics are frozen; new graphics are pages.** `shape`, `icon`,
+arrows that `attach` or `follow` (`clip_follow`), text `reveal` and `number`,
+and gradients keep working and have their bugs fixed, but nothing is added to
+them: a page can do what they do, and more. A new graphics capability — a text
+shadow, a new gradient, a title preset — is a page and its motion kit (`guide
+pages`, section *The kit*). Plain `text` and `color` stay the fast path. What
+follows documents the frozen kinds because projects use them, not as the way to
+make something new.
 
 One verb makes and changes all of them, `asset_set`, and there is one for a
 lane to put them on:
@@ -434,6 +468,15 @@ stock_import  { "project": "teaser.scor", "id": [170617, 213130], "resolution": 
 **Look before choosing.** The sheet is one image for five results, and tags
 alone import the wrong shot; `look` shows how a video moves before anything is
 downloaded in full.
+
+**Narrowing a search.** Each page is five results, one sheet; `page` (from 1)
+asks for the next five. `orientation` keeps results one way round — for a
+vertical edit, `vertical` (footage is filtered by its measured size, since
+Pixabay cannot filter it). `style` is `film` or `animation` for video (default
+`film`) and `photo`, `illustration` or `vector` for images (default `photo`),
+and means nothing for lottie. `min_seconds` keeps footage or animations at
+least that long. `safe` (default `true`) keeps results suitable for all ages;
+LottieFiles has no such filter, so it does nothing for lottie.
 
 **An import is an ordinary import.** The file lands as
 `assets/pixabay-<id>.<ext>` and becomes a `video` or `image` asset like a file
@@ -746,13 +789,15 @@ clip_set  { "project": "teaser.scor", "clip": "c-map", "matte": { "clip": "c-wip
 
 **`clip_follow` sends a clip along an arrow** (#584): a packet down a bowed
 connector, a boat along a route — motion that `transform.position` keyframes can
-only ever draw as straight segments. It writes the clip's `follow` (the arrow's
+only ever draw as straight segments. Like arrows themselves it is **frozen** (see
+[The assets nothing brings in](#the-assets-nothing-brings-in)): it keeps
+working, and motion along a path in a new piece of work is drawn by a page. It writes the clip's `follow` (the arrow's
 **clip**, and whether to `orient` along it) and one ordinary `follow.progress`
 ramp from `0`, the tail, to `1`, the head: from `start_seconds` into the clip,
 over `travel_seconds` (the rest of the clip by default), with an optional
 `easing`. Both halves in one call, because a follow with no ramp sits at the
 tail forever. The ramp stays an ordinary keyframe track, so a pause half way is
-more keyframes on it through `project_write`; `stop` removes the follow and its
+more keyframes on it through `clip_animate` on `follow.progress`; `stop` removes the follow and its
 ramp. `docs/project-format.md` (*Travelling along an arrow*) has what the path
 does to the clip's position and rotation.
 
@@ -913,6 +958,37 @@ It refuses, changing nothing at all, a negative level (volume is a multiplier,
 so below zero inverts the phase rather than muting), a fade missing one of its
 two halves, and a fade that would finish after the clip ends.
 
+## Captions from the narration: `caption_narration`
+
+`caption_narration` puts the narration's own words on screen, timed from the
+word timings saved when each line was generated: each line is cut into short
+pieces at its sentences, commas and pauses, and each piece arrives whole on its
+first spoken word. What it writes is ordinary `text` assets and clips on one
+video track, so any of them can be changed afterwards like any other caption.
+**It is safe to re-run** after a line is regenerated or moved: it replaces only
+the captions it wrote. A line without word timings is named and skipped.
+
+```
+caption_narration  { "project": "teaser.scor" }
+caption_narration  { "project": "teaser.scor", "narration": ["vo"], "max_chars": 28,
+                     "color": "#ffd400", "stroke": "none", "lift": 0.12 }
+```
+
+Everything it takes has a default, chosen so the plain call reads well on a
+9:16 phone:
+
+| argument | what it is | default |
+|---|---|---|
+| `track` | the video track the captions go on, made on top when there is none | `captions` |
+| `narration` | the audio track ids whose lines are captioned | every generated line on any audio track |
+| `max_chars` | the most characters one caption holds | 36, about two lines at the default size in 9:16 |
+| `font` | a face this build ships, or a font file inside the project | `montserrat` |
+| `weight` | how heavy, 1 to 1000 | 800 |
+| `size` | how big, as a fraction of the frame's height | 0.031 |
+| `color` | the words' colour, `#rrggbb` or `#rrggbbaa` | white |
+| `stroke` | the rim outside each letter, `#rrggbb`, or `none` | black |
+| `lift` | how far up from the frame's bottom edge, as a fraction of its height | 0.2, the lower third |
+
 ## Pacing: the same clips, spread differently
 
 `scale_pacing` is the operation for **pacing**, which is most of what editing
@@ -986,6 +1062,8 @@ changed under it.
 - **The end is the last word**, from the word timings kept beside a generated
   line. A line without them (imported speech, or one generated before timings
   were kept) is measured to the end of its clip, and the reply says which.
+- **`start_seconds`** is where the first scene begins; by default, where its
+  earliest visual starts now.
 - **`lead_in_seconds`** puts the line that long after its scene begins; a scene
   can set its own.
 - **`overlap_seconds`** runs each scene's visuals on under the next, so an exit
@@ -1133,10 +1211,10 @@ still  { "project": "teaser.scor", "at": ["0s", "9.1s", "400"], "sheet": true }
 ```
 
 At most five instants, in the order asked, each cell labelled with its time and
-timeline frame. `resolution` is then each **cell's** raster, default 640x360, so
-a sheet of five costs about what one full frame does — and the change between
-two instants is visible because they sit side by side. `grid: true` rules each
-cell on its own; `out` keeps the sheet as the one file it is, so a list and a
+timeline frame. `resolution` is then each **cell's** raster, default 640x360
+(360x640 on a 9:16 edit), so a sheet of five costs about what one full frame
+does — and the change between two instants is visible because they sit side by
+side. `grid: true` rules each cell on its own; `out` keeps the sheet as the one file it is, so a list and a
 path are accepted together here. Notes say which instant they were found at.
 `scorsese still --sheet` writes the same picture from the command line.
 
@@ -1201,7 +1279,7 @@ to import it.
 and say less: what tells you what a shot does is the change *between* frames,
 and a change is only visible when the frames are side by side. At most five
 frames, ever, and the cap is enforced in the library rather than trusted from
-the caller.
+the caller; `frames` asks for fewer (default 5).
 
 **A long file is walked.** Without `to`, the frames are five seconds apart and
 the reply says where the next call starts — 0–20s, then 25–45s. That is the
@@ -1344,8 +1422,8 @@ is.
 
 ## Generating the shots, stills and lines that do not exist yet
 
-`generate` is **the one tool here that costs money**, and everything about its
-shape follows from that. It drives every provider: shots go to Veo, stills to
+`generate` is **what costs money here** — `voice_design` is the only other tool
+that does — and everything about its shape follows from that. It drives every provider: shots go to Veo, stills to
 Gemini's image models, narration to ElevenLabs. Like every paid tool it **quotes first** — see
 [Paid tools quote first](#paid-tools-quote-first) below.
 
@@ -1394,9 +1472,27 @@ needs an ElevenLabs key. Shots and stills share the one Gemini key.
 **It waits, then detaches — for video only.** A shot takes minutes. This waits
 five of them by default (`wait_seconds`) and then returns, which loses nothing:
 a submitted shot's ticket is written into `project.json` before anything else
-can go wrong. **Stills and narration are never in flight**: a picture or a
-line comes back on the same call, so there is no ticket, nothing to poll, and
-nothing `collect` could pick up.
+can go wrong. **Narration is never in flight**: a line comes back on the same
+call, so there is no ticket, nothing to poll, and nothing `collect` could pick
+up. **Neither is a still drawn now** — but a still can wait in a batch.
+
+**Stills can wait a day at half the price.** When the stills in a quote come to
+a dollar or more, the quote also prices them as a Gemini batch: **half price,
+ready within 24 hours** (`guide prices`, section *Stills in a batch*). That is
+a choice for whoever is paying, never one made for them; if they take it, the
+same call is quoted and confirmed again with `batch: true`. A batch is **stills
+only** — a call with a shot or a line still to send is refused, naming them, so
+those go in a call of their own. Each batched still goes `queued` with the
+batch job's name as its ticket, and the next `generate`, or `collect`, picks the
+pictures up at the same paths a still drawn now would have. A batch that fails
+or expires unfinished bills nothing and puts its stills back to sketches.
+
+```
+generate  { "project": "teaser.scor", "batch": true }
+          → the stills alone, quoted at the batch rate, and a token
+generate  { "project": "teaser.scor", "batch": true, "confirm": "quote-…" }
+          → "backdrop: queued — batches/…"
+```
 
 **A still drawn from a still waits one call.** A `generated_image` may name
 another as a reference — one character sheet behind every picture of that
@@ -1435,6 +1531,14 @@ under a shot is not in the prompt either — it routinely does. So `generate`
 probes what it just wrote, because the mix reads `duration_seconds` and
 `audio_channels`, and a generation nobody measured is a line the mix skips and
 a shot that plays silent.
+
+**A generation that came out shorter than its clip shortens the clip.** A clip
+laid out over a sketch has the length somebody guessed; a line or a shot that
+comes back shorter would leave that clip asking for media that does not exist,
+and the document would no longer load. So `generate` cuts each such clip to
+what landed, and the reply names every one — the gap left after it is the
+editor's to close (`cut_to_voice` re-times a narrated cut from what the lines
+actually say).
 
 **A queued shot has two days.** Past that the provider deletes the finished
 video and the money is gone, so a wait that old is reported as its own outcome
@@ -1542,10 +1646,14 @@ There is no cursor and no second page to ask for: narrowing is the way to a
 different hundred. The count is the vendor's own and is never estimated — where
 it sends none, the listing says there are more without saying how many.
 
-The Voice Library is **not available through the API on a free plan**. When it
-is refused, the reply says exactly that and points at the built-in voices,
-which generate the same way. No subscription tier is detected to produce that
-message — it is only ever what the vendor answered when asked.
+**Searching the Voice Library works on any key; generating with one of its
+voices needs a paid plan.** A free key lists the Library like any other —
+3,386 Portuguese voices when the maintainer checked one on 2026-08-17 — and is
+refused when a line is sent in one of them. So `check` a Library voice before
+writing it onto a line: on a free plan it answers that this account may not use
+it, and points at the built-in voices, which generate the same way. No
+subscription tier is detected to produce that message — it is only ever what
+the vendor answered when asked.
 
 **Ask about one id with `check`, and believe the answer.** A voice that can no
 longer be generated with is reported as such, with the reason: it has gone, or
@@ -1580,8 +1688,11 @@ expensive kind of wrong error message.
 `voice_design` is the escape hatch for the case `voices` cannot answer: the
 voice a person had in mind before they heard anything, which neither the
 built-in set nor the Voice Library happens to contain. It is especially the
-pt-BR case — the Library's coverage there is thin, and a free account cannot
-reach it at all.
+pt-BR case — the Library's coverage there is thin, and a free account can
+search it but not generate with it. **Designing needs a paid plan too**: the
+quote needs no key and cannot tell, so a free key is refused at the confirming
+call, before anything is billed, and the refusal points at the built-in
+voices.
 
 It is **the second tool here that spends money**, and it spends it differently.
 
@@ -1605,7 +1716,8 @@ right here, because the obvious guess is wrong: three samples come back and the
 without sending anything, and a second call with the same `prompt` and `text`
 and `confirm` set to the token designs — exactly as `generate` does. A design
 already on disk needs no token, and neither do `keep` and `list`, which spend
-nothing.
+nothing. `guidance` says how literally the candidates follow the description —
+higher is more literal and less varied; left out, the vendor chooses.
 
 **Voice design spend is its own line item.** It counts against the same
 spending ceiling — it is real money at the same vendor — but it is never added
@@ -1789,9 +1901,11 @@ of the same project would carry. `resolution` and `video_codec` mean nothing
 to it, so they are refused rather than quietly ignored.
 
 The reply ends with what `scorsese render` prints about sound, in the same
-words: the level the delivered file came out at, and — when a lossy codec
-would have carried the mix over full scale — how far the soundtrack was turned
-down to prevent it. An agent is the caller least able to hear the result, so
+words: the level the delivered file came out at (`file   mean … dBFS, peak …
+dBFS`); with `loudness`, a line saying how loud the mix was, how loud the file
+came out, how far it was raised or lowered and how much the limiter took
+(below); and — when a lossy codec would have carried the mix over full scale —
+how far the soundtrack was turned down to prevent it. An agent is the caller least able to hear the result, so
 it is told rather than left to ask `hear` a question it had no reason
 to think of.
 
@@ -1828,6 +1942,37 @@ refuses them, as it refuses `resolution`; the two sound settings it takes.
 `--threads` has no argument: how many threads composite is a setting of the
 machine rather than of the file, and the server leaves it to the machine.
 
+## Platform, loudness and narration bands
+
+**`platform` sizes the render for where it is going**: `youtube` is
+1920x1080; `youtube_shorts`, `instagram_reels`, `instagram_reels_ad`,
+`instagram_stories_ad`, `tiktok` and `tiktok_ad` are 1080x1920. It is a preset
+for this render only — the project is not changed — and it cannot be given with
+`resolution`, which says the same thing another way. A sound-only format
+refuses it.
+
+**`loudness` delivers the soundtrack at a loudness**, in LUFS, between −40 and
+−5: the mix is measured, raised or lowered to the target, and a limiter holds
+its peaks under −1 dBTP, so a quiet mix arrives as loud as the feed around it.
+Without it the mix is delivered as balanced, turned down only as far as a lossy
+codec needs. The reply's `loudness` line gives the loudness before and after,
+the gain, and how much the limiter took; a mix whose loudness is all in its
+peaks can come out short of the target, and the line says by how much and why.
+
+```
+render  { "project": "trilhas.scor", "out": "reel.mp4", "platform": "tiktok", "loudness": -14 }
+        → "…
+           loudness -22.3 LUFS as mixed, -14.1 LUFS delivered (target -14.0 LUFS): raised 8.3 dB, …"
+render  { "project": "trilhas.scor", "out": "reel.mp4", "loudness": -50 }   → refused: outside -40 to -5 LUFS
+```
+
+**`narration_bands: false` leaves the narration bands off the picture.** A
+narration line not yet generated draws a band across the foot of the frame
+saying what it will say; for a preview whose captions already carry the words,
+that band is in the way. The line keeps its place on the timeline, stays silent
+until generated and still ducks the music, and the reply names every line left
+out. Default `true`; a sound-only format refuses it.
+
 `project_describe` takes `scorsese describe`'s `fps` and `range` too: the cut
 as a render at that rate, of that stretch, would sequence it. `range` is in
 timeline frames, as `render`'s is, and `at` stays on the timeline's grid.
@@ -1854,7 +1999,7 @@ load it by relative path are drawn again when it changes. Only `.js`, `.css`,
 `.json` and `.svg`, at most 1 MB.
 
 How to write one well — the contract a page is drawn under, what it can load
-offline, and four worked pages — is [`pages.md`](pages.md), which a client
+offline, and its worked pages — is [`pages.md`](pages.md), which a client
 reads with `guide pages`.
 
 ## Making sound
@@ -2111,10 +2256,14 @@ guide  { "project": "teaser.scor", "name": "recipes", "section": "Writing a chor
 tokens) comes back as its opening and a numbered list of the headings inside
 it, and `section` — a heading's words, or its number in the list — asks for one.
 The same rule applies to a section that is itself long, so no answer is ever
-over the limit. Measured when this was built: `pages` is about 8.7k tokens and
-comes back whole, since it is the one read before every page; `recipes` (42k)
-and `project-format` (about 50k) do not, because an answer stays in the
-conversation and is paid for again on every later model call.
+over the limit. `recipes` (42k tokens) and `project-format` (about 50k) answer
+with a map, because an answer stays in the conversation and is paid for again
+on every later model call. **`pages` is the exception, and comes back whole**:
+it is the one read before every page, and its worked pages are what a page is
+written from, so its limit is 64 KiB (about twenty thousand tokens) rather than
+32. It was 8.7k tokens when this was built and about 17k by 2026-10-11 (#1139);
+a test holds it whole, and when it outgrows that the page is split rather than
+the limit raised again.
 
 **A pointer names the tool.** A description that sends a client to more reading
 says `` `guide pages` ``, or `` `guide pages`, section *A Lottie animation* ``,

@@ -74,8 +74,8 @@ impl Tool for Generate {
     }
 
     fn description(&self) -> &'static str {
-        "Realise the sketched briefs — the one tool here that costs money, and it \
-         quotes before it spends. Called without confirm it sends nothing and needs no \
+        "Realise the sketched briefs — this costs money (voice_design is the only other \
+         tool that does), and it quotes before it spends. Called without confirm it sends nothing and needs no \
          key: it answers with what each generated_video (Veo), generated_image \
          (Gemini) and generated_audio (ElevenLabs) brief would cost, and a token. Before the \
          first quote, every brief it covers is storyboarded in words in the script \
@@ -333,7 +333,10 @@ fn spent_so_far(project: &Project, root: &Path) -> u64 {
 /// What the run reads as.
 fn said(shots: &Run, drawn: &stills::Drawn, spoken: &lines::Spoken, dir: &Path) -> String {
     if shots.outcomes.is_empty() && drawn.is_empty() && spoken.is_empty() {
-        return String::from("Nothing to generate: no prompted assets in this project.");
+        return String::from(
+            "Nothing to generate: every prompted brief in this project is already generated \
+             (or there are none), and nothing is in flight.",
+        );
     }
     let mut lines = Vec::new();
     shots::said(shots, &mut lines);

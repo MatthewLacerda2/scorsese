@@ -30,8 +30,10 @@ pub(crate) struct Voices;
 struct Arguments {
     project: ProjectDir,
     /// Search the Voice Library — thousands of voices other people published —
-    /// instead of the small built-in set. Needs a paid ElevenLabs plan; the
-    /// built-in voices do not. The filters below apply only to this. A search
+    /// instead of the small built-in set. Searching works on any key;
+    /// generating with a Library voice needs a paid ElevenLabs plan, and
+    /// `check` says whether this account may use one. The filters below apply
+    /// only to this. A search
     /// that matched more voices than one reply can carry says so, and how many
     /// matched in all — so a truncated search is never mistaken for a complete
     /// one.

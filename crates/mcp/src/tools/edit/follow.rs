@@ -67,8 +67,8 @@ impl Tool for ClipFollow {
          becomes an offset from there, and with `orient` it turns to face the way \
          the line runs. Writes the clip's `follow` and one ordinary \
          `follow.progress` ramp from 0 (the tail) to 1 (the head), which stays \
-         editable afterwards with project_write — a pause half way, or a trip \
-         back, is more keyframes on that track. The arrow is named by its CLIP \
+         editable afterwards with clip_animate on follow.progress — a pause half \
+         way, or a trip back, is more keyframes on that track. The arrow is named by its CLIP \
          (the same arrow asset can be on screen twice), on the same timeline as \
          the clip, and need not be showing yet. `stop` removes the follow and its \
          ramp. Nothing is written unless the whole document still loads."
