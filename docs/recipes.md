@@ -30,6 +30,14 @@ scorsese synth bake                    # render everything not already baked
 scorsese synth check recipes/theme.json
 ```
 
+Over MCP the same work is `synth_new`, `synth_read`, `synth_write`,
+`synth_check`, `synth_bake` and `synth_kit`, plus **`synth_set`**, which changes
+one number — a track's `gain`, `pan` or `send`, or the recipe's `bpm`, `seed`,
+`swing`, `duration` or `velocity` — without re-sending the whole document: the
+tool for tuning a level over several bakes. It cannot reach a `gain` or `pan`
+that an [automation curve](#making-something-build) overrides, because the
+curve is what plays; move the curve's points with `synth_write` instead.
+
 Both starters make a sound as written. Bake first, listen, then edit. An
 arrangement that already exists as a `.mid` starts
 [from the file](#starting-from-a-midi-file) instead.
@@ -68,7 +76,8 @@ its own peak, so a reverb on a short pop costs its file only the ring you can
 hear. `velocity` is `0..=1`. `seed` re-rolls the
 stochastic sources — same seed, same bytes, forever.
 
-Only `note` and `patch` are required; the rest default.
+Only `note` and `patch` are required; the rest default: `duration` to **0.5 s**,
+`velocity` to **1.0** and `seed` to 0.
 
 ### The signal path
 
@@ -102,13 +111,24 @@ sources **bend one sine with another**, and the spectrum is whatever falls out
 of the depth you asked for. `additive` **states the spectrum outright**, with
 nothing left for a filter to arrive at.
 
-The last three have sections of their own, and the two FM ones are two sizes of
-one idea. **`fm2` is usually the right one**: it is two numbers, which is a
-thing you can hold in your head, and it covers the percussive end FM is famous
-for. Reach for [`fm4`](#four-operators-and-the-wiring-between-them) when the
+`fm4` and `additive` have sections of their own; the other four are small
+enough to say here. The two FM ones are two sizes of one idea. **`fm2` is
+usually the right one**: it is two numbers, which is a thing you can hold in
+your head, and it covers the percussive end FM is famous for. `ratio` (the
+modulator's frequency as a multiple of the note's) and `index` (how deep it
+bends the carrier — more is brighter) are required; `mod_decay` is how many
+seconds that depth takes to fall away, so the bright strike collapses to a
+near-sine body (default **0.3**), and `vel_index` is the depth a full-velocity
+note adds (default 0, the same brightness however hard it is struck). Reach for [`fm4`](#four-operators-and-the-wiring-between-them) when the
 sound needs something two operators structurally cannot do, and for
 [`additive`](#stating-a-spectrum-instead-of-carving-one) when you know what the
 spectrum is rather than what to remove from one.
+
+**`karplus` is a plucked string**: a burst of noise ringing round a delay line.
+`damping` is how long it rings (default **0.996**; lower is a muted, woody
+pluck) and `brightness` how hard the pluck is (default **0.5**; 0 is a soft
+fingertip, 1 a hard pick). The note decides the pitch; both fields are clamped
+to `0..1` rather than refused.
 
 **Noise has a colour, and it is not a filter setting.** `white` is equal energy
 per hertz, so most of it sits in the top octave — which is why it is a *hiss*,
@@ -177,7 +197,8 @@ physical thing makes, falling fast and then trailing. Nothing real decays in a
 straight line, and the ear knows: a linear decay holds up too long and then
 arrives at silence too abruptly, which is one of the few cues that reliably
 says *synthesised* about an otherwise well-made sound. Try `3.0` to `5.0` on
-anything plucked, struck or hit; `8.0` is the steepest accepted. Negative
+anything plucked, struck or hit; `8.0` is the steepest there is, and a larger
+value is clamped to it (±8) rather than refused. Negative
 mirrors it into a slow start and a sudden arrival — a swell, not a decay.
 
 **`filter`** *(optional)* — `kind`, plus `cutoff` in Hz, `slope`,
@@ -224,12 +245,32 @@ where 1.0 dips to silence.
 
 | `fx` | Fields | What it does |
 | --- | --- | --- |
-| `delay` | `time` in seconds, `feedback` 0..1, `mix` 0..=1, `ping_pong` | feedback echo — a slapback, a corridor; `ping_pong: true` walks the repeats **side to side** |
+| `delay` | `time` in seconds, `feedback` 0..=0.95, `mix` 0..=1, `ping_pong` | feedback echo — a slapback, a corridor; `ping_pong: true` walks the repeats **side to side** |
 | `reverb` | `size` 0..=1, `damp` 0..=1, `mix` 0..=1 | a room the sound is in — the widest thing in a mix |
 | `saturate` | `drive`, `mix` 0..=1 | soft clip: warmth, weight, glue |
 | `eq` | `bands`: up to 8 of `{ kind, freq, gain_db, q }` | takes a region away, or adds one |
 | `compress` | `threshold` dBFS, `ratio`, `attack`/`release` in seconds, `makeup` dB, `mix` 0..=1, `sidechain` | takes the loud moments down — glue, and ducking |
 | `chorus` | `rate` in Hz, `depth` 0..=1, `voices` 2–4, `mix` 0..=1 | several detuned copies, spread wide — one instrument becomes a **section** |
+
+**Out-of-range numbers on an effect are clamped, not refused** — the one
+exception is `eq`'s band count, below. What each is held to:
+
+- `delay`: `feedback` at most **0.95**, so the echoes always die away.
+- `compress`: `threshold` −60..=0 dBFS, `ratio` 1..=20, `attack` and `release`
+  0.0005..=2 s, `makeup` ±24 dB.
+- `eq`: `gain_db` ±24, `q` 0.1..=30, `freq` 10 Hz up to just under Nyquist.
+- `chorus`: `voices` 2..=4 and `rate` at most 10 Hz. (An *oscillator's*
+  `voices` past 7 is refused instead: there the number is the sound.)
+- Every `mix`, `depth`, `size` and `damp` to `0..=1`.
+
+However long a chain rings, a note is padded by **at most 6 s** of tail.
+
+The compressor's `attack` and `release` are the lengths of two **straight-line
+gain ramps**: the gain falls to where a peak needs it over `attack` seconds,
+*finishing* as the peak arrives (a bake sees the whole piece, so it can start
+early), and climbs back over `release`. So a long attack does not let a
+transient through the way a hardware compressor's does — it only makes the dip
+gentler and earlier.
 
 A limiter always runs after them and is not listed — a bake must not clip, and
 that is not the recipe's decision. It holds the **true** peak at −1 dBTP: the
@@ -813,8 +854,11 @@ beats.
   `pan` is where — see [Where a part sits](#where-a-part-sits) — and `send`
   is how much of it reaches the song's room, in
   [Where an effect goes](#where-an-effect-goes).
-- **`patterns`** — named blocks. `beats` is the *slot* the block occupies; notes
-  may ring out past it and the next pattern still starts on time.
+- **`patterns`** — named blocks. A note's `vel` defaults to **1.0** — full,
+  with no headroom left for an accent above it, so a part that will carry
+  accents or `humanize` writes its notes lower. `beats` is the *slot* the
+  block occupies; notes may ring out past it and the next pattern still starts
+  on time.
 - **`arrangement`** — which patterns play, in order: one at a time, or
   [several at once](#playing-parts-together).
 - **`key`** — optional, `"D minor"`. Lets a note be written as a
@@ -1390,8 +1434,9 @@ A note written at full velocity can only come out quieter, so a piece that
 wants dynamics in both directions writes its notes below `1.0`. `timbre` is not
 a milder `velocity`: leaning on a note makes it louder *and* brighter, which is
 what `velocity` does, while changing the touch makes it brighter at the same
-level. It reaches an instrument through the two routings that already read
-velocity as effort — a filter's `vel_octaves` and `fm2`'s `vel_index` — so a
+level. It reaches an instrument through the routings that already read
+velocity as effort — a filter's `vel_octaves` and the `vel_index` of `fm2` or
+`fm4` (so `kit:brass` hears it) — so a
 patch that names neither hears nothing from it, which is the right silence:
 what "brighter" means belongs to the instrument.
 
@@ -1599,8 +1644,9 @@ goes.** Put it on a patch and each instrument is in its own room, drifting
 apart the moment one of them is tuned; put it on the song and it is one
 setting, decaying once across everything and ringing past the last note as a
 single tail — with each track's `send`, below, saying how much of that track
-the room hears. It is also less work for the machine: one room, convolved
-once, instead of the same room convolved for every note in the piece.
+the room hears. It is also less work for the machine: one room (a Freeverb —
+eight comb filters into four allpasses, not a convolution), run once, instead
+of the same room run for every note in the piece.
 
 It is also the piece's **width**. The reverb is stereo — its two sides are the
 same room heard at two slightly different sets of delays — and the tail is
@@ -1842,8 +1888,8 @@ Two more things a curve does, and both are what anyone would guess:
 **A cutoff moves once per note, a fader moves every sample.** A note is
 rendered as one buffer through a filter set when the voice starts, so a
 `cutoff` curve is read at each note's onset and holds for that note — which
-means a sweep is as smooth as the part playing it. Sixteenths give it 32 steps
-a bar and it sounds continuous; one chord held across eight bars gets one
+means a sweep is as smooth as the part playing it. Sixteenths give it 16 steps
+a bar of four and it sounds continuous; one chord held across eight bars gets one
 value, and the fix is to write the part as the repeated notes it would be
 played as. `gain` and `pan` are faders, so they are read every sample and a
 held chord does swell.
@@ -2277,8 +2323,17 @@ scratches of it in a song, scattered by `humanize`, sound like one:
 ## What a bake is, and when it happens
 
 `synth bake` renders every recipe whose output is not already on disk, and
-writes it to `generated/<digest>.wav` — the digest being a hash of the recipe's
-bytes together with the version of the synthesiser that rendered them.
+writes it to `generated/<digest>.wav` — the digest being a hash of everything
+the render reads:
+
+- the recipe's own bytes;
+- the version of the synthesiser that renders them
+  ([below](#the-synthesiser-is-the-other-half-of-a-bake));
+- **each patch file a song names**, by its own hash — so editing a shared
+  `recipes/bass.json` re-bakes every song that plays it, and leaves the songs
+  that do not alone;
+- **what the song read from the project** — the length of the clip a
+  `fit` to `clip` or an anchor resolved — so moving that clip re-bakes it too.
 
 That naming is the whole cache. The path an asset holds *is* the record of what
 produced it, so editing a recipe makes the asset stale by arithmetic — nobody
@@ -2297,6 +2352,9 @@ scorsese synth bake trilha --seconds 0:12        # the same window, in seconds
 scorsese synth bake trilha --only pad --only sub # two tracks, whole piece
 scorsese synth bake trilha --beats 0:32 --out /tmp/opening.wav
 ```
+
+Over MCP, `synth_bake` takes the same four as arguments — `beats`, `seconds`,
+`only` and `out` — with the recipe's asset named.
 
 The two halves answer to different readers. A **window** is for whoever reads
 the report: the numbers for eight bars answer the same question as the numbers
@@ -2420,6 +2478,12 @@ section, named after all of its layers — `groove + solo`. A one-shot, an impor
 file and a rendered mixdown have no arrangement, so those are cut on a fixed
 interval instead. A piece with only one stretch gets no rows at all — one row
 under a one-line summary is the same sentence twice.
+
+Two more words can join the summary line. **`true peak`** appears when the
+loudest point *between* samples is at least 0.1 dB above the sample peak — the
+number a lossy encoder has to reproduce. **`— clipping`** ends the line when
+that true peak reaches full scale. A bake never says it, because the limiter
+holds it to −1 dBTP; a render or a `level` of something imported can.
 
 **The times are seconds, to the millisecond**, and they are exact: they come
 from the same conversion the notes were placed with, so a section that starts
@@ -2817,6 +2881,17 @@ exactly what nothing downstream can notice.
 An entry that carries the fields of two of the four kinds is refused too, by
 all four rather than by whichever is declared first.
 
+**The shape of the piece**, last, because each is the empty or impossible case
+of something above: a song with no tracks or an empty `arrangement`; a pattern
+whose `beats` is not positive; a note starting before beat 0; a patch played for
+a `duration` that is not positive; an oscillator's `voices` outside 1..=7; an
+`eq` with more than 8 bands; a track's patch path that cannot be read; a
+compressor keyed from its own track, from a track the song does not have, or
+anywhere but a track's own chain; a negative `fade`; a `fit` whose `seconds` is
+not positive, that gives both `seconds` and `to` or neither, or that is `to:
+"clip"` with no clip resolved; and a `tail: wrap` beside a `fade` or a `loop` or
+`once` fit, or one whose ring-out is longer than the loop it would fold onto.
+
 Musical taste is not checked. An ugly patch renders.
 
 ## What CI checks about this page
@@ -2841,7 +2916,8 @@ never mistaken for an accurate page.
 
 ## Where this fits
 
-`synth_audio` is one of the three generated asset kinds — see
+`synth_audio` is one of the four generated asset kinds, and the only one made
+from a recipe rather than a prompt — see
 [`project-format.md`](project-format.md#assets) (`guide project-format`,
 section "Assets"). It does not replace
 `generated_audio`: that one is ElevenLabs, for **voice**. No amount of

@@ -11,7 +11,9 @@ recipe for its kind: what it is and when a person asks for it, how the
 timeline is laid out, which tools and pages it uses, the timing that makes it
 feel right, and the traps already paid for. A section is about *what* and
 *why*; the *how* stays in the guide that owns it, and the section points
-there — `guide pages` for a page, `guide project-format` for the document.
+there — `guide pages` for a page, `guide project-format` for the document,
+and for the score `guide recipes` (how to write one) and `guide references`
+(which record to hold it against, and what that record measures).
 
 **Every section comes from a video actually made**, and names it, the way
 `guide prompts` keeps what was learned by paying. A kind of video gets its
@@ -65,7 +67,14 @@ afterwards leaves its captions behind until it is run again. A page that has to 
 
 **The music is ducked.** Lay the music bed under the whole cut, then
 `duck_music` against the narration track, last, for the same reason as the
-captions: it writes its dips where the narration is now.
+captions: it writes its dips where the narration is now. Its defaults are the
+level to start from: a quarter of the bed's own level under every line (about
+−12 dB), down in 0.3 s and back up over 0.6 s.
+
+**The score is a bed under talk.** Write it as a recipe (`guide recipes`)
+with a `fit` to the clip that plays it, so it lasts exactly as long as the cut,
+and hold its bake report against the reference `guide references` gives for a
+groove under talk (*Billie Jean*).
 
 ## Whiteboard: a board that draws itself
 
@@ -115,6 +124,9 @@ about 1 s before the camera leaves it, so it can be read whole.
 **Pull out at the end.** The last move goes back to the whole board, every
 scene drawn, as the summary, held to the end of the clip.
 
+**Music under everything, ducked.** A recipe (`guide recipes`) fitted to the
+clip, ducked with `duck_music` against the narration as in a narrated ad.
+
 ## Product tour: real app screens under an informative narration
 
 *From the Truss Cockpit video (`truss-cockpit-promo.scor`, 2026-10).*
@@ -141,7 +153,11 @@ a soft panel or a device frame, with a slow push-in toward the part being
 named, and a short label or highlight marking it. The voice decides when a
 screen changes, the same way as in a narrated ad (the section above): the next
 screen arrives shortly after the sentence about the last one ends, not on a
-fixed beat, and `cut_to_voice` lays that out. Neutral music under it, ducked with `duck_music`.
+fixed beat, and `cut_to_voice` lays that out.
+
+**Neutral music under it, ducked.** A recipe (`guide recipes`) fitted to the
+cut, held against the reference `guide references` gives for a groove under an
+explainer (*Billie Jean*), and ducked with `duck_music` as in a narrated ad.
 
 **Close on where to get it.** The product's name and where to find it, held
 long enough to read.
