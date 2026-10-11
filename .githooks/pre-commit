@@ -9,8 +9,8 @@
 # clone.
 #
 # The full set — clippy, docs, tests, supply chain — is `make gates`, on
-# demand. It is not here on purpose: the suite spawns real ffmpeg and takes
-# ~20s, and an agent commits several times per issue, including the deliberate
+# demand. It is not here on purpose: the suite spawns real ffmpeg and a browser
+# and takes minutes, and an agent commits several times per issue, including the deliberate
 # commit/corrupt/test/restore cycle of break-testing. Taxing that would tax the
 # practice we most want to encourage.
 

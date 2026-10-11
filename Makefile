@@ -86,9 +86,11 @@ TOUCHES = { \
 	|| [ -n "$$(git status --porcelain -- $(1))" ]; }
 TOUCHES_APP = $(call TOUCHES,app/ ':(exclude)*.md')
 TOUCHES_WEB = $(call TOUCHES,web/ ':(exclude)*.md')
-# The end-to-end flows drive the page against the real server, so a change to
-# either side is a change they answer for.
-TOUCHES_E2E = $(call TOUCHES,web/ crates/server/ ':(exclude)*.md')
+# The end-to-end flows drive the page against the real server, and the server
+# is a thin client of every other crate — a change to mcp, core, render or
+# providers reaches the flows as surely as one to `crates/server` (#1134).
+# `crates/golden` is the one crate nothing ships, so it is the one left out.
+TOUCHES_E2E = $(call TOUCHES,web/ crates/ ':(exclude)crates/golden/' ':(exclude)*.md')
 
 # Whether the golden fixtures are among the tests `test` just ran. They are
 # `#[ignore]`d on any target that is not Linux, because the references are
@@ -260,7 +262,7 @@ gates: target-dir inventory $(GATES) ## Everything CI blocks on. Run this before
 	if $(TOUCHES_APP); then ran="$$ran app"; fi; \
 	echo "gates: all green -- $$ran"
 	@$(TOUCHES_WEB) || echo "gates: web not run -- this branch changes nothing under web/."
-	@$(TOUCHES_E2E) || echo "gates: web-e2e not run -- this branch changes nothing under web/ or crates/server/."
+	@$(TOUCHES_E2E) || echo "gates: web-e2e not run -- this branch changes nothing under web/ or crates/ (bar crates/golden)."
 	@$(TOUCHES_APP) || echo "gates: app not run -- this branch changes nothing under app/."
 # `test` did run, and is on that list; part of what it covers did not. So this
 # narrows the claim rather than removing a gate from it — which is why it reads
@@ -315,13 +317,14 @@ docs: ## [gate] cargo doc with -D warnings: a broken intra-doc link is a failure
 	RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
 
 # nextest rather than `cargo test`, and the reason is scheduling. This
-# workspace has 31 integration test binaries; cargo runs them essentially one at
-# a time and threads only *within* each, so the slow render and golden binaries
-# leave the other cores idle while they finish. nextest puts every test from
-# every binary into one global pool and gives each its own process. Measured
-# warm on the dev machine (4 cores / 8 threads): 44.5s down to 34.0s, a failure
-# prints the moment it happens instead of at the end, and a test that aborts now
-# costs one result rather than every result in its binary.
+# workspace has 147 test binaries; cargo runs them essentially one at a time and
+# threads only *within* each, so the slow render and golden binaries leave the
+# other cores idle while they finish. nextest puts every test from every binary
+# into one global pool and gives each its own process (#225 measured the
+# switch), a failure prints the moment it happens instead of at the end, and a
+# test that aborts now costs one result rather than every result in its binary.
+# On 2026-10-11 CI spent about 355s compiling and 371s running its 3,860 tests;
+# `.config/nextest.toml` kills any one test that hangs.
 #
 # Doctests are the one thing nextest cannot run — an upstream limitation, not a
 # nextest decision — so they get their own line. Every code fence in the tree is
@@ -622,7 +625,9 @@ coverage: ## Which pub items no test reaches. A signal: no threshold, blocks not
 # Diff-scoped, as `make mutants-remote SCOPE=diff` runs it, because the useful question
 # before a push is "would anything notice if what I just wrote were wrong?" and
 # not "how is the whole codebase doing". `cargo mutants` on its own sweeps the
-# full scoped surface — 3875 mutants — and is there when that is what you want.
+# full scoped surface — 9,048 mutants at #760, never fewer than the
+# `surface-floor:` in `.cargo/mutants.toml` — and is there when that is what
+# you want.
 #
 # Surviving mutants exit 2 and timeouts exit 3; neither is a failure of the run,
 # so neither fails this target. Anything else is the tool breaking and does —

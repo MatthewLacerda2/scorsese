@@ -334,7 +334,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: mutation-sweep
-          save-if: ${{ matrix.shard == 0 }}
+          save-if: ${{ matrix.shard == 0 && github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-mutants
         uses: taiki-e/install-action@cargo-mutants

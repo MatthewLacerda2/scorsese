@@ -118,7 +118,8 @@ keeps its trace and screenshot in `test-results/` — CI uploads them as
 step by step.
 
 `make gates` runs `web` only when the branch touches `web/`, and `web-e2e` when
-it touches `web/` or `crates/server/` — either side can break a flow — and
+it touches `web/` or any crate but `crates/golden` — the server is a thin
+client of the others, so any of them can break a flow — and
 prints which it did not run otherwise, the same rule as the `app` gate. The
 size gate (`make size`) holds `.ts`/`.tsx` to the same caps as Rust: 300 lines
 of code for source, 150 for a `*.test.ts(x)` file or anything under `tests/`;

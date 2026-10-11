@@ -195,7 +195,9 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: mutants
-          save-if: ${{ matrix.shard == 0 }}
+          # One shard saves, and only on `main`: a run dispatched on a branch
+          # reads main's copy and leaves no branch copy behind (#1130).
+          save-if: ${{ matrix.shard == 0 && github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-mutants
         uses: taiki-e/install-action@cargo-mutants

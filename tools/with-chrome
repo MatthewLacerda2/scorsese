@@ -19,10 +19,31 @@
 #    against tools/chromium/pin when it is not. Either way the browser is the
 #    pinned one, which is what makes a page golden mean anything (#772).
 #
+# A browser from (1) or (2) must report the pinned version (#1137): any other
+# build captures pages to different pixels, and the page goldens would fail
+# with nothing saying why. (3) is the pinned build by its checksum.
+#
 # CI does not need this -- it exports SCORSESE_CHROME through $GITHUB_ENV --
 # but going through it there changes nothing, by (1).
 
 set -euo pipefail
+
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+pinned=$(sed -n 's/^CHROME_VERSION=//p' "$here/chromium/pin")
+
+# Refuse a browser that is not the pinned build, naming both versions.
+# `--version` prints "Google Chrome for Testing 154.0.8037.92"; the last word
+# is the version.
+require_pinned() {
+    local found
+    found=$("$1" --version 2>/dev/null | awk '{ print $NF }') || found=
+    if [ "$found" != "$pinned" ]; then
+        echo "with-chrome: $1 is Chrome ${found:-of an unknown version}, but tools/chromium/pin pins $pinned," >&2
+        echo "  and the page goldens are only right under the pinned build. Use it instead:" >&2
+        echo '  export SCORSESE_CHROME="$(tools/chromium/fetch)"' >&2
+        exit 1
+    fi
+}
 
 if [ -n "${SCORSESE_CHROME:-}" ]; then
     if [ ! -x "$SCORSESE_CHROME" ]; then
@@ -31,14 +52,15 @@ if [ -n "${SCORSESE_CHROME:-}" ]; then
         echo '  export SCORSESE_CHROME="$(tools/chromium/fetch)"' >&2
         exit 1
     fi
+    require_pinned "$SCORSESE_CHROME"
     exec "$@"
 fi
 
-if command -v chrome-headless-shell >/dev/null 2>&1; then
+if on_path=$(command -v chrome-headless-shell 2>/dev/null); then
+    require_pinned "$on_path"
     exec "$@"
 fi
 
-here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 if ! chrome=$("$here/chromium/fetch"); then
     echo "with-chrome: could not get the pinned chrome-headless-shell -- the page goldens" >&2
     echo "  capture with it. tools/chromium/fetch said why, above. Once there is a build," >&2

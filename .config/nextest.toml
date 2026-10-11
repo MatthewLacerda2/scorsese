@@ -1,0 +1,12 @@
+# The workspace suite's time limit (#1134). `app/` has its own file, for its
+# own workspace.
+#
+# A test still running at 60s is reported as slow, and one still running at
+# three times that is killed and fails, by name. Without this a hung capture or
+# server test waits forever: locally until somebody notices, in CI until the
+# job's own `timeout-minutes` — which then says only that the job ran out of
+# time, not which test hung. The slowest test on 2026-10-11 took 28s on CI's
+# runner, so 180s is six times that: room for a loaded machine, and a test
+# that needs more is one to split rather than a limit to raise.
+[profile.default]
+slow-timeout = { period = "60s", terminate-after = 3 }

@@ -107,6 +107,9 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: coverage
+          # A hand-dispatched run on a branch reads main's copy and saves none
+          # (#1130, ci.yml has why).
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
