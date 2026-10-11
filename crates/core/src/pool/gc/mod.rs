@@ -1,21 +1,30 @@
-//! Collecting assets no clip refers to.
+//! Collecting assets nothing refers to.
+
+mod pages;
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::asset::{Asset, AssetId, AssetKind};
 use crate::project::Project;
+use crate::validate::ValidationErrors;
 use crate::words::Words;
 
-/// Assets that no clip references, in table order.
+pub use pages::{NamedByPage, named_by_pages};
+
+/// Assets that no clip shows and no other asset names, in table order.
 ///
 /// Listing is separate from removing on purpose: deleting media is not
 /// undoable, so the caller decides after seeing the list.
 ///
-/// A still an image sequence plays is in use whether or not a clip shows the
-/// sequence: the sequence names it, and taking it away would leave the
-/// sequence naming nothing. So a sequence nobody places is collected first,
-/// and its stills by the collection after.
+/// An asset another one names is in use whether or not a clip shows the one
+/// naming it — a still a sequence plays, a picture a shot starts from or a
+/// generated still is drawn after ([`Asset::references`]). Taking it away
+/// would leave that asset naming nothing. So a sequence nobody places is
+/// collected first, and its stills by the collection after.
+///
+/// What a page's *text* names is not in the document, so it is not here:
+/// [`named_by_pages`] reads the pages, and [`remove_assets`] refuses those too.
 pub fn unused_assets(project: &Project) -> Vec<AssetId> {
     project
         .assets
@@ -25,36 +34,53 @@ pub fn unused_assets(project: &Project) -> Vec<AssetId> {
         .collect()
 }
 
-/// Whether a clip shows this asset or a sequence plays it.
+/// Whether a clip shows this asset or another asset names it.
 fn in_use(project: &Project, id: &AssetId) -> bool {
     project.every_clip().any(|(_, clip)| &clip.asset == id)
         || project
             .assets
             .iter()
-            .filter_map(|asset| asset.sequence.as_ref())
-            .any(|sequence| sequence.stills.contains(id))
+            .any(|asset| asset.references().any(|named| named == id))
 }
 
 /// Drops these assets from the table and deletes the media files they own —
 /// never a page, which is a document somebody wrote. A generated line's word
 /// timings, kept beside its audio, go with it.
 ///
-/// An asset still referenced by a clip is refused rather than removed — that
-/// would leave a dangling reference, which is precisely what validation
-/// exists to prevent.
+/// Every id is checked, and the project without them validated, **before any
+/// file is touched**: an asset still shown, named by another or named by a
+/// page's text is refused, and so is a removal that would leave a project
+/// [`crate::Project::load`] refuses. Deleting media is not undoable, so a
+/// collection that cannot finish never starts. The ids are taken in order, so
+/// a sequence followed by its stills is one collection.
 pub fn remove_assets(
     project: &mut Project,
     project_root: &Path,
     ids: &[AssetId],
 ) -> Result<GcReport, GcError> {
-    let mut report = GcReport::default();
-
+    let named = named_by_pages(project, project_root);
+    let mut after = project.clone();
     for id in ids {
-        if in_use(project, id) {
+        if in_use(&after, id) {
             return Err(GcError::StillReferenced { id: id.clone() });
         }
-        let Some(index) = project.assets.iter().position(|asset| &asset.id == id) else {
+        if let Some(by) = named.iter().find(|named| &named.asset == id) {
+            return Err(GcError::NamedByPage {
+                id: id.clone(),
+                page: by.page.clone(),
+            });
+        }
+        let Some(index) = after.assets.iter().position(|asset| &asset.id == id) else {
             return Err(GcError::NoSuchAsset { id: id.clone() });
+        };
+        after.assets.remove(index);
+    }
+    after.validate()?;
+
+    let mut report = GcReport::default();
+    for id in ids {
+        let Some(index) = project.assets.iter().position(|asset| &asset.id == id) else {
+            continue;
         };
         let asset = project.assets.remove(index);
 
@@ -122,13 +148,26 @@ pub struct GcReport {
 /// Why a collection stopped.
 #[derive(Debug, thiserror::Error)]
 pub enum GcError {
-    /// Collecting it would leave a clip, or a sequence, pointing at nothing,
-    /// which is exactly what validation exists to prevent.
-    #[error("asset `{id}` is still used by a clip or an image sequence")]
+    /// Collecting it would leave a clip, or another asset, pointing at
+    /// nothing, which is exactly what validation exists to prevent.
+    #[error("asset `{id}` is still used by a clip or named by another asset")]
     StillReferenced {
-        /// The asset a clip still refers to.
+        /// The asset still referred to.
         id: AssetId,
     },
+    /// A page's text names its file, so collecting it would break the page
+    /// with nothing to say so ([`named_by_pages`]).
+    #[error("asset `{id}` is named by page `{page}`")]
+    NamedByPage {
+        /// The asset the page names.
+        id: AssetId,
+        /// The page naming it.
+        page: AssetId,
+    },
+    /// The project without these assets would not load — a reference this
+    /// collection does not know about. Nothing was deleted.
+    #[error("collecting these would leave a project that does not load: {0}")]
+    Refused(#[from] ValidationErrors),
     /// An id that is not in the assets table — a stale list, or a typo.
     #[error("no asset `{id}` in this project")]
     NoSuchAsset {

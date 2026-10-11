@@ -304,4 +304,12 @@ impl VideoRequest {
             .chain(self.last_image.iter())
             .chain(self.reference_images.iter())
     }
+
+    /// [`Self::images`], to edit — the same stills in the same order.
+    pub fn images_mut(&mut self) -> impl Iterator<Item = &mut AssetId> {
+        self.first_image
+            .iter_mut()
+            .chain(self.last_image.iter_mut())
+            .chain(self.reference_images.iter_mut())
+    }
 }
