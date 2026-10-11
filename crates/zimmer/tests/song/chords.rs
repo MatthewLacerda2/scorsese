@@ -19,7 +19,7 @@ fn render(song: &Song) -> Vec<f32> {
 }
 
 /// One chord on the fixture's `bass` track, filling the first beat.
-fn chord(name: &str, oct: Option<i32>) -> PatternEntry {
+fn block(name: &str, oct: Option<i32>) -> Chord {
     Chord {
         track: "bass".to_owned(),
         chord: Voicing::Name(name.to_owned()),
@@ -31,8 +31,14 @@ fn chord(name: &str, oct: Option<i32>) -> PatternEntry {
         arp: None,
         div: None,
         gate: None,
+        inv: None,
+        voicing: None,
     }
-    .into()
+}
+
+/// [`block`] as the pattern entry it becomes.
+fn chord(name: &str, oct: Option<i32>) -> PatternEntry {
+    block(name, oct).into()
 }
 
 /// One voice of a chord written out: the same track, beat, length and force.
@@ -166,20 +172,12 @@ fn each_voice_of_a_chord_is_humanised_on_its_own() {
 #[test]
 fn a_chord_spelled_as_pitches_plays_those_pitches() {
     let spread = Chord {
-        track: "bass".to_owned(),
         chord: Voicing::Pitches(vec![
             Pitch::Name("D2".to_owned()),
             Pitch::Name("A3".to_owned()),
             Pitch::Midi(60.0),
         ]),
-        oct: None,
-        start: 0.0,
-        dur: 1.0,
-        vel: 0.9,
-        articulation: None,
-        arp: None,
-        div: None,
-        gate: None,
+        ..block("unused", None)
     };
     let by_hand = playing(played(vec![
         voice(Pitch::Name("D2".to_owned())),

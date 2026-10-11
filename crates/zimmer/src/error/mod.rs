@@ -25,7 +25,10 @@
 //! unbounded allocation is rejected. Musical taste is the recipe's business:
 //! an ugly patch renders.
 
+mod place;
 mod wording;
+
+pub use place::NoteAt;
 
 /// A recipe the synthesiser cannot honour.
 ///
@@ -402,6 +405,19 @@ pub enum SynthError {
         why: &'static str,
     },
 
+    /// A chord voicing that cannot be chosen: an `inv` past the chord's last
+    /// inversion, or an `inv` or a `voicing` beside spelled pitches or beside
+    /// each other. One variant with a written reason, for `BadArp`'s reason:
+    /// each is repaired in the same two fields of the same entry.
+    BadVoicing {
+        /// The track the chord is on.
+        track: String,
+        /// Where in the pattern it sits, in beats.
+        start: f32,
+        /// What is wrong with it, in the words the message carries.
+        why: &'static str,
+    },
+
     /// A character in a step string that is not a step. Refused rather than
     /// skipped: every character is one step and the count is what proves the
     /// string covers its pattern, so a character that is quietly not a step
@@ -729,40 +745,6 @@ pub enum SynthError {
         /// What the resolver said about it.
         reason: String,
     },
-}
-
-/// Where a song writes a note, for a refusal that is only found once the
-/// note is played: the pattern, the track and where in the pattern it starts.
-#[derive(Debug, Clone, PartialEq)]
-pub struct NoteAt {
-    /// The pattern holding the note.
-    pub pattern: String,
-    /// The track it is played on.
-    pub track: String,
-    /// Where in the pattern it starts, in beats.
-    pub start: f32,
-}
-
-impl SynthError {
-    /// This refusal, told where the song writes the note it is about — for
-    /// the one refusal of a note found only once it is played. Every other
-    /// refusal is handed back as it was.
-    pub(crate) fn at(self, note: NoteAt) -> Self {
-        match self {
-            Self::NoteTooLong {
-                at: None,
-                held,
-                tail,
-                limit,
-            } => Self::NoteTooLong {
-                at: Some(note),
-                held,
-                tail,
-                limit,
-            },
-            other => other,
-        }
-    }
 }
 
 impl std::error::Error for SynthError {}

@@ -80,7 +80,7 @@ pub use anchor::Anchor;
 pub use arrangement::{ArrangementEntry, Layer, Layers, Play};
 pub use articulation::Articulation;
 pub use automate::{Automation, Easing, Param, Point};
-pub use chord::{Arp, Chord, Voicing};
+pub use chord::{Arp, Chord, Leading, Voicing};
 pub use excerpt::{Excerpt, Span, SpanError, Unit, Window};
 pub use feel::Humanize;
 pub use key::{Degree, DegreeNote, Key, Mode};
@@ -318,8 +318,9 @@ impl Pattern {
             key,
         };
         let mut voiced = Vec::with_capacity(self.notes.len());
+        let mut led = chord::Led::default();
         for entry in &self.notes {
-            entry.voice_into(around, &mut voiced)?;
+            entry.voice_into(around, &mut led, &mut voiced)?;
         }
         Ok(voiced)
     }
@@ -419,10 +420,13 @@ impl PatternEntry {
     /// string checks its grid against the pattern's slot, which is the one
     /// thing standing between a string one character short and a bar that
     /// quietly is not one; a degree looks itself up in the key, and is refused
-    /// when the song declared none.
+    /// when the song declared none. A chord also reads and writes `led`, the
+    /// last chord on each track so far in this pattern, which is what a
+    /// [`near`](Leading::Near) voicing leads from.
     pub(crate) fn voice_into(
         &self,
         around: Context<'_>,
+        led: &mut chord::Led,
         out: &mut Vec<Note>,
     ) -> Result<(), SynthError> {
         match self {
@@ -431,7 +435,7 @@ impl PatternEntry {
                 Ok(())
             }
             Self::Degree(degree) => degree.voice_into(around.key, out),
-            Self::Chord(chord) => chord.voice_into(out),
+            Self::Chord(chord) => chord.voice_into(led, out),
             Self::Steps(steps) => steps.voice_into(around.beats, out),
         }
     }

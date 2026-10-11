@@ -24,3 +24,4 @@ mod stopping;
 mod strict;
 mod tempo;
 mod transforms;
+mod voicing;
