@@ -112,9 +112,9 @@ postgres() {
 }
 
 disk() {
-    # The container's disk allowance is about 30 GB and a debug build with debug
-    # info filled it (#588). Without debug info the whole test build is ~2 GB.
-    export_var CARGO_PROFILE_DEV_DEBUG 0
+    # The container's disk allowance is about 30 GB and a build with full debug
+    # info filled it (#588). The dev profile now keeps only line tables (#1127),
+    # which fits: the cold workspace test build is ~9.5 GB, so no override here.
     export_var CARGO_INCREMENTAL 0
 }
 

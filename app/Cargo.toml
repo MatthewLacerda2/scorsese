@@ -27,13 +27,15 @@ todo = "deny"
 # The same reasoning as the workspace root's, for the same reason: the preview
 # composites through `scorsese-render`, so an unoptimised app scrubs at the
 # speed an unoptimised render renders at — and scrubbing is what this window is
-# for. Kept in step with the root manifest deliberately; see the note there for
-# the measurements.
+# for. Kept in step with the root manifest deliberately, debug info included;
+# see the note there for the measurements.
 [profile.dev]
 opt-level = 1
+debug = "line-tables-only"
 
 [profile.dev.package."*"]
 opt-level = 3
+debug = false
 
 [package]
 name = "scorsese-app"

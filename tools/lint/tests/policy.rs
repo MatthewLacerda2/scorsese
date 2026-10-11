@@ -123,3 +123,31 @@ fn every_separate_root_takes_the_policy_rather_than_only_stating_it() {
         );
     }
 }
+
+/// The `[profile.*]` entries of a manifest.
+fn profiles(manifest: &Path) -> BTreeMap<String, String> {
+    settings(manifest)
+        .into_iter()
+        .filter(|(key, _)| key.starts_with("profile."))
+        .collect()
+}
+
+#[test]
+fn the_app_builds_with_the_same_dev_profile_as_the_workspace() {
+    // `app` composites through `scorsese-render`, so a profile that drifts
+    // makes its preview a different speed, or its target a different size,
+    // from the build the root's measurements describe. `tools/lint` sets no
+    // profile on purpose: it is small enough not to need one.
+    let root = repo_root();
+    let workspace = profiles(&root.join("Cargo.toml"));
+    assert!(
+        workspace.contains_key("profile.dev.debug"),
+        "no [profile.dev] debug setting at the repo root — this test would pass vacuously"
+    );
+    assert_eq!(
+        workspace,
+        profiles(&root.join("app/Cargo.toml")),
+        "the [profile.*] tables at the repo root and in app have drifted. app is \
+         its own workspace and inherits neither: change both, or neither."
+    );
+}
