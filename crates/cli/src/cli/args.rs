@@ -239,7 +239,8 @@ impl From<StarterArg> for Starter {
 /// The things `assets` does beyond reporting what is in the pool.
 #[derive(Debug, Subcommand)]
 pub(crate) enum AssetsAction {
-    /// Report assets no clip references, and optionally delete them.
+    /// Report assets nothing uses — no clip shows them, no other asset names
+    /// them, no page's text names their file — and optionally delete them.
     Gc {
         /// Actually remove them. Without this, nothing is deleted.
         #[arg(long)]

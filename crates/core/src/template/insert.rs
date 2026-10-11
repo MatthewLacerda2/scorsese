@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use super::ids::free;
 use super::rename::Renames;
 use super::retime::retime;
-use crate::asset::{AssetId, ReferenceKind};
+use crate::asset::AssetId;
 use crate::authoring::numbered;
 use crate::project::Project;
 use crate::time::Frames;
@@ -197,19 +197,7 @@ fn copy_assets(
                 *id = now.clone();
             }
         };
-        if let Some(brief) = copy.video.as_mut() {
-            brief.first_image.iter_mut().for_each(rename);
-            brief.last_image.iter_mut().for_each(rename);
-            brief.reference_images.iter_mut().for_each(rename);
-        }
-        if let Some(brief) = copy.image.as_mut() {
-            for kind in ReferenceKind::ALL {
-                brief.references_of_mut(kind).iter_mut().for_each(rename);
-            }
-        }
-        if let Some(sequence) = copy.sequence.as_mut() {
-            sequence.stills.iter_mut().for_each(rename);
-        }
+        copy.references_mut().for_each(rename);
         for attach in super::follows_mut(&mut copy) {
             if let Some(now) = renames.clips.get(&attach.clip) {
                 attach.clip = now.clone();

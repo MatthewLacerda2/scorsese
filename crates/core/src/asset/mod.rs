@@ -6,6 +6,7 @@
 
 pub(crate) mod image;
 pub(crate) mod kind;
+mod references;
 pub(crate) mod sequence;
 pub(crate) mod speech;
 pub(crate) mod video;

@@ -73,7 +73,7 @@ fn gc_on_a_pool_where_every_asset_is_used_changes_nothing() {
     documents::media_file(&dir, "shown", b"");
     let run = gc(&dir, &["--delete"]).ok();
 
-    run.says("Every asset is used by at least one clip");
+    run.says("Every asset is in use");
     assert_eq!(reload(&dir).assets.len(), 1);
     assert!(media(&dir, "shown").is_file());
     std::fs::remove_dir_all(&dir).ok();
@@ -88,5 +88,31 @@ fn what_gc_leaves_behind_is_still_a_loadable_project() {
 
     let project = reload(&dir);
     assert_eq!(project.clips().count(), 1);
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A picture a page's markup names is in use though nothing in the document
+/// says so (#1100): it is kept, and the report says which page kept it.
+#[test]
+fn gc_keeps_what_a_page_names_and_says_so() {
+    let page = r#"{ "id": "card", "kind": "html", "path": "pages/card.html" }"#.to_owned();
+    let dir = documents::project(
+        "gc-page",
+        &[assets::video("shown"), assets::video("forgotten"), page],
+        &[documents::clip("c1", "shown", 0)],
+    );
+    documents::media_file(&dir, "shown", b"");
+    documents::media_file(&dir, "forgotten", b"");
+    let markup = br#"<video src="../assets/forgotten.mp4"></video>"#;
+    documents::file_at(&dir, "pages/card.html", markup);
+    let run = gc(&dir, &["--delete"]).ok();
+
+    run.says("kept: forgotten — named by page card");
+    run.says("unused: card");
+    run.silent_about("unused: forgotten");
+    assert!(
+        media(&dir, "forgotten").is_file(),
+        "the named file was deleted"
+    );
     std::fs::remove_dir_all(&dir).ok();
 }

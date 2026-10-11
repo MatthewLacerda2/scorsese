@@ -1,5 +1,7 @@
 //! Collecting what nothing references.
 
+mod named;
+
 use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};
 use scorsese_core::pool::{GcError, remove_assets, unused_assets};

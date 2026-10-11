@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use scorsese_core::pool::{remove_assets, unused_assets};
+use scorsese_core::pool::{named_by_pages, remove_assets, unused_assets};
 use scorsese_core::{AssetHealth, AssetStatus, HashCheck, Listed, Project, asset_status, listing};
 
 /// Prints one line per asset: what it is, how many clips lean on it, and
@@ -47,15 +47,28 @@ pub(crate) fn list(project_dir: &Path, verify: bool) -> Result<()> {
     Ok(())
 }
 
-/// Reports the assets no clip references, and only deletes them when asked
-/// twice — the report is the default because unimported media is not
-/// recoverable, and an agent running this unattended should have to mean it.
+/// Reports the assets nothing uses, and only deletes them when asked twice —
+/// the report is the default because unimported media is not recoverable, and
+/// an agent running this unattended should have to mean it.
+///
+/// A picture a page's text names is kept and listed as kept: nothing in the
+/// document records that use, so the reason has to be said.
 pub(crate) fn gc(project_dir: &Path, delete: bool) -> Result<()> {
     let mut project = open(project_dir)?;
-    let unused = unused_assets(&project);
+    let named = named_by_pages(&project, project_dir);
+    let (kept, unused): (Vec<_>, Vec<_>) = unused_assets(&project)
+        .into_iter()
+        .partition(|id| named.iter().any(|by| &by.asset == id));
 
+    for id in &kept {
+        let by = named
+            .iter()
+            .find(|by| &by.asset == id)
+            .expect("partitioned on it");
+        println!("kept: {id} — named by page {}", by.page);
+    }
     if unused.is_empty() {
-        println!("Every asset is used by at least one clip.");
+        println!("Every asset is in use.");
         return Ok(());
     }
     for id in &unused {
