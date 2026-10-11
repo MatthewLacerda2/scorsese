@@ -7,13 +7,12 @@
 //!
 //! # What is an error, and what is an outcome
 //!
-//! The same split [`video`](crate::video) makes, drawn one step further along,
-//! and the difference is deliberate. There, a brief that cannot be gathered —
-//! no prompt, a still that will not read — stops the whole run. Here it does
-//! not: an incomplete line is an [`Outcome::Incomplete`] and the other
+//! The same split [`video`](crate::video) and [`image`](crate::image) make: a
+//! brief that cannot be gathered is that asset's outcome, not the end of the
+//! run. An incomplete line is an [`Outcome::Incomplete`] and the other
 //! nineteen are still spoken.
 //!
-//! That follows the reasoning the split already rests on. A run of twenty
+//! The reasoning is the split's own. A run of twenty
 //! narrations where one has no voice chosen yet is the *normal* state of a cut
 //! being written, and stopping the run would mean re-speaking nineteen paid-for
 //! lines to add the twentieth. What genuinely stops a run is what makes every
@@ -22,13 +21,12 @@
 
 use std::path::Path;
 
-use scorsese_core::{
-    Asset, AssetId, AssetKind, GenerationState, Project, ProjectPath, SpeechModel, hash_bytes,
-};
+use scorsese_core::{Asset, AssetId, AssetKind, Project, ProjectPath, SpeechModel};
 
 use scorsese_core::words::Words;
 
 use crate::credentials::Budget;
+use crate::generated::{self, write};
 use crate::prices;
 
 use super::{Brief, Outcome, SpeechError, SpeechProvider, Spoken};
@@ -214,13 +212,9 @@ fn one(
     })
 }
 
-/// Points the asset at what is now on disk, and says what it cost.
-///
-/// **No `media` is written**, which is what [`video`](crate::video) does too —
-/// it briefly did otherwise, and #249 is what that cost. How long a line takes
-/// depends on the words, and nothing here can measure an MP3: this crate has no
-/// decoder and must not grow one. So the shape arrives when something probes
-/// the file, which is why the commands that call this probe afterwards.
+/// Records a line through [`generated::record`], priced from its own brief.
+/// Exact arithmetic, and still an estimate: the rate is a page somebody
+/// copied, and library-voice multipliers are ignored.
 fn record(
     project: &mut Project,
     id: &AssetId,
@@ -229,37 +223,8 @@ fn record(
     brief: &Brief,
 ) -> Result<(), SpeechError> {
     let estimate = prices::speech(brief.request.model, brief.characters())?;
-    let Some(asset) = project.assets.iter_mut().find(|asset| &asset.id == id) else {
-        return Ok(());
-    };
-    asset.path = Some(path.clone());
-    asset.state = Some(GenerationState::Generated);
-    if !bytes.is_empty() {
-        asset.sha256 = Some(hash_bytes(bytes));
-    }
-    // What we worked out it would cost, never what anybody billed — see
-    // `prices`. Exact arithmetic here, and still an estimate: the rate is a
-    // page somebody copied, and library-voice multipliers are ignored.
-    asset.estimated_cost_cents = Some(estimate.cents);
+    generated::record(project, id, path, bytes, Some(estimate.cents));
     Ok(())
-}
-
-/// Writes the narration, creating `generated/` if this is the project's first.
-fn write(path: &Path, bytes: &[u8]) -> Result<(), SpeechError> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|source| SpeechError::Write {
-            path: parent.to_path_buf(),
-            source,
-        })?;
-    }
-    // Atomic, and here the cache depends on it: a generation is named for the
-    // hash of its brief, so a truncated file is indistinguishable from a
-    // finished one and would be served as the answer for ever after — for a
-    // line somebody paid for.
-    scorsese_core::write::atomically(path, bytes).map_err(|source| SpeechError::Write {
-        path: path.to_path_buf(),
-        source,
-    })
 }
 
 /// What a line of this model and length is expected to cost, in US cents.

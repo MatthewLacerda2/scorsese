@@ -20,8 +20,9 @@ use crate::api::gemini::batch::INLINE_LIMIT;
 use crate::credentials::Budget;
 use crate::prices;
 
-use super::run::{record, still_ids, unready};
+use super::run::{still_ids, unready};
 use super::{Brief, ImageError, ImageProvider, Outcome, collect};
+use crate::generated::record;
 
 /// Orders every still that needs drawing as a half-price batch, after
 /// collecting whatever earlier batches have finished — and reports what
@@ -64,7 +65,7 @@ pub fn batch(
             Ok(brief) if brief.realized(root) => {
                 let output = brief.output();
                 let bytes = std::fs::read(output.resolve(root)).unwrap_or_default();
-                record(project, &id, &output, &bytes, half(&brief)?);
+                record(project, &id, &output, &bytes, Some(half(&brief)?));
                 done.push((id, Outcome::Cached { path: output }));
             }
             Ok(brief) => briefs.push(brief),

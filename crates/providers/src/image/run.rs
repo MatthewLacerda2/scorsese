@@ -7,9 +7,10 @@
 
 use std::path::Path;
 
-use scorsese_core::{Asset, AssetId, AssetKind, GenerationState, Project, ProjectPath, hash_bytes};
+use scorsese_core::{Asset, AssetId, AssetKind, Project, ProjectPath};
 
 use crate::credentials::Budget;
+use crate::generated::{record, write};
 use crate::prices::{self, ImageEstimate, UnpricedImage};
 
 use super::{Brief, ImageError, ImageProvider, Outcome, collect};
@@ -69,7 +70,7 @@ pub fn adopt(project: &mut Project, root: &Path) -> Vec<AssetId> {
         let output = brief.output();
         let bytes = std::fs::read(output.resolve(root)).unwrap_or_default();
         if let Ok(priced) = estimate(&brief) {
-            record(project, &id, &output, &bytes, priced.cents);
+            record(project, &id, &output, &bytes, Some(priced.cents));
             adopted.push(id);
         }
     }
@@ -180,7 +181,7 @@ fn one(
     // paid for", whatever the document claims.
     if brief.realized(root) {
         let bytes = std::fs::read(output.resolve(root)).unwrap_or_default();
-        record(project, id, &output, &bytes, estimate(&brief)?.cents);
+        record(project, id, &output, &bytes, Some(estimate(&brief)?.cents));
         return Ok(Outcome::Cached { path: output });
     }
 
@@ -196,59 +197,10 @@ fn one(
         }
     };
     write(&output.resolve(root), &bytes)?;
-    record(project, id, &output, &bytes, cents);
+    record(project, id, &output, &bytes, Some(cents));
     Ok(Outcome::Generated {
         path: output,
         bytes: bytes.len(),
         estimated_cost_cents: cents,
-    })
-}
-
-/// Points the asset at what is now on disk, clears any ticket, and says what
-/// it was calculated to cost. **No `media` is written** — the commands probe
-/// afterwards, for #249's reason: what a brief asked for is not a measurement.
-///
-/// A figure already recorded against this same file is kept: finding a
-/// drawing again does not re-price it, and a still collected from a batch at
-/// half price stays at half price.
-pub(super) fn record(
-    project: &mut Project,
-    id: &AssetId,
-    path: &ProjectPath,
-    bytes: &[u8],
-    cents: u64,
-) {
-    let Some(asset) = project.assets.iter_mut().find(|asset| &asset.id == id) else {
-        return;
-    };
-    // A media block measured off a previous drawing describes a different
-    // file; the probe that follows writes the new one.
-    let same = asset.path.as_ref() == Some(path);
-    if !same {
-        asset.media = None;
-    }
-    if !same || asset.estimated_cost_cents.is_none() {
-        asset.estimated_cost_cents = Some(cents);
-    }
-    asset.path = Some(path.clone());
-    asset.state = Some(GenerationState::Generated);
-    asset.operation = None;
-    if !bytes.is_empty() {
-        asset.sha256 = Some(hash_bytes(bytes));
-    }
-}
-
-/// Writes the drawing, atomically, creating `generated/` if it is the first —
-/// a truncated file named for its brief would be served as the answer for ever.
-pub(super) fn write(path: &Path, bytes: &[u8]) -> Result<(), ImageError> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|source| ImageError::Write {
-            path: parent.to_path_buf(),
-            source,
-        })?;
-    }
-    scorsese_core::write::atomically(path, bytes).map_err(|source| ImageError::Write {
-        path: path.to_path_buf(),
-        source,
     })
 }
