@@ -6,6 +6,7 @@
 //! any of it.
 
 mod durations;
+mod keyframes;
 mod refusals;
 
 use std::collections::BTreeSet;

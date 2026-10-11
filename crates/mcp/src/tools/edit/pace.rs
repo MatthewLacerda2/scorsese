@@ -51,7 +51,11 @@ impl Tool for ScalePacing {
          those are the same clips spread differently, and doing it by hand means \
          re-deriving every start. Clips with no media behind them (titles, \
          stills, colours, briefs nobody has generated) have their DURATION \
-         scaled too, so the rhythm scales rather than the gaps merely closing. \
+         scaled too, so the rhythm scales rather than the gaps merely closing, \
+         and their hand-written keyframes scale with them (a fade at the end of \
+         a title stays at its end). Keyframes a tool wrote (ducking, dissolves, \
+         captions) are left as they are, and the reply names the tool to run \
+         again. \
          Clips backed by a real file move and keep their length — shortening one \
          would mean either showing less of it or playing it faster, and those \
          are two different edits, so this refuses to pick. The reply says which \
@@ -87,10 +91,12 @@ impl Tool for ScalePacing {
 
         let clips = if paced.moved == 1 { "clip" } else { "clips" };
         Ok(format!(
-            "{} {clips} scaled ×{factor} about {seconds}s (frame {}).{}",
+            "{} {clips} scaled ×{factor} about {seconds}s (frame {}).{}{}{}",
             paced.moved,
             about.get(),
-            kept(&paced)
+            kept(&paced),
+            rescaled(&paced),
+            signed(&paced)
         )
         .into())
     }
@@ -116,5 +122,49 @@ fn kept(paced: &Paced) -> String {
          of {its} own — shortening that would mean either showing less of the \
          source or playing it faster, which are two different edits.",
         names.join(", ")
+    )
+}
+
+/// Which clips had their keyframes scaled along with their length.
+fn rescaled(paced: &Paced) -> String {
+    if paced.rescaled.is_empty() {
+        return String::new();
+    }
+    let names: Vec<String> = paced
+        .rescaled
+        .iter()
+        .map(|clip| format!("`{clip}`"))
+        .collect();
+    format!(
+        " Keyframes on {} were scaled with {}, so each animation still spans \
+         the clip it was written for.",
+        names.join(", "),
+        if names.len() == 1 {
+            "its length"
+        } else {
+            "their lengths"
+        }
+    )
+}
+
+/// The tools whose keyframes were timed from the old positions, as the call
+/// that would redo each.
+fn signed(paced: &Paced) -> String {
+    if paced.signed.is_empty() {
+        return String::new();
+    }
+    let rerun: Vec<String> = paced
+        .signed
+        .iter()
+        .map(|tool| match tool.as_str() {
+            "duck" => "`duck_music`".to_owned(),
+            "caption" => "`caption_narration`".to_owned(),
+            other => format!("`{other}`"),
+        })
+        .collect();
+    format!(
+        " Keyframes a tool wrote were left as they were, timed from the old \
+         positions: run {} again.",
+        rerun.join(", ")
     )
 }
