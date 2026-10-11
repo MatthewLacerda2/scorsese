@@ -5,14 +5,16 @@
 //! and nothing generated — a duck can be planned over narration nobody has
 //! paid for, which is most of the point.
 
-#[path = "common/mod.rs"]
+#[path = "../common/mod.rs"]
 mod common;
+
+mod knobs;
 
 use common::{documents, reload, run_in};
 use scorsese_core::Project;
 
 /// A project with a music bed under two lines of unrealised narration.
-fn scored(label: &str) -> std::path::PathBuf {
+pub(crate) fn scored(label: &str) -> std::path::PathBuf {
     documents::written(
         label,
         &[
@@ -35,7 +37,7 @@ fn scored(label: &str) -> std::path::PathBuf {
 }
 
 /// The points of the one track ducking wrote on the music clip.
-fn dip_of(project: &Project) -> Vec<(u64, f64)> {
+pub(crate) fn dip_of(project: &Project) -> Vec<(u64, f64)> {
     project.tracks[0].clips[0]
         .keyframes
         .iter()
@@ -115,10 +117,7 @@ fn a_track_that_is_not_there_fails_and_names_it() {
 fn the_defaults_are_cores() {
     let dir = scored("duck-defaults");
     let mut expected = reload(&dir);
-    let under = scorsese_core::Under {
-        music: scorsese_core::TrackId::new("music"),
-        narration: Vec::new(),
-    };
+    let under = scorsese_core::Under::new(scorsese_core::TrackId::new("music"));
     let dip = scorsese_core::Dip::default_for(expected.timeline_fps.as_f64());
     let volume = scorsese_core::PropertyPath::new(scorsese_render::audio::path::VOLUME);
     scorsese_core::duck_track(&mut expected, &under, &volume, dip).expect("the music track");

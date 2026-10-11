@@ -958,6 +958,32 @@ It refuses, changing nothing at all, a negative level (volume is a multiplier,
 so below zero inverts the phase rather than muting), a fade missing one of its
 two halves, and a fade that would finish after the clip ends.
 
+`duck_music` dips the music under the narration and brings it back between
+lines. With nothing but `music` it ducks under every other audio track, to a
+quarter of the bed's level, and holds any pause shorter than its two ramps
+(0.9 s) under as one dip. Three knobs reshape that, each one off by default:
+
+- **`between`** is where the music rests outside the lines — before the first,
+  in the pauses and after the last. Below `1.0` keeps a loud bed from crowding
+  the voice even when nobody is speaking.
+- **`min_gap_seconds`** is the longest pause that stays ducked. Set it short
+  (`0.1`) for narration in short phrases, so the bed breathes between them;
+  a pause shorter than the two ramps shares itself between them and the level
+  touches `between` once.
+- **What counts as narration**: `under` names tracks of any kind, `clips` names
+  single clips wherever they sit (a line spoken inside a video shot), and
+  `ranges` names stretches of the timeline as `[from, to]` seconds with no
+  clip at all. They add up, and naming any of them replaces the default of
+  every other audio track. An id that is not in the project is refused.
+
+```
+duck_music  { "project": "ad.scor", "music": "music",
+              "between": 0.55, "min_gap_seconds": 0.1,
+              "attack_seconds": 0.1, "release_seconds": 0.1 }
+duck_music  { "project": "teaser.scor", "music": "score",
+              "clips": ["c-s4", "c-s9"], "ranges": [[50.0, 55.0]] }
+```
+
 ## Captions from the narration: `caption_narration`
 
 `caption_narration` puts the narration's own words on screen, timed from the

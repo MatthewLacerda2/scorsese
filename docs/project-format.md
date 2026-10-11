@@ -3087,6 +3087,25 @@ closer together than one recovery-plus-fall become a single dip, because coming
 all the way up and immediately going back down is pumping — which draws more
 attention than the ducking was avoiding.
 
+Each of those is a default, not a rule, and turning none of them leaves the
+points exactly where they were before the knobs existed:
+
+| flag | what it changes | default |
+| --- | --- | --- |
+| `--depth` | the level under a line | `0.25` |
+| `--attack`, `--release` | seconds to go down and to come back | `0.3`, `0.6` |
+| `--between` | the level outside the lines: before the first, in a pause, after the last | `1.0` |
+| `--min-gap` | seconds of pause that stay ducked; a longer pause comes back up to `--between` | attack + release |
+| `--under` | a track whose clips are narration, of any kind | every other audio track |
+| `--clip` | one clip that is narration, wherever it sits | — |
+| `--range FROM:TO` | a stretch of the timeline, in seconds, that is narration with no clip | — |
+
+`--under`, `--clip` and `--range` add up, and naming any of them replaces the
+default. A pause shorter than the two ramps, which only `--min-gap` can keep,
+shares itself between them in proportion, so the level touches `--between` once
+on its way back down. A ramp of zero seconds is drawn over one frame. An id that
+is not in the project is refused and nothing is written.
+
 ### What the compositor animates today
 
 | path | means | `1.0` / `0.0` |

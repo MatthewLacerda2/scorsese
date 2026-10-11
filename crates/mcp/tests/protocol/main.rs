@@ -17,6 +17,7 @@ mod counting;
 mod dashing;
 mod delivering;
 mod drumming;
+mod ducking;
 mod fixture;
 mod following;
 mod gradients;
