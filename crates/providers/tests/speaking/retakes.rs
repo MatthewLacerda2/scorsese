@@ -26,6 +26,7 @@ fn a_line_spoken_again_longer_is_measured_again() {
     let provider = Mock::willing();
     generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a run");
     measured(&mut project, &id);
+    asset_mut(&mut project, &id).estimated_cost_cents = Some(999);
     let first = project.asset(&id).and_then(|asset| asset.path.clone());
 
     asset_mut(&mut project, &id).prompt = Some(String::from("a much longer line than before"));
@@ -36,6 +37,11 @@ fn a_line_spoken_again_longer_is_measured_again() {
     assert!(
         asset.media.is_none(),
         "the old reading's length must not survive, or the probe skips it"
+    );
+    assert_ne!(
+        asset.estimated_cost_cents,
+        Some(999),
+        "nor its figure: a new file is priced as itself"
     );
     assert_eq!(provider.requests(), 2);
     std::fs::remove_dir_all(&dir).ok();
