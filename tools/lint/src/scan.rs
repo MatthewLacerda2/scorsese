@@ -6,6 +6,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::classify::{Kind, classify, is_skipped_dir};
+use crate::python;
 
 /// One file over its limit.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -127,7 +128,12 @@ pub fn check_dir(root: &Path) -> io::Result<Report> {
                 && let Some(kind) = classify(&relative)
             {
                 report.checked += 1;
-                let lines = code_lines(&fs::read(entry.path())?);
+                let bytes = fs::read(entry.path())?;
+                let lines = if relative.extension().is_some_and(|ext| ext == "py") {
+                    python::code_lines(&bytes)
+                } else {
+                    code_lines(&bytes)
+                };
                 if lines > kind.limit() {
                     report.violations.push(Violation {
                         path: relative,

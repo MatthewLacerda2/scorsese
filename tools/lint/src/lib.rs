@@ -13,12 +13,15 @@
 //! Two halves, deliberately separate: [`classify`] decides *which* cap a path
 //! falls under and is the part with its own tests, since a classifier that
 //! quietly puts a test file in the source bucket is a gate that has stopped
-//! gating without saying so. [`scan`] walks a directory and counts lines.
+//! gating without saying so. [`scan`] walks a directory and counts lines;
+//! [`python`] counts them for Python, whose comments and docstrings are
+//! shaped differently and are just as free.
 //!
 //! There is no baseline file and nothing is grandfathered. If a file is over,
 //! it gets split.
 
 pub mod classify;
+pub mod python;
 pub mod scan;
 
 pub use classify::{Kind, SOURCE_LIMIT, TEST_LIMIT, classify};

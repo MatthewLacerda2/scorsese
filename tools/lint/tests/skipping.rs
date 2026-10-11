@@ -76,7 +76,10 @@ fn target_is_skipped_only_where_a_workspace_root_would_put_it() {
 
 #[test]
 fn the_skip_list_is_directories_only_not_files_that_look_like_them() {
-    assert!(skipped(".github"));
+    assert!(skipped(".git"));
+    assert!(skipped(".claude"));
+    // `.github` is walked: its scripts are the merge path, and code (#1136).
+    assert!(!skipped(".github"));
     assert!(skipped("web/node_modules"));
     assert!(!skipped("tests"));
     assert!(!skipped("src"));
