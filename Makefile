@@ -550,7 +550,7 @@ web-gates:
 # Playwright's own pinned Chromium, fetched once into its cache; E2E_CHROMIUM
 # names another and skips the fetch (a container that has one, an offline
 # machine).
-web-e2e: ## [gate] The web app's end-to-end flows, when the branch touches web/ or crates/server/
+web-e2e: ## [gate] The web app's end-to-end flows, when the branch touches web/ or a crate but crates/golden
 	@if [ "$(E2E)" != "scoped" ] || $(TOUCHES_E2E); then \
 		$(MAKE) --no-print-directory web-e2e-run; \
 	else \
