@@ -39,7 +39,7 @@ page capture:
 | container | role |
 | --- | --- |
 | `postgres` | the database, on a persistent volume |
-| `scorsese-server` | the Rust server, with ffmpeg inside; library files, render cache and scratch mounted from host disk |
+| `server` | `scorsese-server`, the Rust server, with ffmpeg inside; library files, render cache and scratch mounted from host disk |
 | `web` | nginx serving the built React files |
 | `named-tunnel` | `cloudflared` holding a **Cloudflare Tunnel** — how the site reaches the internet without a static IP; it also terminates HTTPS, so there is no reverse proxy of our own. Before there is a domain, `quick-tunnel` instead, or no tunnel (#568, *Testing before there is a domain*) |
 | `backup` | scheduled `pg_dump` plus a sync of the library **off the machine** (#532). Not part of serving a request — the fifth container exists because a home machine has no redundancy, and a backup that depends on someone remembering is not one |
@@ -109,9 +109,10 @@ new build, before it serves anything.
   $5 spent today and $5 spent last month were different amounts of any other
   currency — and asking users to pick a rate would put a technical choice in
   front of them. Nothing about another currency is stored either.
-- Credits are paid up front and **never expire**. Veo, ElevenLabs and the
-  assistant are passed through at **cost + 10%**, plus a **$10/month** flat
-  fee. Top-ups are recorded by the operator until Pix exists (#548).
+- Credits are paid up front and **never expire**. Every paid generation —
+  Veo shots, Gemini stills (one at a time or batched), ElevenLabs lines and
+  voice designs — and the assistant are passed through at **cost + 10%**
+  (`credits::MARKUP_PERCENT`), plus a **$10/month** flat fee. Top-ups are recorded by the operator until Pix exists (#548).
 - A generation the provider **failed** is free; one that **worked** is
   charged, liked or not. Users can audit every charge themselves — that is what
   makes the second half acceptable.
@@ -164,7 +165,9 @@ provider keys use, and is documented in `.env.example`:
 | `SCORSESE_BIND` | Where to listen. Defaults to `127.0.0.1:8080`, this machine only. |
 | `GEMINI_API_KEY`, `ELEVENLABS_API_KEY` | The provider keys paid generations are made with (*Web MCP*), read by the one resolver `docs/credentials.md` describes; `GEMINI_API_KEY` is also what the assistant's Gemini models answer with (*Assistant turns*). Optional: without one, a generation needing it fails, free. |
 | `ANTHROPIC_API_KEY` | The key the assistant's Claude models answer with (*Assistant turns*), by the same resolver. Optional: without it a turn on a Claude model is refused with "`ANTHROPIC_API_KEY` is not set", and nothing else changes. |
+| `PIXABAY_API_KEY` | The key `stock_search` and `stock_import` look Pixabay up with, by the same resolver, shared by every user (*Web MCP*). Optional: without it a Pixabay search fails with the variable's name; LottieFiles needs no key. |
 | `SCORSESE_ASSISTANT_TURN_CAP` | The most one assistant turn may cost a user, in dollars: `2.50`. Defaults to `2.00`. |
+| `SCORSESE_TRUST_PROXY` | `true` when the server sits behind the deploy's nginx and believes the client address it sends (*Which address*); `false` or unset otherwise, which is the default. Anything else stops the server from starting. Only for a server whose port nothing but that nginx can reach, which is what `deploy/compose.yaml` sets it for. |
 | `SCORSESE_ASSISTANT_MODEL` | **Retired** (#705): the model is each project's choice now. Set to anything, it stops the server from starting, so a setting that no longer means anything cannot pass for one that does. |
 
 **Schema migrations** are embedded in the binary and run at startup, before the
@@ -196,6 +199,7 @@ reads is in the example.
 | `web.Dockerfile` | `web/`'s Vite build, served by nginx |
 | `nginx.conf` | the `/api` split, the SPA fallback, upload and streaming settings |
 | `backup/` | the backup image and its three scripts |
+| `capture/seccomp.json` | the one seccomp profile every page capture runs under: Docker's default plus the one grant Chromium's sandbox needs, mounted into `capture-launcher`, which refuses to start without it (*Page captures*) |
 
 **The traffic path.** Cloudflare's edge terminates HTTPS and sends the request
 down the tunnel `cloudflared` holds open from this machine. `cloudflared` sends
@@ -221,7 +225,7 @@ for the SPA fallback anyway, so the tunnel is a single rule that never changes.
 The MCP endpoint (#539) is `/api/mcp`, under `/api` like everything else, so it
 needs nothing of its own there.
 
-**A fifth container, `backup`**, beside the four in *The shape*. It runs on the
+**The `backup` container** is the one in *The shape* that serves no request. It runs on the
 database's own image, so `pg_dump` is always the server's version, and it
 starts and stops with the rest — a host cron job would be one more thing set up
 by hand on the machine and forgotten on the next one.
@@ -681,7 +685,7 @@ ticket it only asks, so it cannot be what took the process down. A graceful stop
 (`docker compose stop`, a deploy) takes the same path, so the crash path runs
 on every deploy. Who a power cut affected:
 
-    docker compose exec scorsese-server scorsese-server job interrupted
+    docker compose exec server scorsese-server job interrupted
 
 **Veo: never pay twice.** The rule `scorsese_providers::video` keeps for a
 local project, kept here:
@@ -876,8 +880,9 @@ comes back on the call), `speech_generations` (model, voice, text, characters,
 settings, estimated cost, error) and `voice_designs` (description, passage,
 characters, seed, guidance, brief hash, state, the three candidates once it
 worked, estimated cost, error — #572, *Web MCP*) hold one row per paid generation, bound to the ledger entries that paid
-for it. Each carries a nullable `tool_call_id`, whose foreign key lands with the
-table it points at (#540), a nullable `library_item_id` keyed to the item it
+for it. Each carries a nullable `tool_call_id`, keyed to the tool call that
+asked for it by (call, owner) (#540; `0007_tool_calls.sql` added the keys
+`0004` left out), a nullable `library_item_id` keyed to the item it
 made by (item, owner) — kept, set null, when the item is deleted (#535) — and a
 `project_id` that deliberately has none: a project can be deleted, and the
 record of what it cost cannot.
@@ -937,8 +942,10 @@ already have this as *X*" and the item's id, whatever its name. The browser
 hashes a file first and asks `GET /api/library?sha256=`, so a duplicate never
 crosses the network; the refusal at upload is the backstop.
 
-**Exactly the kinds `scorsese import` takes** — video, image, audio, by the same
-extension list (`scorsese_core::pool::infer_kind`); any other file, a `.mid`
+**The media kinds `scorsese import` takes** — video, image, audio, by the same
+extension list (`scorsese_core::pool::infer_kind`). `scorsese import` also
+takes an `.html` page, which the library refuses with `415` like any other
+file it has no kind for (`library::Kind`): that gap is #1144. Any other file, a `.mid`
 included (#964), is refused at announcement (`415`) before a byte is sent. On
 arrival the server **hashes the bytes itself**
 and refuses (`422`) a file whose hash is not the one announced, then probes it
@@ -988,8 +995,10 @@ its id, so it is sent `private, immutable`, tagged by its hash.
 
 **A file a project or a template uses cannot be deleted**: `409` naming the
 projects and the templates (*Templates*), and the foreign keys from
-`project_assets` and `template_assets` hold it if two requests race. Nothing
-removes a file from a *local* project (#396); this does not decide that.
+`project_assets` and `template_assets` hold it if two requests race. Removing
+an asset from a project, locally or here, is `asset_remove` (#396, *The web
+editor*); that takes it out of the document and leaves the library file, which
+this rule alone deletes.
 
 **Generated output is an item too**, carrying the hash of its brief.
 `Library::find_generated` finds it again for the **same user** — scoped, so
@@ -1456,8 +1465,8 @@ thinking still happens and is still billed as output: hiding it saves the user
 reading, not credits.
 
 **Which model** (#705). A project names one (`projects.assistant_model`):
-Gemini 3.8 Flash for every project until its owner picks another, in the chat
-panel's dropdown (`PUT /api/projects/{id}/chat/model`). It is a routing flag:
+Claude Sonnet 5.5 (`Model::DEFAULT`, migration `0022`) for every project until
+its owner picks another, in the chat panel's dropdown (`PUT /api/projects/{id}/chat/model`). It is a routing flag:
 every turn runs on the model its project names when the turn starts, is charged
 at that model's rates, and records the model it ran on. It can be changed at
 any time, mid-conversation included, and changing it rewrites nothing. A model
@@ -1853,7 +1862,7 @@ to the assistant, not a menu (`CLAUDE.md`, *The GUI is thin*).
 
 - **An allowlist**, not the whole surface: `track_new`, `track_remove`,
   `asset_remove`, `place_clip`, `clip_set`, `clip_move`,
-  `clip_remove` (the edits) and `import`,
+  `clip_remove`, `sequence` (the edits, `http::editor::EDITS`) and `import`,
   `still`, `template_save`, `template_insert`. Anything else is
   `404` — a page has no business writing a whole document or spending money.
   An API token is `403`; a program uses web MCP.
@@ -1875,7 +1884,11 @@ to the assistant, not a menu (`CLAUDE.md`, *The GUI is thin*).
 scale by the desktop inspector's rule: a property with no keyframes, or one held
 point, is a value and gets a field; a ramp shows as *animated* and offers none,
 so typing never flattens somebody's animation. A value is sent when the field
-is left, not per keystroke.
+is left, not per keystroke. An **image sequence**'s clip adds its hold (frames
+per still) and loop, sent as `sequence` on the asset, so every clip of it
+changes. A **generated** clip shows its brief and its state, read-only: a
+changed brief is a sentence to the assistant, which quotes before anything is
+spent (#538).
 
 **`clip_set`** is the registry tool this added: speed (retimed, as a 2× button
 means), fit, and position, rotation and scale as single held values —
@@ -1937,9 +1950,9 @@ queue and lists the project's kept renders to download.
 **The chat panel** is *Assistant turns* on screen: each turn's prompt, its
 progress lines and tool calls as they stream, its answer, what it cost and the
 balance after it, the quote confirmation box, Stop while it runs, and the
-generation jobs it queued (queued → generating → ready). Without an Anthropic
-key the server's `503` "not configured" is shown as a note, and nothing else
-changes.
+generation jobs it queued (queued → generating → ready). Without the project's
+model's key (`ANTHROPIC_API_KEY` for Claude, `GEMINI_API_KEY` for Gemini) the
+server's `503` "not configured" is shown as a note, and nothing else changes.
 
 ## Templates
 
