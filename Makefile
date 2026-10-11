@@ -212,6 +212,23 @@ NEXTEST_CHECK = command -v cargo-nextest >/dev/null 2>&1 || { \
 	echo "         Or from source:        cargo install --locked cargo-nextest" >&2; \
 	exit 1; }
 
+# The scripts under .github/scripts use `tomllib` and parse `Z`-suffixed
+# timestamps with `datetime.fromisoformat`, both 3.11+. macOS's own
+# `/usr/bin/python3` is 3.9, and under it the `scripts` gate failed as ten
+# assertion errors naming nothing (#1149), so every target that runs one asks
+# for the version first and refuses in a sentence. PYTHON picks the
+# interpreter; CI's ubuntu-24.04 ships 3.12 and calls `python3` directly.
+PYTHON ?= python3
+PYTHON_MIN = 3.11
+PYTHON_CHECK = command -v $(PYTHON) >/dev/null 2>&1 || { \
+	echo "python: $(PYTHON) is not on PATH -- the scripts under .github/scripts need Python $(PYTHON_MIN)+." >&2; \
+	echo "        Point make at one, e.g. make $@ PYTHON=python3.12" >&2; \
+	exit 1; }; \
+	$(PYTHON) -c 'import sys; sys.exit(sys.version_info < tuple(map(int, "$(PYTHON_MIN)".split("."))))' || { \
+	echo "python: $(PYTHON) is $$($(PYTHON) -c 'import platform; print(platform.python_version())'); the scripts under .github/scripts need $(PYTHON_MIN)+." >&2; \
+	echo "        Point make at a newer one, e.g. make $@ PYTHON=python3.12" >&2; \
+	exit 1; }
+
 .DEFAULT_GOAL := help
 # `app` and `web` are on this list for a reason worth stating: there are
 # directories called `app/` and `web/`, so without it make sees the target as
@@ -365,8 +382,9 @@ test: ## [gate] The whole suite, golden renders and database included (needs ffm
 # run merges what nothing compiled. They are a gate and not a signal because
 # what is checked here is ordinary correctness, and because they cost a
 # fraction of a second: stdlib `unittest`, no dependency to install.
-scripts: ## [gate] The scripts under .github/scripts: signal renderers and the merge path
-	python3 -m unittest discover --start-directory .github/scripts/tests --quiet
+scripts: ## [gate] The scripts under .github/scripts: signal renderers and the merge path (needs Python 3.11+; PYTHON=python3.12 picks one)
+	@$(PYTHON_CHECK)
+	$(PYTHON) -m unittest discover --start-directory .github/scripts/tests --quiet
 
 # Both workspaces, and the second line is the whole point. `app/` is its own
 # cargo workspace with its own lockfile, so the first run does not see a single
@@ -579,7 +597,8 @@ checks: ## Unticked human checks in PRs merged since then. make checks SINCE=202
 	@test -n "$(SINCE)" || { \
 		echo "checks: since when? e.g. make checks SINCE=2026-10-05T18:00:00Z (UTC)" >&2; \
 		exit 1; }
-	@python3 .github/scripts/human-checks.py --since "$(SINCE)"
+	@$(PYTHON_CHECK)
+	@$(PYTHON) .github/scripts/human-checks.py --since "$(SINCE)"
 
 # Neither a gate nor a signal, because it is not about this code at all.
 # `make gates` answers "is this good?"; this answers "did anything check it?",
@@ -591,7 +610,8 @@ mergeable: ## Did CI really run on this PR's head? make mergeable PR=171
 	@test -n "$(PR)" || { \
 		echo "mergeable: which pull request? e.g. make mergeable PR=171" >&2; \
 		exit 1; }
-	@python3 .github/scripts/mergeable.py $(PR)
+	@$(PYTHON_CHECK)
+	@$(PYTHON) .github/scripts/mergeable.py $(PR)
 
 # The same question in a loop, with the rebase and the waiting done for you.
 # Merging stays serialized — this merges one branch at a time, in the order
@@ -609,7 +629,8 @@ queue: ## Rebase, wait for CI, merge each in turn. PRS="486 488", or WATCH=1 [SI
 		echo "queue: which pull requests? e.g. make queue PRS=\"486 488\"," >&2; \
 		echo "       or make queue WATCH=1 to take every ready PR labelled \`queue\`" >&2; \
 		exit 1; }
-	@python3 .github/scripts/merge-queue.py $(if $(WATCH),--watch) $(if $(SINCE),--since $(SINCE)) $(PRS)
+	@$(PYTHON_CHECK)
+	@$(PYTHON) .github/scripts/merge-queue.py $(if $(WATCH),--watch) $(if $(SINCE),--since $(SINCE)) $(PRS)
 
 ##@ Signals — informational, never a merge gate
 
@@ -619,10 +640,11 @@ coverage: ## Which pub items no test reaches. A signal: no threshold, blocks not
 		echo "          Install it with: cargo install --locked cargo-llvm-cov" >&2; \
 		echo "          It also needs: rustup component add llvm-tools-preview" >&2; \
 		exit 1; }
+	@$(PYTHON_CHECK)
 	@mkdir -p target
 	tools/with-chrome tools/with-postgres cargo llvm-cov --workspace --locked --exclude-from-report scorsese-golden \
 		--json --output-path target/coverage.json
-	python3 .github/scripts/coverage-summary.py target/coverage.json
+	$(PYTHON) .github/scripts/coverage-summary.py target/coverage.json
 
 # Diff-scoped, as `make mutants-remote SCOPE=diff` runs it, because the useful question
 # before a push is "would anything notice if what I just wrote were wrong?" and
@@ -681,9 +703,10 @@ mutants: ## Which changes to the code no test would notice. A signal: blocks not
 		echo "mutants: origin/main is not in this clone -- there is no diff to scope to." >&2; \
 		echo "         Fetch it with: git fetch origin main" >&2; \
 		exit 1; }
+	@$(PYTHON_CHECK)
 	@mkdir -p target
 	@cargo mutants --list > target/mutants-list.txt
-	@python3 .github/scripts/mutation-surface.py target/mutants-list.txt
+	@$(PYTHON) .github/scripts/mutation-surface.py target/mutants-list.txt
 	@git diff origin/main...HEAD -- '*.rs' > target/pr.diff
 	@if [ ! -s target/pr.diff ]; then \
 		echo "mutants: this branch changes no Rust source against origin/main."; \
@@ -704,7 +727,7 @@ mutants: ## Which changes to the code no test would notice. A signal: blocks not
 			   echo "         so a message about space or a quota is about that copy, not about the repo." >&2; \
 			   exit $$status ;; \
 		esac; \
-		python3 .github/scripts/mutants-summary.py mutants.out/outcomes.json; \
+		$(PYTHON) .github/scripts/mutants-summary.py mutants.out/outcomes.json; \
 		said=$$($(MUTANTS_VERDICT)); \
 	fi; \
 	printf '%s\n%s\n' "$$(git rev-parse --abbrev-ref HEAD)" "$$said" > $(MUTANTS_STAMP)
@@ -729,7 +752,8 @@ mutants-remote: ## Mutation on GitHub's runners, scoped. SCOPE=diff | scorsese-c
 		echo "mutants-remote: what should be mutated? SCOPE=diff, a crate, or path globs" >&2; \
 		echo "                e.g. make mutants-remote SCOPE='crates/core/src/keyframe/**'" >&2; \
 		exit 1; }
-	@python3 .github/scripts/mutants-remote.py '$(SCOPE)'
+	@$(PYTHON_CHECK)
+	@$(PYTHON) .github/scripts/mutants-remote.py '$(SCOPE)'
 
 # The line `make gates` ends on, and the reason it is reached from the recipe
 # rather than sitting in $(GATES): it runs nothing, it can fail nothing, and a
