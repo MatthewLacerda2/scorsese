@@ -7,52 +7,44 @@
 //! person reads that number before deciding to spend more, which makes it the
 //! place it must not read as a receipt. See `docs/prices.md`.
 //!
-//! # Two rate tables, and never one filter
+//! # The library's quote, never a copy of it
 //!
-//! Shots and lines are counted in **separate passes over separate asset
-//! kinds**, and that separation is the whole design of this module rather than
-//! a tidiness. Quoting everything merely *prompted* is what priced a line of
-//! narration as an eight-second 1080p shot — ninety-six cents for something
-//! that costs two, in a total somebody was about to agree to, and it looked
-//! entirely reasonable on screen. `narration_is_not_quoted_as_a_video_shot` is
-//! that bug, kept.
+//! The items are [`quote::generation`]'s — the one list `scorsese generate`
+//! prints and the MCP tool answers with — and what has been spent is
+//! [`spending::so_far`]'s. This window used to keep its own copies of both, and
+//! they drifted the way copies do (#1104): its quote skipped any asset whose
+//! `state` said `generated`, while the run decides by the **brief hash**, so a
+//! shot whose prompt was edited in this very window was priced at nothing and
+//! then paid for; and its spend left out designed voices, so its ceiling was
+//! lower than the one the run enforces. Asking the library is what makes the
+//! number on screen the number GO spends.
 //!
-//! So the [`AssetKind::GeneratedVideo`] filter is never widened. Speech arrived
-//! as its own pass with its own arithmetic beside it, and a third kind would
-//! arrive the same way.
+//! # Grouped by vendor, never by one filter
+//!
+//! Shots, stills and lines are grouped by **asset kind**, because their rates
+//! are orders of magnitude apart. Quoting everything merely *prompted* as a
+//! shot is what once priced a line of narration as an eight-second 1080p
+//! shot — ninety-six cents for something that costs two.
+//! `narration_is_not_quoted_as_a_video_shot` is that bug, kept.
 
-use scorsese_core::{AssetId, AssetKind, GenerationState, Project};
+use std::path::Path;
+
+use scorsese_core::{AssetKind, Project};
 use scorsese_providers::credentials::{Budget, Settings};
-use scorsese_providers::prices::{self, dollars, estimate};
-use scorsese_providers::speech;
-
-/// One generation that would be paid for.
-pub(crate) struct Priced {
-    /// Which asset.
-    pub(crate) asset: AssetId,
-    /// What it is estimated to cost, in US cents.
-    pub(crate) cents: u64,
-    /// How it reads: `8s of Fast at 1080p`, `137 characters in standard`.
-    pub(crate) shape: String,
-}
+use scorsese_providers::prices::dollars;
+use scorsese_providers::quote::{self, Item, Unquotable};
+use scorsese_providers::spending;
 
 /// What a run would cost, and what room there is for it.
+#[derive(Clone)]
 pub(crate) struct Quote {
-    /// The shots that would be sent — sketches and stale briefs, never
-    /// something already generated.
-    pub(crate) shots: Vec<Priced>,
-    /// The stills that would be drawn, on the same terms.
-    pub(crate) stills: Vec<Priced>,
-    /// The lines that would be spoken, on the same terms.
-    pub(crate) lines: Vec<Priced>,
-    /// What they add up to, in US cents.
-    pub(crate) total_cents: u64,
-    /// What the project already says has been spent on it.
+    /// The library's quote, or why it cannot price this project.
+    priced: Result<quote::Quote, Unquotable>,
+    /// What the project and its voice ledger already say has been spent.
     pub(crate) spent_cents: u64,
-    /// The ceiling, when somebody set one.
+    /// The ceiling, when somebody set one. Set again on every frame from the
+    /// window's settings, since the dialog's own field changes it.
     pub(crate) ceiling_cents: Option<u64>,
-    /// How many shots are already in flight from an earlier run.
-    pub(crate) in_flight: usize,
 }
 
 impl Quote {
@@ -65,34 +57,47 @@ impl Quote {
     /// sentence for every person — which is exactly how the two generate-dialog
     /// references came to pass on a runner with no settings file and fail on the
     /// machine they were written on.
-    pub(crate) fn of(project: &Project, settings: &Settings) -> Self {
-        let (shots, in_flight) = shots(project);
-        let stills = stills(project);
-        let lines = lines(project);
+    pub(crate) fn of(project: &Project, root: &Path, settings: &Settings) -> Self {
         Self {
-            total_cents: shots
-                .iter()
-                .chain(stills.iter())
-                .chain(lines.iter())
-                .map(|priced| priced.cents)
-                .sum(),
-            shots,
-            stills,
-            lines,
-            spent_cents: spent(project),
+            priced: quote::generation(project, root),
+            spent_cents: spending::so_far(project, root).total(),
             ceiling_cents: settings.budget_cents,
-            in_flight,
         }
     }
 
-    /// Whether there is anything at all to make.
-    pub(crate) fn empty(&self) -> bool {
-        self.shots.is_empty() && self.stills.is_empty() && self.lines.is_empty()
+    /// Why nothing can be priced, when a brief asks for something there is no
+    /// rate for — the run refuses the same project in the same words.
+    pub(crate) fn unquotable(&self) -> Option<String> {
+        self.priced.as_ref().err().map(ToString::to_string)
+    }
+
+    /// The items of one asset kind, in document order: what the run would do
+    /// with each, charged or not.
+    pub(crate) fn of_kind<'a>(&'a self, project: &'a Project, kind: AssetKind) -> Vec<&'a Item> {
+        self.items()
+            .filter(|item| {
+                project
+                    .assets
+                    .iter()
+                    .any(|asset| asset.id.as_str() == item.subject && asset.kind == kind)
+            })
+            .collect()
+    }
+
+    /// Whether nothing here would be paid for — asked of the charges, as the
+    /// library asks it, so a brief priced at nothing still counts as one.
+    pub(crate) fn free(&self) -> bool {
+        self.priced.as_ref().map_or(true, quote::Quote::is_free)
+    }
+
+    /// The whole estimate, in US cents.
+    pub(crate) fn total_cents(&self) -> u64 {
+        self.priced.as_ref().map_or(0, quote::Quote::cents)
     }
 
     /// The total, as a person reads money.
     pub(crate) fn total(&self) -> String {
-        dollars(self.total_cents)
+        dollars(self.total_cents())
     }
 
     /// Whether this run would cross the ceiling — asked of [`Budget`], the same
@@ -100,7 +105,7 @@ impl Quote {
     /// the library would refuse.
     pub(crate) fn over_budget(&self) -> bool {
         Budget::new(self.ceiling_cents.unwrap_or(u64::MAX), self.spent_cents)
-            .check(self.total_cents)
+            .check(self.total_cents())
             .is_err()
     }
 
@@ -113,266 +118,12 @@ impl Quote {
             dollars(ceiling)
         ))
     }
-}
 
-/// The shots to be made, and how many are already going.
-///
-/// `generated_video` and not merely "prompted" — see the module doc for what
-/// widening this once cost.
-fn shots(project: &Project) -> (Vec<Priced>, usize) {
-    let mut shots = Vec::new();
-    let mut in_flight = 0;
-    for asset in project
-        .assets
-        .iter()
-        .filter(|asset| asset.kind == AssetKind::GeneratedVideo)
-    {
-        if asset.operation.is_some() {
-            in_flight += 1;
-            continue;
-        }
-        // Anything already generated is not sent again and so costs nothing —
-        // the cache is what makes that true, and quoting for it would be
-        // quoting for work already paid for.
-        if asset.state == Some(GenerationState::Generated) {
-            continue;
-        }
-        let request = asset.video_request();
-        let Ok(priced) = estimate(&request) else {
-            continue;
-        };
-        shots.push(Priced {
-            asset: asset.id.clone(),
-            cents: priced.cents,
-            shape: format!(
-                "{}s of {} at {}",
-                priced.seconds,
-                request.model.as_str(),
-                request.resolution.as_str()
-            ),
-        });
+    /// Every item, or none when the project cannot be priced.
+    fn items(&self) -> impl Iterator<Item = &Item> {
+        self.priced.iter().flat_map(|priced| priced.items.iter())
     }
-    (shots, in_flight)
-}
-
-/// The stills to be drawn.
-///
-/// Priced by the same function the run charges by, from the request and the
-/// prompt alone: what a reference *is* does not change the price, only how
-/// many there are. A still whose reference is a generated still nobody has
-/// generated yet is listed at nothing, because the run will skip it.
-fn stills(project: &Project) -> Vec<Priced> {
-    project
-        .assets
-        .iter()
-        .filter(|asset| asset.kind == AssetKind::GeneratedImage)
-        .filter(|asset| asset.state != Some(GenerationState::Generated))
-        .map(|asset| {
-            let request = asset.image_request();
-            let prompt = asset.prompt.as_deref().unwrap_or_default();
-            let waiting = request.references().find(|id| {
-                project.asset(id).is_some_and(|it| {
-                    it.kind.is_generated() && it.state != Some(GenerationState::Generated)
-                })
-            });
-            let priced = prices::image(
-                &request,
-                prompt.chars().count(),
-                request.references().count(),
-            );
-            let (cents, shape) = match (prompt.trim().is_empty(), waiting, priced) {
-                // Ordered in a half-price batch (#894): paid for, and the run
-                // collects it.
-                _ if asset.operation.is_some() => {
-                    (0, String::from("waits in its batch — already paid for"))
-                }
-                (true, _, _) => (0, String::from("has no prompt yet")),
-                (false, Some(sheet), _) => (0, format!("waits for {sheet} to be generated first")),
-                (false, None, Err(why)) => (0, why.to_string()),
-                (false, None, Ok(priced)) => (
-                    priced.cents,
-                    format!(
-                        "{} {} in {}",
-                        request.size().as_str(),
-                        request.aspect.as_str(),
-                        request.model.as_str()
-                    ),
-                ),
-            };
-            Priced {
-                asset: asset.id.clone(),
-                cents,
-                shape,
-            }
-        })
-        .collect()
-}
-
-/// The lines to be spoken.
-///
-/// Nothing here is ever *in flight*: a reading comes back on the connection it
-/// was asked for, so there is no third state between quoted and made.
-///
-/// Priced from the words already in the document, so unlike a shot the figure
-/// is exact before anything is sent — the vendor bills per character. It is
-/// still an estimate: the rate is a page somebody copied, and library-voice
-/// multipliers are deliberately ignored.
-fn lines(project: &Project) -> Vec<Priced> {
-    project
-        .assets
-        .iter()
-        .filter(|asset| asset.kind == AssetKind::GeneratedAudio)
-        .filter(|asset| asset.state != Some(GenerationState::Generated))
-        .map(|asset| match speech::Brief::of(asset) {
-            Ok(brief) => Priced {
-                asset: asset.id.clone(),
-                cents: speech::quote(brief.request.model, brief.characters()),
-                shape: format!(
-                    "{} characters in {}",
-                    brief.characters(),
-                    brief.request.model.as_str()
-                ),
-            },
-            // Asked of the same function the run asks, so this dialog cannot
-            // quote a line the run would skip. A half-written line costs
-            // nothing and is listed anyway — a total that silently omitted it
-            // would leave somebody wondering which of their narrations it
-            // covered.
-            Err(why) => Priced {
-                cents: 0,
-                shape: unprefixed(&why.to_string(), &asset.id),
-                asset: asset.id.clone(),
-            },
-        })
-        .collect()
-}
-
-/// A sentence with the asset's own name taken off the front.
-///
-/// The library names the asset because a terminal prints one line per problem;
-/// this dialog has already put the id in the row, and saying it twice reads as
-/// a stutter.
-fn unprefixed(said: &str, asset: &AssetId) -> String {
-    said.strip_prefix(&format!("{asset} "))
-        .unwrap_or(said)
-        .to_owned()
-}
-
-/// What the assets already say has been spent on them.
-///
-/// Summed off the assets rather than kept as a running tally, so deleting a
-/// shot takes its cost with it — a ledger elsewhere would be wrong the first
-/// time anybody removed one.
-pub(crate) fn spent(project: &Project) -> u64 {
-    project
-        .assets
-        .iter()
-        .filter_map(|asset| asset.estimated_cost_cents)
-        .sum()
 }
 
 #[cfg(test)]
-mod tests {
-    use super::Quote;
-    use scorsese_core::{Asset, AssetId, AssetKind, Fps, Project, SpeechRequest};
-    use scorsese_providers::credentials::Settings;
-
-    /// A machine nobody has configured: no keys, and no ceiling.
-    ///
-    /// Stated rather than loaded, so these assertions are about the arithmetic
-    /// and not about whoever ran them.
-    fn fresh() -> Settings {
-        Settings::default()
-    }
-
-    /// A project with one shot to make and one line of narration.
-    fn project() -> Project {
-        let mut project = Project::new("quoting", Fps::THIRTY);
-        project.assets.push(Asset::sketch(
-            AssetId::new("shot"),
-            AssetKind::GeneratedVideo,
-            "a city at dawn",
-        ));
-        let mut line = Asset::sketch(
-            AssetId::new("vo"),
-            AssetKind::GeneratedAudio,
-            "In a city that never sleeps.",
-        );
-        line.speech = Some(SpeechRequest {
-            voice_id: Some(String::from("a-voice")),
-            ..SpeechRequest::default()
-        });
-        project.assets.push(line);
-        project
-    }
-
-    /// The bug this was found with, and the reason it is worth a test: a
-    /// narration prompt is a prompt, so quoting everything "prompted" priced a
-    /// line of speech as an eight-second video shot — and doubled the total a
-    /// person was about to agree to.
-    ///
-    /// It still means that now narration *is* priced. The shot list holds the
-    /// shot and nothing else, and the line is quoted through the speech table
-    /// at a cent rather than through the video table at ninety-six.
-    #[test]
-    fn narration_is_not_quoted_as_a_video_shot() {
-        let quote = Quote::of(&project(), &fresh());
-        assert_eq!(quote.shots.len(), 1, "only the video shot is a shot");
-        assert_eq!(quote.shots[0].asset.as_str(), "shot");
-        assert_eq!(quote.shots[0].cents, 96, "eight seconds of Fast at 1080p");
-
-        assert_eq!(quote.lines.len(), 1);
-        assert_eq!(quote.lines[0].asset.as_str(), "vo");
-        assert_eq!(
-            quote.lines[0].cents, 1,
-            "28 characters at 10c per 1000, rounded up — never the video rate"
-        );
-        assert_eq!(quote.total_cents, 97);
-    }
-
-    /// A line nobody has chosen a voice for is listed and costs nothing, in the
-    /// words the run itself would use. Dropping it from the dialog would leave
-    /// a person wondering which of their narrations the total covered.
-    #[test]
-    fn a_line_that_is_not_ready_is_quoted_at_nothing_and_says_why() {
-        let mut project = project();
-        project.assets[1].speech = None;
-
-        let quote = Quote::of(&project, &fresh());
-        assert_eq!(quote.lines[0].cents, 0);
-        assert!(
-            quote.lines[0].shape.contains("no voice"),
-            "{:?}",
-            quote.lines[0].shape
-        );
-        assert!(
-            !quote.lines[0].shape.starts_with("vo "),
-            "the row already names the asset"
-        );
-        assert_eq!(quote.total_cents, 96);
-    }
-
-    /// No ceiling refuses nothing — a limit nobody set is not a limit.
-    ///
-    /// It said that before this took its settings as an argument, but it could
-    /// not *prove* it: the ceiling came off the machine, so on one with none
-    /// this passed for the stated reason and on one with a generous number it
-    /// passed for a different one.
-    #[test]
-    fn a_run_with_no_ceiling_is_never_over_budget() {
-        assert!(!Quote::of(&project(), &fresh()).over_budget());
-    }
-
-    /// And the other half, which nothing here could state until now: a ceiling
-    /// the run would cross is read off the settings it was handed.
-    #[test]
-    fn a_ceiling_the_run_would_cross_is_refused() {
-        let settings = Settings {
-            budget_cents: Some(50),
-            ..Settings::default()
-        };
-        let quote = Quote::of(&project(), &settings);
-        assert_eq!(quote.total_cents, 97, "97c against a 50c ceiling");
-        assert!(quote.over_budget());
-    }
-}
+mod tests;

@@ -33,6 +33,7 @@ use scorsese_core::placing::{self, Shortened};
 use scorsese_core::{Asset, AssetId, AssetKind, Project, Reprobe, probe_assets};
 use scorsese_providers::credentials::{Budget, Settings};
 use scorsese_providers::prices::dollars;
+use scorsese_providers::spending;
 use scorsese_render::Ffprobe;
 
 /// What one background pass did.
@@ -100,7 +101,7 @@ fn run(pass: Pass, mut project: Project, root: &Path) -> Report {
         Ok(settings) => settings,
         Err(error) => return failure(format!("nothing was sent: {error}")),
     };
-    let budget = Budget::from_settings(&settings, super::quote::spent(&project));
+    let budget = Budget::from_settings(&settings, spending::so_far(&project, root).total());
 
     let made = match shots::pass(&mut project, root, pass, budget) {
         Ok(made) => made,
