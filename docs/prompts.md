@@ -49,6 +49,12 @@ below breaks it on paper first. A storyboard is text, not drawings: drawing
 every frame costs time and tokens that a paragraph does not, so pictures are
 made only when the person asks for them.
 
+**The lessons on this page are advice, not rules.** The video is the person's.
+When they ask for something a lesson advises against (a chase, a line spoken to
+camera, a sign to read), say so once, in a line, with what usually goes wrong
+and what would hold up instead. If they still want it, it is done their way,
+and done as well as it can be.
+
 The paid lessons are mostly Veo, because that is what has been generated
 most; the image lessons follow them, and speech lessons belong beside them
 when there are some.
@@ -99,9 +105,9 @@ What holds up:
   window), which carry a feeling without asking anyone to act it;
 - slow movement, of the camera and in the frame.
 
-What to leave out:
+What to avoid, unless the person asks for it:
 - action at speed: chases, fights, fast camera moves;
-- dialogue on camera, unless the person asked for characters who speak.
+- dialogue on camera.
 
 When a line is needed anyway, it is a voice over a shot that does not show the
 mouth: a narrator, or a character seen from behind or from far away.
