@@ -102,6 +102,7 @@ fn words_land_where_the_clip_plays_them() {
 }
 
 mod disk;
+mod tags;
 
 #[test]
 fn a_word_ending_where_the_clip_opens_is_not_heard() {

@@ -6,6 +6,7 @@
 //! [`super::run`], so what is left here is the translation between them and
 //! nothing else.
 
+use scorsese_core::SpeechModel;
 use scorsese_core::words::Words;
 
 use crate::api::elevenlabs::refusal::Refusal;
@@ -40,7 +41,7 @@ impl SpeechProvider for ElevenLabsProvider {
             .api
             .speak(&brief.voice_id, &body)
             .map_err(|error| explain(&brief.voice_id, error))?;
-        spoken(&timed)
+        spoken(&timed, brief.request.model)
     }
 
     fn name(&self) -> &'static str {
@@ -72,9 +73,10 @@ fn body_of(brief: &Brief) -> Speak {
 }
 
 /// The line out of the vendor's reply: the MP3 decoded, and the characters'
-/// timings folded into words. A reply whose timings do not add up still gives
-/// its audio, without them — the line was paid for either way.
-fn spoken(timed: &Timed) -> Result<Spoken, ProviderError> {
+/// timings folded into words — without the audio tags `model` takes as
+/// directions (#1061). A reply whose timings do not add up still gives its
+/// audio, without them — the line was paid for either way.
+fn spoken(timed: &Timed, model: SpeechModel) -> Result<Spoken, ProviderError> {
     let audio = timed
         .audio()
         .ok_or_else(|| ProviderError::new(NAME, "the audio came back as something not base64"))?;
@@ -82,7 +84,7 @@ fn spoken(timed: &Timed) -> Result<Spoken, ProviderError> {
         .alignment
         .as_ref()
         .and_then(|alignment| alignment.characters())
-        .map(Words::from_characters);
+        .map(|characters| Words::from_reading(characters, model));
     Ok(Spoken { audio, words })
 }
 
@@ -99,5 +101,38 @@ fn explain(voice_id: &str, error: HttpError) -> ProviderError {
             ProviderError::new(NAME, Refusal::of(status, voice_id, &body))
         }
         other => ProviderError::new(NAME, other),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use scorsese_core::SpeechModel;
+
+    use super::spoken;
+    use crate::api::elevenlabs::speech::{Alignment, Timed};
+
+    /// `[sighs] Hi.` as Eleven v3 aligns it: the tag's characters timed too.
+    fn sighed() -> Timed {
+        let text = "[sighs] Hi.";
+        let starts: Vec<f64> = (0..text.len()).map(|i| i as f64 * 0.1).collect();
+        Timed {
+            audio_base64: String::from("TVAz"),
+            alignment: Some(Alignment {
+                characters: text.chars().map(String::from).collect(),
+                character_end_times_seconds: starts.iter().map(|s| s + 0.1).collect(),
+                character_start_times_seconds: starts,
+            }),
+        }
+    }
+
+    #[test]
+    fn a_reply_is_folded_by_the_model_that_spoke_it() {
+        let words = |model| {
+            let spoken = spoken(&sighed(), model).expect("a line");
+            let words = spoken.words.expect("timed").words;
+            words.into_iter().map(|w| w.text).collect::<Vec<_>>()
+        };
+        assert_eq!(words(SpeechModel::Expressive), ["Hi."]);
+        assert_eq!(words(SpeechModel::Fast), ["[sighs]", "Hi."]);
     }
 }

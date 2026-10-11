@@ -3,7 +3,7 @@
 use crate::words::{Saying, Word, Words, saying};
 use crate::{
     Asset, AssetId, AssetKind, Clip, ClipId, Fps, Frames, GenerationState, Project, ProjectPath,
-    Track, TrackId, TrackKind,
+    SpeechModel, SpeechRequest, Track, TrackId, TrackKind,
 };
 
 /// A project folder with one generated line `vo`, timed when `timed`, played
@@ -85,5 +85,31 @@ fn the_word_being_said_is_named_and_an_untimed_line_says_so() {
     std::fs::remove_dir_all(&dir).ok();
     let (dir, project) = spoken("untimed", false);
     assert_eq!(saying(&project, &dir, 1.75)[0].1, Saying::Untimed);
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A line folded before #1061 kept its tags in its file; reading it back on
+/// `expressive` leaves them out, and on another model keeps them as said.
+#[test]
+fn an_expressive_line_read_back_has_no_tags() {
+    let (dir, mut project) = spoken("tagged", false);
+    let said = |text: &str, start: f64| Word {
+        text: text.into(),
+        start,
+        end: start + 0.1,
+    };
+    let tagged = Words {
+        words: vec![said("[quietly]", 0.0), said("Line.", 0.5)],
+    };
+    let audio = project.assets[0].path.clone().unwrap();
+    std::fs::create_dir_all(dir.join("generated.d")).unwrap();
+    std::fs::write(Words::beside(&audio).resolve(&dir), tagged.to_json()).unwrap();
+    let read = |project: &Project| Words::of(&project.assets[0], &dir).unwrap().words.len();
+    assert_eq!(read(&project), 2, "the default model reads brackets aloud");
+    project.assets[0].speech = Some(SpeechRequest {
+        model: SpeechModel::Expressive,
+        ..SpeechRequest::default()
+    });
+    assert_eq!(read(&project), 1);
     std::fs::remove_dir_all(&dir).ok();
 }

@@ -526,7 +526,11 @@ limit, and would have priced it wrong as well.
 its audio: `generated/vo-open-<hash>.mp3` has
 `generated/vo-open-<hash>.words.json` next to it, holding each word as it was
 written — punctuation included — with when it starts and ends, in seconds of
-the audio file. `generate` says where it saved them. Nothing in
+the audio file. On `expressive`, a line's audio tags (`[whispers]`) direct
+the reading and are not said, so they are not words either: they are left
+out of its timings, and out of a file written before they were whenever it is
+read. On `standard` and `fast` a bracket is read aloud, and stays. `generate`
+says where it saved them. Nothing in
 `project.json` changes, and a line generated before timings were kept, or
 speech that was imported rather than generated, has none: they are never
 guessed.

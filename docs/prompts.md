@@ -402,7 +402,8 @@ v2) and `fast` (Flash v2.5, the default).
 - **Audio tags in square brackets** direct the reading: `[whispers]`,
   `[sighs]`, `[laughs]`, `[curious]`, `[shouts]`. A tag describes the voice
   quality wanted (`[low, gravelly voice]`), not something that could be read
-  as a sound to make.
+  as a sound to make. Tags are not said, so they are never words in the
+  line's timings: captions and pages never show one.
 - **Pauses come from the text**: ellipses add a pause and weight, and the
   sentence's own structure does the rest. v3 does **not** honour `<break>`
   tags.
