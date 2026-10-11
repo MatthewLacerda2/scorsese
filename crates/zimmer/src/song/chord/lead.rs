@@ -94,16 +94,19 @@ impl Stack {
     /// The chord with its upper voices rotated `turns` times: up an octave from
     /// the bottom for a positive count, down an octave from the top for a
     /// negative one. Low to high, the bass first.
+    ///
+    /// Fewer turns than there are upper voices, either way — the callers keep
+    /// to that, and one more would be the same chord an octave away.
     pub(crate) fn turned(&self, turns: i32) -> Vec<i32> {
         let mut upper = self.upper.clone();
-        for _ in 0..turns.unsigned_abs() {
-            if turns > 0 {
-                let lowest = upper.remove(0);
-                upper.push(lowest + 12);
-            } else if let Some(highest) = upper.pop() {
-                upper.insert(0, highest - 12);
-            }
-        }
+        let (up, down) = (turns.max(0) as usize, (-turns).max(0) as usize);
+        let count = upper.len();
+        upper.rotate_left(up);
+        upper[count - up..]
+            .iter_mut()
+            .for_each(|voice| *voice += 12);
+        upper.rotate_right(down);
+        upper[..down].iter_mut().for_each(|voice| *voice -= 12);
         self.bass.into_iter().chain(upper).collect()
     }
 
@@ -222,6 +225,13 @@ mod tests {
             upper: vec![60, 64, 67],
         };
         assert_eq!(over_g.nearest(&low, &KEYS), vec![55, 60, 64, 67]);
+        // Over an F the lowest rotation would dip under the bass, and the next
+        // one down is the answer.
+        let over_f = Stack {
+            bass: Some(53),
+            upper: vec![60, 64, 67],
+        };
+        assert_eq!(over_f.nearest(&low, &KEYS), vec![53, 55, 60, 64]);
         // Off the top of a narrowed keyboard, the upward rotations are out.
         assert_eq!(c.nearest(&[72.0, 76.0, 79.0], &(0..=70)), vec![60, 64, 67]);
     }
