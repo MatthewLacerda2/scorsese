@@ -129,6 +129,12 @@ shape.
   every way scorsese is run, and the spending ceiling that lives beside it.
 - **docs/mcp.md** — the tools `scorsese-mcp` exposes, how a client is pointed
   at it, and the rule that every tool and every argument describes itself.
+- **docs/stock.md** — stock footage, photos and animations (Pixabay,
+  LottieFiles): what to search before a shot is paid for.
+- **docs/live-check.md** — `make live-check`, the one run that calls every
+  vendor for real, and why it is asked for every time.
+- **docs/mutation-testing.md** — what the mutation signal measures, and what
+  its report deliberately leaves out.
 - **docs/web.md** — the hosted web app: its containers, per-user isolation,
   why the edit is a JSON document while everything around it is tables, and
   money as integer micro-dollars. Read it before touching the server or `web/`.
@@ -142,7 +148,8 @@ shape.
 this file can hold the reasoning and they can hold the steps. Each one names
 its own scope and when to reach for it, so this file does not
 restate them; invoke them rather than reconstructing a procedure from memory, and
-name them when briefing a subagent.
+name them when briefing a subagent. A third, `post-edit-feedback`, is the review
+of scorsese itself once a video made with it is delivered.
 
 Where a rule below is stated in one line and a skill has ten, the line is the
 rule and the skill is how to keep it. The two are written to agree: a
@@ -162,9 +169,12 @@ side effect of a feature PR.
   `scp -r` between machines.
 - **Assets are entities, clips are references.** `project.json` has an assets
   table (id, kind, path, sha256 hash, probed metadata); tracks hold clips that
-  reference assets **by id — never by path**. Asset kinds: `video`, `image`,
-  `audio`, `text`, `generated_video` (Veo prompt), `generated_audio`
-  (ElevenLabs TTS prompt), `synth_audio` (a synthesis recipe).
+  reference assets **by id — never by path**. The kinds are `AssetKind`
+  (`crates/core/src/asset/kind.rs`): imported media (`video`, `image`,
+  `audio`, `image_sequence`), authored ones (`text`, `color`, `shape`, `icon`,
+  `html`, `group`), and generated ones — prompted (`generated_video` via Veo,
+  `generated_image` via Gemini, `generated_audio` via ElevenLabs) or
+  synthesised (`synth_audio`, from a recipe).
 - **Generated clips and the sketch lifecycle.** A generated asset carries a
   **brief** and a state: `sketch → queued → generated → stale` (stale = brief
   edited after generation). Sketch/stale clips render as slug cards so a full
@@ -198,12 +208,12 @@ side effect of a feature PR.
   and gradients are frozen**: bugs are fixed, nothing is added. A new graphics
   capability (a text shadow, a new gradient, a title preset) goes to pages and
   their motion kit (#812), never to the native kinds. Nothing is removed yet:
-  pages cannot be captured on the web (#778) or on Windows (#797) and preview
-  slowly (#809), and removing a kind is a format change with a migration.
-  Revisit once those land and the tool-call record shows no new native shapes
-  being made.
-- **Audio is first-class.** Audio tracks with keyframable volume; auto-ducking
-  of music under narration is a planned feature, not an afterthought.
+  pages cannot be captured on Windows (#797) or macOS (#844), and removing a
+  kind is a format change with a migration. Revisit once those two land and
+  the tool-call record shows no new native shapes being made.
+- **Audio is first-class.** Audio tracks with keyframable volume, and music
+  ducks under narration (`core::dip`, behind `scorsese duck` and the
+  `duck_music` tool).
 - **`core` and `cli` never touch a display.** No window, no GPU surface, no
   GUI toolkit — that invariant is stated in their `lib.rs` docs and enforced
   in review. The GUI is a client of the same library logic the CLI and MCP
@@ -235,8 +245,10 @@ side effect of a feature PR.
 `crates/core` (model, serde format, validation) ← `crates/compositor` (frame
 rendering, CPU tiny-skia first) ← `crates/render` (ffmpeg orchestration) ;
 `crates/zimmer` (synthesis: recipe documents → samples; **no I/O at all**,
-and no dependency on `core`) ← `crates/providers` (Veo + ElevenLabs +
-synthesis, brief-hash cache) ; `crates/zimmer` ← `crates/render` too, for
+and no dependency on `core`) ← `crates/providers` (every call to a vendor —
+Veo video, Gemini images, ElevenLabs speech, Pixabay and LottieFiles stock,
+the chat models behind the web assistant — plus local synthesis and the
+brief-hash cache) ; `crates/zimmer` ← `crates/render` too, for
 reading only — loudness and song surveys, never synthesising ; `crates/cli` (the headless `scorsese` binary) ;
 `crates/mcp` (MCP server, thin wrapper over the same logic) ; `crates/golden`
 (test infrastructure: the golden-render gate, which nothing ships and nothing
@@ -248,14 +260,30 @@ that the CLI does not share belongs a layer down) ; `web/` (the React
 front-end — its own Bun project with its own conditional gate, the way `app/`
 is its own workspace; it talks to the server over HTTP and to nothing else) ;
 `app/` (the egui desktop app — its own cargo workspace, so a
-graphics dependency tree never slows `cargo test --workspace`). Each `lib.rs` doc
-states what its crate must never depend on — those boundaries are enforced in
-review.
+graphics dependency tree never slows `cargo test --workspace`) ; `deploy/`
+(the web app's Compose stack: nginx, the Dockerfiles, backups, the sandboxed
+capture image) ; `tools/` (what the gates and the session hook run: `lint`, the
+size gate; `chromium`, the one pinned build pages are captured with;
+`with-chrome` and `with-postgres`, which hand a test run a browser or a
+throwaway database; `icons`, run by hand to re-vendor Lucide). Each `lib.rs`
+doc states what its crate must never depend on — those boundaries are enforced
+in review.
 
 **`zimmer` is ours** (the joke told twice: Scorsese directs, Zimmer scores),
 and **[rusty](https://github.com/MatthewLacerda2/rusty)**, the owner's game
 engine, depends on it too, so its public API is rusty's contract.
 `crates/zimmer/CLAUDE.md` has the name, the rusty rules and `SYNTH_VERSION`.
+
+### What ships
+
+- **The web app**, the paid product, deployed by hand from `main` to the
+  maintainer's home server with the `deploy/` stack (`docs/web.md`,
+  *Updating*). Nothing deploys on merge; it is done once, at the end of a batch.
+- **The desktop app, CLI and MCP server**, built from source. The maintainer
+  drives them every day through their own Claude CLI, at no API cost, and
+  anyone else clones, installs ffmpeg and builds them — the supported path.
+  `release.yml` builds CLI binaries on a `v*` tag, but no tag has been pushed
+  and the app is not in it; releasing it is welcome, not required.
 
 ## How we work
 
@@ -263,6 +291,24 @@ The steps live in the skills; what follows is each rule in a line or two, so it
 is in front of every session. One person develops this, on their own machine or
 in a cloud session; `issue-batch` has what that premise shapes.
 
+- **The project serves its development first** (the maintainer, 2026-10-11).
+  Claude is never tied to the current way of doing things. First it looks for
+  a more scalable way to improve the project faster; then it improves the
+  project itself — its tools, features and infrastructure; only then does it
+  use it. The exception is a video-editing session, where the end result is
+  seen and becomes the signal for all of the above (`post-edit-feedback`:
+  nothing is filed while a video is being made). The next two rules are how
+  this is kept.
+  - **Infrastructure- then architecture-first (NOT "make it up as we go").**
+    When we find a problem — something that bites or will bite more than once, a
+    pattern worth adopting, or a gold-standard practice we should have had — we
+    document it and fix it **before** continuing. Infrastructure and
+    architecture problems **halt feature work**, and each such fix gets its own
+    issue when it carries its own responsibility.
+  - **Agent velocity is first-class.** Agents drive this repo, often unattended.
+    Write code that is readable by design and lean, and keep CI fast. This is
+    part of **Craft**, not a trade-off against it. Use the strongest model for
+    judgement work and a cheaper one for mechanical work (`issue-batch`).
 - **The gates (push back before you build).** An idea becomes an issue only
   when all three hold; if any fails, **push back instead of complying**:
   1. **Understanding.** Claude actually understands the idea — the user has a
@@ -279,10 +325,14 @@ in a cloud session; `issue-batch` has what that premise shapes.
   wait to be told to improve the codebase. The user follows Claude's
   recommendations, and implementing then validating later beats waiting: a
   clear win without a downside is **implemented**, not proposed. The one
-  exception is a change to **scorsese's design itself** — the decided
-  architecture above, the `project.json` format, the shape of the tool surface,
-  the conventions in this file — where Claude proposes and the user decides,
-  unless one option is a plain win-win, which Claude takes. Initiative still
+  exception is **changing a decision** — the decided architecture above, the
+  `project.json` format, the shape of the tool surface, a rule or convention in
+  this file — where Claude proposes and the user decides, unless one option is
+  a plain win-win, which Claude takes. **Making a description true or complete
+  is never the exception** (the maintainer, 2026-10-11): any doc, README, crate
+  or module doc, comment, CLI help, MCP or API description, skill or
+  `CLAUDE.md` that is stale, or missing something that matters for developing,
+  maintaining or using scorsese, is fixed on Claude's own say-so and merged. Initiative still
   runs through the normal flow, and nothing that spends the user's money — a
   provider generation, `make live-check` — is done on initiative: it is asked
   first, every time.
@@ -295,7 +345,7 @@ in a cloud session; `issue-batch` has what that premise shapes.
 - **One worktree per branch**, off the latest `main`, removed the moment it
   merges, and **never a shared `CARGO_TARGET_DIR`** — it makes worktrees
   overwrite each other's artifacts and produces a false green; `make gates`
-  refuses to run under one. Compiles are staggered and sized from the machine
+  refuses one that points outside the worktree. Compiles are staggered and sized from the machine
   you are on, measured. One of the operator's machines also hosts the web app,
   so a heavy build there competes with a paying user's render. **Branches are
   written in cloud sessions first**, about ten at once; at most two locally,
@@ -312,33 +362,23 @@ in a cloud session; `issue-batch` has what that premise shapes.
   survives a session that ends badly; a red ready pull request stays ready and
   is fixed forward.
 - **Run the gates before marking a pull request ready**, not after CI says so.
-  `make gates` runs every gate CI blocks on and `make help` lists them; the app
-  and web gates report **skipped** when a branch touches nothing under `app/` or
-  `web/`, and skipped is never green. `make setup`, once per clone, installs the
+  `make gates` runs every gate CI blocks on and `make help` lists them; the
+  app, web and web-e2e gates report **skipped** when a branch touches nothing
+  they check, and skipped is never green. `make setup`, once per clone, installs the
   pre-commit hook (formatting and the size gate). **CI is a different
   computer** — cold, no GPU, often a different ffmpeg — so local green is never
   CI green, and nothing GPU-dependent is ever a merge gate.
 - **Gates vs. signals — block on correctness, inform on quality.** Build, test,
   `clippy -D warnings`, the golden renders and the size gate are **hard
   gates**. Coverage, mutation testing and perf tracking are **signals**: opt-in,
-  on a schedule or when asked, never in a pull request's CI run, never holding a
-  merge. Ask for a mutation run (`make mutants-remote`) when a branch adds
+  on a schedule or when asked, never a job in a pull request's CI run, never
+  holding a merge. Ask for a mutation run (`make mutants-remote`) when a branch adds
   mechanism, before marking it ready. `ci-merge` has how to triage the report.
 - **Size gate:** source files ≤ 300 **lines of code**, test files ≤ 150; blank
   and comment lines do not count. **Group by subfolder, not filename prefix** —
   a shared prefix on sibling files is a subfolder waiting to happen. Nothing is
   grandfathered: a file over the limit gets split, not excused. `make size`
   runs it; `tools/lint/src/classify.rs` decides which cap applies.
-- **Infrastructure- then architecture-first (NOT "make it up as we go").**
-  When we find a problem — something that bites or will bite more than once, a
-  pattern worth adopting, or a gold-standard practice we should have had — we
-  document it and fix it **before** continuing. Infrastructure and
-  architecture problems **halt feature work**, and each such fix gets its own
-  issue when it carries its own responsibility.
-- **Agent velocity is first-class.** Agents drive this repo, often unattended.
-  Write code that is readable by design and lean, and keep CI fast. This is part
-  of **Craft**, not a trade-off against it. Use the strongest model for
-  judgement work and a cheaper one for mechanical work (`issue-batch`).
 - **Working unattended, decisions are written down, never waited on**: a
   judgement call an issue left open takes the default the issue, this file or
   Filmora 9 (for taste) points to, and the choice and its reason go on the issue
@@ -348,8 +388,8 @@ in a cloud session; `issue-batch` has what that premise shapes.
 
 ## Repo-specific conventions
 
-- **No real provider calls in tests, ever.** Veo and ElevenLabs are mocked
-  behind traits; golden-render tests use local fixture media only. A test that
+- **No real provider calls in tests, ever.** Every networked provider is
+  mocked behind a trait; golden-render tests use local fixture media only. A test that
   spends money or needs a network is a bug.
 - **Secrets resolve in one order, through one resolver** (`crates/providers`'
   `credentials` module, **docs/credentials.md**): the environment first (an
@@ -357,7 +397,7 @@ in a cloud session; `issue-batch` has what that premise shapes.
   file a shipped build reads. Never in `project.json`, never in code, never in
   fixtures.
 - **All ffmpeg invocations go through `scorsese-render`'s command builder.**
-  ffmpeg is on PATH in dev/CI and bundled beside the binary in shipped builds;
+  ffmpeg is on PATH, or wherever `SCORSESE_FFMPEG` points a bundled build;
   that indirection lives in one place. No ad-hoc `Command::new("ffmpeg")`
   anywhere else.
 - **Golden-render tests compare frames with tolerance**, never byte-equality of
@@ -402,12 +442,14 @@ labels mean, what gets filed, and in what order it lands.
   approval is never folded in**: one that changes how the user sees or
   understands their existing data or project, changes stored data, or needs a
   migration. **Every issue Claude writes on its own carries the `agent`
-  label**, which only says who decided to file it and never stops work. A find
-  outside the branch in hand is filed, not fixed there: a branch that grows to
-  cover everything it noticed is one nobody can review.
+  label**, which only says who decided to file it and never stops work. Fold
+  in what is small or in the way, a stale doc included (*Take the
+  initiative*); file the rest — a branch that grows to cover everything it
+  noticed is one nobody can review.
   - **When the user is using the Claude CLI to create or edit a video, no new
     issues are filed until the video is delivered.** The findings wait for
-    the **`post-edit-feedback`** skill.
+    the **`post-edit-feedback`** skill, which files bugs and fixes docs at once
+    and lets the user choose which of the rest become issues.
 - **Priority by label:** **infrastructure → architecture → bug → foundation →
   feature.** `infrastructure` is CI, harnesses and gates; `architecture` is
   structure, conventions, crate boundaries and the `project.json` format;

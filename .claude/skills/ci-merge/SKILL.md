@@ -21,8 +21,8 @@ hand-back comment existing.
 correctness — build, test, `clippy -D warnings`, the golden renders, the size
 gate — is a hard gate: green to merge, no exceptions. A check that audits
 quality — coverage, mutation testing, perf tracking — is a signal: it runs on a
-schedule or when an agent asks for it, never in a pull request's CI run, and
-never blocks a merge. Coverage runs weekly on `main`; mutation sweeps one crate
+schedule or when an agent asks for it, never as a job in a pull request's CI
+run, and never blocks a merge. Coverage runs weekly on `main`; mutation sweeps one crate
 a week and otherwise runs when asked (*The mutation signal* below). Don't reach
 for a hard gate where a signal does the job.
 
@@ -39,8 +39,10 @@ and tried locally, but **can never be a merge gate**.
 signal renderers, clippy, docs, tests, supply chain, the deploy's compose file,
 the web front-end and the desktop app's workspace. `make help` lists them.
 
-The web and app gates are the only conditional ones, and each reports
-**skipped** when the branch touches nothing under `web/` or `app/`. Skipped is
+The web, web-e2e and app gates are the only conditional ones: each reports
+**skipped** (web-e2e says *not run*) when the branch touches nothing it
+checks — `web/` for web, `web/` or `crates/server/` for web-e2e, `app/` for
+app. Skipped is
 the honest answer; never read it as green.
 
 **A gate this machine cannot run is named, not claimed.** `test` needs docker
@@ -275,7 +277,9 @@ finds zero of each. Require checks to **exist** before calling a run settled.
 
 **The `CI` run holds gates only.** `make mergeable` waits until every `CI` run
 on the head has completed, and since #651 nothing in that run is a coverage or
-mutation job, so the wait is the gates' and nothing else's. A job added to
+mutation job, so the wait is the gates' and nothing else's. The one signal in
+it is the *Prices (signal)* step: a few seconds, `if: always()` and `|| true`,
+so it can neither fail the run nor hold it. A job added to
 `ci.yml` that audits quality rather than proving correctness would put a signal
 back on every merge's clock; it belongs in its own scheduled or dispatched
 workflow instead.
@@ -299,7 +303,7 @@ prose paragraphs that need ordering, a signature that has grown a parameter.
 
 **Two `schema_version` bumps are one number too few.** Two branches that both
 bumped 35 → 36 rebase the constant and every fixture's literal *cleanly* — the
-same edit on both sides — and conflict only in `migrate.rs`'s `STEPS` and the
+same edit on both sides — and conflict only in `crates/core/src/migrate/mod.rs`'s `STEPS` and the
 step table in `docs/project-format.md`. Keeping both there is wrong: the branch
 landing second renumbers its step, its constant and its literals to the next
 version (`every_version_since_the_oldest_has_exactly_one_step` fails if it

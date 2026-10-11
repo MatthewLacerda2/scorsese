@@ -30,4 +30,4 @@ reached through a Cloudflare Tunnel. Users' renders and generations queue on
 its cores behind a concurrency limit per kind of job, and a power cut is an
 outage for them too — which is why the job queue recovers on restart and
 backups leave the machine. Anything that executes a user's content there is
-isolated and offline, with no opt-out (#594).
+isolated and offline, with no opt-out (decided in #594, built in #778).

@@ -1,8 +1,9 @@
 //! Locating ffmpeg and ffprobe, and building commands for them.
 //!
 //! This is the one place in the workspace that names those binaries. In
-//! dev and CI they are on `PATH`; in a shipped build they are Tauri
-//! sidecars next to the executable. Everything above this file asks
+//! dev and CI they are on `PATH`; a bundled build points [`FFMPEG_ENV`] and
+//! [`FFPROBE_ENV`] at its own copies (nothing bundles one yet: the supported
+//! path is a clone with ffmpeg installed). Everything above this file asks
 //! [`Tools`] for a command and never constructs one itself.
 
 use std::path::PathBuf;

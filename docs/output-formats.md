@@ -74,7 +74,7 @@ or built into ffmpeg itself with no external library behind it (`mpeg4`,
 `wmv2`, `aac`, `pcm_s16le`, `wmav2`) — with **one** exception, `libmp3lame`.
 That is deliberate. "Whatever ffmpeg has" is not an answer we can stand behind:
 *which* ffmpeg is a shipping decision — a distro build in dev and CI, a bundled
-Tauri sidecar in a shipped build — and a licensing one. A short list we test
+copy in a shipped build — and a licensing one. A short list we test
 beats a long list we assume.
 
 `libmp3lame` is the exception because mp3 is the format people mean by "an

@@ -6,8 +6,10 @@
 //! vendor on purpose.
 //! This is how an agent (or a CI
 //! job) assembles and renders a video with no human and no screen: every
-//! editing capability the GUI will ever have must be reachable from here
-//! first.
+//! editing capability the GUI will ever have must be reachable from here or
+//! from the MCP server first. Most fine-grained edits (`place_clip`,
+//! `clip_move`, `set_volume`, …) are MCP tools only, because that is how agents
+//! edit; this crate is not obliged to grow a verb for each.
 //!
 //! Boundary: this crate must NEVER touch a display — no window, no GPU
 //! surface, no GUI toolkit. It is glue: argument parsing and orchestration

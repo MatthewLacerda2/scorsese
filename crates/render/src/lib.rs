@@ -7,9 +7,9 @@
 //!
 //! Every ffmpeg invocation in the entire workspace goes through this crate's
 //! command builder ([`tools::Tools`]). No ad-hoc `Command::new("ffmpeg")`
-//! anywhere else, ever. In dev/CI ffmpeg is an external binary on PATH; in
-//! shipped builds it is a bundled Tauri sidecar — this crate is the one place
-//! that indirection lives.
+//! anywhere else, ever. ffmpeg is an external binary on PATH, or wherever
+//! `SCORSESE_FFMPEG` points a bundled build — this crate is the one place that
+//! indirection lives.
 //!
 //! A render is four steps, in order:
 //!

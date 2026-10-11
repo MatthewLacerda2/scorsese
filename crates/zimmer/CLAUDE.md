@@ -34,7 +34,9 @@ them. None of this makes it a vendor here; everything above still holds.
 **A change to what a recipe renders to requires a `SYNTH_VERSION` bump**, in
 the same commit, for the same reason a format change requires a
 `schema_version` bump: breaking loudly is the point. A bake in `generated/`
-is addressed by a hash of the recipe **and** that number, so bumping it is
+is addressed by a hash of the recipe's bytes **and** that number (plus each
+patch file a song names, #672, and what it read from the project, #1000 — the
+address is `providers`' `synth/address.rs`), so bumping it is
 what makes every affected file miss the cache and be re-rendered — and not
 bumping it leaves every project on disk holding audio its own recipe no
 longer describes, silently. The number is declared rather than derived
@@ -51,3 +53,9 @@ already answers it: a new optional field defaulting to old behaviour cannot
 move an existing recipe's bytes. Say so in one line and move on. The
 constant's own doc records what previous branches checked, and why; the
 `ci-merge` skill has how to run probes and what a conflict on the number means.
+
+**A new optional field is skipped at its default.** Recipes are re-serialised
+whenever a tool writes one, and the address hashes the file's bytes, so a
+field that writes its default into every document invalidates every cached
+bake without changing a sample. Give it `skip_serializing_if`, the way
+`fx.rs`'s `not_ping_pong` and `song`'s `no_swing` do.
