@@ -3,10 +3,8 @@
 use std::path::{Path, PathBuf};
 
 use schemars::JsonSchema;
-use scorsese_core::style::Platform;
 use scorsese_render::{
-    AudioCodec, Bands, Cancel, Container, FrameRange, LoudnessTarget, OutputFormat, RenderSettings,
-    Renderer, Resolution, Tools, VideoCodec, say,
+    AudioCodec, Cancel, Container, OutputFormat, Renderer, Tools, VideoCodec, say,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -15,6 +13,10 @@ use crate::renders::{Renders, Say, Work, watch};
 use crate::tools::args::{self, ProjectDir, Required};
 use crate::tools::inspect::load;
 use crate::tools::{Context, Costs, Reply, Tool};
+
+mod settings;
+#[cfg(test)]
+mod tests;
 
 /// Encode the timeline to a file.
 pub(crate) struct Render;
@@ -64,6 +66,24 @@ struct Arguments {
     /// to 120, 30: runs to the end, :120 from the start. Without it the whole
     /// timeline is rendered.
     range: Option<String>,
+    /// Frame rate to deliver at: 30, 60, or a fraction like 30000/1001 (a
+    /// decimal like 29.97 is refused — write the fraction). Defaults to the
+    /// project's own timeline rate; anything else is conformed from it,
+    /// nearest frame. Refused for a sound-only container. (The CLI's --threads
+    /// has no argument here: how many threads composite is a setting of the
+    /// machine, not of the file, and this server leaves it to the machine.)
+    fps: Option<String>,
+    /// Target video bitrate, e.g. 8M or 800k — lower for a smaller file, as for
+    /// sending over a chat app. Without it the encoder aims for constant
+    /// quality instead. Refused for a sound-only container.
+    bitrate: Option<String>,
+    /// Sample rate the mix is produced at, in Hz: 48000 (or 48k), 44100 for
+    /// the CD rate. Sources recorded at other rates are resampled to it.
+    /// Default 48000.
+    sample_rate: Option<String>,
+    /// Target audio bitrate, e.g. 192k. Without it the encoder uses its own
+    /// default, already transparent for speech and music.
+    audio_bitrate: Option<String>,
     /// false to leave out the band a narration line not yet generated draws
     /// across the foot of the picture: for a preview whose captions already
     /// carry the words. The line keeps its place on the timeline, stays
@@ -99,7 +119,8 @@ impl Tool for Render {
          narration_bands: false leaves the narration lines' bands off the picture. \
          platform: tiktok (or youtube, instagram_reels…) sizes it for that \
          placement. loudness: -14 (any LUFS) brings the soundtrack to that loudness, with a \
-         limiter holding its peaks. \
+         limiter holding its peaks. fps (60), bitrate (8M, for a smaller file), \
+         sample_rate and audio_bitrate are scorsese render's flags of those names. \
          The reply says how loud the delivered file came out, and when the \
          soundtrack had to be turned down to keep a lossy codec from clipping, \
          and carries a note for each web page that could not be captured or \
@@ -193,72 +214,12 @@ fn prepared(dir: &Path, arguments: &Arguments) -> Result<(String, PathBuf, Work)
     // for; an edit made while it runs is in the next one.
     let project = load(dir)?;
 
-    // Refused for a format with no picture rather than ignored, in the
-    // words `scorsese render --resolution` is refused in.
-    let resolution = match (&arguments.resolution, &arguments.platform) {
-        (Some(_), Some(_)) => {
-            return Err("resolution and platform both size the render; give one".to_owned());
-        }
-        (Some(text), None) => {
-            format
-                .picture_setting("a resolution")
-                .map_err(|problem| format!("{problem}"))?;
-            text.parse()
-                .map_err(|problem| format!("resolution: {problem}"))?
-        }
-        // In `scorsese render --platform`'s words, refusal included.
-        (None, Some(text)) => {
-            format
-                .picture_setting("a platform")
-                .map_err(|problem| format!("{problem}"))?;
-            Resolution::of(
-                text.parse::<Platform>()
-                    .map_err(|problem| format!("platform: {problem}"))?,
-            )
-        }
-        (None, None) => Resolution::HD,
-    };
-
-    // The CLI's `--no-narration-bands`, refused for a format with no picture
-    // in the same words.
-    let bands = match arguments.narration_bands {
-        Some(false) => {
-            format
-                .picture_setting("leaving narration bands out")
-                .map_err(|problem| format!("{problem}"))?;
-            Bands::Omitted
-        }
-        Some(true) | None => Bands::Drawn,
-    };
-
-    // The CLI's `--loudness`, held to the same range in the same words.
-    let loudness = arguments
-        .loudness
-        .map(LoudnessTarget::new)
-        .transpose()
-        .map_err(|problem| format!("{problem}"))?;
-
-    // The CLI's `--range`, parsed by the CLI's parser: `FrameRange`'s own
-    // `FromStr` is the one set of rules, so `30:`, `:120` and every refusal
-    // read the same from either client. Parsed before ffmpeg is looked for,
-    // because a range that is not one costs nothing to refuse.
-    let range = match &arguments.range {
-        Some(text) => text
-            .parse()
-            .map_err(|problem| format!("range: {problem}"))?,
-        None => FrameRange::ALL,
-    };
+    let (settings, range) = settings::of(arguments, format, project.timeline_fps)?;
 
     // Discovered per call rather than held: a server that found ffmpeg at
     // startup would keep insisting it was there after someone uninstalled
     // it, and this is not a hot path.
     let tools = Tools::discover().map_err(|error| format!("{error}"))?;
-    // The project's own grid by default: rendering at the rate the edit
-    // was authored against is the one output rate needing no conform.
-    let settings = RenderSettings::new(resolution, project.timeline_fps)
-        .with_format(format)
-        .with_bands(bands)
-        .with_loudness(loudness);
     // What `scorsese render` prints as a note, in its words: a synth asset
     // that would play a bake older than its recipe or its clip (#1000).
     let stale = scorsese_providers::synth::out_of_date(&project, dir);

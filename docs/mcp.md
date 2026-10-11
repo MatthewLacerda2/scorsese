@@ -1808,6 +1808,30 @@ refusal comes before the project is opened, never after an encode. The reply
 names the format it wrote, because until it did an `.avi` could come back as an
 mp4 under a lying extension and nothing said so.
 
+## Rate, bitrate and sound
+
+`fps`, `bitrate`, `sample_rate` and `audio_bitrate` are `scorsese render`'s
+`--fps`, `--bitrate`, `--sample-rate` and `--audio-bitrate` (#1069), parsed by
+the same types, so a value and every refusal read the same from either client.
+Each defaults as the flag does: the project's own timeline rate, constant
+quality, 48000 Hz and the encoder's own audio bitrate.
+
+```
+render  { "project": "trilhas.scor", "out": "gameplay.mp4", "fps": "60" }          → conformed to 60 fps
+render  { "project": "trilhas.scor", "out": "share.mp4", "bitrate": "1500k" }      → a smaller file
+render  { "project": "trilhas.scor", "out": "cut.mp4", "fps": "29.97" }            → refused: expected a framerate like `30` or `30000/1001`
+render  { "project": "trilhas.scor", "out": "score.mp3", "fps": "60" }             → refused
+```
+
+`fps` and `bitrate` only mean something to a picture, so a sound-only format
+refuses them, as it refuses `resolution`; the two sound settings it takes.
+`--threads` has no argument: how many threads composite is a setting of the
+machine rather than of the file, and the server leaves it to the machine.
+
+`project_describe` takes `scorsese describe`'s `fps` and `range` too: the cut
+as a render at that rate, of that stretch, would sequence it. `range` is in
+timeline frames, as `render`'s is, and `at` stays on the timeline's grid.
+
 ## Writing a page
 
 `page_write` and `page_read` are the pair for the third authored document, after

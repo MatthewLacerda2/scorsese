@@ -99,6 +99,8 @@ impl Tool for Describe {
          asset, track or clip saying why it is that way. \
          Sequences the timeline exactly as a render would but produces no file, \
          so it is the cheapest way to check an edit is right. No ffmpeg, no cost. \
+         fps and range describe it as a render at that rate, of that stretch, \
+         would sequence it. \
          Pass `at` to also get *where* each clip's content lands at that instant: \
          the rectangle a title's wrapped block, a shape's box or a fitted picture \
          covers, in fractions of the frame. That is the number you would \
@@ -130,7 +132,21 @@ impl Tool for Describe {
             Some(at) => super::still::instants(at, project.timeline_fps)?,
         };
         let raster = raster(arguments.resolution.as_deref())?;
-        let plan = Plan::build(&project, project.timeline_fps, FrameRange::ALL)
+        // `scorsese describe --fps --range`, parsed by the same types: the cut
+        // as a render at that rate, of that stretch, would sequence it. `at`
+        // stays on the timeline's own grid, where `2.5s` is the same instant
+        // of the edit at any delivery rate.
+        let fps = match &arguments.fps {
+            Some(text) => text.parse().map_err(|problem| format!("fps: {problem}"))?,
+            None => project.timeline_fps,
+        };
+        let range = match &arguments.range {
+            Some(text) => text
+                .parse()
+                .map_err(|problem| format!("range: {problem}"))?,
+            None => FrameRange::ALL,
+        };
+        let plan = Plan::build(&project, fps, range)
             .map_err(|error| format!("sequencing the timeline: {error}"))?;
 
         // Ahead of the cut, not after it: a script is meant to be read before
@@ -217,6 +233,15 @@ struct DescribeArguments {
     /// it: a `fit` picture letterboxes against this aspect and a title wraps
     /// against this width. Nothing is composited either way.
     resolution: Option<String>,
+    /// Describe the cut as a render at this frame rate would sequence it: 30,
+    /// 60, or a fraction like 30000/1001 (a decimal is refused). Defaults to
+    /// the project's own timeline rate. `at` is read on the timeline's grid
+    /// either way.
+    fps: Option<String>,
+    /// Describe only part of the timeline, in frames: 30:120 covers frames 30
+    /// up to 120, 30: runs to the end, :120 from the start — the same range
+    /// render takes. Without it the whole timeline is described.
+    range: Option<String>,
 }
 
 impl args::Arguments for DescribeArguments {}
