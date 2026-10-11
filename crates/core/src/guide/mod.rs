@@ -44,6 +44,8 @@ struct Guide {
     name: &'static str,
     /// The page, as the repository has it.
     text: &'static str,
+    /// The longest part of it handed back whole, in bytes.
+    limit: usize,
 }
 
 /// Every guide this build serves, in the order they are listed.
@@ -51,34 +53,42 @@ const GUIDES: &[Guide] = &[
     Guide {
         name: "pages",
         text: include_str!("../../../../docs/pages.md"),
+        limit: outline::PAGES_LIMIT,
     },
     Guide {
         name: "project-format",
         text: include_str!("../../../../docs/project-format.md"),
+        limit: outline::LIMIT,
     },
     Guide {
         name: "recipes",
         text: include_str!("../../../../docs/recipes.md"),
+        limit: outline::LIMIT,
     },
     Guide {
         name: "references",
         text: include_str!("../../../../docs/references.md"),
+        limit: outline::LIMIT,
     },
     Guide {
         name: "prompts",
         text: include_str!("../../../../docs/prompts.md"),
+        limit: outline::LIMIT,
     },
     Guide {
         name: "prices",
         text: include_str!("../../../../docs/prices.md"),
+        limit: outline::LIMIT,
     },
     Guide {
         name: "stock",
         text: include_str!("../../../../docs/stock.md"),
+        limit: outline::LIMIT,
     },
     Guide {
         name: "styles",
         text: include_str!("../../../../docs/styles.md"),
+        limit: outline::LIMIT,
     },
 ];
 
@@ -109,8 +119,8 @@ pub fn read(name: &str, section: Option<&str>) -> Result<String, String> {
         return Ok(outline::part(
             text,
             &headings,
-            0,
-            text.len(),
+            (0, text.len()),
+            guide.limit,
             &format!("guide {name}"),
         ));
     };
@@ -118,8 +128,8 @@ pub fn read(name: &str, section: Option<&str>) -> Result<String, String> {
     Ok(outline::part(
         text,
         &headings,
-        heading.start,
-        heading.end,
+        (heading.start, heading.end),
+        guide.limit,
         &format!("\"{}\"", heading.title),
     ))
 }

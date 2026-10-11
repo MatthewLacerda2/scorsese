@@ -79,7 +79,7 @@ impl Tool for Read {
          is an estimate. stock: when free stock beats a generation. styles: \
          how each kind of video is made (a narrated vertical ad, a product \
          tour, a board that draws itself); read the one section for the video \
-         in hand. A short guide comes back whole; a long one (recipes, \
+         in hand. pages comes back whole; a long guide (recipes, \
          project-format) comes back as its opening and a numbered list of its \
          sections, to call again with `section`. Costs nothing: the guides are compiled into this build."
     }

@@ -82,9 +82,10 @@ impl Tool for Import {
          instead of one per file. A path may also be a directory, \
          which imports the media directly inside it — one asset each, sorted by \
          file name, without recursing; the folder itself never becomes an \
-         asset. This is the only way to bring media in from outside the \
-         project: writing an asset into project.json points at a file that is \
-         already there. Everything is copied, never referenced in place, and \
+         asset. This is the way to bring the person's own media in from outside \
+         the project (stock_import downloads stock, generate makes the rest): \
+         writing an asset into project.json points at a file that is already \
+         there. Everything is copied, never referenced in place, and \
          everything is probed as it comes in. Files that are not media are \
          skipped and named. A single file whose id is already taken is suffixed \
          out of the way — `intro.mp4` lands as `intro-2` — and the reply says \

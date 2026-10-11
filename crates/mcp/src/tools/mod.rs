@@ -173,7 +173,7 @@ pub enum Costs {
     ///
     /// Its own answer rather than [`Costs::Nothing`], because that one promises
     /// no network at all and a client may reasonably act on the promise: a tool
-    /// needing a key and a connection is not one to reach for while offline,
+    /// needing a connection — and usually a key — is not one to reach for while offline,
     /// however little it spends. Equally not [`Costs::Money`], which is the one
     /// cost here that cannot be undone by trying again.
     Request,
@@ -193,7 +193,7 @@ impl Costs {
             Self::Decode => "ffmpeg",
             Self::Frames => "ffmpeg, and seconds",
             Self::Encode => "ffmpeg, and real time",
-            Self::Request => "a key and a network, but no money",
+            Self::Request => "a network, and a key where the vendor needs one, but no money",
             Self::Money => "money, at a provider",
         }
     }

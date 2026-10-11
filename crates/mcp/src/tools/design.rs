@@ -92,7 +92,9 @@ impl Tool for VoiceDesign {
         "Design a new ElevenLabs voice from a description, for when no voice in \
          either list is the one the video needs. Costs money, and quotes before it \
          spends: a call with prompt and text but no confirm sends nothing and needs no \
-         key — it answers with the price and a token. Show that to whoever is paying; \
+         key — it answers with the price and a token. Designing needs a paid \
+         ElevenLabs plan, which the quote cannot see: a free key is refused at the \
+         second call, before anything is billed. Show that to whoever is paying; \
          only a second call with the same prompt and text and confirm set to the token \
          designs. One design is billed once for the preview text and answers with \
          three candidates to choose between — not three charges. A design already \

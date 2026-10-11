@@ -71,7 +71,7 @@ impl Tool for New {
 
     fn description(&self) -> &'static str {
         "Create a *.scor project directory: project.json, and the assets/, \
-         generated/, recipes/ and cache/ folders beside it. This is the first \
+         generated/, recipes/, pages/ and cache/ folders beside it. This is the first \
          call on a machine that has no project yet — every other tool here works \
          on one that already exists. The name defaults to the directory's own \
          and the grid to 30 fps, so the usual call names nothing but the path. \

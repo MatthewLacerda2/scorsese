@@ -12,16 +12,26 @@
 //! was asked for.
 
 /// The longest part handed back whole, in bytes: 32 KiB, about ten thousand
+/// tokens — for every guide but `pages` ([`PAGES_LIMIT`]).
+///
+/// Measured on 2026-10-08 (#909) with a tokenizer's own count: three and a
+/// third bytes a token. `recipes` is 143 KB (42k tokens) and `project-format`
+/// 184 KB, which no call should hand back whole: an answer stays in the
+/// conversation, and the web assistant pays for it again on every later model
+/// call of the turn. Every section of either is under the limit once its
+/// subsections are listed rather than inlined.
+pub(crate) const LIMIT: usize = 32 * 1024;
+
+/// The longest `pages` is handed back whole: 64 KiB, about twenty thousand
 /// tokens.
 ///
-/// Measured on 2026-10-08 (#909) with a tokenizer's own count: `pages` is
-/// 28 KB and 8.7k tokens, and it is the guide read most — before every page —
-/// so it comes back whole in one call. `recipes` is 143 KB (42k tokens) and
-/// `project-format` 184 KB, which no call should hand back whole: an answer
-/// stays in the conversation, and the web assistant pays for it again on
-/// every later model call of the turn. Every section of either is under the
-/// limit once its subsections are listed rather than inlined.
-pub(crate) const LIMIT: usize = 32 * 1024;
+/// `pages` is the guide read most — before every page — and a page written
+/// from its contract without the worked pages beside it is the one that goes
+/// wrong, so it comes back whole in one call rather than as a map to call
+/// again from. It was 28 KB when the guides were built (#909) and 55 KB by
+/// 2026-10-11 (#1139), past [`LIMIT`]; a test holds it under this one, and
+/// when it outgrows this too the page is split, not the limit raised again.
+pub(crate) const PAGES_LIMIT: usize = 64 * 1024;
 
 /// One heading, and the stretch of the page it opens.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -93,16 +103,16 @@ pub(crate) fn about(bytes: usize) -> String {
 /// numbered map of the headings inside it when it does not.
 ///
 /// `named` is what the part is called in the note under the map: the guide's
-/// name, or a section's heading.
+/// name, or a section's heading. `limit` is the longest part handed back whole.
 pub(crate) fn part(
     text: &str,
     all: &[Heading<'_>],
-    start: usize,
-    end: usize,
+    (start, end): (usize, usize),
+    limit: usize,
     named: &str,
 ) -> String {
     let whole = &text[start..end];
-    if whole.len() <= LIMIT {
+    if whole.len() <= limit {
         return whole.to_owned();
     }
     let inside: Vec<(usize, &Heading<'_>)> = all

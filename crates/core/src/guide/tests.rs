@@ -1,4 +1,4 @@
-use super::outline::{self, LIMIT};
+use super::outline;
 use super::{GUIDES, read};
 
 /// No answer is longer than the limit — the whole of a short guide, the map of
@@ -8,7 +8,7 @@ fn every_answer_is_bounded() {
     for guide in GUIDES {
         let whole = read(guide.name, None).unwrap();
         assert!(
-            whole.len() <= LIMIT,
+            whole.len() <= guide.limit,
             "guide {} is {} bytes",
             guide.name,
             whole.len()
@@ -16,13 +16,21 @@ fn every_answer_is_bounded() {
         for number in 1..=outline::headings(guide.text).len() {
             let part = read(guide.name, Some(&number.to_string())).unwrap();
             assert!(
-                part.len() <= LIMIT,
+                part.len() <= guide.limit,
                 "guide {} section {number} is {} bytes",
                 guide.name,
                 part.len()
             );
         }
     }
+}
+
+/// `pages` is read before every page, so it comes back whole (#1139). When
+/// this fails the page has outgrown even its own limit: split it.
+#[test]
+fn pages_comes_back_whole() {
+    let pages = GUIDES.iter().find(|guide| guide.name == "pages").unwrap();
+    assert_eq!(read("pages", None).unwrap(), pages.text);
 }
 
 #[test]
