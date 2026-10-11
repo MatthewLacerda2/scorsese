@@ -1,18 +1,22 @@
-//! The motion kit (#812): its clock, its easings and its count-up, each
-//! checked in the pinned browser that draws pages, as `pages.rs` is.
+//! The motion kit (#812): its clock, its easings, its count-up, its text
+//! reveal and its path helpers, each checked in the pinned browser that draws
+//! pages, as `pages.rs` is.
 //!
-//! The easing and count checks run in the page itself. A page throws, naming
+//! Most checks run in the page itself. A page throws, naming
 //! what it found, when the kit answers something else, and a script that threw
 //! comes back as a note; it paints itself green once every check has run, so
 //! a page that never got that far cannot pass by saying nothing.
 
 mod clock;
 mod count;
+mod dashes;
 mod easings;
 mod font;
+mod paths;
+mod reveal;
 
 use scorsese_core::{Asset, AssetId, AssetKind, Fps, Frames, ProjectPath};
-use scorsese_render::{RenderSettings, Renderer, Resolution};
+use scorsese_render::{Frame, RenderSettings, Renderer, Resolution};
 
 use crate::common::ffmpeg::{fixture_dir, tools};
 use crate::common::{clip, project, video_track};
@@ -34,10 +38,25 @@ kit.frame(() => {{
 }});
 </script></body></html>"##
     );
+    let frame = drawn(label, &page, (64, 36), 15);
+    let [r, g, b] = [0, 1, 2].map(|i| frame.bytes()[(18 * 64 + 32) * 4 + i]);
+    assert!(
+        r < 60 && g > 190 && b < 60,
+        "the checks ran to their end, found {:?}",
+        (r, g, b)
+    );
+}
+
+/// `page` drawn at `size` on its `frame`th frame, at 30 fps, with nothing
+/// noted about it.
+fn drawn(label: &str, page: &str, (width, height): (u32, u32), frame: u64) -> Frame {
     let tools = tools();
     let renderer = Renderer::new(
         &tools,
-        RenderSettings::new(Resolution::new(64, 36).expect("a raster"), Fps::THIRTY),
+        RenderSettings::new(
+            Resolution::new(width, height).expect("a raster"),
+            Fps::THIRTY,
+        ),
     );
     let dir = fixture_dir(label);
     std::fs::create_dir_all(dir.join("pages")).expect("pages/");
@@ -51,15 +70,10 @@ kit.frame(() => {{
         vec![asset],
         vec![video_track("v1", vec![clip("c1", "checks", 0, 30)])],
     );
-    let (frame, notes) = renderer
-        .still_noted(&project, &dir, Frames(15))
+    let (drawn, notes) = renderer
+        .still_noted(&project, &dir, Frames(frame))
         .expect("the page is drawn");
     assert!(notes.is_empty(), "{notes:?}");
-    let [r, g, b] = [0, 1, 2].map(|i| frame.bytes()[(18 * 64 + 32) * 4 + i]);
-    assert!(
-        r < 60 && g > 190 && b < 60,
-        "the checks ran to their end, found {:?}",
-        (r, g, b)
-    );
     std::fs::remove_dir_all(&dir).ok();
+    drawn
 }
