@@ -238,12 +238,15 @@ mod tests {
         // The order is the shim's whole contract with a page (see clock.js),
         // and nothing outside a browser can run it — so it is held here by
         // where each step sits in the one function that does them.
+        // The seeking is `seek`'s, which `settle` runs too (#844).
         let clock = include_str!("clock.js");
         let body = &clock[clock.find("const advanceTo").unwrap()..];
         let timers = body.find("timers").unwrap();
         let frames = body.find("const due = frames").unwrap();
-        let seek = body.find("getAnimations").unwrap();
+        let seek = body.find("seek();").unwrap();
         assert!(timers < frames && frames < seek);
+        let seeking = &clock[clock.find("const seek").unwrap()..];
+        assert!(seeking[..seeking.find("};").unwrap()].contains("getAnimations"));
         assert!(
             clock.contains("const START = 100;"),
             "anime.js needs a clock above zero"
