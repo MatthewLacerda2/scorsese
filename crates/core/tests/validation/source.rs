@@ -121,3 +121,22 @@ fn loading_to_measure_holds_back_only_what_a_measurement_can_change() {
     );
     std::fs::remove_dir_all(dir).ok();
 }
+
+/// A synthesised asset's measured length is its last bake's, and the document
+/// cannot say whether that bake is still the one its recipe makes — so it
+/// bounds nothing here (#1062). A recipe rewritten longer is placed at its new
+/// length *before* it is baked; the render notes a clip a current bake runs
+/// out under.
+#[test]
+fn a_synth_assets_last_bake_does_not_bound_its_clip() {
+    let said = |p: &Project| {
+        p.validate()
+            .err()
+            .map(|e| e.to_string())
+            .unwrap_or_default()
+    };
+    let mut p = measured(8.0, 0, 1_190);
+    assert!(said(&p).contains("reaches"), "footage is held to it");
+    asset_mut(&mut p, "shot-city").kind = scorsese_core::AssetKind::SynthAudio;
+    assert!(!said(&p).contains("reaches"), "{}", said(&p));
+}

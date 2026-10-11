@@ -10,15 +10,23 @@
 //! The answer is cheap, because the bake's address already *is* the record of
 //! what made it: read the recipe the way a bake would, work out the address,
 //! and compare it with the path the asset holds. Nothing is rendered.
+//!
+//! It is also where a clip **longer than its bake** is said. Validation leaves
+//! a synth asset's clips unbounded, because the document alone cannot tell a
+//! stale bake's length from a current one's (#1062); here it can. A stale bake
+//! is reported as stale — baking again is the fix, and may well make it long
+//! enough — and only a current one is held to its length, since then nothing
+//! but a longer recipe will fill the clip.
 
 use std::path::Path;
 
-use scorsese_core::{GenerationState, Project};
+use scorsese_core::{Asset, GenerationState, Project};
 
 use super::{Read, address, named_patches, read_recipe};
 
-/// One line per synth asset a render would play out of date, worded for the
-/// person or agent about to hear it, and naming the step that fixes it.
+/// One line per synth asset a render would play out of date, or would run out
+/// of under a clip, worded for the person or agent about to hear it, and
+/// naming the step that fixes it.
 ///
 /// Only assets a clip actually plays, and only ones that claim a bake: a
 /// sketch already renders as a slug card that says so, and an asset nothing
@@ -42,7 +50,7 @@ pub fn out_of_date(project: &Project, project_root: &Path) -> Vec<String> {
                     let wanted =
                         address::output(&digest, &named_patches(&recipe, project_root), &placed);
                     if asset.path.as_ref() == Some(&wanted) {
-                        return None;
+                        return outlasted(project, asset);
                     }
                     "its bake is older than its recipe, a patch it names, the synthesiser or \
                      the length of the clip it is fitted to"
@@ -57,4 +65,28 @@ pub fn out_of_date(project: &Project, project_root: &Path) -> Vec<String> {
             ))
         })
         .collect()
+}
+
+/// The line for a current bake some clip plays past the end of, naming the
+/// clip that reaches furthest — the rest of it is silence, so the fix is a
+/// longer recipe, not another bake of this one.
+fn outlasted(project: &Project, asset: &Asset) -> Option<String> {
+    let fps = project.timeline_fps;
+    let available = asset.length(fps)?;
+    let (_, clip) = project
+        .every_clip()
+        .filter(|(_, clip)| clip.asset == asset.id)
+        .max_by_key(|(_, clip)| clip.source_end())?;
+    let reaches = clip.source_end();
+    (reaches > available).then(|| {
+        format!(
+            "synth asset `{}` is baked {:.2} s long and clip `{}` plays it to {:.2} s, so the \
+             rest is silence — lengthen the recipe (or fit it to the clip, `\"fit\": \
+             {{\"to\": \"clip\"}}`) and run `scorsese synth bake` (`synth_bake`)",
+            asset.id,
+            fps.seconds(available),
+            clip.id,
+            fps.seconds(reaches),
+        )
+    })
 }

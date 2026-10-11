@@ -70,6 +70,16 @@ impl Project {
 /// nobody has probed, and an absent ceiling bounds nothing. That is the rule
 /// being honest about what it knows: the alternative, guessing a length, would
 /// refuse honest edits on assets we have simply not looked at.
+///
+/// A **synthesised** asset is the other one it leaves alone, though it carries
+/// a measured length: that length is its *last bake's*, and the document
+/// cannot say whether the bake is still the one its recipe makes. Writing a
+/// recipe longer, or lengthening the clip a song is fitted to, makes the bake
+/// stale by arithmetic (`docs/recipes.md`) — and holding the clip to the old
+/// length would refuse exactly the edit the new recipe is for, in every tool
+/// that opens the project, the bake among them (#1062). Only the synthesis
+/// side can read the recipe and tell, so the render says it there
+/// (`scorsese_providers::synth::out_of_date`), as a note.
 pub(super) fn check_source_range(
     fps: Fps,
     asset: &Asset,
@@ -93,6 +103,9 @@ enum Overrun {
 /// so a slowed-down clip is held to what it really reads and a sped-up one is
 /// refused only where it always was.
 fn overrun(fps: Fps, asset: &Asset, clip: &Clip) -> Option<Overrun> {
+    if asset.kind.is_synthesized() {
+        return None;
+    }
     let available = asset.length(fps)?;
     let reaches = clip.source_end();
     if reaches <= available {
