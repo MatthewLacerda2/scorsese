@@ -301,10 +301,13 @@ Times are the page's seconds.
 | `kit.exit(t, length = 0.3, ease = in)` | 1 until the clip's last `length` seconds, then down to 0 on its last frame, however long the clip is cut |
 | `kit.rise(element, t, at = 0, {length = 0.6, distance = 40, out = 0.3})` | fades `element` in as it rises `distance` px into place from `at`, and out with the clip's last `out` seconds (`out: 0` keeps it to the end) |
 | `kit.stagger(index, step = 0.15, first = 0)` | when the `index`th of a row enters: `first + index * step` |
+| `kit.reveal(element, t, at = 0, {unit = "word", stagger, length = 0.5, rise, by = out})` | reveals `element`'s text a `char`, `word` or `line` at a time from `at`, the page twin of native text's `reveal`: each piece `stagger` seconds after the one before (half of `length` by default, a cascade), fading in over `length` seconds eased `by` as it rises `rise` px into place (a fifth of the font size by default; `0` fades in place). Answers when the last piece lands. A word is what lies between the spaces a line breaks at, punctuation and all, and a character is what the eye reads as one: an emoji with its skin tone, a flag, a letter with its accent. The text is cut into spans once, on the first call, and stays readable as one string; markup inside it (an `<em>`) is kept, but a piece never crosses a tag, so a word half in an `<em>` comes in as two. To start on a spoken word, pass `scorsese.words["vo/the"].start` as `at` |
 | `kit.count(t, at, length, to, {from = 0, decimals = 0, locale = "en-US", grouping = true, by = out, pad = true})` | the figure a count-up shows at `t`, grouped (`1,250,000`; `grouping: false` for a year), eased `by`. An overshooting easing shapes when it arrives, never what it says: no `151` on the way to `144`. Padded on the left to the widest figure it will show, with figure and punctuation spaces, so in `tabular-nums` a centred line holds still as it counts (`pad: false` answers the bare figure). Which faces have tabular figures is listed in `project-format.md`'s *number* section |
 | `kit.random(seed)` | a generator answering the same numbers in `[0, 1)` for the same seed, on every frame and every machine. Draw what a page needs once, up front |
 | `kit.svg(tag, attributes, parent)` | an SVG element with its attributes set, appended to `parent` when one is given |
-| `kit.draw(what, t, at = 0, {speed = 1500, within, fill = 0.4})` | draws the strokes of `what` (an SVG element, or a list of them) on in document order from `at`, at a constant `speed` in the drawing's own units a second, or all of them `within` that many seconds. A closed shape's fill fades in over `fill` seconds once its outline is done. Answers when the last mark is finished, so the next can start after it |
+| `kit.draw(what, t, at = 0, {speed = 1500, within, fill = 0.4})` | draws the strokes of `what` (an SVG element, or a list of them) on in document order from `at`, at a constant `speed` in the drawing's own units a second, or all of them `within` that many seconds. A closed shape's fill fades in over `fill` seconds once its outline is done. Answers when the last mark is finished, so the next can start after it. A dashed line keeps its dashes, laid down as it draws (move the dashes with `stroke-dashoffset` from `t` to march them), and a `marker-end` head rides the end being drawn: colour the head on the marker, not with `context-stroke` |
+| `kit.erase(what, t, at = 0, {speed = 1500, within, fill = 0.4})` | `kit.draw` the other way: each stroke taken away from its start, as native `trim_start` going 0 → 1, the line passing through. A closed shape's fill fades out over `fill` seconds first. Answers when the last mark is gone. On a line `kit.draw` drew, call it once the drawing is done and after `kit.draw` in the frame: the later call is the one that shows |
+| `kit.along(element, path, p, {orient = false})` | puts `element`, an SVG element drawn around its own origin and facing right, `p` of the way along `path` by distance, turned to face along it with `orient`, by setting its `transform`. Both in the same SVG user space, siblings in a group: native `follow` for a page |
 | `kit.font(family, {weight = 400, italic = false})` | a promise of a shipped face (`"Montserrat"`, or its scorsese name `montserrat`) as opentype.js reads it, at the nearest weight it ships. Needs `opentype.min.js` loaded first. A family it does not ship is an error naming the ones it does, and a cut it lacks says so (`Anton` ships no italic) |
 | `kit.write(parent, face, text, {x, y, size = 96, width, leading = 1.2, align = "start", fill, stroke, strokeWidth})` | `text` as glyph outlines on `parent`, baseline at `y`, broken at `width` or a `\n`, each line set from `x` by `align` (`start`, `middle`, `end`). Answers the group, which holds a `<g data-word>` per word named as `scorsese.words` names a spoken one (`free`, then `free@2`). Draw it, or one word of it, with `kit.draw` |
 | `kit.person(parent, {head, body, bottom, colours})` | a promise of a person put together from Humaaans parts in a new group on `parent`, in the parts' 300 × 426 frame with the head at the top: `bottom` is `standing/<name>` or `sitting/<name>`. `colours` sets regions by name, `{skin: "#8d5524", hair: "#2b1d16", top: "#2a9d8f"}`: `skin`, `hair`, `headwear`, `top`, `shirt` (under a coat), `bottom`, `shoes`, `seat`. Each region's `-shade` follows it unless given too. Unset ones keep the artist's colours. Draw it with `kit.draw` |
@@ -615,13 +618,16 @@ set the clip's own `glow`, `shadow` or `blend`, as on any clip
 ### A flowchart drawing in
 
 SVG boxes appearing one after another, each connector drawing itself from the
-box before. The `pathLength="1"` on every path is what lets one `@keyframes`
-draw lines of any length.
+box before with its arrowhead riding the end being drawn. `kit.draw` times a
+line by its length, keeps the second one's dashes as it draws, and draws a
+`marker-end` head at the drawn end rather than waiting at the far one; once
+drawn, the dashes march, which is only `stroke-dashoffset` read from `t`.
 
 ```html page flowchart
 <!doctype html>
 <html>
 <head>
+<script src="https://lib.scorsese/kit.js"></script>
 <style>
   html, body { margin: 0; height: 100%; }
   body { display: grid; place-content: center; }
@@ -629,32 +635,80 @@ draw lines of any length.
   .box rect { fill: rgba(255, 255, 255, .94); }
   .box text { font: 600 40px Inter; fill: #14213d; text-anchor: middle; dominant-baseline: middle; }
   .box { animation: pop 500ms cubic-bezier(.2, .9, .3, 1.2) both; transform-box: fill-box; transform-origin: center; }
-  .line {
-    fill: none; stroke: #f2b134; stroke-width: 6; stroke-linecap: round;
-    stroke-dasharray: 1; stroke-dashoffset: 1;
-    animation: draw 600ms ease-in-out forwards;
-  }
+  .line { fill: none; stroke: #f2b134; stroke-width: 6; stroke-linecap: round; marker-end: url(#head); }
+  .dashed { stroke-dasharray: 14 12; stroke-linecap: butt; }
   @keyframes pop { from { opacity: 0; transform: scale(.8); } }
-  @keyframes draw { to { stroke-dashoffset: 0; } }
 </style>
 </head>
 <body>
   <svg viewBox="0 0 1500 300">
+    <defs>
+      <marker id="head" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#f2b134" />
+      </marker>
+    </defs>
     <g class="box" style="animation-delay: 0s">
       <rect x="0" y="100" width="340" height="110" rx="18" />
       <text x="170" y="155">Idea</text>
     </g>
-    <path class="line" pathLength="1" d="M 350 155 H 570" style="animation-delay: .4s" />
+    <path class="line" id="first" d="M 350 155 H 550" />
     <g class="box" style="animation-delay: .9s">
       <rect x="580" y="100" width="340" height="110" rx="18" />
       <text x="750" y="155">Prototype</text>
     </g>
-    <path class="line" pathLength="1" d="M 930 155 H 1150" style="animation-delay: 1.3s" />
+    <path class="line dashed" id="second" d="M 930 155 H 1130" />
     <g class="box" style="animation-delay: 1.8s">
       <rect x="1160" y="100" width="340" height="110" rx="18" />
       <text x="1330" y="155">Launch</text>
     </g>
   </svg>
+  <script>
+    const [first, second] = ["first", "second"].map((id) => document.getElementById(id));
+    kit.frame((t) => {
+      kit.draw(first, t, 0.4, { within: 0.5 });
+      const drawn = kit.draw(second, t, 1.3, { within: 0.5 });
+      second.style.strokeDashoffset = -40 * Math.max(0, t - drawn);
+    });
+  </script>
+</body>
+</html>
+```
+
+### A dot along a route
+
+A route drawn on, a marker travelling it turned to face where it is heading,
+and the route taken away behind it, the line passing through. `kit.along` puts
+the marker at a fraction of the way by distance, so it keeps one speed round
+the bends; `kit.erase` takes the line from its start at the same pace.
+
+```html page route
+<!doctype html>
+<html>
+<head>
+<script src="https://lib.scorsese/kit.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; background: #10202c; }
+  svg { width: 100%; height: 100%; }
+  #route { fill: none; stroke: #8ecae6; stroke-width: 8; stroke-linecap: round; }
+</style>
+</head>
+<body>
+  <svg viewBox="0 0 1920 1080">
+    <path id="route" d="M 260 820 C 620 300, 980 980, 1300 520 S 1640 260, 1680 300" />
+    <g id="plane"><path d="M 28 0 L -20 -20 L -10 0 L -20 20 z" fill="#ffb703" /></g>
+  </svg>
+  <script>
+    const [route, plane] = ["route", "plane"].map((id) => document.getElementById(id));
+    kit.frame((t) => {
+      const drawn = kit.draw(route, t, 0.2, { within: 1 });
+      const p = kit.remap(t, drawn, drawn + 2.4, 0, 1, kit.ease.inOut);
+      kit.along(plane, route, p, { orient: true });
+      plane.style.opacity = kit.enter(t, drawn - 0.2, 0.2);
+      // Erase a drawn line once it is drawn, after `draw` in the frame: the
+      // later call is the one that shows.
+      if (t >= drawn + 0.6) kit.erase(route, t, drawn + 0.6, { within: 2 });
+    });
+  </script>
 </body>
 </html>
 ```
@@ -797,6 +851,75 @@ title never goes missing.
       if (!word) continue;
       span.style.animation = `up 400ms cubic-bezier(.2, .8, .2, 1) ${word.start}s both`;
     }
+  </script>
+</body>
+</html>
+```
+
+### A typewriter
+
+A line typed out a character at a time with a caret after it: `kit.reveal`
+with `unit: "char"`, no rise and no fade, each character a short beat after the
+one before. An emoji or an accented letter arrives whole. A character not yet
+in still holds its place, so the line never shifts; the caret is put after the
+last one in.
+
+```html page typewriter
+<!doctype html>
+<html>
+<head>
+<script src="https://lib.scorsese/kit.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; background: #111; }
+  body { display: grid; place-content: center; }
+  p { position: relative; margin: 0; font: 500 72px "JetBrains Mono"; color: #e9e9e9; }
+  #caret { position: absolute; top: .1em; width: .55em; height: 1em; margin-left: .05em;
+           background: #e9e9e9; }
+</style>
+</head>
+<body>
+  <p><span id="line">Café opens at 9 ☕</span><span id="caret"></span></p>
+  <script>
+    const [line, caret] = ["line", "caret"].map((id) => document.getElementById(id));
+    kit.frame((t) => {
+      const typed = kit.reveal(line, t, 0.3, { unit: "char", stagger: 0.07, length: 0, rise: 0 });
+      // After the last character in, steady while typing, blinking once done.
+      const last = [...line.querySelectorAll("span span")].filter((c) => c.style.opacity === "1").at(-1);
+      caret.style.left = `${last ? last.offsetLeft + last.offsetWidth : 0}px`;
+      caret.style.opacity = t < typed || Math.floor((t - typed) * 2) % 2 === 0 ? 1 : 0;
+    });
+  </script>
+</body>
+</html>
+```
+
+### A list that builds
+
+A list arriving a line at a time, rising a little into place: `kit.reveal`
+with `unit: "line"` reads the lines as the browser laid them out, so a long
+item that wraps comes in as the two lines it is. The `<em>` is kept.
+
+```html page list-builds
+<!doctype html>
+<html>
+<head>
+<script src="https://lib.scorsese/kit.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { display: grid; place-content: center; }
+  .card { width: 1100px; padding: 56px 72px; border-radius: 28px; background: rgba(12, 18, 32, .88); }
+  p { margin: 0; font: 600 54px/1.35 Inter; color: #fff; }
+  em { color: #ffd166; font-style: normal; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <p id="list">Three things to bring:<br>a map you trust,<br>water for <em>twice</em> the walk,
+    and a friend who knows the way back.</p>
+  </div>
+  <script>
+    const list = document.getElementById("list");
+    kit.frame((t) => kit.reveal(list, t, 0.3, { unit: "line", stagger: 0.35, length: 0.6 }));
   </script>
 </body>
 </html>

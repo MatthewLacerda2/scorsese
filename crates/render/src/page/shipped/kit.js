@@ -2,15 +2,18 @@
 //
 // The handful of helpers every timed page was writing for itself: a frame loop
 // on the page's own seconds, clamp / lerp / remap, named easings, entrances
-// and the clip's exit, stagger, a count-up, a seeded random, an SVG
-// builder, a constant-speed draw-on, text as drawable glyph outlines, a
-// camera over a canvas and a person put together from Humaaans parts. Loaded
-// with a plain <script src>, it defines one global, `kit`.
+// and the clip's exit, stagger, text revealed a piece at a time, a count-up,
+// a seeded random, an SVG builder, a constant-speed draw-on and erase that
+// keep a line's dashes and arrowhead, a point along a path, text as drawable
+// glyph outlines, a camera over a canvas and a person put together from
+// Humaaans parts. Loaded with a plain <script src>, it defines one global,
+// `kit`.
 //
-// Every helper is a pure function of the time it is handed: nothing is kept
-// from one frame to the next, so any frame stands on its own and a still or a
-// piece of a render can start anywhere (docs/pages.md, "Seekable, not
-// integrated"). A helper earns its place here by a worked page in
+// Every helper is a pure function of the time it is handed: nothing timed is
+// kept from one frame to the next (what a helper builds once, on its first —
+// `reveal`'s pieces, `draw`'s masks and heads — is the same whenever that
+// is), so any frame stands on its own and a still or a piece of a render can
+// start anywhere (docs/pages.md, "Seekable, not integrated"). A helper earns its place here by a worked page in
 // docs/pages.md using it; anything else waits for pages to need it.
 (() => {
   // The page clock reads 100 ms at the page's time zero (clock.js, #606), so
@@ -126,6 +129,84 @@
   // When the `index`th of a row enters: `step` seconds after the one before.
   const stagger = (index, step = 0.15, first = 0) => first + index * step;
 
+  // An element's text cut into pieces once, on its first frame, and kept on
+  // it: a span per word — a stretch between the spaces a line breaks at, so
+  // its punctuation travels with it and a non-breaking space holds two words
+  // together, as native text's reveal cuts it — or per grapheme, what the eye
+  // reads as one character, an emoji with its skin tone or a letter with its
+  // accent. A word cut into characters is held in an unbreakable span so a
+  // line still breaks only between words. The spaces stay text, the text
+  // stays in whatever markup held it (an `<em>` is kept), and so the element
+  // reads as the same string to anything measuring it; a piece never crosses
+  // a tag, so a word half in an `<em>` is two pieces.
+  const cuts = new WeakMap();
+  const BREAKS = /([^\S\u00a0\u2007\u202f]+)/;
+  const cut = (element, unit) => {
+    const by = unit === "char" ? "char" : "word";
+    const known = cuts.get(element);
+    if (known && known.by !== by) {
+      throw new Error(`kit.reveal: this element is already cut by ${known.by}, so it cannot be revealed by ${unit} too`);
+    }
+    if (known) return known.pieces;
+    const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+    const piece = (text) => Object.assign(document.createElement("span"), { textContent: text });
+    const texts = [];
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      if (!walker.currentNode.parentElement.closest("script, style")) texts.push(walker.currentNode);
+    }
+    const pieces = [];
+    for (const node of texts) {
+      node.replaceWith(...node.data.split(BREAKS).filter(Boolean).map((text, i) => {
+        if (i % 2 === (BREAKS.test(node.data[0]) ? 0 : 1)) return document.createTextNode(text);
+        if (by === "word") return pieces[pieces.push(piece(text)) - 1];
+        const word = piece("");
+        word.style.whiteSpace = "nowrap";
+        for (const { segment } of graphemes.segment(text)) word.append(pieces[pieces.push(piece(segment)) - 1]);
+        return word;
+      }));
+    }
+    cuts.set(element, { by, pieces });
+    return pieces;
+  };
+
+  // Word pieces gathered by the line they are laid out on, read every frame
+  // from layout, which nothing here moves: a transform is not layout.
+  const lines = (pieces) => pieces.reduce((found, piece) => {
+    const [top, bottom] = [piece.offsetTop, piece.offsetTop + piece.offsetHeight];
+    const line = found.at(-1);
+    if (line && (top + bottom) / 2 < line.bottom) {
+      line.pieces.push(piece);
+      line.bottom = Math.max(line.bottom, bottom);
+    } else found.push({ pieces: [piece], bottom });
+    return found;
+  }, []).map((line) => line.pieces);
+
+  // Reveals `element`'s text a `char`, `word` or `line` at a time from `at`:
+  // each piece `stagger` seconds after the one before (half its `length` by
+  // default, a cascade, as native reveal's default), fading in over `length`
+  // seconds eased `by` as it rises `rise` px into place (a fifth of the
+  // element's font size by default, as native's; 0 fades in place). Answers
+  // when the last piece lands, so the next thing can start after it.
+  const reveal = (element, t, at = 0, { unit = "word", stagger: step, length = 0.5, rise, by = ease.out } = {}) => {
+    if (!["char", "word", "line"].includes(unit)) {
+      throw new Error(`kit.reveal: unit ${unit} is none of char, word or line`);
+    }
+    const pieces = cut(element, unit);
+    const lift = rise ?? 0.2 * parseFloat(getComputedStyle(element).fontSize);
+    const gap = step ?? length / 2;
+    for (const piece of pieces) piece.style.display = lift ? "inline-block" : "";
+    const groups = unit === "line" ? lines(pieces) : pieces.map((piece) => [piece]);
+    groups.forEach((group, i) => {
+      const p = remap(t, at + i * gap, at + i * gap + length, 0, 1, by);
+      for (const piece of group) {
+        piece.style.opacity = clamp(p);
+        piece.style.transform = lift ? `translateY(${(1 - p) * lift}px)` : "";
+      }
+    });
+    return at + Math.max(0, groups.length - 1) * gap + length;
+  };
+
   // The figure a count-up shows at `t`: `from` to `to` over `length` seconds
   // from `at`, eased `by`, grouped unless `grouping` is false (a year is not).
   // As the native counter does (crates/core/src/text/counter.rs,
@@ -190,43 +271,138 @@
           ? /z\s*$/i.test(mark.getAttribute("d") || "") || Math.hypot(to.x - from.x, to.y - from.y) < 0.5
           : tag !== "line",
         fill: parseFloat(style.fillOpacity),
+        dashed: style.strokeDasharray !== "none",
+        cap: style.strokeLinecap,
+        join: style.strokeLinejoin,
+        head: /#([^")]+)"?\)$/.exec(style.markerEnd)?.[1] ?? null,
       });
     }
     return measured.get(mark);
   };
   // A mark inside a clip, a mask or `<defs>` is never drawn itself: it shapes
   // what is, so it is left alone rather than timed and hidden until its turn.
-  const UNDRAWN = "defs, clipPath, mask, marker, pattern, symbol";
+  // Nor is a head `draw` put beside a mark (below): it rides that mark.
+  const UNDRAWN = "defs, clipPath, mask, marker, pattern, symbol, [data-kit-head]";
   const marks = (what) => (what instanceof Element
     ? (what.matches(MARKS) ? [what] : [...what.querySelectorAll(MARKS)])
       .filter((mark) => !mark.parentElement?.closest(UNDRAWN))
     : [...what].flatMap(marks));
 
-  // Draws the strokes of `what` (an SVG element, its marks, or a list of
-  // either) on in document order from `at`, at `speed` user units a second —
-  // a long line takes longer than a short one — or all of them `within` that
-  // many seconds. A closed shape's fill fades in over `fill` seconds once its
-  // outline is done. Answers when the last mark is finished, so the next can
-  // start after it. A stroke is dashed `len (2·len + w)` from `len + w`, so
-  // its round cap never shows as a dot before it starts.
-  const draw = (what, t, at = 0, { speed = 1500, within = 0, fill = 0.4 } = {}) => {
+  // Where a mark is `distance` along itself, and which way it is heading
+  // there, in degrees: read off the page's own geometry.
+  const pointAt = (mark, distance) => {
+    const { length } = measure(mark);
+    const at = clamp(distance, 0, length);
+    const [a, b] = [Math.max(0, at - 0.5), Math.min(length, at + 0.5)];
+    const [here, back, ahead] = [at, a, b].map((d) => mark.getPointAtLength(d));
+    return { x: here.x, y: here.y, angle: (Math.atan2(ahead.y - back.y, ahead.x - back.x) * 180) / Math.PI };
+  };
+
+  // Puts `element`, an SVG element drawn around its own origin and facing
+  // right, on `path` (beside it, in the same user space) at `p` of the way
+  // along, by distance, turned to face along it if `orient`.
+  const along = (element, path, p, { orient = false } = {}) => {
+    const { x, y, angle } = pointAt(path, p * measure(path).length);
+    element.setAttribute("transform", `translate(${x} ${y})${orient ? ` rotate(${angle})` : ""}`);
+  };
+
+  // What `draw` and `erase` lay over a mark, made once, on its first frame.
+  // The pen is what carries the moving dash: the mark itself, or, when its
+  // author dashed it, a plain copy of it in a mask over it, so the author's
+  // dashes are laid down as the line draws rather than replaced. The head is
+  // the mark's `marker-end` drawn as an ordinary group beside it, so it can
+  // ride the end being drawn; the marker itself is then turned off. A head
+  // coloured `context-stroke` loses that context: colour it on the marker.
+  const layers = new WeakMap();
+  let masks = 0;
+  const dress = (mark, m) => {
+    if (layers.has(mark)) return layers.get(mark);
+    const layer = { pen: mark, head: null };
+    const owner = mark.ownerSVGElement;
+    if (m.dashed && owner) {
+      const id = `kit-pen-${++masks}`;
+      const defs = svg("defs", {}, owner);
+      const mask = svg("mask", { id, maskUnits: "userSpaceOnUse", x: -1e5, y: -1e5,
+        width: 2e5, height: 2e5 }, defs);
+      layer.pen = mark.cloneNode(false);
+      for (const name of ["id", "class", "style", "transform", "marker-start", "marker-mid", "marker-end", "mask"]) {
+        layer.pen.removeAttribute(name);
+      }
+      Object.assign(layer.pen.style, { stroke: "white", strokeWidth: m.width, strokeLinecap: m.cap,
+        strokeLinejoin: m.join, fill: m.closed ? "white" : "none", fillOpacity: 0 });
+      mask.appendChild(layer.pen);
+      mark.setAttribute("mask", `url(#${id})`);
+    }
+    const marker = m.head && document.getElementById(m.head);
+    if (marker) {
+      const [vb, w, h] = [marker.viewBox.baseVal, marker.markerWidth.baseVal.value, marker.markerHeight.baseVal.value];
+      const fit = vb && vb.width ? Math.min(w / vb.width, h / vb.height) : 1;
+      const scale = fit * (marker.getAttribute("markerUnits") === "userSpaceOnUse" ? 1 : m.width);
+      const angle = marker.getAttribute("orient");
+      layer.head = {
+        turn: /^auto/.test(angle ?? "") ? null : parseFloat(angle) || 0,
+        inner: `scale(${scale}) translate(${-marker.refX.baseVal.value} ${-marker.refY.baseVal.value})`,
+        group: svg("g", { transform: mark.getAttribute("transform") ?? "", "data-kit-head": "" }),
+      };
+      mark.after(layer.head.group);
+      const placed = svg("g", {}, layer.head.group);
+      placed.append(...[...marker.childNodes].map((child) => child.cloneNode(true)));
+      mark.style.markerEnd = "none";
+    }
+    layers.set(mark, layer);
+    return layer;
+  };
+
+  // Strokes of `what` swept in document order from `at`, each over its own
+  // length at `rate`: drawn on from its start, or, `erasing`, taken away from
+  // its start, the line passing through. A stroke is dashed
+  // `len (2·len + w)`, so its round cap never shows as a dot past either end.
+  const sweep = (what, t, at, { speed = 1500, within = 0, fill = 0.4 }, erasing) => {
     const all = marks(what).map((mark) => [mark, measure(mark)]);
     const total = all.reduce((sum, [, m]) => sum + m.length, 0);
     const rate = within > 0 ? total / within : speed;
     let start = at;
     let done = at;
     for (const [mark, m] of all) {
-      const end = start + m.length / rate;
-      const p = remap(t, start, end);
-      mark.style.strokeDasharray = `${m.length} ${2 * m.length + m.width}`;
-      mark.style.strokeDashoffset = (m.length + m.width) * (1 - p);
-      mark.style.visibility = p > 0 ? "" : "hidden";
-      if (m.closed) mark.style.fillOpacity = m.fill * remap(t, end, end + fill);
-      done = Math.max(done, end + (m.closed ? fill : 0));
+      const { pen, head } = dress(mark, m);
+      // Drawing, a closed shape's fill fades in once its outline is done;
+      // erasing, it fades out before the outline goes.
+      const lead = erasing && m.closed ? fill : 0;
+      const end = start + lead + m.length / rate;
+      const p = remap(t, start + lead, end);
+      const shown = (erasing ? p < 1 : p > 0) ? "" : "hidden";
+      pen.style.strokeDasharray = `${m.length} ${2 * m.length + m.width}`;
+      pen.style.strokeDashoffset = (m.length + m.width) * (erasing ? -p : 1 - p);
+      mark.style.visibility = shown;
+      if (m.closed) {
+        const grown = erasing ? 1 - remap(t, start, start + fill) : remap(t, end, end + fill);
+        if (pen === mark) mark.style.fillOpacity = m.fill * grown;
+        else pen.style.fillOpacity = grown;
+      }
+      if (head) {
+        const tip = pointAt(mark, (erasing ? 1 : p) * m.length);
+        head.group.firstChild.setAttribute("transform", `translate(${tip.x} ${tip.y}) rotate(${
+          head.turn ?? tip.angle}) ${head.inner}`);
+        head.group.style.visibility = shown;
+      }
+      done = Math.max(done, end + (m.closed && !erasing ? fill : 0));
       start = end;
     }
     return done;
   };
+
+  // Draws the strokes of `what` (an SVG element, its marks, or a list of
+  // either) on in document order from `at`, at `speed` user units a second —
+  // a long line takes longer than a short one — or all of them `within` that
+  // many seconds. A closed shape's fill fades in over `fill` seconds once its
+  // outline is done. Answers when the last mark is finished, so the next can
+  // start after it. An author's dashes and `marker-end` head are kept.
+  const draw = (what, t, at = 0, options = {}) => sweep(what, t, at, options, false);
+
+  // `draw` backwards in time order but not in space: each stroke is taken
+  // away from its start, the way it was drawn, so a line passes through.
+  // A closed shape's fill fades out over `fill` seconds first.
+  const erase = (what, t, at = 0, options = {}) => sweep(what, t, at, options, true);
 
   // A shipped face as opentype.js reads it (load https://lib.scorsese/
   // opentype.min.js first), by the family name a page's CSS uses or its
@@ -360,7 +536,7 @@
   };
 
   window.kit = Object.freeze({
-    frame, clamp, lerp, remap, ease, enter, exit, rise, stagger, count, random, svg,
-    draw, font, write, camera, person,
+    frame, clamp, lerp, remap, ease, enter, exit, rise, stagger, reveal, count, random, svg,
+    draw, erase, along, font, write, camera, person,
   });
 })();
