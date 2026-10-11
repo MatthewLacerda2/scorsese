@@ -57,10 +57,12 @@ pub(super) struct Browser<'c> {
 /// a decoder seeking to an instant reads the frame either side of it.
 const SPARE: u64 = 2;
 
-/// Each page clip's captured frames, by clip.
+/// Each page clip's captured frames, by clip — held until the render is over,
+/// when the cache is tidied ([`page::Holding`]).
 #[derive(Debug, Default)]
 pub(super) struct Pages {
     captured: HashMap<ClipId, (PathBuf, f64)>,
+    holding: page::Holding,
 }
 
 impl Pages {
@@ -136,15 +138,16 @@ impl Pages {
         };
         for (shot, Wanted { request, frames }) in wanted {
             let captured = chrome.clone().and_then(|chrome| {
+                let holding = &mut pages.holding;
                 if capturing {
                     let drawing = (page::browsers(), drawn);
                     let follows = (project_root, &[][..]);
-                    return page::capture_counted(
-                        chrome, tools, follows, &request, frames, drawing,
-                    )
-                    .map_err(|e| e.to_string());
+                    return holding
+                        .capture_frames(chrome, tools, follows, &request, frames, drawing)
+                        .map_err(|e| e.to_string());
                 }
-                page::cached_frames(project_root, &request, chrome.version(), frames)
+                holding
+                    .cached_frames(project_root, &request, chrome.version(), frames)
                     .ok_or_else(|| "not captured yet".to_owned())
             });
             match captured {

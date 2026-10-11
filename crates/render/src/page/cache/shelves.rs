@@ -7,28 +7,30 @@ use super::super::told::Told;
 
 /// How many shelves a slot keeps: a page placed this many times in one edit,
 /// each told different places, is the most that is never captured twice.
-const SHELVES: usize = 8;
+pub(super) const SHELVES: usize = 8;
 
 /// The shelf in `slot` for captures told `told`.
 pub(crate) fn shelf(slot: &Path, told: &Told) -> PathBuf {
     slot.join(told.folder())
 }
 
-/// Drops every shelf of `slot` but the [`SHELVES`] written most recently,
-/// `kept` always among them.
-pub(crate) fn retire(slot: &Path, kept: &Path) {
-    let mut others: Vec<(std::time::SystemTime, PathBuf)> = all(slot)
+/// Every shelf of `slot` but the [`SHELVES`] written most recently: the
+/// shelves to drop. Dropping them is the caller's, which knows which still
+/// hold a file somebody was handed.
+pub(crate) fn retired(slot: &Path) -> Vec<PathBuf> {
+    let mut shelves: Vec<(std::time::SystemTime, PathBuf)> = all(slot)
         .into_iter()
-        .filter(|shelf| shelf != kept)
         .map(|shelf| {
             let written = std::fs::metadata(&shelf).and_then(|m| m.modified());
             (written.unwrap_or(std::time::UNIX_EPOCH), shelf)
         })
         .collect();
-    others.sort_by_key(|(written, _)| std::cmp::Reverse(*written));
-    for (_, shelf) in others.into_iter().skip(SHELVES - 1) {
-        let _ = std::fs::remove_dir_all(shelf);
-    }
+    shelves.sort_by_key(|(written, _)| std::cmp::Reverse(*written));
+    shelves
+        .into_iter()
+        .skip(SHELVES)
+        .map(|(_, shelf)| shelf)
+        .collect()
 }
 
 /// Every shelf in `slot`.
@@ -59,13 +61,15 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
         std::fs::create_dir_all(root.join("fonts")).unwrap();
-        let kept = root.join("told-00");
-        retire(&root, &kept);
-        let left = all(&root);
-        assert_eq!(left.len(), SHELVES);
-        assert!(left.contains(&kept), "the shelf just written stays");
-        assert!(!left.contains(&root.join("told-01")), "the oldest go");
-        assert!(root.join("fonts").is_dir(), "only shelves are retired");
+        assert_eq!(
+            retired(&root),
+            [root.join("told-01"), root.join("told-00")],
+            "the oldest go, newest first"
+        );
+        assert!(
+            !retired(&root).contains(&root.join("fonts")),
+            "only shelves are retired"
+        );
         let _ = std::fs::remove_dir_all(&root);
     }
 }

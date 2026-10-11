@@ -25,7 +25,8 @@
 //! `clock.js`'s; where the timeline's clips are, and which of them it read,
 //! `told`'s (#810); how it is served and kept offline is `origin`'s; what it
 //! loaded and what went wrong is `visitor`'s; what its layout gets wrong is
-//! `layout`'s; the cache is `cache`'s.
+//! `layout`'s; the cache is `cache`'s, and holding a run's captures until it is
+//! over is [`Holding`]'s.
 //!
 //! Boundary: `scorsese-core` never learns a browser exists. Everything that
 //! knows one does is in this folder.
@@ -38,6 +39,7 @@ mod drawing;
 mod encoder;
 mod find;
 mod fonts;
+mod holding;
 mod humaaans;
 mod icons;
 mod layout;
@@ -56,6 +58,7 @@ use std::sync::atomic::AtomicU64;
 
 pub use browser::{CHROME_ENV, Chrome, ChromeError, NO_SANDBOX, NO_SANDBOX_ENV};
 pub use cdp::CdpError;
+pub use holding::Holding;
 pub use origin::SHIPPED_ORIGIN;
 pub use request::Request;
 pub use supply::{Supply, supply};
@@ -214,6 +217,11 @@ pub fn browsers() -> usize {
 /// piece of the slot — or as the whole capture, when that is what was asked. A
 /// long stretch is drawn by up to `browsers` at once, each its own process
 /// tree of a few hundred megabytes ([`browsers`] says what a machine is worth).
+///
+/// A run of one capture: the cache is tidied as it returns, so the file it
+/// hands back is safe to read until the next capture of the page. A caller
+/// that captures several and reads them afterwards takes them through a
+/// [`Holding`] (#1085).
 pub fn capture_frames(
     chrome: &Chrome,
     tools: &Tools,
@@ -224,8 +232,14 @@ pub fn capture_frames(
     browsers: usize,
 ) -> Result<Captured, PageError> {
     let drawn = AtomicU64::new(0);
-    let follows = (project_root, follow);
-    capture_counted(chrome, tools, follows, request, frames, (browsers, &drawn))
+    Holding::default().capture_frames(
+        chrome,
+        tools,
+        (project_root, follow),
+        request,
+        frames,
+        (browsers, &drawn),
+    )
 }
 
 /// How many frames [`capture_frames`] would draw for `frames` of `request`:
@@ -251,67 +265,6 @@ fn piece(request: &Request, frames: Range<u64>) -> Range<u64> {
     request.piece_start(wanted.start)..wanted.end
 }
 
-/// [`capture_frames`], adding each frame it draws to `drawn` as it goes — from
-/// as many browsers as draw at once.
-pub(crate) fn capture_counted(
-    chrome: &Chrome,
-    tools: &Tools,
-    (project_root, follow): (&Path, &[PathBuf]),
-    request: &Request,
-    frames: Range<u64>,
-    (browsers, drawn): (usize, &AtomicU64),
-) -> Result<Captured, PageError> {
-    if let Some(captured) = cached_frames(project_root, request, chrome.version(), frames.clone()) {
-        return Ok(captured);
-    }
-    let piece = piece(request, frames);
-    let slot = cache::slot(project_root, request, chrome.version());
-    std::fs::create_dir_all(&slot)?;
-    let fonts = cache::fonts(project_root)?;
-    // Written beside and moved into place, so an interrupted capture never
-    // leaves frames that look finished — under a name of this capture's own, so
-    // two renders of one project capturing the same page cannot interleave,
-    // whether they are two processes or two calls in one MCP session (#1063).
-    // Which shelf it goes on is known only once the page has said what it read.
-    let partial = slot.join(format!(
-        "part-{}-{}.{}-{}.partial.mkv",
-        piece.start,
-        piece.end,
-        std::process::id(),
-        capture_number()
-    ));
-    let heard = pieces::capture_in(
-        chrome,
-        tools,
-        capture::Served {
-            project_root,
-            follow,
-            fonts: &fonts,
-        },
-        request,
-        pieces::split(request, piece.clone(), browsers),
-        (&partial, drawn),
-    )?;
-    let told = told::Told::of(request, &heard.read);
-    let shelf = cache::shelf(&slot, &told);
-    std::fs::create_dir_all(&shelf)?;
-    let (file, record_file) = cache::files(&shelf, &piece, request);
-    std::fs::rename(&partial, &file)?;
-    let record = cache::Record {
-        loaded: heard.loaded,
-        warnings: heard.warnings,
-        told,
-    };
-    cache::keep(&record_file, &record)?;
-    cache::prune(&shelf, project_root, request, &piece);
-    cache::retire(&slot, &shelf);
-    Ok(Captured {
-        file,
-        first: piece.start,
-        warnings: record.warnings,
-    })
-}
-
 /// Why a page could not be captured. Never a failed render: the clip shows its
 /// slug card instead, and the reason goes on the report.
 #[derive(Debug, thiserror::Error)]
@@ -334,11 +287,4 @@ pub enum PageError {
     /// The cache could not be written.
     #[error("writing the capture to cache/: {0}")]
     Io(#[from] std::io::Error),
-}
-
-/// A number no other capture in this process has used.
-fn capture_number() -> u64 {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-    COUNTER.fetch_add(1, Ordering::Relaxed)
 }

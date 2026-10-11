@@ -61,25 +61,39 @@ pub(super) fn holding(
     })
 }
 
-/// Drop every piece in `slot` that the capture of `kept`, just written, makes
-/// unnecessary: all of them when `kept` is the whole page, and otherwise each
-/// one `kept` holds all of, or that has gone stale. So an edit loop on one page
-/// leaves one capture of each stretch looked at, not one per edit.
-pub(crate) fn prune(slot: &Path, project_root: &Path, request: &Request, kept: &Range<u64>) {
-    let whole = is_whole(kept, request);
-    for piece in pieces(slot) {
-        if piece == *kept {
-            continue;
-        }
-        let (file, record) = files(slot, &piece, request);
-        let covered = whole || (kept.start <= piece.start && piece.end <= kept.end);
-        if covered || read_fresh(&file, &record, project_root, request).is_none() {
-            // Record first: frames without one are never read, so a removal
-            // cut short leaves nothing that looks usable.
-            let _ = std::fs::remove_file(record);
-            let _ = std::fs::remove_file(file);
-        }
-    }
+/// Every piece in `slot` no longer worth keeping, by its frames' and its
+/// record's files: all of them when the whole page's capture is fresh, and
+/// otherwise each one gone stale or held all of by another fresh piece. So an
+/// edit loop on one page leaves one capture of each stretch looked at, not one
+/// per edit. Deleting them is the caller's, which knows what is still held.
+pub(crate) fn unneeded(
+    slot: &Path,
+    project_root: &Path,
+    request: &Request,
+) -> Vec<(PathBuf, PathBuf)> {
+    let fresh = |piece: &Range<u64>| {
+        let (file, record) = files(slot, piece, request);
+        read_fresh(&file, &record, project_root, request).is_some()
+    };
+    let whole = read_fresh(
+        &slot.join(FRAMES),
+        &slot.join(RECORD),
+        project_root,
+        request,
+    )
+    .is_some();
+    let all = pieces(slot);
+    let kept: Vec<&Range<u64>> = all.iter().filter(|piece| fresh(piece)).collect();
+    all.iter()
+        .filter(|piece| {
+            whole
+                || !kept.contains(piece)
+                || kept.iter().any(|other| {
+                    other != piece && other.start <= piece.start && piece.end <= other.end
+                })
+        })
+        .map(|piece| files(slot, piece, request))
+        .collect()
 }
 
 /// Whether `piece` is every frame of the page.
@@ -222,22 +236,41 @@ mod tests {
     }
 
     #[test]
-    fn a_piece_goes_once_stale_or_held_by_a_newer_capture() {
-        let (root, slot) = project("prune", "two");
+    fn a_piece_goes_once_stale_or_held_by_another_fresh_capture() {
+        let (root, slot) = project("unneeded", "two");
         let request = request();
+        let unneeded = || -> Vec<PathBuf> {
+            let mut files: Vec<PathBuf> = unneeded(&slot, &root, &request)
+                .into_iter()
+                .map(|(file, record)| {
+                    assert_eq!(record, file.with_extension("json"));
+                    file
+                })
+                .collect();
+            files.sort();
+            files
+        };
+        assert_eq!(unneeded(), Vec::<PathBuf>::new());
         let stale = capture(&slot, 0..6, "one");
         let inside = capture(&slot, 9..12, "two");
         let overlapping = capture(&slot, 3..15, "two");
-        let kept = capture(&slot, 6..15, "two");
-        prune(&slot, &root, &request, &(6..15));
-        assert!(!stale.exists() && !inside.exists());
-        assert!(!stale.with_extension("json").exists() && !inside.with_extension("json").exists());
-        assert!(overlapping.exists(), "it holds frames the new one does not");
-        assert!(kept.exists() && kept.with_extension("json").exists());
+        let other = capture(&slot, 6..20, "two");
+        let mut expected = vec![stale, inside];
+        expected.sort();
+        assert_eq!(
+            unneeded(),
+            expected,
+            "an overlapping piece holds frames the others do not"
+        );
         capture(&slot, 0..31, "two");
-        prune(&slot, &root, &request, &(0..31));
-        assert_eq!(pieces(&slot), Vec::<Range<u64>>::new());
-        assert!(slot.join(FRAMES).exists() && slot.join(RECORD).exists());
+        let mut every = vec![
+            slot.join("part-0-6.mkv"),
+            slot.join("part-9-12.mkv"),
+            overlapping,
+            other,
+        ];
+        every.sort();
+        assert_eq!(unneeded(), every, "the whole page holds every piece");
         let _ = std::fs::remove_dir_all(&root);
     }
 }

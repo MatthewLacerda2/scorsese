@@ -31,9 +31,15 @@
 //! has the one shelf, `told-none/`. Only the [`shelves::SHELVES`] written most
 //! recently are kept, so moving a clip a page reads, again and again, does not
 //! grow the cache by a capture each time.
+//!
+//! **A capture only ever adds; a run tidies once it is over** (#1085): which
+//! pieces and shelves are no longer worth keeping is decided when the run that
+//! wrote them is done with every file it was handed, never mid-render
+//! ([`held`]'s).
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use scorsese_core::pool::hash_file;
 use scorsese_core::{CACHE_DIR, hash_bytes};
@@ -44,12 +50,14 @@ use super::request::Request;
 use super::told::Told;
 
 mod fontconfig;
+mod held;
 mod pieces;
 mod shelves;
 
 pub(crate) use fontconfig::fonts;
-pub(crate) use pieces::{files, prune};
-pub(crate) use shelves::{retire, shelf};
+pub(crate) use held::{Held, Place};
+pub(crate) use pieces::files;
+pub(crate) use shelves::shelf;
 
 /// The folder under `cache/` captures are kept in.
 const PAGES: &str = "pages";
@@ -146,6 +154,34 @@ pub(super) fn read_fresh(
 pub(crate) fn keep(file: &Path, record: &Record) -> std::io::Result<()> {
     let bytes = serde_json::to_vec_pretty(record).expect("a record always serialises");
     std::fs::write(file, bytes)
+}
+
+/// A name beside `file` that no other writer is using, in this process or
+/// another: `file`'s name, this process's id, a number no other call in it has
+/// had, and `suffix`. What a file is written under before it is moved into
+/// place, so two renders of one project never write into one file — the MCP
+/// server runs its renders as threads of one process.
+pub(crate) fn temporary(file: &Path, suffix: &str) -> PathBuf {
+    static WRITES: AtomicU64 = AtomicU64::new(0);
+    let mut name = file.file_name().unwrap_or_default().to_owned();
+    name.push(format!(
+        ".{}-{}.{suffix}",
+        std::process::id(),
+        WRITES.fetch_add(1, Ordering::Relaxed)
+    ));
+    file.with_file_name(name)
+}
+
+/// Writes `bytes` to `file` whole or not at all: beside it under a
+/// [`temporary`] name, then moved into place, so a reader never sees it half
+/// written.
+pub(crate) fn write_whole(file: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let beside = temporary(file, "tmp");
+    std::fs::write(&beside, bytes)
+        .and_then(|()| std::fs::rename(&beside, file))
+        .inspect_err(|_| {
+            let _ = std::fs::remove_file(&beside);
+        })
 }
 
 #[cfg(test)]
@@ -298,5 +334,25 @@ mod tests {
             "a library refused then and served now"
         );
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn no_two_writers_share_a_temporary_name_even_on_two_threads() {
+        let file = Path::new("/s/part-0-30");
+        let names: Vec<PathBuf> = std::thread::scope(|scope| {
+            let threads: Vec<_> = (0..4)
+                .map(|_| scope.spawn(|| temporary(file, "partial.mkv")))
+                .collect();
+            threads.into_iter().map(|t| t.join().unwrap()).collect()
+        });
+        let mut unique = names.clone();
+        unique.sort();
+        unique.dedup();
+        assert_eq!(unique.len(), names.len(), "{names:?}");
+        for name in names {
+            let name = name.to_string_lossy().into_owned();
+            assert!(name.starts_with("/s/part-0-30."), "{name}");
+            assert!(name.ends_with(".partial.mkv"), "{name}");
+        }
     }
 }
