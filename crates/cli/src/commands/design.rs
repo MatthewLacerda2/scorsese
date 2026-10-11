@@ -73,7 +73,8 @@ pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
     let key = resolve(Provider::ElevenLabs)?;
     let studio = ElevenLabsStudio::new(&key.secret);
     let budget = Budget::from_settings(
-        &Settings::load().unwrap_or_default(),
+        // Unreadable settings refuse to spend rather than lose the ceiling (#1108).
+        &Settings::load().context("nothing was sent")?,
         spending::so_far(&project, project_dir).total(),
     );
     report(&design(project_dir, &studio, &brief, budget)?);

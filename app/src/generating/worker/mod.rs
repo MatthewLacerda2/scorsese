@@ -29,7 +29,8 @@ mod stills;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
 
-use scorsese_core::{Asset, AssetKind, Project, Reprobe, probe_assets};
+use scorsese_core::placing::{self, Shortened};
+use scorsese_core::{Asset, AssetId, AssetKind, Project, Reprobe, probe_assets};
 use scorsese_providers::credentials::{Budget, Settings};
 use scorsese_providers::prices::dollars;
 use scorsese_render::Ffprobe;
@@ -93,7 +94,12 @@ impl Working {
 
 /// One pass, on the worker's thread.
 fn run(pass: Pass, mut project: Project, root: &Path) -> Report {
-    let settings = Settings::load().unwrap_or_default();
+    // A settings file that is there and unreadable refuses to spend: read as
+    // the defaults, it would be a run with no ceiling at all (#1108).
+    let settings = match Settings::load() {
+        Ok(settings) => settings,
+        Err(error) => return failure(format!("nothing was sent: {error}")),
+    };
     let budget = Budget::from_settings(&settings, super::quote::spent(&project));
 
     let made = match shots::pass(&mut project, root, pass, budget) {
@@ -112,15 +118,22 @@ fn run(pass: Pass, mut project: Project, root: &Path) -> Report {
 
     // Before the save, so what was measured is in the document the window
     // reloads rather than in a copy this thread is about to drop.
-    if shots::arrived(&made.outcomes) || stills::arrived(&drawn) || lines::arrived(&spoken) {
-        measure(&mut project, root);
-    }
+    let landed: Vec<AssetId> = shots::arrived(&made.outcomes)
+        .chain(lines::arrived(&spoken))
+        .cloned()
+        .collect();
+    let shortened = if !landed.is_empty() || stills::arrived(&drawn) {
+        measure(&mut project, root, &landed)
+    } else {
+        Vec::new()
+    };
     if let Err(error) = project.save(root) {
         return failure(format!("saving the project: {error}"));
     }
     let mut parts = shots::said(&made.outcomes);
     parts.extend(stills::said(&drawn));
     parts.extend(lines::said(&spoken));
+    parts.extend(shortened.iter().map(Shortened::says));
     Report {
         in_flight: made
             .outcomes
@@ -142,15 +155,22 @@ fn run(pass: Pass, mut project: Project, root: &Path) -> Report {
 /// `audio_channels`, so a generation nobody probed is a line the mix skips and
 /// a shot that plays silent.
 ///
+/// **And a measured generation can be shorter than its clip**: a reading takes
+/// as long as its words do, whatever its sketch was laid out at. The clips of
+/// what `landed` that now outlast it are shortened to it and handed back to be
+/// said ([`placing::fit_to_sources`], #825) — left alone, the window's reload
+/// would refuse the document (`ClipOutlastsSource`).
+///
 /// A failure here is not reported and not an error. The media is on disk and
 /// has been paid for; a machine with no ffprobe should not be told its run
 /// failed, and both `scorsese probe` and this window's own open-time pass are
 /// still there to close the gap.
-fn measure(project: &mut Project, root: &Path) {
+fn measure(project: &mut Project, root: &Path, landed: &[AssetId]) -> Vec<Shortened> {
     let Ok(probe) = Ffprobe::discover() else {
-        return;
+        return Vec::new();
     };
     probe_assets(project, root, &probe, Reprobe::Skip);
+    placing::fit_to_sources(project, landed)
 }
 
 /// A pass that stopped partway, with the document saved first.

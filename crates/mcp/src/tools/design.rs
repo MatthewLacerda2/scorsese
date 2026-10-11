@@ -155,7 +155,9 @@ impl Tool for VoiceDesign {
         let key = resolve(Provider::ElevenLabs).map_err(|error| format!("{error}"))?;
         let studio = ElevenLabsStudio::new(&key.secret);
         let budget = Budget::from_settings(
-            &Settings::load().unwrap_or_default(),
+            // Unreadable settings refuse to spend rather than lose the
+            // ceiling (#1108).
+            &Settings::load().map_err(|error| format!("nothing was sent: {error}"))?,
             spending::so_far(&project, dir).total(),
         );
         Ok(said(&design(dir, &studio, &brief, budget).map_err(say)?).into())

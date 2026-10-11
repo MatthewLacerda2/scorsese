@@ -179,3 +179,27 @@ fn the_quote_charges_nothing_for_a_brief_already_generated() {
     run.says("already generated");
     run.says("$0.00 for the whole run");
 }
+
+/// A settings file that is there and is not settings — here one from a newer
+/// build, with a key this one does not know — refuses to spend and names the
+/// file. Read as the defaults, it would be a run with no ceiling (#1108).
+#[test]
+fn an_unreadable_settings_file_refuses_to_spend() {
+    let dir = sketched("generate-unreadable-settings");
+    let home = machine("generate-unreadable-settings-home", 0);
+    for relative in ["scorsese", "Library/Application Support/scorsese"] {
+        let file = home.join(relative).join("settings.json");
+        std::fs::write(
+            &file,
+            r#"{ "budget_cents": 0, "from_a_newer_build": true }"#,
+        )
+        .expect("write settings.json");
+    }
+
+    let run = run_in_env(&dir, &["generate", "--yes"], &at(&home));
+
+    assert!(run.failed, "it spent uncapped:\n{}", run.output);
+    run.says("nothing was sent");
+    run.says("settings.json");
+    nothing_was_submitted(&dir);
+}
