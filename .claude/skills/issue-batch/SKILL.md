@@ -19,7 +19,7 @@ count or a free-space figure in a doc goes stale while still reading as fact.
 Check the machine you are on before a heavy build (*Each branch gets its own
 worktree* has how).
 
-## Two branches in flight, pipelined
+## The queue is the bottleneck, pipelined
 
 Coding parallelises. **Merging does not** — Rust is compiled, so merges are
 serialized, and the queue is the bottleneck.
@@ -28,8 +28,10 @@ Every branch that is not first pays a rebase for each merge ahead of it. Over
 shared code that is **N(N−1)/2 rebases**: two branches cost one, three cost
 three, four cost six. A rebase buys no correctness.
 
-So: **one in the merge queue, one being written.** Nothing idles through a
-ten-minute CI run, and nothing rebases twice.
+So what matters is that the queue never idles through a ten-minute CI run and
+nothing rebases twice, not how many branches are being written. On this
+machine alone that is **one in the merge queue, one being written**; with
+cloud coders it is many more being written (*How many agents at once*, below).
 
 **The merge queue is `make queue WATCH=1`** (`ci-merge` has the detail): it
 rebases, pushes, waits for CI on the new head, asks `make mergeable` and merges,
@@ -42,6 +44,32 @@ skips that branch until its head changes and the rest carry on, so read its
 summary rather than assuming everything landed. It never resolves a conflict:
 a hand-back naming paths goes back to the branch's author. `make queue PRS="a
 b c"` still takes a fixed list, for a one-off.
+
+## How many agents at once
+
+Three kinds of agent, three limits (the operator, 2026-10-11):
+
+- **Cloud coders: about ten in flight.** A cloud session is the default home
+  for writing a branch. It brings its own CPU, memory and disk, so it costs
+  this machine nothing, and a slower CPU there costs the batch nothing that
+  matters. Ten is not a hardware number: it paces the token spend, and it keeps
+  the batch to what one orchestrator can brief and read the diffs of. It was
+  five until 2026-10-11, when the operator, having watched the usage, judged
+  the project lean enough for ten.
+- **Local coders: at most two.** A local coder writes a branch in a worktree
+  on this machine and compiles it. The queue merges one pull request per CI
+  run however many are written, so a third finishes nothing sooner, and each
+  one spends the disk and cores of the machine that also hosts the web app
+  (*Each branch gets its own worktree* has the numbers). Use one for what
+  needs this machine (*Where a branch runs*, below), or when the cloud cannot
+  take the work.
+- **Agents that only read and think: no limit.** Research, review, planning,
+  a search across the codebase, a second opinion on a diff — anything that
+  builds nothing and writes no significant data needs no worktree and no
+  `target/`, so start as many as the work wants.
+
+The orchestrator (the batch's own session, which reviews and merges) is one
+more, always (*Running a mixed batch*, below).
 
 ## The real limit is file collision, not count
 
@@ -138,7 +166,7 @@ MatthewLacerda2/rusty#547; the rules carried over, the numbers did not):
   the default.
 
 **Remove a worktree the moment its branch merges.** Each carries a full
-`target/` — 8–17 GB apiece. Disposal is what keeps disk from becoming the
+`target/` — up to ~40 GB after `make gates` (#900's, 2026-10-08). Disposal is what keeps disk from becoming the
 overnight failure, and it fails as a confusing build error rather than as "no
 disk".
 
@@ -147,9 +175,10 @@ disk".
 The build limits above are the local machine's, not the workflow's. A **cloud
 session** brings its own CPU, memory and disk, so it lifts the cap on how many
 branches can be *written* at once — without consuming the operator's hardware.
+That makes it the default place to write a branch (*How many agents at once*).
 It does nothing for merging — that queue is still one CI run at a time — so
-reach for cloud when writing is the bottleneck (hours-long foundation branches),
-never when the queue is.
+more cloud coders help while writing is the bottleneck (hours-long foundation
+branches), never once the queue is.
 
 **Where a branch runs:**
 
@@ -177,11 +206,10 @@ never when the queue is.
   for it; the cloud may be too, until `cloud-brief.md`'s container list is
   confirmed.
 
-**How many:** with cloud coders writing, about **five branches in flight in
-total**, local and cloud together. Five is a suggestion, not a rule (the
-operator, 2026-10-02): what really binds is this machine's disk and RAM, so the
-orchestrator sizes the batch from the local and cloud sessions actually running
-and from the tech stack. Files that aren't compiled collide too: two branches in
+**How many:** about **ten cloud coders in flight**, beside at most two local
+ones (*How many agents at once* has why). Ten is a suggestion, not a rule: the
+orchestrator sizes the batch from the sessions actually running and from the
+tech stack. Files that aren't compiled collide too: two branches in
 `web/`'s React components rebase against each other like any Rust enum. Every
 branch behind another still pays a rebase per merge ahead of it, and the queue
 drains about one pull request per CI run, so past the point where the queue is
@@ -263,7 +291,7 @@ is a fresh routine briefed to finish the pushed branch.
 the whole dependency tree, with no local compile cache to help — so choose it on
 purpose, and have it run the full `make gates` before readying.
 
-## Running a mixed batch: one orchestrator, cloud coders, a local slot
+## Running a mixed batch: one orchestrator, cloud coders, two local slots
 
 This is the shape that ran rusty's 2026-09-30 batch (≈40 pull requests merged in
 one day, MatthewLacerda2/rusty#567). Each role does what only it can do.
@@ -328,7 +356,8 @@ and `compositor`, so sort those by the collision rule above — the shared
 appends (validation errors, the per-layer compositing path, the format doc,
 the schema bump) — rather than by crate, or the batch runs one at a time.
 
-**The local slot takes what only the operator's machine can do:** measurements
+**The local slots (at most two coders) take what only the operator's machine
+can do:** measurements
 that decide something (a before/after table in the pull request), fixes that
 need a real display, GPU or speakers, anything needing the operator's files or
 keys, and the orchestrator's own compile checks. Don't let the orchestrator

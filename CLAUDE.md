@@ -296,8 +296,10 @@ in a cloud session; `issue-batch` has what that premise shapes.
   overwrite each other's artifacts and produces a false green; `make gates`
   refuses to run under one. Compiles are staggered and sized from the machine
   you are on, measured. One of the operator's machines also hosts the web app,
-  so a heavy build there competes with a paying user's render. `issue-batch`
-  has all of it, and when to hand branches to cloud sessions.
+  so a heavy build there competes with a paying user's render. **Branches are
+  written in cloud sessions first**, about ten at once; at most two locally,
+  since the queue merges one at a time; and agents that only read and think
+  (research, review, planning) need no limit. `issue-batch` has all of it.
 - **Merging is serialized, one branch at a time**, because Rust is compiled:
   two pull requests can each be green alone and break `main` together. The only
   exception is a PR touching **only** Markdown, which CI skips. What may be
