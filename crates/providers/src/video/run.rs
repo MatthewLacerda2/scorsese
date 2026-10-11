@@ -9,7 +9,9 @@ use crate::credentials::Budget;
 use crate::generated::{self, write};
 use crate::prices;
 
-use super::{Brief, GenerationError, Outcome, Progress, Run, Stopped, Ticket, VideoProvider};
+use super::{
+    Brief, GenerationError, Outcome, Progress, Run, Stopped, Ticket, VideoProvider, submitted,
+};
 
 /// How long a finished generation stays fetchable.
 ///
@@ -134,6 +136,7 @@ pub fn adopt(project: &mut Project, root: &Path) -> Vec<AssetId> {
         let output = brief.output();
         let bytes = std::fs::read(output.resolve(root)).unwrap_or_default();
         record(project, &id, &output, &bytes, &brief);
+        submitted::forget(root, &id);
         adopted.push(id);
     }
     adopted
@@ -236,12 +239,13 @@ fn one(
     if brief.realized(root) {
         let bytes = std::fs::read(output.resolve(root)).unwrap_or_default();
         record(project, id, &output, &bytes, &brief);
+        submitted::forget(root, id);
         return Ok(Outcome::Cached { path: output });
     }
 
     match project.asset(id).and_then(|asset| asset.operation.clone()) {
         Some(operation) => waiting(project, root, provider, id, &brief, Ticket(operation)),
-        None => submit(project, provider, budget, id, &brief),
+        None => submit(project, root, provider, budget, id, &brief),
     }
 }
 
@@ -249,6 +253,7 @@ fn one(
 /// wrong.
 fn submit(
     project: &mut Project,
+    root: &Path,
     provider: &dyn VideoProvider,
     budget: Budget,
     id: &AssetId,
@@ -264,6 +269,12 @@ fn submit(
     asset.operation = Some(ticket.0.clone());
     asset.queued_at = Timestamp::now();
     asset.state = Some(GenerationState::Queued);
+    // Best effort, and after the ticket on purpose: the ticket is the record
+    // that money was spent. Without the sidecar the video is filed under
+    // whatever the brief is when it arrives, which is right unless it is
+    // edited meanwhile — and a `generated/` that takes no sidecar takes no
+    // video either, which is reported then.
+    let _ = submitted::remember(root, id, &ticket.0, &brief.digest());
     Ok(Outcome::Queued {
         operation: ticket.0,
         estimated_cost_cents: estimate.cents,
@@ -279,25 +290,44 @@ fn waiting(
     brief: &Brief,
     ticket: Ticket,
 ) -> Result<Outcome, GenerationError> {
-    match provider.poll(&ticket)? {
-        Progress::Waiting => Ok(still_waiting(project, id, &ticket)),
+    let progress = match provider.poll(&ticket) {
+        Ok(progress) => progress,
+        // A ticket nobody will ever answer for is this shot's problem, not
+        // the run's: stopping on it would stop every run in the project.
+        Err(error) if error.lost => {
+            release(project, root, id);
+            return Ok(Outcome::Failed {
+                message: format!("{} — the ticket is cleared", error.message),
+            });
+        }
+        Err(error) => return Err(error.into()),
+    };
+    match progress {
+        Progress::Waiting => Ok(still_waiting(project, root, id, &ticket)),
+        // A rejected brief is a brief to edit and try again, and an asset
+        // still claiming to be queued would be polled for ever.
         Progress::Failed(message) => {
-            // The ticket goes, and the state goes back to what it was: a
-            // rejected brief is a brief to edit and try again, and an asset
-            // still claiming to be queued would be polled for ever.
-            if let Some(asset) = project.assets.iter_mut().find(|asset| &asset.id == id) {
-                asset.operation = None;
-                asset.state = Some(GenerationState::Sketch);
-            }
+            release(project, root, id);
             Ok(Outcome::Failed { message })
         }
         Progress::Ready(ready) => {
             let bytes = provider.fetch(&ready)?;
-            let output = brief.output();
-            write(&output.resolve(root), &bytes)?;
-            record(project, id, &output, &bytes, brief);
+            let current = brief.output();
+            let bought = submitted::output(root, id, &ticket.0).unwrap_or_else(|| current.clone());
+            write(&bought.resolve(root), &bytes)?;
+            if bought != current {
+                release(project, root, id);
+                return Ok(Outcome::Failed {
+                    message: String::from(
+                        "its brief changed while it was generating; the video from the old \
+                         brief is kept in generated/ and costs nothing if that brief comes back",
+                    ),
+                });
+            }
+            submitted::forget(root, id);
+            record(project, id, &current, &bytes, brief);
             Ok(Outcome::Generated {
-                path: output,
+                path: current,
                 bytes: bytes.len(),
                 estimated_cost_cents: prices::estimate(&brief.request)?.cents,
             })
@@ -305,15 +335,34 @@ fn waiting(
     }
 }
 
+/// Takes the ticket away and puts the state back: stale when an older take is
+/// still on the asset, a sketch otherwise — so the shot is quoted and sent
+/// again only when somebody asks, never by a sweep. The same rule a still
+/// follows ([`crate::image`]).
+fn release(project: &mut Project, root: &Path, id: &AssetId) {
+    submitted::forget(root, id);
+    if let Some(asset) = project.assets.iter_mut().find(|asset| &asset.id == id) {
+        asset.operation = None;
+        asset.state = Some(if asset.path.is_some() {
+            GenerationState::Stale
+        } else {
+            GenerationState::Sketch
+        });
+    }
+}
+
 /// Still in flight — and whether it has been in flight too long to still be
-/// there when it finishes.
-fn still_waiting(project: &Project, id: &AssetId, ticket: &Ticket) -> Outcome {
+/// there when it finishes. An expired ticket is released: polling it again
+/// can never bring the video back, and while it stood no tool could ask for
+/// the shot again (#1106).
+fn still_waiting(project: &mut Project, root: &Path, id: &AssetId, ticket: &Ticket) -> Outcome {
     let queued_at = project.asset(id).and_then(|asset| asset.queued_at.clone());
     let expired = queued_at
         .as_ref()
         .zip(cutoff())
         .is_some_and(|(queued, cutoff)| *queued < cutoff);
     if expired {
+        release(project, root, id);
         Outcome::Expired {
             operation: ticket.0.clone(),
             queued_at,

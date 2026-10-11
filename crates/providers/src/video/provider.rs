@@ -51,7 +51,8 @@ pub enum Progress {
 /// Deliberately thin: the state machine above distinguishes *the provider
 /// refused this brief* from *the network is down* by what it does next, not by
 /// matching on a taxonomy this trait would have to keep in step with every
-/// vendor.
+/// vendor. The one distinction carried is [`lost`](Self::lost), because it
+/// decides whether asking again can ever help.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("{provider}: {message}")]
 pub struct ProviderError {
@@ -59,6 +60,11 @@ pub struct ProviderError {
     pub provider: String,
     /// What went wrong, in the provider's words where there are any.
     pub message: String,
+    /// The provider will never answer for the ticket asked about — it does not
+    /// know it, or this key may not see it. A run clears such a ticket as that
+    /// one shot's outcome rather than stopping on it, because a ticket nobody
+    /// can poll would otherwise stop every run in the project for ever (#1106).
+    pub lost: bool,
 }
 
 impl ProviderError {
@@ -67,6 +73,15 @@ impl ProviderError {
         Self {
             provider: provider.into(),
             message: message.to_string(),
+            lost: false,
+        }
+    }
+
+    /// A ticket `provider` will never answer for, saying `message`.
+    pub fn lost(provider: impl Into<String>, message: impl std::fmt::Display) -> Self {
+        Self {
+            lost: true,
+            ..Self::new(provider, message)
         }
     }
 }
