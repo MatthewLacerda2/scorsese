@@ -59,13 +59,27 @@ pub struct Finished {
     pub generate_video_response: Samples,
 }
 
-/// The videos an operation produced.
+/// The videos an operation produced — or what kept them back.
+///
+/// The two filter fields are not on Google's Veo page, which says only that a
+/// shot can be blocked "because of safety filters or other processing issues
+/// with the audio" and that "you will not be charged if your video is blocked
+/// from generating" (read 2026-10-11). Their names are the ones Google's own
+/// `google-genai` SDK reads off this reply (`_GenerateVideosResponse_from_mldev`,
+/// read the same day). No blocked shot has been recorded yet, so
+/// `fixtures/veo/blocked.json` is written from that shape (#1109).
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Samples {
     /// One entry per video. Veo returns a single sample per request.
     #[serde(default)]
     pub generated_samples: Vec<Sample>,
+    /// How many videos the filters kept back. Absent when none were.
+    #[serde(default)]
+    pub rai_media_filtered_count: u32,
+    /// Why, in Google's words — the sentence that says what to rewrite.
+    #[serde(default)]
+    pub rai_media_filtered_reasons: Vec<String>,
 }
 
 /// One generated video.
@@ -95,6 +109,16 @@ pub struct Failure {
 }
 
 impl Operation {
+    /// Google's reasons, when its filters kept the video back.
+    ///
+    /// `Some` — possibly empty, when Google counted a block and gave no reason
+    /// — only for a block; `None` for anything else, a video included.
+    pub fn blocked(&self) -> Option<&[String]> {
+        let samples = &self.response.as_ref()?.generate_video_response;
+        let reasons = samples.rai_media_filtered_reasons.as_slice();
+        (samples.rai_media_filtered_count > 0 || !reasons.is_empty()).then_some(reasons)
+    }
+
     /// Where to fetch the video, once there is one.
     ///
     /// `None` covers both "not finished" and "finished with nothing in it",

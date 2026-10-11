@@ -142,7 +142,7 @@ Every response shape scorsese parses, and where its test body came from.
 | ElevenLabs keep a candidate | `CreatedVoice` | — | not exercised: it leaves a voice in the account |
 | Veo model lookup | `api::veo::response::ModelInfo` | `fixtures/veo/model.json` | **captured** 2026-10-07 |
 | Veo submit | `Submitted` | `fixtures/veo/submitted.json` | hand-written |
-| Veo operation: running, done, failed | `Operation` | `fixtures/veo/{running,done,failed}.json` | hand-written |
+| Veo operation: running, done, failed, blocked by the filters | `Operation` | `fixtures/veo/{running,done,failed,blocked}.json` | hand-written; `blocked` from the fields `google-genai` reads (2026-10-11) |
 | Gemini image interaction | `api::gemini::response::Interaction` | `fixtures/gemini/interaction.json` | **captured** 2026-10-07 (signature and picture cut down) |
 | Gemini image model lookup | `api::veo::response::ModelInfo` | `fixtures/gemini/model.json` | hand-written, in the shape of `veo/model.json` |
 | Gemini chat streams: answer, tool call, signed thought, blocked, cut, empty, error | `chat::gemini` | `fixtures/gemini/chat-*.sse` | hand-written from Google's `generateContent` reference (2026-10-03); a live step for them is #1112 |

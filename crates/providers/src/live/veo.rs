@@ -208,10 +208,14 @@ pub fn operation_step(answer: Result<Operation, HttpError>) -> Option<(Step, Opt
         }
     } else if let Some(uri) = operation.video_uri() {
         return Some((Step::new(call, Verdict::Ok), Some(uri.to_owned())));
+    } else if let Some(reasons) = operation.blocked() {
+        Verdict::Refused {
+            said: crate::video::veo::blocked(reasons),
+        }
     } else if operation.response.is_some() {
         Verdict::Refused {
             said: String::from(
-                "finished with no video in it — Veo drops a shot its filters catch; the recorded body says why",
+                "finished with no video in it, and no filter verdict — the recorded body says what came back instead",
             ),
         }
     } else {

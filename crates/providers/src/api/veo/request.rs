@@ -77,6 +77,27 @@ pub struct ReferenceImage {
 }
 
 /// How to generate, as opposed to what.
+///
+/// # Two parameters Google documents and scorsese does not send (#1110)
+///
+/// Read off Google's Veo page on 2026-10-11 (its *Veo API parameters and
+/// specifications* table and *Limitations*):
+///
+/// - **`personGeneration`** is not a choice on any model scorsese offers. For
+///   Veo 3.1, Fast and Lite the page allows exactly one value per input mode —
+///   `allow_all` for text-to-video, `allow_adult` for image-to-video,
+///   interpolation and reference images — and in the EU, UK, CH and MENA
+///   `allow_adult` is the only value at all. Left out, Google applies the one
+///   that fits; sent, it could only be the wrong one somewhere.
+/// - **`seed`** is not offered *yet* (#1191). The page says it "doesn't
+///   guarantee determinism, but slightly improves it". Getting the same shot
+///   back is already the brief-hash cache's job, done exactly; what a seed
+///   would add is a re-take of an *edited* prompt landing slightly nearer the
+///   last one. Speech records one, so there is a case for parity — but it is a
+///   `project.json` field and a schema bump, which is the maintainer's call.
+///   If it is offered, its line in [`Brief`](crate::video::Brief)'s
+///   fingerprint is written only when it is set, so no existing shot moves to
+///   a new hash and is billed again.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Parameters {

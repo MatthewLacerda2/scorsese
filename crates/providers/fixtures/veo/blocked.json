@@ -1,0 +1,14 @@
+{
+  "_provenance": "HAND-WRITTEN from the shape google-genai reads (raiMediaFilteredCount, raiMediaFilteredReasons), not captured from a live call - see crates/providers/src/api/veo/response.rs. Replace it with a recorded body when a blocked shot is met, and drop this field - see docs/live-check.md.",
+  "name": "models/veo-3.1-fast-generate-preview/operations/h4ndwr1tt3n0",
+  "done": true,
+  "response": {
+    "@type": "type.googleapis.com/google.ai.generativelanguage.v1beta.PredictLongRunningResponse",
+    "generateVideoResponse": {
+      "raiMediaFilteredCount": 1,
+      "raiMediaFilteredReasons": [
+        "We encountered an issue with the audio for your prompt. You will not be charged for this request. Please try a different prompt."
+      ]
+    }
+  }
+}

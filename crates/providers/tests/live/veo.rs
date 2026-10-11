@@ -83,10 +83,16 @@ fn an_operation_is_waited_on_until_it_is_done_and_then_judged() {
         matches!(failed.verdict, Verdict::Refused { .. }),
         "{failed:?}"
     );
+
+    let (blocked, _) = operation_step(Ok(parsed("veo/blocked.json"))).unwrap();
+    assert!(
+        matches!(&blocked.verdict, Verdict::Refused { said } if said.contains("not charged")),
+        "{blocked:?}"
+    );
 }
 
 /// Done with nothing in it is the vendor's shape having moved; done with an
-/// empty response is what a filtered shot looks like.
+/// empty response is a refusal even without a filter verdict in it.
 #[test]
 fn a_done_operation_without_a_video_is_told_apart() {
     let bare: Operation = serde_json::from_str(r#"{"done": true}"#).unwrap();
