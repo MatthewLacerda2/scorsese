@@ -214,8 +214,8 @@ impl Font {
     /// The characters in `text` **nothing in the chain** has a glyph for, in
     /// the order they first appear and each named once.
     ///
-    /// A face covering everything is not a thing that exists — eight families
-    /// ship and none of them covers Unicode — so this is ordinary information
+    /// A face covering everything is not a thing that exists — none of the
+    /// shipped families covers Unicode — so this is ordinary information
     /// rather than a fault. What is not ordinary is finding out by looking at
     /// the frame: an unmapped character shapes to `.notdef`, which
     /// [`super::super::shape`] drops **with its advance**, so the text closes
@@ -316,7 +316,7 @@ impl fmt::Debug for Font {
 pub(super) struct Face<'a> {
     glyphs: OutlineGlyphCollection<'a>,
     /// The same glyphs' colour drawings, where the face has any. Empty for
-    /// every face without a `COLR` table, which is all eight nameable ones.
+    /// every face without a `COLR` table, which is every nameable one.
     colours: ColorGlyphCollection<'a>,
     charmap: Charmap<'a>,
     palette: &'a [Rgba],

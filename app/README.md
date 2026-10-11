@@ -185,4 +185,22 @@ and keeps its length, because shortening that would mean either showing less of
 the source or playing it faster, and those are two different edits. The readout
 says how many clips it left alone.
 
-The furniture arrives issue by issue — the inspector next. See #13.
+**The inspector shows what is selected** and takes the plain changes to it: a
+clip's start, duration, speed and fit, a picture held moved, turned or
+resized, and the brief behind a generated asset. Nothing in it edits a keyframe — a
+property something animates is shown as animated and offered no single value,
+because writing one over a ramp would flatten it. Every change is applied to a
+copy, validated and saved before it is shown, so a value on screen is a value
+`scorsese render` would use. `app/src/inspector/mod.rs` has the rules.
+
+**Generating is a dialog with the price on it.** Whatever the edit still holds
+as sketches is quoted — shots, stills and narration, each vendor priced apart, against
+the machine's spending ceiling — and nothing is spent until the confirm. It is
+`scorsese generate` given a surface, the same rate tables and the same ceiling
+(`app/src/generating/`).
+
+**Removing takes a key or a right-click** (#396). `Delete` over a selection
+removes those clips, all or nothing, and leaves the assets and the gaps where
+they were. A right-click on an asset's name in the project files, or on a
+lane's head, asks to remove the asset or the whole track, in a confirm that
+lists every clip going with it.

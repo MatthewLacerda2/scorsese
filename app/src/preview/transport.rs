@@ -135,8 +135,9 @@ fn buttons(ui: &mut Ui, fps: Fps, at: Frames, last: Frames) -> Option<Command> {
         }
         // Set apart from the five, because it is the one control here that
         // does not move the playhead. Words rather than a camera glyph: the
-        // shipped fonts are the two the compositor carries and a symbol they
-        // do not have draws as an empty box.
+        // window draws in Geist with egui's own faces behind it
+        // (`theme::fonts`), and a symbol none of them has draws as an empty
+        // box.
         ui.separator();
         if ui
             .button("Save frame")
