@@ -13,11 +13,12 @@
 //! surface, calling the same functions with the same rate tables and the same
 //! ceiling.
 //!
-//! **Two vendors, said apart.** Shots are priced by Veo's table and lines by
-//! ElevenLabs', and the two are two orders of magnitude apart — ninety-six
-//! cents against about two. So they are counted, subtotalled and reported as
-//! separate groups: a single figure covering both is arithmetic nobody can act
-//! on, because it does not say which half to go and change.
+//! **Three vendors, said apart.** Shots are priced by Veo's table, stills by
+//! Gemini's and lines by ElevenLabs', and they are orders of magnitude apart —
+//! ninety-six cents against about two. So they are counted, subtotalled and
+//! reported as separate groups: a single figure covering all of them is
+//! arithmetic nobody can act on, because it does not say which part to go and
+//! change.
 //!
 //! **What is drawn and what is spent read the ceiling in different places, and
 //! that is deliberate.** Everything here draws the [`Settings`] the window was
@@ -33,8 +34,10 @@ mod worker;
 use std::time::{Duration, Instant};
 
 use egui::{Context, RichText, Ui, Window};
+use scorsese_core::{AssetKind, Project};
 use scorsese_providers::credentials::Settings;
 use scorsese_providers::prices::dollars;
+use scorsese_providers::quote::Item;
 
 use crate::project::Open;
 use quote::Quote;
@@ -46,6 +49,9 @@ use worker::{Pass, Working};
 /// on takes minutes, and a tighter loop would be a request a second at a vendor
 /// to learn the same thing.
 const SWEEP_EVERY: Duration = Duration::from_secs(10);
+
+/// How tall the list of briefs grows before it scrolls, in points.
+const LIST_HEIGHT: f32 = 360.0;
 
 /// The dialog, and whatever is running behind it.
 #[derive(Default)]
@@ -65,6 +71,13 @@ pub(crate) struct Generating {
     /// over the ceiling. Sweeping stops rather than saying it every ten
     /// seconds.
     stopped: bool,
+    /// The last quote, and the document it was read from.
+    ///
+    /// Kept rather than read on every repaint, because the library's quote
+    /// reads every still a brief names off disk to hash it. Read again when
+    /// the document changes, when the dialog opens, and when a pass reports —
+    /// the three moments what is in `generated/` can have moved.
+    quoted: Option<(Project, Quote)>,
 }
 
 impl Generating {
@@ -77,6 +90,7 @@ impl Generating {
     pub(crate) fn open(&mut self) {
         self.open = true;
         self.stopped = false;
+        self.quoted = None;
     }
 
     /// How many shots are in flight, for the bar to say so without opening
@@ -92,6 +106,7 @@ impl Generating {
             && let Some(report) = working.finished()
         {
             self.working = None;
+            self.quoted = None;
             self.in_flight = report.in_flight;
             self.stopped = report.failed;
             self.said = Some(report.said);
@@ -124,26 +139,37 @@ impl Generating {
 
     /// What the dialog says and offers.
     fn body(&mut self, ui: &mut Ui, open: &mut Open, settings: &mut Settings) {
-        let quote = Quote::of(&open.project, settings);
+        let quote = self.quote(open, settings);
 
-        if quote.empty() && quote.in_flight == 0 {
-            ui.label("Every shot and every line in this project is already made.");
+        if let Some(why) = quote.unquotable() {
+            ui.label(RichText::new(why).color(ui.visuals().warn_fg_color));
+        } else if quote.free() {
+            ui.label("Nothing in this project would be paid for.");
         }
-        group(ui, "SHOTS", &quote.shots);
-        group(ui, "STILLS", &quote.stills);
-        group(ui, "NARRATION", &quote.lines);
-        if quote.in_flight > 0 {
-            ui.label(
-                RichText::new(format!(
-                    "{} already generating — not sent again",
-                    quote.in_flight
-                ))
-                .weak()
-                .small(),
-            );
-        }
+        // Every generated asset has a row, made ones included, so a long
+        // project scrolls here rather than pushing the total off the screen.
+        let project = &open.project;
+        egui::ScrollArea::vertical()
+            .max_height(LIST_HEIGHT)
+            .show(ui, |ui| {
+                group(
+                    ui,
+                    "SHOTS",
+                    &quote.of_kind(project, AssetKind::GeneratedVideo),
+                );
+                group(
+                    ui,
+                    "STILLS",
+                    &quote.of_kind(project, AssetKind::GeneratedImage),
+                );
+                group(
+                    ui,
+                    "NARRATION",
+                    &quote.of_kind(project, AssetKind::GeneratedAudio),
+                );
+            });
 
-        if !quote.empty() {
+        if !quote.free() {
             ui.separator();
             ui.label(RichText::new(format!("About {}", quote.total())).strong());
             // Said every time, not once in a tooltip. No provider reports what
@@ -166,6 +192,23 @@ impl Generating {
         }
     }
 
+    /// The quote for the document as it stands, against the ceiling in
+    /// `settings` — see [`Generating::quoted`] for when it is read again.
+    fn quote(&mut self, open: &Open, settings: &Settings) -> Quote {
+        let current = self
+            .quoted
+            .as_ref()
+            .filter(|(read, _)| *read == open.project)
+            .map(|(_, quote)| quote.clone());
+        let mut quote = current.unwrap_or_else(|| {
+            let quote = Quote::of(&open.project, &open.root, settings);
+            self.quoted = Some((open.project.clone(), quote.clone()));
+            quote
+        });
+        quote.ceiling_cents = settings.budget_cents;
+        quote
+    }
+
     /// The buttons, and what each of them is allowed to do.
     fn actions(&mut self, ui: &mut Ui, open: &mut Open, quote: &Quote) {
         let busy = self.working.is_some();
@@ -173,7 +216,7 @@ impl Generating {
             // Refused here as well as in the library, so the number and the
             // button agree: a run the library would refuse must not look
             // available.
-            let allowed = !busy && !quote.empty() && !quote.over_budget();
+            let allowed = !busy && !quote.free() && !quote.over_budget();
             if ui
                 .add_enabled(allowed, egui::Button::new("Generate"))
                 .on_disabled_hover_text(if quote.over_budget() {
@@ -181,7 +224,7 @@ impl Generating {
                 } else if busy {
                     "Already working"
                 } else {
-                    "Nothing to generate"
+                    "Nothing to pay for"
                 })
                 .clicked()
             {
@@ -206,30 +249,45 @@ impl Generating {
 
 /// One kind of generation, under a heading that counts and totals it.
 ///
-/// **Two groups rather than one list**, because the two vendors' prices are two
-/// orders of magnitude apart: a 96¢ shot and a 2¢ line summed into a single
-/// figure is a number nobody can act on, and it is not obvious from the rows
-/// which half of it a person should go and edit. A heading, a count and a
+/// **Groups rather than one list**, because the vendors' prices are orders of
+/// magnitude apart: a 96¢ shot and a 2¢ line summed into a single figure is a
+/// number nobody can act on, and it is not obvious from the rows which part of
+/// it a person should go and edit. A heading, how many would be paid for and a
 /// subtotal answer that before the grand total is read.
-fn group(ui: &mut Ui, heading: &str, priced: &[quote::Priced]) {
-    if priced.is_empty() {
+///
+/// Each row is the library's own sentence — the price leads it when there is
+/// one, and otherwise it says why nothing is paid — so this window and
+/// `scorsese generate` describe a brief in the same words.
+fn group(ui: &mut Ui, heading: &str, items: &[&Item]) {
+    if items.is_empty() {
         return;
     }
-    let subtotal: u64 = priced.iter().map(|one| one.cents).sum();
+    let charged: Vec<u64> = items
+        .iter()
+        .filter_map(|item| Some(item.charge.as_ref()?.cents))
+        .collect();
     ui.add_space(4.0);
     ui.horizontal(|ui| {
         ui.label(crate::theme::marks::subheading(heading));
         ui.label(
-            RichText::new(format!("{} · {}", priced.len(), dollars(subtotal)))
-                .weak()
-                .small(),
+            RichText::new(format!(
+                "{} to pay for · {}",
+                charged.len(),
+                dollars(charged.iter().sum())
+            ))
+            .weak()
+            .small(),
         );
     });
-    for one in priced {
+    for item in items {
         ui.horizontal(|ui| {
-            ui.label(RichText::new(one.asset.as_str()).strong());
-            ui.label(RichText::new(&one.shape).weak().small());
-            ui.label(dollars(one.cents));
+            ui.label(RichText::new(&item.subject).strong());
+            let says = RichText::new(&item.says).small();
+            ui.label(if item.charge.is_some() {
+                says
+            } else {
+                says.weak()
+            });
         });
     }
 }
