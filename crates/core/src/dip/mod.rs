@@ -6,13 +6,13 @@
 //!
 //! `scorsese-core` defines property *types*, never property *values*, and the
 //! meaning of `volume` belongs to the mixer that implements it. So a caller
-//! hands in the [`PropertyPath`] to dip and the two levels to dip between, and
+//! hands in the [`PropertyPath`](crate::PropertyPath) to dip and the two levels to dip between, and
 //! this module does the arithmetic: which spans of a clip are covered, which of
 //! those are close enough to be one dip rather than two, and where the ramps
 //! land.
 //!
-//! What comes out is an ordinary [`KeyframeTrack`] — the same thing a person
-//! would have placed by hand, evaluated by the same [`KeyframeTrack::value_at`]
+//! What comes out is an ordinary [`KeyframeTrack`](crate::KeyframeTrack) — the same thing a person
+//! would have placed by hand, evaluated by the same [`KeyframeTrack::value_at`](crate::KeyframeTrack::value_at)
 //! that evaluates a fade. There is no ducking stage anywhere in the mixer, and
 //! there should never be one.
 //!
