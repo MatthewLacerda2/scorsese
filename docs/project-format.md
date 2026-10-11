@@ -2854,7 +2854,14 @@ source frames would shift every animation whenever a clip was retimed, which is
 the opposite of what an author means by *the fade goes here*.
 
 Speeding a clip up consumes more source in the same slot, so it can run off the
-end of its footage exactly as an over-long trim can — same ceiling, same answer.
+end of its footage exactly as an over-long trim can, and slowing one down
+consumes less: the ceiling below is held to `source_in` plus `duration` ×
+`speed`, rounded up to the frame it reaches into. So a whole 300-frame shot
+slowed to 0.5× (600 frames of timeline) is accepted. A sped-up clip that reads
+past its footage but would not at 1× is a **warning** in `scorsese check` and
+`project_check` rather than a refusal, because documents written before speed
+counted against the ceiling load as they did; the render plays whatever the
+decoder gives after the end, so shorten the clip or slow it down.
 
 **Not here:** speed *ramps* (a keyframed speed, where the mapping from timeline
 frame to source frame stops being multiplication and becomes an integral), and

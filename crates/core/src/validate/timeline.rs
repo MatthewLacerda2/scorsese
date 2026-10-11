@@ -4,10 +4,11 @@ use std::collections::HashSet;
 
 use crate::asset::Asset;
 use crate::project::Project;
-use crate::time::{Fps, Frames};
+use crate::time::Frames;
 use crate::timeline::{Clip, ClipId, Track, TrackId, TrackKind};
 
 use super::error::TimelineProblem;
+use super::source::check_source_range;
 
 /// Every timeline in the document: the project's own, then each group's.
 ///
@@ -103,31 +104,6 @@ fn check_duration(clip: &Clip, errors: &mut Vec<TimelineProblem>) {
     if clip.duration == Frames::ZERO {
         errors.push(TimelineProblem::ZeroDuration {
             clip: clip.id.clone(),
-        });
-    }
-}
-
-/// A clip cannot show footage nobody shot: where it starts in the source plus
-/// what it plays through has to land inside the source's own length.
-///
-/// The one check here that reads something measured rather than something
-/// written, and so the one that can only be made when a measurement exists.
-/// [`Asset::length`] answers `None` for everything with no inherent length —
-/// a still, a title, a colour, a sketch with no file yet — and for a file
-/// nobody has probed, and an absent ceiling bounds nothing. That is the rule
-/// being honest about what it knows: the alternative, guessing a length, would
-/// refuse honest edits on assets we have simply not looked at.
-fn check_source_range(fps: Fps, asset: &Asset, clip: &Clip, errors: &mut Vec<TimelineProblem>) {
-    let Some(available) = asset.length(fps) else {
-        return;
-    };
-    let reaches = clip.source_end();
-    if reaches > available {
-        errors.push(TimelineProblem::ClipOutlastsSource {
-            clip: clip.id.clone(),
-            asset: asset.id.clone(),
-            reaches,
-            available,
         });
     }
 }

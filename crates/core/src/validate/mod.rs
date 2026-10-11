@@ -28,6 +28,7 @@ mod matte;
 mod report;
 mod sequence;
 mod shape;
+mod source;
 mod speech;
 mod text;
 mod timeline;
@@ -40,6 +41,7 @@ pub use error::{
 };
 pub use field::AssetField;
 pub use report::ValidationErrors;
+pub use source::PastSource;
 
 use crate::project::{Project, SCHEMA_VERSION};
 

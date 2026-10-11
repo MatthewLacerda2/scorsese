@@ -45,6 +45,10 @@ impl Shortened {
 /// what follows it is not moved, because retiming a cut is an editing choice
 /// for whoever drives the edit.
 ///
+/// Measured at the clip's speed, because that is the rate it reads its source
+/// at: a clip at 2× over a 90-frame reading is shortened to 45 frames, one at
+/// 0.5× to 180 (#1098).
+///
 /// A clip that comes out **shorter** than its source is not touched: playing
 /// less of a reading than there is is an edit, not a mistake. Nor is a clip
 /// whose source opens at or past the new end — no window of it is left to
@@ -76,7 +80,10 @@ pub fn fit_to_sources(project: &mut Project, realised: &[AssetId]) -> Vec<Shorte
             if clip.source_end() <= available || clip.source_in >= available {
                 continue;
             }
-            let now = Frames(available.get() - clip.source_in.get());
+            let now = clip.duration_through(Frames(available.get() - clip.source_in.get()));
+            if now >= clip.duration {
+                continue;
+            }
             shortened.push(Shortened {
                 clip: clip.id.clone(),
                 asset: clip.asset.clone(),
@@ -93,6 +100,7 @@ pub fn fit_to_sources(project: &mut Project, realised: &[AssetId]) -> Vec<Shorte
 mod tests {
     use super::super::fixture::placed;
     use super::*;
+    use crate::time::Speed;
 
     /// The 120-frame clip over `shot`, with the shot measured at `seconds`.
     fn measured(seconds: f64) -> Project {
@@ -147,6 +155,22 @@ mod tests {
         assert_eq!(shortened[0].now, Frames(60));
         assert_eq!(project.tracks[0].clips[0].source_in, Frames(30));
         project.validate().expect("the document loads again");
+    }
+
+    /// The clip reads its source at its own rate, so it is fitted at it: at
+    /// 0.5× three seconds of source fill six of timeline, at 2× one and a half.
+    #[test]
+    fn a_clip_is_fitted_at_its_speed() {
+        for (speed, now) in [(0.5, 180), (2.0, 45)] {
+            let mut project = measured(3.0);
+            let clip = &mut project.tracks[0].clips[0];
+            (clip.speed, clip.duration) = (Speed::new(speed), Frames(400));
+            let shortened = fit_to_sources(&mut project, &shot());
+            assert_eq!(shortened[0].now, Frames(now), "at {speed}×");
+            let clip = &project.tracks[0].clips[0];
+            assert_eq!(clip.source_end(), Frames(90), "ends on the last frame");
+            assert!(project.past_source().is_empty());
+        }
     }
 
     #[test]

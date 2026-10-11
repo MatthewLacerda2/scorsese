@@ -61,7 +61,8 @@ pub enum TimelineProblem {
         clip: ClipId,
         /// The asset that runs out under it.
         asset: AssetId,
-        /// The source frame the clip plays up to, `source_in` included.
+        /// The source frame the clip plays up to, `source_in` and speed
+        /// included ([`crate::Clip::source_end`]).
         reaches: Frames,
         /// How much source there is, on the timeline's grid.
         available: Frames,
