@@ -131,6 +131,7 @@ pub mod chat;
 pub mod chromium;
 pub mod claude;
 pub mod credentials;
+mod generated;
 pub mod image;
 pub mod live;
 pub mod prices;
