@@ -8,8 +8,8 @@
 //! early — by reading a [`Plan`] and writing down what it already decided.
 //!
 //! It costs nothing. There is no ffmpeg here, no pixels and no bytes: the plan
-//! has worked all of this out by the time it exists and currently throws it
-//! away. So a description is available **before** a render as much as after
+//! has worked all of this out by the time it exists, and this only reads it
+//! back. So a description is available **before** a render as much as after
 //! one, which makes it the cheapest review there is.
 //!
 //! **In seconds as well as frames.** The document is authored in frames on the

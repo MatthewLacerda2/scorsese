@@ -144,6 +144,8 @@ Every response shape scorsese parses, and where its test body came from.
 | Veo submit | `Submitted` | `fixtures/veo/submitted.json` | hand-written |
 | Veo operation: running, done, failed | `Operation` | `fixtures/veo/{running,done,failed}.json` | hand-written |
 | Gemini image interaction | `api::gemini::response::Interaction` | `fixtures/gemini/interaction.json` | **captured** 2026-10-07 (signature and picture cut down) |
+| Gemini image model lookup | `api::veo::response::ModelInfo` | `fixtures/gemini/model.json` | hand-written, in the shape of `veo/model.json` |
+| Gemini chat streams: answer, tool call, signed thought, blocked, cut, empty, error | `chat::gemini` | `fixtures/gemini/chat-*.sse` | hand-written from Google's `generateContent` reference (2026-10-03); a live step for them is #1112 |
 | Gemini refusals | carried whole, never parsed | inline in `tests/live/veo.rs`, `tests/live/image.rs` | hand-written |
 | LottieFiles search | `api::lottiefiles::Searched` | `fixtures/lottiefiles/search.json` | **captured** 2026-10-08 (three results) |
 | Claude streams: tool use, answer, refusal, overload | `api::anthropic::stream` + `claude::Assembler` | `fixtures/anthropic/*.sse` | hand-written |

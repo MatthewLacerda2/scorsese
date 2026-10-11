@@ -26,6 +26,39 @@ that is not making one; this page costs nothing until it is read. The
 operations stay generic, reusable motion goes in the page kit and the worked
 pages, and how a kind of video is made goes here.
 
+## Starting from a style
+
+This page has a section for each kind of video somebody has made. The
+**style library** is longer: fourteen kinds, compiled in
+(`crates/core/src/style/library.rs`), each with a placement list and a long
+prompt saying how that kind is made and what to ask the person for. A project
+starts from one with `scorsese new --style <id>` or `project_new`'s `style`,
+and from a placement with `--platform` / `platform`; either or both write a
+brief into the project's `script.md`, and a style not made for the placement
+asked for is refused with the ones that are.
+
+| id | the video | made for |
+| --- | --- | --- |
+| `narrated_captions` | the narration as the text on screen, over support footage | every vertical placement |
+| `kinetic_type` | big words moving to the music, no footage | everywhere |
+| `whiteboard` | a board that draws itself under a narration | YouTube, Shorts, Reels, TikTok |
+| `flat_explainer` | flat illustrated characters acting out an idea | YouTube, Shorts, Reels, Reels ad, TikTok |
+| `product_tour` | real product screens, one by one, narrated | YouTube, Shorts, the three ads |
+| `photo_montage` | the person's photos, slow push-ins, cut to music | YouTube, Shorts, Reels, Stories ad, TikTok |
+| `top_list` | a countdown, one item a scene, best last | YouTube, Shorts, Reels, TikTok |
+| `before_after` | the problem, then the result | Reels, TikTok and the three ads |
+| `narrated_documentary` | cinematic pictures under a told story | YouTube, Shorts, Reels |
+| `testimonial` | customers' words on cards, then the call to action | YouTube and the three ads |
+| `pov_hook` | a meme-style "POV: …" hook over footage | Shorts, Reels, TikTok, TikTok ad |
+| `flash_offer` | product, price, urgency and the buy button, in seconds | the three ads |
+| `step_by_step` | a tutorial, one numbered step a scene | YouTube, Shorts, Reels, TikTok |
+| `numbers_story` | animated figures and charts carrying the argument | YouTube, Shorts, Reels ad |
+
+The placements are `youtube`, `youtube_shorts`, `instagram_reels`, `tiktok`
+and three ads: `instagram_reels_ad`, `instagram_stories_ad` and `tiktok_ad`. A placement also sizes the render (`render --platform`). Where a
+style has a section below, the section is what a video in it has actually
+taught; read both.
+
 ## Narrated captions: a vertical ad with the narration as the text
 
 *From the DataForce Reels ad (`dataforce-reels.scor`, 2026-10).*

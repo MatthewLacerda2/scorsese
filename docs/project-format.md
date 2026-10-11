@@ -3238,8 +3238,11 @@ whole of the old document or the whole of the new one and never a piece of
 either. That matters because more than one program is looking: the MCP server's
 `project_read` is stateless and can be called at any instant, the GUI writes
 when a hand comes off a clip, and there is no journal to recover from — this
-one file *is* the edit. Everything else written into a project goes the same
-way, recipes and baked media included.
+one file *is* the edit. Every other document written into a project goes the
+same way, recipes, pages and baked media included. An imported file is copied
+in plainly, under a name no asset points at until the copy is whole, so an
+import cut short leaves a stray file in `assets/` and never a half-written one
+the project reads.
 
 `Project::load` validates; `Project::save` does not, so an editor may save
 work that is mid-edit and temporarily incoherent. Validation reports **every**

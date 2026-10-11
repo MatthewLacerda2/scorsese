@@ -92,7 +92,7 @@ animations play in one.
 vignette, grain), blur, lens fringing, green-screen removal, and a VHS look.
 All applied in the edit, so changing your mind is free.
 
-**Generated footage.** Shots from Google Veo, at 720p or 1080p, landscape or
+**Generated footage.** Shots from Google Veo, at 720p, 1080p or 4k, landscape or
 vertical, optionally guided by a starting image, an ending image, or reference
 images that keep a character or an object consistent from shot to shot.
 Stills from Google Gemini, for a picture nobody has.
@@ -117,7 +117,7 @@ delivery at a loudness target — measured, brought there and measured again.
 **Delivery.** Resolution, frame rate and bitrate are chosen per render, never
 baked into the project — the same edit goes out as 1080p for a screen and as a
 small file for a chat, or sized for the platform it is going to. MP4 by default; MKV, AVI and WMV when something
-asks for them.
+asks for them; and the soundtrack alone as MP3, WAV or M4A.
 
 What it is **not**: a compositing or VFX suite. No node graphs, no motion
 tracking, no rotoscoping. It makes and edits videos, and stays approachable.
@@ -183,9 +183,10 @@ cargo build --release
 claude mcp add scorsese -- "$PWD/target/release/scorsese-mcp"
 ```
 
-To generate footage or narration, copy `.env.example` to `.env` and fill in a
-Gemini key (Veo) and/or an ElevenLabs key. Neither is needed to edit, title,
-score or render — [docs/credentials.md](docs/credentials.md) has the rest,
+To generate footage, stills or narration, copy `.env.example` to `.env` and
+fill in a Gemini key (Veo footage and Gemini stills) and/or an ElevenLabs key
+(narration). For stock footage and photos, add a free `PIXABAY_API_KEY`;
+LottieFiles needs none. No key is needed to edit, title, score or render — [docs/credentials.md](docs/credentials.md) has the rest,
 including the spending ceiling.
 
 Then open your assistant in the folder where you keep your footage and say what
@@ -198,11 +199,16 @@ there. The same operations exist as a plain CLI — `scorsese --help`.
 | --- | --- |
 | [docs/mcp.md](docs/mcp.md) | every tool the assistant gets, and what each one costs to call |
 | [docs/project-format.md](docs/project-format.md) | the `project.json` format — everything a project can say |
+| [docs/styles.md](docs/styles.md) | the kinds of video a project can start from, and how each is made |
+| [docs/pages.md](docs/pages.md) | motion graphics as web pages the timeline plays |
 | [docs/recipes.md](docs/recipes.md) | writing music and sound effects as recipes |
+| [docs/references.md](docs/references.md) | the real records a score is held against |
+| [docs/stock.md](docs/stock.md) | free stock footage, photos and animations, before paying for a shot |
 | [docs/prompts.md](docs/prompts.md) | provider behaviour, learned by paying, and the vendors' prompting advice |
 | [docs/prices.md](docs/prices.md) | what generation costs, and why it is always an estimate |
 | [docs/output-formats.md](docs/output-formats.md) | the file formats a render delivers |
 | [docs/credentials.md](docs/credentials.md) | keys, and the ceiling on what they may spend |
+| [docs/web.md](docs/web.md) | the hosted web app: the same editor, nothing to install |
 
 ## Contributing
 

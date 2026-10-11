@@ -181,8 +181,8 @@ Last checked against
 [ElevenLabs' pricing page](https://elevenlabs.io/pricing) on **2026-08-05**.
 
 The Turbo models are absent, and that is not the same omission as Veo's
-`Standard` row. Veo's table keeps a tier scorsese does not offer so the vendor's
-page can be ticked through row by row. Turbo is a row the **vendor** tells
+*not sold* cell. Veo's per-second table keeps a cell for what Google does not
+sell (Lite at 4k) so the vendor's page can be ticked through row by row. Turbo is a row the **vendor** tells
 people not to use: its own documentation recommends Flash over Turbo in every
 case, so offering both would be offering a choice with a right answer.
 
