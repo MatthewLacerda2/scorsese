@@ -28,6 +28,11 @@ pub enum Phase {
     Waiting,
     /// Probing the media, planning the timeline and measuring the sources.
     Preparing,
+    /// Capturing the web pages the edit shows, frame by frame in a browser —
+    /// on a page-heavy edit, most of the render. Only entered when there is a
+    /// page frame to draw: an edit whose pages are all in `cache/` skips it.
+    /// While here, [`Reading::done`] and [`Reading::of`] count page frames.
+    Capturing,
     /// Mixing the sound and rehearsing its loudness through the codec.
     Mixing,
     /// Compositing and encoding frames — the stage [`Reading::done`] counts.
@@ -40,9 +45,10 @@ pub enum Phase {
 }
 
 impl Phase {
-    const ALL: [Self; 6] = [
+    const ALL: [Self; 7] = [
         Self::Waiting,
         Self::Preparing,
+        Self::Capturing,
         Self::Mixing,
         Self::Drawing,
         Self::Finishing,
@@ -55,10 +61,12 @@ impl Phase {
 pub struct Reading {
     /// The part of the render under way.
     pub phase: Phase,
-    /// Frames encoded so far. Never more than [`Reading::of`].
+    /// Frames encoded so far. Never more than [`Reading::of`]. While
+    /// [`Phase::Capturing`], page frames captured so far instead.
     pub done: u64,
     /// Frames the render will encode in all: `0` until the timeline has been
-    /// planned, and `0` for a sound-only render.
+    /// planned, and `0` for a sound-only render. While [`Phase::Capturing`],
+    /// the page frames the capture will draw in all instead.
     pub of: u64,
 }
 
@@ -73,7 +81,7 @@ impl Reading {
     /// this counts **frames only**, and the [`Phase`] is shown
     /// beside it for the stretches frames say nothing about:
     ///
-    /// - before the first frame (preparing, mixing) it is `0`;
+    /// - before the first frame (preparing, capturing pages, mixing) it is `0`;
     /// - while drawing it is the share of frames encoded, held below `100`;
     /// - after the last frame (the encoder's flush, the final measure) it is `99`,
     ///   because the file is not there yet;
@@ -83,7 +91,7 @@ impl Reading {
     /// when the mix is in hand and is being encoded.
     pub fn percent(&self) -> u8 {
         match self.phase {
-            Phase::Waiting | Phase::Preparing | Phase::Mixing => 0,
+            Phase::Waiting | Phase::Preparing | Phase::Capturing | Phase::Mixing => 0,
             Phase::Drawing if self.of == 0 => 0,
             Phase::Drawing => {
                 let share = self.done.min(self.of).saturating_mul(100) / self.of;
@@ -111,6 +119,10 @@ struct State {
     phase: AtomicU8,
     done: AtomicU64,
     of: AtomicU64,
+    /// Page frames drawn so far, by however many browsers at once.
+    captured: AtomicU64,
+    /// Page frames the capture will draw in all.
+    capturing: AtomicU64,
     /// For the tests only: every reading the render published, in order, so a
     /// test can check the sequence instead of racing a thread to sample it.
     #[cfg(test)]
@@ -129,8 +141,13 @@ impl Progress {
             .get(usize::from(self.state.phase.load(Ordering::SeqCst)))
             .copied()
             .unwrap_or(Phase::Waiting);
-        let of = self.state.of.load(Ordering::SeqCst);
-        let done = self.state.done.load(Ordering::SeqCst).min(of);
+        let (done, of) = if phase == Phase::Capturing {
+            (&self.state.captured, &self.state.capturing)
+        } else {
+            (&self.state.done, &self.state.of)
+        };
+        let of = of.load(Ordering::SeqCst);
+        let done = done.load(Ordering::SeqCst).min(of);
         Reading { phase, done, of }
     }
 
@@ -138,7 +155,19 @@ impl Progress {
     pub(crate) fn start(&self) {
         self.state.done.store(0, Ordering::SeqCst);
         self.state.of.store(0, Ordering::SeqCst);
+        self.state.captured.store(0, Ordering::SeqCst);
+        self.state.capturing.store(0, Ordering::SeqCst);
         self.enter(Phase::Preparing);
+    }
+
+    /// Pages are being captured, `of` page frames in all, and the count each
+    /// drawn one is added to — from as many browser threads as draw at once.
+    /// Read back, it is [`Reading::done`] while [`Phase::Capturing`].
+    pub(crate) fn capturing(&self, of: u64) -> &AtomicU64 {
+        self.state.captured.store(0, Ordering::SeqCst);
+        self.state.capturing.store(of, Ordering::SeqCst);
+        self.enter(Phase::Capturing);
+        &self.state.captured
     }
 
     /// The timeline is planned and will be `of` frames.
@@ -170,6 +199,12 @@ impl Progress {
             .lock()
             .expect("nothing panics holding it")
             .push(self.read());
+    }
+
+    /// Page frames counted as drawn since the render last started.
+    #[cfg(test)]
+    pub(crate) fn captured(&self) -> u64 {
+        self.state.captured.load(Ordering::SeqCst)
     }
 
     /// Every reading published so far, in order.
@@ -212,6 +247,7 @@ mod tests {
     #[test]
     fn the_percentage_counts_frames_and_keeps_100_for_the_finished_file() {
         assert_eq!(at(Phase::Preparing, 0, 90).percent(), 0);
+        assert_eq!(at(Phase::Capturing, 40, 80).percent(), 0);
         assert_eq!(at(Phase::Mixing, 0, 90).percent(), 0);
         assert_eq!(at(Phase::Drawing, 0, 0).percent(), 0);
         assert_eq!(at(Phase::Drawing, 1, 3).percent(), 33);
@@ -228,6 +264,24 @@ mod tests {
         progress.drew(7);
         assert_eq!(progress.read().done, 0);
         assert_eq!(at(Phase::Drawing, 9, 3).percent(), 99);
+    }
+
+    #[test]
+    fn capturing_counts_page_frames_and_drawing_counts_the_render_frames_again() {
+        let progress = Progress::new();
+        progress.start();
+        progress.planned(90);
+        let drawn = progress.capturing(200);
+        assert_eq!(progress.read(), at(Phase::Capturing, 0, 200));
+        drawn.fetch_add(3, Ordering::SeqCst);
+        assert_eq!(progress.read(), at(Phase::Capturing, 3, 200));
+        drawn.fetch_add(500, Ordering::SeqCst);
+        assert_eq!(progress.read().done, 200, "never more than of");
+        progress.enter(Phase::Mixing);
+        assert_eq!(progress.read(), at(Phase::Mixing, 0, 90));
+        progress.start();
+        progress.enter(Phase::Capturing);
+        assert_eq!(progress.read(), at(Phase::Capturing, 0, 0), "starts over");
     }
 
     #[test]

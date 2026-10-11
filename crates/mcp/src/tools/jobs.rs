@@ -73,9 +73,10 @@ impl Tool for Jobs {
     fn description(&self) -> &'static str {
         "Say how far your renders of a project have got, and what each one \
          made. A running render says its percentage and what is happening — \
-         preparing, mixing the sound, drawing frame 1190 of 1890, finishing the \
-         file; a done one says the file it wrote; a failed one says why. The \
-         percentage counts frames, so it sits at 0 while the sound is mixed and \
+         preparing, capturing the web pages (page frame 120 of 5900), mixing \
+         the sound, drawing frame 1190 of 1890, finishing the file; a done one \
+         says the file it wrote; a failed one says why. The percentage counts \
+         frames, so it sits at 0 while pages are captured and the sound mixed and \
          at 99 while the file is finished: read the words beside it. Give a job \
          id, as render answers with, for that one job; leave it out for the \
          latest twenty. Add wait: true to a job id to answer only when that job has \

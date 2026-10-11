@@ -21,16 +21,24 @@
 //! a page only from a capture already in `cache/`, and its card otherwise: the
 //! window's preview, which captures in the background instead of making a
 //! scrub wait minutes for a page (#776).
+//!
+//! **Capturing is a phase of the render's own** ([`crate::Phase::Capturing`], #1055),
+//! counted in page frames drawn of those the cache does not already hold: on
+//! a page-heavy edit it is most of the render, and a render that said it was
+//! still preparing all that while read as one that had hung. An edit whose
+//! pages are all in `cache/` never enters it.
 
 use std::collections::{BTreeMap, HashMap};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicU64;
 
 use scorsese_core::words::Words;
 use scorsese_core::{AssetKind, Clip, ClipId, Fps, Project};
 
 use crate::page::{self, Chrome, Request, Span, Wanted};
 use crate::plan::{Plan, Shot};
+use crate::progress::Progress;
 use crate::report::Note;
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
@@ -71,9 +79,9 @@ impl Pages {
     /// Captures every page `plan` shows, with the browser given or — when none
     /// was — whichever one [`Chrome::discover`] finds. Unless the browser is
     /// not `capturing`: then only what is already captured is used, and no
-    /// browser is looked for at all.
+    /// browser is looked for at all. Frames drawn are counted on `progress`.
     pub(super) fn capture(
-        tools: &Tools,
+        (tools, progress): (&Tools, &Progress),
         Browser { chrome, capturing }: Browser<'_>,
         settings: &RenderSettings,
         plan: &Plan<'_>,
@@ -104,17 +112,35 @@ impl Pages {
                     .map_err(ToString::to_string)
             }
         };
+        let uncounted = AtomicU64::new(0);
+        let drawn = match &chrome {
+            Ok(chrome) if capturing => {
+                let of = wanted
+                    .iter()
+                    .map(|(_, one)| {
+                        page::to_draw(
+                            project_root,
+                            &one.request,
+                            chrome.version(),
+                            one.frames.clone(),
+                        )
+                    })
+                    .sum();
+                if of > 0 {
+                    progress.capturing(of)
+                } else {
+                    &uncounted
+                }
+            }
+            _ => &uncounted,
+        };
         for (shot, Wanted { request, frames }) in wanted {
             let captured = chrome.clone().and_then(|chrome| {
                 if capturing {
-                    return page::capture_frames(
-                        chrome,
-                        tools,
-                        project_root,
-                        &[],
-                        &request,
-                        frames,
-                        page::browsers(),
+                    let drawing = (page::browsers(), drawn);
+                    let follows = (project_root, &[][..]);
+                    return page::capture_counted(
+                        chrome, tools, follows, &request, frames, drawing,
                     )
                     .map_err(|e| e.to_string());
                 }

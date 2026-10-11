@@ -31,6 +31,7 @@
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::process::ChildStdin;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use serde_json::{Value, json};
@@ -81,13 +82,17 @@ pub(crate) struct Served<'a> {
 /// otherwise, since one is only said once two samples in a row agree on it.
 /// So the first piece of a capture measures from zero and a later one from its
 /// own first frame, and between them they say what one capture would have.
+///
+/// Each frame drawn into `out` adds one to `drawn`, which other pieces of the
+/// same capture may be adding to at once: how a render says how far its pages
+/// have got (#1055).
 pub(crate) fn run(
     chrome: &Chrome,
     tools: &Tools,
     served: Served<'_>,
     request: &Request,
     (frames, measured): (Range<u64>, u64),
-    out: &Path,
+    (out, drawn): (&Path, &AtomicU64),
 ) -> Result<Heard, PageError> {
     let Served {
         project_root,
@@ -103,7 +108,7 @@ pub(crate) fn run(
         PATIENCE,
     );
     let heard = started(&mut cdp, chrome)
-        .and_then(|()| drive(&mut cdp, tools, request, (frames, measured), out));
+        .and_then(|()| drive(&mut cdp, tools, request, (frames, measured), (out, drawn)));
     // Asked to close rather than killed, so its helpers go with it; the
     // process is reaped either way when `process` drops.
     let _ = cdp.browser("Browser.close", json!({}));
@@ -129,7 +134,7 @@ fn drive(
     tools: &Tools,
     request: &Request,
     (frames, measured): (Range<u64>, u64),
-    out: &Path,
+    (out, drawn): (&Path, &AtomicU64),
 ) -> Result<Heard, PageError> {
     let viewport = request.viewport();
     let target = cdp.browser(
@@ -244,6 +249,7 @@ fn drive(
         last = Drawing::HERE.draw(&mut page, viewport)?.or(last);
         let png = last.as_ref().ok_or(PageError::NoPicture)?;
         encoder.write(png)?;
+        drawn.fetch_add(1, Ordering::SeqCst);
         // A piece measured only from its own first frame measures that one
         // too, so a mistake already on screen is held from there.
         let starts = k == first && k == measured;

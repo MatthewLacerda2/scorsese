@@ -12,6 +12,7 @@ use std::collections::BTreeMap;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::atomic::AtomicU64;
 
 use super::PageError;
 use super::browser::Chrome;
@@ -30,18 +31,19 @@ const SHORTEST: f64 = 4.0;
 const MOST: usize = 4;
 
 /// Captures each of `pieces` of `request`, each by a browser of its own and all
-/// at once, into the one file `out`.
+/// at once, into the one file `out` — adding each frame any of them draws to
+/// `drawn` (`capture::run`'s).
 pub(crate) fn capture_in(
     chrome: &Chrome,
     tools: &Tools,
     served: Served<'_>,
     request: &Request,
     pieces: Vec<Range<u64>>,
-    out: &Path,
+    (out, drawn): (&Path, &AtomicU64),
 ) -> Result<Heard, PageError> {
     if let [only] = &pieces[..] {
         let only = only.clone();
-        return capture::run(chrome, tools, served, request, (only, 0), out);
+        return capture::run(chrome, tools, served, request, (only, 0), (out, drawn));
     }
     let files: Vec<PathBuf> = (0..pieces.len())
         .map(|i| with_suffix(out, &format!("{i}.mkv")))
@@ -57,7 +59,8 @@ pub(crate) fn capture_in(
                 // their own stretch: see `capture::run`.
                 let measured = if i == 0 { 0 } else { piece.start };
                 scope.spawn(move || {
-                    capture::run(chrome, tools, served, request, (piece, measured), file)
+                    let to = (file.as_path(), drawn);
+                    capture::run(chrome, tools, served, request, (piece, measured), to)
                 })
             })
             .collect();

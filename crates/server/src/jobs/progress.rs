@@ -29,15 +29,17 @@ pub(super) const EVERY: Duration = Duration::from_millis(500);
 /// How far a running job has got, as its owner sees it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct ProgressView {
-    /// From `0` to `100`, counting frames only: `0` while preparing and
-    /// mixing, `99` while finishing, `100` only once the file is there.
+    /// From `0` to `100`, counting frames only: `0` while preparing,
+    /// capturing and mixing, `99` while finishing, `100` only once the file
+    /// is there.
     pub percent: u8,
     /// What it is doing, for the stretches the percentage does not move in:
-    /// `preparing`, `mixing`, `drawing`, `finishing` or `done`.
+    /// `preparing`, `capturing`, `mixing`, `drawing`, `finishing` or `done`.
     pub phase: &'static str,
-    /// Frames encoded so far.
+    /// Frames encoded so far; page frames captured, while `capturing`.
     pub done: u64,
-    /// Frames in all; `0` until planned, and for a sound-only render.
+    /// Frames in all; `0` until planned, and for a sound-only render. Page
+    /// frames to capture in all, while `capturing`.
     pub of: u64,
 }
 
@@ -48,6 +50,7 @@ impl ProgressView {
         let phase = match reading.phase {
             Phase::Waiting => return None,
             Phase::Preparing => "preparing",
+            Phase::Capturing => "capturing",
             Phase::Mixing => "mixing",
             Phase::Drawing => "drawing",
             Phase::Finishing => "finishing",
@@ -120,6 +123,7 @@ mod tests {
     fn a_reading_is_shown_with_its_phase_in_words() {
         let shown = |phase| ProgressView::of(at(phase, 3, 4)).map(|view| view.phase);
         assert_eq!(shown(Phase::Preparing), Some("preparing"));
+        assert_eq!(shown(Phase::Capturing), Some("capturing"));
         assert_eq!(shown(Phase::Mixing), Some("mixing"));
         assert_eq!(shown(Phase::Finishing), Some("finishing"));
         assert_eq!(shown(Phase::Done), Some("done"));

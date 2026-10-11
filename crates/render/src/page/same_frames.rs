@@ -8,6 +8,7 @@
 
 use std::ops::Range;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicU64;
 
 use scorsese_compositor::Resolution;
 use scorsese_core::Fps;
@@ -174,7 +175,7 @@ impl Bench {
             self.served(),
             &self.request,
             (frames, 0),
-            &out,
+            (&out, &AtomicU64::new(0)),
         )
         .expect("captured");
         hashes(&self.tools, &out)
@@ -202,15 +203,21 @@ fn a_capture_made_in_pieces_is_the_file_one_capture_makes() {
     let joined = bench.root.join("joined.mkv");
     let pieced = pieces::split(&bench.request, frames.clone(), 3);
     assert_eq!(pieced.len(), 2, "{pieced:?}");
+    let drawn = AtomicU64::new(0);
     pieces::capture_in(
         &bench.chrome,
         &bench.tools,
         bench.served(),
         &bench.request,
         pieced,
-        &joined,
+        (&joined, &drawn),
     )
     .expect("captured in pieces");
+    assert_eq!(
+        drawn.into_inner(),
+        frames.end,
+        "every piece's frames counted"
+    );
     // Timestamps and all: a joined file stamps each frame where one capture does.
     same(&hashes(&bench.tools, &joined), &whole, "joined");
     let _ = std::fs::remove_dir_all(&bench.root);

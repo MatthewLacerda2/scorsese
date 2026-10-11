@@ -150,3 +150,17 @@ fn each_phase_is_said_in_its_own_words() {
     );
     assert_eq!(at(Phase::Done, 90, 90), "done");
 }
+
+#[test]
+fn capturing_pages_is_said_with_its_page_frame_count() {
+    use scorsese_render::{Phase, Reading};
+    let reading = Reading {
+        phase: Phase::Capturing,
+        done: 120,
+        of: 5900,
+    };
+    assert_eq!(
+        super::doing(reading),
+        "capturing the web pages: page frame 120 of 5900"
+    );
+}

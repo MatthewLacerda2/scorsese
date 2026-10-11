@@ -11,6 +11,8 @@
 
 #[cfg(test)]
 mod cancelled;
+#[cfg(test)]
+mod capturing;
 mod pages;
 #[cfg(test)]
 mod progressed;
@@ -248,7 +250,7 @@ impl<'a> Renderer<'a> {
         // note, never a refusal.
         let pages = if picture {
             let (pages, page_notes) = Pages::capture(
-                self.tools,
+                (self.tools, &self.progress),
                 self.browser(),
                 &self.settings,
                 &plan,

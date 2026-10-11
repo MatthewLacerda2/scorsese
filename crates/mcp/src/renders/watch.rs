@@ -106,15 +106,19 @@ fn due(said: Option<(f64, Phase, Instant)>, reading: Reading, now: Instant) -> b
 /// preparing and mixing, `99` from the last frame to the finished file — and
 /// the specification wants every notification's number higher than the last.
 /// The hundredth keeps it rising there, without moving what a client shows as
-/// a whole percentage.
+/// a whole percentage. Capturing pages, the longest stretch at `0`, also
+/// carries its share of page frames in the thousandths below the next phase's
+/// place, so its count keeps being said as it moves.
 pub(super) fn rising(reading: Reading) -> f64 {
     let place = match reading.phase {
         Phase::Waiting => 0.0,
         Phase::Preparing => 0.01,
-        Phase::Mixing => 0.02,
-        Phase::Drawing => 0.03,
-        Phase::Finishing => 0.04,
-        Phase::Done => 0.05,
+        Phase::Capturing if reading.of == 0 => 0.02,
+        Phase::Capturing => 0.02 + 0.009 * reading.done as f64 / reading.of as f64,
+        Phase::Mixing => 0.03,
+        Phase::Drawing => 0.04,
+        Phase::Finishing => 0.05,
+        Phase::Done => 0.06,
     };
     f64::from(reading.percent()) + place
 }
@@ -132,6 +136,9 @@ mod tests {
         let order = [
             at(Phase::Waiting, 0, 0),
             at(Phase::Preparing, 0, 0),
+            at(Phase::Capturing, 0, 400),
+            at(Phase::Capturing, 200, 400),
+            at(Phase::Capturing, 400, 400),
             at(Phase::Mixing, 0, 90),
             at(Phase::Drawing, 0, 90),
             at(Phase::Drawing, 45, 90),
@@ -142,7 +149,7 @@ mod tests {
         for pair in order.windows(2) {
             assert!(rising(pair[1]) > rising(pair[0]), "{pair:?}");
         }
-        assert!((rising(at(Phase::Drawing, 45, 90)) - 50.03).abs() < 1e-9);
+        assert!((rising(at(Phase::Drawing, 45, 90)) - 50.04).abs() < 1e-9);
     }
 
     #[test]

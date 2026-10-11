@@ -10,10 +10,13 @@ export type JobState = "waiting" | "running" | "done" | "failed" | "stuck" | "ca
 
 /** `jobs::ProgressView` — how far a running render or preview has got (#698). */
 export interface JobProgress {
-  /** 0–100, frames only: 0 while preparing or mixing, 99 while finishing, 100 once the file is there. */
+  /** 0–100, frames only: 0 while preparing, capturing or mixing, 99 while finishing, 100 once the file is there. */
   percent: number;
-  phase: "preparing" | "mixing" | "drawing" | "finishing" | "done";
-  /** Frames encoded so far, of `of`; `of` is 0 until planned and for a sound-only render. */
+  phase: "preparing" | "capturing" | "mixing" | "drawing" | "finishing" | "done";
+  /**
+   * Frames encoded so far, of `of`; `of` is 0 until planned and for a sound-only render.
+   * While `capturing`, page frames captured of those to capture instead.
+   */
   done: number;
   of: number;
 }
