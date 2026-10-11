@@ -23,7 +23,8 @@
 //! never to a vendor: what differs between them is behind that seam.
 //!
 //! Choosing a model for **this one client** does not make the tools that
-//! model's (`CLAUDE.md`, *The web app's built-in assistant*). The tool surface
+//! model's (`CLAUDE.md`, *The web app's built-in assistant runs on the model
+//! each project picks*). The tool surface
 //! it calls is the one a user's own Gemini or GPT gets over web MCP, word for
 //! word: nothing in `crate::tools` knows who is calling, and this module adds
 //! nothing to it. What it adds is around the tools — a system prompt, the

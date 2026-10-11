@@ -7,7 +7,8 @@ holds what only matters here.
 
 `project.json` format changes are `architecture`-label work and require a
 `schema_version` bump. The format is the contract between the CLI, the MCP
-server and the GUI — the contract *now*, not across time.
+server, the GUI, the web app and every project already stored — the contract
+*now*, not across time.
 
 This used to read *there is no backwards compatibility*, and said the day
 somebody had a project they could not afford to lose was the day to revisit it
@@ -22,8 +23,9 @@ unloadable breaks paying users. So:
   compatible — **`Project::load` still refuses any version that is not this
   build's**, so the bump still turns a silent reinterpretation into a loud
   refusal, and the only way past the refusal is the migration.
-- **The server migrates every stored document** when it starts on a new
-  build, before serving a request — a stored project is never read by code
+- **The server migrates every stored document** — projects and templates
+  (`crate::template`) alike — when it starts on a new build, before serving a
+  request — a stored project is never read by code
   that does not understand it.
 - **Local `.scor` folders are migrated by the same steps, through the CLI**:
   one command that rewrites a folder's `project.json` to this build's
@@ -33,6 +35,24 @@ unloadable breaks paying users. So:
   validates. A step that cannot be written — a change whose old meaning has
   no new equivalent — is a question for the user **before** the bump, not
   after it.
+
+**Writing one**, in `src/migrate/`:
+
+- The step goes in `STEPS` (`migrate/mod.rs`). It changes the content and
+  never sets `schema_version` itself — `walk` does that afterwards. A bump
+  that changes nothing stored still gets a step, one that returns `Ok(())`.
+  `every_version_since_the_oldest_has_exactly_one_step` fails the build
+  otherwise.
+- Its test goes in `migrate/versions.rs` (or beside the step, when it has a
+  folder of its own).
+- `OLDEST_MIGRATABLE` (33) is the floor: older documents are refused as
+  `MigrateError::TooOld`. It moves back never, and forward only if the user
+  decides.
+- The bump also moves `docs/project-format.md`'s title (held to
+  `SCHEMA_VERSION` by `the_title_states_this_builds_schema_version`) and the
+  `"schema_version"` literal in every fixture and test document — dozens of
+  files across `crates/`, `web/` and `app/`. Change them last, to `main`'s
+  version + 1.
 
 Nothing else is compatibility: no reading an older version in place, no field
 kept alive because something might still write it. The migration is the whole
