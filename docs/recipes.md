@@ -2034,6 +2034,13 @@ nothing edited by hand: the length is part of what names the bake, so a changed
 clip is a fresh bake and an unchanged one is a cache hit. Prefer it whenever a
 song scores a whole cut whose length is still moving.
 
+**Place the clip first, at the length you want, and bake after.** A synth
+asset's clips are never held to the length of its last bake — that bake may be
+the one the recipe no longer describes, so lengthening the clip, or a recipe
+rewritten longer, is never refused before it is baked. A render notes what is
+left: a bake older than its recipe or its clip, or a current bake some clip
+plays past the end of (the rest of that clip is silence).
+
 Write one of `seconds` and `to`, never both. The bake refuses a `to: "clip"`
 song that no clip plays yet (place it first), and one placed in clips of
 different lengths (each is named — make them one length, or give each clip its

@@ -54,7 +54,9 @@ pub enum TimelineProblem {
     /// only when the asset carries a **measured** length: a still, a title, a
     /// colour and a sketch have none to run out of, and a file nobody has
     /// probed has none *yet*. A ceiling invented from an absence would refuse
-    /// honest edits on assets we simply have not looked at.
+    /// honest edits on assets we simply have not looked at. Nor for a
+    /// `synth_audio`, whose measured length is a bake the document cannot
+    /// tell is current (#1062): the render notes that one instead.
     #[error("clip `{clip}` reaches {reaches} into asset `{asset}`, which is {available} long")]
     ClipOutlastsSource {
         /// The clip asking for more than there is.

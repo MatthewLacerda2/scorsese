@@ -8,5 +8,6 @@ mod common;
 mod anchoring;
 mod fitting;
 mod instruments;
+mod lengthening;
 mod safety;
 mod stopping;

@@ -3341,7 +3341,10 @@ What it checks, each in more detail in its own section:
   stills of one format and one size, held at least a frame each.
 - **The timeline** (*Tracks and clips*): a clip names an asset that exists, of
   a kind its track takes; a non-zero duration; no overlap on one track; no clip
-  reaching past the source it was measured to have, or the group it shows; a
+  reaching past the source it was measured to have, or the group it shows (a
+  `synth_audio`'s measured length is its last bake's, which may be stale, so it
+  bounds nothing here and the render notes a clip a current bake runs out
+  under); a
   `speed` it can play at (*Playing faster or slower*); a `crop` inside its
   source (*Showing part of a source*); a `chroma_key` on a clip with no alpha of
   its own, on a colour far enough from grey (*Taking the background out*); a
