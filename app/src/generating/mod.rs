@@ -282,7 +282,10 @@ fn group(ui: &mut Ui, heading: &str, items: &[&Item]) {
     for item in items {
         ui.horizontal(|ui| {
             ui.label(RichText::new(&item.subject).strong());
-            let says = RichText::new(&item.says).small();
+            // The library names the asset because a terminal prints one line
+            // per brief; this row already has, and saying it twice stutters.
+            let named = format!("— {} ", item.subject);
+            let says = RichText::new(item.says.replace(&named, "— ")).small();
             ui.label(if item.charge.is_some() {
                 says
             } else {
