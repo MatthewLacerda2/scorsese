@@ -76,11 +76,11 @@ class Branch(unittest.TestCase):
     def take(self, bot_head):
         opts = queue.parse(["801", "--poll", "0"])
         merged = subprocess.CompletedProcess([], 0, "", "")
-        with mock.patch.object(queue, "look", return_value=PULL), \
-            mock.patch.object(queue, "git"), \
-            mock.patch.object(queue, "advance") as rebased, \
-            mock.patch.object(queue, "bot_head", return_value=bot_head), \
-            mock.patch.object(queue, "wait_for", return_value=(queue.GO, ["CI passed"])) as waited, \
+        with mock.patch.object(queue.talk, "look", return_value=PULL), \
+            mock.patch.object(queue.talk, "git"), \
+            mock.patch.object(queue.rebase, "advance") as rebased, \
+            mock.patch.object(queue.rebase, "bot_head", return_value=bot_head), \
+            mock.patch.object(queue.ci, "wait_for", return_value=(queue.GO, ["CI passed"])) as waited, \
             mock.patch.object(queue.subprocess, "run", return_value=merged), \
             mock.patch("builtins.print"):
             return queue.take("o/r", 801, opts), rebased, waited
@@ -104,8 +104,8 @@ class Branch(unittest.TestCase):
 class Asking(unittest.TestCase):
     def bot_head(self, tips, seen=REBASED):
         opts = queue.parse(["801", "--poll", "0"])
-        with mock.patch.object(queue, "on_tip", side_effect=tips), \
-            mock.patch.object(queue, "look", return_value={**PULL, "headRefOid": seen}), \
+        with mock.patch.object(queue.rebase, "on_tip", side_effect=tips), \
+            mock.patch.object(queue.talk, "look", return_value={**PULL, "headRefOid": seen}), \
             mock.patch.object(queue.subprocess, "run") as called, \
             mock.patch.object(queue.time, "sleep"), \
             mock.patch("builtins.print"):
@@ -123,8 +123,8 @@ class Asking(unittest.TestCase):
 
     def test_a_head_that_has_not_moved_is_not_taken_for_the_rebase(self):
         opts = queue.parse(["801", "--poll", "0", "--deadline", "0.0001"])
-        with mock.patch.object(queue, "on_tip", return_value=False), \
-            mock.patch.object(queue, "look", return_value=PULL), \
+        with mock.patch.object(queue.rebase, "on_tip", return_value=False), \
+            mock.patch.object(queue.talk, "look", return_value=PULL), \
             mock.patch.object(queue.subprocess, "run"), \
             mock.patch("builtins.print"):
             fresh, notes = queue.bot_head(801, SHA, ".", opts)

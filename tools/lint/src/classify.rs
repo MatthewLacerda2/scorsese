@@ -2,10 +2,15 @@
 //!
 //! The rules, stated once so they can be argued with rather than guessed at:
 //!
-//! - **Code is measured: `.rs`, and the web front-end's `.ts` and `.tsx`.**
-//!   The cap exists because code is what gets read and edited to change
-//!   behaviour; prose and data files are long for reasons that splitting them
-//!   would not improve.
+//! - **Code is measured: `.rs`, the web front-end's `.ts` and `.tsx`, and
+//!   the development scripts' `.py`.** The cap exists because code is what
+//!   gets read and edited to change behaviour; prose and data files are long
+//!   for reasons that splitting them would not improve.
+//! - **Python takes the same two caps, and no exception either** (#1136).
+//!   `.github/scripts/` is the merge path agents drive unattended —
+//!   `make queue`, `make mergeable` — and `merge-queue.py` had grown to twice
+//!   the cap while the gate was not looking. Its comments and docstrings are
+//!   free, exactly as Rust's doc comments are ([`crate::python`]).
 //! - **TypeScript takes the same two caps as Rust, and no exception.** `web/`
 //!   is edited by the same agents, under the same constraint of holding one
 //!   file in context at a time, and a React component past 300 lines of code is
@@ -25,6 +30,11 @@
 //!   `.test.tsx`.** That is how `bun test` finds tests — beside the component
 //!   they test, not in a `tests` directory — so it is the same rule: the file's
 //!   role in the build decides the cap.
+//! - **A Python file is also a test file when its name starts `test_`.**
+//!   That is what `unittest discover` and pytest collect, so, as for
+//!   TypeScript, the name is the file's role. Those in this repo sit under a
+//!   `tests` directory as well; the name rule makes one that does not
+//!   measured the same way.
 //! - **A `#[cfg(test)]` module inside a source file changes nothing.** The unit
 //!   being capped is the file an agent has to hold in its head, and inline
 //!   tests are part of that file. A source file with tests in it gets 300
@@ -79,10 +89,12 @@ impl Kind {
 /// Whether the gate never descends into `dir`, a directory's path relative to
 /// the scan root.
 ///
-/// Hidden directories anywhere (`.git`, `.github`, and the
-/// `.claude/worktrees/` copies of the repo that agents work in) hold history
-/// and tooling state rather than project source — and counting a worktree's
-/// files would report every violation several times over. `node_modules/`,
+/// Hidden directories anywhere (`.git`, and the `.claude/worktrees/` copies of
+/// the repo that agents work in) hold history and tooling state rather than
+/// project source — and counting a worktree's files would report every
+/// violation several times over. **`.github` is the exception**: it holds the
+/// scripts the merge path runs (`.github/scripts/`), which are code like any
+/// other (#1136); its workflows are YAML, which is never measured anyway. `node_modules/`,
 /// anywhere, is the web front-end's installed packages, which ship `.ts` of
 /// their own. (`web/dist/` needs no entry: a build writes `.js`, which is never
 /// measured.) A directory whose name is not UTF-8 is not walked either.
@@ -119,6 +131,7 @@ pub fn is_skipped_dir(dir: &Path) -> bool {
                 Some("src" | "tests" | "benches" | "examples")
             )
         }),
+        ".github" => false,
         _ => name.starts_with('.'),
     }
 }
@@ -130,16 +143,15 @@ pub fn is_skipped_dir(dir: &Path) -> bool {
 /// outside it are answered on the same component rules and nothing else.
 pub fn classify(path: &Path) -> Option<Kind> {
     let extension = path.extension()?.to_str()?;
-    if !matches!(extension, "rs" | "ts" | "tsx") {
-        return None;
-    }
+    let stem = path.file_stem().and_then(|stem| stem.to_str());
+    let named_as_test = match extension {
+        "rs" => false,
+        "ts" | "tsx" => stem.is_some_and(|stem| stem.ends_with(".test")),
+        "py" => stem.is_some_and(|stem| stem.starts_with("test_")),
+        _ => return None,
+    };
 
     let parent = path.parent()?;
-    let named_as_test = extension != "rs"
-        && path
-            .file_stem()
-            .and_then(|stem| stem.to_str())
-            .is_some_and(|stem| stem.ends_with(".test"));
     let mut kind = if named_as_test {
         Kind::Test
     } else {

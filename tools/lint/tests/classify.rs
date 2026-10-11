@@ -17,6 +17,11 @@ fn the_two_limits_are_the_ones_claude_md_states() {
     assert_eq!(TEST_LIMIT, 150);
     assert_eq!(Kind::Source.limit(), SOURCE_LIMIT);
     assert_eq!(Kind::Test.limit(), TEST_LIMIT);
+    // The failure message names the cap by these words.
+    assert_eq!(
+        (Kind::Source.label(), Kind::Test.label()),
+        ("source", "test")
+    );
 }
 
 #[test]

@@ -139,8 +139,8 @@ class Ending(unittest.TestCase):
     def test_a_run_still_out_at_the_deadline_is_unfinished(self):
         pull = {"headRefOid": "s" * 40, "isDraft": False}
         live = [{"name": "CI", "head_sha": "s" * 40, "id": 1, "status": "in_progress"}]
-        with mock.patch.object(queue, "look", return_value=pull), \
-            mock.patch.object(queue, "evidence", return_value=(live, {1: []})), \
+        with mock.patch.object(queue.talk, "look", return_value=pull), \
+            mock.patch.object(queue.ci, "evidence", return_value=(live, {1: []})), \
             mock.patch.object(queue.time, "sleep"), \
             mock.patch("builtins.print"):
             state, lines = queue.wait_for("o/r", 1, "s" * 40, "s" * 40, -1, 0)
@@ -151,10 +151,10 @@ class Ending(unittest.TestCase):
         pull = {"state": "OPEN", "isDraft": False, "headRefName": "b", "headRefOid": "o" * 40}
         late = (queue.LATE, ["still waiting on ppppppp after 40 minutes."])
         heads = {}
-        with mock.patch.object(queue, "look", return_value=pull), \
-            mock.patch.object(queue, "git"), \
-            mock.patch.object(queue, "advance", return_value=("p" * 40, [])), \
-            mock.patch.object(queue, "wait_for", return_value=late), \
+        with mock.patch.object(queue.talk, "look", return_value=pull), \
+            mock.patch.object(queue.talk, "git"), \
+            mock.patch.object(queue.rebase, "advance", return_value=("p" * 40, [])), \
+            mock.patch.object(queue.ci, "wait_for", return_value=late), \
             mock.patch("builtins.print"):
             _, state, _ = queue.take("o/r", 1, queue.parse(["1"]), heads)
         self.assertEqual(state, queue.UNFINISHED)

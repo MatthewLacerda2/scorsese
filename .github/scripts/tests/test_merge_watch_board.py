@@ -159,10 +159,10 @@ class Loop(unittest.TestCase):
     def test_wait_for_asks_the_board_once_a_poll(self):
         ticks = []
         pull = {"headRefOid": "s" * 40, "isDraft": False}
-        with mock.patch.object(queue, "look", return_value=pull), \
-            mock.patch.object(queue, "evidence", return_value=([], {})), \
+        with mock.patch.object(queue.talk, "look", return_value=pull), \
+            mock.patch.object(queue.ci, "evidence", return_value=([], {})), \
             mock.patch.object(queue.mergeable, "skipped_by_ci", return_value=False), \
-            mock.patch.object(queue, "progress", side_effect=[(queue.WAIT, ["waiting."]), (queue.GO, ["green."])]), \
+            mock.patch.object(queue.verdict, "progress", side_effect=[(queue.WAIT, ["waiting."]), (queue.GO, ["green."])]), \
             mock.patch.object(queue.time, "sleep"), \
             mock.patch("builtins.print"):
             state, _ = queue.wait_for("o/r", 1, "s" * 40, "s" * 40, 3600, 0, lambda: ticks.append(1))

@@ -101,10 +101,9 @@ class WaitFor(unittest.TestCase):
     def polled(self, attempts, rerun_code=0):
         evidence = iter(attempts)
         done = subprocess.CompletedProcess([], rerun_code, "", "not allowed")
-        with mock.patch.object(queue, "look", return_value=PULL), mock.patch.object(
-            queue, "evidence", side_effect=lambda *_: next(evidence)
+        with mock.patch.object(queue.talk, "look", return_value=PULL), mock.patch.object(queue.ci, "evidence", side_effect=lambda *_: next(evidence)
         ), mock.patch.object(queue.subprocess, "run", return_value=done) as gh, \
-                mock.patch.object(queue.time, "sleep"), mock.patch.object(queue, "say"):
+                mock.patch.object(queue.time, "sleep"), mock.patch.object(queue.talk, "say"):
             outcome = queue.wait_for("o/r", 788, SHA, SHA, 3600, 0)
         return outcome, gh
 
