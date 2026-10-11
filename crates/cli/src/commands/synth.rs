@@ -203,10 +203,20 @@ pub(crate) fn bake(project_dir: &Path, only: Option<&str>, less: &Less) -> Resul
     Ok(())
 }
 
-/// Parses a recipe and says what it is, without rendering it.
+/// Parses a recipe, or a bare patch file a song names, and says what it is,
+/// without rendering it.
 pub(crate) fn check(recipe: &Path) -> Result<()> {
     let json =
         std::fs::read_to_string(recipe).with_context(|| format!("reading {}", recipe.display()))?;
+    if synth::is_patch_file(&json) {
+        return match synth::check_patch(&json) {
+            Ok(()) => {
+                println!("{}: a patch file, and it parses", recipe.display());
+                Ok(())
+            }
+            Err(problem) => bail!("{}: read as a patch file — {problem}", recipe.display()),
+        };
+    }
     match synth::check(&json) {
         Ok(parsed) => {
             println!(

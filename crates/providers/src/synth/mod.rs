@@ -57,7 +57,7 @@ pub use scorsese_zimmer::{Excerpt, Span, Window};
 /// `cli` and `mcp` name it and parse it without depending on the synthesiser.
 pub use scorsese_zimmer::midi::Drum;
 
-pub use create::{check, create};
+pub use create::{check, check_patch, create, is_patch_file};
 pub use current::out_of_date;
 pub use error::SynthesisError;
 pub use midi::{FromMidi, MIDI_EXPORT_DIR, ToMidi, export_midi, import_midi};

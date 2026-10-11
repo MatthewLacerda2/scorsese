@@ -152,7 +152,7 @@ impl Tool for Check {
     }
 
     fn description(&self) -> &'static str {
-        "Check a recipe file that was changed outside synth_write — edited with \
+        "Check a recipe or patch file that was changed outside synth_write — edited with \
          your own file tools, or copied in — and say what it is, without \
          rendering it. Not needed before synth_write or after synth_new or \
          synth_set: those parse what they write and refuse what is not a \
@@ -175,6 +175,11 @@ impl Tool for Check {
         let arguments: RecipeArguments = args::parse(arguments)?;
         let (file, relative) = recipe_path(arguments.project.dir(), &arguments.recipe)?;
         let json = read(&file)?;
+        if synth::is_patch_file(&json) {
+            return synth::check_patch(&json)
+                .map(|()| format!("{relative}: a patch file, and it parses").into())
+                .map_err(|problem| format!("{relative}: read as a patch file — {problem}"));
+        }
         match synth::check(&json) {
             Ok(parsed) => {
                 Ok(format!("{relative}: a {} recipe, and it parses", parsed.kind()).into())
@@ -193,9 +198,10 @@ impl Tool for Read {
     }
 
     fn description(&self) -> &'static str {
-        "Read a recipe file as it is on disk. Pair with synth_write to change a \
-         sound: read it, change it, write it back, bake. The recipe format is \
-         documented in `guide recipes`."
+        "Read a recipe file as it is on disk — a recipe, or a bare patch file a \
+         song names by path. Pair with synth_write to change a sound: read it, \
+         change it, write it back, bake. The recipe format is documented in \
+         `guide recipes`."
     }
 
     fn writes(&self) -> bool {
@@ -226,7 +232,8 @@ struct WriteArguments {
     project: ProjectDir,
     #[schemars(description = RECIPE)]
     recipe: Name,
-    /// The complete recipe JSON to write. Not a patch — whatever is here
+    /// The complete JSON to write — a recipe, or a bare patch file (no
+    /// `recipe` tag) for songs to name by path. Not a diff: whatever is here
     /// replaces the file.
     document: String,
 }
@@ -241,7 +248,10 @@ impl Tool for Write {
     fn description(&self) -> &'static str {
         "Replace a recipe file with the document given. Parsed before it is \
          written — a document that is not a recipe is refused and the file on \
-         disk is left as it was. Writing a recipe makes its asset stale by \
+         disk is left as it was. A document with no `recipe` tag is a bare \
+         patch file, the instrument several songs share by naming its path \
+         (`\"patch\": \"recipes/bass.json\"`): it is checked the way a song \
+         that plays it checks it, and every song naming it re-bakes. Writing a recipe makes its asset stale by \
          arithmetic: the bake is named for the recipe's hash, so the next \
          synth_bake redoes it and nothing has to be marked. The synthesiser's \
          own version is in that name too, so a bake never outlives the code \
@@ -274,17 +284,30 @@ impl Tool for Write {
         // validates: a recipe that is not a recipe makes every later bake fail
         // with a message about a file nobody remembers editing.
         //
+        // A document with no `recipe` tag is a bare patch file, the kind a
+        // song names by path (#1119): held to the rules a song holds it to
+        // when it plays it, and written as given.
+        if synth::is_patch_file(document) {
+            synth::check_patch(document).map_err(|problem| {
+                format!(
+                    "refused, nothing written — {relative} has no `recipe` tag, so it \
+                     was read as a patch file, and it is not one: {problem}. A recipe \
+                     says `\"recipe\": \"song\"` or `\"recipe\": \"patch\"`."
+                )
+            })?;
+            put(&file, &relative, document)?;
+            return Ok(format!(
+                "{relative} written — a patch file. Every song that names it is stale \
+                 now; synth_bake redoes them."
+            )
+            .into());
+        }
         // A `kit:` name is copied in first, because the copy is what gets
         // written: the document on disk never depends on the library.
         let expanded = library::expand(document).map_err(|problem| {
             format!("refused, nothing written — {relative} would not parse: {problem}")
         })?;
-        if let Some(parent) = file.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|error| format!("creating {}: {error}", parent.display()))?;
-        }
-        scorsese_core::write::atomically(&file, &expanded.json)
-            .map_err(|error| format!("writing {relative}: {error}"))?;
+        put(&file, &relative, &expanded.json)?;
         let copied = if expanded.copied.is_empty() {
             String::new()
         } else {
@@ -301,4 +324,15 @@ impl Tool for Write {
         )
         .into())
     }
+}
+
+/// Writes a document that has passed its check, creating `recipes/` if it is
+/// the first.
+fn put(file: &std::path::Path, relative: &str, json: &str) -> Result<(), String> {
+    if let Some(parent) = file.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|error| format!("creating {}: {error}", parent.display()))?;
+    }
+    scorsese_core::write::atomically(file, json)
+        .map_err(|error| format!("writing {relative}: {error}"))
 }

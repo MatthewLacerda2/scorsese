@@ -206,8 +206,9 @@ pub(crate) enum SynthAction {
         #[arg(long, value_name = "FILE")]
         out: Option<PathBuf>,
     },
-    /// Parse a recipe and report what it is, without rendering it — so a
-    /// malformed document costs milliseconds rather than a bake.
+    /// Parse a recipe, or a bare patch file a song names, and report what it
+    /// is, without rendering it — so a malformed document costs milliseconds
+    /// rather than a bake.
     Check {
         /// The recipe file to read.
         recipe: PathBuf,
