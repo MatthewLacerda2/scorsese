@@ -81,7 +81,8 @@ impl Tool for New {
          is going or what kind it is: the project then starts with a brief in \
          script.md (script_read). Either way, before editing anything, propose \
          the script to the person and agree it: scene by scene, each with its \
-         narration, what is on screen, and the music or sound."
+         narration, what is on screen, and the music or sound, plus a \
+         storyboard in words of every shot to be generated (guide prompts)."
     }
 
     fn costs(&self) -> Costs {
