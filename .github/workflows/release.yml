@@ -10,21 +10,24 @@ permissions:
 
 jobs:
   build:
-    name: Build CLI (${{ matrix.os }})
+    name: Build CLI and MCP server (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        # Linux runs on CI's own pinned image, so what a tag ships was built
+        # where `main` is tested. CI has no macOS or Windows job: those two
+        # binaries are built here and nowhere else.
         include:
-          - os: ubuntu-latest
-            artifact: scorsese-linux-x86_64
-            binary: scorsese
+          - os: ubuntu-24.04
+            suffix: linux-x86_64
+            exe: ""
           - os: macos-latest
-            artifact: scorsese-macos-arm64
-            binary: scorsese
+            suffix: macos-arm64
+            exe: ""
           - os: windows-latest
-            artifact: scorsese-windows-x86_64.exe
-            binary: scorsese.exe
+            suffix: windows-x86_64
+            exe: .exe
     steps:
       - uses: actions/checkout@v7
 
@@ -35,12 +38,17 @@ jobs:
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
+      # `--locked`, as in CI: a release builds the `Cargo.lock` `main` was
+      # tested with, never a fresh resolution of it.
       - name: Build
-        run: cargo build --release -p scorsese-cli
+        run: cargo build --release --locked -p scorsese-cli -p scorsese-mcp
 
-      - name: Stage artifact
+      - name: Stage artifacts
         shell: bash
-        run: cp "target/release/${{ matrix.binary }}" "${{ matrix.artifact }}"
+        run: |
+          for bin in scorsese scorsese-mcp; do
+            cp "target/release/$bin${{ matrix.exe }}" "$bin-${{ matrix.suffix }}${{ matrix.exe }}"
+          done
 
       - name: Attach to release
         env:
@@ -48,8 +56,11 @@ jobs:
         shell: bash
         run: |
           gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes 2>/dev/null || true
-          gh release upload "$GITHUB_REF_NAME" "${{ matrix.artifact }}" --clobber
+          gh release upload "$GITHUB_REF_NAME" \
+            "scorsese-${{ matrix.suffix }}${{ matrix.exe }}" \
+            "scorsese-mcp-${{ matrix.suffix }}${{ matrix.exe }}" --clobber
 
-  # Releases ship the headless CLI binary only. The desktop app (`app/`, egui,
-  # its own cargo workspace) is not released yet: whether to package it, and
-  # with ffmpeg bundled beside the binary or not, is the maintainer's call.
+  # Releases ship the headless binaries only: the CLI and the MCP server. The
+  # desktop app (`app/`, egui, its own cargo workspace) is not released yet:
+  # whether to package it, and with ffmpeg bundled beside the binary or not, is
+  # the maintainer's call.

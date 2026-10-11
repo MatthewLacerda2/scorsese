@@ -282,7 +282,7 @@ engine, depends on it too, so its public API is rusty's contract.
 - **The desktop app, CLI and MCP server**, built from source. The maintainer
   drives them every day through their own Claude CLI, at no API cost, and
   anyone else clones, installs ffmpeg and builds them — the supported path.
-  `release.yml` builds CLI binaries on a `v*` tag, but no tag has been pushed
+  `release.yml` builds the CLI and MCP server binaries on a `v*` tag, but no tag has been pushed
   and the app is not in it; releasing it is welcome, not required.
 
 ## How we work
