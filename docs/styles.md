@@ -76,6 +76,21 @@ with a `fit` to the clip that plays it, so it lasts exactly as long as the cut,
 and hold its bake report against the reference `guide references` gives for a
 groove under talk (*Billie Jean*).
 
+**What the Stories ad's score was.** *From the scorsese Stories ad
+(`scorsese-story-15s.scor`, 2026-10-10), 15 s upright, of the same kind
+except that the screen says the message in other words rather than captioning
+the voice.* 120 bpm in A♭ major, 30 beats for exactly 15 s, fitted to its clip
+with `stretch` and four sections anchored to the clips where the chat, the
+timeline, the second shot and the call to action start, so every cut is on a
+beat. The groove is full from frame 0 (kick, clap, syncopated bass, stabs, pad)
+with no intro, has a small drop on the call to action and ends on a held
+A♭(add9) on the last frame. Held against *Billie Jean*: 79/19/2 % low/mid/high,
+crest 12.5–13.4 dB (more squeezed than the record's ~15.5, on purpose for an
+ad), corr +0.87. Under a voice at about −18.7 LUFS the music sat at 0.25 (about
+9 dB below), rose to 0.5–0.6 in the pauses and to 0.9 after the last line. That
+curve was written by hand: with pauses of about 0.3 s between lines,
+`duck_music` made one dip from the first frame to the last line.
+
 ## Whiteboard: a board that draws itself
 
 *From a church video (`verdade-liberta.scor`, 2026-10-09), made in the manner
@@ -127,6 +142,21 @@ scene drawn, as the summary, held to the end of the clip.
 **Music under everything, ducked.** A recipe (`guide recipes`) fitted to the
 clip, ducked with `duck_music` against the narration as in a narrated ad.
 
+**What its score was.** The delivered cut is the second version
+(`verdade-liberta-v2.scor`, 2026-10-10): 76 bpm in D major, with piano, strings,
+cello, harp, celesta and flute in a room. It has seven sections, one per spoken
+line: the first starts with the cut and each of the others is anchored to its
+line's clip. It is fitted to its clip with `once`. The harmony follows the
+script: B minor when the listeners object, a lament bass and a slow low drum
+under the prison, up a tone to E major for the freedom line, ending on a held
+E(add9). None of the references is calm or church music, so it was held against
+the nearest, *Fuego, breaks*: crest 12–17, low 27–38 % (64 % in the prison, on
+purpose), and narrower than the reference (corr +0.8 against +0.2 to +0.5). It
+was ducked with `duck_music` at 0.4 against the narration, with the default
+attack and release. The pencil scratches sit on their own track at 0.16 and are
+never ducked. The first version's score was simpler: 72 bpm in D major, "light
+and low, just so there is no silence", stretched to the 65.74 s cut.
+
 ## Product tour: real app screens under an informative narration
 
 *From the Truss Cockpit video (`truss-cockpit-promo.scor`, 2026-10).*
@@ -161,3 +191,102 @@ explainer (*Billie Jean*), and ducked with `duck_music` as in a narrated ad.
 
 **Close on where to get it.** The product's name and where to find it, held
 long enough to read.
+
+## Technical explainer: a diagram that builds with the narration
+
+*From the hivemind explainer (`hivemind-explained.scor`, 2026-10-10, 16:9,
+198 s) and the Dataserver explainer (`dataserver-video.scor`, 2026-10-01).*
+
+**What it is.** A narrated explanation of how a piece of software works, drawn
+as one diagram whose parts keep their places from scene to scene while each
+mark arrives on the word that names it. A person asks for it as "explain how
+this works", "a video of the architecture". The hivemind cut is one transparent
+page per spoken line (`guide pages`), sharing one script and one stylesheet,
+on two scene tracks that alternate and crossfade over a single plain ground.
+The Dataserver cut was drawn in native shapes, which are frozen now: make the
+next one in pages.
+
+**Start without a score, or keep it far down.** The maintainer took the
+hivemind score out on review because it got in the way of hearing the
+narration, and that cut was delivered with no music. Dense technical
+narration is the case where a bed costs more than it gives. What was tried, for
+the next attempt: hivemind's was D minor, written at 98 bpm, 82 bars fitted to
+the clip with `stretch` and seven sections anchored to the scene pages, so the
+tempo moved between about 92 and 100. A drop-out bar landed on a laptop closing
+and a lift on its return. Held against *Billie Jean*: mean −16.2 dBFS, 82/16/2 %
+low/mid/high, corr +0.85, body crest 12–13 (the record's ~15.5). It sat at 0.5
+between lines and 0.2 under them, set by hand after `duck_music` at 0.28,
+because the bed at full level between lines made the render's limiter work
+7 dB. Dataserver's was 96 bpm in D minor (pad, sub, plucked arpeggio, bass, kick,
+hat) building from pad alone to the full groove and back. It was not fitted:
+its clip ends it at the cut, fading to silence over the last second. It was held
+flat at 0.24 under the whole narration, at 0.6 before the first line and after
+the last.
+
+## Teaser trailer: generated shots cut on a beat grid
+
+*From a teaser for a film that does not exist (`cyberpunk-2077-teaser.scor`,
+2026-10-10, 16:9, 64 s).*
+
+**What it is.** A trailer: generated shots, title cards and a score the whole
+cut is made to, with no narrator. The only spoken lines are the characters'
+own, generated with their shots. The timeline is 24 fps and the score 120 bpm,
+so a beat is exactly 12 frames and every cut is on one. The cards are pages
+sharing one glitch, and one character's face holds across shots by drawing a
+character sheet first, then first frames from it, then the shots from those
+frames (`guide prompts`).
+
+**The score is the cut's spine.** E minor at 120 bpm, 18 sections, four of them
+anchored to the cards (the first card, "this winter", the title, the date). It
+has no `fit`, because the cut was laid on the same grid. It has a braam on every
+card with a riser into it, a half-time beat in the second act, a four-on-the-floor
+montage, silence with a heartbeat under the lead's line, and the drop on the
+title. It was held against *Fuego* (a build to a payoff): 71/26/3 %
+low/mid/high, body crest 12–14 dB, and the first act came out narrow (corr about
+0.9). It plays at 0.85, and at 0.9 from the title on, with dips to 0.4, 0.6
+and 0.5 under the three spoken lines, written by hand because the lines are
+inside video clips and `duck_music` ducks only under audio tracks.
+
+## Animated short: a picture book with dialogue
+
+*From* Every Morning *(`every-morning.scor`, 2026-10-10, 16:9, 50 s), made
+without Veo.*
+
+**What it is.** A short story told by characters, with no narrator and no
+captions. Each shot is a painted background plate with the characters drawn on
+a green screen and keyed in with `chroma_key`, on layers that a camera moves at
+different depths. Every character has their own dialogue track, so lines can
+overlap.
+
+**The score follows the arc, a section a beat of the story.** 72 bpm, D major
+and B minor, nine sections anchored to the scene cuts and to two lines (the
+swell lands on the line that names the title, the first major chord on the
+turn). It is not fitted: it rings out after the last section. It opens on a
+music box alone, adds cello and pizzicato, swells onto the title line and leaves
+one violin note in the silence, goes silent while the clocks strike, and ends on
+the music box alone again. It was held against *Fuego, breaks*: crest 12–17 dB
+(ref 13–17.5), low 4–54 % (ref 9–39, high in the cello sections), and narrower
+than the reference (corr +0.6 to +0.87 against +0.2 to +0.5). It was ducked with
+`duck_music` against both dialogue tracks at 0.45, with a 0.25 s attack and a
+0.8 s release, and the dialogue clips play at 1.6.
+
+## Music-led promo: pages cut to the score, no voice
+
+*From the scorsese for teams promo (`scorsese-b2b-promo.scor`, 15 s, and
+`scorsese-b2b-promo-30s.scor` and `-mobile.scor`, 26 s in 16:9 and 9:16,
+2026-10-08).*
+
+**What it is.** A short promo with no narration: a few transparent scene pages
+over one continuous background page, so the cuts never show a seam, each cut
+on a downbeat or a bar line of the score. The music is the only sound, so it
+plays at full level and nothing ducks it.
+
+**The score is written to length.** 120 bpm in C major, with drums, bass, keys,
+pad, pluck, lead, crash, boom and risers. It is fitted to an exact length with
+`once` and `tail: exact` (15 s with a 1.5 s fade, 30 s with 2 s), and a pluck's
+filter sweeps open and shut across it. It goes from an intro, to drums and
+harmony on a hit, to a lift with the lead, a riser and a crash, to an outro. The
+15 s cut changes scene at 0, 3, 7 and 11 s. The 26 s cuts play the 30 s score in
+two clips with its 20–24 s breakdown left out, because the scene it scored was
+dropped, so the build ending at 20 s runs into the logo hit on a bar line. The
+9:16 cut also changes a benefit on two of the score's accents.
