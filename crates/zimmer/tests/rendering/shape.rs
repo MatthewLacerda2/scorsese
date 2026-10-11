@@ -71,13 +71,34 @@ fn a_note_with_no_length_is_refused_by_the_number_that_is_wrong() {
     ));
 }
 
-/// A typo in a duration should cost a bounded amount of memory, not an hour of
-/// audio — so an absurd length is clamped rather than refused or honoured.
+/// A typo in a duration should fail loudly rather than allocate for an hour of
+/// audio — and a note past the ceiling is refused, never cut off at it with a
+/// click (#1093). The tail counts: a 58 s drone through a reverb is longer
+/// than 58 s.
 #[test]
-fn an_absurd_duration_is_bounded_rather_than_unbounded() {
-    let long = render(&saw_patch(), 60.0, &opts(1e6));
-    assert!(long.len() <= samples(60.0), "clamped to the ceiling");
-    assert!(long.len() > samples(59.0), "and clamped *to* it, not below");
+fn a_note_past_the_ceiling_is_refused_tail_included() {
+    let too_long = refusal(&saw_patch(), 60.0, &opts(70.0));
+    assert!(
+        matches!(too_long, SynthError::NoteTooLong { at: None, held, limit, .. }
+            if held == 70.0 && limit == 60.0),
+        "{too_long:?}"
+    );
+    let mut drone = saw_patch();
+    drone.fx = vec![Fx::Reverb {
+        size: 0.9,
+        damp: 0.5,
+        mix: 0.4,
+    }];
+    let rings_past = refusal(&drone, 60.0, &opts(58.0));
+    assert!(
+        matches!(rings_past, SynthError::NoteTooLong { tail, .. } if tail > 2.0),
+        "{rings_past:?}"
+    );
+    assert!(
+        rings_past.to_string().contains("at most 60 s"),
+        "{rings_past}"
+    );
+    assert!(render(&saw_patch(), 60.0, &opts(30.0)).len() >= samples(30.0));
 }
 
 #[test]

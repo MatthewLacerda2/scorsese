@@ -189,6 +189,27 @@ pub enum SynthError {
         duration: f32,
     },
 
+    /// A note that would sound for longer than one note may render to —
+    /// [`NoteTooLong::limit`](SynthError::NoteTooLong), a guard against a typo
+    /// in a length rather than a musical limit. Refused rather than cut off,
+    /// because a note cut off at the guard is a click at sixty seconds that
+    /// nobody hears until the bake is played.
+    ///
+    /// Counted with its tail — the amp's release and the fx chain's ring-out —
+    /// because the buffer is: a 58 s drone through a 2.4 s reverb is a note
+    /// 60.4 s long.
+    NoteTooLong {
+        /// Where a song writes the note; `None` for a one-shot, whose recipe
+        /// is the one note.
+        at: Option<NoteAt>,
+        /// How long it is held, in seconds.
+        held: f32,
+        /// How long it rings on after that, in seconds.
+        tail: f32,
+        /// The most it may sound for, in seconds.
+        limit: f32,
+    },
+
     /// A note name with nothing in it.
     EmptyNoteName,
 
@@ -708,6 +729,40 @@ pub enum SynthError {
         /// What the resolver said about it.
         reason: String,
     },
+}
+
+/// Where a song writes a note, for a refusal that is only found once the
+/// note is played: the pattern, the track and where in the pattern it starts.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NoteAt {
+    /// The pattern holding the note.
+    pub pattern: String,
+    /// The track it is played on.
+    pub track: String,
+    /// Where in the pattern it starts, in beats.
+    pub start: f32,
+}
+
+impl SynthError {
+    /// This refusal, told where the song writes the note it is about — for
+    /// the one refusal of a note found only once it is played. Every other
+    /// refusal is handed back as it was.
+    pub(crate) fn at(self, note: NoteAt) -> Self {
+        match self {
+            Self::NoteTooLong {
+                at: None,
+                held,
+                tail,
+                limit,
+            } => Self::NoteTooLong {
+                at: Some(note),
+                held,
+                tail,
+                limit,
+            },
+            other => other,
+        }
+    }
 }
 
 impl std::error::Error for SynthError {}

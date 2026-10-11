@@ -87,7 +87,7 @@ use super::mix::Mix;
 use super::shape::{limit, plan, shape};
 use super::{Articulation, Note, PatchRef, Song, sections};
 use crate::core::{self, RATE};
-use crate::error::SynthError;
+use crate::error::{NoteAt, SynthError};
 use crate::hash::hash3;
 use crate::level::{Cut, Layer};
 use crate::note::{Glide, NoteOpts};
@@ -396,7 +396,16 @@ pub(crate) fn mix_song(
                     return Ok(None);
                 }
                 let instrument = tuned(&patches[track], riding[track].cutoff, beat_at);
-                let rendered = core::render_note(&instrument, pitch, &opts)?;
+                // A note too long to render is only found here, where its
+                // gate is known in seconds; the refusal is told where the song
+                // writes it, since "a note" is no help in a piece of hundreds.
+                let rendered = core::render_note(&instrument, pitch, &opts).map_err(|error| {
+                    error.at(NoteAt {
+                        pattern: layer.pattern().to_owned(),
+                        track: note.track.clone(),
+                        start: note.start,
+                    })
+                })?;
                 // Added to the track's own bus rather than straight to the master:
                 // where a note lands is timing, which bus it lands on is routing,
                 // and the two answer to different fields.

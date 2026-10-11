@@ -11,7 +11,7 @@
 
 use std::path::Path;
 
-use scorsese_render::{AudioCodec, Container, FormatError, OutputFormat, VideoCodec};
+use scorsese_render::{AudioCodec, Container, FormatError, OutputFormat, SampleRate, VideoCodec};
 
 /// The file the issue was written about: an ASF carrying H.264, handed back
 /// after a full encode as though it were a Windows Media file.
@@ -135,4 +135,26 @@ fn a_sound_container_carries_only_its_own_codec() {
     assert!(OutputFormat::new(Container::Mp3, None, Some(AudioCodec::Aac)).is_err());
     assert!(OutputFormat::new(Container::Wav, None, Some(AudioCodec::Mp3)).is_err());
     assert!(OutputFormat::new(Container::Mp4, None, Some(AudioCodec::Mp3)).is_err());
+}
+
+/// `wmav2` names no rates for ffmpeg to resample to and refuses anything over
+/// 48 kHz itself, after the whole mix (#1093): refused here, where nothing has
+/// been spent, and only for the codec that has the limit.
+#[test]
+fn a_wmv_is_refused_a_rate_its_encoder_will_not_take() {
+    let wmv = OutputFormat::defaults_for(Container::Wmv);
+    let refused = wmv.sample_rate(SampleRate::new(96_000).unwrap());
+    assert_eq!(
+        refused,
+        Err(FormatError::SampleRateTooHigh {
+            audio: AudioCodec::Wmav2,
+            rate: 96_000,
+            limit: 48_000,
+        })
+    );
+    let said = refused.unwrap_err().to_string();
+    assert!(said.contains("wmav2") && said.contains("48000"), "{said}");
+    assert_eq!(wmv.sample_rate(SampleRate::DEFAULT), Ok(()));
+    let mp4 = OutputFormat::default();
+    assert_eq!(mp4.sample_rate(SampleRate::new(96_000).unwrap()), Ok(()));
 }

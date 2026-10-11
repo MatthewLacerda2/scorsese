@@ -94,6 +94,9 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
             format.picture_setting(setting)?;
         }
     }
+    // And the sound's one limit of the same kind: a rate the encoder will
+    // not take, which ffmpeg would only say after the whole mix.
+    format.sample_rate(options.sample_rate)?;
 
     let project = Project::load(project_dir)
         .with_context(|| format!("opening the project in {}", project_dir.display()))?;

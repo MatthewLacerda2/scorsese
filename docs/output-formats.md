@@ -176,6 +176,17 @@ That is structural rather than a check somebody has to remember to run. A
 constructed around a combination we do not write — so a combination that would
 produce a file nobody wants has no way to reach an encoder.
 
+A sample rate the audio encoder will not take is refused at the same moment.
+`aac` and `mp3` name the rates they take, and ffmpeg resamples a mix to one of
+them on its own; `wmav2` names none and refuses anything over 48 kHz itself,
+after the whole soundtrack has been mixed. So that one limit is said up front
+(`AudioCodec::max_sample_rate`, checked by `OutputFormat::sample_rate`):
+
+```
+$ scorsese render --out cut.wmv --sample-rate 96000
+error: wmav2 takes at most 48000 Hz, so a 96000 Hz sample rate cannot be encoded with it — ask for 48000 Hz or less, or another audio codec
+```
+
 ## A lossy codec gets room to overshoot
 
 `aac`, `wmav2` and `mp3` are **lossy**: they keep what they can afford of the

@@ -10,11 +10,13 @@
 //! compile, and the error names it.
 //!
 //! **One small group is worded in [`length`]**: the refusals of `fit`,
-//! `fade`, `tail` and `anchors`, split off when this file reached the size gate. The
+//! `fade`, `tail` and `anchors`, split off when this file reached the size
+//! gate, and the two about how long a single note lasts, which joined them
+//! for the same reason. The
 //! match here still names each of them, in the one arm that hands them over,
 //! so a new variant still does not compile until it has a home. What the
 //! compiler cannot check is that `length`'s match has an arm for every name
-//! in that list — which is why the list is seven names long and the words sit
+//! in that list — which is why the list is nine names long and the words sit
 //! right beside it, rather than a whole group of thirty being moved.
 
 mod length;
@@ -98,10 +100,8 @@ impl SynthError {
             // ────────────────────────────────────────────────────────────────────
             // A note as it is written: how long it lasts, and what it is called.
             // ────────────────────────────────────────────────────────────────────
-            Self::BadDuration { duration, .. } => write!(
-                f,
-                "note: `duration` must be positive seconds, got {duration}"
-            ),
+            // How long a note lasts is worded with the other lengths, in
+            // `length`, and handed over in its one arm below.
             Self::EmptyNoteName => write!(f, "empty note name"),
             Self::BadNoteLetter { name, letter, .. } => {
                 write!(f, "note `{name}`: expected a letter A–G, got `{letter}`")
@@ -318,9 +318,12 @@ impl SynthError {
                 f,
                 "song: automation of `cutoff` on track `{track}`, whose patch has no filter"
             ),
-            // The length and level fields — `fit`, `fade` and `tail` — have
-            // their words in `length`, the one group spelled out of this match.
-            Self::BadFitSeconds { .. }
+            // The length and level fields — `fit`, `fade` and `tail` — and a
+            // note's own length have their words in `length`, the one group
+            // spelled out of this match.
+            Self::BadDuration { .. }
+            | Self::NoteTooLong { .. }
+            | Self::BadFitSeconds { .. }
             | Self::FitLength { .. }
             | Self::BadAnchor { .. }
             | Self::BadFade { .. }
