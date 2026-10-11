@@ -60,6 +60,25 @@ fn frames(seconds: f64, fps: f64) -> Frames {
     Frames(((seconds * fps).round() as u64).max(1))
 }
 
+/// How many frames a clip covers from `start` for `seconds`, found by putting
+/// its **end** on the grid rather than its length.
+///
+/// Rounding the start and the length separately can land a clip's end a frame
+/// past where rounding its end would have put it — so two clips placed back to
+/// back on the same boundary, one ending where the next begins, overlapped by
+/// a frame and the second was refused. That is exactly how section bounds are
+/// used: a caption per section, each ending where the next one starts. With
+/// the end rounded the same way the next clip's start is, the same number of
+/// seconds always lands on the same frame, whichever side of it a clip is on.
+fn reaching(fps: Fps, start: f64, seconds: f64) -> Frames {
+    let length = frames(seconds, fps.as_f64());
+    if length == Frames::ZERO {
+        return length;
+    }
+    let (from, to) = (fps.frames(start), fps.frames(start + seconds));
+    Frames(to.get().saturating_sub(from.get()).max(1))
+}
+
 /// A time argument in seconds, refused when it is negative.
 ///
 /// Refused rather than clamped to zero, for the reason the whole family of

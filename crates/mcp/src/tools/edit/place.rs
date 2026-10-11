@@ -1,11 +1,11 @@
 //! Putting a clip on a track, spoken in seconds.
 
 use schemars::JsonSchema;
-use scorsese_core::{AssetId, ClipId, Fps, Frames, Placement, TrackId, placing};
+use scorsese_core::{AssetId, ClipId, Placement, TrackId, placing};
 use serde::Deserialize;
 use serde_json::Value;
 
-use super::{bounds, frames, seconds};
+use super::{bounds, reaching, seconds};
 use crate::tools::args::{self, Name, ProjectDir, Required};
 use crate::tools::inspect::load;
 use crate::tools::{Costs, Reply, Tool};
@@ -125,23 +125,4 @@ impl Tool for PlaceClip {
         )
         .into())
     }
-}
-
-/// How many frames a clip covers from `start` for `seconds`, found by putting
-/// its **end** on the grid rather than its length.
-///
-/// Rounding the start and the length separately can land a clip's end a frame
-/// past where rounding its end would have put it — so two clips placed back to
-/// back on the same boundary, one ending where the next begins, overlapped by
-/// a frame and the second was refused. That is exactly how section bounds are
-/// used: a caption per section, each ending where the next one starts. With
-/// the end rounded the same way the next clip's start is, the same number of
-/// seconds always lands on the same frame, whichever side of it a clip is on.
-fn reaching(fps: Fps, start: f64, seconds: f64) -> Frames {
-    let length = frames(seconds, fps.as_f64());
-    if length == Frames::ZERO {
-        return length;
-    }
-    let (from, to) = (fps.frames(start), fps.frames(start + seconds));
-    Frames(to.get().saturating_sub(from.get()).max(1))
 }

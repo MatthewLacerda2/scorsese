@@ -50,6 +50,34 @@ fn clips_placed_end_to_start_on_one_boundary_do_not_overlap() {
     std::fs::remove_dir_all(dir).ok();
 }
 
+/// A moved clip's end lands where `place_clip` would put it, so the next clip
+/// placed on that boundary tiles (#1113). At 30 fps, 0.25 s for 0.25 s ends
+/// on frame 15; rounding the length on its own ended it on 16, and a clip
+/// placed at 0.5 s was refused for overlapping.
+#[test]
+fn a_moved_clip_ends_on_the_frame_the_next_one_starts() {
+    let dir = project("move-tile");
+    for (tool, arguments) in [
+        (
+            "clip_move",
+            json!({ "clip": "v1c", "start_seconds": 0.25, "duration_seconds": 0.25 }),
+        ),
+        (
+            "place_clip",
+            json!({ "asset": "vo", "track": "vo", "start_seconds": 0.5, "duration_seconds": 0.5 }),
+        ),
+    ] {
+        let mut arguments = arguments;
+        arguments["project"] = json!(dir);
+        let (text, failed) = said(&call(tool, arguments));
+        assert!(!failed, "{tool}: {text}");
+    }
+    let project = read(&dir);
+    assert_eq!(shape(&project, "vo", 0), (8, 7));
+    assert_eq!(shape(&project, "vo", 1), (15, 15));
+    std::fs::remove_dir_all(dir).ok();
+}
+
 /// The refusal the tool exists for. Frames 0-600 of `v1` are taken, and a
 /// document with two clips over one instant of a track does not load.
 #[test]
