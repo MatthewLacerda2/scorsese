@@ -52,7 +52,8 @@ test("scrolling back plays it backwards: a time is a frame, not a step", () => {
 test("a figure counts up to its value, written in the visitor's language", () => {
   const { root, figure } = section();
   draw(root, 0, SCROLLED, "pt-BR");
-  expect(figure?.textContent).toBe("0,0");
+  // Padded to 21,6's columns with a figure space, so the figure keeps its width.
+  expect(figure?.textContent).toBe("\u20070,0");
   draw(root, 5, SCROLLED, "pt-BR");
   expect(figure?.textContent).toBe("21,6");
   draw(root, 5, SCROLLED, "en");

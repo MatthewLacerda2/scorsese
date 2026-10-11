@@ -284,12 +284,14 @@ Times are the page's seconds.
 | `kit.clamp(x, lo = 0, hi = 1)` | `x`, held inside `[lo, hi]` |
 | `kit.lerp(a, b, p)` | from `a` to `b` as `p` goes from 0 to 1 |
 | `kit.remap(x, a, b, c = 0, d = 1, ease)` | `x` from `[a, b]` onto `[c, d]`, held at the ends, eased on the way (linear by default) |
-| `kit.ease.linear`, `.in`, `.out`, `.inOut`, `.back` | easings, progress 0–1 to eased progress: cubic, and `back`, which overshoots and settles |
+| `kit.ease.linear`, `.in`, `.out`, `.inOut` | easings, progress 0–1 to eased progress, 0 at 0 and exactly 1 at 1. `in`, `out` and `inOut` are cubic: a little firmer than a native keyframe's quadratic `ease_in` / `ease_out` and smoothstep `ease_in_out` |
+| `kit.ease.back`, `.backIn`, `.backInOut`, `.spring` | native keyframes' overshooting curves, the same formulas: `back` (native `back_out`) arrives fast, **overshoots** by about a tenth of the move and settles back; `backIn` pulls back the other way by about a tenth first, then accelerates off, a wind-up; `backInOut` winds up, crosses quickly, **overshoots** and settles back; `spring` **overshoots** by about a sixth, swings slightly back under, and comes to rest on the mark. Their output goes past 0 and 1 on the way, which `remap`, `enter` and `exit` pass on |
+| `kit.ease.cubicBezier(x1, y1, x2, y2)` | an easing following the CSS `cubic-bezier()` curve with those handles, native's `{ "cubic_bezier": [...] }`, for the kit's own helpers: `kit.enter(t, at, 0.6, kit.ease.cubicBezier(0.2, 0.7, 0.2, 1))`. `x1` and `x2` outside 0–1 throw |
 | `kit.enter(t, at = 0, length = 0.6, ease = out)` | 0 before `at`, 1 once `length` seconds have passed |
 | `kit.exit(t, length = 0.3, ease = in)` | 1 until the clip's last `length` seconds, then down to 0 on its last frame, however long the clip is cut |
 | `kit.rise(element, t, at = 0, {length = 0.6, distance = 40, out = 0.3})` | fades `element` in as it rises `distance` px into place from `at`, and out with the clip's last `out` seconds (`out: 0` keeps it to the end) |
 | `kit.stagger(index, step = 0.15, first = 0)` | when the `index`th of a row enters: `first + index * step` |
-| `kit.count(t, at, length, to, {from = 0, decimals = 0, locale = "en-US"})` | the figure a count-up shows at `t`, grouped (`1,250,000`), eased out. Show it in `tabular-nums` |
+| `kit.count(t, at, length, to, {from = 0, decimals = 0, locale = "en-US", grouping = true, by = out, pad = true})` | the figure a count-up shows at `t`, grouped (`1,250,000`; `grouping: false` for a year), eased `by`. An overshooting easing shapes when it arrives, never what it says: no `151` on the way to `144`. Padded on the left to the widest figure it will show, with figure and punctuation spaces, so in `tabular-nums` a centred line holds still as it counts (`pad: false` answers the bare figure). Which faces have tabular figures is listed in `project-format.md`'s *number* section |
 | `kit.random(seed)` | a generator answering the same numbers in `[0, 1)` for the same seed, on every frame and every machine. Draw what a page needs once, up front |
 | `kit.svg(tag, attributes, parent)` | an SVG element with its attributes set, appended to `parent` when one is given |
 | `kit.draw(what, t, at = 0, {speed = 1500, within, fill = 0.4})` | draws the strokes of `what` (an SVG element, or a list of them) on in document order from `at`, at a constant `speed` in the drawing's own units a second, or all of them `within` that many seconds. A closed shape's fill fades in over `fill` seconds once its outline is done. Answers when the last mark is finished, so the next can start after it |
@@ -323,7 +325,10 @@ holds. Every one is a choice the page makes.
   second for every five words, between the end of the entrance and the start
   of the exit.
 - **Counting numbers keep their width**: `font-variant-numeric: tabular-nums`,
-  so the figure does not jitter as its digits change.
+  so the figure does not jitter as its digits change, in a face that has
+  tabular figures (`project-format.md`'s *Which faces have tabular figures*:
+  Playfair Display and Poppins do not). `kit.count` pads the figure so the line
+  does not grow either.
 - **Lines draw with `stroke-dashoffset`.** Give an SVG path `pathLength="1"`,
   set `stroke-dasharray: 1` and animate `stroke-dashoffset` from 1 to 0. For a
   drawing of many strokes that should look drawn by one hand, `kit.draw`
@@ -464,7 +469,10 @@ in, the name and role follow it, and all of it slides out at the end.
 
 A figure counting up, in tabular figures so it never jitters, and its label
 rising in under it. `kit.count` answers the figure for the time it is handed,
-never adding to the one before, so any frame stands on its own.
+never adding to the one before, so any frame stands on its own, and pads it to
+the width of `1,250,000` from the start, so the centred figure holds still
+rather than sliding left each time it gains a digit. It springs in: the
+figure arrives early and holds, and never shows more than it counts to.
 
 ```html page stat-counter
 <!doctype html>
@@ -491,7 +499,7 @@ never adding to the one before, so any frame stands on its own.
     const figure = document.getElementById("figure");
     const label = document.getElementById("label");
     kit.frame((t) => {
-      figure.textContent = kit.count(t, 0, 2.2, 1250000);
+      figure.textContent = kit.count(t, 0, 2.2, 1250000, { by: kit.ease.spring });
       kit.rise(label, t, 0.6, { distance: 20 });
     });
   </script>
@@ -805,7 +813,8 @@ function box(svg, x, y, width, height, label) {
 palette();
 ```
 
-The diagram's boxes pop in one after another, outlined, and each is filled
+The diagram's boxes spring in one after another (`kit.ease.spring`: past full
+size, a little back under, then still), outlined, and each is filled
 while its narration line plays (`scorsese.clips`, as *In step with the narration*
 above), fading over 0.3 s at either end. A seeded drift of dust behind them
 moves with the time, never by steps.
@@ -847,7 +856,7 @@ moves with the time, never by steps.
         const at = kit.stagger(i, 0.25);
         const lit = line ? kit.enter(t, line.start, 0.3) * kit.clamp((line.end - t) / 0.3) : 0;
         group.style.opacity = kit.enter(t, at, 0.3) * kit.exit(t, 0.6);
-        group.style.transform = `scale(${kit.lerp(0.8, 1, kit.enter(t, at, 0.6, kit.ease.back))})`;
+        group.style.transform = `scale(${kit.lerp(0.8, 1, kit.enter(t, at, 0.6, kit.ease.spring))})`;
         group.querySelector("rect").style.fillOpacity = lit;
       });
     });
@@ -857,7 +866,8 @@ moves with the time, never by steps.
 ```
 
 The close-up names nothing the diagram did not: the same palette, the same
-boxes, each filled to its share as it rises in.
+boxes, each filled to its share as it rises in. On its way out it winds up,
+swelling a touch before it shrinks away (`kit.ease.backIn`).
 
 ```html page close-up
 <!doctype html>
@@ -894,6 +904,7 @@ boxes, each filled to its share as it rises in.
     }));
     kit.frame((t) => {
       half.style.opacity = kit.exit(t);
+      half.style.transform = `scale(${kit.lerp(0.85, 1, kit.exit(t, 0.4, kit.ease.backIn))})`;
       kit.rise(title, t, 0, { out: 0 });
       shares.forEach(({ fill, share, group }, i) => {
         const at = kit.stagger(i, 0.2, 0.4);

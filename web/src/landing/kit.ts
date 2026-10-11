@@ -15,7 +15,17 @@ export interface Kit {
   clamp: (x: number, lo?: number, hi?: number) => number;
   lerp: (a: number, b: number, p: number) => number;
   remap: (x: number, a: number, b: number, c?: number, d?: number, by?: Ease) => number;
-  ease: { linear: Ease; in: Ease; out: Ease; inOut: Ease; back: Ease };
+  ease: {
+    linear: Ease;
+    in: Ease;
+    out: Ease;
+    inOut: Ease;
+    back: Ease;
+    backIn: Ease;
+    backInOut: Ease;
+    spring: Ease;
+    cubicBezier: (x1: number, y1: number, x2: number, y2: number) => Ease;
+  };
   enter: (t: number, at?: number, length?: number, by?: Ease) => number;
   rise: (
     element: HTMLElement,
@@ -29,7 +39,14 @@ export interface Kit {
     at: number,
     length: number,
     to: number,
-    options?: { from?: number; decimals?: number; locale?: string },
+    options?: {
+      from?: number;
+      decimals?: number;
+      locale?: string;
+      grouping?: boolean;
+      by?: Ease;
+      pad?: boolean;
+    },
   ) => string;
 }
 
