@@ -143,7 +143,9 @@ impl Tool for Generate {
             }
         }
 
-        let settings = Settings::load().unwrap_or_default();
+        // A settings file that is there and unreadable refuses to spend: read
+        // as the defaults, it would be a run with no ceiling at all (#1108).
+        let settings = Settings::load().map_err(|error| format!("nothing was sent: {error}"))?;
         let budget = Budget::from_settings(&settings, spent_so_far(&project, dir));
         let patience = arguments.wait_seconds.map_or(WAIT_FOR, Duration::from_secs);
 

@@ -19,6 +19,7 @@
 //! further down still, inside the pass, where no flag reaches it.
 
 mod lines;
+mod measure;
 mod shots;
 mod stills;
 
@@ -26,13 +27,12 @@ use std::path::Path;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use scorsese_core::{Project, Reprobe, probe_assets};
+use scorsese_core::{AssetId, Project};
 use scorsese_providers::credentials::{Budget, Settings};
 use scorsese_providers::image::Order;
 use scorsese_providers::prices::dollars;
 use scorsese_providers::video::{Outcome, Run, Stopped};
 use scorsese_providers::{image, speech, spending, video};
-use scorsese_render::Ffprobe;
 
 use super::confirm;
 
@@ -71,7 +71,9 @@ pub(crate) fn run(project_dir: &Path, asked: &Asked) -> Result<()> {
         return Ok(());
     }
 
-    let settings = Settings::load().unwrap_or_default();
+    // A settings file that is there and unreadable refuses to spend: read as
+    // the defaults, it would be a run with no ceiling at all (#1108).
+    let settings = Settings::load().context("nothing was sent")?;
     let budget = Budget::from_settings(&settings, spent_so_far(&project, project_dir));
 
     // The document is saved whatever happens, and that is not tidiness: a
@@ -84,39 +86,44 @@ pub(crate) fn run(project_dir: &Path, asked: &Asked) -> Result<()> {
     project
         .save(project_dir)
         .with_context(|| format!("saving {}", project_dir.display()))?;
+    // What landed is measured even when the run stopped after it: a line
+    // that came back shorter than its clip leaves a project nothing can open
+    // until its clip is fitted (#1114).
+    let landed = landed(&done.shots.outcomes, &done.lines);
+    let measured = if !landed.is_empty() || done.drew() {
+        measure::measure(&mut project, project_dir, &landed)
+    } else {
+        Ok(Vec::new())
+    };
     // A run that stopped after spending says what it spent before it says
     // why it stopped: the error alone reads as nothing having happened (#1057).
-    if let Err(error) = outcome {
-        if !done.is_empty() {
-            report(&done, project_dir);
-        }
-        return Err(error);
+    if !done.is_empty() || outcome.is_ok() {
+        report(&done, project_dir);
     }
-
-    if landed(&done.shots.outcomes, &done.lines) || done.drew() {
-        measure(&mut project, project_dir)?;
+    if let Ok(shortened) = &measured {
+        measure::report(shortened);
     }
-    report(&done, project_dir);
-    Ok(())
+    outcome?;
+    measured.map(drop)
 }
 
 /// What became of this run's narration.
-type Spoken = [(scorsese_core::AssetId, scorsese_providers::speech::Outcome)];
+type Spoken = [(AssetId, speech::Outcome)];
 
-/// Whether anything arrived on disk that nothing has measured yet.
+/// What arrived on disk with a length nothing has measured yet.
 ///
 /// A cache hit is not one of them: its file was already there, and whatever ran
 /// when it first landed has had every chance to look at it.
-fn landed(shots: &[(scorsese_core::AssetId, Outcome)], lines: &Spoken) -> bool {
-    shots
+fn landed(shots: &[(AssetId, Outcome)], lines: &Spoken) -> Vec<AssetId> {
+    let shot = shots
         .iter()
-        .any(|(_, outcome)| matches!(outcome, Outcome::Generated { .. }))
-        || lines.iter().any(|(_, outcome)| {
-            matches!(
-                outcome,
-                scorsese_providers::speech::Outcome::Generated { .. }
-            )
-        })
+        .filter(|(_, outcome)| matches!(outcome, Outcome::Generated { .. }))
+        .map(|(id, _)| id);
+    let line = lines
+        .iter()
+        .filter(|(_, outcome)| matches!(outcome, speech::Outcome::Generated { .. }))
+        .map(|(id, _)| id);
+    shot.chain(line).cloned().collect()
 }
 
 /// What every pass did.
@@ -124,9 +131,9 @@ struct Done {
     /// The shots, and what they committed.
     shots: Run,
     /// The stills.
-    stills: Vec<(scorsese_core::AssetId, image::Outcome)>,
+    stills: Vec<(AssetId, image::Outcome)>,
     /// The narration.
-    lines: Vec<(scorsese_core::AssetId, speech::Outcome)>,
+    lines: Vec<(AssetId, speech::Outcome)>,
 }
 
 impl Done {
@@ -279,9 +286,12 @@ pub(crate) fn sweep(project_dir: &Path) -> Result<()> {
     // A shot collected here is a shot nothing has looked at, exactly as if the
     // run that submitted it had waited for it — and so is a still from its
     // batch.
-    if landed(&collected, &[]) || drawn.iter().any(|(_, outcome)| outcome.landed()) {
-        measure(&mut project, project_dir)?;
-    }
+    let landed = landed(&collected, &[]);
+    let shortened = if !landed.is_empty() || drawn.iter().any(|(_, outcome)| outcome.landed()) {
+        measure::measure(&mut project, project_dir, &landed)?
+    } else {
+        Vec::new()
+    };
     // A sweep spends nothing by construction, so its total is zero and saying
     // so is honest rather than a gap.
     shots::report(&Run {
@@ -289,30 +299,13 @@ pub(crate) fn sweep(project_dir: &Path) -> Result<()> {
         spent_cents: 0,
     });
     stills::report(&drawn);
+    measure::report(&shortened);
     println!();
     println!(
         "About {} spent on this run — nothing, because a sweep only collects.",
         dollars(0)
     );
     Ok(())
-}
-
-/// Measures what has just been generated.
-///
-/// **A generation has no measured shape until something looks**, and neither
-/// kind of brief can supply one. How long a line takes depends on the words;
-/// whether Veo put an engine note under a shot is not in the prompt either, and
-/// it routinely does. `scorsese-providers` can answer neither question — it has
-/// no decoder and must not grow one. The mix reads `duration_seconds` and
-/// `audio_channels`, so a generation nobody probed is a line the mix skips and
-/// a shot that plays silent. This is where that gap is closed, above both
-/// crates, which is where it belongs.
-fn measure(project: &mut Project, project_dir: &Path) -> Result<()> {
-    let probe = Ffprobe::discover().context("ffprobe is needed to measure what was generated")?;
-    probe_assets(project, project_dir, &probe, Reprobe::Skip);
-    project
-        .save(project_dir)
-        .with_context(|| format!("saving {}", project_dir.display()))
 }
 
 /// What a run would cost, without a key and without spending anything.

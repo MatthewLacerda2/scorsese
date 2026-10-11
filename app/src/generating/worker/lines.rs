@@ -35,11 +35,13 @@ pub(super) fn pass(
     generate(project, root, &provider, budget).map_err(|error| error.to_string())
 }
 
-/// Whether a line arrived on disk on this pass, and so has something to measure.
-pub(super) fn arrived(spoken: &[(AssetId, Outcome)]) -> bool {
+/// The lines that arrived on disk on this pass, and so have something to
+/// measure.
+pub(super) fn arrived(spoken: &[(AssetId, Outcome)]) -> impl Iterator<Item = &AssetId> {
     spoken
         .iter()
-        .any(|(_, outcome)| matches!(outcome, Outcome::Generated { .. }))
+        .filter(|(_, outcome)| matches!(outcome, Outcome::Generated { .. }))
+        .map(|(id, _)| id)
 }
 
 /// What this pass is calculated to have spent, in US cents.

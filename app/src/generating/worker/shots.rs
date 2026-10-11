@@ -49,15 +49,16 @@ pub(super) fn pass(
     }
 }
 
-/// Whether a shot arrived on disk on this pass, and so has something to
+/// The shots that arrived on disk on this pass, and so have something to
 /// measure.
 ///
 /// A cache hit is not one: its file was already there, and whatever ran when it
 /// first landed has had every chance to look at it.
-pub(super) fn arrived(outcomes: &[(AssetId, Outcome)]) -> bool {
+pub(super) fn arrived(outcomes: &[(AssetId, Outcome)]) -> impl Iterator<Item = &AssetId> {
     outcomes
         .iter()
-        .any(|(_, outcome)| matches!(outcome, Outcome::Generated { .. }))
+        .filter(|(_, outcome)| matches!(outcome, Outcome::Generated { .. }))
+        .map(|(id, _)| id)
 }
 
 /// What became of the shots, as clauses for the one line the dialog shows.
