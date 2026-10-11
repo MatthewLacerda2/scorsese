@@ -111,3 +111,32 @@ fn every_kind_is_sent_in_order_and_the_kind_is_not_the_brief() {
     );
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// The quote said *not yet* for a still whose sheet was a sketch; drawing the
+/// sheet earlier in the same run does not make it quoted (#1058).
+#[test]
+fn a_still_drawn_after_its_sheet_in_the_run_still_waits_for_the_next() {
+    let (dir, mut project, id) = sketched("chained-after", "the character, running");
+    let sheet = Asset::sketch(
+        AssetId::new("sheet"),
+        AssetKind::GeneratedImage,
+        "a character sheet",
+    );
+    project.assets.insert(0, sheet);
+    naming(&mut project, &id, &["sheet"]);
+    let provider = Mock::willing();
+
+    let run = generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a run");
+    assert!(
+        matches!(run[0].1, Outcome::Generated { .. }),
+        "{:?}",
+        run[0].1
+    );
+    assert!(
+        matches!(run[1].1, Outcome::Incomplete { .. }),
+        "{:?}",
+        run[1].1
+    );
+    assert_eq!(provider.requests(), 1, "only the sheet was quoted");
+    std::fs::remove_dir_all(&dir).ok();
+}

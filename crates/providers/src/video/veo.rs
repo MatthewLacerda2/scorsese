@@ -9,6 +9,7 @@
 
 use base64::Engine;
 
+use crate::api::http::HttpError;
 use crate::api::veo::request::{Generate, Image, Instance, Parameters};
 use crate::api::veo::{Model, Veo};
 use crate::credentials::Secret;
@@ -39,7 +40,7 @@ impl VideoProvider for VeoProvider {
         let submitted = self
             .veo
             .submit(model_of(brief), &generate(brief))
-            .map_err(|error| ProviderError::new("Veo", error))?;
+            .map_err(refused)?;
         Ok(Ticket(submitted.name))
     }
 
@@ -69,6 +70,23 @@ impl VideoProvider for VeoProvider {
         self.veo
             .fetch(&ready.0)
             .map_err(|error| ProviderError::new("Veo", error))
+    }
+}
+
+/// A submission Veo would not take, in words.
+///
+/// **A 429 is the one refusal worth translating**: its body is a page of JSON
+/// that says, once read, that too many shots are in flight on this key or its
+/// quota is spent — and it is the error a run of several shots meets most
+/// (#1057). Everything else carries the vendor's own body, which is usually the
+/// sentence that says what to change.
+fn refused(error: HttpError) -> ProviderError {
+    match error {
+        HttpError::Refused { status: 429, .. } => ProviderError::new(
+            "Veo",
+            "at its limit — too many shots in flight on this key, or its quota spent (429)",
+        ),
+        other => ProviderError::new("Veo", other),
     }
 }
 

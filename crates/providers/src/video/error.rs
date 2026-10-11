@@ -17,7 +17,13 @@ use super::provider::ProviderError;
 /// than an error, because a run of twenty shots where one prompt is rejected
 /// should leave nineteen shots generated and say so. An error here stops
 /// everything, so the variants are the things that make the whole run
-/// impossible.
+/// impossible — and a run answers with one inside a [`Stopped`](super::Stopped),
+/// beside the shots it had already sent.
+///
+/// The brief variants (`NoPrompt`, `NoSuchStill`, `StillNotGenerated`…) are
+/// the exception: they are what [`Brief::of`](super::Brief::of) says, and a run
+/// reports them as that one shot's [`Outcome::Unready`](super::Outcome::Unready)
+/// rather than stopping on them (#1057).
 #[derive(Debug, thiserror::Error)]
 pub enum GenerationError {
     /// No key for the provider.

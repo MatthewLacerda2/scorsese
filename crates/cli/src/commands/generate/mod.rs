@@ -30,7 +30,7 @@ use scorsese_core::{Project, Reprobe, probe_assets};
 use scorsese_providers::credentials::{Budget, Settings};
 use scorsese_providers::image::Order;
 use scorsese_providers::prices::dollars;
-use scorsese_providers::video::{Outcome, Run};
+use scorsese_providers::video::{Outcome, Run, Stopped};
 use scorsese_providers::{image, speech, spending, video};
 use scorsese_render::Ffprobe;
 
@@ -84,7 +84,14 @@ pub(crate) fn run(project_dir: &Path, asked: &Asked) -> Result<()> {
     project
         .save(project_dir)
         .with_context(|| format!("saving {}", project_dir.display()))?;
-    outcome?;
+    // A run that stopped after spending says what it spent before it says
+    // why it stopped: the error alone reads as nothing having happened (#1057).
+    if let Err(error) = outcome {
+        if !done.is_empty() {
+            report(&done, project_dir);
+        }
+        return Err(error);
+    }
 
     if landed(&done.shots.outcomes, &done.lines) || done.drew() {
         measure(&mut project, project_dir)?;
@@ -123,6 +130,11 @@ struct Done {
 }
 
 impl Done {
+    /// Whether no pass did anything at all.
+    fn is_empty(&self) -> bool {
+        self.shots.outcomes.is_empty() && self.stills.is_empty() && self.lines.is_empty()
+    }
+
     /// Whether a still landed on disk that nothing has measured yet.
     fn drew(&self) -> bool {
         self.stills.iter().any(|(_, outcome)| outcome.landed())
@@ -157,7 +169,16 @@ fn passes(
     if video::pending(project, project_dir) {
         match shots::pass(project, project_dir, budget, patience) {
             Ok(run) => done.shots = run,
-            Err(error) => return (done, Err(error)),
+            // A run that stopped part-way carries the shots it sent, and says
+            // in words how many went and how many did not.
+            Err(error) => {
+                if let Some(stopped) = error.downcast_ref::<Stopped>() {
+                    done.shots = stopped.run.clone();
+                    let says = stopped.says();
+                    return (done, Err(anyhow::anyhow!(says)));
+                }
+                return (done, Err(error));
+            }
         }
     }
     // The ceiling carries across: what one pass committed is already spent as
@@ -344,7 +365,7 @@ fn spent_so_far(project: &Project, root: &Path) -> u64 {
 
 /// Every brief's line, then the one total that spans every provider.
 fn report(done: &Done, project_dir: &Path) {
-    if done.shots.outcomes.is_empty() && done.stills.is_empty() && done.lines.is_empty() {
+    if done.is_empty() {
         println!("No generated assets in this project.");
         return;
     }

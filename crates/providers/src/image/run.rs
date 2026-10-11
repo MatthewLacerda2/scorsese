@@ -24,16 +24,26 @@ use super::{Brief, ImageError, ImageProvider, Outcome, collect};
 /// Whatever is waiting in a batch is collected first, and a still the
 /// collection touched is not drawn again on the same run, even one whose batch
 /// failed: the quote this run was agreed on priced it at nothing.
+///
+/// **A still that was not ready when the run began is not drawn on it**, even
+/// once its reference lands earlier in the same run: the quote said *not yet*,
+/// and a confirmed run spends on exactly what was quoted (#1058). It is drawn
+/// on the next call, after a quote that prices it.
 pub fn generate(
     project: &mut Project,
     root: &Path,
     provider: &dyn ImageProvider,
     budget: Budget,
 ) -> Result<Vec<(AssetId, Outcome)>, ImageError> {
+    let unready = unready(project, root);
     let mut done = collect(project, root, provider)?;
     let mut spent = 0;
     for id in still_ids(project) {
         if done.iter().any(|(handled, _)| handled == &id) {
+            continue;
+        }
+        if let Some((_, why)) = unready.iter().find(|(waiting, _)| waiting == &id) {
+            done.push((id, Outcome::Incomplete { why: why.clone() }));
             continue;
         }
         let outcome = one(project, root, provider, budget.spend(spent), &id)?;
@@ -109,6 +119,20 @@ pub fn pending(project: &Project, root: &Path) -> bool {
         .any(|asset| {
             asset.operation.is_some() || !matches!(plan(project, root, asset), Plan::Realized(_))
         })
+}
+
+/// Every still that cannot be drawn yet, and why — read **before** a run
+/// touches anything, because that is what the quote saw.
+pub(super) fn unready(project: &Project, root: &Path) -> Vec<(AssetId, String)> {
+    project
+        .assets
+        .iter()
+        .filter(|asset| asset.kind == AssetKind::GeneratedImage)
+        .filter_map(|asset| match plan(project, root, asset) {
+            Plan::Unready(why) => Some((asset.id.clone(), why)),
+            _ => None,
+        })
+        .collect()
 }
 
 /// What drawing `brief` is expected to cost — the one calculation the quote,
