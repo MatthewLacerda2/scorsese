@@ -421,6 +421,7 @@ def progress(
     jobs: dict[int, list[dict]],
     waited: float,
     rerun: frozenset[int] = frozenset(),
+    skips: bool = False,
 ) -> tuple[str, list[str]]:
     """Whether to wait, merge, or hand this branch back — and why.
 
@@ -447,6 +448,10 @@ def progress(
     what a run against a draft says, and would have handed back a branch that
     was three minutes from green. Absence is eventually-consistent; a red run
     is not, which is why only red stops inside the grace.
+
+    `skips` is [`mergeable.skipped_by_ci`]: `ci.yml` makes no run for this
+    diff by design (#1135). Then there is no run to give a grace to, and what
+    is left is GitHub's mergeability, waited on only while it reads UNKNOWN.
     """
     sha = pull.get("headRefOid", "")
     short = sha[:7]
@@ -472,6 +477,12 @@ def progress(
             f"a {mergeable.WORKFLOW} run for {short} is"
             f" {live[0].get('status')}."
         ]
+
+    if not runs and skips:
+        ok, lines = mergeable.judge(pull, runs, jobs, skips)
+        if ok:
+            return GO, lines
+        return (WAIT if pull.get("mergeable") == mergeable.UNKNOWN else STOP), lines
 
     # Nothing has compiled this commit — either no run at all, or only runs
     # that skipped everything. Both are absences, and both get the grace.
@@ -732,7 +743,8 @@ def look(number: int) -> dict:
         "view",
         str(number),
         "--json",
-        "isDraft,headRefOid,headRefName,number,state,mergeable,mergeStateStatus,author",
+        "isDraft,headRefOid,headRefName,number,state,mergeable,mergeStateStatus,author,"
+        "baseRefName",
     )
 
 
@@ -940,6 +952,9 @@ def wait_for(
     """
     began = time.monotonic()
     rerun: set[int] = set()
+    # Asked once, the first time the head has no run: a Markdown-only diff
+    # stays one however often it is polled (#1135).
+    skips: bool | None = None
     while True:
         pull = look(number)
         waited = time.monotonic() - began
@@ -950,7 +965,13 @@ def wait_for(
             return state, lines
         if state == GO:
             runs, jobs = evidence(repo, sha)
-            state, lines = progress(pull, runs, jobs, waited, frozenset(rerun))
+            if not runs and skips is None:
+                skips = mergeable.skipped_by_ci(
+                    repo, number, pull.get("baseRefName")
+                )
+            state, lines = progress(
+                pull, runs, jobs, waited, frozenset(rerun), bool(skips)
+            )
             if state == RERUN:
                 run = never_judged(runs, jobs)[0]
                 state, lines = rerun_failed(
