@@ -30,6 +30,7 @@ mod partial;
 mod preview_pages;
 mod rerender;
 mod retiming;
+mod sharing;
 mod slugs;
 mod sources;
 mod still;
