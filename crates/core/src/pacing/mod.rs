@@ -46,9 +46,9 @@
 //!
 //! A keyframe's time counts from the start of its clip, so a clip whose
 //! duration scales has its hand-written points scaled by the same ratio — a
-//! fade at the end of a title is still at the end of it (see [`keys`]). A track
-//! a tool signed is left as it is and the tool named in [`Paced::signed`],
-//! because re-running the tool is the only repair that is actually right.
+//! fade at the end of a title is still at the end of it. A track a tool signed
+//! is left as it is and the tool named in [`Paced::signed`], because re-running
+//! the tool is the only repair that is actually right.
 //!
 //! Called through the module — `scorsese_core::pacing::scale` — rather than
 //! re-exported at the crate root, because a bare `scale` there would read as
