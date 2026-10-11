@@ -112,6 +112,13 @@ impl Brief {
     }
 
     /// The text [`Brief::digest`] hashes.
+    ///
+    /// **Nothing may change it for a brief that already exists**: the digest
+    /// names the file a paid-for shot is kept in, so a new line for every brief
+    /// would make every generated shot look unpaid and quote it again. A field
+    /// added to the request adds its line **only when it is set** — the test
+    /// below pins a brief's digest to hold that. What Veo documents and this
+    /// leaves out, and why, is beside [`Parameters`](crate::api::veo::request::Parameters).
     fn fingerprint(&self) -> String {
         let mut text = String::from("veo\n");
         text.push_str(&format!("model:{}\n", self.request.model.as_str()));
@@ -207,5 +214,28 @@ fn mime_of(path: &ProjectPath) -> &'static str {
         "image/webp"
     } else {
         "image/png"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A brief as one written before #1110, pinned by its digest. If this
+    /// moves, every shot already generated would be quoted and paid for again.
+    #[test]
+    fn an_existing_briefs_fingerprint_does_not_move() {
+        let brief = Brief {
+            id: AssetId::new("shot"),
+            prompt: String::from("a butterfly lands on a leaf"),
+            request: VideoRequest::default(),
+            first_image: None,
+            last_image: None,
+            reference_images: Vec::new(),
+        };
+        assert_eq!(
+            brief.digest(),
+            "c2ab690ac91c7657bc875836f4a9919be580102065626f40c6bb98fe597a9b7a"
+        );
     }
 }

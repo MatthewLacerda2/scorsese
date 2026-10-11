@@ -11,6 +11,7 @@ use base64::Engine;
 
 use crate::api::http::HttpError;
 use crate::api::veo::request::{Generate, Image, Instance, Parameters};
+use crate::api::veo::response::Operation;
 use crate::api::veo::{Model, Veo};
 use crate::credentials::Secret;
 
@@ -46,21 +47,7 @@ impl VideoProvider for VeoProvider {
 
     fn poll(&self, ticket: &Ticket) -> Result<Progress, ProviderError> {
         let operation = self.veo.poll(&ticket.0).map_err(unpollable)?;
-        if !operation.done {
-            return Ok(Progress::Waiting);
-        }
-        if let Some(failure) = operation.error {
-            return Ok(Progress::Failed(failure.message));
-        }
-        match operation.video_uri() {
-            Some(uri) => Ok(Progress::Ready(Ready(uri.to_owned()))),
-            // Done, no error, and nothing in it. Reported as a failure rather
-            // than as still waiting, because waiting for an operation the
-            // provider considers finished never ends.
-            None => Ok(Progress::Failed(String::from(
-                "the operation finished carrying neither a video nor an error",
-            ))),
-        }
+        Ok(progress(&operation))
     }
 
     fn fetch(&self, ready: &Ready) -> Result<Vec<u8>, ProviderError> {
@@ -68,6 +55,45 @@ impl VideoProvider for VeoProvider {
             .fetch(&ready.0)
             .map_err(|error| ProviderError::new("Veo", error))
     }
+}
+
+/// What a polled operation means for the shot.
+fn progress(operation: &Operation) -> Progress {
+    if !operation.done {
+        return Progress::Waiting;
+    }
+    if let Some(failure) = &operation.error {
+        return Progress::Failed(failure.message.clone());
+    }
+    if let Some(uri) = operation.video_uri() {
+        return Progress::Ready(Ready(uri.to_owned()));
+    }
+    match operation.blocked() {
+        Some(reasons) => Progress::Failed(blocked(reasons)),
+        // Done, no error, and nothing in it. Reported as a failure rather
+        // than as still waiting, because waiting for an operation the
+        // provider considers finished never ends.
+        None => Progress::Failed(String::from(
+            "the operation finished carrying neither a video nor an error",
+        )),
+    }
+}
+
+/// A shot Veo's filters kept back, in words an agent can act on (#1109): that
+/// it cost nothing, and Google's reason, which is what to rewrite.
+///
+/// "Not charged" is Google's own promise for a blocked shot, on its Veo page —
+/// and a refused shot is recorded as spending nothing here either, so the
+/// sentence and the ledger agree.
+pub(crate) fn blocked(reasons: &[String]) -> String {
+    let why = if reasons.is_empty() {
+        String::from("Google gave no reason")
+    } else {
+        reasons.join(" / ")
+    };
+    format!(
+        "blocked by Veo's safety filters, and not charged: {why} — rewrite the prompt, its audio cues included, and generate again"
+    )
 }
 
 /// A submission Veo would not take, in words.
@@ -158,11 +184,13 @@ fn aspect_of(brief: &Brief) -> &'static str {
     }
 }
 
+/// How a poll is read: which refusals lose the ticket, and a reply read as the
+/// shot's progress, from the fixtures the live check reads too.
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn polled(status: u16) -> ProviderError {
+    fn poll_refused(status: u16) -> ProviderError {
         unpollable(HttpError::Refused {
             url: String::from("https://veo/operations/1"),
             status,
@@ -172,10 +200,50 @@ mod tests {
 
     #[test]
     fn only_a_403_or_a_404_loses_a_ticket() {
-        assert!(polled(403).lost && polled(404).lost);
-        assert!(polled(404).message.contains("(404)"));
+        assert!(poll_refused(403).lost && poll_refused(404).lost);
+        assert!(poll_refused(404).message.contains("(404)"));
         for status in [400, 429, 500, 503] {
-            assert!(!polled(status).lost, "{status} is worth asking again");
+            assert!(!poll_refused(status).lost, "{status} is worth asking again");
         }
+    }
+
+    fn polled(fixture: &str) -> Progress {
+        let path = format!("{}/fixtures/veo/{fixture}", env!("CARGO_MANIFEST_DIR"));
+        let body = std::fs::read_to_string(&path).expect("the fixture");
+        progress(&serde_json::from_str(&body).expect("an operation"))
+    }
+
+    #[test]
+    fn a_blocked_shot_says_it_was_not_charged_and_why() {
+        let Progress::Failed(said) = polled("blocked.json") else {
+            panic!("a blocked shot is a refusal");
+        };
+        assert!(said.contains("not charged"), "{said}");
+        assert!(said.contains("issue with the audio"), "{said}");
+    }
+
+    #[test]
+    fn a_block_without_a_reason_still_says_so() {
+        let operation = serde_json::from_str(
+            r#"{"done": true, "response": {"generateVideoResponse": {"raiMediaFilteredCount": 1}}}"#,
+        )
+        .expect("an operation");
+        let Progress::Failed(said) = progress(&operation) else {
+            panic!("a blocked shot is a refusal");
+        };
+        assert!(
+            said.contains("not charged: Google gave no reason"),
+            "{said}"
+        );
+    }
+
+    #[test]
+    fn the_other_answers_read_as_before() {
+        assert_eq!(polled("running.json"), Progress::Waiting);
+        assert!(matches!(polled("done.json"), Progress::Ready(_)));
+        assert_eq!(
+            polled("failed.json"),
+            Progress::Failed(String::from("The prompt could not be submitted."))
+        );
     }
 }

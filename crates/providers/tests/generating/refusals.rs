@@ -35,6 +35,31 @@ fn a_refused_brief_goes_back_to_being_a_sketch() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+/// A shot Veo's filters block is one Google does not charge for (#1109), so
+/// nothing about it may count against the ceiling once it is known: no estimate
+/// on the asset, and no ticket a ledger of shots in flight would count (#1107).
+#[test]
+fn a_refused_shot_is_not_recorded_as_spent() {
+    let (dir, mut project, id) = sketched("blocked", "something the filters catch");
+    let provider = Mock::answering(
+        "shot",
+        vec![Answer::Failed(String::from("blocked, and not charged"))],
+    );
+
+    generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a run");
+    let second = generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a run");
+
+    assert_eq!(second[0].1.spent_cents(), 0);
+    assert_eq!(
+        scorsese_providers::spending::so_far(&project, &dir).total(),
+        0
+    );
+    let asset = project.asset(&id).expect("the asset");
+    assert_eq!(asset.estimated_cost_cents, None);
+    assert_eq!(asset.operation, None);
+    std::fs::remove_dir_all(&dir).ok();
+}
+
 /// The failure that actually happens at three in the morning: several shots,
 /// one of them refused. The others must be finished and said to be.
 #[test]
