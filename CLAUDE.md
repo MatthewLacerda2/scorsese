@@ -208,9 +208,10 @@ side effect of a feature PR.
   and gradients are frozen**: bugs are fixed, nothing is added. A new graphics
   capability (a text shadow, a new gradient, a title preset) goes to pages and
   their motion kit (#812), never to the native kinds. Nothing is removed yet:
-  pages cannot be captured on Windows (#797) or macOS (#844), and removing a
-  kind is a format change with a migration. Revisit once those two land and
-  the tool-call record shows no new native shapes being made.
+  pages cannot be captured on Windows yet (#797; macOS was #844, fixed by
+  #1147), and removing a kind is a format change with a migration. Revisit
+  once #797 lands and the tool-call record shows no new native shapes being
+  made.
 - **Audio is first-class.** Audio tracks with keyframable volume, and music
   ducks under narration (`core::dip`, behind `scorsese duck` and the
   `duck_music` tool).
