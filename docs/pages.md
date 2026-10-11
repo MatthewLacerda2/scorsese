@@ -24,7 +24,8 @@ page_read   page: "lower-third"             # before changing it
 
 From a shell it is `scorsese page lower-third lower-third.html` to write one
 (`-` reads standard input) and `scorsese page lower-third` to print it.
-`scorsese import page.html` copies an existing page in.
+`scorsese import page.html` copies an existing page in; a page already in
+`pages/` (written there by a script, say) is registered in place, not copied.
 
 ## The contract
 

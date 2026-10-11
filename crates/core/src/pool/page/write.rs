@@ -18,6 +18,7 @@ use crate::path::ProjectPath;
 use crate::project::{PAGES_DIR, Project};
 
 use super::super::naming::{asset_id_for, unique_file_name};
+use super::adopt::orphan_with;
 
 /// What [`write_page`] did.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,6 +71,8 @@ pub enum PageError {
 
 /// Writes `html` as the page called `name`: the existing `html` asset of that
 /// id, or — when nothing answers to it — a new one, its file under `pages/`.
+/// A new page whose `pages/<id>.html` holds this very document already, with
+/// no asset pointing at it, is registered on that file rather than copied.
 ///
 /// The caller saves the project; until it does, a new page is a file with no
 /// asset pointing at it, which is what collecting unused assets leaves behind
@@ -92,9 +95,16 @@ pub fn write_page(
         path: pages.clone(),
         source,
     })?;
-    let file_name = unique_file_name(&pages, Path::new(&format!("{id}.html")));
-    let file = pages.join(&file_name);
-    land(&file, html)?;
+    let own_name = format!("{id}.html");
+    // A file already holding exactly this page, and nobody's, is adopted
+    // rather than forked past (#1054); anything else there is suffixed past.
+    let file_name = if orphan_with(project, project_root, &own_name, html) {
+        own_name
+    } else {
+        let file_name = unique_file_name(&pages, Path::new(&own_name));
+        land(&pages.join(&file_name), html)?;
+        file_name
+    };
     let path = ProjectPath::new(format!("{PAGES_DIR}/{file_name}"));
     project
         .assets
