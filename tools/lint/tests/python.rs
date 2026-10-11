@@ -65,6 +65,11 @@ fn a_string_opened_after_code_is_data_to_its_close() {
     let text = "HELP = \"\"\"\n# usage\nmore\n\"\"\"\nx = 1\n";
     assert_eq!(count(text), 5);
     assert_eq!(count("X = \"\"\"a\"\"\"\n\"\"\"doc\"\"\"\n"), 1);
+    // And it does close: what follows is read as prose and code again.
+    assert_eq!(
+        count("X = \"\"\"\nfoo\n\"\"\"\n# why\n\"\"\"Doc.\"\"\"\nx = 1\n"),
+        4
+    );
 }
 
 #[test]
@@ -93,6 +98,7 @@ fn the_scan_walks_github_scripts_and_counts_python_as_python() {
     let report = check_dir(&root).expect("scan");
 
     assert_eq!(report.checked, 3);
+    assert!(!report.is_clean());
     let over: Vec<_> = report
         .violations
         .iter()

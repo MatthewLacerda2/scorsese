@@ -294,7 +294,7 @@ format: ## [gate] cargo fmt --check, workspace and tools/lint
 # The one test run left on plain `cargo test`, and deliberately. This is in
 # `pre-commit`, so putting it through nextest would mean a clone that has not
 # installed the runner yet cannot commit at all — and there is nothing to win:
-# five small test files, nothing for a scheduler to overlap.
+# six small test files, nothing for a scheduler to overlap.
 size: ## [gate] Source <= 300 lines of code, tests <= 150; blanks and comments free
 	@out=$$(cargo test $(LINT) --locked --quiet 2>&1) \
 		|| { printf '%s\n' "$$out" >&2; exit 1; }
@@ -358,12 +358,14 @@ test: ## [gate] The whole suite, golden renders and database included (needs ffm
 # has already counted the skip; this is what makes it a sentence.
 	@$(PIXEL_GATE_RUNS) || echo "test: $(PIXEL_GATE_SKIPPED)"
 
-# The two Python scripts render the coverage and mutation signals, and a signal
-# that dies rendering its own report reads as the tool being broken — which is
-# how a branch adding only tests used to be reported. They are a gate and not a
-# signal because what is checked here is ordinary correctness, and because they
-# cost a fraction of a second: stdlib `unittest`, no dependency to install.
-scripts: ## [gate] The signal renderers under .github/scripts
+# The Python under .github/scripts: the renderers of the coverage and mutation
+# signals, and the merge path (`make queue`, `make mergeable`). A signal that
+# dies rendering its own report reads as the tool being broken — which is how a
+# branch adding only tests used to be reported — and a queue that misjudges a
+# run merges what nothing compiled. They are a gate and not a signal because
+# what is checked here is ordinary correctness, and because they cost a
+# fraction of a second: stdlib `unittest`, no dependency to install.
+scripts: ## [gate] The scripts under .github/scripts: signal renderers and the merge path
 	python3 -m unittest discover --start-directory .github/scripts/tests --quiet
 
 # Both workspaces, and the second line is the whole point. `app/` is its own

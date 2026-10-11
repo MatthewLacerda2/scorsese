@@ -31,6 +31,10 @@ for `--issue-body` instead: the same report, wrapped as the body of the sweep's 
 followed by a catch-rate history that carries over from the body it is handed.
 A second renderer for the same data is how the two would drift.
 
+Three parts stand on their own and live in the `mutants_summary` package
+beside this file (#1136): `rows` renders one survivor, `shortfall` what a run
+that did not finish owes its reader, and `sweep` the issue body.
+
 The on-request workflow shards a large scope across several runners, and this
 renderer is deliberately unaware of that: `mutants-merge.py` puts the shards
 back together first, and what arrives here is the run they add up to. What the
@@ -55,6 +59,23 @@ import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+# The package beside this script, importable however the script was loaded —
+# `python3` puts this directory on the path, a sibling's `importlib` does not.
+HERE = str(Path(__file__).resolve().parent)
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+
+from mutants_summary.rows import row  # noqa: E402
+from mutants_summary.shortfall import shortfall  # noqa: E402
+# `mutants-collapsed.py` writes the same issue body, through these.
+from mutants_summary.sweep import (  # noqa: E402,F401
+    HISTORY_HEADING,
+    HISTORY_MARKER,
+    history_row,
+    previous_rows,
+    sweep_body,
+)
 
 # Above this many survivors in one file, the rows stop being a worklist: what a
 # reader learns from the fifteenth is what the first already told them, and the
@@ -259,93 +280,6 @@ def summary_line(file: str, survivors: int, counts: dict[str, int], silent: bool
     return f"- **`{file}`** — {survivors} of {total} mutations survived, {why}."
 
 
-# ---------------------------------------------------------------------------
-# One survivor, as a row that cannot be mistaken for its neighbour
-# ---------------------------------------------------------------------------
-#
-# A row used to say only `file:line` and what the code was replaced *with*,
-# and on a line holding several operators that is ambiguous. #596's report
-# listed `cpu.rs:152 demultiply — replaced with *` and `replaced with %`; the
-# follow-up read both as mutations of the division, and they were `+`→`*` at
-# column 52 and the `/` of `alpha / 2` at column 60 (#616). cargo-mutants had
-# recorded all of it — the column in the span, the original in the mutant's
-# `name` — and the rendering dropped it.
-#
-# The original is read from `name` because it is the only place cargo-mutants
-# 27.1.0 writes it: `file:line:column: replace / with % in demultiply`. The
-# location prefix and the function suffix are stripped by exact match against
-# fields the same record carries, never by a pattern that guesses where they
-# end, and anything whose shape is not recognised is printed as cargo-mutants
-# wrote it — a description in its own words is still unambiguous next to a
-# column.
-
-
-def where(mutant: dict) -> str:
-    """`file:line:column`, or `file:line` where no column was recorded."""
-    start = mutant["span"]["start"]
-    column = f":{start['column']}" if "column" in start else ""
-    return f"{mutant['file']}:{start['line']}{column}"
-
-
-def function_name(mutant: dict) -> str:
-    return (mutant.get("function") or {}).get("function_name", "")
-
-
-def described(mutant: dict) -> str | None:
-    """What cargo-mutants says it did, without the location and the function."""
-    name = mutant.get("name")
-    prefix = where(mutant) + ": "
-    if not name or not name.startswith(prefix):
-        return None
-    what = name[len(prefix) :]
-    suffix = f" in {function_name(mutant)}"
-    return what[: -len(suffix)] if function_name(mutant) and what.endswith(suffix) else what
-
-
-def code(text: str) -> str:
-    """`text` as a code span that survives a Markdown table cell.
-
-    A pipe ends the cell even inside backticks, and `||` is an operator
-    cargo-mutants mutates; GitHub reads `\\|` as a literal pipe in both places.
-    """
-    return "`" + text.replace("|", "\\|") + "`"
-
-
-def mutation(mutant: dict) -> str:
-    """The change, as `original → replacement` wherever that is its shape."""
-    new = mutant["replacement"]
-    what = described(mutant)
-    if what is None:
-        return f"replaced with {code(new)}"
-    if mutant.get("genre") == "FnValue":
-        return f"replace {code(function_name(mutant))} body with {code(new)}"
-    if what.startswith("replace ") and what.endswith(f" with {new}"):
-        original = what[len("replace ") : -len(f" with {new}")]
-        guard = "match guard "
-        if original.startswith(guard):
-            return f"match guard {code(original[len(guard):])} → {code(new)}"
-        return f"{code(original)} → {code(new)}"
-    if mutant.get("genre") == "UnaryOperator" and what.startswith("delete "):
-        return f"delete {code(what[len('delete ') :])}"
-    if what.startswith("delete match arm "):
-        return f"delete match arm {code(what[len('delete match arm ') :])}"
-    field = STRUCT_FIELD.match(what)
-    if field:
-        return f"delete field {code(field['field'])} from {code(field['struct'] + ' { … }')}"
-    return what.replace("|", "\\|")
-
-
-# `delete field media from struct Asset expression`: a field dropped from a
-# struct literal that has a `..base`, so the field falls back to the base's
-# value — a survivor means nothing told the two apart.
-STRUCT_FIELD = re.compile(r"^delete field (?P<field>\S+) from struct (?P<struct>\S+) expression$")
-
-
-def row(mutant: dict) -> str:
-    fn = code(function_name(mutant)) if function_name(mutant) else "—"
-    return f"| {code(where(mutant))} | {fn} | {mutation(mutant)} |"
-
-
 def section(
     mutants: list[dict],
     tally: dict[str, dict[str, int]],
@@ -392,83 +326,6 @@ FOOTER = (
 )
 
 
-
-# ---------------------------------------------------------------------------
-# When the report describes less than it was asked about
-# ---------------------------------------------------------------------------
-#
-# Both callers can hand over a run that did not cover its subject, and for the
-# same underlying reason: a clock ran out. The sweep meets it when a crate
-# outgrows the six-hour job limit; an on-request run meets it when a scope is
-# large enough that even sharded across several runners its mutants do not fit
-# in the time each shard is given (#399). One vocabulary for both, because a
-# reader of either has the same question — *what is this silent about?*
-#
-# The rule underneath is the one this repo applies to every signal: an absence
-# must never render as a clean bill of health. A partial run is worth having;
-# a partial run mistaken for a complete one is worse than no run at all.
-
-CUT_SHORT = (
-    "> **This run did not finish.** cargo-mutants recorded a start and no end,"
-    " so it was stopped rather than completed — a time budget, a cancelled job,"
-    " or the tool killed under it. What follows describes the mutants that"
-    " *did* run, and not the whole of what was in scope."
-)
-
-# The size of the silence, in the only unit that means anything: mutations that
-# were in scope and were never run. It is not the same claim as CUT_SHORT and
-# both can appear — that one says the run stopped, this one says how much of the
-# diff went unmeasured. Neither is a survivor and neither is a catch: what is
-# known about these mutations is nothing at all, which is exactly why the number
-# has to be printed rather than left to be inferred from a job that vanished.
-GAP = (
-    "> **{missing} of {in_scope} mutations in scope were not measured.**"
-    " The report below describes {measured}. Nothing is known about the rest —"
-    " they are neither caught nor survivors, and no absence of rows here says"
-    " anything about them."
-)
-
-
-def cut_short(data: dict) -> bool:
-    """Whether the run was stopped rather than finished.
-
-    cargo-mutants writes `outcomes.json` as it goes and stamps `end_time` only
-    on the way out, so a file with a start and no end is a run that was killed.
-    Its running totals are real — they are just totals for a fraction of the
-    subject. A run that recorded neither time is a fixture or an empty run, and
-    claiming *that* was truncated would be inventing a failure.
-
-    A sharded run inherits the same reading: `mutants-merge.py` gives the merged
-    document an end only when every expected shard reported one, so one shard
-    stopped by its budget makes the whole run read as stopped.
-    """
-    return bool(data.get("start_time")) and not data.get("end_time")
-
-
-def measured(data: dict) -> int:
-    """How many mutations this run actually reports an outcome for.
-
-    Counted from the outcomes themselves and not from `total_mutants`, which is
-    a statement about the work that was *planned*. The two differ for exactly
-    the run this matters on. The baseline is skipped the same way `mutant_rows`
-    skips it: its scenario is the string `"Baseline"` rather than a mutant, and
-    counting it would overstate a sharded run by one per shard.
-    """
-    return sum(
-        1 for outcome in data.get("outcomes", []) if isinstance(outcome.get("scenario"), dict)
-    )
-
-
-def shortfall(data: dict, in_scope: int | None) -> list[str]:
-    """The banners this run owes its reader, in the order they are read."""
-    said = [CUT_SHORT, ""] if cut_short(data) else []
-    if in_scope is not None:
-        done = measured(data)
-        if in_scope > done:
-            said += [GAP.format(missing=in_scope - done, in_scope=in_scope, measured=done), ""]
-    return said
-
-
 # What a run that had nothing to do leaves behind, expressed as the report it
 # would have written. cargo-mutants writes no `outcomes.json` *at all* when the
 # diff it was handed contains no mutable lines — it has nothing to record — and
@@ -487,96 +344,6 @@ def read(path: Path) -> dict:
     if not path.exists():
         return dict(NOTHING_TO_RUN)
     return json.loads(path.read_text())
-
-
-# ---------------------------------------------------------------------------
-# The sweep's issue body
-# ---------------------------------------------------------------------------
-#
-# A line is audited when somebody asks about it (#651). The
-# scheduled sweep audits the rest, one crate at a time, and reports into a
-# single issue it rewrites in place — a monthly pile of comments is a pile
-# nobody reads.
-#
-# What must *not* be rewritten in place is the number. One catch rate says
-# nothing; the question the sweep exists for is whether assertion health is
-# getting better or worse, and that needs a predecessor. So the report on top
-# is replaced every run and the table underneath only ever gains a row.
-
-SWEEP_MARKER = "<!-- mutation-sweep -->"
-
-# Everything below this line is history and survives the rewrite. It is a
-# marker rather than a heading because a heading is something a human might
-# reasonably rename, and renaming it would silently start the trend over.
-HISTORY_MARKER = "<!-- mutation-sweep:history -->"
-
-HISTORY_HEADING = [
-    "## Catch rate over time",
-    "",
-    "One row per sweep, newest first. A single catch rate is not a finding —"
-    " the shape of the column is.",
-    "",
-    "| Swept | Crate | Viable | Caught | Survived | Catch rate | Run |",
-    "| --- | --- | --- | --- | --- | --- | --- |",
-]
-
-# Two years and change of weekly rows. The cap exists because an issue body is
-# capped too (65 536 characters), and a trend that silently stopped updating
-# because the body got too long would be the worst of both.
-HISTORY_LIMIT = 120
-
-# A history row, recognised by the date it starts with. Deliberately not "any
-# table row": the heading and its separator are rewritten every run, and only
-# the data has to survive.
-HISTORY_ROW = re.compile(r"^\| \d{4}-\d{2}-\d{2} \|")
-
-def history_row(data: dict, subject: str, when: str, run_url: str) -> str:
-    """This run as the line it adds to the trend.
-
-    `viable` matches the headline's arithmetic — mutants that did not compile
-    say nothing about the tests and are left out of both halves. A timeout
-    counts as noticed for the same reason it does above: the tests can only
-    hang on code they run.
-    """
-    total, unviable = data["total_mutants"], data["unviable"]
-    noticed = data["caught"] + data["timeout"]
-    viable = total - unviable
-    rate = f"{100 * noticed / viable:.0f}%" if viable else "—"
-    counted = f"{viable} (cut short)" if cut_short(data) else str(viable)
-    run = f"[log]({run_url})" if run_url else "—"
-    return (
-        f"| {when} | `{subject}` | {counted} | {noticed} |"
-        f" {data['missed']} | {rate} | {run} |"
-    )
-
-
-def previous_rows(body: str) -> list[str]:
-    """The history already in the issue, oldest rows dropped past the cap."""
-    _, _, history = body.partition(HISTORY_MARKER)
-    return [line for line in history.splitlines() if HISTORY_ROW.match(line)][
-        : HISTORY_LIMIT - 1
-    ]
-
-
-def sweep_body(report: str, rows: list[str]) -> str:
-    """The whole issue body: the latest report, then every reading so far."""
-    return "\n".join(
-        [
-            SWEEP_MARKER,
-            "",
-            "*Written by `.github/workflows/mutation-sweep.yml`, which rewrites"
-            " this issue after every run. Edits above the history marker are"
-            " overwritten; the table below is never rewritten, only added to.*",
-            "",
-            report,
-            "",
-            HISTORY_MARKER,
-            "",
-            *HISTORY_HEADING,
-            *rows,
-            "",
-        ]
-    )
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
