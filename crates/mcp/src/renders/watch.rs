@@ -1,5 +1,12 @@
 //! Waiting on a render while the call that asked for it stays open — `render`
-//! with `wait` — and saying how far it has got as it goes.
+//! with `wait`, or `jobs` with `wait` on one already running in the background
+//! (#1056) — and saying how far it has got as it goes.
+//!
+//! The two differ in what cancelling the call means. A render waited on from
+//! the start belongs to its call, so cancelling the call stops it ([`watch`]).
+//! One started in the background was meant to outlive any call, so cancelling
+//! the wait only ends the wait, and the render goes on ([`await_end`]): `jobs`'
+//! `cancel` is how it is stopped.
 //!
 //! The saying is MCP's `notifications/progress`, sent only when the call
 //! carried a `progressToken`: a client that asks for them shows a bar with no
@@ -28,10 +35,42 @@ pub(crate) type Report<'a> = &'a mut Say<'a>;
 
 /// Waits for `job` to end, stopping it if `cancel` is tripped, and reports its
 /// progress to `report` on the way when there is somewhere to report it.
-pub(crate) fn watch(job: &Job, cancel: &Cancel, mut report: Option<&mut Say<'_>>) -> Outcome {
+pub(crate) fn watch(job: &Job, cancel: &Cancel, report: Option<&mut Say<'_>>) -> Outcome {
+    follow(job, cancel, report, Cancelled::Stop)
+        .unwrap_or_else(|| unreachable!("a stopped job is followed until it ends"))
+}
+
+/// Waits for `job` to end, reporting its progress as [`watch`] does, and
+/// gives up waiting — `None`, the render untouched — if `cancel` is tripped.
+pub(crate) fn await_end(
+    job: &Job,
+    cancel: &Cancel,
+    report: Option<&mut Say<'_>>,
+) -> Option<Outcome> {
+    follow(job, cancel, report, Cancelled::Leave)
+}
+
+/// What a tripped cancel does to the job being followed.
+#[derive(Clone, Copy, PartialEq)]
+enum Cancelled {
+    /// Stops it, and follows it on until it has.
+    Stop,
+    /// Leaves it running, and stops following it.
+    Leave,
+}
+
+fn follow(
+    job: &Job,
+    cancel: &Cancel,
+    mut report: Option<&mut Say<'_>>,
+    cancelled: Cancelled,
+) -> Option<Outcome> {
     let mut said: Option<(f64, Phase, Instant)> = None;
     loop {
         if cancel.is_cancelled() {
+            if cancelled == Cancelled::Leave {
+                return None;
+            }
             // The job's own cancel when the call's was handed to it; tripped
             // here too, so a job started under another still stops.
             job.cancel();
@@ -43,7 +82,7 @@ pub(crate) fn watch(job: &Job, cancel: &Cancel, mut report: Option<&mut Say<'_>>
             }
         }
         if let Some(outcome) = job.ended_within(TICK) {
-            return outcome;
+            return Some(outcome);
         }
     }
 }

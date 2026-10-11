@@ -26,7 +26,7 @@ use std::time::Duration;
 
 use scorsese_render::{Cancel, Progress, Reading};
 
-pub(crate) use watch::{Report, Say, watch};
+pub(crate) use watch::{Report, Say, await_end, watch};
 pub(crate) use words::{doing, line};
 
 /// What a render ends with: what it says about the file it wrote, or why

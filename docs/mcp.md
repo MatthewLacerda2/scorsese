@@ -1696,6 +1696,19 @@ call at all. They are throttled to a new phase, or half a second, whichever
 comes first; the number carries the phase's place as a hundredth (`50.03`) so it
 rises through a phase change at the same percentage, as the specification asks.
 
+**A render started without `wait` can be waited on later** (#1056): `jobs`
+with `job` and `wait: true` answers only once that job is done, failed or
+cancelled, with the line `jobs` would give then, and sends the same progress
+notifications on the way; a job that has already ended answers at once. It is
+for the moment an assistant has nothing left to do but wait for the file, so it
+never has to leave the tools to wait — on 2026-10-10 one improvised a shell
+loop that matched its own command line and sat three hours past a finished
+render. `wait` without `job` is refused, since waiting on every job has no
+clear end. Cancelling the waiting call ends the wait and leaves the render
+running; `cancel` is what stops it. The hosted server's `jobs` has no `wait`,
+as its `render` has none: a call held open there would hold an HTTP request
+for the whole render, and its assistant has no shell to wander off to.
+
 **Both ship, because they serve different callers.** The notifications need a
 client that shows them and an open call, and an assistant cannot read them: a
 model sees the answer, not the bar. The background job is what lets an
