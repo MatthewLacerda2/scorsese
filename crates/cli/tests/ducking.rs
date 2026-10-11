@@ -35,7 +35,7 @@ fn scored(label: &str) -> std::path::PathBuf {
 }
 
 /// The points of the one track ducking wrote on the music clip.
-fn dip(project: &Project) -> Vec<(u64, f64)> {
+fn dip_of(project: &Project) -> Vec<(u64, f64)> {
     project.tracks[0].clips[0]
         .keyframes
         .iter()
@@ -55,7 +55,7 @@ fn ducking_writes_volume_keyframes_under_the_narration() {
     let dir = scored("duck");
     run_in(&dir, &["duck", "--music", "music"]).ok().says("m1");
 
-    let points = dip(&reload(&dir));
+    let points = dip_of(&reload(&dir));
     assert_eq!(points.len(), 8, "two lines, two dips: {points:?}");
     // Fully down by the frame the first line starts, at 30 fps with the
     // default 0.3 s attack.
@@ -74,14 +74,14 @@ fn it_works_on_narration_that_does_not_exist_yet() {
         "the fixture's narration is unrealised, or this proves nothing"
     );
     run_in(&dir, &["duck", "--music", "music"]).ok();
-    assert!(!dip(&reload(&dir)).is_empty());
+    assert!(!dip_of(&reload(&dir)).is_empty());
 }
 
 #[test]
 fn the_depth_is_choosable() {
     let dir = scored("duck-depth");
     run_in(&dir, &["duck", "--music", "music", "--depth", "0.5"]).ok();
-    assert!(dip(&reload(&dir)).iter().any(|(_, value)| *value == 0.5));
+    assert!(dip_of(&reload(&dir)).iter().any(|(_, value)| *value == 0.5));
 }
 
 /// Re-running is the loop this exists for, so it has to be safe.
@@ -89,11 +89,11 @@ fn the_depth_is_choosable() {
 fn re_running_replaces_its_own_work_and_nothing_else() {
     let dir = scored("duck-rerun");
     run_in(&dir, &["duck", "--music", "music"]).ok();
-    let first = dip(&reload(&dir));
+    let first = dip_of(&reload(&dir));
     run_in(&dir, &["duck", "--music", "music"]).ok();
 
     let project = reload(&dir);
-    assert_eq!(dip(&project), first);
+    assert_eq!(dip_of(&project), first);
     assert_eq!(
         project.tracks[0].clips[0].keyframes.len(),
         1,
@@ -107,4 +107,22 @@ fn a_track_that_is_not_there_fails_and_names_it() {
     let run = run_in(&dir, &["duck", "--music", "nope"]);
     assert!(run.failed);
     run.says("nope");
+}
+
+/// The defaults live in `scorsese-core` (#1071): `duck` with no knobs writes
+/// exactly what core's own default dip plans on the same project.
+#[test]
+fn the_defaults_are_cores() {
+    let dir = scored("duck-defaults");
+    let mut expected = reload(&dir);
+    let under = scorsese_core::Under {
+        music: scorsese_core::TrackId::new("music"),
+        narration: Vec::new(),
+    };
+    let dip = scorsese_core::Dip::default_for(expected.timeline_fps.as_f64());
+    let volume = scorsese_core::PropertyPath::new(scorsese_render::audio::path::VOLUME);
+    scorsese_core::duck_track(&mut expected, &under, &volume, dip).expect("the music track");
+
+    run_in(&dir, &["duck", "--music", "music"]).ok();
+    assert_eq!(dip_of(&reload(&dir)), dip_of(&expected));
 }

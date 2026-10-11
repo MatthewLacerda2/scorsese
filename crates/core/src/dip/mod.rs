@@ -56,20 +56,52 @@ pub struct Dip {
 }
 
 impl Dip {
+    /// How far a dip goes when nobody says: a quarter of the clip's own level.
+    ///
+    /// This and the two times below are the one place the ducking defaults
+    /// live. The CLI's `duck` and MCP's `duck_music` both read them, so tuning
+    /// the duck here tunes it everywhere.
+    pub const UNDER: f64 = 0.25;
+    /// Seconds the fall takes when nobody says.
+    pub const ATTACK_SECONDS: f64 = 0.3;
+    /// Seconds the recovery takes when nobody says — twice the fall.
+    pub const RELEASE_SECONDS: f64 = 0.6;
+
+    /// A dip to `under` from full, its ramps given in seconds and put on a
+    /// grid of `fps` frames per second.
+    ///
+    /// A ramp asked for at all is at least one frame long: rounded to zero it
+    /// would be a switch, not a ramp. Zero or less is no ramp.
+    pub fn from_seconds(under: f64, attack: f64, release: f64, fps: f64) -> Self {
+        let ramp = |seconds: f64| {
+            if seconds.is_nan() || seconds <= 0.0 {
+                return Frames::ZERO;
+            }
+            Frames(((seconds * fps).round() as u64).max(1))
+        };
+        Self {
+            under,
+            over: 1.0,
+            attack: ramp(attack),
+            release: ramp(release),
+        }
+    }
+
     /// A quarter-level dip with a fast fall and a slower recovery, on a grid
-    /// of `fps` frames per second.
+    /// of `fps` frames per second: [`Dip::UNDER`], [`Dip::ATTACK_SECONDS`]
+    /// and [`Dip::RELEASE_SECONDS`].
     ///
     /// The asymmetry is the point and it is how every ducking compressor ever
     /// built behaves: getting out of the way late is audible as a word being
     /// stepped on, and coming back early is audible as a lurch. So the fall is
     /// quick and the recovery is unhurried.
     pub fn default_for(fps: f64) -> Self {
-        Self {
-            under: 0.25,
-            over: 1.0,
-            attack: Frames((fps * 0.3).round() as u64),
-            release: Frames((fps * 0.6).round() as u64),
-        }
+        Self::from_seconds(
+            Self::UNDER,
+            Self::ATTACK_SECONDS,
+            Self::RELEASE_SECONDS,
+            fps,
+        )
     }
 
     /// The shortest gap between two covered spans worth treating as a gap.

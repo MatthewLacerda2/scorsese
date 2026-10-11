@@ -6,7 +6,6 @@ use scorsese_render::audio::path::VOLUME;
 use serde::Deserialize;
 use serde_json::Value;
 
-use super::frames;
 use crate::tools::args::{self, Name, ProjectDir, Required};
 use crate::tools::inspect::load;
 use crate::tools::{Costs, Reply, Tool};
@@ -20,14 +19,25 @@ struct Arguments {
     project: ProjectDir,
     /// Id of the audio track to duck — the music.
     music: Name,
-    /// How far down, as a multiplier on the clip's own level. 0.25 is a quarter
-    /// as loud. Default 0.25.
+    // The descriptions are built from `Dip`'s constants so the number they
+    // print is the number the fallback below uses.
+    #[schemars(description = format!(
+        "How far down, as a multiplier on the clip's own level. 0.5 is half as \
+         loud. Default {}.",
+        Dip::UNDER
+    ))]
     depth: Option<f64>,
-    /// Seconds to reach the ducked level. The dip is fully down by the moment
-    /// narration starts. Default 0.3.
+    #[schemars(description = format!(
+        "Seconds to reach the ducked level. The dip is fully down by the moment \
+         narration starts. Default {}.",
+        Dip::ATTACK_SECONDS
+    ))]
     attack_seconds: Option<f64>,
-    /// Seconds to come back up. Longer than the attack on purpose — returning
-    /// early lurches. Default 0.6.
+    #[schemars(description = format!(
+        "Seconds to come back up. Longer than the attack on purpose — returning \
+         early lurches. Default {}.",
+        Dip::RELEASE_SECONDS
+    ))]
     release_seconds: Option<f64>,
     /// Track ids that count as narration. Omit and every other audio track
     /// does.
@@ -66,12 +76,12 @@ impl Tool for Duck {
         let music = arguments.music.as_str();
 
         let fps = project.timeline_fps.as_f64();
-        let dip = Dip {
-            under: arguments.depth.unwrap_or(0.25),
-            over: 1.0,
-            attack: frames(arguments.attack_seconds.unwrap_or(0.3), fps),
-            release: frames(arguments.release_seconds.unwrap_or(0.6), fps),
-        };
+        let dip = Dip::from_seconds(
+            arguments.depth.unwrap_or(Dip::UNDER),
+            arguments.attack_seconds.unwrap_or(Dip::ATTACK_SECONDS),
+            arguments.release_seconds.unwrap_or(Dip::RELEASE_SECONDS),
+            fps,
+        );
         let under = Under {
             music: TrackId::new(music),
             narration: arguments
