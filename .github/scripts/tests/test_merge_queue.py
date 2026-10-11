@@ -321,12 +321,12 @@ class Taking(unittest.TestCase):
     def take(self, merge_stderr: str, record: dict | None):
         opts = queue.parse(["490", "--poll", "0"])
         failed = subprocess.CompletedProcess([], 1, "", merge_stderr)
-        with mock.patch.object(queue, "look", return_value=READY), \
-            mock.patch.object(queue, "git"), \
-            mock.patch.object(queue, "advance", return_value=(SHA, [])), \
-            mock.patch.object(queue, "wait_for", return_value=(queue.GO, ["CI passed"])), \
+        with mock.patch.object(queue.talk, "look", return_value=READY), \
+            mock.patch.object(queue.talk, "git"), \
+            mock.patch.object(queue.rebase, "advance", return_value=(SHA, [])), \
+            mock.patch.object(queue.ci, "wait_for", return_value=(queue.GO, ["CI passed"])), \
             mock.patch.object(queue.subprocess, "run", return_value=failed), \
-            mock.patch.object(queue, "merge_record", return_value=record) as asked, \
+            mock.patch.object(queue.merge, "merge_record", return_value=record) as asked, \
             mock.patch("builtins.print"):
             return queue.take("o/r", 490, opts), asked
 

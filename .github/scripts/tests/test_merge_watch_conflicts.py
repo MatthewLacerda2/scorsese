@@ -168,7 +168,7 @@ class Watching(unittest.TestCase):
             mock.patch.object(queue, "take", side_effect=take) as took, \
             mock.patch.object(queue.time, "monotonic", side_effect=lambda: clock[0]), \
             mock.patch.object(queue.time, "sleep", side_effect=lambda s: clock.__setitem__(0, clock[0] + s)), \
-            mock.patch.object(queue, "say", side_effect=lambda line, *r: said.append(line)):
+            mock.patch.object(queue.talk, "say", side_effect=lambda line, *r: said.append(line)):
             queue.run_watch("o/r", opts)
         # #2 conflicts with nobody and goes first; #1 and #3 then conflict only
         # with each other, a tie that the label breaks.
