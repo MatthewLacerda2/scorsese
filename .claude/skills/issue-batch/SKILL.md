@@ -542,7 +542,7 @@ exactly one of:
 
 - **fixed**: a pull request that removes the cause;
 - **enforced**: a lint, gate or test that makes it impossible to repeat;
-- **documented**: this skill, `ci-merge`, `issue-write`, `cloud-brief.md` or
+- **documented**: this skill, `ci-merge`, `cloud-brief.md` or
   CLAUDE.md, for what the repo can't change (a platform behaviour, a procedure);
 - **tracked**: an issue with the evidence (run ids, PR numbers, measurements) and
   a proposed fix, never just the symptom.
@@ -565,7 +565,7 @@ check" the moment you read them, not at the end.
 **At the end, run a retro before reporting back:**
 
 1. List every trap, gap, surprise, workaround and hand-back from the batch: your
-   own notes, each PR's *Decisions* and *Not exercised* sections, the issues the
+   own notes, the decisions and untested parts each PR's description names, the issues the
    agents filed.
 2. Map each one to fixed, enforced, documented or tracked. Anything unmapped gets
    an issue now.

@@ -61,10 +61,10 @@ Then:
 
 - **Bugs and wrong or outdated documentation are filed right away**, with no
   approval needed — whether they are real is not a judgement call. Search for
-  an existing issue first (`gh issue list --search …`). File through the
-  **`issue-write`** skill, which has the labels (`agent` among them). Then tell
-  the user which issues were filed, with links, so they know and can catch a
-  mistake.
+  an existing issue first (`gh issue list --search …`). Each carries the
+  `agent` label (CLAUDE.md, *Issues, labels & priority*, has the rest). Then
+  tell the user which issues were filed, with links, so they know and can catch
+  a mistake.
 - **Everything else stops and waits.** Missing tools and lessons learned are
   the user's to choose from; ask which should become issues, and file only
-  those, through `issue-write`.
+  those.

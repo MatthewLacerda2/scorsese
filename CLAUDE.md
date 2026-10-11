@@ -138,9 +138,9 @@ shape.
 - Crate boundaries live in each crate's `lib.rs` module doc — read them before
   adding a dependency between crates.
 
-**Three skills carry the working protocols** — `issue-write`, `issue-batch` and
-`ci-merge` — so this file can hold the reasoning and they can hold the steps.
-Each one names its own scope and when to reach for it, so this file does not
+**Two skills carry the working protocols** — `issue-batch` and `ci-merge` — so
+this file can hold the reasoning and they can hold the steps. Each one names
+its own scope and when to reach for it, so this file does not
 restate them; invoke them rather than reconstructing a procedure from memory, and
 name them when briefing a subagent.
 
@@ -288,9 +288,10 @@ in a cloud session; `issue-batch` has what that premise shapes.
   first, every time.
 - **Flow:** idea → (issue) → branch → PR → CI green → merge. **Nothing is
   committed to `main` directly**: every change, however small, arrives as a
-  pull request. An issue is how work is planned, not a toll on every change
-  (`issue-write`). A PR that has an issue references the one it closes, and
-  every PR's description clears the three gates.
+  pull request. An issue is how work is planned, not a toll on every change. A
+  PR that has an issue closes it by number: check the number, and remember
+  GitHub matches `closes #N` anywhere in a description, even quoted or negated,
+  so a PR leaving an issue open writes `refs #N`.
 - **One worktree per branch**, off the latest `main`, removed the moment it
   merges, and **never a shared `CARGO_TARGET_DIR`** — it makes worktrees
   overwrite each other's artifacts and produces a false green; `make gates`
@@ -384,12 +385,16 @@ in a cloud session; `issue-batch` has what that premise shapes.
 
 ## Issues, labels & priority
 
-`issue-write` has the whole of this: what an issue contains, the labels, how
-relationships are recorded. The rules every session needs:
+How an issue reads is Claude's call. The rules here are the repo's: what the
+labels mean, what gets filed, and in what order it lands.
 
-- **Issues are how work is planned.** A future Claude reads one cold and says
-  *"I understand the assignment, I know how to proceed."* The **what**, **why it
-  belongs**, and the **roadmap — not the implementation intrinsics**.
+- **Issues are how work is planned**, and a future Claude reads one cold,
+  often unattended, with nobody to ask. Two lessons that each cost a mistake:
+  - **Quote a vendor's figures from the vendor's own page**, with the date,
+    never from a summary of it: #893 got Google's image-reference limits wrong
+    that way (PR #935 caught it).
+  - **Point at code by symbol and path, not line number**: during a batch line
+    numbers go stale within hours (MatthewLacerda2/rusty#586).
 - **File what you notice — it is a duty, not an option** (the user,
   2026-10-04, #757). Whatever Claude finds — a bug, a missing feature, a gap in
   the design, a quality-of-life improvement — is folded into the task at hand
@@ -397,12 +402,17 @@ relationships are recorded. The rules every session needs:
   approval is never folded in**: one that changes how the user sees or
   understands their existing data or project, changes stored data, or needs a
   migration. **Every issue Claude writes on its own carries the `agent`
-  label.**
+  label**, which only says who decided to file it and never stops work. A find
+  outside the branch in hand is filed, not fixed there: a branch that grows to
+  cover everything it noticed is one nobody can review.
   - **When the user is using the Claude CLI to create or edit a video, no new
     issues are filed until the video is delivered.** The findings wait for
     the **`post-edit-feedback`** skill.
 - **Priority by label:** **infrastructure → architecture → bug → foundation →
-  feature.** A bug in the development tooling itself (CI, the gates, the hooks,
+  feature.** `infrastructure` is CI, harnesses and gates; `architecture` is
+  structure, conventions, crate boundaries and the `project.json` format;
+  `foundation` is groundwork making the editor more complete; `feature` is a
+  capability serving the videos. A bug in the development tooling itself (CI, the gates, the hooks,
   `make queue` / `make mergeable`) ranks as infrastructure. **documentation**
   never waits its turn. Priority orders what gets **merged**, never what gets
   **worked**.
@@ -417,7 +427,8 @@ relationships are recorded. The rules every session needs:
   the user's approval is filed with `planning`, and raised at the next
   check-in.
 - **The dependency graph is the plan.** Blocked by / Blocks and sub-issues;
-  split by responsibility, never by parallelism.
+  split by responsibility, never by parallelism. A `planning` issue that would
+  change how another is built blocks that other one.
 
 ## Overrides
 
