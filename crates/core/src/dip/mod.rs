@@ -33,9 +33,8 @@ mod plan;
 mod spans;
 
 use crate::time::Frames;
-use crate::timeline::{Track, TrackKind};
 
-pub use apply::{DuckError, Ducked, Under, audio_tracks, duck_track};
+pub use apply::{DuckError, Ducked, Under, duck_track};
 pub(crate) use plan::plan;
 pub(crate) use spans::{Span, covering, merge};
 
@@ -155,15 +154,4 @@ impl Dip {
             .unwrap_or(self.release + self.attack)
             .max(Frames(1))
     }
-}
-
-/// True when this track is one whose clips *cover* others — the narration side
-/// of the arrangement rather than the music side.
-///
-/// Audio only, when the caller names nothing: dipping a picture under another
-/// picture is a real effect, but it is not this one. A line spoken inside a
-/// video shot is real too, and a caller that wants to duck under it names the
-/// track or the clip ([`Under`]) rather than have it guessed.
-pub(crate) fn is_coverable(track: &Track) -> bool {
-    track.kind == TrackKind::Audio
 }

@@ -7,7 +7,7 @@ use crate::project::Project;
 use crate::time::Frames;
 use crate::timeline::{ClipId, TrackId, TrackKind};
 
-use super::{Dip, TOOL, covering, is_coverable, plan};
+use super::{Dip, TOOL, covering, plan};
 
 /// What one run of ducking did.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -83,7 +83,9 @@ impl Under {
     /// Every stretch of the timeline this run ducks under, absolute.
     ///
     /// A clip on the music track itself never counts: music does not step
-    /// aside for itself.
+    /// aside for itself. Naming nothing means audio tracks only: dipping a
+    /// picture under another picture is a real effect, but it is not this
+    /// one, so a line spoken inside a shot is named rather than guessed.
     fn stretches(&self, project: &Project) -> Vec<Range<Frames>> {
         let everything_else = self.names_nothing();
         let mut stretches: Vec<Range<Frames>> = project
@@ -174,14 +176,4 @@ pub fn duck_track(
         }
     }
     Ok(report)
-}
-
-/// The audio tracks a project has, in document order — what a caller offers
-/// when it has to ask which one is the music.
-pub fn audio_tracks(project: &Project) -> impl Iterator<Item = &TrackId> {
-    project
-        .tracks
-        .iter()
-        .filter(|track| is_coverable(track))
-        .map(|track| &track.id)
 }
