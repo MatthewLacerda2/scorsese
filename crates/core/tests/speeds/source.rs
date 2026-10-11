@@ -81,6 +81,9 @@ fn a_sped_up_clip_past_its_source_is_warned_about_not_refused() {
     );
     assert!(past[0].to_string().contains("plays past the footage"));
     assert!(at(2.0, 150).past_source().is_empty(), "300 is all of it");
+    let edge = at(2.0, 300);
+    assert_eq!(edge.validate(), Ok(()), "300 frames at 1× is all of it");
+    assert_eq!(edge.past_source().len(), 1);
 }
 
 /// Sped up past what even one frame a frame would allow was refused before
