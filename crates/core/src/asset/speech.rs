@@ -103,6 +103,16 @@ impl SpeechModel {
     pub const fn takes_language(self) -> bool {
         matches!(self, Self::Expressive | Self::Fast)
     }
+
+    /// True when this model takes square brackets in a line as audio tags —
+    /// directions for the reading, never said — rather than reading them aloud.
+    ///
+    /// Only Eleven v3 does (`guide prompts`, *On expressive (v3)*), and it
+    /// still times the tags' characters, which is why the line's word timings
+    /// ask this before keeping a bracket as a word (#1061).
+    pub const fn takes_tags(self) -> bool {
+        matches!(self, Self::Expressive)
+    }
 }
 
 /// Everything a `generated_audio` asset asks for beyond its prompt.

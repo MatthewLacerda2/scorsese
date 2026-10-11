@@ -21,6 +21,7 @@
 mod at;
 mod name;
 mod placed;
+mod tags;
 
 use std::path::Path;
 
@@ -88,6 +89,8 @@ impl Words {
     /// The timings of `asset`'s line, if it is a generated narration whose
     /// audio has them beside it. `None` for every other asset, for a line
     /// generated before timings were kept, and for a file that will not read.
+    /// An `expressive` line's audio tags are left out even when its file still
+    /// holds them, as one folded before #1061 does ([`Words::spoken_by`]).
     pub fn of(asset: &Asset, project_root: &Path) -> Option<Self> {
         if asset.kind != AssetKind::GeneratedAudio
             || asset.state != Some(GenerationState::Generated)
@@ -96,7 +99,8 @@ impl Words {
         }
         let file = Self::beside(asset.path.as_ref()?).resolve(project_root);
         let text = std::fs::read_to_string(file).ok()?;
-        serde_json::from_str(&text).ok()
+        let words: Self = serde_json::from_str(&text).ok()?;
+        Some(words.spoken_by(asset.speech_request().model))
     }
 
     /// The file's contents, as [`Words::of`] reads them back.
