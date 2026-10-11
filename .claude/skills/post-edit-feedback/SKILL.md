@@ -59,12 +59,16 @@ helped, how much it matters.
 
 Then:
 
-- **Bugs and wrong or outdated documentation are filed right away**, with no
-  approval needed — whether they are real is not a judgement call. Search for
-  an existing issue first (`gh issue list --search …`). Each carries the
-  `agent` label (CLAUDE.md, *Issues, labels & priority*, has the rest). Then
-  tell the user which issues were filed, with links, so they know and can catch
-  a mistake.
+- **Bugs are filed right away**, with no approval needed — whether they are
+  real is not a judgement call. Search for an existing issue first (`gh issue
+  list --search …`). Each carries the `agent` label (CLAUDE.md, *Issues, labels
+  & priority*, has the rest).
+- **Documentation errors are fixed directly**, with no approval round: a
+  branch, a pull request, merged (CLAUDE.md, *Take the initiative* — making a
+  description true is never the exception). File an issue instead only when
+  the fix needs work beyond the words.
+- Then tell the user what was filed and what was fixed, with links, so they
+  know and can catch a mistake.
 - **Everything else stops and waits.** Missing tools and lessons learned are
   the user's to choose from; ask which should become issues, and file only
   those.
