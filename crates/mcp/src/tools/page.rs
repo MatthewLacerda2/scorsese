@@ -199,6 +199,10 @@ impl Tool for Read {
          one: read it, change it, write it back, look with still."
     }
 
+    fn writes(&self) -> bool {
+        false
+    }
+
     fn costs(&self) -> Costs {
         Costs::Nothing
     }

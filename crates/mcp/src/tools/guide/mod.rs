@@ -84,6 +84,10 @@ impl Tool for Read {
          sections, to call again with `section`. Costs nothing: the guides are compiled into this build."
     }
 
+    fn writes(&self) -> bool {
+        false
+    }
+
     fn costs(&self) -> Costs {
         Costs::Nothing
     }

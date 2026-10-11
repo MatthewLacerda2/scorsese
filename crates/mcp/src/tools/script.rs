@@ -44,6 +44,10 @@ impl Tool for Read {
          prose, exactly as written."
     }
 
+    fn writes(&self) -> bool {
+        false
+    }
+
     fn costs(&self) -> Costs {
         Costs::Nothing
     }

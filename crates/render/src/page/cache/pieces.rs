@@ -180,7 +180,7 @@ mod tests {
         assert_eq!(parse("part-3-31.mkv"), Some(3..31));
         for other in [
             "part-3-31.json",
-            "part-3-31.123.partial.mkv",
+            "part-3-31.123-4.partial.mkv",
             "part-31-3.mkv",
             "part-3.mkv",
             "frames.mkv",

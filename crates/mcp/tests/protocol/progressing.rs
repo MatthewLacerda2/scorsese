@@ -76,15 +76,16 @@ fn a_background_render_answers_at_once_and_stops_with_the_session() {
     let left = dir.join("cut.mp4").exists();
     std::fs::remove_dir_all(&dir).ok();
 
-    let (text, failed) = said(&lines[0]);
-    assert!(!failed, "{text}");
+    // The two run side by side (#1063), so either may be the one that starts.
+    assert_eq!(lines.len(), 2, "{lines:?}");
+    let (mut started, mut refused): (Vec<_>, Vec<_>) =
+        lines.iter().map(said).partition(|(_, failed)| !failed);
+    let (text, _) = started.pop().expect("one render started");
     assert!(text.starts_with("Rendering cut.mp4 as job 1"), "{text}");
     assert!(text.contains("jobs with job: 1"), "{text}");
-    let (text, failed) = said(&lines[1]);
-    assert!(
-        failed,
-        "a second render of the same file is refused: {text}"
-    );
+    let (text, _) = refused
+        .pop()
+        .expect("a second render of the same file is refused");
     assert!(text.starts_with("job 1 is still writing cut.mp4"), "{text}");
     assert!(!left, "the render the session left behind was not removed");
 }

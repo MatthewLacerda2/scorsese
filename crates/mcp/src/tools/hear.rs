@@ -95,6 +95,10 @@ impl Tool for Hear {
          on a rendered video too, since ffmpeg does the decoding."
     }
 
+    fn writes(&self) -> bool {
+        false
+    }
+
     fn costs(&self) -> Costs {
         Costs::Decode
     }

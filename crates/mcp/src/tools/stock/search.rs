@@ -123,6 +123,10 @@ impl Tool for Search {
          changes, attribution encouraged."
     }
 
+    fn writes(&self) -> bool {
+        false
+    }
+
     fn costs(&self) -> Costs {
         Costs::Request
     }

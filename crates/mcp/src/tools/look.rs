@@ -84,6 +84,10 @@ impl Tool for Look {
          encodes nothing."
     }
 
+    fn writes(&self) -> bool {
+        false
+    }
+
     fn costs(&self) -> Costs {
         Costs::Decode
     }
