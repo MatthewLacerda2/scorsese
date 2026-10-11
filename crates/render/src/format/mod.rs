@@ -28,6 +28,8 @@ mod containers;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+use crate::settings::SampleRate;
+
 pub use codecs::{AudioCodec, VideoCodec};
 pub use containers::Container;
 
@@ -145,6 +147,22 @@ impl OutputFormat {
                 container: self.container,
                 setting,
             }),
+        }
+    }
+
+    /// Refuses `rate` when this format's audio encoder will not take it.
+    ///
+    /// The sound half of [`OutputFormat::picture_setting`], and asked by the
+    /// same clients at the same moment: `--out x.wmv --sample-rate 96000`
+    /// otherwise fails only once the whole soundtrack has been mixed.
+    pub fn sample_rate(self, rate: SampleRate) -> Result<(), FormatError> {
+        match self.audio.max_sample_rate() {
+            Some(limit) if rate.hz() > limit => Err(FormatError::SampleRateTooHigh {
+                audio: self.audio,
+                rate: rate.hz(),
+                limit,
+            }),
+            _ => Ok(()),
         }
     }
 
@@ -267,6 +285,21 @@ pub enum FormatError {
         container: Container,
         /// The audio codec it will not be written with.
         audio: AudioCodec,
+    },
+
+    /// A sample rate above what the audio encoder takes — refused here rather
+    /// than by ffmpeg, which says so only after the whole mix has been made.
+    #[error(
+        "{audio} takes at most {limit} Hz, so a {rate} Hz sample rate cannot be \
+         encoded with it — ask for {limit} Hz or less, or another audio codec"
+    )]
+    SampleRateTooHigh {
+        /// The audio codec asked for.
+        audio: AudioCodec,
+        /// The sample rate asked for, in Hz.
+        rate: u32,
+        /// The most the codec takes, in Hz.
+        limit: u32,
     },
 }
 

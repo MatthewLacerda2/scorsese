@@ -2829,7 +2829,9 @@ source's four operators. The last two name the entry they are complaining about
 — a partial by its index, an operator by its number.
 
 **Everywhere else**: a cutoff at or below 0 Hz, a negative LFO rate, a note of
-no length, an arrangement naming a pattern that does not exist (in a layer as
+no length, a note that would sound for more than 60 s counting the
+release and the effect tail (a 58 s drone through a long reverb is one; a song
+names it by track, pattern and beat), an arrangement naming a pattern that does not exist (in a layer as
 anywhere else), a layered entry with no layers, a note on a
 track that does not exist, a `tracks` filter naming one that does not either, a
 `vel_scale` below zero, a `swing` outside `0..1` (at 1 the off-beat lands on

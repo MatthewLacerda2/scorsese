@@ -161,6 +161,21 @@ impl AudioCodec {
         }
     }
 
+    /// The highest sample rate this encoder takes, in Hz, when it has one
+    /// ffmpeg will not resample to on its own.
+    ///
+    /// `aac` and `libmp3lame` publish the rates they take, and ffmpeg
+    /// converts a mix at any other rate into one of them on the way in.
+    /// `wmav2` publishes none and refuses anything over 48 kHz itself — after
+    /// the whole mix has been made — so that one is said here, where
+    /// [`super::OutputFormat::sample_rate`] can refuse it before anything is.
+    pub const fn max_sample_rate(self) -> Option<u32> {
+        match self {
+            Self::Wmav2 => Some(48_000),
+            Self::Aac | Self::PcmS16Le | Self::Mp3 => None,
+        }
+    }
+
     /// Whether a target bitrate means anything here. Uncompressed audio has
     /// exactly one rate — its sample rate times its width — so `-b:a` against
     /// it is a setting that silently does nothing, and we would rather not

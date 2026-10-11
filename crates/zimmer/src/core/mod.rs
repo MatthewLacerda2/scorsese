@@ -86,8 +86,10 @@ pub const SAMPLE_RATE: u32 = 44_100;
 /// [`SAMPLE_RATE`] as the float the DSP works in.
 pub(crate) const RATE: f32 = SAMPLE_RATE as f32;
 
-/// Longest buffer one note may render to. A guard, not a musical limit: a typo in
-/// `duration` should fail loudly rather than allocate for an hour of audio.
+/// Longest buffer one note may render to, tail included. A guard, not a musical
+/// limit: a typo in `duration` should fail loudly rather than allocate for an
+/// hour of audio — so a note past it is refused ([`SynthError::NoteTooLong`]),
+/// never cut off at it.
 const MAX_SECONDS: f32 = 60.0;
 
 /// Renders one note of `patch` at MIDI pitch `midi` under `opts`, returning
@@ -109,7 +111,7 @@ const MAX_SECONDS: f32 = 60.0;
 pub(crate) fn render_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<Stereo, SynthError> {
     patch.validate()?;
     let gate = gate_length(opts.duration)?;
-    let n = sample_count(gate + patch.amp.r.max(0.0) + fx::tail_seconds(&patch.fx));
+    let n = sample_count(gate, patch.amp.r.max(0.0) + fx::tail_seconds(&patch.fx))?;
     let velocity = opts.velocity.clamp(0.0, 1.0);
     let brightness = (opts.velocity + opts.timbre).clamp(0.0, 1.0);
 
@@ -160,9 +162,24 @@ pub(crate) fn render_limited(
     Ok(buf)
 }
 
-/// Samples needed for `seconds` of audio, at least one and at most [`MAX_SECONDS`].
-fn sample_count(seconds: f32) -> usize {
-    ((seconds.clamp(0.0, MAX_SECONDS) * RATE).ceil() as usize).max(1)
+/// Samples needed for a note held `held` seconds that rings `tail` more, at
+/// least one — or the refusal, when that is longer than [`MAX_SECONDS`].
+///
+/// Refused rather than clamped: a clamp cut a 70 s pad, or a 58 s drone with a
+/// 2.4 s reverb, at sixty seconds with a click and no error (#1093). A tail
+/// that is not a number is refused the same way, rather than becoming a
+/// one-sample note.
+fn sample_count(held: f32, tail: f32) -> Result<usize, SynthError> {
+    let seconds = held + tail;
+    if !(seconds.is_finite() && seconds <= MAX_SECONDS) {
+        return Err(SynthError::NoteTooLong {
+            at: None,
+            held,
+            tail,
+            limit: MAX_SECONDS,
+        });
+    }
+    Ok(((seconds * RATE).ceil() as usize).max(1))
 }
 
 /// Apply velocity, the amp envelope and any tremolo — the stage that turns a
