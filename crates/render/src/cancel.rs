@@ -3,10 +3,12 @@
 //! A render is the one call here that runs for minutes or hours, and "stop" is
 //! the first thing a person reaches for once they have seen how long it will
 //! take (#647). Whoever started it keeps one [`Cancel`] and trips it from
-//! another thread; the render looks at it between frames and between stages,
-//! and on seeing it tripped stops compositing, shuts its ffmpeg children down
-//! and removes the file it had started — a truncated `.mp4` with no index looks
-//! like a file and plays as nothing, which is the expensive kind of wrong.
+//! another thread; the render looks at it before every frame it draws, and
+//! inside the stages before that — each page frame captured, each clip mixed,
+//! each loudness pass, an audio encode as it runs (#1088). On seeing it
+//! tripped it stops, shuts its ffmpeg children and browsers down and removes
+//! the file it had started — a truncated `.mp4` with no index looks like a
+//! file and plays as nothing, which is the expensive kind of wrong.
 //!
 //! A flag rather than a channel or a callback, because the question the loop
 //! asks is the cheapest one there is — *has anybody asked me to stop?* — and it

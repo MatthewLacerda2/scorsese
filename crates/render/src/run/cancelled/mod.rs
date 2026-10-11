@@ -5,6 +5,12 @@
 //! at a known frame only with [`Cancel::after`], which exists for tests in
 //! this crate alone — racing a thread against the encoder would make the
 //! frame it lands on whatever the machine happened to do.
+//!
+//! The stages before the picture stop too (#1088): `sound` for the mix and
+//! its encode, `page` for a capture under way.
+
+mod page;
+mod sound;
 
 use std::path::PathBuf;
 

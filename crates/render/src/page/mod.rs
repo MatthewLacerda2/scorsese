@@ -66,6 +66,7 @@ pub use told::Span;
 
 pub(crate) use find::find;
 
+use crate::cancel::Cancel;
 use crate::error::RenderError;
 use crate::tools::Tools;
 
@@ -238,7 +239,7 @@ pub fn capture_frames(
         (project_root, follow),
         request,
         frames,
-        (browsers, &drawn),
+        (browsers, &drawn, &Cancel::new()),
     )
 }
 
@@ -287,4 +288,7 @@ pub enum PageError {
     /// The cache could not be written.
     #[error("writing the capture to cache/: {0}")]
     Io(#[from] std::io::Error),
+    /// Whoever started the capture asked it to stop.
+    #[error("the capture was cancelled")]
+    Cancelled,
 }

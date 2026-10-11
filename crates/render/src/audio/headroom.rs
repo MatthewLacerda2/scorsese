@@ -40,6 +40,7 @@ use scorsese_zimmer::level::{Loudness, Meter};
 
 use super::mix::CHANNELS;
 use super::read;
+use crate::cancel::Cancel;
 use crate::error::RenderError;
 use crate::pipe::encode_mix;
 use crate::settings::RenderSettings;
@@ -100,12 +101,14 @@ pub(crate) fn excess(true_peak_dbfs: Option<f64>) -> Option<f64> {
 ///
 /// `None` when nothing was changed — the codec is lossless, the mix is silent,
 /// or it already fits. `out` names the delivery; the rehearsal is written
-/// beside it and removed before this returns.
+/// beside it and removed before this returns. A rehearsal's encode stops when
+/// `cancel` is tripped ([`encode_mix`]).
 pub(crate) fn fit(
     tools: &Tools,
     settings: &RenderSettings,
     mix: &Path,
     out: &Path,
+    cancel: &Cancel,
 ) -> Result<Option<Trim>, RenderError> {
     let codec = settings.format.audio();
     if !codec.is_lossy() {
@@ -114,7 +117,7 @@ pub(crate) fn fit(
     let rehearsal = Rehearsal(super::scratch_beside(out, "scorsese-rehearsal"));
     let mut trim: Option<Trim> = None;
     for _ in 0..REHEARSALS {
-        encode_mix(tools, settings, mix, &rehearsal.0)?;
+        encode_mix(tools, settings, mix, &rehearsal.0, cancel)?;
         let peak = measure(tools, &rehearsal.0)?.true_peak_dbfs;
         let Some(over) = excess(peak) else { break };
         scale(mix, gain_of(over)).map_err(|source| RenderError::Scratch {

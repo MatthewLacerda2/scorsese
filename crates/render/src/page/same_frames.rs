@@ -17,6 +17,7 @@ use super::browser::Chrome;
 use super::capture::Served;
 use super::request::Request;
 use super::{cache, capture, pieces};
+use crate::cancel::Cancel;
 use crate::tools::Tools;
 
 /// Everything a jump of the clock would get wrong: a loop that counts frames
@@ -175,7 +176,7 @@ impl Bench {
             self.served(),
             &self.request,
             (frames, 0),
-            (&out, &AtomicU64::new(0)),
+            (&out, &AtomicU64::new(0), &Cancel::new()),
         )
         .expect("captured");
         hashes(&self.tools, &out)
@@ -210,7 +211,7 @@ fn a_capture_made_in_pieces_is_the_file_one_capture_makes() {
         bench.served(),
         &bench.request,
         pieced,
-        (&joined, &drawn),
+        (&joined, &drawn, &Cancel::new()),
     )
     .expect("captured in pieces");
     assert_eq!(

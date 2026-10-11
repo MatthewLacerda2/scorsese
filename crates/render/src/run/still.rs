@@ -22,6 +22,7 @@ use std::path::Path;
 use scorsese_compositor::Frame;
 use scorsese_core::{Frames, Project};
 
+use crate::cancel::Cancel;
 use crate::error::RenderError;
 use crate::held::Loops;
 use crate::plan::{FrameRange, Plan};
@@ -61,8 +62,8 @@ pub(super) fn compose(
     // still runs from zero to get here, but only the frames by it are drawn,
     // and kept for the next look at the same instant. What it noticed goes
     // back with the frame, for a caller that has somebody to tell. Nobody
-    // watches a still's progress, so what it counts goes nowhere.
-    let unwatched = (tools, &Progress::new());
+    // watches a still's progress or stops one, so what it counts goes nowhere.
+    let unwatched = (tools, &Progress::new(), &Cancel::new());
     let (pages, notes) = Pages::capture(unwatched, browser, &settings, &plan, project_root);
     let mut stage = Stage::new();
     let pass = Pass {

@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use super::audio::SAMPLE_FORMAT;
 use crate::audio::CHANNELS;
+use crate::cancel::Cancel;
 use crate::error::{RenderError, Stage};
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
@@ -175,12 +176,14 @@ impl Encoder {
 ///
 /// It is also the whole encode of a delivery with no picture in it, which is
 /// why the rehearsal and the real thing cannot drift: they are one call. Like
-/// [`Encoder`], it writes beside `out` and renames last.
+/// [`Encoder`], it writes beside `out` and renames last. Tripping `cancel`
+/// kills it, and leaves nothing at `out`.
 pub(crate) fn encode_mix(
     tools: &Tools,
     settings: &RenderSettings,
     mix: &Path,
     out: &Path,
+    cancel: &Cancel,
 ) -> Result<(), RenderError> {
     let partial = super::Partial::beside(out);
     let mut command = tools.ffmpeg();
@@ -197,7 +200,7 @@ pub(crate) fn encode_mix(
         stage: Stage::Encode,
         source,
     })?;
-    super::finish(child, Stage::Encode, &out.display().to_string())?;
+    super::finish_unless(child, cancel, Stage::Encode, &out.display().to_string())?;
     partial.deliver()
 }
 

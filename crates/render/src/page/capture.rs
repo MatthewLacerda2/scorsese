@@ -46,6 +46,7 @@ use super::origin::url_of;
 use super::request::Request;
 use super::told::{self, Read};
 use super::visitor::{OFFLINE_BINDING, Visitor};
+use crate::cancel::Cancel;
 use crate::tools::Tools;
 
 /// How long any one answer may take. A frame at 4K under SwiftShader is well
@@ -85,14 +86,15 @@ pub(crate) struct Served<'a> {
 ///
 /// Each frame drawn into `out` adds one to `drawn`, which other pieces of the
 /// same capture may be adding to at once: how a render says how far its pages
-/// have got (#1055).
+/// have got (#1055). `cancel` is looked at before each frame, run or drawn, and
+/// stops it with [`PageError::Cancelled`] (#1088).
 pub(crate) fn run(
     chrome: &Chrome,
     tools: &Tools,
     served: Served<'_>,
     request: &Request,
     (frames, measured): (Range<u64>, u64),
-    (out, drawn): (&Path, &AtomicU64),
+    (out, drawn, cancel): (&Path, &AtomicU64, &Cancel),
 ) -> Result<Heard, PageError> {
     let Served {
         project_root,
@@ -107,8 +109,10 @@ pub(crate) fn run(
         Visitor::new(project_root, follow),
         PATIENCE,
     );
-    let heard = started(&mut cdp, chrome)
-        .and_then(|()| drive(&mut cdp, tools, request, (frames, measured), (out, drawn)));
+    let heard = started(&mut cdp, chrome).and_then(|()| {
+        let to = (out, drawn, cancel);
+        drive(&mut cdp, tools, request, (frames, measured), to)
+    });
     // Asked to close rather than killed, so its helpers go with it; the
     // process is reaped either way when `process` drops.
     let _ = cdp.browser("Browser.close", json!({}));
@@ -134,8 +138,15 @@ fn drive(
     tools: &Tools,
     request: &Request,
     (frames, measured): (Range<u64>, u64),
-    (out, drawn): (&Path, &AtomicU64),
+    (out, drawn, cancel): (&Path, &AtomicU64, &Cancel),
 ) -> Result<Heard, PageError> {
+    let stopped = || {
+        if cancel.is_cancelled() {
+            Err(PageError::Cancelled)
+        } else {
+            Ok(())
+        }
+    };
     let viewport = request.viewport();
     let target = cdp.browser(
         "Target.createTarget",
@@ -231,6 +242,7 @@ fn drive(
     };
     // Run, not drawn: see the module doc.
     for k in 0..frames.start {
+        stopped()?;
         let advance = format!("__scorsese.advanceTo({})", request.millis_at(k));
         page("Runtime.evaluate", json!({ "expression": advance }))?;
         Drawing::HERE.run(&mut page)?;
@@ -242,6 +254,7 @@ fn drive(
     let mut encoder = Encoder::start(tools, request, out)?;
     let (first, end) = (frames.start, frames.end);
     for k in frames {
+        stopped()?;
         let advance = format!("__scorsese.advanceTo({})", request.millis_at(k));
         page("Runtime.evaluate", json!({ "expression": advance }))?;
         // A frame with no damage has no screenshot: nothing moved, so the

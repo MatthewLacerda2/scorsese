@@ -7,6 +7,7 @@ use std::sync::atomic::AtomicU64;
 use super::browser::Chrome;
 use super::request::Request;
 use super::{Captured, PageError, cache, cached_frames, capture, piece, pieces, told, within};
+use crate::cancel::Cancel;
 use crate::tools::Tools;
 
 /// The captures one run — a render, a still — has been handed, kept from the
@@ -46,8 +47,13 @@ impl Holding {
 
     /// [`super::capture_frames`], held for this run, and tidied after only
     /// once it is over: the project's root and the folders its links may
-    /// lead under go together, and so do how many browsers draw at once and
-    /// the count each frame drawn is added to (#1055).
+    /// lead under go together, and so do how many browsers draw at once, the
+    /// count each frame drawn is added to (#1055) and the cancel that stops it
+    /// before its next frame (#1088).
+    ///
+    /// A capture that stops, for that or any other reason, leaves `cache/` as
+    /// it found it: its partial file is removed, and the slot with it if that
+    /// left it empty.
     pub fn capture_frames(
         &mut self,
         chrome: &Chrome,
@@ -55,13 +61,17 @@ impl Holding {
         (project_root, follow): (&Path, &[PathBuf]),
         request: &Request,
         frames: Range<u64>,
-        (browsers, drawn): (usize, &AtomicU64),
+        (browsers, drawn, cancel): (usize, &AtomicU64, &Cancel),
     ) -> Result<Captured, PageError> {
         let wanted = within(request, frames);
         if let Some(captured) =
             self.cached_frames(project_root, request, chrome.version(), wanted.clone())
         {
             return Ok(captured);
+        }
+        // Before a browser is started: launching one is a second or so, per clip.
+        if cancel.is_cancelled() {
+            return Err(PageError::Cancelled);
         }
         let piece = piece(request, wanted.clone());
         let slot = cache::slot(project_root, request, chrome.version());
@@ -82,33 +92,43 @@ impl Holding {
             fonts: &fonts,
         };
         let pieces = pieces::split(request, piece.clone(), browsers);
-        let placed = pieces::capture_in(chrome, tools, served, request, pieces, (&partial, drawn))
-            .and_then(|heard| {
-                let told = told::Told::of(request, &heard.read);
-                let shelf = cache::shelf(&slot, &told);
-                let (file, record_file) = cache::files(&shelf, &piece, request);
-                let record = cache::Record {
-                    loaded: heard.loaded,
-                    warnings: heard.warnings,
-                    told,
-                };
-                let place = cache::Place {
-                    project_root,
-                    slot: &slot,
-                    shelf: &shelf,
-                    files: (&file, &record_file),
-                    record: &record,
-                };
-                self.held.place(&partial, place, request)?;
-                Ok(Captured {
-                    file,
-                    first: piece.start,
-                    warnings: record.warnings,
-                })
-            });
+        let placed = pieces::capture_in(
+            chrome,
+            tools,
+            served,
+            request,
+            pieces,
+            (&partial, drawn, cancel),
+        )
+        .and_then(|heard| {
+            let told = told::Told::of(request, &heard.read);
+            let shelf = cache::shelf(&slot, &told);
+            let (file, record_file) = cache::files(&shelf, &piece, request);
+            let record = cache::Record {
+                loaded: heard.loaded,
+                warnings: heard.warnings,
+                told,
+            };
+            let place = cache::Place {
+                project_root,
+                slot: &slot,
+                shelf: &shelf,
+                files: (&file, &record_file),
+                record: &record,
+            };
+            self.held.place(&partial, place, request)?;
+            Ok(Captured {
+                file,
+                first: piece.start,
+                warnings: record.warnings,
+            })
+        });
         if placed.is_err() {
             // Hundreds of megabytes of frames nothing would ever read or tidy.
             let _ = std::fs::remove_file(&partial);
+            // Only succeeds on an empty folder: a slot this capture made and
+            // nothing else has used.
+            let _ = std::fs::remove_dir(&slot);
         }
         placed
     }
