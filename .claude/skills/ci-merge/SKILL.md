@@ -221,13 +221,15 @@ same list again — a PR it already merged is skipped as merged, and a head it
 already pushed is not pushed again. Status 1 is a real hand-back: read why
 (#615; before it, one TLS timeout killed the queue three times on 2026-09-30).
 
-**A Markdown-only pull request gets no run**, so `make queue` hands it back as
-absent and `make mergeable` cannot say yes. It is the one merge done by hand:
-check `gh pr diff N --name-only` is all `.md` and none of the pages `ci.yml`'s
-`paths:` re-includes (those get a run, and go through the queue like code),
-that GitHub reports it mergeable, then `gh pr merge N --squash`. Don't label
-one `queue`: the watch would spend five minutes of everybody's turn learning
-there is no run, and hand it back.
+**A Markdown-only pull request gets no run**, and `make mergeable` says yes to
+it anyway when that absence is by design (#1135): no run on the head, every
+changed file (both ends of a rename) one `ci.yml`'s `paths:` skips, read from
+`ci.yml` on the base branch by the parser the #1040 test uses
+(`.github/scripts/ci-paths.py`), and GitHub reporting the branch mergeable. A
+page the code reads is re-included, so a change to it gets a run and goes
+through like code. So it merges like anything else: `make queue`, or a `queue`
+label for the watch, which takes it without waiting out the five-minute
+no-run grace.
 
 **Because it builds nothing, a clean rebase can still push a broken head.** A
 merge ahead that changed a signature this branch calls, or pushed one of its

@@ -41,6 +41,15 @@ The tell nobody would guess: an actually-invalid workflow *does* produce a run,
 a `push`-event `startup_failure`. *No run whatsoever* is a conflict. So the
 no-run answer is split rather than left to be guessed at — see [`no_run`].
 
+**And a commit can have no run because CI was never meant to make one** (#1135):
+`ci.yml`'s `paths:` filter skips a Markdown-only change. That is the one no-run
+this answers **yes** to, and only when the pull request's every changed file is
+one the filter skips, read from `ci.yml` on the base branch by the same parser
+the test holding that list uses (`ci-paths.py`), and GitHub calls the branch
+mergeable. A page the code reads is re-included, so a change to it gets a run
+and missing that run is still #153. Before this, such a pull request was the
+one merge done by hand, and every hand merge is a check someone can skip.
+
 Branch protection is the obvious alternative and probably does not work here.
 GitHub generally treats a skipped job as satisfying a required check, and our
 jobs skip by design on drafts — so a required-checks rule would look at exactly
@@ -64,11 +73,20 @@ of it is tested without a network.
 
 from __future__ import annotations
 
+import base64
+import importlib.util
 import json
 import re
 import subprocess
 import sys
 import time
+from pathlib import Path
+
+_spec = importlib.util.spec_from_file_location(
+    "ci_paths", Path(__file__).resolve().parent / "ci-paths.py"
+)
+ci_paths = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(ci_paths)
 
 # The workflow that gates a merge. A run of anything else — a scheduled job, a
 # future workflow — is not the one being asked about, and counting it would be
@@ -86,6 +104,14 @@ CONFLICTED = ("CONFLICTING", "DIRTY")
 # conflicted" from a field that means "ask again" is exactly the confident
 # wrong answer this script exists to refuse.
 UNKNOWN = "UNKNOWN"
+
+# The workflow file whose `paths:` filter decides which changes get a run.
+WORKFLOW_FILE = ".github/workflows/ci.yml"
+
+# One page of a pull request's files, the most the REST API returns at once. A
+# listing this long may be cut short, and a file that was not listed could be
+# anything, so [`skipped_by_ci`] answers no rather than paging for a yes.
+FILES_PAGE = 100
 
 
 # What a failure *in transit* looks like in `gh`'s stderr, as opposed to an
@@ -289,14 +315,44 @@ def no_run(pull: dict, short: str) -> list[str]:
     return lines
 
 
+def markdown_only(pull: dict, short: str) -> tuple[bool, list[str]]:
+    """The verdict on a commit `ci.yml`'s `paths:` filter makes no run for.
+
+    Nothing compiles a Markdown-only change, so there is no run to read and
+    what is left to ask is GitHub's own: whether the branch merges. UNKNOWN is
+    "ask again", never a yes.
+    """
+    state, status = pull.get("mergeable"), pull.get("mergeStateStatus")
+    if state == "MERGEABLE" and status not in CONFLICTED:
+        return True, [
+            f"no {WORKFLOW} run for {short}, and none was due: every file this"
+            " pull request changes is Markdown that `ci.yml`'s `paths:` skips.",
+            "No page the code reads is among them; those get a run (#1040).",
+            "GitHub reports the branch mergeable.",
+        ]
+    if state == UNKNOWN:
+        return False, [
+            f"no {WORKFLOW} run for {short}, and none was due: the change is"
+            " Markdown that `ci.yml` skips.",
+            "GitHub has not finished computing whether this branch merges"
+            " cleanly. Ask again in a moment.",
+        ]
+    return False, no_run(pull, short)
+
+
 def judge(
-    pull: dict, runs: list[dict], jobs: dict[int, list[dict]]
+    pull: dict,
+    runs: list[dict],
+    jobs: dict[int, list[dict]],
+    skips: bool = False,
 ) -> tuple[bool, list[str]]:
     """Whether this pull request may be merged, and why not when it may not.
 
     Pure, and the whole of the decision. `pull` is `gh pr view --json`, `runs`
     is every [`WORKFLOW`] run recorded against the head commit, and `jobs` maps
-    a run's id to its jobs.
+    a run's id to its jobs. `skips` is [`skipped_by_ci`]: whether `ci.yml`
+    makes no run for this diff by design, which only matters when there is no
+    run (#1135).
 
     Stated over the set rather than over a chosen run — see the module doc, and
     #245 for what picking one by list position did.
@@ -312,7 +368,7 @@ def judge(
         ]
 
     if not runs:
-        return False, no_run(pull, short)
+        return markdown_only(pull, short) if skips else (False, no_run(pull, short))
 
     # A failure anywhere in the set refuses, and it is asked first. A commit
     # whose evidence disagrees with itself has exactly one safe reading, and a
@@ -375,6 +431,38 @@ def judge(
     return True, lines
 
 
+def changed(listing: list[dict]) -> list[str]:
+    """Every path a pull request's files listing touches.
+
+    A rename names both ends, because a `.rs` file renamed to `.md` changed a
+    file CI builds.
+    """
+    return [
+        entry[key]
+        for entry in listing
+        for key in ("filename", "previous_filename")
+        if entry.get(key)
+    ]
+
+
+def skipped_by_ci(repo: str, number: int | str, base: str | None) -> bool:
+    """Whether `ci.yml` makes no run for this pull request's diff, by design.
+
+    The workflow is read from the base branch on GitHub, not from this
+    checkout: that is the one GitHub evaluates, and a stale local copy that
+    still skipped a page since re-included would turn #153 into a yes. Errs
+    towards no: a listing that may be cut short is not a Markdown-only one.
+    """
+    listing = gh(
+        "api", f"repos/{repo}/pulls/{number}/files?per_page={FILES_PAGE}"
+    )
+    if len(listing) >= FILES_PAGE:
+        return False
+    found = gh("api", f"repos/{repo}/contents/{WORKFLOW_FILE}?ref={base or 'main'}")
+    workflow = base64.b64decode(found["content"]).decode("utf-8")
+    return ci_paths.skips(workflow, changed(listing))
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         sys.exit("usage: mergeable.py PULL_REQUEST_NUMBER")
@@ -396,9 +484,10 @@ def answer(number: str) -> int:
         "view",
         number,
         "--json",
-        # The last two are only ever read when there is no run to judge, and
-        # they are what makes that answer specific rather than a guess (#429).
-        "isDraft,headRefOid,number,mergeable,mergeStateStatus",
+        # The last three are only ever read when there is no run to judge, and
+        # they are what makes that answer specific rather than a guess (#429,
+        # #1135).
+        "isDraft,headRefOid,number,mergeable,mergeStateStatus,baseRefName",
     )
     sha = pull["headRefOid"]
 
@@ -414,7 +503,11 @@ def answer(number: str) -> int:
         for run in runs
     }
 
-    ok, lines = judge(pull, runs, jobs)
+    # Only a commit with no run can be one CI skipped, so only then is it asked.
+    skips = not runs and not pull.get("isDraft") and skipped_by_ci(
+        repo, number, pull.get("baseRefName")
+    )
+    ok, lines = judge(pull, runs, jobs, skips)
     head, *rest = lines
     where = sys.stdout if ok else sys.stderr
     print(f"mergeable: #{number}: {head}", file=where)

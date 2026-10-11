@@ -19,47 +19,24 @@ folder's `README.md`, which a test skips by name) is not read, and is not held.
 
 from __future__ import annotations
 
+import importlib.util
 import re
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
+
+# The parser is `mergeable.py`'s too (#1135), so it lives beside it and both
+# read the same list the same way.
+_spec = importlib.util.spec_from_file_location(
+    "ci_paths", ROOT / ".github" / "scripts" / "ci-paths.py"
+)
+ci_paths = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(ci_paths)
+exceptions = ci_paths.exceptions
 WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
 SOURCES = ("crates", "app", "tools")
 LITERAL = re.compile(r'"([^"\s{}]*\.md)"')
-
-
-def exceptions(workflow: str) -> dict[str, set[str]]:
-    """Each trigger's re-included Markdown pages, by trigger name.
-
-    A line-wise read rather than a YAML parser: this is stdlib-only, and the
-    `on:` block is a fixed, shallow shape. A pattern is a page when it names
-    one `.md` file — not `**`, not a `!` exclusion.
-    """
-    found: dict[str, set[str]] = {}
-    trigger = None
-    in_paths = False
-    for line in workflow.splitlines():
-        if line and not line[0].isspace() and line.rstrip() != "on:":
-            if found:
-                break
-            continue
-        head = re.match(r"^  (\w+):", line)
-        if head:
-            trigger, in_paths = head.group(1), False
-            continue
-        if line.strip() == "paths:":
-            in_paths = True
-            found.setdefault(trigger, set())
-            continue
-        item = re.match(r'^\s+- "([^"]+)"$', line)
-        if in_paths and item:
-            pattern = item.group(1)
-            if pattern.endswith(".md") and "*" not in pattern and not pattern.startswith("!"):
-                found[trigger].add(pattern)
-        elif in_paths and line.strip():
-            in_paths = False
-    return found
 
 
 def crate_dir(source: Path) -> Path:
