@@ -86,6 +86,10 @@ impl Tool for Jobs {
          call it as often as it takes."
     }
 
+    fn writes(&self) -> bool {
+        false
+    }
+
     fn costs(&self) -> Costs {
         Costs::Nothing
     }

@@ -100,6 +100,12 @@
 //! it, and ends with it. Nothing about the project is held there — a render
 //! reads the project when it is asked for, as every other tool does.
 //!
+//! It also knows which projects a call is changing right now (#1063). Calls
+//! run side by side, so that a read is never stuck behind a `generate`, and a
+//! call that may change a project ([`Tool::writes`]) holds it until it
+//! answers — two edits sent at once take turns rather than overwrite each
+//! other. That is a hold for the length of one call, never an open project.
+//!
 //! ## Paid tools quote first
 //!
 //! A tool that costs money answers its first call with a quote and a token,

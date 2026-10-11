@@ -81,6 +81,10 @@ impl Tool for Icons {
          needs no network, no bake and no file."
     }
 
+    fn writes(&self) -> bool {
+        false
+    }
+
     fn costs(&self) -> Costs {
         Costs::Nothing
     }

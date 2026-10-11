@@ -219,6 +219,21 @@ pub trait Tool: Send + Sync {
     /// and a default is how it would stay quiet.
     fn costs(&self) -> Costs;
 
+    /// Whether calling it may change anything in the project it names — its
+    /// document, a recipe, a page, a file in `generated/`.
+    ///
+    /// A stdio session runs calls side by side, and lets one that may change
+    /// a project hold it for the whole call (#1063): two calls each loading,
+    /// changing and saving one document would otherwise build on what the
+    /// other replaced. One that only reads never waits.
+    ///
+    /// `true` unless a tool says otherwise, because the two mistakes are not
+    /// alike: a reader taken for a writer waits its turn, and a writer taken
+    /// for a reader loses somebody's work.
+    fn writes(&self) -> bool {
+        true
+    }
+
     /// The JSON Schema of its arguments. Every property carries its own
     /// `description`, for the same reason the tool does.
     fn schema(&self) -> Value;

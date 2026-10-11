@@ -2026,6 +2026,21 @@ the bytes on disk — so a client that disappears mid-edit leaves nothing behind
 to time out, and a fingerprint from an hour ago means exactly what one from a
 second ago does.
 
+### Calls run side by side
+
+A call does not wait for the one before it to answer: a read sent while a
+`generate` is paying for eighteen stills answers straight away, and answers
+come back in whatever order the calls finish, each carrying its request's id
+(#1063). Up to eight run at once; more wait their turn.
+
+Calls that may **change** a project take turns at it: two edits sent together
+run one after the other, and both land. One sent while another call is still
+changing that project — a `generate` holds its project until every shot it
+paid for is saved — waits up to thirty seconds, and is then refused, naming
+the call it is behind and changing nothing. Reads (`project_read`, `still`,
+`guide`, `jobs`…) never wait, and a `render` reads its project rather than
+changing it.
+
 ## The guides: `guide`
 
 Some of what an agent needs is too long for any description: the contract a

@@ -231,14 +231,16 @@ pub fn capture_frames(
     std::fs::create_dir_all(&slot)?;
     let fonts = cache::fonts(project_root)?;
     // Written beside and moved into place, so an interrupted capture never
-    // leaves frames that look finished — under a name of this process's own, so
-    // two renders of one project capturing the same page cannot interleave.
+    // leaves frames that look finished — under a name of this capture's own, so
+    // two renders of one project capturing the same page cannot interleave,
+    // whether they are two processes or two calls in one MCP session (#1063).
     // Which shelf it goes on is known only once the page has said what it read.
     let partial = slot.join(format!(
-        "part-{}-{}.{}.partial.mkv",
+        "part-{}-{}.{}-{}.partial.mkv",
         piece.start,
         piece.end,
-        std::process::id()
+        std::process::id(),
+        capture_number()
     ));
     let heard = pieces::capture_in(
         chrome,
@@ -294,4 +296,11 @@ pub enum PageError {
     /// The cache could not be written.
     #[error("writing the capture to cache/: {0}")]
     Io(#[from] std::io::Error),
+}
+
+/// A number no other capture in this process has used.
+fn capture_number() -> u64 {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    COUNTER.fetch_add(1, Ordering::Relaxed)
 }

@@ -44,6 +44,10 @@ impl Tool for Kit {
          `instrument` starts a one-shot of one. Costs nothing."
     }
 
+    fn writes(&self) -> bool {
+        false
+    }
+
     fn costs(&self) -> Costs {
         Costs::Nothing
     }

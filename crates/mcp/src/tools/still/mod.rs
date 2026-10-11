@@ -131,6 +131,10 @@ impl Tool for Still {
          side."
     }
 
+    fn writes(&self) -> bool {
+        false
+    }
+
     fn costs(&self) -> Costs {
         Costs::Frames
     }

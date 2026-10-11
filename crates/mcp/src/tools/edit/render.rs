@@ -109,6 +109,12 @@ impl Tool for Render {
          started without it, jobs with job and wait: true waits for it."
     }
 
+    // What it writes is its own output file, which the session's renders
+    // already keep to one writer at a time; the project it only reads.
+    fn writes(&self) -> bool {
+        false
+    }
+
     fn costs(&self) -> Costs {
         Costs::Encode
     }

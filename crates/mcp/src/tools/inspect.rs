@@ -45,6 +45,10 @@ impl Tool for Read {
          format is documented in `guide project-format`."
     }
 
+    fn writes(&self) -> bool {
+        false
+    }
+
     fn costs(&self) -> Costs {
         Costs::Nothing
     }
@@ -103,6 +107,10 @@ impl Tool for Describe {
          sized from it fits the text it sits behind. `at` also names the word \
          each generated narration is saying then, and the name a page reads it \
          by in scorsese.words — so sync can be checked without listening."
+    }
+
+    fn writes(&self) -> bool {
+        false
     }
 
     fn costs(&self) -> Costs {
@@ -243,6 +251,10 @@ impl Tool for Check {
          edit."
     }
 
+    fn writes(&self) -> bool {
+        false
+    }
+
     fn costs(&self) -> Costs {
         Costs::Nothing
     }
@@ -318,6 +330,10 @@ impl Tool for Assets {
          indented under it. Says which generated assets are still sketches \
          nobody has realised, and which files the document points at and cannot \
          find."
+    }
+
+    fn writes(&self) -> bool {
+        false
     }
 
     fn costs(&self) -> Costs {

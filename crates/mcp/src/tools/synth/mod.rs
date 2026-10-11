@@ -159,6 +159,10 @@ impl Tool for Check {
          recipe. Milliseconds rather than the seconds a bake takes."
     }
 
+    fn writes(&self) -> bool {
+        false
+    }
+
     fn costs(&self) -> Costs {
         Costs::Nothing
     }
@@ -192,6 +196,10 @@ impl Tool for Read {
         "Read a recipe file as it is on disk. Pair with synth_write to change a \
          sound: read it, change it, write it back, bake. The recipe format is \
          documented in `guide recipes`."
+    }
+
+    fn writes(&self) -> bool {
+        false
     }
 
     fn costs(&self) -> Costs {

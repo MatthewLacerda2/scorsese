@@ -103,6 +103,10 @@ impl Tool for Voices {
          substituted."
     }
 
+    fn writes(&self) -> bool {
+        false
+    }
+
     fn costs(&self) -> Costs {
         Costs::Request
     }
