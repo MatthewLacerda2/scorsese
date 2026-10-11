@@ -98,10 +98,12 @@ const FONT: &str = "The face: a name this build ships — `sans`, `serif` — or
                     path to a font file inside the project.";
 /// `weight`.
 const WEIGHT: &str = "How heavy the glyphs are, 1 to 1000 on the usual scale where \
-                      400 is regular and 700 bold. Read from a variable font only.";
+                      400 is regular and 700 bold. A shipped family takes the weights \
+                      it has; a font the project carries takes one only if it is variable.";
 /// `italic`.
 const ITALIC: &str = "Set it in the family's italic — a different drawing, not the \
-                      upright leaned over. Only for a face this build ships.";
+                      upright leaned over. Only for a shipped family that has one drawn: \
+                      most display, handwriting and script faces have none and refuse it.";
 /// `size`.
 const SIZE: &str = "How big, as a fraction of the frame's HEIGHT: 0.1 is a tenth \
                     of the picture. Means the same at every render resolution.";

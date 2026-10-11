@@ -90,7 +90,7 @@ of this kind used.";
 pub(super) const PHOTO_MONTAGE: &str = "\
 Photo montage: stills, each with a slow push-in or drift, cut to the music.\n\
 Needs from the person: the photos — this style is made of them, so ask first — and the \
-occasion or story they tell. Music is theirs, from stock, or synthesised.\n\
+occasion or story they tell. Music is theirs, or synthesised.\n\
 Shape: an opening image that sets the subject, the rest in the order of the story (often \
 time), and a closing image held a little longer, with a title or a line if one helps.\n\
 Make: the music first; cut on its beats, a still every one to four beats, faster in the \

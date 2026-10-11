@@ -61,7 +61,8 @@ impl Platform {
         }
     }
 
-    /// What a person is shown, in pt-BR — the web app's language.
+    /// What a person is shown, in pt-BR. The web app shows each reader its own
+    /// language's words for the id (#1051) and falls back to these.
     pub const fn name(self) -> &'static str {
         match self {
             Self::Youtube => "YouTube",

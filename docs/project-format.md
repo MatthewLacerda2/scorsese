@@ -592,7 +592,7 @@ which is the title most people meant.
 
 | Field | Default | Meaning |
 | --- | --- | --- |
-| `font` | `sans` | one of the eight shipped names, or a path to a font file inside the project |
+| `font` | `sans` | a shipped name (the table below), or a path to a font file inside the project |
 | `weight` | *none* | How heavy, 1–1000 — **required** for a variable font, refused for anything else |
 | `size` | `0.1` | Em size as a fraction of the frame's **height** |
 | `color` | `#ffffff` | `#rrggbb`, or `#rrggbbaa` for text you can see through |
@@ -714,7 +714,7 @@ asset holding one character at a large `size`, composited and faded like any
 other layer.
 
 **It works because a font is the head of a chain rather than the whole of it.**
-No face covers Unicode; none of the eight above has a fire. So a character the
+No face covers Unicode; none of the families above has a fire. So a character the
 face a document *named* has no glyph for is drawn by the next face that does,
 and one such face ships: **Noto Color Emoji**, in its COLRv1 vector build, so a
 large emoji stays sharp at 4K. Everything the named face *can* draw, it draws —
@@ -794,9 +794,10 @@ The other three cases follow from the same rule:
   has.** Liberation is four separate files rather than an axis — there is no
   variable build of it anywhere — so `liberation-sans` has 400 and 700 and
   nothing between. `600` is an error naming both, not a quiet 700: snapping is
-  the same silent substitution as clamping, one step along. Every other shipped
-  family is variable, where any weight inside the range is a real position on
-  the axis.
+  the same silent substitution as clamping, one step along. The families whose
+  weights the table above gives as a list (`poppins`, `lato`, `kalam`, every
+  face drawn at 400 alone) are drawn the same way; one given as a range is
+  variable, where any weight inside it is a real position on the axis.
 
 **A shipped family defaults to weight 400; a font the project carries does
 not.** Written
@@ -829,10 +830,10 @@ rather than the upright leaned over — different letterforms, often a
 single-storey `a` and an entirely redrawn `f`. A number would promise a
 continuum between the two that does not exist.
 
-Every shipped family carries its italic beside its upright, **keyed by weight
-the same way**, so `italic` composes with `weight`: `liberation-serif` at `700`
-with `italic: true` is the BoldItalic the designer drew, not a bold that has
-been slanted.
+A shipped family with an italic (a `yes` in the table's italic column) carries
+it beside its upright, **keyed by weight the same way**, so `italic` composes
+with `weight`: `liberation-serif` at `700` with `italic: true` is the
+BoldItalic the designer drew, not a bold that has been slanted.
 
 Inter is the clearest case for why this is a second set of files rather than an
 effect. Its variable file has a `slnt` axis, which produces an **oblique** — the
@@ -845,9 +846,12 @@ name the italic file: `"font": "assets/Manrope-Italic[wght].ttf"`. Same rule as
 a weight beside a static file, and for the same reason — a field nobody reads is
 how somebody comes to insist their italic is broken.
 
-A family with no italic drawn would refuse one rather than shear its upright.
-None of the eight is that today; the rule is written down because the shape
-allows it and a future family might be.
+**A family with no italic drawn refuses one** rather than shear its upright.
+That is every family with a `—` in the table's italic column: the rounded faces
+(`quicksand`, `fredoka`, `baloo-2`, `comfortaa`), most display faces (`anton`,
+`bebas-neue`, `oswald`, `archivo-black`, `bangers`, `lilita-one`) and every
+handwriting and script face. `italic: true` on `anton` is an error naming the
+family, at the render.
 
 #### The stroke, which is what makes a caption survive the shot behind it
 

@@ -188,8 +188,8 @@ impl Painter {
                     asset: asset.id.to_string(),
                     path: path.resolve(project_root),
                     detail: "`italic` applies to a font scorsese ships, which carries its \
-                             italic beside its upright. A font the project carries is one \
-                             file — name the italic file itself instead"
+                             drawn italic beside its upright where it has one. A font the \
+                             project carries is one file — name the italic file itself instead"
                         .to_owned(),
                 });
             }

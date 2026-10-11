@@ -46,6 +46,6 @@ jobs:
           gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes 2>/dev/null || true
           gh release upload "$GITHUB_REF_NAME" "${{ matrix.artifact }}" --clobber
 
-  # TODO: Tauri bundling (GUI app + ffmpeg sidecar) is not wired yet — it
-  # arrives with the "Tauri GUI shell + timeline view" seed issue. Until
-  # then releases ship the headless CLI binary only.
+  # Releases ship the headless CLI binary only. The desktop app (`app/`, egui,
+  # its own cargo workspace) is not released yet: whether to package it, and
+  # with ffmpeg bundled beside the binary or not, is the maintainer's call.

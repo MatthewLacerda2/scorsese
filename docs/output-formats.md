@@ -123,6 +123,24 @@ The extension is a **default**, not the answer: `--container` wins over it, and
 the muxer is pinned with ffmpeg's `-f` so the file is what the setting says
 whatever it is called.
 
+### Sized for where it is going: `--platform`
+
+```sh
+scorsese render --out ad.mp4 --platform tiktok_ad   # 1080x1920
+scorsese render --out cut.mp4 --platform youtube    # 1920x1080
+```
+
+`--platform` names the placement a file is made for — `youtube`,
+`youtube_shorts`, `instagram_reels`, `instagram_reels_ad`,
+`instagram_stories_ad`, `tiktok` or `tiktok_ad` — and sizes the render for it:
+1920×1080 for YouTube, 1080×1920 for every vertical feed. It is a render preset
+like every other setting here and never enters `project.json`, so the same cut
+goes out to two placements without the document changing
+(`crates/core/src/style/platform.rs`). The MCP `render` tool takes it as
+`platform`. On the command line an explicit `--resolution` wins over it; the
+MCP tool refuses the two together, since both would size the render. A sound-only
+file refuses it, the way it refuses a resolution.
+
 ## Sound only
 
 `mp3`, `wav` and `m4a` carry the timeline's mix and nothing else. A render into

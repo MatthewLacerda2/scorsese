@@ -97,8 +97,9 @@ pub struct TextStyle {
     /// often a single-storey `a` and an entirely redrawn `f`. A number would
     /// promise a continuum between the two that does not exist.
     ///
-    /// It applies to a family scorsese ships, which carries its italic beside
-    /// its upright. A font the **project** carries is one file and is whatever
+    /// It applies to a family scorsese ships, which carries its drawn italic
+    /// beside its upright where it has one; a family drawn upright only (Anton,
+    /// Caveat, most display and handwriting faces) refuses it. A font the **project** carries is one file and is whatever
     /// it is, so `italic` beside one is refused rather than ignored — the way
     /// to get an italic there is to name the italic file. Same rule as a weight
     /// beside a static file, and for the same reason: a field nobody reads is

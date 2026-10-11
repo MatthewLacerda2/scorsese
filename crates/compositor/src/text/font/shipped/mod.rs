@@ -29,7 +29,7 @@
 //!
 //! ## Italic is a second table, not an effect
 //!
-//! Every family here carries a whole second set of files for its italic,
+//! A family with an italic carries it as a whole second set of files,
 //! because **a real italic is a different drawing** — different letterforms,
 //! not the upright ones leaned over. Inter makes the point on its own: its
 //! `Inter-V.ttf` has a `slnt` axis, which produces an *oblique*, and the

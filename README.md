@@ -66,6 +66,11 @@ reads the script and picks up where you stopped.
 
 ## What it does
 
+**Starting.** Say where the video is going (YouTube, Shorts, Reels, TikTok,
+as a post or a paid ad) and what kind it is (narrated captions, kinetic type, a
+board that draws itself, a photo montage…), and the project starts with a
+brief: the size the platform wants and how that kind of video is made.
+
 **Editing.** Any number of video and audio tracks. Place, trim, move and layer
 clips; crop them, fit or fill the frame, speed them up or slow them down;
 dissolve between shots; stretch or tighten the pacing of a whole section around
@@ -77,6 +82,12 @@ weight, italics, outlines that keep a caption readable over busy footage, and
 emoji. Rectangles, ellipses and arrows — including arrows that follow a moving
 clip. Seventeen hundred built-in icons, found by a word. Solid colour cards.
 
+**Motion graphics as web pages.** A title card, a lower third, an animated
+chart or a whiteboard drawing itself is an HTML page the timeline plays like
+footage with a transparent background, rendered frame by frame. Any picture can
+be traced into strokes a page draws on (`vectorize`), and free Lottie
+animations play in one.
+
 **Looks.** Colour grading (saturation, temperature, brightness, contrast,
 vignette, grain), blur, lens fringing, green-screen removal, and a VHS look.
 All applied in the edit, so changing your mind is free.
@@ -84,9 +95,15 @@ All applied in the edit, so changing your mind is free.
 **Generated footage.** Shots from Google Veo, at 720p or 1080p, landscape or
 vertical, optionally guided by a starting image, an ending image, or reference
 images that keep a character or an object consistent from shot to shot.
+Stills from Google Gemini, for a picture nobody has.
+
+**Stock.** Search free footage and photos on Pixabay, and free animations on
+LottieFiles, and bring in the one you pick — before paying for a shot.
 
 **Narration.** Lines read by ElevenLabs voices, in whatever language you write
-them. Browse the voices, or design a new one from a description.
+them. Browse the voices, or design a new one from a description. The words
+come back timed, so the narration can put itself on screen as captions, and a
+narrated video can be cut to its voice — each scene ending just after its line.
 
 **Music and sound effects, from nothing.** A built-in synthesiser turns a
 written recipe — chords, rhythm, instruments, a build — into a score or an
@@ -94,12 +111,12 @@ effect, fitted to the length of your cut. No key, no network, no cost, and no
 licence to worry about. Or import any audio file and use that.
 
 **Sound mixing.** Volume fades between any two points, music that ducks itself
-under narration, the sound of your own footage mixed in or muted, and a
-loudness report for the finished file.
+under narration, the sound of your own footage mixed in or muted, and
+delivery at a loudness target — measured, brought there and measured again.
 
 **Delivery.** Resolution, frame rate and bitrate are chosen per render, never
 baked into the project — the same edit goes out as 1080p for a screen and as a
-small file for a chat. MP4 by default; MKV, AVI and WMV when something
+small file for a chat, or sized for the platform it is going to. MP4 by default; MKV, AVI and WMV when something
 asks for them.
 
 What it is **not**: a compositing or VFX suite. No node graphs, no motion
