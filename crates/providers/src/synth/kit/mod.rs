@@ -4,8 +4,15 @@
 //! five to ten lines of envelopes and curves that have to be right before the
 //! sound reads as a kick at all, retyped or copied out of the last song's JSON.
 //! This is the set those songs kept rebuilding: a drum machine's kick, snare,
-//! closed hat and crash, and a synth bass, a clav, a brass section, a pad and an
-//! electric piano. A recipe asks for one as `"patch": "kit:kick"`.
+//! clap, closed and open hats, tom and crash; a synth bass and a sub; a clav, a
+//! pluck, a supersaw lead, a brass section, strings, a pad, an electric piano
+//! and a bell. A recipe asks for one as `"patch": "kit:kick"`.
+//!
+//! **No instrument carries a reverb.** A `reverb` in a patch runs once per
+//! note, so every chord voice and every arpeggio step got a room of its own,
+//! stacked under the song's own room; the room is the song's, and a track
+//! reaches it with `send` (#1120). An effect may keep one — the thud's room is
+//! part of the sound when it is baked on its own, with no song around it.
 //!
 //! Beside them, the effects every video kept rebuilding the same way: a whoosh,
 //! a riser, a pop, a click, a ding, a keystroke, a pencil scribble, a page turn
@@ -86,15 +93,34 @@ pub const KIT: &[Instrument] = &[
     },
     Instrument {
         name: "snare",
-        describes: "drum-machine snare: a crack of pink noise over a short body, in a small room",
+        describes: "drum-machine snare: a crack of pink noise over a short body",
         home: "C4",
         json: include_str!("presets/snare.json"),
+    },
+    Instrument {
+        name: "clap",
+        describes: "hand clap: a burst of mid noise that flams, three hands at once",
+        home: "C4",
+        json: include_str!("presets/clap.json"),
     },
     Instrument {
         name: "hat",
         describes: "closed hi-hat: a short tick of bright noise",
         home: "C4",
         json: include_str!("presets/hat.json"),
+    },
+    Instrument {
+        name: "open_hat",
+        describes: "open hi-hat: bright noise left to ring, the off-beat `hat` lets go of",
+        home: "C4",
+        json: include_str!("presets/open_hat.json"),
+    },
+    Instrument {
+        name: "tom",
+        describes: "tom: a round drum that drops onto its pitch; the `note` is the drum, `A2` a floor \
+            tom and `E3` a rack tom",
+        home: "A2",
+        json: include_str!("presets/tom.json"),
     },
     Instrument {
         name: "crash",
@@ -109,16 +135,40 @@ pub const KIT: &[Instrument] = &[
         json: include_str!("presets/bass.json"),
     },
     Instrument {
+        name: "sub",
+        describes: "sub bass: a held sine with a little thump and drive, the 808 under a beat",
+        home: "E1",
+        json: include_str!("presets/sub.json"),
+    },
+    Instrument {
         name: "clav",
         describes: "clavinet: a bright, funky, percussive keyboard that barks when played hard",
         home: "C4",
         json: include_str!("presets/clav.json"),
     },
     Instrument {
+        name: "pluck",
+        describes: "pluck: a short, bright, detuned saw snapping shut, for arpeggios and offbeat stabs",
+        home: "C4",
+        json: include_str!("presets/pluck.json"),
+    },
+    Instrument {
+        name: "lead",
+        describes: "lead: a seven-voice supersaw with a touch of vibrato, to carry a melody over a mix",
+        home: "C5",
+        json: include_str!("presets/lead.json"),
+    },
+    Instrument {
         name: "brass",
         describes: "brass section: FM horns that bloom into the note, brighter when played hard",
         home: "F3",
         json: include_str!("presets/brass.json"),
+    },
+    Instrument {
+        name: "strings",
+        describes: "string section: a bowed ensemble swelling in, chorused, with vibrato",
+        home: "G3",
+        json: include_str!("presets/strings.json"),
     },
     Instrument {
         name: "pad",
@@ -131,6 +181,12 @@ pub const KIT: &[Instrument] = &[
         describes: "electric piano: an FM tine that rings and fades, bell-like when struck hard",
         home: "C4",
         json: include_str!("presets/epiano.json"),
+    },
+    Instrument {
+        name: "bell",
+        describes: "bell: a struck bell whose upper partials die first, leaving the hum below the note",
+        home: "C5",
+        json: include_str!("presets/bell.json"),
     },
     Instrument {
         name: "whoosh",

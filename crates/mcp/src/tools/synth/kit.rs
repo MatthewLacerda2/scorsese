@@ -33,14 +33,17 @@ impl Tool for Kit {
 
     fn description(&self) -> &'static str {
         "List the ready-made instruments a recipe can start from, or show one \
-         instrument's patch. There is a drum machine's kick, snare, closed hat \
-         and crash, a synth bass, a clav, a brass section, a pad and an \
-         electric piano; and sound effects to vary rather than use as they are \
+         instrument's patch. There is a drum machine's kick, snare, clap, \
+         closed and open hats, tom and crash; a synth bass and a sub; a clav, \
+         a pluck, a supersaw lead, a brass section, strings, a pad, an \
+         electric piano and a bell; and sound effects to vary rather than use as they are \
          (whoosh, riser, pop, click, ding, key, scribble, page, thud), each \
          listed with the numbers that make a different take of it. A song track uses one by writing \"patch\": \"kit:kick\" and \
          passing the recipe to synth_write, which copies the patch into the \
          recipe: the song keeps its own copy, edits it freely, and never \
-         changes sound when scorsese is upgraded. synth_new with an \
+         changes sound when scorsese is upgraded. The instruments carry no \
+         reverb: put one on the song's fx and set each track's send. \
+         synth_new with an \
          `instrument` starts a one-shot of one. Costs nothing."
     }
 

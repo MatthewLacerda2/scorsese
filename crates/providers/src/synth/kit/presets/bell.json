@@ -1,0 +1,13 @@
+{
+  "source": { "kind": "additive", "partials": [
+    { "ratio": 0.5, "gain": 0.5, "decay": 3.5 },
+    { "ratio": 1.0, "gain": 1.0, "decay": 2.5 },
+    { "ratio": 1.19, "gain": 0.6, "decay": 1.6 },
+    { "ratio": 1.5, "gain": 0.4, "decay": 1.2 },
+    { "ratio": 2.0, "gain": 0.7, "decay": 1.4 },
+    { "ratio": 2.52, "gain": 0.3, "decay": 0.7 },
+    { "ratio": 3.01, "gain": 0.25, "decay": 0.5 },
+    { "ratio": 4.07, "gain": 0.15, "decay": 0.3 }
+  ] },
+  "amp": { "a": 0.001, "d": 0.2, "s": 1.0, "r": 1.5 }
+}

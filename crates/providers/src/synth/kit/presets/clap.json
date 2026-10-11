@@ -1,0 +1,9 @@
+{
+  "source": { "kind": "noise", "color": "pink" },
+  "amp": { "a": 0.001, "d": 0.16, "s": 0.0, "r": 0.06, "curve": 4.0 },
+  "filter": { "kind": "bandpass", "cutoff": 1500, "resonance": 0.25 },
+  "fx": [
+    { "fx": "delay", "time": 0.011, "feedback": 0.45, "mix": 0.5 },
+    { "fx": "eq", "bands": [{ "kind": "highpass", "freq": 400 }] }
+  ]
+}

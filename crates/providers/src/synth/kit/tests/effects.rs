@@ -4,7 +4,7 @@
 
 use super::*;
 
-const EFFECTS: &[&str] = &[
+pub(super) const EFFECTS: &[&str] = &[
     "whoosh", "riser", "pop", "click", "ding", "key", "scribble", "page", "thud",
 ];
 

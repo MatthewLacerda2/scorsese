@@ -10,7 +10,6 @@
     { "fx": "eq", "bands": [
       { "kind": "highpass", "freq": 140 },
       { "kind": "peak", "freq": 220, "gain_db": 4, "q": 1.2 }
-    ] },
-    { "fx": "reverb", "size": 0.25, "damp": 0.6, "mix": 0.12 }
+    ] }
   ]
 }
