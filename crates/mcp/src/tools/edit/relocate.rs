@@ -5,7 +5,7 @@ use scorsese_core::{ClipId, Relocation, TrackId, Trim, placing};
 use serde::Deserialize;
 use serde_json::Value;
 
-use super::{bounds, frames, seconds};
+use super::{bounds, reaching, seconds};
 use crate::tools::args::{self, Name, ProjectDir, Required};
 use crate::tools::inspect::load;
 use crate::tools::{Costs, Reply, Tool};
@@ -82,17 +82,23 @@ impl Tool for ClipMove {
         let fps = project.timeline_fps;
         let id = ClipId::new(arguments.clip.as_str());
 
+        let (from, start) = project
+            .clips()
+            .find(|(_, clip)| clip.id == id)
+            .map(|(track, clip)| (Some(track.id.clone()), clip.start))
+            .unwrap_or_default();
+        let start_asked = seconds(arguments.start_seconds, "start_seconds")?;
+        // The length is found from where the clip will start — the start
+        // asked for, or the one it has — so its end lands on the frame
+        // place_clip would give it (`reaching`'s doc, #1113).
+        let start_seconds = start_asked.unwrap_or_else(|| fps.seconds(start));
         let bounds_asked = Trim {
-            start: seconds(arguments.start_seconds, "start_seconds")?.map(|at| fps.frames(at)),
+            start: start_asked.map(|at| fps.frames(at)),
             duration: seconds(arguments.duration_seconds, "duration_seconds")?
-                .map(|length| frames(length, fps.as_f64())),
+                .map(|length| reaching(fps, start_seconds, length)),
             source_in: seconds(arguments.source_in_seconds, "source_in_seconds")?
                 .map(|at| fps.frames(at)),
         };
-        let from = project
-            .clips()
-            .find(|(_, clip)| clip.id == id)
-            .map(|(track, _)| track.id.clone());
         let moved = match args::given(arguments.track.as_deref()) {
             // A track and new bounds are one edit, never a relocation then a
             // trim: the document in between can overlap where the result does
