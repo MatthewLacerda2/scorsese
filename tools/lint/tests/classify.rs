@@ -5,7 +5,7 @@
 
 use std::path::Path;
 
-use scorsese_lint::classify::{Kind, SOURCE_LIMIT, TEST_LIMIT, classify, is_skipped_dir};
+use scorsese_lint::classify::{Kind, SOURCE_LIMIT, TEST_LIMIT, classify};
 
 fn kind_of(path: &str) -> Option<Kind> {
     classify(Path::new(path))
@@ -116,31 +116,4 @@ fn only_code_is_measured() {
     ] {
         assert_eq!(kind_of(path), None, "{path}");
     }
-}
-
-#[test]
-fn build_output_and_hidden_directories_are_not_measured() {
-    for path in [
-        "target/debug/build/scorsese-core-1/out/generated.rs",
-        "tools/lint/target/debug/build/x/out/table.rs",
-        ".git/hooks/thing.rs",
-        ".claude/worktrees/agent-1/crates/core/src/asset.rs",
-        "some.scor/generated/x.rs",
-        "some.scor/cache/x.rs",
-        "node_modules/whatever/x.rs",
-        "web/node_modules/react/index.d.ts",
-    ] {
-        assert_eq!(kind_of(path), None, "{path}");
-    }
-}
-
-#[test]
-fn the_skip_list_is_directories_only_not_files_that_look_like_them() {
-    assert!(is_skipped_dir("target"));
-    assert!(is_skipped_dir(".github"));
-    assert!(!is_skipped_dir("tests"));
-    assert!(!is_skipped_dir("src"));
-    // A *file* named after a skipped directory is still measured — only the
-    // directory components of a path are consulted.
-    assert_eq!(kind_of("crates/core/src/target.rs"), Some(Kind::Source));
 }

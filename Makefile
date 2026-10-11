@@ -292,7 +292,7 @@ format: ## [gate] cargo fmt --check, workspace and tools/lint
 # The one test run left on plain `cargo test`, and deliberately. This is in
 # `pre-commit`, so putting it through nextest would mean a clone that has not
 # installed the runner yet cannot commit at all — and there is nothing to win:
-# four files, one test binary, nothing for a scheduler to overlap.
+# five small test files, nothing for a scheduler to overlap.
 size: ## [gate] Source <= 300 lines of code, tests <= 150; blanks and comments free
 	@out=$$(cargo test $(LINT) --locked --quiet 2>&1) \
 		|| { printf '%s\n' "$$out" >&2; exit 1; }

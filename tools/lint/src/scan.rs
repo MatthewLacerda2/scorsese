@@ -120,8 +120,7 @@ pub fn check_dir(root: &Path) -> io::Result<Report> {
             let file_type = entry.file_type()?;
 
             if file_type.is_dir() {
-                let skip = entry.file_name().to_str().is_none_or(is_skipped_dir);
-                if !skip {
+                if !is_skipped_dir(&relative) {
                     dirs.push(relative);
                 }
             } else if file_type.is_file()

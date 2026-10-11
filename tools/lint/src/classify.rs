@@ -76,18 +76,51 @@ impl Kind {
     }
 }
 
-/// Directories the gate never descends into.
+/// Whether the gate never descends into `dir`, a directory's path relative to
+/// the scan root.
 ///
-/// Hidden ones (`.git`, `.github`, and the `.claude/worktrees/` copies of the
-/// repo that agents work in) hold history and tooling state rather than
-/// project source — and counting a worktree's files would report every
-/// violation several times over. The named ones are build output and
-/// per-project scratch space: `target/`, and the `generated/`, `cache/`
-/// directories of a `*.scor` project; and `node_modules/`, the web front-end's
-/// installed packages, which ship `.ts` of their own. (`web/dist/` needs no
-/// entry: a build writes `.js`, which is never measured.)
-pub fn is_skipped_dir(name: &str) -> bool {
-    name.starts_with('.') || matches!(name, "target" | "generated" | "cache" | "node_modules")
+/// Hidden directories anywhere (`.git`, `.github`, and the
+/// `.claude/worktrees/` copies of the repo that agents work in) hold history
+/// and tooling state rather than project source — and counting a worktree's
+/// files would report every violation several times over. `node_modules/`,
+/// anywhere, is the web front-end's installed packages, which ship `.ts` of
+/// their own. (`web/dist/` needs no entry: a build writes `.js`, which is never
+/// measured.) A directory whose name is not UTF-8 is not walked either.
+///
+/// The other three are skipped **by where they sit, not by name alone**, because
+/// a name is also a perfectly good module name. Until #1131 they were skipped
+/// anywhere, and `crates/render/src/page/cache/` went unmeasured — over the cap
+/// — for as long as it existed:
+///
+/// - `cache/` and `generated/` only directly inside a `*.scor` project folder,
+///   where they are the project's rebuildable cache and provider output.
+/// - `target/` only where cargo writes it: at a workspace root — the repo's,
+///   `app/`'s, `tools/lint/`'s. That is answered from the path alone, so the
+///   rule is that no directory above it is a module tree (`src`, `tests`,
+///   `benches`, `examples`): a workspace root is never inside one, and a Rust
+///   module named `target` always is.
+pub fn is_skipped_dir(dir: &Path) -> bool {
+    let Some(name) = dir.file_name() else {
+        return false;
+    };
+    let Some(name) = name.to_str() else {
+        return true;
+    };
+    match name {
+        "node_modules" => true,
+        "cache" | "generated" => dir
+            .parent()
+            .and_then(Path::file_name)
+            .and_then(|parent| parent.to_str())
+            .is_some_and(|parent| parent.ends_with(".scor")),
+        "target" => !dir.components().any(|c| {
+            matches!(
+                c.as_os_str().to_str(),
+                Some("src" | "tests" | "benches" | "examples")
+            )
+        }),
+        _ => name.starts_with('.'),
+    }
 }
 
 /// Which cap `path` falls under, or `None` if the gate has no opinion about it
@@ -101,7 +134,7 @@ pub fn classify(path: &Path) -> Option<Kind> {
         return None;
     }
 
-    let dirs = path.parent()?.components();
+    let parent = path.parent()?;
     let named_as_test = extension != "rs"
         && path
             .file_stem()
@@ -112,11 +145,11 @@ pub fn classify(path: &Path) -> Option<Kind> {
     } else {
         Kind::Source
     };
-    for dir in dirs.filter_map(|c| c.as_os_str().to_str()) {
+    for dir in parent.ancestors() {
         if is_skipped_dir(dir) {
             return None;
         }
-        if dir == "tests" {
+        if dir.file_name().is_some_and(|name| name == "tests") {
             kind = Kind::Test;
         }
     }

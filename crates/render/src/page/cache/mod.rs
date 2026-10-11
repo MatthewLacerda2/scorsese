@@ -28,13 +28,12 @@
 //! page reads is only known once it has run, so the slot cannot be named by
 //! them; and the same page placed twice is told two sets of places in one
 //! render, so neither capture may replace the other. A page that read no clip
-//! has the one shelf, `told-none/`. Only the [`SHELVES`] written most recently
-//! are kept, so moving a clip a page reads, again and again, does not grow the
-//! cache by a capture each time.
+//! has the one shelf, `told-none/`. Only the [`shelves::SHELVES`] written most
+//! recently are kept, so moving a clip a page reads, again and again, does not
+//! grow the cache by a capture each time.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
 
 use scorsese_core::pool::hash_file;
 use scorsese_core::{CACHE_DIR, hash_bytes};
@@ -44,9 +43,13 @@ use serde_json::json;
 use super::request::Request;
 use super::told::Told;
 
+mod fontconfig;
 mod pieces;
+mod shelves;
 
+pub(crate) use fontconfig::fonts;
 pub(crate) use pieces::{files, prune};
+pub(crate) use shelves::{retire, shelf};
 
 /// The folder under `cache/` captures are kept in.
 const PAGES: &str = "pages";
@@ -54,9 +57,6 @@ const PAGES: &str = "pages";
 pub(crate) const FRAMES: &str = "frames.mkv";
 /// What the capture loaded and warned about, in a slot.
 pub(super) const RECORD: &str = "capture.json";
-/// How many shelves a slot keeps: a page placed this many times in one edit,
-/// each told different places, is the most that is never captured twice.
-const SHELVES: usize = 8;
 
 /// What a capture recorded about itself.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -82,15 +82,10 @@ pub(crate) fn slot(project_root: &Path, request: &Request, chrome_version: &str)
         "duration": request.duration.to_bits(),
         "chrome": chrome_version,
         "version": super::PAGE_VERSION,
-        "fonts": fonts_hash(),
+        "fonts": fontconfig::fonts_hash(),
     });
     let key = hash_bytes(asked.to_string().as_bytes());
     project_root.join(CACHE_DIR).join(PAGES).join(&key[..32])
-}
-
-/// The shelf in `slot` for captures told `told`.
-pub(crate) fn shelf(slot: &Path, told: &Told) -> PathBuf {
-    slot.join(told.folder())
 }
 
 /// The whole page's capture for `request` on any of `slot`'s shelves, and its
@@ -100,7 +95,7 @@ pub(crate) fn fresh(
     project_root: &Path,
     request: &Request,
 ) -> Option<(PathBuf, Record)> {
-    shelves(slot).into_iter().find_map(|shelf| {
+    shelves::all(slot).into_iter().find_map(|shelf| {
         let frames = shelf.join(FRAMES);
         read_fresh(&frames, &shelf.join(RECORD), project_root, request)
             .map(|record| (frames, record))
@@ -117,7 +112,7 @@ pub(crate) fn holding(
     request: &Request,
     wanted: &std::ops::Range<u64>,
 ) -> Option<(PathBuf, u64, Record)> {
-    shelves(slot)
+    shelves::all(slot)
         .into_iter()
         .find_map(|shelf| pieces::holding(&shelf, project_root, request, wanted))
 }
@@ -146,81 +141,11 @@ pub(super) fn read_fresh(
     (unchanged && record.told.holds_for(request)).then_some(record)
 }
 
-/// Drops every shelf of `slot` but the [`SHELVES`] written most recently,
-/// `kept` always among them.
-pub(crate) fn retire(slot: &Path, kept: &Path) {
-    let mut others: Vec<(std::time::SystemTime, PathBuf)> = shelves(slot)
-        .into_iter()
-        .filter(|shelf| shelf != kept)
-        .map(|shelf| {
-            let written = std::fs::metadata(&shelf).and_then(|m| m.modified());
-            (written.unwrap_or(std::time::UNIX_EPOCH), shelf)
-        })
-        .collect();
-    others.sort_by_key(|(written, _)| std::cmp::Reverse(*written));
-    for (_, shelf) in others.into_iter().skip(SHELVES - 1) {
-        let _ = std::fs::remove_dir_all(shelf);
-    }
-}
-
-/// Every shelf in `slot`.
-fn shelves(slot: &Path) -> Vec<PathBuf> {
-    let Ok(read) = std::fs::read_dir(slot) else {
-        return Vec::new();
-    };
-    let mut shelves: Vec<PathBuf> = read
-        .flatten()
-        .filter(|entry| entry.file_name().to_string_lossy().starts_with("told-"))
-        .map(|entry| entry.path())
-        .filter(|path| path.is_dir())
-        .collect();
-    shelves.sort();
-    shelves
-}
-
 /// Writes a capture's record, which is what makes its frames usable: written
 /// last, so a capture cut short leaves one that is not [`fresh`].
 pub(crate) fn keep(file: &Path, record: &Record) -> std::io::Result<()> {
     let bytes = serde_json::to_vec_pretty(record).expect("a record always serialises");
     std::fs::write(file, bytes)
-}
-
-/// The shipped faces ([`super::fonts`]) written out where the browser can find them, with a
-/// fontconfig file listing **only** them — so a page that names a font it was
-/// not given falls back to the same face on every machine, never to whatever
-/// the host has installed (#606). Returns that file. Written once per project;
-/// a face whose file is already there at the right length is left alone.
-pub(crate) fn fonts(project_root: &Path) -> std::io::Result<PathBuf> {
-    let folder = project_root.join(CACHE_DIR).join(PAGES).join("fonts");
-    std::fs::create_dir_all(&folder)?;
-    for face in super::fonts::faces() {
-        let file = folder.join(&face.file);
-        let current = std::fs::metadata(&file).map(|m| m.len()).ok();
-        if current != Some(face.bytes.len() as u64) {
-            std::fs::write(&file, face.bytes)?;
-        }
-    }
-    let conf = folder.join("fonts.conf");
-    let text = format!(
-        "<?xml version=\"1.0\"?>\n<fontconfig>\n  <dir>{}</dir>\n  <cachedir>{}</cachedir>\n</fontconfig>\n",
-        folder.display(),
-        folder.join(".cache").display()
-    );
-    std::fs::write(&conf, text)?;
-    Ok(conf)
-}
-
-/// One hash over every shipped face: a build that ships different fonts draws
-/// different pages.
-fn fonts_hash() -> &'static str {
-    static HASH: OnceLock<String> = OnceLock::new();
-    HASH.get_or_init(|| {
-        let digests: Vec<String> = super::fonts::faces()
-            .iter()
-            .map(|face| format!("{}:{}", face.file, hash_bytes(face.bytes)))
-            .collect();
-        hash_bytes(digests.join("\n").as_bytes())
-    })
 }
 
 #[cfg(test)]
@@ -373,58 +298,5 @@ mod tests {
             "a library refused then and served now"
         );
         let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn a_slot_keeps_only_the_shelves_written_last() {
-        let root = std::env::temp_dir().join(format!("scorsese-shelves-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&root);
-        for i in 0..SHELVES + 2 {
-            std::fs::create_dir_all(root.join(format!("told-{i:02}"))).unwrap();
-            std::thread::sleep(std::time::Duration::from_millis(10));
-        }
-        std::fs::create_dir_all(root.join("fonts")).unwrap();
-        let kept = root.join("told-00");
-        retire(&root, &kept);
-        let left = shelves(&root);
-        assert_eq!(left.len(), SHELVES);
-        assert!(left.contains(&kept), "the shelf just written stays");
-        assert!(!left.contains(&root.join("told-01")), "the oldest go");
-        assert!(root.join("fonts").is_dir(), "only shelves are retired");
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn the_browser_gets_every_shipped_face_and_a_fontconfig_naming_only_them() {
-        let root = std::env::temp_dir().join(format!("scorsese-fonts-{}", std::process::id()));
-        let conf = fonts(&root).unwrap();
-        let folder = conf.parent().unwrap().to_path_buf();
-        assert_eq!(folder, root.join("cache/pages/fonts"));
-        let text = std::fs::read_to_string(&conf).unwrap();
-        assert!(
-            text.contains(&format!("<dir>{}</dir>", folder.display())),
-            "{text}"
-        );
-        let inter = folder.join("inter.ttf");
-        assert_eq!(
-            std::fs::read(&inter).unwrap(),
-            super::super::fonts::bytes("inter.ttf").unwrap()
-        );
-        // A face cut short — an interrupted write — is written again.
-        std::fs::write(&inter, b"short").unwrap();
-        fonts(&root).unwrap();
-        assert_eq!(
-            std::fs::metadata(&inter).unwrap().len(),
-            super::super::fonts::bytes("inter.ttf").unwrap().len() as u64
-        );
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn the_fonts_are_named_by_a_hash_of_their_bytes() {
-        let hash = fonts_hash();
-        assert_eq!(hash.len(), 64);
-        assert!(hash.bytes().all(|b| b.is_ascii_hexdigit()));
-        assert_ne!(hash, hash_bytes(b""));
     }
 }
