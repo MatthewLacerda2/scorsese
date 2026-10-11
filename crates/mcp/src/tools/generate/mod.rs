@@ -77,7 +77,9 @@ impl Tool for Generate {
         "Realise the sketched briefs — the one tool here that costs money, and it \
          quotes before it spends. Called without confirm it sends nothing and needs no \
          key: it answers with what each generated_video (Veo), generated_image \
-         (Gemini) and generated_audio (ElevenLabs) brief would cost, and a token. Show that quote to whoever is \
+         (Gemini) and generated_audio (ElevenLabs) brief would cost, and a token. Before the \
+         first quote, every brief it covers is storyboarded in words in the script \
+         (guide prompts), and agreed with the person whenever they are there. Show that quote to whoever is \
          paying; only a second call with confirm set to the token spends, and only on \
          exactly the briefs quoted — edit one in between and the call is refused and \
          must be quoted again. A run with nothing to pay for (everything already \

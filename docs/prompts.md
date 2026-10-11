@@ -30,9 +30,81 @@ from stock, and `guide stock` says when that is the right call. A character,
 a mascot, an animated icon or illustration is usually a free Lottie from
 LottieFiles (`stock_search` with `kind: lottie`), played by a page.
 
+**Before any generation, the storyboard.** Every paid generation (a shot, a
+still, a spoken line) is written down first as a storyboard in words, in the
+project's script. It opens with the story in one sentence: what happens and
+to whom, not the genre. Then comes one entry per shot:
+- what is in the frame;
+- how it is framed and how the camera moves;
+- what moves in it;
+- how long it runs;
+- what it tells that the shot before did not.
+
+This holds whoever is deciding. When the person is there, they read it,
+change it and agree it before anything is quoted: a paragraph per shot is
+where a wrong idea costs nothing to fix. When the choices were left to the
+assistant, as in an unattended batch, it is written anyway and checked
+against this page before the quote, so that a shot which breaks a lesson
+below breaks it on paper first. A storyboard is text, not drawings: drawing
+every frame costs time and tokens that a paragraph does not, so pictures are
+made only when the person asks for them.
+
 The paid lessons are mostly Veo, because that is what has been generated
 most; the image lessons follow them, and speech lessons belong beside them
 when there are some.
+
+## Ask Veo for a scene that needs no fine detail
+
+*From the cyberpunk teaser (`cyberpunk-2077-teaser.scor`, 2026-10-10), and
+from the maintainer's own Veo work.*
+
+A prompt is descriptive. It says plainly and fully what the shot is (the
+subject, the place, the light, the camera), written from a clear picture of
+what is wanted. What comes back keeps the broad forms of that description:
+shapes, layout, light, the movement of large things. Fine detail does not
+survive: the lettering on a sign, the fingers of a hand, the exact design of
+a small object, whatever makes a face a particular face. **The less fine
+detail a shot needs to work, the better it comes out.**
+
+So the scene is chosen for this, not only worded for it. When one idea can be
+shown two ways, pick the one that holds up from its broad forms: the city as a
+skyline of lit towers rather than a street of signs to read, a figure in
+silhouette against a window rather than a face reacting. This is no reason to
+write less. The prompt stays descriptive and specific, with a clear vision of
+the shot; it is the scene that asks for less.
+
+In the teaser, a gang standing in an alley came back with walls of signs in
+made-up lettering. It was bought a second time as bare concrete walls with no
+signs, for $0.40.
+
+## Veo cannot act, and fast motion falls apart
+
+*From the cyberpunk teaser (2026-10-10), as the maintainer judged it on
+2026-10-11.*
+
+The teaser was written the way trailers usually are: a chase, a gang, three
+characters each saying a line in close-up. Its cutting and its cards were
+judged excellent, but the shots carrying the story were not:
+- **The spoken close-ups read as hammy and overplayed.** Nobody watching
+  expects an AI character to deliver a line, and when one does, the delivery
+  is what they notice.
+- **Fast movement never comes out well.** That holds for action, a chase, or a
+  quick camera, in this film and in all the maintainer's own Veo work.
+
+What holds up:
+- a neutral expression, never a performed one;
+- characters at a distance from the camera, not a close-up on a face;
+- a silhouette, or the character seen from behind;
+- close-ups on objects (a hand on a door handle, a cracked screen, rain on a
+  window), which carry a feeling without asking anyone to act it;
+- slow movement, of the camera and in the frame.
+
+What to leave out:
+- action at speed: chases, fights, fast camera moves;
+- dialogue on camera, unless the person asked for characters who speak.
+
+When a line is needed anyway, it is a voice over a shot that does not show the
+mouth: a narrator, or a character seen from behind or from far away.
 
 ## Never name the medium
 
@@ -200,6 +272,8 @@ the parts a prompt can have:
 - **Subject** — the object, person, animal or scenery.
 - **Context** — the setting or background the subject is in.
 - **Action** — what the subject is doing: walking, running, turning its head.
+  *But see* [Veo cannot act](#veo-cannot-act-and-fast-motion-falls-apart):
+  slow action holds up, and fast action falls apart.
 - **Style** — film-style or animation keywords: sci-fi, horror film, film
   noir, cartoon. *But see* [Never name the medium](#never-name-the-medium):
   a style is safe as a genre or a look, and a physical medium (16mm, VHS,
@@ -218,13 +292,17 @@ The guide's paired examples make the same point each time: the prompt with
 more detail — camera movement, lighting, depth of field, the subject's
 features, the tone — comes back closer to what was meant than the short one.
 Descriptive adjectives and adverbs help, and the word **"portrait"** asks for
-facial detail.
+facial detail. *But see*
+[Ask Veo for a scene that needs no fine detail](#ask-veo-for-a-scene-that-needs-no-fine-detail):
+describe richly, but choose a shot that does not depend on fine detail such as
+a face.
 
 **Sound is prompted in the same sentence** (and arrives whether asked for or
 not: [Veo 3.1 generates sound](#veo-31-generates-sound-whether-the-prompt-mentions-it-or-not)):
 
 - **Dialogue** goes in quotes, attributed: *"This must be the key," he
-  murmured.*
+  murmured.* *But see* [Veo cannot act](#veo-cannot-act-and-fast-motion-falls-apart):
+  a line spoken on camera is the weakest part of a shot.
 - **Sound effects** are described explicitly: tyres screeching, an engine
   roaring.
 - **Ambient sound** is described as the place's soundscape.

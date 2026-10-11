@@ -149,7 +149,13 @@ starts the project with a brief in `script.md` — the placement and its render
 preset, the style's prompt, and the next step. The next step is the same with
 or without them, and the tool's description says it to every client: **propose
 the script first**, scene by scene, each with its narration, what is on screen
-and the music or sound, and agree it before editing anything.
+and the music or sound, and agree it before editing anything. When anything is
+to be generated, the script carries a **storyboard** too: the story in one
+sentence, then every generated shot in words. It is written whoever decides,
+the person or the assistant, and it is text, never drawings unless the person
+asks. `generate`'s description repeats it at the moment money is about to be
+spent, and [`prompts.md`](prompts.md) says what a storyboard contains and what
+Veo can and cannot deliver.
 
 ```
 project_new  { "project": "ad.scor", "platform": "tiktok_ad", "style": "kinetic_type" }

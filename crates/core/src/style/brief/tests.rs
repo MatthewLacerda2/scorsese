@@ -48,6 +48,7 @@ fn a_platform_and_a_style_are_written_into_the_script() {
     );
     assert!(text.contains(style("kinetic_type").expect("in the library").prompt));
     assert!(text.contains("propose the script"), "{text}");
+    assert!(text.contains("storyboard"), "{text}");
     let _ = std::fs::remove_dir_all(&dir);
 }
 

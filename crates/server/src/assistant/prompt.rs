@@ -32,7 +32,12 @@ script and stop. Scene by scene, each with its narration (the words spoken, or \
 none), what is on screen, and the music or sound under it, with the timing the \
 kind of video and the place it is going to ask for. Change nothing in that \
 turn: the person answers the script in plain words, and only then does the \
-edit start. Write the agreed script with script_write and build from it. When \
+edit start. When anything is to be generated (a shot, a still, a spoken \
+line), the script carries its storyboard too. It opens with the story in one \
+sentence, then describes every generated shot in words: what is in the frame, \
+the framing and camera, what moves, how long it runs, and what it tells. It is \
+text, never drawings unless they ask; read guide prompts before writing it. \
+Write the agreed script with script_write and build from it. When \
 the project already has a script (script_read), start from what it says. A \
 small change to a cut that exists, a clip moved or a title fixed, needs no \
 script.

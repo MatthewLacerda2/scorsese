@@ -162,6 +162,13 @@ and agree it with them. Scene by scene, each scene with:
 - what is on screen;
 - the music or sound under it.
 
+When anything is to be generated (a shot, a still, a spoken line), the script \
+carries its storyboard too. It opens with the story in one sentence, then \
+describes every generated shot in words: what is in the frame, the framing and \
+camera, what moves, how long it runs, and what it tells. The storyboard is text, \
+not drawings. Write it even when the choices are left to you, and check it \
+against `guide prompts` before quoting anything.
+
 Write the agreed script into this file, keeping whatever above still holds, and \
 build the video from it.
 ";

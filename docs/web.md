@@ -815,7 +815,9 @@ script: like a confirmed quote, it starts a turn whose server note says what
 changed, with the new choice's brief, and the assistant updates the script.
 Every conversation is told when its project has a script, and the system
 prompt puts the script first for every project: scenes proposed, nothing
-edited until the person answers.
+edited until the person answers. When anything is to be generated, the
+proposal carries its storyboard in words as well (`guide prompts`), so the
+person reads every paid shot as a paragraph before a quote ever reaches them.
 
 Deliberately storage verbs only: what a project *says* is changed by `core`'s
 editing functions, through the tools (*Web MCP*, #540) and the editor (#545).
