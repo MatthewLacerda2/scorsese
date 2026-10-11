@@ -19,7 +19,7 @@ const LENGTH: u64 = 600;
 
 /// A page that changes every frame, in a fresh directory handed back with it.
 fn fixture() -> (Project, PathBuf) {
-    let root = std::env::temp_dir().join(format!("scorsese-uncaptured-{}", std::process::id()));
+    let root = crate::scratch::fresh("scorsese-uncaptured", "");
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(root.join("pages")).expect("create the fixture directory");
     let page = r#"<!doctype html><body style="margin:0"><div id="b"

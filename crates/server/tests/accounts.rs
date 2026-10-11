@@ -1,5 +1,8 @@
 //! Accounts in the database: creating, logging in, resetting, deleting.
 
+#[path = "../../../tools/scratch.rs"]
+mod scratch;
+
 use scorsese_server::AccountError;
 use scorsese_server::accounts::{sessions, tokens, users};
 use scorsese_server::storage;
@@ -93,7 +96,7 @@ async fn deleting_an_account_removes_its_rows_and_its_files(pool: PgPool) {
     let cookie = sessions::open(&pool, ana).await.unwrap();
     let token = tokens::issue(&pool, ana, "laptop").await.unwrap();
 
-    let root = std::env::temp_dir().join(format!("scorsese-533-delete-{}", std::process::id()));
+    let root = scratch::fresh("scorsese-533-delete", "");
     let files = storage::Storage::new(root.join("kept"), root.join("cache"));
     for user in [ana, bia] {
         for file in [

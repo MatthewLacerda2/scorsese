@@ -41,9 +41,7 @@ async fn account(pool: &PgPool, email: &str) -> UserId {
 
 /// The pool the server answers from: nothing readable outside a scope.
 async fn members(pool: &PgPool) -> PgPool {
-    db::member_pool(pool)
-        .await
-        .expect("the member pool connects")
+    common::members(pool).await
 }
 
 /// Enqueue a job of `kind` for `user`, committed.

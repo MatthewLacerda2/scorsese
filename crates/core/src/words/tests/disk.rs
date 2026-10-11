@@ -9,7 +9,7 @@ use crate::{
 /// A project folder with one generated line `vo`, timed when `timed`, played
 /// by clip `nar` from frame 30 (1 s) — and its title, which is no narration.
 fn spoken(label: &str, timed: bool) -> (std::path::PathBuf, Project) {
-    let dir = std::env::temp_dir().join(format!("scorsese-words-{label}-{}", std::process::id()));
+    let dir = crate::scratch::fresh(&format!("scorsese-words-{label}"), "");
     std::fs::create_dir_all(dir.join("generated")).unwrap();
     let audio = ProjectPath::new("generated.d/vo-abc.mp3");
     let mut line = Asset::sketch(AssetId::new("vo"), AssetKind::GeneratedAudio, "a line");

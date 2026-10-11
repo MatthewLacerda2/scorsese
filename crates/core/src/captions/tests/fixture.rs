@@ -12,8 +12,7 @@ use crate::{
 /// A folder with a timed line `vo-1` played by `nar` from frame 30 (1 s), an
 /// untimed one `vo-2`, and music.
 pub(super) fn project(label: &str) -> (PathBuf, Project) {
-    let dir =
-        std::env::temp_dir().join(format!("scorsese-captions-{label}-{}", std::process::id()));
+    let dir = crate::scratch::fresh(&format!("scorsese-captions-{label}"), "");
     std::fs::create_dir_all(dir.join("generated")).unwrap();
     let mut project = Project::new("captions", Fps::THIRTY);
     for (id, timed) in [("vo-1", true), ("vo-2", false)] {

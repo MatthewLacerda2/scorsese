@@ -17,9 +17,7 @@ use super::{call, card, common, member, stored};
 /// A worker running only the render handler, on `files`, until the sender
 /// is dropped or says stop.
 async fn worker(pool: &PgPool, files: &Files) -> watch::Sender<bool> {
-    let members = scorsese_server::db::member_pool(pool)
-        .await
-        .expect("the member pool connects");
+    let members = common::members(pool).await;
     let handler = job::handler(
         files.renders.clone(),
         files.tools.clone(),
@@ -27,15 +25,19 @@ async fn worker(pool: &PgPool, files: &Files) -> watch::Sender<bool> {
     );
     let registry = Registry::new().register(kinds::RENDER, handler);
     let (stop, stopping) = watch::channel(false);
-    tokio::spawn(work(members, registry, Queue::new(Events::new()), stopping));
+    let worker = tokio::spawn(work(
+        members.clone(),
+        registry,
+        Queue::new(Events::new()),
+        stopping,
+    ));
+    common::release_at_teardown(pool, &members, [worker.abort_handle()]);
     stop
 }
 
 /// Job `id` once it has finished, however it finished.
 pub(super) async fn finished(pool: &PgPool, user: UserId, id: i64) -> JobView {
-    let members = scorsese_server::db::member_pool(pool)
-        .await
-        .expect("the member pool connects");
+    let members = common::members(pool).await;
     for _ in 0..600 {
         let job = store::get(&members, user, id)
             .await

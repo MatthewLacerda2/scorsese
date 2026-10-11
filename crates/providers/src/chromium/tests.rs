@@ -12,7 +12,7 @@ use super::*;
 
 /// A fresh folder of the test's own.
 fn scratch(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("scorsese-chromium-{name}-{}", std::process::id()));
+    let dir = crate::scratch::fresh(&format!("scorsese-chromium-{name}"), "");
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).expect("scratch folder");
     dir

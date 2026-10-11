@@ -459,7 +459,7 @@ mod tests {
     /// A named patch is hashed from the file the resolver would read.
     #[test]
     fn a_named_patch_is_hashed_from_its_file() {
-        let root = std::env::temp_dir().join(format!("scorsese-named-{}", std::process::id()));
+        let root = crate::scratch::fresh("scorsese-named", "");
         std::fs::create_dir_all(root.join("recipes")).expect("recipes/");
         std::fs::write(root.join("recipes/bass.json"), b"{}").expect("the patch");
 

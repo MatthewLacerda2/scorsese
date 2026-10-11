@@ -2,7 +2,6 @@
 //! made at all.
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU32, Ordering};
 
 use serde_json::json;
 
@@ -10,14 +9,7 @@ use crate::{call, said};
 
 /// A path where no project is, and where none will be left behind.
 pub(crate) fn somewhere(label: &str) -> PathBuf {
-    static COUNTER: AtomicU32 = AtomicU32::new(0);
-    let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "scorsese-new-{label}-{}-{unique}.scor",
-        std::process::id()
-    ));
-    let _ = std::fs::remove_dir_all(&dir);
-    dir
+    crate::scratch::fresh(&format!("scorsese-new-{label}"), ".scor")
 }
 
 /// The whole point of the tool: one argument, and a project exists.

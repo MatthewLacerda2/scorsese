@@ -1,7 +1,6 @@
 //! A project directory for the tool tests to work on.
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU32, Ordering};
 
 /// The fingerprint `project_read` reports for the project in `dir`, taken the
 /// way a client takes it — out of the reply rather than computed beside the
@@ -25,13 +24,7 @@ pub(crate) fn fingerprint(dir: &std::path::Path) -> String {
 /// picture at all cannot be described, which is the renderer being right
 /// rather than a gap worth working around.
 pub(crate) fn project(label: &str) -> PathBuf {
-    static COUNTER: AtomicU32 = AtomicU32::new(0);
-    let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "scorsese-mcp-{label}-{}-{unique}.scor",
-        std::process::id()
-    ));
-    let _ = std::fs::remove_dir_all(&dir);
+    let dir = crate::scratch::fresh(&format!("scorsese-mcp-{label}"), ".scor");
     // The directories `scorsese new` makes, because a hand-written fixture
     // that skips them is testing a project shape nothing produces.
     for inside in ["assets", "generated", "recipes", "cache"] {

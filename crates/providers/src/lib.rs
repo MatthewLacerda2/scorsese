@@ -142,3 +142,7 @@ pub mod stock;
 pub mod synth;
 pub mod video;
 pub mod voices;
+// Test scratch folders, removed when each test ends (#1132).
+#[cfg(test)]
+#[path = "../../../tools/scratch.rs"]
+mod scratch;

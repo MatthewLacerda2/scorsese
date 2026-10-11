@@ -147,7 +147,7 @@ mod tests {
 
     /// A project whose page reads `text`, with an empty slot.
     fn project(name: &str, text: &str) -> (PathBuf, PathBuf) {
-        let root = std::env::temp_dir().join(format!("scorsese-{name}-{}", std::process::id()));
+        let root = crate::scratch::fresh(&format!("scorsese-{name}"), "");
         let _ = std::fs::remove_dir_all(&root);
         let slot = root.join("slot");
         std::fs::create_dir_all(&slot).unwrap();

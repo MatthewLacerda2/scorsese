@@ -47,7 +47,7 @@ mod tests {
 
     #[test]
     fn the_page_handed_back_plays_the_file_cleanly() {
-        let dir = std::env::temp_dir().join(format!("scorsese-mcp-player-{}", std::process::id()));
+        let dir = crate::scratch::fresh("scorsese-mcp-player", "");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("pages")).unwrap();
         std::fs::write(dir.join("pages/lottie-1.json"), WAVE).unwrap();

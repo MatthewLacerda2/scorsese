@@ -54,7 +54,7 @@ mod tests {
 
     #[test]
     fn a_slot_keeps_only_the_shelves_written_last() {
-        let root = std::env::temp_dir().join(format!("scorsese-shelves-{}", std::process::id()));
+        let root = crate::scratch::fresh("scorsese-shelves", "");
         let _ = std::fs::remove_dir_all(&root);
         for i in 0..SHELVES + 2 {
             std::fs::create_dir_all(root.join(format!("told-{i:02}"))).unwrap();

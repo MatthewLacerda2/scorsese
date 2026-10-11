@@ -88,7 +88,7 @@ fn a_cancelled_render_stays_where_it_stopped() {
 /// A second of tone on one audio track, in a fresh directory handed back with
 /// it: something a sound-only delivery has to mix.
 fn tone(tools: &Tools) -> (Project, std::path::PathBuf) {
-    let root = std::env::temp_dir().join(format!("scorsese-progress-tone-{}", std::process::id()));
+    let root = crate::scratch::fresh("scorsese-progress-tone", "");
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(root.join("assets")).expect("create the fixture directory");
     let made = tools

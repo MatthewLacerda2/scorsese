@@ -16,11 +16,12 @@
 
 pub(crate) mod documents;
 pub(crate) mod media;
+#[path = "../../../../tools/scratch.rs"]
+pub(crate) mod scratch;
 
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::atomic::{AtomicU32, Ordering};
 
 use scorsese_core::Project;
 
@@ -134,15 +135,9 @@ pub(crate) fn temp_dir(label: &str) -> PathBuf {
 }
 
 /// A path in the temporary area that nothing has created yet.
+/// Removed when the test ends.
 pub(crate) fn scratch(label: &str) -> PathBuf {
-    static COUNTER: AtomicU32 = AtomicU32::new(0);
-    let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "scorsese-cli-{label}-{}-{unique}.scor",
-        std::process::id()
-    ));
-    let _ = std::fs::remove_dir_all(&dir);
-    dir
+    scratch::fresh(&format!("scorsese-cli-{label}"), ".scor")
 }
 
 /// Reads the document back through the same load a command takes, so a test

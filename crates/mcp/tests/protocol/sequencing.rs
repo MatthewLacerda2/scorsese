@@ -10,8 +10,7 @@ use serde_json::json;
 
 /// A folder of three numbered frames, named so a plain sort plays them wrong.
 fn frames(label: &str) -> PathBuf {
-    let dir =
-        std::env::temp_dir().join(format!("scorsese-mcp-{label}-{}/spin", std::process::id()));
+    let dir = crate::scratch::fresh(&format!("scorsese-mcp-{label}"), "").join("spin");
     std::fs::remove_dir_all(&dir).ok();
     std::fs::create_dir_all(&dir).expect("create the frame folder");
     for (name, colour) in [("f_1", "red"), ("f_2", "lime"), ("f_10", "blue")] {

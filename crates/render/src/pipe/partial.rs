@@ -68,8 +68,7 @@ mod tests {
     use super::*;
 
     fn dir(label: &str) -> PathBuf {
-        let dir =
-            std::env::temp_dir().join(format!("scorsese-partial-{label}-{}", std::process::id()));
+        let dir = crate::scratch::fresh(&format!("scorsese-partial-{label}"), "");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("a scratch directory");
         dir

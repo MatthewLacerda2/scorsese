@@ -113,6 +113,10 @@ pub(crate) mod vhs;
 pub mod voice;
 pub mod words;
 pub mod write;
+// Test scratch folders, removed when each test ends (#1132).
+#[cfg(test)]
+#[path = "../../../tools/scratch.rs"]
+mod scratch;
 
 pub use asset::{
     Aspect, Asset, AssetId, AssetKind, ClipSeconds, GenerationState, ImageAspect, ImageModel,

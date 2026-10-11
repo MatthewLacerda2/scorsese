@@ -171,7 +171,7 @@ mod tests {
 
     #[test]
     fn a_project_file_is_served_and_remembered_by_its_hash() {
-        let root = std::env::temp_dir().join(format!("scorsese-visitor-{}", std::process::id()));
+        let root = crate::scratch::fresh("scorsese-visitor", "");
         std::fs::create_dir_all(root.join("pages")).unwrap();
         std::fs::write(root.join("pages/a.html"), "hello").unwrap();
         let mut visitor = Visitor::new(&root, &[]);

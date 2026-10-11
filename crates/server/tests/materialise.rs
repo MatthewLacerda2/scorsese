@@ -2,6 +2,9 @@
 //! written, every file linked by hash, and nothing left behind or reached
 //! outside the folder.
 
+#[path = "../../../tools/scratch.rs"]
+mod scratch;
+
 use std::path::{Path, PathBuf};
 
 use scorsese_core::{
@@ -19,10 +22,7 @@ fn none() -> ProjectFiles {
 
 /// A fresh directory for one test, standing in for a user's storage.
 fn scratch(label: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!(
-        "scorsese-server-materialise-{label}-{}",
-        std::process::id()
-    ));
+    let dir = scratch::fresh(&format!("scorsese-server-materialise-{label}"), "");
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("the scratch directory is created");
     dir

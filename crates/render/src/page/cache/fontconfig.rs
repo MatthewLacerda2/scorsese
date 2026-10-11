@@ -74,7 +74,7 @@ mod tests {
 
     #[test]
     fn the_browser_gets_every_shipped_face_and_a_fontconfig_naming_only_them() {
-        let root = std::env::temp_dir().join(format!("scorsese-fonts-{}", std::process::id()));
+        let root = crate::scratch::fresh("scorsese-fonts", "");
         let conf = fonts(&root).unwrap();
         let folder = conf.parent().unwrap().to_path_buf();
         assert_eq!(folder, root.join("cache/pages/fonts"));
@@ -114,7 +114,7 @@ mod tests {
             escaped(Path::new("/p/Tom & Jerry's <\"best\">.scor")),
             "/p/Tom &amp; Jerry&apos;s &lt;&quot;best&quot;&gt;.scor"
         );
-        let root = std::env::temp_dir().join(format!("scorsese-fonts & {}", std::process::id()));
+        let root = crate::scratch::fresh("scorsese-fonts & ", "");
         let text = std::fs::read_to_string(fonts(&root).unwrap()).unwrap();
         assert!(text.contains("scorsese-fonts &amp; "), "{text}");
         assert!(!text.contains("scorsese-fonts & "), "{text}");

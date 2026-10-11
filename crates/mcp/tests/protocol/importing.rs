@@ -15,7 +15,7 @@ use serde_json::json;
 /// A folder outside any project, holding two clips, a licence file and a
 /// subfolder — the shape a folder of footage actually arrives in.
 fn footage(label: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("scorsese-mcp-{label}-{}", std::process::id()));
+    let dir = crate::scratch::fresh(&format!("scorsese-mcp-{label}"), "");
     std::fs::remove_dir_all(&dir).ok();
     std::fs::create_dir_all(&dir).expect("create the source folder");
     clip(&dir.join("wide.mp4"), "red");

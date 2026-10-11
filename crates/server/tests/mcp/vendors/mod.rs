@@ -134,12 +134,13 @@ pub(super) async fn serve(
     };
     let registry = kinds::with_vendors(&files, Arc::new(mock.clone()), timing);
     let (stop, stopping) = watch::channel(false);
-    tokio::spawn(jobs::work(
+    let worker = tokio::spawn(jobs::work(
         state.pool.clone(),
         registry,
         state.jobs.clone(),
         stopping,
     ));
+    common::release_at_teardown(pool, &state.pool, [worker.abort_handle()]);
     (address, state, stop)
 }
 

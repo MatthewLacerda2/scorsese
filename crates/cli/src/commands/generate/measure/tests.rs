@@ -23,7 +23,7 @@ impl ProbeMedia for OneSecond {
 /// A project whose narration has just landed: three seconds laid out for it,
 /// its file on disk, and nothing measured yet — the state a run leaves it in.
 fn just_spoken(label: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("scorsese-{label}-{}", std::process::id()));
+    let dir = crate::scratch::fresh(&format!("scorsese-{label}"), "");
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("generated")).expect("create generated/");
     std::fs::write(dir.join("generated/vo.mp3"), b"a reading").expect("write the line");

@@ -126,6 +126,10 @@ pub mod renders;
 pub mod storage;
 pub mod templates;
 pub mod tools;
+// Test scratch folders, removed when each test ends (#1132).
+#[cfg(test)]
+#[path = "../../../tools/scratch.rs"]
+mod scratch;
 
 use std::future::Future;
 use std::path::PathBuf;

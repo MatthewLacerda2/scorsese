@@ -91,12 +91,14 @@ async fn a_runaway_client_is_told_to_wait(pool: PgPool) {
     // the same state, with a limit of two, is the one exercised.
     state.limits = Limits::new(2);
     let (listener, address_two) = common::listener().await;
+    let members = state.pool.clone();
     let router = scorsese_server::http::router(state);
-    tokio::spawn(scorsese_server::http::serve(
+    let server = tokio::spawn(scorsese_server::http::serve(
         listener,
         router,
         std::future::pending(),
     ));
+    common::release_at_teardown(&pool, &members, [server.abort_handle()]);
     let (_, ana) = member(&pool, "ana@example.com").await;
     let (_, bob) = member(&pool, "bob@example.com").await;
     for _ in 0..2 {

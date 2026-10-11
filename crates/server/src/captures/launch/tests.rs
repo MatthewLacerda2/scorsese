@@ -13,8 +13,7 @@ struct Laid {
 
 impl Laid {
     fn new(name: &str) -> Self {
-        let root =
-            std::env::temp_dir().join(format!("scorsese-launch-{name}-{}", std::process::id()));
+        let root = crate::scratch::fresh(&format!("scorsese-launch-{name}"), "");
         let _ = std::fs::remove_dir_all(&root);
         let data = root.join("data");
         for user in ["7", "8"] {

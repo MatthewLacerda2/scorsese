@@ -3,13 +3,14 @@
 #![allow(dead_code)]
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU32, Ordering};
 
 use scorsese_core::{
     Asset, AssetId, ClipId, Fps, Project, SCHEMA_VERSION, TrackId, ValidationError,
     ValidationErrors,
 };
 
+#[path = "../../../../tools/scratch.rs"]
+pub(crate) mod scratch;
 pub(crate) mod stub_probe;
 
 /// A hand-written project exercising every asset kind, both track kinds, and
@@ -99,15 +100,10 @@ pub(crate) fn source_file(dir: &Path, name: &str, bytes: &[u8]) -> PathBuf {
     path
 }
 
-/// A fresh empty directory under the system temp dir, unique per call.
+/// A fresh empty directory under the system temp dir, unique per call and
+/// removed when the test ends.
 pub(crate) fn temp_project_dir(label: &str) -> PathBuf {
-    static COUNTER: AtomicU32 = AtomicU32::new(0);
-    let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "scorsese-{label}-{}-{unique}.scor",
-        std::process::id()
-    ));
-    let _ = std::fs::remove_dir_all(&dir);
+    let dir = scratch::fresh(&format!("scorsese-{label}"), ".scor");
     std::fs::create_dir_all(&dir).expect("create temp project dir");
     dir
 }

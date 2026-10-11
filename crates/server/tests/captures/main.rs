@@ -9,6 +9,9 @@
 mod media;
 mod stretch;
 
+#[path = "../../../../tools/scratch.rs"]
+mod scratch;
+
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -23,8 +26,7 @@ use scorsese_server::renders::evict::pages::touch;
 
 /// A spool of its own, with job 1's project holding `pages/page.html`.
 fn spool(name: &str, html: &str) -> (Spool, PathBuf) {
-    let root =
-        std::env::temp_dir().join(format!("scorsese-captures-{name}-{}", std::process::id()));
+    let root = scratch::fresh(&format!("scorsese-captures-{name}"), "");
     let _ = std::fs::remove_dir_all(&root);
     let spool = Spool::new(&root);
     let project = spool.job(1).join(PROJECT);
