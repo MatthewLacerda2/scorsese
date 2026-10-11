@@ -102,3 +102,31 @@ pub fn check_patch(json: &str) -> Result<(), String> {
     let patch = Patch::from_json(json).map_err(|error| error.to_string())?;
     patch.validate().map_err(|error| error.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const PATCH: &str = r#"{ "source": { "kind": "noise" },
+        "amp": { "a": 0.0, "d": 0.1, "s": 0.0, "r": 0.0 } }"#;
+
+    /// The tag decides, and only an object can lack one: a recipe, or a
+    /// document that is no object at all, is read as a recipe.
+    #[test]
+    fn a_patch_file_is_an_object_without_the_recipe_tag() {
+        assert!(is_patch_file(PATCH));
+        assert!(!is_patch_file(r#"{ "recipe": "song" }"#));
+        assert!(!is_patch_file("{ nonsense"));
+        assert!(!is_patch_file("[]"));
+    }
+
+    /// Parsed as a song's resolver parses it, then held to a note's bounds.
+    #[test]
+    fn a_patch_file_is_checked_by_the_rules_a_song_plays_it_by() {
+        assert_eq!(check_patch(PATCH), Ok(()));
+        let silent = r#"{ "source": { "kind": "osc_stack", "oscs": [] },
+            "amp": { "a": 0.0, "d": 0.1, "s": 0.0, "r": 0.0 } }"#;
+        assert!(check_patch(silent).is_err(), "an empty stack cannot sound");
+        assert!(check_patch(r#"{ "bpm": 120 }"#).is_err());
+    }
+}
