@@ -137,9 +137,8 @@ scorsese render --out cut.mp4 --platform youtube    # 1920x1080
 like every other setting here and never enters `project.json`, so the same cut
 goes out to two placements without the document changing
 (`crates/core/src/style/platform.rs`). The MCP `render` tool takes it as
-`platform`. On the command line an explicit `--resolution` wins over it; the
-MCP tool refuses the two together, since both would size the render. A sound-only
-file refuses it, the way it refuses a resolution.
+`platform`. Both refuse it beside a resolution, since the two would each size
+the render. A sound-only file refuses it, the way it refuses a resolution.
 
 ## Sound only
 

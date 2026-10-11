@@ -28,7 +28,9 @@ use scorsese_core::{Anchor, Asset, Clip, FontChoice, TextStyle};
 
 use crate::error::RenderError;
 
-pub use check::{UncoveredGlyphs, UnknownFont, uncovered_glyphs, unknown_fonts};
+pub use check::{
+    UncoveredGlyphs, UnknownFont, UnusableFace, uncovered_glyphs, unknown_fonts, unusable_faces,
+};
 pub(crate) use typing::Typing;
 
 /// Parses one face, saying which asset asked for it when it will not parse.

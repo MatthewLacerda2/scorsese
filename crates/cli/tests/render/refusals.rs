@@ -123,3 +123,26 @@ fn a_picture_flag_for_a_sound_only_file_never_gets_as_far_as_ffmpeg() {
     render(&dir, &["--out", "score.mp3"]).says(LOOKED_FOR_FFMPEG);
     std::fs::remove_dir_all(&dir).ok();
 }
+
+#[test]
+fn a_resolution_and_a_platform_together_are_refused_before_anything_runs() {
+    // Both size the render, so one of them would be quietly ignored. The MCP
+    // `render` tool refuses the same pair; the command line must not answer
+    // the same request differently.
+    let dir = new_project("both-sizes");
+    let run = render(
+        &dir,
+        &[
+            "--out",
+            "ad.mp4",
+            "--resolution",
+            "1280x720",
+            "--platform",
+            "tiktok",
+        ],
+    );
+    assert!(run.failed, "{}", run.output);
+    run.says("cannot be used with");
+    run.silent_about(LOOKED_FOR_FFMPEG);
+    std::fs::remove_dir_all(&dir).ok();
+}

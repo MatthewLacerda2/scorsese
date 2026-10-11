@@ -9,8 +9,9 @@
 //!
 //! Eight sources meet, and no other command can see all eight at once — the pool's
 //! health ([`scorsese_core::asset_status`]), the fonts a text asset names
-//! ([`crate::unknown_fonts`], [`crate::uncovered_glyphs`]), the symbols an icon
-//! asset names ([`crate::unknown_icons`]), the properties a keyframe track
+//! ([`crate::unknown_fonts`], [`crate::unusable_faces`],
+//! [`crate::uncovered_glyphs`]), the symbols an icon asset names
+//! ([`crate::unknown_icons`]), the properties a keyframe track
 //! animates ([`crate::unknown_in`]), what the picture draws on top of what
 //! ([`crate::Layout`], filtered down to the stacks nobody meant), which clips
 //! blend with nothing beneath them, which are masked by a matte they never
@@ -39,7 +40,7 @@ use scorsese_core::{AssetId, HashCheck, Project, ProjectPath, ValidationErrors, 
 use crate::properties::unknown_in;
 use crate::report::Note;
 use crate::symbol::unknown_icons;
-use crate::text::{uncovered_glyphs, unknown_fonts};
+use crate::text::{uncovered_glyphs, unknown_fonts, unusable_faces};
 
 pub use media::{Finding, Severity, findings};
 
@@ -283,6 +284,18 @@ fn media(project: &Project, project_dir: &Path, hashes: HashCheck) -> Vec<Findin
         severity: Severity::Problem,
         detail: unknown.to_string(),
     }));
+    // A shipped face asked for an italic or a weight it was never drawn in:
+    // the render refuses it rather than reaching for a neighbour, so it stops
+    // a render exactly as a missing face does.
+    found.extend(
+        unusable_faces(project, project_dir)
+            .into_iter()
+            .map(|unusable| Finding {
+                asset: AssetId::new(unusable.asset.clone()),
+                severity: Severity::Problem,
+                detail: unusable.to_string(),
+            }),
+    );
     // A symbol this build does not ship, for the same reason and with the same
     // severity: the render carries on, and the layer it carries on with is
     // empty. The catalogue is too large to list, so the finding names the near
