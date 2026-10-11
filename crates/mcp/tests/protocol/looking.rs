@@ -38,6 +38,30 @@ fn describing_a_project_says_what_is_in_the_cut() {
     std::fs::remove_dir_all(dir).ok();
 }
 
+/// `scorsese describe --fps --range` (#1069): the cut as a render at that rate,
+/// of that stretch, would sequence it — and a rate the CLI refuses is refused.
+#[test]
+fn describing_at_a_rate_and_over_a_range_sequences_that_render() {
+    let dir = project("describe-settings");
+    let asked = |extra: serde_json::Value| {
+        let mut arguments = json!({ "project": dir });
+        arguments
+            .as_object_mut()
+            .expect("an object")
+            .extend(extra.as_object().expect("an object").clone());
+        said(&call("project_describe", arguments))
+    };
+    let (text, failed) = asked(json!({ "fps": "60", "range": "0:30" }));
+    assert!(!failed, "{text}");
+    assert!(
+        text.contains("60 frames at 60 fps, timeline frames 0–30"),
+        "got {text}"
+    );
+    let (text, failed) = asked(json!({ "fps": "29.97" }));
+    assert!(failed && text.starts_with("fps: "), "got {text}");
+    std::fs::remove_dir_all(dir).ok();
+}
+
 /// The half an assistant laying out a frame needs: not what is on screen, but
 /// where it is — in the unit the document is written in, so the number comes
 /// back ready to write back.
