@@ -1,4 +1,4 @@
-//! The motion kit (#812), and a file of the project shared between pages.
+//! The kit's clock, and a file of the project shared between pages.
 //!
 //! A narrow box slides across the frame at 480 page px a second, placed by
 //! `kit.frame`'s seconds, and fades with `kit.exit` on the clip's last 0.3 s.
@@ -8,7 +8,7 @@
 //! colour comes from the project's `pages/lib.js`, so editing that file must
 //! draw the page again.
 //!
-//! These need the pinned browser, as `pages.rs` does.
+//! This needs the pinned browser, as `pages.rs` does.
 
 use scorsese_core::{Asset, AssetId, AssetKind, Fps, Frames, ProjectPath};
 use scorsese_render::{Frame, RenderSettings, Renderer, Resolution};
