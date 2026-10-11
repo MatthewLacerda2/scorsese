@@ -79,7 +79,9 @@ pub(super) fn compose(
 
     // A one-frame range has one segment by construction: the cuts a plan splits
     // on are clip boundaries strictly inside the range, and a single frame has
-    // no inside for one to fall in.
+    // no inside for one to fall in. And it has one at all: `Plan::drawing`
+    // refuses a project with no clip on a video track (`NothingToRender`), so a
+    // music-only edit never gets here with no picture to cut (#1087).
     let segment = plan
         .segments()
         .first()

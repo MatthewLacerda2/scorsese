@@ -6,11 +6,11 @@
 //! the first test below compares a still against the frame a real render put in
 //! a real file, at the same instant.
 
-use scorsese_core::{Fps, Frames};
-use scorsese_render::{Frame, FrameRange, Renderer};
+use scorsese_core::{AssetKind, Fps, Frames};
+use scorsese_render::{Frame, FrameRange, PlanError, RenderError, Renderer};
 
 use crate::common::ffmpeg::{fixture_dir, mean_rgb, tools};
-use crate::common::{clip, project, sketch_asset, video_track};
+use crate::common::{audio_track, clip, file_asset, project, sketch_asset, video_track};
 use crate::{GREEN, RED, assert_colour, colour_asset, render, settings};
 
 /// The average colour of a frame that is still in memory, in the same terms
@@ -124,5 +124,28 @@ fn a_frame_past_the_end_has_no_still() {
     let refused = Renderer::new(&tools, settings(Fps::THIRTY)).still(&project, &dir, Frames(20));
 
     assert!(refused.is_err(), "frame 20 is past a 20-frame edit");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A music-first edit starts as a project with only a song on it, and a still
+/// of it answers the way its render does: picture decides how long a video is,
+/// so there is none to take a frame of — refused before any file is opened,
+/// never a panic (#1087).
+#[test]
+fn a_project_with_only_music_has_no_still_as_it_has_no_render() {
+    let tools = tools();
+    let dir = fixture_dir("still-music-only");
+    let project = project(
+        vec![file_asset("song", AssetKind::Audio)],
+        vec![audio_track("a1", vec![clip("c1", "song", 0, 60)])],
+    );
+    let renderer = Renderer::new(&tools, settings(Fps::THIRTY));
+
+    let still = renderer.still(&project, &dir, Frames(10));
+
+    assert!(matches!(
+        still,
+        Err(RenderError::Plan(PlanError::NothingToRender))
+    ));
     std::fs::remove_dir_all(&dir).ok();
 }
