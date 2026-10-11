@@ -30,7 +30,9 @@
 //!
 //! An [`Outcome`] is what happened to **one asset** — cached, queued, still
 //! waiting, generated, refused by the provider. A [`GenerationError`] stops the
-//! **whole run**: no key, over budget, a still that will not read. The split is
+//! **whole run**: no key, over budget, the provider refusing a submission —
+//! and it comes back as a [`Stopped`] carrying the shots already sent. A brief
+//! that cannot be gathered is one asset's outcome ([`Outcome::Unready`]). The split is
 //! load-bearing: a run of twenty shots where one prompt is rejected must leave
 //! nineteen generated and say which one was not, because the alternative is
 //! paying for nineteen again.
@@ -40,6 +42,7 @@ mod error;
 mod patience;
 mod provider;
 mod run;
+mod stopped;
 pub(crate) mod veo;
 
 use scorsese_core::{ProjectPath, Timestamp};
@@ -49,6 +52,7 @@ pub use error::GenerationError;
 pub use patience::{POLL_EVERY, Run, WAIT_FOR, generate_waiting};
 pub use provider::{Progress, ProviderError, Ready, Ticket, VideoProvider};
 pub use run::{Plan, RETENTION_DAYS, adopt, collect, generate, pending, plan};
+pub use stopped::Stopped;
 pub use veo::VeoProvider;
 
 /// What happened to one asset in a run.
@@ -94,6 +98,13 @@ pub enum Outcome {
         bytes: usize,
         /// What it was calculated to cost, in US cents.
         estimated_cost_cents: u64,
+    },
+    /// The brief could not be gathered — a still it names not drawn yet, no
+    /// prompt — so nothing was sent and nothing spent. The quote said *would
+    /// not be sent* in the same words; the next run tries again.
+    Unready {
+        /// What is missing, in the words the quote used.
+        why: String,
     },
     /// The provider took the brief and then refused it. The asset goes back to
     /// `sketch` so the prompt can be edited and tried again.
@@ -145,6 +156,7 @@ impl Outcome {
                     .map_or_else(|| String::from("at some point"), ToString::to_string)
             ),
             Self::Generated { path, bytes, .. } => format!("generated — {path} ({bytes} bytes)"),
+            Self::Unready { why } => format!("not sent — {why}"),
             Self::Failed { message } => format!("refused — {message}"),
         }
     }

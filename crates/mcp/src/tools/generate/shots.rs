@@ -4,43 +4,48 @@
 //! holding both would be a file nobody reads to answer a question about
 //! either.
 
-use std::time::Duration;
-
 use scorsese_core::Project;
-use scorsese_providers::credentials::{Budget, Provider, resolve};
+use scorsese_providers::credentials::{Provider, resolve};
 use scorsese_providers::video::{Run, VeoProvider, collect, generate_waiting};
 
-/// Realises every sketched shot, waiting up to `patience`.
+/// Realises every sketched shot, waiting up to `patience`, into `shots`.
 ///
 /// The key is resolved **here**, and only when this pass has something to do —
 /// a project whose only generated assets are narration must never be asked for
 /// a Veo key.
+///
+/// **A run that stops part-way still fills `shots`** with what it sent before
+/// stopping, and the error is the whole story in words — so many sent, so many
+/// not — rather than the vendor's body (#1057).
 pub(super) fn pass(
     project: &mut Project,
     dir: &std::path::Path,
-    budget: Budget,
-    patience: Duration,
-    collecting: bool,
-) -> Result<Run, String> {
+    asked: &super::Passes,
+    shots: &mut Run,
+) -> Result<(), String> {
     let key = resolve(Provider::Gemini).map_err(|error| format!("{error}"))?;
     let provider = VeoProvider::new(&key.secret);
-    let outcome = if collecting {
+    if asked.collecting {
         // A sweep spends nothing by construction, so its total is zero.
-        collect(project, dir, &provider).map(|outcomes| Run {
-            outcomes,
-            spent_cents: 0,
-        })
-    } else {
-        generate_waiting(
-            project,
-            dir,
-            &provider,
-            budget,
-            patience,
-            std::thread::sleep,
-        )
-    };
-    outcome.map_err(|error| format!("{error}"))
+        shots.outcomes = collect(project, dir, &provider).map_err(|error| format!("{error}"))?;
+        return Ok(());
+    }
+    match generate_waiting(
+        project,
+        dir,
+        &provider,
+        asked.budget,
+        asked.patience,
+        std::thread::sleep,
+    ) {
+        Ok(run) => *shots = run,
+        Err(stopped) => {
+            let says = stopped.says();
+            *shots = stopped.run;
+            return Err(says);
+        }
+    }
+    Ok(())
 }
 
 /// What the shots in a run read as.

@@ -14,6 +14,7 @@ mod mock;
 mod plans;
 mod refusals;
 mod says;
+mod stops;
 
 use scorsese_core::{Asset, AssetId, AssetKind, Project};
 

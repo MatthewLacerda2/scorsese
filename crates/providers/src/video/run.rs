@@ -10,7 +10,7 @@ use scorsese_core::{
 use crate::credentials::Budget;
 use crate::prices;
 
-use super::{Brief, GenerationError, Outcome, Progress, Ticket, VideoProvider};
+use super::{Brief, GenerationError, Outcome, Progress, Run, Stopped, Ticket, VideoProvider};
 
 /// How long a finished generation stays fetchable.
 ///
@@ -34,24 +34,57 @@ const A_DAY: i64 = 86_400;
 /// The project is left describing what is on disk. Saving it is the caller's —
 /// and the caller should save it **even when this returns an error**, because a
 /// ticket written before the failure is the only record that money was spent.
+///
+/// **A shot whose brief cannot be gathered is skipped, not fatal** — a
+/// `first_image` still not drawn yet is the ordinary case, and the quote already
+/// said it *would not be sent* ([`Outcome::Unready`]). What stops the run is
+/// what makes the rest impossible or unwise — the ceiling, the provider refusing
+/// a submission — and the [`Stopped`] it answers with carries the shots already
+/// sent (#1057).
 pub fn generate(
     project: &mut Project,
     root: &Path,
     provider: &dyn VideoProvider,
     budget: Budget,
-) -> Result<Vec<(AssetId, Outcome)>, GenerationError> {
+) -> Result<Vec<(AssetId, Outcome)>, Stopped> {
+    let ids = generated_video_ids(project);
     let mut done = Vec::new();
     let mut spent = 0;
-    for id in generated_video_ids(project) {
+    for (at, id) in ids.iter().enumerate() {
         // Against the ceiling *including what this run has already committed*.
         // A budget is built once, from what the project had spent before the
         // run started, so checking every shot against that same figure asks
         // twenty times whether one more shot fits and never whether twenty do.
-        let outcome = one(project, root, provider, budget.spend(spent), &id)?;
-        spent += outcome.spent_cents();
-        done.push((id, outcome));
+        match one(project, root, provider, budget.spend(spent), id) {
+            Ok(outcome) => {
+                spent += outcome.spent_cents();
+                done.push((id.clone(), outcome));
+            }
+            Err(error) => {
+                return Err(Stopped {
+                    unsent: unsent(project, root, &ids[at..]),
+                    run: Run {
+                        outcomes: done,
+                        spent_cents: spent,
+                    },
+                    error,
+                });
+            }
+        }
     }
     Ok(done)
+}
+
+/// Which of `ids` a run would have sent — what a stopped run never reached.
+fn unsent(project: &Project, root: &Path, ids: &[AssetId]) -> Vec<AssetId> {
+    ids.iter()
+        .filter(|id| {
+            project
+                .asset(id)
+                .is_some_and(|asset| plan(project, root, asset) == Plan::Submit)
+        })
+        .cloned()
+        .collect()
 }
 
 /// Collects whatever finished while nobody was watching — and nothing else.
@@ -186,7 +219,16 @@ fn one(
     let asset = project
         .asset(id)
         .ok_or_else(|| GenerationError::NoSuchAsset { id: id.clone() })?;
-    let brief = Brief::of(project, root, asset)?;
+    let brief = match Brief::of(project, root, asset) {
+        Ok(brief) => brief,
+        // This shot's own problem, and the quote already said so: it is
+        // reported and the run goes on with the rest.
+        Err(why) => {
+            return Ok(Outcome::Unready {
+                why: why.to_string(),
+            });
+        }
+    };
     let output = brief.output();
 
     // The cache, and it is checked before anything else on purpose: a file

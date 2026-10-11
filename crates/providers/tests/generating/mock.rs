@@ -34,6 +34,9 @@ pub(crate) struct Mock {
     pub(crate) submitted: RefCell<Vec<String>>,
     /// Set to refuse the next submit outright, as an unreachable network does.
     pub(crate) unreachable: RefCell<bool>,
+    /// Set to refuse every submit past this many, as Veo does once too many
+    /// shots are in flight on one key.
+    pub(crate) limit: RefCell<Option<usize>>,
 }
 
 impl Mock {
@@ -70,6 +73,13 @@ impl VideoProvider for Mock {
     fn submit(&self, brief: &Brief) -> Result<Ticket, ProviderError> {
         if *self.unreachable.borrow() {
             return Err(ProviderError::new("mock", "no route to host"));
+        }
+        if self
+            .limit
+            .borrow()
+            .is_some_and(|limit| self.submissions() >= limit)
+        {
+            return Err(ProviderError::new("mock", "at its limit (429)"));
         }
         self.submitted.borrow_mut().push(brief.id.to_string());
         Ok(Ticket(format!("operations/{}", brief.id)))

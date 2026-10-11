@@ -20,7 +20,7 @@ use crate::api::gemini::batch::INLINE_LIMIT;
 use crate::credentials::Budget;
 use crate::prices;
 
-use super::run::{record, still_ids};
+use super::run::{record, still_ids, unready};
 use super::{Brief, ImageError, ImageProvider, Outcome, collect};
 
 /// Orders every still that needs drawing as a half-price batch, after
@@ -38,10 +38,17 @@ pub fn batch(
     provider: &dyn ImageProvider,
     budget: Budget,
 ) -> Result<Vec<(AssetId, Outcome)>, ImageError> {
+    // Read before the collection lands anything: a still whose reference
+    // arrives in it was *not yet* on the quote, and stays so (#1058).
+    let unready = unready(project, root);
     let mut done = collect(project, root, provider)?;
     let mut briefs = Vec::new();
     for id in still_ids(project) {
         if done.iter().any(|(handled, _)| handled == &id) {
+            continue;
+        }
+        if let Some((_, why)) = unready.iter().find(|(waiting, _)| waiting == &id) {
+            done.push((id, Outcome::Incomplete { why: why.clone() }));
             continue;
         }
         let Some(asset) = project.asset(&id) else {

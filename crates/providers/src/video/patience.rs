@@ -19,7 +19,7 @@ use scorsese_core::{AssetId, Project};
 
 use crate::credentials::Budget;
 
-use super::{GenerationError, Outcome, VideoProvider, collect, generate};
+use super::{Outcome, Stopped, VideoProvider, collect, generate};
 
 /// How long to leave between polls.
 ///
@@ -65,6 +65,10 @@ impl Run {
 /// cache hits is immediately. Whatever is still going when the patience runs
 /// out is reported as [`Outcome::Waiting`] and is nobody's emergency: it is in
 /// the document.
+///
+/// A run that stops part-way answers with a [`Stopped`] carrying everything it
+/// did — the shots it sent are paid for, and the spend is read off them before
+/// the waiting starts, so a poll that fails later cannot lose it either.
 pub fn generate_waiting(
     project: &mut Project,
     root: &Path,
@@ -72,7 +76,7 @@ pub fn generate_waiting(
     budget: Budget,
     patience: Duration,
     mut rest: impl FnMut(Duration),
-) -> Result<Run, GenerationError> {
+) -> Result<Run, Stopped> {
     let started = Instant::now();
     let mut done = generate(project, root, provider, budget)?;
     // Read now, while the shots submitted on this run still say so.
@@ -86,7 +90,19 @@ pub fn generate_waiting(
         // A sweep rather than another `generate`: everything that could be
         // submitted already has been, and a second submitting pass inside a
         // waiting loop is how one bad condition becomes twenty generations.
-        let swept = collect(project, root, provider)?;
+        let swept = match collect(project, root, provider) {
+            Ok(swept) => swept,
+            Err(error) => {
+                return Err(Stopped {
+                    run: Run {
+                        outcomes: done,
+                        spent_cents,
+                    },
+                    unsent: Vec::new(),
+                    error,
+                });
+            }
+        };
         for (id, outcome) in swept {
             match done.iter_mut().find(|(known, _)| *known == id) {
                 Some(slot) => slot.1 = outcome,

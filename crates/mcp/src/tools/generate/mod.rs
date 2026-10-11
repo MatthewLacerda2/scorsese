@@ -93,8 +93,12 @@ impl Tool for Generate {
          written into project.json, and calling with collect picks it up — collect \
          never spends and never needs a token, and it picks up batched stills too. \
          Stills drawn now and narration come back on the same call; a still whose reference is a generated_image not yet \
-         generated is reported and drawn on the next call. A line with no voice chosen yet is reported and skipped rather than \
-         failing the run. A shot or line that comes out shorter than a clip laid out \
+         generated is reported and drawn on the next call, even when that reference is drawn earlier in \
+         the same run, because the quote did not price it. A shot whose image is a still not drawn yet is \
+         likewise reported and skipped. A line with no voice chosen yet is reported and skipped rather than \
+         failing the run. A run that stops part-way (Veo at its limit of shots in flight, the network gone, \
+         the ceiling reached) still lists what it sent and names what it did not; nothing after the stop is \
+         attempted, so call again once the shots in flight finish. A shot or line that comes out shorter than a clip laid out \
          over its sketch shortens that clip to it, and the reply names each one — the \
          gap left after it is yours to close. Every figure is our own arithmetic over \
          published rates, never a bill."
@@ -169,14 +173,24 @@ impl Tool for Generate {
         project
             .save(dir)
             .map_err(|error| format!("saving the project: {error}"))?;
-        outcome?;
+        // A run that stopped after doing something answers with what it did
+        // and then why it stopped: an error alone, after spending, reads as
+        // nothing having happened, and is the reply most likely to be retried
+        // blindly (#1057). Only a run that did nothing at all is an error.
+        let stopped = match outcome {
+            Err(why) if shots.outcomes.is_empty() && drawn.is_empty() && spoken.is_empty() => {
+                return Err(why);
+            }
+            Err(why) => Some(why),
+            Ok(()) => None,
+        };
 
         let landed = landed(&shots, &spoken);
         let shortened = measure(&mut project, dir, &landed, stills::landed(&drawn))?;
         let mut reply = said(&shots, &drawn, &spoken, dir);
-        for one in &shortened {
+        for one in shortened.iter().map(Shortened::says).chain(stopped) {
             reply.push('\n');
-            reply.push_str(&one.says());
+            reply.push_str(&one);
         }
         Ok(reply.into())
     }
@@ -190,7 +204,12 @@ struct Passes {
     order: Order,
 }
 
-/// Both passes, each run only if it has something to do.
+/// Every pass, each run only if it has something to do.
+///
+/// Each fills its own slot as it goes, so a pass that stops leaves the earlier
+/// ones' outcomes — and its own, as far as it got — for the reply. **A pass
+/// that stops ends the run**: nothing after it is attempted, and the error says
+/// so in words.
 fn run(
     project: &mut Project,
     dir: &std::path::Path,
@@ -213,7 +232,7 @@ fn run(
         return Ok(());
     }
     if video::pending(project, dir) {
-        *shots = shots::pass(project, dir, asked.budget, asked.patience, asked.collecting)?;
+        shots::pass(project, dir, &asked, shots)?;
     }
     // Collecting submits nothing by definition. Stills waiting in a batch are
     // collected; narration is never in flight, so there is nothing for its
@@ -224,13 +243,20 @@ fn run(
         return Ok(());
     }
     if image::pending(project, dir) {
-        *drawn = stills::pass(project, dir, asked.budget.spend(shots.spent_cents))?;
+        *drawn = stills::pass(project, dir, asked.budget.spend(shots.spent_cents))
+            .map_err(|why| stopped_at(&why))?;
     }
     if speech::pending(project, dir) {
         let committed = shots.spent_cents + stills::spent(drawn);
-        *spoken = lines::pass(project, dir, asked.budget.spend(committed))?;
+        *spoken = lines::pass(project, dir, asked.budget.spend(committed))
+            .map_err(|why| stopped_at(&why))?;
     }
     Ok(())
+}
+
+/// A pass after the shots stopping the run, in words.
+fn stopped_at(why: &str) -> String {
+    format!("The run stopped: {why} — nothing after it was attempted.")
 }
 
 /// Measures what has just been generated.
