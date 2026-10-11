@@ -98,6 +98,29 @@ fn a_zero_ramp_is_a_one_frame_step() {
     );
 }
 
+/// A pause shared between a one-frame fall and a long climb still leaves the
+/// fall its frame: rounded in proportion, the climb would take all five.
+#[test]
+fn a_shared_pause_leaves_each_ramp_a_frame() {
+    let lopsided = Dip::from_seconds(0.25, 0.0, 0.6, 30.0).with_min_gap_seconds(0.0, 30.0);
+    #[rustfmt::skip]
+    let expected = vec![
+        (59, 1.0), (60, 0.25), (150, 0.25),
+        (154, 1.0), (155, 0.25), (215, 0.25), (233, 1.0),
+    ];
+    assert_eq!(points(&duck(&[(60, 90), (155, 60)], lopsided)), expected);
+}
+
+/// Nonsense asked of `min_gap` keeps every pause rather than failing.
+#[test]
+fn a_min_gap_of_nothing_is_zero() {
+    for nothing in [0.0, -1.0, f64::NAN] {
+        let dip = dip().with_min_gap_seconds(nothing, 30.0);
+        assert_eq!(dip.min_gap, Some(scorsese_core::Frames::ZERO), "{nothing}");
+        assert_eq!(dip.gap_worth_keeping().get(), 1, "and never below a frame");
+    }
+}
+
 /// Whatever the pause and whatever `min_gap`, the track is one validation
 /// accepts: times strictly ascending, and every pause kept has a peak in it.
 #[test]

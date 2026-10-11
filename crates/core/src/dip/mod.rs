@@ -114,11 +114,9 @@ impl Dip {
     /// has room to breathe in.
     #[must_use]
     pub fn with_min_gap_seconds(self, seconds: f64, fps: f64) -> Self {
-        let frames = if seconds.is_nan() || seconds <= 0.0 {
-            Frames::ZERO
-        } else {
-            Frames((seconds * fps).round() as u64)
-        };
+        // A float cast to an integer saturates, and NaN lands on zero, so
+        // nonsense becomes "keep every pause" without a branch for it.
+        let frames = Frames((seconds * fps).round() as u64);
         Self {
             min_gap: Some(frames),
             ..self

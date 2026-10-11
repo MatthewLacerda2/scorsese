@@ -33,11 +33,12 @@ impl Span {
 /// A stretch that does not overlap contributes nothing; one that overlaps
 /// partially contributes only the shared part. Stretches that merely touch —
 /// one ending exactly where the other starts — do not overlap, the same rule
-/// [`Clip::overlaps`] holds everywhere else.
+/// [`Clip::overlaps`] holds everywhere else. No overlap test is needed for
+/// that: clamped into the clip, a stretch wholly before it, wholly after it
+/// or only touching it is an empty span, and empty spans are dropped.
 pub(crate) fn covering(clip: &Clip, others: &[Range<Frames>]) -> Vec<Span> {
     let mut spans: Vec<Span> = others
         .iter()
-        .filter(|other| other.start < clip.end() && clip.start < other.end)
         .map(|other| Span {
             from: Frames(other.start.get().saturating_sub(clip.start.get())),
             to: Frames(other.end.get().saturating_sub(clip.start.get())).min(clip.duration),

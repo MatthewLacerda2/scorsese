@@ -98,7 +98,8 @@ fn push_dip(into: &mut Vec<Keyframe>, span: &Span, duration: Frames, dip: Dip, r
     // leaves and returns to full gently, and passes through the middle of each
     // ramp quickly, which is what stops a duck sounding like a switch.
     let start = Frames(span.from.get().saturating_sub(ramps.fall.get()));
-    if start > Frames::ZERO || span.from > Frames::ZERO {
+    // A span starting on frame 0 has no room to fall into: it starts down.
+    if span.from > Frames::ZERO {
         // A pause shared between two ramps ends one dip's climb on the frame
         // the next one's fall begins. That point is this one: it carries the
         // fall's easing, so it replaces the climb's rather than being dropped.
