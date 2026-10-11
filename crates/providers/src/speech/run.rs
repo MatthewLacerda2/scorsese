@@ -7,13 +7,12 @@
 //!
 //! # What is an error, and what is an outcome
 //!
-//! The same split [`video`](crate::video) makes, drawn one step further along,
-//! and the difference is deliberate. There, a brief that cannot be gathered —
-//! no prompt, a still that will not read — stops the whole run. Here it does
-//! not: an incomplete line is an [`Outcome::Incomplete`] and the other
+//! The same split [`video`](crate::video) and [`image`](crate::image) make: a
+//! brief that cannot be gathered is that asset's outcome, not the end of the
+//! run. An incomplete line is an [`Outcome::Incomplete`] and the other
 //! nineteen are still spoken.
 //!
-//! That follows the reasoning the split already rests on. A run of twenty
+//! The reasoning is the split's own. A run of twenty
 //! narrations where one has no voice chosen yet is the *normal* state of a cut
 //! being written, and stopping the run would mean re-speaking nineteen paid-for
 //! lines to add the twentieth. What genuinely stops a run is what makes every
