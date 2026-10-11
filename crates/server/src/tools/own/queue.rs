@@ -101,8 +101,8 @@ pub(super) const JOBS: &str = "jobs";
 pub(super) const JOBS_SAYS: &str = "Say where your long-running work is: renders and \
 generations, waiting, running, done — with what each made — failed with why, or stuck \
 waiting on a provider. A running render says how far it has got, as a percentage of its \
-frames and what it is doing (preparing, mixing the sound, drawing frames, finishing the \
-file), so \"how far is my render?\" has a number. Give a job id, as render and generate \
+frames and what it is doing (preparing, capturing the web pages, mixing the sound, drawing \
+frames, finishing the file), so \"how far is my render?\" has a number. Give a job id, as render and generate \
 answer with, for that one job; leave it out for your latest twenty. Give `cancel` a job id to \
 stop that render instead: a waiting one never starts, a running one stops within a frame and \
 keeps no file. Only renders can be stopped — a generation is billed whether or not anybody \

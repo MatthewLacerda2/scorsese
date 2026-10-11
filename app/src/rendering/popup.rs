@@ -104,6 +104,7 @@ fn outcome(ui: &mut Ui, job: &Job, ended: Option<&Ended>) -> bool {
 pub(super) fn stage(phase: Phase) -> &'static str {
     match phase {
         Phase::Waiting | Phase::Preparing => "Getting the media ready…",
+        Phase::Capturing => "Capturing the web pages…",
         Phase::Mixing => "Mixing the sound…",
         Phase::Drawing => "Drawing the frames…",
         Phase::Finishing => "Finishing the file…",
@@ -119,11 +120,15 @@ mod tests {
     /// reading at 0% or 99% is never only a number.
     #[test]
     fn the_still_stretches_of_the_bar_each_say_what_is_happening() {
-        let still = [Phase::Preparing, Phase::Mixing, Phase::Finishing];
+        let still = [
+            Phase::Preparing,
+            Phase::Capturing,
+            Phase::Mixing,
+            Phase::Finishing,
+        ];
         let words: Vec<_> = still.iter().map(|phase| stage(*phase)).collect();
         assert!(words.iter().all(|word| word.ends_with('…')));
-        assert_ne!(words[0], words[1]);
-        assert_ne!(words[1], words[2]);
+        assert!(words.windows(2).all(|pair| pair[0] != pair[1]));
         assert_eq!(stage(Phase::Done), "Done");
     }
 }

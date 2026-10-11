@@ -15,6 +15,8 @@ export function progressWords(progress: JobProgress, t: Messages["editor"]["prog
   switch (progress.phase) {
     case "preparing":
       return t.preparing(percent);
+    case "capturing":
+      return t.capturing(percent, progress.done, progress.of);
     case "mixing":
       return t.mixing(percent);
     case "finishing":

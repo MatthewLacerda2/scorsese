@@ -42,6 +42,8 @@ export const editor: Messages["editor"] = {
   },
   progress: {
     preparing: (percent: string) => `${percent} · preparando…`,
+    capturing: (percent: string, done: number, of: number) =>
+      `${percent} · capturando las páginas web, fotograma ${done} de ${of}…`,
     mixing: (percent: string) => `${percent} · mezclando el sonido…`,
     finishing: (percent: string) => `${percent} · terminando el archivo…`,
   },

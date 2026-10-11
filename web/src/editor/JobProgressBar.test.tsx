@@ -34,6 +34,9 @@ describe("a render's progress", () => {
   test("says the phase where the percentage stands still", () => {
     const at = (phase: JobView["progress"] & object) => progressWords(phase, en.editor.progress);
     expect(at({ ...drawing, percent: 0, phase: "mixing" })).toBe("0% · mixing the sound…");
+    expect(at({ percent: 0, phase: "capturing", done: 120, of: 5900 })).toBe(
+      "0% · capturing the web pages, frame 120 of 5900…",
+    );
     expect(at({ ...drawing, percent: 99, phase: "finishing" })).toBe("99% · finishing the file…");
     expect(at(drawing)).toBe("42%");
   });

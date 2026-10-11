@@ -1682,10 +1682,13 @@ lost by not waiting.
 
 **Read the words beside the number.** The percentage counts frames, the only
 stage whose length is known in advance: it sits at `0` while the media is
-probed and the sound mixed, and at `99` while the encoder finishes the file;
-`100` is only ever a finished file. The phase beside it — *preparing*, *mixing
+probed, the web pages captured and the sound mixed, and at `99` while the
+encoder finishes the file; `100` is only ever a finished file. The phase beside
+it — *preparing*, *capturing the web pages: page frame 120 of 5900*, *mixing
 the sound*, *drawing frame 1190 of 1890*, *finishing the file* — is what says a
-render is not stuck.
+render is not stuck. On an edit made of pages, capturing them is most of the
+render; a page already captured and unchanged is read from `cache/`, and an
+edit whose pages all are skips the stage.
 
 **`wait: true` answers only when the file is written**, the right call for a
 short render the next step needs (a three-frame check before `look`). A waited
@@ -1694,7 +1697,8 @@ it runs — `progress` out of a `total` of `100`, with the phase as the
 `message` — so a client that draws progress natively shows a bar with no tool
 call at all. They are throttled to a new phase, or half a second, whichever
 comes first; the number carries the phase's place as a hundredth (`50.03`) so it
-rises through a phase change at the same percentage, as the specification asks.
+rises through a phase change at the same percentage, as the specification asks
+(and, while pages are captured, carries their share in the thousandths below).
 
 **A render started without `wait` can be waited on later** (#1056): `jobs`
 with `job` and `wait: true` answers only once that job is done, failed or

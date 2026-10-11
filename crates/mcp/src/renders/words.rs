@@ -31,6 +31,10 @@ pub(crate) fn doing(reading: Reading) -> String {
     match reading.phase {
         Phase::Waiting => "starting".to_owned(),
         Phase::Preparing => "preparing: probing the media and planning the timeline".to_owned(),
+        Phase::Capturing => format!(
+            "capturing the web pages: page frame {} of {}",
+            reading.done, reading.of
+        ),
         Phase::Mixing => "mixing the sound".to_owned(),
         Phase::Drawing => format!("drawing frame {} of {}", reading.done, reading.of),
         Phase::Finishing if reading.of == 0 => "encoding the sound".to_owned(),

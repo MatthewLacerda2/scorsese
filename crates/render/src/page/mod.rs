@@ -52,6 +52,7 @@ mod visitor;
 
 use std::ops::Range;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicU64;
 
 pub use browser::{CHROME_ENV, Chrome, ChromeError, NO_SANDBOX, NO_SANDBOX_ENV};
 pub use cdp::CdpError;
@@ -222,11 +223,48 @@ pub fn capture_frames(
     frames: Range<u64>,
     browsers: usize,
 ) -> Result<Captured, PageError> {
+    let drawn = AtomicU64::new(0);
+    let follows = (project_root, follow);
+    capture_counted(chrome, tools, follows, request, frames, (browsers, &drawn))
+}
+
+/// How many frames [`capture_frames`] would draw for `frames` of `request`:
+/// none when the cache holds them all, and otherwise every one of the piece it
+/// would capture — what a render counts its page capture out of (#1055).
+pub(crate) fn to_draw(
+    project_root: &Path,
+    request: &Request,
+    chrome_version: &str,
+    frames: Range<u64>,
+) -> u64 {
+    if cached_frames(project_root, request, chrome_version, frames.clone()).is_some() {
+        return 0;
+    }
+    let piece = piece(request, frames);
+    piece.end.saturating_sub(piece.start)
+}
+
+/// The stretch a capture of `frames` draws: from the first of them, back to a
+/// whole millisecond, to the last.
+fn piece(request: &Request, frames: Range<u64>) -> Range<u64> {
     let wanted = within(request, frames);
-    if let Some(captured) = cached_frames(project_root, request, chrome.version(), wanted.clone()) {
+    request.piece_start(wanted.start)..wanted.end
+}
+
+/// [`capture_frames`], adding each frame it draws to `drawn` as it goes — from
+/// as many browsers as draw at once.
+pub(crate) fn capture_counted(
+    chrome: &Chrome,
+    tools: &Tools,
+    (project_root, follow): (&Path, &[PathBuf]),
+    request: &Request,
+    frames: Range<u64>,
+    (browsers, drawn): (usize, &AtomicU64),
+) -> Result<Captured, PageError> {
+    if let Some(captured) = cached_frames(project_root, request, chrome.version(), frames.clone()) {
         return Ok(captured);
     }
-    let piece = request.piece_start(wanted.start)..wanted.end;
+    let piece = piece(request, frames);
     let slot = cache::slot(project_root, request, chrome.version());
     std::fs::create_dir_all(&slot)?;
     let fonts = cache::fonts(project_root)?;
@@ -252,7 +290,7 @@ pub fn capture_frames(
         },
         request,
         pieces::split(request, piece.clone(), browsers),
-        &partial,
+        (&partial, drawn),
     )?;
     let told = told::Told::of(request, &heard.read);
     let shelf = cache::shelf(&slot, &told);

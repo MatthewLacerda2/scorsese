@@ -26,6 +26,7 @@ use crate::error::RenderError;
 use crate::held::Loops;
 use crate::plan::{FrameRange, Plan};
 use crate::preview::Preview;
+use crate::progress::Progress;
 use crate::raster::Sizes;
 use crate::report::Note;
 use crate::settings::RenderSettings;
@@ -59,8 +60,10 @@ pub(super) fn compose(
     // A page on screen is captured only around this instant (#809): its clock
     // still runs from zero to get here, but only the frames by it are drawn,
     // and kept for the next look at the same instant. What it noticed goes
-    // back with the frame, for a caller that has somebody to tell.
-    let (pages, notes) = Pages::capture(tools, browser, &settings, &plan, project_root);
+    // back with the frame, for a caller that has somebody to tell. Nobody
+    // watches a still's progress, so what it counts goes nowhere.
+    let unwatched = (tools, &Progress::new());
+    let (pages, notes) = Pages::capture(unwatched, browser, &settings, &plan, project_root);
     let mut stage = Stage::new();
     let pass = Pass {
         tools,

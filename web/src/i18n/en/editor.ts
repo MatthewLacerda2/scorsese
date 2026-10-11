@@ -44,6 +44,8 @@ export const editor = {
   /** The phase of a running job, after its percentage. */
   progress: {
     preparing: (percent: string) => `${percent} · preparing…`,
+    capturing: (percent: string, done: number, of: number) =>
+      `${percent} · capturing the web pages, frame ${done} of ${of}…`,
     mixing: (percent: string) => `${percent} · mixing the sound…`,
     finishing: (percent: string) => `${percent} · finishing the file…`,
   },
