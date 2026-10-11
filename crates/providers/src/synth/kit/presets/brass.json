@@ -14,6 +14,5 @@
   "filter": {
     "kind": "lowpass", "cutoff": 3000, "vel_octaves": 0.9,
     "adsr": { "a": 0.06, "d": 0.5, "s": 0.6, "r": 0.2 }
-  },
-  "fx": [{ "fx": "reverb", "size": 0.5, "damp": 0.5, "mix": 0.12 }]
+  }
 }

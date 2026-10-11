@@ -2,6 +2,7 @@ use super::*;
 use scorsese_zimmer::{NoteOpts, bake_named_note};
 
 mod effects;
+mod staples;
 
 pub(super) fn bands_of(instrument: &Instrument) -> (u32, u32, u32) {
     let opts = NoteOpts {

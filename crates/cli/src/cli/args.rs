@@ -110,8 +110,9 @@ pub(crate) enum SynthAction {
         instrument: Option<String>,
     },
     /// List the library of ready-made instruments — a drum machine's kick,
-    /// snare, closed hat and crash, a synth bass, a clav, a brass section, a
-    /// pad and an electric piano — or print one's patch.
+    /// snare, clap, hats, tom and crash, two basses, a clav, a pluck, a lead,
+    /// brass, strings, a pad, an electric piano and a bell — or print one's
+    /// patch.
     ///
     /// A song track uses one as `"patch": "kit:kick"`, and `--copy-into`
     /// replaces each such name in a recipe with the patch itself: the song

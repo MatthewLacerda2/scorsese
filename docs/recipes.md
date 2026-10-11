@@ -2211,14 +2211,22 @@ So there is a library of them — and of the everyday
 | name | is | sits |
 | --- | --- | --- |
 | `kit:kick` | a drum machine's kick: a sine falling onto its pitch, with a little drive | almost all low |
-| `kit:snare` | a drum machine's snare: a crack of pink noise over a short body, in a small room | mostly mid |
+| `kit:snare` | a drum machine's snare: a crack of pink noise over a short body | mostly mid |
+| `kit:clap` | a hand clap: a burst of mid noise that flams, three hands at once | almost all mid |
 | `kit:hat` | a closed hi-hat: a short tick of bright noise | almost all high |
+| `kit:open_hat` | an open hi-hat: the same noise left to ring, for the off-beat | almost all high |
+| `kit:tom` | a tom: a round drum dropping onto its pitch — `A2` a floor tom, `E3` a rack tom | almost all low |
 | `kit:crash` | a crash cymbal: a long wash of bright noise that darkens as it fades | mostly high |
 | `kit:bass` | a synth bass: saw and square sub through a plucky lowpass, warm and round | mostly low |
+| `kit:sub` | a sub bass: a held sine with a little thump and drive, the 808 under a beat | all low |
 | `kit:clav` | a clavinet: bright, funky and percussive, and it barks when played hard | mid |
+| `kit:pluck` | a pluck: a short, bright, detuned saw snapping shut, for arpeggios and stabs | low-mid |
+| `kit:lead` | a lead: a seven-voice supersaw with a touch of vibrato, to carry a melody | mid |
 | `kit:brass` | a brass section: the FM horns above, blooming into the note | mid |
+| `kit:strings` | a string section: a bowed ensemble swelling in, chorused, with vibrato | mid |
 | `kit:pad` | a pad: a slow, wide, chorused saw bed that breathes | low-mid, under everything |
 | `kit:epiano` | an electric piano: an FM tine that rings and fades, bell-like when struck hard | low-mid |
+| `kit:bell` | a bell: struck, its upper partials dying first and leaving the hum an octave below | mid |
 
 The "sits" column is what the [bake report](#how-a-bake-came-out) prints for
 each on its own, and it is checked: a kick that stopped being mostly low would
@@ -2237,14 +2245,22 @@ in, rather than reading it from the library, for the reason the copy exists:
 - **The project still carries everything it needs.** A `.scor` folder copied
   to another machine sounds the same there, whatever version reads it.
 
-Three things worth knowing:
+Four things worth knowing:
 
 - **The drums are written for middle C**, the note a run of `steps` plays when
   it names none, so a drum part never has to say a pitch. A `note` still moves
-  them: the kick played at `"note": "G4"` is a higher drum, which is most of
-  the way to a tom.
-- **Pitched instruments play the notes you write.** The bass is at home around
-  `E1`–`E2`, the pad and keys around octaves 3 and 4.
+  them: the kick played at `"note": "G4"` is a higher drum. The **tom** is the
+  one drum that wants its note — `A2` is a floor tom, `E3` a rack tom, and a
+  fill is a run of them walking down.
+- **Pitched instruments play the notes you write.** The bass and the sub are at
+  home around `E1`–`E2`, the pad, strings and keys around octaves 3 and 4, the
+  lead and the bell an octave above.
+- **None of the instruments brings a room.** The reverb is the song's, as
+  [Where an effect goes](#where-an-effect-goes) says: put one on the song's
+  `fx` and give each track its `send` — the kick, the sub and the bass near
+  `0.0`, the pad, strings, lead and bell at the default. A reverb copied into
+  a patch runs once per note, a room for every chord voice, stacked under the
+  song's own.
 - **A one-shot can start from one too.** `"patch": "kit:snare"` in a
   `"recipe": "patch"` document is copied in the same way, and `synth_new` with
   an `instrument` (`scorsese synth new <name> --instrument snare`) writes one —

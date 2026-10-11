@@ -10,7 +10,6 @@
   },
   "lfo": { "rate": 4.5, "depth": 0.15, "target": "amp" },
   "fx": [
-    { "fx": "chorus", "rate": 0.8, "depth": 0.3, "voices": 2, "mix": 0.3 },
-    { "fx": "reverb", "size": 0.4, "damp": 0.5, "mix": 0.12 }
+    { "fx": "chorus", "rate": 0.8, "depth": 0.3, "voices": 2, "mix": 0.3 }
   ]
 }
