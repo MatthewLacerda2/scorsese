@@ -937,6 +937,16 @@ nothing except how long the thing is on screen — so scaling it is exact, and
 nothing plays faster. That is the difference between a faster cut and the same
 cut with its gaps squeezed out.
 
+**Keyframes go with the clip they animate.** A keyframe's time counts from the
+start of its clip, so a clip whose duration scales has its hand-written points
+scaled by the same ratio: a title fading out over its last half-second still
+fades out over the end of its new length, whether it was spread or tightened.
+The reply names the clips whose keyframes were scaled. Tracks a tool wrote —
+ducking, dissolves, captions — are left exactly as they were, since they were
+worked out from the old positions and the tool is what knows where they belong
+now: the reply says which to run again (`duck_music`, `dissolve`,
+`caption_narration`).
+
 For a clip with a real file behind it the same instruction has two entirely
 different readings — show less of the source, or play the whole of it faster —
 and picking one silently is the failure that *looks* successful either way. So
@@ -949,7 +959,8 @@ owns — that can open a gap or a collision, and a collision is refused.
 
 Refusals change nothing at all: a factor that is not positive, a clip that
 would land before the start of the timeline, a clip that would round away to
-less than a frame, and any result the document would not load.
+less than a frame, two of a clip's keyframes that would round onto the same
+frame, and any result the document would not load.
 
 ## Cutting to the voice: `cut_to_voice`
 

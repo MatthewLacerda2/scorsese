@@ -42,12 +42,23 @@
 //! refused by [`Project::validate`] like any other, having changed nothing, as
 //! is a scale that would push a clip off the front of the timeline.
 //!
+//! ## Keyframes scale with the clip they animate
+//!
+//! A keyframe's time counts from the start of its clip, so a clip whose
+//! duration scales has its hand-written points scaled by the same ratio — a
+//! fade at the end of a title is still at the end of it (see [`keys`]). A track
+//! a tool signed is left as it is and the tool named in [`Paced::signed`],
+//! because re-running the tool is the only repair that is actually right.
+//!
 //! Called through the module — `scorsese_core::pacing::scale` — rather than
 //! re-exported at the crate root, because a bare `scale` there would read as
 //! the spatial property of the same name.
 
+mod keys;
+
 use std::collections::BTreeSet;
 
+use crate::keyframe::PropertyPath;
 use crate::project::Project;
 use crate::time::Frames;
 use crate::timeline::ClipId;
@@ -65,6 +76,18 @@ pub struct Paced {
     /// operation does something other than what was asked, and a caller that
     /// cannot say which clips were left alone leaves the user to notice.
     pub kept: Vec<ClipId>,
+    /// The clips that stretched and had their hand-written keyframes scaled
+    /// with them, so an animation still spans the clip it was written for. In
+    /// document order.
+    pub rescaled: Vec<ClipId>,
+    /// The tools whose signed keyframe tracks sit on a moved clip — `duck`,
+    /// `dissolve`, `caption` — and were left exactly as they were.
+    ///
+    /// Each was worked out from where things used to be, and the tool that
+    /// wrote it is the one that can say where its points belong now. So they
+    /// are named rather than rescaled, and a caller tells the user which to
+    /// run again.
+    pub signed: BTreeSet<String>,
 }
 
 /// Why a scale did not happen. Nothing is ever partly applied.
@@ -97,6 +120,18 @@ pub enum PaceError {
         /// The factor that would have done it.
         factor: f64,
     },
+    /// Two of a clip's keyframes would have rounded onto the same frame as
+    /// the clip shrank. Keeping both is not a track that loads, and dropping
+    /// one is deciding which of somebody's keyframes to lose.
+    #[error("at ×{factor}, two `{property}` keyframes on `{clip}` would land on the same frame")]
+    Crowded {
+        /// The clip whose keyframes collided.
+        clip: ClipId,
+        /// The property they animate.
+        property: PropertyPath,
+        /// The factor that would have done it.
+        factor: f64,
+    },
     /// The result was not a document that loads — two clips sharing a frame of
     /// one track, most often, which is what a mixed selection can produce.
     #[error(transparent)]
@@ -125,6 +160,8 @@ pub fn scale(
     let mut paced = Paced {
         moved: 0,
         kept: Vec::new(),
+        rescaled: Vec::new(),
+        signed: BTreeSet::new(),
     };
     for track in &mut proposed.tracks {
         for clip in &mut track.clips {
@@ -145,10 +182,15 @@ pub fn scale(
                         factor,
                     });
                 }
+                let before = clip.duration;
                 clip.duration = Frames(span);
+                if keys::rescale(clip, before, factor)? {
+                    paced.rescaled.push(clip.id.clone());
+                }
             } else {
                 paced.kept.push(clip.id.clone());
             }
+            keys::signed(clip, &mut paced.signed);
             clip.start = start;
         }
         // A selected clip can pass an unselected one, so the array order a
