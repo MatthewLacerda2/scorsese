@@ -11,9 +11,11 @@ and a page of keyframes to say what twenty lines of CSS say. Layout, type,
 gradients, SVG and animation are what a page is good at. A single word on
 screen is still a `text` asset.
 
-**Pages cost nothing.** No key, no network, no money: a page is drawn on this
-machine by a headless browser and cached in `cache/pages/`, so writing one,
-looking at it and writing it again is the loop to be in.
+**Pages cost nothing.** No key and no money: a page is drawn on this machine
+by a headless browser and cached in `cache/pages/`, so writing one, looking at
+it and writing it again is the loop to be in. The one time a network is
+reached is the first page a machine without that browser draws: the pinned
+build is downloaded then, about 100–150 MB, once for every project (*Warnings*).
 
 ```
 page_write  project: …, page: "lower-third", html: "<!doctype html>…"
@@ -187,13 +189,21 @@ request is a warning, and the page is drawn without what it asked for.
   `https://lib.scorsese/humaaans/<kind>/<name>.svg` and listed at
   `https://lib.scorsese/humaaans/index.json`. A person is a `head`, a `body` and
   a `standing` or `sitting` lower half, put together and recoloured by
-  `kit.person`; see *People, put together and drawn on*. It fits modern people:
+  `kit.person`; see *People, put together and drawn on*. The pack's own 32
+  people come ready-made too, as `person/sitting-1` … `sitting-8` and
+  `person/standing-1` … `standing-24`, each whole in its own frame, and so do
+  its props: `seat/ball`, `seat/cube`, `seat/cube-2`, and the `scene`s `home`,
+  `plants`, `whiteboard` and `wireframe`. It fits modern people:
   an office, a street, a product or an app in use. It does not fit period or
   biblical figures, which want a generated picture traced with `vectorize`.
 - **The project's own files, by relative path.** From `pages/`, the project's
   `assets/photo.png` is `../assets/photo.png`, and a font file the project
   carries loads with an ordinary `@font-face` rule. Nothing outside the project
-  folder, so the project still survives being copied to another machine.
+  folder, so the project still survives being copied to another machine. On
+  the web app a project keeps only text beside its document, so a page there
+  cannot carry a font file or a picture under `pages/`: a picture goes in
+  through the library and is read from `../assets/`, and a face is a shipped
+  one.
 
 **A shipped file is part of the page's capture.** A page that loads the kit,
 anime.js, lottie-web, opentype.js, a face's file, an icon or a Humaaans part is drawn again when a build ships a different one, and
@@ -295,7 +305,7 @@ Times are the page's seconds.
 | `kit.random(seed)` | a generator answering the same numbers in `[0, 1)` for the same seed, on every frame and every machine. Draw what a page needs once, up front |
 | `kit.svg(tag, attributes, parent)` | an SVG element with its attributes set, appended to `parent` when one is given |
 | `kit.draw(what, t, at = 0, {speed = 1500, within, fill = 0.4})` | draws the strokes of `what` (an SVG element, or a list of them) on in document order from `at`, at a constant `speed` in the drawing's own units a second, or all of them `within` that many seconds. A closed shape's fill fades in over `fill` seconds once its outline is done. Answers when the last mark is finished, so the next can start after it |
-| `kit.font(family, {weight = 400, italic = false})` | a promise of a shipped face (`"Montserrat"`, or its scorsese name `montserrat`) as opentype.js reads it, at the nearest weight it ships. Needs `opentype.min.js` loaded first. A family it does not ship is an error naming the ones it does |
+| `kit.font(family, {weight = 400, italic = false})` | a promise of a shipped face (`"Montserrat"`, or its scorsese name `montserrat`) as opentype.js reads it, at the nearest weight it ships. Needs `opentype.min.js` loaded first. A family it does not ship is an error naming the ones it does, and a cut it lacks says so (`Anton` ships no italic) |
 | `kit.write(parent, face, text, {x, y, size = 96, width, leading = 1.2, align = "start", fill, stroke, strokeWidth})` | `text` as glyph outlines on `parent`, baseline at `y`, broken at `width` or a `\n`, each line set from `x` by `align` (`start`, `middle`, `end`). Answers the group, which holds a `<g data-word>` per word named as `scorsese.words` names a spoken one (`free`, then `free@2`). Draw it, or one word of it, with `kit.draw` |
 | `kit.person(parent, {head, body, bottom, colours})` | a promise of a person put together from Humaaans parts in a new group on `parent`, in the parts' 300 × 426 frame with the head at the top: `bottom` is `standing/<name>` or `sitting/<name>`. `colours` sets regions by name, `{skin: "#8d5524", hair: "#2b1d16", top: "#2a9d8f"}`: `skin`, `hair`, `headwear`, `top`, `shirt` (under a coat), `bottom`, `shoes`, `seat`. Each region's `-shade` follows it unless given too. Unset ones keep the artist's colours. Draw it with `kit.draw` |
 | `kit.camera(canvas, t, views)` | moves `canvas`, an element at the page's top left larger than the frame, under a fixed camera: each view is `{at, x, y, zoom = 1, length = 1}`, the canvas point the frame centres on and how close, reached `length` seconds after `at`, eased in and out. The first view is where it starts |
@@ -361,9 +371,17 @@ Whatever a page does that its author should hear about comes back in words:
   read. A box full of shapes is not checked; look at it,
 - and a page that could not be captured at all. That clip shows the page's slug
   card (`PAGE · NOT CAPTURED`) instead, and the render still finishes. The usual
-  cause is that there is no browser on the machine: `SCORSESE_CHROME`, then
-  `chrome-headless-shell` on `PATH`, are where one is looked for. The next is
-  a sandbox the machine cannot start, and that note says so.
+  cause is that no browser could be found or fetched. One is looked for in this
+  order: the build `SCORSESE_CHROME` names (used even when it is broken, so a
+  page is never drawn by a build nobody asked for), then the pinned build
+  already downloaded to this machine, then `chrome-headless-shell` on `PATH`,
+  and last a download of the pinned build, the first time a page needs drawing
+  (about 100–150 MB, kept beside the settings file and shared by every
+  project). An offline machine with none of the first three gets this note.
+  The hosted web app never downloads one: its browser is part of its image.
+  The next cause is a sandbox the machine cannot start, and that note says so.
+  **On Windows no page is captured yet** (#797): every html clip there is a
+  slug card. Linux and macOS capture.
 
 A note is never an error, so read them. A page that threw on its first line
 draws as an empty frame.

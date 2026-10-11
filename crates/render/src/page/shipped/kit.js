@@ -239,11 +239,15 @@
       .then((r) => r.json())
       .then((index) => {
         const named = family.toLowerCase();
-        const cuts = index.filter((face) => [face.family, face.name]
-          .some((name) => name.toLowerCase() === named) && face.italic === italic);
-        if (!cuts.length) {
+        const shipped = index.filter((face) => [face.family, face.name]
+          .some((name) => name.toLowerCase() === named));
+        if (!shipped.length) {
           const families = [...new Set(index.map((face) => face.family))].join(", ");
           throw new Error(`kit.font: no shipped face is called ${family} (there are ${families})`);
+        }
+        const cuts = shipped.filter((face) => face.italic === italic);
+        if (!cuts.length) {
+          throw new Error(`kit.font: ${shipped[0].family} ships no ${italic ? "italic" : "upright"} cut`);
         }
         const off = (face) => (face.weight === null ? 0 : Math.abs(face.weight - weight));
         const face = cuts.reduce((best, cut) => (off(cut) < off(best) ? cut : best));

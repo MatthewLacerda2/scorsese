@@ -1762,8 +1762,10 @@ is captured again. Anything else is reused.
 What the page can count on:
 
 - **`window.scorsese`**, set before any of its scripts run: `width` and
-  `height` (its viewport in CSS pixels), `fps`, and `duration` (in seconds,
-  where its clock is at the clip's last frame).
+  `height` (its viewport in CSS pixels), `fps`, `duration` (in seconds,
+  where its clock is at the clip's last frame), `clips` (where every clip
+  beside it sits, by id, as `{start, end}` in its own seconds) and `words`
+  (when each word of a generated narration beside it is said).
 - **A viewport whose shorter side is 1080 CSS pixels**, whatever the raster.
   A page written for 1920 × 1080 lays out the same in a small preview and a 4K
   delivery, only softer or sharper.
@@ -1783,6 +1785,13 @@ What the page can count on:
 - **anime.js 3.2.2**, at `https://lib.scorsese/anime.min.js`, and
   **lottie-web 5.13.0**, at `https://lib.scorsese/lottie.min.js`, for a Lottie
   file the page loads (`guide pages`, section "A Lottie animation").
+- **opentype.js 2.0.0**, at `https://lib.scorsese/opentype.min.js`, which reads
+  a shipped face's glyph outlines (for `kit.font` and `kit.write`).
+- **Every Lucide icon** the `icon` asset draws, at
+  `https://lib.scorsese/icons/<name>.svg`, and the **Humaaans** people, as
+  parts to put together and as ready-made people, at
+  `https://lib.scorsese/humaaans/<kind>/<name>.svg` (`guide pages`, section
+  "What is there offline").
 
 **Pages render offline.** The page is served from `https://page.scorsese/`,
 whose paths are the project's, so `../assets/photo.png` from `pages/` is the
