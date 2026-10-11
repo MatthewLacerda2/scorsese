@@ -344,7 +344,7 @@ pub fn wording(asset: &Asset, absent: Absent) -> String {
 ///
 /// A page carries no brief at all, so its card names the page.
 ///
-/// The three generated kinds do not all carry a prompt. A `synth_audio` asset
+/// The generated kinds do not all carry a prompt. A `synth_audio` asset
 /// is made from a **recipe** in the project, so asking it for a prompt and
 /// finding none used to put "(no prompt)" on the card — reporting a perfectly
 /// well-formed asset as broken, in the one place a person looks to find out
