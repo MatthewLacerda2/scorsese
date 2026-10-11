@@ -43,6 +43,7 @@ mod patience;
 mod provider;
 mod run;
 mod stopped;
+mod submitted;
 pub(crate) mod veo;
 
 use scorsese_core::{ProjectPath, Timestamp};
@@ -83,7 +84,9 @@ pub enum Outcome {
     ///
     /// Its own outcome rather than a longer wait, because the two call for
     /// opposite things: waiting means come back later, and this means the money
-    /// is gone and the shot has to be asked for again.
+    /// is gone and the shot has to be asked for again. The ticket is cleared
+    /// and the asset released, as for [`Outcome::Failed`], so the next run
+    /// quotes it.
     Expired {
         /// The provider's name for the work.
         operation: String,
@@ -106,8 +109,11 @@ pub enum Outcome {
         /// What is missing, in the words the quote used.
         why: String,
     },
-    /// The provider took the brief and then refused it. The asset goes back to
-    /// `sketch` so the prompt can be edited and tried again.
+    /// The shot will not arrive from this ticket: the provider took the brief
+    /// and then refused it, no longer answers for the ticket, or the brief
+    /// changed while it was generating. The ticket is cleared and the asset
+    /// goes back to `sketch` — `stale` when it still holds an older take — so
+    /// the next run quotes and sends it again.
     Failed {
         /// The provider's own sentence, which is the part worth reading.
         message: String,

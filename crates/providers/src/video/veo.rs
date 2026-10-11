@@ -45,10 +45,7 @@ impl VideoProvider for VeoProvider {
     }
 
     fn poll(&self, ticket: &Ticket) -> Result<Progress, ProviderError> {
-        let operation = self
-            .veo
-            .poll(&ticket.0)
-            .map_err(|error| ProviderError::new("Veo", error))?;
+        let operation = self.veo.poll(&ticket.0).map_err(unpollable)?;
         if !operation.done {
             return Ok(Progress::Waiting);
         }
@@ -85,6 +82,29 @@ fn refused(error: HttpError) -> ProviderError {
         HttpError::Refused { status: 429, .. } => ProviderError::new(
             "Veo",
             "at its limit — too many shots in flight on this key, or its quota spent (429)",
+        ),
+        other => ProviderError::new("Veo", other),
+    }
+}
+
+/// A poll Veo would not answer, in words.
+///
+/// **403 and 404 are permanent**: Google's error model answers `NOT_FOUND` for
+/// an operation it does not have and `PERMISSION_DENIED` for one this key may
+/// not see — a rotated key, another Google account. Asking again cannot change
+/// either, so the ticket is [lost](ProviderError::lost) (#1106). Anything else
+/// — a 5xx, a 429, no network — is worth asking again later.
+fn unpollable(error: HttpError) -> ProviderError {
+    match error {
+        HttpError::Refused {
+            status: status @ (403 | 404),
+            ..
+        } => ProviderError::lost(
+            "Veo",
+            format!(
+                "Veo no longer answers for this shot's ticket ({status}) — it does not have \
+                 it, or this key may not see it"
+            ),
         ),
         other => ProviderError::new("Veo", other),
     }
@@ -135,5 +155,27 @@ fn aspect_of(brief: &Brief) -> &'static str {
     match brief.request.aspect {
         scorsese_core::Aspect::Wide => "16:9",
         scorsese_core::Aspect::Tall => "9:16",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn polled(status: u16) -> ProviderError {
+        unpollable(HttpError::Refused {
+            url: String::from("https://veo/operations/1"),
+            status,
+            body: String::new(),
+        })
+    }
+
+    #[test]
+    fn only_a_403_or_a_404_loses_a_ticket() {
+        assert!(polled(403).lost && polled(404).lost);
+        assert!(polled(404).message.contains("(404)"));
+        for status in [400, 429, 500, 503] {
+            assert!(!polled(status).lost, "{status} is worth asking again");
+        }
     }
 }

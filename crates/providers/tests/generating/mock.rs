@@ -22,6 +22,8 @@ pub(crate) enum Answer {
     Ready(Vec<u8>),
     /// Finished, and refused.
     Failed(String),
+    /// A ticket the provider will never answer for — Veo's 403 or 404.
+    Lost,
 }
 
 /// A provider whose every answer was decided in advance.
@@ -94,6 +96,7 @@ impl VideoProvider for Mock {
             .and_then(Vec::pop)
             .unwrap_or(Answer::Waiting);
         Ok(match next {
+            Answer::Lost => return Err(ProviderError::lost("mock", "no such operation (404)")),
             Answer::Waiting => Progress::Waiting,
             Answer::Failed(message) => Progress::Failed(message),
             Answer::Ready(bytes) => {

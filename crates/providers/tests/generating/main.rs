@@ -16,6 +16,7 @@ mod refusals;
 mod retakes;
 mod says;
 mod stops;
+mod tickets;
 
 use scorsese_core::{Asset, AssetId, AssetKind, Project};
 

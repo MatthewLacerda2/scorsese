@@ -3285,7 +3285,7 @@ A project directory holds five of its own:
 | Directory | What is in it | Survives a delete? |
 | --- | --- | --- |
 | `assets/` | imported media, copied in on import | no — the originals are elsewhere |
-| `generated/` | provider and synthesis output, named for the hash of its brief — a narration's word timings beside its audio, as `<same name>.words.json` (see *When each word is said*) | yes — it can be made again |
+| `generated/` | provider and synthesis output, named for the hash of its brief — a narration's word timings beside its audio, as `<same name>.words.json` (see *When each word is said*), and under `generated/tickets/` which brief each shot in flight was bought for | yes — it can be made again |
 | `recipes/` | authored synthesis documents | **no** — deleting one loses work |
 | `pages/` | authored web pages, played by `html` assets, and the `.js`, `.css`, `.json` and `.svg` files they share (at most 1 MiB each) | **no** — deleting one loses work |
 | `cache/` | rebuildable scratch, gitignored | yes |
