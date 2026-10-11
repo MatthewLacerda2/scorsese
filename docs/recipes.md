@@ -932,12 +932,14 @@ C4`. Absent, `oct` is 3, which puts a seventh chord across middle C. The
 boring voicing is the deliberate one — it is what the name literally says, a
 reader can work it out in their head, and it re-qualifies and transposes
 without moving notes nobody asked about. Anything cleverer is taste, and taste
-belongs to the document.
+belongs to the document — which is what [`inv` and `voicing`](#turning-a-chord-and-leading-the-voices)
+are for.
 
 **The names, and only these names.** A name is looked up in this table or the
 song is refused; nothing is guessed at. The root is a letter `A`–`G`, **upper
 case**, optionally followed by `#` or `b`. A `/bass` suffix puts that pitch
-class in the octave below the root, which is how an inversion is written.
+class in the octave below the root, under the chord rather than in place of
+its lowest voice.
 
 | family | qualities |
 | --- | --- |
@@ -972,6 +974,48 @@ refused rather than ignored.
 performance, so a chord picks up [swing and humanise](#playing-it-rather-than-clocking-it)
 one voice at a time and does not land as a perfectly simultaneous block — which
 is a real part of sounding played, and free.
+
+### Turning a chord, and leading the voices
+
+Root position from every chord moves every voice in parallel: `Dmaj7` to `Bm7`
+at octave 3 is `D3 F#3 A3 C#4` jumping to `B3 D4 F#4 A4`, four voices up a
+sixth, although the chords share three notes. A player would hold those three
+and move one. Two optional fields on a named chord say so:
+
+| field | what it does |
+| --- | --- |
+| `inv` | that inversion: the lowest voice raised an octave, that many times. `C` with `"inv": 1` is `E G C`, with `2` is `G C E`. Up to one fewer than the voices above any slash bass; the next would be root position an octave up, which is a higher `oct` |
+| `voicing` | `"near"`: the inversion, within an octave of root position, whose voices move least from the **previous chord on the same track in the same pattern** |
+
+The progression above, the second chord led from the first:
+
+```json fields
+"patterns": { "a": { "beats": 4, "notes": [
+  { "track": "t", "chord": "Dmaj7", "oct": 3, "start": 0, "dur": 2, "voicing": "near" },
+  { "track": "t", "chord": "Bm7",   "oct": 3, "start": 2, "dur": 2, "voicing": "near" }
+] } },
+"arrangement": ["a"]
+```
+
+`Dmaj7` has nothing before it, so it is root position, `D3 F#3 A3 C#4`; `Bm7`
+becomes `D3 F#3 A3 B3` — three voices held, one down a tone. Without
+`voicing` the same two entries are the leap. Write `"voicing": "near"` on every
+chord of a pad or keys part and the whole part moves this way.
+
+What to know about it:
+
+- **"Previous" is the page's order, inside one pattern.** The chord written
+  above it on the same track, spelled or named, block or arpeggiated. The
+  first chord of a pattern leads from nothing, so a pattern sounds the same
+  every time the arrangement places it. Write a progression top to bottom.
+- **`oct` still places the chord.** Root position at `oct` must be on the
+  keyboard, and `near` looks no further than an octave either side of it, so a
+  long progression cannot drift up or down chord by chord.
+- **A slash bass stays put.** In `C/E` the `E` stays underneath and only the
+  voices above it turn, under `inv` and `near` alike.
+- **Refused, not ignored:** `inv` beside `voicing` (both choose the inversion),
+  either beside spelled pitches (already a voicing), and an `inv` past the
+  last inversion.
 
 ### Playing a chord instead of stating it
 

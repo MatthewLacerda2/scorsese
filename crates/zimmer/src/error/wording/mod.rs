@@ -197,7 +197,7 @@ impl SynthError {
                 f,
                 "song: track `{track}` at beat {start}: a chord needs at least one pitch"
             ),
-            Self::BadArp { track, start, why } => {
+            Self::BadArp { track, start, why } | Self::BadVoicing { track, start, why } => {
                 write!(f, "song: track `{track}` at beat {start}: {why}")
             }
             Self::BadStep {

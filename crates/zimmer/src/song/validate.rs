@@ -5,6 +5,7 @@
 //! even notice. So every name is resolved and every number is checked up front.
 
 use super::automate::{Automation, Param};
+use super::chord::Led;
 use super::{ArrangementEntry, Context, Key, Layer, Pattern, PatternEntry, Song, Track};
 use crate::error::SynthError;
 use crate::patch::Patch;
@@ -223,8 +224,9 @@ impl Pattern {
             beats: self.beats,
             key,
         };
+        let mut led = Led::default();
         for (index, entry) in self.notes.iter().enumerate() {
-            entry.validate(name, index, tracks, around)?;
+            entry.validate(name, index, tracks, around, &mut led)?;
         }
         Ok(())
     }
@@ -251,6 +253,7 @@ impl PatternEntry {
         index: usize,
         tracks: &[Track],
         around: Context<'_>,
+        led: &mut Led,
     ) -> Result<(), SynthError> {
         let pattern = || pattern.to_owned();
         if !tracks.iter().any(|track| track.name == self.track()) {
@@ -267,7 +270,7 @@ impl PatternEntry {
                 start: self.start(),
             });
         }
-        self.voice_into(around, &mut Vec::new())?;
+        self.voice_into(around, led, &mut Vec::new())?;
         if !(self.dur().is_finite() && self.dur() > 0.0) {
             return Err(SynthError::BadNoteDuration {
                 pattern: pattern(),

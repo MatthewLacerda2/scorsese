@@ -45,6 +45,8 @@ fn forms(mark: Option<Articulation>) -> Vec<(&'static str, PatternEntry)> {
                 arp: None,
                 div: None,
                 gate: None,
+                inv: None,
+                voicing: None,
             }
             .into(),
         ),

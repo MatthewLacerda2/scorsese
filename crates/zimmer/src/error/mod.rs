@@ -402,6 +402,19 @@ pub enum SynthError {
         why: &'static str,
     },
 
+    /// A chord voicing that cannot be chosen: an `inv` past the chord's last
+    /// inversion, or an `inv` or a `voicing` beside spelled pitches or beside
+    /// each other. One variant with a written reason, for `BadArp`'s reason:
+    /// each is repaired in the same two fields of the same entry.
+    BadVoicing {
+        /// The track the chord is on.
+        track: String,
+        /// Where in the pattern it sits, in beats.
+        start: f32,
+        /// What is wrong with it, in the words the message carries.
+        why: &'static str,
+    },
+
     /// A character in a step string that is not a step. Refused rather than
     /// skipped: every character is one step and the count is what proves the
     /// string covers its pattern, so a character that is quietly not a step

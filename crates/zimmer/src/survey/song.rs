@@ -11,6 +11,7 @@ use std::collections::{BTreeSet, HashMap};
 use super::duty::Sounding;
 use super::{PitchClasses, Register, SongSurvey, TrackSurvey};
 use crate::patch::Patch;
+use crate::song::chord::Led;
 use crate::song::clock::Clock;
 use crate::song::shape::plan;
 use crate::song::{Context, PatchRef, PatchResolver, Song};
@@ -125,6 +126,7 @@ fn played(song: &Song) -> Played {
                 key: key.as_ref(),
             };
             let mut voiced = Vec::new();
+            let mut led = Led::default();
             for written in &pattern.notes {
                 // Entry by entry, so an entry this survey cannot expand — a chord
                 // off the table, a step string that does not fill its slot, a
@@ -136,7 +138,7 @@ fn played(song: &Song) -> Played {
                 // What comes out is ordinary notes whichever form wrote them, so
                 // every one of the four is measured the same way below. There is no
                 // fall-through here that would report a kind of entry as nothing.
-                let _ = written.voice_into(around, &mut voiced);
+                let _ = written.voice_into(around, &mut led, &mut voiced);
             }
             for note in &voiced {
                 if !layer.plays(&note.track) {

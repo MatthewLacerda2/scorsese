@@ -29,6 +29,8 @@ pub(crate) fn arped(name: &str, arp: Option<Arp>, div: Option<f32>, gate: Option
         arp,
         div,
         gate,
+        inv: None,
+        voicing: None,
     }
 }
 
