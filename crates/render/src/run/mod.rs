@@ -28,7 +28,7 @@ use crate::audio;
 use crate::cancel::Cancel;
 use crate::error::RenderError;
 use crate::held::Loops;
-use crate::page::{self, Chrome};
+use crate::page::Chrome;
 use crate::pipe::{Encoder, encode_mix};
 use crate::plan::{FrameRange, Plan};
 use crate::preview::Preview;
@@ -100,11 +100,15 @@ impl<'a> Renderer<'a> {
 
     /// Stops when `cancel` is tripped, from whichever thread trips it.
     ///
-    /// Looked at before each frame is encoded and between the stages before
-    /// that — the mix, the loudness rehearsal — so a stop lands within a frame
-    /// of being asked for once the picture is under way. What a stopped render
-    /// returns is [`RenderError::Cancelled`], saying how far it got, and it
-    /// leaves no file at `out`: a half-written one is removed (#647).
+    /// Looked at before each frame is encoded, and inside every stage before
+    /// that (#1088): before each page frame is captured, before each clip is
+    /// decoded into the mix, before each pass the loudness target makes over
+    /// it, and while an audio encode runs. So a stop lands within a frame, a
+    /// clip or a pass of being asked for — on a long timeline a clip's decode
+    /// or a pass over the mix is the slowest of those, a second or two. What a
+    /// stopped render returns is [`RenderError::Cancelled`], saying how far it
+    /// got, and it leaves no file at `out`: a half-written one is removed
+    /// (#647), and a half-captured page leaves `cache/` as it was.
     pub fn with_cancel(self, cancel: Cancel) -> Self {
         Self { cancel, ..self }
     }
@@ -150,34 +154,6 @@ impl<'a> Renderer<'a> {
             chrome: self.chrome.as_ref(),
             capturing: self.capturing,
         }
-    }
-
-    /// Every page capture rendering `project` at these settings would need,
-    /// once each — what to hand [`crate::page::capture`] ahead of time. The
-    /// project's folder is where a narration's word timings are read from
-    /// (#811), so it has to be the one the render will be given.
-    pub fn page_requests(
-        &self,
-        project: &Project,
-        project_root: &Path,
-    ) -> Result<Vec<page::Request>, RenderError> {
-        let plan = Plan::build(project, self.settings.fps, FrameRange::ALL)?;
-        Ok(pages::requests(&self.settings, &plan, project_root))
-    }
-
-    /// [`Renderer::page_requests`], with the stretch of each page a render
-    /// shows: what a caller capturing ahead of a render that does not capture
-    /// ([`Renderer::without_capturing`]) hands [`crate::page::capture_frames`],
-    /// so only the frames on screen are drawn (#809, #890). A clip's stretch is
-    /// the frames it shows over the whole timeline, a frame or two wider for
-    /// the decoder, whatever `range` the render is later given.
-    pub fn page_captures(
-        &self,
-        project: &Project,
-        project_root: &Path,
-    ) -> Result<Vec<page::Wanted>, RenderError> {
-        let plan = Plan::build(project, self.settings.fps, FrameRange::ALL)?;
-        Ok(pages::wanted(&self.settings, &plan, project_root))
     }
 
     /// Renders `range` of `project` to `out`.
@@ -250,7 +226,7 @@ impl<'a> Renderer<'a> {
         // note, never a refusal.
         let pages = if picture {
             let (pages, page_notes) = Pages::capture(
-                (self.tools, &self.progress),
+                (self.tools, &self.progress, &self.cancel),
                 self.browser(),
                 &self.settings,
                 &plan,
@@ -277,7 +253,9 @@ impl<'a> Renderer<'a> {
         // Sound before picture, because the encoder needs the finished mix as
         // an input file. It is also the cheaper half: a mix that fails on a
         // missing music file should fail before we spend minutes encoding.
-        let mixed = audio::mixdown(self.tools, &self.settings, &plan, project_root, out)?;
+        let at = (project_root, out);
+        let mixed = audio::mixdown_unless(self.tools, &self.settings, &plan, at, &self.cancel)
+            .map_err(stopped_at(of))?;
         let mix = mixed.as_ref().map(|(mixdown, _, _)| mixdown.path());
         let has_audio = mix.is_some();
         if let Some((_, mix_notes, _)) = &mixed {
@@ -295,7 +273,10 @@ impl<'a> Renderer<'a> {
         // before the rehearsal, so the room a codec needs comes out of the
         // peaks rather than out of the target.
         let (trim, mut lift) = match mix {
-            Some(mix) => audio::loudness::deliver(self.tools, &self.settings, mix, out)?,
+            Some(mix) => {
+                audio::loudness::deliver(self.tools, &self.settings, mix, out, &self.cancel)
+                    .map_err(stopped_at(of))?
+            }
             None => (None, None),
         };
 
@@ -318,7 +299,8 @@ impl<'a> Renderer<'a> {
             // delivery's codec — the same call that rehearsed it above, so
             // what was measured there is what is written here.
             (None, Some(mix)) => {
-                encode_mix(self.tools, &self.settings, mix, out)?;
+                encode_mix(self.tools, &self.settings, mix, out, &self.cancel)
+                    .map_err(stopped_at(of))?;
                 0
             }
             (None, None) => return Err(RenderError::NothingAudible),
@@ -465,5 +447,14 @@ impl<'a> Renderer<'a> {
             project_root,
             at,
         )
+    }
+}
+
+/// Says how many frames a render stopped in a stage before the picture would
+/// have written: the stages themselves cannot, so they stop with none.
+fn stopped_at(of: u64) -> impl FnOnce(RenderError) -> RenderError {
+    move |error| match error {
+        RenderError::Cancelled { written, .. } => RenderError::Cancelled { written, of },
+        error => error,
     }
 }

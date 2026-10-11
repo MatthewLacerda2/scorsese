@@ -32,6 +32,7 @@ use std::path::{Path, PathBuf};
 
 use scorsese_core::Frames;
 
+use crate::cancel::Cancel;
 use crate::error::{RenderError, Stage};
 use crate::pipe::{AudioDecoder, AudioSource};
 use crate::plan::{Plan, Segment, Shot};
@@ -91,6 +92,20 @@ pub fn mixdown(
     project_root: &Path,
     out: &Path,
 ) -> Result<Option<(Mixdown, Vec<Note>, Levels)>, RenderError> {
+    mixdown_unless(tools, settings, plan, (project_root, out), &Cancel::new())
+}
+
+/// [`mixdown`], looking at `cancel` before each clip is decoded (#1088): a long
+/// timeline starts one ffmpeg per clip per segment, minutes of them, and a stop
+/// asked for then should not wait them out. Stopped, it is
+/// [`RenderError::Cancelled`] with nothing written, and the scratch file goes.
+pub(crate) fn mixdown_unless(
+    tools: &Tools,
+    settings: &RenderSettings,
+    plan: &Plan<'_>,
+    (project_root, out): (&Path, &Path),
+    cancel: &Cancel,
+) -> Result<Option<(Mixdown, Vec<Note>, Levels)>, RenderError> {
     if plan.audio().is_empty() {
         return Ok(None);
     }
@@ -108,7 +123,7 @@ pub fn mixdown(
 
     for segment in plan.audio() {
         let mix = mix_segment(
-            tools,
+            (tools, cancel),
             settings,
             plan,
             project_root,
@@ -140,7 +155,7 @@ pub fn mixdown(
 
 /// Sums one stretch of timeline, in which the audible set does not change.
 fn mix_segment(
-    tools: &Tools,
+    (tools, cancel): (&Tools, &Cancel),
     settings: &RenderSettings,
     plan: &Plan<'_>,
     project_root: &Path,
@@ -169,6 +184,9 @@ fn mix_segment(
         // narration was never generated is reported as silent rather than left
         // out. "This clip makes no sound" is the finding, and dropping the row
         // is how it goes unnoticed.
+        if cancel.is_cancelled() {
+            return Err(RenderError::Cancelled { written: 0, of: 0 });
+        }
         let meter = levels.clip(shot.clip.id.as_str());
         let Some(file) = audio_file(shot, project_root, notes)? else {
             continue;

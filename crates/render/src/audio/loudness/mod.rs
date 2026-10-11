@@ -33,6 +33,7 @@ use scorsese_zimmer::level::{Integrated, Loudness, Meter};
 use super::headroom::{self, DELIVERY_CEILING_DBTP, Trim};
 use super::mix::CHANNELS;
 use super::read::{self, ANALYSIS_RATE};
+use crate::cancel::Cancel;
 use crate::error::RenderError;
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
@@ -146,14 +147,18 @@ impl fmt::Display for Lift {
 /// Brings the mix at `mix` to the settings' loudness target, when there is
 /// one, then fits it under a lossy codec's overshoot. What was done to it, in
 /// that order: the trim the rehearsal made, and the lift.
+///
+/// Tripping `cancel` stops it before the next pass over the mix or during a
+/// rehearsal's encode, with [`RenderError::Cancelled`] and nothing written.
 pub(crate) fn deliver(
     tools: &Tools,
     settings: &RenderSettings,
     mix: &Path,
     out: &Path,
+    cancel: &Cancel,
 ) -> Result<(Option<Trim>, Option<Lift>), RenderError> {
     let Some(target) = settings.loudness else {
-        return Ok((headroom::fit(tools, settings, mix, out)?, None));
+        return Ok((headroom::fit(tools, settings, mix, out, cancel)?, None));
     };
     let rate = settings.sample_rate.hz();
     let scratch = |path: &Path| {
@@ -169,7 +174,10 @@ pub(crate) fn deliver(
         delivered_lufs: None,
     };
     let Some(mixed) = lift.mixed_lufs else {
-        return Ok((headroom::fit(tools, settings, mix, out)?, Some(lift)));
+        return Ok((
+            headroom::fit(tools, settings, mix, out, cancel)?,
+            Some(lift),
+        ));
     };
     // The untouched mix, kept so that every attempt starts from what the
     // author balanced rather than from the last attempt's limiting.
@@ -177,9 +185,16 @@ pub(crate) fn deliver(
     std::fs::rename(mix, &original.0).map_err(scratch(mix))?;
     let mut trim = None;
     for round in 0..ROUNDS {
-        (lift.gain_db, lift.limited_db) =
-            reach(&original.0, mix, rate, target, mixed, lift.ceiling_dbtp)?;
-        trim = headroom::fit(tools, settings, mix, out)?;
+        (lift.gain_db, lift.limited_db) = reach(
+            &original.0,
+            mix,
+            rate,
+            target,
+            mixed,
+            lift.ceiling_dbtp,
+            cancel,
+        )?;
+        trim = headroom::fit(tools, settings, mix, out, cancel)?;
         match trim {
             Some(room) if round + 1 < ROUNDS => lift.ceiling_dbtp -= room.trimmed_db,
             _ => break,
@@ -199,11 +214,15 @@ fn reach(
     target: LoudnessTarget,
     mixed: f64,
     ceiling_dbtp: f64,
+    cancel: &Cancel,
 ) -> Result<(f64, f64), RenderError> {
     let planned = target.lufs() - mixed;
     let mut gain = planned;
     let mut limited = 0.0;
     for attempt in 1..=ATTEMPTS {
+        if cancel.is_cancelled() {
+            return Err(RenderError::Cancelled { written: 0, of: 0 });
+        }
         let raised = pass::raise(original, mix, rate, gain, ceiling_dbtp).map_err(|source| {
             RenderError::Scratch {
                 path: mix.to_owned(),

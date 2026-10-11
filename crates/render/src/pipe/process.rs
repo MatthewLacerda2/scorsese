@@ -5,6 +5,7 @@ use std::process::Child;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
+use crate::cancel::Cancel;
 use crate::error::{RenderError, Stage};
 
 /// How much of what ffmpeg says on stderr is kept for an error: the tail,
@@ -12,6 +13,9 @@ use crate::error::{RenderError, Stage};
 /// kilobytes of `error while decoding MB` before that (#1084), and none of it
 /// is worth holding.
 const KEPT: usize = 16 * 1024;
+
+/// How often [`Process::finish_unless`] looks at its cancel while it waits.
+const POLL: Duration = Duration::from_millis(20);
 
 /// An ffmpeg child that is reaped however the render that spawned it ends, and
 /// whose stderr is read as it is written.
@@ -72,6 +76,36 @@ impl Process {
         })
     }
 
+    /// [`Process::finish`], unless `cancel` is tripped first: then it is
+    /// killed, and the answer is [`RenderError::Cancelled`] with nothing
+    /// written — the caller knows how many frames it would have been.
+    ///
+    /// For a child that runs for a while on its own, with nothing to feed or
+    /// read on the way (#1088): an audio encode of a long mix is minutes, and
+    /// a plain wait is minutes nobody can stop.
+    pub(crate) fn finish_unless(
+        mut self,
+        cancel: &Cancel,
+        stage: Stage,
+        subject: &str,
+    ) -> Result<(), RenderError> {
+        let child = self
+            .child
+            .as_mut()
+            .expect("a process is only finished once");
+        loop {
+            if cancel.is_cancelled() {
+                // Dropping `self` kills and reaps it.
+                return Err(RenderError::Cancelled { written: 0, of: 0 });
+            }
+            match child.try_wait() {
+                Ok(Some(_)) => return self.finish(stage, subject),
+                Ok(None) => std::thread::sleep(POLL),
+                Err(source) => return Err(RenderError::Pipe { stage, source }),
+            }
+        }
+    }
+
     /// Gives it `grace` to exit by itself — its stdin already closed, which is
     /// how ffmpeg is asked to stop — and kills it when it has not.
     ///
@@ -109,6 +143,16 @@ impl Drop for Process {
 /// process with nothing to read from it but its exit.
 pub(crate) fn finish(child: Child, stage: Stage, subject: &str) -> Result<(), RenderError> {
     Process::new(child).finish(stage, subject)
+}
+
+/// [`finish`], unless `cancel` is tripped first ([`Process::finish_unless`]).
+pub(crate) fn finish_unless(
+    child: Child,
+    cancel: &Cancel,
+    stage: Stage,
+    subject: &str,
+) -> Result<(), RenderError> {
+    Process::new(child).finish_unless(cancel, stage, subject)
 }
 
 /// The end of what a process said on stderr, and whether anything before it

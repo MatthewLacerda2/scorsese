@@ -36,8 +36,11 @@ use std::sync::atomic::AtomicU64;
 use scorsese_core::words::Words;
 use scorsese_core::{AssetKind, Clip, ClipId, Fps, Project};
 
+use crate::Renderer;
+use crate::cancel::Cancel;
+use crate::error::RenderError;
 use crate::page::{self, Chrome, Request, Span, Wanted};
-use crate::plan::{Plan, Shot};
+use crate::plan::{FrameRange, Plan, Shot};
 use crate::progress::Progress;
 use crate::report::Note;
 use crate::settings::RenderSettings;
@@ -81,9 +84,11 @@ impl Pages {
     /// Captures every page `plan` shows, with the browser given or — when none
     /// was — whichever one [`Chrome::discover`] finds. Unless the browser is
     /// not `capturing`: then only what is already captured is used, and no
-    /// browser is looked for at all. Frames drawn are counted on `progress`.
+    /// browser is looked for at all. Frames drawn are counted on `progress`,
+    /// and a tripped `cancel` stops the capture under way before its next
+    /// frame and every one after it before it starts (#1088).
     pub(super) fn capture(
-        (tools, progress): (&Tools, &Progress),
+        (tools, progress, cancel): (&Tools, &Progress, &Cancel),
         Browser { chrome, capturing }: Browser<'_>,
         settings: &RenderSettings,
         plan: &Plan<'_>,
@@ -140,7 +145,7 @@ impl Pages {
             let captured = chrome.clone().and_then(|chrome| {
                 let holding = &mut pages.holding;
                 if capturing {
-                    let drawing = (page::browsers(), drawn);
+                    let drawing = (page::browsers(), drawn, cancel);
                     let follows = (project_root, &[][..]);
                     return holding
                         .capture_frames(chrome, tools, follows, &request, frames, drawing)
@@ -174,6 +179,36 @@ impl Pages {
             }
         }
         (pages, notes)
+    }
+}
+
+impl Renderer<'_> {
+    /// Every page capture rendering `project` at these settings would need,
+    /// once each — what to hand [`crate::page::capture`] ahead of time. The
+    /// project's folder is where a narration's word timings are read from
+    /// (#811), so it has to be the one the render will be given.
+    pub fn page_requests(
+        &self,
+        project: &Project,
+        project_root: &Path,
+    ) -> Result<Vec<page::Request>, RenderError> {
+        let plan = Plan::build(project, self.settings.fps, FrameRange::ALL)?;
+        Ok(requests(&self.settings, &plan, project_root))
+    }
+
+    /// [`Renderer::page_requests`], with the stretch of each page a render
+    /// shows: what a caller capturing ahead of a render that does not capture
+    /// ([`Renderer::without_capturing`]) hands [`crate::page::capture_frames`],
+    /// so only the frames on screen are drawn (#809, #890). A clip's stretch is
+    /// the frames it shows over the whole timeline, a frame or two wider for
+    /// the decoder, whatever `range` the render is later given.
+    pub fn page_captures(
+        &self,
+        project: &Project,
+        project_root: &Path,
+    ) -> Result<Vec<page::Wanted>, RenderError> {
+        let plan = Plan::build(project, self.settings.fps, FrameRange::ALL)?;
+        Ok(wanted(&self.settings, &plan, project_root))
     }
 }
 
@@ -238,11 +273,7 @@ fn asked<'p, 'a>(
 
 /// What capturing only the frames `plan` shows would ask for, once each — the
 /// captures a render that does not capture itself reads ([`Pages::capture`]).
-pub(super) fn wanted(
-    settings: &RenderSettings,
-    plan: &Plan<'_>,
-    project_root: &Path,
-) -> Vec<Wanted> {
+fn wanted(settings: &RenderSettings, plan: &Plan<'_>, project_root: &Path) -> Vec<Wanted> {
     let mut wanted: Vec<Wanted> = Vec::new();
     for (_, one) in asked(settings, plan, project_root) {
         if !wanted.contains(&one) {
@@ -253,11 +284,7 @@ pub(super) fn wanted(
 }
 
 /// What capturing every page `plan` shows would ask for, once each.
-pub(super) fn requests(
-    settings: &RenderSettings,
-    plan: &Plan<'_>,
-    project_root: &Path,
-) -> Vec<Request> {
+fn requests(settings: &RenderSettings, plan: &Plan<'_>, project_root: &Path) -> Vec<Request> {
     let mut requests: Vec<Request> = Vec::new();
     for shot in shots(plan) {
         if let Some(request) = request_for(shot, settings, plan, project_root)

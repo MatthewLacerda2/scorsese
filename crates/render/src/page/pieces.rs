@@ -19,6 +19,7 @@ use super::browser::Chrome;
 use super::capture::{self, Heard, Served};
 use super::request::Request;
 use super::told::Read;
+use crate::cancel::Cancel;
 use crate::error::Stage;
 use crate::tools::Tools;
 
@@ -32,18 +33,19 @@ const MOST: usize = 4;
 
 /// Captures each of `pieces` of `request`, each by a browser of its own and all
 /// at once, into the one file `out` — adding each frame any of them draws to
-/// `drawn` (`capture::run`'s).
+/// `drawn`, and all of them stopping once `cancel` is tripped (`capture::run`'s).
 pub(crate) fn capture_in(
     chrome: &Chrome,
     tools: &Tools,
     served: Served<'_>,
     request: &Request,
     pieces: Vec<Range<u64>>,
-    (out, drawn): (&Path, &AtomicU64),
+    (out, drawn, cancel): (&Path, &AtomicU64, &Cancel),
 ) -> Result<Heard, PageError> {
     if let [only] = &pieces[..] {
         let only = only.clone();
-        return capture::run(chrome, tools, served, request, (only, 0), (out, drawn));
+        let to = (out, drawn, cancel);
+        return capture::run(chrome, tools, served, request, (only, 0), to);
     }
     let files: Vec<PathBuf> = (0..pieces.len())
         .map(|i| with_suffix(out, &format!("{i}.mkv")))
@@ -59,7 +61,7 @@ pub(crate) fn capture_in(
                 // their own stretch: see `capture::run`.
                 let measured = if i == 0 { 0 } else { piece.start };
                 scope.spawn(move || {
-                    let to = (file.as_path(), drawn);
+                    let to = (file.as_path(), drawn, cancel);
                     capture::run(chrome, tools, served, request, (piece, measured), to)
                 })
             })
