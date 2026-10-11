@@ -105,7 +105,7 @@ mod serif;
 /// them), and handwriting and script last.
 ///
 /// One slice, assembled at compile time from a file per kind, because a
-/// catalogue of forty families does not fit one file and its readers — the
+/// catalogue of forty-one families does not fit one file and its readers — the
 /// lookup below, the page's font declarations — want one list, not six.
 pub const SHIPPED: &[Family] = &ALL;
 

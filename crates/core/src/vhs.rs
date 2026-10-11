@@ -83,9 +83,10 @@ pub struct Vhs {
     ///
     /// A horizontal displacement that varies down the frame and changes every
     /// frame — a line read a little late, and how late is a fresh accident.
-    /// **A fraction of the width and not the height**, unlike everything else
-    /// this crate measures, because a line is displaced *along* itself and how
-    /// far it can go is bounded by how long it is.
+    /// **A fraction of the width and not the height**, like `chroma_bleed` and
+    /// unlike nearly everything else this crate measures, because a line is
+    /// displaced *along* itself and how far it can go is bounded by how long
+    /// it is.
     #[serde(default)]
     pub jitter: f64,
     /// How torn the band at the bottom of the picture is. `0.0` leaves the

@@ -33,7 +33,7 @@
 //!
 //! No free call stands in for it, for [`veo`](super::veo)'s reason: a request
 //! the API is meant to refuse is the vendor's to start accepting. It is the
-//! cheapest picture there is — Flash at 0.5K, no references — and it is quoted
+//! smallest picture there is — Flash at 0.5K, no references, $0.045 — and it is quoted
 //! and held to the ceiling with the rest. The reply is base64 inside JSON, so a
 //! recording keeps it whole: that body is what replaces
 //! `fixtures/gemini/interaction.json`.

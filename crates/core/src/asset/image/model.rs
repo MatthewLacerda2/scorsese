@@ -18,10 +18,11 @@
 //!   pictures than 2, and *cheaper* per picture at every size it draws ($0.050
 //!   for a 2K picture against 2's $0.101). Its input costs three times 2's, a
 //!   fraction of a cent for a prompt and a few references.
-//! - **Nano Banana 2** (`flash`): the only model that draws 0.5K, the cheapest
-//!   test of a prompt at $0.045. Otherwise 2.1 is better and cheaper.
-//! - **Lite**: the cheapest picture ($0.034), 1K only, and takes objects only —
-//!   no character or style references. Google says it is not tuned for many
+//! - **Nano Banana 2** (`flash`): the only model that draws 0.5K, at $0.045 —
+//!   which is still dearer than a 1K picture from 2.1 or Lite ($0.0336).
+//!   Otherwise 2.1 is better and cheaper.
+//! - **Lite**: the same $0.0336 picture as 2.1 at 1K, on a sixth of its input
+//!   price; 1K only, and takes objects only — no character or style references. Google says it is not tuned for many
 //!   references, though it accepts the most objects.
 //! - **Pro**: the most expensive ($0.134 at 1K or 2K, $0.24 at 4K), for the most
 //!   complex compositions, and the only model that takes style references.
@@ -46,8 +47,8 @@ pub enum ImageModel {
     NanoBanana21,
     /// Gemini 3.1 Flash Image (Nano Banana 2): every size, 0.5K included.
     Flash,
-    /// Gemini 3.1 Flash Lite Image: the cheapest picture, 1K only, objects
-    /// only as references.
+    /// Gemini 3.1 Flash Lite Image: 2.1's 1K price on the cheapest input, 1K
+    /// only, objects only as references.
     Lite,
     /// Gemini 3 Pro Image (Nano Banana Pro): the dearest, for the most complex
     /// compositions, and the only model taking style references.

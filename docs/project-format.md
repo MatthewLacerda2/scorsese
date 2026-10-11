@@ -168,7 +168,7 @@ re-importing or regenerating a file is one edit in one place.
 | `recipe` | `synth_audio` | Path to the document to synthesise from, by convention under `recipes/` |
 | `state` | `generated_*`, `synth_audio` | `sketch`, `queued`, `generated`, `stale` |
 | `text` | `text` | The string to render; text assets carry content inline and have no `path` |
-| `style` | optional, `text` only | How that string looks: `font`, `weight`, `size`, `color`, `align`, `line_height`, `max_width`, `stroke` — see below |
+| `style` | optional, `text` only | How that string looks: `font`, `weight`, `italic`, `size`, `color`, `align`, `line_height`, `max_width`, `stroke`, `stroke_width`, `reveal`, `number` — see below |
 | `color` | `color` | The colour to fill with, as `#rrggbb` or `#rrggbbaa`; colour assets have no `path` |
 | `shape` | `shape` | The outline to draw and how it is coloured — see below |
 | `icon` | `icon` | Which symbol to draw, how big and in what colour — see below |
@@ -368,7 +368,8 @@ of Google's four Gemini image models. Once drawn it is a picture like any
 imported `image` — no length of its own, held for as long as its clip says, and
 moved by the same keyframes: a slow push in, a pan across a wide frame, a grade
 that turns afternoon into dusk. It is the cheapest picture scorsese can
-generate (about a sixteenth of a Veo shot, [`prices.md`](prices.md),
+generate (at the defaults, about a nineteenth of a Veo shot: $0.0504 against
+$0.96, [`prices.md`](prices.md),
 `guide prices`), and
 unlike a shot it is reused: the same backdrop three scenes later.
 
@@ -404,8 +405,8 @@ and what a model cannot do decides the rest. As Google documents them, read
 | Model | For | Sizes | Shapes | References at most | Thinking |
 | --- | --- | --- | --- | --- | --- |
 | `nano_banana_2.1` | the default: Google's recommended model, the best text rendering and consistency, and cheaper than `flash` at every size it draws | 1K, 2K, 4K | all 14 | 10 objects, 4 characters | `minimal`, `medium`, `high` |
-| `flash` (Nano Banana 2) | 0.5K, the cheapest test of a prompt | 0.5K, 1K, 2K, 4K | all 14 | 10 objects, 4 characters | `minimal`, `high` |
-| `lite` (Nano Banana 2 Lite) | the cheapest picture, where the money matters more | 1K | the first 10 | 14 objects | `minimal`, `high` |
+| `flash` (Nano Banana 2) | 0.5K, which no other model draws — though at $0.045 it costs more than a 1K picture from `nano_banana_2.1` or `lite` ($0.0336) | 0.5K, 1K, 2K, 4K | all 14 | 10 objects, 4 characters | `minimal`, `high` |
+| `lite` (Nano Banana 2 Lite) | the same $0.0336 picture as `nano_banana_2.1` at 1K, on a sixth of its input price, and the most object references | 1K | the first 10 | 14 objects | `minimal`, `high` |
 | `pro` (Nano Banana Pro) | the most complex compositions, at the highest price | 1K, 2K, 4K | the first 10 | 6 objects, 5 characters, 3 styles | none to choose |
 
 **`resolution` is the money lever**: the picture is billed per image at a price
@@ -597,7 +598,8 @@ which is the title most people meant.
 | Field | Default | Meaning |
 | --- | --- | --- |
 | `font` | `sans` | a shipped name (the table below), or a path to a font file inside the project |
-| `weight` | *none* | How heavy, 1–1000 — **required** for a variable font, refused for anything else |
+| `weight` | `400` on a shipped family; *none* on a file | How heavy, 1–1000. A shipped family takes any weight in its range, or one it was drawn at (the table below); a variable file the project carries **requires** one, and a static file refuses one — see *Weight* |
+| `italic` | `false` | The family's drawn italic; refused on a family with none and on a font file — see *Italic* |
 | `size` | `0.1` | Em size as a fraction of the frame's **height** |
 | `color` | `#ffffff` | `#rrggbb`, or `#rrggbbaa` for text you can see through |
 | `align` | `center` | `left`, `center`, `right` — within the wrapped block |
@@ -630,7 +632,7 @@ the rule is the format's rather than this table's: `max_width` and
 
 **A bare word is a font scorsese ships; anything with a slash or a dot in it is
 a font file the project carries** — `assets/Manrope[wght].ttf`, relative to the
-project root like every other path. Forty families ship, every one of them free
+project root like every other path. Forty-one families ship, every one of them free
 — the SIL Open Font License, and Apache 2.0 for Permanent Marker — and every one
 sets Portuguese, accents and cedilla included. Ask for them by what the video
 is: a rounded face for a children's or church video, a display face for a
@@ -1052,7 +1054,7 @@ is three ordinary characters.
 Shadows are not here, and native text gains no new styling: a look this
 section cannot describe is a page's to draw ([Web pages](#web-pages),
 `guide pages`). Bold is
-`weight` on a variable font, and nothing more than that: there is no `bold`
+`weight` — `700` on any family drawn at or reaching it — and nothing more than that: there is no `bold`
 flag, because a flag would be a second, coarser way to say a number that
 already exists.
 
@@ -1939,8 +1941,9 @@ what survives it.
 
 **A `native` layer previewed at one resolution is not the layout the render
 delivers.** `scorsese still` and the `still` tool composite at whatever raster
-they are asked for — 1920×1080 by default on the command line, 1280×720 over
-MCP — and for everything measured in fractions a smaller one is the same
+they are asked for — 1920×1080 by default on the command line; over MCP,
+1280×720's pixels in the shape of the edit's first sized picture, so 720×1280
+for a vertical one — and for everything measured in fractions a smaller one is the same
 picture with fewer pixels in it. A `native` layer is the exception, because the
 same count of pixels in a smaller frame is a bigger layer: a badge 240 pixels
 across is 240 pixels across in either, which is 18.8% of the width of a
@@ -2415,6 +2418,10 @@ neutral there is: a key needs a colour, and there is no colour that means "do
 not key", which is why this is one object rather than four fields with
 harmless defaults.
 
+**Only `color` is required**; the other three default to `tolerance` `0.25`,
+`softness` `0.1` and `spill` `false`, so `"chroma_key": { "color": "#00b140" }`
+is a whole key.
+
 **Four values, and that is the whole feature.** Garbage mattes, animated masks
 or splines, light wrap, per-channel despill controls and combined
 luma-plus-chroma mattes are a compositing suite's answers to a question nobody
@@ -2514,7 +2521,7 @@ picture.
 | `scanlines` | how dark the alternate lines go | most of the way to black |
 | `jitter` | the tracking wobble, as a fraction of the layer's **width** | a twentieth of the picture |
 | `head_switch` | the torn band at the bottom, where the heads hand over | a twelfth of the height, torn a third of the width |
-| `mono` | whether the chroma path is modelled at all | — |
+| `mono` | `true` drops the chroma path: a grey picture, no colour to smear or speckle | — |
 
 **Why one named effect and not five loose ones.** Nobody assembles a VHS look
 from first principles by accident: these five are always set together, and five
@@ -2539,12 +2546,13 @@ noise field from the same instant. They differ in what they colour: grain is
 monochrome, because silver halide is not coloured; tape snow speckles the
 colour-difference channels too, which is why it reads as coloured.
 
-**`jitter` is the one measurement in this format taken against the width.**
-Everything else — `blur`, `aberration`, a `text` size — is a fraction of the
-layer's height. A tracking error displaces a row *along itself*, so how far it
-can go is bounded by how long the row is, and the width is the honest thing to
-measure it against. It varies smoothly down the frame and changes every frame,
-because a line read late is a fresh accident each time.
+**`jitter` and `chroma_bleed` are measured against the width**, where `blur`,
+`aberration` and a `text` size are fractions of the layer's height. Both move
+a row *along itself* — a smear trails sideways, a tracking error displaces the
+row — so how far either can go is bounded by how long the row is, and the width
+is the honest thing to measure it against. The jitter varies smoothly down the
+frame and changes every frame, because a line read late is a fresh accident
+each time.
 
 **`scanlines` is a count and not a pixel pitch.** The picture is divided into a
 fixed number of line pairs top to bottom, so the same number reads as the same
@@ -2558,9 +2566,10 @@ the signal where the heads hand over is not a picture with a cast, it is not a
 picture.
 
 **`mono` is a mode, not a preset**, and the difference is whether the chroma
-path is modelled at all. With it there is colour to smear and colour to speckle,
-and the result reads green and magenta. Without one the picture is grey and what
-is left is snow, scanlines and a wobble — which is a different real artefact:
+path is modelled at all. Left `false`, there is colour to smear and colour to
+speckle, and the result reads green and magenta. With `mono: true` there is no
+chroma path: the picture is grey, `chroma_bleed` does nothing, and what is left
+is snow, scanlines and a wobble — which is a different real artefact:
 early black-and-white tape, or a security camera, rather than a rented film. It
 is a field only and not animatable, for the reason `anchor` is one: it decides
 what the other five *mean*, and a mode ramping between two readings over half a
@@ -2886,8 +2895,9 @@ is a fact rather than a tolerance. A clip ending at frame 240 and one starting
 at 240 do not overlap: frame 240 belongs to the second, and nothing has to
 arbitrate a cut at `1.0333333`.
 
-A gap is allowed, and renders **black** for its length — or, on an audio
-track, **silence**. Leaving a hole is a way of saying "two seconds of nothing
+A gap is allowed. On a video track it contributes nothing, so the tracks below
+show through, and only a stretch with nothing on *any* video track renders
+**black** (see *Tracks and clips*); on an audio track it is **silence**. Leaving a hole is a way of saying "two seconds of nothing
 here", not a way of shortening the timeline. A timeline ends where its last
 clip ends.
 
@@ -3044,6 +3054,17 @@ below `0.0`, and `volume` never goes below silence (above `1.0` it is gain, so
 an overshooting volume ramp is briefly louder). Every curve still starts and
 arrives exactly on its keyframes.
 
+### Two tracks on one property
+
+**Only one keyframe track per property per clip is honoured**, and a second one
+is not refused: it passes validation and is silently ignored. Which one wins
+differs today. For a picture property (`opacity`, `transform.*`, `grade.*` and
+the rest) the **later** track in the list wins. For `volume` the **first** one
+does, so a `duck` track written after a hand-made fade is never heard. Write one
+track per property. Whether two `volume` tracks should multiply, and whether a
+second track should be refused, is an open decision (#1099), and this section
+changes when it is made.
+
 ### Tracks a tool wrote
 
 A keyframe track may carry an optional `by` naming the tool that generated it:
@@ -3067,13 +3088,17 @@ It buys exactly one thing. A tool that generates keyframes may replace tracks
 it signed, and must never touch a track that is unsigned or signed by somebody
 else. So re-running auto-ducking redoes the ducking and leaves your fades
 alone — without it, a generator can only clobber everything or refuse to run
-twice, and both make the edit-and-listen loop unusable.
+twice, and both make the edit-and-listen loop unusable. (Alone is not the same
+as heard: with a hand-made `volume` fade first in the list, the duck beside it
+is ignored — see *Two tracks on one property*.)
 
 Nothing else reads it. It reaches no renderer, and changes no pixel and no
 sample. A `by` that is present but blank is an error: it claims a tool wrote
 the track and names none, so nothing could ever recognise or replace it.
 
-**`duck` is the first tool that signs anything.** `scorsese duck --music <track>`
+**Three tools sign tracks today**, and each replaces only its own on a re-run:
+`duck`, `dissolve` (the opacity ramps of a crossfade) and `caption` (the tracks
+on the captions `caption_narration` places). `scorsese duck --music <track>`
 lowers a music clip's `volume` while narration plays over it, by writing exactly
 the keyframes above. It triggers on the narration **clip's extents**, not on the
 sound, which means it works on narration nobody has generated yet — a cut built
@@ -3246,7 +3271,7 @@ A project directory holds five of its own:
 | `assets/` | imported media, copied in on import | no — the originals are elsewhere |
 | `generated/` | provider and synthesis output, named for the hash of its brief — a narration's word timings beside its audio, as `<same name>.words.json` (see *When each word is said*) | yes — it can be made again |
 | `recipes/` | authored synthesis documents | **no** — deleting one loses work |
-| `pages/` | authored web pages, played by `html` assets | **no** — deleting one loses work |
+| `pages/` | authored web pages, played by `html` assets, and the `.js`, `.css`, `.json` and `.svg` files they share (at most 1 MiB each) | **no** — deleting one loses work |
 | `cache/` | rebuildable scratch, gitignored | yes |
 
 ## Validation
@@ -3268,28 +3293,52 @@ work that is mid-edit and temporarily incoherent. Validation reports **every**
 problem in one pass rather than stopping at the first, so an agent repairing
 a project unattended sees the whole list at once.
 
-What it checks: schema version, duplicate ids, path rules, hash shape, the
-fields each asset kind requires — including that only a `text` asset carries
-`text` or `style`, only a `color` asset carries `color`, only a `shape`
-asset carries `shape`, only an `icon` asset carries `icon` and only a `group`
-carries `group` and only an `image_sequence` carries `sequence`, that an `html`
-asset's path ends in `.html`, that an icon has
-a size and a thickness to draw with, that a shape has area, a corner it has room to round,
-something to draw with and a `dash` of at least one length, each above zero —
-and that an arrow has two ends in different
-places and no `fill`, since a line has no inside — that a gradient `fill` or
-`color` has at least two stops rising from `0` to `1`, a finite angle, and a
-centre and a radius above zero — that a `style`'s
-font path, a `synth_audio`'s `recipe` and the document's `script`
-obey the project-path rules, and that each generated kind carries exactly the
-brief it takes: a `prompt` or a `recipe`, never both and never the other's —
-clip references resolving, asset kind against track kind, non-zero durations,
-clip overlap, no clip reaching past the end of the source it was measured to
-have — or the group it shows — and keyframe shape, on the timeline and inside
-every group alike; what only a group raises (see *Group assets*) and what only
-an image sequence raises (see *Image sequences*); and that a
-`follow` names an arrow clip on the follower's own timeline, not itself, and not
-one attached to another follower (see *Travelling along an arrow*).
+What it checks, each in more detail in its own section:
+
+- **The document**: the schema version; no asset, track or clip id used twice;
+  every path relative and inside the project (*Paths*) — an asset's, a
+  `style`'s font file, a `synth_audio`'s `recipe` and the `script`; a `sha256`
+  of 64 lowercase hex characters.
+- **Each asset carries its kind's fields and no other kind's**: only `text`
+  carries `text` and `style`, only `color` carries `color`, only `shape`,
+  `icon`, `group` and `image_sequence` carry `shape`, `icon`, `group` and
+  `sequence`; each generated kind carries exactly the brief it takes, a
+  `prompt` or a `recipe` and never the other's; a `generated` asset has a
+  `path`; an `html` asset's path ends in `.html` (*Web pages*).
+- **Briefs a provider would refuse** (*What a generated video asks for*, *What
+  a generated still asks for*, *What a spoken line asks for*): a shot's length,
+  size and references against its tier, and a `last_image` only beside a
+  `first_image`; a still's size, shape, references and thinking against its
+  model; a reference or a still that names no asset, the wrong kind, or
+  itself; a line's length, language and voice.
+- **Text** (*Text assets and how they look*): a weight inside 1–1000, a stroke
+  with a width, a `reveal` whose `stagger` and `rise` make sense, and a
+  `number` with a `{n}` to write at, a finite value and a sane count of
+  decimals.
+- **Graphics**: a shape with area, a corner it has room to round, something to
+  draw with and a `dash` of positive lengths; an arrow with two different ends,
+  no `fill`, and an `attach` naming a picture clip that is not another arrow; an
+  icon with a size and a line; a gradient with at least two stops rising from
+  `0` to `1`, a finite angle, and a centre and radius above zero.
+- **Groups and sequences** (*Group assets*, *Image sequences*): a group with
+  clips, no sound, not containing itself, played at speed 1; a sequence with
+  stills of one format and one size, held at least a frame each.
+- **The timeline** (*Tracks and clips*): a clip names an asset that exists, of
+  a kind its track takes; a non-zero duration; no overlap on one track; no clip
+  reaching past the source it was measured to have, or the group it shows; a
+  `speed` it can play at (*Playing faster or slower*); a `crop` inside its
+  source (*Showing part of a source*); a `chroma_key` on a clip with no alpha of
+  its own, on a colour far enough from grey (*Taking the background out*); a
+  `matte` that is another picture clip, not itself, not across a group's edge,
+  and not matted in turn (*Revealed through another clip*); a `follow` naming
+  an arrow clip on the follower's own timeline, not itself, and not one
+  attached to another follower (*Travelling along an arrow*).
+- **Keyframes** (*Keyframes*), on the timeline and inside every group alike: a
+  well-formed property path, a track that is not empty, times strictly
+  ascending, finite values, a `cubic_bezier` whose `x1` and `x2` lie in
+  `0..=1`, and a `by` that is not blank. It does **not** check that the path
+  names a real property, or that a property has only one track (*Two tracks on
+  one property*).
 
 Note what is *not* on that list. A time that is negative, fractional, or
 infinite cannot be represented as a frame count, so it fails the parse with
