@@ -22,9 +22,11 @@ use crate::project::{PAGES_DIR, Project};
 
 use super::super::import::ImportError;
 use super::super::naming::{unique_asset_id, unique_file_name};
+use super::adopt::in_pages;
 
 /// Copies a page into `pages/` and adds it to the assets table as an `html`
-/// asset. Returns the id to reference from a clip.
+/// asset. Returns the id to reference from a clip. A page that is in `pages/`
+/// already, and no asset's, is registered where it is instead (#1054).
 pub(in crate::pool) fn import_page(
     project: &mut Project,
     project_root: &Path,
@@ -39,6 +41,21 @@ pub(in crate::pool) fn import_page(
             found: "no .html extension",
         });
     }
+    let file_name = match in_pages(project, project_root, source) {
+        Some(name) => name,
+        None => copy_in(project_root, source)?,
+    };
+    let id = unique_asset_id(project, &file_name);
+    let path = ProjectPath::new(format!("{PAGES_DIR}/{file_name}"));
+    project
+        .assets
+        .push(Asset::imported(id.clone(), AssetKind::Html, path));
+    Ok(id)
+}
+
+/// Copies `source` into `pages/` under a name nothing there has, and returns
+/// that name.
+fn copy_in(project_root: &Path, source: &Path) -> Result<String, ImportError> {
     let bytes = fs::read(source).map_err(|error| ImportError::Unreadable {
         path: source.to_path_buf(),
         source: error,
@@ -54,11 +71,5 @@ pub(in crate::pool) fn import_page(
         path: destination.clone(),
         source: error,
     })?;
-
-    let id = unique_asset_id(project, &file_name);
-    let path = ProjectPath::new(format!("{PAGES_DIR}/{file_name}"));
-    project
-        .assets
-        .push(Asset::imported(id.clone(), AssetKind::Html, path));
-    Ok(id)
+    Ok(file_name)
 }

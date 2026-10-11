@@ -1,5 +1,6 @@
 //! Bringing a page in: copied into `pages/`, neither probed nor hashed.
 
+mod adopted;
 mod beside;
 mod kept;
 mod written;

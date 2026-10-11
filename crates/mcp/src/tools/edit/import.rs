@@ -100,7 +100,8 @@ impl Tool for Import {
          in number order (frame_9 before frame_10), one frame each and once; the \
          sequence tool changes the hold and the loop. A web page (.html) is \
          copied into pages/ instead, as an html asset: a document played as a \
-         moving picture with alpha, neither probed nor hashed. Pages come in \
+         moving picture with alpha, neither probed nor hashed (one already in \
+         pages/ is registered where it is). Pages come in \
          one file at a time — a directory passes them over."
     }
 
