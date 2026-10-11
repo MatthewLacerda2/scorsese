@@ -3,7 +3,9 @@
 //!
 //! What `page::request`'s doc and the html arm of `run::segment::layers`
 //! claim, held to the browser itself, so a Chromium that lifts or moves the
-//! floor fails here rather than leaving those comments quietly wrong.
+//! floor fails here rather than leaving those comments quietly wrong. On
+//! macOS a frame is a screenshot asked for at that floor (#844), and the page
+//! must still be told the raster's own device scale, as it is on Linux.
 //!
 //! Needs the pinned browser, like `pages.rs` beside it.
 
@@ -13,9 +15,11 @@ use scorsese_core::Fps;
 use scorsese_render::Resolution;
 use scorsese_render::page::{self, Chrome, Request};
 
-use crate::common::ffmpeg::{fixture_dir, inspect, tools};
+use crate::common::ffmpeg::{fixture_dir, inspect, mean_rgb, tools};
 
-/// The size `raster`'s capture of a one-colour page comes out at.
+/// The size `raster`'s capture of a one-colour page comes out at. The page is
+/// blue while the browser tells it the raster's own device scale, and magenta
+/// otherwise — asked by a media query, so the browser answers as it draws.
 fn captured_at(chrome: &Chrome, raster: Resolution) -> (u64, u64) {
     let tools = tools();
     let dir = fixture_dir(&format!(
@@ -24,9 +28,15 @@ fn captured_at(chrome: &Chrome, raster: Resolution) -> (u64, u64) {
         raster.height()
     ));
     std::fs::create_dir_all(dir.join("pages")).expect("pages/");
+    let dppx = f64::from(raster.width().min(raster.height())) / 1080.0;
+    let (low, high) = (dppx - 0.001, dppx + 0.001);
     std::fs::write(
         dir.join("pages/flat.html"),
-        "<div style='position:absolute;inset:0;background:#00f'></div>",
+        format!(
+            "<style>div {{ position: absolute; inset: 0; background: #f0f }}\
+             @media (min-resolution: {low}dppx) and (max-resolution: {high}dppx) \
+             {{ div {{ background: #00f }} }}</style><div></div>"
+        ),
     )
     .expect("a page");
     let request = Request {
@@ -39,6 +49,13 @@ fn captured_at(chrome: &Chrome, raster: Resolution) -> (u64, u64) {
     };
     let captured = page::capture(chrome, &tools, &dir, &request).expect("captured");
     let file = inspect(&tools, &captured.file);
+    let (red, _, blue) = mean_rgb(&tools, &captured.file, 0);
+    assert!(
+        red < 40 && blue > 200,
+        "the page at {}x{} was told another device scale",
+        raster.width(),
+        raster.height()
+    );
     std::fs::remove_dir_all(&dir).ok();
     (file.width, file.height)
 }

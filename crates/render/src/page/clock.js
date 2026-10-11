@@ -29,6 +29,26 @@
   let frames = new Map();
   const born = new WeakMap();
 
+  // The browser's own frames, kept before the page's are taken over. Where the
+  // browser draws on its own schedule (macOS, #844), the capture settles the
+  // page over two of them before it photographs it: the first notices an
+  // animation the advance ended, and the second sends its `animationend`. How
+  // many more the browser runs in between is up to its load, so each one seeks
+  // every animation again — one an event just started is held at zero — and a
+  // frame more or less changes nothing. Waiting for one frame without seeking,
+  // `same_frames` parted in 5 of 10 runs under load; like this, in none of 30.
+  const browserFrame = window.requestAnimationFrame.bind(window);
+  const settle = () =>
+    new Promise((settled) =>
+      browserFrame(() => {
+        seek();
+        browserFrame(() => {
+          seek();
+          settled(true);
+        });
+      }),
+    );
+
   performance.now = () => now;
   const RealDate = Date;
   window.Date = class extends RealDate {
@@ -70,6 +90,17 @@
     }
   };
 
+  // Every Web Animation paused at how long it has existed, a new one at zero.
+  // Idempotent while the clock stands still, which is what lets the browser
+  // run frames of its own in between (`settle`).
+  const seek = () => {
+    for (const animation of document.getAnimations()) {
+      if (!born.has(animation)) born.set(animation, now);
+      animation.pause();
+      animation.currentTime = now - born.get(animation);
+    }
+  };
+
   const advanceTo = (ms) => {
     const target = START + ms;
     for (;;) {
@@ -88,15 +119,11 @@
     const due = frames;
     frames = new Map();
     for (const fn of due.values()) call(fn, [now]);
-    for (const animation of document.getAnimations()) {
-      if (!born.has(animation)) born.set(animation, now);
-      animation.pause();
-      animation.currentTime = now - born.get(animation);
-    }
+    seek();
   };
 
   Object.defineProperty(window, "__scorsese", {
-    value: Object.freeze({ advanceTo }),
+    value: Object.freeze({ advanceTo, settle }),
     enumerable: false,
   });
 })();

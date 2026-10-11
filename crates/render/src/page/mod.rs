@@ -34,6 +34,7 @@ mod browser;
 mod cache;
 mod capture;
 mod cdp;
+mod drawing;
 mod encoder;
 mod find;
 mod fonts;
