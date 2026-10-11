@@ -99,6 +99,33 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+# A ready pull request's run is cancelled when a push to it supersedes it
+# (#1130): before this, 20 of 300 runs kept a runner busy for about 135
+# minutes between them, checking commits nobody would merge.
+#
+# Why that cannot block a merge. `mergeable.py` and `merge-queue.py` read only
+# the runs recorded against the pull request's **head** commit, and they read
+# a cancelled run there as a failed one. So the one thing this must never do is
+# cancel a run of the head commit, and it is built so that it cannot:
+#
+# - Only a `synchronize` event cancels. That event is a push, so it brings a
+#   new head, and what it cancels is a run of the commit it replaced.
+#   `ready_for_review` and `reopened` keep their commit, and so only queue
+#   behind a run in flight rather than cancelling it.
+# - A run that is not a ready pull request's — a draft's, which skips every
+#   job in seconds, or `main`'s — gets a group of its own (`run_id`), so it
+#   never waits on one and is never cancelled by one. Otherwise a draft's
+#   skipped run could be cancelled by the `ready_for_review` seconds behind it
+#   on the same commit, and the queue would read that as red.
+#
+# What is left is GitHub's rule that one group holds a single pending run: a
+# third event on one commit while two are queued replaces the pending one
+# (ready, draft, ready, draft, ready inside a run). `make mergeable` then names
+# the cancelled run; a push, the normal way a ready branch moves, clears it.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && !github.event.pull_request.draft && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event.action == 'synchronize' }}
+
 jobs:
   check:
     name: fmt + clippy + test
@@ -106,6 +133,11 @@ jobs:
     # Drafts assert nothing, so there is nothing to check. See the top of
     # this file; `ready_for_review` in `types:` is what makes it fire at all.
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    # Twice the slowest run on record (about 15 minutes), so a hung capture or
+    # server test fails here instead of holding a runner — and the merge queue
+    # behind it — for GitHub's default of six hours (#1134). nextest's own
+    # limit (`.config/nextest.toml`) names the hung test; this is the backstop.
+    timeout-minutes: 30
     # The server's database tests fail without a Postgres rather than skip, so
     # the job has one. `make test` gets the same from `tools/with-postgres`,
     # which runs this same image -- change the two together. Pulled from AWS's
@@ -159,8 +191,15 @@ jobs:
           echo "SCORSESE_CHROME=$(tools/chromium/fetch)" >> "$GITHUB_ENV"
           echo "SCORSESE_CHROME_NO_SANDBOX=1" >> "$GITHUB_ENV"
 
+      # Saved by `main` only, here and in every rust-cache step below (#1130).
+      # A pull request reads `main`'s cache, which is all it needs; letting
+      # each one save its own copy filled the 10 GB the repository gets (two
+      # pull requests had 4 GB between them), and GitHub then evicts by age —
+      # `main`'s copy first, so the next run rebuilt every dependency.
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       # A prebuilt binary, not a build. `cargo install cargo-nextest` compiles a
       # large tool from source in every job, which would cost more than the
@@ -196,11 +235,12 @@ jobs:
       # examples are parsed as projects and its animatable-property table is
       # held to what the code publishes. Nothing extra to invoke here.
       #
-      # nextest rather than `cargo test`: 31 integration test binaries, which
-      # cargo runs essentially one at a time while threading only within each.
-      # nextest schedules every test from every binary in one pool and runs each
-      # in its own process, so a crash costs one result instead of a binary's
-      # worth. Measured warm on the dev machine, 44.5s to 34.0s — see #225.
+      # nextest rather than `cargo test`: 147 test binaries, which cargo runs
+      # essentially one at a time while threading only within each. nextest
+      # schedules every test from every binary in one pool and runs each in its
+      # own process, so a crash costs one result instead of a binary's worth
+      # (#225 measured the switch). In CI this step is about 355s of compiling
+      # and 371s of running 3,860 tests (run 38121672613, 2026-10-11).
       - name: Test
         run: cargo nextest run --workspace --locked
 
@@ -274,16 +314,6 @@ jobs:
           path: target/tmp/golden-failures/
           if-no-files-found: ignore
 
-  # The size gate: source files ≤ 300 lines of code, test files ≤ 150 — blank
-  # and comment lines do not count, for the reasons in `scan::code_lines`.
-  # CLAUDE.md lists
-  # it among the hard gates and, until now, nothing checked it — a limit that
-  # held by habit for as long as someone was watching. Its own job because it
-  # needs neither ffmpeg nor a build of the workspace, so it answers in seconds
-  # instead of waiting behind the heavy one. The rule deciding which cap a path
-  # falls under lives in `tools/lint/src/classify.rs`, and its tests run here
-  # first: a classifier that quietly misfiles a path is a gate that has stopped
-  # gating without saying so.
   app:
     name: desktop app
     runs-on: ubuntu-24.04
@@ -323,6 +353,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: app
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       # The same runner as `check`, installed the same way. One workspace on
       # nextest and the other on `cargo test` would mean "the tests" describing
@@ -396,6 +427,16 @@ jobs:
       - name: Build
         run: bun run build
 
+  # The size gate: source files ≤ 300 lines of code, test files ≤ 150 — blank
+  # and comment lines do not count, for the reasons in `scan::code_lines`.
+  # CLAUDE.md lists it among the hard gates, and before this job nothing
+  # checked it — a limit that held by habit for as long as someone was
+  # watching. Its own job because it needs neither ffmpeg nor a build of the
+  # workspace, so it answers in seconds instead of waiting behind the heavy
+  # one. The rule deciding which cap a path falls under lives in
+  # `tools/lint/src/classify.rs`, and its tests run here first: a classifier
+  # that quietly misfiles a path is a gate that has stopped gating without
+  # saying so.
   size:
     name: size gate
     runs-on: ubuntu-24.04
@@ -409,6 +450,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: tools/lint
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Test the gate
         run: cargo test --manifest-path tools/lint/Cargo.toml --locked

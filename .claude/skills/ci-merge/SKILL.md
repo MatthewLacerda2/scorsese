@@ -41,7 +41,7 @@ the web front-end and the desktop app's workspace. `make help` lists them.
 
 The web, web-e2e and app gates are the only conditional ones: each reports
 **skipped** (web-e2e says *not run*) when the branch touches nothing it
-checks — `web/` for web, `web/` or `crates/server/` for web-e2e, `app/` for
+checks — `web/` for web, `web/` or `crates/` bar `crates/golden` for web-e2e, `app/` for
 app. Skipped is
 the honest answer; never read it as green.
 

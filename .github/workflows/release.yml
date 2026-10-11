@@ -28,8 +28,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Saved by `main` only, as in ci.yml (#1130): a tag's own copy would be
+      # read by nothing but that tag, and the repository has 10 GB for all of it.
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build
         run: cargo build --release -p scorsese-cli
