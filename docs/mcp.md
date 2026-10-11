@@ -1718,7 +1718,9 @@ the same file: the second is refused while the first is writing.
 
 A background render stops with `jobs`' `cancel` argument (a tool of its own,
 `job_cancel`, until #783): within a frame, and its partial file is removed,
-because a truncated `.mp4` looks like a file and plays as nothing.
+because a truncated `.mp4` looks like a file and plays as nothing. A render
+writes beside `out` and takes its name only once finished, so a file an
+earlier render left there is kept, whether this one is cancelled or fails.
 
 A waited one stops the way any call does. A client stops a call it no longer
 wants with MCP's `notifications/cancelled`, naming the request's id — most

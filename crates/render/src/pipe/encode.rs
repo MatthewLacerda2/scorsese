@@ -1,7 +1,7 @@
 //! Putting raw frames into a file.
 
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{ChildStdin, Command, Stdio};
 use std::time::Duration;
 
@@ -25,14 +25,20 @@ const GRACE: Duration = Duration::from_secs(5);
 
 /// An ffmpeg process taking raw frames on its stdin and writing an encoded
 /// file.
+///
+/// It writes to a [`super::Partial`] beside the output, which only takes the
+/// output's name once ffmpeg has finished: a render that stops for any reason
+/// leaves an earlier file at that name as it was.
 pub(crate) struct Encoder {
-    child: super::Process,
+    // In this order, so that dropped without being finished the pipe closes,
+    // ffmpeg is reaped, and only then is its half-written file removed.
     stdin: ChildStdin,
-    out: PathBuf,
+    child: super::Process,
+    partial: super::Partial,
 }
 
 impl Encoder {
-    /// Starts encoding to `out`, optionally muxing in a finished mix.
+    /// Starts encoding for `out`, optionally muxing in a finished mix.
     ///
     /// The container and both codecs come from [`RenderSettings::format`], and
     /// the muxer is pinned with `-f` rather than left to ffmpeg to guess from
@@ -51,6 +57,7 @@ impl Encoder {
         mix: Option<&Path>,
         out: &Path,
     ) -> Result<Self, RenderError> {
+        let partial = super::Partial::beside(out);
         let mut command = tools.ffmpeg();
         command
             .args(["-nostdin", "-v", "error", "-y"])
@@ -89,7 +96,7 @@ impl Encoder {
         }
         command
             .args(["-f", format.container().muxer()])
-            .arg(out)
+            .arg(partial.path())
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
             .stderr(Stdio::piped());
@@ -103,9 +110,9 @@ impl Encoder {
             .take()
             .expect("stdin was piped when the process was spawned");
         Ok(Self {
-            child: super::Process::new(child),
             stdin,
-            out: out.to_owned(),
+            child: super::Process::new(child),
+            partial,
         })
     }
 
@@ -119,27 +126,40 @@ impl Encoder {
             })
     }
 
-    /// Closes the pipe and waits for the file to be finalised.
+    /// Closes the pipe, waits for the file to be finalised, and puts it in
+    /// the output's place. A failure removes the half-written file and leaves
+    /// the output as it was.
     pub(crate) fn finish(self) -> Result<(), RenderError> {
-        let Self { child, stdin, out } = self;
+        let Self {
+            stdin,
+            child,
+            partial,
+        } = self;
         // Closing stdin is what tells ffmpeg the stream ended; without it,
         // waiting for the process would wait forever.
         drop(stdin);
-        child.finish(Stage::Encode, &out.display().to_string())
+        child.finish(Stage::Encode, &partial.out().display().to_string())?;
+        partial.deliver()
     }
 
     /// Gives up on the file: closes the pipe, waits for ffmpeg to go (killing
-    /// it if it will not), and removes whatever it had written.
+    /// it if it will not), and removes whatever it had written. The output,
+    /// and anything an earlier render left there, is not touched.
     ///
     /// For a render that stopped — cancelled, or failed part way. What ffmpeg
-    /// leaves behind then is a file with an `.mp4` on the end that is not the
-    /// film: a few seconds of it, or no index at all and nothing playable.
-    /// Either is worse than no file, because it looks like one.
+    /// leaves behind then is a file that is not the film: a few seconds of
+    /// it, or no index at all and nothing playable. Either is worse than no
+    /// file, because it looks like one — and far worse in place of the last
+    /// good cut.
     pub(crate) fn abandon(self) {
-        let Self { child, stdin, out } = self;
+        let Self {
+            stdin,
+            child,
+            partial,
+        } = self;
         drop(stdin);
         child.stop(GRACE);
-        let _ = std::fs::remove_file(out);
+        drop(partial);
     }
 }
 
@@ -154,20 +174,22 @@ impl Encoder {
 /// muxed beside it.
 ///
 /// It is also the whole encode of a delivery with no picture in it, which is
-/// why the rehearsal and the real thing cannot drift: they are one call.
+/// why the rehearsal and the real thing cannot drift: they are one call. Like
+/// [`Encoder`], it writes beside `out` and renames last.
 pub(crate) fn encode_mix(
     tools: &Tools,
     settings: &RenderSettings,
     mix: &Path,
     out: &Path,
 ) -> Result<(), RenderError> {
+    let partial = super::Partial::beside(out);
     let mut command = tools.ffmpeg();
     command.args(["-nostdin", "-v", "error", "-y"]);
     mix_input(&mut command, settings, mix);
     audio_codec(&mut command, settings);
     command
         .args(["-f", settings.format.container().muxer()])
-        .arg(out)
+        .arg(partial.path())
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped());
@@ -175,7 +197,8 @@ pub(crate) fn encode_mix(
         stage: Stage::Encode,
         source,
     })?;
-    super::finish(child, Stage::Encode, &out.display().to_string())
+    super::finish(child, Stage::Encode, &out.display().to_string())?;
+    partial.deliver()
 }
 
 /// Hands a finished mix to ffmpeg as an input: raw float samples, at the

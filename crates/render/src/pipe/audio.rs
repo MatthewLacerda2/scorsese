@@ -7,7 +7,7 @@
 
 use std::io::{ErrorKind, Read};
 use std::path::PathBuf;
-use std::process::{Child, ChildStdout, Stdio};
+use std::process::{ChildStdout, Stdio};
 
 use scorsese_core::Speed;
 
@@ -47,8 +47,12 @@ pub(crate) struct AudioSource {
 }
 
 /// An ffmpeg process decoding one source into raw samples on its stdout.
+///
+/// Held as a [`super::Process`], so a mix that fails part way — another
+/// source missing, a pipe that broke — reaps it rather than leaving a zombie
+/// under a long-lived server (#1084), as #647 did for the video decoders.
 pub(crate) struct AudioDecoder {
-    child: Child,
+    child: super::Process,
     stdout: ChildStdout,
     subject: String,
 }
@@ -93,7 +97,7 @@ impl AudioDecoder {
             .take()
             .expect("stdout was piped when the process was spawned");
         Ok(Self {
-            child,
+            child: super::Process::new(child),
             stdout,
             subject: source.file.display().to_string(),
         })
@@ -135,7 +139,7 @@ impl AudioDecoder {
                 source,
             }
         })?;
-        super::finish(self.child, Stage::Mix, &self.subject)
+        self.child.finish(Stage::Mix, &self.subject)
     }
 }
 
