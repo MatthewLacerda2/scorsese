@@ -9,6 +9,7 @@
 mod clock;
 mod count;
 mod easings;
+mod font;
 
 use scorsese_core::{Asset, AssetId, AssetKind, Fps, Frames, ProjectPath};
 use scorsese_render::{RenderSettings, Renderer, Resolution};
