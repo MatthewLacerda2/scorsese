@@ -27,9 +27,7 @@ pub(super) fn long(frames: u64) -> scorsese_core::Project {
 /// A worker for renders and previews on the server's own queue — the one
 /// whose flags `POST /api/jobs/{id}/cancel` trips, as in production.
 pub(super) async fn worker(pool: &PgPool, files: &Files, state: &AppState) -> watch::Sender<bool> {
-    let members = db::member_pool(pool)
-        .await
-        .expect("the member pool connects");
+    let members = common::members(pool).await;
     let handler = || {
         job::handler(
             files.renders.clone(),
@@ -41,15 +39,19 @@ pub(super) async fn worker(pool: &PgPool, files: &Files, state: &AppState) -> wa
         .register(kinds::RENDER, handler())
         .register(kinds::PREVIEW, handler());
     let (stop, stopping) = watch::channel(false);
-    tokio::spawn(work(members, registry, state.jobs.clone(), stopping));
+    let worker = tokio::spawn(work(
+        members.clone(),
+        registry,
+        state.jobs.clone(),
+        stopping,
+    ));
+    common::release_at_teardown(pool, &members, [worker.abort_handle()]);
     stop
 }
 
 /// Job `id` once it is in `state`.
 pub(super) async fn when(pool: &PgPool, user: UserId, id: i64, state: State) -> JobView {
-    let members = db::member_pool(pool)
-        .await
-        .expect("the member pool connects");
+    let members = common::members(pool).await;
     for _ in 0..600 {
         let job = store::get(&members, user, id)
             .await

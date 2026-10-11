@@ -34,12 +34,13 @@ async fn a_heavy_video_gets_a_proxy_on_arrival_and_loses_it_with_the_item(pool: 
     let bytes = wide(&common::scratch("proxy-arrival-media"));
     let (address, state) = common::serve_with(pool.clone(), files).await;
     let (_stop, stopping) = watch::channel(false);
-    tokio::spawn(jobs::work(
+    let worker = tokio::spawn(jobs::work(
         state.pool.clone(),
         registry,
         state.jobs.clone(),
         stopping,
     ));
+    common::release_at_teardown(&pool, &state.pool, [worker.abort_handle()]);
     let (user, ana) = member(&pool, "ana@example.com").await;
     let id = upload(address, &ana, "wide.mp4", &bytes).await;
 

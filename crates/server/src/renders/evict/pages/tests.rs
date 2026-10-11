@@ -5,7 +5,7 @@ use crate::renders::Quota;
 
 /// A render cache under the temp folder, emptied.
 fn cache(name: &str) -> RenderCache {
-    let root = std::env::temp_dir().join(format!("scorsese-pages-{name}-{}", std::process::id()));
+    let root = crate::scratch::fresh(&format!("scorsese-pages-{name}"), "");
     let _ = std::fs::remove_dir_all(&root);
     RenderCache::new(root, Quota::bytes(u64::MAX))
 }

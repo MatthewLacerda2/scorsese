@@ -40,6 +40,10 @@ mod out;
 mod cli;
 mod commands;
 mod renderer;
+// Test scratch folders, removed when each test ends (#1132).
+#[cfg(test)]
+#[path = "../../../tools/scratch.rs"]
+mod scratch;
 
 use anyhow::Result;
 use clap::Parser;

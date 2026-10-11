@@ -1,7 +1,8 @@
 //! A song whose instrument lives in its own file — the reference a
 //! `PatchResolver` exists to resolve, wired to a real project.
 
-use crate::common::{project, synth_asset, write};
+use crate::common::{project, scratch, synth_asset, write};
+use scorsese_core::{Fps, Project};
 use scorsese_providers::synth::{SynthesisError, bake_asset};
 
 const BASS: &str = r#"{
@@ -44,10 +45,14 @@ fn a_named_instrument_is_read_from_the_project() {
 /// instrument reference is not a second, looser way into the filesystem.
 #[test]
 fn a_named_instrument_may_not_climb_out_of_the_project() {
-    let (dir, mut project) = project("instrument-escape");
+    // The project one folder down in a scratch folder of its own, so what
+    // sits beside it is this test's and not the whole temporary directory's.
+    let outside = scratch("instrument-escape");
+    let dir = outside.join("inside.scor");
+    let mut project =
+        Project::create(&dir, Some("inside"), Fps::THIRTY).expect("create the project");
     write(&dir, "recipes/tune.json", &song_naming("../bass.json"));
-    std::fs::write(dir.parent().expect("a parent").join("bass.json"), BASS)
-        .expect("write it outside");
+    std::fs::write(outside.join("bass.json"), BASS).expect("write it outside");
 
     let id = synth_asset(&mut project, "tune", "recipes/tune.json");
     let refused = bake_asset(&mut project, &dir, &id).expect_err("refused");

@@ -6,6 +6,9 @@
 //! review really is free, before a frame has been encoded and before the media
 //! even has to be on the machine.
 
+#[path = "../../../tools/scratch.rs"]
+mod scratch;
+
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -15,8 +18,7 @@ const NO_FFMPEG: &str = "scorsese-tests-no-such-ffmpeg";
 /// A project directory holding one video clip and one narration sketch under
 /// it, written straight to disk — the point is the description, not the media.
 fn project(label: &str) -> PathBuf {
-    let dir =
-        std::env::temp_dir().join(format!("scorsese-describe-{label}-{}", std::process::id()));
+    let dir = scratch::fresh(&format!("scorsese-describe-{label}"), "");
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("assets")).expect("create the project directory");
     std::fs::write(dir.join("project.json"), DOCUMENT).expect("write project.json");

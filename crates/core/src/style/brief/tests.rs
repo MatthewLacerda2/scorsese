@@ -4,7 +4,7 @@ use crate::{Fps, Project};
 
 /// A fresh, empty directory for one test.
 fn scratch(label: &str) -> std::path::PathBuf {
-    let dir = std::env::temp_dir().join(format!("scorsese-brief-{label}-{}", std::process::id()));
+    let dir = crate::scratch::fresh(&format!("scorsese-brief-{label}"), "");
     let _ = std::fs::remove_dir_all(&dir);
     dir
 }

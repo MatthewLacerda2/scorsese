@@ -217,7 +217,7 @@ mod tests {
 
     #[test]
     fn scaling_rewrites_every_sample_across_chunk_boundaries() {
-        let dir = std::env::temp_dir().join(format!("scorsese-503-scale-{}", std::process::id()));
+        let dir = crate::scratch::fresh("scorsese-503-scale", "");
         std::fs::create_dir_all(&dir).expect("temp dir");
         let path = dir.join("mix.pcm");
         let samples: Vec<f32> = (0..CHUNK).map(|i| i as f32 / CHUNK as f32).collect();

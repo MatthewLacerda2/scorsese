@@ -21,7 +21,7 @@ use crate::{
 /// - `sfx`: `whoosh` 105–115, scene 2's rider;
 /// - `music`: `bed` 0–300, named by nobody.
 pub(super) fn project(label: &str) -> (PathBuf, Project) {
-    let dir = std::env::temp_dir().join(format!("scorsese-voice-{label}-{}", std::process::id()));
+    let dir = crate::scratch::fresh(&format!("scorsese-voice-{label}"), "");
     std::fs::create_dir_all(dir.join("generated")).unwrap();
     let mut project = Project::new("voice", Fps::THIRTY);
     for (id, last) in [("vo-1", 1.5), ("vo-2", 2.0)] {

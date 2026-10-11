@@ -42,6 +42,8 @@ mod progressing;
 mod queueing;
 mod removing;
 mod rendering;
+#[path = "../../../../tools/scratch.rs"]
+mod scratch;
 mod searching;
 mod sectioning;
 mod seeing;

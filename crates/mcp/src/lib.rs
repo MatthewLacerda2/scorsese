@@ -135,6 +135,10 @@ mod rpc;
 mod session;
 mod table;
 mod tools;
+// Test scratch folders, removed when each test ends (#1132).
+#[cfg(test)]
+#[path = "../../../tools/scratch.rs"]
+mod scratch;
 
 pub use renderer::fetch_on_first_use;
 pub use session::serve;

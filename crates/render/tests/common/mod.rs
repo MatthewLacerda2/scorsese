@@ -6,6 +6,8 @@ pub(crate) mod audio;
 pub(crate) mod ffmpeg;
 pub(crate) mod plans;
 pub(crate) mod prompts;
+#[path = "../../../../tools/scratch.rs"]
+pub(crate) mod scratch;
 
 pub(crate) use plans::{audio_shape, audio_source_ins, shape, source_ins};
 pub(crate) use prompts::{generated_asset, narration_asset, sketch_asset, stale_asset};

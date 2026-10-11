@@ -44,9 +44,7 @@ fn arrival(file: PathBuf) -> Arrival {
 async fn library(pool: &PgPool) -> Library {
     db::migrate(pool).await.expect("the migrations apply");
     let files = common::files("generated");
-    let members = db::member_pool(pool)
-        .await
-        .expect("the member pool connects");
+    let members = common::members(pool).await;
     Library::new(
         members,
         files.storage,

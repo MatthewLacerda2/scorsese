@@ -25,12 +25,14 @@ async fn serve(pool: PgPool, clients: Clients) -> SocketAddr {
     let members = db::member_pool(&pool)
         .await
         .expect("the member pool connects");
-    let state = http::AppState::new(members, common::files("throttle")).with_clients(clients);
-    tokio::spawn(http::serve(
+    let state =
+        http::AppState::new(members.clone(), common::files("throttle")).with_clients(clients);
+    let server = tokio::spawn(http::serve(
         listener,
         http::router(state),
         std::future::pending(),
     ));
+    common::release_at_teardown(&pool, &members, [server.abort_handle()]);
     address
 }
 

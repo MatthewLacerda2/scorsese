@@ -21,7 +21,7 @@ use crate::{Cancel, FrameRange, RenderError, RenderSettings, Renderer, Resolutio
 
 /// Two tones side by side for [`LENGTH`] frames, in a fresh directory.
 fn tones(tools: &Tools, label: &str) -> (Project, PathBuf) {
-    let root = std::env::temp_dir().join(format!("scorsese-hush-{label}-{}", std::process::id()));
+    let root = crate::scratch::fresh(&format!("scorsese-hush-{label}"), "");
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(root.join("assets")).expect("create the fixture directory");
     let made = tools

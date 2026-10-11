@@ -22,9 +22,7 @@ use super::{call, card, common, member, stored};
 
 /// A worker running renders and previews on `files`.
 pub(super) async fn worker(pool: &PgPool, files: &Files) -> watch::Sender<bool> {
-    let members = scorsese_server::db::member_pool(pool)
-        .await
-        .expect("the member pool connects");
+    let members = common::members(pool).await;
     let handler = || {
         job::handler(
             files.renders.clone(),
@@ -36,7 +34,13 @@ pub(super) async fn worker(pool: &PgPool, files: &Files) -> watch::Sender<bool> 
         .register(kinds::RENDER, handler())
         .register(kinds::PREVIEW, handler());
     let (stop, stopping) = watch::channel(false);
-    tokio::spawn(work(members, registry, Queue::new(Events::new()), stopping));
+    let worker = tokio::spawn(work(
+        members.clone(),
+        registry,
+        Queue::new(Events::new()),
+        stopping,
+    ));
+    common::release_at_teardown(pool, &members, [worker.abort_handle()]);
     stop
 }
 

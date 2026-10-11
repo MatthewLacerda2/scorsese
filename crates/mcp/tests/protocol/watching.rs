@@ -15,7 +15,7 @@ const PNG_HEADER: &str = "iVBORw0KGgo";
 /// A short video on disk, outside any project — which is half the point of
 /// this tool.
 fn footage(label: &str, seconds: u32) -> std::path::PathBuf {
-    let dir = std::env::temp_dir().join(format!("scorsese-look-{label}-{}", std::process::id()));
+    let dir = crate::scratch::fresh(&format!("scorsese-look-{label}"), "");
     std::fs::create_dir_all(&dir).expect("create the fixture directory");
     let file = dir.join("footage.mp4");
     let tools = Tools::discover().expect("ffmpeg must be on PATH to run these tests");

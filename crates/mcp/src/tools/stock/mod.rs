@@ -118,7 +118,7 @@ mod tests {
     /// want a key or the network.
     #[test]
     fn stocked_tools_answer_from_the_library_given() {
-        let dir = std::env::temp_dir().join(format!("scorsese-mcp-stocked-{}", std::process::id()));
+        let dir = crate::scratch::fresh("scorsese-mcp-stocked", "");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         Project::new("stocked", Fps::THIRTY).save(&dir).unwrap();

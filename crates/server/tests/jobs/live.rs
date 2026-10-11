@@ -95,7 +95,8 @@ async fn jobs_and_their_stream_are_the_callers_alone(pool: PgPool) {
     let state = AppState::new(members.clone(), common::files("live"));
     let (listener, address) = common::listener().await;
     let router = http::router(state.clone());
-    tokio::spawn(http::serve(listener, router, std::future::pending()));
+    let server = tokio::spawn(http::serve(listener, router, std::future::pending()));
+    common::release_at_teardown(&pool, &members, [server.abort_handle()]);
 
     let anonymous = common::request(address, "GET", "/api/events", &[], None).await;
     assert_eq!(anonymous.status, 401);

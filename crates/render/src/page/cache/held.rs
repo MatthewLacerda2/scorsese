@@ -168,8 +168,7 @@ mod tests {
 
     /// A project of one page, and the slot its captures go in.
     fn project(name: &str) -> (PathBuf, PathBuf) {
-        let root =
-            std::env::temp_dir().join(format!("scorsese-held-{name}-{}", std::process::id()));
+        let root = crate::scratch::fresh(&format!("scorsese-held-{name}"), "");
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
         std::fs::write(root.join("page.html"), "page").unwrap();

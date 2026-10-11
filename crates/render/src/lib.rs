@@ -170,6 +170,10 @@ pub(crate) mod text;
 pub mod tools;
 pub mod trace;
 pub(crate) mod workers;
+// Test scratch folders, removed when each test ends (#1132).
+#[cfg(test)]
+#[path = "../../../tools/scratch.rs"]
+mod scratch;
 
 /// The frame buffer and raster types, which belong to the compositor — a frame
 /// is what it produces. Re-exported so callers need not care which crate

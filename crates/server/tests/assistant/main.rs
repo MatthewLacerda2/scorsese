@@ -57,15 +57,16 @@ async fn serving(
         .await
         .expect("the test setup holds");
     let mut state =
-        http::AppState::new(members, common::files("assistant")).with_assistant(assistant);
+        http::AppState::new(members.clone(), common::files("assistant")).with_assistant(assistant);
     if let Some(library) = stock {
         state = state.stocked_from(library);
     }
-    tokio::spawn(http::serve(
+    let server = tokio::spawn(http::serve(
         listener,
         http::router(state.clone()),
         std::future::pending(),
     ));
+    common::release_at_teardown(pool, &members, [server.abort_handle()]);
     (address, state)
 }
 

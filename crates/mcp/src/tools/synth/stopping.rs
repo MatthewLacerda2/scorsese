@@ -14,7 +14,7 @@ use scorsese_render::Cancel;
 
 #[test]
 fn a_cancelled_bake_stops_and_leaves_generated_empty() {
-    let dir = std::env::temp_dir().join(format!("scorsese-bake-stopped-{}", std::process::id()));
+    let dir = crate::scratch::fresh("scorsese-bake-stopped", "");
     std::fs::remove_dir_all(&dir).ok();
     let project = json!({ "project": dir });
     for (tool, arguments) in [

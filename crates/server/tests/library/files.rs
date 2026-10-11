@@ -64,12 +64,13 @@ async fn the_worker_draws_each_files_thumbnail(pool: PgPool) {
     let bytes = video(&common::scratch("files-thumbnail-media"));
     let (address, state) = common::serve_with(pool.clone(), files).await;
     let (_stop, stopping) = watch::channel(false);
-    tokio::spawn(jobs::work(
+    let worker = tokio::spawn(jobs::work(
         state.pool.clone(),
         registry,
         state.jobs.clone(),
         stopping,
     ));
+    common::release_at_teardown(&pool, &state.pool, [worker.abort_handle()]);
     let (_, ana) = member(&pool, "ana@example.com").await;
     let id = upload(address, &ana, "clip.mp4", &bytes).await;
 

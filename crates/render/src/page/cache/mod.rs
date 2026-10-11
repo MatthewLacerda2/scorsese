@@ -266,7 +266,7 @@ mod tests {
 
     #[test]
     fn a_capture_is_fresh_only_while_what_it_loaded_and_read_is_unchanged() {
-        let root = std::env::temp_dir().join(format!("scorsese-cache-{}", std::process::id()));
+        let root = crate::scratch::fresh("scorsese-cache", "");
         let slot = root.join("slot");
         let read = Read {
             names: ["vo".into()].into(),

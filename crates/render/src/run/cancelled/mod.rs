@@ -29,7 +29,7 @@ pub(super) const LENGTH: u64 = 90;
 /// of layer are mid-stream when the cancel lands. Built in a fresh directory,
 /// which is handed back with it.
 pub(super) fn fixture(tools: &Tools, label: &str) -> (Project, PathBuf) {
-    let root = std::env::temp_dir().join(format!("scorsese-cancel-{label}-{}", std::process::id()));
+    let root = crate::scratch::fresh(&format!("scorsese-cancel-{label}"), "");
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(root.join("assets")).expect("create the fixture directory");
     let made = tools

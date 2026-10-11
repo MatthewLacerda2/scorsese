@@ -5,7 +5,6 @@
 //! command builder every ffmpeg invocation in the workspace must go through.
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU32, Ordering};
 
 use scorsese_core::{Asset, AssetKind};
 use scorsese_render::Tools;
@@ -14,15 +13,9 @@ pub(crate) fn tools() -> Tools {
     Tools::discover().expect("ffmpeg and ffprobe must be on PATH to run these tests")
 }
 
-/// A fresh empty directory, unique per call.
+/// A fresh empty directory, unique per call and removed when the test ends.
 pub(crate) fn fixture_dir(label: &str) -> PathBuf {
-    static COUNTER: AtomicU32 = AtomicU32::new(0);
-    let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "scorsese-render-{label}-{}-{unique}",
-        std::process::id()
-    ));
-    let _ = std::fs::remove_dir_all(&dir);
+    let dir = super::scratch::fresh(&format!("scorsese-render-{label}"), "");
     std::fs::create_dir_all(&dir).expect("create fixture dir");
     dir
 }

@@ -5,7 +5,6 @@
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU32, Ordering};
 
 use scorsese_render::Tools;
 use scorsese_server::renders::{Quota, RenderCache};
@@ -15,9 +14,14 @@ use sqlx::postgres::PgPool;
 use tokio::net::TcpListener;
 
 mod client;
+#[path = "../../../../tools/scratch.rs"]
+mod scratch;
+mod teardown;
 
 #[allow(unused_imports)] // As above: each test binary uses its own subset.
 pub(crate) use client::{Response, get, request, send};
+#[allow(unused_imports)] // As above.
+pub(crate) use teardown::{members, release_at_teardown};
 
 /// A listener on a port the OS picked, and the address it ended up on.
 pub(crate) async fn listener() -> (TcpListener, SocketAddr) {
@@ -30,15 +34,10 @@ pub(crate) async fn listener() -> (TcpListener, SocketAddr) {
     (listener, address)
 }
 
-/// A fresh, empty directory for one test, under the system's temporary one.
+/// A fresh, empty directory for one test, under the system's temporary one,
+/// removed when the test ends.
 pub(crate) fn scratch(label: &str) -> PathBuf {
-    static COUNTER: AtomicU32 = AtomicU32::new(0);
-    let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let directory = std::env::temp_dir().join(format!(
-        "scorsese-server-{label}-{}-{unique}",
-        std::process::id()
-    ));
-    let _ = std::fs::remove_dir_all(&directory);
+    let directory = scratch::fresh(&format!("scorsese-server-{label}"), "");
     std::fs::create_dir_all(&directory).expect("a scratch directory can be made");
     directory
 }
@@ -60,7 +59,8 @@ pub(crate) fn files(label: &str) -> Files {
 }
 
 /// A migrated server on `pool`, answering from the member pool exactly as
-/// production does, with users' files in `files`. Runs until the test ends.
+/// production does, with users' files in `files`. Runs until the test ends,
+/// and lets go of the database then ([`teardown`]).
 pub(crate) async fn serve_with(pool: PgPool, files: Files) -> (SocketAddr, http::AppState) {
     let (listener, address) = listener().await;
     scorsese_server::db::migrate(&pool)
@@ -69,9 +69,10 @@ pub(crate) async fn serve_with(pool: PgPool, files: Files) -> (SocketAddr, http:
     let members = scorsese_server::db::member_pool(&pool)
         .await
         .expect("the member pool connects");
-    let state = http::AppState::new(members, files);
+    let state = http::AppState::new(members.clone(), files);
     let router = http::router(state.clone());
-    tokio::spawn(http::serve(listener, router, std::future::pending()));
+    let server = tokio::spawn(http::serve(listener, router, std::future::pending()));
+    release_at_teardown(&pool, &members, [server.abort_handle()]);
     (address, state)
 }
 
