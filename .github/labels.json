@@ -1,10 +1,5 @@
 [
   {
-    "name": "idea",
-    "color": "d4c5f9",
-    "description": "Might not add value; parked until the user decides. Must NOT be started."
-  },
-  {
     "name": "planning",
     "color": "fbca04",
     "description": "Has value, but architecture/GUI approach still being discussed. Must NOT be started."

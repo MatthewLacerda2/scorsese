@@ -345,7 +345,7 @@ in a cloud session; `issue-batch` has what that premise shapes.
 - **One worktree per branch**, off the latest `main`, removed the moment it
   merges, and **never a shared `CARGO_TARGET_DIR`** — it makes worktrees
   overwrite each other's artifacts and produces a false green; `make gates`
-  refuses to run under one. Compiles are staggered and sized from the machine
+  refuses one that points outside the worktree. Compiles are staggered and sized from the machine
   you are on, measured. One of the operator's machines also hosts the web app,
   so a heavy build there competes with a paying user's render. **Branches are
   written in cloud sessions first**, about ten at once; at most two locally,
@@ -362,17 +362,17 @@ in a cloud session; `issue-batch` has what that premise shapes.
   survives a session that ends badly; a red ready pull request stays ready and
   is fixed forward.
 - **Run the gates before marking a pull request ready**, not after CI says so.
-  `make gates` runs every gate CI blocks on and `make help` lists them; the app
-  and web gates report **skipped** when a branch touches nothing under `app/` or
-  `web/`, and skipped is never green. `make setup`, once per clone, installs the
+  `make gates` runs every gate CI blocks on and `make help` lists them; the
+  app, web and web-e2e gates report **skipped** when a branch touches nothing
+  they check, and skipped is never green. `make setup`, once per clone, installs the
   pre-commit hook (formatting and the size gate). **CI is a different
   computer** — cold, no GPU, often a different ffmpeg — so local green is never
   CI green, and nothing GPU-dependent is ever a merge gate.
 - **Gates vs. signals — block on correctness, inform on quality.** Build, test,
   `clippy -D warnings`, the golden renders and the size gate are **hard
   gates**. Coverage, mutation testing and perf tracking are **signals**: opt-in,
-  on a schedule or when asked, never in a pull request's CI run, never holding a
-  merge. Ask for a mutation run (`make mutants-remote`) when a branch adds
+  on a schedule or when asked, never a job in a pull request's CI run, never
+  holding a merge. Ask for a mutation run (`make mutants-remote`) when a branch adds
   mechanism, before marking it ready. `ci-merge` has how to triage the report.
 - **Size gate:** source files ≤ 300 **lines of code**, test files ≤ 150; blank
   and comment lines do not count. **Group by subfolder, not filename prefix** —
@@ -442,14 +442,14 @@ labels mean, what gets filed, and in what order it lands.
   approval is never folded in**: one that changes how the user sees or
   understands their existing data or project, changes stored data, or needs a
   migration. **Every issue Claude writes on its own carries the `agent`
-  label**, which only says who decided to file it and never stops work. A
-  stale or incomplete doc is a find like a bug, and is fixed on sight (*Take
-  the initiative*). A find
-  outside the branch in hand is filed, not fixed there: a branch that grows to
-  cover everything it noticed is one nobody can review.
+  label**, which only says who decided to file it and never stops work. Fold
+  in what is small or in the way, a stale doc included (*Take the
+  initiative*); file the rest — a branch that grows to cover everything it
+  noticed is one nobody can review.
   - **When the user is using the Claude CLI to create or edit a video, no new
     issues are filed until the video is delivered.** The findings wait for
-    the **`post-edit-feedback`** skill.
+    the **`post-edit-feedback`** skill, which files bugs and fixes docs at once
+    and lets the user choose which of the rest become issues.
 - **Priority by label:** **infrastructure → architecture → bug → foundation →
   feature.** `infrastructure` is CI, harnesses and gates; `architecture` is
   structure, conventions, crate boundaries and the `project.json` format;

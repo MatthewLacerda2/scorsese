@@ -36,8 +36,9 @@ cloud coders it is many more being written (*How many agents at once*, below).
 **The merge queue is `make queue WATCH=1`** (`ci-merge` has the detail): it
 rebases, pushes, waits for CI on the new head, asks `make mergeable` and merges,
 one at a time — so the session running the batch is not the one sitting
-through each run. It takes every ready pull request labelled **`queue`**, in
-label-priority order, as it appears, so feeding it is one label per pull
+through each run. It takes every ready pull request labelled **`queue`** as it
+appears — fewest conflicts with the others first, then label priority, then
+age, Dependabot last (`ci-merge` has why) — so feeding it is one label per pull
 request once you have read it, and the batch's merge order lives on GitHub
 rather than in a list a crash can lose. A hand-back (conflict, red, no run)
 skips that branch until its head changes and the rest carry on, so read its
@@ -99,7 +100,7 @@ while #747 added `base64` to the same two (rusty learned the same,
 MatthewLacerda2/rusty#812).
 
 **A format change collides across modules.** Every branch that changes
-`project.json` bumps `schema_version`, and that literal sits in some sixty
+`project.json` bumps `schema_version`, and that literal sits in some ninety
 files — fixtures, goldens, and tests under `web/` and `app/`. Two such branches
 can still run together if each bumps **last**, to `main`'s version + 1, and the
 second to land renumbers (`ci-merge`, *Rebasing*). The bump also turns on the
@@ -128,7 +129,8 @@ checkout mixes another issue's edits into `make gates` and thrashes `target/`.
 
 **Never set `CARGO_TARGET_DIR`.** Cargo's default already gives every worktree
 its own `target/`; an override makes worktrees overwrite each other's artifacts
-and produces a false green. `make gates` refuses to run under one.
+and produces a false green. `make gates` refuses one that points outside the
+worktree.
 
 **Cores and memory bound the builds, and the machine decides the numbers.** The
 operator works on more than one machine, so no limit is written down here as a
@@ -203,8 +205,8 @@ branches), never once the queue is.
 - **Either, if it has docker:** a branch in `crates/server` or `deploy/` is
   proven against a real Postgres and `docker compose`. A machine that must not
   run them (the operator said so of the Mac on 2026-09-30) is the wrong place
-  for it; the cloud may be too, until `cloud-brief.md`'s container list is
-  confirmed.
+  for it. A cloud container has both: its session hook starts a native
+  Postgres, and `dockerd` can be started (`cloud-brief.md`, *The container*).
 
 **How many:** about **ten cloud coders in flight**, beside at most two local
 ones (*How many agents at once* has why). Ten is a suggestion, not a rule: the
@@ -253,10 +255,9 @@ to open a draft on its first commit, push often (a dead container takes its
 uncommitted work with it), write decisions and hand-backs into the description
 and an issue comment (never a push notification to the operator, who checks in
 from the terminal), and mark the PR ready when its gates are green. **Watch the
-PR, not the agent**: the orchestrator polls GitHub (`gh pr view N --json
-isDraft,state`, or `gh pr list --search "is:open -is:draft"`) on an interval,
-reads each PR the moment it turns ready, and labels it `queue`; the running
-watch takes it from there.
+PR, not the agent**: the queue's watch reports each PR turning ready as a
+`watch:` line (*Running a mixed batch*, below); the orchestrator reads it then
+and labels it `queue`, and the same watch takes it from there.
 
 **Ready means finished.** The batch merges a ready PR the moment its CI is green,
 so a PR is never readied just to make CI run. On rusty a cloud session readied
@@ -266,7 +267,8 @@ and `ci.yml` has no manual trigger, so the proof run for a draft is the gate
 itself, run in the session — a cloud container has the room for `make gates`.
 
 **Once ready, the branch is the merge queue's.** Its coder does not push to it
-again, except to fix its own red CI. A late push costs a full CI round, because
+again: a red run comes back to the orchestrator as a hand-back, and the
+orchestrator fixes it or re-briefs a coder (`cloud-brief.md` says the same). A late push costs a full CI round, because
 `make queue` rightly refuses to merge a head it did not watch; anything found
 afterwards (a mutation survivor, a missing test) goes in an issue comment, for a
 follow-up PR off `main` (MatthewLacerda2/rusty#583).
@@ -289,7 +291,8 @@ is a fresh routine briefed to finish the pushed branch.
 
 **The container's disk is finite too**, and **what it costs** is a cold build of
 the whole dependency tree, with no local compile cache to help — so choose it on
-purpose, and have it run the full `make gates` before readying.
+purpose, and have it run the full `make gates` once before readying (after a
+rebase over unrelated merges, `cloud-brief.md` has the lighter check).
 
 ## Running a mixed batch: one orchestrator, cloud coders, two local slots
 
@@ -452,13 +455,14 @@ and the workflows it touches outside pull-request CI cannot be proven by its
 run (#734, the first, moved three actions 4 -> 7). Read it, and label it
 `queue` if it is fine.
 
-But re-reading is not a licence to start everything: **start the next one, and
-keep the second slot for whatever is furthest along.** Priority orders what gets
+But re-reading is not a licence to start everything: **start the next one
+inside the limits of *How many agents at once***, and keep a local slot for
+whatever is furthest along. Priority orders what gets
 merged. An unblocked issue left unstarted is not wasted capacity; it is a rebase
 not yet paid for.
 
 **A stage label is the only absolute stop.** `planning` and `human` mean
-*not yet*, and no amount of the issue looking ready overrides that. Everything
+*not yet* (`idea` was retired into `planning`, #501), and no amount of the issue looking ready overrides that. Everything
 else is startable the moment it exists, including an issue filed a minute ago.
 
 ## Briefing a subagent
@@ -591,8 +595,8 @@ checkout runs what was merged. Last, once nothing is compiling:
    standing in it. Anything else stays: unmerged work is only ever deleted by
    the user.
 2. **Bring the main checkout up to date** — `git pull --ff-only` on `main`.
-3. **Rebuild the local tools, and launch nothing.** `make release` builds
-   `scorsese` and `scorsese-mcp` — the MCP server a local client is pointed at
+3. **Rebuild the local tools, and launch nothing.** `make release` builds the
+   workspace in release mode, `scorsese` and `scorsese-mcp` among it — the MCP server a local client is pointed at
    is `target/release/scorsese-mcp`, so until this runs every session drives the
    old code. Then `cargo build --release --manifest-path app/Cargo.toml` for the
    desktop app. One after the other, never beside a sibling's build. A client
