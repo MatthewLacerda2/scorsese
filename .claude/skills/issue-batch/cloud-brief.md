@@ -15,7 +15,7 @@ with ToolSearch. Don't assume `gh` is installed.
 **Nothing you find goes unrecorded** (CLAUDE.md, *File what you notice*). A
 bug, a missing feature, a design gap or a quality-of-life fix is folded into
 this branch when it's in your way or small, or filed as an issue with the
-evidence (`issue-write`) while you keep going. A change that alters how the user
+evidence (CLAUDE.md, *Issues, labels & priority*) while you keep going. A change that alters how the user
 sees or understands their data or project, changes stored data or needs a
 migration is never folded in: file it with `planning`. Every issue you file
 carries the `agent` label. The operator expects coders to file issues mid-batch.
@@ -147,15 +147,17 @@ Survivors in code you wrote: fix, exclude with a reason, or file (`ci-merge`).
   `Closes #N`** for every issue it closes (two of the 2026-10-06 batch's nine
   PRs left it out, and an issue its PR does not name stays open after the
   merge). Only an issue it really closes: GitHub matches the keyword anywhere,
-  even quoted or negated, so a PR leaving an issue open writes `refs #N`. Then:
-  what changed / why / effect / decisions, a **Gates** line (what ran green, on which head, what did not and
-  why), a checklist for anything only a human can check, ending with
-  `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+  even quoted or negated, so a PR leaving an issue open writes `refs #N`.
+  Describe the change however it reads best. Two things the orchestrator
+  relies on: a **Gates** line (what ran green, on which head, what did not and
+  why), and anything only a human can check as a checklist under a heading
+  starting **For a human** (`make checks` finds human checks by that heading).
+  End with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 - **You cannot delete a branch** from the container (the proxy refuses it, through git and the API alike). A throwaway branch you pushed (a measurement, a probe) is named in the PR's human checklist for the orchestrator to delete (#772's `772-measure`).
 - Commits end with your session's `Co-Authored-By:` trailer. Push often: a dead
   container loses what is not pushed.
 - A decision the issue left open takes the default it, CLAUDE.md or Filmora 9
-  points to, written under *Decisions*.
+  points to, and the PR says which and why.
 - Rebase onto `origin/main`, run `make gates`, then mark it **ready**.
   **Do NOT merge.** `main` moves every fifteen minutes or so during a batch,
   so rebase **once, last**, not after every merge you notice. If the merges you
