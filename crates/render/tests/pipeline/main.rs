@@ -28,6 +28,7 @@ mod output;
 mod pages;
 mod partial;
 mod preview_pages;
+mod rerender;
 mod retiming;
 mod slugs;
 mod sources;

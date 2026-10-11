@@ -120,6 +120,18 @@ pub enum RenderError {
         source: std::io::Error,
     },
 
+    /// The finished file could not be put in the output's place. It is
+    /// encoded beside the output and renamed over it last, so whatever was
+    /// there before is still there.
+    #[error("could not put the finished file at {}: {source}", path.display())]
+    Deliver {
+        /// The output that was asked for.
+        path: PathBuf,
+        /// The filesystem's own complaint.
+        #[source]
+        source: std::io::Error,
+    },
+
     /// The binary was there when [`crate::tools::Tools`] checked it, but would
     /// not start now.
     #[error("could not start ffmpeg for {stage}: {source}")]
@@ -149,9 +161,10 @@ pub enum RenderError {
     /// Whoever started the render asked it to stop, through a
     /// [`crate::Cancel`], and it did. Nothing was delivered: any file the
     /// encoder had begun was removed rather than left as a truncated one that
-    /// looks finished and plays as nothing. `written` and `of` are how far the
-    /// picture got — both zero for a render stopped before it drew a frame, or
-    /// one with no picture at all.
+    /// looks finished and plays as nothing, and a file already at the output
+    /// from an earlier render is left as it was (#1086). `written` and `of`
+    /// are how far the picture got — both zero for a render stopped before it
+    /// drew a frame, or one with no picture at all.
     #[error(
         "cancelled after {written} of {of} frames — nothing was delivered, and \
          the unfinished file was removed"

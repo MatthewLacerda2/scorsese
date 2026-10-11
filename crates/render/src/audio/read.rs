@@ -33,7 +33,7 @@ use std::process::Stdio;
 use scorsese_core::probe::ProbeMedia;
 
 use crate::error::{RenderError, Stage};
-use crate::pipe::SAMPLE_FORMAT;
+use crate::pipe::{Process, SAMPLE_FORMAT};
 use crate::probe::Ffprobe;
 use crate::tools::Tools;
 
@@ -103,10 +103,13 @@ pub(crate) fn decode(
         .stdout
         .take()
         .expect("stdout was piped when the process was spawned");
+    // Taken charge of before anything can fail, so a read that breaks off
+    // reaps ffmpeg rather than leaving it behind (#1084).
+    let child = Process::new(child);
     read_all(&mut stdout, channels, &mut take)?;
     // Waited on only after the pipe has run dry: ffmpeg blocks writing into a
     // full pipe, so a process we stopped reading from would never exit.
-    crate::pipe::finish(child, Stage::Measure, &subject)
+    child.finish(Stage::Measure, &subject)
 }
 
 /// Reads every sample ffmpeg produces into `take`, a whole number of
