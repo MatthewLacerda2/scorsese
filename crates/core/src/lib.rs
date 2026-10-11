@@ -180,7 +180,7 @@ pub use timeline::{
 };
 pub use validate::{
     AssetField, AssetProblem, FillProblem, FollowProblem, GroupProblem, IconProblem, ImageProblem,
-    MatteProblem, SequenceProblem, ShapeProblem, SpeechProblem, TextProblem, TimelineProblem,
-    ValidationError, ValidationErrors, VideoProblem,
+    MatteProblem, PastSource, SequenceProblem, ShapeProblem, SpeechProblem, TextProblem,
+    TimelineProblem, ValidationError, ValidationErrors, VideoProblem,
 };
 pub use vhs::Vhs;

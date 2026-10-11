@@ -106,6 +106,7 @@ impl Verdict {
 ///   not on disk, a `style.font` naming a face this build does not ship.
 /// - **Warnings** are things that render perfectly well and are probably not
 ///   what anyone meant: a keyframe track naming a property nobody animates, a
+///   sped-up clip that plays past the end of its footage, a
 ///   file whose content changed since it was imported, a script the document
 ///   names and the disk does not have, two layers of comparable size drawn
 ///   across each other for long enough that it was probably not a transition,
@@ -139,6 +140,15 @@ impl Checkup {
             .map(|unknown| Line::warning(Note::from(unknown).to_string()))
             .collect();
         lines.extend(still_followers(project).map(Line::warning));
+        // A sped-up clip reading past its footage, which loaded before speed
+        // was counted against the source (#1098) and so still loads: the
+        // render plays whatever the decoder hands back past the end.
+        lines.extend(
+            project
+                .past_source()
+                .iter()
+                .map(|past| Line::warning(past.to_string())),
+        );
         // A warning and never a problem, for the same reason a missing
         // generated file is one: a project that has lost its script still
         // renders, and the frames it produces are not one pixel different for

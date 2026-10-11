@@ -23,6 +23,10 @@ use crate::vhs::Vhs;
 pub use follow::Follow;
 pub use placement::{Anchor, AnchorX, AnchorY, Crop, Fit, Origin, OriginX, OriginY};
 
+/// How far under a whole frame a float may land and still count as that frame:
+/// far below any real fraction of one, far above a product's rounding error.
+const FLOAT_HAIR: f64 = 1e-6;
+
 /// Identifies a track within one project.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -443,14 +447,41 @@ impl Clip {
     /// where it starts in the media, plus how much of the media it gets
     /// through.
     ///
-    /// The number that has to land inside the source's own length, and the one
-    /// place a clip's playback rate would enter that arithmetic: a clip running
-    /// at anything other than one source frame per timeline frame gets through
-    /// its media faster or slower, and nothing above this line changes to say
-    /// so. Today the two are the same thing, so this is `source_in` plus
-    /// `duration`.
+    /// The number that has to land inside the source's own length. A clip's
+    /// speed is in it, because the render reads `source_in` plus speed times
+    /// the frames elapsed: at 2× a 100-frame clip gets through 200 frames of
+    /// its media, at 0.5× through 50 (#1098).
+    ///
+    /// Rounded **up**, since a clip that reaches into a source frame at all
+    /// shows it — less a hair, so a rate a float cannot hold exactly (1.1×
+    /// over 100 frames is `110.00000000000001`) does not claim a frame it
+    /// never reaches. A speed [`Speed::is_usable`] rejects reads as one source
+    /// frame per timeline frame: validation reports that speed on its own, and
+    /// a second complaint about where it ends would be about the same field.
     pub fn source_end(&self) -> Frames {
-        self.source_in + self.duration
+        if !self.speed.is_usable() {
+            return self.source_in + self.duration;
+        }
+        let read = (self.source_frames() - FLOAT_HAIR).ceil().max(0.0);
+        self.source_in + Frames(read as u64)
+    }
+
+    /// How long this clip can run, at its speed, through `source` frames of its
+    /// media — the inverse of [`Clip::source_end`]'s arithmetic, for whatever
+    /// fits a clip to the end of its footage.
+    ///
+    /// Rounded **down**, so the answer never reads past what was offered (at
+    /// 2× thirty frames of footage are fifteen of timeline, and thirty-one
+    /// are still fifteen), and never under one frame: a clip covering no
+    /// frame is not a clip. An unusable speed is read as one source frame per
+    /// timeline frame, as [`Clip::source_end`] reads it.
+    pub fn duration_through(&self, source: Frames) -> Frames {
+        let timeline = if self.speed.is_usable() {
+            (self.speed.timeline_frames(source.get() as f64) + FLOAT_HAIR).floor()
+        } else {
+            source.get() as f64
+        };
+        Frames((timeline as u64).max(1))
     }
 
     /// True when the two clips share any frame. Clips that merely touch (one
