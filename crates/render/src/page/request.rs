@@ -29,7 +29,9 @@
 //! gets the picture smaller: the emulated device scale changes what the page
 //! sees as `devicePixelRatio` but not the picture's size, and neither does the
 //! emulation's own `scale`, both measured on Chromium 154. The floor is
-//! Chromium's, not ours; `tests/pipeline/capture_size.rs` holds it.
+//! Chromium's, not ours; `tests/pipeline/capture_size.rs` holds it. On macOS a
+//! frame is a screenshot, which has no floor of its own, so it is asked for at
+//! this one (`drawing`'s, #844): a page is drawn at the same size everywhere.
 
 use std::collections::BTreeMap;
 
@@ -41,6 +43,9 @@ use super::told::{self, Span};
 
 /// The shorter side of every page's viewport, in CSS pixels.
 pub(crate) const SHORT_SIDE: u32 = 1080;
+
+/// The smallest device scale Chromium draws a frame at: the module doc's floor.
+pub(crate) const SCALE_FLOOR: f64 = 0.5;
 
 /// One page, captured at one raster and rate for one length of clock.
 #[derive(Debug, Clone, PartialEq)]
@@ -233,12 +238,15 @@ mod tests {
         // The order is the shim's whole contract with a page (see clock.js),
         // and nothing outside a browser can run it — so it is held here by
         // where each step sits in the one function that does them.
+        // The seeking is `seek`'s, which `settle` runs too (#844).
         let clock = include_str!("clock.js");
         let body = &clock[clock.find("const advanceTo").unwrap()..];
         let timers = body.find("timers").unwrap();
         let frames = body.find("const due = frames").unwrap();
-        let seek = body.find("getAnimations").unwrap();
+        let seek = body.find("seek();").unwrap();
         assert!(timers < frames && frames < seek);
+        let seeking = &clock[clock.find("const seek").unwrap()..];
+        assert!(seeking[..seeking.find("};").unwrap()].contains("getAnimations"));
         assert!(
             clock.contains("const START = 100;"),
             "anime.js needs a clock above zero"

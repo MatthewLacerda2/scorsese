@@ -14,6 +14,7 @@ use std::sync::mpsc;
 
 use serde_json::Value;
 
+use super::drawing::Drawing;
 use crate::pipe::Process;
 
 /// Overrides where the browser is found — the path `tools/chromium/fetch`
@@ -23,8 +24,8 @@ pub const CHROME_ENV: &str = "SCORSESE_CHROME";
 /// The flags every capture runs with, and why each one is there.
 ///
 /// - `--remote-debugging-pipe`: the protocol over file descriptors 3 and 4.
-/// - `--deterministic-mode`: frames are produced only when we ask for one
-///   (`HeadlessExperimental.beginFrame`), never on the browser's own schedule.
+/// - Not here, but added at launch where frames are drawn on request:
+///   [`DETERMINISTIC`].
 /// - `--use-angle=swiftshader --enable-unsafe-swiftshader`: the same software
 ///   GPU on every machine. #772 measured frames from it byte-identical across
 ///   two CPU vendors, bar one rare six-pixel race.
@@ -65,7 +66,6 @@ pub const CHROME_ENV: &str = "SCORSESE_CHROME";
 ///     the like) are not read, so a connection cannot be handed to one.
 const FLAGS: &[&str] = &[
     "--remote-debugging-pipe",
-    "--deterministic-mode",
     "--use-angle=swiftshader",
     "--enable-unsafe-swiftshader",
     "--disable-gpu-rasterization",
@@ -80,6 +80,34 @@ const FLAGS: &[&str] = &[
     "--host-resolver-rules=MAP * ~NOTFOUND",
     "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
     "--no-proxy-server",
+];
+
+/// Frames are produced only when we ask for one
+/// (`HeadlessExperimental.beginFrame`), never on the browser's own schedule.
+/// Not on macOS, where Chromium has no begin-frame control (#844): there the
+/// browser draws on its own and `Drawing::Screenshot` waits for it, launched
+/// with [`DETERMINISTIC_BUT_DRAWN_FREELY`] instead.
+const DETERMINISTIC: &str = "--deterministic-mode";
+
+/// Everything else [`DETERMINISTIC`] turns on in Chromium 154's headless shell,
+/// for macOS, which cannot take its begin-frame control (#844).
+///
+/// What was measured is the set, against none of it: without these a
+/// `transform` animation runs on the compositor thread, on the compositor's own
+/// clock, so one an `animationend` started was photographed part-way round in
+/// some captures and not yet turned in others. `same_frames` parted at that
+/// frame in 6 of 10 runs under load without them, and in none of 30 with them
+/// (`--disable-threaded-animation` is the one that names the cause). The rest
+/// go with it so the browser draws the way it does where frames are drawn
+/// on request: every compositor stage run before a frame is drawn, no
+/// checkerboarded images, no scroll or image animation of its own.
+const DETERMINISTIC_BUT_DRAWN_FREELY: [&str; 6] = [
+    "--run-all-compositor-stages-before-draw",
+    "--disable-new-content-rendering-timeout",
+    "--disable-threaded-animation",
+    "--disable-threaded-scrolling",
+    "--disable-checker-imaging",
+    "--disable-image-animation-resync",
 ];
 
 /// Turns Chromium's own sandbox off — passed only when it is off.
@@ -169,6 +197,11 @@ impl Chrome {
     /// Every flag a launch passes, bar the scale and the first URL.
     fn flags(&self) -> Vec<&'static str> {
         let mut flags = FLAGS.to_vec();
+        if Drawing::HERE.on_request() {
+            flags.push(DETERMINISTIC);
+        } else {
+            flags.extend(DETERMINISTIC_BUT_DRAWN_FREELY);
+        }
         if !self.sandbox {
             flags.push(NO_SANDBOX);
         }
