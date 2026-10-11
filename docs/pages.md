@@ -4,7 +4,7 @@ A **page** is an HTML file under `pages/` that an `html` asset plays. On the
 timeline it is a picture with alpha: a title card, a lower third, a counter
 ticking up, a diagram drawing itself in. Placed by a clip on a video track like
 footage, and everything a clip does (transform, opacity, mattes, groups,
-keyframes) applies to it unchanged.
+keyframes, and a clip's `shadow`, `glow` and `blend`) applies to it unchanged.
 
 Reach for one when a `text`, `shape` or `icon` asset would need a dozen layers
 and a page of keyframes to say what twenty lines of CSS say. Layout, type,
@@ -147,11 +147,18 @@ audio, and the next time its text changes it comes back timed.
 whose paths are the project's, and every other request is refused. A refused
 request is a warning, and the page is drawn without what it asked for.
 
-- **The shipped faces, by family name**, with no `@font-face` needed: `Inter`,
-  `Montserrat`, `Liberation Sans`, `Source Serif 4`, `Lora`,
-  `Playfair Display`, `Liberation Serif`, `JetBrains Mono`. Each in every weight
-  it ships and in italic. A family the page names and was not given falls back
-  to a shipped face, the same one everywhere.
+- **Every shipped face, by family name**, with no `@font-face` needed:
+  `font-family: Anton` or `"Playfair Display"` just works, and so does the
+  scorsese name (`playfair-display`). That is about forty families, each in
+  every weight it ships and in italic where it has one: the font table
+  (`guide project-format`, section "Text assets and how they look") lists
+  them, and a page can read the same list at
+  `https://lib.scorsese/fonts/index.json`. Faces worth knowing for a title:
+  `Anton`, `Bebas Neue`, `Oswald`, `Archivo Black`, `Bangers`,
+  `Permanent Marker`. A family the page names and was not given falls back to
+  a shipped face, the same one everywhere. A shipped face never needs an
+  `@font-face` rule, and one pointing at a shipped file by a name of its own
+  (`Anton-Regular.ttf`) is refused.
 - **scorsese's motion kit**, at `https://lib.scorsese/kit.js`: the helpers a
   timed page needs, on the page's own seconds. See *Sharing code between
   pages*.
@@ -160,8 +167,10 @@ request is a warning, and the page is drawn without what it asked for.
   reads a glyph's outline out of a face, a thing the browser never hands a
   page. Load it for `kit.font` and `kit.write` (*The kit*), which read the
   shipped faces with it, variable ones at any weight. The faces themselves are
-  at `https://lib.scorsese/fonts/<file>.ttf`, listed with their family, weight
-  and style at `https://lib.scorsese/fonts/index.json`.
+  at `https://lib.scorsese/fonts/<file>`, listed with their family, weight
+  and style at `https://lib.scorsese/fonts/index.json`. `<file>` is the index's
+  `file` field, the scorsese name and its weight (`anton-400.ttf`,
+  `oswald.ttf` for a variable face), never the font's own file name.
 - **lottie-web 5.13.0** (the full build: every renderer, and expressions), at
   `https://lib.scorsese/lottie.min.js`, to play a Lottie animation
   `stock_import` brought in. See *A Lottie animation* below for the one way
@@ -223,7 +232,9 @@ should look the same twice should not use it.
 any player, would run its animation on its own loop; loaded with
 `autoplay: false`, it draws exactly the frame `goToAndStop` names, so the page
 names the frame for its time on every `requestAnimationFrame` (*A Lottie
-animation*, below).
+animation*, below). An anime.js timeline is the same: made with
+`autoplay: false` and `seek` to the page's time on every frame (*An anime.js
+timeline*, below).
 
 **Only the frames on screen are drawn.** A `still` 85 s into a 90 s page draws
 the few frames around that instant: the 2,550 before it are run, which is cheap
@@ -481,6 +492,93 @@ never adding to the one before, so any frame stands on its own.
     kit.frame((t) => {
       figure.textContent = kit.count(t, 0, 2.2, 1250000);
       kit.rise(label, t, 0.6, { distance: 20 });
+    });
+  </script>
+</body>
+</html>
+```
+
+### A wipe and an iris
+
+A reveal that cuts the picture rather than fading it: a `clip-path` set from the
+time on every frame. `inset()` is a wipe, the edge it cuts moving across;
+`circle()` is an iris, opening from a point. The same thing the native `matte`
+does to a whole clip, here on one element of a page. A circle's radius in `%`
+is of the box's diagonal over √2, so `71%` reaches its corners.
+
+```html page wipe
+<!doctype html>
+<html>
+<head>
+<script src="https://lib.scorsese/kit.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { display: grid; place-content: center; justify-items: center; gap: 56px; }
+  #band {
+    padding: 24px 64px; background: #f2b134; color: #15120c;
+    font: 800 96px/1 Montserrat; text-transform: uppercase;
+  }
+  #iris {
+    display: grid; place-content: center; width: 900px; height: 420px;
+    background: linear-gradient(135deg, #1b4d6b, #0d1b2a);
+    color: #eef4f8; font: 400 120px/1 "Bebas Neue"; letter-spacing: 6px;
+  }
+</style>
+</head>
+<body>
+  <div id="band">Chapter two</div>
+  <div id="iris">The crossing</div>
+  <script>
+    const band = document.getElementById("band");
+    const iris = document.getElementById("iris");
+    kit.frame((t) => {
+      // A wipe in from the left at a steady rate, and off to the right at the end.
+      const across = kit.enter(t, 0.2, 0.7, kit.ease.linear);
+      const off = kit.exit(t, 0.4, kit.ease.in);
+      band.style.clipPath = `inset(0 ${100 * (1 - across)}% 0 ${100 * (1 - off)}%)`;
+      // An iris opening from the centre, and closing on the clip's last half second.
+      const open = kit.enter(t, 0.8, 0.9, kit.ease.out) * kit.exit(t, 0.5, kit.ease.in);
+      iris.style.clipPath = `circle(${71 * open}% at 50% 50%)`;
+    });
+  </script>
+</body>
+</html>
+```
+
+`kit.ease.linear` is the wipe a projector makes; `kit.ease.out` arrives fast
+and settles, as an entrance should. A line-mask reveal, where words rise out of
+a box with `overflow: hidden`, is the same idea, and says nothing in the
+warnings while a word is hidden.
+
+### A glow on one element
+
+`filter: drop-shadow(…)` follows the shape an element draws, its text and its
+transparent parts, where `box-shadow` follows its box. Stacked, two make a neon
+glow; computed from the time, it breathes. To light the **whole page** instead,
+set the clip's own `glow`, `shadow` or `blend`, as on any clip
+(`guide project-format`, section "Light of its own").
+
+```html page glow
+<!doctype html>
+<html>
+<head>
+<script src="https://lib.scorsese/kit.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { display: grid; place-content: center; }
+  #sign { color: #ffe3f3; font: 400 220px/1 Bangers; letter-spacing: 8px; }
+</style>
+</head>
+<body>
+  <div id="sign">Open late</div>
+  <script>
+    const sign = document.getElementById("sign");
+    kit.frame((t) => {
+      const breath = 0.5 + 0.5 * Math.sin(t * Math.PI * 1.6);
+      const halo = 18 + 22 * breath;
+      sign.style.filter =
+        `drop-shadow(0 0 6px #ff3ea5) drop-shadow(0 0 ${halo}px #ff3ea5)`;
+      sign.style.opacity = kit.enter(t, 0, 0.4) * kit.exit(t);
     });
   </script>
 </body>
@@ -887,6 +985,57 @@ keeping its shape, so size and place the `div` as anything else on the page.
 `still` shows where a frame of it lands. A file over 1 MB cannot be kept by a
 project on the web, which keeps the files beside its pages up to that size;
 choose a lighter one there.
+
+### An anime.js timeline
+
+anime.js has its own playback, exactly as lottie-web does, so it is driven the
+same way: the timeline is made with **`autoplay: false`**, and on every frame
+`seek` puts it at the page's time, in milliseconds. `kit.frame` hands over the
+page's seconds, so any frame stands on its own. The page's exit is still timed
+back from `duration`, here by `kit.exit`, since the timeline knows nothing of
+the clip's length.
+
+```html page anime
+<!doctype html>
+<html>
+<head>
+<script src="https://lib.scorsese/kit.js"></script>
+<script src="https://lib.scorsese/anime.min.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { display: grid; place-content: center; }
+  #row { display: flex; gap: 40px; align-items: flex-end; height: 520px; }
+  .bar { width: 120px; border-radius: 16px 16px 0 0; background: #2a9d8f;
+         transform-origin: 50% 100%; }
+  h2 { margin: 32px 0 0; color: #f4efe6; font: 700 64px Poppins; text-align: center; }
+</style>
+</head>
+<body>
+  <div id="chart">
+    <div id="row">
+      <div class="bar" style="height: 180px"></div>
+      <div class="bar" style="height: 300px"></div>
+      <div class="bar" style="height: 420px"></div>
+      <div class="bar" style="height: 520px"></div>
+    </div>
+    <h2>Four years up</h2>
+  </div>
+  <script>
+    const timeline = anime.timeline({ autoplay: false, easing: "easeOutCubic" })
+      .add({ targets: ".bar", scaleY: [0, 1], duration: 700, delay: anime.stagger(150) })
+      .add({ targets: "h2", opacity: [0, 1], translateY: [30, 0], duration: 600 }, "-=300");
+    const chart = document.getElementById("chart");
+    kit.frame((t) => {
+      timeline.seek(t * 1000);
+      chart.style.opacity = kit.exit(t, 0.4);
+    });
+  </script>
+</body>
+</html>
+```
+
+`timeline.seek` past its end holds the last frame, so a clip longer than the
+timeline just rests on it.
 
 ### A board that draws itself
 

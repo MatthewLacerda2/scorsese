@@ -82,7 +82,7 @@ fn drew_something(frame: &Frame) -> bool {
 }
 
 #[test]
-fn the_guide_has_its_thirteen_worked_pages_and_the_file_two_share() {
+fn the_guide_has_its_sixteen_worked_pages_and_the_file_two_share() {
     let names: Vec<String> = worked(&guide()).into_iter().map(|(name, _)| name).collect();
     assert_eq!(
         names,
@@ -90,6 +90,8 @@ fn the_guide_has_its_thirteen_worked_pages_and_the_file_two_share() {
             "title-card",
             "lower-third",
             "stat-counter",
+            "wipe",
+            "glow",
             "flowchart",
             "icons",
             "in-step",
@@ -97,6 +99,7 @@ fn the_guide_has_its_thirteen_worked_pages_and_the_file_two_share() {
             "diagram",
             "close-up",
             "lottie",
+            "anime",
             "board",
             "traced",
             "people"

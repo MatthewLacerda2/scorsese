@@ -3,11 +3,15 @@
 //! `docs/project-format.md` is where an agent learns which fonts exist, and
 //! a name published there that the code does not ship — or a weight or an
 //! italic it does not have — is a refusal the doc walked them into. So the
-//! table is parsed and held to [`text::SHIPPED`], row for row.
+//! table is parsed and held to [`text::SHIPPED`], row for row. The faces
+//! `docs/pages.md` names for a title are held to it too (#1060): a page that
+//! names one the code does not declare falls back to another face.
 
 use scorsese_compositor::text::{self, Cut, Font, FontError, Slant};
 
 const DOC: &str = include_str!("../../../../docs/project-format.md");
+
+const PAGES: &str = include_str!("../../../../docs/pages.md");
 
 /// Every character Portuguese writes that ASCII does not.
 const PORTUGUESE: &str = "áàâãéêíóôõúüç ÁÀÂÃÉÊÍÓÔÕÚÜÇ";
@@ -66,6 +70,27 @@ fn the_doc_lists_every_shipped_family_as_it_is() {
             "—"
         };
         assert_eq!(row[3], italic, "`{}`'s italic", family.name);
+    }
+}
+
+#[test]
+fn the_faces_the_pages_guide_names_for_a_title_are_shipped() {
+    let flat = PAGES.replace("\n  ", " ");
+    let named = flat
+        .split_once("Faces worth knowing for a title:")
+        .expect("the pages guide names faces for a title")
+        .1;
+    let named = &named[..named.find('.').expect("the sentence ends")];
+    let families: Vec<_> = named
+        .split(',')
+        .map(|one| one.trim().trim_matches('`'))
+        .collect();
+    assert!(families.len() > 1, "{families:?}");
+    for family in families {
+        assert!(
+            text::SHIPPED.iter().any(|shipped| shipped.family == family),
+            "docs/pages.md names `{family}`, which is not a shipped family"
+        );
     }
 }
 
