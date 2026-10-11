@@ -105,7 +105,8 @@ impl Tool for Render {
          and carries a note for each web page that could not be captured or \
          asked for something it was not given. It renders in the background: the answer is a job id at once, jobs \
          says how far it has got and what it wrote, and its cancel stops it. \
-         Pass wait: true to answer only when the file is written instead."
+         Pass wait: true to answer only when the file is written instead; \
+         started without it, jobs with job and wait: true waits for it."
     }
 
     fn costs(&self) -> Costs {
@@ -152,7 +153,8 @@ impl Tool for Render {
                 .start(dir, (&out, path), Cancel::new(), work)?;
             return Ok(format!(
                 "Rendering {out} as job {id}, running. Call jobs with job: {id} to see how \
-                 far it has got; when it is done, its line says what was written.",
+                 far it has got — add wait: true to answer only when it is done; when it \
+                 is done, its line says what was written.",
                 id = job.id
             )
             .into());
