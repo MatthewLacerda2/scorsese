@@ -69,7 +69,8 @@ todo = "deny"
 # `1` it takes **36**. That is not a slow compositor, it is an unoptimised one,
 # and measuring the unoptimised build was how "rendering is slow" became folklore.
 #
-# `1` rather than `2` or `3`, measured rather than assumed:
+# `1` rather than `2` or `3`, measured rather than assumed (on or before
+# 2026-10-09, on the maintainer's machine; the ratios are what matter):
 #
 #   dev profile     rebuild   test --workspace   10s of 1080p
 #   opt-level 0        2s           43s            1290s
@@ -84,14 +85,31 @@ todo = "deny"
 # `debug_assertions` stays on — this is the dev profile, not a release one — so
 # a fast render is still a checked one. That was the point of raising this
 # profile rather than telling everyone to pass `--release`.
+#
+# Debug info is line tables only (#1127): a panic's backtrace still names file
+# and line, which is all anyone here reads, and nobody steps through this code
+# in a debugger. Full debug info was most of every binary and most of the link
+# time — measured cold in a 4-core cloud container on 2026-10-11:
+#
+#   debug info          `scorsese` binary   render unit tests   cli + render build
+#   full (default)           320 MB              235 MB              4m11s
+#   line-tables-only         157 MB              137 MB              3m02s
+#   none                     122 MB              111 MB              2m57s
+#
+# Line tables cost about 3% of build time over none; what remains of each
+# binary is mostly the shipped fonts. The cloud session hook used to turn debug
+# info off entirely to fit its disk (#588); this made that override unneeded.
 [profile.dev]
 opt-level = 1
+debug = "line-tables-only"
 
 # Dependencies get the full treatment. They are compiled once and then cached,
 # so their optimisation costs nothing per edit — and tiny-skia, which does the
-# actual rasterising, is one of them.
+# actual rasterising, is one of them. Nobody reads a backtrace into a
+# dependency's source by line, so they carry no debug info at all.
 [profile.dev.package."*"]
 opt-level = 3
+debug = false
 
 [workspace.dependencies]
 scorsese-core = { path = "crates/core" }

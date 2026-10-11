@@ -48,8 +48,9 @@ down: no branch, a comment saying which should go first, and stop.
 
 The `SessionStart` hook (`.claude/hooks/session-start.sh`, #722) has installed
 everything `make gates` needs, started a native Postgres
-(`SCORSESE_TEST_DATABASE_URL`) and exported `CARGO_PROFILE_DEV_DEBUG=0
-CARGO_INCREMENTAL=0` (the disk is ~30 GB, #588: don't override them). Its
+(`SCORSESE_TEST_DATABASE_URL`) and exported `CARGO_INCREMENTAL=0` (the disk
+is ~30 GB, #588: don't override it; the dev profile's line-tables-only debug
+info, #1127, keeps the test build near 10 GB). Its
 `session-start:` lines open the session; a `FAIL` line says what to install. If
 they are missing, run it yourself (`CLAUDE_PROJECT_DIR=$PWD
 .claude/hooks/session-start.sh`) and apply the `export` lines it prints.
