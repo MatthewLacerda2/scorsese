@@ -8,6 +8,9 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod covers;
+mod defaults;
+mod knobs;
 mod rerun;
 mod seconds;
 mod shape;

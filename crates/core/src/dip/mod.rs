@@ -17,20 +17,26 @@
 //! there should never be one.
 //!
 //! ```text
-//!      ────────╮                          ╭────────   full
+//!      ────────╮                          ╭────────   over (between lines)
 //!               ╲                        ╱
-//!                ╰──────────────────────╯             dipped
+//!                ╰──────────────────────╯             under
 //!        attack  │      covered span    │  release
 //! ```
+//!
+//! What counts as covering is up to the caller ([`Under`]): whole tracks of
+//! any kind, single clips wherever they sit, or bare stretches of the timeline
+//! with no clip at all — the narration a page reads from `scorsese.words`, or a
+//! line spoken inside a video shot.
 
 mod apply;
+mod plan;
 mod spans;
 
-use crate::keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
 use crate::time::Frames;
-use crate::timeline::{Clip, Track, TrackKind};
+use crate::timeline::{Track, TrackKind};
 
-pub use apply::{Ducked, Under, audio_tracks, duck_track};
+pub use apply::{DuckError, Ducked, Under, audio_tracks, duck_track};
+pub(crate) use plan::plan;
 pub(crate) use spans::{Span, covering, merge};
 
 /// Who signs the keyframe tracks this module produces.
@@ -46,13 +52,23 @@ pub struct Dip {
     /// The value held while something is covering. For volume, a multiplier:
     /// `0.25` is a quarter as loud.
     pub under: f64,
-    /// The value everywhere else — what the clip reads when nothing covers it.
+    /// The value everywhere else — what the clip reads between lines, before
+    /// the first and after the last. For volume, the level the music rests at.
     pub over: f64,
     /// How long the fall takes, in frames. The dip is fully down *by* the
     /// moment the covering clip starts, not after it.
     pub attack: Frames,
     /// How long the climb back takes, in frames.
     pub release: Frames,
+    /// The longest pause that stays ducked: a pause this long or shorter is
+    /// held under as part of one dip, and a longer one climbs back to
+    /// [`Dip::over`] before the next line. `None` is one recovery plus one fall
+    /// ([`Dip::gap_worth_keeping`]).
+    ///
+    /// Shorter than the two ramps, a pause has no room for both, so it shares
+    /// itself between them in proportion and the level touches `over` once on
+    /// its way back down. A breath rather than a plateau.
+    pub min_gap: Option<Frames>,
 }
 
 impl Dip {
@@ -66,12 +82,17 @@ impl Dip {
     pub const ATTACK_SECONDS: f64 = 0.3;
     /// Seconds the recovery takes when nobody says — twice the fall.
     pub const RELEASE_SECONDS: f64 = 0.6;
+    /// Where the level rests between lines when nobody says: the clip's own
+    /// level, untouched.
+    pub const BETWEEN: f64 = 1.0;
 
-    /// A dip to `under` from full, its ramps given in seconds and put on a
-    /// grid of `fps` frames per second.
+    /// A dip to `under` from [`Dip::BETWEEN`], its ramps given in seconds and
+    /// put on a grid of `fps` frames per second, merging pauses by the default
+    /// rule.
     ///
     /// A ramp asked for at all is at least one frame long: rounded to zero it
-    /// would be a switch, not a ramp. Zero or less is no ramp.
+    /// would be a switch, not a ramp. Zero or less is no ramp — which is still
+    /// drawn over one frame, the shortest step two keyframes can make.
     pub fn from_seconds(under: f64, attack: f64, release: f64, fps: f64) -> Self {
         let ramp = |seconds: f64| {
             if seconds.is_nan() || seconds <= 0.0 {
@@ -81,9 +102,26 @@ impl Dip {
         };
         Self {
             under,
-            over: 1.0,
+            over: Self::BETWEEN,
             attack: ramp(attack),
             release: ramp(release),
+            min_gap: None,
+        }
+    }
+
+    /// This dip with its [`Dip::min_gap`] given in seconds on a grid of `fps`
+    /// frames per second. Zero, a negative or NaN keeps every pause the grid
+    /// has room to breathe in.
+    #[must_use]
+    pub fn with_min_gap_seconds(self, seconds: f64, fps: f64) -> Self {
+        let frames = if seconds.is_nan() || seconds <= 0.0 {
+            Frames::ZERO
+        } else {
+            Frames((seconds * fps).round() as u64)
+        };
+        Self {
+            min_gap: Some(frames),
+            ..self
         }
     }
 
@@ -108,76 +146,26 @@ impl Dip {
     ///
     /// Two lines of narration a beat apart should be one dip, not two: coming
     /// all the way back up and immediately going down again is pumping, and it
-    /// draws more attention than the thing it was avoiding. Anything closer
-    /// than a full recovery and fall is merged.
+    /// draws more attention than the thing it was avoiding. So unless
+    /// [`Dip::min_gap`] says otherwise, anything no longer than a full
+    /// recovery and fall is merged.
+    ///
+    /// Never less than one frame: a one-frame pause leaves no frame between
+    /// the end of one dip and the start of the next for the level to rise on.
     pub fn gap_worth_keeping(self) -> Frames {
-        self.release + self.attack
+        self.min_gap
+            .unwrap_or(self.release + self.attack)
+            .max(Frames(1))
     }
-}
-
-/// The keyframes that hold `property` at [`Dip::over`], dipping to
-/// [`Dip::under`] across every span of `clip` that `covering` clips occupy.
-///
-/// `None` when nothing covers the clip — a track with no keyframes is not the
-/// same as a track that says "stay at full", and writing the second would be
-/// claiming an animation nobody asked for.
-///
-/// Times are clip-relative, like every keyframe: moving the clip later does
-/// not rewrite them, and it does not need to, because the spans were computed
-/// against where the clip is now.
-pub(crate) fn plan(
-    clip: &Clip,
-    covering: &[Span],
-    property: PropertyPath,
-    dip: Dip,
-) -> Option<KeyframeTrack> {
-    let spans = merge(covering, dip.gap_worth_keeping());
-    if spans.is_empty() {
-        return None;
-    }
-    let mut keyframes = Vec::with_capacity(spans.len() * 4);
-    for span in &spans {
-        push_dip(&mut keyframes, span, clip.duration, dip);
-    }
-    // Two spans close enough to share a keyframe would otherwise leave a
-    // repeated time, which is exactly what validation rejects. Merging by
-    // `gap_worth_keeping` makes that rare rather than impossible — a span that
-    // starts at frame 0 has no room for its attack.
-    keyframes.dedup_by_key(|keyframe| keyframe.t);
-    Some(KeyframeTrack::new(property, keyframes).generated_by(TOOL))
-}
-
-/// The four points of one dip, clamped into the clip.
-fn push_dip(into: &mut Vec<Keyframe>, span: &Span, duration: Frames, dip: Dip) {
-    let full = |t: Frames, easing| Keyframe {
-        t,
-        value: dip.over,
-        easing,
-    };
-    let dipped = |t: Frames, easing| Keyframe {
-        t,
-        value: dip.under,
-        easing,
-    };
-    // `ease_out` on the way down and `ease_in` on the way back: the level
-    // leaves and returns to full gently, and passes through the middle of each
-    // ramp quickly, which is what stops a duck sounding like a switch.
-    let start = Frames(span.from.get().saturating_sub(dip.attack.get()));
-    if start > Frames::ZERO || span.from > Frames::ZERO {
-        into.push(full(start, Easing::EaseOut));
-    }
-    into.push(dipped(span.from, Easing::Linear));
-    let end = span.to.min(duration);
-    into.push(dipped(end, Easing::EaseIn));
-    into.push(full((end + dip.release).min(duration), Easing::Linear));
 }
 
 /// True when this track is one whose clips *cover* others — the narration side
 /// of the arrangement rather than the music side.
 ///
-/// Audio only: dipping a picture under another picture is a real effect, but
-/// it is not this one, and a caller that wants it should say which tracks
-/// rather than have it guessed.
+/// Audio only, when the caller names nothing: dipping a picture under another
+/// picture is a real effect, but it is not this one. A line spoken inside a
+/// video shot is real too, and a caller that wants to duck under it names the
+/// track or the clip ([`Under`]) rather than have it guessed.
 pub(crate) fn is_coverable(track: &Track) -> bool {
     track.kind == TrackKind::Audio
 }

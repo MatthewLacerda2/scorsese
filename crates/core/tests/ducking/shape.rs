@@ -6,10 +6,7 @@ use scorsese_core::{PropertyPath, TrackId, Under, duck_track};
 /// Ducks the fixture's music track and hands back its points.
 fn duck(narration: &[(u64, u64)]) -> Vec<(u64, f64)> {
     let mut project = scored(narration);
-    let under = Under {
-        music: TrackId::new("music"),
-        narration: vec![],
-    };
+    let under = Under::new(TrackId::new("music"));
     duck_track(&mut project, &under, &PropertyPath::new("volume"), dip())
         .expect("the music track exists");
     points(&project)

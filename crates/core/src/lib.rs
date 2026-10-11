@@ -129,7 +129,7 @@ pub use authoring::{
 pub use baseline::{Baseline, fingerprint_of};
 pub use chroma::{ChromaKey, MIN_KEY_SPREAD};
 pub use color::{ColorError, Rgba};
-pub use dip::{Dip, Ducked, Under, duck_track};
+pub use dip::{Dip, DuckError, Ducked, Under, duck_track};
 pub use fill::{Fill, Linear, Radial, Stop};
 pub use grade::Grade;
 pub use group::Group;

@@ -3,6 +3,8 @@
 //! Pure interval arithmetic on the timeline grid — no audio, no assets, and
 //! nothing that knows why anyone wants to know.
 
+use std::ops::Range;
+
 use crate::time::Frames;
 use crate::timeline::Clip;
 
@@ -25,18 +27,20 @@ impl Span {
 }
 
 /// The spans of `clip` that `others` cover, clip-relative and in order.
+/// `others` are stretches of the timeline, absolute — a covering clip's
+/// `start..end()`, or a range nobody placed a clip for.
 ///
-/// A clip that does not overlap contributes nothing; one that overlaps
-/// partially contributes only the shared part. Clips that merely touch — one
-/// ending exactly where the other starts — do not overlap, the same rule
+/// A stretch that does not overlap contributes nothing; one that overlaps
+/// partially contributes only the shared part. Stretches that merely touch —
+/// one ending exactly where the other starts — do not overlap, the same rule
 /// [`Clip::overlaps`] holds everywhere else.
-pub(crate) fn covering<'a>(clip: &Clip, others: impl IntoIterator<Item = &'a Clip>) -> Vec<Span> {
+pub(crate) fn covering(clip: &Clip, others: &[Range<Frames>]) -> Vec<Span> {
     let mut spans: Vec<Span> = others
-        .into_iter()
-        .filter(|other| other.overlaps(clip))
+        .iter()
+        .filter(|other| other.start < clip.end() && clip.start < other.end)
         .map(|other| Span {
             from: Frames(other.start.get().saturating_sub(clip.start.get())),
-            to: Frames(other.end().get().saturating_sub(clip.start.get())).min(clip.duration),
+            to: Frames(other.end.get().saturating_sub(clip.start.get())).min(clip.duration),
         })
         .filter(|span| !span.is_empty())
         .collect();

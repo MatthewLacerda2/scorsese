@@ -6,10 +6,7 @@ use scorsese_core::{
 };
 
 fn under() -> Under {
-    Under {
-        music: TrackId::new("music"),
-        narration: vec![],
-    }
+    Under::new(TrackId::new("music"))
 }
 
 fn duck(project: &mut Project, dip: Dip) {
@@ -107,12 +104,9 @@ fn narration_moving_away_withdraws_the_dip() {
 #[test]
 fn a_track_that_is_not_there_is_reported_rather_than_ignored() {
     let mut project = scored(&[(60, 90)]);
-    let missing = Under {
-        music: TrackId::new("nope"),
-        narration: vec![],
-    };
+    let missing = Under::new(TrackId::new("nope"));
     assert!(
-        duck_track(&mut project, &missing, &PropertyPath::new("volume"), dip()).is_none(),
+        duck_track(&mut project, &missing, &PropertyPath::new("volume"), dip()).is_err(),
         "a typo'd track name must not silently do nothing"
     );
 }
@@ -129,8 +123,8 @@ fn naming_the_narration_tracks_excludes_the_others() {
     duck_track(
         &mut project,
         &Under {
-            music: TrackId::new("music"),
             narration: vec![TrackId::new("vo")],
+            ..Under::new(TrackId::new("music"))
         },
         &PropertyPath::new("volume"),
         dip(),

@@ -102,7 +102,10 @@ afterwards leaves its captions behind until it is run again. A page that has to 
 `duck_music` against the narration track, last, for the same reason as the
 captions: it writes its dips where the narration is now. Its defaults are the
 level to start from: a quarter of the bed's own level under every line (about
-−12 dB), down in 0.3 s and back up over 0.6 s.
+−12 dB), down in 0.3 s and back up over 0.6 s. When the lines are short
+phrases a breath apart, set `min_gap_seconds` short (about 0.1) and the ramps
+to about 0.1 s so the bed comes up in each pause, and `between` below 1 when
+the bed is loud.
 
 **The score is a bed under talk.** Write it as a recipe (`guide recipes`)
 with a `fit` to the clip that plays it, so it lasts exactly as long as the cut,
@@ -122,7 +125,9 @@ crest 12.5–13.4 dB (more squeezed than the record's ~15.5, on purpose for an
 ad), corr +0.87. Under a voice at about −18.7 LUFS the music sat at 0.25 (about
 9 dB below), rose to 0.5–0.6 in the pauses and to 0.9 after the last line. That
 curve was written by hand: with pauses of about 0.3 s between lines,
-`duck_music` made one dip from the first frame to the last line.
+`duck_music` made one dip from the first frame to the last line. It no longer
+has to be: `between` 0.55, `min_gap_seconds` 0.1 and 0.1 s ramps write the
+same shape, bar the rise to 0.9 at the end.
 
 ## Whiteboard: a board that draws itself
 
@@ -250,7 +255,7 @@ and a lift on its return. Held against *Billie Jean*: mean −16.2 dBFS, 82/16/2
 low/mid/high, corr +0.85, body crest 12–13 (the record's ~15.5). It sat at 0.5
 between lines and 0.2 under them, set by hand after `duck_music` at 0.28,
 because the bed at full level between lines made the render's limiter work
-7 dB. Dataserver's was 96 bpm in D minor (pad, sub, plucked arpeggio, bass, kick,
+7 dB. That is `between` 0.5 and `depth` 0.2 now. Dataserver's was 96 bpm in D minor (pad, sub, plucked arpeggio, bass, kick,
 hat) building from pad alone to the full groove and back. It was not fitted:
 its clip ends it at the cut, fading to silence over the last second. It was held
 flat at 0.24 under the whole narration, at 0.6 before the first line and after
@@ -278,7 +283,8 @@ title. It was held against *Fuego* (a build to a payoff): 71/26/3 %
 low/mid/high, body crest 12–14 dB, and the first act came out narrow (corr about
 0.9). It plays at 0.85, and at 0.9 from the title on, with dips to 0.4, 0.6
 and 0.5 under the three spoken lines, written by hand because the lines are
-inside video clips and `duck_music` ducks only under audio tracks.
+inside video clips and `duck_music` then ducked only under audio tracks.
+Name those clips in its `clips` now.
 
 ## Animated short: a picture book with dialogue
 
