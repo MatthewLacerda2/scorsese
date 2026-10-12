@@ -375,6 +375,17 @@ in a cloud session; `issue-batch` has what that premise shapes.
   on a schedule or when asked, never a job in a pull request's CI run, never
   holding a merge. Ask for a mutation run (`make mutants-remote`) when a branch adds
   mechanism, before marking it ready. `ci-merge` has how to triage the report.
+- **A convention a machine can check is a gate, not a sentence** (the
+  maintainer, 2026-10-11). Prose is for what no check can see. The maintainer
+  does not know everything that can be enforced and should not have to, since
+  removing them as the bottleneck is the point, so finding what can be enforced
+  is Claude's job: a new convention (proposed, per *Take the initiative*) ships
+  with its check, and a written one a check could hold gets that check on
+  Claude's own say-so. The size gate is the model; one exported React component
+  per file (#1207) is the kind meant. A check has tests (a case it must flag,
+  one it must pass), runs in `make gates` and CI, and takes exceptions inline
+  with a written reason, never as an unread list in a config file. Where a
+  check would misfire, the prose says so and why.
 - **Size gate:** source files ≤ 300 **lines of code**, test files ≤ 150; blank
   and comment lines do not count. **Group by subfolder, not filename prefix** —
   a shared prefix on sibling files is a subfolder waiting to happen. Nothing is
