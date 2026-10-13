@@ -2,8 +2,10 @@
 
 ## Reporting a vulnerability
 
-Report it privately through GitHub:
-**[open a security advisory](https://github.com/MatthewLacerda2/scorsese/security/advisories/new)**.
+Report it privately, by email to
+**[security@scorsesestudio.com](mailto:security@scorsesestudio.com)** or through
+GitHub by
+**[opening a security advisory](https://github.com/MatthewLacerda2/scorsese/security/advisories/new)**.
 Please do not open a public issue for it. English or Portuguese are both fine.
 
 Anything is in scope: the hosted web app at
