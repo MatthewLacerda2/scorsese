@@ -1,8 +1,9 @@
 //! Hand-written stand-ins for the SDKs that do not exist.
 //!
 //! Neither Google, ElevenLabs, Anthropic, Pixabay nor LottieFiles ships a Rust
-//! client, so every call scorsese makes is a JSON body over HTTPS that somebody
-//! here wrote out by hand. This
+//! client, so every call scorsese makes is a JSON body (or, for Google's
+//! sign-in, [`google_oauth`], a form) over HTTPS that somebody here wrote out
+//! by hand. This
 //! directory is where that work lives, and it is kept apart from the rest of
 //! the crate on purpose: what a vendor's wire format *is* changes for reasons
 //! that have nothing to do with scorsese, and it should be possible to read a
@@ -35,6 +36,7 @@
 pub mod anthropic;
 pub mod elevenlabs;
 pub mod gemini;
+pub mod google_oauth;
 pub mod http;
 pub mod lottiefiles;
 pub mod pixabay;
