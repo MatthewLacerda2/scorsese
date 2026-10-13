@@ -1,7 +1,8 @@
 //! # scorsese-providers — turning briefs into media
 //!
 //! Responsibility: realising the generated asset kinds. Clients for the
-//! generative providers (Veo for video, ElevenLabs for TTS audio) — and for
+//! generative providers (Veo for video, Gemini for stills, ElevenLabs for TTS
+//! audio) — and for
 //! the chat models the web app's assistant thinks with ([`chat`]: Claude and
 //! Gemini, which make no media) — local
 //! [`synth`]esis from a recipe, the content-addressed cache under
@@ -52,8 +53,9 @@
 //! reports what a generation cost, so every figure is our own estimate and the
 //! naming says so throughout.
 //!
-//! [`video`] and [`speech`], the two prompted providers — Veo for a shot,
-//! ElevenLabs for a line of narration. They are a module each rather than one
+//! [`video`], [`image`] and [`speech`], the three prompted providers — Veo for
+//! a shot, Gemini for a still, ElevenLabs for a line of narration. They are a
+//! module each rather than one
 //! `providers` entry point, and so is [`synth`] beside them, because a prompt
 //! and a recipe are not the same kind of brief and sharing an entry point is
 //! how that distinction would go quietly missing. Each owns its own brief type,
@@ -61,7 +63,7 @@
 //! test ever spends a cent* true by construction rather than by anyone
 //! remembering.
 //!
-//! The two are not a pair of the same thing either, and their module docs carry
+//! They are not three of the same thing either, and their module docs carry
 //! the differences rather than this one: a shot is long-running, so a submitted
 //! generation writes a ticket into `project.json` and is collected later by
 //! whoever opens the project next; a reading comes back on the call, and cannot
@@ -86,8 +88,8 @@
 //!
 //! [`voices::design`], its sibling, which **makes** a voice where that one
 //! finds one — and which therefore spends money and leaves something behind in
-//! somebody's ElevenLabs account. It is the only thing in this crate with an
-//! effect outside the project directory, so it records what made each voice in
+//! somebody's ElevenLabs account. Its effect lives in a vendor's account rather
+//! than in the project, so it records what made each voice in
 //! a file beside `project.json`: the id travels with an `scp -r` and the voice
 //! itself does not.
 //!
@@ -118,8 +120,18 @@
 //!
 //! [`stock`], free stock footage and photos from Pixabay (#900): a search the
 //! agent looks at before choosing, cached 24 hours as Pixabay asks, and an
-//! import that is an ordinary `video` or `image` import. It spends nothing, so
-//! it has no quote and no ceiling — only a key from the same resolver.
+//! import that is an ordinary `video` or `image` import — and LottieFiles'
+//! free animations behind the same search and cache, which need no key (#903).
+//! It spends nothing, so it has no quote and no ceiling — only a key from the
+//! same resolver, where one is needed.
+//!
+//! [`chromium`], the pinned headless browser an `html` clip is drawn with
+//! (#776), fetched the first time a page needs drawing. It is here because it
+//! is a download, and this crate is the one that reaches a network; it is kept
+//! per machine beside the settings file rather than per project, so it is the
+//! one thing this crate writes outside a project directory and a vendor's
+//! account. `scorsese-render` is handed it as two closures and never learns
+//! where a byte came from.
 //!
 //! [`spending`], the one answer to *what has this project cost so far*. A
 //! ceiling asks it to decide whether the next call may go ahead and a person

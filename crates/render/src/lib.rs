@@ -132,6 +132,10 @@
 //! of — is reachable from the root too, the same one path more than anything
 //! needs that [`mod@plan`] has.
 //!
+//! A twelfth public module, [`mod@picture`], is not one of this crate's own:
+//! it only re-exports the compositor's property names and default caption
+//! look under a path beside [`audio::path::VOLUME`], and its own doc says why.
+//!
 //! **Everything else is `pub(crate)`.** The ffmpeg processes themselves, the
 //! rasters a fit is worked out on, the slug-card furniture, the font cache and
 //! the whole of the encode side are steps a render is made of rather than
