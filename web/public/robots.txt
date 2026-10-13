@@ -13,4 +13,4 @@ Disallow: /projects
 Disallow: /library
 Disallow: /spending
 
-Sitemap: https://scorsesestudio.com/sitemap.xml
+Sitemap: https://scorseseestudio.com/sitemap.xml

@@ -3,13 +3,13 @@
 ## Reporting a vulnerability
 
 Report it privately, by email to
-**[security@scorsesestudio.com](mailto:security@scorsesestudio.com)** or through
+**[security@scorseseestudio.com](mailto:security@scorseseestudio.com)** or through
 GitHub by
 **[opening a security advisory](https://github.com/MatthewLacerda2/scorsese/security/advisories/new)**.
 Please do not open a public issue for it. English or Portuguese are both fine.
 
 Anything is in scope: the hosted web app at
-[scorsesestudio.com](https://scorsesestudio.com), and the code in this
+[scorseseestudio.com](https://scorseseestudio.com), and the code in this
 repository (the CLI, the MCP server, the desktop app). Of most concern is
 anything that reaches another user's projects, files or credits, or that runs
 a project's content outside the sandbox it is captured in.
@@ -19,4 +19,4 @@ read and answered, and a fix is credited to you in its advisory unless you would
 rather it were not.
 
 The same contact is published at
-[/.well-known/security.txt](https://scorsesestudio.com/.well-known/security.txt).
+[/.well-known/security.txt](https://scorseseestudio.com/.well-known/security.txt).

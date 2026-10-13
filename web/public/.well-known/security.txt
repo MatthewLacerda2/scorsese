@@ -1,9 +1,9 @@
 # How to report a vulnerability in scorsese (RFC 9116). SECURITY.md at the
 # root of the repository says the same at more length. Expires is renewed
 # once a year: crawlers.test.ts fails two months before it lapses.
-Contact: mailto:security@scorsesestudio.com
+Contact: mailto:security@scorseseestudio.com
 Contact: https://github.com/MatthewLacerda2/scorsese/security/advisories/new
 Expires: 2027-10-13T00:00:00.000Z
 Preferred-Languages: en, pt
-Canonical: https://scorsesestudio.com/.well-known/security.txt
+Canonical: https://scorseseestudio.com/.well-known/security.txt
 Policy: https://github.com/MatthewLacerda2/scorsese/blob/main/SECURITY.md
