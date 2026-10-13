@@ -7,7 +7,7 @@ use std::time::Duration;
 use super::{HttpError, TIMEOUT, refused};
 
 /// How long a file download may take whole — the page renderer's ~100 MB on a
-/// slow line. Generous for the same reason [`STREAM_WHOLE`] is: what it bounds is
+/// slow line. Generous for the same reason [`STREAM_WHOLE`](super::STREAM_WHOLE) is: what it bounds is
 /// a transfer that has genuinely stalled, not one that is merely slow.
 const FILE_WHOLE: Duration = Duration::from_secs(60 * 60);
 
@@ -15,7 +15,7 @@ const FILE_WHOLE: Duration = Duration::from_secs(60 * 60);
 /// into `to`, telling `progress` how many bytes have arrived and how many the
 /// server said to expect. Answers how many arrived in all.
 ///
-/// Streamed rather than read into memory like [`Caller::download`], because
+/// Streamed rather than read into memory like [`Caller::download`](super::Caller::download), because
 /// this is for files larger than any media reply: the pinned browser the
 /// `chromium` module installs. `limit` still bounds it, for the same reason.
 pub fn stream_to(
