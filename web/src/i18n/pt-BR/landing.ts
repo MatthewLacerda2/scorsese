@@ -85,7 +85,7 @@ export const landing: Messages["landing"] = {
   },
   footer: "Esta página foi feita com o mesmo que o scorsese usa para fazer vídeos.",
   dialog: {
-    title: "Que bom te ver de novo",
-    description: "Entre para acessar seus projetos e arquivos.",
+    title: "Boas-vindas ao scorsese",
+    description: "Entre para acessar seus projetos e arquivos, ou crie a sua conta.",
   },
 };

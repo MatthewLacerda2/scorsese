@@ -21,11 +21,17 @@ export const common = {
   },
   theme: { light: "Light", dark: "Dark", system: "System" },
   login: {
-    email: "Email",
-    password: "Password",
-    submit: "Log in",
-    submitting: "Logging in…",
-    invitation: "Accounts are made by invitation. Ask whoever gave you access for a password.",
+    google: "Continue with Google",
+    newHere: "New here? Your first sign-in makes your account.",
+    errors: {
+      cancelled: "Sign-in was cancelled at Google. Try again whenever you like.",
+      expired: "That sign-in took too long or was started elsewhere. Please try again.",
+      unverified: "Google hasn't verified this account's email address yet, so it can't sign in.",
+      linked:
+        "This email's account is linked to a different Google account. Sign in with that one, or ask us to link this one.",
+      unconfigured: "Sign-in isn't set up on this server yet.",
+      failed: "Something went wrong signing you in. Please try again.",
+    },
   },
   unreachable: (error: string) => `Could not reach the server: ${error}`,
   notFound: { text: "There is nothing here.", link: "Go to your projects" },

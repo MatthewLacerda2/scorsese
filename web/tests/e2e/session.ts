@@ -1,20 +1,34 @@
-// What every flow starts from: the run's account (setup.ts), logged in.
+// What every flow starts from: the run's account (setup.ts), signed in with
+// the session the operator's command printed — the cookie a Google sign-in
+// would have set (#952).
 
 import { readFileSync } from "node:fs";
 import { expect, type Page } from "@playwright/test";
 import { accountFile } from "./setup";
 
-export function account(): { email: string; password: string } {
+export function account(): { email: string; session: string } {
   return JSON.parse(readFileSync(accountFile(), "utf8"));
 }
 
-/** Logs in through `/login`'s popup, and waits for the projects list. */
+/**
+ * Signs in: the session cookie as the server sets it (docs/web.md,
+ * *Accounts*), then `/login`, which a signed-in visitor leaves for the
+ * projects list.
+ */
 export async function logIn(page: Page) {
-  const { email, password } = account();
+  await page.context().addCookies([
+    {
+      name: "scorsese_session",
+      value: account().session,
+      // The page's host (playwright.config.ts), where the API answers too.
+      domain: "127.0.0.1",
+      path: "/api",
+      httpOnly: true,
+      secure: true,
+      sameSite: "Strict",
+    },
+  ]);
   await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Log in" }).click();
   await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
 }
 

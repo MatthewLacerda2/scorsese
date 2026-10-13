@@ -20,11 +20,18 @@ export const common: Messages["common"] = {
   },
   theme: { light: "Claro", dark: "Oscuro", system: "Sistema" },
   login: {
-    email: "Correo electrónico",
-    password: "Contraseña",
-    submit: "Iniciar sesión",
-    submitting: "Iniciando sesión…",
-    invitation: "Las cuentas se crean por invitación. Pide una contraseña a quien te dio acceso.",
+    google: "Continuar con Google",
+    newHere: "¿Primera vez? Tu primer inicio de sesión crea tu cuenta.",
+    errors: {
+      cancelled: "Cancelaste el inicio de sesión en Google. Inténtalo de nuevo cuando quieras.",
+      expired: "Ese inicio de sesión tardó demasiado o empezó en otra pestaña. Inténtalo de nuevo.",
+      unverified:
+        "Google todavía no verificó el correo de esta cuenta, así que no puede iniciar sesión.",
+      linked:
+        "La cuenta de este correo está vinculada a otra cuenta de Google. Entra con esa o pídenos que vinculemos esta.",
+      unconfigured: "El inicio de sesión todavía no está configurado en este servidor.",
+      failed: "Algo salió mal al iniciar sesión. Inténtalo de nuevo.",
+    },
   },
   unreachable: (error: string) => `No se pudo conectar con el servidor: ${error}`,
   notFound: { text: "Aquí no hay nada.", link: "Ir a tus proyectos" },

@@ -1,7 +1,7 @@
 // The landing page at its URLs (#904): who sees it, and the sign-in popup
 // that replaced the login page — opened by its button, already open at
-// `/login`, and showing the server's own sentence for a wrong password and
-// for the login brake's `429`.
+// `/login`, its one "Continue with Google" link (#952) carrying `?next=`
+// through, and a failed sign-in's `?error=` said in words.
 
 import { afterEach, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
@@ -27,11 +27,6 @@ function visit(url: string, account?: Account | null) {
       router={(routes) => <MemoryRouter initialEntries={[url]}>{routes}</MemoryRouter>}
     />,
   );
-}
-
-/** Answer every request, `POST /api/login` among them, with `status` and the server's `{"error"}`. */
-function loginAnswers(status: number, error: string) {
-  setFetch(async () => Response.json({ error }, { status }));
 }
 
 const real = setFetch((input, init) => fetch(input, init));
@@ -67,31 +62,34 @@ test("the Sign in button opens the popup", async () => {
   const [header] = await screen.findAllByRole("button", { name: "Sign in" });
   await userEvent.click(header as HTMLElement);
   const dialog = await screen.findByRole("dialog");
-  expect(dialog.textContent).toContain("Welcome back");
-  expect(screen.getByLabelText("Email")).toBeDefined();
-  expect(screen.getByLabelText("Password")).toBeDefined();
+  expect(dialog.textContent).toContain("Welcome to scorsese");
+  const google = screen.getByRole("link", { name: "Continue with Google" });
+  expect(google.getAttribute("href")).toBe("/api/auth/google");
+  expect(screen.queryByLabelText("Password")).toBeNull();
 });
 
 test("/login is the landing page with the popup already open", async () => {
   visit("/login?next=%2Flibrary", null);
   expect(await screen.findByRole("dialog")).toBeDefined();
   expect(screen.getByText("It gets made.")).toBeDefined();
+  const google = screen.getByRole("link", { name: "Continue with Google" });
+  expect(google.getAttribute("href")).toBe("/api/auth/google?next=%2Flibrary");
 });
 
-async function logIn() {
-  visit("/login", null);
-  await userEvent.type(await screen.findByLabelText("Email"), "ana@example.com");
-  await userEvent.type(screen.getByLabelText("Password"), "wrong");
-  await userEvent.click(screen.getByRole("button", { name: "Log in" }));
-  return (await screen.findByRole("alert")).textContent;
-}
-
-test("a wrong password shows the server's sentence", async () => {
-  loginAnswers(401, "wrong email or password");
-  expect(await logIn()).toBe("wrong email or password");
+test("a next that leaves the site is not carried to the server", async () => {
+  visit("/login?next=%2F%2Fevil.example", null);
+  const google = await screen.findByRole("link", { name: "Continue with Google" });
+  expect(google.getAttribute("href")).toBe("/api/auth/google?next=%2F");
 });
 
-test("the login brake's 429 shows as it stands", async () => {
-  loginAnswers(429, "too many attempts; try again in 5 minutes");
-  expect(await logIn()).toBe("too many attempts; try again in 5 minutes");
+test("a sign-in that came back with an error says why in words", async () => {
+  visit("/login?error=linked", null);
+  const alert = await screen.findByRole("alert");
+  expect(alert.textContent).toContain("linked to a different Google account");
+});
+
+test("an error code the page does not know says nothing", async () => {
+  visit("/login?error=%3Cscript%3E", null);
+  expect(await screen.findByRole("dialog")).toBeDefined();
+  expect(screen.queryByRole("alert")).toBeNull();
 });

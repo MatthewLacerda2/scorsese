@@ -86,7 +86,7 @@ export const landing = {
   },
   footer: "This page was made with what scorsese makes videos with.",
   dialog: {
-    title: "Welcome back",
-    description: "Sign in to your projects and files.",
+    title: "Welcome to scorsese",
+    description: "Sign in to your projects and files, or make your account.",
   },
 };

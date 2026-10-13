@@ -1,16 +1,19 @@
-// The sign-in popup (#904): the login form that was the whole of `/login`,
-// now a dialog over the landing page. Same `POST /api/login`, same errors,
-// and the login brake's `429` sentence shown as the server words it
-// (docs/web.md, *The login's brake*). There is no sign-up: the operator makes
-// accounts (docs/web.md, *Accounts*), and a second way in (Google, planned
-// separately) would sit beside the form as a section of its own.
+// The sign-in popup (#904), now one way in: "Continue with Google" (#952),
+// which is sign-up too — a first sign-in makes the account (docs/web.md,
+// *Accounts*). The button is a plain link to `GET /api/auth/google`, because
+// the flow is a run of full-page redirects (to Google and back), not a fetch.
+// It carries `?next=` through, so the server lands the person where the
+// session guard sent them from.
+//
+// A sign-in that went wrong comes back to `/login?error=<why>`; the popup says
+// that in words, from the catalogue, never the code itself.
 //
 // It wears the app's dark tokens (`dark` on the content), whatever theme the
 // app is set to, because it opens over the landing page's own dark art
 // direction.
 
-import { type FormEvent, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useSearchParams } from "react-router";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -18,26 +21,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useT } from "@/i18n/I18nProvider";
-import { useLogin } from "@/session/session";
+import { cn } from "@/lib/utils";
+import { safeNext } from "@/session/session";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
+/** Where the button sends the browser: the server's start of the flow. */
+export function googleSignIn(next: string | null): string {
+  if (next === null) return "/api/auth/google";
+  return `/api/auth/google?next=${encodeURIComponent(safeNext(next))}`;
+}
+
 export function SignInDialog({ open, onOpenChange }: Props) {
   const t = useT();
-  const login = useLogin();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    login.mutate({ email, password });
-  };
+  const [params] = useSearchParams();
+  const errors = t.common.login.errors;
+  const code = params.get("error");
+  const error = code && Object.hasOwn(errors, code) ? errors[code as keyof typeof errors] : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -55,45 +59,23 @@ export function SignInDialog({ open, onOpenChange }: Props) {
           </DialogTitle>
           <DialogDescription>{t.landing.dialog.description}</DialogDescription>
         </DialogHeader>
-        <form className="flex flex-col gap-4" onSubmit={submit}>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="email">{t.common.login.email}</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="username"
-              required
-              className="h-10"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="password">{t.common.login.password}</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              className="h-10"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </div>
-          {login.isError && (
+        <div className="flex flex-col gap-4">
+          {error && (
             <p role="alert" className="text-sm text-destructive">
-              {login.error.message}
+              {error}
             </p>
           )}
-          <Button
-            type="submit"
-            disabled={login.isPending}
-            className="h-11 rounded-full bg-[#f2b134] text-[#07070a] hover:bg-[#f2b134]/90"
+          <a
+            href={googleSignIn(params.get("next"))}
+            className={cn(
+              buttonVariants(),
+              "h-11 rounded-full bg-[#f2b134] text-[#07070a] hover:bg-[#f2b134]/90",
+            )}
           >
-            {login.isPending ? t.common.login.submitting : t.common.login.submit}
-          </Button>
-          <p className="text-xs text-muted-foreground">{t.common.login.invitation}</p>
-        </form>
+            {t.common.login.google}
+          </a>
+          <p className="text-xs text-muted-foreground">{t.common.login.newHere}</p>
+        </div>
       </DialogContent>
     </Dialog>
   );
