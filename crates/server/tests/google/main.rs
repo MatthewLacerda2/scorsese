@@ -46,23 +46,23 @@ impl Recorded {
     }
 
     fn answer(&self, id_token: String) {
-        *self.id_token.lock().unwrap() = id_token;
+        *self.id_token.lock().expect("not poisoned") = id_token;
     }
 
     fn sent(&self) -> Vec<Sent> {
-        self.sent.lock().unwrap().clone()
+        self.sent.lock().expect("not poisoned").clone()
     }
 }
 
 impl TokenEndpoint for Recorded {
     fn exchange(&self, exchange: &Exchange<'_>) -> Result<String, SignInError> {
-        self.sent.lock().unwrap().push((
+        self.sent.lock().expect("not poisoned").push((
             exchange.code.to_owned(),
             exchange.code_verifier.to_owned(),
             exchange.redirect_uri.to_owned(),
             exchange.client_secret.to_owned(),
         ));
-        Ok(self.id_token.lock().unwrap().clone())
+        Ok(self.id_token.lock().expect("not poisoned").clone())
     }
 }
 
@@ -71,7 +71,7 @@ impl TokenEndpoint for Recorded {
 fn id_token(sub: &str, email: &str, verified: bool) -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .expect("after 1970")
         .as_secs();
     let part = |value: serde_json::Value| URL_SAFE_NO_PAD.encode(value.to_string());
     let claims = json!({
@@ -94,8 +94,12 @@ fn id_token(sub: &str, email: &str, verified: bool) -> String {
 /// no Google client configured.
 async fn serve(pool: PgPool, endpoint: Option<Arc<Recorded>>) -> SocketAddr {
     let (listener, address) = common::listener().await;
-    scorsese_server::db::migrate(&pool).await.unwrap();
-    let members = scorsese_server::db::member_pool(&pool).await.unwrap();
+    scorsese_server::db::migrate(&pool)
+        .await
+        .expect("the migrations apply");
+    let members = scorsese_server::db::member_pool(&pool)
+        .await
+        .expect("the member pool connects");
     let google = endpoint.map(|endpoint| Google {
         client: Client {
             id: CLIENT_ID.to_owned(),

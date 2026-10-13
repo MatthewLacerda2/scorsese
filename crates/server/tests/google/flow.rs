@@ -22,11 +22,12 @@ fn cookies(response: &Response) -> Vec<String> {
 
 /// The value of `name` in a URL's query.
 fn query<'a>(url: &'a str, name: &str) -> &'a str {
-    let query = url.split_once('?').unwrap().1;
+    let query = url.split_once('?').expect("a URL with a query").1;
     let pair = query
         .split('&')
         .find(|pair| pair.starts_with(&format!("{name}=")));
-    pair.unwrap().split_once('=').unwrap().1
+    let pair = pair.unwrap_or_else(|| panic!("no {name} in {url}"));
+    pair.split_once('=').expect("name=value").1
 }
 
 /// Start a sign-in landing on `next`: Google's URL, and the flow cookie.
@@ -34,14 +35,18 @@ async fn start(address: SocketAddr, next: &str) -> (String, String) {
     let path = format!("/api/auth/google?next={next}");
     let started = request(address, "GET", &path, &[], None).await;
     assert_eq!(started.status, 303, "{}", started.body);
-    let flow = cookies(&started).pop().unwrap();
-    (started.header("location").unwrap().to_owned(), flow)
+    let flow = cookies(&started).pop().expect("a flow cookie");
+    (
+        started.header("location").expect("a redirect").to_owned(),
+        flow,
+    )
 }
 
 /// Come back from Google with `code` and `state`, carrying `flow`.
 async fn back(address: SocketAddr, state: &str, flow: Option<&str>) -> Response {
     let path = format!("/api/auth/google/callback?code=4%2F0Ab&state={state}");
-    let cookie = flow.map(|flow| format!("Cookie: {}", flow.split(';').next().unwrap()));
+    let cookie =
+        flow.map(|flow| format!("Cookie: {}", flow.split(';').next().expect("name=value")));
     let headers: Vec<&str> = cookie.iter().map(String::as_str).collect();
     request(address, "GET", &path, &headers, None).await
 }
