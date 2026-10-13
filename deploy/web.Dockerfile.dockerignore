@@ -7,5 +7,6 @@
 !crates/render/src/page/shipped/kit.js
 web/node_modules/
 web/dist/
-# The landing page's projects: their renders are in web/public/landing/.
+# The landing page's projects: their renders are in web/src/landing/media/
+# and web/public/landing/.
 web/landing/

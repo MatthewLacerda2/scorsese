@@ -14,9 +14,10 @@ import { createQueryClient, ME } from "@/app/queryClient";
 
 const ana: Account = { id: 1, email: "ana@example.com", created_at: 0 };
 
-function visit(url: string, account: Account | null) {
+/** Open `url`; `account` seeds the session, or leaves it for `GET /api/me` to answer when omitted. */
+function visit(url: string, account?: Account | null) {
   const client = createQueryClient();
-  client.setQueryData(ME, account);
+  if (account !== undefined) client.setQueryData(ME, account);
   client.setQueryData(["projects"], []);
   client.setQueryData(["credits", "balance"], { balance_micros: 0 });
   render(
@@ -47,6 +48,16 @@ test("without a session, / is the landing page", async () => {
 
 test("with a session, / is the projects list", async () => {
   visit("/", ana);
+  expect(await screen.findByRole("heading", { name: "Projects" })).toBeDefined();
+  expect(screen.queryByText("It gets made.")).toBeNull();
+});
+
+test("/ draws the landing page before the session answers, and leaves once it says signed in", async () => {
+  let answer: (account: Account) => void = () => {};
+  setFetch(() => new Promise((resolve) => (answer = (account) => resolve(Response.json(account)))));
+  visit("/");
+  expect(await screen.findByText("It gets made.")).toBeDefined();
+  answer(ana);
   expect(await screen.findByRole("heading", { name: "Projects" })).toBeDefined();
   expect(screen.queryByText("It gets made.")).toBeNull();
 });

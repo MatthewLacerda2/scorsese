@@ -17,6 +17,9 @@ import {
 import { type ReactNode, useRef } from "react";
 import { useLanguage, useT } from "@/i18n/I18nProvider";
 import { kit } from "@/landing/kit";
+import adStill from "@/landing/media/ad.png";
+import eventStill from "@/landing/media/event.png";
+import promoStill from "@/landing/media/promo.png";
 import { useScrollMotion } from "@/landing/motion";
 
 /** A section that moves with the scroll, under an eyebrow and a title. */
@@ -88,8 +91,8 @@ export function HowItWorks() {
 export function WhatYouCanMake() {
   const t = useT().landing.make;
   const wide = [
-    { picture: "/landing/promo.png", ...t.promo },
-    { picture: "/landing/event.png", ...t.event },
+    { picture: promoStill, ...t.promo },
+    { picture: eventStill, ...t.event },
   ];
   return (
     <Section eyebrow={t.eyebrow} title={t.title}>
@@ -114,7 +117,7 @@ export function WhatYouCanMake() {
         </div>
         <figure className="card overflow-hidden" data-rise={at(2)}>
           <img
-            src="/landing/ad.png"
+            src={adStill}
             alt=""
             loading="lazy"
             width={540}

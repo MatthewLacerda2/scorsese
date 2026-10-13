@@ -3,12 +3,18 @@
 // muted, plays on its own and loops; it never blocks the first paint, since a
 // `<video>` downloads beside the page rather than before it. A visitor who
 // asked for less motion gets its poster and the player's controls instead.
+//
+// The film and its poster are imported, so Vite fingerprints them under
+// `/assets/` and nginx serves them `immutable` (#1238): a second visit takes
+// them from cache, and a re-render by `make landing-hero` is a new name.
 
 import { Volume2, VolumeX } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { LanguageControl } from "@/app/LanguageControl";
 import { useLanguage, useT } from "@/i18n/I18nProvider";
 import { kit } from "@/landing/kit";
+import film from "@/landing/media/hero.mp4";
+import poster from "@/landing/media/poster.png";
 import { prefersStill, useEntrance, useOnScroll } from "@/landing/motion";
 
 export function Header({ onSignIn }: { onSignIn: () => void }) {
@@ -33,7 +39,7 @@ export function Hero({ onSignIn }: { onSignIn: () => void }) {
   const t = useT();
   const { language } = useLanguage();
   const root = useRef<HTMLElement>(null);
-  const film = useRef<HTMLDivElement>(null);
+  const screen = useRef<HTMLDivElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const [still] = useState(prefersStill);
   const [muted, setMuted] = useState(true);
@@ -41,10 +47,10 @@ export function Hero({ onSignIn }: { onSignIn: () => void }) {
 
   // As the page scrolls away from it, the film settles back and dims.
   const recede = useCallback(() => {
-    if (!film.current || still) return;
+    if (!screen.current || still) return;
     const away = scrollY / Math.max(innerHeight, 1);
-    film.current.style.transform = `scale(${kit.remap(away, 0, 1, 1, 0.93)})`;
-    film.current.style.opacity = String(kit.remap(away, 0.25, 1.1, 1, 0.35));
+    screen.current.style.transform = `scale(${kit.remap(away, 0, 1, 1, 0.93)})`;
+    screen.current.style.opacity = String(kit.remap(away, 0.25, 1.1, 1, 0.35));
   }, [still]);
   useOnScroll(recede);
 
@@ -79,12 +85,12 @@ export function Hero({ onSignIn }: { onSignIn: () => void }) {
         </a>
       </div>
       <div className="mt-14 origin-top sm:mt-20" data-rise="1">
-        <div ref={film} className="screen relative aspect-video overflow-hidden bg-black">
+        <div ref={screen} className="screen relative aspect-video overflow-hidden bg-black">
           <video
             ref={video}
             className="size-full object-cover"
-            src="/landing/hero.mp4"
-            poster="/landing/poster.png"
+            src={film}
+            poster={poster}
             aria-label={t.landing.hero.videoLabel}
             autoPlay={!still}
             controls={still}
