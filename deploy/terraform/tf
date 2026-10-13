@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Terraform on deploy/terraform, with the credentials deploy/.env holds:
+#
+#   deploy/terraform/tf plan
+#   deploy/terraform/tf apply
+#
+# `make infra-plan` and `make infra-apply` call it. It reads three values from
+# the env file (DEPLOY_ENV, default deploy/.env beside this folder) without
+# sourcing it, and keeps the state at $SCORSESE_DATA/terraform/, outside the
+# checkout, so applying from a worktree that is then removed loses nothing.
+set -euo pipefail
+
+here=$(cd "$(dirname "$0")" && pwd)
+env_file=${DEPLOY_ENV:-$here/../.env}
+[ -f "$env_file" ] || { echo "tf: no env file at $env_file (set DEPLOY_ENV)" >&2; exit 1; }
+
+value() {
+  sed -n "s/^$1=//p" "$env_file" | tail -n 1 | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"
+}
+need() {
+  local v
+  v=$(value "$1")
+  [ -n "$v" ] || { echo "tf: $1 is blank in $env_file -- deploy/.env.example says what it is" >&2; exit 1; }
+  printf '%s' "$v"
+}
+
+CLOUDFLARE_API_TOKEN=$(need CLOUDFLARE_API_TOKEN)
+TF_VAR_tunnel_token=$(need CLOUDFLARE_TUNNEL_TOKEN)
+TF_VAR_security_forward_to=$(need SCORSESE_SECURITY_FORWARD_TO)
+export CLOUDFLARE_API_TOKEN TF_VAR_tunnel_token TF_VAR_security_forward_to
+
+state_dir="$(need SCORSESE_DATA)/terraform"
+mkdir -p "$state_dir"
+terraform -chdir="$here" init -input=false -reconfigure \
+  -backend-config="path=$state_dir/cloudflare.tfstate" >/dev/null
+exec terraform -chdir="$here" "$@"

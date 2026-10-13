@@ -56,7 +56,7 @@ LINT := --manifest-path tools/lint/Cargo.toml
 # conditional ones come last, because they are the ones that may decide not to
 # run at all; `app` after `web` because it is the one that can build a graphics
 # dependency tree.
-GATES := format size scripts clippy docs test deny deploy web web-e2e app
+GATES := format size scripts clippy docs test deny deploy infra web web-e2e app
 
 # Whether this branch touches the desktop app, and so whether its gates are on
 # the path of this change. The question is asked in two places — the `app` gate
@@ -234,7 +234,7 @@ PYTHON_CHECK = command -v $(PYTHON) >/dev/null 2>&1 || { \
 # directories called `app/` and `web/`, so without it make sees the target as
 # already built and `make app` prints "up to date" without running a thing. A
 # check that silently does nothing is worse than no check.
-.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates web-gates web-e2e-run release format-fix mcp-table style-menu landing-hero coverage mutants mutants-remote mutants-status mergeable queue live-check
+.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates web-gates web-e2e-run release format-fix mcp-table style-menu landing-hero coverage mutants mutants-remote mutants-status mergeable queue live-check infra-plan infra-apply
 
 ##@ Everyday
 
@@ -483,6 +483,19 @@ deploy: ## [gate] deploy/compose.yaml parses, and .env.example documents what it
 				exit 1; }; \
 		done
 	@echo "deploy: compose.yaml is valid in every tunnel mode, every variable it reads is documented, and every folder it binds is one the runbook makes"
+
+# The Cloudflare side as code (#957). Neither check needs credentials or
+# touches Cloudflare: `fmt` is layout, `validate` is the configuration against
+# the provider's own schema (the provider is downloaded, which is why `init`
+# runs; `-backend=false` keeps it from looking for state). `plan` and `apply`
+# need the API token and change the live site, so they are run by hand, below.
+infra: ## [gate] deploy/terraform is formatted and valid against the Cloudflare provider's schema
+	@command -v terraform >/dev/null 2>&1 || { \
+		echo "infra: terraform is not installed -- https://developer.hashicorp.com/terraform/install" >&2; \
+		exit 1; }
+	terraform fmt -check -diff -recursive deploy/terraform
+	terraform -chdir=deploy/terraform init -backend=false -input=false >/dev/null
+	terraform -chdir=deploy/terraform validate
 
 # The one gate that decides whether to run, and the condition is the point.
 # `app/` is its own cargo workspace precisely so a headless change never pays
@@ -799,6 +812,14 @@ mutants-status:
 # they always do (docs/credentials.md); a vendor with no key is skipped.
 live-check: ## Real calls to every provider, quoted first. ARGS="--include-veo --record DIR --yes"
 	cargo run --locked --quiet -p scorsese-cli --bin scorsese -- check-providers $(ARGS)
+
+# Not spending, but the same rule as live-check: it reaches the live site, so a
+# person runs it and CI never does. `infra` above is its credential-free gate.
+infra-plan: ## What applying deploy/terraform would change on Cloudflare. Reads deploy/.env; changes nothing
+	deploy/terraform/tf plan
+
+infra-apply: ## Change the live site's Cloudflare config to match deploy/terraform. Asks before applying
+	deploy/terraform/tf apply
 
 ##@ Fixing
 
