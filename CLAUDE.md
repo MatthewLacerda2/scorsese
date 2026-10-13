@@ -55,6 +55,13 @@ of the user, it ships with a default good enough that they never have to touch
 it, and Claude explains it only if asked. The one thing always put to the user
 is **money**: the quote-and-ask before a generation stays.
 
+**Stock before generation; narration freely** (the maintainer, 2026-10-13).
+Prefer stock content from Pixabay and Pexels (#1234) over AI-generated content.
+Use content generation when the content needs to be custom-made. Do not be shy
+about using ElevenLabs, it's inexpensive, just don't generate without
+justification: generate when the content is deemed necessary.
+**docs/stock.md** says which shots are which.
+
 ### The app is the product; the web app is a convenience layer
 
 Scorsese is open source. Anyone can clone it, build it, bring their own API
@@ -106,33 +113,27 @@ shape.
 - **docs/recipes.md** — the synthesis recipe format: what to write in
   `recipes/*.json` to get an effect or a score out of `scorsese synth`. Free,
   offline, deterministic — read it before reaching for a sound file.
-- **docs/references.md** — what five real records measure, and which one to
-  hold a cue against: the floor a score must clear, never the definition of
-  success. Read it before writing a song recipe and again after its bake.
-- **docs/pages.md** — how to write a web page the timeline plays: the contract
-  it is drawn under, what is there offline, and worked pages. Read it before
-  writing one.
+- **docs/references.md** — what five real records measure: the floor a score
+  must clear, never the definition of success. Read it before and after a bake.
+- **docs/pages.md** — how to write a web page the timeline plays: its contract,
+  what is there offline, and worked pages. Read it before writing one.
 - **docs/styles.md** — how each kind of video is made (a narrated vertical ad,
-  a product tour, a board that draws itself), one section per kind, each from a
-  video actually made. Read the section for the video in hand before laying
-  out its timeline.
-- **docs/prompts.md** — the other brief: what a provider actually does with
-  certain words, each entry learned by paying for a generation. Read it before
-  writing a prompt, because being wrong about one is not free.
-- **docs/prices.md** — what "not free" comes to: the provider rate tables, how
-  they are kept honest, and why a cost is only ever an estimate. Read it before
-  quoting a number at the user.
-- **docs/golden-renders.md** — the pixel gate: what a fixture is, how frames are
-  compared, and when re-blessing a reference is legitimate. Read it before
-  changing anything a render's output depends on.
+  a product tour, a board that draws itself), each from a video actually made.
+  Read the section for the video in hand before laying out its timeline.
+- **docs/prompts.md** — what a provider actually does with certain words, each
+  learned by paying for a generation. Read it before writing a prompt.
+- **docs/prices.md** — the provider rate tables, how they are kept honest, and
+  why a cost is only an estimate. Read it before quoting a number at the user.
+- **docs/golden-renders.md** — the pixel gate: fixtures, frame comparison, and
+  when re-blessing is legitimate. Read it before changing what a render outputs.
 - **docs/output-formats.md** — the containers and codecs a render delivers in,
-  which combinations are refused, and why that list is deliberately short.
+  and why that list is deliberately short.
 - **docs/credentials.md** — where a provider key comes from, in one order for
   every way scorsese is run, and the spending ceiling that lives beside it.
 - **docs/mcp.md** — the tools `scorsese-mcp` exposes, how a client is pointed
   at it, and the rule that every tool and every argument describes itself.
-- **docs/stock.md** — stock footage, photos and animations (Pixabay,
-  LottieFiles): what to search before a shot is paid for.
+- **docs/stock.md** — free stock footage, photos and animations (Pixabay,
+  LottieFiles): what to search before a shot is paid for, and when not to.
 - **docs/live-check.md** — `make live-check`, the one run that calls every
   vendor for real, and why it is asked for every time.
 - **docs/mutation-testing.md** — what the mutation signal measures, and what
@@ -146,16 +147,11 @@ shape.
 - Crate boundaries live in each crate's `lib.rs` module doc — read them before
   adding a dependency between crates.
 
-**Two skills carry the working protocols** — `issue-batch` and `ci-merge` — so
-this file can hold the reasoning and they can hold the steps. Each one names
-its own scope and when to reach for it, so this file does not
-restate them; invoke them rather than reconstructing a procedure from memory, and
-name them when briefing a subagent. A third, `post-edit-feedback`, is the review
-of scorsese itself once a video made with it is delivered.
-
-Where a rule below is stated in one line and a skill has ten, the line is the
-rule and the skill is how to keep it. The two are written to agree: a
-disagreement between them is a bug, fixed in the change that finds it.
+**Skills carry the working protocols** — `issue-batch` and `ci-merge`, and
+`post-edit-feedback` once a video is delivered — so this file holds each rule in
+a line and the skill holds how to keep it. Invoke them rather than rebuild a
+procedure from memory, name them when briefing a subagent, and fix a
+disagreement between a skill and this file in the change that finds it.
 
 ## Architecture — decided, do not redesign
 
@@ -404,6 +400,13 @@ in a cloud session; `issue-batch` has what that premise shapes.
   or PR. A check only a human can do (a real window, real speakers, taste) is
   **never a merge hold**. Questions during *planning* conversations are asked
   right away. `issue-batch` has the rest.
+- **Memory is the developer's; what the project follows lives in the project**
+  (the maintainer, 2026-10-13). Claude's local memory holds only the
+  developer's personal preferences and their own machine's setup. Anything the
+  project should follow — guidance for the web assistant, how to handle a
+  third-party API, a CI practice, what a provider does on screen — is written
+  into the project (this file, a skill, a doc, a tool description), where every
+  session, cloud coder and contributor reads it. Memory reaches none of them.
 
 ## Repo-specific conventions
 

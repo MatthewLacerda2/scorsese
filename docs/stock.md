@@ -8,16 +8,31 @@ right call — and about its sibling, **free animations** from LottieFiles
 
 ## When stock, when a generation
 
-Reach for stock first when the shot is **generic**: a city at night, hands
-typing on a laptop, a sunrise, an office, coffee being poured, a cat asleep,
-a crowd, traffic, nature. A large share of the shots in a promotional, product
-or social video are this kind, and Pixabay covers them for **$0**. The
-cheapest 1080p Veo shot is $0.64 for 8 s (`guide prices`); real users have found a
-few of those a video too expensive to repeat.
+**Stock is the default; a generation is the exception** (the maintainer,
+2026-10-13). Before sketching a `generated_video` or `generated_image`, ask
+whether a library could have filmed it, and search when it could. A city at
+night, hands typing on a laptop, a sunrise, an office, coffee being poured, a
+cat asleep, a crowd, traffic, nature: a large share of the shots in a
+promotional, product or social video are this kind, and Pixabay covers them for
+**$0**. The cheapest 1080p Veo shot is $0.64 for 8 s (`guide prices`); real
+users have found a few of those a video too expensive to repeat.
 
-Generate when the shot has to be **unique**: the user's product, a specific
-character or place, a camera move the story needs, anything no library could
-have. Stock is someone else's shot; it will never show the user's thing.
+Generate only when the content has to be **custom-made**, which is either of:
+
+- **The user asked for a generation**: "I need a scene exactly like this", or
+  "use this image as a reference and make one like it".
+- **No library could have it**: the user's own product, a specific character
+  or place, a camera move the story needs. Stock is someone else's shot; it
+  will never show the user's thing.
+
+A demo, an example or a sample video does not need the user's real product:
+invent a subject stock can film (a made-up clothing shop, a café) rather than
+generate one. The single Veo shot in a 2026-10-12 demo was a bicycle that a
+stock search would have replaced.
+
+Narration is the opposite case. ElevenLabs is inexpensive, so propose a voice
+whenever the video is better for one; generate a line when it is needed, never
+speculatively.
 
 Mixing is normal. A cut can be stock for its establishing and B-roll shots and
 generated only where it must be, often for the price of its narration.

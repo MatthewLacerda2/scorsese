@@ -75,7 +75,10 @@ impl Tool for Generate {
 
     fn description(&self) -> &'static str {
         "Realise the sketched briefs — this costs money (voice_design is the only other \
-         tool that does), and it quotes before it spends. Called without confirm it sends nothing and needs no \
+         tool that does), and it quotes before it spends. A shot or still a stock library \
+         could have is searched with stock_search first (guide stock): generate one only \
+         when it must be custom-made or the person asked for a generation. Narration is \
+         cheap; generate a line whenever it is needed. Called without confirm it sends nothing and needs no \
          key: it answers with what each generated_video (Veo), generated_image \
          (Gemini) and generated_audio (ElevenLabs) brief would cost, and a token. Before the \
          first quote, every brief it covers is storyboarded in words in the script \
