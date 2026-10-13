@@ -19,7 +19,7 @@ fn files(of: &[(&str, &str)]) -> ProjectFiles {
 }
 
 async fn account(pool: &PgPool, email: &str) -> UserId {
-    users::create(pool, email, "password one")
+    users::create(pool, email)
         .await
         .expect("the account is created")
 }

@@ -28,7 +28,7 @@ use sqlx::postgres::PgPool;
 
 /// A new account and its browser's `Cookie:` line.
 async fn member(pool: &PgPool, email: &str) -> (UserId, String) {
-    let user = users::create(pool, email, "password one")
+    let user = users::create(pool, email)
         .await
         .expect("the account is created");
     let cookie = sessions::open(pool, user).await.expect("a session opens");

@@ -26,16 +26,6 @@ export function useAccount() {
   return useQuery({ queryKey: ME, queryFn: currentAccount, staleTime: Number.POSITIVE_INFINITY });
 }
 
-/** Log in; on success the account is cached and every guard lets the page in. */
-export function useLogin() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ email, password }: { email: string; password: string }) =>
-      api.account.login(email, password),
-    onSuccess: (account) => queryClient.setQueryData(ME, account),
-  });
-}
-
 /** Log out, and forget everything cached for this account. */
 export function useLogout() {
   const queryClient = useQueryClient();

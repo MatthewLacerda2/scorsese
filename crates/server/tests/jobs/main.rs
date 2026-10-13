@@ -34,7 +34,7 @@ const OTHER: Kind = Kind {
 
 /// A new account for `email`.
 async fn account(pool: &PgPool, email: &str) -> UserId {
-    users::create(pool, email, "password one")
+    users::create(pool, email)
         .await
         .expect("a fresh database takes a new account")
 }

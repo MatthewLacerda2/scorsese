@@ -133,6 +133,12 @@
 //! account. `scorsese-render` is handed it as two closures and never learns
 //! where a byte came from.
 //!
+//! [`sign_in`], the web app's accounts (#952): trading the code a browser
+//! brings back from Google for whom Google signed in. It spends nothing and
+//! makes no media; it is here because it is a call to a vendor, and this is
+//! the crate that makes those. Who that person's account is, and the cookie
+//! they get, are the server's.
+//!
 //! [`spending`], the one answer to *what has this project cost so far*. A
 //! ceiling asks it to decide whether the next call may go ahead and a person
 //! asks it to decide whether they want to; two answers to that would first be
@@ -148,6 +154,7 @@ pub mod image;
 pub mod live;
 pub mod prices;
 pub mod quote;
+pub mod sign_in;
 pub mod speech;
 pub mod spending;
 pub mod stock;

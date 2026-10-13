@@ -1,14 +1,16 @@
-//! The accounts themselves: what the operator does to them, and logging in.
+//! The accounts themselves: what the operator does to them, and signing in.
 //!
-//! Everything here except [`change_password`] is cross-user by nature — the
-//! operator names an account by email, and a login does not yet know whose it
-//! is — so it runs [`privileged`](crate::db::privileged). That is the short,
+//! Everything here except [`get`] is cross-user by nature — the operator
+//! names an account by email, and a sign-in does not yet know whose it is —
+//! so it runs [`privileged`](crate::db::privileged). That is the short,
 //! reviewable list the isolation doc promises.
 
 use serde::Serialize;
 use sqlx::postgres::PgPool;
 
-use super::{AccountError, normalize_email, password};
+use scorsese_providers::sign_in::Identity;
+
+use super::{AccountError, normalize_email};
 use crate::db::{self, UserId};
 use crate::storage::Storage;
 
@@ -23,50 +25,20 @@ pub struct Account {
     pub created_at: i64,
 }
 
-/// Create an account. The email is normalised; the password is hashed.
-pub async fn create(pool: &PgPool, email: &str, password: &str) -> Result<UserId, AccountError> {
+/// Create an account for `email`, to be linked by its owner's first Google
+/// sign-in under that address — the operator's way to set an account up (and
+/// top it up) before its owner arrives.
+pub async fn create(pool: &PgPool, email: &str) -> Result<UserId, AccountError> {
     let email = normalize_email(email)?;
-    let hash = password::hash_blocking(password.to_owned()).await?;
     let mut tx = db::privileged(pool).await?;
     let id: Option<i64> = sqlx::query_scalar(
-        "INSERT INTO users (email, password_hash) VALUES ($1, $2)
-         ON CONFLICT (email) DO NOTHING RETURNING id",
+        "INSERT INTO users (email) VALUES ($1) ON CONFLICT (email) DO NOTHING RETURNING id",
     )
     .bind(&email)
-    .bind(hash)
     .fetch_optional(&mut *tx)
     .await?;
     tx.commit().await?;
     id.map(UserId::from_row).ok_or(AccountError::Taken(email))
-}
-
-/// Replace an account's password, and end every session it has.
-///
-/// The operator's reset: whoever asked has lost the password or thinks
-/// somebody else has it, and in the second case a browser still logged in
-/// is exactly what must stop working. API tokens are left alone — each is
-/// revoked on its own, by name.
-pub async fn set_password(
-    pool: &PgPool,
-    email: &str,
-    password: &str,
-) -> Result<UserId, AccountError> {
-    let email = normalize_email(email)?;
-    let hash = password::hash_blocking(password.to_owned()).await?;
-    let mut tx = db::privileged(pool).await?;
-    let id: Option<i64> =
-        sqlx::query_scalar("UPDATE users SET password_hash = $2 WHERE email = $1 RETURNING id")
-            .bind(&email)
-            .bind(hash)
-            .fetch_optional(&mut *tx)
-            .await?;
-    let id = id.ok_or(AccountError::NoSuchAccount(email))?;
-    sqlx::query("DELETE FROM sessions WHERE user_id = $1")
-        .bind(id)
-        .execute(&mut *tx)
-        .await?;
-    tx.commit().await?;
-    Ok(UserId::from_row(id))
 }
 
 /// Delete an account, everything in the database that is theirs, and their
@@ -93,21 +65,36 @@ pub async fn delete(pool: &PgPool, storage: &Storage, email: &str) -> Result<Use
     Ok(user)
 }
 
+/// An account as the operator's `user list` shows it: with the Google
+/// account it signs in as, which only the operator needs to see.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Listed {
+    /// The account.
+    pub account: Account,
+    /// Google's id for the account it is linked to; `None` until its first
+    /// sign-in.
+    pub google_sub: Option<String>,
+}
+
 /// Every account, oldest first.
-pub async fn list(pool: &PgPool) -> Result<Vec<Account>, AccountError> {
+pub async fn list(pool: &PgPool) -> Result<Vec<Listed>, AccountError> {
     let mut tx = db::privileged(pool).await?;
-    let rows: Vec<(i64, String, i64)> = sqlx::query_as(
-        "SELECT id, email, extract(epoch FROM created_at)::bigint FROM users ORDER BY id",
+    let rows: Vec<(i64, String, i64, Option<String>)> = sqlx::query_as(
+        "SELECT id, email, extract(epoch FROM created_at)::bigint, google_sub
+         FROM users ORDER BY id",
     )
     .fetch_all(&mut *tx)
     .await?;
     tx.commit().await?;
     Ok(rows
         .into_iter()
-        .map(|(id, email, created_at)| Account {
-            id,
-            email,
-            created_at,
+        .map(|(id, email, created_at, google_sub)| Listed {
+            account: Account {
+                id,
+                email,
+                created_at,
+            },
+            google_sub,
         })
         .collect())
 }
@@ -141,54 +128,103 @@ pub async fn get(pool: &PgPool, user: UserId) -> Result<Account, AccountError> {
     })
 }
 
-/// Whose account `email` and `password` open, if any.
-///
-/// `None` for an unknown email and a wrong password alike, in the same time
-/// (see [`password::verify_blocking`]): a login form that says which of the two
-/// was wrong is a way to find out who has an account.
-pub async fn authenticate(
-    pool: &PgPool,
-    email: &str,
-    password: &str,
-) -> Result<Option<UserId>, AccountError> {
-    let row: Option<(i64, String)> = match normalize_email(email) {
-        Ok(email) => {
-            let mut tx = db::privileged(pool).await?;
-            let row = sqlx::query_as("SELECT id, password_hash FROM users WHERE email = $1")
-                .bind(email)
-                .fetch_optional(&mut *tx)
-                .await?;
-            tx.commit().await?;
-            row
-        }
-        Err(_) => None,
-    };
-    let (id, stored) = row.unzip();
-    let matches = password::verify_blocking(password.to_owned(), stored).await;
-    Ok(id.filter(|_| matches).map(UserId::from_row))
+/// Which account a Google sign-in opened, and how.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SignedIn {
+    /// The account already linked to this Google account.
+    Returning(UserId),
+    /// An account under the same verified email, linked from now on.
+    Linked(UserId),
+    /// A new account, made by this sign-in, with no credits.
+    Created(UserId),
 }
 
-/// A user changing their own password, given the current one.
-pub async fn change_password(
-    pool: &PgPool,
-    user: UserId,
-    current: &str,
-    new: &str,
-) -> Result<(), AccountError> {
-    let new = password::acceptable(new)?;
-    let mut tx = db::scoped(pool, user).await?;
-    // No WHERE, here or in the UPDATE: the scope shows one row, theirs.
-    let stored: String = sqlx::query_scalar("SELECT password_hash FROM users")
-        .fetch_one(&mut *tx)
-        .await?;
-    if !password::verify_blocking(current.to_owned(), Some(stored)).await {
-        return Err(AccountError::WrongPassword);
+impl SignedIn {
+    /// The account, however it was reached.
+    pub fn user(self) -> UserId {
+        match self {
+            Self::Returning(user) | Self::Linked(user) | Self::Created(user) => user,
+        }
     }
-    let hash = password::hash_blocking(new.to_owned()).await?;
-    sqlx::query("UPDATE users SET password_hash = $1")
-        .bind(hash)
+}
+
+/// The account Google's `identity` opens: the one linked to it; else the one
+/// under its verified email, which it is linked to from now on; else a new
+/// one (#952, *Decisions* 1 and 2).
+///
+/// After the link, `sub` is the identity and the email is never looked at
+/// again — so somebody who later changes the address on their Google account
+/// keeps their scorsese account, and somebody handed that old address does
+/// not get it. An account already linked to a *different* Google account is
+/// refused rather than taken over: that is the operator's to sort out.
+pub async fn sign_in(pool: &PgPool, identity: &Identity) -> Result<SignedIn, AccountError> {
+    let mut tx = db::privileged(pool).await?;
+    let linked: Option<i64> = sqlx::query_scalar("SELECT id FROM users WHERE google_sub = $1")
+        .bind(&identity.sub)
+        .fetch_optional(&mut *tx)
+        .await?;
+    if let Some(id) = linked {
+        tx.commit().await?;
+        return Ok(SignedIn::Returning(UserId::from_row(id)));
+    }
+    let email = normalize_email(&identity.email)?;
+    let existing: Option<(i64, Option<String>)> =
+        sqlx::query_as("SELECT id, google_sub FROM users WHERE email = $1 FOR UPDATE")
+            .bind(&email)
+            .fetch_optional(&mut *tx)
+            .await?;
+    let signed = match existing {
+        Some((_, Some(_))) => return Err(AccountError::LinkedElsewhere(email)),
+        Some((id, None)) => {
+            sqlx::query("UPDATE users SET google_sub = $2 WHERE id = $1")
+                .bind(id)
+                .bind(&identity.sub)
+                .execute(&mut *tx)
+                .await?;
+            SignedIn::Linked(UserId::from_row(id))
+        }
+        None => {
+            let id: Option<i64> = sqlx::query_scalar(
+                "INSERT INTO users (email, google_sub) VALUES ($1, $2)
+                 ON CONFLICT DO NOTHING RETURNING id",
+            )
+            .bind(&email)
+            .bind(&identity.sub)
+            .fetch_optional(&mut *tx)
+            .await?;
+            // Nothing returned: the same person's other tab won the race.
+            SignedIn::Created(UserId::from_row(id.ok_or(AccountError::Taken(email))?))
+        }
+    };
+    tx.commit().await?;
+    Ok(signed)
+}
+
+/// Link the account `email` names to the Google account `sub` — the
+/// operator's answer for somebody whose Google email is not the one their
+/// account was made under. Replaces any link it had.
+pub async fn link(pool: &PgPool, email: &str, sub: &str) -> Result<UserId, AccountError> {
+    let email = normalize_email(email)?;
+    let sub = sub.trim();
+    let mut tx = db::privileged(pool).await?;
+    let holder: Option<i64> = sqlx::query_scalar("SELECT id FROM users WHERE google_sub = $1")
+        .bind(sub)
+        .fetch_optional(&mut *tx)
+        .await?;
+    let id: Option<i64> = sqlx::query_scalar("SELECT id FROM users WHERE email = $1")
+        .bind(&email)
+        .fetch_optional(&mut *tx)
+        .await?;
+    let id = id.ok_or(AccountError::NoSuchAccount(email))?;
+    match holder {
+        Some(holder) if holder != id => return Err(AccountError::SubTaken(holder)),
+        _ => {}
+    }
+    sqlx::query("UPDATE users SET google_sub = $2 WHERE id = $1")
+        .bind(id)
+        .bind(sub)
         .execute(&mut *tx)
         .await?;
     tx.commit().await?;
-    Ok(())
+    Ok(UserId::from_row(id))
 }

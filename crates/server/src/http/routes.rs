@@ -16,7 +16,7 @@ use axum::http::Method;
 use axum::routing::{MethodFilter, MethodRouter, on};
 
 use super::{
-    AppState, account, chat, credits, editor, events, health, jobs, library, mcp, projects,
+    AppState, account, chat, credits, editor, events, google, health, jobs, library, mcp, projects,
     renders, styles, templates, tokens, uploads,
 };
 
@@ -51,11 +51,12 @@ pub fn table() -> Vec<Route> {
     use Method as M;
     vec![
         Route::new(M::GET, "/health", health),
-        // Accounts (#533) and their API tokens (#539).
-        Route::new(M::POST, "/login", account::login),
+        // Accounts (#533), signed in with Google (#952), and their API
+        // tokens (#539).
+        Route::new(M::GET, "/auth/google", google::start),
+        Route::new(M::GET, "/auth/google/callback", google::callback),
         Route::new(M::POST, "/logout", account::logout),
         Route::new(M::GET, "/me", account::me),
-        Route::new(M::POST, "/me/password", account::change_password),
         Route::new(M::GET, "/tokens", tokens::list),
         Route::new(M::POST, "/tokens", tokens::issue),
         Route::new(M::DELETE, "/tokens/{id}", tokens::revoke),

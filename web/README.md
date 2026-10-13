@@ -22,6 +22,18 @@ It expects the server on `http://localhost:8080`; point it elsewhere with
 
     SCORSESE_API=http://localhost:9000 bun run dev
 
+To sign in without a Google client (the usual dev stack, `docs/web.md`'s
+*Accounts*), make an account and a session with the server's own commands and
+set the cookie in the browser's console on `http://localhost:5173`:
+
+    scorsese-server user create me@example.com
+    scorsese-server user session me@example.com   # prints scorsese_session=…
+    document.cookie = "scorsese_session=…; path=/api; secure"
+
+With a client of your own, `SCORSESE_PUBLIC_ORIGIN=http://localhost:5173` and
+that origin's `/api/auth/google/callback` as a redirect URI make the real
+button work here too.
+
 `bun run build` writes `dist/`, and `bun run preview` serves that build locally.
 
 ## How it is laid out
@@ -35,7 +47,7 @@ It expects the server on `http://localhost:8080`; point it elsewhere with
 | `src/app/pages.ts` | every page as a **lazy** import (#896), each its own chunk: a page is added here and named in `routes.tsx`, **never imported statically**, so the landing page never downloads the editor. `preload()` fetches one ahead (the projects list fetches the editor when idle) | adding a page |
 | `src/build/budget.ts` | the entry chunk's budget, a Vite plugin: the build fails when what a first visit downloads outgrows it, and says why the number is what it is | — |
 | `src/app/events.ts` | `useServerEvents`: the one `EventSource` on `/api/events` a page holds, shared by every listener, with a `resync` after a reconnect | anything live — jobs, the assistant, a project another tab changed |
-| `src/session/` | `useAccount`, `useLogin`, `useLogout`, the `RequireSession` guard and the `?next=` rule | anything that needs to know who is logged in |
+| `src/session/` | `useAccount`, `useLogout`, the `RequireSession` guard and the `?next=` rule | anything that needs to know who is logged in |
 | `src/files/` | the Drive-like browser (grid, details panel, viewer), and uploads: an `UploadsProvider` around the signed-in app, so an upload survives navigation | showing or picking library files anywhere |
 | `src/lib/upload/` | the browser-side hash, the Uppy + tus uploader, and the duplicate rule (a `409` with `item` is never retried) | — |
 | `src/lib/money.ts` | micro-dollars as dollars, by integer arithmetic | every figure of money on a page |
@@ -108,11 +120,14 @@ already built:
 | --- | --- | --- |
 | server | `cargo build -p scorsese-server` | the binary the flows drive |
 | browser | `bunx playwright install --only-shell chromium` | Playwright's pinned headless Chromium, fetched once; skipped when `E2E_CHROMIUM` names one |
-| flows | `bunx playwright test`, through `tools/with-postgres` | log in, make a project, upload and place a file, resize a panel, ask the assistant — against the real server and a real Postgres |
+| flows | `bunx playwright test`, through `tools/with-postgres` | sign in, make a project, upload and place a file, resize a panel, ask the assistant — against the real server and a real Postgres |
 
 `playwright.config.ts` starts the server (away from any `.env`, so no provider
 key reaches it) and `vite preview` of the production build, and makes the run's
-account with `scorsese-server user create`, as the operator does. A failure
+account with `scorsese-server user create` and signs it in with the cookie
+`user session` prints, as the operator would — no flow reaches Google (#952);
+the server runs without a Google client, so the sign-in button's flow is
+checked as far as its "not set up" answer. A failure
 keeps its trace and screenshot in `test-results/` — CI uploads them as
 `web-e2e-failures` — and `bunx playwright show-trace <trace.zip>` replays one
 step by step.

@@ -23,15 +23,12 @@ afterEach(() => {
 });
 
 test("a request goes under /api with a JSON body, and its JSON comes back", async () => {
-  answer(200, { id: 1, email: "ana@example.com", created_at: 0 });
-  const account = await api.account.login("ana@example.com", "secret");
-  expect(account.email).toBe("ana@example.com");
-  expect(sent[0]?.url).toBe("/api/login");
+  answer(200, { id: 4, name: "teaser" });
+  const project = await api.projects.create({ name: "teaser" });
+  expect(project.id).toBe(4);
+  expect(sent[0]?.url).toBe("/api/projects");
   expect(sent[0]?.init?.method).toBe("POST");
-  expect(JSON.parse(String(sent[0]?.init?.body))).toEqual({
-    email: "ana@example.com",
-    password: "secret",
-  });
+  expect(JSON.parse(String(sent[0]?.init?.body))).toEqual({ name: "teaser" });
 });
 
 test("an empty answer resolves to undefined", async () => {

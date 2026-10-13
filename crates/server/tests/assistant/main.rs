@@ -77,7 +77,7 @@ async fn scripted(pool: &PgPool, script: &Arc<Script>) -> (SocketAddr, http::App
 
 /// A new account with `dollars` of credit, and its `Authorization:` line.
 async fn member(pool: &PgPool, email: &str, dollars: i64) -> (UserId, String) {
-    let user = users::create(pool, email, "password one")
+    let user = users::create(pool, email)
         .await
         .expect("the test setup holds");
     if dollars > 0 {

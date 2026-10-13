@@ -1,8 +1,9 @@
 //! What the server is told by the environment it is started in.
 //!
-//! Eight things, and only one of them is a secret. The database URL carries a
-//! password, so it is held as a [`Secret`] — printing a [`Config`] prints
-//! nothing of it, and no error below ever repeats its value.
+//! Ten things, and two of them are secrets. The database URL carries a
+//! password and the Google OAuth client has a secret, so both are held as a
+//! [`Secret`] — printing a [`Config`] prints nothing of them, and no error
+//! below ever repeats their values.
 //!
 //! **Read through [`Environment`], the same value the provider-key resolver
 //! reads.** That is the one-resolver rule of `docs/credentials.md` applied to
@@ -21,7 +22,7 @@ use std::path::PathBuf;
 
 use scorsese_providers::credentials::{Environment, Secret};
 
-use crate::http::client::Clients;
+use crate::http::google::Google;
 use crate::renders::Quota;
 use crate::storage::Storage;
 
@@ -59,16 +60,19 @@ pub const ASSISTANT_TURN_CAP: &str = "SCORSESE_ASSISTANT_TURN_CAP";
 /// The per-turn cap when [`ASSISTANT_TURN_CAP`] is not set.
 pub const DEFAULT_TURN_CAP: &str = "2.00";
 
-/// Whether the server sits behind the deploy's nginx, and so believes the
-/// client address it names in
-/// [`CLIENT_HEADER`](crate::http::client::CLIENT_HEADER) — `true` or `false`, and
-/// `false` when unset.
+/// The Google OAuth client's id, `….apps.googleusercontent.com` (#952).
+pub const GOOGLE_CLIENT_ID: &str = "GOOGLE_OAUTH_CLIENT_ID";
+
+/// The Google OAuth client's secret.
+pub const GOOGLE_CLIENT_SECRET: &str = "GOOGLE_OAUTH_CLIENT_SECRET";
+
+/// Where browsers reach the site, e.g. `https://scorseseestudio.com`: the
+/// origin Google sends a sign-in back to, at `/api/auth/google/callback`.
 ///
-/// Only for a server whose port nothing but that nginx can reach, which is
-/// what `deploy/compose.yaml` sets it for. Anywhere else a client could name
-/// any address it liked, and dodge the login's brake or aim it at somebody
-/// else ([`crate::http::client`]).
-pub const TRUST_PROXY: &str = "SCORSESE_TRUST_PROXY";
+/// Configured, never read off a request's `Host`: a header is whatever the
+/// client typed, and a redirect URI built from it would send Google's code
+/// wherever somebody pointed it.
+pub const PUBLIC_ORIGIN: &str = "SCORSESE_PUBLIC_ORIGIN";
 
 /// Where the server listens when [`BIND`] is not set: this machine only.
 ///
@@ -92,8 +96,11 @@ pub struct Config {
     pub bind: SocketAddr,
     /// The most one assistant turn may cost, in micro-dollars.
     pub assistant_turn_cap: i64,
-    /// Which address a request is counted as coming from.
-    pub clients: Clients,
+    /// Sign in with Google, when [`GOOGLE_CLIENT_ID`], [`GOOGLE_CLIENT_SECRET`]
+    /// and [`PUBLIC_ORIGIN`] are all set. `None` serves everything else and
+    /// answers a sign-in with "not configured" — a development stack without
+    /// a Google client still runs.
+    pub google: Option<Google>,
 }
 
 /// Why the environment does not describe a server that can start.
@@ -162,9 +169,12 @@ pub enum ConfigError {
         value: String,
     },
 
-    /// [`TRUST_PROXY`] is neither `true` nor `false`.
-    #[error("{TRUST_PROXY} must be true or false, and {value:?} is neither")]
-    TrustProxy {
+    /// [`PUBLIC_ORIGIN`] is not an origin a browser can be sent back to.
+    #[error(
+        "{PUBLIC_ORIGIN} must be an origin like https://scorseseestudio.com (no path), \
+         and {value:?} is not"
+    )]
+    Origin {
         /// What the variable held.
         value: String,
     },
@@ -233,15 +243,7 @@ impl Config {
             value: cap.to_owned(),
         })?;
 
-        let clients = match environment.get(TRUST_PROXY) {
-            None | Some("false") => Clients::Peer,
-            Some("true") => Clients::Proxy,
-            Some(other) => {
-                return Err(ConfigError::TrustProxy {
-                    value: other.to_owned(),
-                });
-            }
-        };
+        let google = Google::from_environment(environment)?;
 
         Ok(Self {
             database_url,
@@ -250,7 +252,7 @@ impl Config {
             render_quota,
             bind,
             assistant_turn_cap,
-            clients,
+            google,
         })
     }
 }

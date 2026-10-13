@@ -1,6 +1,6 @@
 //! The operator's commands read as the operator would read them.
 
-use scorsese_server::accounts::{password, tokens, users};
+use scorsese_server::accounts::{sessions, tokens, users};
 use scorsese_server::operator::{self, TokenCommand, UserCommand};
 use scorsese_server::storage::Storage;
 use scorsese_server::{AccountError, ServerError};
@@ -25,56 +25,42 @@ fn after<'a>(output: &'a str, label: &str) -> &'a str {
 }
 
 #[sqlx::test]
-async fn a_created_account_logs_in_with_the_printed_password(pool: PgPool) {
+async fn an_account_is_created_linked_listed_and_given_a_session(pool: PgPool) {
     let root = files();
-    let email = "ana@example.com".to_owned();
-    let output = operator::user(
-        &pool,
-        &root,
-        UserCommand::Create {
-            email: email.clone(),
-        },
-    )
-    .await
-    .unwrap();
-    let printed = after(&output, "password: ");
+    let email = || "ana@example.com".to_owned();
+    let run = |command| operator::user(&pool, &root, command);
+    let created = run(UserCommand::Create { email: email() }).await.unwrap();
     assert!(
-        users::authenticate(&pool, &email, printed)
-            .await
-            .unwrap()
-            .is_some()
+        created.contains("linked when they sign in with Google"),
+        "{created}"
+    );
+    let listed = run(UserCommand::List).await.unwrap();
+    assert!(
+        listed.ends_with("\tana@example.com\tnot signed in yet"),
+        "{listed}"
     );
 
-    let reset = operator::user(
-        &pool,
-        &root,
-        UserCommand::ResetPassword {
-            email: email.clone(),
-        },
-    )
-    .await
-    .unwrap();
-    let new = after(&reset, &format!("{email}: "));
-    assert_ne!(new, printed);
-    assert!(
-        users::authenticate(&pool, &email, new)
-            .await
-            .unwrap()
-            .is_some()
-    );
+    let link = |google_sub: &str| UserCommand::Link {
+        email: email(),
+        google_sub: google_sub.to_owned(),
+    };
+    run(link(" 1101 ")).await.unwrap();
+    let listed = run(UserCommand::List).await.unwrap();
+    assert!(listed.ends_with("\tana@example.com\t1101"), "{listed}");
 
-    let listed = operator::user(&pool, &root, UserCommand::List)
-        .await
-        .unwrap();
-    assert!(listed.ends_with("\tana@example.com"), "{listed}");
+    let session = run(UserCommand::Session { email: email() }).await.unwrap();
+    let cookie = after(&session, "scorsese_session=");
+    let ana = users::find(&pool, "ana@example.com").await.unwrap();
+    assert_eq!(sessions::find(&pool, cookie).await.unwrap(), Some(ana));
+    let ended = run(UserCommand::Logout { email: email() }).await.unwrap();
+    assert_eq!(ended, "ended 1 browser session(s) for ana@example.com");
+    assert_eq!(sessions::find(&pool, cookie).await.unwrap(), None);
 }
 
 #[sqlx::test]
 async fn deleting_needs_yes(pool: PgPool) {
     let root = files();
-    users::create(&pool, "ana@example.com", "password one")
-        .await
-        .unwrap();
+    users::create(&pool, "ana@example.com").await.unwrap();
     let delete = |yes| UserCommand::Delete {
         email: "ana@example.com".to_owned(),
         yes,
@@ -92,9 +78,7 @@ async fn deleting_needs_yes(pool: PgPool) {
 
 #[sqlx::test]
 async fn a_token_issued_by_the_operator_is_the_users(pool: PgPool) {
-    let ana = users::create(&pool, "ana@example.com", "password one")
-        .await
-        .unwrap();
+    let ana = users::create(&pool, "ana@example.com").await.unwrap();
     let create = |email: &str| TokenCommand::Create {
         email: email.to_owned(),
         name: "script".to_owned(),
@@ -137,12 +121,4 @@ fn an_email_is_normalised_and_loosely_checked() {
     ] {
         assert!(normalize_email(bad).is_err(), "{bad:?} was accepted");
     }
-}
-
-#[test]
-fn a_generated_password_is_long_and_unambiguous() {
-    let first = password::generate().unwrap();
-    assert_eq!(first.len(), 20);
-    assert!(!first.contains(['0', 'o', '1', 'l', 'i']), "{first}");
-    assert_ne!(first, password::generate().unwrap());
 }

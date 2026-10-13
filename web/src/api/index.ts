@@ -70,12 +70,8 @@ export interface HistoryFilter {
 
 export const api = {
   account: {
-    login: (email: string, password: string) =>
-      request<Account>("POST", "/login", { email, password }),
     logout: () => request<void>("POST", "/logout"),
     me: () => request<Account>("GET", "/me"),
-    changePassword: (current: string, next: string) =>
-      request<void>("POST", "/me/password", { current, new: next }),
   },
   projects: {
     list: () => request<ProjectSummary[]>("GET", "/projects"),

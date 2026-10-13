@@ -9,12 +9,12 @@
 pub mod account;
 pub mod auth;
 pub mod chat;
-pub mod client;
 pub mod credits;
 mod disposition;
 pub mod editor;
 pub mod error;
 pub mod events;
+pub mod google;
 pub mod jobs;
 pub mod library;
 pub mod mcp;
@@ -71,9 +71,9 @@ pub struct AppState {
     /// The built-in assistant (#540): how it reaches Claude, and what a turn
     /// may cost.
     pub assistant: Assistant,
-    /// Which address a request is counted as coming from, for the login's
-    /// brake: the peer, or the header the deploy's nginx writes.
-    pub clients: client::Clients,
+    /// Sign in with Google (#952), or `None` where no OAuth client is
+    /// configured and a sign-in answers "not configured".
+    pub google: Option<google::Google>,
 }
 
 impl AppState {
@@ -102,7 +102,7 @@ impl AppState {
             limits: mcp::Limits::default(),
             in_flight: mcp::InFlight::default(),
             assistant: Assistant::default(),
-            clients: client::Clients::default(),
+            google: None,
             pool,
             jobs,
             events,
@@ -124,9 +124,9 @@ impl AppState {
         self
     }
 
-    /// The same state, believing `clients` for where a request came from.
-    pub fn with_clients(mut self, clients: client::Clients) -> Self {
-        self.clients = clients;
+    /// The same state, signing people in with `google`.
+    pub fn with_google(mut self, google: Option<google::Google>) -> Self {
+        self.google = google;
         self
     }
 }
@@ -166,8 +166,8 @@ async fn health(State(state): State<AppState>) -> (StatusCode, &'static str) {
 /// SIGTERM and waits before killing, and this is what makes that wait mean a
 /// request is never cut off half-answered.
 ///
-/// Each request carries the address it was connected from, which is what
-/// [`client::ClientAddress`] reads when nothing stands in front of the server.
+/// Each request carries the address it was connected from, for whatever
+/// handler wants to know it.
 pub async fn serve(
     listener: TcpListener,
     router: Router,
