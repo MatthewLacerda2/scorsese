@@ -6,8 +6,10 @@ it headlessly, and a GUI exists for humans to scrub, tweak, and review.
 
 Use plain language with the user and explain things at a high level; go into
 the nitty-gritty of Rust, ffmpeg, or the compositor only when it's needed to
-address something or for the user to understand what is going on. You can
-still speak in a technical, detailed way when writing issues and PRs — those
+address something or for the user to understand what is going on. The user
+does not read the code: don't expect them to know a file by its name, and
+never point them at a line of it; naming a crate, a module or a dependency is
+fine. You can still speak in a technical, detailed way when writing issues and PRs — those
 are documentation left for a future Claude to understand what is being
 planned/done. Tell the user when something is bottlenecking you. Don't recite
 the rules of this file unless one is blocking you or explains a conclusion.
@@ -339,7 +341,8 @@ in a cloud session; `issue-batch` has what that premise shapes.
   first, every time.
 - **Flow:** idea → (issue) → branch → PR → CI green → merge. **Nothing is
   committed to `main` directly**: every change, however small, arrives as a
-  pull request. An issue is how work is planned, not a toll on every change. A
+  pull request, and a GitHub ruleset on `main` refuses anything else (a pull
+  request is required, a review is not; no force-push, no deletion). An issue is how work is planned, not a toll on every change. A
   PR that has an issue closes it by number: check the number, and remember
   GitHub matches `closes #N` anywhere in a description, even quoted or negated,
   so a PR leaving an issue open writes `refs #N`.
