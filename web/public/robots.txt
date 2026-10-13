@@ -1,0 +1,16 @@
+# The landing page is the public face of scorsese, and every crawler is
+# welcome to it, search engines and AI crawlers alike. Everything else is a
+# signed-in visitor's own: their projects, their uploads, what was generated
+# for them and the stock footage fetched for them, whose licences forbid
+# redistributing it. None of that is reachable without a session anyway; this
+# file only keeps crawlers from knocking on doors that will not open.
+# crawlers.test.ts holds every signed-in page in web/src/app/routes.tsx to a
+# Disallow line here.
+User-agent: *
+Disallow: /api/
+Disallow: /login
+Disallow: /projects
+Disallow: /library
+Disallow: /spending
+
+Sitemap: https://scorsesestudio.com/sitemap.xml
