@@ -484,18 +484,23 @@ deploy: ## [gate] deploy/compose.yaml parses, and .env.example documents what it
 		done
 	@echo "deploy: compose.yaml is valid in every tunnel mode, every variable it reads is documented, and every folder it binds is one the runbook makes"
 
-# The Cloudflare side as code (#957). Neither check needs credentials or
+# The Cloudflare and Google Cloud sides as code (#957, #952), one Terraform
+# configuration each under deploy/terraform. Neither check needs credentials or
 # touches Cloudflare: `fmt` is layout, `validate` is the configuration against
 # the provider's own schema (the provider is downloaded, which is why `init`
 # runs; `-backend=false` keeps it from looking for state). `plan` and `apply`
 # need the API token and change the live site, so they are run by hand, below.
-infra: ## [gate] deploy/terraform is formatted and valid against the Cloudflare provider's schema
+INFRA_ROOTS = cloudflare google
+
+infra: ## [gate] deploy/terraform is formatted and valid against each provider's schema
 	@command -v terraform >/dev/null 2>&1 || { \
 		echo "infra: terraform is not installed -- https://developer.hashicorp.com/terraform/install" >&2; \
 		exit 1; }
 	terraform fmt -check -diff -recursive deploy/terraform
-	terraform -chdir=deploy/terraform init -backend=false -input=false >/dev/null
-	terraform -chdir=deploy/terraform validate
+	@for root in $(INFRA_ROOTS); do \
+		terraform -chdir=deploy/terraform/$$root init -backend=false -input=false >/dev/null && \
+		terraform -chdir=deploy/terraform/$$root validate -no-color | sed "s|^|infra: $$root: |" || exit 1; \
+	done
 
 # The one gate that decides whether to run, and the condition is the point.
 # `app/` is its own cargo workspace precisely so a headless change never pays
@@ -815,11 +820,11 @@ live-check: ## Real calls to every provider, quoted first. ARGS="--include-veo -
 
 # Not spending, but the same rule as live-check: it reaches the live site, so a
 # person runs it and CI never does. `infra` above is its credential-free gate.
-infra-plan: ## What applying deploy/terraform would change on Cloudflare. Reads deploy/.env; changes nothing
-	deploy/terraform/tf plan
+infra-plan: ## What applying deploy/terraform would change on Cloudflare and Google Cloud. Changes nothing
+	@for root in $(INFRA_ROOTS); do echo "== $$root"; deploy/terraform/tf $$root plan || exit 1; done
 
-infra-apply: ## Change the live site's Cloudflare config to match deploy/terraform. Asks before applying
-	deploy/terraform/tf apply
+infra-apply: ## Make Cloudflare and Google Cloud match deploy/terraform. Asks before each apply
+	@for root in $(INFRA_ROOTS); do echo "== $$root"; deploy/terraform/tf $$root apply || exit 1; done
 
 ##@ Fixing
 

@@ -68,6 +68,6 @@ web/landing/*.scor/generated/
 
 # Terraform's provider download. Its lockfile is committed; the state lives
 # under SCORSESE_DATA, never here (deploy/terraform/tf).
-deploy/terraform/.terraform/
+deploy/terraform/*/.terraform/
 *.tfstate
 *.tfstate.*

@@ -4,8 +4,8 @@
 # here and nowhere else; a change made in the dashboard is drift, and the
 # next `make infra-plan` shows it as such.
 #
-# `tf` beside this file runs Terraform with what deploy/.env holds, and keeps
-# the state out of the checkout (docs/web.md, "Cloudflare, as code").
+# `deploy/terraform/tf cloudflare …` runs it with what deploy/.env holds, and
+# keeps the state out of the checkout (docs/web.md, "Infrastructure, as code").
 
 terraform {
   required_version = ">= 1.9"
