@@ -832,18 +832,20 @@ style-menu: ## Rewrite web/src/start/menu.json from the style library
 
 # The landing page's film and pictures (#904) are renders of two projects kept
 # beside it in web/landing/, made only of pages, native text and a synthesised
-# score, so this costs nothing and needs no key. Their output is committed under
-# web/public/landing/, because the deploy's web image builds no Rust; run this
-# after editing either project and commit what it writes.
+# score, so this costs nothing and needs no key. Their output is committed,
+# because the deploy's web image builds no Rust; run this after editing either
+# project and commit what it writes. What the page shows goes to
+# web/src/landing/media/, imported so the build fingerprints it (#1238); the
+# link-preview still stays at the fixed URL index.html names.
 LANDING := web/landing
-LANDING_OUT := web/public/landing
+LANDING_OUT := web/src/landing/media
 landing-hero: ## Re-render the landing page's film, poster and example stills from web/landing/
 	cargo build --locked -p scorsese-cli
 	target/debug/scorsese synth bake --project $(LANDING)/hero.scor
 	target/debug/scorsese render --project $(LANDING)/hero.scor --out $(LANDING_OUT)/hero.mp4 \
 		--resolution 1280x720 --audio-bitrate 96k --loudness -16
 	target/debug/scorsese still --project $(LANDING)/hero.scor --at 3.5s --resolution 1280x720 --out $(LANDING_OUT)/poster.png
-	target/debug/scorsese still --project $(LANDING)/hero.scor --at 18s --resolution 1200x630 --out $(LANDING_OUT)/og.png
+	target/debug/scorsese still --project $(LANDING)/hero.scor --at 18s --resolution 1200x630 --out web/public/landing/og.png
 	target/debug/scorsese still --project $(LANDING)/showcase.scor --at 1.5s --resolution 960x540 --out $(LANDING_OUT)/promo.png
 	target/debug/scorsese still --project $(LANDING)/showcase.scor --at 3.5s --resolution 960x540 --out $(LANDING_OUT)/event.png
 	target/debug/scorsese still --project $(LANDING)/showcase.scor --at 5.5s --resolution 540x960 --out $(LANDING_OUT)/ad.png

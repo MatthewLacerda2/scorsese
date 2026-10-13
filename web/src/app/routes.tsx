@@ -28,14 +28,22 @@ import {
 import { RequireSession, useAccount } from "@/session/session";
 import { Shell } from "./Shell";
 
-/** `/`: the projects for a signed-in visitor, the landing page for anyone else. */
+/**
+ * `/`: the projects for a signed-in visitor, the landing page for anyone else.
+ *
+ * The landing page is drawn without waiting for the session (#1238): the
+ * anonymous visitor is the common case, and the only one whose first load has
+ * to be fast. So the landing chunk and the session check go out together, and
+ * a signed-in visitor is sent on to `/projects` the moment the check answers.
+ * Until the chunk arrives the fallback is the landing page's own dark ground,
+ * so a session that answers first (usual: one small JSON beside a chunk of
+ * code) moves on before anything of the landing page has been drawn.
+ */
 function Home() {
   const account = useAccount();
-  // Nothing while asking: a signed-in visitor should not see the landing page flash.
-  if (account.isPending) return <div className="min-h-svh bg-[#07070a]" />;
   if (account.data) return <Navigate to="/projects" replace />;
   return (
-    <Suspense fallback={<PageFallback />}>
+    <Suspense fallback={<div className="min-h-svh bg-[#07070a]" />}>
       <LandingPage />
     </Suspense>
   );

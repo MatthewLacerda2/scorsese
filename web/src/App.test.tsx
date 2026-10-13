@@ -32,7 +32,8 @@ test("/login draws the landing page, its film included", async () => {
   // The popup itself is a portal, drawn only in a browser: landing/LandingPage.test.tsx.
   const html = await render("/login", (client) => client.setQueryData(ME, null));
   expect(html).toContain("It gets made.");
-  expect(html).toContain('src="/landing/hero.mp4"');
+  // Imported, so the build fingerprints it under /assets (#1238).
+  expect(html).toMatch(/<video[^>]*src="[^"]*hero[^"]*\.mp4"/);
 });
 
 test("the theme control offers Light, Dark and System, and System is the default", async () => {
