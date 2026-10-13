@@ -59,8 +59,16 @@
 //! nothing covered it and straight where something did.
 //!
 //! All of them, and the ruler, reach the raster through `paint`, which is the
-//! crate's **one** rasteriser and one blend. Two would be two answers to what a
-//! soft edge looks like, and pixels are what the golden gate compares.
+//! **one** way a drawn path — a glyph, a box, a gridline — gets onto a frame.
+//! Two would be two answers to what a soft edge looks like, and pixels are what
+//! the golden gate compares. Two other places put pixels down, and neither is a
+//! second answer to that question: placing a whole finished layer onto the
+//! canvas, with its transform, opacity and blend, is the compositor's own job
+//! and lives in `cpu`; and a colour emoji is walked onto its glyph's raster by
+//! `text`'s colour painter, because the font carries its own layers, clips and
+//! compositing modes that a single fill cannot follow. Both use the same
+//! tiny-skia rasteriser `paint` does, so an edge looks the same whichever drew
+//! it.
 //!
 //! [`sheet`] tiles several frames into one labelled picture, so an assistant
 //! can look at footage. It is the same two modules again — a label is a card,
