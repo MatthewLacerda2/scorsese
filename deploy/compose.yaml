@@ -99,11 +99,6 @@ services:
       # Every interface of the container, which is only the compose network:
       # no port is published, so nothing outside reaches this but nginx.
       SCORSESE_BIND: 0.0.0.0:8080
-      # Believe the client address nginx names in X-Scorsese-Client, for the
-      # login's brake (#557). True here and nowhere else: it is safe exactly
-      # because of the line above — no port published, nginx the only thing
-      # that reaches this — and nginx.conf has which address it names.
-      SCORSESE_TRUST_PROXY: "true"
       # The operator's provider keys, for users' paid generations. Blank means
       # a generation needing one fails, free.
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
@@ -115,6 +110,11 @@ services:
       # answers "not configured"; blank limits are the server's defaults.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       SCORSESE_ASSISTANT_TURN_CAP: ${SCORSESE_ASSISTANT_TURN_CAP:-}
+      # Sign in with Google (#952). All three, or sign-in is off and the
+      # rest of the site still serves.
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      SCORSESE_PUBLIC_ORIGIN: ${SCORSESE_PUBLIC_ORIGIN:-}
     volumes:
       - &data
         type: bind

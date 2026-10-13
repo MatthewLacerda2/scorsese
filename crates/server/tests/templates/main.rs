@@ -21,9 +21,7 @@ pub(crate) const SHOT: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
 /// An account whose library holds [`SHOT`], and its browser's `Cookie:` line.
 pub(crate) async fn member(pool: &PgPool, email: &str) -> (UserId, String) {
-    let user = users::create(pool, email, "password one")
-        .await
-        .expect("an account");
+    let user = users::create(pool, email).await.expect("an account");
     common::hold(pool, user, SHOT).await;
     let cookie = sessions::open(pool, user).await.expect("a session opens");
     (user, format!("Cookie: scorsese_session={cookie}"))

@@ -7,14 +7,9 @@ use sqlx::Executor;
 use sqlx::postgres::PgPool;
 
 /// Tables that are not a user's data. Adding one here is a decision a
-/// reviewer should see argued in the same pull request.
-///
-/// `login_throttle` (#557): the login's attempt counters, keyed by an email
-/// that may be nobody's account and by a client address, which is nobody's.
-/// An attempt belongs to no user until it succeeds. Members may not touch it
-/// at all — only the login and the operator do, privileged — and
-/// `tests/throttle/store.rs` holds that.
-const NOT_PER_USER: &[&str] = &["_sqlx_migrations", "login_throttle"];
+/// reviewer should see argued in the same pull request. (The login's attempt
+/// counters, `login_throttle`, were one until #952 took passwords away.)
+const NOT_PER_USER: &[&str] = &["_sqlx_migrations"];
 
 #[sqlx::test]
 async fn every_table_is_owned_cascaded_and_policed(pool: PgPool) {
@@ -73,7 +68,6 @@ async fn a_query_outside_a_scope_is_refused_even_on_an_empty_table(pool: PgPool)
         "SELECT count(*) FROM renders",
         "SELECT count(*) FROM library_items",
         "SELECT count(*) FROM uploads",
-        "SELECT count(*) FROM login_throttle",
     ] {
         let error = sqlx::query(query).execute(&members).await.unwrap_err();
         assert!(
@@ -85,9 +79,7 @@ async fn a_query_outside_a_scope_is_refused_even_on_an_empty_table(pool: PgPool)
 
 #[sqlx::test]
 async fn the_member_role_without_a_user_says_so(pool: PgPool) {
-    users::create(&pool, "a@example.com", "password one")
-        .await
-        .unwrap();
+    users::create(&pool, "a@example.com").await.unwrap();
     let mut tx = pool.begin().await.unwrap();
     tx.execute("SET LOCAL ROLE scorsese_member").await.unwrap();
     let error = sqlx::query("SELECT id FROM users")
@@ -102,12 +94,8 @@ async fn the_member_role_without_a_user_says_so(pool: PgPool) {
 
 #[sqlx::test]
 async fn a_scope_sees_and_writes_only_its_own_rows(pool: PgPool) {
-    let ana = users::create(&pool, "ana@example.com", "password one")
-        .await
-        .unwrap();
-    let bia = users::create(&pool, "bia@example.com", "password two")
-        .await
-        .unwrap();
+    let ana = users::create(&pool, "ana@example.com").await.unwrap();
+    let bia = users::create(&pool, "bia@example.com").await.unwrap();
     tokens::issue(&pool, ana, "ana's").await.unwrap();
     tokens::issue(&pool, bia, "bia's").await.unwrap();
 
@@ -139,12 +127,8 @@ async fn a_row_cannot_claim_another_users_project(pool: PgPool) {
     // The policy checks the owner column; the composite foreign key is what
     // stops a row that names *itself* as owner from pointing at somebody
     // else's project.
-    let ana = users::create(&pool, "ana@example.com", "password one")
-        .await
-        .unwrap();
-    let bia = users::create(&pool, "bia@example.com", "password two")
-        .await
-        .unwrap();
+    let ana = users::create(&pool, "ana@example.com").await.unwrap();
+    let bia = users::create(&pool, "bia@example.com").await.unwrap();
     let anas: i64 = sqlx::query_scalar(
         "INSERT INTO projects (user_id, document) VALUES ($1, '{\"name\": \"a\"}') RETURNING id",
     )

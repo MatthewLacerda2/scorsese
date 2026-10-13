@@ -27,7 +27,7 @@ fn using(hashes: &[&str]) -> Project {
 
 /// A new account whose library holds `A` and `B`.
 async fn account(pool: &PgPool, email: &str) -> UserId {
-    let user = users::create(pool, email, "password one")
+    let user = users::create(pool, email)
         .await
         .expect("the account is created");
     for hash in [A, B] {
@@ -138,7 +138,7 @@ async fn a_document_this_build_cannot_carry_forward_stops_the_start(pool: PgPool
         common::files("stored"),
         scorsese_server::jobs::Registry::new(),
         scorsese_server::assistant::Assistant::default().unconfigured(),
-        scorsese_server::http::client::Clients::Peer,
+        None,
         std::future::pending(),
     )
     .await;

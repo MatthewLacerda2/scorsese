@@ -1,24 +1,23 @@
 //! The operator's commands: `scorsese-server user …`, `token …`, `job …` and
 //! `credit …` (the last in [`crate::credits::command`]).
 //!
-//! **There is no public sign-up in v1** (#533): the operator makes each
-//! account by hand for somebody they know, and resets a password the same way
-//! — there is no reset email. Run where the server runs, against the same
-//! environment, e.g.
+//! **People sign themselves up, with Google** (#952), so accounts mostly make
+//! themselves. What is left for the operator, run where the server runs,
+//! against the same environment, e.g.
 //!
 //! ```text
-//! docker compose exec scorsese-server scorsese-server user create ana@example.com
+//! docker compose exec server scorsese-server user create ana@example.com
 //! ```
 //!
-//! A password is **generated, never typed**: it is printed once, for the
-//! operator to hand over, and the user changes it from the web app. A
-//! password on a command line is in the shell's history and in `ps` for
-//! anybody on the machine; one the operator invents is weaker than twenty
-//! random characters.
+//! is setting an account up before its owner arrives (`user create`: their
+//! first Google sign-in under that address links it), linking one by hand
+//! when the addresses differ (`user link`, with the Google id the server's
+//! log or the person can give), ending every browser session an account has
+//! (`user logout`), and deleting one. There are no passwords to reset.
 //!
-//! The login's brake is the operator's too: `user locks` lists who it is
-//! holding back and `user unlock` lets one of them through, and a password
-//! reset lifts the lock on that email ([`throttle`]).
+//! `user session` opens a browser session and prints its cookie — for a
+//! development stack with no Google client, and for the web app's end-to-end
+//! tests, which sign in without Google the same way.
 //!
 //! Each command's output is what [`user`] and [`token`] return, printed to
 //! stdout by the binary — so a test reads exactly what the operator would.
@@ -27,9 +26,9 @@ use clap::Subcommand;
 use sqlx::postgres::PgPool;
 
 use crate::ServerError;
-use crate::accounts::throttle::{self, Key};
-use crate::accounts::{password, tokens, users};
+use crate::accounts::{sessions, tokens, users};
 pub use crate::credits::command::CreditCommand;
+use crate::http::auth::SESSION_COOKIE;
 use crate::jobs::store;
 use crate::storage::Storage;
 
@@ -38,7 +37,7 @@ use crate::storage::Storage;
 pub enum Command {
     /// Serve the web API. What running with no command does.
     Serve,
-    /// Create, list, reset and delete accounts.
+    /// Create, link, list and delete accounts.
     #[command(subcommand)]
     User(UserCommand),
     /// Issue an API token on a user's behalf.
@@ -73,14 +72,29 @@ pub enum JobCommand {
 /// `scorsese-server user …`
 #[derive(Debug, Subcommand)]
 pub enum UserCommand {
-    /// Create an account and print its generated password, once.
+    /// Create an account for an email, linked to its owner's Google account
+    /// when they first sign in with that address.
     Create {
-        /// The email the account logs in with.
+        /// The email the account is for.
         email: String,
     },
-    /// Give an account a new generated password, printed once, and log out
-    /// every browser it is logged in on.
-    ResetPassword {
+    /// Link an account to a Google account by Google's id for it (`sub`), for
+    /// somebody whose Google email differs from the account's.
+    Link {
+        /// The account's email.
+        email: String,
+        /// Google's id for the person's account, digits like
+        /// 110169484474386276334.
+        google_sub: String,
+    },
+    /// End every browser session an account has. Its API tokens stay.
+    Logout {
+        /// The account's email.
+        email: String,
+    },
+    /// Open a browser session for an account and print the cookie, once —
+    /// for a stack with no Google client, or a test.
+    Session {
         /// The account's email.
         email: String,
     },
@@ -92,17 +106,8 @@ pub enum UserCommand {
         #[arg(long)]
         yes: bool,
     },
-    /// List every account.
+    /// List every account, with the Google account each signs in as.
     List,
-    /// List the emails and addresses the login is braking: locked out now, or
-    /// counting failed attempts.
-    Locks,
-    /// Lift the login's lock-out on an email or a client address, and forget
-    /// its failed attempts — for somebody locked out who should not wait.
-    Unlock {
-        /// The email, or the address as `user locks` prints it.
-        who: String,
-    },
 }
 
 /// `scorsese-server token …`
@@ -126,22 +131,31 @@ pub async fn user(
 ) -> Result<String, ServerError> {
     Ok(match command {
         UserCommand::Create { email } => {
-            let password = password::generate()?;
-            let user = users::create(pool, &email, &password).await?;
+            let user = users::create(pool, &email).await?;
             format!(
-                "created account {} for {email}\npassword: {password}",
+                "created account {} for {email}; it is linked when they sign in with Google",
                 user.get()
             )
         }
-        UserCommand::ResetPassword { email } => {
-            let password = password::generate()?;
-            users::set_password(pool, &email, &password).await?;
-            // Somebody handed a new password is about to type it.
-            throttle::clear(pool, &Key::email(&email))
-                .await
-                .map_err(ServerError::Database)?;
+        UserCommand::Link { email, google_sub } => {
+            let user = users::link(pool, &email, &google_sub).await?;
             format!(
-                "new password for {email}: {password}\nevery browser session it had is logged out"
+                "account {} ({email}) now signs in as Google account {}",
+                user.get(),
+                google_sub.trim()
+            )
+        }
+        UserCommand::Logout { email } => {
+            let user = users::find(pool, &email).await?;
+            let ended = sessions::close_all(pool, user).await?;
+            format!("ended {ended} browser session(s) for {email}")
+        }
+        UserCommand::Session { email } => {
+            let user = users::find(pool, &email).await?;
+            let cookie = sessions::open(pool, user).await?;
+            format!(
+                "session for {email}, valid {} days, shown once:\n{SESSION_COOKIE}={cookie}",
+                sessions::LIFETIME_DAYS
             )
         }
         UserCommand::Delete { email, yes: false } => {
@@ -161,50 +175,15 @@ pub async fn user(
             } else {
                 accounts
                     .iter()
-                    .map(|account| format!("{}\t{}", account.id, account.email))
+                    .map(|listed| {
+                        let google = listed.google_sub.as_deref().unwrap_or("not signed in yet");
+                        format!("{}\t{}\t{google}", listed.account.id, listed.account.email)
+                    })
                     .collect::<Vec<_>>()
                     .join("\n")
             }
         }
-        UserCommand::Locks => locks(pool).await?,
-        UserCommand::Unlock { who } => {
-            let key = Key::parse(&who);
-            if throttle::clear(pool, &key)
-                .await
-                .map_err(ServerError::Database)?
-            {
-                format!("{key} may log in again")
-            } else {
-                format!("{key} was not being braked")
-            }
-        }
     })
-}
-
-/// `user locks`: one line per counter, locked ones saying for how long.
-async fn locks(pool: &PgPool) -> Result<String, ServerError> {
-    let locks = throttle::locks(pool).await.map_err(ServerError::Database)?;
-    if locks.is_empty() {
-        return Ok("nothing is locked out".to_owned());
-    }
-    Ok(locks
-        .iter()
-        .map(|lock| {
-            let state = if lock.locked_for > 0 {
-                let minutes = (lock.locked_for + 59) / 60;
-                format!("locked for {minutes} more min (lock-out {})", lock.strikes)
-            } else {
-                format!(
-                    "{} of {} attempts used in the last {} min",
-                    lock.attempts,
-                    throttle::counter::LIMIT,
-                    throttle::counter::WINDOW / 60
-                )
-            };
-            format!("{}\t{}\t{state}", lock.key.kind(), lock.key.text())
-        })
-        .collect::<Vec<_>>()
-        .join("\n"))
 }
 
 /// Carry out a `token` command. Returns what to print.

@@ -1,28 +1,26 @@
 //! Accounts: who may use the server, and how each request proves it (#533).
 //!
-//! - **A user** is an email and an argon2id password hash ([`password`]).
-//!   There is no public sign-up: the operator creates accounts and resets
-//!   passwords with `scorsese-server user …` ([`users`]), because the first
-//!   users are friends and family and sign-up only makes sense once payment
-//!   exists.
-//! - **A browser** logs in once and holds a session cookie ([`sessions`]):
+//! - **A user** is a Google identity (#952): an email, and once they have
+//!   signed in, Google's never-reused id for them (`google_sub`). There are no
+//!   passwords. "Continue with Google" is sign-up and login at once — the
+//!   first sign-in makes the account, or links one the operator made under
+//!   the same verified email ([`users::sign_in`]) — and the operator can still
+//!   create, link and delete accounts with `scorsese-server user …`.
+//! - **A browser** signs in once and holds a session cookie ([`sessions`]):
 //!   an opaque random value, looked up in Postgres on every request.
 //! - **Anything that is not a browser** — an MCP client, a script — sends a
 //!   per-user bearer token ([`tokens`]), issued by the user and revocable one
 //!   at a time.
-//! - **The login is braked** ([`throttle`]): too many attempts for one email
-//!   or from one address, and the next are refused for a while.
 //!
 //! Sessions and tokens are both 32 random bytes of which only a SHA-256 is
 //! stored ([`secret`]). Neither is signed, so the server holds **no signing
 //! key** — there is no secret for `docs/credentials.md`'s resolver to find, and
 //! nothing to rotate. The price is one indexed lookup per request, which at
-//! this scale is nothing.
+//! this scale is nothing. (The Google OAuth client's secret is Google's, not
+//! ours: it proves the server to Google and signs nothing here.)
 
-pub mod password;
 pub mod secret;
 pub mod sessions;
-pub mod throttle;
 pub mod tokens;
 pub mod users;
 
@@ -45,20 +43,28 @@ pub enum AccountError {
     #[error("there is no account for {0}")]
     NoSuchAccount(String),
 
-    /// A password somebody chose is too short to be worth hashing.
-    #[error("a password must be at least {} characters", password::MIN_LENGTH)]
-    WeakPassword,
+    /// The account with this email is already linked to another Google
+    /// account, so a sign-in with a different one may not take it over.
+    #[error(
+        "the account for {0} belongs to another Google account; \
+         ask the operator to link this one"
+    )]
+    LinkedElsewhere(String),
 
-    /// The current password given to change it was wrong.
-    #[error("the current password is not right")]
-    WrongPassword,
+    /// This Google account is already linked to another scorsese account —
+    /// often one its first sign-in made, under a different email.
+    #[error(
+        "that Google account is already linked to account {0}; \
+         if that account is empty, `user delete` it first"
+    )]
+    SubTaken(i64),
 
     /// A token was asked for without a name to tell it apart by.
     #[error("a token needs a name, so it can be told apart when revoking it")]
     UnnamedToken,
 
-    /// The operating system could not supply randomness, or argon2 failed.
-    #[error("could not hash or generate a secret: {0}")]
+    /// The operating system could not supply randomness.
+    #[error("could not generate a secret: {0}")]
     Crypto(String),
 
     /// The account's rows are gone but its files could not all be removed.
@@ -82,8 +88,8 @@ pub enum AccountError {
 /// `email`, trimmed and lower-cased, if it looks like an address at all.
 ///
 /// Deliberately loose — one `@` with something either side and no spaces.
-/// The operator types these for people they know; a stricter check would
-/// only refuse real addresses.
+/// The operator types these for people they know, and Google has already
+/// verified the rest; a stricter check would only refuse real addresses.
 pub fn normalize_email(email: &str) -> Result<String, AccountError> {
     let email = email.trim().to_lowercase();
     let well_formed = match email.split_once('@') {

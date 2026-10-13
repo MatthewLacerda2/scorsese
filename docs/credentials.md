@@ -47,7 +47,10 @@ window writes there and why the resolver reads both.
 practice from the first place only: its container is told `GEMINI_API_KEY`,
 `ELEVENLABS_API_KEY`, `ANTHROPIC_API_KEY` and `PIXABAY_API_KEY` by `deploy/.env`, through
 `compose.yaml`, and has no settings file. Each is optional there: a missing
-one refuses only what needs it. Those keys are the operator's, spent on users' behalf and paid
+one refuses only what needs it. The Google OAuth client people sign in with
+(`GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET`, `docs/web.md`'s
+*Accounts*) reaches it the same way; it is the server's own login, not a
+provider key, and spends nothing. Those keys are the operator's, spent on users' behalf and paid
 back from their credits — so `budget_cents` below is not what holds a web user
 back; their balance is.
 

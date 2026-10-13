@@ -13,8 +13,8 @@
 //!
 //! A token acts as its user in full; there are no scopes, because there is
 //! nothing yet worth scoping to. It is shown once, when issued, and is
-//! revocable on its own by id, so a leaked one costs one revocation rather
-//! than a password reset.
+//! revocable on its own by id, so a leaked one costs one revocation and
+//! nothing else.
 
 use serde::Serialize;
 use sqlx::postgres::PgPool;

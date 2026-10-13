@@ -227,9 +227,26 @@ pub async fn run(
     };
     let registry = jobs::kinds::registry(&files);
     let assistant = assistant::Assistant::new(config.assistant_turn_cap);
-    let clients = config.clients;
+    match &config.google {
+        Some(google) => eprintln!(
+            "scorsese-server: signing in with Google, back to {}",
+            google.origin
+        ),
+        None => eprintln!(
+            "scorsese-server: sign-in with Google is off; set {}, {} and {} to turn it on",
+            config::GOOGLE_CLIENT_ID,
+            config::GOOGLE_CLIENT_SECRET,
+            config::PUBLIC_ORIGIN
+        ),
+    }
     start(
-        pool, listener, files, registry, assistant, clients, shutdown,
+        pool,
+        listener,
+        files,
+        registry,
+        assistant,
+        config.google,
+        shutdown,
     )
     .await
 }
@@ -247,7 +264,7 @@ pub struct Files {
 }
 
 /// Migrate, then serve on `listener` with users' files in `files`, the
-/// built-in `assistant` and `clients` naming where a request came from, and
+/// built-in `assistant` and `google` signing people in, and
 /// run `registry`'s jobs until `shutdown`.
 ///
 /// The half of [`run`] that is handed its resources rather than making them,
@@ -274,7 +291,7 @@ pub async fn start(
     files: Files,
     registry: jobs::Registry,
     assistant: assistant::Assistant,
-    clients: http::client::Clients,
+    google: Option<http::google::Google>,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> Result<(), ServerError> {
     db::migrate(&pool).await?;
@@ -300,7 +317,7 @@ pub async fn start(
     let pool = db::member_pool(&pool).await.map_err(ServerError::Connect)?;
     let state = AppState::new(pool.clone(), files)
         .with_assistant(assistant)
-        .with_clients(clients);
+        .with_google(google);
     let (stop, stopping) = watch::channel(false);
     let fees = tokio::spawn(credits::fees::run(pool.clone(), stopping.clone()));
     let sweep = tokio::spawn(renders::evict::run(pool.clone(), cache, stopping.clone()));

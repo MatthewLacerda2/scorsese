@@ -167,7 +167,8 @@ provider keys use, and is documented in `.env.example`:
 | `ANTHROPIC_API_KEY` | The key the assistant's Claude models answer with (*Assistant turns*), by the same resolver. Optional: without it a turn on a Claude model is refused with "`ANTHROPIC_API_KEY` is not set", and nothing else changes. |
 | `PIXABAY_API_KEY` | The key `stock_search` and `stock_import` look Pixabay up with, by the same resolver, shared by every user (*Web MCP*). Optional: without it a Pixabay search fails with the variable's name; LottieFiles needs no key. |
 | `SCORSESE_ASSISTANT_TURN_CAP` | The most one assistant turn may cost a user, in dollars: `2.50`. Defaults to `2.00`. |
-| `SCORSESE_TRUST_PROXY` | `true` when the server sits behind the deploy's nginx and believes the client address it sends (*Which address*); `false` or unset otherwise, which is the default. Anything else stops the server from starting. Only for a server whose port nothing but that nginx can reach, which is what `deploy/compose.yaml` sets it for. |
+| `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | The Google OAuth client people sign in with (*Accounts*). Optional, with the next one: without all three, Google sign-in is off, the server says so in its log, and everything else is served. The secret is never printed. |
+| `SCORSESE_PUBLIC_ORIGIN` | Where browsers reach the site, `https://scorseseestudio.com`: what Google sends a sign-in back to, at `/api/auth/google/callback`. `https://` and a host, or `http://localhost` / `http://127.0.0.1`; anything else stops the server from starting. |
 | `SCORSESE_ASSISTANT_MODEL` | **Retired** (#705): the model is each project's choice now. Set to anything, it stops the server from starting, so a setting that no longer means anything cannot pass for one that does. |
 
 **Schema migrations** are embedded in the binary and run at startup, before the
@@ -205,7 +206,7 @@ reads is in the example.
 down the tunnel `cloudflared` holds open from this machine. `cloudflared` sends
 everything to `web` on its port 80; nginx serves the React build and passes
 `/api/` to `server`, unchanged but for naming the client's address
-(*Accounts*, *The login's brake*). Nothing is published to the network: `web`
+(*The login's brake*, which says what is left of that). Nothing is published to the network: `web`
 also answers on `$SCORSESE_WEB_BIND:$SCORSESE_WEB_PORT` — its port 8080 inside,
 a second door so it can tell the two apart — loopback unless `.env` says
 otherwise, for checking the site from this machine and for `tailscale serve`.
@@ -310,13 +311,15 @@ same time:
 
     docker compose logs quick-tunnel | grep -o 'https://[-a-z0-9]*\.trycloudflare\.com'
 
-It is HTTPS, so logging in works as in production. What to know about it:
+It is HTTPS, so a session works as in production. What to know about it:
 
 - **The address changes every time the container starts** — after a power cut,
   after an `up` that recreates it. Read the log again and send the new link.
-- **It is public.** Anyone with the link reaches the landing page, and the
-  accounts are the only gate — there is no sign-up, so that is the operator
-  creating an account per person (*Accounts*).
+- **It is public.** Anyone with the link reaches the landing page and can
+  sign up with Google (*Accounts*), at zero credits. Signing in through it
+  needs its callback added to the OAuth client (*Sign in with Google: the
+  client*), and the address changes on every restart — so for testing the
+  sign-in itself, the tailnet's fixed address is the easier one.
 - **Cloudflare's limits for it**: 200 requests in flight, no uptime guarantee,
   and **no server-sent events**, so `GET /api/events` (live job progress) does
   not stream through it. Uploads are unaffected: they are chunked under the
@@ -341,8 +344,8 @@ The port is never opened to the LAN for any of this.
 
 **Home network, and why plain HTTP from another device cannot log in.** The
 session cookie is `Secure` (*Accounts*), and a browser keeps a `Secure` cookie
-only from `https://` or `localhost`. From `http://192.168.x.x:8088` the login
-answers `200`, the browser drops the cookie, and the next request is logged
+only from `https://` or `localhost`. From `http://192.168.x.x:8088` a sign-in
+sets the cookie, the browser drops it, and the next request is logged
 out. The same goes for `http://100.x.y.z:8088` on the tailnet, encrypted
 underneath or not — the browser sees plain HTTP, which is what `tailscale
 serve` is for. So a device at home logs in through the tailnet or the quick
@@ -354,7 +357,7 @@ built** (#568):
 - Every path planned before a domain already has HTTPS for nothing — the quick
   tunnel and `tailscale serve` — and a phone joins a tailnet in about the time
   it takes to find the machine's LAN address.
-- Over plain HTTP the password and the session cross the network in the clear.
+- Over plain HTTP the session crosses the network in the clear.
   A home Wi-Fi with guests and appliances on it is not a trusted network, and a
   flag named for one gets left on.
 - The server that reads the flag is the one behind the tunnel. Left on in
@@ -450,37 +453,100 @@ then the restore above.
 ## Accounts
 
 Who may use the server, and how each request proves it (#533). The code is
-`crates/server/src/accounts/`, and each module's doc carries its argument; this
-is the whole of it in one place.
+`crates/server/src/accounts/` and `crates/server/src/http/google/`, and each
+module's doc carries its argument; this is the whole of it in one place.
 
-**No public sign-up.** The operator creates accounts, resets passwords and
-deletes accounts from the server's own binary, run where the server runs:
+**Sign in with Google is sign-up and login at once** (#952). There are no
+passwords. "Continue with Google" on `/login` gives a new Google account a
+scorsese account on its first sign-in, **at zero credits**, so nothing paid
+runs until credits are added (*Credits*); a returning one is simply logged in.
+There is no invite mode and no switch.
+
+**An account is a Google identity.** On a first sign-in, an account that
+already exists under Google's **verified** email — made before #952, or by the
+operator's `user create` — is linked: Google's id for the person (`sub`,
+"unique among all Google Accounts and never reused") is stored on it, and from
+then on the `sub` is the identity and the email is never looked at again. So
+somebody who changes their Google address keeps their account, and somebody
+later handed that old address does not get it. An unverified email is
+refused, and so is a sign-in whose email's account is already linked to a
+different Google account. Where the addresses differ, the operator links by
+hand; at this size that is acceptable, so there is no linking UI.
+
+The operator's commands, run where the server runs:
 
 ```text
-docker compose exec server scorsese-server user create ana@example.com
-scorsese-server user reset-password ana@example.com   # also logs out every browser
-scorsese-server user delete ana@example.com --yes     # rows and files, for good
-scorsese-server user list
-scorsese-server user locks                            # who the login is braking
-scorsese-server user unlock ana@example.com           # or an address, as `locks` prints it
+docker compose exec server scorsese-server user create ana@example.com  # linked at their first sign-in
+scorsese-server user list                     # each account and the Google id it signs in as
+scorsese-server user link ana@example.com 110169484474386276334
+scorsese-server user logout ana@example.com   # ends every browser session; tokens stay
+scorsese-server user delete ana@example.com --yes   # rows and files, for good
+scorsese-server user session ana@example.com  # a session cookie, for a stack without Google
 scorsese-server token create ana@example.com "ana's laptop"
 ```
 
-Passwords are **generated and printed once**, never typed on a command line
-(shell history, `ps`); the user changes theirs from the web app
-(`POST /api/me/password`). Stored as **argon2id** PHC strings with the crate's
-OWASP-minimum parameters, which travel inside each hash, so raising them later
-breaks nobody.
+Linking by hand usually follows a first sign-in under another address, which
+made an empty account holding the `sub`: `user link` refuses while another
+account holds it and says so, the operator `user delete`s the empty one, and
+links again. `user session` prints a cookie for a development stack with no
+Google client, and is how the web app's end-to-end flows sign in (`make
+web-e2e`), so no test reaches Google.
+
+**The flow** is OAuth 2.0's authorization code with PKCE, done server-side, as
+OpenID Connect describes it:
+
+1. `GET /api/auth/google?next=/somewhere` mints a `state` and a PKCE
+   verifier, hands them to the browser in a ten-minute cookie
+   (`scorsese_google`, `HttpOnly; Secure; SameSite=Lax; Path=/api/auth/google`),
+   and sends the browser to Google with the state and the verifier's `S256`
+   challenge.
+2. Google sends it back to `GET /api/auth/google/callback` with a code and the
+   state. The state must equal the cookie's — no other site can set a cookie
+   for this origin, which is what stops somebody planting their own sign-in in
+   your browser — and the server trades the code for an ID token
+   back-channel, with the verifier and the client's secret.
+3. The ID token names the Google account, the account is found, linked or
+   made, and the browser gets **the session cookie below** and lands on
+   `next` when that is a path on this site, `/projects` otherwise. Anything
+   that goes wrong lands on `/login?error=…` instead (`cancelled`, `expired`,
+   `unverified`, `linked`, `unconfigured`, `failed`), which the page says in
+   words; the server's log names the cause of a `failed`.
+
+The flow's cookie is **unsigned and not a table**: nothing in it needs to be
+believed (the state is proven by matching, the verifier is Google's to check),
+and a row would need a sweep for every sign-in somebody abandoned. It is `Lax`
+where the session is `Strict` because the callback is a top-level navigation
+from `accounts.google.com`, on which a `Strict` cookie is not sent.
+
+**The ID token's signature is not checked**, deliberately: it arrives in the
+server's own HTTPS call to Google's token endpoint, never from a browser, and
+OpenID Connect Core §3.1.3.7 lets TLS validate the issuer in that case;
+Google's page says the same of its server flow. What is checked is what TLS
+does not say: `iss` is Google, `aud` is this client, `exp` has not passed, and
+`email_verified` is true. `crates/providers/src/sign_in` has the citations.
+The exchange lives in `scorsese-providers` like every other call to a vendor,
+behind a trait, so the tests trade codes with a recorded token.
+
+**Configuration**: `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` and
+`SCORSESE_PUBLIC_ORIGIN`. All three or Google sign-in is off: the server
+still starts and serves everything else, says so in its log, and a sign-in
+lands on `/login?error=unconfigured` — so a development stack without a Google
+client keeps running. The redirect URI is `$SCORSESE_PUBLIC_ORIGIN` plus
+`/api/auth/google/callback`, **configured, never read off a request's
+`Host`**, which is whatever the client typed. *Sign in with Google: the
+client* below has the console steps.
 
 **The browser holds a session cookie**: 32 random bytes, of which Postgres
-keeps only the SHA-256, valid 30 days from login and not extended by use.
+keeps only the SHA-256, valid 30 days from sign-in and not extended by use.
 `HttpOnly; Secure; SameSite=Strict; Path=/api` — the web app and the API share
 one origin, so Strict costs nothing, and with every write taking a JSON body
-it is the CSRF defence. `Secure` means a browser logs in only over `https://`
+it is the CSRF defence. `Secure` means a browser signs in only over `https://`
 or on `localhost`; *Testing before there is a domain* has the HTTPS paths
-there are before a domain, and why plain HTTP is not one of them. Server-side rather than signed, so logout, a reset and
+there are before a domain, and why plain HTTP is not one of them. Server-side rather than signed, so logout, `user logout` and
 a deletion end sessions *now* — and so **there is no signing key**: the server
-has no secret of its own for `docs/credentials.md`'s resolver to find.
+has no secret of its own for `docs/credentials.md`'s resolver to find. (The
+OAuth client's secret is Google's: it proves the server to Google and signs
+nothing here.)
 
 **Anything that is not a browser sends a per-user API token** —
 `Authorization: Bearer scor_…`. That is the answer for web MCP (#539) in v1:
@@ -488,101 +554,57 @@ the MCP spec's remote authorization is OAuth 2.1, but the clients people will
 point at it first accept a static bearer header, and an authorization server
 (client registration, consent, refresh, PKCE) is a large surface for no client
 that needs it yet. When one that *only* speaks OAuth matters — claude.ai's
-custom connectors are the likely one — that is its own issue, and its flow ends
-by issuing these same tokens. Tokens are shown once, hashed like sessions,
+custom connectors are the likely one, #942 — that is its own issue, and its
+flow ends by issuing these same tokens; it may reuse the Google sign-in as its
+login step. Tokens are shown once, hashed like sessions,
 revoked one at a time, and **issued only from a browser session**, so a leaked
 token cannot mint its own replacement.
 
 | route | who | what |
 | --- | --- | --- |
-| `POST /api/login` | anyone | `{email, password}` → the account, and the cookie; `429` when braked |
+| `GET /api/auth/google` | anyone | `?next=` a path; `303` to Google with a flow cookie, or to `/login?error=unconfigured` |
+| `GET /api/auth/google/callback` | anyone | Google's `code` and `state`; `303` to `next` with the session cookie, or to `/login?error=…` |
 | `POST /api/logout` | a member | ends the session |
 | `GET /api/me` | a member | the account |
-| `POST /api/me/password` | a member | `{current, new}`, at least 8 characters |
 | `GET /api/tokens` | a member | their tokens, never the values |
 | `POST /api/tokens` | a member, by session | `{name}` → `{id, token}`, shown once |
 | `DELETE /api/tokens/{id}` | a member | `404` for an id that is not theirs |
 
-An unknown email and a wrong password get the same answer in the same time.
+### Sign in with Google: the client
+
+The OAuth client is the one part Terraform cannot make: Google has no public
+API for the consent screen or a standard *Web application* client (the
+`google_iap_*` resources are IAP-only). The Google Cloud project itself, a
+dedicated `scorsese` one, is Terraform's (#1239). Then, in the console, on
+that project:
+
+1. *Google Auth Platform → Branding*: the app's name (scorsese), a support
+   email, the logo, and the domain `scorseseestudio.com` under authorised
+   domains. *Audience*: **External**, and publish it (in *Testing* only
+   listed test users can sign in). The scopes asked for are `openid` and
+   `email`, which need no verification by Google.
+2. *Clients → Create client*: type **Web application**, name it, and add the
+   authorised redirect URI `https://scorseseestudio.com/api/auth/google/callback`
+   — exactly `$SCORSESE_PUBLIC_ORIGIN` plus `/api/auth/google/callback`. For a
+   tailnet or quick-tunnel test, add that origin's callback too.
+3. Copy the client id and secret into `deploy/.env` as
+   `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET`, set
+   `SCORSESE_PUBLIC_ORIGIN=https://scorseseestudio.com`, and `docker compose
+   up --detach` from `deploy/`. The server's log says `signing in with
+   Google, back to https://scorseseestudio.com`.
+4. Sign in once with the maintainer's own Google account and check `user
+   list`: account 1 now shows a Google id, and no new account was made.
 
 ### The login's brake
 
-The login is public the moment a tunnel is up, and accounts hold paid credits
-and people's files, so guessing is braked (#557). The code is
-`crates/server/src/accounts/throttle/`; this is the whole of it.
-
-**Every attempt is counted twice — against the email it names and against the
-address it came from — and either can refuse it.** The email's counter stops a
-patient attacker spread over many addresses; the address's stops one source
-spraying guesses across many emails, which counting per email never sees. The
-rules are the same for both:
-
-- **Ten attempts in fifteen minutes**, then `429` with `Retry-After` and
-  `{"error": "too many login attempts; try again in 15 minutes"}` — which the
-  sign-in popup shows as it stands, like any refusal. Ten is room for a typo, the
-  old password and the one before it, and for a household behind one address.
-- **The lock-out is fifteen minutes and doubles each time it recurs** — thirty,
-  an hour, two… up to a day. A fixed lock-out only sets a rate, and ten guesses
-  every fifteen minutes is still nearly a thousand a day; doubling holds a
-  patient attacker to about seventy over the first day and a half and ten a day
-  after that — far inside NIST SP 800-63B's hundred. **A quiet day** after the
-  last lock-out ends forgives it, and the counter is forgotten.
-- **Counted before the password is checked**, so a burst of simultaneous
-  guesses is counted as it arrives; a success gives its attempt back. A
-  success **clears the email's counter** — its owner has just proved who they
-  are — but only gives the address its one attempt back, so logging in to an
-  account of one's own between guesses at others' buys nothing.
-- **All or nothing**: an attempt one counter refuses is not counted by the
-  other, so a locked address cannot run up a stranger's email.
-- **It says nothing about who has an account.** A counter is kept for whatever
-  was typed, real account or not, and nothing in the brake looks at `users`;
-  the refusal is word for word the same, and comes before argon2 for every
-  email alike, so the timing rule above holds on both sides of it.
-
-The cost, stated: somebody who knows your email can keep your account locked
-by guessing at it. At friends-and-family scale that is a conversation with the
-operator, who lifts it with `user unlock`; and **`user reset-password` lifts
-the lock on that email itself**, since whoever gets a new password is about to
-type it.
-
-**The counters live in Postgres** (`login_throttle`), not in the server's
-memory as web MCP's per-minute limit does. One process on one machine could
-keep a map — but the operator's `user locks` and `user unlock` run as a second
-process that could neither see nor clear it; every restart, which a crash or a
-deploy is, would forgive every lock-out; and the price is two indexed rows per
-attempt. The table is not per user — an attempt is nobody's until it succeeds —
-so it joins `tests/isolation.rs`'s exemptions, argued there,
-and members may not read it at all.
-
-**Which address.** The server's peer is always nginx, so it cannot use the
-connection's address, and `CF-Connecting-IP` is a header anybody can type. The
-answer is that **nginx has two doors** (`deploy/nginx.conf`):
-
-| door | who comes in by it | the address used |
-| --- | --- | --- |
-| `web:80` | only the tunnel: published to nothing, it is what both `cloudflared`s point at | `CF-Connecting-IP`, which Cloudflare writes itself |
-| `web:8080` | loopback, `tailscale serve`, the LAN: what compose publishes as `$SCORSESE_WEB_PORT` | the connection's own; `CF-Connecting-IP` is ignored |
-
-nginx sends its answer as `X-Scorsese-Client`, overwriting anything a client
-sent by that name, and the server believes that header only because the
-compose file sets **`SCORSESE_TRUST_PROXY=true`** — safe there because the
-server's port is published to nothing. Anywhere else the setting stays unset
-and the server counts the connection's own address. So a friend on the tailnet
-who sends `CF-Connecting-IP: 203.0.113.9` is counted as themselves: they can
-neither dodge their own limit nor aim it at somebody else. The door is a port
-rather than an address range because container addresses are Docker's to
-hand out, and a rule written against them would break silently, in the
-direction of believing a header it should not.
-
-What that means on each path: behind **Cloudflare**, every visitor is their
-own address (an IPv6 one by its `/64`, which is what one subscriber is
-handed). On the **tailnet and loopback**, every request reaches nginx through
-Docker's port forwarding from the same bridge address, so all of them share
-**one** address counter — invitation-only people, and the email counters still
-hold each account. On the **LAN**, each device is its own address.
-
-Not in the brake: CAPTCHAs, alerts by email, and limits on API or MCP calls
-(web MCP has its own, per user).
+**Gone with the passwords** (#952). It braked guessing at a public password
+form (#557), and there is no password form any more: Google brakes its own
+sign-in. The `login_throttle` table, `user locks` and `user unlock` went with
+it. What is left is nginx's two doors (`deploy/nginx.conf`): `web:80`, the
+only one the tunnel points at, and `web:8080`, the one compose publishes,
+with nginx naming the client's address to the server as `X-Scorsese-Client`.
+The server reads that header no more; retiring the doors, and this section,
+is #1245.
 
 ### Per-user isolation: how a new table follows it
 
@@ -599,7 +621,7 @@ table (projects, library, jobs, credits…) is:
    owner filter: the policy is the filter. Inserts write `member_id()` as the
    owner, so a user id never travels through query text.
 3. **`db::privileged` is only for what is cross-user by nature** — finding
-   whose a cookie or token is, logging in, operator commands. Keep that list
+   whose a cookie or token is, signing in, operator commands. Keep that list
    short; every call is a place review reads twice.
 
 What makes forgetting loud: the server's connections sit in
@@ -620,7 +642,8 @@ listing. Deletion removes the rows first, then the directory; if the files
 cannot all be removed, the command names the directory for the operator to
 finish by hand.
 
-Not in v1: password-reset email, OAuth, public sign-up.
+Not in v1: other identity providers (Apple, GitHub) — one is enough to have
+no passwords (#952).
 
 ## Jobs
 
@@ -1805,7 +1828,7 @@ laid out.
 | URL | what |
 | --- | --- |
 | `/` | the landing page for a visitor without a session (#904): the film scorsese made of itself (`web/landing/`, `make landing-hero`), what it makes and what it costs, moved by the motion kit as it scrolls; with a session, the projects list |
-| `/login` | the landing page with the sign-in popup open: email and password; there is no sign-up, so it says accounts are by invitation |
+| `/login` | the landing page with the sign-in popup open: one "Continue with Google" button, which is sign-up too, and what went wrong when a sign-in came back with `?error=` |
 | `/projects` | create, open, rename, delete |
 | `/projects/{id}` | the library files that project uses (`GET /api/library?project=`) |
 | `/library` | every file: filter by kind, search by name, sort; upload by button or by dropping files |

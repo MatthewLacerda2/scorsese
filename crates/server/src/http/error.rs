@@ -106,8 +106,8 @@ impl From<AccountError> for ApiError {
             AccountError::InvalidEmail(_)
             | AccountError::Taken(_)
             | AccountError::NoSuchAccount(_)
-            | AccountError::WeakPassword
-            | AccountError::WrongPassword
+            | AccountError::LinkedElsewhere(_)
+            | AccountError::SubTaken(_)
             | AccountError::UnnamedToken => Self::BadRequest(error.to_string()),
             AccountError::Crypto(_) | AccountError::Files { .. } | AccountError::Database(_) => {
                 eprintln!("scorsese-server: {error}");

@@ -1,7 +1,7 @@
 //! Browser sessions: a random cookie, looked up on every request.
 //!
 //! **Server-side and opaque**, rather than a signed cookie carrying the user:
-//! logging out, an operator's password reset and deleting an account each end
+//! logging out, the operator's `user logout` and deleting an account each end
 //! a session *now*, by deleting its row, where a signed cookie stays valid
 //! until it expires. It also means there is no signing key to keep secret.
 //!
@@ -69,4 +69,19 @@ pub async fn close(pool: &PgPool, user: UserId, cookie: &str) -> Result<(), Acco
         .await?;
     tx.commit().await?;
     Ok(())
+}
+
+/// End every session `user` has: the operator's `user logout`, for an account
+/// somebody else may be signed in to. Answers how many there were.
+///
+/// API tokens are left alone, as logging out leaves them: each is revoked on
+/// its own, by name.
+pub async fn close_all(pool: &PgPool, user: UserId) -> Result<u64, AccountError> {
+    let mut tx = db::scoped(pool, user).await?;
+    // No WHERE: the scope shows only this user's sessions.
+    let ended = sqlx::query("DELETE FROM sessions")
+        .execute(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    Ok(ended.rows_affected())
 }

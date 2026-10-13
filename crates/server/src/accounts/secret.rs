@@ -1,8 +1,9 @@
 //! Session cookies and API tokens: random values of which only a digest is
 //! kept.
 //!
-//! **SHA-256, not argon2.** A password is slow-hashed because people choose
-//! guessable ones; these are 256 random bits, which no amount of hashing
+//! **SHA-256, not a slow hash.** A password is slow-hashed because people
+//! choose guessable ones (and scorsese has none since #952); these are 256
+//! random bits, which no amount of hashing
 //! speed makes guessable, and they are looked up on every request — a slow
 //! hash there would be a denial of service against ourselves. The digest is
 //! still worth storing instead of the value: a backup of the database, or a
