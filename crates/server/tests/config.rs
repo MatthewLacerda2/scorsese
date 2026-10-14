@@ -109,10 +109,10 @@ fn the_render_quota_reads_decimal_units_and_has_a_default() {
 }
 
 #[test]
-fn an_assistant_turn_is_capped_at_two_dollars_unless_told_otherwise() {
+fn an_assistant_turn_is_capped_at_three_fifty_unless_told_otherwise() {
     use scorsese_server::config::{ASSISTANT_TURN_CAP, RETIRED_MODEL};
     let config = with(&[]).unwrap();
-    assert_eq!(config.assistant_turn_cap, 2_000_000);
+    assert_eq!(config.assistant_turn_cap, 3_500_000);
     for (written, micros) in [
         ("5", 5_000_000),
         ("$0.25", 250_000),

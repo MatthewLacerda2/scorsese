@@ -9,7 +9,7 @@ use sqlx::postgres::PgPool;
 
 use super::{Script, answers, calls, common, exchange, member, project, scripted};
 
-/// Twenty sketched stills: $1.32 drawn now, with the markup.
+/// Twenty sketched stills: $2.16 drawn now, at 1.8 times their cost.
 fn stills() -> Value {
     let assets: Vec<Value> = (0..20)
         .map(|n| {
@@ -63,8 +63,8 @@ async fn tally(pool: &PgPool) -> (i64, i64, i64) {
 async fn the_box_offers_the_batch_and_its_yes_orders_it(pool: PgPool) {
     let (address, who, detail) = quoted(&pool).await;
     let quote = &detail["turn"]["quote"];
-    assert_eq!(quote["micros"], 1_320_000, "{quote}");
-    assert_eq!(quote["batch_micros"], 660_000, "{quote}");
+    assert_eq!(quote["micros"], 2_160_000, "{quote}");
+    assert_eq!(quote["batch_micros"], 1_080_000, "{quote}");
     assert!(!quote.to_string().contains("quote-"), "no token: {quote}");
 
     let answered = answer(

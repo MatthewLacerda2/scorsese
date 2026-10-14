@@ -26,7 +26,7 @@ use serde_json::{Value, json};
 use super::{Caller, database, quotes};
 use crate::credits::designs::Design;
 use crate::credits::generations::{Request, start};
-use crate::credits::{CreditError, dollars, from_cents, ledger, price};
+use crate::credits::{CreditError, Product, dollars, from_cents, ledger, price};
 use crate::db;
 use crate::designs::DesignPayload;
 use crate::jobs::{kinds, store as jobs};
@@ -166,14 +166,14 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
     let pool = &caller.toolbox.pool;
     let mut tx = db::scoped(pool, caller.user).await.map_err(database)?;
     let Some(token) = token else {
-        let issued = quotes::issue(&mut tx, &quote, now, caller.call)
+        let issued = quotes::issue(&mut tx, &quote, charged, now, caller.call)
             .await
             .map_err(database)?;
         let balance = ledger::balance(&mut tx).await.map_err(database)?;
         tx.commit().await.map_err(database)?;
         return Ok(format!(
-            "design: {}\nAbout {} at ElevenLabs' published rate — {} from your credits with \
-             scorsese's 10%. Our arithmetic, never a bill.\nYour balance is {}. Nothing has \
+            "design: {}\nAbout {} at ElevenLabs' published rate — {} from your credits. Our \
+             arithmetic, never a bill.\nYour balance is {}. Nothing has \
              been sent. To design, call voice_design again with confirm: \"{}\" — once whoever \
              is paying has agreed to {}. Good once, for fifteen minutes.",
             estimate.says(),
@@ -269,7 +269,7 @@ async fn project(caller: &Caller<'_>, arguments: &Value) -> Result<Option<i64>, 
 
 /// What `cents` of provider cost takes from a balance, in micro-dollars.
 fn credits(cents: u64) -> i64 {
-    price(from_cents(cents))
+    price(Product::VoiceDesign, from_cents(cents))
 }
 
 /// A string argument, blank counting as absent.

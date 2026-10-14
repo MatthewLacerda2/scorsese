@@ -21,11 +21,13 @@ use scorsese_providers::quote::{self, Issued, Quote, Quotes, Refused, Spend};
 
 use crate::db::Tx;
 
-/// Issue a token for `quote` at `now`, kept in `tx`'s user's table and
-/// naming the tool call `call` that asked for it.
+/// Issue a token for `quote` at `now`, kept in `tx`'s user's table with
+/// `micros`, what it takes from the balance, and naming the tool call `call`
+/// that asked for it.
 pub(super) async fn issue(
     tx: &mut Tx,
     quote: &Quote,
+    micros: i64,
     now: i64,
     call: i64,
 ) -> Result<Issued, sqlx::Error> {
@@ -36,14 +38,15 @@ pub(super) async fn issue(
         .execute(&mut **tx)
         .await?;
     sqlx::query(
-        "INSERT INTO quotes (token, user_id, spend, digest, cents, issued_at, expires_at,
-                             tool_call_id)
-         VALUES ($1, member_id(), $2, $3, $4, $5, $6, $7)",
+        "INSERT INTO quotes (token, user_id, spend, digest, cents, micros, issued_at,
+                             expires_at, tool_call_id)
+         VALUES ($1, member_id(), $2, $3, $4, $5, $6, $7, $8)",
     )
     .bind(&issued.token)
     .bind(issued.spend.as_str())
     .bind(&issued.digest)
     .bind(i64::try_from(issued.cents).unwrap_or(i64::MAX))
+    .bind(micros)
     .bind(issued.issued_at)
     .bind(issued.expires_at)
     .bind(call)
@@ -58,14 +61,14 @@ pub(super) async fn issue(
 pub struct Pending {
     /// The token a confirming call hands back.
     pub token: String,
-    /// The providers' price it was quoted at, in US cents, before the markup.
-    pub cents: u64,
+    /// What it takes from the balance, in micro-dollars.
+    pub micros: i64,
     /// When it expires.
     pub expires_at: i64,
-    /// What the half-price batch offered beside it costs, in US cents
+    /// What the half-price batch offered beside it takes, in micro-dollars
     /// (#947) — `None` when the call offered none. Its token is
     /// `Toolbox::batch_offer`'s to find, at the yes.
-    pub batch_cents: Option<u64>,
+    pub batch_micros: Option<i64>,
 }
 
 /// The quote tool call `call` issued, if it issued one still unspent.
@@ -75,20 +78,19 @@ pub struct Pending {
 /// the other is not; a call that quoted a batch itself issued only that.
 pub(super) async fn issued_by(tx: &mut Tx, call: i64) -> Result<Option<Pending>, sqlx::Error> {
     let rows: Vec<(String, String, i64, i64)> = sqlx::query_as(
-        "SELECT token, spend, cents, expires_at FROM quotes WHERE tool_call_id = $1
+        "SELECT token, spend, micros, expires_at FROM quotes WHERE tool_call_id = $1
          ORDER BY spend = $2, token",
     )
     .bind(call)
     .bind(Spend::Batch.as_str())
     .fetch_all(&mut **tx)
     .await?;
-    let cents = |cents: i64| u64::try_from(cents).unwrap_or_default();
     let mut rows = rows.into_iter();
-    Ok(rows.next().map(|(token, _, quoted, expires_at)| Pending {
+    Ok(rows.next().map(|(token, _, micros, expires_at)| Pending {
         token,
-        cents: cents(quoted),
+        micros,
         expires_at,
-        batch_cents: rows.next().map(|(_, _, offered, _)| cents(offered)),
+        batch_micros: rows.next().map(|(_, _, offered, _)| offered),
     }))
 }
 

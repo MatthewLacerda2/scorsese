@@ -13,7 +13,6 @@ use scorsese_providers::chat::{Call, Part, ResultPart};
 use super::described;
 use super::store::QuoteView;
 use super::store::turns::hold_quote;
-use crate::credits::{from_cents, price};
 use crate::db::{self, UserId};
 use crate::events::Event;
 use crate::http::AppState;
@@ -128,10 +127,10 @@ async fn held(
         tool: call.name.clone(),
         items,
         lines: rest,
-        micros: price(from_cents(pending.cents)),
+        micros: pending.micros,
         expires_at: pending.expires_at,
         batched: call.input.get("batch").and_then(serde_json::Value::as_bool) == Some(true),
-        batch_micros: pending.batch_cents.map(|cents| price(from_cents(cents))),
+        batch_micros: pending.batch_micros,
     };
     if let Err(error) = hold_quote(&state.pool, user, turn, &pending.token, &quote).await {
         eprintln!("scorsese-server: assistant: holding a quote: {error}");

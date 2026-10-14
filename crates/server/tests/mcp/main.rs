@@ -16,6 +16,7 @@ mod narrating;
 mod offering;
 mod pages;
 mod paying;
+mod pricing;
 mod recipes;
 mod settling;
 mod shooting;

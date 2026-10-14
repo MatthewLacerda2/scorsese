@@ -34,7 +34,7 @@ async fn a_dollar_of_stills_is_offered_as_a_batch_with_its_own_token(pool: PgPoo
     let (quote, refused) = call(address, &who, "generate", json!({ "project": id })).await;
     assert!(!refused, "{quote}");
     assert!(
-        quote.contains("Stills: $1.32 now, or $0.66 in a half-price batch"),
+        quote.contains("Stills: $2.16 now, or $1.08 in a half-price batch"),
         "{quote}"
     );
     assert_eq!(quote.matches("confirm: \"").count(), 1, "one token said");

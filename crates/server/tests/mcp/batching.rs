@@ -77,8 +77,8 @@ async fn a_batched_still_is_ordered_once_and_lands_at_half_price(pool: PgPool) {
     assert_eq!((state_of.as_str(), micros), ("generated", 30_000));
     assert_eq!(
         balance(&pool, ana).await,
-        10_000_000 - 33_000,
-        "half, with 10%"
+        10_000_000 - 54_000,
+        "half, times 1.8"
     );
 
     let (again, _) = call(address, &who, "generate", json!({ "project": id })).await;

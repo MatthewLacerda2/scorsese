@@ -28,7 +28,7 @@ pub(crate) const USAGE: Usage = Usage {
 pub(crate) const THOUGHT: &str = "Weighing the cut privately.";
 
 /// What one scripted call is charged, in micro-dollars.
-pub(crate) const CHARGED: i64 = 15_400;
+pub(crate) const CHARGED: i64 = 25_200;
 
 /// Replies to give, in order, and the requests received.
 pub(crate) struct Script {

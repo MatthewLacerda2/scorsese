@@ -113,7 +113,7 @@ pub struct Kept {
     pub seed: Option<i64>,
     /// The design it came out of.
     pub design: i64,
-    /// What that design was estimated to cost, before the markup.
+    /// What that design was estimated to cost, before the multiplier.
     pub estimated_cost_micros: i64,
 }
 

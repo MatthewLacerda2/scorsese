@@ -22,7 +22,7 @@ async fn a_filter_narrows_the_rows_and_totals_what_it_matched(pool: PgPool) {
     )
     .await;
     assert_eq!(project.matched, 3);
-    assert_eq!(project.total_micros, -2 * SHOT_PRICE - 22_000);
+    assert_eq!(project.total_micros, -2 * SHOT_PRICE - 36_000);
 
     let shots = read(
         &pool,

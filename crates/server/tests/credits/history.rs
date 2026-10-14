@@ -44,7 +44,7 @@ pub(crate) async fn a_month_of_work(pool: &PgPool, user: UserId) {
     };
     ledger::charge_assistant(&mut tx, &call)
         .await
-        .expect("the test setup holds"); // 20 000 µ$ + 10%
+        .expect("the test setup holds"); // 20 000 µ$ × 1.8
     tx.commit().await.expect("the test setup holds");
 }
 
@@ -78,14 +78,14 @@ async fn every_thing_is_one_row_with_the_balance_after_it(pool: PgPool) {
     assert_eq!(
         rows,
         [
-            ("assistant", "charged", -22_000, after_pending - 22_000),
+            ("assistant", "charged", -36_000, after_pending - 36_000),
             ("veo_shot", "pending", -SHOT_PRICE, after_pending),
             ("veo_shot", "free", 0, after_shot),
             ("veo_shot", "charged", -SHOT_PRICE, after_shot),
             ("top_up", "credited", 10_000_000, 10_000_000),
         ]
     );
-    assert_eq!(seen.balance_micros, after_pending - 22_000);
+    assert_eq!(seen.balance_micros, after_pending - 36_000);
     assert_eq!(seen.matched, 5);
     assert_eq!(seen.total_micros, seen.balance_micros);
     assert_eq!(seen.rows[2].detail["prompt"], "a lighthouse at dusk");

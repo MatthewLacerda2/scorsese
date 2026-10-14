@@ -85,8 +85,8 @@
 //!
 //! Every call to the model is charged from the tokens its reply reports —
 //! input, output, cache writes, cache reads, each at the model's own rate for
-//! it, so a cache hit is cheaper for the user too — at cost plus 10%, against
-//! the turn
+//! it, so a cache hit is cheaper for the user too — at cost × 1.8
+//! (`credits::Product::Assistant`), against the turn
 //! (`credits::ledger::charge_assistant`). Not reserved for: the cost exists
 //! only once counted. So a turn is **refused up front at a balance of zero or
 //! less**, and stops between calls once the balance runs out or the turn has
@@ -152,8 +152,14 @@ pub use store::{
 };
 pub use store::{conversation, detail, recover};
 
-/// What a turn is not allowed to cost by default, in micro-dollars: $2.
-pub const DEFAULT_TURN_CAP_MICROS: i64 = 2_000_000;
+/// What a turn is not allowed to cost by default, in micro-dollars: $3.50.
+///
+/// What a user is charged, so it moved with the multipliers (#1247): six
+/// turns on the hosted server (2026-10-13) averaged $0.74 (Gemini 3.8 Flash)
+/// to $1.02 (Sonnet 5.5) of cost, $1.33 to $1.84 at ×1.8 — an average Sonnet
+/// turn 16 cents under the old $2.00. $3.50 lets a turn spend about what
+/// $2.00 did at ×1.1, $1.94 of cost against $1.82.
+pub const DEFAULT_TURN_CAP_MICROS: i64 = 3_500_000;
 
 /// The effort a message is answered at when it names none; the module doc
 /// argues it.

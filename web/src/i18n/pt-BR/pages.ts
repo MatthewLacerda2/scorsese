@@ -47,7 +47,6 @@ export const pages: Messages["pages"] = {
       voice_design: "Criação de voz",
       assistant: "Assistente",
       top_up: "Recarga",
-      monthly_fee: "Mensalidade",
       refund: "Reembolso",
     },
     status: {
