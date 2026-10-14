@@ -6,7 +6,7 @@
 
 export const landing = {
   meta: {
-    title: "scorsese — send your files, describe the video, it gets made",
+    title: "Scorsese - video editor",
     description:
       "Promos, ads and event videos for your business, made from your files and a description. No editor to hire, no software to learn.",
   },

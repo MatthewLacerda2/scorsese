@@ -2,7 +2,7 @@ import type { Messages } from "@/i18n/catalogue";
 
 export const landing: Messages["landing"] = {
   meta: {
-    title: "scorsese — mande seus arquivos, descreva o vídeo, ele fica pronto",
+    title: "Scorsese - editor de vídeo",
     description:
       "Vídeos promocionais, anúncios e vídeos de eventos para o seu negócio, feitos a partir dos seus arquivos e de uma descrição. Sem contratar editor, sem aprender programa.",
   },
