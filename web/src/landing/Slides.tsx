@@ -5,6 +5,11 @@
 // crossfade, `useSettle` glides it to an end, slowly enough to be watched,
 // rather than leaving two slides half drawn.
 //
+// The slides are laid out against the window's *largest* height (`100lvh`),
+// never `innerHeight`: on a phone the address bar slides away and back as the
+// page scrolls, changing `innerHeight` mid-gesture, and laying out again then
+// moved every slide under the visitor's finger.
+//
 // The first slide plays its own entrance on the clock (`Hero`); every later
 // one is drawn by its crossfade's clock. A visitor who asked for less motion
 // gets the sections one under the other, as plain scrolling.
@@ -102,6 +107,7 @@ export function Slides({ children }: { children: ReactNode }) {
   const items = Children.toArray(children);
   const slides = useRef<(HTMLDivElement | null)[]>([]);
   const track = useRef<HTMLDivElement>(null);
+  const tall = useRef<HTMLDivElement>(null);
   const plan = useRef<Plan>(layout([], 0));
   const still = prefersStill();
 
@@ -126,7 +132,7 @@ export function Slides({ children }: { children: ReactNode }) {
     if (still) return;
     const measure = () => {
       const heights = slides.current.map((slide) => slide?.offsetHeight ?? 0);
-      plan.current = layout(heights, innerHeight);
+      plan.current = layout(heights, tall.current?.offsetHeight || innerHeight);
       if (track.current) track.current.style.height = `${plan.current.total}px`;
       frame();
     };
@@ -170,6 +176,7 @@ export function Slides({ children }: { children: ReactNode }) {
         ))}
       </div>
       <div ref={track} aria-hidden />
+      <div ref={tall} className="landing-tall" aria-hidden />
     </div>
   );
 }

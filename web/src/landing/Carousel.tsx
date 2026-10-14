@@ -20,9 +20,9 @@ import trm from "@/landing/media/showcase/trm.mp4";
 import { prefersStill } from "@/landing/motion";
 
 const CLIPS = [
-  { film: trm, still: trmStill },
-  { film: summit, still: summitStill },
   { film: hivemind, still: hivemindStill },
+  { film: summit, still: summitStill },
+  { film: trm, still: trmStill },
   { film: cyberpunk, still: cyberpunkStill },
 ];
 const COPIES = 3;

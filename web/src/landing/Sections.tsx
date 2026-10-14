@@ -48,12 +48,12 @@ function Feature(props: {
   const Icon = props.icon;
   return (
     <div className="card p-6 sm:p-8" data-rise={at(props.index)}>
-      <div className="flex items-center justify-between">
-        <Icon className="gold size-7" strokeWidth={1.5} />
-        {props.step && <span className="mono dim text-sm">{props.step}</span>}
+      <div className="flex items-center gap-3">
+        <Icon className="gold size-7 shrink-0" strokeWidth={1.5} />
+        <h3 className="display text-2xl leading-tight font-medium">{props.title}</h3>
+        {props.step && <span className="mono dim ml-auto text-sm">{props.step}</span>}
       </div>
-      <h3 className="display mt-6 text-2xl font-medium">{props.title}</h3>
-      <p className="dim mt-3 leading-relaxed">{props.body}</p>
+      <p className="dim mt-4 leading-relaxed">{props.body}</p>
     </div>
   );
 }
