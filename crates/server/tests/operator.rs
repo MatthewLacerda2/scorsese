@@ -46,7 +46,7 @@ async fn an_account_is_created_linked_listed_and_given_a_session(pool: PgPool) {
     };
     run(link(" 1101 ")).await.unwrap();
     let listed = run(UserCommand::List).await.unwrap();
-    assert!(listed.ends_with("\tana@example.com\t1101"), "{listed}");
+    assert!(listed.ends_with("\tana@example.com\t-\t1101"), "{listed}");
 
     let session = run(UserCommand::Session { email: email() }).await.unwrap();
     let cookie = after(&session, "scorsese_session=");

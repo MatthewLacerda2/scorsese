@@ -25,8 +25,9 @@ async fn the_name_google_gives_is_kept_and_follows_every_sign_in(pool: PgPool) {
     let made = users::create(&pool, "bia@example.com").await.unwrap();
     let name = || async { users::get(&pool, made).await.unwrap().name };
     assert_eq!(name().await, None, "no name before the first sign-in");
-    let linked = users::sign_in(&pool, &named("3303", "bia@example.com", "Bia"));
-    assert_eq!(linked.await.unwrap(), SignedIn::Linked(made));
+    let bia = named("3303", "bia@example.com", "Bia");
+    let linked = users::sign_in(&pool, &bia).await.unwrap();
+    assert_eq!(linked, SignedIn::Linked(made));
     assert_eq!(name().await.as_deref(), Some("Bia"));
     let renamed = named("3303", "bia@example.com", "Beatriz Lima");
     users::sign_in(&pool, &renamed).await.unwrap();
@@ -37,8 +38,8 @@ async fn the_name_google_gives_is_kept_and_follows_every_sign_in(pool: PgPool) {
         .unwrap();
     assert_eq!(name().await.as_deref(), Some("Beatriz Lima"));
 
-    let created = users::sign_in(&pool, &named("4404", "caio@example.com", "Caio"));
-    let SignedIn::Created(caio) = created.await.unwrap() else {
+    let caio = named("4404", "caio@example.com", "Caio");
+    let SignedIn::Created(caio) = users::sign_in(&pool, &caio).await.unwrap() else {
         panic!("a new account")
     };
     let account = users::get(&pool, caio).await.unwrap();
