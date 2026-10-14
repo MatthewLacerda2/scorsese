@@ -76,9 +76,13 @@ const fn usd(dollars: u64, millionths: u64) -> u64 {
 /// Every model the assistant offers, at the standard tier (not batch, not
 /// fast, not priority), global routing.
 ///
-/// - **Claude Opus 5.5**: cache reads are 0.05× input on this model, not the
-///   usual 0.1× (checked 2026-10-03 against Anthropic's prompt-caching page).
-/// - **Claude Sonnet 5.5**: the usual multipliers — 1.25×, 2× and **0.1×**.
+/// - **Cache reads are 0.05× input on both**, not the usual 0.1×: $0.20 on
+///   Opus 5.5 and **$0.10** on Sonnet 5.5. Anthropic's pricing page, read
+///   2026-10-14: *"On Claude Opus 5.5 and Claude Sonnet 5.5, a cache hit costs
+///   5% of the standard input price ($0.20 USD per million tokens on Claude
+///   Opus 5.5, $0.10 USD on Claude Sonnet 5.5)"*. Until that day Sonnet's row
+///   said $0.20, the usual 0.1×, and charged its cache reads double.
+/// - Writes are the usual 1.25× (five minutes) and 2× (one hour).
 pub const RATES: &[Row] = &[
     Row {
         model: Model::ClaudeOpus55,
@@ -89,7 +93,7 @@ pub const RATES: &[Row] = &[
             cache_write_5m: usd(5, 0),
             cache_write_1h: usd(8, 0),
             cache_read: usd(0, 200_000),
-            checked: Checked::on(2026, 10, 3),
+            checked: Checked::on(2026, 10, 14),
         },
     },
     Row {
@@ -100,8 +104,8 @@ pub const RATES: &[Row] = &[
             output: usd(10, 0),
             cache_write_5m: usd(2, 500_000),
             cache_write_1h: usd(4, 0),
-            cache_read: usd(0, 200_000),
-            checked: Checked::on(2026, 10, 3),
+            cache_read: usd(0, 100_000),
+            checked: Checked::on(2026, 10, 14),
         },
     },
 ];
