@@ -20,7 +20,7 @@ import { prefersStill, useEntrance, useOnScroll } from "@/landing/motion";
 export function Header({ onSignIn }: { onSignIn: () => void }) {
   const t = useT();
   return (
-    <header className="dark relative z-10 mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-5 sm:px-6">
+    <header className="dark fixed inset-x-0 top-0 z-20 mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-5 sm:px-6">
       <a href="/" className="flex items-center gap-3">
         <img src="/icon.png" alt="" width={36} height={36} className="size-9 rounded-lg" />
         <span className="display text-2xl font-semibold">scorsese</span>

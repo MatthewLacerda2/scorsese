@@ -1,27 +1,22 @@
 // The landing page moves with the motion kit, and its clock is the scroll
-// (#904). A section's time is how far it has come into view, in screens: 0 as
-// its top edge reaches the bottom of the window, 1 once it has risen a whole
-// window. The kit's helpers are pure functions of the time they are handed,
-// which is what lets the scroll stand in for a clip's clock: any scroll
-// position is a frame of its own, and scrolling back plays it backwards.
+// (#904). A slide's time is how far it has faded in (`slideLayout.ts`): 0 as it
+// starts to appear, 1 once it is whole. The kit's helpers are pure functions
+// of the time they are handed, which is what lets the scroll stand in for a
+// clip's clock: any scroll position is a frame of its own, and scrolling back
+// plays it backwards.
 //
 // What moves is marked in the markup, never wired element by element:
 // `data-rise="0.1"` rises in at that time, `data-count="16"` counts up to its
 // figure from `data-at`. A visitor who asked for less motion is handed the end
 // of every timeline at once, so the page is all there and nothing moves.
 
-import { type RefObject, useCallback, useEffect } from "react";
+import { type RefObject, useEffect } from "react";
 import { kit } from "@/landing/kit";
 
 /** How long one entrance takes, in screens of scroll or in seconds. */
 export interface Pace {
   length: number;
   distance: number;
-}
-
-/** A section's time: how far its top edge has risen into a window `viewport` high. */
-export function viewTime(top: number, viewport: number): number {
-  return viewport > 0 ? (viewport - top) / viewport : 0;
 }
 
 /** Whether the visitor asked their system for less motion. */
@@ -68,48 +63,6 @@ export function useOnScroll(frame: () => void) {
       removeEventListener("resize", schedule);
     };
   }, [frame]);
-}
-
-/** What share of the window a section fades over, entering and leaving. */
-export const FADE_EDGE = 0.35;
-
-/**
- * How opaque a section is while it crosses a window `viewport` high: it fades
- * in as its top rises through the window's bottom `edge`, and out as its
- * bottom leaves through the top one, so one section hands over to the next
- * rather than scrolling past it. A section taller than the window stays whole
- * in between.
- */
-export function fadeAt(top: number, bottom: number, viewport: number, edge = FADE_EDGE): number {
-  if (viewport <= 0) return 1;
-  const span = viewport * edge;
-  return Math.max(0, Math.min(1, (viewport - top) / span, bottom / span));
-}
-
-/** Fades each `<section>` directly under `ref` in and out as it crosses the window. */
-export function useSectionFades(ref: RefObject<HTMLElement | null>) {
-  const frame = useCallback(() => {
-    const root = ref.current;
-    if (!root) return;
-    const still = prefersStill();
-    for (const section of root.querySelectorAll<HTMLElement>(":scope > section")) {
-      const box = section.getBoundingClientRect();
-      section.style.opacity = still ? "" : String(fadeAt(box.top, box.bottom, innerHeight));
-    }
-  }, [ref]);
-  useOnScroll(frame);
-}
-
-/** Moves the marked elements in `ref` by how far it has scrolled into view. */
-export function useScrollMotion(ref: RefObject<HTMLElement | null>, locale: string) {
-  const frame = useCallback(() => {
-    const root = ref.current;
-    if (!root) return;
-    const top = root.getBoundingClientRect().top;
-    const t = prefersStill() ? Number.POSITIVE_INFINITY : viewTime(top, innerHeight);
-    draw(root, t, SCROLLED, locale);
-  }, [ref, locale]);
-  useOnScroll(frame);
 }
 
 /** Plays the marked elements in `ref` on the clock, from the moment it mounts. */

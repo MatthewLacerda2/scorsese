@@ -9,13 +9,13 @@
 // and the type is the shipped faces (landing.css).
 
 import "@/landing/landing.css";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router";
 import { useT } from "@/i18n/I18nProvider";
 import { Header, Hero } from "@/landing/Hero";
-import { useSectionFades } from "@/landing/motion";
 import { Closing, HowItWorks, WhatItHandles, WhatYouCanMake } from "@/landing/Sections";
 import { SignInDialog } from "@/landing/SignInDialog";
+import { Slides } from "@/landing/Slides";
 import { safeNext, useAccount } from "@/session/session";
 
 /** The page's title and description, in the visitor's language, for as long as it is shown. */
@@ -39,8 +39,6 @@ export function LandingPage({ signIn = false }: { signIn?: boolean }) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [open, setOpen] = useState(signIn);
-  const main = useRef<HTMLElement>(null);
-  useSectionFades(main);
   useMeta(t.landing.meta.title, t.landing.meta.description);
 
   if (account.data) return <Navigate to={safeNext(params.get("next"))} replace />;
@@ -56,16 +54,21 @@ export function LandingPage({ signIn = false }: { signIn?: boolean }) {
     <div className="landing">
       <div className="grain" aria-hidden />
       <Header onSignIn={openSignIn} />
-      <main ref={main}>
-        <Hero onSignIn={openSignIn} />
-        <HowItWorks />
-        <WhatYouCanMake />
-        <WhatItHandles />
-        <Closing onSignIn={openSignIn} />
+      <main>
+        <Slides>
+          <Hero onSignIn={openSignIn} />
+          <HowItWorks />
+          <WhatYouCanMake />
+          <WhatItHandles />
+          <div>
+            <Closing onSignIn={openSignIn} />
+            <footer className="dim mx-auto max-w-6xl border-t border-[#f4efe6]/10 px-4 py-10 text-sm sm:px-6">
+              <span className="display text-base text-[#f4efe6]">scorsese</span> ·{" "}
+              {t.landing.footer}
+            </footer>
+          </div>
+        </Slides>
       </main>
-      <footer className="dim mx-auto max-w-6xl border-t border-[#f4efe6]/10 px-4 py-10 text-sm sm:px-6">
-        <span className="display text-base text-[#f4efe6]">scorsese</span> · {t.landing.footer}
-      </footer>
       <SignInDialog open={open} onOpenChange={onOpenChange} />
     </div>
   );

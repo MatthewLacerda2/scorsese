@@ -1,7 +1,6 @@
 // The landing page below the film: how it works, what it makes, what it
-// handles, and a last way in. Each section is moved by the
-// scroll through the motion kit (`motion.ts`): what carries `data-rise` rises
-// in as the section comes into view, staggered by `kit.stagger`.
+// handles, and a last way in. Each is a slide (`Slides.tsx`): what carries
+// `data-rise` rises in as the slide fades in, staggered by `kit.stagger`.
 
 import {
   Clapperboard,
@@ -14,25 +13,17 @@ import {
   Scissors,
   Type,
 } from "lucide-react";
-import { type ReactNode, useRef } from "react";
-import { useLanguage, useT } from "@/i18n/I18nProvider";
+import type { ReactNode } from "react";
+import { useT } from "@/i18n/I18nProvider";
 import { kit } from "@/landing/kit";
 import adStill from "@/landing/media/ad.png";
 import eventStill from "@/landing/media/event.png";
 import promoStill from "@/landing/media/promo.png";
-import { useScrollMotion } from "@/landing/motion";
 
 /** A section that moves with the scroll, under an eyebrow and a title. */
 function Section(props: { id?: string; eyebrow: string; title: string; children: ReactNode }) {
-  const { language } = useLanguage();
-  const root = useRef<HTMLElement>(null);
-  useScrollMotion(root, language);
   return (
-    <section
-      ref={root}
-      id={props.id}
-      className="mx-auto max-w-6xl scroll-mt-8 px-4 py-20 sm:px-6 sm:py-28"
-    >
+    <section id={props.id} className="mx-auto max-w-6xl scroll-mt-8 px-4 py-20 sm:px-6 sm:py-28">
       <p className="eyebrow" data-rise="0.05">
         {props.eyebrow}
       </p>
@@ -156,11 +147,8 @@ export function WhatItHandles() {
 
 export function Closing({ onSignIn }: { onSignIn: () => void }) {
   const t = useT().landing;
-  const { language } = useLanguage();
-  const root = useRef<HTMLElement>(null);
-  useScrollMotion(root, language);
   return (
-    <section ref={root} className="mx-auto max-w-6xl px-4 py-24 text-center sm:px-6 sm:py-32">
+    <section className="mx-auto max-w-6xl px-4 py-24 text-center sm:px-6 sm:py-32">
       <h2 className="display text-5xl font-medium italic sm:text-7xl" data-rise="0.1">
         {t.closing.title}
       </h2>
