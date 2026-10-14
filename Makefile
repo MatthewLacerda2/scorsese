@@ -234,7 +234,7 @@ PYTHON_CHECK = command -v $(PYTHON) >/dev/null 2>&1 || { \
 # directories called `app/` and `web/`, so without it make sees the target as
 # already built and `make app` prints "up to date" without running a thing. A
 # check that silently does nothing is worse than no check.
-.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates web-gates web-e2e-run release format-fix mcp-table style-menu landing-hero coverage mutants mutants-remote mutants-status mergeable queue live-check infra-plan infra-apply
+.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates web-gates web-e2e-run release format-fix mcp-table style-menu landing-og coverage mutants mutants-remote mutants-status mergeable queue live-check infra-plan infra-apply
 
 ##@ Everyday
 
@@ -857,25 +857,17 @@ style-menu: ## Rewrite web/src/start/menu.json from the style library
 	cd web && bun install --frozen-lockfile && bun x biome format --write src/start/menu.json
 	@echo "style-menu: web/src/start/menu.json now says what the library says."
 
-# The landing page's film and pictures (#904) are renders of two projects kept
-# beside it in web/landing/, made only of pages, native text and a synthesised
-# score, so this costs nothing and needs no key. Their output is committed,
-# because the deploy's web image builds no Rust; run this after editing either
-# project and commit what it writes. What the page shows goes to
-# web/src/landing/media/, imported so the build fingerprints it (#1238); the
-# link-preview still stays at the fixed URL index.html names.
+# The landing page's link-preview still (#904) is a frame of a project kept
+# beside it in web/landing/, made only of pages and native text, so this costs
+# nothing and needs no key. It is committed, because the deploy's web image
+# builds no Rust; run this after editing the project and commit what it
+# writes. It stays at the fixed URL index.html names, since a link preview
+# reads that URL without running the page. (The films the page plays are cuts
+# of videos made with scorsese, in web/src/landing/media/showcase/.)
 LANDING := web/landing
-LANDING_OUT := web/src/landing/media
-landing-hero: ## Re-render the landing page's film, poster and example stills from web/landing/
+landing-og: ## Re-render the landing page's link-preview still from web/landing/hero.scor
 	cargo build --locked -p scorsese-cli
-	target/debug/scorsese synth bake --project $(LANDING)/hero.scor
-	target/debug/scorsese render --project $(LANDING)/hero.scor --out $(LANDING_OUT)/hero.mp4 \
-		--resolution 1280x720 --audio-bitrate 96k --loudness -16
-	target/debug/scorsese still --project $(LANDING)/hero.scor --at 3.5s --resolution 1280x720 --out $(LANDING_OUT)/poster.png
 	target/debug/scorsese still --project $(LANDING)/hero.scor --at 18s --resolution 1200x630 --out web/public/landing/og.png
-	target/debug/scorsese still --project $(LANDING)/showcase.scor --at 1.5s --resolution 960x540 --out $(LANDING_OUT)/promo.png
-	target/debug/scorsese still --project $(LANDING)/showcase.scor --at 3.5s --resolution 960x540 --out $(LANDING_OUT)/event.png
-	target/debug/scorsese still --project $(LANDING)/showcase.scor --at 5.5s --resolution 540x960 --out $(LANDING_OUT)/ad.png
 
 # Neither a gate nor a signal: it checks the room the gates are about to run
 # in, so it comes before them and is not one of them. `inventory` below is the

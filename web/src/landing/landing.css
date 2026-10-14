@@ -123,12 +123,12 @@
   will-change: transform, opacity;
 }
 
-/* The strip of films under the headline (Carousel.tsx). A clip is a third of
-   the height the old film at the top had: a sixteenth-by-nine frame as wide as
-   the page's column, divided by three. It runs the window's full width and
-   fades out at both edges. */
+/* The strip of films under the headline (Carousel.tsx). A clip is 95% of a
+   third of the height the old film at the top had (a 16:9 frame as wide as the
+   page's column). It runs the window's full width and fades out at both
+   edges. */
 .landing .carousel {
-  --clip-height: max(7rem, calc(min(100vw - 2rem, 69rem) * 0.1875));
+  --clip-height: max(6.65rem, calc(min(100vw - 2rem, 69rem) * 0.1875 * 0.95));
   overflow: hidden;
   mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
 }
@@ -157,4 +157,9 @@
   .landing .carousel-strip {
     animation: none;
   }
+}
+
+/* The showcase's volume slider, in the page's gold. */
+.landing .volume {
+  accent-color: var(--gold);
 }

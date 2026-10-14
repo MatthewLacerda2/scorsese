@@ -2038,7 +2038,7 @@ laid out.
 
 | URL | what |
 | --- | --- |
-| `/` | the landing page for a visitor without a session (#904): the film scorsese made of itself (`web/landing/`, `make landing-hero`), what it makes and what it costs, moved by the motion kit as it scrolls; with a session, the projects list |
+| `/` | the landing page for a visitor without a session (#904): a strip of films made with scorsese, one whole video in the visitor's language, how it works and what it handles, shown one section at a time with crossfades between them (`web/src/landing/`); with a session, the projects list |
 | `/login` | the landing page with the sign-in popup open: one "Continue with Google" button, which is sign-up too, and what went wrong when a sign-in came back with `?error=` |
 | `/projects` | create, open, rename, delete |
 | `/projects/{id}` | the library files that project uses (`GET /api/library?project=`) |

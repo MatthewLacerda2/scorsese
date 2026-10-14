@@ -37,6 +37,9 @@ export const landing = {
   showcase: {
     eyebrow: "Made with scorsese",
     label: "Videos made with scorsese",
+    soundOn: "Turn the sound on",
+    soundOff: "Turn the sound off",
+    volume: "Volume",
   },
   handles: {
     eyebrow: "What it handles for you",
@@ -60,7 +63,7 @@ export const landing = {
     title: "Ready when you are.",
     body: "Bring your files and an idea. The video is a conversation away.",
   },
-  footer: "This page was made with what scorsese makes videos with.",
+  footer: "Every film on this page was made with scorsese.",
   dialog: {
     title: "Welcome to scorsese",
     description: "Sign in to your projects and files, or make your account.",

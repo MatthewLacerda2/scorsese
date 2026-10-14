@@ -57,8 +57,8 @@ export function LandingPage({ signIn = false }: { signIn?: boolean }) {
       <main>
         <Slides>
           <Hero onSignIn={openSignIn} />
-          <HowItWorks />
           <Showcase />
+          <HowItWorks />
           <WhatItHandles />
           <div>
             <Closing onSignIn={openSignIn} />

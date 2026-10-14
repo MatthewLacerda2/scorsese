@@ -33,6 +33,9 @@ export const landing: Messages["landing"] = {
   showcase: {
     eyebrow: "Hecho con scorsese",
     label: "Videos hechos con scorsese",
+    soundOn: "Activar el sonido",
+    soundOff: "Silenciar",
+    volume: "Volumen",
   },
   handles: {
     eyebrow: "Lo que hace por ti",
@@ -59,7 +62,7 @@ export const landing: Messages["landing"] = {
     title: "Cuando quieras.",
     body: "Trae tus archivos y una idea. El video está a una conversación de distancia.",
   },
-  footer: "Esta página se hizo con lo mismo con lo que scorsese hace videos.",
+  footer: "Todos los videos de esta página se hicieron con scorsese.",
   dialog: {
     title: "Te damos la bienvenida a scorsese",
     description: "Inicia sesión para ver tus proyectos y archivos, o crea tu cuenta.",

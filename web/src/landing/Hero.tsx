@@ -1,13 +1,15 @@
 // The top of the landing page: the pitch, scorsese's name and mark beside it,
 // and under them a strip of films made with scorsese (`Carousel`). The header
 // above it carries only the language and the way in, since the name is
-// already the largest thing on the page.
+// already the largest thing on the page. The mark is the app's own 512px icon
+// (app/assets/), so it stays sharp at any size the page draws it.
 
 import { useRef } from "react";
 import { LanguageControl } from "@/app/LanguageControl";
 import { useLanguage, useT } from "@/i18n/I18nProvider";
 import { Carousel } from "@/landing/Carousel";
 import { useEntrance } from "@/landing/motion";
+import icon from "../../../app/assets/icon.png";
 
 export function Header({ onSignIn }: { onSignIn: () => void }) {
   const t = useT();
@@ -54,9 +56,14 @@ export function Hero({ onSignIn }: { onSignIn: () => void }) {
             </a>
           </div>
         </div>
-        <a href="/" className="flex items-center gap-4 md:flex-col md:gap-5" data-rise="0.5">
+        {/* Raised by half the sign-in button's height (24px): a centred grid item moves by half its negative margin. */}
+        <a
+          href="/"
+          className="flex items-center gap-4 md:-mt-12 md:flex-col md:gap-5"
+          data-rise="0.5"
+        >
           <img
-            src="/icon.png"
+            src={icon}
             alt=""
             width={112}
             height={112}
