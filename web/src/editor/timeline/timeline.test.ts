@@ -89,7 +89,7 @@ describe("a drag", () => {
 
   test("snaps an edge onto a neighbour's cut within reach, and not beyond it", () => {
     const document: ProjectDocument = {
-      schema_version: 48,
+      schema_version: 49,
       name: "t",
       timeline_fps: THIRTY,
       tracks: [{ id: "v1", kind: "video", clips: [clip(), clip({ id: "n", start: 400 })] }],

@@ -260,10 +260,13 @@ and what it is doing go before it, as usual.
 
 ## For narration, the model carries the language
 
-An English voice reads Portuguese **cleanly on `expressive`** (Eleven v3) and
-**with an English accent on `standard`** (Multilingual v2), at the same price
-per character (`guide prices`). The voice was the same and the text was the
-same; only the model changed.
+An English voice read Portuguese **cleanly on Eleven v3**, what `expressive`
+spoke then, and **with an English accent on `standard`** (Multilingual v2), at
+the same price per character (`guide prices`). The voice was the same and the
+text was the same; only the model changed. `expressive` is Eleven v4 now
+(#1248), which the vendor says covers more languages than v3 and handles
+speaking across languages differently on purpose; no paid generation has
+re-checked this lesson on v4 yet.
 
 So for a line in a language other than the voice's own, the model is the
 choice that matters, and a voice native to the language is a nicety rather
@@ -419,29 +422,30 @@ block sets them, and a ratio written only in the prompt is not one.
 ### ElevenLabs, in its own words
 
 From ElevenLabs' [prompting best practices](https://elevenlabs.io/docs/best-practices/prompting),
-read 2026-10-08. The advice depends on the model, and scorsese's `speech`
-block names one of four: `natural` (Eleven v4), `expressive` (Eleven v3),
-`standard` (Multilingual v2) and `fast` (Flash v2.5, the default). The vendor
-says v4 takes the same audio tags and prompting as v3 (its *Prompting Eleven
-v4* section, read 2026-10-14), so what follows for `expressive` holds for
-`natural` too, until a paid generation shows a difference. One thing is v4's
-alone: a word said wrongly can be written in IPA between forward slashes, which
-the vendor says v4 reads more consistently than respelling.
+read 2026-10-08, and its *Prompting Eleven v4* section re-read 2026-10-14. The
+advice depends on the model, and scorsese's `speech` block names one of three:
+`expressive` (Eleven v4), `standard` (Multilingual v2) and `fast` (Flash v2.5,
+the default). `expressive` was Eleven v3 until #1248. The vendor says the v4
+techniques also apply to v3, so what was learned on v3's tags carries over,
+until a paid generation shows a difference.
 
-**On `expressive` (v3):**
+**On `expressive` (v4):**
 
 - **Audio tags in square brackets** direct the reading: `[whispers]`,
   `[sighs]`, `[laughs]`, `[curious]`, `[shouts]`. A tag describes the voice
   quality wanted (`[low, gravelly voice]`), not something that could be read
   as a sound to make. Tags are not said, so they are never words in the
-  line's timings: captions and pages never show one.
+  line's timings: captions and pages never show one. The vendor calls v4's
+  handling of tags more nuanced than v3's, and "not perfect yet".
 - **Pauses come from the text**: ellipses add a pause and weight, and the
-  sentence's own structure does the rest. v3 does **not** honour `<break>`
-  tags.
+  sentence's own structure does the rest. v4, like v3, does **not** honour
+  `<break>` tags; the vendor says SSML is not supported.
 - **Capitals add emphasis.**
 - **The voice still matters most**: a tag that fights the voice's natural
   delivery (whispering on a voice that shouts) works badly. A delivery that is
   in the voice's own range is easy to get.
+- **A word said wrongly can be written in IPA between forward slashes**, which
+  the vendor says v4 reads without phoneme tags; results still vary by voice.
 - Very short lines read less consistently; the guide tests with more than 250
   characters.
 

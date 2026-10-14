@@ -56,13 +56,6 @@ fn an_expressive_line_folds_without_its_tags() {
     assert!(words.words[0].start > 0.69, "it starts where it is said");
 }
 
-/// v4 takes the same tags as v3, so its lines fold the same way.
-#[test]
-fn a_natural_line_folds_without_its_tags_too() {
-    let words = Words::from_reading(gruff(), SpeechModel::Natural);
-    assert_eq!(texts(&words), ["We're", "closed."]);
-}
-
 #[test]
 fn brackets_are_words_on_the_models_that_read_them() {
     for model in [SpeechModel::Standard, SpeechModel::Fast] {

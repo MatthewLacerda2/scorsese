@@ -22,6 +22,7 @@
 //! is read by the strict path from then on. That keeps "this build understands
 //! v38" a statement about one version rather than about a range.
 
+mod speech;
 mod stills;
 
 use std::path::{Path, PathBuf};
@@ -117,6 +118,10 @@ pub(crate) const STEPS: &[Step] = &[
     Step {
         from: 47,
         apply: natural_speech_arrives,
+    },
+    Step {
+        from: 48,
+        apply: speech::natural_retires,
     },
 ];
 
@@ -267,7 +272,8 @@ fn batches_arrive(_: &mut Value) -> Result<(), String> {
 /// Nothing to rewrite, for [`groups_arrive`]'s reason: the version added a
 /// value `speech.model` may take, and every model a v47 line names is the same
 /// vendor model at v48. `expressive` stays `eleven_v3` on purpose — moving it
-/// would change how existing lines sound, which is the user's call (#1248).
+/// would change how existing lines sound, which was the user's call, and they
+/// made it a version later (#1248, `speech::natural_retires`).
 fn natural_speech_arrives(_: &mut Value) -> Result<(), String> {
     Ok(())
 }

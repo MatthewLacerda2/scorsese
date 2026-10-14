@@ -35,12 +35,11 @@ const CHECKED: Checked = Checked::on(2026, 10, 14);
 /// them in every case, so they are rows the vendor tells people not to use. v4
 /// Turbo ($0.04, like Flash) is sold for real-time dialogue over a websocket,
 /// not on the text-to-speech endpoint scorsese calls, so it is not a row this
-/// table could ever be asked for. v3 Conversational is the same.
+/// table could ever be asked for. v3 Conversational is the same, and so is v3
+/// itself since `expressive` moved to v4 (#1248): no name speaks it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Model {
-    /// `eleven_v4` — the vendor's newest and best.
-    Natural,
-    /// `eleven_v3` — the most expressive of its generation.
+    /// `eleven_v4` — the vendor's best.
     Expressive,
     /// `eleven_multilingual_v2` — the vendor's default.
     Standard,
@@ -52,7 +51,6 @@ impl Model {
     /// The model as somebody reading a price table expects it.
     pub const fn label(self) -> &'static str {
         match self {
-            Self::Natural => "natural",
             Self::Expressive => "expressive",
             Self::Standard => "standard",
             Self::Fast => "fast",
@@ -73,7 +71,6 @@ impl Model {
 impl From<Model> for scorsese_core::SpeechModel {
     fn from(model: Model) -> Self {
         match model {
-            Model::Natural => Self::Natural,
             Model::Expressive => Self::Expressive,
             Model::Standard => Self::Standard,
             Model::Fast => Self::Fast,
@@ -84,7 +81,6 @@ impl From<Model> for scorsese_core::SpeechModel {
 impl From<scorsese_core::SpeechModel> for Model {
     fn from(model: scorsese_core::SpeechModel) -> Self {
         match model {
-            scorsese_core::SpeechModel::Natural => Self::Natural,
             scorsese_core::SpeechModel::Expressive => Self::Expressive,
             scorsese_core::SpeechModel::Standard => Self::Standard,
             scorsese_core::SpeechModel::Fast => Self::Fast,
@@ -128,7 +124,6 @@ const fn row(model: Model, cents_per_1k_chars: u64) -> Row {
 
 /// Every rate the vendor publishes for the models scorsese speaks with.
 pub const RATES: &[Row] = &[
-    row(Model::Natural, 8),
     row(Model::Expressive, 8),
     row(Model::Standard, 8),
     row(Model::Fast, 4),

@@ -95,8 +95,8 @@ fn a_refused_line_leaves_the_asset_alone() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
-/// The last check before money moves, and held to the line's own model: v3
-/// speaks 5,000 characters where Flash speaks 40,000. Validation holds every
+/// The last check before money moves, and held to the line's own model: v4
+/// speaks 10,000 characters where Flash speaks 40,000. Validation holds every
 /// line to the widest limit only, so a stored project never stops loading.
 #[test]
 fn a_line_over_its_models_limit_is_never_sent() {

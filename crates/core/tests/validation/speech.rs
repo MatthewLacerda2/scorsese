@@ -38,11 +38,7 @@ fn a_language_the_model_would_drop_is_refused() {
 
 #[test]
 fn the_models_that_honour_a_language_take_one() {
-    for model in [
-        SpeechModel::Natural,
-        SpeechModel::Expressive,
-        SpeechModel::Fast,
-    ] {
+    for model in [SpeechModel::Expressive, SpeechModel::Fast] {
         let p = saying(|r| {
             r.model = model;
             r.language = Some("pt".to_owned());
@@ -82,8 +78,7 @@ fn a_line_longer_than_the_vendor_speaks_is_refused() {
 #[test]
 fn each_model_speaks_at_most_the_vendors_limit() {
     for (model, max) in [
-        (SpeechModel::Natural, 10_000),
-        (SpeechModel::Expressive, 5_000),
+        (SpeechModel::Expressive, 10_000),
         (SpeechModel::Standard, 10_000),
         (SpeechModel::Fast, MAX_CHARACTERS),
     ] {

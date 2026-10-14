@@ -111,7 +111,8 @@ mod tests {
     use super::spoken;
     use crate::api::elevenlabs::speech::{Alignment, Timed};
 
-    /// `[sighs] Hi.` as Eleven v3 aligns it: the tag's characters timed too.
+    /// `[sighs] Hi.` aligned the way Eleven v3 did it: the tag's characters
+    /// timed too.
     fn sighed() -> Timed {
         let text = "[sighs] Hi.";
         let starts: Vec<f64> = (0..text.len()).map(|i| i as f64 * 0.1).collect();
