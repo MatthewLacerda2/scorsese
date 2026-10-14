@@ -40,4 +40,6 @@ export const CreditsReturnPage = lazyPage(
   () => import("@/payments/ReturnPage"),
   "CreditsReturnPage",
 );
+export const TermsPage = lazyPage(() => import("@/legal/TermsPage"), "TermsPage");
+export const PrivacyPage = lazyPage(() => import("@/legal/PrivacyPage"), "PrivacyPage");
 export const NotFound = lazyPage(() => import("@/pages/NotFound"), "NotFound");

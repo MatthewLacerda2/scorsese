@@ -22,6 +22,13 @@ export const common: Messages["common"] = {
   login: {
     google: "Continuar com o Google",
     newHere: "Primeira vez? Seu primeiro acesso cria a sua conta.",
+    accept: {
+      before: "Ao continuar, você aceita os ",
+      terms: "termos de uso",
+      between: " e a ",
+      privacy: "política de privacidade",
+      after: ". É preciso ter 18 anos ou mais.",
+    },
     errors: {
       cancelled: "O acesso foi cancelado no Google. Tente de novo quando quiser.",
       expired: "Esse acesso demorou demais ou começou em outra aba. Tente de novo.",

@@ -1,5 +1,8 @@
-# The domain receives mail and never sends it. The one address in use is
-# security@, published in web/public/.well-known/security.txt.
+# The domain receives mail and never sends it. Two addresses are in use, both
+# forwarded to the maintainer: security@, published in
+# web/public/.well-known/security.txt, and contato@, the contact the terms and
+# the privacy policy give for support, refunds and data requests (#547,
+# web/src/legal/seller.ts).
 
 # Email Routing's own records (MX, SPF, DKIM), which Cloudflare writes and
 # keeps when routing is enabled on the zone.
@@ -13,6 +16,15 @@ resource "cloudflare_email_routing_rule" "security" {
   enabled = true
 
   matchers = [{ type = "literal", field = "to", value = "security@${var.domain}" }]
+  actions  = [{ type = "forward", value = [var.security_forward_to] }]
+}
+
+resource "cloudflare_email_routing_rule" "contact" {
+  zone_id = local.zone_id
+  name    = "contato@ to the maintainer"
+  enabled = true
+
+  matchers = [{ type = "literal", field = "to", value = "contato@${var.domain}" }]
   actions  = [{ type = "forward", value = [var.security_forward_to] }]
 }
 

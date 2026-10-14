@@ -394,7 +394,7 @@ checkout, so applying from a worktree that is then removed loses nothing.
 | --- | --- |
 | `cloudflare/zone.tf` | the zone, looked up by `domain`; DNSSEC on |
 | `cloudflare/tunnel.tf` | the tunnel's ingress (the apex and `www` to `http://web:80`, anything else 404), their proxied CNAMEs, and the `www` → apex 301 |
-| `cloudflare/email.tf` | Email Routing's records, the `security@` forward, and DMARC `p=reject` (the domain never sends mail) |
+| `cloudflare/email.tf` | Email Routing's records, the `security@` and `contato@` forwards (one verified destination, `SCORSESE_SECURITY_FORWARD_TO`), and DMARC `p=reject` (the domain never sends mail) |
 | `google/project.tf` | the `scorseseestudio` Google Cloud project (deletion-protected) and the APIs enabled on it |
 | `stripe/webhook.tf` | the webhook endpoint for credit purchases (*Buying credits*): `<SCORSESE_PUBLIC_ORIGIN>/api/payments/stripe/webhook` and the three events it acts on, and its signing secret as a sensitive output |
 | `tf` | runs one configuration with its credentials: `tf cloudflare plan`, `tf google apply`, `tf stripe secret` |
@@ -2039,7 +2039,8 @@ laid out.
 | URL | what |
 | --- | --- |
 | `/` | the landing page for a visitor without a session (#904): a strip of films made with scorsese, one whole video in the visitor's language, how it works and what it handles, shown one section at a time with crossfades between them (`web/src/landing/`); with a session, the projects list |
-| `/login` | the landing page with the sign-in popup open: one "Continue with Google" button, which is sign-up too, and what went wrong when a sign-in came back with `?error=` |
+| `/login` | the landing page with the sign-in popup open: one "Continue with Google" button, which is sign-up too, and what went wrong when a sign-in came back with `?error=`; under the button, the line saying that signing in accepts the terms and the privacy policy |
+| `/terms`, `/privacy` | the terms of use and the privacy policy (#547), public and crawlable whether signed in or not, in Portuguese only, the contract's language, with a note for a visitor reading in another (`web/src/legal/`). They are data (`terms.ts`, `privacy.ts`) stating what the code and the deployment do, so a change to prices, retention, cookies or vendors changes them too. The seller's identification (`seller.ts`) is also in the landing page's footer, as Decreto 7.962/2013 asks |
 | `/projects` | create, open, rename, delete |
 | `/projects/{id}` | the library files that project uses (`GET /api/library?project=`) |
 | `/library` | every file: filter by kind, search by name, sort; upload by button or by dropping files |

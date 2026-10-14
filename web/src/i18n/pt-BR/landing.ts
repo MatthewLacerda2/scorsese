@@ -67,4 +67,10 @@ export const landing: Messages["landing"] = {
     title: "Boas-vindas ao scorsese",
     description: "Entre para acessar seus projetos e arquivos, ou crie a sua conta.",
   },
+  legal: {
+    terms: "Termos de uso",
+    privacy: "Política de privacidade",
+    portugueseOnly:
+      "Este documento está em português, o idioma do contrato: o scorsese é vendido por uma empresa brasileira, sob a lei brasileira.",
+  },
 };

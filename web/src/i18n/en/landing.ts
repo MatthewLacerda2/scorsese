@@ -68,4 +68,10 @@ export const landing = {
     title: "Welcome to scorsese",
     description: "Sign in to your projects and files, or make your account.",
   },
+  legal: {
+    terms: "Terms of use",
+    privacy: "Privacy policy",
+    portugueseOnly:
+      "This document is in Portuguese, the language of the contract: scorsese is sold by a Brazilian company, under Brazilian law.",
+  },
 };
