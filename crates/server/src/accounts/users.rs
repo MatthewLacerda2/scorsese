@@ -15,7 +15,7 @@ use crate::db::{self, UserId};
 use crate::storage::Storage;
 
 /// An account as the operator's listing shows it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, sqlx::FromRow)]
 pub struct Account {
     /// Its id, which is also the name of its directory under the storage root.
     pub id: i64,
@@ -72,9 +72,10 @@ pub async fn delete(pool: &PgPool, storage: &Storage, email: &str) -> Result<Use
 
 /// An account as the operator's `user list` shows it: with the Google
 /// account it signs in as, which only the operator needs to see.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 pub struct Listed {
     /// The account.
+    #[sqlx(flatten)]
     pub account: Account,
     /// Google's id for the account it is linked to; `None` until its first
     /// sign-in.
@@ -84,25 +85,14 @@ pub struct Listed {
 /// Every account, oldest first.
 pub async fn list(pool: &PgPool) -> Result<Vec<Listed>, AccountError> {
     let mut tx = db::privileged(pool).await?;
-    let rows: Vec<(i64, String, Option<String>, i64, Option<String>)> = sqlx::query_as(
-        "SELECT id, email, name, extract(epoch FROM created_at)::bigint, google_sub
+    let listed = sqlx::query_as(
+        "SELECT id, email, name, extract(epoch FROM created_at)::bigint AS created_at, google_sub
          FROM users ORDER BY id",
     )
     .fetch_all(&mut *tx)
     .await?;
     tx.commit().await?;
-    Ok(rows
-        .into_iter()
-        .map(|(id, email, name, created_at, google_sub)| Listed {
-            account: Account {
-                id,
-                email,
-                name,
-                created_at,
-            },
-            google_sub,
-        })
-        .collect())
+    Ok(listed)
 }
 
 /// The account `email` names — for the operator, who names people by email.
