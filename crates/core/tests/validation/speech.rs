@@ -77,6 +77,21 @@ fn a_line_longer_than_the_vendor_speaks_is_refused() {
     );
 }
 
+/// Each model's own limit, as the vendor's models page gives it (2026-10-14),
+/// and none above the ceiling validation holds every line to.
+#[test]
+fn each_model_speaks_at_most_the_vendors_limit() {
+    for (model, max) in [
+        (SpeechModel::Natural, 10_000),
+        (SpeechModel::Expressive, 5_000),
+        (SpeechModel::Standard, 10_000),
+        (SpeechModel::Fast, MAX_CHARACTERS),
+    ] {
+        assert_eq!(model.max_characters(), max, "{}", model.as_str());
+        assert!(max <= MAX_CHARACTERS);
+    }
+}
+
 /// Accented letters are two bytes each, so a byte count would refuse a script
 /// a quarter short of the limit — and would have priced it wrong as well.
 #[test]
