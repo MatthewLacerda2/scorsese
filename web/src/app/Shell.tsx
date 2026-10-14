@@ -6,7 +6,7 @@
 
 import { PlusIcon } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
-import { Link, NavLink, Outlet, useMatch, useNavigate } from "react-router";
+import { Link, NavLink, Outlet, useMatch } from "react-router";
 import { AccountMenu } from "@/app/AccountMenu";
 import { HeaderSlotProvider } from "@/app/headerSlot";
 import { PageFallback } from "@/app/PageFallback";
@@ -17,7 +17,6 @@ import { UploadTray } from "@/files/UploadTray";
 import { UploadsProvider } from "@/files/uploads";
 import { useT } from "@/i18n/I18nProvider";
 import { formatDollars } from "@/lib/money";
-import { useAccount, useLogout } from "@/session/session";
 
 // The toaster arrives in a chunk of its own once the shell is up, so a first
 // visit (the login page, #896) never downloads Sonner. A render takes longer
