@@ -466,6 +466,12 @@ From the checkout, on `main`:
     cd deploy
     docker compose exec backup backup          # a dump from just before
     CARGO_BUILD_JOBS=4 docker compose up --detach --build
+    ./purge-landing                            # Cloudflare's copy of `/`
+
+The last step matters: Cloudflare keeps the landing page's HTML at its edge
+(`deploy/terraform/cloudflare/cache.tf`), and that copy names the previous
+build's fingerprinted files, which the new `web` image no longer has. Until it
+is dropped, or expires within the hour, a first visit draws a blank page.
 
 Compose recreates only the containers whose image or settings changed. The new
 server runs its migrations before serving, and they only go forward, so **the
