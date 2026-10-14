@@ -139,6 +139,12 @@
 //! the crate that makes those. Who that person's account is, and the cookie
 //! they get, are the server's.
 //!
+//! [`payments`] and [`fx`], the web app's top-ups (#548): a Stripe Checkout
+//! Session a user pays reais into, the signed webhook that says it was paid,
+//! and what a dollar costs in reais when it is started. They spend nothing of
+//! ours and make no media; they are here because they are calls to vendors.
+//! What the payment credits, and to whom, is the server's.
+//!
 //! [`spending`], the one answer to *what has this project cost so far*. A
 //! ceiling asks it to decide whether the next call may go ahead and a person
 //! asks it to decide whether they want to; two answers to that would first be
@@ -149,9 +155,11 @@ pub mod chat;
 pub mod chromium;
 pub mod claude;
 pub mod credentials;
+pub mod fx;
 mod generated;
 pub mod image;
 pub mod live;
+pub mod payments;
 pub mod prices;
 pub mod quote;
 pub mod sign_in;

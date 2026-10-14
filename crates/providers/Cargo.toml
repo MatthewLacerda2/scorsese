@@ -11,10 +11,14 @@ workspace = true
 
 [dependencies]
 base64.workspace = true
+# Stripe signs its webhooks with HMAC-SHA256 (`payments`, #548); both crates
+# were already in the lockfile, through the server and `hkdf`.
+hmac = "0.13.0"
 scorsese-core = { version = "0.1.0", path = "../core" }
 scorsese-zimmer = { version = "0.1.0", path = "../zimmer" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.151", features = ["raw_value"] }
+sha2 = "0.11.0"
 thiserror = "2.0.19"
 ureq = { version = "3.3.0", default-features = false, features = ["json", "rustls"] }
 # The page renderer arrives as a zip (`chromium`, #776). Deflate only, through
