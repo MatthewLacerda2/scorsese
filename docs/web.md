@@ -224,11 +224,12 @@ are the same `cloudflared` image told two different things, and Compose starts
 only the one named. `make deploy` checks the file in all three modes, and that
 each starts its own tunnel and no other.
 
-**The `/api` split lives in nginx, not in the tunnel's ingress rules.** A tunnel
-run by token keeps its rules in Cloudflare's dashboard, where no pull request
-shows them and no local run exercises them; in `nginx.conf` they are versioned,
-reviewed and identical on loopback and on the public hostname. nginx is needed
-for the SPA fallback anyway, so the tunnel is a single rule that never changes.
+**The `/api` split lives in nginx, not in the tunnel's ingress rules.** The
+tunnel's rules are Cloudflare's, and reach it through Terraform (*Infrastructure, as
+code*); a split there would still be one no local run exercises. In
+`nginx.conf` it is identical on loopback and on the public hostname, and nginx
+is needed for the SPA fallback anyway, so the tunnel's ingress names hostnames
+and nothing else.
 The MCP endpoint (#539) is `/api/mcp`, under `/api` like everything else, so it
 needs nothing of its own there.
 
@@ -270,11 +271,12 @@ them. The rest is commands, from the checkout on the machine that serves.
    The domain must be on Cloudflare (its nameservers pointed there). In the dashboard: *Zero Trust → Networks →
    Tunnels → Create a tunnel → Cloudflared*, name it, and copy the token from
    the install command shown (the string after `--token`); skip installing
-   the connector, the `cloudflared` container is the connector. Then add **one
-   public hostname** — the site's domain, service type `HTTP`, URL `web:80`
-   (nginx's tunnel-only door, never 8080 — *The login's brake* says why) —
-   and no other rules. The token goes in `CLOUDFLARE_TUNNEL_TOKEN`, and
-   `COMPOSE_PROFILES=named-tunnel` turns it on.
+   the connector, the `cloudflared` container is the connector. The token
+   goes in `CLOUDFLARE_TUNNEL_TOKEN`, and `COMPOSE_PROFILES=named-tunnel`
+   turns it on. **Add no public hostname in the dashboard**: the hostnames,
+   their DNS records and the rest come from `make infra-apply` (*Infrastructure,
+   as code*), each to `http://web:80` — nginx's tunnel-only door, never 8080
+   (*The login's brake* says why).
 4. **The backup destination.** Somewhere off this machine the maintainer
    chooses — an object store (Backblaze B2, S3, R2), a cloud drive, another
    machine over SFTP. `rclone config` creates a remote for it; then
@@ -378,6 +380,61 @@ session: a client with an API token (web MCP, `curl`) or a health check from
 another machine. Prefer `0.0.0.0` to one interface's address: an address that
 is not up yet when Docker starts the container at boot — a tailnet address, a
 DHCP lease — is a `web` container that does not start.
+
+### Infrastructure, as code
+
+Everything a vendor lets Terraform manage is managed in `deploy/terraform/`
+(#957, #952), so it is versioned, reviewed in a pull request, and something an
+agent can change. A change made in a dashboard is drift: the next plan shows
+it, and the next apply undoes it. There is one configuration per vendor, each
+with its own state at `$SCORSESE_DATA/terraform/<name>.tfstate`, outside the
+checkout, so applying from a worktree that is then removed loses nothing.
+
+| File | What it holds |
+| --- | --- |
+| `cloudflare/zone.tf` | the zone, looked up by `domain`; DNSSEC on |
+| `cloudflare/tunnel.tf` | the tunnel's ingress (the apex and `www` to `http://web:80`, anything else 404), their proxied CNAMEs, and the `www` → apex 301 |
+| `cloudflare/email.tf` | Email Routing's records, the `security@` forward, and DMARC `p=reject` (the domain never sends mail) |
+| `google/project.tf` | the `scorseseestudio` Google Cloud project (deletion-protected) and the APIs enabled on it |
+| `tf` | runs one configuration with its credentials: `tf cloudflare plan`, `tf google apply` |
+
+    make infra-plan     # what would change, for both; changes nothing
+    make infra-apply    # shows each plan again and asks before applying it
+
+**Credentials.** `tf cloudflare` reads three values from `deploy/.env`:
+`CLOUDFLARE_API_TOKEN` (scoped to this account and zone;
+`deploy/.env.example` lists its permissions), `CLOUDFLARE_TUNNEL_TOKEN`, which
+already names the account and the tunnel so neither ID is written anywhere
+else, and `SCORSESE_SECURITY_FORWARD_TO`, kept out of the repository because it
+is a personal mailbox. `tf google` uses the maintainer's own `gcloud` login,
+through a short-lived access token, so no service-account key exists anywhere.
+`make infra`, the gate, checks formatting and each configuration against its
+provider's schema without credentials, in `make gates` and in CI's
+`deploy config` job.
+
+**What stays by hand**, because no API reaches it or it should not be
+automated:
+
+- Registering and renewing the domain.
+- **Creating** the tunnel. Its token is the connector's identity, made once
+  and imported, never recreated.
+- The Cloudflare API token itself, and verifying the `security@` forward's
+  destination address, which is confirmed by a link in that mailbox.
+- **Google's OAuth consent screen and the sign-in client** (#952). Google
+  offers no public API for either; the `google_iap_*` resources are for IAP,
+  a different product. In the console, with the `scorseseestudio` project
+  selected: *Google Auth Platform → Branding* (app name `scorsese`, the
+  support and developer email, home page `https://scorseseestudio.com`),
+  *Audience → External*, then *Clients → Create client → Web application*
+  with the authorised redirect URI
+  `https://scorseseestudio.com/api/auth/google/callback`. The client's ID and
+  secret go in `deploy/.env`.
+
+Something that exists already is **imported** before the first apply, or the
+apply tries to create it a second time:
+
+    deploy/terraform/tf cloudflare import cloudflare_zero_trust_tunnel_cloudflared_config.site <account_id>/<tunnel_id>
+    deploy/terraform/tf cloudflare import cloudflare_zone_dnssec.site <zone_id>
 
 ### Updating
 

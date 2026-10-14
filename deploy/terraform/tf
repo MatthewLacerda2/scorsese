@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Terraform on one of deploy/terraform's two configurations, with the
+# credentials each needs:
+#
+#   deploy/terraform/tf cloudflare plan
+#   deploy/terraform/tf google apply
+#
+# `make infra-plan` and `make infra-apply` call it for both. It reads what it
+# needs from the env file (DEPLOY_ENV, default deploy/.env beside this folder)
+# without sourcing it, and keeps each state at
+# $SCORSESE_DATA/terraform/<name>.tfstate, outside the checkout, so applying
+# from a worktree that is then removed loses nothing.
+#
+#   cloudflare  CLOUDFLARE_API_TOKEN, CLOUDFLARE_TUNNEL_TOKEN (which names the
+#               account and the tunnel) and SCORSESE_SECURITY_FORWARD_TO.
+#   google      the maintainer's own `gcloud` login: a short-lived access
+#               token, so no key file exists anywhere.
+set -euo pipefail
+
+here=$(cd "$(dirname "$0")" && pwd)
+root=${1:-}
+case "$root" in
+  cloudflare | google) shift ;;
+  *) echo "usage: tf cloudflare|google <terraform command…>" >&2; exit 2 ;;
+esac
+
+env_file=${DEPLOY_ENV:-$here/../.env}
+[ -f "$env_file" ] || { echo "tf: no env file at $env_file (set DEPLOY_ENV)" >&2; exit 1; }
+
+value() {
+  sed -n "s/^$1=//p" "$env_file" | tail -n 1 | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"
+}
+need() {
+  local v
+  v=$(value "$1")
+  [ -n "$v" ] || { echo "tf: $1 is blank in $env_file -- deploy/.env.example says what it is" >&2; exit 1; }
+  printf '%s' "$v"
+}
+
+case "$root" in
+  cloudflare)
+    CLOUDFLARE_API_TOKEN=$(need CLOUDFLARE_API_TOKEN)
+    TF_VAR_tunnel_token=$(need CLOUDFLARE_TUNNEL_TOKEN)
+    TF_VAR_security_forward_to=$(need SCORSESE_SECURITY_FORWARD_TO)
+    export CLOUDFLARE_API_TOKEN TF_VAR_tunnel_token TF_VAR_security_forward_to
+    ;;
+  google)
+    command -v gcloud >/dev/null 2>&1 || { echo "tf: gcloud is not installed" >&2; exit 1; }
+    GOOGLE_OAUTH_ACCESS_TOKEN=$(gcloud auth print-access-token) || {
+      echo "tf: gcloud is not logged in -- run 'gcloud auth login'" >&2; exit 1; }
+    export GOOGLE_OAUTH_ACCESS_TOKEN
+    ;;
+esac
+
+state_dir="$(need SCORSESE_DATA)/terraform"
+mkdir -p "$state_dir"
+terraform -chdir="$here/$root" init -input=false -reconfigure \
+  -backend-config="path=$state_dir/$root.tfstate" >/dev/null
+exec terraform -chdir="$here/$root" "$@"

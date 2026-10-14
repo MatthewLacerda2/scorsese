@@ -406,6 +406,9 @@ in a cloud session; `issue-batch` has what that premise shapes.
 - **No real provider calls in tests, ever.** Every networked provider is
   mocked behind a trait; golden-render tests use local fixture media only. A test that
   spends money or needs a network is a bug.
+- **Infrastructure is code** (the maintainer, 2026-10-13): whatever a vendor
+  lets Terraform manage is in Terraform, never set by hand in a dashboard, so
+  an agent can change it. Cloudflare is `deploy/terraform` (**docs/web.md**).
 - **Secrets resolve in one order, through one resolver** (`crates/providers`'
   `credentials` module, **docs/credentials.md**): the environment first (an
   exported variable or the gitignored `.env`), then the per-machine settings

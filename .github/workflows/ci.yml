@@ -492,7 +492,7 @@ jobs:
         run: python3 -m unittest discover --start-directory .github/scripts/tests --verbose
 
   # The deploy's compose file (#532): it parses, and deploy/.env.example
-  # documents every variable it reads. `make deploy` is the whole of it — the
+  # documents every variable it reads; and its Terraform (#957) validates. `make deploy` is the whole of it — the
   # Makefile has why it is a gate and why it builds no image. The runner has
   # Docker and Compose already, so it costs a checkout and a second.
   deploy:
@@ -506,6 +506,15 @@ jobs:
 
       - name: Check
         run: make deploy
+
+      # deploy/terraform (#957): formatted, and valid against the Cloudflare
+      # provider's schema. No credentials; plan and apply are run by hand.
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform
+        run: make infra
 
   # No coverage or mutation job in this file, and that is a decision rather than
   # an omission (#651). Both signals audit quality; nothing they find may
