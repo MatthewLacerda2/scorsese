@@ -11,10 +11,13 @@
 //! arithmetic in [`Rate::micros_for`] is integer: the decimal's digits over
 //! its power of ten, in `u128`, floored to the micro-dollar.
 
-use std::sync::Mutex;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::api::rates;
+
+mod latest;
+
+pub use latest::{Latest, REFRESH_EVERY, USABLE_FOR};
 
 /// Where a rate came from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -138,43 +141,6 @@ impl Rates for Live {
     }
 }
 
-/// How long a rate is reused before it is read again: a minute, which is as
-/// long as AwesomeAPI caches a keyless answer anyway, and keeps a person
-/// typing an amount from asking it for a rate on every keystroke.
-pub const REUSED_FOR: Duration = Duration::from_secs(60);
-
-/// `rates`, each answer reused for [`REUSED_FOR`]. A failure is not kept.
-pub struct Cached<R> {
-    rates: R,
-    last: Mutex<Option<(Instant, Rate)>>,
-}
-
-impl<R: Rates> Cached<R> {
-    /// `rates`, with nothing read yet.
-    pub fn new(rates: R) -> Self {
-        Self {
-            rates,
-            last: Mutex::new(None),
-        }
-    }
-}
-
-impl<R: Rates> Rates for Cached<R> {
-    fn usd_brl(&self) -> Result<Rate, FxError> {
-        let recent = |last: &Option<(Instant, Rate)>| {
-            last.as_ref()
-                .filter(|(at, _)| at.elapsed() < REUSED_FOR)
-                .map(|(_, rate)| rate.clone())
-        };
-        if let Some(rate) = recent(&self.last.lock().unwrap_or_else(|p| p.into_inner())) {
-            return Ok(rate);
-        }
-        let rate = self.rates.usd_brl()?;
-        *self.last.lock().unwrap_or_else(|p| p.into_inner()) = Some((Instant::now(), rate.clone()));
-        Ok(rate)
-    }
-}
-
 /// Days from 1970-01-01 to today, in UTC.
 fn days_since_epoch() -> i64 {
     let seconds = SystemTime::now()
@@ -207,8 +173,6 @@ fn bcb_date(days: i64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
     use super::*;
 
     fn rate(text: &str) -> Rate {
@@ -255,31 +219,5 @@ mod tests {
         assert_eq!(bcb_date(20_740), "10-14-2026");
         assert_eq!(bcb_date(20_740 - 7), "10-07-2026");
         assert_eq!(bcb_date(11_016), "02-29-2000");
-    }
-
-    struct Counting(AtomicUsize, Result<Rate, FxError>);
-
-    impl Rates for Counting {
-        fn usd_brl(&self) -> Result<Rate, FxError> {
-            self.0.fetch_add(1, Ordering::SeqCst);
-            self.1.clone()
-        }
-    }
-
-    #[test]
-    fn a_rate_is_reused_and_a_failure_is_not() {
-        let cached = Cached::new(Counting(AtomicUsize::new(0), Ok(rate("5.01"))));
-        assert_eq!(cached.usd_brl().unwrap(), rate("5.01"));
-        assert_eq!(cached.usd_brl().unwrap(), rate("5.01"));
-        assert_eq!(cached.rates.0.load(Ordering::SeqCst), 1);
-
-        let failing = FxError {
-            awesome: "429".into(),
-            ptax: "down".into(),
-        };
-        let cached = Cached::new(Counting(AtomicUsize::new(0), Err(failing)));
-        assert!(cached.usd_brl().is_err());
-        assert!(cached.usd_brl().is_err());
-        assert_eq!(cached.rates.0.load(Ordering::SeqCst), 2);
     }
 }

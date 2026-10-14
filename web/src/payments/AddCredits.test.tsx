@@ -5,6 +5,7 @@ import { expect, test } from "bun:test";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { PaymentQuote } from "@/api";
+import { setFetch } from "@/api/client";
 import { createQueryClient } from "@/app/queryClient";
 import { AddCreditsDialog } from "./AddCredits";
 
@@ -14,7 +15,7 @@ const FIFTY: PaymentQuote = {
   brl_per_usd: "4.99",
   rate_source: "awesomeapi",
   minimum_centavos: 2_000,
-  maximum_centavos: 200_000,
+  maximum_centavos: 500_000,
 };
 
 function dialog() {
@@ -38,10 +39,29 @@ test("the credits the reais buy, and the rate, are shown before paying", () => {
 test("an amount that is not one, or is outside the limits, cannot be paid", () => {
   dialog();
   const field = screen.getByLabelText("Amount in reais");
-  for (const value of ["abc", "10", "2.000,01"]) {
+  for (const value of ["abc", "10", "5.000,01"]) {
     fireEvent.change(field, { target: { value } });
     expect(screen.queryByText(/in credits/)).toBeNull();
     const pay = screen.getByRole("button", { name: "Pay" }) as HTMLButtonElement;
     expect(pay.disabled).toBe(true);
+  }
+});
+
+test("Pay names the rate shown, and a rate that moved is shown before paying again", async () => {
+  const sent: unknown[] = [];
+  const moved = { ...FIFTY, credit_micros: 9_980_039, brl_per_usd: "5.01" };
+  const previous = setFetch(async (_, init) => {
+    sent.push(JSON.parse(String(init?.body)));
+    const body = { error: "the dollar's rate just changed", quote: moved };
+    return new Response(JSON.stringify(body), { status: 409 });
+  });
+  try {
+    dialog();
+    fireEvent.click(screen.getByRole("button", { name: "Pay" }));
+    expect(await screen.findByText("R$ 50,00 → $9.98 in credits")).toBeTruthy();
+    expect(sent).toEqual([{ centavos: 5_000, brl_per_usd: "4.99" }]);
+    expect(screen.getByText(/rate just changed/)).toBeTruthy();
+  } finally {
+    setFetch(previous);
   }
 });

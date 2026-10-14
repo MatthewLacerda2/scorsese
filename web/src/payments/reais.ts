@@ -6,7 +6,7 @@
 export const MINIMUM_CENTAVOS = 2_000;
 
 /** The most one purchase may be, in centavos — `payments::MAXIMUM_CENTAVOS`. */
-export const MAXIMUM_CENTAVOS = 200_000;
+export const MAXIMUM_CENTAVOS = 500_000;
 
 /**
  * What a person typed as centavos, or `null` when it is not an amount.

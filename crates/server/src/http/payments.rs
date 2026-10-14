@@ -23,6 +23,16 @@ pub struct Amount {
     pub centavos: i64,
 }
 
+/// A purchase: the reais, and the rate the person was shown for them.
+#[derive(Debug, Deserialize)]
+pub struct Purchase {
+    /// The reais, in centavos.
+    pub centavos: i64,
+    /// The quote's `brl_per_usd` the person saw. When it is no longer the
+    /// rate, the purchase is refused with `409` and the quote now.
+    pub brl_per_usd: Option<String>,
+}
+
 /// `GET /api/payments/quote?centavos=`: what that many reais buy now.
 pub async fn quote(
     State(state): State<AppState>,
@@ -32,16 +42,18 @@ pub async fn quote(
     Ok(Json(configured(&state)?.quote(amount.centavos).await?))
 }
 
-/// `POST /api/payments` with `{"centavos"}`: start a purchase, and answer
-/// with Stripe's page to send the browser to.
+/// `POST /api/payments` with `{"centavos", "brl_per_usd"}`: start a
+/// purchase at the rate the person was shown, and answer with Stripe's page
+/// to send the browser to.
 pub async fn start(
     State(state): State<AppState>,
     member: Member,
-    Json(amount): Json<Amount>,
+    Json(purchase): Json<Purchase>,
 ) -> Result<Json<Begun>, ApiError> {
     let payments = configured(&state)?;
+    let shown = purchase.brl_per_usd.as_deref();
     Ok(Json(
-        begin(&state.pool, payments, member.user, amount.centavos).await?,
+        begin(&state.pool, payments, member.user, purchase.centavos, shown).await?,
     ))
 }
 
@@ -120,6 +132,15 @@ impl From<PaymentError> for ApiError {
                 eprintln!("scorsese-server: no rate for a purchase: {why}");
                 refused(StatusCode::SERVICE_UNAVAILABLE)
             }
+            PaymentError::StaleRate => {
+                eprintln!("scorsese-server: a purchase was refused: {error}");
+                refused(StatusCode::SERVICE_UNAVAILABLE)
+            }
+            PaymentError::RateMoved(quote) => Self::Refused {
+                status: StatusCode::CONFLICT,
+                message: error.to_string(),
+                detail: json!({ "quote": quote }),
+            },
             PaymentError::Stripe(_) | PaymentError::NoPage(_) => {
                 eprintln!("scorsese-server: {error}");
                 refused(StatusCode::BAD_GATEWAY)

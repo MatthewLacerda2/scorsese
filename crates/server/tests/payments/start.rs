@@ -26,9 +26,18 @@ async fn a_quote_shows_the_credits_before_paying(pool: PgPool) {
     assert_eq!(quote["brl_per_usd"], "4.99");
     assert_eq!(quote["rate_source"], "awesomeapi");
     assert_eq!(quote["minimum_centavos"], 2_000);
-    assert_eq!(quote["maximum_centavos"], 200_000);
+    assert_eq!(quote["maximum_centavos"], 500_000);
 
-    for centavos in [1_999, 200_001, 0, -5] {
+    let most = request(
+        address,
+        "GET",
+        "/api/payments/quote?centavos=500000",
+        &[&bearer],
+        None,
+    )
+    .await;
+    assert_eq!(most.status, 200, "{}", most.body);
+    for centavos in [1_999, 500_001, 0, -5] {
         let path = format!("/api/payments/quote?centavos={centavos}");
         let refused = request(address, "GET", &path, &[&bearer], None).await;
         assert_eq!(refused.status, 400, "{centavos}: {}", refused.body);
@@ -141,6 +150,6 @@ async fn two_purchases_are_two_sessions(pool: PgPool) {
     let address = serve(&pool, Some(fake.clone()), Some("5")).await;
     let (_, bearer) = member(&pool, "ana@example.com").await;
     assert_eq!(bought(address, &bearer, 2_000).await, "cs_test_1");
-    assert_eq!(bought(address, &bearer, 200_000).await, "cs_test_2");
+    assert_eq!(bought(address, &bearer, 500_000).await, "cs_test_2");
     assert_eq!(fake.created(), 2);
 }

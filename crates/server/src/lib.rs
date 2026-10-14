@@ -300,8 +300,10 @@ pub struct Services {
 /// the code answering it either. Requests are then answered from
 /// [`db::member_pool`], whose connections can read nothing outside a scoped
 /// transaction — per-user isolation, `db::scope`. The job worker
-/// ([`jobs::work`]) and the render cache's weekly sweep
-/// ([`renders::evict::run`]) run beside them on the same pool. The render cache's scratch folder is emptied first, while
+/// ([`jobs::work`]), the dollar's rate kept fresh ([`payments::refresh`],
+/// where Stripe is configured) and the render cache's weekly sweep
+/// ([`renders::evict::run`]) run beside them on the same pool. The render
+/// cache's scratch folder is emptied first, while
 /// no render can be running.
 ///
 /// On `shutdown` every live stream ends, so the graceful stop is not held
@@ -340,8 +342,11 @@ pub async fn start(
     let state = AppState::new(pool.clone(), files)
         .with_assistant(assistant)
         .with_google(services.google)
-        .with_payments(services.payments);
+        .with_payments(services.payments.clone());
     let (stop, stopping) = watch::channel(false);
+    let rate = services
+        .payments
+        .map(|payments| tokio::spawn(payments::refresh(payments, stopping.clone())));
     let sweep = tokio::spawn(renders::evict::run(pool.clone(), cache, stopping.clone()));
     let worker = tokio::spawn(jobs::work(pool, registry, state.jobs.clone(), stopping));
     let events = state.events.clone();
@@ -351,6 +356,11 @@ pub async fn start(
     })
     .await;
     stop.send_replace(true);
+    // Not waited on: a read of the rate in flight would hold the stop up to
+    // its timeout, and nothing is lost by cutting it off.
+    if let Some(rate) = rate {
+        rate.abort();
+    }
     if let Err(error) = worker.await {
         eprintln!("scorsese-server: the job worker failed: {error}");
     }

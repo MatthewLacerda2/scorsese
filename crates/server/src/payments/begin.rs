@@ -29,17 +29,21 @@ pub struct Quote {
 }
 
 impl Payments {
-    /// What `centavos` buy at the rate now. Refused outside the purchase
-    /// limits, and when no rate can be read.
+    /// What `centavos` buy at the rate kept. Refused outside the purchase
+    /// limits, and when the rate kept is too old to sell at. A server that
+    /// has read no rate yet reads one first.
     pub async fn quote(&self, centavos: i64) -> Result<Quote, PaymentError> {
         if !(MINIMUM_CENTAVOS..=MAXIMUM_CENTAVOS).contains(&centavos) {
             return Err(PaymentError::OutOfRange);
         }
-        let rates = self.rates.clone();
-        let rate = tokio::task::spawn_blocking(move || rates.usd_brl())
-            .await
-            .map_err(|_| PaymentError::Interrupted)?
-            .map_err(PaymentError::NoRate)?;
+        if self.rates.is_empty() {
+            let rates = self.rates.clone();
+            tokio::task::spawn_blocking(move || rates.refresh())
+                .await
+                .map_err(|_| PaymentError::Interrupted)?
+                .map_err(PaymentError::NoRate)?;
+        }
+        let rate = self.rates.current().ok_or(PaymentError::StaleRate)?;
         quoted(centavos, &rate)
     }
 }
@@ -71,19 +75,24 @@ pub struct Begun {
     pub quote: Quote,
 }
 
-/// Start a purchase of `centavos` for `user`: quote it, open a Checkout
-/// Session for it at Stripe, and record the payment with its rate locked.
+/// Start a purchase of `centavos` for `user`, who was `shown` a rate: quote
+/// it, open a Checkout Session for it at Stripe, and record the payment with
+/// its rate locked.
 ///
-/// When the rate cannot be read, Stripe is never called and nothing is
-/// written. A session Stripe made whose row then fails to be written is never
+/// When there is no rate to sell at, or it is not the one `shown`, Stripe is
+/// never called and nothing is written. A session Stripe made whose row then fails to be written is never
 /// paid into from here — nobody is sent to it — and expires on its own.
 pub async fn begin(
     pool: &PgPool,
     payments: &Payments,
     user: UserId,
     centavos: i64,
+    shown: Option<&str>,
 ) -> Result<Begun, PaymentError> {
     let quote = payments.quote(centavos).await?;
+    if shown.is_some_and(|shown| shown != quote.brl_per_usd) {
+        return Err(PaymentError::RateMoved(Box::new(quote)));
+    }
     let cent = i64::try_from(MICROS_PER_CENT).unwrap_or(1);
     let credited = quote.credit_micros - quote.credit_micros % cent;
     let order = Order {

@@ -6,7 +6,7 @@
 //! 1. **A quote** ([`Payments::quote`]): the reais a person typed, what they
 //!    buy in dollars of credit, and the rate that says so. Shown live as they
 //!    type, so nobody pays without seeing the credits first.
-//! 2. **A session** ([`begin`]): the same quote, with the rate **locked**
+//! 2. **A session** ([`begin`]): the quote the person saw, with the rate **locked**
 //!    into a `payments` row, and a Checkout Session at Stripe for exactly
 //!    those reais, expiring in [`EXPIRES_AFTER_SECONDS`]. The browser goes to
 //!    Stripe's page; the card, the bank and (once Stripe invites the account)
@@ -26,10 +26,18 @@
 //! the rate, floored; Stripe's fee is absorbed, not passed on. A top-up only
 //! ever adds to the balance.
 //!
-//! When neither rate source answers, nothing is started and the request is
-//! refused with 503: a rate is never guessed.
+//! ## The rate is kept, not fetched per purchase
+//!
+//! [`refresh`] reads it every two minutes (AwesomeAPI, then the PTAX); a
+//! failed read keeps the last good one and is logged. A quote and a purchase
+//! use the rate kept while it is at most ten minutes old, and are refused
+//! with 503 past that: a rate is never guessed. A server just started reads
+//! one before its first quote. A purchase names the rate the person was
+//! shown, and is refused with 409 and the new quote when it has moved since,
+//! so the rate stored on the payment is always the one they saw.
 
 mod begin;
+mod refresh;
 pub mod settle;
 
 use std::sync::Arc;
@@ -37,10 +45,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use scorsese_providers::api::http::HttpError;
 use scorsese_providers::credentials::{Environment, Secret};
-use scorsese_providers::fx::{Cached, FxError, Live, Rates};
+use scorsese_providers::fx::{FxError, Latest, Live};
 use scorsese_providers::payments::{Checkout, Stripe};
 
 pub use begin::{Begun, Quote, begin};
+pub use refresh::refresh;
 
 use crate::config::{ConfigError, PUBLIC_ORIGIN, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET};
 use crate::credits::CreditError;
@@ -49,9 +58,10 @@ use crate::credits::CreditError;
 /// R$ 0,39 a card charge stays a small part of it.
 pub const MINIMUM_CENTAVOS: i64 = 2_000;
 
-/// The most one purchase may be, in centavos: R$ 2.000, which bounds what a
-/// stolen card can spend here at once.
-pub const MAXIMUM_CENTAVOS: i64 = 200_000;
+/// The most one purchase may be, in centavos: R$ 5.000 (the maintainer,
+/// 2026-10-14), which bounds what a stolen card can spend here at once and
+/// stays under Pix-on-Stripe's 3,000 USD a payment.
+pub const MAXIMUM_CENTAVOS: i64 = 500_000;
 
 /// How long a Checkout Session takes payment: thirty minutes, Stripe's
 /// least, and one more so our clock running ahead of Stripe's cannot put the
@@ -63,8 +73,9 @@ pub const EXPIRES_AFTER_SECONDS: i64 = 31 * 60;
 pub struct Payments {
     /// Where sessions are created and read: Stripe, or a test's stand-in.
     pub checkout: Arc<dyn Checkout>,
-    /// Where the rate is read: the live sources, or a test's figure.
-    pub rates: Arc<dyn Rates>,
+    /// The latest rate, refreshed in the background ([`refresh`]) from the
+    /// live sources, or from a test's figure.
+    pub rates: Arc<Latest>,
     /// The webhook endpoint's signing secret, `whsec_…`.
     pub webhook_secret: Secret,
     /// The site's origin, with no trailing slash.
@@ -97,7 +108,7 @@ impl Payments {
             })?;
         Ok(Some(Self {
             checkout: Arc::new(Stripe::new(Secret::new(key.trim()))),
-            rates: Arc::new(Cached::new(Live)),
+            rates: Arc::new(Latest::new(Arc::new(Live))),
             webhook_secret: Secret::new(webhook.trim()),
             origin,
         }))
@@ -119,6 +130,15 @@ pub enum PaymentError {
         "the dollar's rate could not be read just now, so nothing was charged — try again in a minute"
     )]
     NoRate(#[source] FxError),
+    /// The rate kept is older than it may be sold at, so nothing was started.
+    #[error(
+        "the dollar's rate has not been read for a while, so nothing was charged — try again in a minute"
+    )]
+    StaleRate,
+    /// The rate moved between the quote the person saw and their paying;
+    /// nothing was started, and this is the quote at the rate now.
+    #[error("the dollar's rate just changed: check what your reais buy now and pay again")]
+    RateMoved(Box<Quote>),
     /// Stripe refused or could not be reached.
     #[error("Stripe did not answer: {0}")]
     Stripe(#[from] HttpError),

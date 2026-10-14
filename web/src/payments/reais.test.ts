@@ -34,7 +34,7 @@ describe("formatReais", () => {
 it("knows the purchase limits and floors credits to the cent", () => {
   expect(withinLimits(1_999)).toBe(false);
   expect(withinLimits(2_000)).toBe(true);
-  expect(withinLimits(200_000)).toBe(true);
-  expect(withinLimits(200_001)).toBe(false);
+  expect(withinLimits(500_000)).toBe(true);
+  expect(withinLimits(500_001)).toBe(false);
   expect(wholeCents(10_020_040)).toBe(10_020_000);
 });

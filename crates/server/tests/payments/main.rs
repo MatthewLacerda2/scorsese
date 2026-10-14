@@ -7,6 +7,7 @@
 mod common;
 
 mod confirm;
+mod rate;
 mod start;
 mod webhook;
 
@@ -16,7 +17,7 @@ use std::sync::{Arc, Mutex};
 
 use scorsese_providers::api::http::HttpError;
 use scorsese_providers::credentials::Secret;
-use scorsese_providers::fx::{FxError, Rate, Rates, Source};
+use scorsese_providers::fx::{FxError, Latest, Rate, Rates, Source};
 use scorsese_providers::payments::{Checkout, Order, Session};
 use scorsese_server::accounts::{tokens, users};
 use scorsese_server::credits::ledger;
@@ -103,6 +104,17 @@ impl Rates for Fixed {
 /// A served server selling through `fake` at `rate` (`None`: no rate can be
 /// read), or — with no `fake` — one with no Stripe configured.
 async fn serve(pool: &PgPool, fake: Option<Arc<Fake>>, rate: Option<&'static str>) -> SocketAddr {
+    serve_kept(pool, fake, &rates(rate)).await
+}
+
+/// The rate a server keeps, read from a source answering `rate` (`None`:
+/// failing), with nothing read yet.
+fn rates(rate: Option<&'static str>) -> Arc<Latest> {
+    Arc::new(Latest::new(Arc::new(Fixed(rate, AtomicUsize::new(0)))))
+}
+
+/// [`serve`], keeping its rate in `latest` — for a test that ages it.
+async fn serve_kept(pool: &PgPool, fake: Option<Arc<Fake>>, latest: &Arc<Latest>) -> SocketAddr {
     let (listener, address) = common::listener().await;
     db::migrate(pool).await.expect("the migrations apply");
     let members = db::member_pool(pool)
@@ -110,7 +122,7 @@ async fn serve(pool: &PgPool, fake: Option<Arc<Fake>>, rate: Option<&'static str
         .expect("the member pool connects");
     let payments = fake.map(|fake| Payments {
         checkout: fake,
-        rates: Arc::new(Fixed(rate, AtomicUsize::new(0))),
+        rates: latest.clone(),
         webhook_secret: Secret::new(SECRET),
         origin: "https://scorsese.example".into(),
     });

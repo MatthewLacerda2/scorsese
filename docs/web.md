@@ -1001,16 +1001,24 @@ shows, live, what it buys: "R$ 50,00 → $10,02 em créditos". Paying sends the
 browser to Stripe's page; Stripe sends it back to `/credits/return`, which
 shows the result once the balance moves. Customers are assumed Brazilian:
 every charge is in **BRL**, from **R$ 20** (so the card's fixed R$ 0,39 stays
-small) to **R$ 2.000** a purchase (which bounds what a stolen card can do).
+small) to **R$ 5.000** a purchase (which bounds what a stolen card can do,
+and fits under Pix-on-Stripe's 3,000 USD a payment).
 No payment method is named in code: the session offers what Stripe's
 Dashboard has switched on — cards now, and Pix once Stripe's invitation for
 it arrives, with no change here.
 
-**The rate is locked when the session is created**: AwesomeAPI's commercial
-USD-BRL `ask`, else the Central Bank's PTAX selling rate from the last week,
-each read with no key and reused for a minute. If neither answers, the
-purchase is refused with `503` and **no session is created**: a rate is never
-guessed. A rate outside 1 to 50 reais a dollar is treated as no answer.
+**The rate is kept, not fetched per purchase** (the maintainer, 2026-10-14):
+the server reads AwesomeAPI's commercial USD-BRL `ask`, else the Central
+Bank's PTAX selling rate from the last week, both with no key, **every two
+minutes** in the background (`payments::refresh`), and keeps the latest in
+memory with when it was read; a failed read keeps the last good one and is
+logged, and a server just started reads one before its first quote. A quote
+and a purchase use the rate kept **while it is at most ten minutes old**; past
+that, or with none read, they are refused with `503` and **no session is
+created**: a rate is never guessed. A rate outside 1 to 50 reais a dollar is
+treated as no answer. **A purchase names the rate it was shown**, and is
+refused with `409` and the quote at the rate now when it has moved, so the
+rate locked on the payment is always the one the person saw.
 **Credits are the reais divided by that rate, floored** to the micro-dollar,
 and Stripe's fee is absorbed rather than added. The session expires after 31
 minutes (Stripe's least is 30, measured on its clock). AwesomeAPI's keyless
@@ -1047,7 +1055,7 @@ was asked credits nothing and is logged for the operator to look at in Stripe.
 | route | who | what |
 | --- | --- | --- |
 | `GET /api/payments/quote` | a member | `?centavos=`: the credits they buy, the rate and its source, and the limits |
-| `POST /api/payments` | a member | `{"centavos"}`: a Checkout Session at the rate now — its `url` to send the browser to, and its `session` |
+| `POST /api/payments` | a member | `{"centavos", "brl_per_usd"}`: a Checkout Session at the rate shown — its `url` to send the browser to, and its `session`; `409` with `quote` when the rate moved |
 | `POST /api/payments/{session}/confirm` | a member | their payment by session, credited first if Stripe says it is paid |
 | `POST /api/payments/stripe/webhook` | Stripe, signed | how a session went |
 

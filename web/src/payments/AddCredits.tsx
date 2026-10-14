@@ -1,14 +1,15 @@
 // "Add credits" (#548): an amount in reais, what it buys shown live as it is
 // typed, and Pay — which sends the browser to Stripe's own page. The rate is
-// the server's and is locked when Pay is pressed (docs/web.md, *Buying
-// credits*); this page only shows it.
+// the server's (docs/web.md, *Buying credits*); Pay names the one shown, and
+// when it has moved since, the server answers with the quote now, which takes
+// the old one's place here so the person sees it before paying again.
 //
 // Its own chunk: the shell's button loads it on the first click, so the
 // entry chunk carries none of it.
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useEffect, useState } from "react";
-import { api } from "@/api";
+import { ApiError, api, type PaymentQuote } from "@/api";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -61,15 +62,20 @@ export function AddCreditsDialog({
     enabled: open && valid,
     retry: false,
   });
+  const client = useQueryClient();
   const pay = useMutation({
-    mutationFn: (amount: number) => api.payments.start(amount),
+    mutationFn: (shown: PaymentQuote) => api.payments.start(shown.brl_centavos, shown.brl_per_usd),
     onSuccess: (begun) => window.location.assign(begun.url),
+    onError: (error, shown) => {
+      const moved = error instanceof ApiError && error.status === 409 ? error.body.quote : null;
+      if (moved) client.setQueryData(["payments", "quote", shown.brl_centavos], moved);
+    },
   });
   const current = quote.data && quote.data.brl_centavos === centavos ? quote.data : null;
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (centavos !== null && withinLimits(centavos)) pay.mutate(centavos);
+    if (current) pay.mutate(current);
   }
 
   const error = pay.error ?? (valid ? quote.error : null);
