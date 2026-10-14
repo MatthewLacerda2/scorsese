@@ -1072,8 +1072,10 @@ memory with when it was read; a failed read keeps the last good one and is
 logged, and a server just started reads one before its first quote. A quote
 and a purchase use the rate kept **while it is at most ten minutes old**; past
 that, or with none read, they are refused with `503` and **no session is
-created**: a rate is never guessed. A rate outside 1 to 50 reais a dollar is
-treated as no answer. **A purchase names the rate it was shown**, and is
+created**: a rate is never guessed. A rate outside 2 to 8 reais a dollar
+(inclusive, on the exact decimal: 8.01 is out) is treated as no answer: a real
+rate has sat near 5 for years, and a wider band only lets a garbage figure sell
+credits at a wild price. **A purchase names the rate it was shown**, and is
 refused with `409` and the quote at the rate now when it has moved, so the
 rate locked on the payment is always the one the person saw.
 **Credits are the reais divided by that rate, floored** to the micro-dollar,
