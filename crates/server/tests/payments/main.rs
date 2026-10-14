@@ -38,21 +38,27 @@ struct Fake {
 impl Fake {
     /// Make session `id` read as paid, as Stripe would once the card cleared.
     fn pay(&self, id: &str) -> Session {
-        let mut sessions = self.sessions.lock().unwrap();
-        let session = sessions.iter_mut().find(|s| s.id == id).unwrap();
+        let mut sessions = self.sessions.lock().expect("no test panics holding it");
+        let session = sessions
+            .iter_mut()
+            .find(|s| s.id == id)
+            .expect("only a session it made is paid");
         session.status = Some("complete".into());
         session.payment_status = "paid".into();
         session.clone()
     }
 
     fn created(&self) -> usize {
-        self.created.lock().unwrap().len()
+        self.created
+            .lock()
+            .expect("no test panics holding it")
+            .len()
     }
 }
 
 impl Checkout for Fake {
     fn create(&self, order: &Order) -> Result<Session, HttpError> {
-        let mut created = self.created.lock().unwrap();
+        let mut created = self.created.lock().expect("no test panics holding it");
         created.push(order.clone());
         let session = Session {
             id: format!("cs_test_{}", created.len()),
@@ -65,13 +71,17 @@ impl Checkout for Fake {
             amount_total: Some(order.centavos),
             currency: Some("brl".into()),
         };
-        self.sessions.lock().unwrap().push(session.clone());
+        self.sessions
+            .lock()
+            .expect("no test panics holding it")
+            .push(session.clone());
         Ok(session)
     }
 
     fn retrieve(&self, id: &str) -> Result<Session, HttpError> {
-        let sessions = self.sessions.lock().unwrap();
-        Ok(sessions.iter().find(|s| s.id == id).unwrap().clone())
+        let sessions = self.sessions.lock().expect("no test panics holding it");
+        let session = sessions.iter().find(|s| s.id == id);
+        Ok(session.expect("only a session it made is read").clone())
     }
 }
 
@@ -117,24 +127,27 @@ async fn serve(pool: &PgPool, fake: Option<Arc<Fake>>, rate: Option<&'static str
 
 /// A new account for `email`, and the bearer header its token sends.
 async fn member(pool: &PgPool, email: &str) -> (UserId, String) {
-    let user = users::create(pool, email).await.unwrap();
-    let token = tokens::issue(pool, user, "test").await.unwrap().token;
+    let user = users::create(pool, email)
+        .await
+        .expect("a fresh database takes an account");
+    let issued = tokens::issue(pool, user, "test").await;
+    let token = issued.expect("a new account takes a token").token;
     (user, format!("Authorization: Bearer {token}"))
 }
 
 /// `user`'s balance, in micro-dollars.
 async fn balance(pool: &PgPool, user: UserId) -> i64 {
-    let mut tx = db::scoped(pool, user).await.unwrap();
-    ledger::balance(&mut tx).await.unwrap()
+    let mut tx = db::scoped(pool, user).await.expect("a scope opens");
+    ledger::balance(&mut tx).await.expect("the balance reads")
 }
 
 /// How many top-ups `user` has.
 async fn top_ups(pool: &PgPool, user: UserId) -> i64 {
-    let mut tx = db::scoped(pool, user).await.unwrap();
+    let mut tx = db::scoped(pool, user).await.expect("a scope opens");
     sqlx::query_scalar("SELECT count(*) FROM credit_entries WHERE kind = 'top_up'")
         .fetch_one(&mut *tx)
         .await
-        .unwrap()
+        .expect("the ledger reads")
 }
 
 /// Start a purchase of `centavos` as `bearer`; the session id.
@@ -142,7 +155,8 @@ async fn bought(address: SocketAddr, bearer: &str, centavos: i64) -> String {
     let body = serde_json::json!({ "centavos": centavos });
     let started = common::request(address, "POST", "/api/payments", &[bearer], Some(&body)).await;
     assert_eq!(started.status, 200, "{}", started.body);
-    started.json()["session"].as_str().unwrap().to_owned()
+    let session = started.json()["session"].as_str().map(str::to_owned);
+    session.expect("a started purchase names its session")
 }
 
 /// What R$ 50,00 buys at 4.99: $10.020040.

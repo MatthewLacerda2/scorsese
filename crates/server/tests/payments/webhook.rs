@@ -39,7 +39,7 @@ async fn deliver(address: SocketAddr, body: &[u8], secret: &str, at: i64) -> Res
 fn now() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .expect("the clock is past 1970")
         .as_secs() as i64
 }
 
