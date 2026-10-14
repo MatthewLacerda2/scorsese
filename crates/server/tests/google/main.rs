@@ -80,6 +80,7 @@ fn id_token(sub: &str, email: &str, verified: bool) -> String {
         "sub": sub,
         "email": email,
         "email_verified": verified,
+        "name": "Ana Souza",
         "iat": now,
         "exp": now + 3600,
     });

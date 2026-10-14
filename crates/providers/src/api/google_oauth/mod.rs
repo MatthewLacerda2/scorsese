@@ -37,8 +37,9 @@ pub const TOKEN: &str = "https://oauth2.googleapis.com/token";
 /// Every `iss` a Google ID token is documented to carry.
 pub const ISSUERS: [&str; 2] = ["https://accounts.google.com", "accounts.google.com"];
 
-/// What is asked for: who they are, and their email.
-pub const SCOPE: &str = "openid email";
+/// What is asked for: who they are, their email, and their name (#1266).
+/// `profile` also brings `picture` and `given_name`, which are never read.
+pub const SCOPE: &str = "openid email profile";
 
 /// The query string's parameters, in Google's names.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -130,7 +131,7 @@ mod tests {
             url,
             "https://accounts.google.com/o/oauth2/v2/auth?client_id=id.apps.googleusercontent.com\
              &redirect_uri=https%3A%2F%2Fexample.com%2Fapi%2Fauth%2Fgoogle%2Fcallback\
-             &response_type=code&scope=openid%20email&state=s&code_challenge=c-_\
+             &response_type=code&scope=openid%20email%20profile&state=s&code_challenge=c-_\
              &code_challenge_method=S256&prompt=select_account"
         );
     }

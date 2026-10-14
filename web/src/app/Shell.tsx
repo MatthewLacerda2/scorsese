@@ -6,25 +6,17 @@
 
 import { PlusIcon } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
-import { Link, NavLink, Outlet, useMatch, useNavigate } from "react-router";
+import { Link, NavLink, Outlet, useMatch } from "react-router";
+import { AccountMenu } from "@/app/AccountMenu";
 import { HeaderSlotProvider } from "@/app/headerSlot";
 import { PageFallback } from "@/app/PageFallback";
 import { useBalance } from "@/app/queries";
 import { SettingsButton } from "@/app/Settings";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { UploadTray } from "@/files/UploadTray";
 import { UploadsProvider } from "@/files/uploads";
 import { useT } from "@/i18n/I18nProvider";
 import { formatDollars } from "@/lib/money";
-import { useAccount, useLogout } from "@/session/session";
 
 // The toaster arrives in a chunk of its own once the shell is up, so a first
 // visit (the login page, #896) never downloads Sonner. A render takes longer
@@ -139,36 +131,5 @@ function AddCredits() {
         </Suspense>
       )}
     </>
-  );
-}
-
-function AccountMenu() {
-  const account = useAccount();
-  const logout = useLogout();
-  const navigate = useNavigate();
-  const t = useT();
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="rounded-full" aria-label={t.common.account}>
-          <img src="/icon.png" alt="" className="size-7 rounded-full" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel className="font-normal text-muted-foreground">
-          {account.data?.email}
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => navigate("/spending")}>
-          {t.common.spendingHistory}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={() => logout.mutate(undefined, { onSettled: () => navigate("/login") })}
-        >
-          {t.common.logOut}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
