@@ -29,9 +29,7 @@ async fn each_call_is_a_typed_row_and_each_tool_reply_is_sized(pool: PgPool) {
     let (address, _) = super::scripted(&pool, &script).await;
     let (ana, who) = member(&pool, "ana@example.com", 10).await;
     let id = project(&pool, ana, json!([])).await;
-    let mut done = answers("Done.");
-    done.thinking = Some(7);
-    script.replace(vec![calls("icons", json!({})), done]);
+    script.replace(vec![calls("icons", json!({})), answers("Done.")]);
     let detail = exchange(address, &who, id, "look around").await;
     let turn = detail["turn"]["id"].as_i64().unwrap();
 
@@ -48,7 +46,8 @@ async fn each_call_is_a_typed_row_and_each_tool_reply_is_sized(pool: PgPool) {
     .await
     .unwrap();
     let (input, output) = (USAGE.input as i64, USAGE.output as i64);
-    let row = |position, thinking, stop: &str| {
+    // No thinking count: Anthropic's output includes it, undivided (#1220).
+    let row = |position, stop: &str| {
         let model = ("claude-opus-5-5".to_owned(), "anthropic".to_owned());
         (
             position,
@@ -56,7 +55,7 @@ async fn each_call_is_a_typed_row_and_each_tool_reply_is_sized(pool: PgPool) {
             model.1,
             input,
             output,
-            thinking,
+            None,
             stop.to_owned(),
         )
     };
@@ -64,10 +63,7 @@ async fn each_call_is_a_typed_row_and_each_tool_reply_is_sized(pool: PgPool) {
         .iter()
         .map(|r| (r.0, r.1.clone(), r.2.clone(), r.3, r.4, r.5, r.7.clone()))
         .collect();
-    assert_eq!(
-        seen,
-        vec![row(1, None, "tool_use"), row(2, Some(7), "end_turn")]
-    );
+    assert_eq!(seen, vec![row(1, "tool_use"), row(2, "end_turn")]);
     assert!(
         rows.iter().all(|r| r.6 >= 0 && r.8 == 14_000 && r.9),
         "{rows:?}"

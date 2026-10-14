@@ -116,10 +116,11 @@ export interface TurnView {
 
 /** `assistant::Choice` — one model the assistant can run on (#705). */
 export interface ModelChoice {
-  /** What the project stores, e.g. `gemini-3.8-flash`. */
+  /** What the project stores, e.g. `claude-sonnet-5-5`. */
   id: string;
   label: string;
-  vendor: "anthropic" | "google";
+  /** Anthropic's, the only vendor offered since #1220. */
+  vendor: "anthropic";
   /** Why a turn on it would be refused right now, in the server's words; `null` when it can answer. */
   unavailable: string | null;
   /** How long after the last answer a switch away from it can still miss a warm cache. */

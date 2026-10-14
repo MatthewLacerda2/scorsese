@@ -140,7 +140,7 @@ describe("conversations", () => {
         project: 7,
         session: 1,
         turns: [turn(1, { state: "answered" })],
-        model: "gemini-3.8-flash",
+        model: "claude-sonnet-5-5",
         models: [],
       },
       live,

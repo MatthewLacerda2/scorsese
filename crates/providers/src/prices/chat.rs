@@ -2,8 +2,7 @@
 //!
 //! Laid out to be read beside the vendors' own pages and checked off row by
 //! row, the way [`veo`](super::veo) and [`elevenlabs`](super::elevenlabs) are:
-//! <https://platform.claude.com/docs/en/about-claude/pricing> for Claude, and
-//! <https://ai.google.dev/gemini-api/docs/pricing> for Gemini. One row per
+//! <https://platform.claude.com/docs/en/about-claude/pricing>. One row per
 //! model the assistant offers ([`Model`]); a model with no row cannot be
 //! charged for, and so cannot be offered.
 //!
@@ -12,7 +11,7 @@
 //! Veo reports nothing and ElevenLabs is priced before the call. A chat reply
 //! carries a usage block that counts every token it was billed for, and
 //! [`Usage`] holds those counts by the kind each is billed as: plain input,
-//! output (thinking included, on both vendors), cache writes (Claude's
+//! output (thinking included), cache writes (Claude's
 //! five-minute and one-hour, at different prices) and cache reads. So
 //! [`Usage::micros`] is the vendor's own count multiplied by the vendor's own
 //! page — as exact as a copied rate table allows, and nothing is guessed.
@@ -23,11 +22,17 @@
 //!
 //! # Micro-dollars per million tokens
 //!
-//! Claude's figures are whole cents per million, but Gemini 3.8 Flash's
-//! cached input is $0.075 — seven and a half cents — so the unit is the
-//! micro-dollar per million tokens, where every published figure is a whole
-//! number. The division happens once, over the whole call, in
-//! [`Usage::micros`], and it rounds **up** (`docs/prices.md`).
+//! Claude's figures are whole cents per million today, but a vendor's page
+//! is free to print a fraction of a cent (Gemini's did, $0.075, while it was
+//! offered), so the unit is the micro-dollar per million tokens, where any
+//! published figure is a whole number. The division happens once, over the
+//! whole call, in [`Usage::micros`], and it rounds **up** (`docs/prices.md`).
+//!
+//! # A dated row
+//!
+//! A row can start on a given day ([`Row::from`], #718), for a vendor that
+//! announces a price change ahead. No row uses it today; [`rate`] still picks
+//! the latest row in effect, so the next such announcement is one more row.
 
 use super::checked::Checked;
 use crate::chat::Model;
@@ -40,10 +45,9 @@ pub struct Rate {
     pub input: u64,
     /// Output tokens, thinking included.
     pub output: u64,
-    /// Input written to Claude's five-minute cache: 1.25× input. Zero on
-    /// Gemini, whose implicit cache is written for nothing.
+    /// Input written to Claude's five-minute cache: 1.25× input.
     pub cache_write_5m: u64,
-    /// Input written to Claude's one-hour cache: 2× input. Zero on Gemini.
+    /// Input written to Claude's one-hour cache: 2× input.
     pub cache_write_1h: u64,
     /// Input read from a cache.
     pub cache_read: u64,
@@ -75,16 +79,6 @@ const fn usd(dollars: u64, millionths: u64) -> u64 {
 /// - **Claude Opus 5.5**: cache reads are 0.05× input on this model, not the
 ///   usual 0.1× (checked 2026-10-03 against Anthropic's prompt-caching page).
 /// - **Claude Sonnet 5.5**: the usual multipliers — 1.25×, 2× and **0.1×**.
-/// - **Gemini 3.8 Flash**: an introductory price **that doubles on
-///   2027-01-01** (to $1.50 / $7.50 / $0.15) — two rows, the second dated
-///   (#718). Google's page, verbatim: *"$0.75 through December 31, 2026.
-///   $1.50 starting January 1, 2027"*.
-///   Implicit caching is automatic on this model, writes cost nothing, and
-///   reads are 0.1× input. (Explicit caches, with their hourly storage fee,
-///   are never created.)
-/// - **Gemini 3.5 Flash Lite**: Google sells no context caching on it, and
-///   the model is not on the implicit-caching list. A cached count, should
-///   one ever appear, is billed as the plain input it would then be.
 pub const RATES: &[Row] = &[
     Row {
         model: Model::ClaudeOpus55,
@@ -110,53 +104,22 @@ pub const RATES: &[Row] = &[
             checked: Checked::on(2026, 10, 3),
         },
     },
-    Row {
-        model: Model::GeminiFlash38,
-        from: None,
-        rate: Rate {
-            input: usd(0, 750_000),
-            output: usd(3, 750_000),
-            cache_write_5m: 0,
-            cache_write_1h: 0,
-            cache_read: usd(0, 75_000),
-            checked: Checked::on(2026, 10, 3),
-        },
-    },
-    Row {
-        model: Model::GeminiFlash38,
-        from: Some(Checked::on(2027, 1, 1)),
-        rate: Rate {
-            input: usd(1, 500_000),
-            output: usd(7, 500_000),
-            cache_write_5m: 0,
-            cache_write_1h: 0,
-            cache_read: usd(0, 150_000),
-            checked: Checked::on(2026, 10, 3),
-        },
-    },
-    Row {
-        model: Model::GeminiFlashLite35,
-        from: None,
-        rate: Rate {
-            input: usd(0, 300_000),
-            output: usd(2, 500_000),
-            cache_write_5m: 0,
-            cache_write_1h: 0,
-            cache_read: usd(0, 300_000),
-            checked: Checked::on(2026, 10, 3),
-        },
-    },
 ];
 
-/// What `model` costs on `day` (UTC), if the table has it.
+/// What `model` costs on `day` (UTC), if the table has it: [`rate_in`]
+/// over [`RATES`].
+pub fn rate(model: Model, day: Checked) -> Option<Rate> {
+    rate_in(RATES, model, day)
+}
+
+/// What `model` costs on `day` (UTC) by `rows`.
 ///
 /// The model's row with the latest [`Row::from`] that is not after `day`, so
-/// the rows' order in [`RATES`] does not matter. `None` for a model with no
-/// row in effect, so a call nobody priced is a refusal to answer for rather
-/// than a call charged at zero.
-pub fn rate(model: Model, day: Checked) -> Option<Rate> {
-    RATES
-        .iter()
+/// the rows' order does not matter. `None` for a model with no row in effect,
+/// so a call nobody priced is a refusal to answer for rather than a call
+/// charged at zero.
+pub fn rate_in(rows: &[Row], model: Model, day: Checked) -> Option<Rate> {
+    rows.iter()
         .filter(|row| row.model == model && row.from.is_none_or(|from| from <= day))
         .max_by_key(|row| row.from)
         .map(|row| row.rate)
@@ -168,10 +131,7 @@ pub fn rate(model: Model, day: Checked) -> Option<Rate> {
 ///
 /// From Claude's `usage`: `input_tokens`, `output_tokens`,
 /// `cache_read_input_tokens`, and `cache_creation`'s
-/// `ephemeral_5m_input_tokens` and `ephemeral_1h_input_tokens`. From Gemini's
-/// `usageMetadata`: input is `promptTokenCount` less
-/// `cachedContentTokenCount`, output is `candidatesTokenCount` plus
-/// `thoughtsTokenCount`, and the cached count is the cache read.
+/// `ephemeral_5m_input_tokens` and `ephemeral_1h_input_tokens`.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Usage {
     /// Plain input tokens.

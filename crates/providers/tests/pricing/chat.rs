@@ -3,9 +3,9 @@
 
 use scorsese_providers::chat::Model;
 use scorsese_providers::prices::Checked;
-use scorsese_providers::prices::chat::{self, Rate, Usage};
+use scorsese_providers::prices::chat::{self, Rate, Row, Usage};
 
-/// The day the table was read, when every row but the dated one applies.
+/// The day the table was read.
 const READ: Checked = Checked::on(2026, 10, 3);
 
 fn rate(model: Model) -> Rate {
@@ -30,30 +30,44 @@ fn the_table_says_what_the_vendors_pages_say() {
     assert_eq!(figures(rate(Model::ClaudeOpus55)), opus);
     let sonnet = (2_000_000, 10_000_000, 2_500_000, 4_000_000, 200_000);
     assert_eq!(figures(rate(Model::ClaudeSonnet55)), sonnet);
-    let flash = (750_000, 3_750_000, 0, 0, 75_000);
-    assert_eq!(figures(rate(Model::GeminiFlash38)), flash);
-    let lite = (300_000, 2_500_000, 0, 0, 300_000);
-    assert_eq!(figures(rate(Model::GeminiFlashLite35)), lite);
 }
 
-/// Gemini 3.8 Flash's introductory price holds through 2026-12-31 and doubles
-/// on 2027-01-01 (#718), to $1.50 / $7.50 / $0.15 cached — written out, not
-/// read from the table. Nothing else moves that day.
-#[test]
-fn gemini_flash_doubles_on_new_years_day_2027() {
-    let flash = |day| chat::rate(Model::GeminiFlash38, day).expect("priced");
-    let figures = |r: Rate| (r.input, r.output, r.cache_read);
-    let last_intro_day = flash(Checked::on(2026, 12, 31));
-    assert_eq!(figures(last_intro_day), (750_000, 3_750_000, 75_000));
-    let first_full_day = flash(Checked::on(2027, 1, 1));
-    assert_eq!(figures(first_full_day), (1_500_000, 7_500_000, 150_000));
-    assert_eq!(flash(Checked::on(2031, 6, 1)), first_full_day);
-    for model in Model::ALL {
-        let later = chat::rate(model, Checked::on(2027, 1, 1));
-        if model != Model::GeminiFlash38 {
-            assert_eq!(later, chat::rate(model, READ), "{model:?}");
-        }
+/// A rate that costs `input` per million, and nothing else.
+const fn input_at(input: u64) -> Rate {
+    Rate {
+        input,
+        output: 0,
+        cache_write_5m: 0,
+        cache_write_1h: 0,
+        cache_read: 0,
+        checked: READ,
     }
+}
+
+/// A dated row takes over the day it starts and not before (#718), whatever
+/// order the rows are in; a model with no row in effect is unpriced. No row
+/// in [`chat::RATES`] is dated today, so the table here is made up.
+#[test]
+fn a_dated_row_takes_over_on_its_first_day() {
+    let doubled = Row {
+        model: Model::ClaudeOpus55,
+        from: Some(Checked::on(2027, 1, 1)),
+        rate: input_at(2),
+    };
+    let first = Row {
+        model: Model::ClaudeOpus55,
+        from: None,
+        rate: input_at(1),
+    };
+    let rows = [doubled, first];
+    let on = |day| chat::rate_in(&rows, Model::ClaudeOpus55, day).map(|r| r.input);
+    assert_eq!(on(Checked::on(2026, 12, 31)), Some(1));
+    assert_eq!(on(Checked::on(2027, 1, 1)), Some(2));
+    assert_eq!(on(Checked::on(2031, 6, 1)), Some(2));
+    let later_only = [doubled];
+    let before = chat::rate_in(&later_only, Model::ClaudeOpus55, Checked::on(2026, 12, 31));
+    assert_eq!(before, None, "nothing in effect yet");
+    assert_eq!(chat::rate_in(&rows, Model::ClaudeSonnet55, READ), None);
 }
 
 #[test]
@@ -63,11 +77,7 @@ fn every_model_offered_has_a_row_and_its_own_id() {
         assert_eq!(Model::from_id(model.id()), Some(model));
     }
     assert_eq!(Model::from_id("claude-opus-5"), None);
-    assert_eq!(
-        Model::from_id("gemini-3.8-flash-lite"),
-        None,
-        "there is none"
-    );
+    assert_eq!(Model::from_id("gemini-3.8-flash"), None, "cut in #1220");
 }
 
 /// A million tokens of one kind only.
@@ -101,13 +111,13 @@ fn a_turn_adds_every_kind() {
 }
 
 /// The saving of a cache hit is the user's: the same prompt read from
-/// Gemini's cache costs less than read fresh. 40 000 tokens of prompt and 500
-/// out on 3.8 Flash — uncached, 40 000 × $0.75/M + 500 × $3.75/M =
-/// 30 000 + 1 875 µ$; with 36 000 of them cached, 4 000 × $0.75/M +
-/// 36 000 × $0.075/M + 1 875 = 3 000 + 2 700 + 1 875 µ$.
+/// Sonnet's cache costs less than read fresh. 40 000 tokens of prompt and 500
+/// out — uncached, 40 000 × $2/M + 500 × $10/M = 80 000 + 5 000 µ$; with
+/// 36 000 of them cached, 4 000 × $2/M + 36 000 × $0.20/M + 5 000 =
+/// 8 000 + 7 200 + 5 000 µ$.
 #[test]
-fn a_cached_gemini_call_costs_less_than_the_same_call_uncached() {
-    let flash = rate(Model::GeminiFlash38);
+fn a_cached_call_costs_less_than_the_same_call_uncached() {
+    let sonnet = rate(Model::ClaudeSonnet55);
     let fresh = Usage {
         input: 40_000,
         output: 500,
@@ -118,8 +128,8 @@ fn a_cached_gemini_call_costs_less_than_the_same_call_uncached() {
         cache_read: 36_000,
         ..fresh
     };
-    assert_eq!(fresh.micros(flash), 31_875);
-    assert_eq!(cached.micros(flash), 7_575);
+    assert_eq!(fresh.micros(sonnet), 85_000);
+    assert_eq!(cached.micros(sonnet), 20_200);
 }
 
 /// One Opus cache-read token is a fifth of a micro-dollar; it is charged as a

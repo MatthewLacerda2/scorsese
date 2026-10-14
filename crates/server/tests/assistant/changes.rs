@@ -113,13 +113,6 @@ async fn a_change_on_claude_is_the_users_message_and_a_server_note(pool: PgPool)
 }
 
 #[sqlx::test]
-async fn a_change_on_gemini_is_the_users_message_and_a_server_note(pool: PgPool) {
-    let sent = change_on(&pool, "gemini-3.8-flash").await;
-    told_alike(&sent);
-    assert!(sent.last().unwrap().contains("[scorsese server]"));
-}
-
-#[sqlx::test]
 async fn an_empty_change_or_a_yes_with_one_answers_nothing(pool: PgPool) {
     let script = Script::new(vec![]);
     let (address, _) = scripted(&pool, &script).await;

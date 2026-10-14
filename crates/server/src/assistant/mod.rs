@@ -14,13 +14,14 @@
 //!
 //! ## Which model
 //!
-//! A project names its model (`projects.assistant_model`): one of the four
+//! A project names its model (`projects.assistant_model`): one of the two
 //! `scorsese_providers::chat::Model` offers — Claude Sonnet 5.5 by default,
-//! Claude Opus 5.5, Gemini 3.8 Flash or Gemini 3.5 Flash Lite — and its
-//! owner changes it whenever they like, mid-conversation too (`model`). Every
+//! or Claude Opus 5.5 — and its owner changes it whenever they like, mid-conversation too (`model`). Every
 //! turn runs on the model its project names when it starts, and is charged at
 //! that model's rates. This module talks to `scorsese_providers::chat` and
-//! never to a vendor: what differs between them is behind that seam.
+//! never to a vendor: what differs between them is behind that seam. Gemini
+//! 3.8 Flash and 3.5 Flash Lite were offered too until 2026-10-12, when the
+//! maintainer cut them as not good enough at the job (#1220).
 //!
 //! Choosing a model for **this one client** does not make the tools that
 //! model's (`CLAUDE.md`, *The web app's built-in assistant runs on the model
@@ -40,11 +41,10 @@
 //! (`scorsese_providers::chat::replay`). Nothing is ever edited or
 //! re-serialised: on Claude a thinking block is valid only while everything
 //! before it is byte-for-byte unchanged, and an unchanged prefix is also what
-//! every vendor's prompt cache reads. A change of model costs one uncached
+//! the prompt cache reads. A change of model costs one uncached
 //! turn, and the web app says so before it switches. Facts the server vouches
 //! for — which project this is, that the user confirmed a quote — arrive as
-//! server notes (a mid-conversation `system` message on Claude, a marked part
-//! on Gemini), which neither the user nor a tool's output can forge.
+//! server notes (a mid-conversation `system` message), which neither the user nor a tool's output can forge.
 //!
 //! ## Paid tools: the user's yes, never the model's
 //!
@@ -103,8 +103,7 @@
 //! message carries its own (`Opening::effort`), which the web app offers in
 //! plain words — Quick, Balanced, Thorough — and never as "effort". Absent, it
 //! is [`DEFAULT_EFFORT`], `high`: editing a video is long, many-step tool work,
-//! which is where Anthropic's guidance puts it, and it is Gemini's deepest
-//! `thinkingLevel`. Every turn records its effort, and a turn that resumes —
+//! which is where Anthropic's guidance puts it. Every turn records its effort, and a turn that resumes —
 //! after a question (#710) or a quote's answer — keeps the one it started
 //! with. `xhigh` or `max` are for gains somebody has measured, which nobody has
 //! yet (#567).

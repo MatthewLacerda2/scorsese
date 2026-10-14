@@ -4,16 +4,12 @@ import { en } from "@/i18n/en";
 import { colour, describe, position } from "./cost";
 
 function model(id: string, cost: number | null): ModelChoice {
-  return { id, label: id, vendor: "google", unavailable: null, cache_seconds: 3600, cost };
+  return { id, label: id, vendor: "anthropic", unavailable: null, cache_seconds: 3600, cost };
 }
 
-// The 2026-10-03 rates as the server sends them.
-const models = [
-  model("gemini-3.8-flash", 19),
-  model("gemini-3.5-flash-lite", 9),
-  model("claude-opus-5-5", 100),
-  model("claude-sonnet-5-5", 50),
-];
+// Four made-up models, so every step of the scale is reached; the two offered
+// today are only the ends of it.
+const models = [model("c", 19), model("d", 9), model("a", 100), model("b", 50)];
 
 group("the cost bar", () => {
   test("runs from the cheapest to the dearest offered", () => {

@@ -1,6 +1,8 @@
 //! `model_calls` (#707): one typed row per call the assistant made to a
 //! model, the same shape whichever vendor answered — what the maintainer
-//! queries to see how each model performs and what it costs.
+//! queries to see how each model performs and what it costs. `thinking_tokens`
+//! is left NULL: Anthropic's usage counts thinking inside the output, and
+//! only Gemini, offered until #1220, ever said it apart.
 
 use scorsese_providers::chat::Reply;
 
@@ -21,17 +23,16 @@ pub(super) async fn record(
     sqlx::query(
         "INSERT INTO model_calls
              (user_id, turn_id, position, model, vendor, input_tokens, output_tokens,
-              thinking_tokens, cache_write_5m_tokens, cache_write_1h_tokens, cache_read_tokens,
+              cache_write_5m_tokens, cache_write_1h_tokens, cache_read_tokens,
               latency_ms, stop_reason, cost_micros, credit_entry_id)
          VALUES (member_id(), $1, (SELECT count(*) + 1 FROM model_calls WHERE turn_id = $1)::int,
-                 $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
+                 $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
     )
     .bind(charge.turn)
     .bind(charge.model.id())
     .bind(charge.model.vendor().id())
     .bind(count(usage.input))
     .bind(count(usage.output))
-    .bind(reply.thinking.map(count))
     .bind(count(usage.cache_write_5m))
     .bind(count(usage.cache_write_1h))
     .bind(count(usage.cache_read))

@@ -2,25 +2,16 @@
 //! project, changeable at any time, each turn charged at its own model's
 //! rates — and a conversation that comes along across a change.
 
-use scorsese_providers::prices::Checked;
 use scorsese_server::assistant::Assistant;
 use serde_json::{Value, json};
 use sqlx::postgres::PgPool;
 
+use super::script::CHARGED;
 use super::{Script, answers, calls, common, exchange, member, new_project, scripted, serve};
 
-/// What one scripted call costs on Gemini 3.8 Flash today: 1 000 × $0.75/M +
-/// 500 × $3.75/M = 2 625 µ$ at the introductory price, and from 2027-01-01,
-/// when it doubles (#718), 1 000 × $1.50/M + 500 × $7.50/M = 5 250 µ$ — plus
-/// times 1.8 and rounded up. The ledger prices by the server's clock, so the test
-/// knows both sides rather than breaking on New Year's Day.
-fn gemini_charged() -> i64 {
-    if Checked::today() < Checked::on(2027, 1, 1) {
-        4_725
-    } else {
-        9_450
-    }
-}
+/// What one scripted call is charged on Sonnet 5.5: 1 000 × $2/M + 500 ×
+/// $10/M = 7 000 µ$, times 1.8 — half of Opus's [`CHARGED`].
+const SONNET_CHARGED: i64 = 12_600;
 
 async fn choose(
     address: std::net::SocketAddr,
@@ -34,8 +25,8 @@ async fn choose(
 }
 
 #[sqlx::test]
-async fn a_new_project_starts_on_sonnet_and_gemini_charges_its_own_rates(pool: PgPool) {
-    let script = Script::new(vec![answers("Nothing yet.")]);
+async fn a_new_project_starts_on_sonnet_and_opus_charges_its_own_rates(pool: PgPool) {
+    let script = Script::new(vec![answers("Nothing yet."), answers("Still nothing.")]);
     let (address, _) = scripted(&pool, &script).await;
     let (ana, who) = member(&pool, "ana@example.com", 10).await;
     let id = new_project(&pool, ana, json!([])).await;
@@ -45,52 +36,36 @@ async fn a_new_project_starts_on_sonnet_and_gemini_charges_its_own_rates(pool: P
         .await
         .json();
     assert_eq!(before["model"], "claude-sonnet-5-5", "{before}");
-    let ids: Vec<&str> = before["models"]
+    let offered: Vec<(&Value, &Value, &Value)> = before["models"]
         .as_array()
         .unwrap()
         .iter()
-        .map(|m| m["id"].as_str().unwrap())
+        .map(|m| (&m["id"], &m["vendor"], &m["cost"]))
         .collect();
+    // The bar's length: Opus is the dearest, Sonnet half of it (#706).
     assert_eq!(
-        ids,
+        offered,
         [
-            "gemini-3.8-flash",
-            "gemini-3.5-flash-lite",
-            "claude-opus-5-5",
-            "claude-sonnet-5-5"
+            (&json!("claude-sonnet-5-5"), &json!("anthropic"), &json!(50)),
+            (&json!("claude-opus-5-5"), &json!("anthropic"), &json!(100)),
         ]
     );
     assert_eq!(before["models"][0]["cache_seconds"], 3_600);
     assert_eq!(before["models"][0]["unavailable"], Value::Null);
-    // The bar's length: Opus is the dearest, Flash about a fifth of it (#706).
-    let costs: Vec<&Value> = before["models"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|m| &m["cost"])
-        .collect();
-    assert_eq!(costs, [&json!(19), &json!(9), &json!(100), &json!(50)]);
 
-    let chose = choose(address, &who, id, "gemini-3.8-flash").await;
+    let on_sonnet = exchange(address, &who, id, "what is in it?").await;
+    assert_eq!(on_sonnet["turn"]["model"], "claude-sonnet-5-5");
+    assert_eq!(on_sonnet["turn"]["charged_micros"], SONNET_CHARGED);
+    let chose = choose(address, &who, id, "claude-opus-5-5").await;
     assert_eq!(chose.status, 200, "{}", chose.body);
-    let detail = exchange(address, &who, id, "what is in it?").await;
-    assert_eq!(detail["turn"]["model"], "gemini-3.8-flash");
-    assert_eq!(
-        detail["turn"]["charged_micros"],
-        gemini_charged(),
-        "{detail}"
-    );
-    let first = script.parsed(0);
-    assert_eq!(first[0]["role"], "user");
-    assert_eq!(first[0]["parts"][0]["text"], "what is in it?");
-    assert!(
-        first[1]["parts"][0]["text"]
-            .as_str()
-            .unwrap()
-            .starts_with("[scorsese server]")
-    );
+    let on_opus = exchange(address, &who, id, "and now?").await;
+    assert_eq!(on_opus["turn"]["model"], "claude-opus-5-5");
+    assert_eq!(on_opus["turn"]["charged_micros"], CHARGED, "{on_opus}");
 }
 
+/// Sonnet and Opus share a wire but not each other's thinking: a switch
+/// either way translates the other model's turns from their record, and a
+/// model's own turns replay as they were sent.
 #[sqlx::test]
 async fn a_conversation_survives_a_change_of_model_both_ways(pool: PgPool) {
     let script = Script::new(vec![]);
@@ -100,29 +75,30 @@ async fn a_conversation_survives_a_change_of_model_both_ways(pool: PgPool) {
     script.replace(vec![
         calls("icons", json!({})),
         answers("Two icons."),
-        answers("Gemini here."),
-        answers("Claude again."),
+        answers("Sonnet here."),
+        answers("Opus again."),
     ]);
     exchange(address, &who, id, "which icons?").await;
 
-    let chose = choose(address, &who, id, "gemini-3.5-flash-lite").await;
+    let chose = choose(address, &who, id, "claude-sonnet-5-5").await;
     assert_eq!(chose.status, 200, "{}", chose.body);
-    assert_eq!(chose.json()["label"], "Gemini 3.5 Flash Lite");
-    let on_gemini = exchange(address, &who, id, "thanks").await;
-    assert_eq!(on_gemini["turn"]["model"], "gemini-3.5-flash-lite");
-    // The Claude turn, in Gemini's wire: the call and its result, by name.
-    let sent = script.parsed(2);
-    assert_eq!(sent[2]["parts"][0]["functionCall"]["name"], "icons");
-    assert_eq!(sent[3]["parts"][0]["functionResponse"]["name"], "icons");
-    assert_eq!(sent[4]["parts"][0]["text"], "Two icons.");
+    assert_eq!(chose.json()["label"], "Claude Sonnet 5.5");
+    let on_sonnet = exchange(address, &who, id, "thanks").await;
+    assert_eq!(on_sonnet["turn"]["model"], "claude-sonnet-5-5");
+    // The Opus turn, from its record: the call and its result, no thinking.
+    let sent = script.messages(2);
+    assert!(sent[2].contains("\"tool_use\"") && sent[3].contains("\"tool_result\""));
+    assert!(sent[4].contains("Two icons."), "{sent:?}");
+    assert!(sent.iter().all(|m| !m.contains("thinking")), "{sent:?}");
 
     choose(address, &who, id, "claude-opus-5-5").await;
     exchange(address, &who, id, "and now?").await;
-    // Back on Claude: the first turn replays its own bytes, thinking and all.
+    // Back on Opus: the first turn replays its own bytes, thinking and all.
     let (earlier, now) = (script.messages(1), script.messages(3));
     assert_eq!(&now[..earlier.len()], &earlier[..]);
-    // Then the rest, the Gemini turn translated back into Claude's wire.
-    assert!(now[earlier.len() + 2].contains("Gemini here."), "{now:?}");
+    assert!(now[earlier.len()].contains("thinking"), "{now:?}");
+    // Then the Sonnet turn, translated, without Sonnet's thinking.
+    assert!(now[earlier.len() + 2].contains("Sonnet here."), "{now:?}");
     assert!(!now[earlier.len() + 2].contains("thinking"), "{now:?}");
 }
 
@@ -133,13 +109,9 @@ async fn only_an_offered_model_on_ones_own_project_can_be_chosen(pool: PgPool) {
     let (ana, who) = member(&pool, "ana@example.com", 10).await;
     let (_, bea) = member(&pool, "bea@example.com", 10).await;
     let id = new_project(&pool, ana, json!([])).await;
-    let unknown = choose(address, &who, id, "gemini-3.8-flash-lite").await;
-    assert_eq!(unknown.status, 400, "{}", unknown.body);
-    assert!(
-        unknown.body.contains("gemini-3.8-flash"),
-        "{}",
-        unknown.body
-    );
+    let cut = choose(address, &who, id, "gemini-3.8-flash").await;
+    assert_eq!(cut.status, 400, "{}", cut.body);
+    assert!(cut.body.contains("claude-sonnet-5-5"), "{}", cut.body);
     let theirs = choose(address, &bea, id, "claude-opus-5-5").await;
     assert_eq!(theirs.status, 404, "{}", theirs.body);
 }
