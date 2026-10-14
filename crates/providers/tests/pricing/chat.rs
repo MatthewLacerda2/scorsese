@@ -28,7 +28,7 @@ fn the_table_says_what_the_vendors_pages_say() {
     };
     let opus = (4_000_000, 20_000_000, 5_000_000, 8_000_000, 200_000);
     assert_eq!(figures(rate(Model::ClaudeOpus55)), opus);
-    let sonnet = (2_000_000, 10_000_000, 2_500_000, 4_000_000, 200_000);
+    let sonnet = (2_000_000, 10_000_000, 2_500_000, 4_000_000, 100_000);
     assert_eq!(figures(rate(Model::ClaudeSonnet55)), sonnet);
 }
 
@@ -113,8 +113,8 @@ fn a_turn_adds_every_kind() {
 /// The saving of a cache hit is the user's: the same prompt read from
 /// Sonnet's cache costs less than read fresh. 40 000 tokens of prompt and 500
 /// out — uncached, 40 000 × $2/M + 500 × $10/M = 80 000 + 5 000 µ$; with
-/// 36 000 of them cached, 4 000 × $2/M + 36 000 × $0.20/M + 5 000 =
-/// 8 000 + 7 200 + 5 000 µ$.
+/// 36 000 of them cached, 4 000 × $2/M + 36 000 × $0.10/M + 5 000 =
+/// 8 000 + 3 600 + 5 000 µ$.
 #[test]
 fn a_cached_call_costs_less_than_the_same_call_uncached() {
     let sonnet = rate(Model::ClaudeSonnet55);
@@ -129,7 +129,7 @@ fn a_cached_call_costs_less_than_the_same_call_uncached() {
         ..fresh
     };
     assert_eq!(fresh.micros(sonnet), 85_000);
-    assert_eq!(cached.micros(sonnet), 20_200);
+    assert_eq!(cached.micros(sonnet), 16_600);
 }
 
 /// One Opus cache-read token is a fifth of a micro-dollar; it is charged as a

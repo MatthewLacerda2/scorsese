@@ -260,8 +260,8 @@ picker — priced per **million tokens**, each kind at its own rate —
 
 | model | input | output | cache write, 5 min | cache write, 1 h | cache read | checked |
 | --- | --- | --- | --- | --- | --- | --- |
-| `claude-opus-5-5` | $4 | $20 | $5 | $8 | $0.20 | 2026-10-03 |
-| `claude-sonnet-5-5` | $2 | $10 | $2.50 | $4 | $0.20 | 2026-10-03 |
+| `claude-opus-5-5` | $4 | $20 | $5 | $8 | $0.20 | 2026-10-14 |
+| `claude-sonnet-5-5` | $2 | $10 | $2.50 | $4 | $0.10 | 2026-10-14 |
 
 Read off [Anthropic's pricing page](https://platform.claude.com/docs/en/about-claude/pricing)
 and prompt-caching page.
@@ -269,8 +269,10 @@ Standard tier and global routing only — fast mode, the batch discount,
 Priority and US-only inference are rows scorsese never pays, so they are not
 here. Things that look like typos and are not:
 
-- **Opus 5.5's cache reads are 0.05× input**; Sonnet 5.5's are the usual 0.1×,
-  which happens to land on the same $0.20.
+- **Cache reads are 0.05× input on both models**, not the usual 0.1×: $0.20 on
+  Opus and $0.10 on Sonnet (Anthropic's page, 2026-10-14). Until that day the
+  table had Sonnet at the usual 0.1×, $0.20, and charged its cache reads
+  double.
 - **A row may carry the day it takes effect** (#718), and
   `prices::chat::rate` is asked for a model *on a date* — the latest row not
   after it. No row is dated today (the one that was, Gemini 3.8 Flash's
@@ -294,7 +296,7 @@ rate, never as full input (the maintainer, 2026-10-03).
 assistant turn resends the whole conversation, so the server caches it
 (`docs/web.md`, *Assistant turns*): on Claude the tools and system prompt for
 an hour, shared by every user, the conversation's tail for five minutes. A
-cache read is a twentieth (Opus) or a tenth (Sonnet) of input, which is why a long
+cache read is a twentieth of input on both models, which is why a long
 turn is cheap per call, why anything that edits earlier messages would be
 expensive, and why the first turn after a change of model costs more. The
 operator's per-turn cap bounds the rest.
