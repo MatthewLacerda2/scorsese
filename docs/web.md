@@ -568,7 +568,7 @@ The operator's commands, run where the server runs:
 
 ```text
 docker compose exec server scorsese-server user create ana@example.com  # linked at their first sign-in
-scorsese-server user list                     # each account and the Google id it signs in as
+scorsese-server user list                     # each account, its name and the Google id it signs in as
 scorsese-server user link ana@example.com 110169484474386276334
 scorsese-server user logout ana@example.com   # ends every browser session; tokens stay
 scorsese-server user delete ana@example.com --yes   # rows and files, for good
@@ -672,8 +672,10 @@ that project:
 1. *Google Auth Platform → Branding*: the app's name (scorsese), a support
    email, the logo, and the domain `scorseseestudio.com` under authorised
    domains. *Audience*: **External**, and publish it (in *Testing* only
-   listed test users can sign in). The scopes asked for are `openid` and
-   `email`, which need no verification by Google.
+   listed test users can sign in). The scopes asked for are `openid`,
+   `email` and `profile` (for the person's name, #1266), none of which need
+   verification by Google. The profile picture comes with `profile` and is
+   never stored.
 2. *Clients → Create client*: type **Web application**, name it, and add the
    authorised redirect URI `https://scorseseestudio.com/api/auth/google/callback`
    — exactly `$SCORSESE_PUBLIC_ORIGIN` plus `/api/auth/google/callback`. For a

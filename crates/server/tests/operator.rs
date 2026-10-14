@@ -36,7 +36,7 @@ async fn an_account_is_created_linked_listed_and_given_a_session(pool: PgPool) {
     );
     let listed = run(UserCommand::List).await.unwrap();
     assert!(
-        listed.ends_with("\tana@example.com\tnot signed in yet"),
+        listed.ends_with("\tana@example.com\t-\tnot signed in yet"),
         "{listed}"
     );
 

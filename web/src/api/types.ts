@@ -9,6 +9,8 @@ import type { ProjectDocument } from "./document";
 export interface Account {
   id: number;
   email: string;
+  /** Their name from Google (#1266); absent until their first sign-in, or when Google gives none. */
+  name?: string;
   created_at: number;
 }
 

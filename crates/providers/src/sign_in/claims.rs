@@ -16,6 +16,9 @@ pub struct Identity {
     pub sub: String,
     /// Their email, which Google has verified.
     pub email: String,
+    /// Their name, as their Google account gives it (#1266). `None` when the
+    /// token carries none, or a blank one: a name never blocks a sign-in.
+    pub name: Option<String>,
 }
 
 /// The claims read, in the names OpenID Connect gives them.
@@ -26,6 +29,8 @@ struct Claims {
     sub: String,
     exp: i64,
     email: Option<String>,
+    #[serde(default)]
+    name: Option<String>,
     /// A boolean, though older Google tokens sent the string `"true"`.
     #[serde(default)]
     email_verified: Option<serde_json::Value>,
@@ -50,6 +55,10 @@ pub fn identity(id_token: &str, client_id: &str, now: i64) -> Result<Identity, S
         Some(email) if verified && !email.is_empty() && !claims.sub.is_empty() => Ok(Identity {
             sub: claims.sub,
             email,
+            name: claims
+                .name
+                .map(|name| name.trim().to_owned())
+                .filter(|name| !name.is_empty()),
         }),
         _ => Err(SignInError::Unverified),
     }
@@ -90,6 +99,7 @@ mod tests {
             "sub": "110169484474386276334",
             "email": "ana@example.com",
             "email_verified": true,
+            "name": "Ana Souza",
             "exp": 2_000,
         })
     }
@@ -99,10 +109,28 @@ mod tests {
         let identity = identity(&token(claims()), CLIENT, 1_000).unwrap();
         assert_eq!(identity.sub, "110169484474386276334");
         assert_eq!(identity.email, "ana@example.com");
+        assert_eq!(identity.name.as_deref(), Some("Ana Souza"));
         let mut bare = claims();
         bare["iss"] = "accounts.google.com".into();
         bare["email_verified"] = "true".into();
         assert!(super::identity(&token(bare), CLIENT, 1_000).is_ok());
+    }
+
+    #[test]
+    fn a_missing_or_blank_name_is_none_and_still_signs_in() {
+        for value in [
+            serde_json::Value::Null,
+            serde_json::json!(""),
+            serde_json::json!("  "),
+        ] {
+            let mut nameless = claims();
+            nameless["name"] = value.clone();
+            let identity = identity(&token(nameless), CLIENT, 1_000).unwrap();
+            assert_eq!(identity.name, None, "{value}");
+        }
+        let mut absent = claims();
+        absent.as_object_mut().unwrap().remove("name");
+        assert_eq!(identity(&token(absent), CLIENT, 1_000).unwrap().name, None);
     }
 
     #[test]

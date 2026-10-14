@@ -177,7 +177,9 @@ pub async fn user(
                     .iter()
                     .map(|listed| {
                         let google = listed.google_sub.as_deref().unwrap_or("not signed in yet");
-                        format!("{}\t{}\t{google}", listed.account.id, listed.account.email)
+                        let name = listed.account.name.as_deref().unwrap_or("-");
+                        let account = &listed.account;
+                        format!("{}\t{}\t{name}\t{google}", account.id, account.email)
                     })
                     .collect::<Vec<_>>()
                     .join("\n")

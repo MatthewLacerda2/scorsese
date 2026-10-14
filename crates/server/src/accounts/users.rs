@@ -21,6 +21,11 @@ pub struct Account {
     pub id: i64,
     /// The normalised email it logs in with.
     pub email: String,
+    /// The person's name, from their Google account (#1266); `None` until
+    /// their first sign-in, or when Google gives none — and then left out of
+    /// the JSON rather than sent as `null`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     /// When it was created, in seconds since the Unix epoch.
     pub created_at: i64,
 }
@@ -79,8 +84,8 @@ pub struct Listed {
 /// Every account, oldest first.
 pub async fn list(pool: &PgPool) -> Result<Vec<Listed>, AccountError> {
     let mut tx = db::privileged(pool).await?;
-    let rows: Vec<(i64, String, i64, Option<String>)> = sqlx::query_as(
-        "SELECT id, email, extract(epoch FROM created_at)::bigint, google_sub
+    let rows: Vec<(i64, String, Option<String>, i64, Option<String>)> = sqlx::query_as(
+        "SELECT id, email, name, extract(epoch FROM created_at)::bigint, google_sub
          FROM users ORDER BY id",
     )
     .fetch_all(&mut *tx)
@@ -88,10 +93,11 @@ pub async fn list(pool: &PgPool) -> Result<Vec<Listed>, AccountError> {
     tx.commit().await?;
     Ok(rows
         .into_iter()
-        .map(|(id, email, created_at, google_sub)| Listed {
+        .map(|(id, email, name, created_at, google_sub)| Listed {
             account: Account {
                 id,
                 email,
+                name,
                 created_at,
             },
             google_sub,
@@ -116,14 +122,15 @@ pub async fn find(pool: &PgPool, email: &str) -> Result<UserId, AccountError> {
 pub async fn get(pool: &PgPool, user: UserId) -> Result<Account, AccountError> {
     let mut tx = db::scoped(pool, user).await?;
     // No WHERE: the scope shows exactly one row of `users`, their own.
-    let (id, email, created_at) =
-        sqlx::query_as("SELECT id, email, extract(epoch FROM created_at)::bigint FROM users")
+    let (id, email, name, created_at) =
+        sqlx::query_as("SELECT id, email, name, extract(epoch FROM created_at)::bigint FROM users")
             .fetch_one(&mut *tx)
             .await?;
     tx.commit().await?;
     Ok(Account {
         id,
         email,
+        name,
         created_at,
     })
 }
@@ -157,6 +164,9 @@ impl SignedIn {
 /// keeps their scorsese account, and somebody handed that old address does
 /// not get it. An account already linked to a *different* Google account is
 /// refused rather than taken over: that is the operator's to sort out.
+///
+/// Every sign-in also writes the name Google gave (#1266), so a name changed
+/// at Google follows. A sign-in that carries none keeps the one stored.
 pub async fn sign_in(pool: &PgPool, identity: &Identity) -> Result<SignedIn, AccountError> {
     let mut tx = db::privileged(pool).await?;
     let linked: Option<i64> = sqlx::query_scalar("SELECT id FROM users WHERE google_sub = $1")
@@ -164,6 +174,7 @@ pub async fn sign_in(pool: &PgPool, identity: &Identity) -> Result<SignedIn, Acc
         .fetch_optional(&mut *tx)
         .await?;
     if let Some(id) = linked {
+        rename(&mut tx, id, identity).await?;
         tx.commit().await?;
         return Ok(SignedIn::Returning(UserId::from_row(id)));
     }
@@ -181,15 +192,17 @@ pub async fn sign_in(pool: &PgPool, identity: &Identity) -> Result<SignedIn, Acc
                 .bind(&identity.sub)
                 .execute(&mut *tx)
                 .await?;
+            rename(&mut tx, id, identity).await?;
             SignedIn::Linked(UserId::from_row(id))
         }
         None => {
             let id: Option<i64> = sqlx::query_scalar(
-                "INSERT INTO users (email, google_sub) VALUES ($1, $2)
+                "INSERT INTO users (email, google_sub, name) VALUES ($1, $2, $3)
                  ON CONFLICT DO NOTHING RETURNING id",
             )
             .bind(&email)
             .bind(&identity.sub)
+            .bind(&identity.name)
             .fetch_optional(&mut *tx)
             .await?;
             // Nothing returned: the same person's other tab won the race.
@@ -198,6 +211,17 @@ pub async fn sign_in(pool: &PgPool, identity: &Identity) -> Result<SignedIn, Acc
     };
     tx.commit().await?;
     Ok(signed)
+}
+
+/// Write the name `identity` carries onto account `id`, keeping the stored one
+/// when it carries none.
+async fn rename(tx: &mut db::Tx, id: i64, identity: &Identity) -> Result<(), AccountError> {
+    sqlx::query("UPDATE users SET name = COALESCE($2, name) WHERE id = $1")
+        .bind(id)
+        .bind(&identity.name)
+        .execute(&mut **tx)
+        .await?;
+    Ok(())
 }
 
 /// Link the account `email` names to the Google account `sub` — the

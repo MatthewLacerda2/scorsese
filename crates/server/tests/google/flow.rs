@@ -93,6 +93,7 @@ async fn a_sign_in_ends_signed_in_where_it_was_going(pool: PgPool) {
     let cookie = format!("Cookie: {}", session.split(';').next().unwrap());
     let me = request(address, "GET", "/api/me", &[cookie.as_str()], None).await;
     assert_eq!(me.json()["email"], "ana@example.com");
+    assert_eq!(me.json()["name"], "Ana Souza");
 
     // The server proved the code with the verifier behind the challenge it showed.
     let (code, verifier, redirect_uri, secret) = google.sent().pop().unwrap();
