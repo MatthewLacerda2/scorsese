@@ -42,6 +42,8 @@ export function draw(root: ParentNode, t: number, pace: Pace, locale: string) {
 export const SCROLLED: Pace = { length: 0.3, distance: 48 };
 /** The pace of the hero, moved by the clock from the moment it is shown. */
 export const TIMED: Pace = { length: 0.9, distance: 32 };
+/** How much faster than real time the hero's entrance plays: its marks and lengths are read at this speed. */
+export const ENTRANCE_SPEED = 1.5;
 
 /** Runs `frame` on every scroll and resize, at most once a frame, and once at the start. */
 export function useOnScroll(frame: () => void) {
@@ -74,7 +76,7 @@ export function useEntrance(ref: RefObject<HTMLElement | null>, locale: string) 
     const start = performance.now();
     let id = 0;
     const tick = (now: number) => {
-      const t = (now - start) / 1000;
+      const t = ((now - start) / 1000) * ENTRANCE_SPEED;
       draw(root, t, TIMED, locale);
       if (t < 4) id = requestAnimationFrame(tick);
     };

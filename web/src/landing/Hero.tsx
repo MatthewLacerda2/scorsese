@@ -56,10 +56,10 @@ export function Hero({ onSignIn }: { onSignIn: () => void }) {
             </a>
           </div>
         </div>
-        {/* Raised by half the sign-in button's height (24px): a centred grid item moves by half its negative margin. */}
+        {/* Raised by a quarter of the sign-in button's height (12px): a centred grid item moves by half its negative margin. */}
         <a
           href="/"
-          className="flex items-center gap-4 md:-mt-12 md:flex-col md:gap-5"
+          className="flex items-center gap-4 md:-mt-6 md:flex-col md:gap-5"
           data-rise="0.5"
         >
           <img
