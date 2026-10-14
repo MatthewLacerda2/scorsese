@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Drops the landing page's HTML from Cloudflare's edge (deploy/terraform/
+# cloudflare/cache.tf keeps it there). Run after every update, since the kept
+# copy names the previous build's files: docs/web.md, *Updating*.
+#
+# Reads CLOUDFLARE_API_TOKEN from the env file (DEPLOY_ENV, default .env
+# beside this script), which needs the Zone · Cache Purge permission, and
+# SCORSESE_PUBLIC_ORIGIN for the address to purge.
+set -euo pipefail
+
+here=$(cd "$(dirname "$0")" && pwd)
+env_file=${DEPLOY_ENV:-$here/.env}
+[ -f "$env_file" ] || { echo "purge-landing: no env file at $env_file" >&2; exit 1; }
+value() { sed -n "s/^$1=//p" "$env_file" | tail -n 1 | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"; }
+
+token=$(value CLOUDFLARE_API_TOKEN)
+origin=$(value SCORSESE_PUBLIC_ORIGIN)
+[ -n "$token" ] && [ -n "$origin" ] || {
+  echo "purge-landing: CLOUDFLARE_API_TOKEN and SCORSESE_PUBLIC_ORIGIN must be set in $env_file" >&2; exit 1; }
+
+api=https://api.cloudflare.com/client/v4
+host=${origin#https://}
+zone=$(curl -fsS -H "Authorization: Bearer $token" "$api/zones?name=$host" |
+  python3 -c 'import json,sys; print(json.load(sys.stdin)["result"][0]["id"])')
+curl -fsS -X POST -H "Authorization: Bearer $token" -H "Content-Type: application/json" \
+  --data "{\"files\":[\"$origin/\"]}" "$api/zones/$zone/purge_cache" |
+  python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(0 if d["success"] else d["errors"])'
+echo "purge-landing: $origin/ dropped from Cloudflare's cache"
