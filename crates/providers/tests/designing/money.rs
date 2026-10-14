@@ -58,7 +58,8 @@ fn a_design_over_the_ceiling_is_never_sent() {
     let dir = root("design-ceiling");
     let studio = Fake::offering(&["a", "b", "c"]);
 
-    let error = design(&dir, &studio, &brief("a narrator", None), Budget::new(1, 0))
+    // The ceiling is already reached, so any design at any rate crosses it.
+    let error = design(&dir, &studio, &brief("a narrator", None), Budget::new(1, 1))
         .expect_err("a design over the ceiling must be refused");
 
     assert_eq!(studio.designs(), 0, "the vendor was asked anyway");

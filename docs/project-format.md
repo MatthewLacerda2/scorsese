@@ -489,7 +489,7 @@ narration, and it costs exactly what the other two do.
 The vendor also publishes Turbo variants. It recommends Flash over the v2 and
 v2.5 Turbos in every case, so offering both would be offering a choice with a
 right answer; v4 Turbo is sold for real-time dialogue over a websocket, not on
-the text-to-speech endpoint scorsese calls (`docs/prices.md`, *Narration*).
+the text-to-speech endpoint scorsese calls (`guide prices`, *Narration*).
 The argument for the default above is scorsese's, not the vendor's.
 
 **There is no default voice, and there cannot be one.** Every one of the
