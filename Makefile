@@ -484,13 +484,14 @@ deploy: ## [gate] deploy/compose.yaml parses, and .env.example documents what it
 		done
 	@echo "deploy: compose.yaml is valid in every tunnel mode, every variable it reads is documented, and every folder it binds is one the runbook makes"
 
-# The Cloudflare and Google Cloud sides as code (#957, #952), one Terraform
-# configuration each under deploy/terraform. Neither check needs credentials or
-# touches Cloudflare: `fmt` is layout, `validate` is the configuration against
-# the provider's own schema (the provider is downloaded, which is why `init`
-# runs; `-backend=false` keeps it from looking for state). `plan` and `apply`
-# need the API token and change the live site, so they are run by hand, below.
-INFRA_ROOTS = cloudflare google
+# The Cloudflare, Google Cloud and Stripe sides as code (#957, #952, #1256),
+# one Terraform configuration each under deploy/terraform. No check needs
+# credentials or touches a vendor: `fmt` is layout, `validate` is the
+# configuration against the provider's own schema (the provider is downloaded,
+# which is why `init` runs; `-backend=false` keeps it from looking for state).
+# `plan` and `apply` need the vendors' keys and change the live site, so they
+# are run by hand, below.
+INFRA_ROOTS = cloudflare google stripe
 
 infra: ## [gate] deploy/terraform is formatted and valid against each provider's schema
 	@command -v terraform >/dev/null 2>&1 || { \
@@ -820,10 +821,10 @@ live-check: ## Real calls to every provider, quoted first. ARGS="--include-veo -
 
 # Not spending, but the same rule as live-check: it reaches the live site, so a
 # person runs it and CI never does. `infra` above is its credential-free gate.
-infra-plan: ## What applying deploy/terraform would change on Cloudflare and Google Cloud. Changes nothing
+infra-plan: ## What applying deploy/terraform would change on Cloudflare, Google Cloud and Stripe. Changes nothing
 	@for root in $(INFRA_ROOTS); do echo "== $$root"; deploy/terraform/tf $$root plan || exit 1; done
 
-infra-apply: ## Make Cloudflare and Google Cloud match deploy/terraform. Asks before each apply
+infra-apply: ## Make Cloudflare, Google Cloud and Stripe match deploy/terraform. Asks before each apply
 	@for root in $(INFRA_ROOTS); do echo "== $$root"; deploy/terraform/tf $$root apply || exit 1; done
 
 ##@ Fixing

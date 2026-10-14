@@ -507,8 +507,8 @@ jobs:
       - name: Check
         run: make deploy
 
-      # deploy/terraform (#957): formatted, and valid against the Cloudflare
-      # provider's schema. No credentials; plan and apply are run by hand.
+      # deploy/terraform (#957): formatted, and valid against the Cloudflare,
+      # Google and Stripe providers' schemas. No credentials; plan and apply are run by hand.
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_wrapper: false

@@ -384,7 +384,7 @@ DHCP lease — is a `web` container that does not start.
 ### Infrastructure, as code
 
 Everything a vendor lets Terraform manage is managed in `deploy/terraform/`
-(#957, #952), so it is versioned, reviewed in a pull request, and something an
+(#957, #952, #1256), so it is versioned, reviewed in a pull request, and something an
 agent can change. A change made in a dashboard is drift: the next plan shows
 it, and the next apply undoes it. There is one configuration per vendor, each
 with its own state at `$SCORSESE_DATA/terraform/<name>.tfstate`, outside the
@@ -396,9 +396,10 @@ checkout, so applying from a worktree that is then removed loses nothing.
 | `cloudflare/tunnel.tf` | the tunnel's ingress (the apex and `www` to `http://web:80`, anything else 404), their proxied CNAMEs, and the `www` → apex 301 |
 | `cloudflare/email.tf` | Email Routing's records, the `security@` forward, and DMARC `p=reject` (the domain never sends mail) |
 | `google/project.tf` | the `scorseseestudio` Google Cloud project (deletion-protected) and the APIs enabled on it |
-| `tf` | runs one configuration with its credentials: `tf cloudflare plan`, `tf google apply` |
+| `stripe/webhook.tf` | the webhook endpoint for credit purchases (*Buying credits*): `<SCORSESE_PUBLIC_ORIGIN>/api/payments/stripe/webhook` and the three events it acts on, and its signing secret as a sensitive output |
+| `tf` | runs one configuration with its credentials: `tf cloudflare plan`, `tf google apply`, `tf stripe secret` |
 
-    make infra-plan     # what would change, for both; changes nothing
+    make infra-plan     # what would change, for all three; changes nothing
     make infra-apply    # shows each plan again and asks before applying it
 
 **Credentials.** `tf cloudflare` reads three values from `deploy/.env`:
@@ -408,6 +409,7 @@ already names the account and the tunnel so neither ID is written anywhere
 else, and `SCORSESE_SECURITY_FORWARD_TO`, kept out of the repository because it
 is a personal mailbox. `tf google` uses the maintainer's own `gcloud` login,
 through a short-lived access token, so no service-account key exists anywhere.
+`tf stripe` reads `STRIPE_SECRET_KEY` and `SCORSESE_PUBLIC_ORIGIN`.
 `make infra`, the gate, checks formatting and each configuration against its
 provider's schema without credentials, in `make gates` and in CI's
 `deploy config` job.
@@ -429,6 +431,26 @@ automated:
   with the authorised redirect URI
   `https://scorseseestudio.com/api/auth/google/callback`. The client's ID and
   secret go in `deploy/.env`.
+
+**Stripe's signing secret.** Stripe returns an endpoint's secret only when it
+creates the endpoint, and the provider keeps it in the state as the sensitive
+`webhook_secret` output. After the apply that creates it:
+
+    deploy/terraform/tf stripe secret   # writes STRIPE_WEBHOOK_SECRET into deploy/.env
+
+It prints nothing, replaces the line in place, and keeps the file's
+permissions; `docker compose up --detach` then restarts the server with it. An endpoint
+**imported** rather than created has no secret in the state, so `secret`
+refuses: roll the secret in Stripe's Dashboard and paste it by hand, or delete
+that endpoint there and let the apply make a new one.
+
+**Test and live mode are different endpoints at Stripe**, each with its own
+secret. `tf` keeps a state for each, `stripe-test.tfstate` or
+`stripe-live.tfstate`, chosen by whether `STRIPE_SECRET_KEY` is a test or a
+live key, so the test endpoint is neither forgotten nor touched when the key
+changes. Switching to live (after #547) is: put the `sk_live_…` key in
+`deploy/.env`, `make infra-apply`, `deploy/terraform/tf stripe secret`,
+restart the server.
 
 Something that exists already is **imported** before the first apply, or the
 apply tries to create it a second time:
@@ -1120,11 +1142,14 @@ was asked credits nothing and is logged for the operator to look at in Stripe.
 
 **Configuration**: `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` beside
 `SCORSESE_PUBLIC_ORIGIN`, in `deploy/.env` (the table under *`crates/server`*).
-In Stripe's Dashboard, a webhook endpoint at
-`<origin>/api/payments/stripe/webhook` listening for the three events above
-gives the signing secret. The code runs on **test keys** (`sk_test_…`);
-switching to live keys waits for #547 (terms, refund and privacy pages) and is
-a change to `deploy/.env`, not to code.
+The webhook endpoint at `<origin>/api/payments/stripe/webhook`, listening for
+the three events above, is Terraform's (`deploy/terraform/stripe`, #1256):
+`make infra-apply` makes it and `deploy/terraform/tf stripe secret` writes its
+signing secret into `deploy/.env` (*Infrastructure, as code*). The code runs
+on **test keys** (`sk_test_…`); switching to live keys waits for #547 (terms,
+refund and privacy pages) and is a change to `deploy/.env`, not to code — but a
+live key is a different endpoint at Stripe, with its own secret, so the apply
+and `tf stripe secret` run again after the switch.
 
 **Not here**: refunds stay by hand — the Stripe Dashboard, and
 `scorsese-server credit refund` — until #547 sets the policy. Foreign customers
