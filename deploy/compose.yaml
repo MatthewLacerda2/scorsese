@@ -115,6 +115,10 @@ services:
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
       GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
       SCORSESE_PUBLIC_ORIGIN: ${SCORSESE_PUBLIC_ORIGIN:-}
+      # Users buying credits through Stripe (#548). Both, with the origin
+      # above, or buying is off and the rest of the site still serves.
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
     volumes:
       - &data
         type: bind

@@ -16,8 +16,8 @@ use axum::http::Method;
 use axum::routing::{MethodFilter, MethodRouter, on};
 
 use super::{
-    AppState, account, chat, credits, editor, events, google, health, jobs, library, mcp, projects,
-    renders, styles, templates, tokens, uploads,
+    AppState, account, chat, credits, editor, events, google, health, jobs, library, mcp, payments,
+    projects, renders, styles, templates, tokens, uploads,
 };
 
 /// One method on one path, and what answers it.
@@ -82,6 +82,12 @@ pub fn table() -> Vec<Route> {
         // Credits (#537).
         Route::new(M::GET, "/credits", credits::balance),
         Route::new(M::GET, "/credits/history", credits::history),
+        // Buying credits (#548): a quote, a Checkout Session, the return
+        // page's confirmation, and Stripe's webhook.
+        Route::new(M::GET, "/payments/quote", payments::quote),
+        Route::new(M::POST, "/payments", payments::start),
+        Route::new(M::POST, "/payments/{session}/confirm", payments::confirm),
+        Route::new(M::POST, "/payments/stripe/webhook", payments::webhook),
         // The library (#535): its files, and the tus uploads that fill it.
         Route::new(M::GET, "/library", library::list),
         Route::new(M::GET, "/library/{id}", library::details),

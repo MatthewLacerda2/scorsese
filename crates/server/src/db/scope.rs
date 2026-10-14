@@ -32,8 +32,10 @@
 //! cross-user by nature: finding whose a session cookie or token is, logging
 //! in, the operator's commands, and the job worker's claim and crash recovery
 //! (`jobs::store` — once a job is claimed, the rest runs scoped as its
-//! owner), and the render cache's quota and sweep (`renders::evict` — the
-//! quota is the whole machine's). Every call to it is a place a reviewer
+//! owner), the render cache's quota and sweep (`renders::evict` — the
+//! quota is the whole machine's), and finding whose a Stripe payment is when
+//! its webhook arrives (`payments::settle` — Stripe carries no user; the
+//! crediting runs scoped as the owner). Every call to it is a place a reviewer
 //! reads twice; it is short on purpose, so `grep privileged` stays a short
 //! list.
 //!

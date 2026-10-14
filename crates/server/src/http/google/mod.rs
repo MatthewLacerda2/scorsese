@@ -107,7 +107,7 @@ impl Google {
 /// `value` as an origin a browser can be sent back to: `https://` and a host,
 /// or plain `http://` on this machine alone, where browsers allow a `Secure`
 /// cookie anyway. No path, query or fragment; a trailing slash is dropped.
-fn public_origin(value: &str) -> Option<String> {
+pub(crate) fn public_origin(value: &str) -> Option<String> {
     let origin = value.trim().trim_end_matches('/');
     let local = |host: &&str| {
         ["localhost", "127.0.0.1"].iter().any(|name| {

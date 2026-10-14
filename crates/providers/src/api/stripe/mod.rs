@@ -27,7 +27,7 @@
 //! - `success_url` may carry `{CHECKOUT_SESSION_ID}`, which Stripe replaces
 //!   with the session's id when it sends the browser back.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::api::http::{Caller, HttpError};
 use crate::credentials::Secret;
@@ -83,8 +83,9 @@ impl Create<'_> {
     }
 }
 
-/// A Checkout Session: only the part read.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+/// A Checkout Session: only the part read. Serializable too, so a test can
+/// put one in an event the way Stripe would.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Session {
     /// `cs_test_…` or `cs_live_…`.
     pub id: String,

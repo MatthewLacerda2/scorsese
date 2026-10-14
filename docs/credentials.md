@@ -50,7 +50,9 @@ practice from the first place only: its container is told `GEMINI_API_KEY`,
 one refuses only what needs it. The Google OAuth client people sign in with
 (`GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET`, `docs/web.md`'s
 *Accounts*) reaches it the same way; it is the server's own login, not a
-provider key, and spends nothing. Those keys are the operator's, spent on users' behalf and paid
+provider key, and spends nothing. Stripe's two (`STRIPE_SECRET_KEY` and
+`STRIPE_WEBHOOK_SECRET`, `docs/web.md`'s *Buying credits*) arrive the same way
+and are the server's alone: they take users' money in rather than spend any. Those keys are the operator's, spent on users' behalf and paid
 back from their credits — so `budget_cents` below is not what holds a web user
 back; their balance is.
 
