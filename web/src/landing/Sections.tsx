@@ -1,5 +1,5 @@
-// The landing page below the film: how it works, what it makes, what it
-// handles, and a last way in. Each is a slide (`Slides.tsx`): what carries
+// The landing page below the top: how it works, what it handles, and a last
+// way in. Each is a slide (`Slides.tsx`): what carries
 // `data-rise` rises in as the slide fades in, staggered by `kit.stagger`.
 
 import {
@@ -16,9 +16,6 @@ import {
 import type { ReactNode } from "react";
 import { useT } from "@/i18n/I18nProvider";
 import { kit } from "@/landing/kit";
-import adStill from "@/landing/media/ad.png";
-import eventStill from "@/landing/media/event.png";
-import promoStill from "@/landing/media/promo.png";
 
 /** A section that moves with the scroll, under an eyebrow and a title. */
 function Section(props: { id?: string; eyebrow: string; title: string; children: ReactNode }) {
@@ -74,52 +71,6 @@ export function HowItWorks() {
         {steps.map((step, index) => (
           <Feature key={step.title} {...step} index={index} step={`0${index + 1}`} />
         ))}
-      </div>
-    </Section>
-  );
-}
-
-export function WhatYouCanMake() {
-  const t = useT().landing.make;
-  const wide = [
-    { picture: promoStill, ...t.promo },
-    { picture: eventStill, ...t.event },
-  ];
-  return (
-    <Section eyebrow={t.eyebrow} title={t.title}>
-      <div className="mt-12 grid gap-6 md:grid-cols-[2fr_1fr]">
-        <div className="grid gap-6">
-          {wide.map((item, index) => (
-            <figure key={item.picture} className="card overflow-hidden" data-rise={at(index)}>
-              <img
-                src={item.picture}
-                alt=""
-                loading="lazy"
-                width={960}
-                height={540}
-                className="aspect-video w-full object-cover"
-              />
-              <figcaption className="p-6">
-                <h3 className="display text-2xl font-medium">{item.title}</h3>
-                <p className="dim mt-2 leading-relaxed">{item.body}</p>
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-        <figure className="card overflow-hidden" data-rise={at(2)}>
-          <img
-            src={adStill}
-            alt=""
-            loading="lazy"
-            width={540}
-            height={960}
-            className="aspect-[9/16] w-full object-cover"
-          />
-          <figcaption className="p-6">
-            <h3 className="display text-2xl font-medium">{t.ad.title}</h3>
-            <p className="dim mt-2 leading-relaxed">{t.ad.body}</p>
-          </figcaption>
-        </figure>
       </div>
     </Section>
   );

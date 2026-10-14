@@ -16,10 +16,7 @@ export const landing = {
     title: "Describe the video.",
     titleEnd: "It gets made.",
     lead: "Promos, ads and event videos, cut, titled, scored and paced for you, without hiring an editor or learning a program.",
-    videoLabel: "A short film made with scorsese",
     scroll: "See how",
-    soundOn: "Turn the film's sound on",
-    soundOff: "Turn the film's sound off",
   },
   how: {
     eyebrow: "How it works",
@@ -37,21 +34,9 @@ export const landing = {
       body: "See the cut, ask for changes in a sentence, and download it when it's right.",
     },
   },
-  make: {
-    eyebrow: "What you can make",
-    title: "The videos a business actually needs.",
-    promo: {
-      title: "A promo",
-      body: "A launch, a sale, a new menu: thirty seconds that make people come in.",
-    },
-    event: {
-      title: "An event recap",
-      body: "The day's photos and footage, turned into the film everyone shares the morning after.",
-    },
-    ad: {
-      title: "A vertical ad",
-      body: "9:16, ready for stories and reels, with the message in the first two seconds.",
-    },
+  showcase: {
+    eyebrow: "Made with scorsese",
+    label: "Videos made with scorsese",
   },
   handles: {
     eyebrow: "What it handles for you",

@@ -12,10 +12,7 @@ export const landing: Messages["landing"] = {
     title: "Describe el video.",
     titleEnd: "Queda hecho.",
     lead: "Promos, anuncios y videos de eventos, cortados, con títulos, música y ritmo, sin contratar a un editor ni aprender un programa.",
-    videoLabel: "Un corto hecho con scorsese",
     scroll: "Mira cómo",
-    soundOn: "Activar el sonido de la película",
-    soundOff: "Silenciar la película",
   },
   how: {
     eyebrow: "Cómo funciona",
@@ -33,21 +30,9 @@ export const landing: Messages["landing"] = {
       body: "Mira el corte, pide cambios en una frase y descárgalo cuando esté como quieres.",
     },
   },
-  make: {
-    eyebrow: "Qué puedes hacer",
-    title: "Los videos que un negocio de verdad necesita.",
-    promo: {
-      title: "Una promo",
-      body: "Un lanzamiento, una oferta, un menú nuevo: treinta segundos que hacen que la gente venga.",
-    },
-    event: {
-      title: "Un resumen del evento",
-      body: "Las fotos y los videos del día, convertidos en la película que todos comparten a la mañana siguiente.",
-    },
-    ad: {
-      title: "Un anuncio vertical",
-      body: "9:16, listo para historias y reels, con el mensaje en los dos primeros segundos.",
-    },
+  showcase: {
+    eyebrow: "Hecho con scorsese",
+    label: "Videos hechos con scorsese",
   },
   handles: {
     eyebrow: "Lo que hace por ti",

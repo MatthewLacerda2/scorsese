@@ -4,16 +4,16 @@
 // in — already, or the moment the popup succeeds — goes where they were headed
 // (`?next=`, else `/`, which is the projects list for them).
 //
-// It is built with what scorsese makes videos with: the film at the top is
-// rendered by scorsese from web/landing/hero.scor, the motion is the kit's,
-// and the type is the shipped faces (landing.css).
+// What it shows is what scorsese makes: the films in it are cuts of videos made
+// with scorsese, and the motion is the kit's (motion.ts).
 
 import "@/landing/landing.css";
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router";
 import { useT } from "@/i18n/I18nProvider";
 import { Header, Hero } from "@/landing/Hero";
-import { Closing, HowItWorks, WhatItHandles, WhatYouCanMake } from "@/landing/Sections";
+import { Closing, HowItWorks, WhatItHandles } from "@/landing/Sections";
+import { Showcase } from "@/landing/Showcase";
 import { SignInDialog } from "@/landing/SignInDialog";
 import { Slides } from "@/landing/Slides";
 import { safeNext, useAccount } from "@/session/session";
@@ -58,7 +58,7 @@ export function LandingPage({ signIn = false }: { signIn?: boolean }) {
         <Slides>
           <Hero onSignIn={openSignIn} />
           <HowItWorks />
-          <WhatYouCanMake />
+          <Showcase />
           <WhatItHandles />
           <div>
             <Closing onSignIn={openSignIn} />
