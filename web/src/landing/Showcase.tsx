@@ -1,19 +1,22 @@
-// One whole video made with scorsese, in the visitor's language: the vertical
-// post made to announce scorsese itself, in Portuguese and in English, whole,
-// uncropped and at its own speed. Portuguese visitors see theirs; everyone
-// else sees the English one.
+// One whole video made with scorsese, in the visitor's language: the promo
+// made to announce scorsese itself, cut at 16:9 for this page (the LinkedIn
+// post re-laid out wide, its end card pointing here), in Portuguese and in
+// English, whole and at its own speed. Portuguese visitors see theirs;
+// everyone else sees the English one.
 //
 // It starts muted, since a browser plays nothing aloud on its own, and loops.
 // Its only controls are the sound: a button to turn it on or off and a volume
-// slider. No fullscreen, no seeking, nothing else to learn.
+// slider, the slider left off on a phone, where the video is short enough for
+// it to cover the picture and the phone's own buttons set the volume. No
+// fullscreen, no seeking, nothing else to learn.
 
 import { Volume2, VolumeX } from "lucide-react";
 import { useRef, useState } from "react";
 import { useLanguage, useT } from "@/i18n/I18nProvider";
-import englishStill from "@/landing/media/showcase/linkedin-en.jpg";
-import english from "@/landing/media/showcase/linkedin-en.mp4";
-import portugueseStill from "@/landing/media/showcase/linkedin-pt.jpg";
-import portuguese from "@/landing/media/showcase/linkedin-pt.mp4";
+import englishStill from "@/landing/media/showcase/promo-en.jpg";
+import english from "@/landing/media/showcase/promo-en.mp4";
+import portugueseStill from "@/landing/media/showcase/promo-pt.jpg";
+import portuguese from "@/landing/media/showcase/promo-pt.mp4";
 import { prefersStill } from "@/landing/motion";
 
 export function Showcase() {
@@ -49,7 +52,7 @@ export function Showcase() {
         {t.eyebrow}
       </p>
       <div
-        className="screen relative mx-auto mt-8 aspect-[4/5] h-[min(72svh,46rem)] max-w-full overflow-hidden bg-black"
+        className="screen relative mx-auto mt-8 aspect-video w-[min(100%,128svh,64rem)] overflow-hidden bg-black"
         data-rise="0.15"
       >
         <video
@@ -66,7 +69,7 @@ export function Showcase() {
           disableRemotePlayback
           aria-label={t.label}
         />
-        <div className="absolute right-3 bottom-3 flex items-center gap-2 rounded-full bg-black/55 py-1.5 pr-4 pl-1.5 text-[#f4efe6] backdrop-blur">
+        <div className="absolute right-3 bottom-3 flex items-center gap-2 rounded-full bg-black/55 p-1.5 text-[#f4efe6] sm:pr-4 backdrop-blur">
           <button
             type="button"
             onClick={toggle}
@@ -83,7 +86,7 @@ export function Showcase() {
             value={muted ? 0 : volume}
             onChange={(event) => changeVolume(Number(event.target.value))}
             aria-label={t.volume}
-            className="volume w-24"
+            className="volume hidden w-24 sm:block"
           />
         </div>
       </div>
