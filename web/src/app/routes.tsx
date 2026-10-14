@@ -1,5 +1,7 @@
-// Every page, by URL. Everything but the landing page sits behind the session
+// Every page, by URL. Everything but the landing page and the legal pages sits behind the session
 // guard and inside the shell (header, balance, upload tray).
+//
+// `/terms` and `/privacy` (#547) are public too, signed in or not.
 //
 // `/` is the landing page for a visitor without a session and the projects
 // list for one with (#904): they came to work. `/login` is the landing page
@@ -22,9 +24,11 @@ import {
   LibraryPage,
   LoginPage,
   NotFound,
+  PrivacyPage,
   ProjectFilesPage,
   ProjectsPage,
   SpendingPage,
+  TermsPage,
 } from "@/app/pages";
 import { RequireSession, useAccount } from "@/session/session";
 import { Shell } from "./Shell";
@@ -59,6 +63,22 @@ export function AppRoutes() {
         element={
           <Suspense fallback={<PageFallback />}>
             <LoginPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/terms"
+        element={
+          <Suspense fallback={<div className="min-h-svh bg-[#07070a]" />}>
+            <TermsPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/privacy"
+        element={
+          <Suspense fallback={<div className="min-h-svh bg-[#07070a]" />}>
+            <PrivacyPage />
           </Suspense>
         }
       />

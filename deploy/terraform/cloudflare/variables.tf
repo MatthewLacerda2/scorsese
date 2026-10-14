@@ -16,8 +16,8 @@ variable "tunnel_token" {
 
 variable "security_forward_to" {
   description = <<-EOT
-    Where mail to security@ is forwarded: a destination address already
-    verified in Email Routing. Kept in deploy/.env, not here, because it is
+    Where mail to security@ and contato@ is forwarded: a destination address
+    already verified in Email Routing. Kept in deploy/.env, not here, because it is
     the maintainer's personal mailbox and this repository is public.
   EOT
   type        = string

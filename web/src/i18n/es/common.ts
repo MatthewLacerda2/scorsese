@@ -22,6 +22,13 @@ export const common: Messages["common"] = {
   login: {
     google: "Continuar con Google",
     newHere: "¿Primera vez? Tu primer inicio de sesión crea tu cuenta.",
+    accept: {
+      before: "Al continuar, aceptas los ",
+      terms: "términos de uso",
+      between: " y la ",
+      privacy: "política de privacidad",
+      after: ". Debes tener 18 años o más.",
+    },
     errors: {
       cancelled: "Cancelaste el inicio de sesión en Google. Inténtalo de nuevo cuando quieras.",
       expired: "Ese inicio de sesión tardó demasiado o empezó en otra pestaña. Inténtalo de nuevo.",

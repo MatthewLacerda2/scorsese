@@ -23,6 +23,13 @@ export const common = {
   login: {
     google: "Continue with Google",
     newHere: "New here? Your first sign-in makes your account.",
+    accept: {
+      before: "By continuing you accept the ",
+      terms: "terms of use",
+      between: " and the ",
+      privacy: "privacy policy",
+      after: ". You must be 18 or older.",
+    },
     errors: {
       cancelled: "Sign-in was cancelled at Google. Try again whenever you like.",
       expired: "That sign-in took too long or was started elsewhere. Please try again.",

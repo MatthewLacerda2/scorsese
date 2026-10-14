@@ -8,11 +8,15 @@
 // A sign-in that went wrong comes back to `/login?error=<why>`; the popup says
 // that in words, from the catalogue, never the code itself.
 //
+// Signing in is also agreeing to the terms and the privacy policy (#547), so
+// the popup says so under the button, linking both in a new tab: a first
+// sign-in makes the account, and there is no other step to put it on.
+//
 // It wears the app's dark tokens (`dark` on the content), whatever theme the
 // app is set to, because it opens over the landing page's own dark art
 // direction.
 
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
@@ -40,6 +44,7 @@ export function SignInDialog({ open, onOpenChange }: Props) {
   const t = useT();
   const [params] = useSearchParams();
   const errors = t.common.login.errors;
+  const accept = t.common.login.accept;
   const code = params.get("error");
   const error = code && Object.hasOwn(errors, code) ? errors[code as keyof typeof errors] : null;
 
@@ -72,6 +77,17 @@ export function SignInDialog({ open, onOpenChange }: Props) {
             {t.common.login.google}
           </a>
           <p className="text-xs text-muted-foreground">{t.common.login.newHere}</p>
+          <p className="text-xs text-muted-foreground">
+            {accept.before}
+            <Link to="/terms" target="_blank" className="underline">
+              {accept.terms}
+            </Link>
+            {accept.between}
+            <Link to="/privacy" target="_blank" className="underline">
+              {accept.privacy}
+            </Link>
+            {accept.after}
+          </p>
         </div>
       </DialogContent>
     </Dialog>

@@ -16,6 +16,7 @@ import { Closing, HowItWorks, WhatItHandles } from "@/landing/Sections";
 import { Showcase } from "@/landing/Showcase";
 import { SignInDialog } from "@/landing/SignInDialog";
 import { Slides } from "@/landing/Slides";
+import { Footer } from "@/legal/Footer";
 import { safeNext, useAccount } from "@/session/session";
 
 /** The page's title and description, in the visitor's language, for as long as it is shown. */
@@ -62,10 +63,12 @@ export function LandingPage({ signIn = false }: { signIn?: boolean }) {
           <WhatItHandles />
           <div>
             <Closing onSignIn={openSignIn} />
-            <footer className="dim mx-auto max-w-6xl border-t border-[#f4efe6]/10 px-4 py-10 text-sm sm:px-6">
-              <span className="display text-base text-[#f4efe6]">scorsese</span> ·{" "}
-              {t.landing.footer}
-            </footer>
+            <Footer>
+              <p className="mb-4">
+                <span className="display text-base text-[#f4efe6]">scorsese</span> ·{" "}
+                {t.landing.footer}
+              </p>
+            </Footer>
           </div>
         </Slides>
       </main>
