@@ -12,5 +12,6 @@ Disallow: /login
 Disallow: /projects
 Disallow: /library
 Disallow: /spending
+Disallow: /credits
 
 Sitemap: https://scorseseestudio.com/sitemap.xml

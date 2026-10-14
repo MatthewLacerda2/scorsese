@@ -15,6 +15,9 @@ import type {
   LibraryItem,
   LibraryTile,
   NewProject,
+  Payment,
+  PaymentBegun,
+  PaymentQuote,
   ProjectSummary,
   RenderView,
   StoredProject,
@@ -164,5 +167,15 @@ export const api = {
     balance: () => request<Balance>("GET", "/credits"),
     history: (filter: HistoryFilter = {}) =>
       request<History>("GET", `/credits/history${query({ ...filter })}`),
+  },
+  payments: {
+    /** What `centavos` buy at the rate now. */
+    quote: (centavos: number) =>
+      request<PaymentQuote>("GET", `/payments/quote${query({ centavos })}`),
+    /** A Checkout Session at that rate; send the browser to its `url`. */
+    start: (centavos: number) => request<PaymentBegun>("POST", "/payments", { centavos }),
+    /** The purchase, credited first if Stripe says it is paid. */
+    confirm: (session: string) =>
+      request<Payment>("POST", `/payments/${encodeURIComponent(session)}/confirm`),
   },
 };

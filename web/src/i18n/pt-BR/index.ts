@@ -3,6 +3,7 @@
 
 import type { Messages } from "@/i18n/catalogue";
 import { assets } from "@/i18n/pt-BR/assets";
+import { buying } from "@/i18n/pt-BR/buying";
 import { chat } from "@/i18n/pt-BR/chat";
 import { common } from "@/i18n/pt-BR/common";
 import { editor } from "@/i18n/pt-BR/editor";
@@ -24,4 +25,5 @@ export const ptBR: Messages = {
   landing,
   start,
   menu,
+  buying,
 };

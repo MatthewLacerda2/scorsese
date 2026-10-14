@@ -1,0 +1,118 @@
+// "Add credits" (#548): an amount in reais, what it buys shown live as it is
+// typed, and Pay — which sends the browser to Stripe's own page. The rate is
+// the server's and is locked when Pay is pressed (docs/web.md, *Buying
+// credits*); this page only shows it.
+//
+// Its own chunk: the shell's button loads it on the first click, so the
+// entry chunk carries none of it.
+
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { type FormEvent, useEffect, useState } from "react";
+import { api } from "@/api";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useT } from "@/i18n/I18nProvider";
+import { formatDollars } from "@/lib/money";
+import {
+  formatReais,
+  MAXIMUM_CENTAVOS,
+  MINIMUM_CENTAVOS,
+  parseReais,
+  wholeCents,
+  withinLimits,
+} from "@/payments/reais";
+
+/** How long typing must pause before the quote is asked for. */
+const SETTLE_MS = 300;
+
+/** `value`, once it has stopped changing for `ms`. */
+function useSettled<T>(value: T, ms: number): T {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setSettled(value), ms);
+    return () => clearTimeout(timer);
+  }, [value, ms]);
+  return settled;
+}
+
+export function AddCreditsDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const t = useT();
+  const [text, setText] = useState("50");
+  const centavos = parseReais(text);
+  const asked = useSettled(centavos, SETTLE_MS);
+  const valid = asked !== null && withinLimits(asked);
+  const quote = useQuery({
+    queryKey: ["payments", "quote", asked],
+    queryFn: () => api.payments.quote(asked ?? 0),
+    enabled: open && valid,
+    retry: false,
+  });
+  const pay = useMutation({
+    mutationFn: (amount: number) => api.payments.start(amount),
+    onSuccess: (begun) => window.location.assign(begun.url),
+  });
+  const current = quote.data && quote.data.brl_centavos === centavos ? quote.data : null;
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    if (centavos !== null && withinLimits(centavos)) pay.mutate(centavos);
+  }
+
+  const error = pay.error ?? (valid ? quote.error : null);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t.buying.add}</DialogTitle>
+          <DialogDescription>{t.buying.description}</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="flex flex-col gap-3">
+          <Label htmlFor="add-credits-amount">{t.buying.amount}</Label>
+          <Input
+            id="add-credits-amount"
+            inputMode="decimal"
+            autoComplete="off"
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+          />
+          <p className="text-muted-foreground text-sm">
+            {t.buying.limits(formatReais(MINIMUM_CENTAVOS), formatReais(MAXIMUM_CENTAVOS))}
+          </p>
+          <div aria-live="polite" className="min-h-12">
+            {current && (
+              <>
+                <p className="font-medium">
+                  {t.buying.preview(
+                    formatReais(current.brl_centavos),
+                    formatDollars(wholeCents(current.credit_micros)),
+                  )}
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  {t.buying.rate(current.brl_per_usd)}
+                </p>
+              </>
+            )}
+            {error && <p className="text-destructive text-sm">{error.message}</p>}
+          </div>
+          <Button type="submit" disabled={!current || pay.isPending}>
+            {pay.isPending ? t.buying.paying : t.buying.pay}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

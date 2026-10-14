@@ -4,6 +4,7 @@
 // finished render raises on whichever page is open. Between the nav and
 // the balance is room a page may fill with its own controls (`headerSlot.tsx`).
 
+import { PlusIcon } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
 import { Link, NavLink, Outlet, useMatch, useNavigate } from "react-router";
 import { HeaderSlotProvider } from "@/app/headerSlot";
@@ -30,6 +31,12 @@ import { useAccount, useLogout } from "@/session/session";
 // than that chunk, so no finished one is missed.
 const RenderToasts = lazy(() =>
   import("@/app/RenderToasts").then((module) => ({ default: module.RenderToasts })),
+);
+
+// Buying credits (#548) is a dialog of its own chunk, fetched on the first
+// click of the button beside the balance.
+const AddCreditsDialog = lazy(() =>
+  import("@/payments/AddCredits").then((module) => ({ default: module.AddCreditsDialog })),
 );
 
 const NAV = [
@@ -69,6 +76,7 @@ export function Shell() {
           />
           <div className="flex shrink-0 items-center gap-2">
             <BalanceChip />
+            <AddCredits />
             <SettingsButton />
             <AccountMenu />
           </div>
@@ -103,6 +111,34 @@ function BalanceChip() {
         </span>
       </Link>
     </Button>
+  );
+}
+
+/** The button that opens "Add credits", and the dialog once it has been opened. */
+function AddCredits() {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const [opened, setOpened] = useState(false);
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="icon-sm"
+        aria-label={t.buying.add}
+        title={t.buying.add}
+        onClick={() => {
+          setOpened(true);
+          setOpen(true);
+        }}
+      >
+        <PlusIcon />
+      </Button>
+      {opened && (
+        <Suspense fallback={null}>
+          <AddCreditsDialog open={open} onOpenChange={setOpen} />
+        </Suspense>
+      )}
+    </>
   );
 }
 

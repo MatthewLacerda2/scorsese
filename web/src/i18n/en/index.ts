@@ -3,6 +3,7 @@
 // no catalogue outgrows the size gate.
 
 import { assets } from "@/i18n/en/assets";
+import { buying } from "@/i18n/en/buying";
 import { chat } from "@/i18n/en/chat";
 import { common } from "@/i18n/en/common";
 import { editor } from "@/i18n/en/editor";
@@ -13,4 +14,16 @@ import { menu } from "@/i18n/en/menu";
 import { pages } from "@/i18n/en/pages";
 import { start } from "@/i18n/en/start";
 
-export const en = { common, files, pages, editor, chat, assets, inspector, landing, start, menu };
+export const en = {
+  common,
+  files,
+  pages,
+  editor,
+  chat,
+  assets,
+  inspector,
+  landing,
+  start,
+  menu,
+  buying,
+};

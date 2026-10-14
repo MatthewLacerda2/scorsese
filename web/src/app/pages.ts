@@ -36,4 +36,8 @@ export const LibraryPage = lazyPage(() => import("@/pages/FilesPages"), "Library
 export const ProjectFilesPage = lazyPage(() => import("@/pages/FilesPages"), "ProjectFilesPage");
 export const SpendingPage = lazyPage(() => import("@/pages/SpendingPage"), "SpendingPage");
 export const EditorPage = lazyPage(() => import("@/editor/EditorPage"), "EditorPage");
+export const CreditsReturnPage = lazyPage(
+  () => import("@/payments/ReturnPage"),
+  "CreditsReturnPage",
+);
 export const NotFound = lazyPage(() => import("@/pages/NotFound"), "NotFound");
