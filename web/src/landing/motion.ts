@@ -6,7 +6,8 @@
 // plays it backwards.
 //
 // What moves is marked in the markup, never wired element by element:
-// `data-rise="0.1"` rises in at that time, `data-count="16"` counts up to its
+// `data-rise="0.1"` rises in at that time, `data-emerge` comes up from behind
+// an edge, `data-count="16"` counts up to its
 // figure from `data-at`. A visitor who asked for less motion is handed the end
 // of every timeline at once, so the page is all there and nothing moves.
 
@@ -29,6 +30,12 @@ export function draw(root: ParentNode, t: number, pace: Pace, locale: string) {
   for (const element of root.querySelectorAll<HTMLElement>("[data-rise]")) {
     const at = Number(element.dataset.rise);
     kit.rise(element, t, at, { length: pace.length, distance: pace.distance, out: 0 });
+  }
+  // `data-emerge` comes up from behind its parent's edge (the parent clips it).
+  for (const element of root.querySelectorAll<HTMLElement>("[data-emerge]")) {
+    const at = Number(element.dataset.emerge);
+    const p = kit.enter(t, at, pace.length * 1.2, kit.ease.out);
+    element.style.transform = `translateY(${(1 - p) * 100}%)`;
   }
   for (const element of root.querySelectorAll<HTMLElement>("[data-count]")) {
     const at = Number(element.dataset.at ?? 0);

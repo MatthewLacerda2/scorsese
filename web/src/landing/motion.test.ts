@@ -57,3 +57,13 @@ test("for a visitor who asked for less motion, the end of every timeline at once
   expect(Number(later?.style.opacity)).toBe(1);
   expect(figure?.textContent).toBe("21.6");
 });
+
+test("an emerging element starts a whole height below its edge and ends on it", () => {
+  const root = document.createElement("div");
+  root.innerHTML = '<span data-emerge="0.2">mark</span>';
+  const mark = root.firstElementChild as HTMLElement;
+  draw(root, 0, SCROLLED, "en");
+  expect(mark.style.transform).toBe("translateY(100%)");
+  draw(root, 5, SCROLLED, "en");
+  expect(mark.style.transform).toBe("translateY(0%)");
+});

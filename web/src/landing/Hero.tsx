@@ -1,15 +1,23 @@
 // The top of the landing page: the pitch, scorsese's name and mark beside it,
 // and under them a strip of films made with scorsese (`Carousel`). The header
 // above it carries only the language and the way in, since the name is
-// already the largest thing on the page. The mark is the app's own 512px icon
-// (app/assets/), so it stays sharp at any size the page draws it.
+// already the largest thing on the page. The mark is the app's 512px icon
+// (app/assets/icon.png) as a white silhouette with no background, made once:
+//
+//   ffmpeg -i app/assets/icon.png -filter_complex "[0]format=gray,
+//     drawbox=x=418:y=470:w=34:h=26:color=black:t=fill[a];
+//     color=white:s=512x512,format=rgba[w];[w][a]alphamerge,format=rgba"
+//     -frames:v 1 web/src/landing/media/mark.png
+//
+// Its brightness becomes its alpha; the box blanks the generator's sparkle in
+// the corner of the original art.
 
 import { useRef } from "react";
 import { LanguageControl } from "@/app/LanguageControl";
 import { useLanguage, useT } from "@/i18n/I18nProvider";
 import { Carousel } from "@/landing/Carousel";
+import mark from "@/landing/media/mark.png";
 import { useEntrance } from "@/landing/motion";
-import icon from "../../../app/assets/icon.png";
 
 export function Header({ onSignIn }: { onSignIn: () => void }) {
   const t = useT();
@@ -56,20 +64,23 @@ export function Hero({ onSignIn }: { onSignIn: () => void }) {
             </a>
           </div>
         </div>
-        {/* Raised by a quarter of the sign-in button's height (12px): a centred grid item moves by half its negative margin. */}
-        <a
-          href="/"
-          className="flex items-center gap-4 md:-mt-6 md:flex-col md:gap-5"
-          data-rise="0.5"
-        >
-          <img
-            src={icon}
-            alt=""
-            width={112}
-            height={112}
-            className="size-14 rounded-2xl md:size-28"
-          />
-          <span className="display text-4xl font-semibold md:text-6xl">scorsese</span>
+        {/* The mark and the name come up from behind an edge, not fading in (`data-emerge`). */}
+        <a href="/" className="flex items-center gap-4 md:flex-col md:gap-5">
+          <span className="block overflow-hidden">
+            <img
+              src={mark}
+              alt=""
+              width={140}
+              height={140}
+              className="block size-[4.375rem] md:size-35"
+              data-emerge="0.45"
+            />
+          </span>
+          <span className="block overflow-hidden pb-1">
+            <span className="display block text-4xl font-semibold md:text-6xl" data-emerge="0.6">
+              scorsese
+            </span>
+          </span>
         </a>
       </div>
       <div className="mt-12 sm:mt-16" data-rise="1">
