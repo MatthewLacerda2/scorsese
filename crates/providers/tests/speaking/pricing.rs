@@ -13,9 +13,10 @@ use crate::sketched;
 #[test]
 fn a_thousand_characters_costs_the_published_rate() {
     for (model, cents) in [
-        (SpeechModel::Expressive, 10),
-        (SpeechModel::Standard, 10),
-        (SpeechModel::Fast, 5),
+        (SpeechModel::Natural, 8),
+        (SpeechModel::Expressive, 8),
+        (SpeechModel::Standard, 8),
+        (SpeechModel::Fast, 4),
     ] {
         let estimate = speech(model, 1000).expect("a published rate");
         assert_eq!(estimate.cents, cents, "{}", model.as_str());
@@ -28,14 +29,14 @@ fn a_thousand_characters_costs_the_published_rate() {
 /// A ceiling that can be crossed a little at a time is not a ceiling.
 #[test]
 fn a_part_of_a_cent_rounds_up_and_never_down() {
-    // 137 characters at 10c/1000 is 1.37 cents.
+    // 137 characters at 8c/1000 is 1.096 cents.
     assert_eq!(speech(SpeechModel::Standard, 137).expect("a rate").cents, 2);
     // One character is a tiny fraction of a cent, and still not free.
     assert_eq!(speech(SpeechModel::Standard, 1).expect("a rate").cents, 1);
     // Nothing to say costs nothing.
     assert_eq!(speech(SpeechModel::Standard, 0).expect("a rate").cents, 0);
     // Exactly on the boundary does not creep up.
-    assert_eq!(speech(SpeechModel::Fast, 2000).expect("a rate").cents, 10);
+    assert_eq!(speech(SpeechModel::Fast, 2000).expect("a rate").cents, 8);
 }
 
 /// Every model scorsese offers has a published rate. `UnpricedSpeech` exists so
@@ -71,10 +72,10 @@ fn the_ceiling_counts_what_this_run_has_already_committed() {
     project.assets.push(second);
     let provider = Mock::willing();
 
-    // Two 1000-character lines at the standard rate are 10 cents each. 15
+    // Two 1000-character lines at the standard rate are 8 cents each. 15
     // admits one and cannot admit two.
     let refused = generate(&mut project, &dir, &provider, Budget::new(15, 0))
-        .expect_err("two lines at 10 cents is over a 15-cent ceiling");
+        .expect_err("two lines at 8 cents is over a 15-cent ceiling");
 
     assert!(refused.to_string().contains("ceiling"), "{refused}");
     assert_eq!(
@@ -92,7 +93,7 @@ fn a_run_over_the_ceiling_sends_nothing() {
     let provider = Mock::willing();
 
     let refused = generate(&mut project, &dir, &provider, Budget::new(10, 0))
-        .expect_err("50 cents is over a 10-cent ceiling");
+        .expect_err("20 cents is over a 10-cent ceiling");
 
     assert!(refused.to_string().contains("ceiling"), "{refused}");
     assert_eq!(provider.requests(), 0, "the check must come first");

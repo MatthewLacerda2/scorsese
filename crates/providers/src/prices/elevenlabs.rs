@@ -1,6 +1,6 @@
 //! ElevenLabs' published rates, as the vendor's own page lists them.
 //!
-//! Laid out to be read beside <https://elevenlabs.io/pricing> and checked off
+//! Laid out to be read beside <https://elevenlabs.io/pricing/api> and checked off
 //! row by row, the same way [`veo`](super::veo) is. Shorter, because the vendor
 //! prices text-to-speech by one thing only: how many characters go in.
 //!
@@ -24,19 +24,23 @@ use super::checked::Checked;
 ///
 /// One constant rather than a date per row, because they were all read in one
 /// sitting from one page. The moment they stop being, this becomes a field.
-const CHECKED: Checked = Checked::on(2026, 8, 5);
+const CHECKED: Checked = Checked::on(2026, 10, 14);
 
 /// Which text-to-speech model a rate is for.
 ///
 /// The Turbo variants are absent, and that is a departure from how
 /// [`veo`](super::veo) handles a tier it does not sell. Veo's table keeps
-/// `Standard` so the vendor's page can be ticked through. Turbo is different:
-/// the vendor's own documentation recommends Flash over Turbo in every case, so
-/// it is not a row scorsese declines to offer — it is a row the vendor tells
-/// people not to use.
+/// `Standard` so the vendor's page can be ticked through. The v2 and v2.5
+/// Turbos are different: the vendor's own documentation recommends Flash over
+/// them in every case, so they are rows the vendor tells people not to use. v4
+/// Turbo ($0.04, like Flash) is sold for real-time dialogue over a websocket,
+/// not on the text-to-speech endpoint scorsese calls, so it is not a row this
+/// table could ever be asked for. v3 Conversational is the same.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Model {
-    /// `eleven_v3` — the most expressive.
+    /// `eleven_v4` — the vendor's newest and best.
+    Natural,
+    /// `eleven_v3` — the most expressive of its generation.
     Expressive,
     /// `eleven_multilingual_v2` — the vendor's default.
     Standard,
@@ -48,6 +52,7 @@ impl Model {
     /// The model as somebody reading a price table expects it.
     pub const fn label(self) -> &'static str {
         match self {
+            Self::Natural => "natural",
             Self::Expressive => "expressive",
             Self::Standard => "standard",
             Self::Fast => "fast",
@@ -68,6 +73,7 @@ impl Model {
 impl From<Model> for scorsese_core::SpeechModel {
     fn from(model: Model) -> Self {
         match model {
+            Model::Natural => Self::Natural,
             Model::Expressive => Self::Expressive,
             Model::Standard => Self::Standard,
             Model::Fast => Self::Fast,
@@ -78,6 +84,7 @@ impl From<Model> for scorsese_core::SpeechModel {
 impl From<scorsese_core::SpeechModel> for Model {
     fn from(model: scorsese_core::SpeechModel) -> Self {
         match model {
+            scorsese_core::SpeechModel::Natural => Self::Natural,
             scorsese_core::SpeechModel::Expressive => Self::Expressive,
             scorsese_core::SpeechModel::Standard => Self::Standard,
             scorsese_core::SpeechModel::Fast => Self::Fast,
@@ -91,7 +98,7 @@ pub struct Rate {
     /// US cents per thousand characters of input text.
     ///
     /// Per **thousand** rather than per character because the vendor's figures
-    /// are whole cents at that unit — 10¢ and 5¢ — and per character they would
+    /// are whole cents at that unit — 8¢ and 4¢ — and per character they would
     /// be thousandths. The division happens once, in [`super::speech`], where it
     /// rounds up.
     pub cents_per_1k_chars: u64,
@@ -121,9 +128,10 @@ const fn row(model: Model, cents_per_1k_chars: u64) -> Row {
 
 /// Every rate the vendor publishes for the models scorsese speaks with.
 pub const RATES: &[Row] = &[
-    row(Model::Expressive, 10),
-    row(Model::Standard, 10),
-    row(Model::Fast, 5),
+    row(Model::Natural, 8),
+    row(Model::Expressive, 8),
+    row(Model::Standard, 8),
+    row(Model::Fast, 4),
 ];
 
 /// What this model costs, if it is sold.

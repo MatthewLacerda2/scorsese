@@ -53,7 +53,7 @@ const BILLED_AS: SpeechModel = SpeechModel::Standard;
 ///
 /// The speech estimate, with the design's own way of saying it — an estimate
 /// somebody is about to approve should be checkable without re-deriving it, and
-/// *118 characters at 10¢ per 1000 is 2¢* is an argument where `2` on its own is
+/// *118 characters at 8¢ per 1000 is 1¢* is an argument where `2` on its own is
 /// a demand.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Estimate {
@@ -148,9 +148,9 @@ mod tests {
     #[test]
     fn a_part_of_a_cent_is_a_whole_cent() {
         let cents = |length: usize| estimate(&"a".repeat(length)).unwrap().cents;
-        assert_eq!(cents(100), 1, "100 characters is 1¢ of the 10¢ per 1000");
-        assert_eq!(cents(101), 2);
-        assert_eq!(cents(1000), 10);
+        assert_eq!(cents(100), 1, "100 characters is 0.8¢ of the 8¢ per 1000");
+        assert_eq!(cents(126), 2, "126 characters is 1.008¢");
+        assert_eq!(cents(1000), 8);
     }
 
     /// The vendor counts what a person counts, and a Portuguese passage is

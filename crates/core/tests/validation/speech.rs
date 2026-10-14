@@ -38,7 +38,11 @@ fn a_language_the_model_would_drop_is_refused() {
 
 #[test]
 fn the_models_that_honour_a_language_take_one() {
-    for model in [SpeechModel::Expressive, SpeechModel::Fast] {
+    for model in [
+        SpeechModel::Natural,
+        SpeechModel::Expressive,
+        SpeechModel::Fast,
+    ] {
         let p = saying(|r| {
             r.model = model;
             r.language = Some("pt".to_owned());

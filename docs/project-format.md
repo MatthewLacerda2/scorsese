@@ -1,4 +1,4 @@
-# `project.json` — schema v47
+# `project.json` — schema v48
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -32,6 +32,7 @@ carries forward) up to this one.
 | v44 → v45 | a shot's `standard` tier and `4k` resolution (#891) | nothing: two values were added to fields that already existed, and every tier and raster a v44 shot names is the same one at the same price, so every v44 document passes through and only its version moves |
 | v45 → v46 | stills at parity with Google's image models (#893): `nano_banana_2.1` (the new default) and `pro`, the four long strips, `thinking`, and references split into `reference_images` (objects), `character_images` and `style_images` | two rewrites, so every still asks for what it did: a still that named no model is written out as `"model": "flash"`, the old default; and a `flash` still's references past the tenth move to `character_images`, the same pictures in the same order. Neither moves a brief's fingerprint, so nothing already drawn turns `stale` |
 | v46 → v47 | a still may wait in a half-price batch (#894): a `generated_image` may be `queued` with the batch job's name as its `operation` | nothing: v46 refused an `operation` on a still, so this only admits documents v46 refused — every v46 document passes through and only its version moves |
+| v47 → v48 | the `natural` speech model, Eleven v4 (#1240) | nothing: a value was added to `speech.model`, and every model a v47 line names is the same vendor model at v48 — `expressive` stays `eleven_v3` |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -40,7 +41,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 47,
+  "schema_version": 48,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -462,33 +463,34 @@ so editing one makes the asset `stale` exactly as rewording the sentence does.
 
 | Field | Default | Meaning |
 | --- | --- | --- |
-| `model` | `fast` | `expressive`, `standard` or `fast` — see below |
+| `model` | `fast` | `natural`, `expressive`, `standard` or `fast` — see below |
 | `voice_id` | *none, and no default is possible* | The vendor's id for the voice |
 | `language` | absent | ISO 639-1 (`en`, `pt`), pinning what the model would otherwise infer |
 | `seed` | absent | For a reading that comes back the same way twice. Best-effort at the vendor, so worth recording and not worth relying on |
 
-Three models, named for what the choice is *about* rather than for the
+Four models, named for what the choice is *about* rather than for the
 vendor's version strings — a person picks between expression and price, not
-between `v3` and `v2_5`:
+between `v4` and `v2_5`:
 
-| `model` | On the wire | Price | For |
-| --- | --- | --- | --- |
-| `expressive` | `eleven_v3` | 10¢ / 1000 characters | the most expressive reading |
-| `standard` | `eleven_multilingual_v2` | 10¢ / 1000 characters | the vendor's own default, and the one model that ignores `language` |
-| `fast` | `eleven_flash_v2_5` | 5¢ / 1000 characters | **the default** — half the price, and the vendor's pick over its Turbo variants |
+| `model` | On the wire | Price | Longest line | For |
+| --- | --- | --- | --- | --- |
+| `natural` | `eleven_v4` | 8¢ / 1000 characters | 10,000 characters | the vendor's newest and best reading, and its pick for video narration |
+| `expressive` | `eleven_v3` | 8¢ / 1000 characters | 5,000 characters | the most expressive reading of the generation before |
+| `standard` | `eleven_multilingual_v2` | 8¢ / 1000 characters | 10,000 characters | the vendor's own default, and the one model that ignores `language` |
+| `fast` | `eleven_flash_v2_5` | 4¢ / 1000 characters | 40,000 characters | **the default** — half the price, and the vendor's pick over its older Turbo variants |
 
-**`fast` is the default, and the reason is the price.** `standard` and
-`expressive` cost the same as each other, so the only choice the rate card
+**`fast` is the default, and the reason is the price.** `natural`, `standard`
+and `expressive` cost the same as each other, so the only choice the rate card
 actually poses is *fast or not* — and a reading nobody configured should not
-quietly be the dearer one. Name `expressive` when the reading matters; it costs
-exactly what `standard` does, so there is never a money argument for `standard`
-over it.
+quietly be the dearer one. Name `natural` when the reading matters: ElevenLabs
+calls v4 a net upgrade over v3 and recommends it for content creation and video
+narration, and it costs exactly what the other two do.
 
-The vendor also publishes Turbo variants, and its own documentation recommends
-Flash over Turbo in every case — so offering both would be offering a choice
-with a right answer. That recommendation is Flash over *Turbo* and not Flash
-over everything: ElevenLabs positions `eleven_v3` as the expressive one. The
-argument for the default above is scorsese's, not theirs.
+The vendor also publishes Turbo variants. It recommends Flash over the v2 and
+v2.5 Turbos in every case, so offering both would be offering a choice with a
+right answer; v4 Turbo is sold for real-time dialogue over a websocket, not on
+the text-to-speech endpoint scorsese calls (`docs/prices.md`, *Narration*).
+The argument for the default above is scorsese's, not the vendor's.
 
 **There is no default voice, and there cannot be one.** Every one of the
 vendor's Default voices expires on 2026-12-31 and the set is being replaced
@@ -506,7 +508,7 @@ default.
 | Refused | Because |
 | --- | --- |
 | `language` on the `standard` model | that model **silently ignores** the field |
-| a `prompt` over 40,000 characters | the vendor speaks at most that many in one request |
+| a `prompt` over 40,000 characters | the vendor speaks at most that many in one request, on any model |
 | an empty `voice_id` | it looks chosen and is not — leave it out instead |
 
 The first is the one worth reading twice, because it is the only refusal in
@@ -520,6 +522,10 @@ Characters are counted as characters and not as bytes. Portuguese is one of
 the two languages this is built for, and its accented letters are two bytes
 each — counting bytes would refuse a legal script a quarter short of the
 limit, and would have priced it wrong as well.
+
+A line over its own model's **Longest line** (above) is refused when it is
+generated, before anything is sent or spent, rather than here: holding it here
+would stop a project already holding such a sketch from loading.
 
 #### When each word is said
 
@@ -2747,7 +2753,7 @@ compositing-suite line.
 
 ```json project
 {
-  "schema_version": 47,
+  "schema_version": 48,
   "name": "wipe",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

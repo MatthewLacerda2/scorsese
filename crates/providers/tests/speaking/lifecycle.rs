@@ -1,6 +1,6 @@
 //! Sketch to generated, and what happens to the lines that do not make it.
 
-use scorsese_core::{Asset, AssetId, AssetKind, GenerationState, MAX_CHARACTERS, SpeechRequest};
+use scorsese_core::{Asset, AssetId, AssetKind, GenerationState, SpeechModel, SpeechRequest};
 use scorsese_providers::credentials::Budget;
 use scorsese_providers::speech::{Outcome, generate};
 
@@ -95,23 +95,30 @@ fn a_refused_line_leaves_the_asset_alone() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
-/// The last check before money moves. Validation reports this too, and that is
-/// not a duplicate — validation is a report somebody may not have run.
+/// The last check before money moves, and held to the line's own model: v3
+/// speaks 5,000 characters where Flash speaks 40,000. Validation holds every
+/// line to the widest limit only, so a stored project never stops loading.
 #[test]
-fn a_line_over_the_vendors_limit_is_never_sent() {
-    let (dir, mut project, id) = sketched("toolong", "short for now");
-    asset_mut(&mut project, &id).prompt = Some("a".repeat(MAX_CHARACTERS + 1));
-    let provider = Mock::willing();
+fn a_line_over_its_models_limit_is_never_sent() {
+    for model in SpeechModel::ALL {
+        let (dir, mut project, id) = sketched("toolong", "short for now");
+        let asset = asset_mut(&mut project, &id);
+        asset.prompt = Some("a".repeat(model.max_characters() + 1));
+        asset.speech.as_mut().expect("a speech block").model = model;
+        let provider = Mock::willing();
 
-    let run = generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a run");
+        let run = generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a run");
 
-    assert!(
-        matches!(run[0].1, Outcome::Incomplete { .. }),
-        "{:?}",
-        run[0].1
-    );
-    assert_eq!(provider.requests(), 0, "it must never reach the vendor");
-    std::fs::remove_dir_all(&dir).ok();
+        let outcome = &run[0].1;
+        assert!(matches!(outcome, Outcome::Incomplete { .. }), "{outcome:?}");
+        assert_eq!(
+            provider.requests(),
+            0,
+            "{} must never reach the vendor",
+            model.as_str()
+        );
+        std::fs::remove_dir_all(&dir).ok();
+    }
 }
 
 /// A voice of nothing but spaces looks chosen and is not.

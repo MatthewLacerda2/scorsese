@@ -190,7 +190,7 @@ pub(super) fn speech_schema(_: &mut SchemaGenerator) -> Schema {
     block(
         "(generated_audio) How the line is said.",
         serde_json::json!({
-            "model": { "enum": ["expressive", "standard", "fast"], "description": "Default fast, half the price of the other two." },
+            "model": { "enum": ["natural", "expressive", "standard", "fast"], "description": "Default fast, half the price of the other three. natural (Eleven v4) is the vendor's pick for narration; expressive takes at most 5,000 characters, natural and standard 10,000." },
             "voice_id": { "type": "string", "description": "The vendor's id for the voice — voices lists them. No default is possible, so a line needs one before it is generated." },
             "language": { "type": "string", "description": "ISO 639-1 (`en`, `pt`), pinning what the model would infer." },
             "seed": { "type": "integer", "minimum": 0, "description": "For a reading that comes back the same way twice; best-effort." }

@@ -171,22 +171,44 @@ ElevenLabs text-to-speech, US cents per **thousand characters of input text**.
 
 | model | on the wire | per 1000 characters | a 200-character line |
 | --- | --- | --- | --- |
-| `expressive` | `eleven_v3` | $0.10 | $0.02 |
-| `standard` | `eleven_multilingual_v2` | $0.10 | $0.02 |
-| `fast` | `eleven_flash_v2_5` | $0.05 | $0.01 |
+| `natural` | `eleven_v4` | $0.08 | $0.02 |
+| `expressive` | `eleven_v3` | $0.08 | $0.02 |
+| `standard` | `eleven_multilingual_v2` | $0.08 | $0.02 |
+| `fast` | `eleven_flash_v2_5` | $0.04 | $0.01 |
 
-`fast` is the default, and this table is the reason: `standard` and
+`fast` is the default, and this table is the reason: `natural`, `standard` and
 `expressive` cost the same, so the only choice with money in it is *fast or
 not*, and a line nobody configured takes the cheap side of it.
 
 Last checked against
-[ElevenLabs' pricing page](https://elevenlabs.io/pricing) on **2026-08-05**.
+[ElevenLabs' API pricing page](https://elevenlabs.io/pricing/api) on
+**2026-10-14**, read from the page's own HTML: the same rate on every plan.
+The 2026-08-05 reading was $0.10 and $0.05, so every quote and web charge made
+between the vendor's cut and this correction overstated narration by a quarter
+(#1240).
+
+**Which model the vendor recommends** (its *How to choose the right model*
+page, read 2026-10-14): `eleven_v4` for quality and for "professional content,
+audiobooks, and video narration"; `eleven_v4_turbo` or Flash for low latency.
+It calls v4 a net upgrade over v3. So `natural` is the one to name when the
+reading matters. `fast` stays the default on price alone, the argument above,
+which is scorsese's and not the vendor's. Whether `expressive` should itself
+become v4 is a separate question, because it would change how every existing
+`expressive` line sounds the next time it is generated: #1248 has it.
 
 The Turbo models are absent, and that is not the same omission as Veo's
 *not sold* cell. Veo's per-second table keeps a cell for what Google does not
-sell (Lite at 4k) so the vendor's page can be ticked through row by row. Turbo is a row the **vendor** tells
-people not to use: its own documentation recommends Flash over Turbo in every
-case, so offering both would be offering a choice with a right answer.
+sell (Lite at 4k) so the vendor's page can be ticked through row by row.
+
+- **v2 and v2.5 Turbo** are rows the **vendor** tells people not to use: its
+  own documentation recommends Flash over them in every case, so offering both
+  would be offering a choice with a right answer.
+- **v4 Turbo** ($0.04, Flash's price) is sold for real-time dialogue: the
+  vendor documents it on the Text to Dialogue websocket, and documents only
+  `eleven_v4` on the text-to-speech endpoint scorsese calls. scorsese renders
+  offline, so its latency buys nothing here. If the vendor documents it on
+  *Create speech with timing*, it becomes a candidate for a cheap expressive
+  model. v3 Conversational is the same case.
 
 ### Narration is priced before the call, not after it
 
@@ -207,8 +229,8 @@ being exact:
 
 ### It rounds up
 
-Unlike video, this does not land on whole cents: 137 characters at 10¢ per
-thousand is 1.37¢. Every fraction rounds **up**.
+Unlike video, this does not land on whole cents: 137 characters at 8¢ per
+thousand is 1.096¢. Every fraction rounds **up**.
 
 Rounding down would let a run slip past the ceiling a fraction of a cent at a
 time, and a ceiling that can be crossed a little at a time is not a ceiling.
