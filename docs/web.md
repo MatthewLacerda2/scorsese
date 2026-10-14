@@ -108,13 +108,16 @@ new build, before it serves anything.
   dollars** (#703): a converted figure is wrong the day after it is shown —
   $5 spent today and $5 spent last month were different amounts of any other
   currency — and asking users to pick a rate would put a technical choice in
-  front of them. Nothing about another currency is stored either.
+  front of them. The one record of another currency is a payment's own row:
+  what a user was charged in reais, and the rate it bought their dollars at
+  (*Buying credits*).
 - Credits are paid up front and **never expire**. Every paid generation —
   Veo shots, Gemini stills (one at a time or batched), ElevenLabs lines and
   voice designs — and the assistant are charged at **cost times a multiplier
   per kind** (`credits::Product`: ×1.5 on a Veo shot, ×1.8 on the rest;
   *Credits*, *Pricing* has why), and **nothing else: there is no monthly fee**
-  (#1243). Top-ups are recorded by the operator until Pix exists (#548).
+  (#1243). Users top up themselves through Stripe (*Buying credits*, #548); the
+  operator can still record one by hand.
 - A generation the provider **failed** is free; one that **worked** is
   charged, liked or not. Users can audit every charge themselves — that is what
   makes the second half acceptable.
@@ -170,7 +173,8 @@ provider keys use, and is documented in `.env.example`:
 | `PIXABAY_API_KEY` | The key `stock_search` and `stock_import` look Pixabay up with, by the same resolver, shared by every user (*Web MCP*). Optional: without it a Pixabay search fails with the variable's name; LottieFiles needs no key. |
 | `SCORSESE_ASSISTANT_TURN_CAP` | The most one assistant turn may cost a user, in dollars: `2.50`. Defaults to `3.50`. |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | The Google OAuth client people sign in with (*Accounts*). Optional, with the next one: without all three, Google sign-in is off, the server says so in its log, and everything else is served. The secret is never printed. |
-| `SCORSESE_PUBLIC_ORIGIN` | Where browsers reach the site, `https://scorseseestudio.com`: what Google sends a sign-in back to, at `/api/auth/google/callback`. `https://` and a host, or `http://localhost` / `http://127.0.0.1`; anything else stops the server from starting. |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Stripe's secret key and the webhook endpoint's signing secret, for users buying credits (*Buying credits*). Optional, with the next one: without all three, buying is off, the server says so in its log, and a purchase is answered `503` "not configured". Both are secrets and never printed. |
+| `SCORSESE_PUBLIC_ORIGIN` | Where browsers reach the site, `https://scorseseestudio.com`: what Google sends a sign-in back to, at `/api/auth/google/callback`, and where Stripe sends a buyer back to. `https://` and a host, or `http://localhost` / `http://127.0.0.1`; anything else stops the server from starting. |
 | `SCORSESE_ASSISTANT_MODEL` | **Retired** (#705): the model is each project's choice now. Set to anything, it stops the server from starting, so a setting that no longer means anything cannot pass for one that does. |
 
 **Schema migrations** are embedded in the binary and run at startup, before the
@@ -871,7 +875,7 @@ deleting the account, which is how a user's rows leave.
 
 | kind | amount | what |
 | --- | --- | --- |
-| `top_up` | + | money the operator received (later, Pix) |
+| `top_up` | + | credits a user bought (*Buying credits*), or money the operator recorded |
 | `reservation` | − | a paid generation's price, held while the provider works |
 | `release` | + | a reservation given back — the provider answered |
 | `charge` | − | what a generation that worked, or an assistant call, costs |
@@ -978,12 +982,94 @@ scorsese-server credit balance ana@example.com
 ```
 
 A top-up records the dollars credited and nothing else: whatever currency the
-money arrived in, the ledger tracks dollars (#703). Pix (#548), if it lands,
-records what it needs then.
+money arrived in, the ledger tracks dollars (#703). One a user bought links to
+its payment (`payment_id`), which holds the reais and the rate.
 
 The Veo and ElevenLabs job handlers that call `start` and `finish` are web
 MCP's (*Web MCP*, below), which also registers `spending_history`. Not here
-yet: Pix (#548); the refund policy's text (#547).
+yet: the refund policy's text (#547).
+
+## Buying credits
+
+Users buy credits themselves (#548), in reais, through **Stripe's hosted
+Checkout**. The code is `crates/server/src/payments/` and, for the calls to
+Stripe and the rate sources, `crates/providers/src/payments/` and
+`crates/providers/src/fx/`; their module docs carry each argument.
+
+**The flow.** Beside the balance, *Add credits* takes an amount in reais and
+shows, live, what it buys: "R$ 50,00 → $10,02 em créditos". Paying sends the
+browser to Stripe's page; Stripe sends it back to `/credits/return`, which
+shows the result once the balance moves. Customers are assumed Brazilian:
+every charge is in **BRL**, from **R$ 20** (so the card's fixed R$ 0,39 stays
+small) to **R$ 5.000** a purchase (which bounds what a stolen card can do,
+and fits under Pix-on-Stripe's 3,000 USD a payment).
+No payment method is named in code: the session offers what Stripe's
+Dashboard has switched on — cards now, and Pix once Stripe's invitation for
+it arrives, with no change here.
+
+**The rate is kept, not fetched per purchase** (the maintainer, 2026-10-14):
+the server reads AwesomeAPI's commercial USD-BRL `ask`, else the Central
+Bank's PTAX selling rate from the last week, both with no key, **every two
+minutes** in the background (`payments::refresh`), and keeps the latest in
+memory with when it was read; a failed read keeps the last good one and is
+logged, and a server just started reads one before its first quote. A quote
+and a purchase use the rate kept **while it is at most ten minutes old**; past
+that, or with none read, they are refused with `503` and **no session is
+created**: a rate is never guessed. A rate outside 1 to 50 reais a dollar is
+treated as no answer. **A purchase names the rate it was shown**, and is
+refused with `409` and the quote at the rate now when it has moved, so the
+rate locked on the payment is always the one the person saw.
+**Credits are the reais divided by that rate, floored** to the micro-dollar,
+and Stripe's fee is absorbed rather than added. The session expires after 31
+minutes (Stripe's least is 30, measured on its clock). AwesomeAPI's keyless
+quota is small — a cloud machine was answered `429` the day this was written
+— which is what the fallback is for.
+
+**`payments` is the record**: one row per Checkout Session — its owner, the
+session id (unique), the reais in centavos, the credits in micro-dollars, the
+rate **as its source sent it** and which source, the state (`open`, `paid`,
+`expired`) and when it was paid. Per-user like every table. The `top_up` it
+causes carries its `payment_id`.
+
+**Crediting is exactly once, keyed on the session id**, with two ways in that
+both call `payments::settle::settle`:
+
+- **Stripe's webhook**, `POST /api/payments/stripe/webhook`, public, believed
+  only when the `Stripe-Signature` HMAC-SHA256 over the raw body matches
+  `STRIPE_WEBHOOK_SECRET` within five minutes. It acts on
+  `checkout.session.completed` and `checkout.session.async_payment_succeeded`
+  (credited when the session says `paid`, in BRL, for exactly the centavos
+  asked) and `checkout.session.expired`; anything else signed is answered
+  `200` and ignored.
+- **The return page**, whose `POST /api/payments/{session}/confirm`
+  retrieves the session from Stripe while the payment is still open — which
+  covers a webhook that is late or never comes.
+
+`settle` finds the payment's owner by session id (a `privileged` read: a
+webhook carries no user), then works scoped as them under the payment row's
+lock, so the second of two racing calls finds it `paid`. A unique index on
+`credit_entries (payment_id)` refuses a second top-up for one payment even if
+everything above it went wrong. An amount or currency that disagrees with what
+was asked credits nothing and is logged for the operator to look at in Stripe.
+
+| route | who | what |
+| --- | --- | --- |
+| `GET /api/payments/quote` | a member | `?centavos=`: the credits they buy, the rate and its source, and the limits |
+| `POST /api/payments` | a member | `{"centavos", "brl_per_usd"}`: a Checkout Session at the rate shown — its `url` to send the browser to, and its `session`; `409` with `quote` when the rate moved |
+| `POST /api/payments/{session}/confirm` | a member | their payment by session, credited first if Stripe says it is paid |
+| `POST /api/payments/stripe/webhook` | Stripe, signed | how a session went |
+
+**Configuration**: `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` beside
+`SCORSESE_PUBLIC_ORIGIN`, in `deploy/.env` (the table under *`crates/server`*).
+In Stripe's Dashboard, a webhook endpoint at
+`<origin>/api/payments/stripe/webhook` listening for the three events above
+gives the signing secret. The code runs on **test keys** (`sk_test_…`);
+switching to live keys waits for #547 (terms, refund and privacy pages) and is
+a change to `deploy/.env`, not to code.
+
+**Not here**: refunds stay by hand — the Stripe Dashboard, and
+`scorsese-server credit refund` — until #547 sets the policy. Foreign customers
+and other currencies wait for demand.
 
 ## Library
 

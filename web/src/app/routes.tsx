@@ -16,6 +16,7 @@ import { Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router";
 import { PageFallback } from "@/app/PageFallback";
 import {
+  CreditsReturnPage,
   EditorPage,
   LandingPage,
   LibraryPage,
@@ -68,6 +69,7 @@ export function AppRoutes() {
           <Route path="/projects/:id/edit" element={<EditorPage />} />
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/spending" element={<SpendingPage />} />
+          <Route path="/credits/return" element={<CreditsReturnPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Route>

@@ -18,6 +18,7 @@ pub mod google;
 pub mod jobs;
 pub mod library;
 pub mod mcp;
+pub mod payments;
 pub mod projects;
 mod ranges;
 pub mod renders;
@@ -74,6 +75,9 @@ pub struct AppState {
     /// Sign in with Google (#952), or `None` where no OAuth client is
     /// configured and a sign-in answers "not configured".
     pub google: Option<google::Google>,
+    /// Stripe (#548), or `None` where it is not configured and a purchase
+    /// answers "not configured".
+    pub payments: Option<crate::payments::Payments>,
 }
 
 impl AppState {
@@ -103,6 +107,7 @@ impl AppState {
             in_flight: mcp::InFlight::default(),
             assistant: Assistant::default(),
             google: None,
+            payments: None,
             pool,
             jobs,
             events,
@@ -121,6 +126,12 @@ impl AppState {
     /// `library` alone — a test's, which needs no key and no network.
     pub fn stocked_from(mut self, library: scorsese_mcp::Stock) -> Self {
         self.tools = self.tools.stocked_from(library);
+        self
+    }
+
+    /// The same state, selling credits through `payments`.
+    pub fn with_payments(mut self, payments: Option<crate::payments::Payments>) -> Self {
+        self.payments = payments;
         self
     }
 

@@ -213,7 +213,20 @@ pub async fn top_up(tx: &mut Tx, micros: i64) -> Result<(), CreditError> {
             "a top-up needs a positive amount".into(),
         ));
     }
-    insert_credit(tx, "top_up", micros, "Top-up", json!({})).await
+    insert_credit(tx, "top_up", micros, "Top-up", json!({}), None).await
+}
+
+/// Credit `micros` a user paid for themselves through `payment` (#548). The
+/// same top-up as [`top_up`], linked to its payment — and refused by a
+/// unique index if that payment was credited already, so a payment can never
+/// become two top-ups however its confirmations race.
+pub async fn top_up_paid(tx: &mut Tx, micros: i64, payment: i64) -> Result<(), CreditError> {
+    if micros <= 0 {
+        return Err(CreditError::Invalid(
+            "a top-up needs a positive amount".into(),
+        ));
+    }
+    insert_credit(tx, "top_up", micros, "Top-up", json!({}), Some(payment)).await
 }
 
 /// Give back `micros` with the reason in words — the refund entry kind the
@@ -230,6 +243,7 @@ pub async fn refund(tx: &mut Tx, micros: i64, reason: &str) -> Result<(), Credit
         micros,
         &format!("Refund: {reason}"),
         json!({}),
+        None,
     )
     .await
 }
@@ -241,15 +255,17 @@ async fn insert_credit(
     micros: i64,
     memo: &str,
     detail: serde_json::Value,
+    payment: Option<i64>,
 ) -> Result<(), CreditError> {
     sqlx::query(
-        "INSERT INTO credit_entries (user_id, kind, amount_micros, memo, detail)
-         VALUES (member_id(), $1, $2, $3, $4)",
+        "INSERT INTO credit_entries (user_id, kind, amount_micros, memo, detail, payment_id)
+         VALUES (member_id(), $1, $2, $3, $4, $5)",
     )
     .bind(kind)
     .bind(micros)
     .bind(memo)
     .bind(detail)
+    .bind(payment)
     .execute(&mut **tx)
     .await?;
     Ok(())

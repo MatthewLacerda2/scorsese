@@ -1,8 +1,8 @@
 //! What the server is told by the environment it is started in.
 //!
-//! Ten things, and two of them are secrets. The database URL carries a
-//! password and the Google OAuth client has a secret, so both are held as a
-//! [`Secret`] — printing a [`Config`] prints nothing of them, and no error
+//! Twelve things, and four of them are secrets. The database URL carries a
+//! password, the Google OAuth client has a secret and Stripe has two, so all
+//! are held as a [`Secret`] — printing a [`Config`] prints nothing of them, and no error
 //! below ever repeats their values.
 //!
 //! **Read through [`Environment`], the same value the provider-key resolver
@@ -23,6 +23,7 @@ use std::path::PathBuf;
 use scorsese_providers::credentials::{Environment, Secret};
 
 use crate::http::google::Google;
+use crate::payments::Payments;
 use crate::renders::Quota;
 use crate::storage::Storage;
 
@@ -66,6 +67,14 @@ pub const GOOGLE_CLIENT_ID: &str = "GOOGLE_OAUTH_CLIENT_ID";
 /// The Google OAuth client's secret.
 pub const GOOGLE_CLIENT_SECRET: &str = "GOOGLE_OAUTH_CLIENT_SECRET";
 
+/// Stripe's secret key, `sk_test_…` or `sk_live_…` (#548): users buying
+/// credits through Stripe Checkout.
+pub const STRIPE_SECRET_KEY: &str = "STRIPE_SECRET_KEY";
+
+/// The signing secret of the Stripe webhook endpoint, `whsec_…`, which proves
+/// a delivery to `/api/payments/stripe/webhook` came from Stripe.
+pub const STRIPE_WEBHOOK_SECRET: &str = "STRIPE_WEBHOOK_SECRET";
+
 /// Where browsers reach the site, e.g. `https://scorseseestudio.com`: the
 /// origin Google sends a sign-in back to, at `/api/auth/google/callback`.
 ///
@@ -101,6 +110,10 @@ pub struct Config {
     /// answers a sign-in with "not configured" — a development stack without
     /// a Google client still runs.
     pub google: Option<Google>,
+    /// Users buying credits (#548), when [`STRIPE_SECRET_KEY`],
+    /// [`STRIPE_WEBHOOK_SECRET`] and [`PUBLIC_ORIGIN`] are all set. `None`
+    /// sells nothing and answers a purchase with "not configured".
+    pub payments: Option<Payments>,
 }
 
 /// Why the environment does not describe a server that can start.
@@ -244,6 +257,7 @@ impl Config {
         })?;
 
         let google = Google::from_environment(environment)?;
+        let payments = Payments::from_environment(environment)?;
 
         Ok(Self {
             database_url,
@@ -253,6 +267,7 @@ impl Config {
             bind,
             assistant_turn_cap,
             google,
+            payments,
         })
     }
 }

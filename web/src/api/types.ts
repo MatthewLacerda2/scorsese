@@ -157,6 +157,32 @@ export interface Balance {
   balance_micros: number;
 }
 
+/** `payments::Quote` — what an amount of reais buys now (#548). */
+export interface PaymentQuote {
+  brl_centavos: number;
+  credit_micros: number;
+  /** Reais per dollar, as its source sent it: `"5.0096"`. */
+  brl_per_usd: string;
+  rate_source: "awesomeapi" | "bcb_ptax";
+  minimum_centavos: number;
+  maximum_centavos: number;
+}
+
+/** `payments::Begun` — a Checkout Session to send the browser to. */
+export interface PaymentBegun {
+  url: string;
+  session: string;
+  quote: PaymentQuote;
+}
+
+/** `payments::settle::Payment` — a purchase as its owner reads it. */
+export interface Payment {
+  session: string;
+  state: "open" | "paid" | "expired";
+  brl_centavos: number;
+  credit_micros: number;
+}
+
 /** What a history row is about — `credits::history::KINDS`. */
 export const HISTORY_KINDS = [
   "veo_shot",

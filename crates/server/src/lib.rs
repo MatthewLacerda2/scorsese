@@ -98,7 +98,8 @@
 //! the files those use, and [`storage`] where each user's files live. [`jobs`] is the queue long work
 //! waits in and the worker that runs it; [`events`] the live stream a user's
 //! browser hears it on. [`credits`] is what each user has paid and spent, and
-//! the record of every paid generation. [`renders`] is the finished videos the
+//! the record of every paid generation; [`payments`] is how they pay in,
+//! through Stripe. [`renders`] is the finished videos the
 //! queue makes from stored projects, kept for download under a quota, and
 //! [`captures`] how their web pages are drawn in a container of their own.
 //! [`tools`] is scorsese's tool surface for one user — what web MCP serves and
@@ -121,6 +122,7 @@ pub mod http;
 pub mod jobs;
 pub mod library;
 pub mod operator;
+pub mod payments;
 pub mod projects;
 pub mod renders;
 pub mod storage;
@@ -239,14 +241,24 @@ pub async fn run(
             config::PUBLIC_ORIGIN
         ),
     }
+    match &config.payments {
+        Some(payments) => eprintln!(
+            "scorsese-server: selling credits through Stripe, back to {}",
+            payments.origin
+        ),
+        None => eprintln!(
+            "scorsese-server: buying credits is off; set {}, {} and {} to turn it on",
+            config::STRIPE_SECRET_KEY,
+            config::STRIPE_WEBHOOK_SECRET,
+            config::PUBLIC_ORIGIN
+        ),
+    }
+    let services = Services {
+        google: config.google,
+        payments: config.payments,
+    };
     start(
-        pool,
-        listener,
-        files,
-        registry,
-        assistant,
-        config.google,
-        shutdown,
+        pool, listener, files, registry, assistant, services, shutdown,
     )
     .await
 }
@@ -263,8 +275,19 @@ pub struct Files {
     pub renders: renders::RenderCache,
 }
 
+/// The vendors a server is configured to reach for its own sake, each
+/// optional: `None` is a server that answers what needs it with "not
+/// configured" and serves everything else.
+#[derive(Debug, Clone, Default)]
+pub struct Services {
+    /// Sign in with Google (#952).
+    pub google: Option<http::google::Google>,
+    /// Users buying credits through Stripe (#548).
+    pub payments: Option<payments::Payments>,
+}
+
 /// Migrate, then serve on `listener` with users' files in `files`, the
-/// built-in `assistant` and `google` signing people in, and
+/// built-in `assistant` and the configured `services`, and
 /// run `registry`'s jobs until `shutdown`.
 ///
 /// The half of [`run`] that is handed its resources rather than making them,
@@ -277,8 +300,10 @@ pub struct Files {
 /// the code answering it either. Requests are then answered from
 /// [`db::member_pool`], whose connections can read nothing outside a scoped
 /// transaction — per-user isolation, `db::scope`. The job worker
-/// ([`jobs::work`]) and the render cache's weekly sweep
-/// ([`renders::evict::run`]) run beside them on the same pool. The render cache's scratch folder is emptied first, while
+/// ([`jobs::work`]), the dollar's rate kept fresh ([`payments::refresh`],
+/// where Stripe is configured) and the render cache's weekly sweep
+/// ([`renders::evict::run`]) run beside them on the same pool. The render
+/// cache's scratch folder is emptied first, while
 /// no render can be running.
 ///
 /// On `shutdown` every live stream ends, so the graceful stop is not held
@@ -290,7 +315,7 @@ pub async fn start(
     files: Files,
     registry: jobs::Registry,
     assistant: assistant::Assistant,
-    google: Option<http::google::Google>,
+    services: Services,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> Result<(), ServerError> {
     db::migrate(&pool).await?;
@@ -316,8 +341,12 @@ pub async fn start(
     let pool = db::member_pool(&pool).await.map_err(ServerError::Connect)?;
     let state = AppState::new(pool.clone(), files)
         .with_assistant(assistant)
-        .with_google(google);
+        .with_google(services.google)
+        .with_payments(services.payments.clone());
     let (stop, stopping) = watch::channel(false);
+    let rate = services
+        .payments
+        .map(|payments| tokio::spawn(payments::refresh(payments, stopping.clone())));
     let sweep = tokio::spawn(renders::evict::run(pool.clone(), cache, stopping.clone()));
     let worker = tokio::spawn(jobs::work(pool, registry, state.jobs.clone(), stopping));
     let events = state.events.clone();
@@ -327,6 +356,11 @@ pub async fn start(
     })
     .await;
     stop.send_replace(true);
+    // Not waited on: a read of the rate in flight would hold the stop up to
+    // its timeout, and nothing is lost by cutting it off.
+    if let Some(rate) = rate {
+        rate.abort();
+    }
     if let Err(error) = worker.await {
         eprintln!("scorsese-server: the job worker failed: {error}");
     }
