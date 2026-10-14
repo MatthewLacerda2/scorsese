@@ -8,8 +8,8 @@
 //! a project can change model mid-conversation and the history comes along.
 //!
 //! What does not come along is what only one vendor understands: Claude's
-//! thinking blocks and signatures, Gemini's thought signatures. Those live in
-//! the exact bytes, and a turn on the same model replays them.
+//! thinking blocks and signatures. Those live in the exact bytes, and a turn
+//! on the same model replays them.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -60,7 +60,8 @@ pub enum Part {
     Result {
         /// The call it answers.
         call: String,
-        /// The tool that answered — Gemini names a result by its tool.
+        /// The tool that answered: a vendor may name a result by its tool
+        /// (Gemini did, while it was offered, #1220).
         name: String,
         /// Words and pictures, in the order to read them.
         content: Vec<ResultPart>,

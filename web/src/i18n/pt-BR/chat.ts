@@ -80,6 +80,7 @@ export const chat: Messages["chat"] = {
       "Trocar de modelo invalida o cache no próximo prompt. O cache guarda sua conversa para " +
       "deixá-la mais barata. Tem certeza de que quer trocar?",
     switch: "Trocar",
+    costLabel: "Custo",
     cost: (words) => `Custo: ${words}`,
   },
   cost: {

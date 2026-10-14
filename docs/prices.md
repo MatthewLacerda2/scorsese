@@ -254,38 +254,32 @@ per-item average: an average across them would describe nothing that exists.
 ## The assistant
 
 The hosted web app's assistant (#540) runs on the model each project chooses
-(#705), priced per **million tokens**, each kind at its own rate —
+(#705) — Claude Sonnet 5.5 or Opus 5.5 since #1220 cut Gemini from the
+picker — priced per **million tokens**, each kind at its own rate —
 `prices::chat`:
 
 | model | input | output | cache write, 5 min | cache write, 1 h | cache read | checked |
 | --- | --- | --- | --- | --- | --- | --- |
 | `claude-opus-5-5` | $4 | $20 | $5 | $8 | $0.20 | 2026-10-03 |
 | `claude-sonnet-5-5` | $2 | $10 | $2.50 | $4 | $0.20 | 2026-10-03 |
-| `gemini-3.8-flash` | $0.75 | $3.75 | — | — | $0.075 | 2026-10-03 |
-| `gemini-3.8-flash` from 2027-01-01 | $1.50 | $7.50 | — | — | $0.15 | 2026-10-03 |
-| `gemini-3.5-flash-lite` | $0.30 | $2.50 | — | — | (none sold) | 2026-10-03 |
 
 Read off [Anthropic's pricing page](https://platform.claude.com/docs/en/about-claude/pricing)
-and prompt-caching page, and [Google's](https://ai.google.dev/gemini-api/docs/pricing).
+and prompt-caching page.
 Standard tier and global routing only — fast mode, the batch discount,
 Priority and US-only inference are rows scorsese never pays, so they are not
 here. Things that look like typos and are not:
 
 - **Opus 5.5's cache reads are 0.05× input**; Sonnet 5.5's are the usual 0.1×,
   which happens to land on the same $0.20.
-- **Gemini 3.8 Flash's price is introductory and doubles on 2027-01-01**
-  ($1.50 / $7.50 / $0.15 cached), so it has two rows. A row may carry the day
-  it takes effect, and `prices::chat::rate` is asked for a model *on a date* —
-  the latest row not after it (#718). The server passes today, in UTC; the
-  table itself never reads a clock. A vendor's announced change goes in as a
-  dated row the day it is announced, not as an edit somebody has to remember.
-- **Gemini writes no cache, so its write columns are empty.** 3.8 Flash caches
-  implicitly and reads at a tenth of input; 3.5 Flash Lite has no caching sold
-  and is not on Google's implicit-caching list, so its cached column is its
-  input rate — a cached count, should one appear, is billed as the input it is.
-- **Thinking is output** on both vendors: Claude counts it in `output_tokens`,
-  Gemini reports `thoughtsTokenCount` beside `candidatesTokenCount`, and both
-  are charged at the output rate.
+- **A row may carry the day it takes effect** (#718), and
+  `prices::chat::rate` is asked for a model *on a date* — the latest row not
+  after it. No row is dated today (the one that was, Gemini 3.8 Flash's
+  2027-01-01 doubling, left with Gemini); the server passes today, in UTC, and
+  the table itself never reads a clock. A vendor's announced change goes in as
+  a dated row the day it is announced, not as an edit somebody has to
+  remember.
+- **Thinking is output**: Claude counts it in `output_tokens`, charged at the
+  output rate.
 
 **This is the one table whose total is not a guess about quantity.** Every
 response carries a usage block counting the tokens it was billed for — plain
@@ -294,22 +288,20 @@ the vendor's own count times this table. The rate is still a page somebody
 copied, which is why the date is here; the count is not an estimate.
 
 **Cache savings are the user's.** A cache read is charged at the cache-read
-rate, never as full input (the maintainer, 2026-10-03): Gemini's prompt count
-includes its cached part, so the cached tokens are taken out of input and
-priced as reads.
+rate, never as full input (the maintainer, 2026-10-03).
 
 **What a turn costs is mostly how much it re-reads.** Every call of an
 assistant turn resends the whole conversation, so the server caches it
 (`docs/web.md`, *Assistant turns*): on Claude the tools and system prompt for
-an hour, shared by every user, the conversation's tail for five minutes; on
-Gemini 3.8 Flash whatever recent prefix Google's implicit cache holds. A cache
-read is a twentieth (Opus) or a tenth (the rest) of input, which is why a long
+an hour, shared by every user, the conversation's tail for five minutes. A
+cache read is a twentieth (Opus) or a tenth (Sonnet) of input, which is why a long
 turn is cheap per call, why anything that edits earlier messages would be
 expensive, and why the first turn after a change of model costs more. The
 operator's per-turn cap bounds the rest.
 
-**In micro-dollars, rounded up once per call.** One Gemini figure is half a
-cent per million, so the table is kept in micro-dollars per million tokens, a
+**In micro-dollars, rounded up once per call.** A vendor's page may print a
+fraction of a cent per million (Gemini's did), so the table is kept in
+micro-dollars per million tokens, a
 call is summed in those, and divided once, upwards — `prices::chat::Usage::micros`.
 The hosted server's ledger is in micro-dollars for exactly this reason
 (`docs/web.md`, *Money*).

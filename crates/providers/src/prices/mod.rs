@@ -34,9 +34,9 @@
 //! [`chat`] is the one table whose figure is **not** an estimate: a chat reply
 //! counts the tokens it was billed for, so the cost is the vendor's count
 //! times the vendor's page. It is kept in micro-dollars per million tokens —
-//! one Gemini figure is half a cent — and it answers in micro-dollars, because
-//! one call can cost a fraction of a cent and the hosted server's ledger is
-//! kept in micro-dollars (#537).
+//! so a fraction of a cent on a vendor's page is still a whole number — and
+//! it answers in micro-dollars, because one call can cost a fraction of a
+//! cent and the hosted server's ledger is kept in micro-dollars (#537).
 
 pub mod chat;
 pub mod checked;

@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use serde_json::Value;
 use serde_json::value::RawValue;
 
-use super::{Chat, ChatError, Effort, Message, Part, Reply, Request, ResultPart, Streamed, Vendor};
+use super::{Chat, ChatError, Effort, Message, Part, Reply, Request, ResultPart, Streamed};
 use crate::api::anthropic::content::{self, Block};
 use crate::api::anthropic::request::{self as wire, MessageContent, Role};
 use crate::claude::{self, Anthropic, Claude, MAX_TOKENS, Response, Settings};
@@ -18,9 +18,6 @@ impl Chat for Anthropic {
         request: &Request,
         on: &mut dyn FnMut(Streamed<'_>),
     ) -> Result<Reply, ChatError> {
-        if request.model.vendor() != Vendor::Anthropic {
-            return Err(ChatError::Misrouted(request.model.label()));
-        }
         let response = Claude::reply(self, &laid_out(request), on)?;
         Ok(reply_of(response)?)
     }
@@ -78,7 +75,6 @@ pub fn reply_of(response: Response) -> Result<Reply, claude::ClaudeError> {
         native,
         stop: response.stop,
         usage: response.usage,
-        thinking: None,
     })
 }
 

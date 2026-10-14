@@ -47,7 +47,7 @@ export const PRIVACY: LegalDocument = {
         "Cada fornecedor recebe só o que precisa para fazer a sua parte:",
         [
           "Anthropic (o assistente Claude): as suas mensagens e o conteúdo do projeto que o assistente lê para responder.",
-          "Google: as suas mensagens e o conteúdo que o assistente lê, quando o projeto usa um modelo Gemini; os pedidos de vídeo (Veo) e de imagem (Gemini), com as imagens de referência que você indicar; e o login com o Google.",
+          "Google: os pedidos de vídeo (Veo) e de imagem (Gemini), com as imagens de referência que você indicar; e o login com o Google.",
           "ElevenLabs: os textos a serem narrados e as descrições de voz.",
           "Stripe: o pagamento. A Stripe recebe o seu e-mail e os dados do cartão que você digita na página dela.",
           "Cloudflare: todo acesso ao site passa por ela, que protege e entrega as páginas.",

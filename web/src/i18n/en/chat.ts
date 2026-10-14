@@ -80,6 +80,7 @@ export const chat = {
       "Switching models causes a cache miss on the next prompt. Caches store your conversation " +
       "to make it cheaper. Are you sure you want to switch?",
     switch: "Switch",
+    costLabel: "Cost",
     cost: (words: string) => `Cost: ${words}`,
   },
   cost: {

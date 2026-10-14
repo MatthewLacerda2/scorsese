@@ -1,5 +1,4 @@
-// The assistant's words, as Markdown (#768). Both of the picker's vendors
-// write it by habit, so printed plain it shows its markers; rendered, a plan
+// The assistant's words, as Markdown (#768). Claude writes it by habit, so printed plain it shows its markers; rendered, a plan
 // reads as a list and a choice stands out in bold.
 //
 // The text is the model's, so it is untrusted, and this is safe by

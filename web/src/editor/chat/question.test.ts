@@ -14,7 +14,7 @@ function turn(fields: Partial<TurnView>): TurnView {
     state: "asking",
     answer: null,
     stop_reason: null,
-    model: "gemini-3.8-flash",
+    model: "claude-sonnet-5-5",
     calls: 1,
     input_tokens: 0,
     output_tokens: 0,

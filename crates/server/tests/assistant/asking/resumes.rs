@@ -60,13 +60,13 @@ async fn a_question_pauses_the_turn_free_and_the_answer_resumes_it(pool: PgPool)
 }
 
 #[sqlx::test]
-async fn on_gemini_a_typed_message_is_the_answer(pool: PgPool) {
+async fn on_sonnet_a_typed_message_is_the_answer(pool: PgPool) {
     let script = Script::new(vec![calls("ask_user", question()), answers("Looped.")]);
     let (address, _) = scripted(&pool, &script).await;
     let (ana, who) = member(&pool, "ana@example.com", 10).await;
-    let id = on_model(&pool, ana, json!([]), "gemini-3.8-flash").await;
+    let id = on_model(&pool, ana, json!([]), "claude-sonnet-5-5").await;
     let paused = asked(address, &who, id, "add the music").await;
-    assert_eq!(paused["turn"]["model"], "gemini-3.8-flash");
+    assert_eq!(paused["turn"]["model"], "claude-sonnet-5-5");
     assert_eq!(paused["turn"]["state"], "asking", "{paused}");
     let turn = paused["turn"]["id"].clone();
 
@@ -83,10 +83,7 @@ async fn on_gemini_a_typed_message_is_the_answer(pool: PgPool) {
     );
     let sent = script.messages(1);
     let result = sent.last().unwrap();
-    assert!(
-        result.contains("functionResponse") && result.contains("ask_user"),
-        "{result}"
-    );
+    assert!(result.contains("tool_result"), "{result}");
     assert!(
         result.contains("The person answered: loop it, but quieter"),
         "{result}"

@@ -130,8 +130,9 @@ new build, before it serves anything.
 
 ## The assistant
 
-A model of the project's choosing — Claude Sonnet 5.5 by default, Claude Opus
-5.5, Gemini 3.8 Flash or Gemini 3.5 Flash Lite (#705) — running server-side
+A model of the project's choosing — Claude Sonnet 5.5 by default, or Claude
+Opus 5.5 (#705; Gemini 3.8 Flash and 3.5 Flash Lite were offered until #1220
+cut them as not good enough at the job) — running server-side
 with scorsese's tool registry (#540). The same tools are served over web MCP
 (#539), so a user can connect their own client instead. One tool set, two ways
 in — and nothing in the tool surface may assume who the caller is (`CLAUDE.md`,
@@ -168,7 +169,7 @@ provider keys use, and is documented in `.env.example`:
 | `SCORSESE_CACHE` | The absolute directory what can be rebuilt is kept under — thumbnails, uploads still arriving, finished renders. Required, and refused inside `SCORSESE_STORAGE`, which is backed up. |
 | `SCORSESE_RENDER_QUOTA` | How much disk finished renders and page captures aim to stay under: `500MB`, `20GB`, `1TB`. Defaults to `20GB`. See *Renders*. |
 | `SCORSESE_BIND` | Where to listen. Defaults to `127.0.0.1:8080`, this machine only. |
-| `GEMINI_API_KEY`, `ELEVENLABS_API_KEY` | The provider keys paid generations are made with (*Web MCP*), read by the one resolver `docs/credentials.md` describes; `GEMINI_API_KEY` is also what the assistant's Gemini models answer with (*Assistant turns*). Optional: without one, a generation needing it fails, free. |
+| `GEMINI_API_KEY`, `ELEVENLABS_API_KEY` | The provider keys paid generations are made with (*Web MCP*), read by the one resolver `docs/credentials.md` describes; Optional: without one, a generation needing it fails, free. |
 | `ANTHROPIC_API_KEY` | The key the assistant's Claude models answer with (*Assistant turns*), by the same resolver. Optional: without it a turn on a Claude model is refused with "`ANTHROPIC_API_KEY` is not set", and nothing else changes. |
 | `PIXABAY_API_KEY` | The key `stock_search` and `stock_import` look Pixabay up with, by the same resolver, shared by every user (*Web MCP*). Optional: without it a Pixabay search fails with the variable's name; LottieFiles needs no key. |
 | `SCORSESE_ASSISTANT_TURN_CAP` | The most one assistant turn may cost a user, in dollars: `2.50`. Defaults to `3.50`. |
@@ -1673,10 +1674,10 @@ web MCP serves, while their browser watches. The code is
 `crates/server/src/assistant/` (the turn, the conversation, the quote box, the
 model a project runs on), `crates/server/src/http/chat.rs` (the routes) and,
 for the models themselves, the vendor-neutral seam in
-`crates/providers/src/chat/` over Claude (`claude/`, wire in `api/anthropic/`)
-and Gemini (wire in `api/gemini/chat/`); their module docs carry each
-argument. **The chat panel is #545's**; this section is
-the API it calls.
+`crates/providers/src/chat/` over Claude (`claude/`, wire in `api/anthropic/`);
+their module docs carry each argument. The seam stays vendor-neutral though
+one vendor is left (#1220), so a second is an addition. **The chat panel is
+#545's**; this section is the API it calls.
 
 **A turn** is one message from the user and everything the assistant does
 with it: call the project's model with the conversation and every tool
@@ -1690,8 +1691,8 @@ are shown as Markdown (#768) — rendered with raw HTML off and images shown as
 their alt text, since the text is the model's and untrusted — and the prompt
 says light Markdown is fine and tables and images are not.
 
-**The model's thinking is not shown** (#767). Both vendors still stream it as
-short notes, and the vendors are still asked for them — what a request asks for
+**The model's thinking is not shown** (#767). Claude still streams it as
+short notes, and is still asked for them — what a request asks for
 is part of the stored bytes and the cached prefix, and changing it buys nothing
 a user can see — but the server drops them before the event stream, so the
 browser never hears them. A working turn shows one playful status word instead,
@@ -1700,8 +1701,10 @@ thinking still happens and is still billed as output: hiding it saves the user
 reading, not credits.
 
 **Which model** (#705). A project names one (`projects.assistant_model`):
-Claude Sonnet 5.5 (`Model::DEFAULT`, migration `0022`) for every project until
-its owner picks another, in the chat panel's dropdown (`PUT /api/projects/{id}/chat/model`). It is a routing flag:
+Claude Sonnet 5.5 (`Model::DEFAULT`, migration `0022`; migration `0031` moved
+every project still on a Gemini model there when #1220 cut them, and set aside
+any question a Gemini turn was waiting on) for every project until its owner
+picks another, in the chat panel's dropdown (`PUT /api/projects/{id}/chat/model`). It is a routing flag:
 every turn runs on the model its project names when the turn starts, is charged
 at that model's rates, and records the model it ran on. It can be changed at
 any time, mid-conversation included, and changing it rewrites nothing. A model
@@ -1721,18 +1724,17 @@ deterministic, so after a switch the history is the same bytes from the second
 turn on. Turns from before #705 have no record and are read back from their
 Anthropic JSON when a later turn needs them.
 
-**A switch costs one uncached turn.** Thinking blocks (Claude) and thought
-signatures (Gemini) stay with the bytes of the model that wrote them, and the
+**A switch costs one uncached turn.** Thinking blocks stay with the bytes of
+the model that wrote them — Sonnet's are not sent to Opus, nor Opus's to
+Sonnet, since the history compares by model, not vendor — and the
 new model has never seen the conversation, so the first turn after a switch
 reads it all at the full input rate, and on Claude writes the cache afresh.
 That is accepted; the panel says so before switching (*The chat panel*
 below).
 
 What the server vouches for — which project this is, that the user confirmed a
-quote — is a server note: a mid-conversation `system` message on Claude, which
-no user text or tool output can forge, and on Gemini, which has no such role, a
-part of the person's turn marked `[scorsese server]`, with any words of the
-person's own that begin with the mark quoted so the mark stays the server's.
+quote — is a server note: a mid-conversation `system` message, which no user
+text or tool output can forge.
 Nothing that spends depends on a note: the quote token never enters the
 conversation at all. A turn cut off before the model replied (a refusal, a stop, a restart)
 is closed by a one-line reply at the start of the next, and a tool call it
@@ -1804,8 +1806,7 @@ show one only when several results are equally good or the model is unsure
 between them; one clearly right is imported without asking.
 
 **Money.** Every call is charged from its reply's usage — input, output,
-Claude's five-minute and one-hour cache writes, cache reads (Gemini's
-`cachedContentTokenCount`), each at its own rate for the turn's model in
+Claude's five-minute and one-hour cache writes, cache reads, each at its own rate for the turn's model in
 `prices::chat`, so a cache hit is cheaper for the user too — times 1.8, as one `charge` entry naming the turn
 (`credit_entries.chat_turn_id`); the spending history folds a turn's calls into
 one row. Not reserved for, since the cost exists only once counted: a turn is
@@ -1819,13 +1820,9 @@ line was already made and is charged; one call is bounded by `max_tokens`.
 On Claude, one breakpoint on the system prompt caches the tools and the prompt
 together for an hour — identical for every user, so one write serves the whole
 server — and the API's automatic breakpoint caches the conversation's tail for
-five minutes. Gemini 3.8 Flash caches implicitly: nothing is marked, and a
-prefix of at least 4,096 tokens it has seen recently is read at a tenth of the
-input rate. Gemini 3.5 Flash Lite has no caching at all. Nothing about a user
-or the time goes in the prefix, on any model.
+five minutes. Nothing about a user or the time goes in the prefix.
 
-**Effort is the user's, per message** (#769) — Claude's `effort`, Gemini's
-`thinkingLevel` — chosen beside Send as **Quick** (`low`), **Balanced**
+**Effort is the user's, per message** (#769) — Claude's `effort` — chosen beside Send as **Quick** (`low`), **Balanced**
 (`medium`) or **Thorough** (`high`, the default), and remembered per project
 in the browser. A message without one is `high`; every turn records its
 effort, and one that resumes after a question or a quote's answer keeps the
@@ -1833,15 +1830,13 @@ effort it began with (`crates/server/src/assistant/mod.rs`, *Effort*). A refusal
 vendor's safety filters ends the turn as `refused`, charged for what the call
 used; it is not retried on another model, because the user chose the model.
 
-**Without a model's key** (`ANTHROPIC_API_KEY` for Claude, `GEMINI_API_KEY`
-for Gemini) a turn on it is refused with `503` and the variable's name, and the
+**Without the model's key** (`ANTHROPIC_API_KEY`) a turn on it is refused with `503` and the variable's name, and the
 rest of the server runs as it did.
 
 **The chat panel** has the model dropdown. Picking another model while the
 conversation's cache may still be warm — its last answer less than the cache
-lifetime of the model being left ago (`cache_seconds`, an hour on every model:
-Claude's longest entry, and for Gemini, whose implicit cache documents no
-lifetime, the cautious figure), or a turn still running — first asks: *switching
+lifetime of the model being left ago (`cache_seconds`, an hour on both models:
+Claude's longest entry), or a turn still running — first asks: *switching
 models causes a cache miss on the next prompt*, Switch or Cancel. An empty
 conversation, or one whose last answer is older than that, switches at once.
 The age is the server's `finished_at`, so the check survives a reload.
@@ -1906,11 +1901,11 @@ row, in the same transaction.
 
 - **`model_calls`** — one typed row per call the assistant made to a model,
   the same shape on every vendor (`providers::chat::Usage`): `model`, `vendor`
-  (`anthropic`, `google`), `input_tokens` (full price — the cached part is not
-  here), `output_tokens` (thinking included, as both bill it),
-  `thinking_tokens` (the part of output that was thinking — Gemini reports it
-  apart as `thoughtsTokenCount`; Anthropic's usage does not, so `NULL` on
-  Claude), `cache_write_5m_tokens`, `cache_write_1h_tokens`,
+  (`anthropic`; rows from before #1220 also hold `google`), `input_tokens`
+  (full price — the cached part is not here), `output_tokens` (thinking
+  included, as Anthropic bills it), `thinking_tokens` (the part of output
+  that was thinking, which only Gemini reported apart, so `NULL` on every row
+  since #1220), `cache_write_5m_tokens`, `cache_write_1h_tokens`,
   `cache_read_tokens`, `latency_ms` (the answering attempt, streaming
   included), `stop_reason`, `cost_micros` (at the vendor's rates, before the
   multiplier), the turn and its `position` in it, and `credit_entry_id` — the
@@ -2012,8 +2007,8 @@ WHERE t.client = 'assistant'
 GROUP BY t.tool ORDER BY reread_tokens DESC NULLS LAST;
 ```
 
-The baseline from the first review (one conversation, 2026-10-05, Gemini 3.8
-Flash): the web tool list was **≈27.4k tokens a model call** (a 28,565-token
+The baseline from the first review (one conversation, 2026-10-05, measured
+on Gemini 3.8 Flash, since cut from the picker by #1220): the web tool list was **≈27.4k tokens a model call** (a 28,565-token
 first call, less ~1.1k of system prompt and opening), which was 15% of all the
 input the conversation's 115 calls read and ~9% of its cost; `still` and
 `project_read` replies were ~96% of what later calls re-read from tool replies.
@@ -2188,8 +2183,7 @@ queue and lists the project's kept renders to download.
 progress lines and tool calls as they stream, its answer, what it cost and the
 balance after it, the quote confirmation box, Stop while it runs, and the
 generation jobs it queued (queued → generating → ready). Without the project's
-model's key (`ANTHROPIC_API_KEY` for Claude, `GEMINI_API_KEY` for Gemini) the
-server's `503` "not configured" is shown as a note, and nothing else changes.
+model's key (`ANTHROPIC_API_KEY`) the server's `503` "not configured" is shown as a note, and nothing else changes.
 
 ## Templates
 

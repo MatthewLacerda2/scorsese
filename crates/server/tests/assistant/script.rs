@@ -9,13 +9,13 @@ use std::time::Duration;
 use scorsese_providers::api::anthropic::content::Block;
 use scorsese_providers::api::anthropic::request::{Message as Wire, MessageContent, Role};
 use scorsese_providers::chat::{
-    self, Chat, ChatError, Message, Part, Reply, Request, Stop, Streamed, Usage, Vendor,
+    self, Chat, ChatError, Message, Part, Reply, Request, Stop, Streamed, Usage,
 };
 use serde_json::Value;
 use serde_json::value::RawValue;
 
 /// What every scripted call reports: 1 000 in and 500 out, which is
-/// 14 000 µ$ at Opus 5.5's rates and 15 400 µ$ charged.
+/// 14 000 µ$ at Opus 5.5's rates and [`CHARGED`] at ×1.8.
 pub(crate) const USAGE: Usage = Usage {
     input: 1_000,
     output: 500,
@@ -100,7 +100,7 @@ impl Chat for Script {
         let mut reply = reply.unwrap_or_else(|| answers("(the script ran out)"));
         reply.model = request.model.id().to_owned();
         reply.native = native(request, &reply.message);
-        // A real reply thinks first, and both vendors stream that as notes.
+        // A real reply thinks first, and streams that as notes.
         on(Streamed::Progress(THOUGHT));
         on(Streamed::BlockEnd);
         on(Streamed::Text(&reply.text()));
@@ -112,9 +112,6 @@ impl Chat for Script {
 /// `message` as the request's model would have sent it: on Claude, after a
 /// thinking block, the way a real reply carries one.
 fn native(request: &Request, message: &Message) -> Box<RawValue> {
-    if request.model.vendor() == Vendor::Google {
-        return chat::freeze(request.model, message).expect("the test setup holds");
-    }
     let frozen = chat::freeze(request.model, message).expect("the test setup holds");
     let parsed: Value = serde_json::from_str(frozen.get()).expect("the test setup holds");
     let mut blocks = vec![Block::Thinking {
@@ -168,6 +165,5 @@ pub(crate) fn reply(part: Part, stop: Stop) -> Reply {
         native: RawValue::from_string("null".into()).expect("the test setup holds"),
         stop,
         usage: USAGE,
-        thinking: None,
     }
 }

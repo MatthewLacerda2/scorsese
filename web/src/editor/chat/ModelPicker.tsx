@@ -3,11 +3,13 @@
 // conversation's cache may still be warm asks first (`switching.ts`). A model
 // the server cannot reach is still listed, marked, with the server's own
 // reason under the picker when it is the one chosen — never hidden. Each model
-// carries a green-to-red bar for how dear it is beside the others (#706).
+// carries a green-to-red bar for how dear it is beside the others (#706), in a
+// badge that says "Cost" beside it so the bar is never a mystery (#1220).
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { chatApi, type ModelChoice, type TurnView } from "@/api/chat";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -98,22 +100,27 @@ export function ModelPicker({ projectId, model, models, turns }: Props) {
   );
 }
 
-/** How dear a model is beside the others: a bar, never a price. */
+/** How dear a model is beside the others: the word "Cost" and a bar, in a
+ * badge — never a price. */
 function CostBar({ cost, models }: { cost: number; models: ModelChoice[] }) {
   const t = useT();
   const at = position(cost, models);
   const words = describe(at, t.chat.cost);
   return (
-    <span
+    <Badge
+      variant="outline"
       role="img"
       aria-label={t.chat.model.cost(words)}
       title={words}
-      className="ml-auto h-1.5 w-12 shrink-0 overflow-hidden rounded-full bg-muted"
+      className="ml-auto gap-1.5 font-normal text-muted-foreground"
     >
-      <span
-        className="block h-full rounded-full"
-        style={{ width: `${cost}%`, backgroundColor: colour(at) }}
-      />
-    </span>
+      {t.chat.model.costLabel}
+      <span className="h-1.5 w-10 shrink-0 overflow-hidden rounded-full bg-muted">
+        <span
+          className="block h-full rounded-full"
+          style={{ width: `${cost}%`, backgroundColor: colour(at) }}
+        />
+      </span>
+    </Badge>
   );
 }

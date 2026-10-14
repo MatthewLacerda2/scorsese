@@ -81,6 +81,7 @@ export const chat: Messages["chat"] = {
       "Cambiar de modelo invalida la caché en el siguiente mensaje. La caché guarda tu " +
       "conversación para que salga más barata. ¿Seguro que quieres cambiar?",
     switch: "Cambiar",
+    costLabel: "Costo",
     cost: (words) => `Costo: ${words}`,
   },
   cost: {

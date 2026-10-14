@@ -3,8 +3,8 @@
 //! Responsibility: realising the generated asset kinds. Clients for the
 //! generative providers (Veo for video, Gemini for stills, ElevenLabs for TTS
 //! audio) — and for
-//! the chat models the web app's assistant thinks with ([`chat`]: Claude and
-//! Gemini, which make no media) — local
+//! the chat models the web app's assistant thinks with ([`chat`]: Claude,
+//! which makes no media) — local
 //! [`synth`]esis from a recipe, the content-addressed cache under
 //! `generated/` — an unchanged brief is never realised twice — and the
 //! generation state machine: `sketch → queued → generated → stale`.
@@ -102,9 +102,8 @@
 //! stores with one set of rules.
 //!
 //! [`chat`], the hosted web app's assistant models (#540, #705) — Claude Opus
-//! and Sonnet 5.5 ([`claude`]) and Gemini 3.8 Flash and 3.5 Flash Lite, behind
-//! one vendor-neutral seam, reached like the other vendors, by plain HTTP
-//! through [`api`], with their keys from the same resolver. They generate no
+//! and Sonnet 5.5 ([`claude`]), behind one vendor-neutral seam, reached like
+//! the other vendors, by plain HTTP through [`api`], with their keys from the same resolver. They generate no
 //! media and have no brief: they are here because they are paid providers, and
 //! this crate is the one that holds an HTTP client and spends with a vendor's
 //! key. The seam knows nothing of users or turns — one streamed call in, one

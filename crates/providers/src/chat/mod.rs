@@ -1,8 +1,10 @@
 //! The assistant's model, whichever vendor serves it (#705).
 //!
 //! The hosted web app's assistant runs on the model its project names — one of
-//! [`Model::ALL`], two from Anthropic and two from Google. Everything that
-//! drives a turn talks to this module and to nothing vendor-shaped: one
+//! [`Model::ALL`], both Anthropic's. Gemini was offered too until 2026-10-12
+//! (#1220); the seam it was built for stays, so a second vendor is an
+//! addition. Everything that drives a turn talks to this module and to
+//! nothing vendor-shaped: one
 //! streamed call in, one [`Reply`] out, behind a trait ([`Chat`]) so that no
 //! test ever makes the call.
 //!
@@ -17,15 +19,14 @@
 //! - **[`Reply`]**: what the model said as a vendor-neutral [`Message`] (words
 //!   and tool calls), the same message as the exact bytes to send back
 //!   ([`Reply::native`]), why it stopped ([`Stop`]), and the tokens it was
-//!   billed for as a vendor-neutral [`Usage`] — the five kinds both vendors'
+//!   billed for as a vendor-neutral [`Usage`] — the five kinds a vendor's
 //!   counts reduce to, priced by one table ([`crate::prices::chat`]). A
 //!   caller recording a call (#707) needs nothing vendor-shaped to do it.
 //! - **[`Streamed`]**: the reply's words and progress notes as they arrive —
-//!   Claude's thinking `updates` and Gemini's thought summaries are both
-//!   progress notes.
-//! - **Behind the line**: each vendor's wire ([`crate::api::anthropic`],
-//!   [`crate::api::gemini::chat`]), its caching layout, its thinking
-//!   settings, its token limit. [`anthropic`] and [`gemini`] own those.
+//!   Claude's thinking `updates` are progress notes.
+//! - **Behind the line**: the vendor's wire ([`crate::api::anthropic`]), its
+//!   caching layout, its thinking settings, its token limit. [`anthropic`]
+//!   owns those.
 //!
 //! # A conversation survives a change of model
 //!
@@ -38,13 +39,13 @@
 //! deterministic, so the same history translates to the same bytes every time
 //! and the cache keeps working from the second turn after a switch on.
 //!
-//! What a switch loses is what only one vendor understands: Claude's thinking
-//! blocks and Gemini's thought signatures stay with the bytes of the model
-//! that wrote them, and the first turn on the new model reads its whole
-//! history uncached. That costs more once, and the web app warns before it.
+//! What a switch loses is what only the model that wrote them understands:
+//! Claude's thinking blocks stay with the bytes of the model that wrote them,
+//! even between two Claude models, since [`replay`] compares by model rather
+//! than by vendor. The first turn on the new model reads its whole history
+//! uncached. That costs more once, and the web app warns before it.
 
 pub mod anthropic;
-pub mod gemini;
 mod model;
 pub mod record;
 
@@ -60,7 +61,7 @@ pub use record::{Call, Message, Part, ResultPart};
 
 use crate::credentials::Secret;
 
-/// How hard a model thinks — Claude's `effort`, Gemini's `thinkingLevel`.
+/// How hard a model thinks — Claude's `effort`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Effort {
     /// The least thinking every model offered accepts.
@@ -72,7 +73,7 @@ pub enum Effort {
 }
 
 impl Effort {
-    /// As both vendors spell it, and as a turn records it.
+    /// As the API spells it, and as a turn records it.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Low => "low",
@@ -129,12 +130,10 @@ pub struct Reply {
     pub native: Box<RawValue>,
     /// Why it stopped.
     pub stop: Stop,
-    /// The tokens it was billed for.
+    /// The tokens it was billed for. Anthropic's output count includes the
+    /// thinking, undivided, so a reply carries no separate thinking count
+    /// (#1220 removed the one Gemini filled in).
     pub usage: Usage,
-    /// How many of `usage.output` were thinking, when the vendor says so
-    /// apart: Gemini does (`thoughtsTokenCount`), Anthropic's `usage` does not
-    /// — its output count includes the thinking, undivided — so `None` there.
-    pub thinking: Option<u64>,
 }
 
 impl Reply {
@@ -166,12 +165,6 @@ pub enum ChatError {
     /// Anthropic's side.
     #[error(transparent)]
     Claude(#[from] ClaudeError),
-    /// Google's side.
-    #[error(transparent)]
-    Gemini(#[from] gemini::GeminiError),
-    /// The request named a model this client does not serve.
-    #[error("{0} is not served by this client")]
-    Misrouted(&'static str),
 }
 
 impl ChatError {
@@ -180,8 +173,6 @@ impl ChatError {
     pub fn retryable(&self) -> bool {
         match self {
             Self::Claude(error) => error.retryable(),
-            Self::Gemini(error) => error.retryable(),
-            Self::Misrouted(_) => false,
         }
     }
 }
@@ -190,7 +181,6 @@ impl ChatError {
 pub fn client(vendor: Vendor, key: &Secret) -> Arc<dyn Chat> {
     match vendor {
         Vendor::Anthropic => Arc::new(crate::claude::Anthropic::new(key)),
-        Vendor::Google => Arc::new(gemini::Gemini::new(key)),
     }
 }
 
@@ -199,7 +189,6 @@ pub fn client(vendor: Vendor, key: &Secret) -> Arc<dyn Chat> {
 pub fn freeze(model: Model, message: &Message) -> Result<Box<RawValue>, serde_json::Error> {
     match model.vendor() {
         Vendor::Anthropic => anthropic::freeze(message),
-        Vendor::Google => gemini::freeze(message),
     }
 }
 

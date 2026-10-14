@@ -1,6 +1,6 @@
 //! The assistant asks a question mid-edit (#710): the turn pauses without
 //! charging, and the answer — from the card or a typed message — resumes the
-//! same turn as the call's result, on Claude and on Gemini alike (`resumes`);
+//! same turn as the call's result, on either model (`resumes`);
 //! a question asked wrongly, or set aside, ends nothing it should not
 //! (`ends`).
 

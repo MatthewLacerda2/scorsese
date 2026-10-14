@@ -1,10 +1,10 @@
 //! The assistant (`src/assistant`, `src/http/chat.rs`): turns driven the way
 //! the web app drives them — over HTTP — against a scripted model that
-//! records every request it is sent. No test reaches Anthropic or Google.
+//! records every request it is sent. No test reaches Anthropic.
 //!
-//! A project made here runs on Claude Opus 5.5 unless a test says otherwise,
-//! so the older tests read Anthropic's wire; `models` covers the default,
-//! Gemini, and changing model mid-conversation.
+//! A project made here runs on Claude Opus 5.5 unless a test says otherwise;
+//! `models` covers the default, changing model mid-conversation, and the
+//! projects #1220 moved off Gemini.
 
 #[path = "../common/mod.rs"]
 mod common;
@@ -19,6 +19,7 @@ mod picking;
 mod quotes;
 mod recorded;
 mod resume;
+mod retired;
 mod script;
 mod started;
 mod turns;

@@ -6,7 +6,7 @@
 //! it starts, and builds its history from the record of every earlier turn
 //! (the module doc of [`super`]).
 
-use scorsese_providers::chat::{Model, Vendor};
+use scorsese_providers::chat::Model;
 use scorsese_providers::prices;
 use serde::Serialize;
 
@@ -21,7 +21,7 @@ pub struct Choice {
     pub id: &'static str,
     /// Its name, as a person reads it.
     pub label: &'static str,
-    /// `anthropic` or `google`.
+    /// Who serves it: `anthropic`, the only vendor offered since #1220.
     pub vendor: &'static str,
     /// Why a turn on it would be refused right now — the server's own words,
     /// shown as they are — or `null` when it can answer.
@@ -46,10 +46,7 @@ pub(super) fn choices(assistant: &Assistant) -> Vec<Choice> {
         .map(|(model, cost)| Choice {
             id: model.id(),
             label: model.label(),
-            vendor: match model.vendor() {
-                Vendor::Anthropic => "anthropic",
-                Vendor::Google => "google",
-            },
+            vendor: model.vendor().id(),
             unavailable: if assistant.available(model) {
                 None
             } else {

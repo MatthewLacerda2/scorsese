@@ -3,8 +3,8 @@
 Two providers cost money on every surface — Gemini (for Veo video and still
 images, one key for both) and
 ElevenLabs (for narration) — and both need a key. A third, Anthropic, is spent
-only by the hosted server's assistant on its Claude models (`ANTHROPIC_API_KEY`,
-`docs/web.md`); its Gemini models spend the Gemini key. A fourth, **Pixabay**
+only by the hosted server's assistant, which runs on Claude alone
+(`ANTHROPIC_API_KEY`, `docs/web.md`). A fourth, **Pixabay**
 (`PIXABAY_API_KEY`), is the one key that never spends: it searches free stock
 footage and photos (`stock_search`, `stock_import`, `scorsese stock`, #900), and
 comes with a free Pixabay account — shown on <https://pixabay.com/api/docs/>
