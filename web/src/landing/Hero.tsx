@@ -4,13 +4,11 @@
 // already the largest thing on the page. The mark is the app's 512px icon
 // (app/assets/icon.png) as a white silhouette with no background, made once:
 //
-//   ffmpeg -i app/assets/icon.png -filter_complex "[0]format=gray,
-//     drawbox=x=418:y=470:w=34:h=26:color=black:t=fill[a];
+//   ffmpeg -i app/assets/icon.png -filter_complex "[0]format=gray[a];
 //     color=white:s=512x512,format=rgba[w];[w][a]alphamerge,format=rgba"
 //     -frames:v 1 web/src/landing/media/mark.png
 //
-// Its brightness becomes its alpha; the box blanks the generator's sparkle in
-// the corner of the original art.
+// Its brightness becomes its alpha.
 
 import { useRef } from "react";
 import { LanguageControl } from "@/app/LanguageControl";
