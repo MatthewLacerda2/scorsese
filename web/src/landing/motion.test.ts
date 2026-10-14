@@ -2,7 +2,7 @@
 // elements look like at a given time — before, during and after.
 
 import { expect, test } from "bun:test";
-import { draw, SCROLLED, viewTime } from "@/landing/motion";
+import { draw, fadeAt, SCROLLED, viewTime } from "@/landing/motion";
 
 test("a section's time is how far its top has risen into the window, in windows", () => {
   expect(viewTime(800, 800)).toBe(0);
@@ -66,4 +66,16 @@ test("for a visitor who asked for less motion, the end of every timeline at once
   expect(Number(title?.style.opacity)).toBe(1);
   expect(Number(later?.style.opacity)).toBe(1);
   expect(figure?.textContent).toBe("21.6");
+});
+
+test("a section fades in as it enters and out as it leaves, whole in between", () => {
+  // A window 1000 high fades over its bottom and top 350.
+  expect(fadeAt(1000, 1800, 1000)).toBe(0);
+  expect(fadeAt(825, 1625, 1000)).toBe(0.5);
+  expect(fadeAt(650, 1450, 1000)).toBe(1);
+  expect(fadeAt(-500, 300, 1000)).toBeCloseTo(300 / 350);
+  expect(fadeAt(-800, 0, 1000)).toBe(0);
+  // Taller than the window, it stays whole while it fills it.
+  expect(fadeAt(-200, 1400, 1000)).toBe(1);
+  expect(fadeAt(0, 0, 0)).toBe(1);
 });

@@ -70,6 +70,36 @@ export function useOnScroll(frame: () => void) {
   }, [frame]);
 }
 
+/** What share of the window a section fades over, entering and leaving. */
+export const FADE_EDGE = 0.35;
+
+/**
+ * How opaque a section is while it crosses a window `viewport` high: it fades
+ * in as its top rises through the window's bottom `edge`, and out as its
+ * bottom leaves through the top one, so one section hands over to the next
+ * rather than scrolling past it. A section taller than the window stays whole
+ * in between.
+ */
+export function fadeAt(top: number, bottom: number, viewport: number, edge = FADE_EDGE): number {
+  if (viewport <= 0) return 1;
+  const span = viewport * edge;
+  return Math.max(0, Math.min(1, (viewport - top) / span, bottom / span));
+}
+
+/** Fades each `<section>` directly under `ref` in and out as it crosses the window. */
+export function useSectionFades(ref: RefObject<HTMLElement | null>) {
+  const frame = useCallback(() => {
+    const root = ref.current;
+    if (!root) return;
+    const still = prefersStill();
+    for (const section of root.querySelectorAll<HTMLElement>(":scope > section")) {
+      const box = section.getBoundingClientRect();
+      section.style.opacity = still ? "" : String(fadeAt(box.top, box.bottom, innerHeight));
+    }
+  }, [ref]);
+  useOnScroll(frame);
+}
+
 /** Moves the marked elements in `ref` by how far it has scrolled into view. */
 export function useScrollMotion(ref: RefObject<HTMLElement | null>, locale: string) {
   const frame = useCallback(() => {

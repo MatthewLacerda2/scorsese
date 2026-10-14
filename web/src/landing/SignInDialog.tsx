@@ -51,10 +51,7 @@ export function SignInDialog({ open, onOpenChange }: Props) {
       >
         <DialogHeader className="gap-2">
           <img src="/icon.png" alt="" width={48} height={48} className="mb-2 size-12 rounded-xl" />
-          <DialogTitle
-            className="text-3xl font-semibold tracking-tight"
-            style={{ fontFamily: '"Playfair Display", serif' }}
-          >
+          <DialogTitle className="text-3xl font-semibold tracking-tight">
             {t.landing.dialog.title}
           </DialogTitle>
           <DialogDescription>{t.landing.dialog.description}</DialogDescription>

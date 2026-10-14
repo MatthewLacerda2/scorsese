@@ -20,7 +20,7 @@ export type Language = "en" | "pt-BR" | "es";
 /** Every language, each named in itself — a reader looks for their own word. */
 export const LANGUAGES: readonly { language: Language; name: string }[] = [
   { language: "en", name: "English" },
-  { language: "pt-BR", name: "Português (Brasil)" },
+  { language: "pt-BR", name: "Português" },
   { language: "es", name: "Español" },
 ];
 

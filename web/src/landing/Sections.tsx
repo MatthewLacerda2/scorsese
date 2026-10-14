@@ -1,5 +1,5 @@
 // The landing page below the film: how it works, what it makes, what it
-// handles, what it costs, and a last way in. Each section is moved by the
+// handles, and a last way in. Each section is moved by the
 // scroll through the motion kit (`motion.ts`): what carries `data-rise` rises
 // in as the section comes into view, staggered by `kit.stagger`.
 
@@ -151,49 +151,6 @@ export function WhatItHandles() {
         ))}
       </div>
     </Section>
-  );
-}
-
-export function Price() {
-  const t = useT().landing.price;
-  return (
-    <Section eyebrow={t.eyebrow} title={t.title}>
-      <div className="mt-10 grid items-end gap-10 md:grid-cols-2">
-        <p className="dim max-w-xl text-lg leading-relaxed" data-rise="0.2">
-          {t.body}
-        </p>
-        <div className="card p-6 sm:p-8" data-rise="0.3">
-          <p className="dim text-sm leading-relaxed">{t.proof}</p>
-          <dl className="mt-6 grid grid-cols-3 gap-4">
-            <Figure count={21.6} decimals={1} label={t.seconds} />
-            <Figure count={4} label={t.scenes} />
-            <div>
-              <dt className="sr-only">{t.cost}</dt>
-              <dd className="mono gold text-3xl font-semibold tabular-nums sm:text-4xl">$0.00</dd>
-              <dd className="dim mt-1 text-xs">{t.cost}</dd>
-            </div>
-          </dl>
-        </div>
-      </div>
-    </Section>
-  );
-}
-
-/** A figure that counts up as the section comes into view. */
-function Figure(props: { count: number; decimals?: number; label: string }) {
-  return (
-    <div>
-      <dt className="sr-only">{props.label}</dt>
-      <dd
-        className="mono text-3xl font-semibold tabular-nums sm:text-4xl"
-        data-count={props.count}
-        data-decimals={props.decimals ?? 0}
-        data-at="0.3"
-      >
-        {props.count.toFixed(props.decimals ?? 0)}
-      </dd>
-      <dd className="dim mt-1 text-xs">{props.label}</dd>
-    </div>
   );
 }
 

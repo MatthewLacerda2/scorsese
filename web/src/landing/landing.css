@@ -1,33 +1,13 @@
 /* The landing page's own art direction (#904). Designed rather than themed:
    it ignores the app's Light | Dark | System choice, since a first visitor has
-   chosen nothing, and wears the look of the film at its top (the same ink,
-   paper and gold as web/landing/hero.scor/pages/look.css).
+   chosen nothing, and keeps the ink, paper and gold of the film at its top
+   (web/landing/hero.scor/pages/look.css).
 
-   The type is the faces scorsese ships with a video, served from the very
-   files the compositor draws with (crates/compositor/fonts/), never a CDN.
-   `swap`, so the words are readable before the faces arrive. */
+   The type is the app's own face, Geist (already loaded by index.css), set
+   heavy and tight for headlines; the mono is the face the compositor ships
+   (crates/compositor/fonts/). `swap`, so the words are readable before the
+   faces arrive. */
 
-@font-face {
-  font-family: "Playfair Display";
-  src: url("../../../crates/compositor/fonts/PlayfairDisplay[wght].ttf") format("truetype");
-  font-weight: 400 900;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Playfair Display";
-  src: url("../../../crates/compositor/fonts/PlayfairDisplay-Italic[wght].ttf") format("truetype");
-  font-weight: 400 900;
-  font-style: italic;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Inter";
-  src: url("../../../crates/compositor/fonts/Inter-V.ttf") format("truetype");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
 @font-face {
   font-family: "JetBrains Mono";
   src: url("../../../crates/compositor/fonts/JetBrainsMono[wght].ttf") format("truetype");
@@ -49,12 +29,19 @@
     radial-gradient(1200px 800px at 85% -10%, rgb(242 177 52 / 0.12), transparent 70%),
     radial-gradient(1000px 700px at 0% 40%, rgb(228 87 46 / 0.08), transparent 70%), var(--ink);
   color: var(--paper);
-  font-family: Inter, sans-serif;
+  font-family: "Geist Variable", sans-serif;
 }
 
 .landing .display {
-  font-family: "Playfair Display", serif;
-  letter-spacing: -0.02em;
+  font-family: "Geist Variable", sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+/* A headline's italic is a colour change, not a slant: Geist has no italic,
+   and a faked one leans badly. */
+.landing .display .italic,
+.landing .display.italic {
+  font-style: normal;
 }
 .landing .mono {
   font-family: "JetBrains Mono", monospace;

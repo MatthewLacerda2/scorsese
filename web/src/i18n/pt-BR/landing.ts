@@ -9,7 +9,7 @@ export const landing: Messages["landing"] = {
   signIn: "Entrar",
   hero: {
     eyebrow: "Vídeo para o seu negócio",
-    title: "Mande seus arquivos. Descreva o vídeo.",
+    title: "Descreva o vídeo.",
     titleEnd: "Ele fica pronto.",
     lead: "Promos, anúncios e vídeos de eventos, cortados, com títulos, trilha e ritmo, sem contratar um editor nem aprender um programa.",
     videoLabel: "Um curta feito com o scorsese",
@@ -69,15 +69,6 @@ export const landing: Messages["landing"] = {
       body: "Mais rápido ou mais lento, mais curto ou mais longo, numa frase.",
     },
     narration: { title: "Narração", body: "Uma voz que lê o seu roteiro, no tempo da imagem." },
-  },
-  price: {
-    eyebrow: "Sem surpresas",
-    title: "Você vê o preço antes de qualquer gasto.",
-    body: "A maior parte de um vídeo não custa nada para fazer. Quando alguma coisa custa, uma fala narrada ou uma cena gerada, você vê quanto vai sair e a gente pergunta antes. Nada é gasto até você dizer sim.",
-    proof: "O filme desta página, com a música, os títulos e cada movimento, saiu por:",
-    seconds: "segundos de filme",
-    scenes: "cenas",
-    cost: "gastos",
   },
   closing: {
     title: "Quando você quiser.",

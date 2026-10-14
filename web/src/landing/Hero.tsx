@@ -65,7 +65,7 @@ export function Hero({ onSignIn }: { onSignIn: () => void }) {
       <p className="eyebrow" data-rise="0">
         {t.landing.hero.eyebrow}
       </p>
-      <h1 className="display mt-5 max-w-5xl text-5xl text-balance leading-[1.02] font-medium sm:text-7xl">
+      <h1 className="display mt-5 max-w-5xl text-5xl text-balance leading-[1.02] font-semibold sm:text-7xl">
         <span className="block" data-rise="0.1">
           {t.landing.hero.title}
         </span>

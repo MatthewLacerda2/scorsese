@@ -1,6 +1,6 @@
 // The landing page at `/` (#904), for a visitor without a session. Written to
 // a business that needs a video and has never heard of an editor: what it
-// makes, how, and that nothing is spent without asking. Never JSON, MCP, API
+// makes and how. Never JSON, MCP, API
 // keys or a provider's name (CLAUDE.md, *The user never deals with
 // implementation*).
 
@@ -13,7 +13,7 @@ export const landing = {
   signIn: "Sign in",
   hero: {
     eyebrow: "Video for your business",
-    title: "Send your files. Describe the video.",
+    title: "Describe the video.",
     titleEnd: "It gets made.",
     lead: "Promos, ads and event videos, cut, titled, scored and paced for you, without hiring an editor or learning a program.",
     videoLabel: "A short film made with scorsese",
@@ -70,15 +70,6 @@ export const landing = {
       title: "Narration",
       body: "A voice that reads your script, timed to the picture.",
     },
-  },
-  price: {
-    eyebrow: "No surprises",
-    title: "You see the price before anything is spent.",
-    body: "Most of a video costs nothing to make. When something does, a narrated line or a generated shot, you're shown what it will cost and asked first. Nothing is spent until you say yes.",
-    proof: "This page's own film, with its music, its titles and every move it makes, came to:",
-    seconds: "seconds of film",
-    scenes: "scenes",
-    cost: "spent",
   },
   closing: {
     title: "Ready when you are.",
