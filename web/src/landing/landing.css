@@ -109,11 +109,7 @@
 }
 
 /* The slides (Slides.tsx): stacked on a stage fixed to the window, under the
-   fixed header, while the page scrolls an empty track that snaps between
-   them. */
-html.landing-snap {
-  scroll-snap-type: y mandatory;
-}
+   fixed header, while the page scrolls an empty track beneath them. */
 .landing-stage {
   position: fixed;
   inset: 0;
@@ -125,9 +121,4 @@ html.landing-snap {
   top: 0;
   padding-top: 4.5rem;
   will-change: transform, opacity;
-}
-.landing-snap-point {
-  position: absolute;
-  inset-inline: 0;
-  scroll-snap-align: start;
 }
