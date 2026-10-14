@@ -97,7 +97,7 @@ test("the editor draws the stored document: its tracks, clips and assets", async
     platform: null,
     style: null,
     document: {
-      schema_version: 47,
+      schema_version: 48,
       name: "teaser",
       timeline_fps: { num: 30, den: 1 },
       assets: [{ id: "title", kind: "text", text: "HELLO" }],

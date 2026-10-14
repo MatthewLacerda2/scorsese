@@ -114,6 +114,10 @@ pub(crate) const STEPS: &[Step] = &[
         from: 46,
         apply: batches_arrive,
     },
+    Step {
+        from: 47,
+        apply: natural_speech_arrives,
+    },
 ];
 
 /// v33 → v34: the `group` asset kind (#586).
@@ -255,6 +259,16 @@ fn veo_parity_arrives(_: &mut Value) -> Result<(), String> {
 /// sketched, generated or stale and reads the same at v47, so only the version
 /// moves.
 fn batches_arrive(_: &mut Value) -> Result<(), String> {
+    Ok(())
+}
+
+/// v47 → v48: the `natural` speech model, Eleven v4 (#1240).
+///
+/// Nothing to rewrite, for [`groups_arrive`]'s reason: the version added a
+/// value `speech.model` may take, and every model a v47 line names is the same
+/// vendor model at v48. `expressive` stays `eleven_v3` on purpose — moving it
+/// would change how existing lines sound, which is the user's call (#1248).
+fn natural_speech_arrives(_: &mut Value) -> Result<(), String> {
     Ok(())
 }
 

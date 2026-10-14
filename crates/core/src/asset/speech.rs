@@ -9,24 +9,29 @@
 //! The size difference is the point rather than an accident of maturity. A
 //! narration is a sentence, a voice and a price, and the reason to keep the
 //! block this small is that every field added to it is a field hashed into the
-//! brief for ever after — see [`MAX_CHARACTERS`] for the one limit that is the
-//! vendor's, and the crate that hashes these for why the set is written once.
+//! brief for ever after — see [`SpeechModel::max_characters`] for the one limit
+//! that is the vendor's, and the crate that hashes these for why the set is written once.
 
 use serde::{Deserialize, Serialize};
 
-/// The most characters one request may speak.
+/// The most characters one request may speak, on the model that takes most.
 ///
-/// The vendor's limit, and checked here rather than discovered there: an
-/// oversized block refused locally names the asset and costs nothing, where the
-/// same refusal from the API costs a round trip to say less. At the dearer rate
-/// this is also a ceiling on one call — forty thousand characters is $4.00.
+/// Flash's limit, and the ceiling over every model's own. Validation holds a
+/// line to this one; the line's model's own, [`SpeechModel::max_characters`],
+/// is held before anything is sent, since the vendor sets it per model —
+/// 5,000 on v3, 10,000 on v4 and Multilingual v2 (its models page, read
+/// 2026-10-14). Checked here rather than discovered there: an oversized line
+/// refused locally names the asset and costs nothing, where the same refusal
+/// from the API costs a round trip to say less.
 pub const MAX_CHARACTERS: usize = 40_000;
 
 /// Which text-to-speech model a line is spoken by.
 ///
-/// Three, and no more. The vendor also publishes Turbo variants and its own
-/// documentation recommends Flash over Turbo in every case, so offering both
-/// would be offering a choice with a right answer.
+/// Four, and no more. The vendor also publishes Turbo variants. Its own
+/// documentation recommends Flash over the v2 and v2.5 Turbos in every case, so
+/// offering both would be offering a choice with a right answer; and v4 Turbo
+/// is sold for real-time dialogue over a websocket, not on the text-to-speech
+/// endpoint scorsese calls (`docs/prices.md`, *Narration*).
 ///
 /// Named for what the choice is *about* rather than for the vendor's version
 /// strings, the way [`VideoModel`](super::VideoModel) is: a person picks
@@ -37,7 +42,17 @@ pub const MAX_CHARACTERS: usize = 40_000;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SpeechModel {
-    /// The most expressive of the three — `eleven_v3`.
+    /// The vendor's newest and best reading — `eleven_v4`.
+    ///
+    /// What ElevenLabs recommends for content creation and video narration,
+    /// and a net upgrade over [`SpeechModel::Expressive`] in its own words. Same
+    /// price as that one and [`SpeechModel::Standard`]; it honours a language
+    /// and takes audio tags, as v3 does. Named for what it is better at — a
+    /// voice that sounds like itself, in any language — rather than for being
+    /// newest, which it will not be for ever (#1240). Whether `expressive` or
+    /// the default should become v4 is the user's call, #1248.
+    Natural,
+    /// The most expressive reading of the v3 generation — `eleven_v3`.
     ///
     /// Same price as [`SpeechModel::Standard`], so the choice between those two
     /// is about the reading rather than the money. Both are twice
@@ -66,11 +81,12 @@ pub enum SpeechModel {
 
 impl SpeechModel {
     /// Every model, in the order a person should consider them.
-    pub const ALL: [Self; 3] = [Self::Expressive, Self::Standard, Self::Fast];
+    pub const ALL: [Self; 4] = [Self::Natural, Self::Expressive, Self::Standard, Self::Fast];
 
     /// The model's name as `project.json` spells it.
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::Natural => "natural",
             Self::Expressive => "expressive",
             Self::Standard => "standard",
             Self::Fast => "fast",
@@ -85,6 +101,7 @@ impl SpeechModel {
     /// model.
     pub const fn model_id(self) -> &'static str {
         match self {
+            Self::Natural => "eleven_v4",
             Self::Expressive => "eleven_v3",
             Self::Standard => "eleven_multilingual_v2",
             Self::Fast => "eleven_flash_v2_5",
@@ -101,17 +118,33 @@ impl SpeechModel {
     /// wondering why their narration came out in English has no way in. So the
     /// combination is refused in the document instead.
     pub const fn takes_language(self) -> bool {
-        matches!(self, Self::Expressive | Self::Fast)
+        matches!(self, Self::Natural | Self::Expressive | Self::Fast)
     }
 
     /// True when this model takes square brackets in a line as audio tags —
     /// directions for the reading, never said — rather than reading them aloud.
     ///
-    /// Only Eleven v3 does (`guide prompts`, *On expressive (v3)*), and it
-    /// still times the tags' characters, which is why the line's word timings
-    /// ask this before keeping a bracket as a word (#1061).
+    /// Eleven v4 and v3 do (`guide prompts`, *On expressive (v3)*; the vendor
+    /// says the same tags work on both), and v3 still times the tags'
+    /// characters, which is why the line's word timings ask this before keeping
+    /// a bracket as a word (#1061).
     pub const fn takes_tags(self) -> bool {
-        matches!(self, Self::Expressive)
+        matches!(self, Self::Natural | Self::Expressive)
+    }
+
+    /// The most characters one request to this model may speak.
+    ///
+    /// The vendor's per-model limit, from its models page (read 2026-10-14).
+    /// v3 takes half what v4 does, so a long script moved onto
+    /// [`SpeechModel::Expressive`] is refused by name before it is sent.
+    /// Held at spending rather than in validation, so that a stored project
+    /// never stops loading over a limit that arrived after it was written.
+    pub const fn max_characters(self) -> usize {
+        match self {
+            Self::Natural | Self::Standard => 10_000,
+            Self::Expressive => 5_000,
+            Self::Fast => MAX_CHARACTERS,
+        }
     }
 }
 

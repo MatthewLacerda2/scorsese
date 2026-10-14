@@ -420,8 +420,13 @@ block sets them, and a ratio written only in the prompt is not one.
 
 From ElevenLabs' [prompting best practices](https://elevenlabs.io/docs/best-practices/prompting),
 read 2026-10-08. The advice depends on the model, and scorsese's `speech`
-block names one of three: `expressive` (Eleven v3), `standard` (Multilingual
-v2) and `fast` (Flash v2.5, the default).
+block names one of four: `natural` (Eleven v4), `expressive` (Eleven v3),
+`standard` (Multilingual v2) and `fast` (Flash v2.5, the default). The vendor
+says v4 takes the same audio tags and prompting as v3 (its *Prompting Eleven
+v4* section, read 2026-10-14), so what follows for `expressive` holds for
+`natural` too, until a paid generation shows a difference. One thing is v4's
+alone: a word said wrongly can be written in IPA between forward slashes, which
+the vendor says v4 reads more consistently than respelling.
 
 **On `expressive` (v3):**
 

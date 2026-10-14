@@ -6,7 +6,7 @@
 //! frame it changed and nothing on every other frame.
 
 use egui::{ComboBox, RichText, TextEdit, Ui};
-use scorsese_core::{MAX_CHARACTERS, SpeechModel, SpeechRequest};
+use scorsese_core::{SpeechModel, SpeechRequest};
 use scorsese_providers::prices::{dollars, speech};
 
 /// What is written beside a field nobody has to fill in.
@@ -48,10 +48,11 @@ pub(super) fn cost_row(ui: &mut Ui, text: &str, model: SpeechModel) {
     // Said before it is refused, like every other constraint in this panel.
     // Validation reports the same thing, and a person who has just pasted a
     // chapter should not have to run it to find out.
-    if characters > MAX_CHARACTERS {
+    let max = model.max_characters();
+    if characters > max {
         ui.label(
             RichText::new(format!(
-                "{characters} characters — {MAX_CHARACTERS} is the most one request speaks"
+                "{characters} characters — {max} is the most one request to this model speaks"
             ))
             .color(ui.visuals().warn_fg_color)
             .small(),
@@ -156,6 +157,7 @@ pub(super) fn language_row(ui: &mut Ui, request: &SpeechRequest) -> Option<Optio
 /// which is the cheapest possible reminder that the window has to name it too.
 fn name(model: SpeechModel) -> &'static str {
     match model {
+        SpeechModel::Natural => "Natural",
         SpeechModel::Expressive => "Expressive",
         SpeechModel::Standard => "Standard",
         SpeechModel::Fast => "Fast",
@@ -165,6 +167,7 @@ fn name(model: SpeechModel) -> &'static str {
 /// What choosing a model is actually a choice about.
 fn about(model: SpeechModel) -> &'static str {
     match model {
+        SpeechModel::Natural => "The vendor's best reading, at the same price as Standard",
         SpeechModel::Expressive => "The most expressive reading, at the same price as Standard",
         SpeechModel::Standard => "The vendor's own default, and it ignores a pinned language",
         SpeechModel::Fast => "The default: quickest, and half the price",

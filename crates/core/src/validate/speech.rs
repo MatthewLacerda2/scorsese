@@ -46,6 +46,11 @@ pub(super) fn check(asset: &Asset, errors: &mut Vec<AssetProblem>) {
     // narration whether it carries a `speech` block or not: an oversized line
     // is unsendable regardless of which voice would have read it.
     //
+    // The widest limit, not the line's model's own: loading validates, and a
+    // stored project with a long `expressive` sketch must not stop loading the
+    // day the per-model limit arrived (#1240). The model's own limit is held
+    // before spending, where `scorsese_providers::speech` refuses by name.
+    //
     // Characters as the vendor bills them, which is `chars()` and not `len()`.
     // Portuguese is one of the two target languages and its accented letters
     // are two bytes each, so counting bytes would refuse a legal script a

@@ -29,8 +29,7 @@
 //! unchanged line look edited and pay for it again.
 
 use scorsese_core::{
-    Asset, AssetId, AssetKind, GENERATED_DIR, MAX_CHARACTERS, ProjectPath, SpeechRequest,
-    hash_bytes,
+    Asset, AssetId, AssetKind, GENERATED_DIR, ProjectPath, SpeechRequest, hash_bytes,
 };
 
 use super::Incomplete;
@@ -71,16 +70,17 @@ impl Brief {
                 id: asset.id.clone(),
             })?;
 
+        let request = asset.speech_request();
         let characters = text.chars().count();
-        if characters > MAX_CHARACTERS {
+        let max = request.model.max_characters();
+        if characters > max {
             return Err(Incomplete::TooLong {
                 id: asset.id.clone(),
                 found: characters,
-                max: MAX_CHARACTERS,
+                max,
             });
         }
 
-        let request = asset.speech_request();
         let voice_id = request
             .voice_id
             .clone()

@@ -128,7 +128,7 @@ pub struct UnpricedSpeech {
 ///
 /// **Rounds up**, and that is the one arithmetic decision here worth stating.
 /// Unlike video, this does not land on whole cents: a 137-character line at
-/// 10¢ per thousand is 1.37¢. Rounding down would let a run slip past
+/// 8¢ per thousand is 1.096¢. Rounding down would let a run slip past
 /// [`Budget::check`](crate::credentials::Budget::check) by a fraction of a cent
 /// per line, and a ceiling that can be crossed a little at a time is not a
 /// ceiling. Rounding up costs at most a cent per line and is never the wrong

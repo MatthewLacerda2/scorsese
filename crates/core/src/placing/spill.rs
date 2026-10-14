@@ -129,7 +129,7 @@ mod tests {
     fn project() -> Project {
         Project::from_json(
             r#"{
-              "schema_version": 47,
+              "schema_version": 48,
               "name": "T",
               "timeline_fps": { "num": 30, "den": 1 },
               "assets": [
