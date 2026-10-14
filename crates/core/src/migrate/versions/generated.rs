@@ -68,5 +68,45 @@ fn a_v47_document_s_lines_keep_their_model() {
     project.validate().expect("and it validates");
     let request = project.assets[0].speech_request();
     assert_eq!(request.model, crate::SpeechModel::Expressive);
-    assert_eq!(request.model.model_id(), "eleven_v3");
+}
+
+/// v48 → v49: a `natural` line becomes `expressive`, the same vendor model,
+/// and every other line keeps its name.
+#[test]
+fn a_v48_natural_line_becomes_expressive_and_others_stay() {
+    let document = json!({
+        "schema_version": 48,
+        "name": "Before natural retired",
+        "timeline_fps": { "num": 30, "den": 1 },
+        "assets": [
+            { "id": "vo", "kind": "generated_audio", "state": "sketch", "prompt": "hello",
+              "speech": { "model": "natural", "language": "pt", "seed": 7 } },
+            { "id": "old", "kind": "generated_audio", "state": "sketch", "prompt": "hi",
+              "speech": { "model": "expressive" } },
+            { "id": "cheap", "kind": "generated_audio", "state": "sketch", "prompt": "hey",
+              "speech": { "model": "fast" } },
+            { "id": "bare", "kind": "generated_audio", "state": "sketch", "prompt": "yo" }
+        ],
+        "tracks": []
+    });
+    let (project, from) = parse(&document.to_string()).expect("a v48 document migrates");
+    assert_eq!(from, Some(48));
+    project.validate().expect("and it validates");
+    let natural = project.assets[0].speech_request();
+    assert_eq!(natural.model, crate::SpeechModel::Expressive);
+    assert_eq!(natural.model.model_id(), "eleven_v4");
+    assert_eq!(natural.language.as_deref(), Some("pt"));
+    assert_eq!(natural.seed, Some(7));
+    let models: Vec<_> = project.assets[1..]
+        .iter()
+        .map(|asset| asset.speech_request().model)
+        .collect();
+    assert_eq!(
+        models,
+        [
+            crate::SpeechModel::Expressive,
+            crate::SpeechModel::Fast,
+            crate::SpeechModel::Fast
+        ]
+    );
 }

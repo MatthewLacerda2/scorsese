@@ -13,7 +13,6 @@ use crate::sketched;
 #[test]
 fn a_thousand_characters_costs_the_published_rate() {
     for (model, cents) in [
-        (SpeechModel::Natural, 8),
         (SpeechModel::Expressive, 8),
         (SpeechModel::Standard, 8),
         (SpeechModel::Fast, 4),

@@ -1,4 +1,4 @@
-# `project.json` — schema v48
+# `project.json` — schema v49
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -33,6 +33,7 @@ carries forward) up to this one.
 | v45 → v46 | stills at parity with Google's image models (#893): `nano_banana_2.1` (the new default) and `pro`, the four long strips, `thinking`, and references split into `reference_images` (objects), `character_images` and `style_images` | two rewrites, so every still asks for what it did: a still that named no model is written out as `"model": "flash"`, the old default; and a `flash` still's references past the tenth move to `character_images`, the same pictures in the same order. Neither moves a brief's fingerprint, so nothing already drawn turns `stale` |
 | v46 → v47 | a still may wait in a half-price batch (#894): a `generated_image` may be `queued` with the batch job's name as its `operation` | nothing: v46 refused an `operation` on a still, so this only admits documents v46 refused — every v46 document passes through and only its version moves |
 | v47 → v48 | the `natural` speech model, Eleven v4 (#1240) | nothing: a value was added to `speech.model`, and every model a v47 line names is the same vendor model at v48 — `expressive` stays `eleven_v3` |
+| v48 → v49 | `expressive` is Eleven v4, and `natural` retires (#1248) | one rewrite: a line's `"model": "natural"` becomes `"expressive"`, the same vendor model under the one name left for it. Such a line's brief fingerprint moves, so one already spoken is spoken again at the next run; `natural` existed for less than a day. Every `expressive` line now asks for v4 instead of v3 — the decision itself — with its fingerprint unmoved, so a v3 file already paid for keeps playing until the line is edited |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -41,7 +42,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 48,
+  "schema_version": 49,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -463,28 +464,32 @@ so editing one makes the asset `stale` exactly as rewording the sentence does.
 
 | Field | Default | Meaning |
 | --- | --- | --- |
-| `model` | `fast` | `natural`, `expressive`, `standard` or `fast` — see below |
+| `model` | `fast` | `expressive`, `standard` or `fast` — see below |
 | `voice_id` | *none, and no default is possible* | The vendor's id for the voice |
 | `language` | absent | ISO 639-1 (`en`, `pt`), pinning what the model would otherwise infer |
 | `seed` | absent | For a reading that comes back the same way twice. Best-effort at the vendor, so worth recording and not worth relying on |
 
-Four models, named for what the choice is *about* rather than for the
+Three models, named for what the choice is *about* rather than for the
 vendor's version strings — a person picks between expression and price, not
 between `v4` and `v2_5`:
 
 | `model` | On the wire | Price | Longest line | For |
 | --- | --- | --- | --- | --- |
-| `natural` | `eleven_v4` | 8¢ / 1000 characters | 10,000 characters | the vendor's newest and best reading, and its pick for video narration |
-| `expressive` | `eleven_v3` | 8¢ / 1000 characters | 5,000 characters | the most expressive reading of the generation before |
+| `expressive` | `eleven_v4` | 8¢ / 1000 characters | 10,000 characters | the vendor's best reading, and its pick for video narration; takes audio tags |
 | `standard` | `eleven_multilingual_v2` | 8¢ / 1000 characters | 10,000 characters | the vendor's own default, and the one model that ignores `language` |
 | `fast` | `eleven_flash_v2_5` | 4¢ / 1000 characters | 40,000 characters | **the default** — half the price, and the vendor's pick over its older Turbo variants |
 
-**`fast` is the default, and the reason is the price.** `natural`, `standard`
-and `expressive` cost the same as each other, so the only choice the rate card
+**`fast` is the default, and the reason is the price.** `standard` and
+`expressive` cost the same as each other, so the only choice the rate card
 actually poses is *fast or not* — and a reading nobody configured should not
-quietly be the dearer one. Name `natural` when the reading matters: ElevenLabs
-calls v4 a net upgrade over v3 and recommends it for content creation and video
-narration, and it costs exactly what the other two do.
+quietly be the dearer one. Name `expressive` when the reading matters:
+ElevenLabs recommends v4 for content creation and video narration, and it costs
+exactly what `standard` does.
+
+`expressive` spoke Eleven v3 until v49. The vendor calls v4 a net upgrade
+that "may sound substantially different", and the maintainer chose it knowing
+that (#1248), so v3 is no longer offered under any name. A line v3 already
+spoke keeps its file; once its brief is edited, v4 speaks it.
 
 The vendor also publishes Turbo variants. It recommends Flash over the v2 and
 v2.5 Turbos in every case, so offering both would be offering a choice with a
@@ -2753,7 +2758,7 @@ compositing-suite line.
 
 ```json project
 {
-  "schema_version": 48,
+  "schema_version": 49,
   "name": "wipe",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [
