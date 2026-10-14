@@ -165,7 +165,6 @@ export const HISTORY_KINDS = [
   "voice_design",
   "assistant",
   "top_up",
-  "monthly_fee",
   "refund",
 ] as const;
 export type HistoryKind = (typeof HISTORY_KINDS)[number];

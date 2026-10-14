@@ -111,8 +111,10 @@ new build, before it serves anything.
   front of them. Nothing about another currency is stored either.
 - Credits are paid up front and **never expire**. Every paid generation —
   Veo shots, Gemini stills (one at a time or batched), ElevenLabs lines and
-  voice designs — and the assistant are passed through at **cost + 10%**
-  (`credits::MARKUP_PERCENT`), plus a **$10/month** flat fee. Top-ups are recorded by the operator until Pix exists (#548).
+  voice designs — and the assistant are charged at **cost times a multiplier
+  per kind** (`credits::Product`: ×1.5 on a Veo shot, ×1.8 on the rest;
+  *Credits*, *Pricing* has why), and **nothing else: there is no monthly fee**
+  (#1243). Top-ups are recorded by the operator until Pix exists (#548).
 - A generation the provider **failed** is free; one that **worked** is
   charged, liked or not. Users can audit every charge themselves — that is what
   makes the second half acceptable.
@@ -166,7 +168,7 @@ provider keys use, and is documented in `.env.example`:
 | `GEMINI_API_KEY`, `ELEVENLABS_API_KEY` | The provider keys paid generations are made with (*Web MCP*), read by the one resolver `docs/credentials.md` describes; `GEMINI_API_KEY` is also what the assistant's Gemini models answer with (*Assistant turns*). Optional: without one, a generation needing it fails, free. |
 | `ANTHROPIC_API_KEY` | The key the assistant's Claude models answer with (*Assistant turns*), by the same resolver. Optional: without it a turn on a Claude model is refused with "`ANTHROPIC_API_KEY` is not set", and nothing else changes. |
 | `PIXABAY_API_KEY` | The key `stock_search` and `stock_import` look Pixabay up with, by the same resolver, shared by every user (*Web MCP*). Optional: without it a Pixabay search fails with the variable's name; LottieFiles needs no key. |
-| `SCORSESE_ASSISTANT_TURN_CAP` | The most one assistant turn may cost a user, in dollars: `2.50`. Defaults to `2.00`. |
+| `SCORSESE_ASSISTANT_TURN_CAP` | The most one assistant turn may cost a user, in dollars: `2.50`. Defaults to `3.50`. |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | The Google OAuth client people sign in with (*Accounts*). Optional, with the next one: without all three, Google sign-in is off, the server says so in its log, and everything else is served. The secret is never printed. |
 | `SCORSESE_PUBLIC_ORIGIN` | Where browsers reach the site, `https://scorseseestudio.com`: what Google sends a sign-in back to, at `/api/auth/google/callback`. `https://` and a host, or `http://localhost` / `http://127.0.0.1`; anything else stops the server from starting. |
 | `SCORSESE_ASSISTANT_MODEL` | **Retired** (#705): the model is each project's choice now. Set to anything, it stops the server from starting, so a setting that no longer means anything cannot pass for one that does. |
@@ -873,11 +875,13 @@ deleting the account, which is how a user's rows leave.
 | `reservation` | − | a paid generation's price, held while the provider works |
 | `release` | + | a reservation given back — the provider answered |
 | `charge` | − | what a generation that worked, or an assistant call, costs |
-| `monthly_fee` | − | the $10 for one month of an account's life |
 | `refund` | + | money given back, with the reason |
 
-**Pricing** is the provider's cost plus 10%, rounded up to the micro-dollar.
-Veo and ElevenLabs are priced by `scorsese_providers::prices` — the same cents
+**Pricing** is the provider's cost times its kind's multiplier, rounded up to
+the micro-dollar, and that is all a user pays: **there is no monthly fee**
+(#1243, the maintainer, 2026-10-13; the $10/month #527 set went with it, and
+so did the `monthly_fee` kind, whose two rows on the hosted server were test
+money and were deleted by `0028`). Veo and ElevenLabs are priced by `scorsese_providers::prices` — the same cents
 the quote (#538) showed, converted at the server's boundary; the assistant by
 `prices::chat` from the token counts its response reports, which is exact.
 
@@ -910,15 +914,45 @@ made by (item, owner) — kept, set null, when the item is deleted (#535) — an
 `project_id` that deliberately has none: a project can be deleted, and the
 record of what it cost cannot.
 
-**The monthly fee is a sweep in the server**, hourly, not a queued job: the
-queue is for long work with a handler and crash recovery, and a fee is one
-idempotent insert whose unique (user, month) index makes charging twice
-impossible. A month is owed for each month of an account's life **counted from
-its first top-up**, so an account nobody paid for owes nothing. A fee is charged
-**only when the balance covers it** (credits are prepaid; the ledger never
-lends), retried by every sweep while its month lasts, and not charged after
-the month ends uncovered. Both are the conservative reading of what #527 left
-open, asked on #537.
+**The multipliers** (`credits::Product::percent`, the one table; #1247, the
+maintainer, 2026-10-13):
+
+| kind | multiplier |
+| --- | --- |
+| Veo shot | ×1.5 |
+| still (drawn now or batched), spoken line, voice design, assistant call | ×1.8 |
+
+The principle: charge in line with what scorsese actually spends, which is
+third-party APIs, and make it profitable. Electricity, time, the machine and
+its disk are deliberately not priced, and the user sees each generation's price
+in dollars of credit, never a percentage. Every dollar of API spend passes
+three costs that scale with it, whatever the vendor:
+
+- **paying the vendor**: a Brazilian card pays the commercial rate × 1.035 IOF
+  × ~1.04 card spread, so $1 costs ~R$ 5.37 at R$ 4.99/USD: every 100 of API
+  cost at the commercial rate is 107.6 actually paid;
+- **tax**: Simples Nacional on gross revenue, 6% (Anexo III, first bracket) or
+  15.5% (Anexo V) — which one is not known yet;
+- **taking the payment**: Stripe card 3.99% + R$ 0.39, ≈4.8% on R$ 50 (#548).
+
+Profit per R$ 100 a user spends is `100 × (1 − tax − fee) − 107.6 / multiplier`:
+
+| multiplier | tax 6%, card | tax 15.5%, card |
+| --- | --- | --- |
+| ×1.1 (until #1247) | −8.6 | −18.1 |
+| ×1.5 | 17.4 | 8.0 |
+| ×1.8 | 29.4 | 19.9 |
+
+A thinner margin on video was accepted, since it is the most expensive thing a
+user buys. These are conservative defaults until the tax rate is known.
+**Expected to change: re-derive when the tax rate, the card spread or a
+vendor's price changes.** Local CLI and MCP quotes are untouched: they are the
+providers' own prices (`docs/prices.md`), since there the key is the user's.
+
+A quote can hold a shot, a line and a still at once, so what it takes from the
+balance is the sum of each item at its own multiplier — exactly what the
+reservations will be — and the `quotes` table keeps it in `micros` beside the
+providers' `cents`, for the assistant's confirmation box to show.
 
 **The user's own history** is the same ledger, scoped and written for them: one
 row per thing that moved the balance — a reservation and what settled it fold
@@ -1376,7 +1410,7 @@ under one set of rules, and `scorsese-mcp` still never learns about users
 `scorsese_providers::quote::generation` over the laid-out project — so a brief
 the user already generated, in this project or another of theirs, is priced at
 nothing, and so is one whose job is still on its way. A call without `confirm`
-answers with the quote, what it takes from the balance (cost + 10%) and a
+answers with the quote, what it takes from the balance (*Credits*, *Pricing*) and a
 token, kept in the `quotes` table under the providers' rules (#538: bound to
 what was quoted, once, fifteen minutes). A call with the token reserves every
 charged brief and queues it as a `veo_shot`, `still_image`, `batch_still` or
@@ -1409,7 +1443,7 @@ line says so plainly; a batch this server orders is a job, never an
 **Designing a voice (#572).** `voice_design` designs, keeps and lists as the
 stdio tool does, and pays like `generate`: a call without `confirm` answers with
 the estimate (`voices::design::estimate`, billed once for the passage, three
-candidates) plus 10% and a token; a call with the token reserves it and queues
+candidates) times 1.8 and a token; a call with the token reserves it and queues
 a `voice_design` job in one transaction. A confirming call need not repeat the
 brief — it is read from the call that issued the token, which is how the
 assistant's confirmation box, sending only the token, designs what was quoted.
@@ -1594,12 +1628,13 @@ between them; one clearly right is imported without asking.
 **Money.** Every call is charged from its reply's usage — input, output,
 Claude's five-minute and one-hour cache writes, cache reads (Gemini's
 `cachedContentTokenCount`), each at its own rate for the turn's model in
-`prices::chat`, so a cache hit is cheaper for the user too — plus 10%, as one `charge` entry naming the turn
+`prices::chat`, so a cache hit is cheaper for the user too — times 1.8, as one `charge` entry naming the turn
 (`credit_entries.chat_turn_id`); the spending history folds a turn's calls into
 one row. Not reserved for, since the cost exists only once counted: a turn is
 **refused up front (`402`) at a balance of zero or less**, and stops between
 calls once the balance runs out or the turn reaches the operator's cap
-(`SCORSESE_ASSISTANT_TURN_CAP`, default $2.00). The call that crosses either
+(`SCORSESE_ASSISTANT_TURN_CAP`, default $3.50: the cap is on what the user
+is charged, so it rose with the multiplier, #1247). The call that crosses either
 line was already made and is charged; one call is bounded by `max_tokens`.
 
 **Caching** is where the money is, since every call resends the conversation.
@@ -1700,7 +1735,7 @@ row, in the same transaction.
   Claude), `cache_write_5m_tokens`, `cache_write_1h_tokens`,
   `cache_read_tokens`, `latency_ms` (the answering attempt, streaming
   included), `stop_reason`, `cost_micros` (at the vendor's rates, before the
-  markup), the turn and its `position` in it, and `credit_entry_id` — the
+  multiplier), the turn and its `position` in it, and `credit_entry_id` — the
   charge it caused. A table of its own rather than columns on the ledger,
   which holds every kind of entry and is about money.
 - **`tool_calls.reply_tokens_estimate`** — what a tool's reply weighs as input

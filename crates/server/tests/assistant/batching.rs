@@ -9,7 +9,7 @@ use sqlx::postgres::PgPool;
 
 use super::{Script, answers, calls, common, exchange, member, project, scripted};
 
-/// Twenty sketched stills: $1.32 drawn now, with the markup.
+/// Twenty sketched stills: $2.16 drawn now, at 1.8 times their cost.
 fn stills() -> Value {
     let assets: Vec<Value> = (0..20)
         .map(|n| {

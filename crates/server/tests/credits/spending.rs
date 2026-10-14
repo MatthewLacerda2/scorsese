@@ -6,7 +6,7 @@ use scorsese_providers::chat::{Model, Usage};
 const MODEL: &str = Model::ClaudeOpus55.id();
 use scorsese_server::credits::generations::{Answer, Line, Request};
 use scorsese_server::credits::ledger::{self, AssistantCall};
-use scorsese_server::credits::{CreditError, price};
+use scorsese_server::credits::{CreditError, Product, price};
 use scorsese_server::db;
 use serde_json::json;
 use sqlx::postgres::PgPool;
@@ -134,11 +134,11 @@ async fn a_spoken_line_is_priced_from_its_quote(pool: PgPool) {
         estimated_cents: 1,
     });
     let paid = start(&pool, ana, &line).await.unwrap();
-    assert_eq!(paid.reservation.micros, 11_000, "one cent plus ten percent");
+    assert_eq!(paid.reservation.micros, 18_000, "one cent times 1.8");
     finish(&pool, ana, paid, &Answer::Worked(None))
         .await
         .unwrap();
-    assert_eq!(balance(&pool, ana).await, 1_000_000 - 11_000);
+    assert_eq!(balance(&pool, ana).await, 1_000_000 - 18_000);
 }
 
 #[sqlx::test]
@@ -161,7 +161,7 @@ async fn an_assistant_call_is_charged_from_its_token_counts(pool: PgPool) {
     let charged = ledger::charge_assistant(&mut tx, &call).await.unwrap();
     tx.commit().await.unwrap();
     assert_eq!(charged.cost, 30_000);
-    assert_eq!(charged.micros, price(30_000));
-    assert_eq!(charged.micros, 33_000);
-    assert_eq!(balance(&pool, ana).await, -33_000, "charged, not refused");
+    assert_eq!(charged.micros, price(Product::Assistant, 30_000));
+    assert_eq!(charged.micros, 54_000);
+    assert_eq!(balance(&pool, ana).await, -54_000, "charged, not refused");
 }

@@ -74,3 +74,20 @@ async fn deleting_an_account_takes_its_ledger_with_it(pool: PgPool) {
     .unwrap();
     assert_eq!(left, [bia.get()]);
 }
+
+/// There is no monthly fee (#1243): the database refuses the kind it was
+/// recorded under, whoever writes it.
+#[sqlx::test]
+async fn a_monthly_fee_is_not_a_kind_of_entry(pool: PgPool) {
+    let ana = account(&pool, "ana@example.com").await;
+    let mut tx = db::privileged(&pool).await.unwrap();
+    let error = sqlx::query(
+        "INSERT INTO credit_entries (user_id, kind, amount_micros, memo)
+         VALUES ($1, 'monthly_fee', -10000000, 'Monthly fee')",
+    )
+    .bind(ana.get())
+    .execute(&mut *tx)
+    .await
+    .unwrap_err();
+    assert!(error.to_string().contains("credit_entries_kind"), "{error}");
+}

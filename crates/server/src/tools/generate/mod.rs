@@ -27,7 +27,7 @@ mod offer;
 mod spend;
 
 use scorsese_core::placing::Shortened;
-use scorsese_core::{GenerationState, Timestamp};
+use scorsese_core::{AssetId, AssetKind, GenerationState, Project, Timestamp};
 use scorsese_mcp::Reply;
 use scorsese_providers::prices::dollars as cents_as_dollars;
 use scorsese_providers::quote::{self, Item, Quote, generation};
@@ -35,7 +35,7 @@ use serde_json::{Value, json};
 
 use super::surface::project_property;
 use super::{Caller, database, lay_out, project_id, quotes};
-use crate::credits::{dollars, from_cents, ledger, price};
+use crate::credits::{Product, dollars, from_cents, ledger, price};
 use crate::db;
 use crate::generations::adopt;
 use crate::projects::{self, ProjectError, ProjectFiles};
@@ -155,7 +155,7 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
         .filter(|one| still_charged(one.brief()))
         .collect();
 
-    let mut lines = said(&quote);
+    let mut lines = said(&quote, &stored.document);
     if let Some(offered) = &offered {
         lines.push(offer::says(&quote, offered, &stored.document));
     }
@@ -168,14 +168,16 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
     let pool = &toolbox.pool;
     let mut tx = db::scoped(pool, caller.user).await.map_err(database)?;
     let Some(token) = arguments.get("confirm").and_then(Value::as_str) else {
-        let issued = quotes::issue(&mut tx, &quote, now, caller.call)
+        let micros = credits(&quote, &stored.document);
+        let issued = quotes::issue(&mut tx, &quote, micros, now, caller.call)
             .await
             .map_err(database)?;
         // The offer's own token, for the confirmation box to spend instead
         // when the person picks the batch; it is not said, so a model never
         // holds it.
         if let Some(offered) = &offered {
-            quotes::issue(&mut tx, offered, now, caller.call)
+            let micros = credits(offered, &stored.document);
+            quotes::issue(&mut tx, offered, micros, now, caller.call)
                 .await
                 .map_err(database)?;
         }
@@ -188,7 +190,7 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
              quote again.",
             dollars(balance),
             issued.token,
-            dollars(credits(issued.cents))
+            dollars(micros)
         ));
         return Ok(lines.join("\n").into());
     };
@@ -214,7 +216,7 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
         "{} reserved from your credits; a brief the provider refuses gives its share back. \
          Call jobs to see each one finish — each lands in your library and in the project \
          on its own.{wait}",
-        dollars(credits(quote.cents()))
+        dollars(credits(&quote, &stored.document))
     ));
     Ok(lines.join("\n").into())
 }
@@ -274,7 +276,7 @@ async fn on_its_way(caller: &Caller<'_>, quote: &mut Quote) -> Result<(), String
 
 /// The quote as lines: one per item, then the total, at the providers' rates
 /// and as it comes out of the user's credits.
-fn said(quote: &Quote) -> Vec<String> {
+fn said(quote: &Quote, project: &Project) -> Vec<String> {
     let mut lines: Vec<String> = quote
         .items
         .iter()
@@ -284,16 +286,36 @@ fn said(quote: &Quote) -> Vec<String> {
         lines.push("No generated_video or generated_audio assets in this project.".to_owned());
     } else if !quote.is_free() {
         lines.push(format!(
-            "About {} at the providers' published rates — {} from your credits with \
-             scorsese's 10%. Our arithmetic, never a bill.",
+            "About {} at the providers' published rates — {} from your credits. Our \
+             arithmetic, never a bill.",
             cents_as_dollars(quote.cents()),
-            dollars(credits(quote.cents()))
+            dollars(credits(quote, project))
         ));
     }
     lines
 }
 
-/// What `cents` of provider cost takes from a balance, in micro-dollars.
-pub(super) fn credits(cents: u64) -> i64 {
-    price(from_cents(cents))
+/// What `quote` takes from a balance, in micro-dollars: each charged item
+/// priced as the [`Product`] its asset in `project` makes, as its reservation
+/// will be (`credits::generations::start`).
+pub(super) fn credits(quote: &Quote, project: &Project) -> i64 {
+    quote
+        .items
+        .iter()
+        .filter_map(|item| {
+            let charge = item.charge.as_ref()?;
+            let kind = project.asset(&AssetId::new(item.subject.clone()))?.kind;
+            Some(price(product(kind), from_cents(charge.cents)))
+        })
+        .sum()
+}
+
+/// What a generated asset of `kind` is sold as. A still is what is left: the
+/// quote prices nothing else.
+fn product(kind: AssetKind) -> Product {
+    match kind {
+        AssetKind::GeneratedVideo => Product::VeoShot,
+        AssetKind::GeneratedAudio => Product::SpokenLine,
+        _ => Product::Still,
+    }
 }

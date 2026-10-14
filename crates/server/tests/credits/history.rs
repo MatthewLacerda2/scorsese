@@ -44,7 +44,7 @@ pub(crate) async fn a_month_of_work(pool: &PgPool, user: UserId) {
     };
     ledger::charge_assistant(&mut tx, &call)
         .await
-        .expect("the test setup holds"); // 20 000 µ$ + 10%
+        .expect("the test setup holds"); // 20 000 µ$ × 1.8
     tx.commit().await.expect("the test setup holds");
 }
 

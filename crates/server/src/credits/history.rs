@@ -30,7 +30,6 @@ pub const KINDS: &[&str] = &[
     "voice_design",
     "assistant",
     "top_up",
-    "monthly_fee",
     "refund",
 ];
 

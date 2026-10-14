@@ -10,7 +10,7 @@ use scorsese_providers::prices::Checked;
 use scorsese_providers::prices::chat::{self, Usage};
 use serde_json::json;
 
-use super::{CreditError, price};
+use super::{CreditError, Product, price};
 use crate::db::Tx;
 
 /// A reserved amount waiting on a provider's answer.
@@ -162,12 +162,12 @@ pub struct Charged {
     pub entry: i64,
     /// What the call cost at its model's rates, in micro-dollars.
     pub cost: i64,
-    /// What the user was charged for it: the cost and the markup.
+    /// What the user was charged for it: the cost times its multiplier.
     pub micros: i64,
 }
 
 /// Charge one assistant call: its exact cost at its own model's rates
-/// (#705), plus the markup. Not reserved
+/// (#705), times [`Product::Assistant`]'s multiplier. Not reserved
 /// for, and not refused — the tokens are already spent (see the module doc
 /// of [`credits`](super)).
 pub async fn charge_assistant(
@@ -178,7 +178,7 @@ pub async fn charge_assistant(
         .and_then(|model| chat::rate(model, Checked::today()))
         .ok_or_else(|| CreditError::Unpriced(call.model.into()))?;
     let cost = call.usage.micros(rate);
-    let charged = price(cost);
+    let charged = price(Product::Assistant, cost);
     let detail = json!({
         "model": call.model,
         "usage": call.usage,

@@ -1,5 +1,5 @@
 // The spending history (#537): one list of everything that moved the balance —
-// generations, assistant turns, top-ups, fees, refunds — each with its amount
+// generations, assistant turns, top-ups, refunds — each with its amount
 // and the balance after it, filterable by project, kind and date, with the
 // total for the filter. A list, deliberately: no charts (#544, out of scope).
 

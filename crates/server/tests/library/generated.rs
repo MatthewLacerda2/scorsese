@@ -98,7 +98,7 @@ async fn a_generated_item_carries_the_record_of_what_it_cost(pool: PgPool) {
     assert_eq!(record["kind"], "veo_shot");
     assert_eq!(record["prompt"], "a lighthouse at dusk");
     assert_eq!(record["estimated_cost_micros"], 960_000);
-    assert_eq!(record["charged_micros"], 1_056_000);
+    assert_eq!(record["charged_micros"], 1_440_000);
 
     // Deleting the item keeps the record of the money, and forgets the item.
     library.delete(ana, kept.id).await.unwrap();

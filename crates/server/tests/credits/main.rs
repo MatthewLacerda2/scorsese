@@ -1,6 +1,5 @@
-//! Credits (`src/credits`): the ledger, paid generations, the monthly fee,
-//! the history a user reads, and the operator's commands. No provider is
-//! called: a generation here is recorded, reserved for and settled as a job
+//! Credits (`src/credits`): the ledger, paid generations, the history a user
+//! reads, and the operator's commands. No provider is called: a generation here is recorded, reserved for and settled as a job
 //! handler would, with the provider's answer made up.
 
 #[path = "../common/mod.rs"]
@@ -8,7 +7,6 @@ mod common;
 
 mod append_only;
 mod commands;
-mod fees;
 mod filters;
 mod history;
 mod projects;
@@ -60,8 +58,8 @@ fn shot(project: Option<i64>) -> Request<'static> {
     })
 }
 
-/// What a 96-cent shot costs the user: 96 cents plus 10%.
-const SHOT_PRICE: i64 = 1_056_000;
+/// What a 96-cent shot costs the user: 96 cents times 1.5.
+const SHOT_PRICE: i64 = 1_440_000;
 
 /// Start a generation for `user`, committed when it was not refused.
 async fn start(pool: &PgPool, user: UserId, request: &Request<'_>) -> Result<Paid, CreditError> {

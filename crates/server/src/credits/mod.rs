@@ -23,7 +23,7 @@
 //!
 //! A paid generation ([`generations`]) is priced by the provider tables in
 //! `scorsese_providers::prices` — the same figure the quote (#538) showed —
-//! plus [`MARKUP_PERCENT`]. Then:
+//! times its [`Product`]'s multiplier ([`price`]). Then:
 //!
 //! 1. **Reserve** the price: a negative entry, written only when the balance
 //!    covers it. So two generations started at once cannot both spend the
@@ -45,16 +45,13 @@
 //! positive balance before starting one; the call itself may take the balance
 //! a little below zero, which the next top-up absorbs.
 //!
-//! ## The monthly fee is a sweep, not a job
+//! ## Per generation, and nothing else
 //!
-//! [`fees`]: each month of an account's life, counted from its first top-up,
-//! owes [`MONTHLY_FEE_MICROS`]. A loop in the server looks hourly for months
-//! owed and not yet charged. Not a job in the queue: the queue is for long
-//! work with a handler and crash recovery, and a fee is one idempotent insert
-//! — a unique index on (user, month) makes charging twice impossible, and the
-//! next sweep *is* the retry. Nor a cron outside the server: a home machine
-//! that was off at the due moment must catch up on its own, and a sweep that
-//! asks "what is owed now?" does that by construction.
+//! There is **no monthly fee** (#1243, the maintainer, 2026-10-13): a user pays
+//! for what they generate and for nothing while they do not. What scorsese
+//! spends on a user is third-party APIs, so that is what it charges in line
+//! with; electricity, time, the machine and its disk are deliberately left
+//! unpriced.
 //!
 //! ## What the user sees
 //!
@@ -67,7 +64,6 @@
 
 pub mod command;
 pub mod designs;
-pub mod fees;
 pub mod generations;
 pub mod history;
 pub mod ledger;
@@ -75,21 +71,50 @@ pub mod tool;
 
 pub use ledger::Reservation;
 
-/// What scorsese adds to a provider's price: 10% (#527).
-pub const MARKUP_PERCENT: u64 = 10;
+/// What a user buys, each kind priced by its own multiplier (#1247).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Product {
+    /// A Veo shot.
+    VeoShot,
+    /// A Gemini still, drawn now or in a half-price batch.
+    Still,
+    /// An ElevenLabs spoken line.
+    SpokenLine,
+    /// An ElevenLabs voice design.
+    VoiceDesign,
+    /// One call to the assistant's model.
+    Assistant,
+}
 
-/// The flat monthly fee, in micro-dollars: $10 (#527).
-pub const MONTHLY_FEE_MICROS: i64 = 10_000_000;
+impl Product {
+    /// What the user is charged for it, as a percentage of what it costs
+    /// scorsese: **the one table of prices** (the maintainer, 2026-10-13).
+    ///
+    /// Every dollar of API spend passes three costs that scale with it: the
+    /// Brazilian card that pays the vendor (IOF and the card's spread), the
+    /// tax on the revenue (Simples Nacional, 6% or 15.5% — not known yet) and
+    /// the fee for taking the user's payment. ×1.1 lost money in every case;
+    /// these leave a margin in every case, thinner on video, the most
+    /// expensive thing a user buys. `docs/web.md` (*Credits*, *Pricing*) has
+    /// the derivation. **Expected to change**: re-derive when the tax rate,
+    /// the card spread or a vendor's price changes.
+    pub const fn percent(self) -> u64 {
+        match self {
+            Self::VeoShot => 150,
+            Self::Still | Self::SpokenLine | Self::VoiceDesign | Self::Assistant => 180,
+        }
+    }
+}
 
 /// Micro-dollars in a US cent. The provider tables speak cents; the ledger
 /// speaks micro-dollars, and this is the one place they meet.
 pub const MICROS_PER_CENT: u64 = 10_000;
 
-/// What a user is charged for something that costs scorsese `cost_micros`:
-/// the cost plus [`MARKUP_PERCENT`], **rounded up** (`docs/prices.md`) —
+/// What a user is charged for a `product` that costs scorsese `cost_micros`:
+/// the cost times [`Product::percent`], **rounded up** (`docs/prices.md`) —
 /// rounding down would give away a fraction of a micro-dollar at a time.
-pub fn price(cost_micros: u64) -> i64 {
-    let marked = u128::from(cost_micros) * u128::from(100 + MARKUP_PERCENT);
+pub fn price(product: Product, cost_micros: u64) -> i64 {
+    let marked = u128::from(cost_micros) * u128::from(product.percent());
     i64::try_from(marked.div_ceil(100)).unwrap_or(i64::MAX)
 }
 

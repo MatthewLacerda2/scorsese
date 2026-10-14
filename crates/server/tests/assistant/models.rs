@@ -12,13 +12,13 @@ use super::{Script, answers, calls, common, exchange, member, new_project, scrip
 /// What one scripted call costs on Gemini 3.8 Flash today: 1 000 × $0.75/M +
 /// 500 × $3.75/M = 2 625 µ$ at the introductory price, and from 2027-01-01,
 /// when it doubles (#718), 1 000 × $1.50/M + 500 × $7.50/M = 5 250 µ$ — plus
-/// 10% and rounded up. The ledger prices by the server's clock, so the test
+/// times 1.8 and rounded up. The ledger prices by the server's clock, so the test
 /// knows both sides rather than breaking on New Year's Day.
 fn gemini_charged() -> i64 {
     if Checked::today() < Checked::on(2027, 1, 1) {
-        2_888
+        4_725
     } else {
-        5_775
+        9_450
     }
 }
 

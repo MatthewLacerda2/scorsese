@@ -277,9 +277,8 @@ pub struct Files {
 /// the code answering it either. Requests are then answered from
 /// [`db::member_pool`], whose connections can read nothing outside a scoped
 /// transaction — per-user isolation, `db::scope`. The job worker
-/// ([`jobs::work`]), the monthly-fee sweep ([`credits::fees::run`]) and the
-/// render cache's weekly sweep ([`renders::evict::run`]) run beside them on
-/// the same pool. The render cache's scratch folder is emptied first, while
+/// ([`jobs::work`]) and the render cache's weekly sweep
+/// ([`renders::evict::run`]) run beside them on the same pool. The render cache's scratch folder is emptied first, while
 /// no render can be running.
 ///
 /// On `shutdown` every live stream ends, so the graceful stop is not held
@@ -319,7 +318,6 @@ pub async fn start(
         .with_assistant(assistant)
         .with_google(google);
     let (stop, stopping) = watch::channel(false);
-    let fees = tokio::spawn(credits::fees::run(pool.clone(), stopping.clone()));
     let sweep = tokio::spawn(renders::evict::run(pool.clone(), cache, stopping.clone()));
     let worker = tokio::spawn(jobs::work(pool, registry, state.jobs.clone(), stopping));
     let events = state.events.clone();
@@ -331,9 +329,6 @@ pub async fn start(
     stop.send_replace(true);
     if let Err(error) = worker.await {
         eprintln!("scorsese-server: the job worker failed: {error}");
-    }
-    if let Err(error) = fees.await {
-        eprintln!("scorsese-server: the monthly-fee sweep failed: {error}");
     }
     if let Err(error) = sweep.await {
         eprintln!("scorsese-server: the render sweep failed: {error}");

@@ -18,7 +18,7 @@ use scorsese_providers::image::{self, Plan};
 use scorsese_providers::quote::{OFFER_FROM_CENTS, Quote};
 
 use super::credits;
-use crate::credits::dollars;
+use crate::credits::{Product, dollars, from_cents, price};
 
 /// The batch quote to offer beside `now`, if any: `alternative` — the same
 /// project quoted as a batch, `None` when it could not be — offered when it
@@ -36,8 +36,8 @@ pub(super) fn says(now: &Quote, batch: &Quote, project: &Project) -> String {
         "Stills: {} now, or {} in a half-price batch ready within 24 hours. Whoever is paying \
          chooses, and the wait is never chosen for them; to be quoted for the batch alone, \
          call generate with batch.",
-        dollars(credits(stills(now, project))),
-        dollars(credits(batch.cents()))
+        dollars(price(Product::Still, from_cents(stills(now, project)))),
+        dollars(credits(batch, project))
     )
 }
 

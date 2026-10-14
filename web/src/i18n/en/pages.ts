@@ -48,7 +48,6 @@ export const pages = {
       voice_design: "Voice design",
       assistant: "Assistant",
       top_up: "Top-up",
-      monthly_fee: "Monthly fee",
       refund: "Refund",
     },
     status: {

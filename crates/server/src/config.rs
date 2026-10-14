@@ -58,7 +58,7 @@ pub const RETIRED_MODEL: &str = "SCORSESE_ASSISTANT_MODEL";
 pub const ASSISTANT_TURN_CAP: &str = "SCORSESE_ASSISTANT_TURN_CAP";
 
 /// The per-turn cap when [`ASSISTANT_TURN_CAP`] is not set.
-pub const DEFAULT_TURN_CAP: &str = "2.00";
+pub const DEFAULT_TURN_CAP: &str = "3.50";
 
 /// The Google OAuth client's id, `….apps.googleusercontent.com` (#952).
 pub const GOOGLE_CLIENT_ID: &str = "GOOGLE_OAUTH_CLIENT_ID";
