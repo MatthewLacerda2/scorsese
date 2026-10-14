@@ -1,18 +1,8 @@
-// The scroll as the kit's clock: a section's time, and what the marked
-// elements look like at a given time — before, during and after.
+// What the marked elements look like at a given time — before, during and
+// after.
 
 import { expect, test } from "bun:test";
-import { draw, SCROLLED, viewTime } from "@/landing/motion";
-
-test("a section's time is how far its top has risen into the window, in windows", () => {
-  expect(viewTime(800, 800)).toBe(0);
-  expect(viewTime(400, 800)).toBe(0.5);
-  expect(viewTime(0, 800)).toBe(1);
-  expect(viewTime(1600, 800)).toBe(-1);
-  expect(viewTime(-400, 800)).toBe(1.5);
-  // A window with no height has seen nothing.
-  expect(viewTime(0, 0)).toBe(0);
-});
+import { draw, SCROLLED } from "@/landing/motion";
 
 function section() {
   const root = document.createElement("section");
@@ -66,4 +56,14 @@ test("for a visitor who asked for less motion, the end of every timeline at once
   expect(Number(title?.style.opacity)).toBe(1);
   expect(Number(later?.style.opacity)).toBe(1);
   expect(figure?.textContent).toBe("21.6");
+});
+
+test("an emerging element starts a whole height below its edge and ends on it", () => {
+  const root = document.createElement("div");
+  root.innerHTML = '<span data-emerge="0.2">mark</span>';
+  const mark = root.firstElementChild as HTMLElement;
+  draw(root, 0, SCROLLED, "en");
+  expect(mark.style.transform).toBe("translateY(100%)");
+  draw(root, 5, SCROLLED, "en");
+  expect(mark.style.transform).toBe("translateY(0%)");
 });

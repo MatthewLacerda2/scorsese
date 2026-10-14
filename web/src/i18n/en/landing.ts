@@ -1,25 +1,22 @@
 // The landing page at `/` (#904), for a visitor without a session. Written to
 // a business that needs a video and has never heard of an editor: what it
-// makes, how, and that nothing is spent without asking. Never JSON, MCP, API
+// makes and how. Never JSON, MCP, API
 // keys or a provider's name (CLAUDE.md, *The user never deals with
 // implementation*).
 
 export const landing = {
   meta: {
-    title: "scorsese — send your files, describe the video, it gets made",
+    title: "Scorsese - video editor",
     description:
       "Promos, ads and event videos for your business, made from your files and a description. No editor to hire, no software to learn.",
   },
   signIn: "Sign in",
   hero: {
     eyebrow: "Video for your business",
-    title: "Send your files. Describe the video.",
+    title: "Describe the video.",
     titleEnd: "It gets made.",
     lead: "Promos, ads and event videos, cut, titled, scored and paced for you, without hiring an editor or learning a program.",
-    videoLabel: "A short film made with scorsese",
     scroll: "See how",
-    soundOn: "Turn the film's sound on",
-    soundOff: "Turn the film's sound off",
   },
   how: {
     eyebrow: "How it works",
@@ -37,21 +34,12 @@ export const landing = {
       body: "See the cut, ask for changes in a sentence, and download it when it's right.",
     },
   },
-  make: {
-    eyebrow: "What you can make",
-    title: "The videos a business actually needs.",
-    promo: {
-      title: "A promo",
-      body: "A launch, a sale, a new menu: thirty seconds that make people come in.",
-    },
-    event: {
-      title: "An event recap",
-      body: "The day's photos and footage, turned into the film everyone shares the morning after.",
-    },
-    ad: {
-      title: "A vertical ad",
-      body: "9:16, ready for stories and reels, with the message in the first two seconds.",
-    },
+  showcase: {
+    eyebrow: "Made with scorsese",
+    label: "Videos made with scorsese",
+    soundOn: "Turn the sound on",
+    soundOff: "Turn the sound off",
+    volume: "Volume",
   },
   handles: {
     eyebrow: "What it handles for you",
@@ -71,20 +59,11 @@ export const landing = {
       body: "A voice that reads your script, timed to the picture.",
     },
   },
-  price: {
-    eyebrow: "No surprises",
-    title: "You see the price before anything is spent.",
-    body: "Most of a video costs nothing to make. When something does, a narrated line or a generated shot, you're shown what it will cost and asked first. Nothing is spent until you say yes.",
-    proof: "This page's own film, with its music, its titles and every move it makes, came to:",
-    seconds: "seconds of film",
-    scenes: "scenes",
-    cost: "spent",
-  },
   closing: {
     title: "Ready when you are.",
     body: "Bring your files and an idea. The video is a conversation away.",
   },
-  footer: "This page was made with what scorsese makes videos with.",
+  footer: "Every film on this page was made with scorsese.",
   dialog: {
     title: "Welcome to scorsese",
     description: "Sign in to your projects and files, or make your account.",

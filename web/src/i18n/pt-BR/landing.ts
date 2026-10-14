@@ -2,20 +2,17 @@ import type { Messages } from "@/i18n/catalogue";
 
 export const landing: Messages["landing"] = {
   meta: {
-    title: "scorsese — mande seus arquivos, descreva o vídeo, ele fica pronto",
+    title: "Scorsese - editor de vídeo",
     description:
       "Vídeos promocionais, anúncios e vídeos de eventos para o seu negócio, feitos a partir dos seus arquivos e de uma descrição. Sem contratar editor, sem aprender programa.",
   },
   signIn: "Entrar",
   hero: {
     eyebrow: "Vídeo para o seu negócio",
-    title: "Mande seus arquivos. Descreva o vídeo.",
+    title: "Descreva o vídeo.",
     titleEnd: "Ele fica pronto.",
     lead: "Promos, anúncios e vídeos de eventos, cortados, com títulos, trilha e ritmo, sem contratar um editor nem aprender um programa.",
-    videoLabel: "Um curta feito com o scorsese",
     scroll: "Veja como",
-    soundOn: "Ligar o som do filme",
-    soundOff: "Desligar o som do filme",
   },
   how: {
     eyebrow: "Como funciona",
@@ -33,21 +30,12 @@ export const landing: Messages["landing"] = {
       body: "Veja o corte, peça mudanças numa frase e baixe quando estiver do seu jeito.",
     },
   },
-  make: {
-    eyebrow: "O que dá para fazer",
-    title: "Os vídeos que um negócio realmente precisa.",
-    promo: {
-      title: "Uma promo",
-      body: "Um lançamento, uma liquidação, um cardápio novo: trinta segundos que trazem gente.",
-    },
-    event: {
-      title: "Um resumo do evento",
-      body: "As fotos e os vídeos do dia, virando o filme que todo mundo compartilha na manhã seguinte.",
-    },
-    ad: {
-      title: "Um anúncio vertical",
-      body: "9:16, pronto para stories e reels, com a mensagem nos dois primeiros segundos.",
-    },
+  showcase: {
+    eyebrow: "Feito com o scorsese",
+    label: "Vídeos feitos com o scorsese",
+    soundOn: "Ligar o som",
+    soundOff: "Desligar o som",
+    volume: "Volume",
   },
   handles: {
     eyebrow: "O que ele faz por você",
@@ -70,20 +58,11 @@ export const landing: Messages["landing"] = {
     },
     narration: { title: "Narração", body: "Uma voz que lê o seu roteiro, no tempo da imagem." },
   },
-  price: {
-    eyebrow: "Sem surpresas",
-    title: "Você vê o preço antes de qualquer gasto.",
-    body: "A maior parte de um vídeo não custa nada para fazer. Quando alguma coisa custa, uma fala narrada ou uma cena gerada, você vê quanto vai sair e a gente pergunta antes. Nada é gasto até você dizer sim.",
-    proof: "O filme desta página, com a música, os títulos e cada movimento, saiu por:",
-    seconds: "segundos de filme",
-    scenes: "cenas",
-    cost: "gastos",
-  },
   closing: {
     title: "Quando você quiser.",
     body: "Traga seus arquivos e uma ideia. O vídeo está a uma conversa de distância.",
   },
-  footer: "Esta página foi feita com o mesmo que o scorsese usa para fazer vídeos.",
+  footer: "Todos os vídeos desta página foram feitos com o scorsese.",
   dialog: {
     title: "Boas-vindas ao scorsese",
     description: "Entre para acessar seus projetos e arquivos, ou crie a sua conta.",

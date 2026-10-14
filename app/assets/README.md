@@ -1,6 +1,10 @@
 # The logo
 
-`logo.png` is the artwork, as drawn: 928x1129, opaque, white on black. It is
+`logo.png` is the artwork, as drawn: 928x1129, opaque, white on black. The
+image generator it came from stamped a small four-pointed sparkle in its
+bottom-right corner, below the right armrest; that was painted out in black
+(2026-10-14, `drawbox=x=780:y=993:w=58:h=44:color=black:t=fill`), and
+`icon.png` and `web/public/icon.png` were derived again from the clean art. It is
 **authored and not rebuildable** — deleting it loses work, the same way a
 recipe under `recipes/` does — so it is committed at full size even though
 nothing loads it directly.

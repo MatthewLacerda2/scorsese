@@ -1,9 +1,11 @@
-# The landing page's film (#904)
+# The film scorsese made of itself (#904)
 
-The film at the top of scorsese's landing page (`web/src/landing/`). It is the
-proof the page makes: made only with what scorsese makes videos with — four
-pages, one native text, one synthesised score — and so it cost $0 and can be
-re-rendered by anyone with the CLI (`make landing-hero` from the repo root).
+Once the film at the top of scorsese's landing page; since the page shows cuts
+of real videos instead, only its still at 18 s is used, as the link preview
+(`web/public/landing/og.png`, `make landing-og` from the repo root). It is
+made only with what scorsese makes videos with — four pages, one native text,
+one synthesised score — and so it cost $0 and can be re-rendered by anyone with
+the CLI.
 
 The story is the pitch, in three steps and a name: **your files** (cards fanning
 in), **your words** (a brief typing itself), **your video** (a timeline

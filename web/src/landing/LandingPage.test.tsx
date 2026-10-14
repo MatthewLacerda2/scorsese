@@ -37,7 +37,7 @@ afterEach(() => {
 test("without a session, / is the landing page", async () => {
   visit("/", null);
   expect(await screen.findByText("It gets made.")).toBeDefined();
-  expect(screen.getByText("You see the price before anything is spent.")).toBeDefined();
+  expect(screen.getByText("Describe the video.")).toBeDefined();
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 

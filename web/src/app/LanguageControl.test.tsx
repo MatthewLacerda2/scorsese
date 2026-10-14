@@ -18,7 +18,7 @@ function picker(language: Language) {
 test("the closed picker shows the chosen language's flag and name", () => {
   const pt = picker("pt-BR");
   expect(pt).toContain('data-flag="pt-BR"');
-  expect(pt).toContain("Português (Brasil)");
+  expect(pt).toContain("Português");
   expect(pt).not.toContain('data-flag="es"');
 
   expect(picker("es")).toContain('data-flag="es"');
