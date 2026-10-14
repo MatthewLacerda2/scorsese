@@ -47,10 +47,13 @@ pub struct Rate {
     pub source: Source,
 }
 
-/// The fewest and most reais a dollar is believed to cost. A figure outside
-/// is a source answering nonsense, refused rather than credited at: a rate of
-/// `0.05` would sell a hundred times the credits.
-const PLAUSIBLE: std::ops::RangeInclusive<u128> = 1..=50;
+/// The fewest and most whole reais a dollar is believed to cost, inclusive at
+/// both ends and compared on the exact decimal (`8.01` is out). A real
+/// BRL/USD rate has sat near 5 for years, so a wider band only lets a garbage
+/// figure sell credits at a wild price: a rate of `0.05` would sell a hundred
+/// times the credits. A figure outside is a source answering nonsense, and is
+/// refused as a rate that never came.
+const PLAUSIBLE: std::ops::RangeInclusive<u128> = 2..=8;
 
 /// The most decimal places a rate is read to.
 const MAX_PLACES: u32 = 12;
@@ -63,8 +66,9 @@ impl Rate {
             source,
         };
         let (digits, places) = rate.decimal()?;
-        let whole = digits / 10u128.pow(places);
-        PLAUSIBLE.contains(&whole).then_some(rate)
+        let scale = 10u128.pow(places);
+        let (low, high) = (PLAUSIBLE.start() * scale, PLAUSIBLE.end() * scale);
+        (low..=high).contains(&digits).then_some(rate)
     }
 
     /// The decimal's digits and how many of them are past the point.
@@ -200,6 +204,11 @@ mod tests {
             "0",
             "0.0",
             "0.5",
+            "1",
+            "1.99",
+            "8.0001",
+            "8.01",
+            "50",
             "51",
             "1e3",
             ".5",
@@ -208,8 +217,9 @@ mod tests {
             assert_eq!(Rate::parse(text, Source::Ptax), None, "{text:?}");
         }
         assert_eq!(rate(" 5.01 ").brl_per_usd, "5.01");
-        assert!(Rate::parse("50.9", Source::Ptax).is_some());
-        assert!(Rate::parse("1", Source::Ptax).is_some());
+        for text in ["2", "2.00", "2.0000001", "5.0096", "8", "8.000"] {
+            assert!(Rate::parse(text, Source::Ptax).is_some(), "{text:?}");
+        }
     }
 
     #[test]
