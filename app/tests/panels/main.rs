@@ -54,6 +54,9 @@ mod fixture;
 mod framing;
 mod generating;
 mod rendering;
+// Test scratch folders, removed when each test ends (#1164).
+#[path = "../../../tools/scratch.rs"]
+mod scratch;
 mod sequence;
 mod watchdog;
 

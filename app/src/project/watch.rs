@@ -234,8 +234,7 @@ mod tests {
     }
 
     fn project(label: &str) -> Fixture {
-        let dir = std::env::temp_dir().join(format!("scorsese-watch-{label}"));
-        let _ = std::fs::remove_dir_all(&dir);
+        let dir = crate::scratch::fresh(&format!("scorsese-watch-{label}"), "");
         std::fs::create_dir_all(&dir).expect("create the project directory");
         std::fs::write(dir.join(PROJECT_FILE_NAME), "{}").expect("write a document");
         Fixture(dir)

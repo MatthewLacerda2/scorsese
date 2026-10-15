@@ -155,6 +155,11 @@ fn a_page_is_described_as_its_page_not_as_its_card() {
     );
     let wording = scorsese_render::wording(&page, Absent::Uncaptured);
     assert_eq!(wording, "PAGE · NOT CAPTURED\npages/title.html");
+    // A capture on its way is said as a wait on the frame (#1202).
+    assert_eq!(
+        scorsese_render::wording(&page, Absent::Capturing),
+        "PAGE · CAPTURING THE PAGE…\npages/title.html"
+    );
     let description = described(&one(page));
 
     assert_eq!(

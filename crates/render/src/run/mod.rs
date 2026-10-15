@@ -13,6 +13,7 @@
 mod cancelled;
 #[cfg(test)]
 mod capturing;
+mod page_asks;
 mod pages;
 #[cfg(test)]
 mod progressed;
@@ -52,6 +53,7 @@ pub struct Renderer<'a> {
     progress: Progress,
     chrome: Option<Chrome>,
     capturing: bool,
+    underway: bool,
 }
 
 impl<'a> Renderer<'a> {
@@ -70,6 +72,7 @@ impl<'a> Renderer<'a> {
             progress: Progress::new(),
             chrome: None,
             capturing: true,
+            underway: false,
         }
     }
 
@@ -153,6 +156,7 @@ impl<'a> Renderer<'a> {
         Browser {
             chrome: self.chrome.as_ref(),
             capturing: self.capturing,
+            underway: self.underway,
         }
     }
 

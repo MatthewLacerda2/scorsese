@@ -7,8 +7,11 @@
 //! on a clip instead of ending the scale, an `Esc` that puts back only some of
 //! what it moved. None of that is visible from the arithmetic.
 
+// Test scratch folders, removed when each test ends (#1164).
 #[path = "../panels/fixture.rs"]
 mod fixture;
+#[path = "../../../tools/scratch.rs"]
+mod scratch;
 
 use egui::{Key, Pos2, pos2};
 use egui_kittest::Harness;

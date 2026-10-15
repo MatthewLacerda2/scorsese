@@ -18,11 +18,7 @@ fn fresh() -> Settings {
 /// An empty project directory of its own, so nothing is already in its
 /// `generated/` and no ledger sits beside it unless a test writes one.
 fn root(label: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!(
-        "scorsese-app-quote-{label}-{}.scor",
-        std::process::id()
-    ));
-    let _ = std::fs::remove_dir_all(&dir);
+    let dir = crate::scratch::fresh(&format!("scorsese-app-quote-{label}"), ".scor");
     std::fs::create_dir_all(dir.join("generated")).expect("create the project directory");
     dir
 }

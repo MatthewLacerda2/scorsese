@@ -155,6 +155,11 @@ pub enum Absent {
     /// could not draw (`crate::page`, #775). Not a stage of any lifecycle: a page
     /// has none.
     Uncaptured,
+    /// A page whose capture is under way in the background (#1202): a wait,
+    /// not a failure, and said as one on the frame itself. Never produced from
+    /// the document ([`Absent::of`]); a preview that is capturing in the
+    /// background asks for it ([`crate::Renderer::capture_underway`]).
+    Capturing,
 }
 
 impl Absent {
@@ -192,6 +197,7 @@ impl Absent {
             Self::Stale => "STALE",
             Self::Gone => "MEDIA MISSING",
             Self::Uncaptured => "NOT CAPTURED",
+            Self::Capturing => "CAPTURING THE PAGE…",
         }
     }
 }
@@ -208,6 +214,7 @@ impl std::fmt::Display for Absent {
             Self::Stale => "stale",
             Self::Gone => "media missing",
             Self::Uncaptured => "not captured",
+            Self::Capturing => "capturing",
         })
     }
 }

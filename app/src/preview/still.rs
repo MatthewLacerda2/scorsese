@@ -41,6 +41,10 @@ pub(super) struct Still {
     /// Whether the frame showed a page's card for want of a capture of this
     /// instant — what has the page under the playhead captured first (#875).
     uncaptured: bool,
+    /// Whether a page's capture was under way when the held frame was drawn,
+    /// which decides whether its card says "capturing" or "not captured"
+    /// (#1202).
+    underway: bool,
     /// ffmpeg, looked for once and then remembered — failure included. A
     /// machine without ffmpeg does not grow one mid-session, and checking on
     /// every scrubbed frame would spawn two processes to learn that again.
@@ -57,16 +61,18 @@ impl Still {
         at: Frames,
         quality: Quality,
         chrome: Option<&Chrome>,
+        underway: bool,
     ) {
         let raster = super::quality::raster(quality);
         let wanted = [raster.width() as usize, raster.height() as usize];
         let stale = self.asked != Some(at)
+            || self.says_stale_capture(underway)
             || self
                 .texture
                 .as_ref()
                 .is_some_and(|texture| texture.size() != wanted);
         if stale {
-            self.recompose(ui, open, at, quality, chrome);
+            self.recompose(ui, open, at, quality, chrome, underway);
         }
         self.paint(ui);
     }
@@ -79,9 +85,11 @@ impl Still {
         at: Frames,
         quality: Quality,
         chrome: Option<&Chrome>,
+        underway: bool,
     ) {
         let raster = super::quality::raster(quality);
         self.asked = Some(at);
+        self.underway = underway;
         // Cloned out of `self` before anything else is touched: the discovery
         // borrows the whole struct, and the failure has to be written back into
         // it. Both halves are cheap — a `Tools` is two paths.
@@ -108,7 +116,8 @@ impl Still {
         // captured is its slug card until it lands.
         let mut renderer = Renderer::new(&tools, settings)
             .with_preview(preview::Preview::new(quality).with_proxies(proxies))
-            .without_capturing();
+            .without_capturing()
+            .capture_underway(underway);
         if let Some(chrome) = chrome {
             renderer = renderer.with_chrome(chrome.clone());
         }
@@ -144,6 +153,13 @@ impl Still {
                 ));
             }
         }
+    }
+
+    /// Whether the held frame's page card names a capture state that is no
+    /// longer the true one: it was drawn "not captured" and a capture has begun
+    /// since, or "capturing" and it has ended without landing (a failure).
+    fn says_stale_capture(&self, underway: bool) -> bool {
+        self.uncaptured && self.underway != underway
     }
 
     /// Whether the frame on screen shows a page as its card because the
@@ -215,6 +231,26 @@ fn fitted(area: Rect, aspect: f32) -> Rect {
 mod tests {
     use super::*;
     use egui::{pos2, vec2};
+
+    /// The card is drawn again when a capture starts or ends under it, so a
+    /// page being captured never keeps saying "not captured" (#1202) and one
+    /// that failed never keeps saying "capturing".
+    #[test]
+    fn a_page_card_is_redrawn_when_its_capture_starts_or_ends() {
+        let mut still = Still {
+            uncaptured: true,
+            ..Still::default()
+        };
+        assert!(still.says_stale_capture(true), "a capture began");
+        assert!(!still.says_stale_capture(false));
+        still.underway = true;
+        assert!(still.says_stale_capture(false), "it ended without landing");
+        still.uncaptured = false;
+        assert!(
+            !still.says_stale_capture(false),
+            "no card, nothing to redraw"
+        );
+    }
 
     /// Letterboxing, both ways round: a wide picture in a tall panel gains room
     /// above and below, a tall one in a wide panel gains it at the sides, and
