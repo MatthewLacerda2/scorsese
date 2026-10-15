@@ -10,7 +10,6 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
-use scorsese_core::Project;
 use scorsese_providers::stock::{
     self, Choice, Library, Medium, Orientation, Query, cache_dir, footage, licence, previews,
 };
@@ -22,8 +21,7 @@ use crate::cli::StockAction;
 /// Runs one `stock` action on the project in `dir`.
 pub(crate) fn run(dir: &Path, action: StockAction) -> Result<()> {
     // Opened first because the cache and the assets live inside it.
-    let mut project =
-        Project::load(dir).with_context(|| format!("opening the project in {}", dir.display()))?;
+    let mut project = super::open(dir)?;
     let cache = cache_dir(dir);
     match action {
         StockAction::Search {
@@ -123,7 +121,7 @@ pub(crate) fn run(dir: &Path, action: StockAction) -> Result<()> {
                 .iter()
                 .any(|answer| answer.as_ref().is_ok_and(|one| !one.imported.reused))
             {
-                project.save(dir).context("saving the project")?;
+                super::save(&project, dir)?;
             }
             if failed == answers.len() {
                 bail!("nothing was imported");

@@ -17,7 +17,6 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use scorsese_core::Project;
 use scorsese_providers::credentials::{Budget, Provider, Settings, resolve};
 use scorsese_providers::prices::dollars;
 use scorsese_providers::spending;
@@ -51,8 +50,7 @@ pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
     // lands inside it — samples in `generated/`, the ledger beside
     // `project.json` — and writing either into a directory that is not a
     // project would leave a stray folder wherever somebody happened to stand.
-    let project = Project::load(project_dir)
-        .with_context(|| format!("opening the project in {}", project_dir.display()))?;
+    let project = super::open(project_dir)?;
 
     if options.list {
         ledger(project_dir);

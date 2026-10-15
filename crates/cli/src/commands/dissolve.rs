@@ -2,8 +2,8 @@
 
 use std::path::Path;
 
-use anyhow::{Context, Result};
-use scorsese_core::{ClipId, Frames, Project};
+use anyhow::Result;
+use scorsese_core::{ClipId, Frames};
 use scorsese_render::{Placed, dissolve};
 
 /// Dissolves one shot into the next, writing ordinary opacity keyframes.
@@ -12,13 +12,12 @@ use scorsese_render::{Placed, dissolve};
 /// above, because two clips on one track may not overlap and a crossover needs
 /// them to. What that rearranges is printed rather than left to be discovered.
 pub(crate) fn run(project_dir: &Path, from: &str, to: &str, seconds: f64) -> Result<()> {
-    let mut project = Project::load(project_dir)
-        .with_context(|| format!("opening the project in {}", project_dir.display()))?;
+    let mut project = super::open(project_dir)?;
 
     let duration = Frames::span(seconds, project.timeline_fps.as_f64());
     let placed = dissolve(&mut project, &ClipId::new(from), &ClipId::new(to), duration)?;
 
-    project.save(project_dir).context("saving the project")?;
+    super::save(&project, project_dir)?;
     describe(from, to, duration, &placed);
     Ok(())
 }

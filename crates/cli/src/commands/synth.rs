@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
-use scorsese_core::{AssetId, Project};
+use scorsese_core::AssetId;
 use scorsese_providers::synth::{self, Baked, Drum, Excerpt, Partial, Span, Starter, Window, kit};
 use scorsese_render::say;
 
@@ -43,10 +43,10 @@ impl Less {
 
 /// Writes a starter recipe and the asset that points at it.
 pub(crate) fn new(project_dir: &Path, name: &str, starter: Starter) -> Result<()> {
-    let mut project = open(project_dir)?;
+    let mut project = super::open(project_dir)?;
     let id = synth::create(&mut project, project_dir, name, starter)
         .with_context(|| format!("creating the recipe for `{name}`"))?;
-    project.save(project_dir).context("saving the project")?;
+    super::save(&project, project_dir)?;
 
     let asset = project.asset(&id).expect("the asset just created");
     let recipe = asset.recipe.as_ref().expect("a synth asset has a recipe");
@@ -119,11 +119,11 @@ pub(crate) fn kit(
 
 /// Reads a MIDI file into a song recipe and the asset that points at it.
 pub(crate) fn import(project_dir: &Path, file: &Path, name: Option<&str>) -> Result<()> {
-    let mut project = open(project_dir)?;
+    let mut project = super::open(project_dir)?;
     // No context of its own: the error already names the file, and a second
     // mention would print the path twice.
     let imported = synth::import_midi(&mut project, project_dir, file, name)?;
-    project.save(project_dir).context("saving the project")?;
+    super::save(&project, project_dir)?;
 
     let id = &imported.id;
     let asset = project.asset(id).expect("the asset just created");
@@ -146,7 +146,7 @@ pub(crate) fn export(
 ) -> Result<()> {
     let id = AssetId::new(id);
     // No context of its own: the error already names the asset.
-    let exported = synth::export_midi(&open(project_dir)?, project_dir, &id, drums, out)?;
+    let exported = synth::export_midi(&super::open(project_dir)?, project_dir, &id, drums, out)?;
     println!("{id} — written as MIDI to {}", exported.shown);
     for line in exported.lines() {
         println!("  {line}");
@@ -173,7 +173,7 @@ pub(crate) fn bake(project_dir: &Path, only: Option<&str>, less: &Less) -> Resul
         };
         let id = AssetId::new(id);
         let partial = synth::bake_partial(
-            &open(project_dir)?,
+            &super::open(project_dir)?,
             project_dir,
             &id,
             &excerpt,
@@ -183,7 +183,7 @@ pub(crate) fn bake(project_dir: &Path, only: Option<&str>, less: &Less) -> Resul
         report_partial(&id, &excerpt, &partial);
         return Ok(());
     }
-    let mut project = open(project_dir)?;
+    let mut project = super::open(project_dir)?;
     let baked = match only {
         Some(id) => {
             let id = AssetId::new(id);
@@ -198,7 +198,7 @@ pub(crate) fn bake(project_dir: &Path, only: Option<&str>, less: &Less) -> Resul
         println!("no synth_audio assets — `scorsese synth new <name>` starts one");
         return Ok(());
     }
-    project.save(project_dir).context("saving the project")?;
+    super::save(&project, project_dir)?;
     report(&baked);
     Ok(())
 }
@@ -240,7 +240,7 @@ pub(crate) fn check(recipe: &Path) -> Result<()> {
 /// the whole of what it does then: a survey is a report across a set, and a set
 /// of one has no row a summary of it would not already be.
 pub(crate) fn survey(project_dir: &Path) -> Result<()> {
-    let project = open(project_dir)?;
+    let project = super::open(project_dir)?;
     let surveyed = synth::survey(&project, project_dir).context("reading the recipes")?;
     for line in say::survey(&surveyed) {
         println!("{line}");
@@ -316,9 +316,4 @@ fn report_partial(id: &AssetId, excerpt: &Excerpt, partial: &Partial) {
     // Said every time rather than once in the help, because the whole risk
     // this feature carries is somebody reaching for this file as the bake.
     println!("  not cached, and not the asset's bake — `scorsese synth bake {id}` makes that");
-}
-
-fn open(project_dir: &Path) -> Result<Project> {
-    Project::load(project_dir)
-        .with_context(|| format!("opening the project in {}", project_dir.display()))
 }

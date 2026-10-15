@@ -65,8 +65,7 @@ pub(crate) fn run(project_dir: &Path, out: &Path, at: &[Cue], options: Options) 
             Resolution::new(width, height).context("the default raster")?
         }
     };
-    let project = Project::load(project_dir)
-        .with_context(|| format!("opening the project in {}", project_dir.display()))?;
+    let project = super::open(project_dir)?;
     // The project's own grid, always. Nothing is being encoded, so there is no
     // output rate for a time to conform to, and reading `2.5s` against any
     // other rate would name an instant the edit does not have.

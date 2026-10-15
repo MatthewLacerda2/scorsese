@@ -4,7 +4,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use scorsese_core::{
-    AssetId, Frames, ImageSequence, Project, SequenceChange, SequenceImport, change_sequence,
+    AssetId, Frames, ImageSequence, SequenceChange, SequenceImport, change_sequence,
     import_sequence,
 };
 use scorsese_render::Ffprobe;
@@ -18,8 +18,7 @@ pub(crate) fn import(
     hold: Option<u64>,
     looping: bool,
 ) -> Result<()> {
-    let mut project = Project::load(project_dir)
-        .with_context(|| format!("opening the project in {}", project_dir.display()))?;
+    let mut project = super::open(project_dir)?;
     let probe = Ffprobe::discover().context("ffprobe is needed to import media")?;
     let report = import_sequence(&mut project, project_dir, dir, &probe)
         .with_context(|| format!("importing {}", dir.display()))?;
@@ -31,7 +30,7 @@ pub(crate) fn import(
     let sequence = change_sequence(&mut project, &report.id, change)
         .context("timing the sequence")?
         .after;
-    project.save(project_dir).context("saving the project")?;
+    super::save(&project, project_dir)?;
     print!("{}", imported(&report, &sequence));
     Ok(())
 }
@@ -44,8 +43,7 @@ pub(crate) fn set(
     hold: Option<u64>,
     looping: Option<bool>,
 ) -> Result<()> {
-    let mut project = Project::load(project_dir)
-        .with_context(|| format!("opening the project in {}", project_dir.display()))?;
+    let mut project = super::open(project_dir)?;
     let change = SequenceChange {
         stills: stills.map(|ids| ids.into_iter().map(AssetId::new).collect()),
         hold: hold.map(Frames),
@@ -53,7 +51,7 @@ pub(crate) fn set(
     };
     let id = AssetId::new(asset);
     let changed = change_sequence(&mut project, &id, change)?;
-    project.save(project_dir).context("saving the project")?;
+    super::save(&project, project_dir)?;
     match &changed.before {
         None => println!("{id} — made: {}", changed.after),
         Some(before) => println!("{id} — was {}; now {}", before, changed.after),

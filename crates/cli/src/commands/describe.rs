@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use scorsese_core::{Fps, Project};
+use scorsese_core::Fps;
 use scorsese_render::{
     Commentary, Cue, Description, FrameRange, Layout, Note, Plan, Resolution, unknown_in,
 };
@@ -25,8 +25,7 @@ pub(crate) fn run(
     at: &[Cue],
     resolution: Resolution,
 ) -> Result<()> {
-    let project = Project::load(project_dir)
-        .with_context(|| format!("opening the project in {}", project_dir.display()))?;
+    let project = super::open(project_dir)?;
     let fps = fps.unwrap_or(project.timeline_fps);
     let plan = Plan::build(&project, fps, range.unwrap_or(FrameRange::ALL))
         .context("sequencing the timeline")?;

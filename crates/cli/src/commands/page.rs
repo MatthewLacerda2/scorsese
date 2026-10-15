@@ -4,7 +4,7 @@ use std::io::Read as _;
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
-use scorsese_core::{AssetId, AssetKind, Project, write_page};
+use scorsese_core::{AssetId, AssetKind, write_page};
 
 /// Writes the page called `id` from `file` — `-` is standard input — making
 /// the `html` asset when nothing answers to the id: the `page_write` MCP tool.
@@ -18,10 +18,10 @@ pub(crate) fn write(project_dir: &Path, id: &str, file: &Path) -> Result<()> {
     } else {
         std::fs::read_to_string(file).with_context(|| format!("reading {}", file.display()))?
     };
-    let mut project = open(project_dir)?;
+    let mut project = super::open(project_dir)?;
     let written = write_page(&mut project, project_dir, id, &html)?;
     if written.created {
-        project.save(project_dir).context("saving the project")?;
+        super::save(&project, project_dir)?;
         println!("{} — html, new", written.id);
     } else {
         println!("{} — rewritten", written.id);
@@ -32,7 +32,7 @@ pub(crate) fn write(project_dir: &Path, id: &str, file: &Path) -> Result<()> {
 
 /// Prints the page called `id` as it is on disk: the `page_read` MCP tool.
 pub(crate) fn read(project_dir: &Path, id: &str) -> Result<()> {
-    let project = open(project_dir)?;
+    let project = super::open(project_dir)?;
     let asset = project
         .asset(&AssetId::new(id))
         .with_context(|| format!("there is no asset `{id}`"))?;
@@ -45,9 +45,4 @@ pub(crate) fn read(project_dir: &Path, id: &str) -> Result<()> {
         .with_context(|| format!("reading the page `{id}` at {path}"))?;
     print!("{html}");
     Ok(())
-}
-
-fn open(project_dir: &Path) -> Result<Project> {
-    Project::load(project_dir)
-        .with_context(|| format!("opening the project in {}", project_dir.display()))
 }

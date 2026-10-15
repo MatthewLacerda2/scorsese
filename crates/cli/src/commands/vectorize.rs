@@ -5,9 +5,8 @@
 
 use std::path::Path;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Result, bail};
 use clap::Args;
-use scorsese_core::Project;
 use scorsese_render::Tools;
 use scorsese_render::trace::{Detail, Tracing, vectorize};
 
@@ -46,8 +45,7 @@ pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
         detail,
         keep_background: options.keep_background,
     };
-    let project = Project::load(project_dir)
-        .with_context(|| format!("opening the project in {}", project_dir.display()))?;
+    let project = super::open(project_dir)?;
     let tools = Tools::discover()?;
     let name = options.name.as_deref().unwrap_or(&options.asset);
     let written = vectorize(&tools, &project, project_dir, &options.asset, name, tracing)?;

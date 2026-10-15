@@ -37,7 +37,7 @@ pub(crate) fn run(project_dir: &Path, all: bool) -> Result<()> {
         );
     }
     if recorded > 0 {
-        project.save(project_dir).context("saving the project")?;
+        super::save(&project, project_dir)?;
     }
     for row in &report {
         if let Some(line) = line(&project, row) {

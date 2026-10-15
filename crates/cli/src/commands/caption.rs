@@ -2,9 +2,9 @@
 
 use std::path::Path;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use scorsese_core::captions::{Captioned, caption};
-use scorsese_core::{FontChoice, Project, Rgba, TrackId};
+use scorsese_core::{FontChoice, Rgba, TrackId};
 use scorsese_render::picture::caption as look;
 
 /// What `scorsese caption` takes. Every look has a default, so a bare
@@ -49,8 +49,7 @@ pub(crate) struct Options {
 /// Safe to re-run: it replaces only the captions it wrote, so running it again
 /// after a line is regenerated or moved re-times them.
 pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
-    let mut project = Project::load(project_dir)
-        .with_context(|| format!("opening the project in {}", project_dir.display()))?;
+    let mut project = super::open(project_dir)?;
     let mut asked = look::captioning(
         TrackId::new(options.track.as_str()),
         project.timeline_fps.as_f64(),
@@ -73,7 +72,7 @@ pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
     }
 
     let report = caption(&mut project, project_dir, &asked)?;
-    project.save(project_dir).context("saving the project")?;
+    super::save(&project, project_dir)?;
     describe(&report, &asked.track);
     Ok(())
 }

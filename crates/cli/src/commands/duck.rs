@@ -2,8 +2,8 @@
 
 use std::path::Path;
 
-use anyhow::{Context, Result};
-use scorsese_core::{ClipId, Dip, Ducked, Project, PropertyPath, TrackId, Under, duck_track};
+use anyhow::Result;
+use scorsese_core::{ClipId, Dip, Ducked, PropertyPath, TrackId, Under, duck_track};
 use scorsese_render::audio::path::VOLUME;
 
 /// What `scorsese duck` takes: the music, and how the dip is shaped before it
@@ -76,8 +76,7 @@ fn seconds_range(text: &str) -> Result<(f64, f64), String> {
 /// redoes the ducking and leaves anything you set by hand exactly as it was.
 pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
     let music = options.music.as_str();
-    let mut project = Project::load(project_dir)
-        .with_context(|| format!("opening the project in {}", project_dir.display()))?;
+    let mut project = super::open(project_dir)?;
 
     let grid = project.timeline_fps;
     let fps = grid.as_f64();
@@ -108,7 +107,7 @@ pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
         println!("track `{music}` has no clips on it");
         return Ok(());
     }
-    project.save(project_dir).context("saving the project")?;
+    super::save(&project, project_dir)?;
     describe(&report, options.depth);
     Ok(())
 }

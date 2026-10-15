@@ -73,8 +73,7 @@ impl FromStr for SceneSpec {
 
 /// Lays the cut out from its lines and saves it.
 pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
-    let mut project = Project::load(project_dir)
-        .with_context(|| format!("opening the project in {}", project_dir.display()))?;
+    let mut project = super::open(project_dir)?;
     let voicing = Voicing {
         scenes: options.scenes.iter().map(|spec| spec.0.clone()).collect(),
         lead_in: options.lead_in,
@@ -84,7 +83,7 @@ pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
     };
     let voiced = cut_to_voice(&mut project, project_dir, &voicing)
         .context("cutting to the voice — nothing was changed")?;
-    project.save(project_dir).context("saving the project")?;
+    super::save(&project, project_dir)?;
     describe(&project, &voiced);
     Ok(())
 }

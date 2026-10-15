@@ -19,8 +19,7 @@ use scorsese_render::Ffprobe;
 /// and reported, the failures are listed after, and the command still exits
 /// non-zero so a script is not told a partial import was a whole one.
 pub(crate) fn run(project_dir: &Path, paths: &[PathBuf], kind: Option<AssetKind>) -> Result<()> {
-    let mut project = Project::load(project_dir)
-        .with_context(|| format!("opening the project in {}", project_dir.display()))?;
+    let mut project = super::open(project_dir)?;
     let probe = Ffprobe::discover().context("ffprobe is needed to import media")?;
 
     let mut reports = Vec::new();
@@ -39,7 +38,7 @@ pub(crate) fn run(project_dir: &Path, paths: &[PathBuf], kind: Option<AssetKind>
     // on screen has to already be an id on disk, and a crash between two
     // paths must not leave the pool describing files it never copied.
     if copied {
-        project.save(project_dir).context("saving the project")?;
+        super::save(&project, project_dir)?;
     }
     for report in &reports {
         print(&project, report);

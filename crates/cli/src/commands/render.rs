@@ -3,8 +3,8 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
+use scorsese_core::Fps;
 use scorsese_core::style::Platform;
-use scorsese_core::{Fps, Project};
 use scorsese_render::say;
 use scorsese_render::{
     AudioCodec, Bands, Bitrate, Container, Cue, FrameRange, LoudnessTarget, OutputFormat,
@@ -100,8 +100,7 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
     // not take, which ffmpeg would only say after the whole mix.
     format.sample_rate(options.sample_rate)?;
 
-    let project = Project::load(project_dir)
-        .with_context(|| format!("opening the project in {}", project_dir.display()))?;
+    let project = super::open(project_dir)?;
 
     // The project's own grid is the right default: rendering at the rate the
     // edit was authored against is the one output rate that needs no conform.
