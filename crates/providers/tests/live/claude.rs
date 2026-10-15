@@ -3,7 +3,7 @@
 //! what replaces them.
 
 use scorsese_providers::api::anthropic::content::Block;
-use scorsese_providers::claude::{self, ClaudeError, Response};
+use scorsese_providers::chat::claude::{self, ClaudeError, Response};
 use scorsese_providers::live::Verdict;
 use scorsese_providers::live::claude::{TOOL, answer_step, cost, tool_turn_step};
 

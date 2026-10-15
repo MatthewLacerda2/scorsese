@@ -46,6 +46,7 @@
 //! uncached. That costs more once, and the web app warns before it.
 
 pub mod anthropic;
+pub mod claude;
 mod model;
 pub mod record;
 
@@ -54,8 +55,8 @@ use std::sync::Arc;
 use serde_json::Value;
 use serde_json::value::RawValue;
 
-pub use crate::claude::{ClaudeError, Stop, Streamed};
 pub use crate::prices::chat::Usage;
+pub use claude::{ClaudeError, Stop, Streamed};
 pub use model::{Model, Vendor};
 pub use record::{Call, Message, Part, ResultPart};
 
@@ -180,7 +181,7 @@ impl ChatError {
 /// The client for `vendor`, spending `key`.
 pub fn client(vendor: Vendor, key: &Secret) -> Arc<dyn Chat> {
     match vendor {
-        Vendor::Anthropic => Arc::new(crate::claude::Anthropic::new(key)),
+        Vendor::Anthropic => Arc::new(crate::chat::claude::Anthropic::new(key)),
     }
 }
 

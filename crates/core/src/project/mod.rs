@@ -179,11 +179,6 @@ impl Project {
         assets.chain(tracks)
     }
 
-    /// Assets GO would spend money on: the sketch and stale ones.
-    pub fn pending_generation(&self) -> impl Iterator<Item = &Asset> {
-        self.assets.iter().filter(|asset| asset.needs_generation())
-    }
-
     /// Parses a document **without** validating it. Structural problems
     /// (bad JSON, unknown fields, wrong schema version) still fail here;
     /// semantic ones are [`Project::validate`]'s job.

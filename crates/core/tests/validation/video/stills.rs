@@ -26,7 +26,7 @@ fn the_full_tier_takes_reference_images_as_fast_does() {
         r.model = VideoModel::Standard;
         r.reference_images = vec![asset_id("logo")];
     });
-    assert!(p.is_valid(), "standard takes reference images");
+    assert!(p.validate().is_ok(), "standard takes reference images");
 }
 
 #[test]

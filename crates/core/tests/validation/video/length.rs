@@ -7,7 +7,10 @@ use scorsese_core::{ClipSeconds, VideoProblem as V, VideoResolution};
 #[test]
 fn a_request_of_nothing_but_defaults_is_valid() {
     let p = asking(|_| {});
-    assert!(p.is_valid(), "defaults alone are a complete request");
+    assert!(
+        p.validate().is_ok(),
+        "defaults alone are a complete request"
+    );
 }
 
 #[test]
@@ -29,7 +32,10 @@ fn a_shorter_shot_is_available_at_the_smaller_raster() {
         r.resolution = VideoResolution::P720;
         r.seconds = ClipSeconds::Four;
     });
-    assert!(p.is_valid(), "720p leaves the length free to choose");
+    assert!(
+        p.validate().is_ok(),
+        "720p leaves the length free to choose"
+    );
 }
 
 #[test]

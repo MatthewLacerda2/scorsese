@@ -24,7 +24,11 @@ fn line() -> Asset {
         curve: Default::default(),
         heads: Heads::None,
     };
-    let shape = Shape::outlined(geometry, Rgba::WHITE).bordered(Rgba::WHITE, 0.2);
+    let shape = Shape {
+        stroke: Some(Rgba::WHITE),
+        stroke_width: 0.2,
+        ..Shape::outlined(geometry, Rgba::WHITE)
+    };
     Asset::shape(AssetId::new("line"), shape)
 }
 

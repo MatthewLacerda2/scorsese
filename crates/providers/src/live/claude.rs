@@ -11,7 +11,7 @@
 //! - **mid-conversation `role: "system"` messages** on `claude-opus-5-5`.
 //!
 //! So this is two streamed calls through the product's own request builder
-//! ([`crate::claude::request`]) at `low` effort. The first asks for a call to
+//! ([`crate::chat::claude::request`]) at `low` effort. The first asks for a call to
 //! a one-argument tool; a `200` proves the beta header is accepted, and the
 //! reply's events are the tool-use stream the fixtures imitate. The second
 //! sends that reply back unchanged — thinking blocks and signatures included —
@@ -25,7 +25,7 @@ use crate::api::anthropic::content::{Block, ResultPart};
 use crate::api::anthropic::request::{Effort, Message, MessageContent, Role, Tool};
 use crate::api::tap::Tap;
 use crate::chat::Model;
-use crate::claude::{
+use crate::chat::claude::{
     self, Anthropic, Claude, ClaudeError, MODEL, Response, Settings, Stop, Streamed,
 };
 use crate::credentials::Secret;

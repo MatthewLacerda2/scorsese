@@ -128,7 +128,11 @@ fn a_corner_cannot_be_rounder_than_the_shape() {
 #[test]
 fn a_border_colour_needs_a_width() {
     assert_only_problem(
-        &drawn(Shape::filled(box_of(0.2, 0.1), Rgba::WHITE).bordered(Rgba::BLACK, 0.0)),
+        &drawn(Shape {
+            stroke: Some(Rgba::BLACK),
+            stroke_width: 0.0,
+            ..Shape::filled(box_of(0.2, 0.1), Rgba::WHITE)
+        }),
         E::Shape(S::BorderWithoutWidth {
             asset: asset_id("box"),
             width: 0.0,

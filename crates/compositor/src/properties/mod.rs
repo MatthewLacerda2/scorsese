@@ -25,11 +25,8 @@ use crate::registry::Property;
 use crate::shape::Trace;
 use crate::text::Sweep;
 
-mod fades;
 mod reading;
 mod text;
-
-pub use fades::{fade_in, fade_out};
 
 /// The property paths this compositor resolves.
 pub mod path;

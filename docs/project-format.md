@@ -3277,10 +3277,9 @@ so it cannot drift from the code, and core still knows nothing about which
 properties exist.
 
 Because `t` counts from the clip's start, a fade written once keeps working
-after the clip is dragged elsewhere on the timeline. `scorsese-compositor`'s
-`fade_in` and `fade_out` are sugar that write exactly these opacity keyframes
-— there is no separate fade mechanism, which is why a fade composes with a
-move or a zoom for free.
+after the clip is dragged elsewhere on the timeline. A fade is nothing but
+these opacity keyframes — there is no separate fade mechanism, which is why a
+fade composes with a move or a zoom for free.
 
 ## Paths
 

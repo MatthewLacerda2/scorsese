@@ -12,7 +12,7 @@
 mod requests;
 mod streams;
 
-use scorsese_providers::claude::{self, Response, Streamed};
+use scorsese_providers::chat::claude::{self, Response, Streamed};
 
 /// A recorded stream, by its file name.
 fn fixture(name: &str) -> String {

@@ -39,6 +39,11 @@ pub(crate) fn frame() -> Frame {
     frame
 }
 
+/// The thickness Lucide draws at: two units of the square's twenty-four.
+pub(crate) fn width_for(size: f32) -> f32 {
+    size * 2.0 / icon::VIEWBOX
+}
+
 /// One symbol, filling most of the raster, at the thickness it was drawn at.
 pub(crate) fn symbol(name: &str, anchor: Anchor) -> Symbol {
     let size = f32::from(u16::try_from(SIDE).expect("a small raster")) * 0.75;
@@ -47,7 +52,7 @@ pub(crate) fn symbol(name: &str, anchor: Anchor) -> Symbol {
         size,
         anchor,
         color: WHITE,
-        width: icon::width_for(size),
+        width: width_for(size),
     }
 }
 

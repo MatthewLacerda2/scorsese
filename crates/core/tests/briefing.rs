@@ -55,7 +55,7 @@ fn saying_nothing_asks_for_the_defaults() {
     assert_eq!(asset.video, None, "nothing was written, so nothing is read");
     assert_eq!(asset.video_request().seconds, ClipSeconds::Eight);
     assert_eq!(asset.video_request().resolution, VideoResolution::P1080);
-    assert!(project.is_valid());
+    assert!(project.validate().is_ok());
 }
 
 #[test]

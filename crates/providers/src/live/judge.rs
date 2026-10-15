@@ -12,7 +12,7 @@ use crate::api::anthropic::stream::StreamError;
 use crate::api::elevenlabs::refusal::Refusal;
 use crate::api::http::HttpError;
 use crate::api::veo::response::ModelInfo;
-use crate::claude::ClaudeError;
+use crate::chat::claude::ClaudeError;
 
 use super::Verdict;
 
@@ -57,7 +57,7 @@ pub fn anthropic(error: &HttpError) -> Verdict {
 ///
 /// An event the parser would not take, a stream that stops before
 /// `message_stop`, and tool arguments that do not join into JSON are all the
-/// reply no longer being the shape [`crate::claude`] reads.
+/// reply no longer being the shape [`crate::chat::claude`] reads.
 pub fn claude(error: &ClaudeError) -> Verdict {
     let shape = |field: String| Verdict::ShapeChanged { field };
     match error {

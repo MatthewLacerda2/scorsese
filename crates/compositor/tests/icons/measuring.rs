@@ -94,7 +94,7 @@ fn the_anchor_measures_the_square_from_the_edges_it_names() {
 #[test]
 fn a_smaller_square_scales_the_whole_drawing() {
     let half = UNIT / 2.0;
-    let frame = drawn("minus", centred(), half, icon::width_for(half));
+    let frame = drawn("minus", centred(), half, crate::width_for(half));
     assert_extent(&frame, (20, 23, 27, 24), "a half-size minus, still centred");
     assert_coverage(
         &frame,
@@ -104,18 +104,9 @@ fn a_smaller_square_scales_the_whole_drawing() {
     );
 }
 
-/// The thickness `width_for` names is Lucide's two units scaled, and it is the
-/// thickness that reaches the raster. Both halves are asserted: the number, and
-/// the ink it produces.
+/// The thickness asked for is the thickness that reaches the raster.
 #[test]
-fn the_thickness_is_two_units_of_the_square() {
-    assert_eq!(icon::width_for(UNIT), STROKE, "two units at one pixel each");
-    assert_eq!(
-        icon::width_for(120.0),
-        10.0,
-        "and it scales with the square"
-    );
-
+fn the_thickness_is_the_ink_it_produces() {
     let fat = drawn("minus", centred(), UNIT, 6.0);
     assert_extent(
         &fat,

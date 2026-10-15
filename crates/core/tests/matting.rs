@@ -32,7 +32,7 @@ fn no_matte_writes_none() {
 fn a_matte_round_trips_and_invert_defaults_off() {
     let project = clip_with(r#", "matte": { "clip": "m" }"#);
     assert_eq!(first(&project).matte, Some(Matte::new(ClipId::new("m"))));
-    assert!(project.is_valid());
+    assert!(project.validate().is_ok());
     let json = project.to_json().expect("serialise");
     assert!(!json.contains("invert"), "a default not written: {json}");
     assert_eq!(Project::from_json(&json).expect("reloads"), project);

@@ -111,17 +111,6 @@ impl Shape {
         }
     }
 
-    /// The same shape with a border added, so the two-colour case reads as what
-    /// it is rather than as a struct literal.
-    #[must_use]
-    pub fn bordered(self, stroke: Rgba, width: f64) -> Self {
-        Self {
-            stroke: Some(stroke),
-            stroke_width: width,
-            ..self
-        }
-    }
-
     /// Whether anything would be drawn at all. The one thing a shape cannot be
     /// allowed to be, since a layer that renders nothing looks exactly like a
     /// layer that failed to render.

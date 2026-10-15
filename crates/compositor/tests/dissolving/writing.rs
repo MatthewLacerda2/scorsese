@@ -18,7 +18,7 @@ fn a_dissolve_is_four_ordinary_keyframes() {
     .expect("two shots that meet");
 
     // The outgoing shot goes out exactly on its own cut, not a frame before —
-    // the same shape `fade_out` writes, for the same reason.
+    // the shape a fade out takes, for the same reason.
     assert_eq!(opacity(&project, "a"), [(20, 1.0), (30, 0.0)]);
     // The incoming one is solid by the time the outgoing one has gone.
     assert_eq!(opacity(&project, "b"), [(0, 0.0), (10, 1.0)]);

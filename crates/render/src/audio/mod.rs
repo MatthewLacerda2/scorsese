@@ -24,7 +24,7 @@ pub(crate) mod loudness;
 pub(crate) mod measure;
 pub(crate) mod mix;
 pub(crate) mod read;
-pub mod wave;
+pub(crate) mod wave;
 
 use std::fs::File;
 use std::io::{BufWriter, Write};

@@ -90,7 +90,7 @@
 //! `project_check` returns — one assembly, so the two can never come to
 //! different conclusions about the same project.
 //!
-//! **Eleven modules keep their path.** Three of them publish *verbs*, which need
+//! **Ten modules keep their path.** Three of them publish *verbs*, which need
 //! their noun in front of them to read: [`mod@audio`] mixes
 //! ([`audio::mixdown`]), measures ([`audio::measure`]) and owns the one
 //! property name a volume keyframe spells ([`audio::path::VOLUME`]);
@@ -127,12 +127,9 @@
 //! [`mod@contact`]: [`contact::sheet`] tiles frames of a file into one picture,
 //! [`contact::timeline_sheet`] does the same for instants of the edit and
 //! [`contact::pictures`] for one picture from each of several files, while
-//! the [`Sheet`] and [`Look`] a caller holds are at the root. [`mod@layout`]
-//! is the odd one: everything it publishes — [`Layout`] and what one is made
-//! of — is reachable from the root too, the same one path more than anything
-//! needs that [`mod@plan`] has.
+//! the [`Sheet`] and [`Look`] a caller holds are at the root.
 //!
-//! A twelfth public module, [`mod@picture`], is not one of this crate's own:
+//! An eleventh public module, [`mod@picture`], is not one of this crate's own:
 //! it only re-exports the compositor's property names and default caption
 //! look under a path beside [`audio::path::VOLUME`], and its own doc says why.
 //!
@@ -159,7 +156,7 @@ pub(crate) mod follow;
 pub(crate) mod format;
 pub mod frames;
 pub(crate) mod held;
-pub mod layout;
+pub(crate) mod layout;
 pub mod page;
 pub(crate) mod pipe;
 pub mod plan;
@@ -231,6 +228,7 @@ pub use scorsese_compositor::icon;
 /// `picture::caption` is the look a caption gets when nobody chose one, for
 /// the same reason: it names a shipped face.
 pub mod picture {
+    pub use scorsese_compositor::MAX_GLOW_INTENSITY;
     pub use scorsese_compositor::path;
     pub use scorsese_compositor::text::caption;
 }
