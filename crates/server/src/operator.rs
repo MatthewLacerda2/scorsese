@@ -19,10 +19,11 @@
 //! development stack with no Google client, and for the web app's end-to-end
 //! tests, which sign in without Google the same way.
 //!
+//! [`Cli`] is the whole command line, kept here so its help text is tested.
 //! Each command's output is what [`user`] and [`token`] return, printed to
 //! stdout by the binary — so a test reads exactly what the operator would.
 
-use clap::Subcommand;
+use clap::{Parser, Subcommand};
 use sqlx::postgres::PgPool;
 
 use crate::ServerError;
@@ -31,6 +32,21 @@ pub use crate::credits::command::CreditCommand;
 use crate::http::auth::SESSION_COOKIE;
 use crate::jobs::store;
 use crate::storage::Storage;
+
+/// The scorsese web API, and the operator's commands for its accounts.
+///
+/// Configured by the environment: DATABASE_URL, SCORSESE_STORAGE,
+/// SCORSESE_CACHE and optionally SCORSESE_BIND (see .env.example).
+//
+// Here rather than in the binary so a test can walk it: every command and
+// flag has help text, the server's as well as `scorsese`'s (#1229).
+#[derive(Debug, Parser)]
+#[command(name = "scorsese-server", version)]
+pub struct Cli {
+    /// What to do. Serves when omitted.
+    #[command(subcommand)]
+    pub command: Option<Command>,
+}
 
 /// What the binary can be asked to do.
 #[derive(Debug, Subcommand)]

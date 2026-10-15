@@ -1,7 +1,12 @@
-//! The operator's commands read as the operator would read them.
+//! The operator's commands read as the operator would read them, and every
+//! one of them, and every flag, says what it is for.
 
+#[path = "../../cli/tests/help/walk.rs"]
+mod walk;
+
+use clap::CommandFactory;
 use scorsese_server::accounts::{sessions, tokens, users};
-use scorsese_server::operator::{self, TokenCommand, UserCommand};
+use scorsese_server::operator::{self, Cli, TokenCommand, UserCommand};
 use scorsese_server::storage::Storage;
 use scorsese_server::{AccountError, ServerError};
 use sqlx::postgres::PgPool;
@@ -121,4 +126,19 @@ fn an_email_is_normalised_and_loosely_checked() {
     ] {
         assert!(normalize_email(bad).is_err(), "{bad:?} was accepted");
     }
+}
+
+#[test]
+fn every_server_command_and_argument_has_help_text() {
+    let found = walk::undocumented(Cli::command());
+    assert!(
+        found.is_empty(),
+        "no help text on:\n  {}",
+        found.join("\n  ")
+    );
+    let arguments = walk::arguments(Cli::command());
+    assert!(
+        arguments > 10,
+        "walked only {arguments} arguments: the walk stopped reaching the tree"
+    );
 }
