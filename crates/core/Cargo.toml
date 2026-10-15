@@ -19,7 +19,16 @@ serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
 sha2 = "0.11.0"
 thiserror = "2.0.19"
 
+[features]
+# Test doubles for core's seams (`testing`), for other crates' tests (#1279).
+# Only ever turned on from a `[dev-dependencies]` entry, so nothing shipped
+# carries them.
+test-support = []
+
 [dev-dependencies]
+# This crate's own integration tests take `testing` the way every other
+# crate's do.
+scorsese-core = { version = "0.1.0", path = ".", features = ["test-support"] }
 # Property-based tests only — see `tests/properties/`. A dev-dependency, so it
 # never reaches a shipped build.
 #

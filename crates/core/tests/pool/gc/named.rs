@@ -2,9 +2,9 @@
 //! (#1100): collecting it would leave a project that does not load, or a page
 //! drawing a broken picture.
 
-use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};
 use scorsese_core::pool::{GcError, NamedByPage, named_by_pages, remove_assets, unused_assets};
+use scorsese_core::testing::StubProbe;
 use scorsese_core::{Asset, AssetId, AssetKind, Project, import_asset};
 use std::path::PathBuf;
 

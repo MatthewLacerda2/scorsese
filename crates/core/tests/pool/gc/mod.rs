@@ -2,9 +2,9 @@
 
 mod named;
 
-use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};
 use scorsese_core::pool::{GcError, remove_assets, unused_assets};
+use scorsese_core::testing::StubProbe;
 use scorsese_core::{
     Asset, AssetId, Clip, ClipId, Frames, ImageSequence, Project, Track, TrackId, TrackKind,
     import_asset,

@@ -1,7 +1,7 @@
 //! Web pages: written whole, read back, and looked at with `still` — whose
 //! notes are how an agent hears what its page could not do.
 
-use super::fixture::project;
+use super::fixture::{document, project};
 use crate::{call, said};
 use serde_json::json;
 
@@ -19,8 +19,8 @@ fn page_write_makes_a_page_and_then_rewrites_it() {
     ));
     assert!(!failed, "{text}");
     assert!(text.contains("pages/lower-third.html"), "got {text}");
-    let document = std::fs::read_to_string(dir.join("project.json")).expect("document");
-    assert!(document.contains("\"kind\": \"html\""), "{document}");
+    let before = document(&dir);
+    assert!(before.contains("\"kind\": \"html\""), "{before}");
 
     let (text, failed) = said(&call(
         "page_write",
@@ -28,8 +28,8 @@ fn page_write_makes_a_page_and_then_rewrites_it() {
     ));
     assert!(!failed, "{text}");
     assert!(text.contains("rewritten"), "got {text}");
-    let after = std::fs::read_to_string(dir.join("project.json")).expect("document");
-    assert_eq!(after, document, "a rewrite changes nothing in the document");
+    let after = document(&dir);
+    assert_eq!(after, before, "a rewrite changes nothing in the document");
 
     let (read_back, failed) = said(&call(
         "page_read",

@@ -1,6 +1,6 @@
 //! The tools that change something, and what they refuse to change.
 
-use super::fixture::{DOCUMENT, fingerprint, project};
+use super::fixture::{DOCUMENT, document, fingerprint, project};
 use crate::{call, said};
 use serde_json::json;
 
@@ -15,7 +15,7 @@ fn writing_a_document_replaces_it() {
         json!({ "project": dir, "document": renamed, "fingerprint": fingerprint(&dir) }),
     ));
     assert!(!failed, "{text}");
-    let on_disk = std::fs::read_to_string(dir.join("project.json")).expect("read back");
+    let on_disk = document(&dir);
     assert!(on_disk.contains("Trailer"));
     std::fs::remove_dir_all(dir).ok();
 }
@@ -25,7 +25,7 @@ fn writing_a_document_replaces_it() {
 #[test]
 fn writing_a_broken_document_changes_nothing() {
     let dir = project("write-broken");
-    let before = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let before = document(&dir);
     let broken = DOCUMENT.replace(r#""asset": "bed""#, r#""asset": "ghost""#);
 
     let (text, failed) = said(&call(
@@ -34,11 +34,7 @@ fn writing_a_broken_document_changes_nothing() {
     ));
     assert!(failed, "a broken document must be refused");
     assert!(text.contains("nothing written"), "got {text}");
-    assert_eq!(
-        std::fs::read_to_string(dir.join("project.json")).expect("read"),
-        before,
-        "the file on disk must be untouched"
-    );
+    assert_eq!(document(&dir), before, "the file on disk must be untouched");
     std::fs::remove_dir_all(dir).ok();
 }
 
@@ -51,7 +47,7 @@ fn setting_a_level_writes_one_keyframe_and_says_what_the_clip_plays_at() {
     ));
     assert!(!failed, "{text}");
     assert!(text.contains("plays at 0.4"), "got {text}");
-    let on_disk = std::fs::read_to_string(dir.join("project.json")).expect("read back");
+    let on_disk = document(&dir);
     assert!(on_disk.contains(r#""property": "volume""#), "got {on_disk}");
     assert!(
         !on_disk.contains(r#""by""#),
@@ -80,7 +76,7 @@ fn muting_a_ducked_clip_replaces_the_dip_and_names_what_went() {
     assert!(text.contains("muted"), "got {text}");
     assert!(text.contains("`duck` wrote"), "got {text}");
     assert!(text.contains("duck_music"), "got {text}");
-    let on_disk = std::fs::read_to_string(dir.join("project.json")).expect("read back");
+    let on_disk = document(&dir);
     assert!(!on_disk.contains(r#""by": "duck""#), "got {on_disk}");
     std::fs::remove_dir_all(dir).ok();
 }
@@ -90,7 +86,7 @@ fn muting_a_ducked_clip_replaces_the_dip_and_names_what_went() {
 #[test]
 fn a_fade_that_runs_off_the_end_of_the_clip_changes_nothing() {
     let dir = project("volume-overrun");
-    let before = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let before = document(&dir);
     let (text, failed) = said(&call(
         "set_volume",
         json!({ "project": dir, "clip": "m1", "level": 0.0,
@@ -98,10 +94,7 @@ fn a_fade_that_runs_off_the_end_of_the_clip_changes_nothing() {
     ));
     assert!(failed, "got {text}");
     assert!(text.contains("nothing was changed"), "got {text}");
-    assert_eq!(
-        std::fs::read_to_string(dir.join("project.json")).expect("read"),
-        before
-    );
+    assert_eq!(document(&dir), before);
     std::fs::remove_dir_all(dir).ok();
 }
 

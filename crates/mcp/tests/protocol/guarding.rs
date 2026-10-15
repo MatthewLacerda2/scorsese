@@ -1,7 +1,7 @@
 //! The read/write pair, and what stops the second of two writers from taking
 //! the first one's work with it.
 
-use super::fixture::{DOCUMENT, fingerprint, project};
+use super::fixture::{DOCUMENT, document, fingerprint, project};
 use crate::{call, said};
 use serde_json::{Value, json};
 
@@ -21,7 +21,7 @@ fn a_write_built_on_a_document_something_else_replaced_is_refused() {
         }),
     ));
     assert!(!failed, "the first writer publishes: {text}");
-    let landed = std::fs::read_to_string(dir.join("project.json")).expect("read back");
+    let landed = document(&dir);
 
     let (text, failed) = said(&call(
         "project_write",
@@ -39,7 +39,7 @@ fn a_write_built_on_a_document_something_else_replaced_is_refused() {
         "got {text}"
     );
     assert_eq!(
-        std::fs::read_to_string(dir.join("project.json")).expect("read back"),
+        document(&dir),
         landed,
         "the first writer's document is still the one on disk"
     );
@@ -51,7 +51,7 @@ fn a_write_built_on_a_document_something_else_replaced_is_refused() {
 #[test]
 fn a_write_with_no_fingerprint_is_refused() {
     let dir = project("guard-none");
-    let before = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let before = document(&dir);
 
     let (text, failed) = said(&call(
         "project_write",
@@ -60,11 +60,7 @@ fn a_write_with_no_fingerprint_is_refused() {
 
     assert!(failed, "a write with nothing to compare must be refused");
     assert!(text.contains("nothing written"), "got {text}");
-    assert_eq!(
-        std::fs::read_to_string(dir.join("project.json")).expect("read"),
-        before,
-        "the file on disk must be untouched"
-    );
+    assert_eq!(document(&dir), before, "the file on disk must be untouched");
     std::fs::remove_dir_all(dir).ok();
 }
 
@@ -89,15 +85,15 @@ fn the_document_and_the_fingerprint_are_separate_blocks() {
 fn a_compact_read_written_back_is_accepted_and_saved_readable() {
     let dir = project("guard-compact");
     let reply = call("project_read", json!({ "project": dir }));
-    let (document, _) = said(&reply);
-    assert!(!document.contains('\n'), "read compact: {document}");
+    let (compact, _) = said(&reply);
+    assert!(!compact.contains('\n'), "read compact: {compact}");
 
     let (text, failed) = said(&call(
         "project_write",
-        json!({ "project": dir, "document": document, "fingerprint": fingerprint(&dir) }),
+        json!({ "project": dir, "document": compact, "fingerprint": fingerprint(&dir) }),
     ));
     assert!(!failed, "{text}");
-    let saved = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let saved = document(&dir);
     assert!(saved.contains("\n  "), "saved indented: {saved}");
     std::fs::remove_dir_all(dir).ok();
 }

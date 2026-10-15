@@ -1,6 +1,6 @@
 //! Scaling a run of clips about an instant, over the wire.
 
-use super::fixture::project;
+use super::fixture::{document, project, read};
 use crate::{call, said};
 use serde_json::{Value, json};
 
@@ -61,23 +61,15 @@ fn keyframes_scale_with_the_clip_and_tool_tracks_are_named() {
 #[test]
 fn a_factor_that_is_not_a_scale_changes_nothing() {
     let dir = project("pace-refused");
-    let before = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let before = document(&dir);
     let (text, failed) = said(&call(
         "scale_pacing",
         json!({ "project": dir, "clips": ["c1"], "factor": 0.0 }),
     ));
     assert!(failed, "×0 collapses the cut onto a point");
     assert!(text.contains("nothing was changed"), "got {text}");
-    assert_eq!(
-        std::fs::read_to_string(dir.join("project.json")).expect("read"),
-        before
-    );
+    assert_eq!(document(&dir), before);
     std::fs::remove_dir_all(dir).ok();
-}
-
-fn read(dir: &std::path::Path) -> Value {
-    let json = std::fs::read_to_string(dir.join("project.json")).expect("read back");
-    serde_json::from_str(&json).expect("the server writes JSON")
 }
 
 /// One clip's `(start, duration)`, by track id and position on it.

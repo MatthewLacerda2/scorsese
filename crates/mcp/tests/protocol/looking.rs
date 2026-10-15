@@ -1,6 +1,6 @@
 //! The tools that only read: listing, describing, checking, and the pool.
 
-use super::fixture::{DOCUMENT, EMPTY_SHA256, project, with_footage};
+use super::fixture::{DOCUMENT, empty_sha256, project, with_footage};
 use crate::{call, once, said};
 use serde_json::json;
 
@@ -130,7 +130,7 @@ fn checking_reports_a_file_the_document_names_and_the_disk_has_not_got() {
 #[test]
 fn bytes_that_changed_since_import_are_found_only_when_asked_for() {
     let dir = project("check-verify");
-    let recorded = format!(r#", "sha256": "{EMPTY_SHA256}""#);
+    let recorded = format!(r#", "sha256": "{}""#, empty_sha256());
     std::fs::write(dir.join("project.json"), with_footage(&recorded)).expect("write");
     std::fs::write(dir.join("assets/boat.mp4"), b"not what was imported").expect("write");
 

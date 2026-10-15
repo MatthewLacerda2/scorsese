@@ -1,7 +1,7 @@
 //! `clip_set`'s `matte`: set, turned inside out, removed, and refused where
 //! the document would not load.
 
-use super::fixture::project;
+use super::fixture::{project, read};
 use crate::{call, said};
 use serde_json::{Value, json};
 
@@ -21,8 +21,7 @@ fn with_wipe(label: &str) -> std::path::PathBuf {
 }
 
 fn matte_of(dir: &std::path::Path) -> Value {
-    let text = std::fs::read_to_string(dir.join("project.json")).expect("read");
-    let project: Value = serde_json::from_str(&text).expect("the server writes JSON");
+    let project = read(dir);
     project["tracks"][0]["clips"][0]["matte"].clone()
 }
 

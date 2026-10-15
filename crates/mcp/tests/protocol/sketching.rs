@@ -2,14 +2,13 @@
 //! of its brief (#826): the free first draft a cut is laid out with, without
 //! sending the whole document.
 
-use super::fixture::project;
+use super::fixture::{project, read};
 use crate::{call, said};
 use serde_json::{Value, json};
 
 /// The asset row for `id`, as it is on disk.
 fn asset(dir: &std::path::Path, id: &str) -> Value {
-    let text = std::fs::read_to_string(dir.join("project.json")).expect("read back");
-    let document: Value = serde_json::from_str(&text).expect("the document is JSON");
+    let document = read(dir);
     document["assets"]
         .as_array()
         .expect("assets")

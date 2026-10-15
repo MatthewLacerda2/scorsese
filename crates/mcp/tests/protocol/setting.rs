@@ -1,13 +1,8 @@
 //! Changing one field of an inline asset, over the wire.
 
-use super::fixture::project;
+use super::fixture::{document, project};
 use crate::{call, said};
 use serde_json::json;
-
-/// The project document as it is on disk.
-fn document(dir: &std::path::Path) -> String {
-    std::fs::read_to_string(dir.join("project.json")).expect("the project is on disk")
-}
 
 /// **The reason this verb merges rather than replaces.** The caption is set in
 /// a serif face; shrinking it must not put the font back to the default, which

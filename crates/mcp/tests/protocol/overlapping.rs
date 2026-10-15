@@ -5,9 +5,9 @@
 //! does not wait — Claude Code moving a slow call to the background, or
 //! sending several calls in one turn.
 
+use super::fixture::{document, project};
 use serde_json::{Value, json};
 
-use super::fixture::project;
 use crate::{exchange, said};
 
 /// A `tools/call` frame as a line.
@@ -51,7 +51,7 @@ fn edits_to_one_project_sent_at_once_all_land() {
         })
         .collect();
     let lines = exchange(&frames.iter().map(String::as_str).collect::<Vec<_>>());
-    let document = std::fs::read_to_string(dir.join("project.json")).expect("the project");
+    let document = document(&dir);
     std::fs::remove_dir_all(&dir).ok();
 
     assert_eq!(lines.len(), lanes.len(), "{lines:?}");

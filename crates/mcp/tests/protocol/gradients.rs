@@ -2,13 +2,12 @@
 //! asset's `color` take the object form `project.json` writes, and what a
 //! gradient cannot be is refused in validation's words.
 
-use super::fixture::project;
+use super::fixture::{project, read};
 use crate::{call, said};
 use serde_json::{Value, json};
 
 fn asset_of(dir: &std::path::Path, id: &str) -> Value {
-    let text = std::fs::read_to_string(dir.join("project.json")).expect("the project is on disk");
-    let document: Value = serde_json::from_str(&text).expect("the project is JSON");
+    let document = read(dir);
     document["assets"]
         .as_array()
         .expect("an assets table")

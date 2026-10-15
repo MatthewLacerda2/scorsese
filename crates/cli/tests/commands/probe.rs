@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use crate::common::documents::{self, assets};
 use crate::common::media::{colour_video, still, tools};
-use crate::common::{Run, reload, run_in, run_without_tools};
+use crate::common::{Run, document, reload, run_in, run_without_tools};
 
 /// A project whose assets table names two real files and says nothing else
 /// about either — a document written by an agent rather than by `import`.
@@ -129,10 +129,6 @@ fn outgrown(label: &str, real_seconds: u32) -> PathBuf {
     );
     colour_video(&tools(), &dir, "shot", "blue", real_seconds);
     dir
-}
-
-fn document(dir: &Path) -> String {
-    std::fs::read_to_string(dir.join(scorsese_core::PROJECT_FILE_NAME)).expect("project.json")
 }
 
 #[test]

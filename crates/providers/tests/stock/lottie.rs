@@ -5,7 +5,7 @@ use scorsese_providers::stock::{
 };
 
 use crate::common::project;
-use crate::fake::{Fake, LOTTIE, Probe, query};
+use crate::fake::{Fake, LOTTIE, probe, query};
 
 #[test]
 fn an_animation_lands_beside_the_pages_and_not_in_the_assets() {
@@ -84,7 +84,7 @@ fn an_animation_lands_beside_the_pages_and_not_in_the_assets() {
             id: 3,
         }],
         (1920, 1080),
-        &Probe,
+        &probe(),
     );
     assert!(matches!(refused[0], Err(StockError::NotMedia { id: 3 })));
 }

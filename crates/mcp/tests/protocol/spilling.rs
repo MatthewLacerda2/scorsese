@@ -1,6 +1,6 @@
 //! Sound effects that overlap, placed without picking a free track (#972).
 
-use super::fixture::project;
+use super::fixture::{project, read};
 use crate::{call, said};
 use serde_json::{Value, json};
 
@@ -18,9 +18,7 @@ fn an_overlapping_sound_lands_on_the_next_lane_and_the_reply_names_it() {
         assert!(!failed, "{text}");
         assert!(text.contains(&format!("on `{expected}`")), "got {text}");
     }
-    let project: Value =
-        serde_json::from_str(&std::fs::read_to_string(dir.join("project.json")).expect("read"))
-            .expect("JSON");
+    let project: Value = read(&dir);
     let ids: Vec<_> = project["tracks"]
         .as_array()
         .expect("tracks")

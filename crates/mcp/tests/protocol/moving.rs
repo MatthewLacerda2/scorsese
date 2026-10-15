@@ -1,6 +1,6 @@
 //! Moving a clip to another track and removing clips, over the wire.
 
-use super::fixture::project;
+use super::fixture::{document, project, read};
 use crate::{call, said};
 use serde_json::{Value, json};
 
@@ -117,14 +117,6 @@ fn one_unknown_clip_removes_nothing_at_all() {
     assert!(text.contains("`nope`"), "got {text}");
     assert_eq!(document(&dir), before);
     std::fs::remove_dir_all(dir).ok();
-}
-
-fn document(dir: &std::path::Path) -> String {
-    std::fs::read_to_string(dir.join("project.json")).expect("read")
-}
-
-fn read(dir: &std::path::Path) -> Value {
-    serde_json::from_str(&document(dir)).expect("the server writes JSON")
 }
 
 /// Where the `music` track sits in the document.

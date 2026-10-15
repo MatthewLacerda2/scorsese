@@ -2,9 +2,9 @@
 //! it brings in, a write probes the assets it names a file for and nobody has
 //! measured — before validating, so a clip is held to the source it really is.
 
+use super::fixture::{document, fingerprint, project, read, with_footage};
 use std::path::Path;
 
-use super::fixture::{fingerprint, project, with_footage};
 use crate::{call, said};
 use scorsese_render::Tools;
 use serde_json::{Value, json};
@@ -34,8 +34,7 @@ fn write(dir: &Path, document: &str, reprobe: bool) -> (String, bool) {
 
 /// The boat's `media` block as it is on disk.
 fn recorded(dir: &Path) -> Value {
-    let on_disk = std::fs::read_to_string(dir.join("project.json")).expect("read back");
-    let document: Value = serde_json::from_str(&on_disk).expect("the document is JSON");
+    let document = read(dir);
     let assets = document["assets"].as_array().expect("an assets table");
     let boat = assets.iter().find(|asset| asset["id"] == "boat");
     boat.expect("the boat was written")["media"].clone()
@@ -54,7 +53,7 @@ fn footage_added_by_a_write_is_measured_as_it_is_written() {
     assert!((seconds - 2.0).abs() < 0.1, "got {media}");
 
     // Measured once: the next write finds nothing new and spawns nothing.
-    let document = std::fs::read_to_string(dir.join("project.json")).expect("read back");
+    let document = document(&dir);
     let (text, failed) = write(&dir, &document, false);
     assert!(!failed && !text.contains("probed"), "got {text}");
     std::fs::remove_dir_all(dir).ok();
@@ -67,14 +66,11 @@ fn footage_added_by_a_write_is_measured_as_it_is_written() {
 fn a_clip_longer_than_the_footage_it_turns_out_to_be_is_refused() {
     let dir = project("probe-overrun");
     footage(&dir.join("assets/boat.mp4"), "0.5");
-    let before = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let before = document(&dir);
     let (text, failed) = write(&dir, &with_footage(""), false);
     assert!(failed, "an overrunning clip must be refused: {text}");
     assert!(text.contains("nothing written"), "got {text}");
-    assert_eq!(
-        std::fs::read_to_string(dir.join("project.json")).expect("read"),
-        before
-    );
+    assert_eq!(document(&dir), before);
     std::fs::remove_dir_all(dir).ok();
 }
 
@@ -90,7 +86,7 @@ fn a_file_that_cannot_be_measured_is_named_and_the_write_goes_ahead() {
     assert_eq!(recorded(&dir), Value::Null);
 
     std::fs::remove_file(dir.join("assets/boat.mp4")).expect("remove the fake media");
-    let document = std::fs::read_to_string(dir.join("project.json")).expect("read back");
+    let document = document(&dir);
     let (text, failed) = write(&dir, &document, false);
     assert!(!failed, "{text}");
     assert!(text.contains("boat: its file is not there"), "got {text}");

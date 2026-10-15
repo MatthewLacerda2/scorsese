@@ -1,14 +1,13 @@
 //! `cut_to_voice` laying a cut out from its lines (#1008).
 
-use serde_json::{Value, json};
+use super::fixture::{document, project, read};
+use serde_json::json;
 
-use super::fixture::project;
 use crate::{call, said};
 
 /// Where clip `id` sits in the saved document: its start and duration.
 fn placed(dir: &std::path::Path, id: &str) -> (u64, u64) {
-    let text = std::fs::read_to_string(dir.join("project.json")).expect("the project is saved");
-    let document: Value = serde_json::from_str(&text).expect("the project is JSON");
+    let document = read(dir);
     let clip = document["tracks"]
         .as_array()
         .into_iter()
@@ -47,7 +46,7 @@ fn an_untimed_line_ends_its_scene_the_gap_after_its_audio() {
 #[test]
 fn a_refused_cut_changes_nothing() {
     let dir = project("voicing-refused");
-    let before = std::fs::read_to_string(dir.join("project.json")).unwrap();
+    let before = document(&dir);
     let scenes = json!([{ "line": "v1c", "visuals": ["c1"], "moves_with": ["nope"] }]);
     let (text, failed) = said(&call(
         "cut_to_voice",
@@ -58,9 +57,6 @@ fn a_refused_cut_changes_nothing() {
         text.contains("no clip `nope`") && text.contains("nothing was changed"),
         "{text}"
     );
-    assert_eq!(
-        std::fs::read_to_string(dir.join("project.json")).unwrap(),
-        before
-    );
+    assert_eq!(document(&dir), before);
     std::fs::remove_dir_all(dir).ok();
 }

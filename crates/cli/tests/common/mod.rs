@@ -204,6 +204,12 @@ pub(crate) fn reload(dir: &Path) -> Project {
     Project::load(dir).expect("the project on disk loads")
 }
 
+/// The document as it is on disk, for a test asserting on its text, or that a
+/// command left it exactly as it was.
+pub(crate) fn document(dir: &Path) -> String {
+    std::fs::read_to_string(dir.join(scorsese_core::PROJECT_FILE_NAME)).expect("read project.json")
+}
+
 /// True when `dir` holds this file or directory.
 pub(crate) fn holds(dir: &Path, entry: impl AsRef<OsStr>) -> bool {
     dir.join(entry.as_ref()).exists()

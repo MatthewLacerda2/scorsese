@@ -1,8 +1,8 @@
 //! Files that must not make it into the pool, and what is left behind when
 //! one is rejected.
 
-use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};
+use scorsese_core::testing::StubProbe;
 use scorsese_core::{AssetKind, ImportError, MediaMetadata, import_asset};
 
 #[test]

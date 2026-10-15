@@ -1,6 +1,7 @@
 //! `project_new` with a platform and a style: the project starts with a brief
 //! in its script, and the next step it names is proposing the script (#1015).
 
+use super::fixture::document;
 use serde_json::json;
 
 use crate::starting::somewhere;
@@ -34,7 +35,7 @@ fn without_either_no_script_is_written() {
     let (text, failed) = said(&call("project_new", json!({ "project": dir })));
     assert!(!failed, "{text}");
     assert!(!dir.join("script.md").exists(), "a stub was written");
-    let document = std::fs::read_to_string(dir.join("project.json")).expect("read the document");
+    let document = document(&dir);
     assert!(!document.contains("\"script\""), "got {document}");
     std::fs::remove_dir_all(dir).ok();
 }

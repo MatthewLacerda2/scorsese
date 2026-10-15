@@ -1,12 +1,11 @@
 //! `clip_follow`: a clip sent along an arrow over the wire, and brought back.
 
-use super::fixture::project;
+use super::fixture::{document, project, read};
 use crate::{call, said};
 use serde_json::{Value, json};
 
 fn clip_of(dir: &std::path::Path, id: &str) -> Value {
-    let text = std::fs::read_to_string(dir.join("project.json")).expect("the project is on disk");
-    let document: Value = serde_json::from_str(&text).expect("the project is JSON");
+    let document = read(dir);
     document["tracks"]
         .as_array()
         .expect("tracks")
@@ -86,14 +85,14 @@ fn a_clip_is_sent_along_an_arrow_with_its_ramp() {
 #[test]
 fn following_what_is_not_an_arrow_writes_nothing() {
     let dir = with_a_route("follow-refused");
-    let before = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let before = document(&dir);
     let (text, failed) = said(&call(
         "clip_follow",
         json!({ "project": dir, "clip": "c-route", "arrow": "c1" }),
     ));
     assert!(failed, "{text}");
     assert!(text.contains("only a clip of an arrow"), "{text}");
-    let after = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let after = document(&dir);
     assert_eq!(before, after);
     std::fs::remove_dir_all(dir).ok();
 }

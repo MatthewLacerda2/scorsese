@@ -1,6 +1,19 @@
 //! A project directory for the tool tests to work on.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+use serde_json::Value;
+
+/// The project document in `dir`, as it is on disk: for a test that has to see
+/// what actually landed in it, or that nothing did.
+pub(crate) fn document(dir: &Path) -> String {
+    std::fs::read_to_string(dir.join("project.json")).expect("the project is on disk")
+}
+
+/// The same document, parsed.
+pub(crate) fn read(dir: &Path) -> Value {
+    serde_json::from_str(&document(dir)).expect("the server writes JSON")
+}
 
 /// The fingerprint `project_read` reports for the project in `dir`, taken the
 /// way a client takes it — out of the reply rather than computed beside the
@@ -59,8 +72,9 @@ pub(crate) const BED: &str = r#"{
 
 /// SHA-256 of nothing, so an empty file matches this recorded hash exactly
 /// and a file with anything in it does not.
-pub(crate) const EMPTY_SHA256: &str =
-    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+pub(crate) fn empty_sha256() -> String {
+    scorsese_core::hash_bytes(b"")
+}
 
 /// The fixture with a shot of footage cut into it, whose asset row carries
 /// `extra` — a recorded hash, or nothing at all.

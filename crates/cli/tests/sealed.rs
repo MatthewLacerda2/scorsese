@@ -12,7 +12,7 @@ mod common;
 
 use std::process::Command;
 
-use common::{capture, documents, seal, sealed};
+use common::{capture, document, documents, seal, sealed};
 use scorsese_providers::credentials::Provider;
 
 #[test]
@@ -55,7 +55,7 @@ fn a_run_that_reaches_for_a_provider_is_refused_the_network() {
     // The transport failed on this machine — never an answer from the vendor,
     // which would mean the request left it.
     run.says("could not reach");
-    let document = std::fs::read_to_string(dir.join("project.json")).expect("read project.json");
+    let document = document(&dir);
     assert!(
         !document.contains("operation"),
         "the shot was submitted:\n{document}"

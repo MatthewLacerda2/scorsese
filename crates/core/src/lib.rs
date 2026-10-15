@@ -66,7 +66,10 @@
 //! imported file is copied in plainly, under a name nothing references until
 //! the copy is done); and [`mod@style`] is the menu a video starts from — the
 //! platforms it can be made for and the styles it can be made in. [`note`] keeps its own as well — the paragraph
-//! above sends the reader to it.
+//! above sends the reader to it. `testing`, compiled only with the
+//! `test-support` feature that a `[dev-dependencies]` entry turns on, holds the
+//! test doubles every crate's tests share, such as a [`ProbeMedia`] answering
+//! from memory.
 //!
 //! **Everything else is `pub(crate)`.** How the document is parsed and saved,
 //! how the frame grid does its arithmetic, how a font choice and a colour are
@@ -102,6 +105,8 @@ pub(crate) mod shape;
 pub(crate) mod stamp;
 pub mod style;
 pub mod template;
+#[cfg(feature = "test-support")]
+pub mod testing;
 pub(crate) mod text;
 pub(crate) mod time;
 pub(crate) mod timeline;
