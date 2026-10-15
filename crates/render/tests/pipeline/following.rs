@@ -13,8 +13,7 @@ use scorsese_core::{
 use scorsese_render::{Frame, FrameRange, Renderer};
 
 use crate::common::ffmpeg::tools;
-use crate::common::scratch;
-use crate::common::{held, project, shape_asset, video_track};
+use crate::common::{held, project, scratch, shape_asset, video_track};
 use crate::{RASTER, render, settings};
 
 /// A thin, dark line from `from` to `to`, drawn but invisible against black.
