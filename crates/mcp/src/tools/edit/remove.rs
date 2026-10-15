@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use super::clip_set;
 use crate::tools::args::{self, ProjectDir, Required};
-use crate::tools::inspect::load;
+use crate::tools::inspect::{load, save};
 use crate::tools::{Costs, Reply, Tool};
 
 /// Remove clips from their tracks, leaving their assets and the gap.
@@ -58,9 +58,7 @@ impl Tool for ClipRemove {
         let fps = project.timeline_fps;
         let removed = placing::remove(&mut project, &clip_set(&arguments.clips)?)
             .map_err(|error| format!("{error} — nothing was written"))?;
-        project
-            .save(dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
+        save(&project, dir)?;
 
         let each: Vec<String> = removed
             .iter()

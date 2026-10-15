@@ -317,4 +317,17 @@ mod tests {
         use clap::CommandFactory;
         Cli::command().debug_assert();
     }
+
+    /// clap needs the default as text, and `SampleRate` displays as
+    /// `48000 Hz`, which does not parse back; so the flag carries a literal,
+    /// and this holds it to the mixer's own default.
+    #[test]
+    fn render_defaults_to_the_mixers_sample_rate() {
+        use clap::Parser;
+        let cli = Cli::try_parse_from(["scorsese", "render", "--out", "x.mp4"]).expect("parses");
+        let Command::Render { sample_rate, .. } = cli.command else {
+            panic!("parsed as another command");
+        };
+        assert_eq!(sample_rate, scorsese_render::SampleRate::DEFAULT);
+    }
 }

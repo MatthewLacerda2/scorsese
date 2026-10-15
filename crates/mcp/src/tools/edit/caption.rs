@@ -8,7 +8,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::tools::args::{self, ProjectDir, Required};
-use crate::tools::inspect::load;
+use crate::tools::inspect::{load, save};
 use crate::tools::{Costs, Reply, Tool};
 
 /// Caption the narration.
@@ -76,9 +76,7 @@ impl Tool for CaptionNarration {
         let mut project = load(dir)?;
         let asked = asked(&arguments, project.timeline_fps.as_f64())?;
         let report = caption(&mut project, dir, &asked).map_err(|error| error.to_string())?;
-        project
-            .save(dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
+        save(&project, dir)?;
         Ok(said(&report, &asked.track).into())
     }
 }

@@ -58,8 +58,7 @@ impl Asked {
 /// Realises every sketched brief, waiting up to `patience` for the shots — or,
 /// asked for a batch, orders the stills and nothing else.
 pub(crate) fn run(project_dir: &Path, asked: &Asked) -> Result<()> {
-    let mut project = Project::load(project_dir)
-        .with_context(|| format!("opening the project in {}", project_dir.display()))?;
+    let mut project = super::open(project_dir)?;
     let order = asked.order();
 
     if asked.dry_run {
@@ -266,8 +265,7 @@ fn pending(project: &Project, root: &Path) -> bool {
 
 /// Picks up whatever finished while nobody was watching. Submits nothing.
 pub(crate) fn sweep(project_dir: &Path) -> Result<()> {
-    let mut project = Project::load(project_dir)
-        .with_context(|| format!("opening the project in {}", project_dir.display()))?;
+    let mut project = super::open(project_dir)?;
 
     let outcome = shots::sweep(&mut project, project_dir);
     let drawn = match &outcome {

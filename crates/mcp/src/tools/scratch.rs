@@ -1,11 +1,13 @@
 //! Where a picture is written on the way to being sent.
 //!
 //! Every tool here that answers with an image goes through a file, because the
-//! PNG encoding is ffmpeg's and ffmpeg writes files. Two of them share this:
-//! `still`, which will keep the file when a caller names a path, and `look`,
-//! which never does.
+//! PNG encoding is ffmpeg's and ffmpeg writes files. [`Scratch::png`] is that
+//! round trip for `hear`, `look` and `still`; only `still` keeps the file, when
+//! a caller names a path.
 
 use std::path::{Path, PathBuf};
+
+use scorsese_render::{Frame, Tools, frames};
 
 /// Where the PNG is written, and whether it survives the call.
 ///
@@ -36,6 +38,22 @@ impl Scratch {
                 remove: true,
             },
         }
+    }
+
+    /// `frame` as PNG bytes, written to `kept` (or a scratch file that is
+    /// removed) and read back. `what` names the picture in the refusal when
+    /// ffmpeg cannot write it: "the frame", "the sheet".
+    pub(crate) fn png(
+        tools: &Tools,
+        frame: &Frame,
+        kept: Option<&Path>,
+        what: &str,
+    ) -> Result<Vec<u8>, String> {
+        let png = Self::at(kept);
+        frames::write_png(tools, &png.path, frame)
+            .map_err(|error| format!("writing {what}: {error}"))?;
+        std::fs::read(&png.path)
+            .map_err(|error| format!("reading {} back: {error}", png.path.display()))
     }
 }
 

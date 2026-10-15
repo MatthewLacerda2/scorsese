@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use super::clip_set;
 use crate::tools::args::{self, Name, ProjectDir, Required};
-use crate::tools::inspect::load;
+use crate::tools::inspect::{load, save};
 use crate::tools::{Costs, Reply, Tool};
 
 /// Wrap clips already on the timeline into a group that renders as one layer.
@@ -85,9 +85,7 @@ impl Tool for ClipGroup {
         };
         let grouped = grouping::group(&mut project, &request)
             .map_err(|error| format!("{error} — nothing was written"))?;
-        project
-            .save(dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
+        save(&project, dir)?;
         let lanes: Vec<String> = grouped.tracks.iter().map(|t| format!("`{t}`")).collect();
         Ok(format!(
             "Grouped {} clip(s) into `{}`, shown by clip `{}` on track `{}` from {:.2}s for \
@@ -156,9 +154,7 @@ impl Tool for ClipUngroup {
         let clip = ClipId::new(arguments.clip.as_str());
         let back = grouping::ungroup(&mut project, &clip)
             .map_err(|error| format!("{error} — nothing was written"))?;
-        project
-            .save(dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
+        save(&project, dir)?;
         let lanes: Vec<String> = back.tracks.iter().map(|t| format!("`{t}`")).collect();
         let lost = if back.dropped_its_own_look {
             format!(

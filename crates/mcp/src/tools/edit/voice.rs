@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::tools::args::{self, ProjectDir, Required};
-use crate::tools::inspect::load;
+use crate::tools::inspect::{load, save};
 use crate::tools::{Costs, Reply, Tool};
 
 /// Lay a narrated cut out from its lines.
@@ -90,9 +90,7 @@ impl Tool for CutToVoice {
         let voicing = voicing(arguments);
         let voiced = cut_to_voice(&mut project, dir, &voicing)
             .map_err(|error| format!("{error} — nothing was changed"))?;
-        project
-            .save(dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
+        save(&project, dir)?;
         Ok(said(project.timeline_fps, &voiced).into())
     }
 }

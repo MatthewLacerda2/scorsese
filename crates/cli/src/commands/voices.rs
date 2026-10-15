@@ -11,8 +11,7 @@
 
 use std::path::Path;
 
-use anyhow::{Context, Result};
-use scorsese_core::Project;
+use anyhow::Result;
 use scorsese_providers::credentials::{Provider, resolve};
 use scorsese_providers::voices::{Answer, ElevenLabsVoices, Filters, builtin, library, require};
 
@@ -34,8 +33,7 @@ pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
     // The project is opened before anything else because the cache lives inside
     // it: writing `cache/voices/` into a directory that is not a project would
     // leave a stray folder wherever somebody happened to be standing.
-    Project::load(project_dir)
-        .with_context(|| format!("opening the project in {}", project_dir.display()))?;
+    super::open(project_dir)?;
 
     let key = resolve(Provider::ElevenLabs)?;
     let catalogue = ElevenLabsVoices::new(&key.secret);

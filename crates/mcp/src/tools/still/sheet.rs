@@ -9,6 +9,7 @@ use std::path::Path;
 use scorsese_core::{Frames, Project};
 use scorsese_render::{Renderer, Resolution, Tools, contact};
 
+use crate::tools::scratch::Scratch;
 use crate::tools::{Part, Reply};
 
 /// Everything the sheet is drawn from, already parsed and checked.
@@ -44,7 +45,9 @@ pub(super) fn reply(asked: Asked<'_>) -> Result<Reply, String> {
         asked.ruled,
     )
     .map_err(|error| format!("{error}"))?;
-    let bytes = super::png(asked.tools, asked.kept.map(|(_, path)| path), &drawn.image)?;
+    // "the frame" even for a sheet: the wording the single frame has always had.
+    let kept_at = asked.kept.map(|(_, path)| path);
+    let bytes = Scratch::png(asked.tools, &drawn.image, kept_at, "the frame")?;
 
     let cells: Vec<String> = asked
         .instants

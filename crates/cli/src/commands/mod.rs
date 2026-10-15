@@ -32,3 +32,19 @@ pub(crate) mod synth;
 pub(crate) mod vectorize;
 pub(crate) mod voice;
 pub(crate) mod voices;
+
+use std::path::Path;
+
+use anyhow::{Context, Result};
+use scorsese_core::Project;
+
+/// Opens the project in `project_dir`, naming the folder when it cannot.
+pub(crate) fn open(project_dir: &Path) -> Result<Project> {
+    Project::load(project_dir)
+        .with_context(|| format!("opening the project in {}", project_dir.display()))
+}
+
+/// Writes `project` back to `project_dir`.
+pub(crate) fn save(project: &Project, project_dir: &Path) -> Result<()> {
+    project.save(project_dir).context("saving the project")
+}

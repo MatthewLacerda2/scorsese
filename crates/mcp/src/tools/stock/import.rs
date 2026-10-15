@@ -9,7 +9,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::tools::args::{self, ProjectDir, Required};
-use crate::tools::inspect::load;
+use crate::tools::inspect::{load, save};
 use crate::tools::{Costs, Reply, Tool};
 
 /// Importing from Pixabay, or a Lottie from LottieFiles — or from the one
@@ -137,9 +137,7 @@ impl Tool for Import {
             .iter()
             .any(|answer| answer.as_ref().is_ok_and(|one| !one.imported.reused))
         {
-            project
-                .save(dir)
-                .map_err(|error| format!("saving the project: {error}"))?;
+            save(&project, dir)?;
         }
         said(&ids, &answers, frame)
     }

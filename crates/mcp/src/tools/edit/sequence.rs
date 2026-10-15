@@ -12,7 +12,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::tools::args::{self, Name, ProjectDir, Required};
-use crate::tools::inspect::load;
+use crate::tools::inspect::{load, save};
 use crate::tools::{Costs, Reply, Tool};
 
 /// Make or change an `image_sequence` asset.
@@ -87,9 +87,7 @@ impl Tool for Sequence {
         let id = AssetId::new(arguments.asset.as_str());
         let changed =
             change_sequence(&mut project, &id, change).map_err(|error| error.to_string())?;
-        project
-            .save(dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
+        save(&project, dir)?;
         Ok(match changed.before {
             None => format!("{id} — made: {}", changed.after),
             Some(before) => format!("{id} — was {before}; now {}", changed.after),

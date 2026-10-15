@@ -8,7 +8,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::tools::args::{self, Name, ProjectDir, Required};
-use crate::tools::inspect::load;
+use crate::tools::inspect::{load, save};
 use crate::tools::{Costs, Reply, Tool};
 
 /// Set a clip's volume.
@@ -86,9 +86,7 @@ impl Tool for SetVolume {
         let asked = asked_for(&arguments, project.timeline_fps.as_f64())?;
         let report = level::set(&mut project, &clip, &PropertyPath::new(VOLUME), asked)
             .map_err(|error| format!("{error} — nothing was changed"))?;
-        project
-            .save(dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
+        save(&project, dir)?;
 
         Ok(format!("{}{}", wrote(&clip, asked), replaced(&report)).into())
     }

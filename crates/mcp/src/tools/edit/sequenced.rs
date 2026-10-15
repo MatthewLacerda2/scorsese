@@ -11,6 +11,7 @@ use scorsese_core::{Project, SequenceImport, import_sequence};
 use scorsese_render::Ffprobe;
 
 use crate::tools::Reply;
+use crate::tools::inspect::save;
 
 /// Imports every path as a sequence, saves once, and says what came in. One
 /// folder that fails does not cost the others, as for an ordinary import.
@@ -33,9 +34,7 @@ pub(super) fn import(
         }
     }
     if added {
-        project
-            .save(dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
+        save(project, dir)?;
     }
     if lines.is_empty() {
         return Err(format!("{} — nothing was imported", failures.join("; ")));

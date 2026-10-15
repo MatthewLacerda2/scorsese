@@ -423,6 +423,7 @@ pub(crate) enum Command {
         bitrate: Option<Bitrate>,
         /// Sample rate the mix is produced at, e.g. `48000` or `48k`. Sources
         /// recorded at other rates are resampled to it.
+        // `SampleRate::DEFAULT`, held to it by a test in `lib.rs`.
         #[arg(long, default_value = "48000")]
         sample_rate: SampleRate,
         /// Target audio bitrate, e.g. `192k`. Without it the encoder uses its

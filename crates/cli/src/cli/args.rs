@@ -26,7 +26,7 @@ pub(crate) struct NewArgs {
     /// The timeline framerate every clip and keyframe time is counted
     /// in: `30`, or a rational like `30000/1001` for 29.97. Chosen once,
     /// here — changing it later is a real operation, not a field edit.
-    #[arg(long, default_value = "30")]
+    #[arg(long, default_value_t = Fps::DEFAULT)]
     pub(crate) fps: Fps,
     /// The placement the video is made for: `youtube`, `youtube_shorts`,
     /// `instagram_reels`, `instagram_reels_ad`, `instagram_stories_ad`,

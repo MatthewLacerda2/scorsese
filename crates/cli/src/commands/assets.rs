@@ -4,7 +4,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use scorsese_core::pool::{named_by_pages, remove_assets, unused_assets};
-use scorsese_core::{AssetStatus, HashCheck, Listed, Project, asset_status, listing};
+use scorsese_core::{AssetStatus, HashCheck, Listed, asset_status, listing};
 
 /// Prints one line per asset: what it is, how many clips lean on it, and
 /// whether the file behind it is still there and still the one that was
@@ -13,7 +13,7 @@ use scorsese_core::{AssetStatus, HashCheck, Listed, Project, asset_status, listi
 /// Re-hashing is opt-in because it is the only part of this that reads the
 /// media, and a pool of large sources turns an instant listing into seconds.
 pub(crate) fn list(project_dir: &Path, verify: bool) -> Result<()> {
-    let project = open(project_dir)?;
+    let project = super::open(project_dir)?;
     let check = if verify {
         HashCheck::Verify
     } else {
@@ -55,7 +55,7 @@ pub(crate) fn list(project_dir: &Path, verify: bool) -> Result<()> {
 /// A picture a page's text names is kept and listed as kept: nothing in the
 /// document records that use, so the reason has to be said.
 pub(crate) fn gc(project_dir: &Path, delete: bool) -> Result<()> {
-    let mut project = open(project_dir)?;
+    let mut project = super::open(project_dir)?;
     let named = named_by_pages(&project, project_dir);
     let (kept, unused): (Vec<_>, Vec<_>) = unused_assets(&project)
         .into_iter()
@@ -85,7 +85,7 @@ pub(crate) fn gc(project_dir: &Path, delete: bool) -> Result<()> {
     }
 
     let report = remove_assets(&mut project, project_dir, &unused).context("collecting assets")?;
-    project.save(project_dir).context("saving the project")?;
+    super::save(&project, project_dir)?;
     println!(
         "\nRemoved {} assets, deleted {} files, freed {}",
         report.removed.len(),
@@ -93,11 +93,6 @@ pub(crate) fn gc(project_dir: &Path, delete: bool) -> Result<()> {
         human_bytes(report.bytes_freed)
     );
     Ok(())
-}
-
-fn open(project_dir: &Path) -> Result<Project> {
-    Project::load(project_dir)
-        .with_context(|| format!("opening the project in {}", project_dir.display()))
 }
 
 /// A top-level asset, and for a sequence the count of its stills (#684).

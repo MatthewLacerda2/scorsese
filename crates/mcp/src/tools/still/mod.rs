@@ -29,7 +29,7 @@ mod sheet;
 
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use scorsese_core::{Fps, Frames};
-use scorsese_render::{Cue, RenderSettings, Renderer, Told, Tools, frames, grid};
+use scorsese_render::{Cue, RenderSettings, Renderer, Told, Tools, grid};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -201,11 +201,8 @@ impl Tool for Still {
                 grid::draw(&mut frame);
             }
 
-            let bytes = png(
-                &tools,
-                kept.as_ref().map(|(_, path)| path.as_path()),
-                &frame,
-            )?;
+            let kept_at = kept.as_ref().map(|(_, path)| path.as_path());
+            let bytes = Scratch::png(&tools, &frame, kept_at, "the frame")?;
 
             let seconds = project.timeline_fps.seconds(at);
             let ruler = if ruled { ", ruled 0.0 to 1.0" } else { "" };
@@ -227,23 +224,6 @@ impl Tool for Still {
         }
         Ok(parts.into())
     }
-}
-
-/// Encodes `frame` as PNG bytes, kept at `path` if one was named.
-///
-/// Written to a file either way: PNG encoding is ffmpeg's, and ffmpeg writes
-/// files. Where it goes is the only difference — a path the caller named, kept,
-/// or a scratch file that is read back and removed.
-fn png(
-    tools: &Tools,
-    path: Option<&std::path::Path>,
-    frame: &scorsese_render::Frame,
-) -> Result<Vec<u8>, String> {
-    let png = Scratch::at(path);
-    frames::write_png(tools, &png.path, frame)
-        .map_err(|error| format!("writing the frame: {error}"))?;
-    std::fs::read(&png.path)
-        .map_err(|error| format!("reading {} back: {error}", png.path.display()))
 }
 
 /// What the `at` argument is, for the refusal when it says nothing usable.

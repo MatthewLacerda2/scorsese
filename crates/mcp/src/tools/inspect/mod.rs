@@ -334,3 +334,10 @@ impl Tool for Check {
 pub(crate) fn load(dir: &std::path::Path) -> Result<Project, String> {
     Project::load(dir).map_err(|error| format!("opening {}: {error}", dir.display()))
 }
+
+/// Writes a project back, with the failure worded the way [`load`] words its.
+pub(crate) fn save(project: &Project, dir: &std::path::Path) -> Result<(), String> {
+    project
+        .save(dir)
+        .map_err(|error| format!("saving the project: {error}"))
+}

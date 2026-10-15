@@ -24,7 +24,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::tools::args::{self, Name, ProjectDir, Required};
-use crate::tools::inspect::load;
+use crate::tools::inspect::{load, save};
 use crate::tools::{Costs, Reply, Tool};
 use points::{Asked, Point, points, properties, spelled};
 
@@ -105,9 +105,7 @@ impl Tool for ClipAnimate {
         if points.is_empty() && replaced.is_empty() {
             return Ok(format!("`{id}` was not animating `{asked}`; nothing changed.").into());
         }
-        project
-            .save(dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
+        save(&project, dir)?;
         let fps = project.timeline_fps;
         let wrote = if points.is_empty() {
             format!("{} no longer animated", named_paths(&paths))

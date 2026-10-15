@@ -38,7 +38,7 @@ use serde_json::Value;
 
 use crate::tools::args::{self, ProjectDir};
 use crate::tools::confirm::{self, Token};
-use crate::tools::inspect::load;
+use crate::tools::inspect::{load, save};
 use crate::tools::{Costs, Reply, Tool};
 
 /// Realising generated video, stills and narration.
@@ -175,9 +175,7 @@ impl Tool for Generate {
         // Saved whatever happened, and before the error is reported: a ticket
         // written just before a failure is the only record that money was
         // spent, and dropping it means paying for that work twice.
-        project
-            .save(dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
+        save(&project, dir)?;
         // A run that stopped after doing something answers with what it did
         // and then why it stopped: an error alone, after spending, reads as
         // nothing having happened, and is the reply most likely to be retried
@@ -297,9 +295,7 @@ fn measure(
     };
     probe_assets(project, dir, &probe, Reprobe::Skip);
     let shortened = placing::fit_to_sources(project, landed);
-    project
-        .save(dir)
-        .map_err(|error| format!("saving the project: {error}"))?;
+    save(project, dir)?;
     Ok(shortened)
 }
 
