@@ -1,19 +1,19 @@
 //! What you push is what CI builds: a code file `.gitignore` swallows is
 //! found, one it does not is not, and a tree outside git has nothing to ask.
 
+use scorsese_lint::check_tree;
+use scorsese_lint::rules::ignored::{RULE, git};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
-
-use scorsese_lint::check_tree;
-use scorsese_lint::rules::ignored::RULE;
 
 /// A throwaway git checkout holding `files`, rebuilt from scratch each run.
 fn checkout(name: &str, files: &[(&str, &str)]) -> PathBuf {
     let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join(name);
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).expect("mkdir");
-    let status = Command::new("git")
+    // `git()`, never a bare `Command`: run from the pre-commit hook, a plain
+    // `git init` inherits `GIT_DIR` and re-initialises the real repository.
+    let status = git()
         .args(["init", "--quiet"])
         .current_dir(&root)
         .status()

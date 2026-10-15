@@ -19,10 +19,37 @@ use super::Finding;
 /// The rule's name. It takes no allow: an ignored code file is never right.
 pub const RULE: &str = "ignored";
 
+/// The variables git sets for a hook, and a caller may export, that point a
+/// git command at some repository other than the one in its directory.
+const REDIRECTS: [&str; 6] = [
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_PREFIX",
+];
+
+/// `git`, asking about the repository its working directory is in and no
+/// other.
+///
+/// The pre-commit hook runs the lint and its tests with `GIT_DIR` and
+/// `GIT_INDEX_FILE` set. A `git init` that inherited them re-initialised the
+/// operator's own repository as bare (2026-10-15, the first commit after
+/// #1282), and a `check-ignore` that inherited them would ask that repository
+/// rather than `root`.
+pub fn git() -> Command {
+    let mut command = Command::new("git");
+    for name in REDIRECTS {
+        command.env_remove(name);
+    }
+    command
+}
+
 /// The paths among `paths` (relative to `root`) that git would leave out of
 /// a commit, or none when `root` is not a git checkout.
 pub fn ignored(root: &Path, paths: &[&Path]) -> Vec<PathBuf> {
-    let child = Command::new("git")
+    let child = git()
         .args(["check-ignore", "--stdin"])
         .current_dir(root)
         .stdin(Stdio::piped())
@@ -66,4 +93,22 @@ pub fn check(root: &Path, paths: &[&Path]) -> Vec<Finding> {
                 .into(),
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn git_never_inherits_a_redirect() {
+        let command = git();
+        let removed: Vec<_> = command
+            .get_envs()
+            .filter(|(_, value)| value.is_none())
+            .map(|(name, _)| name.to_string_lossy().into_owned())
+            .collect();
+        for name in ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"] {
+            assert!(removed.iter().any(|r| r == name), "{name} is inherited");
+        }
+    }
 }
