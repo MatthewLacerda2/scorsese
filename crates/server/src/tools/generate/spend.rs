@@ -27,6 +27,14 @@ impl Charged {
     pub(super) fn brief(&self) -> &str {
         &self.brief
     }
+
+    /// The voice it would be read in, for a line.
+    pub(super) fn voice(&self) -> Option<&str> {
+        match &self.what {
+            What::Line { voice, .. } => Some(voice),
+            What::Shot { .. } | What::Still { .. } => None,
+        }
+    }
 }
 
 /// What kind of generation, and its particulars.

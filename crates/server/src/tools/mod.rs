@@ -77,6 +77,7 @@ mod quotes;
 mod size;
 mod stored;
 mod surface;
+mod voiced;
 
 pub use fetched::keep as keep_fetched;
 pub use folder::{Folder, lay_out};

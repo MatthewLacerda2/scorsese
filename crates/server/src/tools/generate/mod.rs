@@ -34,7 +34,7 @@ use scorsese_providers::quote::{self, Item, Quote, generation};
 use serde_json::{Value, json};
 
 use super::surface::project_property;
-use super::{Caller, database, lay_out, project_id, quotes};
+use super::{Caller, database, lay_out, project_id, quotes, voiced};
 use crate::credits::{Product, dollars, from_cents, ledger, price};
 use crate::db;
 use crate::generations::adopt;
@@ -154,6 +154,13 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
         .into_iter()
         .filter(|one| still_charged(one.brief()))
         .collect();
+    // Another user's designed voice is refused before anything is quoted
+    // (#687): it is in the account every user shares, but it is not theirs.
+    let voices: Vec<String> = charged
+        .iter()
+        .filter_map(|one| one.voice().map(ToOwned::to_owned))
+        .collect();
+    voiced::unused_by_others(caller, &voices).await?;
 
     let mut lines = said(&quote, &stored.document);
     if let Some(offered) = &offered {

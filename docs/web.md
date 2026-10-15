@@ -65,6 +65,10 @@ argued under *Accounts* below.
 It reaches into caching too: a generated Veo shot is reused for free across the
 **same user's** projects by its brief hash, and **never** across users.
 
+And to what lives in a vendor's account rather than in our database: a voice
+a user designed is in the operator's ElevenLabs account, which every user
+shares, and is still only theirs to use or look up (*Designing a voice*).
+
 ## The edit is a document; everything around it is tables
 
 A project's edit is stored as its **`project.json` document** in a JSON
@@ -1698,7 +1702,14 @@ homes that outlive a call (`crate::designs`):
 - **kept voices are rows of `designed_voices`**, per user. A voice lives in the
   operator's ElevenLabs account and any project may name it, so it belongs to
   the user, not a project; each row points at the design holding the
-  description and seed that made it.
+  description and seed that made it;
+- **a kept voice is its maker's alone** (#687). Every user's voices sit in the
+  same vendor account and a `voice_id` is only a string, so row-level security
+  cannot reach them: `generate` refuses a line read in a voice another user's
+  `designed_voices` names, before quoting it, and `voices` refuses to `check`
+  one. The listings need no filter — they are the built-in set and the Voice
+  Library, and designed voices are in neither — and built-in and Library voices
+  stay open to everyone.
 
 Both verbs are jobs. A design is paid, and a job interrupted after the
 reservation is run again and settles it, where a call cut off mid-way would
