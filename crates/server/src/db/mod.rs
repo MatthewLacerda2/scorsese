@@ -39,6 +39,7 @@
 
 pub mod scope;
 
+use std::fmt::{self, Display};
 use std::time::Duration;
 
 use sqlx::migrate::{MigrateError, Migrator};
@@ -78,4 +79,63 @@ pub fn options() -> PgPoolOptions {
 /// every start costs one query when there is nothing to do.
 pub async fn migrate(pool: &PgPool) -> Result<(), MigrateError> {
     MIGRATOR.run(pool).await
+}
+
+/// What a user or an agent reads when the database fails under them: never
+/// the detail, which is the operator's ([`user_facing`] logs it).
+#[derive(Debug, Clone, Copy)]
+pub enum Says {
+    /// A request that wrote nothing worth worrying about: asking again is the
+    /// answer.
+    TryAgain,
+    /// A job that moves money, named by what it was keeping the books on
+    /// ("generation", "voice design"): whether it settled is the operator's
+    /// to find out, so the user is not told to try again.
+    Books(&'static str),
+}
+
+impl Display for Says {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::TryAgain => f.write_str("the server's database failed; try again"),
+            Self::Books(on) => write!(
+                f,
+                "the server failed while keeping the books on this {on}; the operator has the \
+                 detail"
+            ),
+        }
+    }
+}
+
+/// A database failure, logged with its detail as `scorsese-server: {context}:
+/// {error}`, and what [`Says`] answered in its place — the one way every job
+/// and tool reports one.
+pub fn user_facing(context: &str, says: Says, error: impl Display) -> String {
+    eprintln!("scorsese-server: {context}: {error}");
+    says.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every reply a database failure gives, pinned to the words each job
+    /// and tool said before they shared one helper (#1279).
+    #[test]
+    fn a_database_failure_says_what_it_always_said() {
+        assert_eq!(
+            user_facing("render job", Says::TryAgain, "boom"),
+            "the server's database failed; try again"
+        );
+        assert_eq!(
+            user_facing("generation job", Says::Books("generation"), "boom"),
+            "the server failed while keeping the books on this generation; the operator has \
+             the detail"
+        );
+        assert_eq!(
+            user_facing("voice design job", Says::Books("voice design"), "boom"),
+            "the server failed while keeping the books on this voice design; the operator has \
+             the detail"
+        );
+    }
 }

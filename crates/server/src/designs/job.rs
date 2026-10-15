@@ -17,6 +17,7 @@ use super::store::{self, Design, Sample};
 use super::{DesignPayload, KeepPayload, sample_hash, samples};
 use crate::credits::designs::candidates;
 use crate::credits::generations::{self, Answer, Generation, Paid};
+use crate::db::{self, Says};
 use crate::generations::{Vendors, paying, refusal};
 use crate::jobs::{Context, Handler, Job, Outcome, blocking};
 use crate::library::{Item, Kind, Library, Made, Unkept};
@@ -269,8 +270,5 @@ async fn kept(
 
 /// A failure on the server, logged and said without its detail.
 fn database(error: impl std::fmt::Display) -> String {
-    eprintln!("scorsese-server: voice design job: {error}");
-    "the server failed while keeping the books on this voice design; the operator has the \
-     detail"
-        .to_owned()
+    db::user_facing("voice design job", Says::Books("voice design"), error)
 }

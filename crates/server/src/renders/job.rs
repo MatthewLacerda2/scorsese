@@ -45,7 +45,7 @@ use serde_json::{Value, json};
 
 use super::{RenderCache, RenderView, Settings, evict, preview, store};
 use crate::captures::dispatch::{self, Pages};
-use crate::db::UserId;
+use crate::db::{self, Says, UserId};
 use crate::jobs::{Context, Handler, Job, Outcome, blocking};
 use crate::library::locate::{self, Located};
 use crate::projects::ProjectFiles;
@@ -339,8 +339,7 @@ fn done(view: &RenderView) -> Value {
 
 /// A database failure, said to the job's owner without its detail.
 fn database(error: sqlx::Error) -> String {
-    eprintln!("scorsese-server: render job: {error}");
-    "the server's database failed; try again".to_owned()
+    db::user_facing("render job", Says::TryAgain, error)
 }
 
 /// An insert that failed because the project is gone says so.
