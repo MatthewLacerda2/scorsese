@@ -14,13 +14,19 @@ import {
 } from "@/components/ui/table";
 import { en } from "@/i18n/en";
 import { useT } from "@/i18n/I18nProvider";
-import { formatDollars, formatMovement } from "@/lib/money";
+import { formatMovement } from "@/lib/money";
 
 const TONE: Record<HistoryRow["status"], "secondary" | "outline"> = {
   charged: "secondary",
   free: "outline",
   pending: "outline",
   credited: "secondary",
+};
+
+// Money in is green and money out is yellow, from the theme's tokens.
+const COLOUR: Partial<Record<HistoryRow["status"], string>> = {
+  credited: "bg-success text-success-foreground",
+  charged: "bg-warning text-warning-foreground",
 };
 
 export function HistoryTable({ rows }: { rows: HistoryRow[] }) {
@@ -32,7 +38,6 @@ export function HistoryTable({ rows }: { rows: HistoryRow[] }) {
           <TableHead>{words.when}</TableHead>
           <TableHead>{words.what}</TableHead>
           <TableHead className="text-right">{words.amount}</TableHead>
-          <TableHead className="text-right">{words.balanceAfter}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -46,9 +51,6 @@ export function HistoryTable({ rows }: { rows: HistoryRow[] }) {
             </TableCell>
             <TableCell className="text-right align-top whitespace-nowrap">
               {formatMovement(row.amount_micros)}
-            </TableCell>
-            <TableCell className="text-right align-top whitespace-nowrap text-muted-foreground">
-              {formatDollars(row.balance_after_micros)}
             </TableCell>
           </TableRow>
         ))}
@@ -68,7 +70,9 @@ function What({ row }: { row: HistoryRow }) {
     <div className="flex flex-col gap-1">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{words.kinds[row.kind]}</span>
-        <Badge variant={TONE[row.status]}>{words.status[row.status]}</Badge>
+        <Badge variant={TONE[row.status]} className={COLOUR[row.status]}>
+          {words.status[row.status]}
+        </Badge>
       </div>
       {row.memo && !repeatsKind && <span className="text-sm">{row.memo}</span>}
       <span className="text-xs text-muted-foreground">

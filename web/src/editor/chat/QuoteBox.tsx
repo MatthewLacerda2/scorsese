@@ -28,7 +28,7 @@ export function QuoteBox({ turn, quote }: { turn: number; quote: QuoteView }) {
   const queryClient = useQueryClient();
   const [change, setChange] = useState("");
   const answer = useMutation({
-    mutationFn: (answer: QuoteAnswer) => chatApi.answerQuote(turn, answer),
+    mutationFn: (given: QuoteAnswer) => chatApi.answerQuote(turn, given),
     // The turn that carries on arrives on the event stream too; re-reading the
     // conversation also closes this box, whose turn now has its answer.
     onSettled: () => {

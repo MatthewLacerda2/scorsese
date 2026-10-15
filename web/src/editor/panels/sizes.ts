@@ -37,8 +37,8 @@ export const PREVIEW_SHARE = 0.4;
 /** A handle's own strip, in rem: it sits between two panels, over neither. */
 export const HANDLE = 0.375;
 
-const within = (value: number, least: number, most: number) =>
-  Math.min(Math.max(value, least), most);
+const within = (value: number, lower: number, upper: number) =>
+  Math.min(Math.max(value, lower), upper);
 
 const least = (panel: Panel) => DEFAULTS[panel] * LEAST;
 
@@ -79,10 +79,11 @@ export function fit(sizes: Sizes, room: Room | null): Sizes {
   return held;
 }
 
-/** Takes from `panels` in `sizes`, in place, until they fit in `budget` or are all at their least. */
-function giveBack(panels: Panel[], sizes: Sizes, budget: number) {
-  const total = (of: (panel: Panel) => number) => panels.reduce((sum, p) => sum + of(p), 0);
-  const over = total((panel) => sizes[panel]) - budget;
+/** Takes from `panels` in `sizes`, in place, until they fit in `allowance` or are all at their least. */
+function giveBack(panels: Panel[], sizes: Sizes, allowance: number) {
+  const total = (of: (panel: Panel) => number) =>
+    panels.reduce((sum, member) => sum + of(member), 0);
+  const over = total((panel) => sizes[panel]) - allowance;
   const slack = total((panel) => sizes[panel] - least(panel));
   if (over <= 0 || slack <= 0) return;
   const share = Math.min(1, over / slack);

@@ -27,16 +27,14 @@ export const pages: Messages["pages"] = {
   },
   spending: {
     balance: "Saldo",
-    entries: (count: string, n: number) =>
-      `${count} ${n === 1 ? "movimiento" : "movimientos"}, que suman`,
     empty: "Nada ha movido tu saldo todavía.",
     showMore: "Mostrar más",
     project: "Proyecto",
     allProjects: "Todos los proyectos",
     kind: "Tipo",
     everything: "Todo",
-    from: "Desde (UTC)",
-    to: "Hasta (UTC)",
+    from: "Desde",
+    to: "Hasta",
     clear: "Quitar filtros",
   },
   history: {
@@ -58,7 +56,6 @@ export const pages: Messages["pages"] = {
     when: "Cuándo",
     what: "Qué",
     amount: "Importe",
-    balanceAfter: "Saldo después",
     deletedProject: "un proyecto eliminado",
     fileItMade: "el archivo que creó",
   },

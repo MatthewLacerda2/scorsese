@@ -1,7 +1,6 @@
 // The spending history (#537): one list of everything that moved the balance —
 // generations, assistant turns, top-ups, refunds — each with its amount
-// and the balance after it, filterable by project, kind and date, with the
-// total for the filter. A list, deliberately: no charts (#544, out of scope).
+// filterable by project, kind and date. A list, deliberately: no charts (#544, out of scope).
 
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -17,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useLanguage, useT } from "@/i18n/I18nProvider";
+import { useT } from "@/i18n/I18nProvider";
 import { formatDollars } from "@/lib/money";
 import { HistoryTable } from "./HistoryTable";
 
@@ -28,7 +27,6 @@ const ALL = "all";
 export function SpendingPage() {
   const t = useT();
   const words = t.pages.spending;
-  const { language } = useLanguage();
   const [filter, setFilter] = useState<Omit<HistoryFilter, "before" | "limit">>({});
   const history = useInfiniteQuery({
     queryKey: ["credits", "history", filter],
@@ -51,12 +49,6 @@ export function SpendingPage() {
         )}
       </div>
       <Filters filter={filter} onChange={setFilter} />
-      {first && (
-        <p className="text-sm text-muted-foreground">
-          {words.entries(new Intl.NumberFormat(language).format(first.matched), first.matched)}{" "}
-          <span className="font-medium text-foreground">{formatDollars(first.total_micros)}</span>.
-        </p>
-      )}
       {history.isError && <p className="text-destructive">{history.error.message}</p>}
       {history.isPending && <p className="text-muted-foreground">{t.common.loading}</p>}
       {history.isSuccess && rows.length === 0 && (

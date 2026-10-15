@@ -28,16 +28,14 @@ export const pages = {
   spending: {
     balance: "Balance",
     // Followed by the total in dollars and a full stop.
-    entries: (count: string, n: number) =>
-      `${count} ${n === 1 ? "entry" : "entries"}, adding up to`,
     empty: "Nothing has moved your balance yet.",
     showMore: "Show more",
     project: "Project",
     allProjects: "All projects",
     kind: "Kind",
     everything: "Everything",
-    from: "From (UTC)",
-    to: "To (UTC)",
+    from: "From",
+    to: "To",
     clear: "Clear filters",
   },
   history: {
@@ -59,7 +57,6 @@ export const pages = {
     when: "When",
     what: "What",
     amount: "Amount",
-    balanceAfter: "Balance after",
     deletedProject: "a deleted project",
     fileItMade: "the file it made",
   },

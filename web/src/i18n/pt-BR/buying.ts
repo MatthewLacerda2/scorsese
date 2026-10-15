@@ -3,6 +3,7 @@
 import type { Messages } from "@/i18n/catalogue";
 
 export const buying: Messages["buying"] = {
+  empty: "Você ainda não tem créditos.",
   add: "Adicionar créditos",
   description:
     "Você paga em reais e os créditos ficam em dólares. O pagamento é feito pelo Stripe; o scorsese nunca vê o seu cartão.",

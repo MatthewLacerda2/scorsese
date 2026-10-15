@@ -40,7 +40,7 @@ function Open({ turn, question }: { turn: number; question: QuestionView }) {
   const queryClient = useQueryClient();
   const [own, setOwn] = useState("");
   const answer = useMutation({
-    mutationFn: (answer: string) => chatApi.answerQuestion(turn, answer),
+    mutationFn: (text: string) => chatApi.answerQuestion(turn, text),
     // The resumed turn arrives on the event stream too; re-reading the
     // conversation closes this card even if that event was missed.
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["chat"] }),

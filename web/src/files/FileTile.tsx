@@ -1,5 +1,4 @@
-// One file in the grid: thumbnail, name, kind and size — nothing else, since
-// a list carries only those (#527). A tile can be `disabled` with a `note`
+// One file in the grid: thumbnail and name, without its extension. A tile can be `disabled` with a `note`
 // saying why (the editor's picking modal, #702), and carries `actions` beside
 // its main button — buttons of their own, since a button cannot hold one. The thumbnail is drawn by a job after the
 // file arrives and answers 404 until then, so a missing one shows the kind's
@@ -8,14 +7,18 @@
 import { FileAudioIcon, FileImageIcon, FileVideoIcon } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import type { FileKind, LibraryTile } from "@/api";
-import { useLanguage, useT } from "@/i18n/I18nProvider";
-import { formatBytes } from "@/lib/format";
 
 export const KIND_ICON = {
   video: FileVideoIcon,
   image: FileImageIcon,
   audio: FileAudioIcon,
 };
+
+/** `name` without its last extension; a dotfile or an extensionless name is whole. */
+export function withoutExtension(name: string): string {
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? name.slice(0, dot) : name;
+}
 
 /** How often, and how many times, a thumbnail still being drawn is re-asked. */
 const RETRY_MS = 4000;
@@ -28,7 +31,7 @@ interface Props {
   onOpen: () => void;
   /** Shown greyed and not clickable — `note` says why. */
   disabled?: boolean;
-  /** A word after the kind and size: "in this project", "can't go on a track". */
+  /** A line under the name: "in this project", "can't go on a track". */
   note?: string;
   /** What the main button's hover text says it does. */
   hint?: string;
@@ -46,8 +49,6 @@ export function FileTile({
   hint,
   actions,
 }: Props) {
-  const t = useT();
-  const { language } = useLanguage();
   return (
     <div
       className={`relative flex flex-col overflow-hidden rounded-lg border transition-colors ${disabled ? "opacity-50" : "hover:bg-muted/50"} ${selected ? "border-primary ring-2 ring-primary/30" : ""}`}
@@ -61,13 +62,13 @@ export function FileTile({
         className="flex flex-col text-left disabled:cursor-not-allowed"
       >
         <Thumbnail src={tile.thumbnail} kind={tile.kind} />
-        <span className="truncate px-2 pt-2 text-sm font-medium" title={tile.name}>
-          {tile.name}
+        <span
+          className={`truncate px-2 pt-2 text-sm font-medium ${note ? "" : "pb-2"}`}
+          title={tile.name}
+        >
+          {withoutExtension(tile.name)}
         </span>
-        <span className="px-2 pb-2 text-xs text-muted-foreground">
-          {t.files.kinds[tile.kind]} · {formatBytes(tile.size_bytes, language)}
-          {note ? ` · ${note}` : ""}
-        </span>
+        {note && <span className="px-2 pb-2 text-xs text-muted-foreground">{note}</span>}
       </button>
       {actions && <div className="absolute top-1 right-1 flex gap-1">{actions}</div>}
     </div>
