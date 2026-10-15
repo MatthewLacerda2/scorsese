@@ -9,6 +9,7 @@ import { PlusIcon, Trash2Icon } from "lucide-react";
 import { api, type Fps, type TemplateSummary } from "@/api";
 import { Button } from "@/components/ui/button";
 import { useLanguage, useT } from "@/i18n/I18nProvider";
+import { formatNumber } from "@/lib/format";
 import type { EditOutcome } from "../project";
 import { toSeconds } from "../timeline/time";
 
@@ -27,10 +28,7 @@ export function TemplatesSection({ edit, playhead, fps }: Props) {
   const t = useT().editor.templates;
   const { language } = useLanguage();
   // Seconds to one decimal, in the reader's own way of writing a decimal.
-  const tenths = new Intl.NumberFormat(language, {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  });
+  const tenths = (seconds: number) => formatNumber(seconds, { digits: 1 }, language);
   const templates = useTemplates();
   const remove = useMutation({
     mutationFn: (id: number) => api.templates.remove(id),
@@ -63,14 +61,14 @@ export function TemplatesSection({ edit, playhead, fps }: Props) {
               <p className="truncate text-xs text-muted-foreground">{template.description}</p>
             )}
             <p className="text-xs text-muted-foreground">
-              {t.summary(tenths.format(template.seconds), template.clips)}
+              {t.summary(tenths(template.seconds), template.clips)}
             </p>
           </div>
           <Button
             size="icon"
             variant="ghost"
             aria-label={t.insert(template.name)}
-            title={t.insertTitle(tenths.format(at))}
+            title={t.insertTitle(tenths(at))}
             disabled={edit.pending}
             onClick={() => insert(template)}
           >

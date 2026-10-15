@@ -14,6 +14,7 @@
 // browser in `localStorage`, read and written inside try/catch as the frame
 // shape is (`../shape.ts`), and never in the project.
 
+import { clamp } from "@/lib/utils";
 export type Panel = "assets" | "chat" | "timeline";
 
 export type Sizes = Record<Panel, number>;
@@ -37,9 +38,6 @@ export const PREVIEW_SHARE = 0.4;
 /** A handle's own strip, in rem: it sits between two panels, over neither. */
 export const HANDLE = 0.375;
 
-const within = (value: number, lower: number, upper: number) =>
-  Math.min(Math.max(value, lower), upper);
-
 const least = (panel: Panel) => DEFAULTS[panel] * LEAST;
 
 /** What the panels sharing `panel`'s direction may take together, leaving the preview its share. */
@@ -60,7 +58,7 @@ export function resize(sizes: Sizes, panel: Panel, wanted: number, room: Room | 
     const beside = panel === "assets" ? sizes.chat : panel === "chat" ? sizes.assets : 0;
     most = Math.min(most, budget(panel, room) - beside);
   }
-  return { ...sizes, [panel]: within(wanted, least(panel), Math.max(least(panel), most)) };
+  return { ...sizes, [panel]: clamp(wanted, least(panel), Math.max(least(panel), most)) };
 }
 
 /**
@@ -72,7 +70,7 @@ export function resize(sizes: Sizes, panel: Panel, wanted: number, room: Room | 
 export function fit(sizes: Sizes, room: Room | null): Sizes {
   const held = { ...sizes };
   for (const panel of Object.keys(DEFAULTS) as Panel[])
-    held[panel] = within(sizes[panel], least(panel), DEFAULTS[panel] * MOST);
+    held[panel] = clamp(sizes[panel], least(panel), DEFAULTS[panel] * MOST);
   if (!room) return held;
   giveBack(["assets", "chat"], held, budget("assets", room));
   giveBack(["timeline"], held, budget("timeline", room));

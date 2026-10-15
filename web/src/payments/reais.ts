@@ -42,9 +42,7 @@ export function parseReais(text: string): number | null {
 
 /** Centavos as reais, the Brazilian way: `R$ 1.000,50`. */
 export function formatReais(centavos: number): string {
-  const whole = Math.floor(centavos / 100)
-    .toString()
-    .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const whole = new Intl.NumberFormat("pt-BR").format(Math.floor(centavos / 100));
   return `R$ ${whole},${String(centavos % 100).padStart(2, "0")}`;
 }
 

@@ -5,6 +5,7 @@
 
 import type { ModelChoice } from "@/api/chat";
 import type { Messages } from "@/i18n/catalogue";
+import { clamp } from "@/lib/utils";
 
 /** Where `cost` sits between the cheapest and dearest of `models`: 0 to 1. */
 export function position(cost: number, models: ModelChoice[]): number {
@@ -12,7 +13,7 @@ export function position(cost: number, models: ModelChoice[]): number {
   const cheapest = Math.min(...costs);
   const dearest = Math.max(...costs);
   if (!(dearest > cheapest)) return 0;
-  return Math.min(1, Math.max(0, (cost - cheapest) / (dearest - cheapest)));
+  return clamp((cost - cheapest) / (dearest - cheapest), 0, 1);
 }
 
 /** Green at the cheapest, through amber, to red at the dearest. A middling

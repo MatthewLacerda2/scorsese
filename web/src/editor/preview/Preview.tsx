@@ -22,6 +22,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ProjectDocument } from "@/api";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n/I18nProvider";
+import { clamp } from "@/lib/utils";
 import { JobProgressBar } from "../JobProgressBar";
 import { clock, toFrames, toSeconds } from "../timeline/time";
 import { usePlayable, waiting } from "./playable";
@@ -78,7 +79,7 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
     if (Math.abs(element.currentTime - at) > 0.5 / (fps.num / fps.den)) element.currentTime = at;
   }, [playhead, playing, fps]);
 
-  const seek = (frame: number) => onSeek(Math.min(Math.max(0, frame), total));
+  const seek = (frame: number) => onSeek(clamp(frame, 0, total));
   const toggle = () => {
     if (playing) return video.current?.pause();
     if (ready) return void video.current?.play();

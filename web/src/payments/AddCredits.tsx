@@ -8,7 +8,7 @@
 // entry chunk carries none of it.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { ApiError, api, type PaymentQuote } from "@/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useT } from "@/i18n/I18nProvider";
 import { formatDollars } from "@/lib/money";
+import { useSettled } from "@/lib/useSettled";
 import {
   formatReais,
   MAXIMUM_CENTAVOS,
@@ -33,16 +34,6 @@ import {
 
 /** How long typing must pause before the quote is asked for. */
 const SETTLE_MS = 300;
-
-/** `value`, once it has stopped changing for `ms`. */
-function useSettled<T>(value: T, ms: number): T {
-  const [settled, setSettled] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setSettled(value), ms);
-    return () => clearTimeout(timer);
-  }, [value, ms]);
-  return settled;
-}
 
 export function AddCreditsDialog({
   open,

@@ -29,6 +29,18 @@ describe("formatReais", () => {
     expect(formatReais(5_005)).toBe("R$ 50,05");
     expect(formatReais(200_000)).toBe("R$ 2.000,00");
   });
+
+  it("matches the hand-rolled grouping it replaced, across every size of amount", () => {
+    const before = (centavos: number) => {
+      const whole = Math.floor(centavos / 100)
+        .toString()
+        .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      return `R$ ${whole},${String(centavos % 100).padStart(2, "0")}`;
+    };
+    for (const centavos of [0, 1, 99, 100, 99_999, 100_000, 100_050, 123_456_789, 500_000]) {
+      expect([centavos, formatReais(centavos)]).toEqual([centavos, before(centavos)]);
+    }
+  });
 });
 
 it("knows the purchase limits and floors credits to the cent", () => {

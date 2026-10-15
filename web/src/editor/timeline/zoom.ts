@@ -7,6 +7,7 @@
 // notch one large one; scaling exponentially by the delta, with a notch's
 // delta capped, makes both feel like one zoom.
 
+import { clamp } from "@/lib/utils";
 import type { Zoom } from "./time";
 
 /** The widest and the closest the timeline zooms: a whole minute on screen, and single frames. */
@@ -27,9 +28,9 @@ const LINE = 16;
  * 1 lines. */
 export function zoomed(zoom: Zoom, deltaY: number, deltaMode = 0): Zoom {
   const px = deltaMode === 1 ? deltaY * LINE : deltaY;
-  const travel = Math.max(-NOTCH, Math.min(NOTCH, px));
+  const travel = clamp(px, -NOTCH, NOTCH);
   const next = zoom.pxPerSecond * Math.exp(-travel * PER_PX);
-  return { pxPerSecond: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, next)) };
+  return { pxPerSecond: clamp(next, MIN_ZOOM, MAX_ZOOM) };
 }
 
 /** The scroll that keeps the moment under the pointer where it was, after a
