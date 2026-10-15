@@ -84,10 +84,14 @@ fn lines(part: &str) -> Vec<String> {
     found
 }
 
-/// A paragraph's lines as one, with the line breaks Markdown ignores taken
-/// out.
+/// A paragraph's lines as one sentence, with the line breaks Markdown ignores
+/// taken out and its first letter a capital, as a listed line's already is.
 fn joined(paragraph: &str) -> String {
-    paragraph.split_whitespace().collect::<Vec<_>>().join(" ")
+    let words = paragraph.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut letters = words.chars();
+    letters.next().map_or_else(String::new, |first| {
+        first.to_uppercase().chain(letters).collect()
+    })
 }
 
 /// What is wrong with how `text` marks its lessons, a sentence each: a
@@ -162,12 +166,12 @@ mod tests {
         assert_eq!(
             lessons_in(PAGE, "video"),
             [
-                "ask for slow motion in words.",
+                "Ask for slow motion in words.",
                 "Say the subject, then the place.",
                 "Write in English."
             ]
         );
-        assert_eq!(lessons_in(PAGE, "speech"), ["pick expressive."]);
+        assert_eq!(lessons_in(PAGE, "speech"), ["Pick expressive."]);
     }
 
     #[test]

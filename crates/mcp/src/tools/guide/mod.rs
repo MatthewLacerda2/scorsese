@@ -115,7 +115,8 @@ pub(crate) fn lessons(block: &str) -> String {
     if lines.is_empty() {
         return String::new();
     }
-    let mut said = String::from(" Writing its prompt, each learned by paying or from the vendor:");
+    let mut said =
+        String::from(" What its prompt should know, learned by paying or from the vendor:");
     for line in lines {
         said.push_str("\n- ");
         said.push_str(&line);
