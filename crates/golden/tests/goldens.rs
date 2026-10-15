@@ -90,6 +90,7 @@ goldens!(
     chroma_key,
     chroma_key_lit,
     crop,
+    crop_third,
     counter,
     cuts,
     dashes,

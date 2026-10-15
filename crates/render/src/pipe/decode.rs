@@ -387,13 +387,8 @@ fn video_filter(settings: &RenderSettings, source: &Source) -> String {
         "null".to_owned()
     };
     let rate = match crop {
-        // In terms of the input's own dimensions, so the filter needs no
-        // knowledge of how big the source is and stays right when the asset is
-        // replaced by a bigger capture of the same thing.
-        Some(crop) => format!(
-            "{rate},crop=iw*{}:ih*{}:iw*{}:ih*{}",
-            crop.width, crop.height, crop.x, crop.y
-        ),
+        // The same pixels the read buffer was sized for: see `crop_filter`.
+        Some(crop) => format!("{rate},{}", crate::raster::crop_filter(crop)),
         None => rate,
     };
     // A source with alpha arrives at its own size whatever its fitting, and

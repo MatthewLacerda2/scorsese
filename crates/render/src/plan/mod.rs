@@ -417,8 +417,17 @@ impl<'a> Plan<'a> {
     /// the reason it is needed: keyframes are timed against the timeline grid,
     /// so the compositor has to be told which instant it is drawing — not which
     /// output frame it happens to be on.
+    ///
+    /// Never past the segment's last frame. The conform rounds to nearest, so
+    /// rendering above the timeline's rate can land the last output frame of
+    /// a segment on its `end` — at 24 → 30 fps, frame 1 of [1, 2) rounds to
+    /// 2 — and that instant is the outgoing clip at its out point, where a
+    /// `fade_out` has already reached nothing (#1092). Clamped rather than
+    /// re-derived from the absolute output index, so every frame that was
+    /// already inside its segment draws exactly what it drew before.
     pub fn timeline_frame_of(&self, segment: &Segment<'_>, index: u64) -> Frames {
-        segment.start + self.timeline_fps.conform(Frames(index), self.out_fps)
+        let at = segment.start + self.timeline_fps.conform(Frames(index), self.out_fps);
+        at.min(Frames(segment.end().get().saturating_sub(1)).max(segment.start))
     }
 
     /// How many sample-frames of audio one segment is worth, at `rate`.

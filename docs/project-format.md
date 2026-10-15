@@ -614,7 +614,7 @@ which is the title most people meant.
 | `size` | `0.1` | Em size as a fraction of the frame's **height** |
 | `color` | `#ffffff` | `#rrggbb`, or `#rrggbbaa` for text you can see through |
 | `align` | `center` | `left`, `center`, `right` — within the wrapped block |
-| `line_height` | `1.25` | Baseline to baseline, as a multiple of `size` |
+| `line_height` | `1.25` | Baseline to baseline, as a multiple of `size`. Under `1.0` the lines overlap; `0.5` is the tightest drawn |
 | `max_width` | `0.9` | Where lines wrap, as a fraction of the frame's **width** |
 | `stroke` | *none* | `#rrggbb` or `#rrggbbaa` — a rim round the letters; absent means no edge |
 | `stroke_width` | `0.002` | How far that rim reaches outward, as a fraction of the frame's **height** |

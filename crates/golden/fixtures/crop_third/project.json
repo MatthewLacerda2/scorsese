@@ -1,0 +1,50 @@
+{
+  "schema_version": 49,
+  "name": "crop_third",
+  "timeline_fps": { "num": 30, "den": 1 },
+  "assets": [
+    { "id": "bed", "kind": "video", "path": "assets/bed.mp4" },
+    { "id": "badge", "kind": "image", "path": "assets/badge.png" },
+    { "id": "strip", "kind": "video", "path": "assets/strip.mp4" }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "name": "bed",
+      "clips": [{ "id": "c-bed", "asset": "bed", "start": 0, "duration": 15 }]
+    },
+    {
+      "id": "v2",
+      "kind": "video",
+      "name": "badge",
+      "clips": [
+        {
+          "id": "c-badge",
+          "asset": "badge",
+          "start": 0,
+          "duration": 15,
+          "fit": "native",
+          "anchor": { "x": "left", "y": "top" },
+          "crop": { "x": 0.3333333333333333, "y": 0.3333333333333333, "width": 0.3333333333333333, "height": 0.3333333333333333 }
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "kind": "video",
+      "name": "strip",
+      "clips": [
+        {
+          "id": "c-strip",
+          "asset": "strip",
+          "start": 0,
+          "duration": 15,
+          "fit": "native",
+          "anchor": { "x": "right", "y": "bottom" },
+          "crop": { "x": 0.3333333333333333, "y": 0.3333333333333333, "width": 0.3333333333333333, "height": 0.3333333333333333 }
+        }
+      ]
+    }
+  ]
+}
