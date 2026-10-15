@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::tools::args::{self, Name, ProjectDir, Required};
-use crate::tools::inspect::load;
+use crate::tools::inspect::{load, save};
 use crate::tools::{Costs, Reply, Tool};
 
 /// Lower the music under narration.
@@ -128,9 +128,7 @@ impl Tool for Duck {
 
         let report = duck_track(&mut project, &under, &PropertyPath::new(VOLUME), dip)
             .map_err(|error| error.to_string())?;
-        project
-            .save(dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
+        save(&project, dir)?;
         Ok(format!(
             "{} clip(s) ducked, {} left alone — ordinary volume keyframes, \
              editable and deletable",

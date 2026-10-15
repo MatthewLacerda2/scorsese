@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use super::clip_set;
 use crate::tools::args::{self, ProjectDir, Required};
-use crate::tools::inspect::load;
+use crate::tools::inspect::{load, save};
 use crate::tools::{Costs, Reply, Tool};
 
 /// Spread a run of clips out, or close it up, about one instant.
@@ -85,9 +85,7 @@ impl Tool for ScalePacing {
         let about = project.timeline_fps.frames(seconds);
         let paced = pacing::scale(&mut project, &clips, about, factor)
             .map_err(|error| format!("{error} — nothing was changed"))?;
-        project
-            .save(dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
+        save(&project, dir)?;
 
         let clips = if paced.moved == 1 { "clip" } else { "clips" };
         Ok(format!(

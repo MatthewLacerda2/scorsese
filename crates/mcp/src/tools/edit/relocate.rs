@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use super::{bounds, reaching, seconds};
 use crate::tools::args::{self, Name, ProjectDir, Required};
-use crate::tools::inspect::load;
+use crate::tools::inspect::{load, save};
 use crate::tools::{Costs, Reply, Tool};
 
 /// Change where a placed clip starts, how long it runs, where it opens in its
@@ -123,9 +123,7 @@ impl Tool for ClipMove {
                 .map_err(|error| error.to_string()),
         };
         let (clip, onto) = moved.map_err(|error| format!("{error} — nothing was written"))?;
-        project
-            .save(dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
+        save(&project, dir)?;
 
         Ok(match onto.filter(|onto| from.as_ref() != Some(onto)) {
             Some(onto) => {

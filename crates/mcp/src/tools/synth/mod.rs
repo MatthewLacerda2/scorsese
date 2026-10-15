@@ -30,7 +30,7 @@ use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 
 use super::args::{self, Name, ProjectDir};
-use super::inspect::load;
+use super::inspect::{load, save};
 use super::{Costs, Reply, Tool};
 use recipes::{RECIPE, RecipeArguments, read, recipe_path};
 
@@ -121,9 +121,7 @@ impl Tool for New {
 
         let id = synth::create(&mut project, dir, arguments.name.as_str(), starter)
             .map_err(|error| format!("{error}"))?;
-        project
-            .save(dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
+        save(&project, dir)?;
         let recipe = project
             .asset(&id)
             .and_then(|asset| asset.recipe.as_ref())

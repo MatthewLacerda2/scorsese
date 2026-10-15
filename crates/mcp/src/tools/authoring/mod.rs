@@ -26,10 +26,11 @@ pub(crate) use set::AssetSet;
 pub(crate) use track::TrackNew;
 
 use schemars::JsonSchema;
-use scorsese_core::{AuthorError, Project, Rgba, TextAlign};
+use scorsese_core::{AuthorError, Rgba, TextAlign};
 use serde::Deserialize;
 
 use crate::tools::args;
+use crate::tools::inspect::save;
 
 /// An optional text argument, absent when it is blank — which is also how
 /// the id a caller asked the new thing to be called is read.
@@ -80,13 +81,6 @@ impl From<Align> for TextAlign {
 /// that goes with every one of them.
 fn refused(error: AuthorError) -> String {
     format!("{error} — nothing was written")
-}
-
-/// Writes the document back, or says why it could not.
-fn save(project: &Project, dir: &std::path::Path) -> Result<(), String> {
-    project
-        .save(dir)
-        .map_err(|error| format!("saving the project: {error}"))
 }
 
 // The appearance fields, described once wherever they appear.

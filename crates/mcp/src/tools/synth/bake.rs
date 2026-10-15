@@ -20,7 +20,7 @@ use serde_json::Value;
 
 use super::strings;
 use crate::tools::args::{self, ProjectDir};
-use crate::tools::inspect::load;
+use crate::tools::inspect::{load, save};
 use crate::tools::{Costs, Reply, Tool};
 
 /// Render the recipes that are not already baked — or a stretch of one.
@@ -190,9 +190,7 @@ impl Tool for Bake {
         if baked.is_empty() {
             return Ok("no synth_audio assets — synth_new starts one".into());
         }
-        project
-            .save(dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
+        save(&project, dir)?;
 
         let fresh = baked.iter().filter(|(_, it)| it.is_fresh()).count();
         let lines: Vec<String> = baked.iter().map(|(id, it)| said(id, it)).collect();

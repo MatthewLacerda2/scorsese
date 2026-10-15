@@ -20,7 +20,7 @@ use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 
 use crate::tools::args::{self, ProjectDir};
-use crate::tools::inspect::load;
+use crate::tools::inspect::{load, save};
 use crate::tools::{Costs, Reply, Tool};
 
 /// Copy media into the pool.
@@ -144,9 +144,7 @@ impl Tool for Import {
         // disk, and a failure in the middle must not discard what landed
         // before it.
         if copied {
-            project
-                .save(dir)
-                .map_err(|error| format!("saving the project: {error}"))?;
+            save(&project, dir)?;
         }
         // Everything failing is the single-path error this tool has always
         // returned; anything landing is a reply, because the caller needs the

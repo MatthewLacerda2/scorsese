@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::tools::args::{self, Name, ProjectDir, Required};
-use crate::tools::inspect::load;
+use crate::tools::inspect::{load, save};
 use crate::tools::{Costs, Reply, Tool};
 
 /// Dissolve one shot into the next.
@@ -67,9 +67,7 @@ impl Tool for Dissolve {
         let duration = Frames::span(seconds, project.timeline_fps.as_f64());
         let placed = dissolve(&mut project, &ClipId::new(from), &ClipId::new(to), duration)
             .map_err(|error| format!("{error} — nothing was changed"))?;
-        project
-            .save(dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
+        save(&project, dir)?;
 
         let made = if placed.track_created { " (new)" } else { "" };
         Ok(format!(

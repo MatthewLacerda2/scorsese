@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use super::{bounds, reaching, seconds};
 use crate::tools::args::{self, Name, ProjectDir, Required};
-use crate::tools::inspect::load;
+use crate::tools::inspect::{load, save};
 use crate::tools::{Costs, Reply, Tool};
 
 /// Write one clip onto a track.
@@ -113,9 +113,7 @@ impl Tool for PlaceClip {
             placing::place(&mut project, &placement).map(|clip| (placement.track.clone(), clip))
         }
         .map_err(|error| format!("{error} — nothing was written"))?;
-        project
-            .save(dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
+        save(&project, dir)?;
 
         Ok(format!(
             "`{}` placed on `{}`: {}.",
