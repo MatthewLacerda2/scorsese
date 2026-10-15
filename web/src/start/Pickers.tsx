@@ -8,6 +8,7 @@ import { cn } from "cn";
 import { ClapperboardIcon } from "lucide-react";
 import { type ReactNode, useCallback, useState } from "react";
 import { api, type PlatformView, type StyleMenu, type StyleView } from "@/api";
+import { queryKeys } from "@/app/queryKeys";
 import { useT } from "@/i18n/I18nProvider";
 import { localized, stylesFor } from "./menu";
 
@@ -18,7 +19,12 @@ import { localized, stylesFor } from "./menu";
 export function useStyleMenu() {
   const words = useT().menu;
   const select = useCallback((menu: StyleMenu) => localized(menu, words), [words]);
-  return useQuery({ queryKey: ["styles"], queryFn: api.styles.menu, staleTime: Infinity, select });
+  return useQuery({
+    queryKey: queryKeys.styles,
+    queryFn: api.styles.menu,
+    staleTime: Infinity,
+    select,
+  });
 }
 
 interface Choosing {

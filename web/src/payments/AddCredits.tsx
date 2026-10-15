@@ -10,6 +10,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import { ApiError, api, type PaymentQuote } from "@/api";
+import { queryKeys } from "@/app/queryKeys";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -48,7 +49,7 @@ export function AddCreditsDialog({
   const asked = useSettled(centavos, SETTLE_MS);
   const valid = asked !== null && withinLimits(asked);
   const quote = useQuery({
-    queryKey: ["payments", "quote", asked],
+    queryKey: queryKeys.paymentQuote(asked),
     queryFn: () => api.payments.quote(asked ?? 0),
     enabled: open && valid,
     retry: false,
@@ -60,7 +61,7 @@ export function AddCreditsDialog({
     onError: (failure, shown) => {
       const moved =
         failure instanceof ApiError && failure.status === 409 ? failure.body.quote : null;
-      if (moved) client.setQueryData(["payments", "quote", shown.brl_centavos], moved);
+      if (moved) client.setQueryData(queryKeys.paymentQuote(shown.brl_centavos), moved);
     },
   });
   const current = quote.data && quote.data.brl_centavos === centavos ? quote.data : null;

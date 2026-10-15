@@ -20,6 +20,7 @@ import {
   useState,
 } from "react";
 import { api } from "@/api";
+import { queryKeys } from "@/app/queryKeys";
 import { useT } from "@/i18n/I18nProvider";
 import { alreadyHave, duplicateOf } from "@/lib/upload/duplicate";
 import { hashFile } from "@/lib/upload/hash";
@@ -91,7 +92,7 @@ function useUploader(): Uploads {
       const key = rowOf(id);
       if (key) update(key, change);
       rows.current.delete(id);
-      queryClient.invalidateQueries({ queryKey: ["library"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.library });
     };
     uppy.on("upload-progress", (file, progress) => {
       const key = rowOf(file?.id);

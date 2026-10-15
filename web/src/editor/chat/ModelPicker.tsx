@@ -6,9 +6,10 @@
 // carries a green-to-red bar for how dear it is beside the others (#706), in a
 // badge that says "Cost" beside it so the bar is never a mystery (#1220).
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { chatApi, type ModelChoice, type TurnView } from "@/api/chat";
+import { queryKeys } from "@/app/queryKeys";
+import { useInvalidatingMutation } from "@/app/useInvalidatingMutation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,14 +41,10 @@ interface Props {
 
 export function ModelPicker({ projectId, model, models, turns }: Props) {
   const t = useT();
-  const queryClient = useQueryClient();
   const [asking, setAsking] = useState<string | null>(null);
-  const choose = useMutation({
+  const choose = useInvalidatingMutation([queryKeys.conversation(projectId)], {
     mutationFn: (next: string) => chatApi.chooseModel(projectId, next),
-    onSettled: () => {
-      setAsking(null);
-      queryClient.invalidateQueries({ queryKey: ["chat", projectId] });
-    },
+    onSettled: () => setAsking(null),
   });
   const current = models.find((choice) => choice.id === model);
   const picked = (next: string) => {

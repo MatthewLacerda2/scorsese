@@ -5,10 +5,11 @@
 // the turn shows in the chat panel like any other. The frame shape follows
 // the platform, as it did when the project was created.
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { TargetIcon } from "lucide-react";
 import { useState } from "react";
 import { api } from "@/api";
+import { queryKeys } from "@/app/queryKeys";
+import { useInvalidatingMutation } from "@/app/useInvalidatingMutation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,10 +19,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { QueryError } from "@/components/ui/query-error";
 import { useT } from "@/i18n/I18nProvider";
 import { keptStyle, nameOf, shapeOf } from "@/start/menu";
 import { PlatformPicker, StylePicker, useStyleMenu } from "@/start/Pickers";
-import { editorKey, useEditorProject } from "./project";
+import { useEditorProject } from "./project";
 import type { Shape } from "./shape";
 
 interface Props {
@@ -86,17 +88,14 @@ function Change({
   onSaved: (platform: string | null) => void;
 }) {
   const t = useT().start;
-  const queryClient = useQueryClient();
   const menu = useStyleMenu();
   const [platform, setPlatform] = useState(was);
   const [style, setStyle] = useState(wasStyle);
   const [note, setNote] = useState<string | null>(null);
-  const save = useMutation({
+  const save = useInvalidatingMutation([queryKeys.editor(projectId), queryKeys.projects], {
     mutationFn: () =>
       api.projects.retarget(projectId, { platform, style, message: t.changedMessage }),
     onSuccess: (answer) => {
-      queryClient.invalidateQueries({ queryKey: editorKey(projectId) });
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
       if (answer.note) setNote(t.notTold(answer.note));
       else onSaved(platform);
     },
@@ -114,7 +113,7 @@ function Change({
         }}
       />
       <StylePicker menu={offered} platform={platform} value={style} onChange={setStyle} />
-      {save.isError && <p className="text-sm text-destructive">{save.error.message}</p>}
+      <QueryError error={save.error} />
       {note && <p className="text-sm text-destructive">{note}</p>}
       <div className="flex justify-end border-t pt-3">
         <Button onClick={() => save.mutate()} disabled={save.isPending}>

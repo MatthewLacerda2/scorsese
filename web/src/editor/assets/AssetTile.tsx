@@ -13,6 +13,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDownIcon, ChevronRightIcon, Trash2Icon } from "lucide-react";
 import { api, type DocumentAsset, type FileKind } from "@/api";
+import { queryKeys } from "@/app/queryKeys";
 import { Button } from "@/components/ui/button";
 import { Thumbnail } from "@/files/FileTile";
 import type { Messages } from "@/i18n/catalogue";
@@ -44,7 +45,7 @@ export function AssetTile(props: TileProps) {
 /** Where the library's thumbnail of the file with these bytes is, once known. */
 export function useThumbnail(sha256: string | undefined): string | undefined {
   const query = useQuery({
-    queryKey: ["library", "list", { sha256 }],
+    queryKey: queryKeys.libraryList({ sha256 }),
     queryFn: () => api.library.list({ sha256 }),
     enabled: sha256 !== undefined,
     staleTime: Number.POSITIVE_INFINITY,

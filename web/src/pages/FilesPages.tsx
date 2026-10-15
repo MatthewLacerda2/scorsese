@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeftIcon } from "lucide-react";
 import { Link, useParams } from "react-router";
 import { api } from "@/api";
+import { queryKeys } from "@/app/queryKeys";
 import { FileBrowser } from "@/files/FileBrowser";
 import { useT } from "@/i18n/I18nProvider";
 
@@ -23,7 +24,7 @@ export function ProjectFilesPage() {
   const words = t.pages.projectFiles;
   const id = Number(useParams().id);
   const project = useQuery({
-    queryKey: ["projects", id],
+    queryKey: queryKeys.project(id),
     queryFn: () => api.projects.open(id),
     enabled: Number.isInteger(id),
   });

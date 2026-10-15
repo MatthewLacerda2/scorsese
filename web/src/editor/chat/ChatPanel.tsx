@@ -17,7 +17,9 @@ import { chatApi } from "@/api/chat";
 import type { ServerEvent } from "@/api/events";
 import { useServerEvents } from "@/app/events";
 import { NoCredits } from "@/app/NoCredits";
+import { queryKeys } from "@/app/queryKeys";
 import { Button } from "@/components/ui/button";
+import { QueryError } from "@/components/ui/query-error";
 import { Textarea } from "@/components/ui/textarea";
 import { useT } from "@/i18n/I18nProvider";
 import { browserStorage } from "@/i18n/language";
@@ -53,7 +55,7 @@ export function ChatPanel({
   const t = useT();
   const queryClient = useQueryClient();
   const conversation = useQuery({
-    queryKey: ["chat", projectId],
+    queryKey: queryKeys.conversation(projectId),
     queryFn: () => chatApi.conversation(projectId),
   });
   const [transcript, setTranscript] = useState(() => empty(projectId));
@@ -71,7 +73,7 @@ export function ChatPanel({
       return;
     }
     // The header's balance is the same money the turn just spent.
-    if (event.type === "chat_turn") queryClient.invalidateQueries({ queryKey: ["credits"] });
+    if (event.type === "chat_turn") queryClient.invalidateQueries({ queryKey: queryKeys.credits });
     setTranscript((previous) => apply(previous, event));
   });
 
@@ -116,9 +118,7 @@ export function ChatPanel({
           {conversation.isPending && (
             <p className="text-sm text-muted-foreground">{t.chat.loading}</p>
           )}
-          {conversation.isError && (
-            <p className="text-sm text-destructive">{conversation.error.message}</p>
-          )}
+          <QueryError error={conversation.error} />
           <ol className="flex flex-col gap-5">
             {transcript.entries.map((entry) => (
               <Turn key={entry.turn.id} entry={entry} />

@@ -11,6 +11,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { BookmarkPlusIcon } from "lucide-react";
 import { useId, useState } from "react";
+import { queryKeys } from "@/app/queryKeys";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -38,7 +39,7 @@ export function SaveTemplate({ clips, edit }: { clips: string[]; edit: EditOutco
     const args = { clips, name: name.trim(), replace };
     const answer = await edit.run({ tool: "template_save", args, edit: false });
     if (!answer) return;
-    queryClient.invalidateQueries({ queryKey: ["templates"] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.templates });
     setOpen(false);
     setName("");
     setReplace(false);

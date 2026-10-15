@@ -4,11 +4,13 @@
 // composer instead — the card is the quick way, never the only one. Once
 // answered, the card shrinks to the question and what was answered.
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { chatApi, type QuestionView } from "@/api/chat";
+import { queryKeys } from "@/app/queryKeys";
+import { useInvalidatingMutation } from "@/app/useInvalidatingMutation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { QueryError } from "@/components/ui/query-error";
 import { useT } from "@/i18n/I18nProvider";
 import { typedAnswer } from "./question";
 
@@ -37,13 +39,11 @@ export function QuestionCard({
 /** The card while it waits: the options as buttons, and a field. */
 function Open({ turn, question }: { turn: number; question: QuestionView }) {
   const t = useT();
-  const queryClient = useQueryClient();
   const [own, setOwn] = useState("");
-  const answer = useMutation({
+  // The resumed turn arrives on the event stream too; re-reading the
+  // conversation closes this card even if that event was missed.
+  const answer = useInvalidatingMutation([queryKeys.chat], {
     mutationFn: (text: string) => chatApi.answerQuestion(turn, text),
-    // The resumed turn arrives on the event stream too; re-reading the
-    // conversation closes this card even if that event was missed.
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["chat"] }),
   });
   const typed = typedAnswer(own);
   return (
@@ -80,7 +80,7 @@ function Open({ turn, question }: { turn: number; question: QuestionView }) {
           {t.chat.question.answer}
         </Button>
       </form>
-      {answer.isError && <p className="text-xs text-destructive">{answer.error.message}</p>}
+      <QueryError error={answer.error} className="text-xs text-destructive" />
     </div>
   );
 }

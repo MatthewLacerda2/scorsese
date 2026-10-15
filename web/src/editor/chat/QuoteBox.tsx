@@ -14,10 +14,12 @@
 //
 // The model never sees the quote's token on any of the three.
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { chatApi, type QuoteAnswer, type QuoteItem, type QuoteView } from "@/api/chat";
+import { queryKeys } from "@/app/queryKeys";
+import { useInvalidatingMutation } from "@/app/useInvalidatingMutation";
 import { Button } from "@/components/ui/button";
+import { QueryError } from "@/components/ui/query-error";
 import { Textarea } from "@/components/ui/textarea";
 import { useT } from "@/i18n/I18nProvider";
 import { formatDollars } from "@/lib/money";
@@ -25,16 +27,11 @@ import { changeAnswer, offer, preview } from "./quote";
 
 export function QuoteBox({ turn, quote }: { turn: number; quote: QuoteView }) {
   const t = useT();
-  const queryClient = useQueryClient();
   const [change, setChange] = useState("");
-  const answer = useMutation({
+  // The turn that carries on arrives on the event stream too; re-reading the
+  // conversation also closes this box, whose turn now has its answer.
+  const answer = useInvalidatingMutation([queryKeys.chat, queryKeys.credits], {
     mutationFn: (given: QuoteAnswer) => chatApi.answerQuote(turn, given),
-    // The turn that carries on arrives on the event stream too; re-reading the
-    // conversation also closes this box, whose turn now has its answer.
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["chat"] });
-      queryClient.invalidateQueries({ queryKey: ["credits"] });
-    },
   });
   const expired = quote.expires_at * 1000 < Date.now();
   const asked = changeAnswer(change);
@@ -60,7 +57,7 @@ export function QuoteBox({ turn, quote }: { turn: number; quote: QuoteView }) {
       </ul>
       {expired && <p className="text-xs text-muted-foreground">{t.chat.quote.expired}</p>}
       {answer.data?.note && <p className="text-xs text-muted-foreground">{answer.data.note}</p>}
-      {answer.isError && <p className="text-xs text-destructive">{answer.error.message}</p>}
+      <QueryError error={answer.error} className="text-xs text-destructive" />
       <div className="flex gap-2">
         <Button
           size="sm"

@@ -6,10 +6,11 @@
 // Lottie animation (#908) is a picture that moves — its GIF, grid and enlarged
 // alike — with LottieFiles named on its tile, since the rest come from Pixabay.
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckIcon, ChevronLeftIcon } from "lucide-react";
 import { useState } from "react";
 import { type CandidateView, chatApi, type QuestionView } from "@/api/chat";
+import { queryKeys } from "@/app/queryKeys";
+import { useInvalidatingMutation } from "@/app/useInvalidatingMutation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { QueryError } from "@/components/ui/query-error";
 import { useT } from "@/i18n/I18nProvider";
 import { length, nameOf, sourceName, toggle } from "./picker";
 
@@ -35,16 +37,14 @@ export function PickerModal({
   onOpenChange: (open: boolean) => void;
 }) {
   const t = useT();
-  const queryClient = useQueryClient();
   const candidates = question.candidates ?? [];
   const [selected, setSelected] = useState<string[]>([]);
   const [looking, setLooking] = useState<CandidateView | null>(null);
   const [own, setOwn] = useState("");
-  const answer = useMutation({
+  // The resumed turn arrives on the event stream too; re-reading the
+  // conversation closes the picker even if that event was missed.
+  const answer = useInvalidatingMutation([queryKeys.chat], {
     mutationFn: (picked: string[]) => chatApi.answerQuestion(turn, own.trim(), picked),
-    // The resumed turn arrives on the event stream too; re-reading the
-    // conversation closes the picker even if that event was missed.
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["chat"] }),
   });
   const choose = (key: string) => setSelected((now) => toggle(now, key, candidates));
   return (
@@ -81,7 +81,7 @@ export function PickerModal({
           disabled={answer.isPending}
           className="h-8 text-xs"
         />
-        {answer.isError && <p className="text-xs text-destructive">{answer.error.message}</p>}
+        <QueryError error={answer.error} className="text-xs text-destructive" />
         <DialogFooter className="items-center sm:justify-between">
           <p className="text-xs text-muted-foreground">
             {t.chat.picker.from(sourceName(candidates))}
