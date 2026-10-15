@@ -34,7 +34,7 @@ pub(super) fn import(
         }
     }
     if added {
-        save(&project, dir)?;
+        save(project, dir)?;
     }
     if lines.is_empty() {
         return Err(format!("{} — nothing was imported", failures.join("; ")));

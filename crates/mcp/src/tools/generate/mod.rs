@@ -295,7 +295,7 @@ fn measure(
     };
     probe_assets(project, dir, &probe, Reprobe::Skip);
     let shortened = placing::fit_to_sources(project, landed);
-    save(&project, dir)?;
+    save(project, dir)?;
     Ok(shortened)
 }
 
