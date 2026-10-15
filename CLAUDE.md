@@ -178,6 +178,13 @@ side effect of a feature PR.
   edited after generation). Sketch/stale clips render as slug cards so a full
   preview cut costs $0. "GO" realises only sketch/stale assets, and output is
   cached by the hash of its brief — never redone for an unchanged one.
+- **What was paid for is kept as the vendor sent it** (the maintainer,
+  2026-10-15). A Veo shot, a Nano Banana still, an ElevenLabs line or voice
+  sample is stored byte for byte as it arrived — no re-encode, resize, trim or
+  loudness pass — and is never overwritten. Anything done to it (a crop, a
+  trace, a proxy, a trimmed mix) is a derived copy or a clip-level edit, so
+  the edit can always be undone back to the purchase. A regenerated brief
+  writes a new file beside the old one (`<asset>-<brief hash>`), never over it.
 - **Two kinds of brief, and the difference is load-bearing.** A `prompt` is a
   sentence handed to a provider: it costs money, needs a network, and cannot
   be reproduced from the project alone. A `recipe` is a document in
