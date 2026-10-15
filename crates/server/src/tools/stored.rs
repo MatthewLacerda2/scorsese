@@ -28,6 +28,7 @@ use serde_json::Value;
 
 use super::surface::Serve;
 use super::{Caller, Refusal, bakes, database, fetched, folder, lay_out, project_id, voiced};
+use crate::jobs::blocking;
 use crate::projects::{self, ProjectError, files};
 
 /// How many times a call is run again on a project that moved under it.
@@ -80,18 +81,19 @@ pub(super) async fn run(
         let (name, cancel) = (tool.name(), caller.cancel.clone());
         let stock = toolbox.stock.clone();
         let (opened_with, laid) = (stored.document.clone(), kept.clone());
-        let (outcome, after, gathered) = tokio::task::spawn_blocking(move || {
-            let tool = super::registered(name, stock.as_ref()).ok_or("the tool went missing")?;
-            let outcome = tool.call_cancellable(&local, &cancel);
-            let after = std::fs::read_to_string(root.join(PROJECT_FILE_NAME))
-                .ok()
-                .and_then(|after| Project::from_json(&after).ok().map(|read| (after, read)));
-            let reading = after.as_ref().map_or(&opened_with, |(_, read)| read);
-            let gathered = files::gather(&root, reading, &laid);
-            Ok::<_, String>((outcome, after, gathered))
-        })
-        .await
-        .map_err(|_| "the tool crashed on the server; that is a bug".to_owned())??;
+        let (outcome, after, gathered) =
+            blocking("the tool crashed on the server; that is a bug", move || {
+                let tool =
+                    super::registered(name, stock.as_ref()).ok_or("the tool went missing")?;
+                let outcome = tool.call_cancellable(&local, &cancel);
+                let after = std::fs::read_to_string(root.join(PROJECT_FILE_NAME))
+                    .ok()
+                    .and_then(|after| Project::from_json(&after).ok().map(|read| (after, read)));
+                let reading = after.as_ref().map_or(&opened_with, |(_, read)| read);
+                let gathered = files::gather(&root, reading, &laid);
+                Ok::<_, String>((outcome, after, gathered))
+            })
+            .await??;
 
         let outcome = hide(outcome, folder.root()).map_err(Refusal::Said);
         let gathered = gathered.map_err(|why| format!("{why} — nothing was saved"))?;

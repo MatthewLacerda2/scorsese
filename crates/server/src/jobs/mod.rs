@@ -102,6 +102,7 @@
 //! throttled, never a row written per frame — and a job read while it runs
 //! carries it too ([`Queue::progressed`]).
 
+mod blocking;
 pub mod kinds;
 mod progress;
 mod registry;
@@ -109,6 +110,7 @@ mod stop;
 pub mod store;
 mod worker;
 
+pub use blocking::blocking;
 pub use progress::ProgressView;
 pub use registry::{Context, Handler, Registry};
 pub use stop::{CancelError, cancel};

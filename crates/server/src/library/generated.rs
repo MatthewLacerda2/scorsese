@@ -18,10 +18,32 @@
 //! `library::locate`, so a brief already made is free in any of the user's
 //! projects.
 
+use scorsese_core::words::Words;
 use serde_json::Value;
 
-use super::{Arrival, Item, Library, LibraryError, store};
+use super::{Arrival, Item, Kind, Library, LibraryError, store};
 use crate::db::{self, UserId};
+
+/// What a generation made, as bytes, before the library keeps it.
+pub struct Made {
+    /// The output itself.
+    pub bytes: Vec<u8>,
+    /// What it is; its extension follows ([`Kind::generated_extension`]).
+    pub kind: Kind,
+    /// What the item is called, without the extension.
+    pub name: String,
+    /// A spoken line's word timings (#886), `None` for output that has none.
+    pub words: Option<Words>,
+}
+
+/// Why [`Library::keep_generated_bytes`] kept nothing.
+#[derive(Debug)]
+pub enum Unkept {
+    /// The bytes could not be written to the user's scratch folder.
+    Unwritten(std::io::Error),
+    /// The library refused them.
+    Refused(LibraryError),
+}
 
 impl Library {
     /// `user`'s item generated from the brief with this hash, if they have one.
@@ -64,6 +86,34 @@ impl Library {
             Err(LibraryError::Duplicate { id, .. }) => self.get(user, id).await,
             kept => kept,
         }
+    }
+
+    /// Keep `made` as `user`'s item under `brief_hash`: written to the
+    /// user's scratch folder, then [`Library::keep_generated`].
+    pub async fn keep_generated_bytes(
+        &self,
+        user: UserId,
+        brief_hash: &str,
+        made: Made,
+    ) -> Result<Item, Unkept> {
+        let extension = made.kind.generated_extension();
+        let file = self.storage.scratch(user).with_extension(extension);
+        file.parent()
+            .map_or(Ok(()), std::fs::create_dir_all)
+            .and_then(|()| std::fs::write(&file, &made.bytes))
+            .map_err(Unkept::Unwritten)?;
+        let arrival = Arrival {
+            file,
+            name: format!("{}.{extension}", made.name),
+            kind: made.kind,
+            extension: extension.to_owned(),
+            announced: None,
+            brief_hash: None,
+            words: made.words,
+        };
+        self.keep_generated(user, brief_hash, arrival)
+            .await
+            .map_err(Unkept::Refused)
     }
 
     /// The record of the generation that made `user`'s item `id` — brief,

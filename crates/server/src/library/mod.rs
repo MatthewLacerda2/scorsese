@@ -56,6 +56,7 @@ pub mod thumbnail;
 pub mod upload;
 
 pub use admit::Arrival;
+pub use generated::{Made, Unkept};
 pub use kind::Kind;
 pub use store::{Change, Filter};
 pub use upload::{Announced, Appended, MAX_UPLOAD_BYTES, Progress};

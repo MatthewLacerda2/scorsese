@@ -23,6 +23,7 @@ use scorsese_providers::{image, speech, video};
 use sqlx::postgres::PgPool;
 
 use crate::db::{self, UserId};
+use crate::jobs::blocking;
 use crate::library::locate;
 use crate::projects::ProjectFiles;
 use crate::projects::media::{Materialised, hashes, materialise};
@@ -63,14 +64,13 @@ pub async fn lay_out(
     tx.commit().await.map_err(failed)?;
 
     let (at, document, kept) = (storage.scratch(user), project.clone(), files.clone());
-    let (laid, briefs) = tokio::task::spawn_blocking(move || {
+    let (laid, briefs) = blocking("laying the project out crashed; that is a bug", move || {
         let laid = materialise(&document, &kept, &at, &media)
             .map_err(|error| format!("laying the project out: {error}"))?;
         let briefs = briefs(&document, laid.root());
         Ok::<_, String>((laid, briefs))
     })
-    .await
-    .map_err(|_| "laying the project out crashed; that is a bug".to_owned())??;
+    .await??;
 
     let digests: Vec<String> = briefs.keys().cloned().collect();
     let mut tx = db::scoped(pool, user).await.map_err(failed)?;

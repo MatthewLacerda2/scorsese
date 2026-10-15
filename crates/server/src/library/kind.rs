@@ -71,6 +71,17 @@ impl Kind {
         }
     }
 
+    /// The extension a generation's output of this kind is kept under: an
+    /// ElevenLabs line is MP3, a Gemini still JPEG, a Veo shot MP4. Nothing
+    /// generates a page.
+    pub fn generated_extension(self) -> &'static str {
+        match self {
+            Self::Audio => "mp3",
+            Self::Image => "jpg",
+            Self::Video | Self::Html => "mp4",
+        }
+    }
+
     /// Whether a file of this kind is media, probed by ffprobe and drawn as a
     /// thumbnail. A page is neither.
     pub fn is_media(self) -> bool {

@@ -11,6 +11,7 @@ use super::{key, read, source};
 use crate::assistant::store::{CandidateView, QuestionView};
 use crate::db::UserId;
 use crate::http::AppState;
+use crate::jobs::blocking;
 
 /// The tool whose replies list the results a picker may offer.
 const SEARCH: &str = "stock_search";
@@ -39,14 +40,16 @@ pub(in crate::assistant) async fn offer(
     }
     let cache = state.library.storage().stock(user);
     let choices = asked.candidates.clone();
-    let found = tokio::task::spawn_blocking(move || {
-        let found = choices
-            .iter()
-            .map(|one| find_cached(&cache, one.medium, one.id));
-        found.collect::<Vec<_>>()
-    })
-    .await
-    .map_err(|_| "Not shown: reading the search cache crashed on the server.".to_owned())?;
+    let found = blocking(
+        "Not shown: reading the search cache crashed on the server.",
+        move || {
+            let found = choices
+                .iter()
+                .map(|one| find_cached(&cache, one.medium, one.id));
+            found.collect::<Vec<_>>()
+        },
+    )
+    .await?;
     let mut candidates = Vec::new();
     for (choice, found) in asked.candidates.iter().zip(found) {
         let Some(found) = found else {

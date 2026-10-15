@@ -3,18 +3,15 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use scorsese_core::AssetId;
 use scorsese_providers::video::{Brief, Progress, Ticket, VideoProvider};
 use scorsese_render::Tools;
 
-use super::land::{Work, document};
+use super::land::Work;
 use super::{Timing, Vendors};
-use crate::credits::generations::{Answer, Paid};
-use crate::jobs::{Context, Handler, Job, Outcome};
+use crate::credits::generations::Paid;
+use crate::jobs::{Context, Handler, Job, Outcome, blocking};
 use crate::library::Kind;
-use crate::projects::ProjectFiles;
 use crate::storage::Storage;
-use crate::tools::lay_out;
 
 /// The handler for [`crate::jobs::kinds::VEO_SHOT`].
 pub fn handler(
@@ -37,24 +34,10 @@ pub fn handler(
 type Provider = Arc<dyn VideoProvider + Send + Sync>;
 
 async fn shot(work: &Work, vendors: &dyn Vendors, timing: Timing) -> Outcome {
-    let paid = match work.paid().await {
-        Ok(Some(paid)) => paid,
-        Ok(None) => return work.settled().await,
-        Err(why) => return Outcome::Failed(why),
+    let paid = match work.begin().await {
+        Ok(paid) => paid,
+        Err(done) => return done,
     };
-    // Only before anything was sent: a job holding a ticket has already paid,
-    // and polls for what it paid for.
-    if work.job.ticket.is_none()
-        && let Ok(Some(item)) = work.made().await
-    {
-        if let Err(why) = work
-            .settle(paid, &Answer::Failed("already in your library".into()))
-            .await
-        {
-            return Outcome::Failed(why);
-        }
-        return work.landed(&item).await;
-    }
     let brief = match gather(work).await {
         Ok(brief) => brief,
         Err(why) => return work.refused(paid, why).await,
@@ -76,32 +59,12 @@ async fn shot(work: &Work, vendors: &dyn Vendors, timing: Timing) -> Outcome {
 /// The brief, gathered from the document the job carries, laid out with the
 /// user's files — and refused if it is not the one that was quoted.
 async fn gather(work: &Work) -> Result<Brief, String> {
-    let project = document(&work.payload)?;
-    let context = &work.context;
-    let folder = lay_out(
-        context.pool(),
-        &work.storage,
-        work.job.user,
-        &project,
-        &ProjectFiles::default(),
-    )
-    .await?;
-    let (root, asset) = (
-        folder.root().to_path_buf(),
-        AssetId::new(work.payload.asset.clone()),
-    );
-    let brief = tokio::task::spawn_blocking(move || {
-        let asset = project
-            .asset(&asset)
-            .ok_or_else(|| format!("the project has no asset `{asset}`"))?;
-        Brief::of(&project, &root, asset).map_err(|error| error.to_string())
-    })
-    .await
-    .map_err(|_| "gathering the brief crashed; that is a bug".to_owned())??;
-    drop(folder);
-    if brief.digest() != work.payload.brief {
-        return Err("the brief is not the one that was quoted".into());
-    }
+    let brief = work
+        .laid_out(|project, root, asset| {
+            Brief::of(project, root, asset).map_err(|error| error.to_string())
+        })
+        .await?;
+    work.quoted(&brief.digest(), "the brief")?;
     Ok(brief)
 }
 
@@ -113,11 +76,11 @@ async fn submit(
     brief: Brief,
 ) -> Result<Ticket, Outcome> {
     let sending = Arc::clone(provider);
-    let submitted = tokio::task::spawn_blocking(move || sending.submit(&brief)).await;
+    let submitted = blocking("submitting crashed", move || sending.submit(&brief)).await;
     let ticket = match submitted {
         Ok(Ok(ticket)) => ticket,
         Ok(Err(error)) => return Err(work.refused(paid, error.message).await),
-        Err(_) => return Err(work.refused(paid, "submitting crashed".into()).await),
+        Err(why) => return Err(work.refused(paid, why).await),
     };
     // Now, before anything else can go wrong: this ticket is the only record
     // that money was spent.
@@ -136,16 +99,17 @@ async fn wait(
     let started = Instant::now();
     loop {
         let (asking, polled) = (Arc::clone(provider), ticket.clone());
-        let progress = tokio::task::spawn_blocking(move || asking.poll(&polled)).await;
+        let progress = blocking("polling a shot crashed", move || asking.poll(&polled)).await;
         match progress {
             Ok(Ok(Progress::Failed(why))) => return work.refused(paid, why).await,
             Ok(Ok(Progress::Ready(ready))) => {
                 let fetching = Arc::clone(provider);
-                let fetched = tokio::task::spawn_blocking(move || fetching.fetch(&ready)).await;
+                let fetched =
+                    blocking("fetching a shot crashed", move || fetching.fetch(&ready)).await;
                 match fetched {
                     Ok(Ok(bytes)) => return work.keep(paid, bytes, Kind::Video).await,
                     Ok(Err(error)) => eprintln!("scorsese-server: fetching a shot: {error}"),
-                    Err(_) => eprintln!("scorsese-server: fetching a shot crashed"),
+                    Err(why) => eprintln!("scorsese-server: {why}"),
                 }
             }
             // A network blip is not a refusal: the shot is still Google's,
@@ -160,7 +124,7 @@ async fn wait(
                 return work.refused(paid, why).await;
             }
             Ok(Err(error)) => eprintln!("scorsese-server: polling a shot: {error}"),
-            Err(_) => eprintln!("scorsese-server: polling a shot crashed"),
+            Err(why) => eprintln!("scorsese-server: {why}"),
         }
         if started.elapsed() >= timing.patience {
             return Outcome::Stuck(format!(

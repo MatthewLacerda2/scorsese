@@ -9,18 +9,14 @@
 
 use std::sync::Arc;
 
-use scorsese_core::AssetId;
 use scorsese_providers::image::Brief;
 use scorsese_render::Tools;
 
 use super::Vendors;
-use super::land::{Work, document};
-use crate::credits::generations::Answer;
-use crate::jobs::{Context, Handler, Job, Outcome};
+use super::land::Work;
+use crate::jobs::{Context, Handler, Job, Outcome, blocking};
 use crate::library::Kind;
-use crate::projects::ProjectFiles;
 use crate::storage::Storage;
-use crate::tools::lay_out;
 
 /// The handler for [`crate::jobs::kinds::STILL_IMAGE`].
 pub fn handler(storage: Storage, tools: Tools, vendors: Arc<dyn Vendors>) -> impl Handler {
@@ -36,20 +32,10 @@ pub fn handler(storage: Storage, tools: Tools, vendors: Arc<dyn Vendors>) -> imp
 }
 
 async fn still(work: &Work, vendors: &dyn Vendors) -> Outcome {
-    let paid = match work.paid().await {
-        Ok(Some(paid)) => paid,
-        Ok(None) => return work.settled().await,
-        Err(why) => return Outcome::Failed(why),
+    let paid = match work.begin().await {
+        Ok(paid) => paid,
+        Err(done) => return done,
     };
-    if let Ok(Some(item)) = work.made().await {
-        if let Err(why) = work
-            .settle(paid, &Answer::Failed("already in your library".into()))
-            .await
-        {
-            return Outcome::Failed(why);
-        }
-        return work.landed(&item).await;
-    }
     let brief = match gather(work).await {
         Ok(brief) => brief,
         Err(why) => return work.refused(paid, why).await,
@@ -58,41 +44,21 @@ async fn still(work: &Work, vendors: &dyn Vendors) -> Outcome {
         Ok(provider) => provider,
         Err(why) => return work.refused(paid, why).await,
     };
-    let drawn = tokio::task::spawn_blocking(move || provider.draw(&brief)).await;
-    match drawn {
+    match blocking("drawing crashed", move || provider.draw(&brief)).await {
         Ok(Ok(bytes)) => work.keep(paid, bytes, Kind::Image).await,
         Ok(Err(error)) => work.refused(paid, error.message).await,
-        Err(_) => work.refused(paid, "drawing crashed".into()).await,
+        Err(why) => work.refused(paid, why).await,
     }
 }
 
 /// The still's brief, gathered from the document the job carries, laid out
 /// with the user's files — and refused if it is not the one that was quoted.
 pub(super) async fn gather(work: &Work) -> Result<Brief, String> {
-    let project = document(&work.payload)?;
-    let folder = lay_out(
-        work.context.pool(),
-        &work.storage,
-        work.job.user,
-        &project,
-        &ProjectFiles::default(),
-    )
-    .await?;
-    let (root, asset) = (
-        folder.root().to_path_buf(),
-        AssetId::new(work.payload.asset.clone()),
-    );
-    let brief = tokio::task::spawn_blocking(move || {
-        let asset = project
-            .asset(&asset)
-            .ok_or_else(|| format!("the project has no asset `{asset}`"))?;
-        Brief::of(&project, &root, asset).map_err(|error| error.to_string())
-    })
-    .await
-    .map_err(|_| "gathering the brief crashed; that is a bug".to_owned())??;
-    drop(folder);
-    if brief.digest() != work.payload.brief {
-        return Err("the still is not the one that was quoted".into());
-    }
+    let brief = work
+        .laid_out(|project, root, asset| {
+            Brief::of(project, root, asset).map_err(|error| error.to_string())
+        })
+        .await?;
+    work.quoted(&brief.digest(), "the still")?;
     Ok(brief)
 }
