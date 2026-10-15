@@ -17,6 +17,7 @@
 pub(crate) mod fm;
 pub(crate) mod fx;
 pub(crate) mod stages;
+mod vary;
 
 use serde::{Deserialize, Serialize};
 

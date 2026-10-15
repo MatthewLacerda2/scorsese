@@ -149,17 +149,20 @@
 //! at exactly two edges, the WAV encoder and the meter, where a whole buffer
 //! was wanted anyway.
 //!
-//! **Width belongs to the mix, never to a note.** A source is one signal: an
-//! oscillator stack, a plucked string and an FM voice — of two operators or of
-//! four — each produce a single waveform, and it reaches both channels
-//! identically. `noise` is the one
-//! exception — an uncorrelated second draw is a free and legitimate way to
-//! make a noise source wide, and the seeded hash already takes a channel
-//! discriminator. Everything else that widens a sound happens downstream, in
-//! the places a mix decision lives: a track's `pan`, and the stereo reverb.
-//! There is no per-note pan and no mid/side processing, for the same reason
-//! there is no node graph — that is a compositing suite's craft, not an
-//! editor's.
+//! **Where a part sits belongs to the mix; how wide a sound is may belong to
+//! the instrument.** A plucked string, an FM voice — of two operators or of
+//! four — and an additive series each produce a single waveform, and it
+//! reaches both channels identically. Two sources are wide by nature, and
+//! only those two: `noise`, whose uncorrelated second draw is free (the seeded
+//! hash already takes a channel discriminator), and an oscillator whose unison
+//! voices are given a `width` — copies that are already different signals,
+//! fanned across the field the way every synth makes a wide pad or a supersaw
+//! (#1124). Neither moves the part *off centre*: unison spreads symmetrically,
+//! and a stack nobody widened is mono as it always was. Placing a part, and
+//! the room around it, stay downstream, in the places a mix decision lives: a
+//! track's `pan`, and the stereo reverb. There is no per-note pan and no
+//! mid/side processing, for the same reason there is no node graph — that is
+//! a compositing suite's craft, not an editor's.
 //!
 //! `scorsese-render` resamples and upmixes every audio source on the way into
 //! the mix — a synthesised file takes exactly the path an imported stereo file
@@ -491,6 +494,14 @@ pub use song::{Excerpt, PatchResolver, Song, Span, Window, render_excerpt, rende
 ///
 /// **rusty re-bakes** every one-shot the next time it moves its pin past this
 /// version, and gets the shorter files.
+///
+/// **Unison `width` and a one-shot's `vary` left it alone** (#1124, #1038).
+/// Both are new optional fields, skipped at a default that renders what was
+/// always rendered — but `width` moved the oscillator stack's inner loop from
+/// one buffer to two, scaling each voice by its pan gains, which is an edited
+/// note loop and so measured rather than argued: **53 probes against
+/// `c186994`, all byte-identical** — every kit preset at seeds 0 and 7, and
+/// the landing page's song, whose leads and pads are unison stacks.
 pub const SYNTH_VERSION: u32 = 8;
 
 /// Render one note of `patch` and encode it as a stereo 16-bit PCM WAV.

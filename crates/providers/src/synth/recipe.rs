@@ -45,14 +45,32 @@ pub struct OneShot {
     #[serde(default = "default_velocity")]
     pub velocity: f32,
     /// Seed for the stochastic sources. Changing it re-rolls the noise while
-    /// keeping the bake reproducible.
+    /// keeping the bake reproducible — and, with [`OneShot::vary`] above zero,
+    /// draws a different take of the sound as well.
     #[serde(default)]
     pub seed: u64,
+    /// How far each `seed` makes a different take, in `0..=1` (#1038).
+    ///
+    /// `0`, the default, plays the patch exactly as written, so a new seed is
+    /// only new grain: a different file the ear hears as the same sound. Above
+    /// it, the envelope timings, the filter's cutoff and the pitch envelope's
+    /// depth are scattered by a draw from the seed (see
+    /// [`Patch::varied`]) — at `1` a timing lands anywhere from half to twice
+    /// what was written. So twenty pops in one video are one patch, one
+    /// `vary` and twenty seeds.
+    #[serde(default, skip_serializing_if = "is_exact")]
+    pub vary: f32,
     /// The instrument itself.
     pub patch: Patch,
 }
 
 impl OneShot {
+    /// The patch this take is played with: the one written, scattered by
+    /// [`OneShot::vary`] from [`OneShot::seed`].
+    pub fn instrument(&self) -> Patch {
+        self.patch.varied(self.vary, self.seed)
+    }
+
     /// The per-note options this describes.
     pub fn opts(&self) -> NoteOpts {
         NoteOpts {
@@ -99,6 +117,13 @@ fn default_duration() -> f32 {
 
 fn default_velocity() -> f32 {
     1.0
+}
+
+/// Whether a one-shot is played as written — the `vary` default, kept out of
+/// every saved document so a recipe from before the field keeps its bytes and
+/// its cached bake.
+fn is_exact(vary: &f32) -> bool {
+    *vary == 0.0
 }
 
 #[cfg(test)]

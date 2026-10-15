@@ -38,6 +38,7 @@ impl Starter {
                 duration: 0.4,
                 velocity: 1.0,
                 seed: 0,
+                vary: 0.0,
                 patch: pluck(),
             }),
             Self::Song => Recipe::Song(four_bars()),
@@ -49,6 +50,7 @@ impl Starter {
                 duration: 1.0,
                 velocity: 1.0,
                 seed: 0,
+                vary: 0.0,
                 patch: instrument.patch(),
             }),
         }
@@ -69,6 +71,7 @@ fn pluck() -> Patch {
                     octave: 0,
                     voices: 1,
                     spread: 12.0,
+                    width: 0.0,
                 },
                 Osc {
                     wave: Wave::Triangle,
@@ -77,6 +80,7 @@ fn pluck() -> Patch {
                     octave: -1,
                     voices: 1,
                     spread: 12.0,
+                    width: 0.0,
                 },
             ],
         },

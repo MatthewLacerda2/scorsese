@@ -6,15 +6,19 @@
 //! takes only the starting frequency, because its delay-line length is fixed once the
 //! string is plucked.
 //!
-//! **This is where mono becomes stereo, and mostly it does not.** An
-//! oscillator stack, a plucked string, an FM voice — of two operators or of
-//! four — and an additive series are each one waveform, so each is rendered
-//! once and placed in both channels, identically, which is what makes a
-//! centred part carry exactly the samples it always did. Width is a decision
-//! the mix makes, downstream, and a source that invented its own would take
-//! that decision away from it.
+//! **This is where mono becomes stereo, and mostly it does not.** A plucked
+//! string, an FM voice — of two operators or of four — and an additive series
+//! are each one waveform, so each is rendered once and placed in both
+//! channels, identically, which is what makes a centred part carry exactly the
+//! samples it always did. Where a part sits is a decision the mix makes,
+//! downstream, and a source that invented a position would take that decision
+//! away from it.
 //!
-//! [`noise`] is the exception and owns the reason for it.
+//! Two sources are exceptions, and each owns its reason: [`noise`], whose
+//! second draw is free, and an [`osc`] stack whose unison was given a
+//! `width` — several voices that are already different signals, which a wide
+//! pad or a supersaw places across the field rather than in one spot (#1124).
+//! An unwidened stack still writes identical channels.
 
 use super::{additive, fm, karplus, noise, osc};
 use crate::patch::{Algorithm, FM_OPERATORS, Operator, Source};
@@ -58,10 +62,18 @@ pub(crate) fn render(
     frames: usize,
     rate: f32,
 ) -> Stereo {
-    if let Source::Noise { color } = source {
-        let mut out = Stereo::silence(frames);
-        noise::fill(&mut out, *color, seed);
-        return out;
+    match source {
+        Source::Noise { color } => {
+            let mut out = Stereo::silence(frames);
+            noise::fill(&mut out, *color, seed);
+            return out;
+        }
+        Source::OscStack { oscs } => {
+            let mut out = Stereo::silence(frames);
+            osc::render(oscs, freqs, seed, &mut out, rate);
+            return out;
+        }
+        _ => {}
     }
     let mut mono = vec![0.0; frames];
     one_waveform(source, freqs, seed, velocity, gate, &mut mono, rate);
@@ -79,7 +91,6 @@ fn one_waveform(
     rate: f32,
 ) {
     match source {
-        Source::OscStack { oscs } => osc::render(oscs, freqs, seed, out, rate),
         Source::Karplus {
             damping,
             brightness,
@@ -106,9 +117,9 @@ fn one_waveform(
             fm::four::render(out, freqs, *algorithm, operators, &levels, note);
         }
         Source::Additive { partials } => additive::render(partials, freqs, seed, out, rate),
-        // [`render`] sends this one down its own path before narrowing the
-        // signal to one channel: it is the only source that draws two.
-        Source::Noise { .. } => {}
+        // [`render`] sends these two down their own paths before narrowing
+        // the signal to one channel: they are the sources that can draw two.
+        Source::Noise { .. } | Source::OscStack { .. } => {}
     }
 }
 
@@ -161,6 +172,7 @@ mod tests {
                     octave: 0,
                     voices: 5,
                     spread: 20.0,
+                    width: 0.0,
                 }],
             },
             Source::Karplus {

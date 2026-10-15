@@ -27,8 +27,8 @@ use super::recipe::{OneShot, Recipe};
 /// Every field name [`set`] accepts, for a schema to publish and a client to
 /// choose from. Which of them applies depends on the recipe's shape, and a
 /// refusal says so.
-pub const FIELDS: [&str; 8] = [
-    "bpm", "seed", "swing", "gain", "pan", "send", "duration", "velocity",
+pub const FIELDS: [&str; 9] = [
+    "bpm", "seed", "swing", "gain", "pan", "send", "duration", "velocity", "vary",
 ];
 
 /// The fields a **track** owns rather than the song: where that instrument
@@ -40,7 +40,7 @@ const TRACK_FIELDS: [&str; 3] = ["gain", "pan", "send"];
 const IN_A_SONG: &str = "bpm, seed, swing, or a track's gain, pan or send";
 
 /// What a patch recipe offers, worded for a refusal.
-const IN_A_PATCH: &str = "duration, velocity, or seed";
+const IN_A_PATCH: &str = "duration, velocity, seed, or vary";
 
 /// Where a JSON number stops being able to name a distinct whole one. A seed
 /// beyond it would silently become a neighbour of itself.
@@ -170,6 +170,7 @@ fn in_patch(one_shot: &mut OneShot, setting: &Setting) -> Result<String, String>
         "duration" => real(&mut one_shot.duration, setting.value),
         "velocity" => real(&mut one_shot.velocity, setting.value),
         "seed" => whole(&mut one_shot.seed, setting.value),
+        "vary" => real(&mut one_shot.vary, setting.value),
         other => Err(unknown(other, "patch", IN_A_PATCH)),
     }
 }
@@ -293,6 +294,22 @@ mod tests {
         assert_eq!(dry.document.matches("\"send\": 0.2").count(), 1);
         let back = tune(&dry.document, "send", Some("bass"), 1.0).expect("settable");
         assert!(!back.document.contains("\"send\""), "{}", back.document);
+    }
+
+    /// `vary` is a one-shot's, and a take played as written is not written
+    /// down, so tuning it back to zero gives the recipe its old bytes.
+    #[test]
+    fn vary_is_set_on_a_one_shot_and_zero_is_not_written() {
+        let varied = tune(PATCH, "vary", None, 0.5).expect("a one-shot's vary is settable");
+        assert_eq!(varied.was, "0", "it was played as written");
+        assert!(
+            varied.document.contains("\"vary\": 0.5"),
+            "{}",
+            varied.document
+        );
+        let exact = tune(&varied.document, "vary", None, 0.0).expect("settable");
+        assert!(!exact.document.contains("\"vary\""), "{}", exact.document);
+        assert!(tune(SONG, "vary", None, 0.5).is_err(), "a song has no vary");
     }
 
     /// Every track field needs a track, and says so rather than guessing one.

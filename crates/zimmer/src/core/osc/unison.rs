@@ -2,10 +2,11 @@
 //!
 //! Detuning copies of a wave against each other is the oldest trick in
 //! subtractive synthesis and the whole of the supersaw. What this module owns
-//! is the three numbers that turn `voices` into that: where each copy sits in
-//! pitch, what each one weighs, and where in its cycle each one begins.
+//! is the four numbers that turn `voices` into that: where each copy sits in
+//! pitch, what each one weighs, where in its cycle each one begins, and where
+//! in the stereo field it sounds.
 //!
-//! All three have to be per **voice** or the feature is not unison. Copies at
+//! The first three have to be per **voice** or the feature is not unison. Copies at
 //! one pitch are one oscillator; copies at one gain are that oscillator turned
 //! up; and copies at one phase are that oscillator turned up for the first few
 //! tens of milliseconds, which is exactly the stretch the ear identifies a
@@ -53,6 +54,28 @@ pub(super) fn voice_detune(osc: &Osc, voice: usize) -> f32 {
     osc.spread * (voice as f32 / (voices - 1) as f32 - 0.5)
 }
 
+/// Where voice `voice` sits on the pan axis, in `-1..=1`.
+///
+/// Spaced exactly as [`voice_detune`] spaces the pitches — evenly across
+/// `-width..=width`, lowest-pitched voice on the left — so pitch and place
+/// fan out together, which is how a hardware unison spread is wired. A lone
+/// voice, or a `width` of zero, is dead centre: the `0.0` that
+/// [`pan_gains`](crate::stereo::pan_gains) turns into an exact unity on both
+/// sides, which is what keeps an unspread oscillator the samples it always
+/// was. A width that is not a number is no width at all.
+pub(super) fn voice_pan(osc: &Osc, voice: usize) -> f32 {
+    let voices = voices(osc);
+    let width = if osc.width.is_finite() {
+        osc.width.clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    if voices < 2 || width == 0.0 {
+        return 0.0;
+    }
+    width * (2.0 * voice as f32 / (voices - 1) as f32 - 1.0)
+}
+
 /// Where voice `voice` of oscillator `index`, in a note seeded `seed`, starts
 /// in its cycle, in `0..1`.
 ///
@@ -78,6 +101,7 @@ mod tests {
             octave: 0,
             voices,
             spread,
+            width: 0.0,
         }
     }
 
@@ -169,6 +193,51 @@ mod tests {
             ),
             0.0
         );
+    }
+
+    /// Width fans the voices out the way spread fans their pitches: evenly,
+    /// symmetrically, lowest on the left, and at full width the outermost
+    /// pair hard over.
+    #[test]
+    fn a_wide_unison_fans_out_across_the_field() {
+        let wide = Osc {
+            width: 1.0,
+            ..unison(5, 20.0)
+        };
+        let pans: Vec<f32> = (0..5).map(|v| voice_pan(&wide, v)).collect();
+        assert_eq!(pans, vec![-1.0, -0.5, 0.0, 0.5, 1.0]);
+        let half = Osc {
+            width: 0.5,
+            ..unison(2, 20.0)
+        };
+        assert_eq!([voice_pan(&half, 0), voice_pan(&half, 1)], [-0.5, 0.5]);
+        // Past the edge is the edge, and nonsense is the centre.
+        let over = Osc {
+            width: 3.0,
+            ..unison(3, 20.0)
+        };
+        assert_eq!(voice_pan(&over, 0), -1.0);
+        for absurd in [f32::NAN, f32::INFINITY, -1.0] {
+            let odd = Osc {
+                width: absurd,
+                ..unison(3, 20.0)
+            };
+            assert_eq!(voice_pan(&odd, 0), 0.0, "width {absurd} moved a voice");
+        }
+    }
+
+    /// The default keeps every voice centred, and so does a single voice at
+    /// any width — there is nothing to fan out.
+    #[test]
+    fn an_unspread_or_lone_voice_stays_centred() {
+        for voice in 0..MAX_VOICES {
+            assert_eq!(voice_pan(&unison(MAX_VOICES, 20.0), voice), 0.0);
+        }
+        let lone = Osc {
+            width: 1.0,
+            ..unison(1, 20.0)
+        };
+        assert_eq!(voice_pan(&lone, 0), 0.0);
     }
 
     /// A count the validator refuses can still arrive by calling the renderer

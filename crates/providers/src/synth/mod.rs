@@ -299,7 +299,7 @@ fn render(
     match recipe {
         Recipe::Patch(one_shot) => {
             let midi = one_shot.note.to_midi().map_err(unrenderable)?;
-            bake_note(&one_shot.patch, midi, &one_shot.opts()).map_err(unrenderable)
+            bake_note(&one_shot.instrument(), midi, &one_shot.opts()).map_err(unrenderable)
         }
         Recipe::Song(song) => {
             bake_excerpt_unless(song, &instruments(project_root), &Excerpt::default(), stop)

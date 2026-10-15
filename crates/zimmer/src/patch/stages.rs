@@ -134,6 +134,22 @@ pub struct Osc {
     /// as one thick note.
     #[serde(default = "spread_default", skip_serializing_if = "is_default_spread")]
     pub spread: f32,
+    /// How far across the stereo field the unison voices fan out, `0..=1`.
+    ///
+    /// Read only when [`Osc::voices`] is above one. The voices are placed
+    /// evenly from `-width` to `+width` on the pan axis, lowest-pitched on the
+    /// left, so `1` puts the outermost two hard left and hard right and the
+    /// middle one, at an odd count, dead centre. Each copy keeps its own
+    /// pitch and start phase, so the two sides carry different signals: that
+    /// is what a wide pad or a supersaw lead *is*, and what a chorus can only
+    /// imitate by smearing one signal against a delayed copy of itself.
+    ///
+    /// `0`, the default, keeps every voice centred, and is exactly what every
+    /// patch written before this field existed already rendered. Outside
+    /// `0..=1` it is clamped rather than refused, the way a track's `pan` is:
+    /// a value past the edge is a taste, not a fault.
+    #[serde(default, skip_serializing_if = "is_centred")]
+    pub width: f32,
 }
 
 /// One partial of an additive series: where it sits, how much of it there is,
@@ -691,6 +707,12 @@ fn spread_default() -> f32 {
 /// Whether a spread is the written-nothing one, so it is not saved either.
 fn is_default_spread(spread: &f32) -> bool {
     *spread == spread_default()
+}
+
+/// Whether an oscillator's unison is unspread, the `width` default — so a
+/// patch that never mentions it is written back without it.
+fn is_centred(width: &f32) -> bool {
+    *width == 0.0
 }
 
 fn half() -> f32 {

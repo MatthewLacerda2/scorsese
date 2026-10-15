@@ -110,7 +110,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `synth_kit` | List the ready-made instruments a recipe can start from, or show one instrument's patch. | nothing |
 | `synth_read` | Read a recipe file as it is on disk — a recipe, or a bare patch file a song names by path. | nothing |
 | `synth_write` | Replace a recipe file with the document given. | nothing |
-| `synth_set` | Change one number in a recipe and leave the rest of the document alone: a track's gain, pan or send, or the recipe's own bpm, seed, swing, duration or velocity. | nothing |
+| `synth_set` | Change one number in a recipe and leave the rest of the document alone: a track's gain, pan or send, or the recipe's own bpm, seed, swing, duration, velocity or vary. | nothing |
 | `synth_check` | Check a recipe or patch file that was changed outside synth_write — edited with your own file tools, or copied in — and say what it is, without rendering it. | nothing |
 | `synth_bake` | Render every synth_audio recipe whose sound is not already on disk, into generated/. | nothing |
 | `icons` | Find an icon by a word, and answer with names — each one a string to give `asset_set` as `icon` (an icon asset's `name` in the document) or write into a page. | nothing |
@@ -2119,7 +2119,7 @@ synth_set  { "project": "trilhas.scor", "recipe": "recipes/05.json",
 ```
 
 It sets **one** number, named the way the recipe names it: a song's `bpm`,
-`seed` or `swing`, a patch's `duration`, `velocity` or `seed`, and a track's
+`seed` or `swing`, a patch's `duration`, `velocity`, `seed` or `vary`, and a track's
 `gain`, `pan` or `send` — the track by **its name**, the one the song's notes
 already use. Those are the values re-tuned after listening, and none of them
 rewrites a note. `pan` is `-1.0` hard left to `1.0` hard right, and spreading a

@@ -15,3 +15,4 @@ mod noise;
 mod strict;
 mod unison;
 mod validation;
+mod width;

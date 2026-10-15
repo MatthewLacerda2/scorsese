@@ -38,8 +38,9 @@
 //! own tail (an echo cut off mid-repeat is a click, not an echo).
 //!
 //! **Both channels take the whole path**, from the source stage onward. For
-//! every source but `noise` the two are computed from identical inputs and so
-//! come out bit-identical, which is arithmetic done twice for one answer — and
+//! every source but `noise`, and an oscillator stack whose unison was given a
+//! `width`, the two are computed from identical inputs and so come out
+//! bit-identical, which is arithmetic done twice for one answer — and
 //! that is the price of the path being uniform. The alternative was a flag
 //! saying whether the sides had parted company yet, read by every stage
 //! downstream, which is a mode; this is an offline renderer and it can afford
