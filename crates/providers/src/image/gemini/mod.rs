@@ -125,3 +125,34 @@ pub(crate) fn create(brief: &Brief) -> Create {
         store: false,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use scorsese_core::{AssetId, ImageRequest};
+
+    use super::{Brief, create};
+    use crate::video::Still;
+
+    /// Left out, Google matches the first reference picture's shape or draws a
+    /// square, so a brief that names neither still sends both, resolved —
+    /// a reference can never quietly set the shape (#1308).
+    #[test]
+    fn the_aspect_and_the_size_are_always_sent() {
+        let brief = Brief {
+            id: AssetId::new("still"),
+            prompt: String::from("a lighthouse"),
+            request: ImageRequest::default(),
+            reference_images: vec![Still {
+                id: AssetId::new("face"),
+                mime_type: String::from("image/png"),
+                bytes: vec![1, 2, 3],
+                digest: String::new(),
+            }],
+            retired: None,
+        };
+        let sent = serde_json::to_value(create(&brief)).expect("serialises");
+        assert_eq!(sent["model"], "gemini-nano-banana-2.1");
+        assert_eq!(sent["response_format"]["aspect_ratio"], "16:9");
+        assert_eq!(sent["response_format"]["image_size"], "2K");
+    }
+}
