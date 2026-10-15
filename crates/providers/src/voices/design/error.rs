@@ -85,7 +85,7 @@ pub enum DesignError {
     /// asked, which needs no account introspection at all.
     #[error(
         "ElevenLabs would not design a voice for this account: {said}\n\
-         Voice Design is not available through the API on a free plan. `scorsese voices` lists \
+         Voice Design is not available through the API on a free plan. `scorsese voices` (`voices`) lists \
          the built-in voices, and one from there narrates exactly the same way."
     )]
     NotOnThisPlan {

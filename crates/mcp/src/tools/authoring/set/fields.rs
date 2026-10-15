@@ -92,10 +92,9 @@ fn takes(kind: AssetKind, making: bool) -> Option<&'static [&'static str]> {
 /// Refuses an argument `kind` has no use for, naming it and what the kind
 /// does take.
 pub(super) fn check(kind: AssetKind, making: bool, arguments: &Arguments) -> Result<(), String> {
-    let name = kind_name(kind);
     let Some(takes) = takes(kind, making) else {
         return Err(format!(
-            "a {name} asset is its file, or is written by its own tool, and has \
+            "an asset of kind `{kind}` is its file, or is written by its own tool, and has \
              nothing here to change — nothing was written"
         ));
     };
@@ -111,7 +110,7 @@ pub(super) fn check(kind: AssetKind, making: bool, arguments: &Arguments) -> Res
         ""
     };
     Err(format!(
-        "`{field}` is not something a {name} asset takes{after} — it takes {}. \
+        "`{field}` is not something kind `{kind}` takes{after} — it takes {}. \
          Nothing was written",
         takes.join(", ")
     ))
@@ -155,16 +154,4 @@ fn named(arguments: &Arguments) -> Vec<&'static str> {
         .into_iter()
         .filter_map(|(field, asked)| asked.then_some(field))
         .collect()
-}
-
-/// What a `kind` is called *in the document*.
-///
-/// Read out of the format rather than off `Debug`, which would answer
-/// `GeneratedVideo` to somebody looking at `"kind": "generated_video"` in the
-/// file they are being told about.
-pub(super) fn kind_name(kind: AssetKind) -> String {
-    serde_json::to_value(kind)
-        .ok()
-        .and_then(|value| value.as_str().map(str::to_owned))
-        .unwrap_or_else(|| format!("{kind:?}"))
 }

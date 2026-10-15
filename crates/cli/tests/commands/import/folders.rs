@@ -27,8 +27,8 @@ fn a_folder_brings_in_the_media_directly_inside_it_and_names_what_it_did_not() {
     let folder = outside.elsewhere.clone();
 
     let run = outside.import(&folder, &[]).ok();
-    run.says("close — Video");
-    run.says("wide — Video");
+    run.says("close — video");
+    run.says("wide — video");
     run.says("LICENCE.txt — skipped");
     run.says("b-roll — skipped");
     run.silent_about("extra");

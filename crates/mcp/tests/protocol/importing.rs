@@ -50,8 +50,8 @@ fn a_folder_of_footage_comes_in_one_asset_at_a_time() {
     let (text, failed) = said(&call("import", json!({ "project": dir, "path": outside })));
 
     assert!(!failed, "{text}");
-    assert!(text.contains("close — Video, 64x64"), "got {text}");
-    assert!(text.contains("wide — Video, 64x64"), "got {text}");
+    assert!(text.contains("close — video, 64x64"), "got {text}");
+    assert!(text.contains("wide — video, 64x64"), "got {text}");
     assert!(text.contains("LICENCE.txt — skipped"), "got {text}");
     assert!(text.contains("b-roll — skipped"), "got {text}");
 
@@ -125,8 +125,8 @@ fn a_list_of_paths_comes_in_from_one_call() {
     ));
 
     assert!(!failed, "{text}");
-    assert!(text.contains("wide — Video, 64x64"), "got {text}");
-    assert!(text.contains("close — Video, 64x64"), "got {text}");
+    assert!(text.contains("wide — video, 64x64"), "got {text}");
+    assert!(text.contains("close — video, 64x64"), "got {text}");
     assert!(dir.join("assets/wide.mp4").is_file(), "wide was copied in");
     assert!(
         dir.join("assets/close.mp4").is_file(),
@@ -151,7 +151,7 @@ fn one_bad_path_among_good_ones_keeps_the_good_ones() {
     ));
 
     assert!(!failed, "something landed, so this is a reply: {text}");
-    assert!(text.contains("wide — Video, 64x64"), "got {text}");
+    assert!(text.contains("wide — video, 64x64"), "got {text}");
     assert!(text.contains("nope.mp4 — failed"), "got {text}");
     assert!(dir.join("assets/wide.mp4").is_file(), "wide still landed");
 

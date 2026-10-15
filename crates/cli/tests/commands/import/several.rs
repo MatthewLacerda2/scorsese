@@ -29,9 +29,9 @@ fn several_files_come_in_from_one_call_and_are_tallied() {
     let still = outside.still("card.png");
 
     let run = import_all(&outside, &[&wide, &close, &still]).ok();
-    run.says("wide — Video");
-    run.says("close — Video");
-    run.says("card — Image");
+    run.says("wide — video");
+    run.says("close — video");
+    run.says("card — image");
     // The tally exists because the per-asset lines above are too long to count
     // by eye once a set is more than a handful.
     run.says("3 imported, 0 already in the pool, 0 skipped");
@@ -48,7 +48,7 @@ fn one_path_is_still_reported_without_a_tally() {
     let wide = outside.media("wide.mp4", CLIP);
 
     let run = import_all(&outside, &[&wide]).ok();
-    run.says("wide — Video");
+    run.says("wide — video");
     run.silent_about("already in the pool,");
     outside.clean();
 }

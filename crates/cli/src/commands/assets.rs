@@ -4,7 +4,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use scorsese_core::pool::{named_by_pages, remove_assets, unused_assets};
-use scorsese_core::{AssetHealth, AssetStatus, HashCheck, Listed, Project, asset_status, listing};
+use scorsese_core::{AssetStatus, HashCheck, Listed, Project, asset_status, listing};
 
 /// Prints one line per asset: what it is, how many clips lean on it, and
 /// whether the file behind it is still there and still the one that was
@@ -33,9 +33,10 @@ pub(crate) fn list(project_dir: &Path, verify: bool) -> Result<()> {
         .iter()
         .filter(|row| row.health.needs_attention())
         .count();
+    // Exactly what `gc` would collect: nothing shows it and nothing names it.
     let unused = rows
         .iter()
-        .filter(|row| row.clip_count == 0 && row.sequence.is_none())
+        .filter(|row| row.clip_count == 0 && row.named_by.is_none())
         .count();
     println!(
         "\n{} assets, {unused} unused, {needing} needing attention",
@@ -128,32 +129,17 @@ fn stills(count: usize) -> String {
 }
 
 fn format_row(row: &AssetStatus) -> String {
-    let uses = match row.clip_count {
-        // A still a sequence plays is in use: `gc` would not collect it.
-        0 if row.sequence.is_some() => "in sequence".to_owned(),
-        0 => "unused".to_owned(),
-        1 => "1 clip".to_owned(),
-        many => format!("{many} clips"),
+    let uses = match (row.clip_count, &row.named_by) {
+        // Named by a shot, a sequence or a page: in use, and `gc` keeps it.
+        (0, Some(named)) => named.to_string(),
+        (0, None) => "unused".to_owned(),
+        (1, _) => "1 clip".to_owned(),
+        (many, _) => format!("{many} clips"),
     };
     format!(
         "{:<20} {:<16} {:<10} {}",
-        row.id,
-        format!("{:?}", row.kind),
-        uses,
-        health(&row.health)
+        row.id, row.kind, uses, row.health
     )
-}
-
-fn health(health: &AssetHealth) -> String {
-    match health {
-        AssetHealth::Ok => "ok".to_owned(),
-        AssetHealth::Inline => "inline text".to_owned(),
-        AssetHealth::Awaiting(state) => format!("awaiting generation ({state:?})"),
-        AssetHealth::Missing => "FILE MISSING".to_owned(),
-        AssetHealth::HashMismatch { .. } => "CHANGED SINCE IMPORT".to_owned(),
-        AssetHealth::Unprobed => "not probed".to_owned(),
-        AssetHealth::Unreadable(why) => format!("UNREADABLE: {why}"),
-    }
 }
 
 fn human_bytes(bytes: u64) -> String {

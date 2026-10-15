@@ -61,7 +61,7 @@ pub fn findings(rows: &[AssetStatus]) -> Vec<Finding> {
             Some(Finding {
                 asset: row.id.clone(),
                 severity,
-                detail: format!("{} ({})", describe(&row.health), uses(row.clip_count)),
+                detail: format!("{} ({})", describe(&row.health), uses(row)),
             })
         })
         .collect()
@@ -122,16 +122,17 @@ fn describe(health: &AssetHealth) -> String {
         // an empty line.
         AssetHealth::Ok => "ok".to_owned(),
         AssetHealth::Inline => "content lives in project.json".to_owned(),
-        AssetHealth::Awaiting(state) => format!("awaiting generation ({state:?})"),
+        AssetHealth::Awaiting(state) => format!("awaiting generation ({state})"),
     }
 }
 
 /// What the clip count means for whoever is repairing this.
-fn uses(clip_count: usize) -> String {
-    match clip_count {
-        0 => "no clip uses it — `scorsese assets gc` clears it".to_owned(),
-        1 => "1 clip uses it".to_owned(),
-        many => format!("{many} clips use it"),
+fn uses(row: &AssetStatus) -> String {
+    match (row.clip_count, &row.named_by) {
+        (0, Some(named)) => format!("no clip uses it, but it is {named}"),
+        (0, None) => "no clip uses it — `scorsese assets gc` (`asset_remove`) clears it".to_owned(),
+        (1, _) => "1 clip uses it".to_owned(),
+        (many, _) => format!("{many} clips use it"),
     }
 }
 

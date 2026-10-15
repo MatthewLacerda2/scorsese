@@ -80,7 +80,7 @@ fn the_voice_library_refusal_points_at_the_built_in_voices() {
         .expect_err("a free plan cannot read the library")
         .to_string();
     assert!(said.contains("free plan"), "{said}");
-    assert!(said.contains("scorsese voices"), "{said}");
+    assert!(said.contains("`scorsese voices` (`voices`)"), "{said}");
 }
 
 /// Refused before a round trip, because being told a number is too big is worth

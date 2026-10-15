@@ -37,7 +37,7 @@ pub enum AssetProblem {
     /// One variant rather than one per field: which fields a kind needs is
     /// [`AssetField`]'s to explain, and saying it again per error is how the
     /// same reasoning ends up written twice and maintained once.
-    #[error("asset `{asset}` is a {kind:?} and needs a `{field}`")]
+    #[error("asset `{asset}` is of kind `{kind}` and needs a `{field}`")]
     MissingField {
         /// The asset that is short a field.
         asset: AssetId,
@@ -53,7 +53,7 @@ pub enum AssetProblem {
     /// the same reason: nothing would ever read it, and silence about it would
     /// look exactly like having read it. Usually a `kind` that was meant to be
     /// something else.
-    #[error("asset `{asset}` is a {kind:?}, so `{field}` does not apply to it")]
+    #[error("asset `{asset}` is of kind `{kind}`, so `{field}` does not apply to it")]
     StrayField {
         /// The asset carrying it.
         asset: AssetId,

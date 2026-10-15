@@ -370,8 +370,12 @@ pub enum LoadError {
     #[error("parsing project.json: {0}")]
     Parse(#[source] serde_json::Error),
     /// A document from another build. Read before anything else, so the
-    /// advice is "upgrade scorsese" rather than a complaint about a field.
-    #[error("project.json is schema_version {found}, but this build of scorsese reads {supported}")]
+    /// advice is how to get past it rather than a complaint about a field:
+    /// migrate an older one, upgrade scorsese for a newer one.
+    #[error(
+        "project.json is schema_version {found}, but this build of scorsese reads {supported}{}",
+        version_advice(*found, *supported)
+    )]
     SchemaVersion {
         /// The version the document declares.
         found: u32,
@@ -382,6 +386,18 @@ pub enum LoadError {
     /// problem at once, never just the first.
     #[error(transparent)]
     Invalid(#[from] ValidationErrors),
+}
+
+/// What to do about a document at `found` when this build reads `supported`.
+///
+/// Only the local fix is named for an older one: the web migrates every
+/// stored project when it starts, so nobody there ever reads this (#1115).
+fn version_advice(found: u32, supported: u32) -> &'static str {
+    if found < supported {
+        " — `scorsese migrate --project <dir>` brings it forward"
+    } else {
+        " — it was written by a newer scorsese; upgrade this one to open it"
+    }
 }
 
 /// Why a project could not be saved.

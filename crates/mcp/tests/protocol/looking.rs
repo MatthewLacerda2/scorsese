@@ -150,5 +150,12 @@ fn listing_assets_names_them_and_their_state() {
     let (text, failed) = said(&call("project_assets", json!({ "project": dir })));
     assert!(!failed, "{text}");
     assert!(text.contains("bed") && text.contains("vo"), "got {text}");
+    // The document's words, never Rust's `GeneratedAudio` or `Awaiting(Sketch)`
+    // (#1115), and the recipe the bed is written in.
+    assert!(
+        text.contains("generated_audio\tawaiting generation (sketch)"),
+        "{text}"
+    );
+    assert!(text.contains("recipes/bed.json"), "{text}");
     std::fs::remove_dir_all(dir).ok();
 }

@@ -65,8 +65,8 @@ fn every_state_an_asset_can_be_in_is_reported_as_itself() {
     for (id, state) in [
         ("healthy", "ok"),
         ("unprobed", "not probed"),
-        ("gone", "FILE MISSING"),
-        ("title", "inline text"),
+        ("gone", "file missing"),
+        ("title", "inline"),
         ("boat", "awaiting generation"),
     ] {
         let row = row_for(&run, id);

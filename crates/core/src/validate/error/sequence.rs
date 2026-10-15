@@ -38,7 +38,7 @@ pub enum SequenceProblem {
     /// Only `image`: a generated still may not exist yet, and a sequence is
     /// a run of files someone already has. A sequence inside a sequence is
     /// refused by the same rule.
-    #[error("asset `{asset}` plays `{still}` as a still, but that asset is a {kind:?}")]
+    #[error("asset `{asset}` plays `{still}` as a still, but that asset is of kind `{kind}`")]
     NotAnImage {
         /// The sequence naming it.
         asset: AssetId,

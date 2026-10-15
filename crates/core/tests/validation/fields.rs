@@ -33,7 +33,7 @@ fn a_missing_field_says_which_one_and_why() {
     };
     assert_eq!(
         problem.to_string(),
-        "asset `shot-city` is a GeneratedVideo and needs a `prompt`"
+        "asset `shot-city` is of kind `generated_video` and needs a `prompt`"
     );
 }
 
@@ -46,6 +46,6 @@ fn a_stray_field_says_which_one_and_where_it_does_not_belong() {
     };
     assert_eq!(
         problem.to_string(),
-        "asset `logo` is a Image, so `recipe` does not apply to it"
+        "asset `logo` is of kind `image`, so `recipe` does not apply to it"
     );
 }

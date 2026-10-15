@@ -87,7 +87,7 @@ fn print(project: &Project, report: &Import) {
         let Some(asset) = project.asset(&one.id) else {
             continue;
         };
-        println!("{} — {:?}", one.id, asset.kind);
+        println!("{} — {}", one.id, asset.kind);
         if let Some(path) = &asset.path {
             println!("  {path}");
         }

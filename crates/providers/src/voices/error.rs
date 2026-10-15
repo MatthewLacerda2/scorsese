@@ -64,7 +64,7 @@ pub enum VoiceError {
     #[error(
         "ElevenLabs would not serve the Voice Library to this account: {said}\n\
          The Voice Library is not available through the API on a free plan. The built-in \
-         voices are — `scorsese voices` lists them, and a voice from there generates \
+         voices are — `scorsese voices` (`voices`) lists them, and a voice from there generates \
          exactly the same way."
     )]
     NoLibraryOnThisPlan {
@@ -81,7 +81,7 @@ pub enum VoiceError {
     /// would sound perfectly fine.
     #[error(
         "{voice_id} cannot be used at {provider}: {why}. \
-         Run `scorsese voices` and pick another — nothing has been changed."
+         Run `scorsese voices` (`voices`) and pick another — nothing has been changed."
     )]
     Unusable {
         /// The id that will not do.

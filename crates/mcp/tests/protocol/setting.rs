@@ -59,7 +59,7 @@ fn a_field_of_another_kind_is_refused_by_name() {
     ));
     assert!(failed, "a caption has no fill");
     assert!(
-        text.contains("`fill` is not something a text asset takes"),
+        text.contains("`fill` is not something kind `text` takes"),
         "got {text}"
     );
     assert_eq!(document(&dir), before);

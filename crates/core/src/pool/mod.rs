@@ -35,4 +35,4 @@ pub use sequence::{
     Gap, SequenceChange, SequenceChanged, SequenceError, SequenceImport, change_sequence,
     import_sequence,
 };
-pub use status::{AssetHealth, AssetStatus, HashCheck, asset_status};
+pub use status::{AssetHealth, AssetStatus, HashCheck, NamedBy, asset_status};
