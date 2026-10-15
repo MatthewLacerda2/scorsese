@@ -17,7 +17,10 @@ bug, a missing feature, a design gap, a stale doc or a quality-of-life fix is
 folded into this branch when it's in your way or small, or filed as an issue with the
 evidence (CLAUDE.md, *Issues, labels & priority*) while you keep going. A change that alters how the user
 sees or understands their data or project, changes stored data or needs a
-migration is never folded in: file it with `planning`. Every issue you file
+migration is never folded in: file it with `planning`. A bug or a
+documentation fix is the exception: it never takes `planning`, and its fix
+merges without waiting for the operator, even when existing projects render
+differently after it. Every issue you file
 carries the `agent` label. The operator expects coders to file issues mid-batch.
 
 ## Before you start
