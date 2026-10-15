@@ -19,13 +19,12 @@
 
 use std::path::Path;
 
-use scorsese_core::{
-    Asset, AssetId, AssetKind, GENERATED_DIR, ImageRequest, Project, ProjectPath, hash_bytes,
-};
+use scorsese_core::{Asset, AssetId, AssetKind, ImageRequest, Project, ProjectPath};
 
 use super::Incomplete;
+use crate::fingerprint::{self, Fingerprint};
 use crate::video::Still;
-use crate::video::brief::read_still;
+use crate::video::brief::read_stills;
 
 /// Everything one still asks for, gathered and resolved.
 #[derive(Debug, Clone, PartialEq)]
@@ -59,13 +58,12 @@ impl Brief {
                 id: asset.id.clone(),
             })?;
         let request = asset.image_request();
-        let reference_images = request
-            .references()
-            .map(|id| read_still(project, root, id))
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| Incomplete::Reference {
-                id: asset.id.clone(),
-                why: error.to_string(),
+        let reference_images =
+            read_stills(project, root, request.references()).map_err(|error| {
+                Incomplete::Reference {
+                    id: asset.id.clone(),
+                    why: error.to_string(),
+                }
             })?;
         Ok(Self {
             id: asset.id.clone(),
@@ -83,40 +81,38 @@ impl Brief {
 
     /// The fingerprint of everything this asks for.
     pub fn digest(&self) -> String {
-        hash_bytes(self.fingerprint().as_bytes())
+        self.fingerprint().digest()
     }
 
     /// The text [`Brief::digest`] hashes: a labelled line per field, so one
     /// field's value cannot run into the next.
-    fn fingerprint(&self) -> String {
-        let mut text = String::from("gemini-image\n");
-        text.push_str(&format!("model:{}\n", self.request.model.as_str()));
-        text.push_str(&format!("resolution:{}\n", self.request.size().as_str()));
-        text.push_str(&format!("aspect:{}\n", self.request.aspect.as_str()));
-        if self.request.thinking() != self.request.model.default_thinking()
-            && let Some(level) = self.request.thinking()
-        {
-            text.push_str(&format!("thinking:{}\n", level.as_str()));
-        }
-        text.push_str(&format!("prompt:{}\n", self.prompt));
-        for reference in &self.reference_images {
-            text.push_str(&format!("reference:{}\n", reference.digest));
-        }
-        text
+    fn fingerprint(&self) -> Fingerprint {
+        let thinking = self.request.thinking();
+        let thinking = thinking.filter(|_| thinking != self.request.model.default_thinking());
+        Fingerprint::of("gemini-image")
+            .line("model", self.request.model.as_str())
+            .line("resolution", self.request.size().as_str())
+            .line("aspect", self.request.aspect.as_str())
+            .when("thinking", thinking.map(|level| level.as_str()))
+            .line("prompt", &self.prompt)
+            .each(
+                "reference",
+                self.reference_images.iter().map(|still| &still.digest),
+            )
     }
 
     /// Where a drawing of this brief lands, project-relative — named for the
     /// asset and the fingerprint, for [`video`](crate::video::Brief::output)'s
     /// reason: two stills with the same prompt are two takes.
     pub fn output(&self) -> ProjectPath {
-        ProjectPath::new(format!("{GENERATED_DIR}/{}.jpg", self.key()))
+        fingerprint::output(&self.id, &self.digest(), "jpg")
     }
 
     /// The name of [`Brief::output`]'s file without its directory or
     /// extension — what a batch request is keyed by, so its answer finds the
     /// file it belongs in.
     pub fn key(&self) -> String {
-        format!("{}-{}", self.id, self.digest())
+        fingerprint::key(&self.id, &self.digest())
     }
 
     /// Whether a drawing of this brief is already on disk — the answer to *has

@@ -22,11 +22,10 @@
 
 use std::path::Path;
 
-use scorsese_core::{
-    Asset, AssetId, AssetKind, GENERATED_DIR, Project, ProjectPath, VideoRequest, hash_bytes,
-};
+use scorsese_core::{Asset, AssetId, AssetKind, Project, ProjectPath, VideoRequest, hash_bytes};
 
 use super::GenerationError;
+use crate::fingerprint::{self, Fingerprint};
 
 /// A still a brief names, read off disk.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -91,11 +90,7 @@ impl Brief {
             prompt,
             first_image: still(&request.first_image)?,
             last_image: still(&request.last_image)?,
-            reference_images: request
-                .reference_images
-                .iter()
-                .map(|id| read_still(project, root, id))
-                .collect::<Result<Vec<_>, _>>()?,
+            reference_images: read_stills(project, root, &request.reference_images)?,
             request,
         })
     }
@@ -108,7 +103,7 @@ impl Brief {
     /// cannot collide by one field's value being another field's — a prompt
     /// ending in a number and an empty prompt followed by that number.
     pub fn digest(&self) -> String {
-        hash_bytes(self.fingerprint().as_bytes())
+        self.fingerprint().digest()
     }
 
     /// The text [`Brief::digest`] hashes.
@@ -119,30 +114,28 @@ impl Brief {
     /// added to the request adds its line **only when it is set** — the test
     /// below pins a brief's digest to hold that. What Veo documents and this
     /// leaves out, and why, is beside [`Parameters`](crate::api::veo::request::Parameters).
-    fn fingerprint(&self) -> String {
-        let mut text = String::from("veo\n");
-        text.push_str(&format!("model:{}\n", self.request.model.as_str()));
-        text.push_str(&format!("resolution:{:?}\n", self.request.resolution));
-        text.push_str(&format!("seconds:{}\n", self.request.seconds.get()));
-        text.push_str(&format!("aspect:{:?}\n", self.request.aspect));
-        text.push_str(&format!("prompt:{}\n", self.prompt));
-        text.push_str(&format!("first:{}\n", digest_of(self.first_image.as_ref())));
-        text.push_str(&format!("last:{}\n", digest_of(self.last_image.as_ref())));
-        for reference in &self.reference_images {
-            text.push_str(&format!("reference:{}\n", reference.digest));
-        }
-        text
+    fn fingerprint(&self) -> Fingerprint {
+        Fingerprint::of("veo")
+            .line("model", self.request.model.as_str())
+            .line("resolution", format!("{:?}", self.request.resolution))
+            .line("seconds", self.request.seconds.get())
+            .line("aspect", format!("{:?}", self.request.aspect))
+            .line("prompt", &self.prompt)
+            .or_none(
+                "first",
+                self.first_image.as_ref().map(|still| &still.digest),
+            )
+            .or_none("last", self.last_image.as_ref().map(|still| &still.digest))
+            .each(
+                "reference",
+                self.reference_images.iter().map(|still| &still.digest),
+            )
     }
 
-    /// Where a generation of this brief lands, project-relative.
-    ///
-    /// Named for the asset **and** the fingerprint. The fingerprint alone would
-    /// be enough for the cache and would even save money — two shots asking the
-    /// same thing would share one file — but it is the wrong answer for an
-    /// editor: two shots with the same prompt are two takes, and a cut that
-    /// used one file twice would show the same eight seconds in both places.
+    /// Where a generation of this brief lands, project-relative — named for
+    /// the asset **and** the fingerprint ([`fingerprint::key`] has why).
     pub fn output(&self) -> ProjectPath {
-        ProjectPath::new(format!("{GENERATED_DIR}/{}-{}.mp4", self.id, self.digest()))
+        fingerprint::output(&self.id, &self.digest(), "mp4")
     }
 
     /// Whether a generation of this brief is already on disk.
@@ -157,12 +150,16 @@ impl Brief {
     }
 }
 
-/// A still's digest, or the word that stands in for one that is not there.
-///
-/// `none` rather than an empty string, so a brief with no first frame and a
-/// brief whose first frame hashed to nothing are different documents.
-fn digest_of(still: Option<&Still>) -> &str {
-    still.map_or("none", |still| still.digest.as_str())
+/// Reads every still `ids` names, in order — the references of a shot or of a
+/// drawing, refused at the first one that cannot be read.
+pub(crate) fn read_stills<'a>(
+    project: &Project,
+    root: &Path,
+    ids: impl IntoIterator<Item = &'a AssetId>,
+) -> Result<Vec<Still>, GenerationError> {
+    ids.into_iter()
+        .map(|id| read_still(project, root, id))
+        .collect()
 }
 
 /// Reads the image asset `id` names — an imported still, or a generated one

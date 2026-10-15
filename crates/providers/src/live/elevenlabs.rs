@@ -18,9 +18,8 @@
 use base64::Engine;
 use scorsese_core::SpeechModel;
 
-use crate::api::elevenlabs::design::{
-    CANDIDATES, Design, DesignReply, DesignRequest, OUTPUT_FORMAT,
-};
+use crate::api::elevenlabs::OUTPUT_FORMAT;
+use crate::api::elevenlabs::design::{CANDIDATES, Design, DesignReply, DesignRequest};
 use crate::api::elevenlabs::speech::{Speak, Speech, Timed};
 use crate::api::elevenlabs::voices::{Listing, Voices};
 use crate::api::http::HttpError;

@@ -18,18 +18,9 @@ pub mod response;
 
 use std::time::Duration;
 
+use crate::api::google::{self, BASE, ModelInfo};
 use crate::api::http::{Caller, HttpError};
-use crate::api::veo::response::ModelInfo;
 use crate::credentials::Secret;
-
-/// The API's root, which every endpoint here hangs off.
-const BASE: &str = "https://generativelanguage.googleapis.com/v1beta";
-
-/// The endpoint every interaction is created at.
-const INTERACTIONS: &str = "https://generativelanguage.googleapis.com/v1beta/interactions";
-
-/// The header Google reads the key from — the same key Veo takes.
-const KEY_HEADER: &str = "x-goog-api-key";
 
 /// How long one drawing may take before it is given up on.
 ///
@@ -82,7 +73,7 @@ impl Gemini {
     /// A client that authenticates with this key.
     pub fn new(key: &Secret) -> Self {
         Self {
-            caller: Caller::new(KEY_HEADER, key),
+            caller: google::caller(key),
         }
     }
 
@@ -100,12 +91,12 @@ impl Gemini {
     /// for the same reader: the live provider check ([`crate::live`]), which
     /// confirms without paying for a picture that each id is still served.
     pub fn model(&self, model: Model) -> Result<ModelInfo, HttpError> {
-        self.caller.get(&format!("{BASE}/models/{}", model.id()))
+        google::model(&self.caller, model.id())
     }
 
     /// Draws one picture. **This is the call that spends the money.**
     pub fn create(&self, body: &request::Create) -> Result<response::Interaction, HttpError> {
         self.caller
-            .post_large(INTERACTIONS, body, WAIT, MAX_REPLY_BYTES)
+            .post_large(&format!("{BASE}/interactions"), body, WAIT, MAX_REPLY_BYTES)
     }
 }

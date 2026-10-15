@@ -28,11 +28,11 @@
 //! Nothing about *when* is in it. A timestamp inside a brief hash would make an
 //! unchanged line look edited and pay for it again.
 
-use scorsese_core::{
-    Asset, AssetId, AssetKind, GENERATED_DIR, ProjectPath, SpeechRequest, hash_bytes,
-};
+use scorsese_core::{Asset, AssetId, AssetKind, ProjectPath, SpeechRequest};
 
 use super::Incomplete;
+use crate::api::elevenlabs::OUTPUT_FORMAT;
+use crate::fingerprint::{self, Fingerprint};
 
 /// Everything one spoken line asks for, gathered and complete.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -113,7 +113,7 @@ impl Brief {
     /// behaves in a way nobody expects — and so two different briefs cannot
     /// collide by one field's value running into the next.
     pub fn digest(&self) -> String {
-        hash_bytes(self.fingerprint().as_bytes())
+        self.fingerprint().digest()
     }
 
     /// The text [`Brief::digest`] hashes.
@@ -125,38 +125,30 @@ impl Brief {
     /// project going stale and re-billing itself the day scorsese updated. That
     /// is the right default, and remapping deliberately is still available —
     /// it is simply not something an upgrade should do silently.
-    fn fingerprint(&self) -> String {
-        let mut text = String::from("elevenlabs\n");
-        text.push_str(&format!("model:{}\n", self.request.model.as_str()));
-        text.push_str(&format!("voice:{}\n", self.voice_id));
-        text.push_str(&format!("text:{}\n", self.text));
-        text.push_str(&format!(
-            "language:{}\n",
-            or_none(self.request.language.as_deref())
-        ));
-        text.push_str(&format!(
-            "seed:{}\n",
-            self.request
-                .seed
-                .map_or_else(|| "none".to_owned(), |seed| seed.to_string())
-        ));
-        // Reserved. Each of these is a field scorsese may take later, and each
-        // is written now so that taking it does not re-bill the projects that
-        // never used it — see the module doc.
-        text.push_str("format:mp3_44100_128\n");
-        text.push_str("voice_settings:none\n");
-        text.push_str("previous_text:none\n");
-        text.push_str("next_text:none\n");
-        text
+    fn fingerprint(&self) -> Fingerprint {
+        Fingerprint::of("elevenlabs")
+            .line("model", self.request.model.as_str())
+            .line("voice", &self.voice_id)
+            .line("text", &self.text)
+            .or_none("language", self.request.language.as_deref())
+            .or_none("seed", self.request.seed)
+            // The format the vendor is asked for, and the one constant both
+            // read: changing it re-bills every line, as it should, because the
+            // file would be different audio.
+            .line("format", OUTPUT_FORMAT)
+            // Reserved. Each of these is a field scorsese may take later, and
+            // each is written now so that taking it does not re-bill the
+            // projects that never used it — see the module doc.
+            .line("voice_settings", "none")
+            .line("previous_text", "none")
+            .line("next_text", "none")
     }
 
-    /// Where a generation of this brief lands, project-relative.
-    ///
-    /// Named for the asset **and** the fingerprint, the same way a shot is: the
-    /// fingerprint alone would let two assets share one file, and two lines
+    /// Where a generation of this brief lands, project-relative — named for
+    /// the asset **and** the fingerprint, the same way a shot is: two lines
     /// that happen to say the same words in the same voice are still two takes.
     pub fn output(&self) -> ProjectPath {
-        ProjectPath::new(format!("{GENERATED_DIR}/{}-{}.mp3", self.id, self.digest()))
+        fingerprint::output(&self.id, &self.digest(), "mp3")
     }
 
     /// Whether a generation of this brief is already on disk.
@@ -169,14 +161,6 @@ impl Brief {
     pub fn realized(&self, root: &std::path::Path) -> bool {
         self.output().resolve(root).is_file()
     }
-}
-
-/// A value, or the word that stands in for one that is not there.
-///
-/// `none` rather than an empty string, so a brief with no language and a brief
-/// whose language was blank are different documents.
-fn or_none(value: Option<&str>) -> &str {
-    value.unwrap_or("none")
 }
 
 #[cfg(test)]

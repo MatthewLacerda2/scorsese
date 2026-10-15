@@ -20,9 +20,9 @@
 //! Nothing about *when* is in it. A timestamp inside a brief hash makes an
 //! unchanged description look edited, and pay for it again.
 
-use scorsese_core::hash_bytes;
-
-use crate::api::elevenlabs::design::{DesignRequest, OUTPUT_FORMAT, PASSAGE, PROMPT};
+use crate::api::elevenlabs::OUTPUT_FORMAT;
+use crate::api::elevenlabs::design::{DesignRequest, PASSAGE, PROMPT};
+use crate::fingerprint::Fingerprint;
 
 use super::error::DesignError;
 
@@ -86,24 +86,24 @@ impl Brief {
     /// behaves in a way nobody expects — and so two different briefs cannot
     /// collide by one field's value running into the next.
     pub fn digest(&self) -> String {
-        hash_bytes(self.fingerprint().as_bytes())
+        self.fingerprint().digest()
     }
 
     /// The text [`Brief::digest`] hashes.
-    fn fingerprint(&self) -> String {
-        let mut text = String::from("voice-design\n");
-        text.push_str(&format!("prompt:{}\n", self.prompt));
-        text.push_str(&format!("passage:{}\n", self.passage));
-        text.push_str(&format!("seed:{}\n", said(self.seed)));
-        text.push_str(&format!("guidance:{}\n", said(self.guidance)));
-        text.push_str(&format!("format:{OUTPUT_FORMAT}\n"));
-        // Written now and never set, for the reason in the module doc: the two
-        // knobs the endpoint has that scorsese does not expose. Reserving the
-        // lines costs nothing today and is what stops exposing one tomorrow
-        // from re-billing every design already paid for.
-        text.push_str("loudness:none\n");
-        text.push_str("quality:none\n");
-        text
+    fn fingerprint(&self) -> Fingerprint {
+        Fingerprint::of("voice-design")
+            .line("prompt", &self.prompt)
+            .line("passage", &self.passage)
+            .or_none("seed", self.seed)
+            .or_none("guidance", self.guidance)
+            .line("format", OUTPUT_FORMAT)
+            // Written now and never set, for the reason in the module doc: the
+            // two knobs the endpoint has that scorsese does not expose.
+            // Reserving the lines costs nothing today and is what stops
+            // exposing one tomorrow from re-billing every design already paid
+            // for.
+            .line("loudness", "none")
+            .line("quality", "none")
     }
 
     /// This brief as the call the vendor takes.
@@ -116,14 +116,6 @@ impl Brief {
             guidance_scale: self.guidance,
         }
     }
-}
-
-/// An optional value as a fingerprint line writes it.
-///
-/// `none` rather than an empty string, so a brief with no seed and a brief
-/// whose seed was somehow blank are different documents.
-fn said<T: std::fmt::Display>(value: Option<T>) -> String {
-    value.map_or_else(|| String::from("none"), |value| value.to_string())
 }
 
 #[cfg(test)]

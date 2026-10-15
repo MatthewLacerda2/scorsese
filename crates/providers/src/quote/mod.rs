@@ -51,7 +51,7 @@ pub use generation::{OFFER_FROM_CENTS, Offer, Unquotable, batch, generation, off
 pub use local::{ProjectQuotes, QUOTES_DIR};
 pub use token::{Issued, LIFETIME_SECONDS, Quotes, Refused, issue, redeem};
 
-use scorsese_core::hash_bytes;
+use crate::fingerprint::Fingerprint;
 
 /// What kind of spending a quote is for.
 ///
@@ -136,18 +136,18 @@ impl Quote {
     /// the reason every brief fingerprint here is written that way: one
     /// field's value can never run into the next.
     pub fn digest(&self) -> String {
-        let mut charges: Vec<String> = self
+        let mut charges: Vec<Fingerprint> = self
             .charges()
             .map(|(subject, charge)| {
-                format!(
-                    "item:{subject}\nbrief:{}\ncents:{}\n",
-                    charge.brief, charge.cents
-                )
+                Fingerprint::default()
+                    .line("item", subject)
+                    .line("brief", &charge.brief)
+                    .line("cents", charge.cents)
             })
             .collect();
         charges.sort();
-        let text = format!("spend:{}\n{}", self.spend.as_str(), charges.concat());
-        hash_bytes(text.as_bytes())
+        let spend = Fingerprint::default().line("spend", self.spend.as_str());
+        charges.into_iter().fold(spend, Fingerprint::then).digest()
     }
 
     /// Every charged item, with what it is about.

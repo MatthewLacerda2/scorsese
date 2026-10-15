@@ -30,9 +30,10 @@ use std::time::{Duration, Instant};
 
 use scorsese_core::{Aspect, AssetId, ClipSeconds, VideoModel, VideoRequest, VideoResolution};
 
+use crate::api::google::ModelInfo;
 use crate::api::http::HttpError;
 use crate::api::tap::Tap;
-use crate::api::veo::response::{ModelInfo, Operation, Submitted};
+use crate::api::veo::response::{Operation, Submitted};
 use crate::api::veo::{Model, Veo};
 use crate::credentials::Secret;
 use crate::prices::{self, dollars};

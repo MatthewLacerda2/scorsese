@@ -10,8 +10,8 @@
 
 use crate::api::anthropic::stream::StreamError;
 use crate::api::elevenlabs::refusal::Refusal;
+use crate::api::google::ModelInfo;
 use crate::api::http::HttpError;
-use crate::api::veo::response::ModelInfo;
 use crate::chat::claude::ClaudeError;
 
 use super::Verdict;

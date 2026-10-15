@@ -1,8 +1,9 @@
 //! What Veo's answers mean, and what the shot costs.
 
+use scorsese_providers::api::google::ModelInfo;
 use scorsese_providers::api::http::HttpError;
 use scorsese_providers::api::veo::Model;
-use scorsese_providers::api::veo::response::{ModelInfo, Operation};
+use scorsese_providers::api::veo::response::Operation;
 use scorsese_providers::live::veo::{cost, model_step, operation_step, submitted_step, video_step};
 use scorsese_providers::live::{Options, Verdict};
 

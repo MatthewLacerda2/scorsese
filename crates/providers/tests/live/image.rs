@@ -2,7 +2,7 @@
 
 use scorsese_providers::api::gemini::Model;
 use scorsese_providers::api::gemini::response::Interaction;
-use scorsese_providers::api::veo::response::ModelInfo;
+use scorsese_providers::api::google::ModelInfo;
 use scorsese_providers::live::Verdict;
 use scorsese_providers::live::image::{cost, model_step, picture_step};
 

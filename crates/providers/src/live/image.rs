@@ -44,9 +44,9 @@ use scorsese_core::{AssetId, ImageAspect, ImageModel, ImageRequest, ImageResolut
 use crate::api::gemini::request::Create;
 use crate::api::gemini::response::Interaction;
 use crate::api::gemini::{Gemini, Model};
+use crate::api::google::ModelInfo;
 use crate::api::http::HttpError;
 use crate::api::tap::Tap;
-use crate::api::veo::response::ModelInfo;
 use crate::credentials::Secret;
 use crate::image::Brief;
 use crate::image::gemini::model_of;

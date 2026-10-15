@@ -37,6 +37,7 @@
 pub mod anthropic;
 pub mod elevenlabs;
 pub mod gemini;
+pub mod google;
 pub mod google_oauth;
 pub mod http;
 pub mod lottiefiles;
