@@ -169,9 +169,7 @@ pub(super) fn collisions(project: &Project, project_dir: &Path) -> Vec<String> {
         return Vec::new();
     };
     let picture: HashSet<&str> = project
-        .tracks
-        .iter()
-        .filter(|track| track.kind == TrackKind::Video)
+        .tracks_of(TrackKind::Video)
         .map(|track| track.id.as_str())
         .collect();
     let alpha = with_alpha(project);

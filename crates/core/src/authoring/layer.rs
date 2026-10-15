@@ -89,13 +89,8 @@ fn stack<'a>(project: &'a mut Project, track: &TrackId) -> Result<&'a mut Vec<Tr
             .find(|lane| &lane.id == track)
             .map(|lane| lane.kind)
     };
-    let groups = project
-        .assets
-        .iter_mut()
-        .filter_map(|asset| asset.group.as_mut())
-        .map(|group| &mut group.tracks);
-    let lanes = std::iter::once(&mut project.tracks)
-        .chain(groups)
+    let lanes = project
+        .stacks_mut()
         .find(|lanes| holds(lanes).is_some())
         .ok_or_else(|| AuthorError::NoSuchTrack {
             track: track.clone(),

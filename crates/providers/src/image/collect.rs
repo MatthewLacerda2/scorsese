@@ -119,7 +119,7 @@ fn released(project: &mut Project, id: &AssetId, message: String) -> Outcome {
 /// is still on the asset, a sketch otherwise — so the still is ordered again
 /// only when somebody asks, never by a sweep.
 fn release(project: &mut Project, id: &AssetId) {
-    if let Some(asset) = project.assets.iter_mut().find(|asset| &asset.id == id) {
+    if let Some(asset) = project.asset_mut(id) {
         asset.operation = None;
         asset.state = Some(if asset.path.is_some() {
             GenerationState::Stale

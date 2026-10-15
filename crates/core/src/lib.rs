@@ -89,6 +89,7 @@ pub(crate) mod grade;
 pub(crate) mod group;
 pub mod grouping;
 pub(crate) mod icon;
+pub(crate) mod ids;
 pub(crate) mod keyframe;
 pub mod level;
 pub(crate) mod light;

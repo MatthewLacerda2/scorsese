@@ -158,7 +158,7 @@ pub(super) fn weight_of(brief: &Brief) -> usize {
 
 /// Writes the ticket down: queued, in `operation`, from now.
 fn queue(project: &mut Project, id: &AssetId, operation: &str) {
-    if let Some(asset) = project.assets.iter_mut().find(|asset| &asset.id == id) {
+    if let Some(asset) = project.asset_mut(id) {
         asset.operation = Some(operation.to_owned());
         asset.queued_at = Timestamp::now();
         asset.state = Some(GenerationState::Queued);

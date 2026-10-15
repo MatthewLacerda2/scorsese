@@ -104,9 +104,9 @@ pub fn ungroup(project: &mut Project, clip: &ClipId) -> Result<Ungrouped, Ungrou
         })?;
     let group = asset.group.clone().unwrap_or_default();
     let others: Vec<ClipId> = project
-        .every_clip()
-        .filter(|(_, c)| c.asset == asset.id && &c.id != clip)
-        .map(|(_, c)| c.id.clone())
+        .clips_of(&asset.id)
+        .filter(|c| &c.id != clip)
+        .map(|c| c.id.clone())
         .collect();
     if !others.is_empty() {
         return Err(UngroupError::PlacedElsewhere {

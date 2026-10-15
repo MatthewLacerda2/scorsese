@@ -69,23 +69,12 @@ pub fn add_track(project: &mut Project, lane: &Lane) -> Result<TrackId, AuthorEr
 
 /// The lowest free `v`/`a` number for this kind — the names an editor's lanes
 /// have had since long before this one.
-///
-/// **Counted to a bound rather than searched until something gives.** `n`
-/// tracks cannot take all of `n + 1` numbers, so one of `1..=n+1` is always
-/// free and the range is a proof rather than a guess. A bare `loop` would find
-/// the same id and would also be a naming rule that *can* spin — the mutation
-/// signal hangs on it rather than failing, which is what a real spin would do
-/// to a test run.
 pub(crate) fn numbered(project: &Project, kind: TrackKind) -> TrackId {
     let letter = match kind {
-        TrackKind::Video => 'v',
-        TrackKind::Audio => 'a',
+        TrackKind::Video => "v",
+        TrackKind::Audio => "a",
     };
-    // A group's lanes share the namespace, so they count towards the bound too.
-    (1..=project.every_track().count() + 1)
-        .map(|number| TrackId::new(format!("{letter}{number}")))
-        .find(|candidate| !project.every_track().any(|track| &track.id == candidate))
-        .expect("n tracks cannot take every one of n + 1 numbers")
+    project.free_track_id(letter, 1)
 }
 
 #[cfg(test)]

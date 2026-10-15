@@ -140,7 +140,7 @@ pub fn add_asset(
     let id = match id {
         Some(asked) => {
             let id = AssetId::new(asked.trim());
-            if project.assets.iter().any(|asset| asset.id == id) {
+            if project.has_asset(&id) {
                 return Err(AuthorError::TakenAssetId { id });
             }
             id

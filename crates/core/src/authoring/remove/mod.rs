@@ -55,7 +55,7 @@ pub fn remove_asset(
     asset: &AssetId,
     clips: &BTreeSet<ClipId>,
 ) -> Result<AssetRemoval, AuthorError> {
-    if !project.assets.iter().any(|entry| &entry.id == asset) {
+    if !project.has_asset(asset) {
         return Err(AuthorError::NoSuchAsset {
             asset: asset.clone(),
         });
@@ -78,9 +78,8 @@ pub fn remove_asset(
         });
     }
     let using: BTreeSet<ClipId> = project
-        .every_clip()
-        .filter(|(_, clip)| &clip.asset == asset)
-        .map(|(_, clip)| clip.id.clone())
+        .clips_of(asset)
+        .map(|clip| clip.id.clone())
         .collect();
     if &using != clips {
         return Err(AuthorError::AssetInUse {
@@ -145,13 +144,8 @@ pub fn remove_track(
 
     let mut proposed = project.clone();
     let mut taken = None;
-    proposed.tracks.retain(|lane| keep(lane, track, &mut taken));
-    for group in proposed
-        .assets
-        .iter_mut()
-        .filter_map(|asset| asset.group.as_mut())
-    {
-        group.tracks.retain(|lane| keep(lane, track, &mut taken));
+    for lanes in proposed.stacks_mut() {
+        lanes.retain(|lane| keep(lane, track, &mut taken));
     }
     let taken = taken.expect("the track was found in the document this is a copy of");
 

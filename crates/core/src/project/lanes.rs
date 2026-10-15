@@ -2,9 +2,16 @@
 
 use super::Project;
 use crate::time::Frames;
-use crate::timeline::{Clip, TrackKind};
+use crate::timeline::{Clip, Track, TrackKind};
 
 impl Project {
+    /// The timeline's tracks of `kind`, bottom first — the order video
+    /// composites in. A group's lanes are not among them: they composite
+    /// inside the group's clip.
+    pub fn tracks_of(&self, kind: TrackKind) -> impl Iterator<Item = &Track> {
+        self.tracks.iter().filter(move |track| track.kind == kind)
+    }
+
     /// The frame just past the last clip on the project's own timeline; zero
     /// for an empty one. A group's members do not count: they play inside
     /// the group's clip, which is on the timeline itself.

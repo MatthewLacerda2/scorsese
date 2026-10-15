@@ -160,10 +160,7 @@ pub fn asset_status(project: &Project, project_root: &Path, check: HashCheck) ->
             id: asset.id.clone(),
             kind: asset.kind,
             health: health_of(asset, project_root, check),
-            clip_count: project
-                .every_clip()
-                .filter(|(_, clip)| clip.asset == asset.id)
-                .count(),
+            clip_count: project.clips_of(&asset.id).count(),
             named_by: named_by(project, &asset.id).or_else(|| {
                 pages
                     .iter()

@@ -263,7 +263,7 @@ fn submit(
     budget.check(estimate.cents)?;
 
     let ticket = provider.submit(brief)?;
-    let Some(asset) = project.assets.iter_mut().find(|asset| &asset.id == id) else {
+    let Some(asset) = project.asset_mut(id) else {
         return Err(GenerationError::NoSuchAsset { id: id.clone() });
     };
     asset.operation = Some(ticket.0.clone());
@@ -341,7 +341,7 @@ fn waiting(
 /// follows ([`crate::image`]).
 fn release(project: &mut Project, root: &Path, id: &AssetId) {
     submitted::forget(root, id);
-    if let Some(asset) = project.assets.iter_mut().find(|asset| &asset.id == id) {
+    if let Some(asset) = project.asset_mut(id) {
         asset.operation = None;
         asset.state = Some(if asset.path.is_some() {
             GenerationState::Stale

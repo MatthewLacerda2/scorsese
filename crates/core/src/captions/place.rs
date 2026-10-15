@@ -84,9 +84,7 @@ pub fn caption(
 /// The narration clips `asked` names, in document order.
 fn narration<'a>(project: &'a Project, asked: &Captioning) -> Vec<&'a Clip> {
     project
-        .tracks
-        .iter()
-        .filter(|track| track.kind == TrackKind::Audio)
+        .tracks_of(TrackKind::Audio)
         .filter(|track| asked.narration.is_empty() || asked.narration.contains(&track.id))
         .flat_map(|track| &track.clips)
         .filter(|clip| {

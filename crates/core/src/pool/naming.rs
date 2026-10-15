@@ -3,6 +3,7 @@
 use std::path::Path;
 
 use crate::asset::{AssetId, AssetKind};
+use crate::ids::free;
 use crate::project::Project;
 
 const VIDEO: &[&str] = &[
@@ -89,13 +90,9 @@ pub(super) fn wanted_asset_id(source: &Path) -> AssetId {
 pub(super) fn unique_asset_id(project: &Project, file_name: &str) -> AssetId {
     let (stem, _) = split_extension(file_name);
     let base = if stem.is_empty() { "asset" } else { stem };
-    let mut candidate = base.to_owned();
-    let mut suffix = 2;
-    while project.assets.iter().any(|a| a.id.as_str() == candidate) {
-        candidate = format!("{base}-{suffix}");
-        suffix += 1;
-    }
-    AssetId::new(candidate)
+    AssetId::new(free(base, project.assets.len(), |candidate| {
+        project.has_asset(&AssetId::new(candidate))
+    }))
 }
 
 /// Keeps names portable: lowercase, and anything that is not alphanumeric,

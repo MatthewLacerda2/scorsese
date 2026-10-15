@@ -148,12 +148,13 @@ fn clip_start(project: &Project, id: &AssetId, name: &str) -> Result<f32, Synthe
 /// project's own timeline — since a start means something only against
 /// another start on the same one.
 fn timelines(project: &Project) -> Vec<(Option<&AssetId>, &Clip)> {
-    let own = project.clips().map(|(_, clip)| (None, clip));
-    let groups = project.assets.iter().flat_map(|asset| {
-        let members = asset.group.iter().flat_map(|group| group.clips());
-        members.map(move |(_, clip)| (Some(&asset.id), clip))
-    });
-    own.chain(groups).collect()
+    project
+        .stacks()
+        .flat_map(|(group, tracks)| {
+            let clips = tracks.iter().flat_map(|track| &track.clips);
+            clips.map(move |clip| (group, clip))
+        })
+        .collect()
 }
 
 /// How long the clip that plays `id` needs the song to be, in seconds.
@@ -172,9 +173,8 @@ fn timelines(project: &Project) -> Vec<(Option<&AssetId>, &Clip)> {
 fn clip_length(project: &Project, id: &AssetId) -> Result<f32, SynthesisError> {
     let fps = project.timeline_fps;
     let clips: Vec<(String, f64)> = project
-        .every_clip()
-        .filter(|(_, clip)| &clip.asset == id)
-        .map(|(_, clip)| {
+        .clips_of(id)
+        .map(|clip| {
             let reaches = clip.source_in.get() as f64 + clip.source_frames();
             (clip.id.to_string(), fps.seconds_at(reaches))
         })

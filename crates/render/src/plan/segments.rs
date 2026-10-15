@@ -58,9 +58,7 @@ fn is_band(project: &Project, clip: &Clip) -> bool {
 /// report names, so a silent stretch is never mistaken for a bug.
 pub(super) fn bands_left_out(project: &Project, start: Frames, end: Frames) -> Vec<String> {
     project
-        .tracks
-        .iter()
-        .filter(|track| track.kind == TrackKind::Audio)
+        .tracks_of(TrackKind::Audio)
         .flat_map(|track| &track.clips)
         .filter(|clip| clip.start < end && clip.end() > start && is_band(project, clip))
         .map(|clip| clip.id.to_string())
@@ -102,9 +100,8 @@ pub(super) fn carries_sound(asset: &Asset) -> bool {
 /// anyway so a mix is reproducible down to its floating-point rounding.
 pub(super) fn tracks_of(project: &Project, kind: TrackKind) -> Vec<&Track> {
     project
-        .tracks
-        .iter()
-        .filter(|track| track.kind == kind && !track.clips.is_empty())
+        .tracks_of(kind)
+        .filter(|track| !track.clips.is_empty())
         .collect()
 }
 

@@ -162,6 +162,16 @@ impl Project {
         self.assets.iter().find(|asset| &asset.id == id)
     }
 
+    /// [`Project::asset`], to change.
+    pub fn asset_mut(&mut self, id: &AssetId) -> Option<&mut Asset> {
+        self.assets.iter_mut().find(|asset| &asset.id == id)
+    }
+
+    /// Whether the assets table has an entry called `id`.
+    pub fn has_asset(&self, id: &AssetId) -> bool {
+        self.asset(id).is_some()
+    }
+
     /// Every note in the document, in reading order: the assets table first,
     /// then each track followed by the clips on it — the timeline's, then every
     /// group's, so the reasoning written on a member is read too.

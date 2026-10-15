@@ -15,16 +15,13 @@
 //! below it, because whether *that* is enough to blend with is a question
 //! about pixels a checkup does not draw.
 
-use scorsese_core::{Blend, Clip, Project, Track, TrackKind};
+use scorsese_core::{AssetId, Blend, Clip, Project, Track, TrackKind};
 
 /// Every clip whose blend has nothing beneath it, already worded.
 pub(super) fn over_nothing(project: &Project) -> Vec<String> {
     let mut found = Vec::new();
-    lanes(&project.tracks, None, &mut found);
-    for asset in &project.assets {
-        if let Some(group) = &asset.group {
-            lanes(&group.tracks, Some(asset.id.as_str()), &mut found);
-        }
+    for (group, tracks) in project.stacks() {
+        lanes(tracks, group.map(AssetId::as_str), &mut found);
     }
     found
 }

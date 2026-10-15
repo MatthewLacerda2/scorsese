@@ -5,8 +5,8 @@ use std::collections::BTreeSet;
 use super::id_limit;
 use crate::asset::{Asset, AssetId};
 use crate::group::Group;
+use crate::ids::free;
 use crate::project::Project;
-use crate::template::ids::free;
 use crate::time::Frames;
 use crate::timeline::{Clip, ClipId, Track, TrackId, TrackKind};
 use crate::validate::ValidationErrors;
@@ -197,7 +197,7 @@ fn name_lanes(project: &Project, asset: &AssetId, inner: &mut [(TrackId, Track)]
 /// The group asset's id: the one asked for if it is free, or `group`
 /// suffixed until it is.
 fn new_asset_id(project: &Project, wanted: Option<&AssetId>) -> Result<AssetId, GroupError> {
-    let taken = |candidate: &str| project.assets.iter().any(|a| a.id.as_str() == candidate);
+    let taken = |candidate: &str| project.has_asset(&AssetId::new(candidate));
     match wanted {
         Some(id) if taken(id.as_str()) => Err(GroupError::TakenId { id: id.to_string() }),
         Some(id) => Ok(id.clone()),

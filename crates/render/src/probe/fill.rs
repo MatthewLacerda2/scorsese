@@ -53,7 +53,7 @@ pub fn fill_media<'a>(
     let mut failures = BTreeMap::new();
 
     for id in unprobed {
-        let Some(asset) = filled.assets.iter_mut().find(|asset| asset.id == id) else {
+        let Some(asset) = filled.asset_mut(&id) else {
             continue;
         };
         let path = asset
