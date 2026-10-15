@@ -14,7 +14,7 @@ use crate::common::{file_asset, project, video_track};
 /// and every segment end is a place to land on.
 fn single_frames(timeline_fps: Fps) -> Project {
     let clips = (0..24)
-        .map(|frame| Clip::at(&format!("c{frame}"), "a", frame, 1))
+        .map(|frame| Clip::at(format!("c{frame}"), "a", frame, 1))
         .collect();
     Project {
         timeline_fps,
