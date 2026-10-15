@@ -373,6 +373,14 @@ for such a shot on `lite` and `fast` when it was paid for on 2026-10-10
 (#928), with an error that never mentions the length
 ([`prompts.md`](prompts.md), `guide prompts`).
 
+**A prompt is at most 1,024 tokens**, on every tier. Nothing here tokenises,
+so a shot's prompt is counted at six characters a token, above what prose
+averages in any language, and one over 6,144 characters is past the limit
+whatever it says. `scorsese check` warns about it, and `generate` refuses it
+by name before anything is quoted or sent; it is not refused here, because
+holding it here would stop a project already holding such a sketch from
+loading.
+
 ### What a generated still asks for
 
 A `generated_image` is a still that does not exist yet: a prompt, drawn by

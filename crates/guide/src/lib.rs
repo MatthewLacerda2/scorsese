@@ -24,6 +24,14 @@
 //! examples parsed as projects, its animatable-property table held to the
 //! code, the recipe examples held to the parser) holds what this serves.
 //!
+//! **One part of one guide does ride on the tools** (#1309): the paid prompt
+//! lessons of `docs/prompts.md`, and the vendor advice it digests for Veo and
+//! Nano Banana, each in a line, which [`lessons`] reads out of the page for the
+//! brief blocks that send a prompt. They are a few hundred tokens where the
+//! page is thousands, they are what a generation costs money to relearn, and
+//! being read from the page they cannot drift from it. The reasons and the
+//! incidents behind each line stay here.
+//!
 //! Only the pages written for whoever is *making a video* are here. The
 //! developer docs — the web app's internals, the golden-render rulebook,
 //! mutation testing — are about building scorsese, and an agent editing a film
@@ -43,7 +51,10 @@
 //! a guide — a style's prompt naming a section — lives in a crate that
 //! depends on both, never here.
 
+mod lessons;
 mod outline;
+
+pub use lessons::{BLOCKS, lessons};
 
 #[cfg(test)]
 mod pointers;
@@ -108,6 +119,14 @@ const GUIDES: &[Guide] = &[
 /// offers and what a refusal names.
 pub fn names() -> impl Iterator<Item = &'static str> {
     GUIDES.iter().map(|guide| guide.name)
+}
+
+/// The page of the guide called `name`, whole; one this crate serves.
+fn text_of(name: &str) -> &'static str {
+    GUIDES
+        .iter()
+        .find(|guide| guide.name == name)
+        .map_or("", |guide| guide.text)
 }
 
 /// The guide called `name`, or the part of it `section` names.

@@ -34,6 +34,7 @@ use serde_json::Value;
 
 use crate::tools::args::{self, ProjectDir};
 use crate::tools::confirm::{self, Token};
+use crate::tools::guide::lessons;
 use crate::tools::inspect::load;
 use crate::tools::{Costs, Reply, Tool};
 
@@ -47,8 +48,9 @@ struct Arguments {
     #[schemars(description = format!(
         "What the voice should be like, in a sentence: age, accent, pace, warmth, what it \
          sounds like it is for. Between {} and {} characters. Describe a kind of person, \
-         never a named one — this designs a voice, it does not imitate anybody.",
-        PROMPT.start(), PROMPT.end()
+         never a named one — this designs a voice, it does not imitate anybody. The \
+         lessons about ElevenLabs' speech hold for what it will speak:{}",
+        PROMPT.start(), PROMPT.end(), lessons("speech")
     ))]
     prompt: Option<String>,
     #[schemars(description = format!(

@@ -75,3 +75,25 @@ fn a_project_with_nothing_prompted_is_free() {
     assert!(generation(&project, &dir).expect("quote").is_free());
     std::fs::remove_dir_all(dir).ok();
 }
+
+/// A shot's prompt past what Veo reads is never quoted or sent (#1309).
+#[test]
+fn a_shot_prompt_past_veos_limit_would_not_be_sent() {
+    let (dir, mut project) = sketched("quote-long");
+    let shot = project
+        .assets
+        .iter_mut()
+        .find(|asset| asset.id == AssetId::new("shot"))
+        .expect("the shot");
+    shot.prompt = Some("a".repeat(scorsese_core::MAX_PROMPT_CHARACTERS + 1));
+
+    let quote = generation(&project, &dir).expect("quote");
+    let item = &quote.items[0];
+    assert!(item.charge.is_none(), "{item:?}");
+    assert!(
+        item.says.contains("Veo reads at most 1024 tokens"),
+        "{}",
+        item.says
+    );
+    std::fs::remove_dir_all(dir).ok();
+}

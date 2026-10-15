@@ -150,6 +150,15 @@ impl Checkup {
                 .iter()
                 .map(|past| Line::warning(past.to_string())),
         );
+        // A shot's prompt past what Veo reads: refused by generate before it
+        // is sent, and only warned about here so that a project already
+        // holding one still loads (#1309).
+        lines.extend(
+            project
+                .long_prompts()
+                .iter()
+                .map(|long| Line::warning(long.to_string())),
+        );
         // A warning and never a problem, for the same reason a missing
         // generated file is one: a project that has lost its script still
         // renders, and the frames it produces are not one pixel different for

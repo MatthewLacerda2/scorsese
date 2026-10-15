@@ -18,6 +18,7 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use super::Arguments;
+use crate::tools::guide::lessons;
 
 /// A free sketch of a prompted `kind`, from the arguments.
 pub(super) fn sketch(kind: AssetKind, arguments: &Arguments) -> Result<Inline, String> {
@@ -95,14 +96,16 @@ where
     Ok(Some(key))
 }
 
-/// A brief block's schema: what it is for, and its fields.
-fn block(description: &str, properties: Value) -> Schema {
+/// A brief block's schema: what it is for, its fields, and the prompt
+/// lessons the guide holds for it.
+fn block(name: &str, description: &str, properties: Value) -> Schema {
     let schema = serde_json::json!({
         "type": "object",
         "description": format!(
             "{description} Every field has a default; on an existing asset the fields \
              named change, the rest stay, and `null` returns one to its default. \
-             `guide project-format` has the combinations project_check refuses."
+             `guide project-format` has the combinations project_check refuses.{}",
+            lessons(name)
         ),
         "properties": properties,
         "additionalProperties": false
@@ -113,6 +116,7 @@ fn block(description: &str, properties: Value) -> Schema {
 /// The `video` argument's schema.
 pub(super) fn video_schema(_: &mut SchemaGenerator) -> Schema {
     block(
+        "video",
         "(generated_video) The rest of the shot's brief. 1080p, 4k, reference images, \
          or a first and last image together are eight seconds only.",
         serde_json::json!({
@@ -123,7 +127,7 @@ pub(super) fn video_schema(_: &mut SchemaGenerator) -> Schema {
             "first_image": { "type": "string", "description": "A still's asset id: the frame the shot opens on." },
             "last_image": { "type": "string", "description": "A still's asset id, with first_image: where the shot ends." },
             "reference_images": { "type": "array", "items": { "type": "string" }, "maxItems": 3,
-                "description": "Asset ids of stills of a subject that should look like itself." },
+                "description": "Asset ids of up to three stills of one single person, character or product that should look like itself: views of one subject, never three subjects." },
             "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295u32, "description": "Only to re-take a shot after editing its prompt while keeping the rest of it closer; best-effort. An unchanged brief is never generated twice anyway." }
         }),
     )
@@ -143,6 +147,7 @@ pub(super) fn image_schema(_: &mut SchemaGenerator) -> Schema {
             "maxItems": kind.max(), "description": description })
     };
     block(
+        "image",
         "(generated_image) The rest of the still's brief. `resolution` is the money \
          lever: 2K covers a 1080p frame with room to push in. References are asset ids of \
          image or generated_image assets, sent objects first, then characters: say in the \
@@ -168,11 +173,12 @@ pub(super) fn image_schema(_: &mut SchemaGenerator) -> Schema {
 /// The `speech` argument's schema.
 pub(super) fn speech_schema(_: &mut SchemaGenerator) -> Schema {
     block(
+        "speech",
         "(generated_audio) How the line is said.",
         serde_json::json!({
             "model": { "enum": ["expressive", "standard", "fast"], "description": "Default fast, half the price of the other two. expressive (Eleven v4) is the vendor's pick for narration and takes audio tags; expressive and standard take at most 10,000 characters." },
-            "voice_id": { "type": "string", "description": "The vendor's id for the voice — voices lists them. No default is possible, so a line needs one before it is generated." },
-            "language": { "type": "string", "description": "ISO 639-1 (`en`, `pt`), pinning what the model would infer." },
+            "voice_id": { "type": "string", "description": "The vendor's id for the voice — voices lists them. No default is possible, so a line needs one before it is generated; an empty one is refused, so leave it out instead." },
+            "language": { "type": "string", "description": "ISO 639-1 (`en`, `pt`), pinning what the model would infer. Refused on `standard`, which ignores it." },
             "seed": { "type": "integer", "minimum": 0, "description": "For a reading that comes back the same way twice; best-effort." }
         }),
     )
@@ -204,6 +210,31 @@ mod tests {
         every_value_reads::<VideoRequest>(&video_schema(generator));
         every_value_reads::<ImageRequest>(&image_schema(generator));
         every_value_reads::<SpeechRequest>(&speech_schema(generator));
+    }
+
+    /// Each block's description closes with every lesson the guide holds for
+    /// it, and the pointer to the reasons.
+    #[test]
+    fn each_block_carries_its_lessons() {
+        let generator = &mut SchemaGenerator::default();
+        for (name, schema) in [
+            ("video", video_schema(generator)),
+            ("image", image_schema(generator)),
+            ("speech", speech_schema(generator)),
+        ] {
+            let description = schema.as_value()["description"]
+                .as_str()
+                .expect("described");
+            let lessons = scorsese_guide::lessons(name);
+            assert!(!lessons.is_empty(), "`{name}` has no lessons");
+            for lesson in lessons {
+                assert!(description.contains(&lesson), "`{name}` lacks: {lesson}");
+            }
+            assert!(
+                description.ends_with("the vendors' own advice."),
+                "{description}"
+            );
+        }
     }
 
     /// The merge keeps what it was not told about, and `null` restores a
