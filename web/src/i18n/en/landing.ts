@@ -40,6 +40,8 @@ export const landing = {
     soundOn: "Turn the sound on",
     soundOff: "Turn the sound off",
     volume: "Volume",
+    play: "Play",
+    pause: "Pause",
   },
   handles: {
     eyebrow: "What it handles for you",
