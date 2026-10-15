@@ -231,7 +231,7 @@ impl Checkup {
         let mut listed: Vec<String> = self
             .invalid
             .as_ref()
-            .map(|errors| errors.as_slice().iter().map(ToString::to_string).collect())
+            .map(ValidationErrors::messages)
             .unwrap_or_default();
         listed.extend(
             self.lines

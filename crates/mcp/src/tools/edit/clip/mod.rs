@@ -247,10 +247,9 @@ fn set(project: &mut Project, id: &ClipId, arguments: &Arguments) -> Result<Vec<
                 .to_owned(),
         );
     }
-    proposed.validate().map_err(|errors| {
-        let problems: Vec<String> = errors.into_vec().iter().map(ToString::to_string).collect();
-        format!("{} — nothing was written", problems.join("; "))
-    })?;
+    proposed
+        .validate()
+        .map_err(|errors| format!("{} — nothing was written", errors.messages().join("; ")))?;
     *project = proposed;
     Ok(said)
 }
