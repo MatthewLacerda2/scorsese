@@ -68,6 +68,12 @@ def never_judged(runs: list[dict], jobs: dict[int, list[dict]]) -> list[dict]:
     never ran. One job that genuinely failed, in any failed run, empties the
     answer, because a red verdict anywhere is still the answer for the commit
     — the out-of-scope line of #792 is *red stays red*.
+
+    `CI ok` ([`mergeable.SUMMARY_JOB`]) is left out of the count (#1351). It
+    runs under `always()` and fails *because* a job it needs was cancelled, so
+    its own failure, steps and all, is the others' verdict repeated — and
+    counting it would turn every run nobody judged into a red one. A re-run of
+    the failed jobs re-runs it too, since it needs them.
     """
     failed = mergeable.failed_runs(runs)
 
@@ -76,6 +82,7 @@ def never_judged(runs: list[dict], jobs: dict[int, list[dict]]) -> list[dict]:
             job
             for job in jobs.get(run.get("id"), [])
             if job.get("conclusion") not in ("success", "skipped")
+            and job.get("name") != mergeable.SUMMARY_JOB
         ]
         return bool(bad) and all(unstarted(job) for job in bad)
 
@@ -88,7 +95,6 @@ def progress(
     jobs: dict[int, list[dict]],
     waited: float,
     rerun: frozenset[int] = frozenset(),
-    skips: bool = False,
 ) -> tuple[str, list[str]]:
     """Whether to wait, merge, or hand this branch back — and why.
 
@@ -116,9 +122,8 @@ def progress(
     was three minutes from green. Absence is eventually-consistent; a red run
     is not, which is why only red stops inside the grace.
 
-    `skips` is [`mergeable.skipped_by_ci`]: `ci.yml` makes no run for this
-    diff by design (#1135). Then there is no run to give a grace to, and what
-    is left is GitHub's mergeability, waited on only while it reads UNKNOWN.
+    A Markdown-only pull request is no exception since #1351: it gets a run
+    like any other, and is waited on like any other.
     """
     sha = pull.get("headRefOid", "")
     short = sha[:7]
@@ -150,12 +155,6 @@ def progress(
             f"a {mergeable.WORKFLOW} run for {short} is"
             f" {live[0].get('status')}."
         ]
-
-    if not runs and skips:
-        ok, lines = mergeable.judge(pull, runs, jobs, skips)
-        if ok:
-            return GO, lines
-        return (WAIT if pull.get("mergeable") == mergeable.UNKNOWN else STOP), lines
 
     # Nothing has compiled this commit — either no run at all, or only runs
     # that skipped everything. Both are absences, and both get the grace.

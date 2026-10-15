@@ -161,7 +161,6 @@ class Loop(unittest.TestCase):
         pull = {"headRefOid": "s" * 40, "isDraft": False}
         with mock.patch.object(queue.talk, "look", return_value=pull), \
             mock.patch.object(queue.ci, "evidence", return_value=([], {})), \
-            mock.patch.object(queue.mergeable, "skipped_by_ci", return_value=False), \
             mock.patch.object(queue.verdict, "progress", side_effect=[(queue.WAIT, ["waiting."]), (queue.GO, ["green."])]), \
             mock.patch.object(queue.time, "sleep"), \
             mock.patch("builtins.print"):

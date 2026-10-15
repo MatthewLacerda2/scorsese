@@ -369,8 +369,9 @@ in a cloud session; `issue-batch` has what that premise shapes.
   (research, review, planning) need no limit. `issue-batch` has all of it.
 - **Merging is serialized, one branch at a time**, because Rust is compiled:
   two pull requests can each be green alone and break `main` together. The only
-  exception is a PR touching **only** Markdown, which CI skips. What may be
-  automated is who does the waiting (`make queue`). **`make mergeable` is not
+  exception is a PR touching **only** Markdown, whose CI run compiles nothing
+  but still has to pass (`CI ok`). What may be automated is who does the
+  waiting (`make queue`). **`make mergeable` is not
   optional and its answer is not negotiable**; `gh pr checks` is not a
   substitute. `ci-merge` has why and how.
 - **A ready pull request claims it passes; a draft makes no such claim.** CI
