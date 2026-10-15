@@ -5,8 +5,8 @@
 //! the difference was pure bookkeeping — an extra video track, and two opacity
 //! tracks of four keyframes each, hand-written and reasoned about.
 //!
-//! This is [`crate::fade_in`] and [`crate::fade_out`] in their two-clip case,
-//! and it keeps their bargain exactly: what it writes is **ordinary opacity
+//! A dissolve is a fade in the two-clip case, and it keeps the bargain of one:
+//! what it writes is **ordinary opacity
 //! keyframes**, which stay visible, editable and deletable afterwards. Nothing
 //! new reaches the renderer, nothing new enters the format, and a dissolve
 //! composes with a move or a turn for free because none of them know about
@@ -107,7 +107,7 @@ fn ramp(
         Ramp::In => vec![at(Frames::ZERO, 0.0), at(duration, 1.0)],
         // The ramp reaches zero at the clip's end — the frame after its last —
         // so the picture is still just barely there on the final frame and goes
-        // out exactly on the cut. The same shape `fade_out` writes.
+        // out exactly on the cut. The shape a fade out takes.
         Ramp::Out => vec![
             at(Frames(total.get().saturating_sub(duration.get())), 1.0),
             at(total, 0.0),

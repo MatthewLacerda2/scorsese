@@ -96,20 +96,6 @@ pub(crate) fn slot(project_root: &Path, request: &Request, chrome_version: &str)
     project_root.join(CACHE_DIR).join(PAGES).join(&key[..32])
 }
 
-/// The whole page's capture for `request` on any of `slot`'s shelves, and its
-/// record, if it is there and still describes the project ([`read_fresh`]).
-pub(crate) fn fresh(
-    slot: &Path,
-    project_root: &Path,
-    request: &Request,
-) -> Option<(PathBuf, Record)> {
-    shelves::all(slot).into_iter().find_map(|shelf| {
-        let frames = shelf.join(FRAMES);
-        read_fresh(&frames, &shelf.join(RECORD), project_root, request)
-            .map(|record| (frames, record))
-    })
-}
-
 /// The capture on any of `slot`'s shelves that holds every frame `wanted`
 /// names and still describes the project: the whole page's when it is fresh,
 /// and otherwise the shortest fresh piece holding them. Returns its file, the
@@ -191,6 +177,16 @@ mod tests {
 
     use super::*;
     use crate::page::told::{Read, Span};
+
+    /// The whole page's capture for `request` on any of `slot`'s shelves, and
+    /// its record, if it is there and still describes the project.
+    fn fresh(slot: &Path, project_root: &Path, request: &Request) -> Option<(PathBuf, Record)> {
+        shelves::all(slot).into_iter().find_map(|shelf| {
+            let frames = shelf.join(FRAMES);
+            read_fresh(&frames, &shelf.join(RECORD), project_root, request)
+                .map(|record| (frames, record))
+        })
+    }
 
     fn request() -> Request {
         Request {

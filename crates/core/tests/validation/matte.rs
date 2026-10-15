@@ -27,7 +27,7 @@ fn mask(p: &mut Project, clip: &str, matte: &str) {
 
 #[test]
 fn a_clip_masked_by_another_on_screen_is_valid() {
-    assert!(masked("c-logo", "c-title").is_valid());
+    assert!(masked("c-logo", "c-title").validate().is_ok());
 }
 
 #[test]

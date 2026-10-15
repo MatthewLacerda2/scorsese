@@ -40,14 +40,17 @@ fn optional_fields_are_omitted_not_nulled() {
 fn sketch_assets_are_the_ones_go_would_realise() {
     let project = common::project();
     let pending: Vec<_> = project
-        .pending_generation()
+        .assets
+        .iter()
+        .filter(|a| a.needs_generation())
         .map(|a| a.id.as_str().to_owned())
         .collect();
     assert_eq!(pending, ["shot-city", "vo-open", "score"]);
 
     let billed: Vec<_> = project
-        .pending_generation()
-        .filter(|a| a.kind.is_prompted())
+        .assets
+        .iter()
+        .filter(|a| a.needs_generation() && a.kind.is_prompted())
         .map(|a| a.id.as_str().to_owned())
         .collect();
     assert_eq!(billed, ["shot-city", "vo-open"], "synthesis is free");

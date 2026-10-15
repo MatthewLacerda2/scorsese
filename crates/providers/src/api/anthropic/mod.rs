@@ -4,7 +4,7 @@
 //! looks like ([`request`]), the blocks a conversation is made of
 //! ([`content`]), and the server-sent events a streamed reply arrives as
 //! ([`stream`]). Nothing here knows about a turn, a tool, a user or a price —
-//! those are scorsese's business ([`crate::claude`], and the hosted server). A
+//! those are scorsese's business ([`crate::chat::claude`], and the hosted server). A
 //! reader checking a payload against Anthropic's reference should be able to
 //! do it from this directory alone.
 //!

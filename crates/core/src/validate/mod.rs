@@ -79,9 +79,4 @@ impl Project {
             Err(ValidationErrors::new(errors))
         }
     }
-
-    /// True when the project has no validation problems.
-    pub fn is_valid(&self) -> bool {
-        self.validate().is_ok()
-    }
 }

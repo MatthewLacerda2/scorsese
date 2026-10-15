@@ -1,7 +1,7 @@
 //! A recorded stream is folded into the reply it carries.
 
 use scorsese_providers::api::anthropic::content::Block;
-use scorsese_providers::claude::{Stop, Streamed};
+use scorsese_providers::chat::claude::{Stop, Streamed};
 use scorsese_providers::prices::chat::Usage;
 use serde_json::json;
 
@@ -132,7 +132,8 @@ fn an_error_partway_is_an_error_worth_retrying() {
 fn a_stream_that_stops_early_is_cut_not_a_reply() {
     let whole = super::fixture("answer.sse");
     let half = &whole[..whole.find("event: message_delta").unwrap()];
-    let reply = scorsese_providers::claude::replay(half.as_bytes(), &mut |_: Streamed<'_>| {});
+    let reply =
+        scorsese_providers::chat::claude::replay(half.as_bytes(), &mut |_: Streamed<'_>| {});
     let error = reply.unwrap_err();
     assert!(error.retryable(), "{error}");
 }

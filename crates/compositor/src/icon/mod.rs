@@ -141,18 +141,10 @@ pub struct Symbol {
     pub anchor: Anchor,
     /// The one colour it is drawn in, alpha included.
     pub color: Rgba,
-    /// How thick the line is, in pixels — [`width_for`] is the thickness the
-    /// icon was drawn at. A width that is zero, negative or not a number draws
+    /// How thick the line is, in pixels — Lucide draws at two of the
+    /// [`VIEWBOX`]'s twenty-four units. A width that is zero, negative or not a number draws
     /// nothing, as it does for a border.
     pub width: f32,
-}
-
-/// The thickness an icon of this size was drawn at: Lucide's 2 units, scaled.
-///
-/// A starting point rather than a rule. A thicker line reads better on a busy
-/// shot and a thinner one suits a large symbol, and both are the same drawing.
-pub fn width_for(size: f32) -> f32 {
-    size * STROKE / VIEWBOX
 }
 
 /// The icon of that name, if the set has one.

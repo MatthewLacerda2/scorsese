@@ -3,7 +3,7 @@
 use scorsese_compositor::icon::{self, Symbol};
 use scorsese_core::{Anchor, AnchorX, AnchorY};
 
-use crate::{centred, frame, ink, ink_in, symbol};
+use crate::{centred, frame, ink, ink_in, symbol, width_for};
 
 /// **The one that matters.** Every vendored icon decodes to commands and puts
 /// ink on a raster. With seventeen hundred of them the failure mode is one
@@ -24,7 +24,7 @@ fn every_icon_draws_something() {
                 size,
                 anchor: centred(),
                 color: crate::WHITE,
-                width: icon::width_for(size),
+                width: width_for(size),
             },
         );
         assert!(ink(&frame) > 0, "{}: drew no pixels", found.name());
@@ -48,7 +48,7 @@ fn the_anchor_places_the_square() {
         &mut frame,
         &Symbol {
             size,
-            width: icon::width_for(size),
+            width: width_for(size),
             ..symbol("square", corner)
         },
     );
@@ -88,7 +88,7 @@ fn a_bigger_symbol_covers_more() {
             &mut frame,
             &Symbol {
                 size,
-                width: icon::width_for(size),
+                width: width_for(size),
                 ..symbol("circle", centred())
             },
         );

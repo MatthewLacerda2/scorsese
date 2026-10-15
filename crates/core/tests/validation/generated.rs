@@ -66,12 +66,12 @@ fn a_tool_replaces_its_own_work_rather_than_adding_to_it() {
 #[test]
 fn a_tool_never_touches_what_it_did_not_write() {
     let mut clip = mixed();
-    let by_hand: Vec<_> = clip.hand_written().cloned().collect();
+    let by_hand: Vec<_> = hand_written(&clip);
     assert_eq!(by_hand.len(), 1, "the opacity ramp is nobody's tool's");
 
     clip.replace_generated("duck", vec![]);
     assert_eq!(
-        clip.hand_written().cloned().collect::<Vec<_>>(),
+        hand_written(&clip),
         by_hand,
         "withdrawing a duck must leave the hand-written ramp exactly as it was"
     );
@@ -124,4 +124,13 @@ fn a_signature_changes_no_value() {
             signed.value_at(Frames(frame))
         );
     }
+}
+
+/// The tracks of `clip` that no tool signed.
+fn hand_written(clip: &Clip) -> Vec<KeyframeTrack> {
+    clip.keyframes
+        .iter()
+        .filter(|track| track.by.is_none())
+        .cloned()
+        .collect()
 }

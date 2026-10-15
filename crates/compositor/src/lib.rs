@@ -159,8 +159,7 @@
 //! one may be drawn through) and the [`Frame`],
 //! [`Resolution`] and [`PIXEL_FORMAT`] a picture is carried in, the
 //! [`Properties`] one instant of a clip resolves to, the [`ANIMATED`] list with
-//! the [`Registry`] that searches it, the two fades ([`fade_in`],
-//! [`fade_out`]), and [`MAX_GLOW_INTENSITY`], the one clamp a caller may want
+//! the [`Registry`] that searches it, and [`MAX_GLOW_INTENSITY`], the one clamp a caller may want
 //! to quote, and [`Resample`], the weights a render's compositing threads
 //! size a transparent source with, each through its own
 //! [`CpuCompositor::resample`].
@@ -212,6 +211,6 @@ pub use cpu::CpuCompositor;
 pub use dissolve::{DissolveError, Placed, dissolve};
 pub use frame::{BYTES_PER_PIXEL, Frame, PIXEL_FORMAT, Resolution, ResolutionError};
 pub use light::MAX_GLOW_INTENSITY;
-pub use properties::{ANIMATED, Properties, fade_in, fade_out, path};
+pub use properties::{ANIMATED, Properties, path};
 pub use registry::{Property, Registry};
 pub use resample::Resample;

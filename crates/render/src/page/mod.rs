@@ -115,20 +115,11 @@ pub struct Captured {
     pub warnings: Vec<String>,
 }
 
-/// The capture `request` already has, if it is there and still describes the
-/// project as it is now. Needs no browser — only the version of the one that
-/// would capture it, since a capture by another build is another capture.
-pub fn cached(project_root: &Path, request: &Request, chrome_version: &str) -> Option<Captured> {
-    let slot = cache::slot(project_root, request, chrome_version);
-    cache::fresh(&slot, project_root, request).map(|(file, record)| Captured {
-        file,
-        first: 0,
-        warnings: record.warnings,
-    })
-}
-
-/// [`cached`], for a capture holding at least `frames` of the page: the whole
-/// page's, or a piece [`capture_frames`] made.
+/// The capture of `frames` of the page that `request` already has, if there is
+/// one holding at least those and still describing the project as it is now:
+/// the whole page's, or a piece [`capture_frames`] made. Needs no browser — only
+/// the version of the one that would capture it, since a capture by another
+/// build is another capture.
 pub fn cached_frames(
     project_root: &Path,
     request: &Request,
@@ -174,8 +165,8 @@ impl Wanted {
 /// fresh, and captured with `chrome` when they are not.
 ///
 /// The page is served its project's files and nothing else: a link inside the
-/// project that leads out of it is refused. [`capture_following`] is the same
-/// with somewhere such a link may lead.
+/// project that leads out of it is refused. [`capture_frames`] takes folders such
+/// a link may lead to.
 pub fn capture(
     chrome: &Chrome,
     tools: &Tools,
@@ -196,7 +187,7 @@ pub fn capture(
 /// One browser, drawing from the first frame: the web app captures in a
 /// container sized for exactly one (#773). [`capture_frames`] is the same with
 /// a stretch and a number of browsers to choose.
-pub fn capture_following(
+fn capture_following(
     chrome: &Chrome,
     tools: &Tools,
     project_root: &Path,
@@ -213,8 +204,9 @@ pub fn browsers() -> usize {
     pieces::ways()
 }
 
-/// [`capture_following`], for only `frames` of the page — the frames a still
-/// or a clip shows, rather than every one from the first.
+/// [`capture`], for only `frames` of the page — the frames a still or a clip
+/// shows, rather than every one from the first — with folders a link out of the
+/// project may lead to (`follow`) and a number of browsers to choose.
 ///
 /// Reuses any fresh capture holding them all. Otherwise it captures from the
 /// first of them, back to a whole millisecond, to the last, and keeps that as a

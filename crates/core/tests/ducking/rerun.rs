@@ -78,7 +78,11 @@ fn a_hand_written_ramp_survives_every_run() {
     for _ in 0..3 {
         duck(&mut project, dip());
     }
-    let hand: Vec<_> = project.tracks[0].clips[0].hand_written().collect();
+    let hand: Vec<_> = project.tracks[0].clips[0]
+        .keyframes
+        .iter()
+        .filter(|track| track.by.is_none())
+        .collect();
     assert_eq!(hand, vec![&fade], "untouched, three runs later");
 }
 

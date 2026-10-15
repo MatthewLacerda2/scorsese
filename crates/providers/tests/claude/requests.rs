@@ -2,7 +2,7 @@
 
 use scorsese_providers::api::anthropic::content::{Block, ResultPart};
 use scorsese_providers::api::anthropic::request::{Effort, Message, MessageContent, Role, Tool};
-use scorsese_providers::claude::{self, MAX_TOKENS, MODEL, Settings};
+use scorsese_providers::chat::claude::{self, MAX_TOKENS, MODEL, Settings};
 use serde_json::{Value, json};
 
 use super::replay;

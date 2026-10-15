@@ -1,5 +1,5 @@
 //! Claude behind the seam: a neutral [`Request`] laid out the way
-//! [`crate::claude`] caches it, a reply read back as a neutral [`Message`],
+//! [`crate::chat::claude`] caches it, a reply read back as a neutral [`Message`],
 //! and the neutral record turned into Anthropic's blocks and back.
 
 use std::collections::HashMap;
@@ -10,7 +10,7 @@ use serde_json::value::RawValue;
 use super::{Chat, ChatError, Effort, Message, Part, Reply, Request, ResultPart, Streamed};
 use crate::api::anthropic::content::{self, Block};
 use crate::api::anthropic::request::{self as wire, MessageContent, Role};
-use crate::claude::{self, Anthropic, Claude, MAX_TOKENS, Response, Settings};
+use crate::chat::claude::{self, Anthropic, Claude, MAX_TOKENS, Response, Settings};
 
 impl Chat for Anthropic {
     fn reply(

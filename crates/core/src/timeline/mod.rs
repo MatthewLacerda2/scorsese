@@ -542,10 +542,4 @@ impl Clip {
         self.keyframes.retain(|track| !track.is_generated_by(tool));
         self.keyframes.extend(replacement);
     }
-
-    /// Every track this clip animates that no tool signed — what a person or
-    /// an agent wrote by hand, and what nothing generated may overwrite.
-    pub fn hand_written(&self) -> impl Iterator<Item = &KeyframeTrack> {
-        self.keyframes.iter().filter(|track| track.by.is_none())
-    }
 }

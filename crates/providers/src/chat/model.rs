@@ -59,7 +59,7 @@ impl Model {
     /// last call — what the web app's switch warning waits out (#705).
     ///
     /// An hour on Claude: the longest entry the request writes
-    /// ([`crate::claude`], the tools and system prompt at `1h`).
+    /// ([`crate::chat::claude`], the tools and system prompt at `1h`).
     pub const fn cache_lifetime(self) -> Duration {
         match self.vendor() {
             Vendor::Anthropic => Duration::from_secs(60 * 60),

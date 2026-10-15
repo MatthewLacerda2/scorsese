@@ -9,6 +9,7 @@
 
 use schemars::{Schema, SchemaGenerator, json_schema};
 use scorsese_core::{Blend, Clip, Glow, Rgba, Shadow};
+use scorsese_render::picture::MAX_GLOW_INTENSITY;
 use serde_json::{Map, Value, json};
 
 use super::Arguments;
@@ -55,8 +56,11 @@ pub(super) fn glow(_: &mut SchemaGenerator) -> Schema {
                              clip's own colours"),
             "radius": number_field("How far the halo reaches, as a fraction of the \
                                     clip's height, measured as `blur` is."),
-            "intensity": number_field("How bright: 0 none, 1 the clip's own light \
-                                       spread out, up to 4 for thin lines.")
+            "intensity": number_field(&format!(
+                "How bright: 0 none, 1 the clip's own light spread out, up to {} \
+                 for thin lines.",
+                MAX_GLOW_INTENSITY
+            ))
         },
         "additionalProperties": false
     })
