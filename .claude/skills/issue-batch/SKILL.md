@@ -501,6 +501,18 @@ read cold. Beyond that:
 
 ## Model, as a hint
 
+**For writing a branch, the area decides** (the maintainer, 2026-10-14;
+CLAUDE.md, *Agent velocity*):
+
+- **Sonnet** when the branch is only front-end and changes what the user sees
+  on screen, but never how the app uses the API (`web/` components, copy,
+  layout, styling), or when it is only the desktop app's egui (`app/`).
+- **Opus** for DevOps (CI, `deploy/`, Terraform), networking, and back-end
+  (`crates/`, the server, anything that changes a request or a response).
+
+A branch that mixes the two takes Opus, or is split. The rest of this section
+is for everything that is not writing a branch.
+
 Judgement work — design, implementation, triage — wants the strongest model. A
 rebase, a module-list conflict, an attribute moved between files does not. Most
 sessions on a branch are the second kind, and paying top rate for them is where

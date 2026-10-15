@@ -310,8 +310,12 @@ in a cloud session; `issue-batch` has what that premise shapes.
     issue when it carries its own responsibility.
   - **Agent velocity is first-class.** Agents drive this repo, often unattended.
     Write code that is readable by design and lean, and keep CI fast. This is
-    part of **Craft**, not a trade-off against it. Use the strongest model for
-    judgement work and a cheaper one for mechanical work (`issue-batch`).
+    part of **Craft**, not a trade-off against it. **Which model writes a
+    branch goes by where it lands** (the maintainer, 2026-10-14): Sonnet for a
+    branch that is only front-end and changes what the user sees on screen,
+    never how the app uses the API, or that is only the desktop app's egui;
+    Opus for DevOps, networking or back-end. Mechanical work (a rebase, a
+    move) takes the cheaper model too (`issue-batch`).
 - **The gates (push back before you build).** An idea becomes an issue only
   when all three hold; if any fails, **push back instead of complying**:
   1. **Understanding.** Claude actually understands the idea — the user has a
