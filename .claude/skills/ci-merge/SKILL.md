@@ -164,6 +164,18 @@ same five steps (#690):
   optimisation and never stops the queue. **Dependabot goes after all of
   them**, whatever its labels or conflicts say. A list run keeps the order it
   was given.
+- **The order has no aging yet** (#1345). A pull request with one conflict
+  loses every pick to one with none, so in a busy batch it can sit in line
+  for hours without ever being tried or handed back (#1292 and four others,
+  4–5 h, on 2026-10-15). If one has waited past an hour, run it by hand:
+  `make queue PRS="<numbers>"` takes them in the order given.
+- **One watch at a time** (#1346, until the watch takes a lock). A session that
+  restarts can leave its background watch running as an orphan; two watches
+  on one repository race each other's rebases. Before starting one, run
+  `ps -eo pid,etime,args | grep '[m]erge-queue.py --watch'` (the bracket keeps
+  the grep from matching itself), and resume only if it prints nothing. A
+  `git fetch` of your own in the main checkout can collide with the watch's
+  (`cannot lock ref`): harmless, run it again.
 - **Dependabot labels its own pull requests `queue`** (`.github/dependabot.yml`,
   #721) — all but GitHub Actions', which only ever proposes majors and waits
   for a person to read and label it. That is the decision: they are monthly, grouped, semver-compatible
