@@ -25,17 +25,14 @@ fn project() -> Project {
         AssetKind::Audio,
         ProjectPath::new("assets/m.wav"),
     ));
-    let mut video = Track::new(TrackId::new("v1"), TrackKind::Video);
-    video.clips.push(Clip::new(
-        ClipId::new("head"),
-        AssetId::new("shot"),
-        Frames(0),
-        Frames(120),
-    ));
-    project.tracks.push(video);
-    project
-        .tracks
-        .push(Track::new(TrackId::new("a1"), TrackKind::Audio));
+    project.tracks = vec![
+        Track::with_clips(
+            "v1",
+            TrackKind::Video,
+            vec![Clip::at("head", "shot", 0, 120)],
+        ),
+        Track::new(TrackId::new("a1"), TrackKind::Audio),
+    ];
     project
 }
 

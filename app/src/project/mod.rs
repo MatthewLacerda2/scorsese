@@ -169,9 +169,5 @@ pub(crate) fn heading(problems: usize) -> String {
 
 /// Every validation problem as its own line.
 fn listed(errors: ValidationErrors) -> Vec<String> {
-    errors
-        .into_vec()
-        .into_iter()
-        .map(|problem| problem.to_string())
-        .collect()
+    errors.messages()
 }

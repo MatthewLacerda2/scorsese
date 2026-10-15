@@ -102,13 +102,7 @@ fn asset_changed(
         .find(|found| &found.id == asset)
         .ok_or_else(|| vec![format!("there is no asset `{asset}` in this project")])?;
     change(target);
-    candidate.validate().map_err(|errors| {
-        errors
-            .into_vec()
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<String>>()
-    })?;
+    candidate.validate().map_err(|errors| errors.messages())?;
     Ok(candidate)
 }
 
@@ -132,13 +126,7 @@ fn changed(
         .find(|found| &found.id == clip)
         .ok_or_else(|| vec![format!("there is no clip `{clip}` in this project")])?;
     change(target);
-    candidate.validate().map_err(|errors| {
-        errors
-            .into_vec()
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<String>>()
-    })?;
+    candidate.validate().map_err(|errors| errors.messages())?;
     Ok(candidate)
 }
 

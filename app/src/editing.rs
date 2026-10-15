@@ -104,20 +104,10 @@ impl Editing {
     }
 }
 
-/// The frame just past the last one anything occupies — the length of the
-/// edit, which is what a view has to fit and a playhead has to stop at.
-pub(crate) fn length(project: &Project) -> Frames {
-    project
-        .clips()
-        .map(|(_, clip)| clip.end())
-        .max()
-        .unwrap_or(Frames::ZERO)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scorsese_core::{AssetId, Clip, Fps, Track, TrackId, TrackKind};
+    use scorsese_core::{Clip, Fps, Track, TrackKind};
 
     fn clip(id: &str) -> ClipId {
         ClipId::new(id)
@@ -127,21 +117,19 @@ mod tests {
     /// only document question asked here: is this clip still in it?
     fn project() -> Project {
         let mut project = Project::new("test", Fps::THIRTY);
-        let mut video = Track::new(TrackId::new("v1"), TrackKind::Video);
-        video.clips = vec![laid("c1", 0, 90), laid("c2", 120, 60)];
-        let mut audio = Track::new(TrackId::new("a1"), TrackKind::Audio);
-        audio.clips = vec![laid("c3", 0, 180)];
-        project.tracks = vec![video, audio];
+        project.tracks = vec![
+            Track::with_clips(
+                "v1",
+                TrackKind::Video,
+                vec![laid("c1", 0, 90), laid("c2", 120, 60)],
+            ),
+            Track::with_clips("a1", TrackKind::Audio, vec![laid("c3", 0, 180)]),
+        ];
         project
     }
 
     fn laid(id: &str, start: u64, duration: u64) -> Clip {
-        Clip::new(
-            clip(id),
-            AssetId::new("shot"),
-            Frames(start),
-            Frames(duration),
-        )
+        Clip::at(id, "shot", start, duration)
     }
 
     fn picked(editing: &Editing) -> Vec<&str> {

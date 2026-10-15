@@ -186,7 +186,7 @@ fn hold_all(
 /// Every problem a refused level carries, rather than the one-line summary.
 fn problems(error: LevelError) -> Vec<String> {
     match error {
-        LevelError::Refused(errors) => errors.into_vec().iter().map(ToString::to_string).collect(),
+        LevelError::Refused(errors) => errors.messages(),
         other => vec![other.to_string()],
     }
 }

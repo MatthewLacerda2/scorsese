@@ -15,7 +15,6 @@ use egui::{Align, Layout, Ui};
 use scorsese_core::Project;
 
 use super::Scorsese;
-use crate::editing::length;
 use crate::theme::{marks, palette};
 use crate::timeline::timecode;
 
@@ -32,7 +31,7 @@ pub(super) fn show(ui: &mut Ui, window: &Scorsese) {
     ui.horizontal(|ui| {
         ui.label(marks::figure_dim(format!("{fps} fps")));
         separator(ui);
-        ui.label(marks::figure(timecode(length(project), fps)))
+        ui.label(marks::figure(timecode(project.length(), fps)))
             .on_hover_text("How long the edit runs — the end of the last clip on any track");
         separator(ui);
         ui.label(marks::figure_dim(counted(project)));

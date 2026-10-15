@@ -18,7 +18,7 @@ mod view;
 use egui::{Rect, Sense, Ui, vec2};
 use scorsese_core::Project;
 
-use crate::editing::{Editing, length};
+use crate::editing::Editing;
 use crate::project::Open;
 use crate::theme::{marks, palette};
 use gesture::Gesture;
@@ -102,7 +102,7 @@ impl Timeline {
             return;
         };
         match asked {
-            Look::Fit => self.view.fit(length(project), area.width()),
+            Look::Fit => self.view.fit(project.length(), area.width()),
             Look::In | Look::Out => {
                 let anchor = self.view.offset_of(playhead).clamp(0.0, area.width());
                 let factor = if matches!(asked, Look::In) {
@@ -129,7 +129,7 @@ impl Timeline {
         let full = ui.available_rect_before_wrap();
         let (gutter, area) = split(full);
         if !self.fitted {
-            self.view.fit(length(&open.project), area.width());
+            self.view.fit(open.project.length(), area.width());
             self.fitted = true;
         }
         self.look(area, &open.project, editing.playhead);
@@ -359,7 +359,7 @@ fn split(full: Rect) -> (Rect, Rect) {
 /// Over the lane grounds and under the clips, like the grid, for the same
 /// reason: nothing this draws may dim a block somebody is looking at.
 fn beyond(painter: &egui::Painter, area: Rect, view: View, project: &Project) {
-    let end = area.left() + view.offset_of(length(project));
+    let end = area.left() + view.offset_of(project.length());
     if end >= area.right() {
         return;
     }

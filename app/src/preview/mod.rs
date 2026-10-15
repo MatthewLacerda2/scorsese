@@ -43,7 +43,7 @@ use egui::{Panel, Ui};
 use scorsese_core::{Fps, Frames, Project};
 use scorsese_render::Quality;
 
-use crate::editing::{Editing, length};
+use crate::editing::Editing;
 use crate::project::Open;
 use still::Still;
 use transport::Command;
@@ -55,7 +55,7 @@ use transport::Command;
 /// needs the same answer. Two spellings of it would be two ends of the same
 /// film.
 pub(crate) fn last_frame(project: &Project) -> Frames {
-    transport::last_frame(length(project))
+    transport::last_frame(project.length())
 }
 
 /// The preview panel's own state.
@@ -146,7 +146,7 @@ impl Preview {
     /// what makes the picture the thing that grows when the window does.
     pub(crate) fn show(&mut self, ui: &mut Ui, open: &Open, editing: &mut Editing) {
         let fps = open.project.timeline_fps;
-        let last = transport::last_frame(length(&open.project));
+        let last = transport::last_frame(open.project.length());
         self.advance(ui, fps, last, editing);
         self.follow_proxies(ui, open);
         self.follow_pages(ui, open);

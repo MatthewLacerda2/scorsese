@@ -27,7 +27,7 @@ use scorsese_core::{
     TrackKind, placing,
 };
 
-use super::drag::{SNAP, snap::Targets};
+use super::drag::{SNAP, commit::first_problem, snap::Targets};
 use super::{Timeline, lanes, ruler};
 use crate::editing::Editing;
 use crate::project::Open;
@@ -258,11 +258,7 @@ fn place(
     };
     match outcome {
         Ok((track, clip)) => Ok((placed, clip.id, track)),
-        Err(PlaceError::Refused(errors)) => Err(errors
-            .into_vec()
-            .into_iter()
-            .next()
-            .map_or_else(|| "refused".to_owned(), |problem| problem.to_string())),
+        Err(PlaceError::Refused(errors)) => Err(first_problem(errors)),
         Err(other) => Err(other.to_string()),
     }
 }
