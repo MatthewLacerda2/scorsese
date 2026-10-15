@@ -12,7 +12,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
-use scorsese_core::SCHEMA_VERSION;
+use scorsese_core::{Fps, Project, SCHEMA_VERSION};
 use scorsese_providers::credentials::Settings;
 use scorsese_providers::voices::{
     Availability, Catalogue, Filters, Page, Unusable, Voice, VoiceError,
@@ -195,14 +195,13 @@ pub(crate) fn write(label: &str, document: &str) -> Fixture {
     // sits in is a scratch one of its own, removed with the test (#1164).
     let dir =
         crate::scratch::fresh("scorsese-panels", "").join(format!("scorsese-panels-{label}.scor"));
-    for inside in ["assets", "generated", "recipes", "cache"] {
-        std::fs::create_dir_all(dir.join(inside)).expect("create the project directory");
-    }
+    // The folders a real project has come from `Project::create`; the document
+    // it writes is then replaced by the one this test is about.
+    Project::create(&dir, None, Fps::THIRTY).expect("create the project directory");
     std::fs::write(dir.join("project.json"), document).expect("write project.json");
     // A real file behind the image asset. An asset whose file is missing is a
     // warning the pool draws, and a snapshot of a panel should not also be a
     // snapshot of an unrelated complaint.
-    std::fs::create_dir_all(dir.join("assets")).expect("create assets/");
     std::fs::write(dir.join("assets/plate.png"), PIXEL).expect("write the image");
     Fixture(dir)
 }

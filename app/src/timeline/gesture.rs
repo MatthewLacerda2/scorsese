@@ -16,7 +16,7 @@ use scorsese_core::{Frames, Project};
 
 use super::view::View;
 use super::{Timeline, drag, lanes, pacing, ruler};
-use crate::editing::{Editing, length};
+use crate::editing::Editing;
 use crate::project::Open;
 
 /// What a press on the timeline turned out to mean.
@@ -178,5 +178,5 @@ fn adding(ui: &Ui) -> bool {
 
 /// Which frame `at` falls on, never past the end of the edit.
 fn frame_under(view: View, area: Rect, at: Pos2, project: &Project) -> Frames {
-    view.frame_at(at.x - area.left()).min(length(project))
+    view.frame_at(at.x - area.left()).min(project.length())
 }

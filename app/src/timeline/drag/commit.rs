@@ -77,10 +77,8 @@ pub(in crate::timeline) fn place(
 /// flight, and a drag has one thing wrong with it at a time.
 pub(in crate::timeline) fn first_problem(errors: ValidationErrors) -> String {
     errors
-        .into_vec()
-        .into_iter()
-        .next()
-        .map_or_else(|| "refused".to_owned(), |problem| problem.to_string())
+        .first_message()
+        .unwrap_or_else(|| "refused".to_owned())
 }
 
 #[cfg(test)]
@@ -100,23 +98,22 @@ mod tests {
             AssetKind::GeneratedAudio,
             "a sting",
         ));
-        let mut video = Track::new(TrackId::new("v1"), TrackKind::Video);
-        video.clips.push(clip("head", "title", 0, 100));
-        video.clips.push(clip("tail", "title", 100, 100));
-        let mut audio = Track::new(TrackId::new("a1"), TrackKind::Audio);
-        audio.clips.push(clip("hit", "sting", 400, 30));
-        project.tracks.push(video);
-        project.tracks.push(audio);
+        project.tracks = vec![
+            Track::with_clips(
+                "v1",
+                TrackKind::Video,
+                vec![
+                    Clip::at("head", "title", 0, 100),
+                    Clip::at("tail", "title", 100, 100),
+                ],
+            ),
+            Track::with_clips(
+                "a1",
+                TrackKind::Audio,
+                vec![Clip::at("hit", "sting", 400, 30)],
+            ),
+        ];
         project
-    }
-
-    fn clip(id: &str, asset: &str, start: u64, duration: u64) -> Clip {
-        Clip::new(
-            ClipId::new(id),
-            AssetId::new(asset),
-            Frames(start),
-            Frames(duration),
-        )
     }
 
     fn shape(start: u64, duration: u64, source_in: u64) -> Shape {
