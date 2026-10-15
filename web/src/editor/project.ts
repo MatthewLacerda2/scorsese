@@ -13,15 +13,20 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
-import { ApiError, api, type EditorProject, type EditorTool, type ToolAnswer } from "@/api";
+import {
+  ApiError,
+  api,
+  describeError,
+  type EditorProject,
+  type EditorTool,
+  type ToolAnswer,
+} from "@/api";
+import { queryKeys } from "@/app/queryKeys";
 import type { Messages } from "@/i18n/catalogue";
 import { useT } from "@/i18n/I18nProvider";
 
-/** The cache key the editor's project lives under — in the projects area. */
-export const editorKey = (id: number) => ["projects", "editor", id] as const;
-
 export function useEditorProject(id: number) {
-  return useQuery({ queryKey: editorKey(id), queryFn: () => api.editor.open(id) });
+  return useQuery({ queryKey: queryKeys.editor(id), queryFn: () => api.editor.open(id) });
 }
 
 /** A tool call the editor makes: `edit` ones name the revision they were worked out on. */
@@ -42,9 +47,7 @@ export interface EditOutcome {
 
 /** The server's words for a failed edit, in the terms a user acts on. */
 export function refusal(error: unknown, t: Messages["editor"]["refusal"]): string {
-  if (!(error instanceof ApiError)) return t.failed;
-  if (error.status === 409) return t.conflict;
-  return error.message;
+  return describeError(error, { 409: t.conflict }, t.failed);
 }
 
 export function useEdit(id: number): EditOutcome {
@@ -53,20 +56,20 @@ export function useEdit(id: number): EditOutcome {
   const [refused, setRefused] = useState<string | null>(null);
   const mutation = useMutation({
     mutationFn: ({ tool, args, edit }: Edit) => {
-      const current = queryClient.getQueryData<EditorProject>(editorKey(id));
+      const current = queryClient.getQueryData<EditorProject>(queryKeys.editor(id));
       return api.editor.tool(id, tool, args, edit ? current?.revision : undefined);
     },
     onSuccess: (answer, { tool }) => {
       setRefused(null);
-      if (answer.project) queryClient.setQueryData(editorKey(id), answer.project);
+      if (answer.project) queryClient.setQueryData(queryKeys.editor(id), answer.project);
       // An import or a template changes which files this project uses.
       if (tool === "import" || tool === "template_insert")
-        queryClient.invalidateQueries({ queryKey: ["library"] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.library });
     },
     onError: (error) => {
       setRefused(refusal(error, t.editor.refusal));
       if (error instanceof ApiError && error.status === 409) {
-        queryClient.invalidateQueries({ queryKey: editorKey(id) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.editor(id) });
       }
     },
   });

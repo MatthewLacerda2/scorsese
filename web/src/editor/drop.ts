@@ -12,9 +12,9 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import type { EditorProject, Track } from "@/api";
+import { queryKeys } from "@/app/queryKeys";
 import type { Dragged } from "./assets/dragged";
 import type { EditOutcome } from "./project";
-import { editorKey } from "./project";
 import { dropLength, dropStart, laneFor, placeArguments, targets } from "./timeline/drag";
 
 /** Runs one edit and hands back the server's answer, or `null` when refused. */
@@ -81,7 +81,7 @@ export function useDrop(
   const queryClient = useQueryClient();
 
   return async (dragged: Dragged, track: Track | null, pointed: number, reach: number) => {
-    const before = queryClient.getQueryData<EditorProject>(editorKey(id));
+    const before = queryClient.getQueryData<EditorProject>(queryKeys.editor(id));
     if (!before) return;
     const added = await dropOnto(edit.run, before, dragged, track, pointed, reach, playhead);
     if (added) select(added);

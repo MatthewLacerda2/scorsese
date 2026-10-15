@@ -6,6 +6,7 @@
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ApiError, api } from "@/api";
+import { queryKeys } from "@/app/queryKeys";
 import { useSettled } from "@/lib/useSettled";
 import { clamp } from "@/lib/utils";
 
@@ -34,7 +35,7 @@ export function useStill(
 ) {
   const at = clampFrame(useSettled(frame, SETTLE_MS), length);
   return useQuery({
-    queryKey: ["projects", "still", id, revision, at, raster],
+    queryKey: queryKeys.still(id, revision, at, raster),
     enabled,
     placeholderData: keepPreviousData,
     // A frame of a revision never changes.

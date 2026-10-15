@@ -6,9 +6,11 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, HISTORY_KINDS, type HistoryFilter, type HistoryKind } from "@/api";
 import { useProjects } from "@/app/queries";
+import { queryKeys } from "@/app/queryKeys";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { QueryState } from "@/components/ui/query-state";
 import {
   Select,
   SelectContent,
@@ -29,7 +31,7 @@ export function SpendingPage() {
   const words = t.pages.spending;
   const [filter, setFilter] = useState<Omit<HistoryFilter, "before" | "limit">>({});
   const history = useInfiniteQuery({
-    queryKey: ["credits", "history", filter],
+    queryKey: queryKeys.history(filter),
     queryFn: ({ pageParam }) => api.credits.history({ ...filter, before: pageParam, limit: PAGE }),
     initialPageParam: undefined as number | undefined,
     getNextPageParam: (last) => (last.rows.length === PAGE ? last.rows.at(-1)?.id : undefined),
@@ -49,11 +51,10 @@ export function SpendingPage() {
         )}
       </div>
       <Filters filter={filter} onChange={setFilter} />
-      {history.isError && <p className="text-destructive">{history.error.message}</p>}
-      {history.isPending && <p className="text-muted-foreground">{t.common.loading}</p>}
-      {history.isSuccess && rows.length === 0 && (
-        <p className="text-muted-foreground">{words.empty}</p>
-      )}
+      <QueryState
+        query={history}
+        empty={history.isSuccess && rows.length === 0 ? words.empty : null}
+      />
       {rows.length > 0 && <HistoryTable rows={rows} />}
       {history.hasNextPage && (
         <Button

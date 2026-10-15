@@ -20,6 +20,7 @@ import { useCallback, useState } from "react";
 import { useParams } from "react-router";
 import type { EditorProject } from "@/api";
 import { useServerEvents } from "@/app/events";
+import { queryKeys } from "@/app/queryKeys";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n/I18nProvider";
 import { AssetsPanel } from "./assets/AssetsPanel";
@@ -32,7 +33,7 @@ import { Inspector } from "./inspector/Inspector";
 import { Handle } from "./panels/Handle";
 import { usePanels } from "./panels/usePanels";
 import { Preview } from "./preview/Preview";
-import { editorKey, useEdit, useEditorProject } from "./project";
+import { useEdit, useEditorProject } from "./project";
 import { confirmThen, trackRemoval } from "./removing";
 import { choose, kept } from "./selection";
 import { SHAPES, type Shape, savedShape, saveShape } from "./shape";
@@ -68,7 +69,7 @@ function Editor({ project }: { project: EditorProject }) {
   useServerEvents((event) => {
     const moved = event.type === "project" && event.id === id && event.revision !== revision;
     if (moved || event.type === "resync")
-      queryClient.invalidateQueries({ queryKey: editorKey(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.editor(id) });
   });
 
   const tracks = document.tracks ?? [];

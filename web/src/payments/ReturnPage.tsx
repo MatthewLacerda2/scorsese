@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { Link, useSearchParams } from "react-router";
 import { api } from "@/api";
+import { queryKeys } from "@/app/queryKeys";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n/I18nProvider";
 import { formatDollars } from "@/lib/money";
@@ -22,7 +23,7 @@ export function CreditsReturnPage() {
   const session = params.get("session") ?? "";
   const client = useQueryClient();
   const payment = useQuery({
-    queryKey: ["payments", "confirm", session],
+    queryKey: queryKeys.paymentConfirm(session),
     queryFn: () => api.payments.confirm(session),
     enabled: session !== "",
     retry: false,
@@ -30,7 +31,7 @@ export function CreditsReturnPage() {
   });
   const state = payment.data?.state;
   useEffect(() => {
-    if (state === "paid") client.invalidateQueries({ queryKey: ["credits"] });
+    if (state === "paid") client.invalidateQueries({ queryKey: queryKeys.credits });
   }, [state, client]);
 
   let message: string = t.buying.returned.checking;

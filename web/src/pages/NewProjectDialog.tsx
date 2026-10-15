@@ -7,12 +7,13 @@
 // change of platform drops a style not made for it, so the server is never
 // sent a pair it refuses. The editor opens in the platform's frame shape.
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
 import { PlusIcon } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { useNavigate } from "react-router";
 import { api, type NewProject, type StyleMenu } from "@/api";
+import { queryKeys } from "@/app/queryKeys";
+import { useInvalidatingMutation } from "@/app/useInvalidatingMutation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,6 +24,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { QueryError } from "@/components/ui/query-error";
 import { saveShape } from "@/editor/shape";
 import { FileBrowser } from "@/files/FileBrowser";
 import { useT } from "@/i18n/I18nProvider";
@@ -90,19 +92,16 @@ export function NewProjectButton() {
 /** The steps — mounted only while the modal is open, so a new one starts blank. */
 export function Wizard({ initial = EMPTY }: { initial?: Draft }) {
   const t = useT().start;
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const menu = useStyleMenu();
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState(initial);
   const [missing, setMissing] = useState(false);
-  const create = useMutation({
+  const create = useInvalidatingMutation([queryKeys.projects, queryKeys.library], {
     mutationFn: api.projects.create,
     onSuccess: (project) => {
       const shape = menu.data ? shapeOf(menu.data, draft.platform) : null;
       if (shape) saveShape(project.id, shape);
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
-      queryClient.invalidateQueries({ queryKey: ["library"] });
       navigate(`/projects/${project.id}/edit`);
     },
   });
@@ -192,7 +191,7 @@ export function Wizard({ initial = EMPTY }: { initial?: Draft }) {
       {menu.isError && current !== "name" && current !== "assets" && (
         <p className="text-sm text-destructive">{menu.error.message}</p>
       )}
-      {create.isError && <p className="text-sm text-destructive">{create.error.message}</p>}
+      <QueryError error={create.error} />
       <div className="flex items-center gap-2 border-t pt-3">
         <span className="text-xs text-muted-foreground">{t.stepOf(step + 1, STEPS.length)}</span>
         <div className="ml-auto flex gap-2">

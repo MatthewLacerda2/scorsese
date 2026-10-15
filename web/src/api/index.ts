@@ -27,6 +27,7 @@ import type {
 } from "./types";
 
 export { ApiError } from "./client";
+export { describeError } from "./describe";
 export * from "./document";
 export * from "./types";
 

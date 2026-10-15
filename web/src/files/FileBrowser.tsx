@@ -17,6 +17,7 @@ import { FILE_KINDS, type FileKind, type LibraryTile } from "@/api";
 import { useLibrary } from "@/app/queries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { QueryState } from "@/components/ui/query-state";
 import {
   Select,
   SelectContent,
@@ -133,17 +134,18 @@ export function FileBrowser({ project, picking }: Props) {
         {project === undefined && <UploadButton />}
       </div>
 
-      {files.isError && <p className="text-destructive">{files.error.message}</p>}
-      {files.isPending && <p className="text-muted-foreground">{t.common.loading}</p>}
-      {files.isSuccess && tiles.length === 0 && (
-        <p className="text-muted-foreground">
-          {filtered
-            ? words.noMatch
-            : project === undefined
-              ? words.emptyLibrary
-              : words.emptyProject}
-        </p>
-      )}
+      <QueryState
+        query={files}
+        empty={
+          files.isSuccess && tiles.length === 0
+            ? filtered
+              ? words.noMatch
+              : project === undefined
+                ? words.emptyLibrary
+                : words.emptyProject
+            : null
+        }
+      />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
         {tiles.map((tile) =>
           picking ? (

@@ -4,17 +4,20 @@
 // A template is let go of here too, which is also what frees a library file
 // only a template still holds.
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import { api, type Fps, type TemplateSummary } from "@/api";
+import { queryKeys } from "@/app/queryKeys";
+import { useInvalidatingMutation } from "@/app/useInvalidatingMutation";
 import { Button } from "@/components/ui/button";
+import { QueryError } from "@/components/ui/query-error";
 import { useLanguage, useT } from "@/i18n/I18nProvider";
 import { formatNumber } from "@/lib/format";
 import type { EditOutcome } from "../project";
 import { toSeconds } from "../timeline/time";
 
 export function useTemplates() {
-  return useQuery({ queryKey: ["templates"], queryFn: api.templates.list });
+  return useQuery({ queryKey: queryKeys.templates, queryFn: api.templates.list });
 }
 
 interface Props {
@@ -24,15 +27,13 @@ interface Props {
 }
 
 export function TemplatesSection({ edit, playhead, fps }: Props) {
-  const queryClient = useQueryClient();
   const t = useT().editor.templates;
   const { language } = useLanguage();
   // Seconds to one decimal, in the reader's own way of writing a decimal.
   const tenths = (seconds: number) => formatNumber(seconds, { digits: 1 }, language);
   const templates = useTemplates();
-  const remove = useMutation({
+  const remove = useInvalidatingMutation([queryKeys.templates], {
     mutationFn: (id: number) => api.templates.remove(id),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["templates"] }),
   });
   const at = toSeconds(playhead, fps);
   const insert = (template: TemplateSummary) =>
@@ -47,9 +48,9 @@ export function TemplatesSection({ edit, playhead, fps }: Props) {
       <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {t.title}
       </h2>
-      {templates.isError && <p className="text-xs text-destructive">{templates.error.message}</p>}
+      <QueryError error={templates.error} className="text-xs text-destructive" />
       {templates.data?.length === 0 && <p className="text-xs text-muted-foreground">{t.none}</p>}
-      {remove.isError && <p className="text-xs text-destructive">{remove.error.message}</p>}
+      <QueryError error={remove.error} className="text-xs text-destructive" />
       {templates.data?.map((template) => (
         <div key={template.id} className="flex items-center gap-1 rounded-md border px-2 py-1">
           <div

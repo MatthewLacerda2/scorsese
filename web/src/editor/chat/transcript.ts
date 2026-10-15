@@ -12,6 +12,7 @@
 
 import type { Conversation, QuestionView, TurnState, TurnView } from "@/api/chat";
 import { ApiError } from "@/api/client";
+import { describeError } from "@/api/describe";
 import type { JobView, ServerEvent } from "@/api/events";
 import type { Messages } from "@/i18n/catalogue";
 
@@ -205,7 +206,7 @@ export interface Problem {
 }
 
 export function problem(error: unknown, t: Messages["chat"]): Problem {
-  const detail = error instanceof Error ? error.message : String(error);
+  const detail = describeError(error);
   if (!(error instanceof ApiError)) return { tone: "error", lead: null, detail };
   switch (error.status) {
     case 503:

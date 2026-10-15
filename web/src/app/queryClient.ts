@@ -1,6 +1,6 @@
 // The one cache every page reads the server through (TanStack Query).
 //
-// Query keys start with the area they belong to — `["me"]`, `["projects"]`,
+// Query keys (app/queryKeys.ts) start with the area they belong to — `["me"]`, `["projects"]`,
 // `["library", …]`, `["credits", …]` — so a change invalidates its whole area
 // with one call and nothing else. A `401` from any request means the session
 // ended (logged out elsewhere, expired, reset by the operator): the cached
@@ -8,9 +8,10 @@
 
 import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/api";
+import { queryKeys } from "@/app/queryKeys";
 
 /** The key the logged-in account is cached under. */
-export const ME = ["me"] as const;
+export const ME = queryKeys.me;
 
 function loggedOut(error: unknown): boolean {
   return error instanceof ApiError && error.status === 401;

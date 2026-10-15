@@ -3,12 +3,14 @@
 // cost. Rename, describe, download and delete happen here; a delete a project
 // blocks is refused by the server with the projects' names, shown as links.
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
 import { ApiError, api, type LibraryItem, type ProjectRef } from "@/api";
 import { useLibraryItem } from "@/app/queries";
+import { queryKeys } from "@/app/queryKeys";
+import { useInvalidatingMutation } from "@/app/useInvalidatingMutation";
 import { Button } from "@/components/ui/button";
+import { QueryError } from "@/components/ui/query-error";
 import {
   Sheet,
   SheetContent,
@@ -60,20 +62,16 @@ function Details({
   const t = useT();
   const words = t.files.details;
   const { language } = useLanguage();
-  const queryClient = useQueryClient();
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["library"] });
-  const update = useMutation({
+  const update = useInvalidatingMutation([queryKeys.library], {
     mutationFn: (change: { name?: string; description?: string }) =>
       api.library.update(item.id, change),
-    onSuccess: refresh,
   });
   const [confirming, setConfirming] = useState(false);
-  const remove = useMutation({
+  const remove = useInvalidatingMutation([queryKeys.library], {
     mutationFn: () => api.library.remove(item.id),
     onSuccess: () => {
       setConfirming(false);
       onDeleted();
-      refresh();
     },
   });
   const blockedBy = inUseBy(remove.error);
@@ -132,7 +130,7 @@ function Details({
           onSave={(description) => update.mutateAsync({ description })}
         />
       </section>
-      {update.isError && <p className="text-sm text-destructive">{update.error.message}</p>}
+      <QueryError error={update.error} />
 
       <section className="flex flex-col gap-1">
         <h3 className="text-sm font-medium">{words.usedIn}</h3>
@@ -163,7 +161,7 @@ function Details({
         busy={remove.isPending}
         onConfirm={() => remove.mutate()}
       >
-        {remove.isError && <p className="text-sm text-destructive">{remove.error.message}</p>}
+        <QueryError error={remove.error} />
         {blockedBy && blockedBy.length > 0 && <ProjectLinks projects={blockedBy} empty="" />}
       </ConfirmDialog>
     </div>

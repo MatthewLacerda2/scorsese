@@ -6,9 +6,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DownloadIcon, FilmIcon, SquareIcon } from "lucide-react";
 import { useState } from "react";
-import { api, type RenderView } from "@/api";
+import { api, describeError, type RenderView } from "@/api";
 import type { JobView } from "@/api/events";
 import { useServerEvents } from "@/app/events";
+import { queryKeys } from "@/app/queryKeys";
 import { rememberRender } from "@/app/RenderToasts";
 import { Button } from "@/components/ui/button";
 import { useLanguage, useT } from "@/i18n/I18nProvider";
@@ -26,7 +27,7 @@ interface Props {
 export function RenderPanel({ projectId, name, shape }: Props) {
   const queryClient = useQueryClient();
   const t = useT();
-  const key = ["projects", "renders", projectId];
+  const key = queryKeys.renders(projectId);
   const renders = useQuery({ queryKey: key, queryFn: () => api.renders.list(projectId) });
   const sizes = SHAPES[shape].deliver;
   const [resolution, setResolution] = useState<string>(sizes[0] ?? "1920x1080");
@@ -49,7 +50,7 @@ export function RenderPanel({ projectId, name, shape }: Props) {
       setJob(asked.job);
       if (asked.render) queryClient.invalidateQueries({ queryKey: key });
     } catch (failed) {
-      setError((failed as Error).message);
+      setError(describeError(failed));
     }
   };
 
@@ -61,7 +62,7 @@ export function RenderPanel({ projectId, name, shape }: Props) {
     try {
       setJob(await api.jobs.cancel(job.id));
     } catch (failed) {
-      setError((failed as Error).message);
+      setError(describeError(failed));
     }
   };
   const working = job?.state === "waiting" || job?.state === "running";
