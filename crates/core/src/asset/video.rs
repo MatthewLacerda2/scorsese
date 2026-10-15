@@ -29,6 +29,9 @@
 //!   it on 2026-10-10 (#928): Veo refused 4 and 6 seconds for such a shot on
 //!   Lite and Fast, with a 400 that says only "use case not supported", and
 //!   generated it at 8 (`docs/prompts.md`).
+//! - **`personGeneration`** is not offered: on every tier it has one right
+//!   value per kind of request, which Google applies when it is left out
+//!   (beside `api::veo::request::Parameters` in `providers`).
 
 use serde::{Deserialize, Serialize};
 
@@ -268,6 +271,16 @@ pub struct VideoRequest {
     /// [`MAX_REFERENCE_IMAGES`] of them.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub reference_images: Vec<AssetId>,
+    /// A seed, for a re-take that lands nearer the last one (#1191).
+    ///
+    /// Best-effort at the vendor, exactly as a spoken line's is: Google says it
+    /// "doesn't guarantee determinism, but slightly improves it". Getting the
+    /// *same* shot back is the brief-hash cache's job, done exactly; what a seed
+    /// adds is that a shot re-taken after an edit to its prompt keeps more of
+    /// the rest. Hashed into the brief like everything else, so changing it
+    /// asks for a different take.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seed: Option<u32>,
 }
 
 impl VideoRequest {

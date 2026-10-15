@@ -78,26 +78,21 @@ pub struct ReferenceImage {
 
 /// How to generate, as opposed to what.
 ///
-/// # Two parameters Google documents and scorsese does not send (#1110)
+/// # A parameter Google documents and scorsese does not send (#1110)
 ///
 /// Read off Google's Veo page on 2026-10-11 (its *Veo API parameters and
-/// specifications* table and *Limitations*):
+/// specifications* table and *Limitations*): **`personGeneration`** is not a
+/// choice on any model scorsese offers. For Veo 3.1, Fast and Lite the page
+/// allows exactly one value per input mode — `allow_all` for text-to-video,
+/// `allow_adult` for image-to-video, interpolation and reference images — and
+/// in the EU, UK, CH and MENA `allow_adult` is the only value at all. Left out,
+/// Google applies the one that fits; sent, it could only be the wrong one
+/// somewhere.
 ///
-/// - **`personGeneration`** is not a choice on any model scorsese offers. For
-///   Veo 3.1, Fast and Lite the page allows exactly one value per input mode —
-///   `allow_all` for text-to-video, `allow_adult` for image-to-video,
-///   interpolation and reference images — and in the EU, UK, CH and MENA
-///   `allow_adult` is the only value at all. Left out, Google applies the one
-///   that fits; sent, it could only be the wrong one somewhere.
-/// - **`seed`** is not offered *yet* (#1191). The page says it "doesn't
-///   guarantee determinism, but slightly improves it". Getting the same shot
-///   back is already the brief-hash cache's job, done exactly; what a seed
-///   would add is a re-take of an *edited* prompt landing slightly nearer the
-///   last one. Speech records one, so there is a case for parity — but it is a
-///   `project.json` field and a schema bump, which is the maintainer's call.
-///   If it is offered, its line in [`Brief`](crate::video::Brief)'s
-///   fingerprint is written only when it is set, so no existing shot moves to
-///   a new hash and is billed again.
+/// `seed` was the other, until #1191 offered it: Vertex's text-to-video
+/// reference (read 2026-10-15, last updated 2026-10-14) lists it for
+/// `veo-3.1-generate-001` and `veo-3.1-fast-generate-001` as "an uint32 …
+/// 0 - 4294967295", and the guide says it "slightly improves" determinism.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Parameters {
@@ -107,6 +102,9 @@ pub struct Parameters {
     pub duration_seconds: u32,
     /// `720p`, `1080p` or `4k`.
     pub resolution: String,
+    /// Best-effort determinism, sent only when the brief sets one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seed: Option<u32>,
 }
 
 impl Image {
@@ -155,6 +153,7 @@ mod tests {
                 aspect_ratio: String::from("16:9"),
                 duration_seconds: 8,
                 resolution: String::from("720p"),
+                seed: Some(7),
             },
         };
         let picture = json!({"bytesBase64Encoded": "QUJD", "mimeType": "image/png"});
@@ -171,6 +170,7 @@ mod tests {
                     "aspectRatio": "16:9",
                     "durationSeconds": 8,
                     "resolution": "720p",
+                    "seed": 7,
                 },
             })
         );
@@ -185,6 +185,22 @@ mod tests {
         assert_eq!(
             serde_json::to_value(&instance).unwrap(),
             json!({"prompt": "a butterfly"})
+        );
+    }
+
+    /// No seed set, no `seed` key: an unseeded shot's body is what it was
+    /// before seeds existed.
+    #[test]
+    fn an_unseeded_request_sends_no_seed() {
+        let parameters = Parameters {
+            aspect_ratio: String::from("16:9"),
+            duration_seconds: 8,
+            resolution: String::from("720p"),
+            seed: None,
+        };
+        assert_eq!(
+            serde_json::to_value(&parameters).unwrap(),
+            json!({"aspectRatio": "16:9", "durationSeconds": 8, "resolution": "720p"})
         );
     }
 }

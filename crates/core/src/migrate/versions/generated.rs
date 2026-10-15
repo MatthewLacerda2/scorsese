@@ -110,3 +110,25 @@ fn a_v48_natural_line_becomes_expressive_and_others_stay() {
         ]
     );
 }
+
+/// v49 → v50: a v49 document's shots arrive with no seed, asking for what
+/// they asked before.
+#[test]
+fn a_v49_document_s_shots_arrive_unseeded() {
+    let document = json!({
+        "schema_version": 49,
+        "name": "Before shot seeds",
+        "timeline_fps": { "num": 30, "den": 1 },
+        "assets": [
+            { "id": "shot", "kind": "generated_video", "state": "sketch", "prompt": "rain",
+              "video": { "model": "fast", "resolution": "720p", "seconds": 6 } }
+        ],
+        "tracks": []
+    });
+    let (project, from) = parse(&document.to_string()).expect("a v49 document migrates");
+    assert_eq!(from, Some(49));
+    project.validate().expect("and it validates");
+    let request = project.assets[0].video_request();
+    assert_eq!(request.seed, None);
+    assert_eq!(request.seconds, crate::ClipSeconds::Six);
+}

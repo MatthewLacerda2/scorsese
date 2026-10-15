@@ -75,6 +75,12 @@ impl Fingerprint {
         self
     }
 
+    /// The text itself, for a test that pins one line of it.
+    #[cfg(test)]
+    pub(crate) fn text(&self) -> &str {
+        &self.0
+    }
+
     /// The `sha256` of the text, which is what names a generation's file.
     pub(crate) fn digest(&self) -> String {
         hash_bytes(self.0.as_bytes())
