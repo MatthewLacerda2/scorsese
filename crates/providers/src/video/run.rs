@@ -6,7 +6,7 @@ use std::path::Path;
 use scorsese_core::{Asset, AssetId, AssetKind, GenerationState, Project, ProjectPath, Timestamp};
 
 use crate::credentials::Budget;
-use crate::generated::{self, write};
+use crate::generated::{self, Plan, Prompted, write};
 use crate::prices;
 
 use super::{
@@ -48,7 +48,7 @@ pub fn generate(
     provider: &dyn VideoProvider,
     budget: Budget,
 ) -> Result<Vec<(AssetId, Outcome)>, Stopped> {
-    let ids = generated_video_ids(project);
+    let ids = generated::ids::<Shots>(project);
     let mut done = Vec::new();
     let mut spent = 0;
     for (at, id) in ids.iter().enumerate() {
@@ -100,7 +100,7 @@ pub fn collect(
     provider: &dyn VideoProvider,
 ) -> Result<Vec<(AssetId, Outcome)>, GenerationError> {
     let mut done = Vec::new();
-    for id in generated_video_ids(project) {
+    for id in generated::ids::<Shots>(project) {
         let in_flight = project
             .asset(&id)
             .is_some_and(|asset| asset.operation.is_some());
@@ -124,65 +124,12 @@ pub fn collect(
 /// ticket cleared included, so the document cannot say two different things
 /// depending on which of the two noticed the file.
 pub fn adopt(project: &mut Project, root: &Path) -> Vec<AssetId> {
-    let mut adopted = Vec::new();
-    for id in generated_video_ids(project) {
-        let Some(brief) = project
-            .asset(&id)
-            .and_then(|asset| Brief::of(project, root, asset).ok())
-            .filter(|brief| brief.realized(root))
-        else {
-            continue;
-        };
-        let output = brief.output();
-        let bytes = std::fs::read(output.resolve(root)).unwrap_or_default();
-        record(project, &id, &output, &bytes, &brief);
-        submitted::forget(root, &id);
-        adopted.push(id);
-    }
-    adopted
-}
-
-/// What a run would do with one asset, read without doing it.
-///
-/// The pass's own decision order — the cache first, then the ticket, then a
-/// submission — answered before any key is resolved and without spending
-/// anything. It exists for the callers that come *before* a run: the
-/// [quote](crate::quote), and the check that decides whether a pass is worth resolving a key
-/// for. Both used to consult the asset's recorded `path` instead, and that is
-/// the file the *previous* generation landed in — after an edit it still
-/// exists and still resolves, which is exactly how a stale shot got skipped.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Plan {
-    /// The current brief's output is already in `generated/`. Nothing would be
-    /// sent and nothing paid.
-    Realized(
-        /// Where it is, project-relative.
-        ProjectPath,
-    ),
-    /// A ticket is in flight. A run polls it and spends nothing new.
-    InFlight,
-    /// The brief would be handed to the provider and billed.
-    Submit,
-    /// The brief cannot be gathered, in the words a run would refuse it with.
-    Unready(
-        /// What is wrong with it.
-        String,
-    ),
+    generated::adopt::<Shots>(project, root)
 }
 
 /// What a run would do with `asset` — see [`Plan`].
 pub fn plan(project: &Project, root: &Path, asset: &Asset) -> Plan {
-    let brief = match Brief::of(project, root, asset) {
-        Ok(brief) => brief,
-        Err(why) => return Plan::Unready(why.to_string()),
-    };
-    if brief.realized(root) {
-        return Plan::Realized(brief.output());
-    }
-    if asset.operation.is_some() {
-        return Plan::InFlight;
-    }
-    Plan::Submit
+    generated::plan::<Shots>(project, root, asset)
 }
 
 /// Whether a run over this project's shots would have anything to do at all.
@@ -191,23 +138,44 @@ pub fn plan(project: &Project, root: &Path, asset: &Asset) -> Plan {
 /// still clears it out of the document. An ungatherable brief counts too,
 /// because the pass is where that refusal is voiced, naming what is missing.
 pub fn pending(project: &Project, root: &Path) -> bool {
-    project
-        .assets
-        .iter()
-        .filter(|asset| asset.kind == AssetKind::GeneratedVideo)
-        .any(|asset| {
-            asset.operation.is_some() || !matches!(plan(project, root, asset), Plan::Realized(_))
-        })
+    generated::pending::<Shots>(project, root)
 }
 
-/// Every `generated_video` asset, by id.
-fn generated_video_ids(project: &Project) -> Vec<AssetId> {
-    project
-        .assets
-        .iter()
-        .filter(|asset| asset.kind == AssetKind::GeneratedVideo)
-        .map(|asset| asset.id.clone())
-        .collect()
+/// Shots, as [`generated`]'s shared steps see them.
+pub(crate) struct Shots;
+
+impl Prompted for Shots {
+    const KIND: AssetKind = AssetKind::GeneratedVideo;
+    type Brief = Brief;
+    type Unready = GenerationError;
+    type Error = GenerationError;
+
+    fn brief(project: &Project, root: &Path, asset: &Asset) -> Result<Brief, GenerationError> {
+        Brief::of(project, root, asset)
+    }
+
+    fn output(brief: &Brief) -> ProjectPath {
+        brief.output()
+    }
+
+    fn realized(brief: &Brief, root: &Path) -> bool {
+        brief.realized(root)
+    }
+
+    /// [`record`], and the ticket's sidecar forgotten: the file it was waiting
+    /// for is here.
+    fn keep(
+        project: &mut Project,
+        root: &Path,
+        id: &AssetId,
+        path: &ProjectPath,
+        bytes: &[u8],
+        brief: &Brief,
+    ) -> Result<(), GenerationError> {
+        record(project, id, path, bytes, brief);
+        submitted::forget(root, id);
+        Ok(())
+    }
 }
 
 /// Moves one asset as far along as it can go in one pass.
@@ -231,16 +199,13 @@ fn one(
             });
         }
     };
-    let output = brief.output();
 
     // The cache, and it is checked before anything else on purpose: a file
     // already sitting there is the answer to "has this brief been paid for",
     // whatever the document happens to claim about the asset's state.
     if brief.realized(root) {
-        let bytes = std::fs::read(output.resolve(root)).unwrap_or_default();
-        record(project, id, &output, &bytes, &brief);
-        submitted::forget(root, id);
-        return Ok(Outcome::Cached { path: output });
+        let path = generated::found::<Shots>(project, root, id, &brief)?;
+        return Ok(Outcome::Cached { path });
     }
 
     match project.asset(id).and_then(|asset| asset.operation.clone()) {
@@ -324,8 +289,7 @@ fn waiting(
                     ),
                 });
             }
-            submitted::forget(root, id);
-            record(project, id, &current, &bytes, brief);
+            Shots::keep(project, root, id, &current, &bytes, brief)?;
             Ok(Outcome::Generated {
                 path: current,
                 bytes: bytes.len(),

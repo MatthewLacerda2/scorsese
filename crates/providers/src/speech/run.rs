@@ -26,10 +26,10 @@ use scorsese_core::{Asset, AssetId, AssetKind, Project, ProjectPath, SpeechModel
 use scorsese_core::words::Words;
 
 use crate::credentials::Budget;
-use crate::generated::{self, write};
+use crate::generated::{self, Prompted, write};
 use crate::prices;
 
-use super::{Brief, Outcome, SpeechError, SpeechProvider, Spoken};
+use super::{Brief, Incomplete, Outcome, SpeechError, SpeechProvider, Spoken};
 
 /// Speaks every line that needs it, and reports what happened to each.
 ///
@@ -41,6 +41,13 @@ use super::{Brief, Outcome, SpeechError, SpeechProvider, Spoken};
 /// The project is left describing what is on disk. Saving it is the caller's,
 /// and the caller should save it **even when this returns an error** — a line
 /// spoken before the failure is a line that has been paid for.
+///
+/// Each line is held to the ceiling **including what this run has already
+/// spent**, passed in rather than read back off the project: the project
+/// records what each asset cost *when it was generated*, and a run that has
+/// just spent forty cents must be held to the ceiling including those forty —
+/// otherwise twenty lines each fitting under the ceiling individually would
+/// all go through.
 pub fn generate(
     project: &mut Project,
     root: &Path,
@@ -49,8 +56,8 @@ pub fn generate(
 ) -> Result<Vec<(AssetId, Outcome)>, SpeechError> {
     let mut done = Vec::new();
     let mut spent = 0;
-    for id in narration_ids(project) {
-        let outcome = one(project, root, provider, budget, spent, &id)?;
+    for id in generated::ids::<Lines>(project) {
+        let outcome = one(project, root, provider, budget.spend(spent), &id)?;
         spent += outcome.spent_cents();
         done.push((id, outcome));
     }
@@ -65,22 +72,7 @@ pub fn generate(
 /// one that keeps generated media outside the project and lays it out where
 /// each brief would land before asking.
 pub fn adopt(project: &mut Project, root: &Path) -> Vec<AssetId> {
-    let mut adopted = Vec::new();
-    for id in narration_ids(project) {
-        let Some(brief) = project
-            .asset(&id)
-            .and_then(|asset| Brief::of(asset).ok())
-            .filter(|brief| brief.realized(root))
-        else {
-            continue;
-        };
-        let output = brief.output();
-        let bytes = std::fs::read(output.resolve(root)).unwrap_or_default();
-        if record(project, &id, &output, &bytes, &brief).is_ok() {
-            adopted.push(id);
-        }
-    }
-    adopted
+    generated::adopt::<Lines>(project, root)
 }
 
 /// What a run would do with one line, read without doing it.
@@ -130,30 +122,46 @@ pub fn pending(project: &Project, root: &Path) -> bool {
         .any(|asset| !matches!(plan(root, asset), Plan::Realized(_)))
 }
 
-/// Every `generated_audio` asset, by id.
-fn narration_ids(project: &Project) -> Vec<AssetId> {
-    project
-        .assets
-        .iter()
-        .filter(|asset| asset.kind == AssetKind::GeneratedAudio)
-        .map(|asset| asset.id.clone())
-        .collect()
+/// Lines, as [`generated`]'s shared steps see them.
+struct Lines;
+
+impl Prompted for Lines {
+    const KIND: AssetKind = AssetKind::GeneratedAudio;
+    type Brief = Brief;
+    type Unready = Incomplete;
+    type Error = SpeechError;
+
+    fn brief(_project: &Project, _root: &Path, asset: &Asset) -> Result<Brief, Incomplete> {
+        Brief::of(asset)
+    }
+
+    fn output(brief: &Brief) -> ProjectPath {
+        brief.output()
+    }
+
+    fn realized(brief: &Brief, root: &Path) -> bool {
+        brief.realized(root)
+    }
+
+    fn keep(
+        project: &mut Project,
+        _root: &Path,
+        id: &AssetId,
+        path: &ProjectPath,
+        bytes: &[u8],
+        brief: &Brief,
+    ) -> Result<(), SpeechError> {
+        record(project, id, path, bytes, brief)
+    }
 }
 
-/// Speaks one line, or says why it was not spoken.
-///
-/// `already` is what this run has spent before reaching this line. It is passed
-/// in rather than read back off the project because the project records what
-/// each asset cost *when it was generated*, and a run that has just spent
-/// forty cents must be held to the ceiling including those forty — otherwise
-/// twenty lines each fitting under the ceiling individually would all go
-/// through.
+/// Speaks one line, or says why it was not spoken. `budget` already counts
+/// what this run has spent before reaching it.
 fn one(
     project: &mut Project,
     root: &Path,
     provider: &dyn SpeechProvider,
     budget: Budget,
-    already: u64,
     id: &AssetId,
 ) -> Result<Outcome, SpeechError> {
     let asset = project
@@ -172,19 +180,18 @@ fn one(
             });
         }
     };
-    let output = brief.output();
 
     // The cache, checked before anything else on purpose: a file already
     // sitting there is the answer to "has this been paid for", whatever the
     // document happens to claim about the asset's state.
     if brief.realized(root) {
-        let bytes = std::fs::read(output.resolve(root)).unwrap_or_default();
-        record(project, id, &output, &bytes, &brief)?;
-        return Ok(Outcome::Cached { path: output });
+        let path = generated::found::<Lines>(project, root, id, &brief)?;
+        return Ok(Outcome::Cached { path });
     }
+    let output = brief.output();
 
     let estimate = prices::speech(brief.request.model, brief.characters())?;
-    budget.spend(already).check(estimate.cents)?;
+    budget.check(estimate.cents)?;
 
     let Spoken {
         audio: bytes,

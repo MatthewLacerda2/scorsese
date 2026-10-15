@@ -13,9 +13,14 @@
 //! from [`record`] too, since it is the one moment every provider passes
 //! through with the file, its bytes and its figure in hand.
 
+mod prompted;
+
 use std::path::{Path, PathBuf};
 
 use scorsese_core::{AssetId, GenerationState, Project, ProjectPath, hash_bytes};
+
+pub use prompted::Plan;
+pub(crate) use prompted::{Prompted, adopt, found, ids, pending, plan};
 
 /// Points the asset at what is now on disk, clears any ticket, and says what
 /// it was calculated to cost.

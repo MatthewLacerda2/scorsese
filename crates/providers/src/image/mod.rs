@@ -46,13 +46,14 @@ mod run;
 
 use scorsese_core::ProjectPath;
 
+pub use crate::generated::Plan;
 pub use batch::batch;
 pub use brief::Brief;
 pub use collect::collect;
 pub use error::{ImageError, Incomplete};
 pub use gemini::GeminiProvider;
 pub use provider::{Batch, ImageProvider, ProviderError};
-pub use run::{Plan, adopt, generate, pending, plan};
+pub use run::{adopt, generate, pending, plan};
 
 /// How a still is ordered: drawn on the call, or in a half-price batch that
 /// answers within 24 hours (#894). Not part of the brief — see the module.

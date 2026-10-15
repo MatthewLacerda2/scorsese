@@ -48,11 +48,12 @@ pub(crate) mod veo;
 
 use scorsese_core::{ProjectPath, Timestamp};
 
+pub use crate::generated::Plan;
 pub use brief::{Brief, Still};
 pub use error::GenerationError;
 pub use patience::{POLL_EVERY, Run, WAIT_FOR, generate_waiting};
 pub use provider::{Progress, ProviderError, Ready, Ticket, VideoProvider};
-pub use run::{Plan, RETENTION_DAYS, adopt, collect, generate, pending, plan};
+pub use run::{RETENTION_DAYS, adopt, collect, generate, pending, plan};
 pub use stopped::Stopped;
 pub use veo::VeoProvider;
 

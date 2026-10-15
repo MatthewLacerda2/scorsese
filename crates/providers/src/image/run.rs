@@ -10,10 +10,10 @@ use std::path::Path;
 use scorsese_core::{Asset, AssetId, AssetKind, Project, ProjectPath};
 
 use crate::credentials::Budget;
-use crate::generated::{record, write};
+use crate::generated::{self, Plan, Prompted, record, write};
 use crate::prices::{self, ImageEstimate, UnpricedImage};
 
-use super::{Brief, ImageError, ImageProvider, Outcome, collect};
+use super::{Brief, ImageError, ImageProvider, Incomplete, Outcome, collect};
 
 /// Draws every still that needs it, and reports what happened to each.
 ///
@@ -39,7 +39,7 @@ pub fn generate(
     let unready = unready(project, root);
     let mut done = collect(project, root, provider)?;
     let mut spent = 0;
-    for id in still_ids(project) {
+    for id in generated::ids::<Stills>(project) {
         if done.iter().any(|(handled, _)| handled == &id) {
             continue;
         }
@@ -58,68 +58,19 @@ pub fn generate(
 /// file — the cache half of a run, with no provider and nothing spent. Which
 /// stills it found. The sibling of [`video::adopt`](crate::video::adopt).
 pub fn adopt(project: &mut Project, root: &Path) -> Vec<AssetId> {
-    let mut adopted = Vec::new();
-    for id in still_ids(project) {
-        let Some(brief) = project
-            .asset(&id)
-            .and_then(|asset| Brief::of(project, root, asset).ok())
-            .filter(|brief| brief.realized(root))
-        else {
-            continue;
-        };
-        let output = brief.output();
-        let bytes = std::fs::read(output.resolve(root)).unwrap_or_default();
-        if let Ok(priced) = estimate(&brief) {
-            record(project, &id, &output, &bytes, Some(priced.cents));
-            adopted.push(id);
-        }
-    }
-    adopted
-}
-
-/// What a run would do with one still, read without doing it — the sibling of
-/// [`speech::Plan`](crate::speech::Plan), for the quote and for whether a pass
-/// is worth resolving a key for.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Plan {
-    /// The current brief's output is already in `generated/`.
-    Realized(
-        /// Where it is, project-relative.
-        ProjectPath,
-    ),
-    /// Waiting in a batch, already paid for. A run collects it and spends
-    /// nothing new.
-    InFlight,
-    /// The brief would be handed to the provider and billed.
-    Submit,
-    /// Not ready to be drawn, in [`Incomplete`](super::Incomplete)'s words.
-    Unready(
-        /// What it is still missing.
-        String,
-    ),
+    generated::adopt::<Stills>(project, root)
 }
 
 /// What a run would do with `asset` — see [`Plan`].
 pub fn plan(project: &Project, root: &Path, asset: &Asset) -> Plan {
-    match Brief::of(project, root, asset) {
-        Err(why) => Plan::Unready(why.to_string()),
-        Ok(brief) if brief.realized(root) => Plan::Realized(brief.output()),
-        Ok(_) if asset.operation.is_some() => Plan::InFlight,
-        Ok(_) => Plan::Submit,
-    }
+    generated::plan::<Stills>(project, root, asset)
 }
 
 /// Whether a run over this project's stills would have anything to do — an
 /// incomplete one counts, because the pass is where *not yet* is voiced, and
 /// so does any ticket, which the run collects or clears.
 pub fn pending(project: &Project, root: &Path) -> bool {
-    project
-        .assets
-        .iter()
-        .filter(|asset| asset.kind == AssetKind::GeneratedImage)
-        .any(|asset| {
-            asset.operation.is_some() || !matches!(plan(project, root, asset), Plan::Realized(_))
-        })
+    generated::pending::<Stills>(project, root)
 }
 
 /// Every still that cannot be drawn yet, and why — read **before** a run
@@ -146,14 +97,40 @@ pub(crate) fn estimate(brief: &Brief) -> Result<ImageEstimate, UnpricedImage> {
     )
 }
 
-/// Every `generated_image` asset, by id.
-pub(super) fn still_ids(project: &Project) -> Vec<AssetId> {
-    project
-        .assets
-        .iter()
-        .filter(|asset| asset.kind == AssetKind::GeneratedImage)
-        .map(|asset| asset.id.clone())
-        .collect()
+/// Stills, as [`generated`]'s shared steps see them.
+pub(super) struct Stills;
+
+impl Prompted for Stills {
+    const KIND: AssetKind = AssetKind::GeneratedImage;
+    type Brief = Brief;
+    type Unready = Incomplete;
+    type Error = ImageError;
+
+    fn brief(project: &Project, root: &Path, asset: &Asset) -> Result<Brief, Incomplete> {
+        Brief::of(project, root, asset)
+    }
+
+    fn output(brief: &Brief) -> ProjectPath {
+        brief.output()
+    }
+
+    fn realized(brief: &Brief, root: &Path) -> bool {
+        brief.realized(root)
+    }
+
+    /// [`record`], at the rate a still drawn now costs. One that cannot be
+    /// priced is not recorded.
+    fn keep(
+        project: &mut Project,
+        _root: &Path,
+        id: &AssetId,
+        path: &ProjectPath,
+        bytes: &[u8],
+        brief: &Brief,
+    ) -> Result<(), ImageError> {
+        record(project, id, path, bytes, Some(estimate(brief)?.cents));
+        Ok(())
+    }
 }
 
 /// Draws one still, or says why it was not drawn.
@@ -175,15 +152,14 @@ fn one(
             });
         }
     };
-    let output = brief.output();
 
     // The cache first: a file already there is the answer to "has this been
     // paid for", whatever the document claims.
     if brief.realized(root) {
-        let bytes = std::fs::read(output.resolve(root)).unwrap_or_default();
-        record(project, id, &output, &bytes, Some(estimate(&brief)?.cents));
-        return Ok(Outcome::Cached { path: output });
+        let path = generated::found::<Stills>(project, root, id, &brief)?;
+        return Ok(Outcome::Cached { path });
     }
+    let output = brief.output();
 
     let cents = estimate(&brief)?.cents;
     budget.check(cents)?;

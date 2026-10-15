@@ -20,9 +20,9 @@ use crate::api::gemini::batch::INLINE_LIMIT;
 use crate::credentials::Budget;
 use crate::prices;
 
-use super::run::{still_ids, unready};
+use super::run::{Stills, unready};
 use super::{Brief, ImageError, ImageProvider, Outcome, collect};
-use crate::generated::record;
+use crate::generated::{self, record};
 
 /// Orders every still that needs drawing as a half-price batch, after
 /// collecting whatever earlier batches have finished — and reports what
@@ -44,7 +44,7 @@ pub fn batch(
     let unready = unready(project, root);
     let mut done = collect(project, root, provider)?;
     let mut briefs = Vec::new();
-    for id in still_ids(project) {
+    for id in generated::ids::<Stills>(project) {
         if done.iter().any(|(handled, _)| handled == &id) {
             continue;
         }
