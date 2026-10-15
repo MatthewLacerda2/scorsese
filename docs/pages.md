@@ -158,8 +158,12 @@ request is a warning, and the page is drawn without what it asked for.
   them, and a page can read the same list at
   `https://lib.scorsese/fonts/index.json`. Faces worth knowing for a title:
   `Anton`, `Bebas Neue`, `Oswald`, `Archivo Black`, `Bangers`,
-  `Permanent Marker`. A family the page names and was not given falls back to
-  a shipped face, the same one everywhere. A shipped face never needs an
+  `Permanent Marker`. The CSS generic families mean what `sans` and `serif`
+  mean to a text asset: `sans-serif` and `system-ui` are Inter, `serif` is
+  Source Serif 4 and `monospace` is JetBrains Mono, so a code card or a
+  column of numbers lines up (`cursive` and `fantasy` are the browser's
+  choice; name a face instead). A family the page names and was not given
+  falls back to a shipped face, the same one everywhere. A shipped face never needs an
   `@font-face` rule, and one pointing at a shipped file by a name of its own
   (`Anton-Regular.ttf`) is refused.
 - **scorsese's motion kit**, at `https://lib.scorsese/kit.js`: the helpers a

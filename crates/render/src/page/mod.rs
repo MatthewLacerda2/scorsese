@@ -91,8 +91,11 @@ use crate::tools::Tools;
 /// `lottie.min.js` then would otherwise keep its empty frames. 8: a changed
 /// tile drawn again whole (`--disable-partial-raster`, #912), which moves
 /// anti-aliased edges beside an animation by a few levels and makes a frame
-/// depend on its time alone, never on the frames before it.
-pub const PAGE_VERSION: u32 = 8;
+/// depend on its time alone, never on the frames before it. 9: CSS generic
+/// families bound to the faces they mean (#1030), so a page that wrote
+/// `monospace`, `serif` or `sans-serif` is drawn again in JetBrains Mono,
+/// Source Serif 4 or Inter.
+pub const PAGE_VERSION: u32 = 9;
 
 /// A capture, ready to be decoded.
 #[derive(Debug, Clone, PartialEq, Eq)]
