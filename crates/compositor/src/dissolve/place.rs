@@ -6,7 +6,7 @@
 //! overlapping on one track is what the format forbids, and that is the whole
 //! reason this module exists.
 
-use scorsese_core::{Clip, ClipId, Frames, Project, Track, TrackId, TrackKind};
+use scorsese_core::{Clip, ClipId, Frames, Project, Track, TrackKind};
 
 /// What a dissolve had to rearrange, so a caller can say so.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -139,7 +139,7 @@ fn home(project: &mut Project, below: usize, clip: &Clip) -> Result<(usize, bool
     // Nothing above has room, so the dissolve gets a track of its own — put
     // directly over the outgoing clip rather than at the top, so an unrelated
     // overlay stays above both.
-    let id = TrackId::new(free_id(project));
+    let id = project.free_track_id("v-dissolve-", 1);
     project.tracks.insert(
         above,
         Track {
@@ -151,14 +151,6 @@ fn home(project: &mut Project, below: usize, clip: &Clip) -> Result<(usize, bool
         },
     );
     Ok((above, true))
-}
-
-/// A track id nothing is using.
-fn free_id(project: &Project) -> String {
-    (1..)
-        .map(|n| format!("v-dissolve-{n}"))
-        .find(|id| !project.every_track().any(|track| track.id.as_str() == id))
-        .unwrap_or_else(|| "v-dissolve".to_owned())
 }
 
 /// Where this clip is, or which id was not found.

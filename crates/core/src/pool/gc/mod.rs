@@ -36,7 +36,7 @@ pub fn unused_assets(project: &Project) -> Vec<AssetId> {
 
 /// Whether a clip shows this asset or another asset names it.
 fn in_use(project: &Project, id: &AssetId) -> bool {
-    project.every_clip().any(|(_, clip)| &clip.asset == id)
+    project.clips_of(id).next().is_some()
         || project
             .assets
             .iter()

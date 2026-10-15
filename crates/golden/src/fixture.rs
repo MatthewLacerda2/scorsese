@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
-use scorsese_core::{Asset, AssetKind, Fps, Project};
+use scorsese_core::{Asset, AssetId, AssetKind, Fps, Project};
 use scorsese_render::{Bitrate, FrameRange, RenderSettings, Resolution};
 
 use crate::compare::Tolerance;
@@ -247,7 +247,7 @@ impl Fixture {
             }
         }
         for id in self.manifest.media.keys() {
-            if !self.project.assets.iter().any(|a| a.id.as_str() == id) {
+            if !self.project.has_asset(&AssetId::new(id.as_str())) {
                 return Err(FixtureError::NoSuchAsset { asset: id.clone() });
             }
         }

@@ -2,11 +2,11 @@
 
 use std::collections::BTreeMap;
 
-use super::ids::free;
 use super::rename::Renames;
 use super::retime::retime;
 use crate::asset::AssetId;
 use crate::authoring::numbered;
+use crate::ids::free;
 use crate::project::Project;
 use crate::time::Frames;
 use crate::timeline::{Clip, ClipId, Track, TrackId, TrackKind};
@@ -178,7 +178,7 @@ fn copy_assets(
             continue;
         }
         let id = AssetId::new(free(asset.id.as_str(), limit, |candidate| {
-            proposed.assets.iter().any(|a| a.id.as_str() == candidate)
+            proposed.has_asset(&AssetId::new(candidate))
                 || given.values().any(|a| a.as_str() == candidate)
         }));
         given.insert(asset.id.clone(), id.clone());

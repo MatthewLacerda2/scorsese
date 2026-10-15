@@ -352,18 +352,11 @@ fn beside(
     project_root: &Path,
 ) -> (BTreeMap<String, Span>, BTreeMap<String, Span>) {
     let page = shot.clip;
-    let on_timeline = project.tracks.iter().any(|track| &track.id == shot.track);
-    let beside: Vec<&Clip> = if on_timeline {
-        project.clips().map(|(_, clip)| clip).collect()
-    } else {
-        project
-            .assets
-            .iter()
-            .filter_map(|asset| asset.group.as_ref())
-            .find(|group| group.tracks.iter().any(|track| &track.id == shot.track))
-            .map(|group| group.clips().map(|(_, clip)| clip).collect())
-            .unwrap_or_default()
-    };
+    let beside: Vec<&Clip> = project
+        .stacks()
+        .find(|(_, tracks)| tracks.iter().any(|track| &track.id == shot.track))
+        .map(|(_, tracks)| tracks.iter().flat_map(|track| &track.clips).collect())
+        .unwrap_or_default();
     let opens = fps.seconds(page.source_in);
     let speed = page.speed.get();
     let starts = fps.seconds(page.start);

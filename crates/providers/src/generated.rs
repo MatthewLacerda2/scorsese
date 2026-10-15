@@ -36,7 +36,7 @@ pub(crate) fn record(
     bytes: &[u8],
     cents: Option<u64>,
 ) {
-    let Some(asset) = project.assets.iter_mut().find(|asset| &asset.id == id) else {
+    let Some(asset) = project.asset_mut(id) else {
         return;
     };
     let same = asset.path.as_ref() == Some(path);

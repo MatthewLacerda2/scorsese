@@ -3,6 +3,7 @@
 mod members;
 mod naming;
 mod ungrouping;
+mod walks;
 
 use std::collections::BTreeSet;
 

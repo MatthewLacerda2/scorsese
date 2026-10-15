@@ -38,7 +38,7 @@ pub fn out_of_date(project: &Project, project_root: &Path) -> Vec<String> {
         .iter()
         .filter(|asset| asset.kind.is_synthesized())
         .filter(|asset| asset.state == Some(GenerationState::Generated))
-        .filter(|asset| project.every_clip().any(|(_, clip)| clip.asset == asset.id))
+        .filter(|asset| project.clips_of(&asset.id).next().is_some())
         .filter_map(|asset| {
             let why = match read_recipe(project, asset, project_root) {
                 Ok(Read {
@@ -73,10 +73,9 @@ pub fn out_of_date(project: &Project, project_root: &Path) -> Vec<String> {
 fn outlasted(project: &Project, asset: &Asset) -> Option<String> {
     let fps = project.timeline_fps;
     let available = asset.length(fps)?;
-    let (_, clip) = project
-        .every_clip()
-        .filter(|(_, clip)| clip.asset == asset.id)
-        .max_by_key(|(_, clip)| clip.source_end())?;
+    let clip = project
+        .clips_of(&asset.id)
+        .max_by_key(|clip| clip.source_end())?;
     let reaches = clip.source_end();
     (reaches > available).then(|| {
         format!(

@@ -58,9 +58,7 @@ pub fn place_spilling(
         duration,
     );
     let mut lanes: Vec<(u64, &Track)> = project
-        .tracks
-        .iter()
-        .filter(|track| track.kind == TrackKind::Audio)
+        .tracks_of(TrackKind::Audio)
         .filter_map(|track| member(base, &track.id).map(|number| (number, track)))
         .collect();
     lanes.sort_by_key(|(number, _)| *number);
@@ -110,10 +108,7 @@ fn member(base: &TrackId, track: &TrackId) -> Option<u64> {
 
 /// The lowest `base-n` no track anywhere in the project is called.
 fn next_lane(project: &Project, base: &TrackId) -> TrackId {
-    (2..)
-        .map(|number| TrackId::new(format!("{base}-{number}")))
-        .find(|candidate| !project.every_track().any(|track| &track.id == candidate))
-        .expect("a project has finitely many tracks")
+    project.free_track_id(&format!("{base}-"), 2)
 }
 
 #[cfg(test)]

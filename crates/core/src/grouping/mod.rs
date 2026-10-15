@@ -33,7 +33,7 @@ pub use wrap::{GroupError, Grouped, Grouping, group};
 use crate::project::Project;
 
 /// How many ids a search for a free one could meet — every clip, track and
-/// asset in the document — which bounds [`crate::template::ids::free`].
+/// asset in the document — which bounds [`crate::ids::free`].
 fn id_limit(project: &Project) -> usize {
     project.every_clip().count() + project.assets.len() + project.every_track().count()
 }

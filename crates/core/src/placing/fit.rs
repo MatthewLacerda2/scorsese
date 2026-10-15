@@ -67,26 +67,24 @@ pub fn fit_to_sources(project: &mut Project, realised: &[AssetId]) -> Vec<Shorte
         return Vec::new();
     }
     let mut shortened = Vec::new();
-    for track in project.every_track_mut() {
-        for clip in &mut track.clips {
-            let Some(&available) = lengths.get(&clip.asset) else {
-                continue;
-            };
-            if clip.source_end() <= available || clip.source_in >= available {
-                continue;
-            }
-            let now = clip.duration_through(Frames(available.get() - clip.source_in.get()));
-            if now >= clip.duration {
-                continue;
-            }
-            shortened.push(Shortened {
-                clip: clip.id.clone(),
-                asset: clip.asset.clone(),
-                was: clip.duration,
-                now,
-            });
-            clip.duration = now;
+    for clip in project.every_clip_mut() {
+        let Some(&available) = lengths.get(&clip.asset) else {
+            continue;
+        };
+        if clip.source_end() <= available || clip.source_in >= available {
+            continue;
         }
+        let now = clip.duration_through(Frames(available.get() - clip.source_in.get()));
+        if now >= clip.duration {
+            continue;
+        }
+        shortened.push(Shortened {
+            clip: clip.id.clone(),
+            asset: clip.asset.clone(),
+            was: clip.duration,
+            now,
+        });
+        clip.duration = now;
     }
     shortened
 }

@@ -51,12 +51,7 @@ pub(super) fn check(project: &Project) -> Vec<GroupProblem> {
 /// A **scope** is what an arrow or a matte may reach: the clips on the same
 /// tracks as itself. Everything else is across an edge.
 pub(super) fn scopes(project: &Project) -> impl Iterator<Item = &[Track]> {
-    let groups = project
-        .assets
-        .iter()
-        .filter_map(|asset| asset.group.as_ref())
-        .map(|group| group.tracks.as_slice());
-    std::iter::once(project.tracks.as_slice()).chain(groups)
+    project.stacks().map(|(_, tracks)| tracks)
 }
 
 /// Whether a clip of `start` sits anywhere beneath it.

@@ -84,9 +84,7 @@ pub fn change_sequence(
         }
     };
     let asset = proposed
-        .assets
-        .iter_mut()
-        .find(|asset| &asset.id == id)
+        .asset_mut(id)
         .expect("the sequence was found or made above");
     let sequence = asset
         .sequence
