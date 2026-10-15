@@ -106,8 +106,11 @@ frames, finishing the file), so \"how far is my render?\" has a number. Give a j
 answer with, for that one job; leave it out for your latest twenty. Give `cancel` a job id to \
 stop that render instead: a waiting one never starts, a running one stops within a frame and \
 keeps no file. Only renders can be stopped — a generation is billed whether or not anybody \
-still wants it — and a job that already finished is left as it is. Free: call it as often as \
-it takes.";
+still wants it — and a job that already finished is left as it is. A queued generation or \
+render lands in the project on its own when it finishes, and a shot takes minutes: check a \
+job when the person asks about it or a later step needs what it made, never over and over to \
+wait it out — the call costs nothing here, but every check is a full round trip for whoever \
+is calling. Leave it running and say it is on its way.";
 
 /// `jobs`' arguments.
 pub(super) fn jobs_schema() -> Value {

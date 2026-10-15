@@ -87,3 +87,39 @@ async fn project_new_starts_a_project_for_a_platform_and_a_style(pool: PgPool) {
     let (said, refused) = call(address, &token, "project_new", args).await;
     assert!(refused && said.contains("not made for"), "{said}");
 }
+
+/// A page in the library (#1144) is copied into the project's pages/, where
+/// page_read finds it, and the same page again is the one already there.
+#[sqlx::test]
+async fn a_library_page_is_copied_into_the_projects_pages(pool: PgPool) {
+    let html = "<!doctype html><p>Hello</p>";
+    let sha = scorsese_core::hash_bytes(html.as_bytes());
+    let (address, state) = common::serve_with(pool.clone(), common::files("import-page")).await;
+    let (ana, token) = member(&pool, "ana@example.com").await;
+    let item: i64 = sqlx::query_scalar(
+        "INSERT INTO library_items (user_id, sha256, name, kind, extension, size_bytes, media)
+         VALUES ($1, $2, 'Title Card.html', 'html', 'html', 27, '{}') RETURNING id",
+    )
+    .bind(ana.get())
+    .bind(&sha)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let file = state.library.storage().library_file(ana, &sha, "html");
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    std::fs::write(&file, html).unwrap();
+    let id = super::stored(&pool, ana, json!({})).await;
+
+    let bring = json!({ "project": id, "items": [item] });
+    let (said, refused) = call(address, &token, "import", bring.clone()).await;
+    assert!(!refused && said.contains("(added)"), "{said}");
+    let page = &document(&pool, ana, id).await.document.assets[0];
+    assert_eq!(page.kind, scorsese_core::AssetKind::Html);
+    let asked = json!({ "project": id, "page": page.id.as_str() });
+    let (read, refused) = call(address, &token, "page_read", asked).await;
+    assert!(!refused && read == html, "{read}");
+
+    let (again, _) = call(address, &token, "import", bring).await;
+    assert!(again.contains("already in the project"), "{again}");
+    assert_eq!(document(&pool, ana, id).await.document.assets.len(), 1);
+}

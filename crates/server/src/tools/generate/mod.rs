@@ -214,8 +214,8 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
     };
     lines.push(format!(
         "{} reserved from your credits; a brief the provider refuses gives its share back. \
-         Call jobs to see each one finish — each lands in your library and in the project \
-         on its own.{wait}",
+         Each lands in your library and in the project on its own when it finishes: there \
+         is no need to wait on it, and jobs says where one has got.{wait}",
         dollars(credits(&quote, &stored.document))
     ));
     Ok(lines.join("\n").into())

@@ -32,6 +32,7 @@ use tokio::io::AsyncWriteExt;
 
 use super::{Arrival, Item, Kind, Library, LibraryError, store};
 use crate::db::{self, UserId};
+use crate::projects::files::MAX_FILE_BYTES;
 
 /// The largest file an upload may announce: 20 GiB, a long screen recording
 /// with room to spare.
@@ -106,6 +107,14 @@ impl Library {
             return Err(LibraryError::Invalid(
                 "an upload names its SHA-256, as 64 hex digits".to_owned(),
             ));
+        }
+        // A page is kept in a project as text, so it is held to that size
+        // before a byte is sent rather than after (`super::admit`).
+        if !kind.is_media() && announced.length > MAX_FILE_BYTES as i64 {
+            return Err(LibraryError::Rejected(format!(
+                "a web page can be at most {} KiB",
+                MAX_FILE_BYTES >> 10
+            )));
         }
         if !(1..=MAX_UPLOAD_BYTES).contains(&announced.length) {
             return Err(LibraryError::Invalid(format!(

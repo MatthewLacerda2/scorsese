@@ -9,7 +9,9 @@
 //! rebuildable rather than merely described as such.
 //!
 //! What a thumbnail shows: a video's frame one second in (or halfway through a
-//! shorter one), a picture scaled down, a sound's waveform.
+//! shorter one), a picture scaled down, a sound's waveform. A page has none
+//! ([`LibraryError::NoThumbnail`]): it is text, and drawing one would mean
+//! capturing it.
 
 use std::path::{Path, PathBuf};
 
@@ -22,21 +24,23 @@ use crate::db::UserId;
 use crate::jobs::{Context, Handler, Job, Outcome, kinds, store as jobs};
 use crate::storage::Storage;
 
-/// Where the thumbnail of `user`'s file with this hash and kind is kept.
-pub fn path(storage: &Storage, user: UserId, sha256: &str, kind: Kind) -> PathBuf {
-    let extension = drawing(kind, None).extension();
-    storage.thumbnail(user, sha256, extension)
+/// Where the thumbnail of `user`'s file with this hash and kind is kept —
+/// `None` for a kind that has none.
+pub fn path(storage: &Storage, user: UserId, sha256: &str, kind: Kind) -> Option<PathBuf> {
+    let extension = drawing(kind, None)?.extension();
+    Some(storage.thumbnail(user, sha256, extension))
 }
 
-/// How a file of `kind` is drawn, given how long it lasts.
-fn drawing(kind: Kind, duration: Option<f64>) -> Thumbnail {
-    match kind {
+/// How a file of `kind` is drawn, given how long it lasts — `None` for a page.
+fn drawing(kind: Kind, duration: Option<f64>) -> Option<Thumbnail> {
+    Some(match kind {
         Kind::Video => Thumbnail::Frame {
             at_seconds: duration.map_or(0.0, |seconds| (seconds / 2.0).min(1.0)),
         },
         Kind::Image => Thumbnail::Picture,
         Kind::Audio => Thumbnail::Waveform,
-    }
+        Kind::Html => return None,
+    })
 }
 
 /// The handler for [`kinds::THUMBNAIL`]: draw the item named in the payload.
@@ -72,9 +76,13 @@ async fn draw(
             Err(error) => return Err(error.to_string()),
         }
     };
+    let (Some(out), Some(what)) = (
+        path(storage, job.user, &item.sha256, item.kind),
+        drawing(item.kind, item.media.duration_seconds),
+    ) else {
+        return Ok(json!({ "item": id, "drawn": false }));
+    };
     let source = storage.library_file(job.user, &item.sha256, &item.extension);
-    let out = path(storage, job.user, &item.sha256, item.kind);
-    let what = drawing(item.kind, item.media.duration_seconds);
     let tools = tools.clone();
     tokio::task::spawn_blocking(move || write(&tools, &source, what, &out))
         .await
@@ -94,7 +102,8 @@ fn write(tools: &Tools, source: &Path, what: Thumbnail, out: &Path) -> Result<()
 }
 
 impl Library {
-    /// Where `user`'s item `id`'s thumbnail is, when it has been drawn.
+    /// Where `user`'s item `id`'s thumbnail is, when it has been drawn;
+    /// [`LibraryError::NoThumbnail`] for a kind that never has one.
     ///
     /// When it has not, and no job is already drawing it, one is queued, and
     /// `None` says to ask again later. A file whose thumbnail just failed is
@@ -102,7 +111,8 @@ impl Library {
     /// keep a broken file's job running.
     pub async fn thumbnail(&self, user: UserId, id: i64) -> Result<Option<PathBuf>, LibraryError> {
         let item = self.get(user, id).await?;
-        let file = path(&self.storage, user, &item.sha256, item.kind);
+        let file =
+            path(&self.storage, user, &item.sha256, item.kind).ok_or(LibraryError::NoThumbnail)?;
         if file.is_file() {
             return Ok(Some(file));
         }

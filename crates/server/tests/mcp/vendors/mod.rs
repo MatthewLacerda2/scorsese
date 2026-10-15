@@ -26,6 +26,8 @@ use super::common;
 pub(super) struct Mock {
     /// A refusal to give when polled, instead of the video.
     pub(super) refuse: Option<String>,
+    /// Why Veo no longer knows the ticket, answered when polled (#1196).
+    pub(super) lose: Option<String>,
     /// Why a batch stops without drawing, instead of finishing.
     pub(super) stop: Option<String>,
     pub(super) ordered: Arc<AtomicUsize>,
@@ -79,6 +81,9 @@ impl VideoProvider for Mock {
     }
 
     fn poll(&self, _: &Ticket) -> Result<Progress, ProviderError> {
+        if let Some(why) = &self.lose {
+            return Err(ProviderError::lost("mock video", why));
+        }
         Ok(match &self.refuse {
             Some(why) => Progress::Failed(why.clone()),
             None => Progress::Ready(Ready("mock".into())),

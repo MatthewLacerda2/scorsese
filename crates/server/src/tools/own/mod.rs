@@ -7,6 +7,7 @@
 //! (`tests/tools/described.rs`).
 
 mod catalogue;
+mod pages;
 mod projects;
 mod queue;
 mod templates;
