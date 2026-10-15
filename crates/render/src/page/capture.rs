@@ -186,6 +186,15 @@ fn drive(
         "Emulation.setDefaultBackgroundColorOverride",
         json!({ "color": { "r": 0, "g": 0, "b": 0, "a": 0 } }),
     )?;
+    // Chrome's own generic families are Arial, Times New Roman and Monospace,
+    // which it answers with their metric twins (Liberation) or fontconfig's
+    // first face; naming the generics leaves them to the fonts file, which
+    // binds each to the face it means (`cache`'s `GENERICS`, #1030).
+    page(
+        "Page.setFontFamilies",
+        json!({ "fontFamilies":
+            { "sansSerif": "sans-serif", "serif": "serif", "fixed": "monospace" } }),
+    )?;
     page(
         "Page.addScriptToEvaluateOnNewDocument",
         json!({ "source": request.preamble() }),

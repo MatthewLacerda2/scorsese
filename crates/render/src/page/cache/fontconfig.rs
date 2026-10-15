@@ -7,10 +7,30 @@ use scorsese_core::{CACHE_DIR, hash_bytes};
 
 use super::PAGES;
 
+/// What a page's CSS generic families draw in (#1030): `sans-serif` and
+/// `serif` are the catalogue's `sans` and `serif`, and `monospace` the shipped
+/// monospace, rather than whatever fontconfig ranks first among the shipped
+/// faces (Montserrat, a proportional face) or the metric twins Chrome picks
+/// for its own defaults (Liberation). `sans` is what Chrome asks fontconfig for
+/// `system-ui`. `cursive` and `fantasy` are left to the browser.
+///
+/// Each generic is paired with the name the shipped **file** gives itself,
+/// which is what fontconfig matches and not always the catalogue's
+/// (`Inter-V.ttf` calls itself *Inter V*). The capture names the generics to
+/// the browser (`capture`'s `Page.setFontFamilies`), so this table is the one
+/// place they are resolved.
+const GENERICS: [(&str, &str); 4] = [
+    ("sans-serif", "Inter V"),
+    ("sans", "Inter V"),
+    ("serif", "Source Serif 4 Variable"),
+    ("monospace", "JetBrains Mono"),
+];
+
 /// The shipped faces ([`super::super::fonts`]) written out where the browser can find them, with a
 /// fontconfig file listing **only** them — so a page that names a font it was
 /// not given falls back to the same face on every machine, never to whatever
-/// the host has installed (#606). Returns that file.
+/// the host has installed (#606) — and with the [`GENERICS`] bound to the faces
+/// they mean. Returns that file.
 ///
 /// Written once per project, and whole or not at all ([`super::write_whole`]):
 /// a face whose file is already there at the right length, and a fontconfig
@@ -27,8 +47,16 @@ pub(crate) fn fonts(project_root: &Path) -> std::io::Result<PathBuf> {
         }
     }
     let conf = folder.join("fonts.conf");
+    let aliases: String = GENERICS
+        .iter()
+        .map(|(generic, face)| {
+            format!(
+                "  <alias binding=\"same\"><family>{generic}</family><prefer><family>{face}</family></prefer></alias>\n"
+            )
+        })
+        .collect();
     let text = format!(
-        "<?xml version=\"1.0\"?>\n<fontconfig>\n  <dir>{}</dir>\n  <cachedir>{}</cachedir>\n</fontconfig>\n",
+        "<?xml version=\"1.0\"?>\n<fontconfig>\n  <dir>{}</dir>\n  <cachedir>{}</cachedir>\n{aliases}</fontconfig>\n",
         escaped(&folder),
         escaped(&folder.join(".cache"))
     );
@@ -105,6 +133,31 @@ mod tests {
                 .unwrap()
                 .len() as u64
         );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn each_generic_is_bound_to_a_name_a_shipped_file_gives_itself() {
+        let root = crate::scratch::fresh("scorsese-fonts-generic", "");
+        let text = std::fs::read_to_string(fonts(&root).unwrap()).unwrap();
+        for (generic, face) in GENERICS {
+            assert!(
+                text.contains(&format!(
+                    "<family>{generic}</family><prefer><family>{face}</family>"
+                )),
+                "{generic}: {text}"
+            );
+            // A font's `name` table spells its family in UTF-16BE: a file
+            // re-vendored under another name would leave the generic on
+            // fontconfig's first face again.
+            let spelled: Vec<u8> = face.encode_utf16().flat_map(u16::to_be_bytes).collect();
+            assert!(
+                super::super::super::fonts::faces()
+                    .iter()
+                    .any(|shipped| shipped.bytes.windows(spelled.len()).any(|w| w == spelled)),
+                "no shipped file calls itself {face}"
+            );
+        }
         let _ = std::fs::remove_dir_all(&root);
     }
 

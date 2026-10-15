@@ -16,6 +16,7 @@ mod banding;
 mod capture_size;
 mod fitting;
 mod following;
+mod generics;
 mod grain;
 mod grouping;
 mod guide;
