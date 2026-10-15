@@ -1,4 +1,4 @@
-//! The crate's one way onto a raster.
+//! The crate's one way a drawn path gets onto a raster.
 //!
 //! Everything drawn here — glyphs, gridlines, the boxes and circles of a
 //! diagram — is a tiny-skia path, filled or stroked by these two functions and
