@@ -135,7 +135,7 @@ count of mutations in scope is free *up front*:
   quarter in hand. Six and not more because a request competes for the
   account's runners with every ready pull request's CI.
 - **Over even that** — the shards run what they can and the report says what it
-  did not reach. `.github/scripts/mutants-merge.py` puts the shards back
+  did not reach. `.github/scripts/mutants/merge.py` puts the shards back
   together, and a shard that was stopped, or that never reported at all, leaves
   the merged run stamped as unfinished. A whole large crate can land here
   (`scorsese-zimmer` is past 3000 mutants); a narrower glob, or the weekly
@@ -175,7 +175,7 @@ thinks to ask about it, and otherwise never. A module whose tests were later
 weakened, or whose assertions moved to another crate, has nothing looking at
 it. So `.github/workflows/mutation-sweep.yml` sweeps the rest — no `--in-diff`,
 the whole crate — every Saturday, **one crate at a time, cycling**. The crates
-are not listed anywhere: `.github/scripts/mutants-rotation.py` reads them out
+are not listed anywhere: `.github/scripts/mutants/rotation.py` reads them out
 of `examine_globs` in `.cargo/mutants.toml`, one week for each crate a glob
 points into, in the order the globs first name it — today `core`,
 `compositor`, `render`, `zimmer`, `providers` and `mcp`, every six weeks. It used to
@@ -201,7 +201,7 @@ extrapolate to about ten hours against the five-hour step (each mutant rebuilds
 a crate sitting on `render` and `providers`; `.cargo/mutants.toml` has the
 measurement). So every week's crate runs as four parallel shards
 (`cargo mutants --shard k/4`), merged back into one report by
-`mutants-merge.py` exactly as a request's are (#790). The subject is still the
+`mutants/merge.py` exactly as a request's are (#790). The subject is still the
 whole crate every week, so its history row stays comparable; only the wall
 clock is divided.
 
@@ -269,7 +269,7 @@ files whole touches every line of them and nothing else. That is what a path
 `SCOPE` becomes, and what to do locally too:
 
 ```sh
-python3 .github/scripts/mutants-scope.py resolve 'crates/core/src/keyframe/**' \
+python3 .github/scripts/mutants/scope.py resolve 'crates/core/src/keyframe/**' \
   --out target/scope.json --diff target/scope.diff
 cargo mutants --in-diff target/scope.diff --jobs 2
 ```
@@ -342,7 +342,7 @@ changed after that stamp makes the line read *stale* instead.
 
 ## Reading the report
 
-`python3 .github/scripts/mutants-summary.py mutants.out/outcomes.json` renders
+`python3 .github/scripts/mutants/summary.py mutants.out/outcomes.json` renders
 the run as the Markdown every caller prints, and it is a **worklist**: rows are survivors
 somebody can act on one at a time.
 

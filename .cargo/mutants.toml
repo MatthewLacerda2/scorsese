@@ -199,7 +199,7 @@
 #   changed lines are mutable and never how many get mutated. 66 is a ceiling
 #   nobody pays per pull request.
 # - **What the weekly sweep pays: a fifth week.** The sweep's rotation is
-#   derived from the globs below (`.github/scripts/mutants-rotation.py`, #431),
+#   derived from the globs below (`.github/scripts/mutants/rotation.py`, #431),
 #   so `scorsese-providers` is a slot of its own and every crate's re-audit is
 #   five weeks rather than four. It was briefly a gap instead: the rotation
 #   was a hand-written list that did not include it.

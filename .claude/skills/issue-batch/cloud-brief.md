@@ -133,7 +133,7 @@ Worth a run before readying when the branch adds mechanism — nothing reports
 survivors after you (#651) — and never a reason to stay draft.
 
 - **Inside `.cargo/mutants.toml`'s surface**: `python3
-  .github/scripts/mutants-scope.py resolve '<your globs>' --out target/scope.json
+  .github/scripts/mutants/scope.py resolve '<your globs>' --out target/scope.json
   --diff target/scope.diff`, then `cargo mutants --in-diff target/scope.diff
   --jobs 2` (`docs/mutation-testing.md`).
 - **Outside it** — `crates/server`, the pipe-holding rest of

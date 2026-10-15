@@ -746,7 +746,7 @@ mutants: ## Which changes to the code no test would notice. A signal: blocks not
 			   echo "         so a message about space or a quota is about that copy, not about the repo." >&2; \
 			   exit $$status ;; \
 		esac; \
-		$(PYTHON) .github/scripts/mutants-summary.py mutants.out/outcomes.json; \
+		$(PYTHON) .github/scripts/mutants/summary.py mutants.out/outcomes.json; \
 		said=$$($(MUTANTS_VERDICT)); \
 	fi; \
 	printf '%s\n%s\n' "$$(git rev-parse --abbrev-ref HEAD)" "$$said" > $(MUTANTS_STAMP)
@@ -772,7 +772,7 @@ mutants-remote: ## Mutation on GitHub's runners, scoped. SCOPE=diff | scorsese-c
 		echo "                e.g. make mutants-remote SCOPE='crates/core/src/keyframe/**'" >&2; \
 		exit 1; }
 	@$(PYTHON_CHECK)
-	@$(PYTHON) .github/scripts/mutants-remote.py '$(SCOPE)'
+	@$(PYTHON) .github/scripts/mutants/remote.py '$(SCOPE)'
 
 # The line `make gates` ends on, and the reason it is reached from the recipe
 # rather than sitting in $(GATES): it runs nothing, it can fail nothing, and a

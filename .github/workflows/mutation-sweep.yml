@@ -55,7 +55,7 @@
 # #428 put `crates/providers/src/synth/` into `examine_globs` the list never
 # heard of it — 66 mutants audited only when somebody asked, the exact thing
 # the paragraph above says this workflow exists to prevent.
-# `.github/scripts/mutants-rotation.py` now derives the slots from
+# `.github/scripts/mutants/rotation.py` now derives the slots from
 # `examine_globs`: each crate a glob points into is one week, in the order the
 # globs first name it. So `scorsese-providers` is a fifth week, short as it is
 # — the maintainer's call on 2026-10-02 was that every crate keeps its own
@@ -109,7 +109,7 @@
 # reached, and its history row was never over the same subject twice.
 #
 # So every week runs as `SHARDS` parallel jobs, `cargo mutants --shard k/n`
-# each, and `mutants-merge.py` puts them back together into the one run they
+# each, and `mutants/merge.py` puts them back together into the one run they
 # add up to before the renderer sees it — exactly what `mutants-on-request.yml`
 # does. The subject is still the whole crate, every week; only the wall clock is
 # divided, so the history column stays comparable. One `n` for every week keeps
@@ -160,8 +160,8 @@ on:
           - scorsese-providers
           - scorsese-mcp
         # Static YAML, so this list is the one place the rotation is still
-        # written out. `test_mutants_rotation.py` holds it to exactly what
-        # `mutants-rotation.py list` derives, in the same order, so a glob
+        # written out. `tests/mutation/test_rotation.py` holds it to exactly what
+        # `mutants/rotation.py list` derives, in the same order, so a glob
         # added to `.cargo/mutants.toml` fails the script tests until the crate
         # is added here too. A name not on the surface is refused at run time.
 
@@ -198,7 +198,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Which crate this week is on, from `mutants-rotation.py`, which reads
+      # Which crate this week is on, from `mutants/rotation.py`, which reads
       # the slots out of `examine_globs` (#431). Weeks since the epoch rather
       # than an ISO week number, because `%V` has a 53rd week that would repeat
       # or skip a crate once a year. The epoch was a Thursday, so the boundary is Thursday
@@ -210,7 +210,7 @@ jobs:
           REQUESTED: ${{ inputs.crate }}
         run: |
           set -euo pipefail
-          crate=$(python3 .github/scripts/mutants-rotation.py pick "${REQUESTED:-rotation}")
+          crate=$(python3 .github/scripts/mutants/rotation.py pick "${REQUESTED:-rotation}")
           echo "crate=$crate" >> "$GITHUB_OUTPUT"
           echo "Sweeping $crate across $SHARDS shards." >> "$GITHUB_STEP_SUMMARY"
 
@@ -286,7 +286,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       # Handed to the report job: the scope sentence for a healthy week, the
-      # list `mutants-collapsed.py` reads for a collapsed one.
+      # list `mutants/collapsed.py` reads for a collapsed one.
       - name: Hand the plan on
         uses: actions/upload-artifact@v7
         with:
@@ -425,11 +425,11 @@ jobs:
           pattern: sweep-shard-*
           path: shards
 
-      # One renderer, several callers: `.github/scripts/mutants-summary.py` is
+      # One renderer, several callers: `.github/scripts/mutants/summary.py` is
       # what `make mutants` and an on-request run print, and `--issue-body` is the same
       # report wrapped as this issue's body with the catch-rate history carried
       # over from the body it is replacing. A second renderer for the same data
-      # is how the two would drift. `mutants-merge.py` first, so what the
+      # is how the two would drift. `mutants/merge.py` first, so what the
       # renderer reads is the whole crate's run and not a shard of it;
       # `--expect` turns a shard that vanished into a run marked unfinished
       # rather than a smaller-looking one.
@@ -451,9 +451,9 @@ jobs:
           # The directory, not a glob: a lone shard's artifact lands in it
           # directly and several land one per subdirectory (#992).
           mkdir -p shards
-          python3 .github/scripts/mutants-merge.py --expect "$SHARDS" shards > outcomes.json
+          python3 .github/scripts/mutants/merge.py --expect "$SHARDS" shards > outcomes.json
           gh api "repos/$REPO/issues/$TRACKING_ISSUE" --jq '.body // ""' > current.md
-          python3 .github/scripts/mutants-summary.py \
+          python3 .github/scripts/mutants/summary.py \
             outcomes.json "$(cat scope.txt)" --in-scope "$IN_SCOPE" \
             --issue-body current.md --subject "$CRATE" --run-url "$RUN_URL" \
             > body.md
@@ -463,8 +463,8 @@ jobs:
       # A collapsed week's one entry (#388): a row on top of the history that
       # says the surface had collapsed — the count and the floor, no catch
       # rate — with the report above the history marker left as it was.
-      # `mutants-collapsed.py` reads the floor through `mutation-surface.py`
-      # and keeps the history through `mutants-summary.py`, so the row is one
+      # `mutants/collapsed.py` reads the floor through `mutation-surface.py`
+      # and keeps the history through `mutants/summary.py`, so the row is one
       # the next healthy rewrite carries forward like any other. Then red: the
       # only thing in this workflow that is, because it is the instrument
       # reporting on almost nothing rather than the code being unasserted.
@@ -478,7 +478,7 @@ jobs:
         run: |
           set -euo pipefail
           gh api "repos/$REPO/issues/$TRACKING_ISSUE" --jq '.body // ""' > current.md
-          python3 .github/scripts/mutants-collapsed.py mutants-list.txt \
+          python3 .github/scripts/mutants/collapsed.py mutants-list.txt \
             --issue-body current.md --subject "$CRATE" --run-url "$RUN_URL" \
             > body.md
           gh api -X PATCH "repos/$REPO/issues/$TRACKING_ISSUE" -F body=@body.md
