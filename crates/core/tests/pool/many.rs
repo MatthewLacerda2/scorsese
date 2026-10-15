@@ -1,8 +1,8 @@
 //! Importing several paths at once: one that fails costs nothing of the
 //! others, and the batch says whether the document needs saving.
 
-use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};
+use scorsese_core::testing::StubProbe;
 use scorsese_core::{import_many, import_sequences};
 
 #[test]
