@@ -157,3 +157,35 @@ impl Quote {
             .filter_map(|item| Some((item.subject.as_str(), item.charge.as_ref()?)))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A quote's digest, pinned: a token issued before a release must still
+    /// redeem after it. The free item is left out of the hash, and the charged
+    /// ones go in sorted, so the order they are listed in does not matter.
+    #[test]
+    fn a_quotes_digest_does_not_move() {
+        let item = |subject: &str, charge: Option<(&str, u64)>| Item {
+            subject: subject.to_owned(),
+            says: String::from("would be generated"),
+            charge: charge.map(|(brief, cents)| Charge {
+                brief: brief.to_owned(),
+                cents,
+            }),
+        };
+        let quote = Quote {
+            spend: Spend::Generation,
+            items: vec![
+                item("b", Some(("bbb", 40))),
+                item("free", None),
+                item("a", Some(("aaa", 120))),
+            ],
+        };
+        assert_eq!(
+            quote.digest(),
+            "2d22e28d44a4b0f7ac37fdfa206e55e2d84f6df016669e80ed50a169176627f8"
+        );
+    }
+}

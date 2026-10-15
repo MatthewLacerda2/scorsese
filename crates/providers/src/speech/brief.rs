@@ -178,3 +178,35 @@ impl Brief {
 fn or_none(value: Option<&str>) -> &str {
     value.unwrap_or("none")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Lines already spoken, pinned by their digests: one with every optional
+    /// field absent and one with each set. If either moves, every narration
+    /// already paid for would be quoted and paid for again.
+    #[test]
+    fn an_existing_briefs_fingerprint_does_not_move() {
+        let mut brief = Brief {
+            id: AssetId::new("line"),
+            text: String::from("Welcome back."),
+            voice_id: String::from("voice"),
+            request: SpeechRequest::default(),
+        };
+        assert_eq!(
+            brief.digest(),
+            "bbd2456d8d5c2bc3f86fd35ff6e074de35594d4b71622a91e3581b5460737d60"
+        );
+        assert_eq!(
+            brief.output().as_str(),
+            "generated/line-bbd2456d8d5c2bc3f86fd35ff6e074de35594d4b71622a91e3581b5460737d60.mp3"
+        );
+        brief.request.language = Some(String::from("pt"));
+        brief.request.seed = Some(7);
+        assert_eq!(
+            brief.digest(),
+            "3ef26f5102a548a1c07c44cb54e9db81b6ec5bf392b7d6349358bc4632fb9d7a"
+        );
+    }
+}

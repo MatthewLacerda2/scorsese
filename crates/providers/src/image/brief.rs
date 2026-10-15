@@ -125,3 +125,44 @@ impl Brief {
         self.output().resolve(root).is_file()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use scorsese_core::{ImageModel, ImageThinking};
+
+    use super::*;
+
+    /// Stills already drawn, pinned by their digests: one as plain as a brief
+    /// gets, one with a thinking level off its model's default and a
+    /// reference. If either moves, every still already paid for would be
+    /// quoted and paid for again.
+    #[test]
+    fn an_existing_briefs_fingerprint_does_not_move() {
+        let mut brief = Brief {
+            id: AssetId::new("still"),
+            prompt: String::from("a lighthouse at dusk"),
+            request: ImageRequest::default(),
+            reference_images: Vec::new(),
+        };
+        assert_eq!(
+            brief.digest(),
+            "9e02772b372afada344fc7db5b435e26439adaf6b455d19438cdb43d51ee3acc"
+        );
+        assert_eq!(
+            brief.output().as_str(),
+            "generated/still-9e02772b372afada344fc7db5b435e26439adaf6b455d19438cdb43d51ee3acc.jpg"
+        );
+        brief.request.model = ImageModel::Flash;
+        brief.request.thinking = Some(ImageThinking::High);
+        brief.reference_images.push(Still {
+            id: AssetId::new("face"),
+            mime_type: String::from("image/png"),
+            bytes: Vec::new(),
+            digest: String::from("abc"),
+        });
+        assert_eq!(
+            brief.digest(),
+            "3d33eed4bc83894ac81d9661c249d8aab7627a5b5b4fdc31f25e0c33254aa0c6"
+        );
+    }
+}

@@ -237,5 +237,33 @@ mod tests {
             brief.digest(),
             "c2ab690ac91c7657bc875836f4a9919be580102065626f40c6bb98fe597a9b7a"
         );
+        assert_eq!(
+            brief.output().as_str(),
+            "generated/shot-c2ab690ac91c7657bc875836f4a9919be580102065626f40c6bb98fe597a9b7a.mp4"
+        );
+    }
+
+    /// A brief with every still it can name, pinned the same way: the
+    /// `first:`, `last:` and `reference:` lines with something in them.
+    #[test]
+    fn a_brief_with_stills_keeps_its_fingerprint() {
+        let still = |id: &str, digest: &str| Still {
+            id: AssetId::new(id),
+            mime_type: String::from("image/png"),
+            bytes: Vec::new(),
+            digest: digest.to_owned(),
+        };
+        let brief = Brief {
+            id: AssetId::new("shot"),
+            prompt: String::from("a butterfly lands on a leaf"),
+            request: VideoRequest::default(),
+            first_image: Some(still("open", "aaa")),
+            last_image: None,
+            reference_images: vec![still("face", "bbb"), still("hat", "ccc")],
+        };
+        assert_eq!(
+            brief.digest(),
+            "cf6f0698c009166f90843bb6f6c7c7d651269374e74648291cb9c67e5c466702"
+        );
     }
 }

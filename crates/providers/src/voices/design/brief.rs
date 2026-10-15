@@ -125,3 +125,31 @@ impl Brief {
 fn said<T: std::fmt::Display>(value: Option<T>) -> String {
     value.map_or_else(|| String::from("none"), |value| value.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Designs already paid for, pinned by their digests: one with both knobs
+    /// absent and one with each set. If either moves, every design already
+    /// paid for would be billed again.
+    #[test]
+    fn an_existing_briefs_fingerprint_does_not_move() {
+        let mut brief = Brief {
+            prompt: String::from("a warm, unhurried narrator"),
+            passage: String::from("Every morning the harbour wakes before the town does."),
+            seed: None,
+            guidance: None,
+        };
+        assert_eq!(
+            brief.digest(),
+            "929e78f0beb035bd64958ee472f5270251048e8e03001ba9ce8ab7da4e86c2eb"
+        );
+        brief.seed = Some(42);
+        brief.guidance = Some(3.5);
+        assert_eq!(
+            brief.digest(),
+            "5c1d066b05cd98c7bda5140a9a47b364b25cff0c7e6399da34e938642a63120c"
+        );
+    }
+}
