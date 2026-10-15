@@ -168,7 +168,7 @@ fn on_screen_path(arrow: usize, layers: &[Layer<'_>]) -> Option<Path> {
 
 /// The line of an arrow that is not on screen here, read off the document.
 fn absent_path(project: &Project, id: &ClipId) -> Option<Path> {
-    let (_, clip) = project.every_clip().find(|(_, clip)| &clip.id == id)?;
+    let clip = project.clip(id)?;
     let shape = project.asset(&clip.asset)?.shape.as_ref()?;
     if !matches!(shape.geometry, Geometry::Arrow { .. }) {
         return None;

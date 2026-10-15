@@ -92,7 +92,7 @@ pub fn remove_asset(
 
     let mut proposed = project.clone();
     let mut removed = Vec::new();
-    for track in every_track_mut(&mut proposed) {
+    for track in proposed.every_track_mut() {
         let (gone, kept) = std::mem::take(&mut track.clips)
             .into_iter()
             .partition(|clip| &clip.asset == asset);
@@ -168,17 +168,6 @@ fn keep(lane: &Track, track: &TrackId, taken: &mut Option<Track>) -> bool {
         return false;
     }
     true
-}
-
-/// Every track in the document, mutably: the timeline's, then each group's —
-/// [`Project::every_track`]'s order.
-fn every_track_mut(project: &mut Project) -> impl Iterator<Item = &mut Track> {
-    let lanes = project
-        .assets
-        .iter_mut()
-        .filter_map(|asset| asset.group.as_mut())
-        .flat_map(|group| group.tracks.iter_mut());
-    project.tracks.iter_mut().chain(lanes)
 }
 
 /// Clip ids as a refusal reads them: `` `a`, `b` ``, or `none` for an empty

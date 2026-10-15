@@ -38,8 +38,9 @@ impl Tool for ClipRemove {
          file on disk, ready to be placed again, and the gap it leaves is not \
          closed up. All or nothing: an id that names no clip, or a clip an arrow is still \
          attached to, refuses the whole request with the reason and removes \
-         nothing. This is the edit to make instead of rewriting the document with \
-         project_write."
+         nothing. A clip inside a group comes off the group's own track and the \
+         group keeps the rest. This is the edit to make instead of rewriting the \
+         document with project_write."
     }
 
     fn costs(&self) -> Costs {

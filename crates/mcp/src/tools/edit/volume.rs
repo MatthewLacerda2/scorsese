@@ -2,12 +2,11 @@
 
 use schemars::JsonSchema;
 use scorsese_core::level::{self, Level, Levelled};
-use scorsese_core::{ClipId, PropertyPath};
+use scorsese_core::{ClipId, Frames, PropertyPath};
 use scorsese_render::audio::path::VOLUME;
 use serde::Deserialize;
 use serde_json::Value;
 
-use super::frames;
 use crate::tools::args::{self, Name, ProjectDir, Required};
 use crate::tools::inspect::load;
 use crate::tools::{Costs, Reply, Tool};
@@ -78,6 +77,12 @@ impl Tool for SetVolume {
         let mut project = load(dir)?;
         let clip = ClipId::new(arguments.clip.as_str());
 
+        if let Some(group) = project.group_holding(&clip) {
+            return Err(format!(
+                "`{clip}` is inside group `{group}`, and a group's members are not heard — \
+                 a group is picture only, so a volume there would change nothing"
+            ));
+        }
         let asked = asked_for(&arguments, project.timeline_fps.as_f64())?;
         let report = level::set(&mut project, &clip, &PropertyPath::new(VOLUME), asked)
             .map_err(|error| format!("{error} — nothing was changed"))?;
@@ -97,8 +102,8 @@ fn asked_for(arguments: &Arguments, fps: f64) -> Result<Level, String> {
         (Some(from), Some(seconds)) => Ok(Level::Ramp {
             from,
             to,
-            at: frames(arguments.at_seconds.unwrap_or(0.0), fps),
-            over: frames(seconds, fps),
+            at: Frames::span(arguments.at_seconds.unwrap_or(0.0), fps),
+            over: Frames::span(seconds, fps),
         }),
         (Some(_), None) => {
             Err("`from_level` needs `seconds` — a fade with no length is a flat level".to_owned())

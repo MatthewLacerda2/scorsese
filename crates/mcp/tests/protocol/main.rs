@@ -30,6 +30,7 @@ mod inspecting;
 mod landing;
 mod looking;
 mod matting;
+mod members;
 mod moving;
 mod overlapping;
 mod pacing;

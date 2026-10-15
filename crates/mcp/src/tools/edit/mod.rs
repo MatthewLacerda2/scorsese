@@ -51,15 +51,6 @@ use std::collections::BTreeSet;
 
 use scorsese_core::{Clip, ClipId, Fps, Frames};
 
-/// Seconds on the project's grid, at least one frame when anything was asked
-/// for — a ramp rounded to no frames is a switch, not a ramp.
-fn frames(seconds: f64, fps: f64) -> Frames {
-    if seconds <= 0.0 {
-        return Frames::ZERO;
-    }
-    Frames(((seconds * fps).round() as u64).max(1))
-}
-
 /// How many frames a clip covers from `start` for `seconds`, found by putting
 /// its **end** on the grid rather than its length.
 ///
@@ -71,7 +62,7 @@ fn frames(seconds: f64, fps: f64) -> Frames {
 /// the end rounded the same way the next clip's start is, the same number of
 /// seconds always lands on the same frame, whichever side of it a clip is on.
 fn reaching(fps: Fps, start: f64, seconds: f64) -> Frames {
-    let length = frames(seconds, fps.as_f64());
+    let length = Frames::span(seconds, fps.as_f64());
     if length == Frames::ZERO {
         return length;
     }

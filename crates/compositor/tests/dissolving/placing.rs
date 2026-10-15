@@ -2,7 +2,7 @@
 
 use scorsese_compositor::DissolveError;
 use scorsese_compositor::dissolve::dissolve;
-use scorsese_core::{ClipId, Frames};
+use scorsese_core::{ClipId, Frames, Project, SCHEMA_VERSION};
 
 use crate::{clip, cut, track_of};
 
@@ -80,4 +80,32 @@ fn a_dissolve_of_no_length_is_refused() {
     );
 
     assert!(matches!(refused, Err(DissolveError::TooShort { .. })));
+}
+
+#[test]
+fn a_group_member_is_refused_by_naming_its_group() {
+    let document = format!(
+        r##"{{ "schema_version": {SCHEMA_VERSION}, "name": "g",
+        "timeline_fps": {{ "num": 30, "den": 1 }},
+        "assets": [
+          {{ "id": "bed", "kind": "color", "color": "#101820" }},
+          {{ "id": "pair", "kind": "group", "group": {{ "tracks": [
+            {{ "id": "g1", "kind": "video", "clips": [
+              {{ "id": "a", "asset": "bed", "start": 0, "duration": 30 }},
+              {{ "id": "b", "asset": "bed", "start": 30, "duration": 30 }} ] }} ] }} }}
+        ],
+        "tracks": [ {{ "id": "v1", "kind": "video", "clips": [
+          {{ "id": "both", "asset": "pair", "start": 0, "duration": 60 }} ] }} ] }}"##
+    );
+    let mut project = Project::from_json(&document).expect("the fixture parses");
+    project.validate().expect("the fixture is valid");
+    let refused = dissolve(
+        &mut project,
+        &ClipId::new("a"),
+        &ClipId::new("b"),
+        Frames(10),
+    );
+    let error = refused.expect_err("a member cannot be carried onto the timeline");
+    assert!(matches!(error, DissolveError::InGroup { .. }));
+    assert!(error.to_string().contains("inside group `pair`"), "{error}");
 }

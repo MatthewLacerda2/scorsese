@@ -909,10 +909,16 @@ clip_ungroup  { "project": "explainer.scor", "clip": "c-pipeline" }
               → "Ungrouped `c-pipeline`: 3 clip(s) are back on the timeline, …"
 ```
 
-The other place/move/trim tools reach the project's **own** tracks only; a
-member inside a group is edited by ungrouping, editing and grouping again, or
-with `project_write` — except its keyframes, which `clip_animate` writes in
-place.
+**A member is edited in place** (#1103): `clip_set`, `clip_animate`,
+`clip_follow`, `clip_remove` and `clip_move` take a member's id like any other
+clip's, and work in the group's own time — a member's `start_seconds` counts
+from the group's zero. There is no need to ungroup, which would lose what the
+group clip did to the whole. Two edits stay on the timeline, and their
+refusals name the group: `clip_move` moves a member only between its own
+group's tracks (putting a clip into a group is `clip_group`'s edit, taking it
+out `clip_ungroup`'s), and `dissolve` moves the incoming clip onto a new
+timeline track. `set_volume` refuses a member too, because a group is picture
+only and its members are not heard.
 
 ## The three operations that write keyframes for you
 

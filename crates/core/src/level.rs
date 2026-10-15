@@ -169,10 +169,7 @@ pub fn set(
 
     let mut proposed = project.clone();
     let found = proposed
-        .tracks
-        .iter_mut()
-        .flat_map(|track| track.clips.iter_mut())
-        .find(|candidate| &candidate.id == clip)
+        .clip_mut(clip)
         .ok_or_else(|| LevelError::NoClip(clip.clone()))?;
     let end = level.reaches();
     if end > found.duration {

@@ -31,22 +31,9 @@ pub use unwrap::{UngroupError, Ungrouped, ungroup};
 pub use wrap::{GroupError, Grouped, Grouping, group};
 
 use crate::project::Project;
-use crate::timeline::Track;
-
-/// Every track in the document — the timeline's and every group's — because
-/// a group's tracks come back onto the timeline when it is ungrouped, and two
-/// lanes answering to one name are refused wherever they are.
-fn every_track(project: &Project) -> impl Iterator<Item = &Track> {
-    let groups = project
-        .assets
-        .iter()
-        .filter_map(|asset| asset.group.as_ref())
-        .flat_map(|group| &group.tracks);
-    project.tracks.iter().chain(groups)
-}
 
 /// How many ids a search for a free one could meet — every clip, track and
 /// asset in the document — which bounds [`crate::template::ids::free`].
 fn id_limit(project: &Project) -> usize {
-    project.every_clip().count() + project.assets.len() + every_track(project).count()
+    project.every_clip().count() + project.assets.len() + project.every_track().count()
 }

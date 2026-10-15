@@ -30,6 +30,19 @@ pub enum DissolveError {
         /// The id as asked for.
         clip: String,
     },
+    /// The clip is a group's member. A dissolve moves the incoming clip onto a
+    /// new track of the timeline, which a member — timed from its group's own
+    /// zero — cannot be carried onto without leaving the group.
+    #[error(
+        "clip `{clip}` is inside group `{group}` — a dissolve is between clips on the \
+         timeline; dissolve the group's clip instead, or ungroup it first"
+    )]
+    InGroup {
+        /// The member asked for.
+        clip: String,
+        /// The group holding it.
+        group: String,
+    },
     /// A dissolve is a picture operation; sound crossfades by being mixed.
     #[error("clip `{clip}` is on an audio track, and a dissolve is a picture operation")]
     NotPicture {
@@ -149,7 +162,7 @@ fn home(project: &mut Project, below: usize, clip: &Clip) -> Result<(usize, bool
 fn free_id(project: &Project) -> String {
     (1..)
         .map(|n| format!("v-dissolve-{n}"))
-        .find(|id| !project.tracks.iter().any(|track| track.id.as_str() == id))
+        .find(|id| !project.every_track().any(|track| track.id.as_str() == id))
         .unwrap_or_else(|| "v-dissolve".to_owned())
 }
 
@@ -166,8 +179,14 @@ fn locate(project: &Project, id: &ClipId) -> Result<At, DissolveError> {
                 .position(|clip| &clip.id == id)
                 .map(|clip| At { track, clip })
         })
-        .ok_or_else(|| DissolveError::NoSuchClip {
-            clip: id.to_string(),
+        .ok_or_else(|| match project.group_holding(id) {
+            Some(group) => DissolveError::InGroup {
+                clip: id.to_string(),
+                group: group.to_string(),
+            },
+            None => DissolveError::NoSuchClip {
+                clip: id.to_string(),
+            },
         })
 }
 

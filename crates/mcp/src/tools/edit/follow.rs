@@ -101,8 +101,7 @@ fn follow(project: &mut Project, id: &ClipId, arguments: &Arguments) -> Result<S
     let fps = project.timeline_fps;
     let mut proposed = project.clone();
     let clip = proposed
-        .tracks
-        .iter_mut()
+        .every_track_mut()
         .filter(|track| track.kind == TrackKind::Video)
         .flat_map(|track| track.clips.iter_mut())
         .find(|clip| &clip.id == id)

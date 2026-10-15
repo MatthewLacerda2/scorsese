@@ -1,7 +1,8 @@
 //! Moving a placed clip onto another track.
 
+use crate::asset::AssetId;
 use crate::project::Project;
-use crate::timeline::{Clip, ClipId, TrackId};
+use crate::timeline::{Clip, ClipId, Track, TrackId};
 use crate::validate::ValidationErrors;
 
 use super::Trim;
@@ -57,6 +58,13 @@ pub enum RelocateError {
         /// The track it is on.
         track: TrackId,
     },
+    /// The clip and the track are on different timelines: one is inside a
+    /// group and the other is not, or they are in two groups. A group's time
+    /// runs from its own zero, so a clip carried across would land somewhere
+    /// nobody chose; putting clips into a group is `group`'s edit, and taking
+    /// them out is `ungroup`'s.
+    #[error("{0} — a clip moves only between tracks of the timeline it is on")]
+    Across(String),
     /// The result was not a document that loads — picture onto a sound track
     /// or the other way round, a clip landing on one already there, or an
     /// arrow left attached to a clip that no longer has a place on screen.
@@ -74,24 +82,29 @@ pub enum RelocateError {
 /// This is the edit [`trim`](super::trim) refuses to be. Which track a picture
 /// sits on decides what is drawn over what, so moving one between tracks can
 /// change the frame even when nothing moves in time.
+///
+/// A group's member moves between the group's own tracks, in the group's own
+/// time; it never leaves the group this way ([`RelocateError::Across`]).
 pub fn relocate(
     project: &mut Project,
     id: &ClipId,
     to: &Relocation,
 ) -> Result<Clip, RelocateError> {
     let from = project
-        .tracks
-        .iter()
+        .every_track()
         .position(|track| track.clips.iter().any(|clip| &clip.id == id))
         .ok_or_else(|| RelocateError::NoSuchClip { clip: id.clone() })?;
     let onto = project
-        .tracks
-        .iter()
+        .every_track()
         .position(|track| track.id == to.track)
         .ok_or_else(|| RelocateError::NoSuchTrack {
             track: to.track.clone(),
             available: track_ids(project),
         })?;
+    let (inside, target) = (project.group_holding(id), holding(project, &to.track));
+    if inside != target {
+        return Err(RelocateError::Across(across(id, inside, &to.track, target)));
+    }
     if from == onto && to.bounds == Trim::default() {
         return Err(RelocateError::AlreadyThere {
             clip: id.clone(),
@@ -100,14 +113,14 @@ pub fn relocate(
     }
 
     let mut proposed = project.clone();
-    let clips = &mut proposed.tracks[from].clips;
+    let clips = &mut lane(&mut proposed, from).clips;
     let at = clips
         .iter()
         .position(|clip| &clip.id == id)
         .expect("the track was chosen because it holds this clip");
     let mut moved = clips.remove(at);
     to.bounds.apply(&mut moved);
-    let landed = &mut proposed.tracks[onto].clips;
+    let landed = &mut lane(&mut proposed, onto).clips;
     landed.push(moved.clone());
     // Kept in time order for the reader, as `place` and `trim` keep it.
     landed.sort_by_key(|clip| clip.start);
@@ -115,6 +128,44 @@ pub fn relocate(
     proposed.validate()?;
     *project = proposed;
     Ok(moved)
+}
+
+/// The `nth` track of [`Project::every_track`], to change.
+fn lane(project: &mut Project, nth: usize) -> &mut Track {
+    project
+        .every_track_mut()
+        .nth(nth)
+        .expect("the index was taken from the same walk of the same document")
+}
+
+/// The group whose own tracks include `track`, or `None` for the timeline's.
+fn holding<'a>(project: &'a Project, track: &TrackId) -> Option<&'a AssetId> {
+    project.assets.iter().find_map(|asset| {
+        let group = asset.group.as_ref()?;
+        group
+            .tracks
+            .iter()
+            .any(|lane| &lane.id == track)
+            .then_some(&asset.id)
+    })
+}
+
+/// Where the clip and the track each are, as [`RelocateError::Across`] says it.
+fn across(
+    clip: &ClipId,
+    inside: Option<&AssetId>,
+    track: &TrackId,
+    target: Option<&AssetId>,
+) -> String {
+    let clip = match inside {
+        Some(group) => format!("`{clip}` is inside group `{group}`"),
+        None => format!("`{clip}` is on the timeline"),
+    };
+    let track = match target {
+        Some(group) => format!("`{track}` is a track of group `{group}`"),
+        None => format!("`{track}` is on the timeline"),
+    };
+    format!("{clip} and {track}")
 }
 
 #[cfg(test)]

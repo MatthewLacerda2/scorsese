@@ -46,14 +46,14 @@ pub struct Removed {
 /// **The gap stays.** Nothing after a removed clip closes up behind it; a
 /// ripple would move clips nobody named, on this track and in sync with every
 /// other, and that is a judgement a delete key does not get to make.
+///
+/// **A group's member is a clip like any other**: it comes off the group's own
+/// track, and the group keeps the rest.
 pub fn remove(project: &mut Project, ids: &BTreeSet<ClipId>) -> Result<Vec<Removed>, RemoveError> {
     if ids.is_empty() {
         return Err(RemoveError::Nothing);
     }
-    if let Some(missing) = ids
-        .iter()
-        .find(|id| !project.clips().any(|(_, clip)| &clip.id == *id))
-    {
+    if let Some(missing) = ids.iter().find(|id| project.clip(id).is_none()) {
         return Err(RemoveError::NoSuchClip {
             clip: missing.clone(),
         });
@@ -61,7 +61,7 @@ pub fn remove(project: &mut Project, ids: &BTreeSet<ClipId>) -> Result<Vec<Remov
 
     let mut proposed = project.clone();
     let mut removed = Vec::new();
-    for track in &mut proposed.tracks {
+    for track in proposed.every_track_mut() {
         let (gone, kept) = std::mem::take(&mut track.clips)
             .into_iter()
             .partition(|clip| ids.contains(&clip.id));

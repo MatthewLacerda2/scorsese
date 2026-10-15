@@ -64,7 +64,9 @@ impl Tool for ClipMove {
          sound on an audio one. Nothing is written at all unless the result is a \
          document that still loads — a clip moved onto its neighbour, or trimmed \
          past the end of its media, is refused with the reason and the project is \
-         left exactly as it was."
+         left exactly as it was. A clip inside a group moves in the group's own \
+         time (seconds from the group's start) and only between that group's own \
+         tracks; clip_group and clip_ungroup are how a clip goes in or out."
     }
 
     fn costs(&self) -> Costs {
@@ -83,7 +85,7 @@ impl Tool for ClipMove {
         let id = ClipId::new(arguments.clip.as_str());
 
         let (from, start) = project
-            .clips()
+            .every_clip()
             .find(|(_, clip)| clip.id == id)
             .map(|(track, clip)| (Some(track.id.clone()), clip.start))
             .unwrap_or_default();

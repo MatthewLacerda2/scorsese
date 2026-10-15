@@ -2,7 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use super::{every_track, id_limit};
+use super::id_limit;
 use crate::asset::{Asset, AssetId};
 use crate::group::Group;
 use crate::project::Project;
@@ -186,7 +186,7 @@ fn name_lanes(project: &Project, asset: &AssetId, inner: &mut [(TrackId, Track)]
     for (from, lane) in inner.iter_mut() {
         let wanted = format!("{asset}-{from}");
         let id = TrackId::new(free(&wanted, limit, |candidate| {
-            every_track(project).any(|t| t.id.as_str() == candidate)
+            project.every_track().any(|t| t.id.as_str() == candidate)
                 || given.iter().any(|g| g.as_str() == candidate)
         }));
         lane.id = id.clone();

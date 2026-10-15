@@ -38,13 +38,10 @@ pub(super) fn retime(template: &mut Project, onto: Fps) -> Result<(), ClipId> {
         .iter()
         .filter_map(|asset| Some((asset.id.clone(), asset.group.as_ref()?.length())))
         .collect();
-    let lanes = template
-        .assets
-        .iter_mut()
-        .filter_map(|asset| asset.group.as_mut())
-        .flat_map(|group| &mut group.tracks)
-        .chain(&mut template.tracks);
-    for clip in lanes.flat_map(|track| &mut track.clips) {
+    for clip in template
+        .every_track_mut()
+        .flat_map(|track| &mut track.clips)
+    {
         let Some(length) = lengths.get(&clip.asset) else {
             continue;
         };
