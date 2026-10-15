@@ -41,7 +41,7 @@ pub struct SequenceChanged {
 #[derive(Debug, thiserror::Error)]
 pub enum SequenceError {
     /// The id names an asset of another kind.
-    #[error("asset `{asset}` is a {kind:?}, not an image sequence")]
+    #[error("asset `{asset}` is of kind `{kind}`, not an image sequence")]
     NotASequence {
         /// The asset.
         asset: AssetId,

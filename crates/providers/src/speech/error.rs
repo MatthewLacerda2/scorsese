@@ -31,7 +31,7 @@ use super::provider::ProviderError;
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum Incomplete {
     /// The asset asked for is not one that generates speech.
-    #[error("{id} is a {kind:?} asset, and only generated_audio assets generate speech")]
+    #[error("{id} is of kind `{kind}`, and only generated_audio assets generate speech")]
     NotGeneratedAudio {
         /// The asset asked about.
         id: AssetId,

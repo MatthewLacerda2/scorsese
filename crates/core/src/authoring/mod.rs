@@ -132,7 +132,7 @@ pub enum AuthorError {
     /// in the document. What a video or a brief *is* lives elsewhere — in a
     /// file, or in a prompt `rebrief` edits — so there is no field here to set.
     #[error(
-        "`{asset}` is a `{kind:?}` asset, and only text, color, shape and icon assets \
+        "`{asset}` is of kind `{kind}`, and only text, color, shape and icon assets \
          carry their content in the document"
     )]
     NotInline {
@@ -144,7 +144,7 @@ pub enum AuthorError {
     /// A field that means nothing to this kind. Refused rather than ignored:
     /// a `fill` set on a caption would look exactly like a fill that had been
     /// applied, and the difference would only ever be found by rendering.
-    #[error("`{field}` is not a field of a {kind:?} asset — that kind takes {takes}")]
+    #[error("`{field}` is not a field of kind `{kind}` — that kind takes {takes}")]
     NotOnKind {
         /// The field that was asked for.
         field: &'static str,
@@ -168,7 +168,7 @@ pub enum AuthorError {
     /// A gradient given to a field that is one colour: a caption's or an
     /// icon's. Refused rather than flattened to one of its stops, which would
     /// be a colour nobody chose.
-    #[error("`{field}` on a {kind:?} asset is one colour, not a gradient")]
+    #[error("`{field}` on kind `{kind}` is one colour, not a gradient")]
     NotOneColour {
         /// The field that was asked for.
         field: &'static str,
@@ -183,7 +183,9 @@ pub enum AuthorError {
     /// The asset's kind and its content disagree — a `shape` asset with no
     /// shape in it. Unreachable through a loaded project, which is validated
     /// on the way in, and said out loud rather than assumed away.
-    #[error("`{asset}` is a {kind:?} asset carrying no {kind:?} block, so there is nothing to set")]
+    #[error(
+        "`{asset}` is of kind `{kind}` but carries no `{kind}` block, so there is nothing to set"
+    )]
     Incoherent {
         /// The asset that is missing its own content.
         asset: AssetId,

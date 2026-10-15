@@ -90,7 +90,7 @@ pub enum ImageProblem {
 
     /// A reference that is not a picture.
     #[error(
-        "asset `{asset}` names `{referenced}` as a reference image, but that asset is a {kind:?}"
+        "asset `{asset}` names `{referenced}` as a reference image, but that asset is of kind `{kind}`"
     )]
     NotAnImage {
         /// The asset naming it.

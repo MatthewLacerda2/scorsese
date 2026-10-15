@@ -143,5 +143,5 @@ fn a_plan_refusal_points_at_the_voices_that_still_work() {
     .expect_err("a free plan cannot design");
     let said = error.to_string();
     assert!(said.contains("free plan"), "{said}");
-    assert!(said.contains("scorsese voices"), "{said}");
+    assert!(said.contains("`scorsese voices` (`voices`)"), "{said}");
 }

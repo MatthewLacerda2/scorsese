@@ -40,7 +40,7 @@ pub enum GenerationError {
     Unpriced(#[from] Unpriced),
 
     /// The asset asked for is not one that generates video.
-    #[error("{id} is a {kind:?} asset, and only generated_video assets generate video")]
+    #[error("{id} is of kind `{kind}`, and only generated_video assets generate video")]
     NotAGeneratedVideo {
         /// The asset asked about.
         id: AssetId,

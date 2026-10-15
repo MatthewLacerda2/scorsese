@@ -339,7 +339,7 @@ fn rectangle(
         )),
         Content::Media if sizes.is_unmeasured(shot) => Err(Absence::Unknown(format!(
             "its source's own pixel size is not recorded, and a `{}` clip's rectangle \
-             depends on it — `scorsese probe` writes it into the document",
+             depends on it — `scorsese probe` (`project_write`) writes it into the document",
             crate::describe::display::fit(shot.clip.fit)
         ))),
         // A decoded picture fills the raster its frames arrive at, which for a

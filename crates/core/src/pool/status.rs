@@ -6,6 +6,7 @@ use std::path::Path;
 use crate::asset::{Asset, AssetId, AssetKind, GenerationState};
 use crate::project::Project;
 
+use super::gc::named_by_pages;
 use super::hash::hash_file;
 
 /// Whether hashes are re-computed. Verifying reads every file in the pool, so
@@ -52,13 +53,31 @@ impl AssetHealth {
     /// reported as a fact for as long as nothing read the metadata; now that
     /// features do — a source's own length is what bounds a trim — an asset
     /// nobody has looked at is an asset those features silently skip. The
-    /// thing to do about it is `scorsese probe`, which is why this counts as
-    /// something to fix rather than something to know.
+    /// thing to do about it is a probe — `scorsese probe`, or `project_write`
+    /// over MCP — which is why this counts as something to fix rather than
+    /// something to know.
     pub fn needs_attention(&self) -> bool {
         matches!(
             self,
             Self::Missing | Self::HashMismatch { .. } | Self::Unreadable(_) | Self::Unprobed
         )
+    }
+}
+
+/// A health in a few words, the way a listing row shows it: `file missing`,
+/// `awaiting generation (sketch)` — the format's words, never `Debug`'s
+/// `Awaiting(Sketch)`. `scorsese assets` and `project_assets` both print this.
+impl std::fmt::Display for AssetHealth {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Ok => f.write_str("ok"),
+            Self::Inline => f.write_str("inline"),
+            Self::Awaiting(state) => write!(f, "awaiting generation ({state})"),
+            Self::Missing => f.write_str("file missing"),
+            Self::HashMismatch { .. } => f.write_str("changed since import"),
+            Self::Unprobed => f.write_str("not probed"),
+            Self::Unreadable(why) => write!(f, "unreadable: {why}"),
+        }
     }
 }
 
@@ -73,9 +92,14 @@ pub struct AssetStatus {
     /// which of these are faults rather than facts.
     pub health: AssetHealth,
     /// How many clips reference this asset, members of a group included. Zero
-    /// means `gc` would collect it — unless [`Self::sequence`] is set, because
-    /// a still a sequence plays is in use whether or not a clip shows it.
+    /// means `gc` would collect it — unless [`Self::named_by`] is set, because
+    /// an asset another one or a page names is in use whether or not a clip
+    /// shows it.
     pub clip_count: usize,
+    /// What names this asset besides a clip — the first, in table order — or
+    /// `None` when nothing does. With a zero [`Self::clip_count`], `None` is
+    /// exactly what `gc` collects (#1166).
+    pub named_by: Option<NamedBy>,
     /// The image sequence this still is listed under, when one plays it.
     ///
     /// A listing shows a sequence's stills under the sequence rather than
@@ -86,9 +110,49 @@ pub struct AssetStatus {
     pub sequence: Option<AssetId>,
 }
 
+/// What keeps an asset in use when no clip shows it — the reason `gc`
+/// leaves it alone.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NamedBy {
+    /// Another asset names it ([`Asset::references`]): a shot's first or last
+    /// frame, a generated picture's reference, a still a sequence plays.
+    Asset {
+        /// The asset naming it.
+        id: AssetId,
+        /// That asset's kind, which says how it is named.
+        kind: AssetKind,
+    },
+    /// A page's text names its file ([`named_by_pages`]); the page's id.
+    Page(AssetId),
+}
+
+/// `named by shot `intro``, `named by page `title`` — the words a listing
+/// shows in place of "unused".
+impl std::fmt::Display for NamedBy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Asset { id, kind } => {
+                let what = match kind {
+                    AssetKind::GeneratedVideo => "shot",
+                    AssetKind::GeneratedImage => "picture",
+                    AssetKind::ImageSequence => "sequence",
+                    other => other.name(),
+                };
+                write!(f, "named by {what} `{id}`")
+            }
+            Self::Page(page) => write!(f, "named by page `{page}`"),
+        }
+    }
+}
+
 /// Reports every asset in the project, in table order.
+///
+/// Reads every page's text, as `gc` does, to find what a page names: the
+/// pages are small, and a listing that called a picture a page shows unused
+/// would be telling the opposite of what `gc` does with it.
 pub fn asset_status(project: &Project, project_root: &Path, check: HashCheck) -> Vec<AssetStatus> {
     let owners = owners(project);
+    let pages = named_by_pages(project, project_root);
     project
         .assets
         .iter()
@@ -100,9 +164,27 @@ pub fn asset_status(project: &Project, project_root: &Path, check: HashCheck) ->
                 .every_clip()
                 .filter(|(_, clip)| clip.asset == asset.id)
                 .count(),
+            named_by: named_by(project, &asset.id).or_else(|| {
+                pages
+                    .iter()
+                    .find(|named| named.asset == asset.id)
+                    .map(|named| NamedBy::Page(named.page.clone()))
+            }),
             sequence: owners.get(&asset.id).map(|&owner| owner.clone()),
         })
         .collect()
+}
+
+/// The first asset, in table order, whose fields name `id`.
+fn named_by(project: &Project, id: &AssetId) -> Option<NamedBy> {
+    project
+        .assets
+        .iter()
+        .find(|asset| asset.references().any(|named| named == id))
+        .map(|asset| NamedBy::Asset {
+            id: asset.id.clone(),
+            kind: asset.kind,
+        })
 }
 
 /// Which sequence each still is listed under: the first, in table order, that

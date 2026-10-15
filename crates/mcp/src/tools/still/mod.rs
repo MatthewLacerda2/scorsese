@@ -89,8 +89,8 @@ struct Arguments {
     /// Also keep the PNG at this path, e.g. review/title.png. One instant only,
     /// or sheet: true — a path names a file, and several separate frames do not
     /// fit in one, so asking for a list and a path together without a sheet is
-    /// refused; `scorsese render --stills`
-    /// is how a set of PNGs gets written. Without it the picture is returned
+    /// refused; one call per instant is how a set of PNGs gets written (on
+    /// the command line, `scorsese render --stills`). Without it the picture is returned
     /// and nothing is left on disk. A relative path is relative to the project
     /// directory, never the server's working directory; an absolute one is
     /// used as given.
@@ -326,8 +326,9 @@ fn kept<'a>(
     if instants > 1 {
         return Err(format!(
             "out: {given} is one path and {instants} instants were asked for. Ask for one \
-             instant to keep a file, pass sheet: true to keep them as one contact sheet, or \
-             use `scorsese render --stills` for a set of PNGs."
+             instant per call to keep each as its own PNG (on the command line, \
+             `scorsese render --stills` writes a set at once), or pass sheet: true to keep \
+             them as one contact sheet."
         ));
     }
     Ok(args::under(dir, out, "out")?.map(|path| (given, path)))

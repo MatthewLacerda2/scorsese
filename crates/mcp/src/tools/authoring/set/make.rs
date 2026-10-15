@@ -4,7 +4,7 @@ use scorsese_core::{AssetKind, Fill, Icon, Inline, Project, authoring};
 
 use super::super::fill::fill;
 use super::super::{maybe, refused, save};
-use super::{Arguments, fields, requests, shape, text};
+use super::{Arguments, requests, shape, text};
 
 /// Makes the `kind` the arguments describe under `id` (or one derived from
 /// its content), writes the document, and says what was made.
@@ -50,10 +50,7 @@ pub(super) fn make(
     };
     let id = authoring::add_asset(project, id, content).map_err(refused)?;
     save(project, dir)?;
-    Ok(format!(
-        "`{id}` — a {} asset, new. {after}",
-        fields::kind_name(kind)
-    ))
+    Ok(format!("`{id}` — a new {kind} asset. {after}"))
 }
 
 /// A colour card. The colour is required and has no default on purpose: a

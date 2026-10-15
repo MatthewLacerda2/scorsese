@@ -112,7 +112,7 @@ pub enum VideoProblem {
     /// sound or a sketch is a mistake the document can catch — and catching it
     /// here is the difference between a validation message and a rejected
     /// request nobody expected.
-    #[error("asset `{asset}` names `{referenced}` as a still, but that asset is a {kind:?}")]
+    #[error("asset `{asset}` names `{referenced}` as a still, but that asset is of kind `{kind}`")]
     NotAnImage {
         /// The asset naming it.
         asset: AssetId,

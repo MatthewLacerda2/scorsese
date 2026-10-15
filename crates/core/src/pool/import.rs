@@ -207,14 +207,14 @@ pub enum ImportError {
     },
     /// A `text` or `generated_*` kind was asked for. Those carry a string, not
     /// a file, so there is nothing for import to do with them.
-    #[error("{kind:?} assets are authored, not imported — there is no file to copy in")]
+    #[error("{kind} assets are authored, not imported — there is no file to copy in")]
     NotImportable {
         /// The kind that has no file behind it.
         kind: AssetKind,
     },
     /// The extension lied — a `.mp4` with no picture, a `.mp3` with no sound.
     /// Caught at import, when it is still one file rather than a broken cut.
-    #[error("{} was imported as {kind:?} but has {found}", path.display())]
+    #[error("{} was imported as {kind} but has {found}", path.display())]
     KindMismatch {
         /// The file that was probed.
         path: PathBuf,

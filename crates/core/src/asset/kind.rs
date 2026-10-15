@@ -85,6 +85,46 @@ pub enum AssetKind {
 }
 
 impl AssetKind {
+    /// Every kind, in the order the enum declares them.
+    pub const ALL: [Self; 14] = [
+        Self::Video,
+        Self::Image,
+        Self::Audio,
+        Self::Text,
+        Self::Color,
+        Self::Shape,
+        Self::Icon,
+        Self::ImageSequence,
+        Self::Html,
+        Self::GeneratedVideo,
+        Self::GeneratedImage,
+        Self::GeneratedAudio,
+        Self::SynthAudio,
+        Self::Group,
+    ];
+
+    /// The kind as `project.json` spells it — `generated_audio`, never the
+    /// Rust name `GeneratedAudio`. What [`Display`](std::fmt::Display)
+    /// prints, so a reply and the document an agent writes use one word.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Video => "video",
+            Self::Image => "image",
+            Self::Audio => "audio",
+            Self::Text => "text",
+            Self::Color => "color",
+            Self::Shape => "shape",
+            Self::Icon => "icon",
+            Self::ImageSequence => "image_sequence",
+            Self::Html => "html",
+            Self::GeneratedVideo => "generated_video",
+            Self::GeneratedImage => "generated_image",
+            Self::GeneratedAudio => "generated_audio",
+            Self::SynthAudio => "synth_audio",
+            Self::Group => "group",
+        }
+    }
+
     /// True for the kinds that do not exist until something makes them: they
     /// carry a [`GenerationState`], their output lands in `generated/`, and
     /// they render as a stand-in until it does.
@@ -184,6 +224,12 @@ impl AssetKind {
     }
 }
 
+impl std::fmt::Display for AssetKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.pad(self.name())
+    }
+}
+
 /// True when `path` names a page: it ends in `.html`, in any case.
 ///
 /// The extension is what tells a reader of the document — and the browser
@@ -227,5 +273,18 @@ impl GenerationState {
     /// True when this state implies a media file should exist on disk.
     pub fn has_media(self) -> bool {
         matches!(self, Self::Generated)
+    }
+}
+
+impl std::fmt::Display for GenerationState {
+    /// The state as `project.json` spells it: `sketch`, `queued`,
+    /// `generated`, `stale`.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.pad(match self {
+            Self::Sketch => "sketch",
+            Self::Queued => "queued",
+            Self::Generated => "generated",
+            Self::Stale => "stale",
+        })
     }
 }

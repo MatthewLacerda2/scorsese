@@ -248,7 +248,7 @@ fn said(project: &Project, reports: &[Report], failures: &[String]) -> String {
             .as_ref()
             .map_or_else(String::new, |wanted| format!(", renamed: `{wanted}` taken"));
         lines.push(format!(
-            "{} — {:?}, {} ({}){renamed}",
+            "{} — {}, {} ({}){renamed}",
             one.id,
             asset.kind,
             asset

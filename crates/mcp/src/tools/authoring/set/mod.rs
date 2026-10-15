@@ -252,10 +252,8 @@ impl Tool for AssetSet {
         let said = match (existing, asked, named) {
             (Some(kind), Some(asked), Some(id)) if kind != asked => {
                 return Err(format!(
-                    "`{id}` is a {} asset, not a {} one — nothing was written. Leave \
-                     `kind` out to change it, or name a new id to make one",
-                    fields::kind_name(kind),
-                    fields::kind_name(asked)
+                    "`{id}` is of kind `{kind}`, not `{asked}` — nothing was written. Leave \
+                     `kind` out to change it, or name a new id to make one"
                 ));
             }
             (Some(kind), _, Some(id)) => {

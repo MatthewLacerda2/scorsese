@@ -2,13 +2,13 @@
 //!
 //! None of these change anything, and none of them cost anything to run.
 
+mod assets;
+
 use std::path::Path;
 
 use schemars::JsonSchema;
 use scorsese_core::words::{self, Saying};
-use scorsese_core::{
-    AssetStatus, Frames, HashCheck, Listed, Project, asset_status, fingerprint_of, listing,
-};
+use scorsese_core::{Frames, HashCheck, Project, fingerprint_of};
 use scorsese_render::{
     Checkup, Commentary, Description, FrameRange, Layout, Note, Plan, Resolution, unknown_in,
 };
@@ -18,6 +18,8 @@ use serde_json::Value;
 use super::args::{self, ProjectDir, ProjectOnly};
 use super::compact::compact;
 use super::{Costs, Part, Reply, Tool};
+
+pub(super) use assets::Assets;
 
 /// The frame a layout question is answered against when nobody names one.
 ///
@@ -326,99 +328,6 @@ impl Tool for Check {
         out.push_str(checkup.verdict().says());
         Ok(out.into())
     }
-}
-
-/// What is in the media pool.
-pub(super) struct Assets;
-
-/// What `project_assets` takes.
-#[derive(Deserialize, JsonSchema)]
-struct AssetsArguments {
-    project: ProjectDir,
-    /// Re-hash every file to catch media edited behind the project's back. Slow
-    /// on a large pool; the default only checks that files are present.
-    #[serde(default)]
-    verify: bool,
-}
-
-impl args::Arguments for AssetsArguments {}
-
-impl Tool for Assets {
-    fn name(&self) -> &'static str {
-        "project_assets"
-    }
-
-    fn description(&self) -> &'static str {
-        "List the media pool: every asset, its kind, what state it is in, and \
-         how many clips use it. An image sequence is one line with its count of \
-         stills; only a still needing attention or also used by a clip is named, \
-         indented under it. Says which generated assets are still sketches \
-         nobody has realised, and which files the document points at and cannot \
-         find."
-    }
-
-    fn writes(&self) -> bool {
-        false
-    }
-
-    fn costs(&self) -> Costs {
-        Costs::Nothing
-    }
-
-    fn schema(&self) -> Value {
-        args::schema::<AssetsArguments>()
-    }
-
-    fn call(&self, arguments: &Value) -> Result<Reply, String> {
-        let arguments: AssetsArguments = args::parse(arguments)?;
-        let dir = arguments.project.dir();
-        let project = load(dir)?;
-        let check = if arguments.verify {
-            HashCheck::Verify
-        } else {
-            HashCheck::Skip
-        };
-        let rows = asset_status(&project, dir, check);
-        if rows.is_empty() {
-            return Ok("the pool is empty".into());
-        }
-        Ok(listing(&project, &rows)
-            .iter()
-            .flat_map(listed)
-            .collect::<Vec<_>>()
-            .join("\n")
-            .into())
-    }
-}
-
-/// One top-level asset, and for a sequence how many stills it plays (#684).
-///
-/// Collapsed the way the panels and `scorsese assets` show it: a 400-photo
-/// timelapse costs a caller one line, not 401. The stills still named under it
-/// are the ones worth acting on — one needing attention, or one a clip also
-/// shows on its own. Every still id is in `project_read`'s document.
-fn listed(listed: &Listed<'_>) -> Vec<String> {
-    let mut lines = vec![line(listed.row)];
-    if !listed.stills.is_empty() {
-        lines[0].push_str(&format!("\t{} still(s) under it", listed.stills.len()));
-    }
-    lines.extend(listed.stills.iter().filter_map(|still| {
-        if still.health.needs_attention() {
-            Some(format!("  {}", line(still)))
-        } else if still.clip_count > 0 {
-            Some(format!("  {}\talso used on its own", line(still)))
-        } else {
-            None
-        }
-    }));
-    lines
-}
-
-fn line(row: &AssetStatus) -> String {
-    format!(
-        "{}\t{:?}\t{:?}\t{} clip(s)",
-        row.id, row.kind, row.health, row.clip_count
-    )
 }
 
 /// Loads a project, with the failure worded for a client rather than a shell.

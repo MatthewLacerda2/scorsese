@@ -1,6 +1,6 @@
 //! What `scorsese check` says about a project's text before anything is drawn:
-//! a face nothing ships, a shipped face asked for a cut it was never drawn in,
-//! and characters no face can draw.
+//! a face nothing ships, a face asked for a cut it was never drawn in or a font
+//! file that will not open, and characters no face can draw.
 
 use std::path::Path;
 
@@ -40,8 +40,8 @@ impl std::fmt::Display for UnknownFont {
 
 /// Every text asset in the project naming a shipped face that does not exist.
 ///
-/// Only names: a `font` that is a **path** is a file on disk, and whether it is
-/// there is `check`'s media pass to answer, alongside every other missing file.
+/// Only names: a `font` that is a **path** is a file on disk, and whether it
+/// opens is [`unusable_faces`]'s to answer.
 pub fn unknown_fonts(project: &Project) -> Vec<UnknownFont> {
     project
         .assets
@@ -58,8 +58,10 @@ pub fn unknown_fonts(project: &Project) -> Vec<UnknownFont> {
         .collect()
 }
 
-/// A text asset asking a **shipped** family for an italic or a weight it does
-/// not have — an italic of Anton, Liberation Sans at 600, Inter at 50.
+/// A text asset asking a face for an italic or a weight it does not have — an
+/// italic of Anton, Liberation Sans at 600, Inter at 50, an italic of a file
+/// the project carries — or naming a font file that is not there or is not a
+/// font (#1193).
 ///
 /// A **problem**, for the reason [`UnknownFont`] is one: the render refuses it
 /// rather than substituting a nearby cut, so a title written this way leaves no
@@ -69,7 +71,7 @@ pub fn unknown_fonts(project: &Project) -> Vec<UnknownFont> {
 pub struct UnusableFace {
     /// The text asset asking.
     pub asset: String,
-    /// The family's name as authored.
+    /// The family's name, or the font file's path, as authored.
     pub named: String,
     /// Why it cannot be set as asked, and what it does have.
     pub detail: String,
@@ -85,12 +87,13 @@ impl std::fmt::Display for UnusableFace {
     }
 }
 
-/// Every text asset asking a shipped family for a cut it does not have.
+/// Every text asset whose face the render would refuse.
 ///
 /// Resolves each face through the same painter a render uses, so this refuses
-/// exactly what the render would. Only shipped names: one this build does not
-/// ship is [`unknown_fonts`]'s, and a file the project carries is the media
-/// pass's, so neither fault is reported twice.
+/// exactly what the render would. A name this build does not ship is
+/// [`unknown_fonts`]'s, so that fault is not reported twice. A font file is
+/// not an asset, so nothing else says it is missing: that is said here too, in
+/// the same one finding.
 pub fn unusable_faces(project: &Project, project_root: &Path) -> Vec<UnusableFace> {
     let mut painter = Painter::default();
     project
@@ -99,12 +102,25 @@ pub fn unusable_faces(project: &Project, project_root: &Path) -> Vec<UnusableFac
         .filter(|asset| asset.kind == AssetKind::Text)
         .filter_map(|asset| {
             let style = asset.text_style();
-            let named = style.font.name()?.to_owned();
-            text::family(&named)?;
+            match &style.font {
+                FontChoice::Named(name) => {
+                    text::family(name)?;
+                }
+                // Said in the document's words rather than the operating
+                // system's "No such file or directory (os error 2)".
+                FontChoice::File(path) if !path.resolve(project_root).is_file() => {
+                    return Some(UnusableFace {
+                        asset: asset.id.to_string(),
+                        named: path.to_string(),
+                        detail: "there is no font file at that path in the project".to_owned(),
+                    });
+                }
+                FontChoice::File(_) => {}
+            }
             match painter.font(&style, asset, project_root) {
                 Err(RenderError::UnusableFont { detail, .. }) => Some(UnusableFace {
                     asset: asset.id.to_string(),
-                    named,
+                    named: face_named(&style.font),
                     detail,
                 }),
                 _ => None,

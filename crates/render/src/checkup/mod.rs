@@ -103,7 +103,8 @@ impl Verdict {
 ///
 /// - **Problems** make a render impossible — a dangling asset reference, two
 ///   clips fighting over the same instant, a file a clip references that is
-///   not on disk, a `style.font` naming a face this build does not ship.
+///   not on disk, a `style.font` naming a face this build does not ship or a
+///   font file that will not open.
 /// - **Warnings** are things that render perfectly well and are probably not
 ///   what anyone meant: a keyframe track naming a property nobody animates, a
 ///   sped-up clip that plays past the end of its footage, a
@@ -294,9 +295,10 @@ fn media(project: &Project, project_dir: &Path, hashes: HashCheck) -> Vec<Findin
         severity: Severity::Problem,
         detail: unknown.to_string(),
     }));
-    // A shipped face asked for an italic or a weight it was never drawn in:
-    // the render refuses it rather than reaching for a neighbour, so it stops
-    // a render exactly as a missing face does.
+    // A face asked for an italic or a weight it was never drawn in, or a font
+    // file that is not there or is not a font: the render refuses it rather
+    // than reaching for a neighbour, so it stops a render exactly as a missing
+    // face does.
     found.extend(
         unusable_faces(project, project_dir)
             .into_iter()

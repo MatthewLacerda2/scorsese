@@ -131,6 +131,26 @@ fn a_future_schema_version_is_refused() {
         }
         other => panic!("got {other:?}"),
     }
+    let said = Project::from_json(&json).expect_err("again").to_string();
+    assert!(said.contains("upgrade"), "{said}");
+    assert!(!said.contains("migrate"), "{said}");
+}
+
+/// An older document is one command from loading, and the refusal names it
+/// (#1115).
+#[test]
+fn an_older_schema_version_names_the_migration() {
+    let json = format!(
+        r#"{{ "schema_version": {}, "name": "from the past" }}"#,
+        SCHEMA_VERSION - 1
+    );
+    let said = Project::from_json(&json)
+        .expect_err("an older version must fail")
+        .to_string();
+    assert!(
+        said.contains("`scorsese migrate --project <dir>`"),
+        "{said}"
+    );
 }
 
 #[test]

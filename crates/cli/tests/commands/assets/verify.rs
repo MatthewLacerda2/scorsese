@@ -35,7 +35,7 @@ fn verify_reports_the_file_that_changed_behind_the_projects_back() {
     let dir = changed("changed-verify");
     let run = list(&dir, &["--verify"]).ok();
 
-    assert!(row_for(&run, "boat").contains("CHANGED SINCE IMPORT"));
+    assert!(row_for(&run, "boat").contains("changed since import"));
     run.says("1 needing attention");
     run.silent_about("hashes not checked");
     std::fs::remove_dir_all(&dir).ok();

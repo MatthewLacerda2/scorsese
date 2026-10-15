@@ -37,7 +37,7 @@ fn a_sequence_is_one_line_naming_only_the_stills_that_need_a_look() {
         run.output
     );
     run.says("└ gone");
-    run.says("FILE MISSING");
+    run.says("file missing");
     run.says("(also used on its own)");
     // `gc` keeps a still a sequence plays, so the tally does not call it unused.
     run.says("4 assets, 1 unused, 1 needing attention");
