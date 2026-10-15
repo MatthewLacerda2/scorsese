@@ -199,7 +199,7 @@
 #   changed lines are mutable and never how many get mutated. 66 is a ceiling
 #   nobody pays per pull request.
 # - **What the weekly sweep pays: a fifth week.** The sweep's rotation is
-#   derived from the globs below (`.github/scripts/mutants-rotation.py`, #431),
+#   derived from the globs below (`.github/scripts/mutants/rotation.py`, #431),
 #   so `scorsese-providers` is a slot of its own and every crate's re-audit is
 #   five weeks rather than four. It was briefly a gap instead: the rotation
 #   was a hand-written list that did not include it.
@@ -297,6 +297,13 @@ exclude_globs = [
 # wc -l` is the check: it builds nothing, and the count it prints is four
 # figures. Six is what this file looks like when an entry has eaten everything.
 #
+# **Every entry names its line** (`file\.rs:LINE:COL: …`, from `cargo mutants
+# --list`), so it covers one mutant and no neighbour: a bare `in line_len`
+# also excluded `delay.rs`'s `line_length` until #1229. A line that moves stops
+# matching and the mutant returns to the report — the right direction to fail.
+# `.github/scripts/mutants/exclusions.py`, run by `make scripts`, holds every
+# entry to a comment, escaped operators and a line.
+#
 # One exception, per the note above `exclude_globs`: a struct-field deletion
 # cannot be excluded here at all — an entry for one is accepted and does
 # nothing, and the mutant is still reported.
@@ -305,20 +312,21 @@ exclude_re = [
     # output reads — the top and bottom a `fill` crops away. Answering `true`
     # computes those rows anyway and nothing ever reads them, so the output is
     # identical for every input: an optimisation, genuinely equivalent.
-    'replace Taps::reads -> bool with true',
+    'resample\.rs:258:9: replace Taps::reads -> bool with true',
 
     # `catmull_rom` switches pieces at `x < 1.0` and `x < 2.0`, and the pieces
     # meet at 0 at both — at exactly 1 and at exactly 2 the cubic is 0 either
     # way, continuous by construction — so `<=` gives the same weight for
     # every input, at either comparison. `==` is not equivalent and is caught
     # by `a_ramp_grows_into_the_same_ramp`.
-    'replace < with <= in catmull_rom',
+    'resample\.rs:266:10: replace < with <= in catmull_rom',
+    'resample\.rs:268:17: replace < with <= in catmull_rom',
 
     # `gradient::noise` keys its hash on `(y << 32) | x`, with `x` a `u32`: the
     # two halves share no bit, so `|` and `^` build the same key for every pixel
     # there is. Genuinely equivalent. The key's other half is load-bearing, and
     # `the_noise_is_pinned` catches any mutation that moves a value.
-    'replace \| with \^ in noise',
+    'gradient/mod\.rs:203:35: replace \| with \^ in noise',
 
     # `Properties::is_identity` compares five `f64` differences against a
     # tolerance: `(x - 1.0).abs() < 1e-9`. Widening `<` to `<=` changes the
@@ -329,7 +337,12 @@ exclude_re = [
     # Excluded and not fixed, and the distinction matters: an epsilon boundary
     # that could be hit is a gap, and the identical-looking mutation would be
     # reported as a survivor from a function whose tolerance is reachable.
-    'replace < with <= in Properties::is_identity',
+    'reading\.rs:44:31: replace < with <= in Properties::is_identity',
+    'reading\.rs:45:38: replace < with <= in Properties::is_identity',
+    'reading\.rs:46:38: replace < with <= in Properties::is_identity',
+    'reading\.rs:47:38: replace < with <= in Properties::is_identity',
+    'reading\.rs:49:36: replace < with <= in Properties::is_identity',
+    'reading\.rs:50:43: replace < with <= in Properties::is_identity',
 
     # `segments::cuts` collects the frames at which the visible set can change.
     # It seeds the list with `[start, end]`, then adds each clip boundary that
@@ -348,8 +361,8 @@ exclude_re = [
     # *are* caught say so: `>` to `<`, `>` to `==`, `<` to `>` and `<` to `==`
     # each admit boundaries from outside the rendered range and are killed by
     # the range tests. Only the one-frame widening is absorbed.
-    'replace > with >= in cuts',
-    'replace < with <= in cuts',
+    'segments\.rs:221:30: replace > with >= in cuts',
+    'segments\.rs:221:45: replace < with <= in cuts',
 
     # `shape::arrow::Run::of` opens with `!dx.is_finite() || !dy.is_finite()`, and
     # every path out of it then goes through `unit`, which takes `dx.hypot(dy)` and
@@ -362,7 +375,7 @@ exclude_re = [
     # The guard stays because it says what the function assumes at the top of it,
     # and the rest of the condition is load-bearing: deleting either `!` refuses
     # every ordinary arrow and is killed by the drawing tests.
-    'replace \|\| with && in Run::of',
+    'arrow\.rs:161:28: replace \|\| with && in Run::of',
 
     # `shape::arrow::unit` refuses a run it cannot take a direction from with
     # `!length.is_finite() || length <= 0.0`, where `length` is `dx.hypot(dy)`.
@@ -378,7 +391,7 @@ exclude_re = [
     # The non-finite half of the condition is unreachable from here rather than
     # equivalent: `Run::of` has already refused a non-finite endpoint before
     # `unit` is called on one.
-    'replace \|\| with && in unit',
+    'arrow\.rs:227:28: replace \|\| with && in unit',
 
     # `chroma::sane` turns anything that is not a distance into zero:
     # `if value.is_nan() || value < 0.0 { 0.0 } else { value }`. Widening to
@@ -397,7 +410,7 @@ exclude_re = [
     #
     # Line-qualified to this function: the same widening elsewhere is a
     # boundary somebody can stand on, and this entry must not swallow it.
-    'replace < with <= in sane',
+    'chroma\.rs:321:32: replace < with <= in sane',
 
     # `shape::closed::bounds` refuses a size that could not describe a rectangle —
     # zero, negative, or not a number — with
@@ -411,7 +424,9 @@ exclude_re = [
     # The comparisons themselves are still load-bearing, and the mutations that
     # *are* caught say so: deleting either `!`, or widening either `<=` to `>`,
     # refuses sizes that are perfectly good, and the drawing tests kill all four.
-    'replace \|\| with && in bounds',
+    'closed\.rs:109:27: replace \|\| with && in bounds',
+    'closed\.rs:109:50: replace \|\| with && in bounds',
+    'closed\.rs:109:66: replace \|\| with && in bounds',
 
     # `blur::radius` turns a fraction of a layer's height into a count of pixels
     # and refuses everything that softens nothing with
@@ -436,7 +451,7 @@ exclude_re = [
     #
     # The `||` is escaped because this is a regex and not the printed line: see
     # #363, which is what an unescaped one does to the whole surface.
-    'replace \|\| with && in radius',
+    'blur\.rs:106:24: replace \|\| with && in radius',
 
     # `env::held_level` opens each of its two segments with a guard that the
     # segment has a length at all — `adsr.a > 0.0 && t < adsr.a`, and the same
@@ -509,7 +524,7 @@ exclude_re = [
     # three mutations of `rate_scale` are caught too: replacing the whole
     # function with `1.0` puts every voice exactly on the written rate, and
     # `0.0` and `-1.0` are outside the spread the assertions allow.
-    'replace \+ with - in rate_scale',
+    'voices\.rs:124:9: replace \+ with - in rate_scale',
 
     # `chorus::line_len` sizes the delay line: two samples longer than the
     # deepest read any voice makes. It is a **lower bound and not a size** —
@@ -529,8 +544,8 @@ exclude_re = [
     # The function exists to carry these two entries by name. Inline in
     # `apply`, the same printed names covered the mono sum, the blend and the
     # tap position, every one of which is asserted on.
-    'replace \+ with \* in line_len',
-    'replace \* with \+ in line_len',
+    'chorus/mod\.rs:148:50: replace \+ with \* in line_len',
+    'chorus/mod\.rs:148:26: replace \* with \+ in line_len',
 
     # `chorus::advance` moves one voice's sweep on by a sample, `(phase +
     # step) % TAU`. Flipping that `+` runs the sweep backwards — and a voice's
@@ -551,7 +566,7 @@ exclude_re = [
     # wrap and the sweep stops returning to where it began, which
     # `a_copy_sweeps_through_its_delays_and_is_back_after_one_of_its_cycles`
     # measures; `+` to `*` stops the phase advancing at all.
-    'replace \+ with - in advance',
+    'chorus/mod\.rs:159:12: replace \+ with - in advance',
 
     # `Mix::needs` says whether a note of this track is worth *synthesising*.
     # Answering `true` for every track renders the notes a solo left out and
@@ -572,7 +587,7 @@ exclude_re = [
     # The `[^>]` in the pattern is the lifetime's apostrophe, which a TOML
     # literal string cannot carry — the entry is still line-qualified to this
     # one mutation of this one function.
-    'replace Mix<[^>]a>::needs -> bool with true',
+    'mix\.rs:222:9: replace Mix<[^>]a>::needs -> bool with true',
 
     # `render::glides` says whether any note in the piece is slid onto, and so
     # whether the walk that works out what each note slides *from* is built at
@@ -598,7 +613,7 @@ exclude_re = [
     # off, and `==` to `!=` turns them off for a part where *every* note is
     # slid onto, which is the ordinary shape of a bassline —
     # `a_line_of_nothing_but_glides_still_slides` is the test that objects.
-    'render\.rs:432:5: replace glides -> bool with true',
+    'render\.rs:486:5: replace glides -> bool with true',
 
     # `core::tracks::pitch_track` carries a glide as a straight line from the
     # note it slid from to the note itself: `1.0 - i / samples`, added while
@@ -645,8 +660,8 @@ exclude_re = [
     # every extra entry is a duplicate. The other mutations of the line — `<`
     # to `>` or `==` at either end, `&&` to `||` — admit member cuts from
     # outside the stretch and are caught by the grouping plan tests.
-    'nested\.rs:115:56: replace < with <= in boundaries',
-    'nested\.rs:115:71: replace < with <= in boundaries',
+    'nested\.rs:152:56: replace < with <= in boundaries',
+    'nested\.rs:152:71: replace < with <= in boundaries',
 
     # `grouping::id_limit` is the bound handed to `template::ids::free`: the
     # count of every clip, asset and track in the document. It only has to be
@@ -794,7 +809,7 @@ exclude_re = [
     # rounds to nothing and whose rim and colour glyphs blend at nothing, so it
     # adds no pixel. Measured: the same 32 reveals are byte-identical, and so
     # is the list of glyphs reported unpaintable. Cost, not behaviour.
-    'text/mod\.rs:357:37: replace > with >= in set',
+    'text/mod\.rs:358:37: replace > with >= in set',
 
     # `song::mix::sends` says whether a render builds a *sent* mix beside the
     # master — the sum the song chain's reverb and delay hear when some track's
@@ -814,9 +829,10 @@ exclude_re = [
     # The direction that matters is caught: `false` never builds it, and
     # `a_track_that_sends_nothing_leaves_no_tail` hears the room ring on a dry
     # kick. So do `<` to `>` and `==`, for the same test.
-    'mix\.rs:\d+:\d+: replace sends -> bool with true',
-    'mix\.rs:\d+:\d+: replace < with <= in sends',
-    'mix\.rs:\d+:\d+: replace && with \|\| in sends',
+    'mix\.rs:324:5: replace sends -> bool with true',
+    'mix\.rs:332:64: replace < with <= in sends',
+    'mix\.rs:332:50: replace && with \|\| in sends',
+    'mix\.rs:333:10: replace && with \|\| in sends',
 ]
 
 # ---------------------------------------------------------------------------

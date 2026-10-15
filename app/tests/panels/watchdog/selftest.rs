@@ -17,6 +17,7 @@ use super::{BUDGET_VAR, arm};
 /// It stands in for a snapshot that will not finish. The watchdog cannot tell
 /// the difference between this and a real one, which is the point — it does not
 /// diagnose, it stops.
+// lint: allow(skip) it hangs on purpose, and only the watchdog test runs it.
 #[test]
 #[ignore = "hangs on purpose; run by the_watchdog_stops_a_run_that_will_not_finish"]
 fn wedged_on_purpose() {

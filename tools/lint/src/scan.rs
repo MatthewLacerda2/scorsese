@@ -5,8 +5,9 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::classify::{Kind, classify, is_skipped_dir};
+use crate::classify::Kind;
 use crate::python;
+use crate::tree::{CodeFile, code_files};
 
 /// One file over its limit.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -110,41 +111,17 @@ fn is_code(line: &[u8], in_block: &mut bool) -> bool {
 /// Measure every file under `root` the gate has an opinion about.
 pub fn check_dir(root: &Path) -> io::Result<Report> {
     let mut report = Report::default();
-    let mut dirs = vec![PathBuf::new()];
-
-    while let Some(dir) = dirs.pop() {
-        for entry in fs::read_dir(root.join(&dir))? {
-            let entry = entry?;
-            let relative = dir.join(entry.file_name());
-            // Symlinks are not followed: a link into a directory already being
-            // walked would count its files twice, or loop.
-            let file_type = entry.file_type()?;
-
-            if file_type.is_dir() {
-                if !is_skipped_dir(&relative) {
-                    dirs.push(relative);
-                }
-            } else if file_type.is_file()
-                && let Some(kind) = classify(&relative)
-            {
-                report.checked += 1;
-                let bytes = fs::read(entry.path())?;
-                let lines = if relative.extension().is_some_and(|ext| ext == "py") {
-                    python::code_lines(&bytes)
-                } else {
-                    code_lines(&bytes)
-                };
-                if lines > kind.limit() {
-                    report.violations.push(Violation {
-                        path: relative,
-                        lines,
-                        kind,
-                    });
-                }
-            }
+    for CodeFile { path, kind } in code_files(root)? {
+        report.checked += 1;
+        let bytes = fs::read(root.join(&path))?;
+        let lines = if path.extension().is_some_and(|ext| ext == "py") {
+            python::code_lines(&bytes)
+        } else {
+            code_lines(&bytes)
+        };
+        if lines > kind.limit() {
+            report.violations.push(Violation { path, lines, kind });
         }
     }
-
-    report.violations.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(report)
 }

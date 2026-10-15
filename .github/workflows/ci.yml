@@ -373,6 +373,13 @@ jobs:
       - name: Build
         run: cargo build --manifest-path app/Cargo.toml --locked
 
+      # The root workspace's `docs` gate, for the app's own workspace, which
+      # that one cannot reach (#1229): a broken intra-doc link fails here too.
+      - name: Docs
+        run: cargo doc --manifest-path app/Cargo.toml --no-deps --locked
+        env:
+          RUSTDOCFLAGS: -D warnings
+
       # A gate, not a signal: a failing app test blocks a merge exactly as a
       # failing workspace test does. `app/` is its own workspace so that a
       # graphics dependency tree never slows a headless change — which means
@@ -436,7 +443,10 @@ jobs:
   # one. The rule deciding which cap a path falls under lives in
   # `tools/lint/src/classify.rs`, and its tests run here first: a classifier
   # that quietly misfiles a path is a gate that has stopped gating without
-  # saying so.
+  # saying so. The same run holds the conventions in `tools/lint/src/rules`
+  # (#1229): no filename-prefix groups, no markers promising later work, no
+  # skipped tests, crate docs naming their public modules, and no code file
+  # `.gitignore` would leave out of a commit.
   size:
     name: size gate
     runs-on: ubuntu-24.04

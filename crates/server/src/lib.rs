@@ -91,7 +91,7 @@
 //! ## What this publishes
 //!
 //! [`run`], which is what the binary calls to serve, and the parts it is
-//! assembled from — [`Config`], [`db`], [`http`] and [`start`] — published
+//! assembled from — [`Config`] (read from the environment by [`mod@config`]), [`db`], [`http`] and [`start`] — published
 //! because the tests drive each one from outside the crate. [`accounts`] is
 //! who may use the server, [`operator`] the commands that manage them,
 //! [`projects`] their edits stored as `project.json` documents, [`library`]

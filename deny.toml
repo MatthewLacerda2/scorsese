@@ -19,7 +19,8 @@
 # There is a third workspace, `tools/lint`, and it is deliberately not checked:
 # it has no dependencies at all, and its lockfile holds exactly one crate —
 # itself. Nothing to gate. That stops being true the moment it gains a
-# dependency, which is the reason this paragraph exists rather than the fact.
+# dependency, which is the reason this paragraph exists rather than the fact —
+# and `tools/lint/tests/inheritance.rs` fails that same moment (#1229).
 
 [advisories]
 # A crate version pulled after being yanked is worth knowing about, but it is

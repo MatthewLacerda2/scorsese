@@ -25,7 +25,7 @@ fn a_script_is_source_and_a_test_is_a_test() {
         Some(Kind::Source)
     );
     assert_eq!(
-        kind_of(".github/scripts/tests/test_merge_queue.py"),
+        kind_of(".github/scripts/tests/queueing/test_queue.py"),
         Some(Kind::Test)
     );
     // The name alone makes a test, wherever it sits — and it is the prefix,

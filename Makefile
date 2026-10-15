@@ -312,7 +312,7 @@ format: ## [gate] cargo fmt --check, workspace and tools/lint
 # `pre-commit`, so putting it through nextest would mean a clone that has not
 # installed the runner yet cannot commit at all — and there is nothing to win:
 # six small test files, nothing for a scheduler to overlap.
-size: ## [gate] Source <= 300 lines of code, tests <= 150; blanks and comments free
+size: ## [gate] Source <= 300 lines of code, tests <= 150; and the conventions tools/lint holds (prefix groups, markers, skips, crate docs)
 	@out=$$(cargo test $(LINT) --locked --quiet 2>&1) \
 		|| { printf '%s\n' "$$out" >&2; exit 1; }
 	cargo run $(LINT) --locked --quiet
@@ -539,6 +539,9 @@ app-gates:
 	cargo fmt --manifest-path app/Cargo.toml --all --check
 	cargo clippy --manifest-path app/Cargo.toml --all-targets --locked -- -D warnings
 	cargo build --manifest-path app/Cargo.toml --locked
+# The `docs` gate's line for the app's workspace, which `--workspace` at the
+# root never reaches (#1229).
+	RUSTDOCFLAGS="-D warnings" cargo doc --manifest-path app/Cargo.toml --no-deps --locked
 # Running them, not only compiling them. `clippy --all-targets` and `build`
 # already build the test targets, so a test that does not compile was caught —
 # and one that fails was not, which reads as coverage while proving nothing.
@@ -746,7 +749,7 @@ mutants: ## Which changes to the code no test would notice. A signal: blocks not
 			   echo "         so a message about space or a quota is about that copy, not about the repo." >&2; \
 			   exit $$status ;; \
 		esac; \
-		$(PYTHON) .github/scripts/mutants-summary.py mutants.out/outcomes.json; \
+		$(PYTHON) .github/scripts/mutants/summary.py mutants.out/outcomes.json; \
 		said=$$($(MUTANTS_VERDICT)); \
 	fi; \
 	printf '%s\n%s\n' "$$(git rev-parse --abbrev-ref HEAD)" "$$said" > $(MUTANTS_STAMP)
@@ -772,7 +775,7 @@ mutants-remote: ## Mutation on GitHub's runners, scoped. SCOPE=diff | scorsese-c
 		echo "                e.g. make mutants-remote SCOPE='crates/core/src/keyframe/**'" >&2; \
 		exit 1; }
 	@$(PYTHON_CHECK)
-	@$(PYTHON) .github/scripts/mutants-remote.py '$(SCOPE)'
+	@$(PYTHON) .github/scripts/mutants/remote.py '$(SCOPE)'
 
 # The line `make gates` ends on, and the reason it is reached from the recipe
 # rather than sitting in $(GATES): it runs nothing, it can fail nothing, and a

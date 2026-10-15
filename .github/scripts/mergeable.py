@@ -50,6 +50,11 @@ mergeable. A page the code reads is re-included, so a change to it gets a run
 and missing that run is still #153. Before this, such a pull request was the
 one merge done by hand, and every hand merge is a check someone can skip.
 
+**A passing run is not the last word: the description is** (#1229). A head
+branch `N-…` whose description does not close #N is handed back, and a
+missing **Gates** line is warned about — `protocol.py` has why, and both are
+asked only once CI has passed, so a red run is still what a refusal names.
+
 Branch protection is the obvious alternative and probably does not work here.
 GitHub generally treats a skipped job as satisfying a required check, and our
 jobs skip by design on drafts — so a required-checks rule would look at exactly
@@ -87,6 +92,12 @@ _spec = importlib.util.spec_from_file_location(
 )
 ci_paths = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ci_paths)
+
+_spec = importlib.util.spec_from_file_location(
+    "protocol", Path(__file__).resolve().parent / "protocol.py"
+)
+protocol = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(protocol)
 
 # The workflow that gates a merge. A run of anything else — a scheduled job, a
 # future workflow — is not the one being asked about, and counting it would be
@@ -368,7 +379,10 @@ def judge(
         ]
 
     if not runs:
-        return markdown_only(pull, short) if skips else (False, no_run(pull, short))
+        if not skips:
+            return False, no_run(pull, short)
+        ok, lines = markdown_only(pull, short)
+        return described(pull, lines) if ok else (ok, lines)
 
     # A failure anywhere in the set refuses, and it is asked first. A commit
     # whose evidence disagrees with itself has exactly one safe reading, and a
@@ -428,7 +442,20 @@ def judge(
             f"{len(runs)} runs exist for this commit; none failed, and this is"
             " the one that built it."
         )
-    return True, lines
+    return described(pull, lines)
+
+
+def described(pull: dict, lines: list[str]) -> tuple[bool, list[str]]:
+    """A passing verdict, unless the description breaks the protocol.
+
+    Asked only once CI has passed, so a red run is still the first thing a
+    refusal names. A branch named for an issue whose description does not
+    close it is handed back; a missing Gates line is a warning (`protocol.py`).
+    """
+    refusal = protocol.closing(pull)
+    if refusal:
+        return False, refusal
+    return True, lines + protocol.gates(pull)
 
 
 def changed(listing: list[dict]) -> list[str]:
@@ -487,7 +514,9 @@ def answer(number: str) -> int:
         # The last three are only ever read when there is no run to judge, and
         # they are what makes that answer specific rather than a guess (#429,
         # #1135).
-        "isDraft,headRefOid,number,mergeable,mergeStateStatus,baseRefName",
+        "isDraft,headRefOid,number,mergeable,mergeStateStatus,baseRefName,"
+        # Read only once CI has passed: the description's protocol (#1229).
+        "headRefName,body",
     )
     sha = pull["headRefOid"]
 

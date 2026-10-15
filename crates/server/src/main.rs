@@ -12,20 +12,8 @@ use std::process::ExitCode;
 use clap::Parser;
 use scorsese_providers::credentials::Environment;
 use scorsese_server::captures::worker::{Isolation, Worker};
-use scorsese_server::operator::{self, Command};
+use scorsese_server::operator::{self, Cli, Command};
 use scorsese_server::{Config, ServerError};
-
-/// The scorsese web API, and the operator's commands for its accounts.
-///
-/// Configured by the environment: DATABASE_URL, SCORSESE_STORAGE,
-/// SCORSESE_CACHE and optionally SCORSESE_BIND (see .env.example).
-#[derive(Debug, Parser)]
-#[command(name = "scorsese-server", version)]
-struct Cli {
-    /// What to do. Serves when omitted.
-    #[command(subcommand)]
-    command: Option<Command>,
-}
 
 #[tokio::main]
 async fn main() -> ExitCode {

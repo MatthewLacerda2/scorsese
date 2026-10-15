@@ -10,11 +10,11 @@
 #
 # The way in is `make mutants-remote SCOPE=…`, which dispatches this workflow
 # on the current branch, waits for the run, downloads its report and prints it
-# (`.github/scripts/mutants-remote.py` has the waiting and its rules). By hand:
+# (`.github/scripts/mutants/remote.py` has the waiting and its rules). By hand:
 #
 #   gh workflow run mutants-on-request.yml --ref <branch> -f scope='<scope>'
 #
-# The scope is one of three spellings, read by `.github/scripts/mutants-scope.py`
+# The scope is one of three spellings, read by `.github/scripts/mutants/scope.py`
 # — `diff` (this branch against `origin/main`), a package name (`scorsese-core`),
 # or path globs (`crates/zimmer/src/song/**`). Its docstring says why paths go
 # through `--in-diff` rather than cargo-mutants' own `--file` and `--re`: neither
@@ -100,7 +100,7 @@ jobs:
           SCOPE: ${{ inputs.scope }}
         run: |
           set -euo pipefail
-          args=$(python3 .github/scripts/mutants-scope.py resolve "$SCOPE" \
+          args=$(python3 .github/scripts/mutants/scope.py resolve "$SCOPE" \
             --out plan.json --diff scope.diff)
           echo "args=$args" >> "$GITHUB_OUTPUT"
 
@@ -124,7 +124,7 @@ jobs:
           set -euo pipefail
           # shellcheck disable=SC2086 # ARGS is a word list on purpose.
           cargo mutants --list --json $ARGS > planned.json
-          python3 .github/scripts/mutants-scope.py check plan.json planned.json > scope.txt \
+          python3 .github/scripts/mutants/scope.py check plan.json planned.json > scope.txt \
             || { cat scope.txt; echo "::error::$(cat scope.txt)"; exit 1; }
           cat scope.txt
           in_scope=$(python3 -c 'import json,sys; t=open(sys.argv[1]).read().strip(); print(len(json.loads(t)) if t else 0)' planned.json)
@@ -311,11 +311,11 @@ jobs:
           # The directory, not a glob: a lone shard's artifact lands in it
           # directly and several land one per subdirectory (#992).
           mkdir -p shards
-          python3 .github/scripts/mutants-merge.py --expect "$SHARDS" shards > report/outcomes.json
+          python3 .github/scripts/mutants/merge.py --expect "$SHARDS" shards > report/outcomes.json
           scope=$(tr '\n' ' ' < scope.txt | sed 's/ *$//')
-          python3 .github/scripts/mutants-summary.py report/outcomes.json \
+          python3 .github/scripts/mutants/summary.py report/outcomes.json \
             "$scope" --in-scope "$IN_SCOPE" > report/report.md
-          python3 .github/scripts/mutants-diffs.py report/outcomes.json planned.json \
+          python3 .github/scripts/mutants/diffs.py report/outcomes.json planned.json \
             > report/survivors.diff
           cat report/report.md >> "$GITHUB_STEP_SUMMARY"
 
