@@ -55,3 +55,20 @@ fn a_folder_that_is_not_there_fails_alone_and_needs_no_save() {
     assert_eq!(batch.failures.len(), 1);
     assert!(!batch.needs_save);
 }
+
+#[test]
+fn a_folder_of_frames_needs_saving_once_and_not_again() {
+    let (dir, mut project) = new_project("many-frames");
+    source_file(&dir, "frames/f_1.png", b"the first frame");
+    source_file(&dir, "frames/f_2.png", b"the second frame");
+    let folder = dir.join("sources/frames");
+    let probe = StubProbe::image();
+
+    let first = import_sequences(&mut project, &dir, &[&folder], &probe);
+    assert!(first.failures.is_empty(), "{:?}", first.failures);
+    assert!(first.needs_save, "a new sequence is added");
+
+    let again = import_sequences(&mut project, &dir, &[&folder], &probe);
+    assert!(again.reports[0].existed);
+    assert!(!again.needs_save, "the same sequence adds nothing");
+}

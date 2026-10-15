@@ -103,10 +103,16 @@ fn a_bake_nobody_can_stop_bakes_every_recipe() {
 #[test]
 fn the_shared_bake_tallies_what_it_rendered_and_what_was_cached() {
     let (dir, mut project) = project("bake-tally");
+    assert!(
+        bake(&mut project, &dir, None)
+            .expect("nothing to bake")
+            .is_empty()
+    );
     write(&dir, "recipes/tune.json", TUNE);
     let id = synth_asset(&mut project, "tune", "recipes/tune.json");
 
     let first = bake(&mut project, &dir, None).expect("bakes");
+    assert!(!first.is_empty());
     assert_eq!(first.tally(), "1 rendered, 0 cached, $0.00");
 
     let again = bake(&mut project, &dir, Some(&id)).expect("bakes again");
