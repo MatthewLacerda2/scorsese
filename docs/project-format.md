@@ -1,4 +1,4 @@
-# `project.json` — schema v49
+# `project.json` — schema v50
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -34,6 +34,7 @@ carries forward) up to this one.
 | v46 → v47 | a still may wait in a half-price batch (#894): a `generated_image` may be `queued` with the batch job's name as its `operation` | nothing: v46 refused an `operation` on a still, so this only admits documents v46 refused — every v46 document passes through and only its version moves |
 | v47 → v48 | the `natural` speech model, Eleven v4 (#1240) | nothing: a value was added to `speech.model`, and every model a v47 line names is the same vendor model at v48 — `expressive` stays `eleven_v3` |
 | v48 → v49 | `expressive` is Eleven v4, and `natural` retires (#1248) | one rewrite: a line's `"model": "natural"` becomes `"expressive"`, the same vendor model under the one name left for it. Such a line's brief fingerprint moves, so one already spoken is spoken again at the next run; `natural` existed for less than a day. Every `expressive` line now asks for v4 instead of v3 — the decision itself — with its fingerprint unmoved, so a v3 file already paid for keeps playing until the line is edited |
+| v49 → v50 | a shot's optional `seed` (#1191) | nothing: one optional field was added to `video`, absent in every v49 document and absent asking Veo for what v49 asked — no seed. A shot's brief fingerprint gains a line only when a seed is set, so no shot already generated turns `stale` or is quoted again |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -42,7 +43,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 49,
+  "schema_version": 50,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [],
@@ -177,7 +178,7 @@ re-importing or regenerating a file is one edit in one place.
 | `group` | `group` | The tracks it holds, which render as one layer — see below |
 | `sequence` | `image_sequence` | The stills it plays in order, how many frames each is held, and whether it loops — see below |
 | `note` | optional | Why this asset is what it is. Never rendered — see above |
-| `video` | optional, `generated_video` only | The rest of the brief: `model`, `resolution`, `seconds`, `aspect`, `first_image`, `last_image`, `reference_images` — see below |
+| `video` | optional, `generated_video` only | The rest of the brief: `model`, `resolution`, `seconds`, `aspect`, `first_image`, `last_image`, `reference_images`, `seed` — see below |
 | `image` | optional, `generated_image` only | The rest of the brief: `model`, `resolution`, `aspect`, `thinking`, `reference_images`, `character_images`, `style_images` — see below |
 | `speech` | optional, `generated_audio` only | The rest of the brief: `model`, `voice_id`, `language`, `seed` — see below |
 | `created_at` | optional | When the asset joined the table, as UTC RFC 3339 (`2026-08-04T14:20:00Z`) |
@@ -303,6 +304,14 @@ asset `stale` exactly as rewording the prompt does.
 | `first_image` | a still's asset id — an `image` or a generated one | — |
 | `last_image` | likewise | — |
 | `reference_images` | up to 3 stills' asset ids | — |
+| `seed` | `0` – `4294967295` | — |
+
+`seed` is for a re-take that lands nearer the last one: Google says it
+"doesn't guarantee determinism, but slightly improves it". Getting the *same*
+shot back needs no seed — an unchanged brief is never generated twice — so a
+seed earns its place when a shot somebody liked has its prompt edited, and the
+rest of the shot should move as little as it can. It is hashed into the brief
+like every other field: changing it asks for a different take.
 
 Only `prompt` is required. Every field above has a default, so an absent
 `video` and an empty one mean the same thing: a request made of a sentence and
@@ -2758,7 +2767,7 @@ compositing-suite line.
 
 ```json project
 {
-  "schema_version": 49,
+  "schema_version": 50,
   "name": "wipe",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

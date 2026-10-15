@@ -124,7 +124,8 @@ pub(super) fn video_schema(_: &mut SchemaGenerator) -> Schema {
             "first_image": { "type": "string", "description": "A still's asset id: the frame the shot opens on." },
             "last_image": { "type": "string", "description": "A still's asset id, with first_image: where the shot ends." },
             "reference_images": { "type": "array", "items": { "type": "string" }, "maxItems": 3,
-                "description": "Asset ids of stills of a subject that should look like itself." }
+                "description": "Asset ids of stills of a subject that should look like itself." },
+            "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295u32, "description": "Only to re-take a shot after editing its prompt while keeping the rest of it closer; best-effort. An unchanged brief is never generated twice anyway." }
         }),
     )
 }

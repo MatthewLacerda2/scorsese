@@ -123,6 +123,10 @@ pub(crate) const STEPS: &[Step] = &[
         from: 48,
         apply: speech::natural_retires,
     },
+    Step {
+        from: 49,
+        apply: shot_seeds_arrive,
+    },
 ];
 
 /// v33 → v34: the `group` asset kind (#586).
@@ -275,6 +279,16 @@ fn batches_arrive(_: &mut Value) -> Result<(), String> {
 /// would change how existing lines sound, which was the user's call, and they
 /// made it a version later (#1248, `speech::natural_retires`).
 fn natural_speech_arrives(_: &mut Value) -> Result<(), String> {
+    Ok(())
+}
+
+/// v49 → v50: a shot's `seed` (#1191).
+///
+/// Nothing to rewrite, for [`groups_arrive`]'s reason: one optional field
+/// arrived in a shot's `video` block, absent in every v49 document, and absent
+/// asks Veo for what v49 asked — no seed. A shot's brief fingerprint gains a
+/// line only when a seed is set, so no shot already generated is quoted again.
+fn shot_seeds_arrive(_: &mut Value) -> Result<(), String> {
     Ok(())
 }
 

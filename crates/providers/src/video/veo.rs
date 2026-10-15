@@ -163,6 +163,7 @@ pub(crate) fn generate(brief: &Brief) -> Generate {
             aspect_ratio: aspect_of(brief).to_owned(),
             duration_seconds: brief.request.seconds.get(),
             resolution: brief.request.resolution.as_str().to_owned(),
+            seed: brief.request.seed,
         },
     }
 }
