@@ -539,6 +539,9 @@ app-gates:
 	cargo fmt --manifest-path app/Cargo.toml --all --check
 	cargo clippy --manifest-path app/Cargo.toml --all-targets --locked -- -D warnings
 	cargo build --manifest-path app/Cargo.toml --locked
+# The `docs` gate's line for the app's workspace, which `--workspace` at the
+# root never reaches (#1229).
+	RUSTDOCFLAGS="-D warnings" cargo doc --manifest-path app/Cargo.toml --no-deps --locked
 # Running them, not only compiling them. `clippy --all-targets` and `build`
 # already build the test targets, so a test that does not compile was caught —
 # and one that fails was not, which reads as coverage while proving nothing.

@@ -373,6 +373,13 @@ jobs:
       - name: Build
         run: cargo build --manifest-path app/Cargo.toml --locked
 
+      # The root workspace's `docs` gate, for the app's own workspace, which
+      # that one cannot reach (#1229): a broken intra-doc link fails here too.
+      - name: Docs
+        run: cargo doc --manifest-path app/Cargo.toml --no-deps --locked
+        env:
+          RUSTDOCFLAGS: -D warnings
+
       # A gate, not a signal: a failing app test blocks a merge exactly as a
       # failing workspace test does. `app/` is its own workspace so that a
       # graphics dependency tree never slows a headless change — which means
