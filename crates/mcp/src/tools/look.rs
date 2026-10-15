@@ -16,8 +16,8 @@
 //! between frames, and a change is only visible when they are side by side.
 
 use schemars::JsonSchema;
+use scorsese_render::Tools;
 use scorsese_render::contact::{self, Look as Range, MAX_FRAMES, label};
-use scorsese_render::{Tools, frames};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -113,11 +113,7 @@ impl Tool for Look {
         // Through a file, because PNG encoding is ffmpeg's and ffmpeg writes
         // files. Nothing is left behind: a sheet is a thing to look at, not an
         // artifact of the project, and `scorsese look` is how one gets kept.
-        let png = Scratch::at(None);
-        frames::write_png(&tools, &png.path, &sheet.image)
-            .map_err(|error| format!("writing the sheet: {error}"))?;
-        let bytes = std::fs::read(&png.path)
-            .map_err(|error| format!("reading {} back: {error}", png.path.display()))?;
+        let bytes = Scratch::png(&tools, &sheet.image, None, "the sheet")?;
 
         Ok(vec![Part::picture(said(&sheet, range.grid), &bytes)].into())
     }

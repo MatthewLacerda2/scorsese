@@ -34,7 +34,7 @@ use std::path::Path;
 
 use schemars::JsonSchema;
 use scorsese_render::audio::{Waveform, measure, waveform};
-use scorsese_render::{Tools, frames, say};
+use scorsese_render::{Tools, say};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -122,11 +122,7 @@ impl Tool for Hear {
         // Through a file, because PNG encoding is ffmpeg's and ffmpeg writes
         // files. Nothing is left behind: this is a thing to look at, not an
         // artifact of the project, and `scorsese hear` is how one gets kept.
-        let png = Scratch::at(None);
-        frames::write_png(&tools, &png.path, &wave.image)
-            .map_err(|error| format!("writing the waveform: {error}"))?;
-        let bytes = std::fs::read(&png.path)
-            .map_err(|error| format!("reading {} back: {error}", png.path.display()))?;
+        let bytes = Scratch::png(&tools, &wave.image, None, "the waveform")?;
 
         let mut text = said(&wave);
         text.push_str(&levels(
