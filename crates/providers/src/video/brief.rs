@@ -132,8 +132,13 @@ impl Brief {
             )
     }
 
-    /// Where a generation of this brief lands, project-relative — named for
-    /// the asset **and** the fingerprint ([`fingerprint::key`] has why).
+    /// Where a generation of this brief lands, project-relative.
+    ///
+    /// Named for the asset **and** the fingerprint. The fingerprint alone would
+    /// be enough for the cache and would even save money — two shots asking the
+    /// same thing would share one file — but it is the wrong answer for an
+    /// editor: two shots with the same prompt are two takes, and a cut that
+    /// used one file twice would show the same eight seconds in both places.
     pub fn output(&self) -> ProjectPath {
         fingerprint::output(&self.id, &self.digest(), "mp4")
     }
