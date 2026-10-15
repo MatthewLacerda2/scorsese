@@ -28,6 +28,7 @@ use serde_json::json;
 
 use super::{Client, Toolbox, database, fetched, folder, lay_out, log};
 use crate::db::UserId;
+use crate::jobs::blocking;
 use crate::projects::{self, ProjectError};
 
 /// How many times an import is made again on a project that moved under it.
@@ -136,21 +137,23 @@ impl Toolbox {
             folder::keep_stock_cache(&self.storage, user, &root)?;
             let (mut document, probe) = (stored.document.clone(), Ffprobe::new(self.tools.clone()));
             let (library, picked) = (library.clone(), choices.to_vec());
-            let (document, answers) = tokio::task::spawn_blocking(move || {
-                let cache = cache_dir(&root);
-                let answers = stock::import(
-                    &mut document,
-                    &root,
-                    &cache,
-                    &*library,
-                    &picked,
-                    frame,
-                    &probe,
-                );
-                (document, answers)
-            })
-            .await
-            .map_err(|_| "the import crashed on the server; that is a bug".to_owned())?;
+            let (document, answers) = blocking(
+                "the import crashed on the server; that is a bug",
+                move || {
+                    let cache = cache_dir(&root);
+                    let answers = stock::import(
+                        &mut document,
+                        &root,
+                        &cache,
+                        &*library,
+                        &picked,
+                        frame,
+                        &probe,
+                    );
+                    (document, answers)
+                },
+            )
+            .await?;
             let lines = said(choices, &answers)?;
             if !answers.iter().flatten().any(|one| !one.imported.reused) {
                 return Ok(lines);

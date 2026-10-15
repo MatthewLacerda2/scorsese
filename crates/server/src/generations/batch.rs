@@ -28,8 +28,8 @@ use scorsese_render::Tools;
 use super::land::Work;
 use super::still::gather;
 use super::{Timing, Vendors};
-use crate::credits::generations::{Answer, Paid};
-use crate::jobs::{Context, Handler, Job, Outcome};
+use crate::credits::generations::Paid;
+use crate::jobs::{Context, Handler, Job, Outcome, blocking};
 use crate::library::Kind;
 use crate::storage::Storage;
 
@@ -54,24 +54,10 @@ pub fn handler(
 type Provider = Arc<dyn ImageProvider + Send + Sync>;
 
 async fn batched(work: &Work, vendors: &dyn Vendors, timing: Timing) -> Outcome {
-    let paid = match work.paid().await {
-        Ok(Some(paid)) => paid,
-        Ok(None) => return work.settled().await,
-        Err(why) => return Outcome::Failed(why),
+    let paid = match work.begin().await {
+        Ok(paid) => paid,
+        Err(done) => return done,
     };
-    // Only before anything was ordered: a job holding a ticket has already
-    // paid, and asks after what it paid for.
-    if work.job.ticket.is_none()
-        && let Ok(Some(item)) = work.made().await
-    {
-        if let Err(why) = work
-            .settle(paid, &Answer::Failed("already in your library".into()))
-            .await
-        {
-            return Outcome::Failed(why);
-        }
-        return work.landed(&item).await;
-    }
     let provider: Provider = match vendors.image() {
         Ok(provider) => Arc::from(provider),
         Err(why) if work.job.ticket.is_none() => return work.refused(paid, why).await,
@@ -97,11 +83,11 @@ async fn order(work: &Work, paid: Paid, provider: &Provider) -> Result<String, O
         Err(why) => return Err(work.refused(paid, why).await),
     };
     let ordering = Arc::clone(provider);
-    let ordered = tokio::task::spawn_blocking(move || ordering.order(&[&brief])).await;
+    let ordered = blocking("ordering crashed", move || ordering.order(&[&brief])).await;
     let ticket = match ordered {
         Ok(Ok(ticket)) => ticket,
         Ok(Err(error)) => return Err(work.refused(paid, error.message).await),
-        Err(_) => return Err(work.refused(paid, "ordering crashed".into()).await),
+        Err(why) => return Err(work.refused(paid, why).await),
     };
     work.keep_ticket(paid, &ticket).await;
     Ok(ticket)
@@ -118,7 +104,10 @@ async fn wait(
     let started = Instant::now();
     loop {
         let (asking, operation) = (Arc::clone(provider), ticket.clone());
-        let answer = tokio::task::spawn_blocking(move || asking.ask(&operation)).await;
+        let answer = blocking("asking after a batch crashed", move || {
+            asking.ask(&operation)
+        })
+        .await;
         match answer {
             Ok(Ok(Batch::Stopped(why))) => return work.refused(paid, why).await,
             Ok(Ok(Batch::Finished(answers))) => {
@@ -133,7 +122,7 @@ async fn wait(
             // way, and asking again is free.
             Ok(Ok(Batch::Running)) => {}
             Ok(Err(error)) => eprintln!("scorsese-server: asking after a batch: {error}"),
-            Err(_) => eprintln!("scorsese-server: asking after a batch crashed"),
+            Err(why) => eprintln!("scorsese-server: {why}"),
         }
         if started.elapsed() >= timing.batch_patience {
             return Outcome::Stuck(format!(

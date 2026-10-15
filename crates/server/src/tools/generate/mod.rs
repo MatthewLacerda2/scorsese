@@ -38,6 +38,7 @@ use super::{Caller, database, lay_out, project_id, quotes, voiced};
 use crate::credits::{Product, dollars, from_cents, ledger, price};
 use crate::db;
 use crate::generations::adopt;
+use crate::jobs::blocking;
 use crate::projects::{self, ProjectError, ProjectFiles};
 
 /// How a client names it.
@@ -120,23 +121,23 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
     .await?;
     let batch = arguments.get("batch").and_then(Value::as_bool) == Some(true);
     let (root, document) = (folder.root().to_path_buf(), stored.document.clone());
-    let (mut quote, mut alternative, charged) = tokio::task::spawn_blocking(move || {
-        let quoted = if batch {
-            quote::batch(&document, &root)
-        } else {
-            generation(&document, &root)
-        };
-        let mut quote = quoted.map_err(|error| error.to_string())?;
-        offer::foreign(&document, &root, &mut quote);
-        // A quote for now that a batch could also take is quoted both ways.
-        let alternative = (!batch)
-            .then(|| quote::batch(&document, &root).ok())
-            .flatten();
-        let charged = spend::charged(&quote, &document, &root);
-        Ok::<_, String>((quote, alternative, charged))
-    })
-    .await
-    .map_err(|_| "quoting crashed on the server; that is a bug".to_owned())??;
+    let (mut quote, mut alternative, charged) =
+        blocking("quoting crashed on the server; that is a bug", move || {
+            let quoted = if batch {
+                quote::batch(&document, &root)
+            } else {
+                generation(&document, &root)
+            };
+            let mut quote = quoted.map_err(|error| error.to_string())?;
+            offer::foreign(&document, &root, &mut quote);
+            // A quote for now that a batch could also take is quoted both ways.
+            let alternative = (!batch)
+                .then(|| quote::batch(&document, &root).ok())
+                .flatten();
+            let charged = spend::charged(&quote, &document, &root);
+            Ok::<_, String>((quote, alternative, charged))
+        })
+        .await??;
     drop(folder);
     on_its_way(caller, &mut quote).await?;
     if let Some(alternative) = alternative.as_mut() {

@@ -37,6 +37,7 @@
 
 mod adopt;
 mod batch;
+mod gather;
 mod land;
 mod line;
 mod shot;
@@ -54,6 +55,7 @@ use serde_json::Value;
 
 pub use adopt::{Adopted, adopt};
 pub use batch::handler as batch_handler;
+pub(crate) use land::{paying, refusal};
 pub use line::handler as line_handler;
 pub use shot::handler as shot_handler;
 pub use still::handler as still_handler;

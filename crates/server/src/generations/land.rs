@@ -11,7 +11,7 @@ use super::Payload;
 use super::adopt::adopt;
 use crate::credits::generations::{self, Answer, Paid};
 use crate::jobs::{Context, Job, Outcome};
-use crate::library::{Arrival, Item, Kind, Library};
+use crate::library::{Item, Kind, Library, Made, Unkept};
 use crate::storage::Storage;
 
 /// What a generation job works with.
@@ -71,13 +71,29 @@ impl Work {
         }
     }
 
-    /// What pays for this job, or `None` once it has been settled.
-    pub(super) async fn paid(&self) -> Result<Option<Paid>, String> {
-        let mut tx = self.context.scoped().await.map_err(database)?;
-        let paid = generations::for_job(&mut tx, self.job.id)
-            .await
-            .map_err(database)?;
-        tx.commit().await.map_err(database)?;
+    /// What pays for this job — or, when nothing is left to pay for, the
+    /// job's answer: what the library holds once an earlier run settled it,
+    /// or what it already held for this brief, released free.
+    pub(super) async fn begin(&self) -> Result<Paid, Outcome> {
+        let paid = match paying(&self.context, &self.job).await {
+            Ok(Some(paid)) => paid,
+            Ok(None) => return Err(self.settled().await),
+            Err(error) => return Err(Outcome::Failed(database(error))),
+        };
+        // Only before anything was sent: a job holding a ticket has already
+        // paid, and asks after what it paid for. A still or a line never
+        // holds one.
+        if self.job.ticket.is_none()
+            && let Ok(Some(item)) = self.made().await
+        {
+            if let Err(why) = self
+                .settle(paid, &Answer::Failed("already in your library".into()))
+                .await
+            {
+                return Err(Outcome::Failed(why));
+            }
+            return Err(self.landed(&item).await);
+        }
         Ok(paid)
     }
 
@@ -100,10 +116,8 @@ impl Work {
 
     /// A provider's refusal: settled free, and said.
     pub(super) async fn refused(&self, paid: Paid, why: String) -> Outcome {
-        match self.settle(paid, &Answer::Failed(why.clone())).await {
-            Ok(()) => Outcome::Failed(format!("{why} — nothing was charged")),
-            Err(error) => Outcome::Failed(error),
-        }
+        let settled = self.settle(paid, &Answer::Failed(why.clone())).await;
+        refusal(why, settled)
     }
 
     /// Keep `bytes` in the library under this brief, charge `paid`, and bring
@@ -121,39 +135,23 @@ impl Work {
         kind: Kind,
         words: Option<Words>,
     ) -> Outcome {
-        let extension = match kind {
-            Kind::Audio => "mp3",
-            Kind::Image => "jpg",
-            _ => "mp4",
-        };
-        let file = self
-            .storage
-            .scratch(self.job.user)
-            .with_extension(extension);
-        let written = file
-            .parent()
-            .map_or(Ok(()), std::fs::create_dir_all)
-            .and_then(|()| std::fs::write(&file, &bytes));
-        if let Err(error) = written {
-            eprintln!("scorsese-server: keeping a generation: {error}");
-            return Outcome::Failed("the server could not keep what came back".into());
-        }
-        let arrival = Arrival {
-            file,
-            name: format!("{}.{extension}", self.payload.asset),
+        let made = Made {
+            bytes,
             kind,
-            extension: extension.to_owned(),
-            announced: None,
-            brief_hash: None,
+            name: self.payload.asset.clone(),
             words,
         };
-        let item = match self
+        let kept = self
             .library
-            .keep_generated(self.job.user, &self.payload.brief, arrival)
-            .await
-        {
+            .keep_generated_bytes(self.job.user, &self.payload.brief, made)
+            .await;
+        let item = match kept {
             Ok(item) => item,
-            Err(error) => return Outcome::Failed(database(error)),
+            Err(Unkept::Unwritten(error)) => {
+                eprintln!("scorsese-server: keeping a generation: {error}");
+                return Outcome::Failed("the server could not keep what came back".into());
+            }
+            Err(Unkept::Refused(error)) => return Outcome::Failed(database(error)),
         };
         if let Err(error) = self.settle(paid, &Answer::Worked(Some(item.id))).await {
             return Outcome::Failed(error);
@@ -197,6 +195,24 @@ impl Work {
                 item.id
             )),
         }
+    }
+}
+
+/// What pays for `job`, or `None` once it has been settled — for a design job
+/// too (`crate::designs`), which keeps its own books' wording.
+pub(crate) async fn paying(context: &Context, job: &Job) -> Result<Option<Paid>, sqlx::Error> {
+    let mut tx = context.scoped().await?;
+    let paid = generations::for_job(&mut tx, job.id).await?;
+    tx.commit().await?;
+    Ok(paid)
+}
+
+/// A provider's refusal, once `settled` free: said, or the settling's own
+/// failure.
+pub(crate) fn refusal(why: String, settled: Result<(), String>) -> Outcome {
+    match settled {
+        Ok(()) => Outcome::Failed(format!("{why} — nothing was charged")),
+        Err(error) => Outcome::Failed(error),
     }
 }
 

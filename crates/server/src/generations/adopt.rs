@@ -18,6 +18,7 @@ use scorsese_render::{Ffprobe, Tools};
 use sqlx::postgres::PgPool;
 
 use crate::db::UserId;
+use crate::jobs::blocking;
 use crate::projects::{self, ProjectError, ProjectFiles};
 use crate::storage::Storage;
 use crate::tools::lay_out;
@@ -61,12 +62,12 @@ pub async fn adopt(
             .document
             .to_json()
             .map_err(|error| error.to_string())?;
-        let (document, adopted) = tokio::task::spawn_blocking(move || {
-            let adopted = pointed(&mut document, &root, &tools);
-            (document, adopted)
-        })
-        .await
-        .map_err(|_| "adopting a generation crashed; that is a bug".to_owned())?;
+        let (document, adopted) =
+            blocking("adopting a generation crashed; that is a bug", move || {
+                let adopted = pointed(&mut document, &root, &tools);
+                (document, adopted)
+            })
+            .await?;
         if document.to_json().ok().as_ref() == Some(&before) {
             return Ok(adopted);
         }

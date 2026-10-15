@@ -13,8 +13,7 @@ use scorsese_render::Tools;
 
 use super::Vendors;
 use super::land::{Work, document};
-use crate::credits::generations::Answer;
-use crate::jobs::{Context, Handler, Job, Outcome};
+use crate::jobs::{Context, Handler, Job, Outcome, blocking};
 use crate::library::Kind;
 use crate::storage::Storage;
 
@@ -32,20 +31,10 @@ pub fn handler(storage: Storage, tools: Tools, vendors: Arc<dyn Vendors>) -> imp
 }
 
 async fn line(work: &Work, vendors: &dyn Vendors) -> Outcome {
-    let paid = match work.paid().await {
-        Ok(Some(paid)) => paid,
-        Ok(None) => return work.settled().await,
-        Err(why) => return Outcome::Failed(why),
+    let paid = match work.begin().await {
+        Ok(paid) => paid,
+        Err(done) => return done,
     };
-    if let Ok(Some(item)) = work.made().await {
-        if let Err(why) = work
-            .settle(paid, &Answer::Failed("already in your library".into()))
-            .await
-        {
-            return Outcome::Failed(why);
-        }
-        return work.landed(&item).await;
-    }
     let brief = match gather(work) {
         Ok(brief) => brief,
         Err(why) => return work.refused(paid, why).await,
@@ -54,8 +43,7 @@ async fn line(work: &Work, vendors: &dyn Vendors) -> Outcome {
         Ok(provider) => provider,
         Err(why) => return work.refused(paid, why).await,
     };
-    let spoken = tokio::task::spawn_blocking(move || provider.speak(&brief)).await;
-    match spoken {
+    match blocking("speaking crashed", move || provider.speak(&brief)).await {
         // The timings ride on the audio's library item (#886), and are laid
         // out beside it wherever the project is.
         Ok(Ok(spoken)) => {
@@ -63,7 +51,7 @@ async fn line(work: &Work, vendors: &dyn Vendors) -> Outcome {
                 .await
         }
         Ok(Err(error)) => work.refused(paid, error.message).await,
-        Err(_) => work.refused(paid, "speaking crashed".into()).await,
+        Err(why) => work.refused(paid, why).await,
     }
 }
 
@@ -76,8 +64,6 @@ fn gather(work: &Work) -> Result<Brief, String> {
         .asset(&id)
         .ok_or_else(|| format!("the project has no asset `{id}`"))?;
     let brief = Brief::of(asset).map_err(|error| error.to_string())?;
-    if brief.digest() != work.payload.brief {
-        return Err("the line is not the one that was quoted".into());
-    }
+    work.quoted(&brief.digest(), "the line")?;
     Ok(brief)
 }

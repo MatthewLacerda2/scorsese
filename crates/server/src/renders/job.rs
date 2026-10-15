@@ -46,7 +46,7 @@ use serde_json::{Value, json};
 use super::{RenderCache, RenderView, Settings, evict, preview, store};
 use crate::captures::dispatch::{self, Pages};
 use crate::db::UserId;
-use crate::jobs::{Context, Handler, Job, Outcome};
+use crate::jobs::{Context, Handler, Job, Outcome, blocking};
 use crate::library::locate::{self, Located};
 use crate::projects::ProjectFiles;
 use crate::projects::media::{hashes, materialise};
@@ -145,11 +145,11 @@ async fn render(
         pages,
         kept,
     };
-    let notes = tokio::task::spawn_blocking(move || {
-        produce(&tools, &project, &places, &media, drawn, &written)
-    })
-    .await
-    .map_err(|_| "the render crashed on the server; that is a bug".to_owned())??;
+    let notes = blocking(
+        "the render crashed on the server; that is a bug",
+        move || produce(&tools, &project, &places, &media, drawn, &written),
+    )
+    .await??;
 
     let size = std::fs::metadata(&out)
         .map_err(|error| error.to_string())?

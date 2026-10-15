@@ -17,9 +17,9 @@ use super::store::{self, Design, Sample};
 use super::{DesignPayload, KeepPayload, sample_hash, samples};
 use crate::credits::designs::candidates;
 use crate::credits::generations::{self, Answer, Generation, Paid};
-use crate::generations::Vendors;
-use crate::jobs::{Context, Handler, Job, Outcome};
-use crate::library::{Arrival, Item, Kind, Library};
+use crate::generations::{Vendors, paying, refusal};
+use crate::jobs::{Context, Handler, Job, Outcome, blocking};
+use crate::library::{Item, Kind, Library, Made, Unkept};
 use crate::storage::Storage;
 
 /// The handler for [`crate::jobs::kinds::VOICE_DESIGN`].
@@ -29,7 +29,7 @@ pub fn design_handler(storage: Storage, tools: Tools, vendors: Arc<dyn Vendors>)
         async move {
             let library = Library::new(
                 context.pool().clone(),
-                storage.clone(),
+                storage,
                 tools,
                 context.queue().clone(),
             );
@@ -37,7 +37,6 @@ pub fn design_handler(storage: Storage, tools: Tools, vendors: Arc<dyn Vendors>)
                 job,
                 context,
                 library,
-                storage,
             };
             match serde_json::from_value(work.job.payload.clone()) {
                 Ok(payload) => design(&work, &payload, vendors.as_ref()).await,
@@ -54,7 +53,6 @@ struct Work {
     job: Job,
     context: Context,
     library: Library,
-    storage: Storage,
 }
 
 async fn design(work: &Work, payload: &DesignPayload, vendors: &dyn Vendors) -> Outcome {
@@ -94,7 +92,7 @@ async fn design(work: &Work, payload: &DesignPayload, vendors: &dyn Vendors) -> 
         Ok(studio) => studio,
         Err(why) => return work.refused(paid, why).await,
     };
-    let designed = tokio::task::spawn_blocking(move || studio.candidates(&brief)).await;
+    let designed = blocking("designing crashed", move || studio.candidates(&brief)).await;
     let came = match designed {
         Ok(Ok(came)) if !came.is_empty() => came,
         Ok(Ok(_)) => {
@@ -103,7 +101,7 @@ async fn design(work: &Work, payload: &DesignPayload, vendors: &dyn Vendors) -> 
                 .await;
         }
         Ok(Err(error)) => return work.refused(paid, error.to_string()).await,
-        Err(_) => return work.refused(paid, "designing crashed".into()).await,
+        Err(why) => return work.refused(paid, why).await,
     };
     let kept = match work.keep(&payload.brief, &came).await {
         Ok(kept) => kept,
@@ -127,12 +125,7 @@ async fn design(work: &Work, payload: &DesignPayload, vendors: &dyn Vendors) -> 
 impl Work {
     /// What pays for this job, or `None` once it has been settled.
     async fn paid(&self) -> Result<Option<Paid>, String> {
-        let mut tx = self.context.scoped().await.map_err(database)?;
-        let paid = generations::for_job(&mut tx, self.job.id)
-            .await
-            .map_err(database)?;
-        tx.commit().await.map_err(database)?;
-        Ok(paid)
+        paying(&self.context, &self.job).await.map_err(database)
     }
 
     /// The user's design from this brief whose samples are all still in their
@@ -154,30 +147,25 @@ impl Work {
     async fn keep(&self, brief: &str, came: &[Candidate]) -> Result<Vec<(Sample, Item)>, String> {
         let mut kept = Vec::with_capacity(came.len());
         for (index, candidate) in came.iter().enumerate() {
-            let file = self.storage.scratch(self.job.user).with_extension("mp3");
-            let written = file
-                .parent()
-                .map_or(Ok(()), std::fs::create_dir_all)
-                .and_then(|()| std::fs::write(&file, &candidate.sample));
-            if let Err(error) = written {
-                eprintln!("scorsese-server: keeping a voice design sample: {error}");
-                return Err("the server could not keep what came back".into());
-            }
             let sample = sample_hash(brief, index + 1);
-            let arrival = Arrival {
-                file,
-                name: format!("voice design sample {}.mp3", index + 1),
+            let made = Made {
+                bytes: candidate.sample.clone(),
                 kind: Kind::Audio,
-                extension: "mp3".to_owned(),
-                announced: None,
-                brief_hash: None,
+                name: format!("voice design sample {}", index + 1),
                 words: None,
             };
-            let item = self
+            let item = match self
                 .library
-                .keep_generated(self.job.user, &sample, arrival)
+                .keep_generated_bytes(self.job.user, &sample, made)
                 .await
-                .map_err(database)?;
+            {
+                Ok(item) => item,
+                Err(Unkept::Unwritten(error)) => {
+                    eprintln!("scorsese-server: keeping a voice design sample: {error}");
+                    return Err("the server could not keep what came back".into());
+                }
+                Err(Unkept::Refused(error)) => return Err(database(error)),
+            };
             let recorded = Sample {
                 generated_voice_id: candidate.generated_voice_id.clone(),
                 sample,
@@ -209,10 +197,8 @@ impl Work {
 
     /// The studio's refusal: settled free, and said.
     async fn refused(&self, paid: Paid, why: String) -> Outcome {
-        match self.settle(paid, &Answer::Failed(why.clone()), None).await {
-            Ok(()) => Outcome::Failed(format!("{why} — nothing was charged")),
-            Err(error) => Outcome::Failed(error),
-        }
+        let settled = self.settle(paid, &Answer::Failed(why.clone()), None).await;
+        refusal(why, settled)
     }
 }
 
@@ -267,11 +253,11 @@ async fn kept(
     let provider = studio.name();
     let (brief, passed_over) = (design.brief(), design.passed_over(&payload.chosen));
     let (chosen, name) = (payload.chosen.clone(), payload.name.clone());
-    let made =
-        tokio::task::spawn_blocking(move || studio.keep(&brief, &chosen, &name, &passed_over))
-            .await
-            .map_err(|_| "keeping the voice crashed".to_owned())?
-            .map_err(|error| format!("{error} — nothing was created"))?;
+    let made = blocking("keeping the voice crashed", move || {
+        studio.keep(&brief, &chosen, &name, &passed_over)
+    })
+    .await?
+    .map_err(|error| format!("{error} — nothing was created"))?;
     let mut tx = context.scoped().await.map_err(database)?;
     let voice = (made.id.as_str(), made.name.as_str());
     store::keep(&mut tx, design.id, &payload.chosen, voice, provider)
