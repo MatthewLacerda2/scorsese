@@ -9,7 +9,7 @@
 //!   session or by API token alike — so a month-long session, or a token an
 //!   MCP client uses daily, still leaves a row per day it was used.
 //!
-//! The table is `access_log` (migration `0032`). It is **not per user**: the
+//! The table is `access_log` (migration `0033`). It is **not per user**: the
 //! law says the record outlives the account, so a deletion leaves it, and the
 //! table carries no cascade. Writing is privileged, and nothing in the server
 //! reads it — the operator does, with `psql` (`docs/web.md`, *The access
