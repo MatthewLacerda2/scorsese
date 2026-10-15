@@ -85,6 +85,9 @@ impl From<LibraryError> for ApiError {
                 Self::refused(StatusCode::CONFLICT, &error, json!({ "offset": expected }))
             }
             LibraryError::Busy => Self::refused(StatusCode::LOCKED, &error, none),
+            LibraryError::NoThumbnail => {
+                Self::refused(StatusCode::NOT_FOUND, &error, json!({ "pending": false }))
+            }
             LibraryError::Unsupported(_) => {
                 Self::refused(StatusCode::UNSUPPORTED_MEDIA_TYPE, &error, none)
             }

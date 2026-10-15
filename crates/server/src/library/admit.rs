@@ -4,7 +4,8 @@
 //! between them: the bytes are hashed by the server, probed and held to their
 //! kind by `scorsese_core::pool` exactly as `scorsese import` holds a file,
 //! moved to where the hash says, recorded, and given a thumbnail job — all
-//! before anyone can see the item.
+//! before anyone can see the item. A page is not media: it is held to being
+//! text a project can keep among its pages instead, and drawn no thumbnail.
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -19,6 +20,7 @@ use super::store::{self, ItemRow, item_columns};
 use super::{Item, Kind, Library, LibraryError};
 use crate::db::{self, UserId};
 use crate::jobs::{kinds, store as jobs};
+use crate::projects::files::MAX_FILE_BYTES;
 
 /// A file on this machine that is to become a library item.
 #[derive(Debug, Clone)]
@@ -113,7 +115,11 @@ impl Library {
             _ => LibraryError::Database(error),
         })?;
         let item = store::item(row)?;
-        let job = jobs::enqueue(&mut tx, kinds::THUMBNAIL, &json!({ "item": item.id })).await?;
+        let job = if item.kind.is_media() {
+            Some(jobs::enqueue(&mut tx, kinds::THUMBNAIL, &json!({ "item": item.id })).await?)
+        } else {
+            None
+        };
         // A heavy video gets its preview proxy now, in the background, so the
         // first preview it is in is already a fast one (`super::proxy`).
         let proxy = if super::proxy::worth_one(&item) {
@@ -126,7 +132,7 @@ impl Library {
             .library_file(user, &measured.sha256, &arrival.extension);
         move_file(&arrival.file, &home)?;
         tx.commit().await?;
-        for job in std::iter::once(&job).chain(&proxy) {
+        for job in job.iter().chain(&proxy) {
             self.queue.announce(user, job);
         }
         Ok(item)
@@ -137,7 +143,11 @@ impl Library {
 fn read(tools: &Tools, file: &Path, kind: Kind) -> Result<Measured, LibraryError> {
     let sha256 = hash_file(file)?;
     let size = file.metadata()?.len();
-    let media = probe(tools, file, kind)?;
+    let media = if kind.is_media() {
+        probe(tools, file, kind)?
+    } else {
+        page(file)?
+    };
     let media = serde_json::to_string(&media)
         .map_err(|error| LibraryError::Invalid(format!("the probed media: {error}")))?;
     Ok(Measured {
@@ -167,12 +177,32 @@ fn probe(tools: &Tools, file: &Path, kind: Kind) -> Result<MediaMetadata, Librar
     })
 }
 
-/// "a video", "an image", "a sound".
+/// Hold a page to what a project keeps among its pages: text, and no more
+/// than one kept file may hold. Never probed, so it measures nothing.
+fn page(file: &Path) -> Result<MediaMetadata, LibraryError> {
+    let bytes = std::fs::read(file)?;
+    if bytes.len() > MAX_FILE_BYTES {
+        return Err(LibraryError::Rejected(format!(
+            "a web page can be at most {} KiB; this one is {} KiB",
+            MAX_FILE_BYTES >> 10,
+            bytes.len() >> 10
+        )));
+    }
+    if std::str::from_utf8(&bytes).is_err() {
+        return Err(LibraryError::Rejected(
+            "this is not a web page: a page is text (UTF-8), and this file is not".to_owned(),
+        ));
+    }
+    Ok(MediaMetadata::default())
+}
+
+/// "a video", "an image", "a sound", "a page".
 fn article(kind: Kind) -> &'static str {
     match kind {
         Kind::Video => "a video",
         Kind::Image => "an image",
         Kind::Audio => "a sound",
+        Kind::Html => "a page",
     }
 }
 

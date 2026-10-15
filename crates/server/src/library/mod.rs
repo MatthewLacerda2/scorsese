@@ -177,8 +177,12 @@ pub enum LibraryError {
     },
 
     /// Not a kind of file scorsese edits, by its name.
-    #[error("scorsese cannot use {0:?}: it takes video, pictures and sound")]
+    #[error("scorsese cannot use {0:?}: it takes video, pictures, sound and web pages")]
     Unsupported(String),
+
+    /// The item is of a kind that is never drawn as a thumbnail: a page.
+    #[error("a web page has no thumbnail")]
+    NoThumbnail,
 
     /// The file is not what it said it was — a hash that differs from the one
     /// announced, a `.mp4` with no picture, a file no prober reads.

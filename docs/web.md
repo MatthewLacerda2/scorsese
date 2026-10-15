@@ -1180,11 +1180,16 @@ already have this as *X*" and the item's id, whatever its name. The browser
 hashes a file first and asks `GET /api/library?sha256=`, so a duplicate never
 crosses the network; the refusal at upload is the backstop.
 
-**The media kinds `scorsese import` takes** — video, image, audio, by the same
-extension list (`scorsese_core::pool::infer_kind`). `scorsese import` also
-takes an `.html` page, which the library refuses with `415` like any other
-file it has no kind for (`library::Kind`): that gap is #1144. Any other file, a `.mid`
-included (#964), is refused at announcement (`415`) before a byte is sent. On
+**The kinds `scorsese import` takes** — video, image, audio and an `.html`
+page, by the same extension list (`scorsese_core::pool::infer_kind`). Any
+other file, a `.mid` included (#964), is refused at announcement (`415`)
+before a byte is sent. **A page (#1144) is text, not media**: never probed,
+held to UTF-8 and to the size a project keeps a page at (1 MiB, refused at
+announcement when the length says so), given no thumbnail (`404` with
+`pending: false`), and served as `text/plain`, never run from the app's
+origin. `import` **copies** it into the project's `pages/` as an `html`
+asset, the way `scorsese import` does locally, so `page_write` edits the
+project's copy and never the library's. On
 arrival the server **hashes the bytes itself**
 and refuses (`422`) a file whose hash is not the one announced, then probes it
 and holds it to its kind with `pool::measure`, exactly as import does — a

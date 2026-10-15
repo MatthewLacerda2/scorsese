@@ -83,8 +83,9 @@ impl Tool for Jobs {
          ended — done, failed or cancelled — instead of asking again and again. Give `cancel` a job id to stop that render instead: \
          a running one stops within a frame and keeps no file — the partial one \
          is removed — and one that already finished is left as it is. Renders \
-         belong to this server session: a restarted server has none. Free: \
-         call it as often as it takes."
+         belong to this server session: a restarted server has none. To wait \
+         for one, wait: true once rather than asking again and again — the \
+         tool costs nothing, but every call is a full round trip for its caller."
     }
 
     fn writes(&self) -> bool {

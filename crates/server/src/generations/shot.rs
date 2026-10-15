@@ -125,7 +125,7 @@ async fn submit(
     Ok(ticket)
 }
 
-/// Poll until the shot is ready, refused, or past patience.
+/// Poll until the shot is ready, refused, lost, or past patience.
 async fn wait(
     work: &Work,
     paid: Paid,
@@ -151,6 +151,14 @@ async fn wait(
             // A network blip is not a refusal: the shot is still Google's,
             // and asking again is free.
             Ok(Ok(Progress::Waiting)) => {}
+            // Unless Veo says it will never answer for this ticket (#1196):
+            // waiting out patience on it would only keep the reservation. It
+            // settles as a refusal does — nothing charged, the share given
+            // back — since the provider delivered nothing for it.
+            Ok(Err(error)) if error.lost => {
+                let why = format!("Veo no longer knows this shot's ticket: {}", error.message);
+                return work.refused(paid, why).await;
+            }
             Ok(Err(error)) => eprintln!("scorsese-server: polling a shot: {error}"),
             Err(_) => eprintln!("scorsese-server: polling a shot crashed"),
         }

@@ -1,4 +1,4 @@
-//! What a library file is: the three kinds a file can be imported as.
+//! What a library file is: the four kinds a file can be imported as.
 //!
 //! The library held MIDI files too (#678) until #964: once `synth_import` and
 //! `synth_export` left the tool list (#785) nothing on the web could use one,
@@ -6,6 +6,11 @@
 //! migration `0025` deleted the rows that held the kind before it went — a
 //! stored row whose kind this build could not read would make the whole
 //! library unloadable for its owner.
+//!
+//! A web page (`.html`) is a kind since #1144, because `scorsese import` takes
+//! one: it is text, never probed and given no thumbnail, and importing it
+//! copies it into the project's `pages/` (`tools::own::catalogue`), where a
+//! page lives and is edited — the library item is only where it came from.
 
 use std::path::Path;
 
@@ -25,11 +30,13 @@ pub enum Kind {
     Image,
     /// Sound alone.
     Audio,
+    /// A web page the timeline plays (`docs/pages.md`): text, not media.
+    Html,
 }
 
 impl Kind {
     /// What a file called `name` is, by the list `scorsese import` uses — so
-    /// the web app welcomes exactly the media the CLI does.
+    /// the web app welcomes exactly the files the CLI does.
     pub fn of_file_name(name: &str) -> Option<Self> {
         infer_kind(Path::new(name)).and_then(|kind| Self::try_from(kind).ok())
     }
@@ -40,6 +47,7 @@ impl Kind {
             Self::Video => "video",
             Self::Image => "image",
             Self::Audio => "audio",
+            Self::Html => "html",
         }
     }
 
@@ -49,6 +57,7 @@ impl Kind {
             Self::Video => "video",
             Self::Image => "picture",
             Self::Audio => "sound",
+            Self::Html => "page",
         }
     }
 
@@ -58,13 +67,22 @@ impl Kind {
             Self::Video => AssetKind::Video,
             Self::Image => AssetKind::Image,
             Self::Audio => AssetKind::Audio,
+            Self::Html => AssetKind::Html,
         }
+    }
+
+    /// Whether a file of this kind is media, probed by ffprobe and drawn as a
+    /// thumbnail. A page is neither.
+    pub fn is_media(self) -> bool {
+        self != Self::Html
     }
 
     /// The `Content-Type` a file of this kind with `extension` is served as.
     ///
     /// Only for the extensions [`Kind::of_file_name`] accepts; anything else
-    /// is served as bytes, which a browser will not try to run.
+    /// is served as bytes, which a browser will not try to run. A page is
+    /// served as plain text, never `text/html`: the library is served from
+    /// the app's own origin, and a page run there could act as its owner.
     pub fn content_type(self, extension: &str) -> &'static str {
         let known = match (self, extension) {
             (Self::Video, "mp4") => "video/mp4",
@@ -91,6 +109,7 @@ impl Kind {
             (Self::Audio, "opus") => "audio/opus",
             (Self::Audio, "aiff") => "audio/aiff",
             (Self::Audio, "wma") => "audio/x-ms-wma",
+            (Self::Html, "html") => "text/plain; charset=utf-8",
             _ => "",
         };
         if known.is_empty() {
@@ -109,6 +128,7 @@ impl TryFrom<AssetKind> for Kind {
             AssetKind::Video => Ok(Self::Video),
             AssetKind::Image => Ok(Self::Image),
             AssetKind::Audio => Ok(Self::Audio),
+            AssetKind::Html => Ok(Self::Html),
             other => Err(other),
         }
     }
@@ -122,6 +142,7 @@ impl TryFrom<String> for Kind {
             "video" => Ok(Self::Video),
             "image" => Ok(Self::Image),
             "audio" => Ok(Self::Audio),
+            "html" => Ok(Self::Html),
             _ => Err(format!("{kind:?} is not a library kind")),
         }
     }
