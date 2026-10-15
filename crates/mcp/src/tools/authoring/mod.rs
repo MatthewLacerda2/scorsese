@@ -15,10 +15,12 @@
 //! `set`'s module doc has the rest.
 
 mod fill;
+mod layer;
 mod remove;
 mod set;
 mod track;
 
+pub(crate) use layer::TrackMove;
 pub(crate) use remove::{AssetRemove, TrackRemove};
 pub(crate) use set::AssetSet;
 pub(crate) use track::TrackNew;

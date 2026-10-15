@@ -63,6 +63,13 @@ it was running from.
 Every tool takes `project`: the path of the `*.scor` directory to work on — or,
 for `project_new` alone, the one to create.
 
+**An argument a tool does not take is refused**, with nothing done, naming the
+argument it was probably meant to be and listing the ones it takes:
+`place_clip` given `duration` answers *`` `duration` is not an argument here;
+did you mean `duration_seconds`? ``*. A misspelt name used to be read as
+nothing, and the call went on without it and reported success — a clip run to
+the end of its source, an opacity silently lost (#1117).
+
 **The table is generated from the tools themselves.** Each row is a tool's name,
 the first sentence of the description a client is shown, and what calling it
 spends — read out of the registry rather than typed here. `make mcp-table`
@@ -86,6 +93,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `script_write` | Write the project's script — the document the edit is cut from. | nothing |
 | `project_write` | Replace a project's project.json with the document given. | ffprobe |
 | `track_new` | Add a track — a lane for clips, carrying either picture or sound. | nothing |
+| `track_move` | Move a video track up or down the stack of layers: directly under or directly over another video track, its clips going with it. | nothing |
 | `asset_set` | Make or change a caption, title, color card, shape or icon asset, or the free sketch and brief of a generated shot, still or spoken line. | nothing |
 | `sequence` | Make an image sequence from stills already in the pool, or change one: which stills it plays in what order, how many frames each is held, and whether it loops. | nothing |
 | `asset_remove` | Remove an asset from the project, and DESTROY every clip that shows it — on the timeline and inside groups. | nothing |
@@ -361,6 +369,16 @@ makes `track_new` the answer to the commonest refusal in the tool: clips on one
 track may not overlap, so a caption over a shot is two lanes, not a
 rearrangement. Audio tracks are unordered among themselves — everything
 audible is summed.
+
+When on top is the wrong place — a logo under the captions — `track_new` takes
+`under` or `over`, naming the video track it goes directly beneath or above,
+and `track_move` does the same for a track already there, its clips going with
+it. Neither ever needs a whole-document `project_write`.
+
+```
+track_new   { "project": "teaser.scor", "kind": "video", "track": "logo", "under": "v2" }
+track_move  { "project": "teaser.scor", "track": "logo", "over": "v1" }
+```
 
 ### Changing one afterwards: `asset_set`
 

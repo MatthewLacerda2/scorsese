@@ -1,7 +1,7 @@
 //! A lane to put clips on.
 
 use schemars::JsonSchema;
-use scorsese_core::{Lane, TrackKind, authoring};
+use scorsese_core::{Lane, Layer, TrackId, TrackKind, authoring};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -40,10 +40,36 @@ struct Arguments {
     /// music sits under the narration, which one gets ducked. Never rendered,
     /// under any setting.
     note: Option<String>,
+    /// A video track's id to put this one directly UNDER, instead of on top of
+    /// everything — a logo beneath the captions. Video only; not with `over`.
+    under: Option<String>,
+    /// A video track's id to put this one directly OVER, instead of on top of
+    /// everything. Video only; not with `under`.
+    over: Option<String>,
 }
 
 impl args::Arguments for Arguments {
     const REQUIRED: Required = &[("kind", "video or audio")];
+}
+
+/// Where `under` or `over` puts a lane, from whichever of the two was given —
+/// `None` for neither, and a refusal for both.
+pub(super) fn layer(under: Option<&str>, over: Option<&str>) -> Result<Option<Layer>, String> {
+    match (maybe(under), maybe(over)) {
+        (Some(_), Some(_)) => Err("give `under` or `over`, not both".to_owned()),
+        (Some(under), None) => Ok(Some(Layer::Under(TrackId::new(under)))),
+        (None, Some(over)) => Ok(Some(Layer::Over(TrackId::new(over)))),
+        (None, None) => Ok(None),
+    }
+}
+
+/// Where a video lane now sits, as a reply says it.
+pub(super) fn sits(layer: Option<&Layer>) -> String {
+    match layer {
+        Some(Layer::Under(beside)) => format!("directly under `{beside}`"),
+        Some(Layer::Over(beside)) => format!("directly over `{beside}`"),
+        None => "over every video track already there".to_owned(),
+    }
 }
 
 impl Tool for TrackNew {
@@ -59,8 +85,9 @@ impl Tool for TrackNew {
          appended, which means it composites OVER everything already there — \
          which is what a caption above footage wants. Audio tracks are unordered \
          among themselves; everything audible is summed. Left unnamed it is \
-         numbered `v1`, `v2`, `a1`, `a2` from the lowest free number. Reordering \
-         the layers afterwards is a project_write."
+         numbered `v1`, `v2`, `a1`, `a2` from the lowest free number. To put a \
+         video track lower in the stack — a logo under the captions — name the \
+         track it goes `under` or `over`; track_move moves one already there."
     }
 
     fn costs(&self) -> Costs {
@@ -79,8 +106,10 @@ impl Tool for TrackNew {
             Kind::Video => TrackKind::Video,
             Kind::Audio => TrackKind::Audio,
         };
+        let layer = layer(arguments.under.as_deref(), arguments.over.as_deref())?;
         let lane = Lane {
             kind,
+            layer: layer.clone(),
             id: maybe(arguments.track.as_deref()).map(scorsese_core::TrackId::new),
             name: maybe(arguments.name.as_deref()),
             note: maybe(arguments.note.as_deref()),
@@ -88,8 +117,8 @@ impl Tool for TrackNew {
         let id = authoring::add_track(&mut project, &lane).map_err(refused)?;
         save(&project, dir)?;
         let (says, where_it_sits) = match kind {
-            TrackKind::Video => ("video", "over every video track already there"),
-            TrackKind::Audio => ("audio", "mixed with every other audio track"),
+            TrackKind::Video => ("video", sits(layer.as_ref())),
+            TrackKind::Audio => ("audio", "mixed with every other audio track".to_owned()),
         };
         Ok(format!("`{id}` — a {says} track, {where_it_sits}. place_clip fills it.").into())
     }

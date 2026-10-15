@@ -71,11 +71,11 @@ fn a_relative_still_out_lands_in_the_project() {
 #[test]
 fn an_empty_out_is_refused() {
     let dir = project("land-empty");
-    for tool in ["render", "still"] {
-        let (text, failed) = said(&call(
-            tool,
-            json!({ "project": dir, "at": "0", "out": " " }),
-        ));
+    for (tool, arguments) in [
+        ("render", json!({ "project": dir, "out": " " })),
+        ("still", json!({ "project": dir, "at": "0", "out": " " })),
+    ] {
+        let (text, failed) = said(&call(tool, arguments));
         assert!(failed, "{tool} must refuse an empty out, and got: {text}");
         assert!(text.contains("`out` is empty"), "{tool}: {text}");
     }

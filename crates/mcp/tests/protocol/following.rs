@@ -27,7 +27,7 @@ fn with_a_route(label: &str) -> std::path::PathBuf {
         ),
         (
             "track_new",
-            json!({ "project": dir, "kind": "video", "id": "v2" }),
+            json!({ "project": dir, "kind": "video", "track": "v2" }),
         ),
         (
             "place_clip",

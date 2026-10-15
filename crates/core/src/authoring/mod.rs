@@ -15,7 +15,10 @@
 //! - [`set_asset`] changes a field on one that is already there.
 //! - [`add_track`] adds a lane, because an asset with nowhere to sit is not
 //!   yet in the cut and "clips on one track may not overlap" makes a second
-//!   lane the answer far more often than a rearrangement does.
+//!   lane the answer far more often than a rearrangement does — on top, or
+//!   under or over a lane named ([`Layer`]).
+//! - [`move_track`] puts a video lane under or over another, for the
+//!   rearrangement when it is the answer.
 //!
 //! - [`remove_asset`] and [`remove_track`] take one out again, with the clips
 //!   that go with it — and only when the caller has named those clips.
@@ -34,12 +37,14 @@ mod apply;
 mod block;
 mod edit;
 mod inline;
+mod layer;
 mod remove;
 mod track;
 
 pub use block::{BlockChange, CounterEdit, RevealEdit};
 pub use edit::{Edit, set_asset};
 pub use inline::{Inline, add_asset};
+pub use layer::{Layer, move_track};
 pub use remove::{AssetRemoval, remove_asset, remove_track};
 pub(crate) use track::numbered;
 pub use track::{Lane, add_track};
@@ -80,6 +85,34 @@ pub enum AuthorError {
     NoSuchTrack {
         /// The id that was asked for.
         track: TrackId,
+    },
+    /// A lane that has no place in a stack of layers: an audio track, which
+    /// is mixed with every other one rather than drawn over it.
+    #[error(
+        "`{track}` is an audio track, and audio tracks are mixed, not stacked — only a \
+         video track goes under or over another"
+    )]
+    NotALayer {
+        /// The audio track that was named.
+        track: TrackId,
+    },
+    /// A lane asked to go under or over itself.
+    #[error("`{track}` cannot go under or over itself — name another video track")]
+    OwnLayer {
+        /// The track that was named twice.
+        track: TrackId,
+    },
+    /// Two lanes of different stacks — the timeline's and a group's, or two
+    /// groups' — which are never drawn against each other.
+    #[error(
+        "`{track}` and `{beside}` are not in the same stack — one is a lane inside a \
+         group — so neither can go under or over the other"
+    )]
+    ApartLayers {
+        /// The track to move.
+        track: TrackId,
+        /// The track it was to go beside.
+        beside: TrackId,
     },
     /// The clips named are not exactly the clips showing the asset. Removing
     /// it takes every one of those with it, so the caller has to name them —

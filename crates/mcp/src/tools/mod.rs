@@ -315,6 +315,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         // to place and anywhere to put it: a lane, and the assets no import
         // brings in — the document-carried kinds, and generated sketches.
         Box::new(authoring::TrackNew),
+        Box::new(authoring::TrackMove),
         Box::new(authoring::AssetSet),
         Box::new(edit::Sequence),
         Box::new(authoring::AssetRemove),
