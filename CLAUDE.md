@@ -353,7 +353,8 @@ in a cloud session; `issue-batch` has what that premise shapes.
 - **Flow:** idea → (issue) → branch → PR → CI green → merge. **Nothing is
   committed to `main` directly**: every change, however small, arrives as a
   pull request, and a GitHub ruleset on `main` refuses anything else (a pull
-  request is required, a review is not; no force-push, no deletion). An issue is how work is planned, not a toll on every change. A
+  request is required, squashed, with `CI ok` green on `main`'s tip; a review
+  is not; no force-push, no deletion), kept in `deploy/terraform/github`. An issue is how work is planned, not a toll on every change. A
   PR that has an issue closes it by number: check the number, and remember
   GitHub matches `closes #N` anywhere in a description, even quoted or negated,
   so a PR leaving an issue open writes `refs #N`.
@@ -428,7 +429,8 @@ in a cloud session; `issue-batch` has what that premise shapes.
   spends money or needs a network is a bug.
 - **Infrastructure is code** (the maintainer, 2026-10-13): whatever a vendor
   lets Terraform manage is in Terraform, never set by hand in a dashboard, so
-  an agent can change it. Cloudflare is `deploy/terraform` (**docs/web.md**).
+  an agent can change it. Cloudflare, Google Cloud, Stripe and this
+  repository's own GitHub settings are `deploy/terraform` (**docs/web.md**).
 - **Secrets resolve in one order, through one resolver** (`crates/providers`'
   `credentials` module, **docs/credentials.md**): the environment first (an
   exported variable or the gitignored `.env`), then the per-machine settings
