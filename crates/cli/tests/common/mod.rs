@@ -12,6 +12,12 @@
 //! the pool holds, and a render's notes are how an unattended run learns it
 //! went wrong. Those are asserted on by substance — the id, the state, the clip
 //! named — never by whole lines.
+//!
+//! **Every run is sealed off from the machine running it** ([`sealed`], #1222):
+//! no provider key from the tester's shell, no `.env` from the checkout, no
+//! settings file from their home, and no way out to the network. A test that
+//! spends money is a bug, and the maintainer's own machine holds real keys in
+//! all three places.
 #![allow(dead_code)]
 
 pub(crate) mod documents;
@@ -24,6 +30,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use scorsese_core::Project;
+use scorsese_providers::credentials::Provider;
 
 /// Nothing runnable, on any platform this builds for. A command pointed at it
 /// that reaches for ffmpeg says so, which is what lets a test prove one didn't.
@@ -66,19 +73,70 @@ impl Run {
     }
 }
 
+/// Where outbound HTTP is sent instead of the internet: the discard port on
+/// this machine, where nothing listens, so a request is refused at once. The
+/// HTTP client reads these variables by default, `ALL_PROXY` first.
+const DEAD_PROXY: &str = "http://127.0.0.1:9";
+
+/// The variables a proxy is read from, both cases, since tools disagree.
+const PROXY_VARIABLES: [&str; 6] = [
+    "ALL_PROXY",
+    "all_proxy",
+    "HTTPS_PROXY",
+    "https_proxy",
+    "HTTP_PROXY",
+    "http_proxy",
+];
+
+/// The `scorsese` binary, sealed off from the machine running the tests.
+///
+/// - **No provider key** reaches it from the tester's environment: every one
+///   [`Provider::ALL`] names is removed, so a new provider is covered the day
+///   it is added. The credentials resolver reads the environment *first*, so
+///   an exported key would beat any fake settings a test writes.
+/// - **No `.env`**: it runs in the system's temporary directory, outside the
+///   checkout, so the walk up for one finds nothing.
+/// - **No settings file**: the folders one is looked up in point at an empty
+///   scratch directory. [`run_in_env`] points them at a test's own instead.
+/// - **No network**: requests go to [`DEAD_PROXY`] and are refused, while
+///   loopback stays reachable for anything a test serves itself.
+pub(crate) fn sealed() -> Command {
+    seal(Command::new(env!("CARGO_BIN_EXE_scorsese")))
+}
+
+/// Seals `command` as [`sealed`] does, overriding whatever it inherited or
+/// was given before — which is how a test stands in for a tester's shell.
+pub(crate) fn seal(mut command: Command) -> Command {
+    for provider in Provider::ALL {
+        command.env_remove(provider.variable());
+    }
+    let home = scratch::fresh("scorsese-cli-sealed-home", "");
+    std::fs::create_dir_all(&home).expect("create the sealed home");
+    for name in ["XDG_CONFIG_HOME", "APPDATA", "HOME"] {
+        command.env(name, &home);
+    }
+    for name in PROXY_VARIABLES {
+        command.env(name, DEAD_PROXY);
+    }
+    command
+        .env("NO_PROXY", "localhost,127.0.0.1")
+        .env("no_proxy", "localhost,127.0.0.1")
+        .current_dir(std::env::temp_dir());
+    command
+}
+
 /// Runs a subcommand against `dir`, which is named with the global
 /// `--project` flag rather than by changing directory: tests share a process.
 pub(crate) fn run_in(dir: &Path, arguments: &[&str]) -> Run {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_scorsese"));
+    let mut command = sealed();
     command.args(arguments).arg("--project").arg(dir);
     capture(command)
 }
 
 /// The same, with extra environment variables set — how a test points a run at
-/// a settings file of its own rather than the one belonging to whoever is
-/// running the tests. A run that read the real settings would find a real key.
+/// a settings file of its own, holding keys that are not keys.
 pub(crate) fn run_in_env(dir: &Path, arguments: &[&str], env: &[(&str, &Path)]) -> Run {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_scorsese"));
+    let mut command = sealed();
     command.args(arguments).arg("--project").arg(dir);
     for (name, value) in env {
         command.env(name, value);
@@ -89,7 +147,7 @@ pub(crate) fn run_in_env(dir: &Path, arguments: &[&str], env: &[(&str, &Path)]) 
 /// The same, with ffmpeg and ffprobe pointed at nothing runnable — so a command
 /// that reaches for either fails and names it, and one that does not, cannot.
 pub(crate) fn run_without_tools(dir: &Path, arguments: &[&str]) -> Run {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_scorsese"));
+    let mut command = sealed();
     command
         .args(arguments)
         .arg("--project")
@@ -102,12 +160,12 @@ pub(crate) fn run_without_tools(dir: &Path, arguments: &[&str]) -> Run {
 /// Runs `scorsese new <directory>`, where the directory is a positional
 /// argument because the project does not exist yet to be pointed at.
 pub(crate) fn new_at(directory: &Path, arguments: &[&str]) -> Run {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_scorsese"));
+    let mut command = sealed();
     command.arg("new").arg(directory).args(arguments);
     capture(command)
 }
 
-fn capture(mut command: Command) -> Run {
+pub(crate) fn capture(mut command: Command) -> Run {
     let output = command.output().expect("run the scorsese binary");
     Run {
         failed: !output.status.success(),

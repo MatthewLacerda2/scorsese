@@ -131,6 +131,12 @@ def progress(
             "CI does not run on drafts. Mark it ready before queueing it.",
         ]
 
+    # What it closes is asked before CI, too: no run turns a `planning` issue
+    # into one that may be started (#1221).
+    refused = mergeable.closing.refusal(pull.get("closes") or {})
+    if refused:
+        return STOP, refused
+
     unjudged = never_judged(runs, jobs)
     if unjudged:
         return not_judged(unjudged[0], jobs, rerun, short)

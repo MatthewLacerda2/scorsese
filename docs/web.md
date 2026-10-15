@@ -181,8 +181,10 @@ provider keys use, and is documented in `.env.example`:
 **Schema migrations** are embedded in the binary and run at startup, before the
 first request. Files in `crates/server/migrations/` are numbered
 `NNNN_name.sql` without gaps, only go forward, and are never edited once merged
-— the folder's README has the rules, and a test refuses a file sqlx would
-silently skip.
+— the folder's README has the rules. One test refuses a file sqlx would
+silently skip, and another holds every migration to the checksum in the
+folder's append-only `merged.txt`, since sqlx refuses to start against a
+database that applied a different version of a file (#1223).
 
 **Database tests run, or they fail — they never skip.** `make test` and
 `make coverage` go through `tools/with-postgres`, which starts a throwaway

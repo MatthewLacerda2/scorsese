@@ -25,6 +25,10 @@ unticked items, then a one-line total. Only two things are read:
   why nothing here tracks state between batches: an item the user ticks on
   GitHub drops out of the next run by itself.
 
+After the list come the open issues carrying **both** stage labels, `planning`
+and `human`: `CLAUDE.md` allows at most one, and which one stays is the user's
+call, so the batch report is where it is put to them (#1221).
+
 **Why the REST pull request list and not search.** `gh pr list` is GraphQL and
 the search API is global; cloud sessions are refused both, and a cloud session
 is exactly who writes a batch report. `repos/{owner}/{repo}/pulls` is answered
@@ -200,6 +204,32 @@ def report(pulls: list[dict], since: str) -> str:
     return "\n".join(lines)
 
 
+def both_stages(gh=None) -> str:
+    """The open issues labelled both `planning` and `human`, for the user.
+
+    `CLAUDE.md` allows at most one stage label; which one stays is theirs to
+    say, so it is put in front of them here rather than held at merge (#1221).
+    GitHub's `labels=` filter is an AND, so one page answers it.
+    """
+    gh = gh or mergeable.gh
+    found = gh(
+        "api",
+        "repos/{owner}/{repo}/issues?state=open&labels="
+        + ",".join(mergeable.closing.STAGES)
+        + f"&per_page={PAGE}",
+    )
+    issues = mergeable.closing.both_stages(found)
+    if not issues:
+        return ""
+    return "\n".join(
+        [
+            "",
+            "Issues carrying both stage labels; at most one may stay:",
+            *(f"- {issue}" for issue in issues),
+        ]
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -214,10 +244,11 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"--since {args.since!r} is not an ISO 8601 date or time")
     try:
         pulls = merged_since(since)
+        stages = both_stages()
     except mergeable.Unreachable as outage:
         print(f"human-checks: {outage}", file=sys.stderr)
         return mergeable.UNREACHABLE_STATUS
-    print(report(pulls, args.since))
+    print(report(pulls, args.since) + stages)
     return 0
 
 

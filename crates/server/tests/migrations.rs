@@ -1,7 +1,8 @@
 //! The migration harness: every file in `migrations/` is one sqlx will run,
-//! and running them is safe to repeat on every start.
+//! none that has merged is ever edited, and running them is safe to repeat on
+//! every start.
 //!
-//! The naming test needs no database. The other one does, and fails without
+//! The naming and manifest tests need no database. The other one does, and fails without
 //! `DATABASE_URL` rather than skipping — see the crate doc.
 
 use std::collections::BTreeSet;
@@ -11,8 +12,10 @@ use std::path::Path;
 use scorsese_server::db;
 use sqlx::postgres::PgPool;
 
-/// The one file in `migrations/` that is not a migration.
+/// The files in `migrations/` that are not migrations. sqlx skips anything
+/// not ending in `.sql`, so neither is ever run.
 const README: &str = "README.md";
+const MANIFEST: &str = "merged.txt";
 
 /// The version a file named `NNNN_what_it_does.sql` declares, or why it is
 /// not named that way.
@@ -39,7 +42,7 @@ fn every_file_is_a_migration_numbered_one_after_the_last() {
     let mut versions = BTreeSet::new();
     for entry in fs::read_dir(&directory).unwrap() {
         let name = entry.unwrap().file_name().into_string().unwrap();
-        if name == README {
+        if name == README || name == MANIFEST {
             continue;
         }
         let version = version(&name).unwrap_or_else(|why| panic!("{why}"));
@@ -57,6 +60,66 @@ fn every_file_is_a_migration_numbered_one_after_the_last() {
     // And sqlx agrees: each of those files is embedded in the binary.
     let embedded: BTreeSet<i64> = db::MIGRATOR.iter().map(|m| m.version).collect();
     assert_eq!(embedded, versions, "a file sqlx did not pick up");
+}
+
+/// A migration's line in the manifest: its file name and the checksum sqlx
+/// records when it applies it, as hex.
+fn line(name: &str, checksum: &[u8]) -> String {
+    let hex: String = checksum.iter().map(|byte| format!("{byte:02x}")).collect();
+    format!("{name} {hex}")
+}
+
+/// Every merged migration is held to the checksum it merged with (#1223).
+///
+/// sqlx records each applied migration's checksum and **refuses to start**
+/// when a file no longer matches, so an edit to a merged one is a web app that
+/// will not come up on the next deploy. The manifest is append-only: a new
+/// migration adds its line, and a line is never changed or removed.
+#[test]
+fn no_merged_migration_was_edited_and_every_one_is_listed() {
+    let directory = Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations");
+    let manifest = fs::read_to_string(directory.join(MANIFEST)).unwrap();
+    let listed: Vec<&str> = manifest.lines().filter(|l| !l.is_empty()).collect();
+
+    let mut actual = Vec::new();
+    for migration in db::MIGRATOR.iter() {
+        let name = fs::read_dir(&directory)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .find(|name| version(name) == Ok(migration.version))
+            .unwrap_or_else(|| panic!("no file for version {}", migration.version));
+        actual.push(line(&name, &migration.checksum));
+    }
+
+    for (at, listed) in listed.iter().enumerate() {
+        let name = listed.split(' ').next().unwrap_or_default();
+        match actual
+            .iter()
+            .find(|line| line.split(' ').next() == Some(name))
+        {
+            Some(line) => assert_eq!(
+                line, listed,
+                "{name} has changed since it merged: merged migrations are never \
+                 edited; put it back and add a new one"
+            ),
+            None => panic!(
+                "{name} is in {MANIFEST} but not in migrations/: a merged \
+                 migration is never removed, and its line never is either"
+            ),
+        }
+        assert_eq!(
+            actual.get(at),
+            Some(&listed.to_string()),
+            "a line of {MANIFEST} was removed or moved: it is append-only, \
+             one line per migration in order"
+        );
+    }
+    let unlisted = &actual[listed.len().min(actual.len())..];
+    assert!(
+        unlisted.is_empty(),
+        "a new migration: append to migrations/{MANIFEST}\n{}",
+        unlisted.join("\n")
+    );
 }
 
 #[test]

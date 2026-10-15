@@ -5,15 +5,6 @@ use scorsese_providers::credentials::{
     Environment, Provider, Settings, Source, resolve_from, settings_path,
 };
 
-/// Every provider, so the report is the same length whatever is configured —
-/// a key that is missing has to appear in order to be seen to be missing.
-const PROVIDERS: [Provider; 4] = [
-    Provider::Gemini,
-    Provider::ElevenLabs,
-    Provider::Anthropic,
-    Provider::Pixabay,
-];
-
 /// Prints where the settings file is, what resolved, and from where.
 ///
 /// **No key is ever printed**, not truncated and not masked. A masked key is
@@ -39,8 +30,10 @@ pub(crate) fn run() -> Result<()> {
         None => println!("budget:        no ceiling set"),
     }
 
+    // Every provider, so the report is the same length whatever is configured:
+    // a key that is missing has to appear in order to be seen to be missing.
     println!();
-    for provider in PROVIDERS {
+    for provider in Provider::ALL {
         let line = match resolve_from(provider, &environment, &settings) {
             Ok(found) => match found.source {
                 Source::Environment => format!("found, from {}", provider.variable()),

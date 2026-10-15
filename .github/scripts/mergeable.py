@@ -99,6 +99,12 @@ _spec = importlib.util.spec_from_file_location(
 protocol = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(protocol)
 
+_spec = importlib.util.spec_from_file_location(
+    "closing", Path(__file__).resolve().parent / "closing.py"
+)
+closing = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(closing)
+
 # The workflow that gates a merge. A run of anything else — a scheduled job, a
 # future workflow — is not the one being asked about, and counting it would be
 # the same mistake in a new costume.
@@ -363,7 +369,10 @@ def judge(
     is every [`WORKFLOW`] run recorded against the head commit, and `jobs` maps
     a run's id to its jobs. `skips` is [`skipped_by_ci`]: whether `ci.yml`
     makes no run for this diff by design, which only matters when there is no
-    run (#1135).
+    run (#1135). `pull["closes"]`, when present, is [`closing.closed_by`]: an
+    issue it closes that is labelled `planning` or `human`, or a keyword
+    pointing at a pull request or a closed issue, refuses whatever CI says
+    (#1221).
 
     Stated over the set rather than over a chosen run — see the module doc, and
     #245 for what picking one by list position did.
@@ -377,6 +386,10 @@ def judge(
             "CI does not run on drafts, so nothing here has checked it. A draft"
             " makes no claim to pass; mark it ready and let CI answer.",
         ]
+
+    refused = closing.refusal(pull.get("closes") or {})
+    if refused:
+        return False, refused
 
     if not runs:
         if not skips:
@@ -516,9 +529,12 @@ def answer(number: str) -> int:
         # #1135).
         "isDraft,headRefOid,number,mergeable,mergeStateStatus,baseRefName,"
         # Read only once CI has passed: the description's protocol (#1229).
-        "headRefName,body",
+        # `closingIssuesReferences`: what the PR closes, judged before any run
+        # (#1221).
+        "headRefName,body,closingIssuesReferences",
     )
     sha = pull["headRefOid"]
+    pull["closes"] = closing.closed_by(gh, repo, pull)
 
     listed = gh("api", f"repos/{repo}/actions/runs?head_sha={sha}&per_page=100")
     runs = runs_for(listed.get("workflow_runs", []), sha)

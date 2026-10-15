@@ -243,6 +243,14 @@ def take(
         # Before the fetch and before the push: a draft is not a claim, so
         # there is nothing here to check and no reason to rewrite its branch.
         return number, HANDED_BACK, "it is a draft; mark it ready first."
+    # Before the push too: rebasing and waiting out CI for a branch that may not
+    # close what it closes would be ten minutes spent on a refusal (#1221).
+    refused = mergeable.closing.refusal(
+        mergeable.closing.closed_by(mergeable.gh, repo, pull)
+    )
+    if refused:
+        talk.say(f"#{number}: {refused[0]}", *refused[1:])
+        return number, HANDED_BACK, refused[0]
 
     branch, head = pull["headRefName"], pull["headRefOid"]
     talk.git("fetch", "origin", cwd=opts.root)

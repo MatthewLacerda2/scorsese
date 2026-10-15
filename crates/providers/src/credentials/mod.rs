@@ -55,6 +55,17 @@ pub enum Provider {
 }
 
 impl Provider {
+    /// Every provider, in the order a report lists them. Whatever has to cover
+    /// them all — `scorsese settings`, the test harnesses that strip each key
+    /// from a child's environment — reads this rather than a copy, so a new
+    /// provider is covered the day it is added.
+    pub const ALL: [Self; 4] = [
+        Self::Gemini,
+        Self::ElevenLabs,
+        Self::Anthropic,
+        Self::Pixabay,
+    ];
+
     /// The environment variable this provider's key is read from.
     pub const fn variable(self) -> &'static str {
         match self {
