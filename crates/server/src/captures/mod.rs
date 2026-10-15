@@ -237,9 +237,9 @@ fn read<T: for<'de> Deserialize<'de>>(path: &Path) -> Option<T> {
 
 /// Seconds since the epoch, as both containers' shared clock tells it.
 fn now() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |since| since.as_secs())
+    scorsese_core::Timestamp::unix_now()
+        .and_then(|seconds| u64::try_from(seconds).ok())
+        .unwrap_or(0)
 }
 
 #[cfg(test)]

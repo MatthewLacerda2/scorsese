@@ -27,7 +27,6 @@ pub mod flow;
 
 use std::net::IpAddr;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::{Query, State};
 use axum::http::header::{LOCATION, SET_COOKIE};
@@ -260,9 +259,7 @@ async fn finish(
 
 /// Seconds since the epoch, for an ID token's `exp`.
 fn now() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |elapsed| elapsed.as_secs() as i64)
+    scorsese_core::Timestamp::unix_now().unwrap_or(0)
 }
 
 /// Back to the login page, saying `why`.

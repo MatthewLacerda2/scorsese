@@ -22,6 +22,8 @@ use std::path::PathBuf;
 
 use scorsese_providers::credentials::{Environment, Secret};
 
+use crate::assistant::DEFAULT_TURN_CAP_MICROS;
+use crate::credits::dollars;
 use crate::http::google::Google;
 use crate::payments::Payments;
 use crate::renders::Quota;
@@ -55,11 +57,8 @@ pub const BIND: &str = "SCORSESE_BIND";
 pub const RETIRED_MODEL: &str = "SCORSESE_ASSISTANT_MODEL";
 
 /// The most one assistant turn may cost a user, in dollars, e.g. `2.50`.
-/// Defaults to [`DEFAULT_TURN_CAP`].
+/// Defaults to [`DEFAULT_TURN_CAP_MICROS`].
 pub const ASSISTANT_TURN_CAP: &str = "SCORSESE_ASSISTANT_TURN_CAP";
-
-/// The per-turn cap when [`ASSISTANT_TURN_CAP`] is not set.
-pub const DEFAULT_TURN_CAP: &str = "3.50";
 
 /// The Google OAuth client's id, `….apps.googleusercontent.com` (#952).
 pub const GOOGLE_CLIENT_ID: &str = "GOOGLE_OAUTH_CLIENT_ID";
@@ -194,7 +193,8 @@ pub enum ConfigError {
 
     /// The per-turn cap is not an amount of dollars above zero.
     #[error(
-        "{ASSISTANT_TURN_CAP} must be dollars above zero like {DEFAULT_TURN_CAP}, and {value:?} is not"
+        "{ASSISTANT_TURN_CAP} must be dollars above zero like {}, and {value:?} is not",
+        dollars(DEFAULT_TURN_CAP_MICROS).trim_start_matches('$')
     )]
     TurnCap {
         /// What the variable held.
@@ -249,12 +249,12 @@ impl Config {
                 value: value.to_owned(),
             });
         }
-        let cap = environment
-            .get(ASSISTANT_TURN_CAP)
-            .unwrap_or(DEFAULT_TURN_CAP);
-        let assistant_turn_cap = micro_dollars(cap).ok_or_else(|| ConfigError::TurnCap {
-            value: cap.to_owned(),
-        })?;
+        let assistant_turn_cap = match environment.get(ASSISTANT_TURN_CAP) {
+            Some(cap) => micro_dollars(cap).ok_or_else(|| ConfigError::TurnCap {
+                value: cap.to_owned(),
+            })?,
+            None => DEFAULT_TURN_CAP_MICROS,
+        };
 
         let google = Google::from_environment(environment)?;
         let payments = Payments::from_environment(environment)?;

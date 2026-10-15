@@ -128,6 +128,12 @@ fn an_assistant_turn_is_capped_at_three_fifty_unless_told_otherwise() {
             "{nonsense}: {error}"
         );
     }
+    assert_eq!(
+        with(&[(ASSISTANT_TURN_CAP, "two")])
+            .unwrap_err()
+            .to_string(),
+        "SCORSESE_ASSISTANT_TURN_CAP must be dollars above zero like 3.50, and \"two\" is not"
+    );
     // The model is each project's choice now (#705); the old setting is
     // refused rather than quietly ignored, and an empty one is no setting.
     let error = with(&[(RETIRED_MODEL, "claude-opus-5-5")]).unwrap_err();

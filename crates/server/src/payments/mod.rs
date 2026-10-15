@@ -41,7 +41,6 @@ mod refresh;
 pub mod settle;
 
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use scorsese_providers::api::http::HttpError;
 use scorsese_providers::credentials::{Environment, Secret};
@@ -174,9 +173,7 @@ pub fn reais(centavos: i64) -> String {
 
 /// Seconds since the epoch.
 fn now() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |elapsed| i64::try_from(elapsed.as_secs()).unwrap_or(0))
+    scorsese_core::Timestamp::unix_now().unwrap_or(0)
 }
 
 #[cfg(test)]

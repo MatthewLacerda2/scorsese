@@ -113,9 +113,7 @@ fn configured(state: &AppState) -> Result<&Payments, ApiError> {
 
 /// Seconds since the epoch, for a signature's timestamp.
 fn now() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |elapsed| i64::try_from(elapsed.as_secs()).unwrap_or(0))
+    scorsese_core::Timestamp::unix_now().unwrap_or(0)
 }
 
 impl From<PaymentError> for ApiError {
