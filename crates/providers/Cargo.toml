@@ -26,3 +26,7 @@ ureq = { version = "3.3.0", default-features = false, features = ["json", "rustl
 # zip leaves to its user and the lockfile already carries for `png`.
 flate2 = { version = "1.1.10", default-features = false, features = ["rust_backend"] }
 zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2"] }
+
+[dev-dependencies]
+# `StubProbe`, for the stock imports that never run ffprobe (#1279).
+scorsese-core = { version = "0.1.0", path = "../core", features = ["test-support"] }

@@ -1,6 +1,6 @@
 //! `duck_music`: its defaults are core's, and each knob reaches the dip.
 
-use super::fixture::project;
+use super::fixture::{document, project};
 use crate::{call, said};
 use scorsese_core::Project;
 use serde_json::{Value, json};
@@ -34,7 +34,7 @@ fn ducking_writes_keyframes_and_says_how_many() {
     ));
     assert!(!failed, "{text}");
     assert!(text.contains("1 clip(s) ducked"), "got {text}");
-    let on_disk = std::fs::read_to_string(dir.join("project.json")).expect("read back");
+    let on_disk = document(&dir);
     assert!(on_disk.contains(r#""by": "duck""#), "got {on_disk}");
     std::fs::remove_dir_all(dir).ok();
 }

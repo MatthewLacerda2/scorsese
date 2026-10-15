@@ -1,6 +1,6 @@
 //! Placing a clip and trimming one, over the wire.
 
-use super::fixture::project;
+use super::fixture::{document, project, read};
 use crate::{call, said};
 use serde_json::{Value, json};
 
@@ -152,14 +152,6 @@ fn a_negative_time_is_refused_rather_than_clamped() {
     assert!(failed, "the timeline starts at 0s");
     assert!(text.contains("cannot be negative"), "got {text}");
     std::fs::remove_dir_all(dir).ok();
-}
-
-fn document(dir: &std::path::Path) -> String {
-    std::fs::read_to_string(dir.join("project.json")).expect("read")
-}
-
-fn read(dir: &std::path::Path) -> Value {
-    serde_json::from_str(&document(dir)).expect("the server writes JSON")
 }
 
 /// One clip's `(start, duration)`, by track id and position on it.

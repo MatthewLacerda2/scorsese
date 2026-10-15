@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use crate::common::documents::{self, assets};
 use crate::common::media::probe::probe;
 use crate::common::media::tools;
-use crate::common::{media, run_in, temp_dir};
+use crate::common::{document, media, run_in, temp_dir};
 use crate::render;
 
 /// A project whose only sound is a baked recipe, under a plain colour shot.
@@ -26,8 +26,7 @@ fn scored(label: &str) -> PathBuf {
     run_in(&dir, &["synth", "bake"]).ok();
 
     let document: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(dir.join("project.json")).expect("read"))
-            .expect("the baked document parses");
+        serde_json::from_str(&document(&dir)).expect("the baked document parses");
     let theme = document["assets"]
         .as_array()
         .expect("an assets table")

@@ -4,7 +4,7 @@
 #[path = "common/mod.rs"]
 mod common;
 
-use common::{documents, reload, run_in};
+use common::{document, documents, reload, run_in};
 
 /// Two titles over two unrealised lines, cut long, and a sound under the
 /// second title.
@@ -70,11 +70,8 @@ fn each_scene_ends_the_gap_after_its_line_and_its_rider_follows() {
 #[test]
 fn a_scene_that_is_not_a_scene_is_refused_before_anything_is_read() {
     let dir = narrated("voice-refused");
-    let before = std::fs::read_to_string(dir.join("project.json")).unwrap();
+    let before = document(&dir);
     let run = run_in(&dir, &["cut-to-voice", "--scene", "l1"]);
     run.says("LINE=VISUAL");
-    assert_eq!(
-        std::fs::read_to_string(dir.join("project.json")).unwrap(),
-        before
-    );
+    assert_eq!(document(&dir), before);
 }

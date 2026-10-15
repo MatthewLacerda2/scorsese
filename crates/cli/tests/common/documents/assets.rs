@@ -3,22 +3,24 @@
 //! Each is a `String` of JSON rather than an [`scorsese_core::Asset`], for the
 //! reason the parent module gives: the document is the contract.
 
-use super::EMPTY_SHA256;
+use super::empty_sha256;
 
 /// An imported video, hashed and probed, pointing at `assets/{id}.mp4`.
 pub(crate) fn video(id: &str) -> String {
+    let empty = empty_sha256();
     format!(
         r#"{{ "id": "{id}", "kind": "video", "path": "assets/{id}.mp4",
-              "sha256": "{EMPTY_SHA256}",
+              "sha256": "{empty}",
               "media": {{ "duration_seconds": 4.0, "width": 640, "height": 360 }} }}"#
     )
 }
 
 /// The same, never probed — present on disk but under-described.
 pub(crate) fn unprobed_video(id: &str) -> String {
+    let empty = empty_sha256();
     format!(
         r#"{{ "id": "{id}", "kind": "video", "path": "assets/{id}.mp4",
-              "sha256": "{EMPTY_SHA256}" }}"#
+              "sha256": "{empty}" }}"#
     )
 }
 

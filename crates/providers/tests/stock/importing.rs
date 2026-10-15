@@ -4,7 +4,7 @@ use scorsese_core::AssetKind;
 use scorsese_providers::stock::{Choice, Medium, cache_dir, import, previews, search};
 
 use crate::common::project;
-use crate::fake::{Fake, Probe, query};
+use crate::fake::{Fake, probe, query};
 
 #[test]
 fn an_import_is_an_ordinary_video_asset_named_for_its_source() {
@@ -32,7 +32,7 @@ fn an_import_is_an_ordinary_video_asset_named_for_its_source() {
         &library,
         &choices,
         (1920, 1080),
-        &Probe,
+        &probe(),
     );
     assert_eq!(answers.len(), 3);
     let first = answers[0].as_ref().unwrap();
@@ -68,7 +68,7 @@ fn a_4k_render_takes_the_large_rendition() {
         &library,
         &choice,
         (3840, 2160),
-        &Probe,
+        &probe(),
     );
     assert_eq!(answer[0].as_ref().unwrap().rendition.name, "large");
 }

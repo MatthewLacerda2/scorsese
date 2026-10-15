@@ -5,9 +5,9 @@
 //! are **copied** into `assets/`, the document records the relative path they
 //! landed at, and the outside path is never written down anywhere.
 
+use super::fixture::{document, project};
 use std::path::{Path, PathBuf};
 
-use super::fixture::project;
 use crate::{call, said};
 use scorsese_render::Tools;
 use serde_json::json;
@@ -55,7 +55,7 @@ fn a_folder_of_footage_comes_in_one_asset_at_a_time() {
     assert!(text.contains("LICENCE.txt — skipped"), "got {text}");
     assert!(text.contains("b-roll — skipped"), "got {text}");
 
-    let document = std::fs::read_to_string(dir.join("project.json")).expect("read back");
+    let document = document(&dir);
     assert!(document.contains(r#""assets/wide.mp4""#), "got {document}");
     assert!(
         !document.contains(outside.to_str().expect("a utf-8 fixture path")),
@@ -76,17 +76,13 @@ fn an_id_an_asset_already_answers_to_is_refused_with_nothing_copied() {
     let outside = footage("import-taken-sources");
     // `title` is already an asset in the fixture document.
     std::fs::rename(outside.join("wide.mp4"), outside.join("title.mp4")).expect("rename");
-    let before = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let before = document(&dir);
 
     let (text, failed) = said(&call("import", json!({ "project": dir, "path": outside })));
 
     assert!(failed, "`title` is taken, so this must be refused: {text}");
     assert!(text.contains("already an asset"), "got {text}");
-    assert_eq!(
-        std::fs::read_to_string(dir.join("project.json")).expect("read back"),
-        before,
-        "the document must be untouched"
-    );
+    assert_eq!(document(&dir), before, "the document must be untouched");
     assert_eq!(
         std::fs::read_dir(dir.join("assets")).expect("read").count(),
         0,

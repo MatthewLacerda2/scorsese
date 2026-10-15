@@ -5,7 +5,7 @@
 //! part that is a file beside the document, and these are the two tools that
 //! exist because of that.
 
-use super::fixture::project;
+use super::fixture::{document, project};
 use crate::{call, said};
 use serde_json::json;
 
@@ -22,7 +22,7 @@ fn writing_a_script_into_a_project_that_had_none_starts_one() {
     assert!(!failed, "{text}");
     assert!(text.contains("script.md"), "got {text}");
 
-    let document = std::fs::read_to_string(dir.join("project.json")).expect("read the document");
+    let document = document(&dir);
     assert!(
         document.contains("\"script\": \"script.md\""),
         "the document should now point at it: {document}"
@@ -87,7 +87,7 @@ fn reading_a_script_from_a_project_without_one_says_how_to_start_one() {
 #[test]
 fn describing_a_project_surfaces_its_script_and_its_notes() {
     let dir = project("script-describe");
-    let document = std::fs::read_to_string(dir.join("project.json")).expect("read the document");
+    let document = document(&dir);
     let annotated = document.replace(
         r#""id": "title", "kind": "text""#,
         r#""id": "title", "note": "the landing page's own headline, quoted", "kind": "text""#,

@@ -1,6 +1,7 @@
 //! `project_new`: the call that has to work before any of the others can be
 //! made at all.
 
+use super::fixture::document;
 use std::path::PathBuf;
 
 use serde_json::json;
@@ -40,7 +41,7 @@ fn the_name_defaults_to_the_directorys_own() {
         .and_then(|stem| stem.to_str())
         .expect("the directory has a name")
         .to_owned();
-    let document = std::fs::read_to_string(dir.join("project.json")).expect("read the document");
+    let document = document(&dir);
     assert!(
         document.contains(&format!("\"name\": \"{stem}\"")),
         "got {document}"
@@ -62,7 +63,7 @@ fn a_name_and_a_grid_are_taken_as_given() {
     assert!(text.contains("A Boat At Sea"), "got {text}");
     assert!(text.contains("30000/1001 fps"), "got {text}");
 
-    let document = std::fs::read_to_string(dir.join("project.json")).expect("read the document");
+    let document = document(&dir);
     assert!(document.contains("\"num\": 30000"), "got {document}");
     std::fs::remove_dir_all(dir).ok();
 }
@@ -107,7 +108,7 @@ fn a_second_call_over_a_project_refuses_and_leaves_it_alone() {
     assert!(failed, "a second call must not succeed: {text}");
     assert!(text.contains("already a scorsese project"), "got {text}");
 
-    let document = std::fs::read_to_string(dir.join("project.json")).expect("read the document");
+    let document = document(&dir);
     assert!(document.contains("the original"), "it was overwritten");
     std::fs::remove_dir_all(dir).ok();
 }

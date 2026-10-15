@@ -11,7 +11,6 @@ use scorsese_core::{
 
 #[path = "../../../../tools/scratch.rs"]
 pub(crate) mod scratch;
-pub(crate) mod stub_probe;
 
 /// A hand-written project exercising every asset kind, both track kinds, and
 /// keyframes. Doubles as the worked example in `docs/project-format.md`.

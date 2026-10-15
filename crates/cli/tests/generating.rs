@@ -12,7 +12,7 @@ mod common;
 
 use std::path::{Path, PathBuf};
 
-use common::{documents, reload, run_in_env, temp_dir};
+use common::{document, documents, reload, run_in_env, temp_dir};
 
 /// A project with one shot nobody has paid for.
 fn sketched(label: &str) -> PathBuf {
@@ -51,10 +51,6 @@ fn at(home: &Path) -> [(&'static str, &Path); 3] {
 }
 
 /// The document as it stands, which is where "nothing was submitted" is read.
-fn document(dir: &Path) -> String {
-    std::fs::read_to_string(dir.join("project.json")).expect("read project.json")
-}
-
 #[track_caller]
 fn nothing_was_submitted(dir: &Path) {
     let document = document(dir);

@@ -1,14 +1,9 @@
 //! A caption that moves on its own: the reveal and the counter `text_new`
 //! takes, each written into the document as the block it is.
 
-use super::fixture::project;
+use super::fixture::{project, read};
 use crate::{call, said};
 use serde_json::json;
-
-fn document(dir: &std::path::Path) -> serde_json::Value {
-    let text = std::fs::read_to_string(dir.join("project.json")).expect("the project is on disk");
-    serde_json::from_str(&text).expect("the project is JSON")
-}
 
 #[test]
 fn a_counter_and_a_reveal_are_written_as_their_blocks() {
@@ -20,7 +15,7 @@ fn a_counter_and_a_reveal_are_written_as_their_blocks() {
                 "number": { "value": 144, "locale": "pt-BR" } }),
     ));
     assert!(!failed, "{text}");
-    let written = document(&dir);
+    let written = read(&dir);
     let style = written["assets"]
         .as_array()
         .and_then(|assets| assets.iter().find(|asset| asset["id"] == "partitions"))
@@ -56,7 +51,7 @@ fn a_counter_without_a_placeholder_and_an_unknown_unit_are_refused() {
 }
 
 fn style_of(dir: &std::path::Path, id: &str) -> serde_json::Value {
-    document(dir)["assets"]
+    read(dir)["assets"]
         .as_array()
         .and_then(|assets| assets.iter().find(|asset| asset["id"] == id))
         .map(|asset| asset["style"].clone())

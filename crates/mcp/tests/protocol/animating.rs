@@ -1,14 +1,9 @@
 //! `clip_animate`: one property's keyframes written, replaced and removed over
 //! the wire, without touching any other.
 
-use super::fixture::project;
+use super::fixture::{document, project, read};
 use crate::{call, said};
 use serde_json::{Value, json};
-
-fn document(dir: &std::path::Path) -> Value {
-    let text = std::fs::read_to_string(dir.join("project.json")).expect("the project is on disk");
-    serde_json::from_str(&text).expect("the project is JSON")
-}
 
 /// The title's keyframe tracks, as `(property, [(t, value)])`.
 fn tracks_of(clip: &Value) -> Vec<(String, Vec<(u64, f64)>)> {
@@ -54,7 +49,7 @@ fn a_scale_pop_writes_both_axes_and_leaves_the_fade_alone() {
     assert!(text.contains("0.47s (frame 14)"), "both units: {text}");
     assert!(text.contains("back_out"), "names the easing: {text}");
 
-    let c1 = &document(&dir)["tracks"][0]["clips"][0];
+    let c1 = &read(&dir)["tracks"][0]["clips"][0];
     let points = vec![(0, 0.6), (14, 1.0)];
     assert_eq!(
         tracks_of(c1),
@@ -80,7 +75,7 @@ fn a_track_is_replaced_and_then_removed() {
     let (text, failed) = animate(&dir, "c1", "glow.intensity", again);
     assert!(!failed, "{text}");
     assert!(text.contains("2 point(s) written by hand"), "got {text}");
-    let c1 = &document(&dir)["tracks"][0]["clips"][0];
+    let c1 = &read(&dir)["tracks"][0]["clips"][0];
     assert_eq!(
         tracks_of(c1),
         [("glow.intensity".to_owned(), vec![(60, 3.0)])]
@@ -90,7 +85,7 @@ fn a_track_is_replaced_and_then_removed() {
     assert!(!failed, "{text}");
     assert!(text.contains("no longer animated"), "got {text}");
     assert!(
-        document(&dir)["tracks"][0]["clips"][0]
+        read(&dir)["tracks"][0]["clips"][0]
             .get("keyframes")
             .is_none()
     );
@@ -102,7 +97,7 @@ fn a_track_is_replaced_and_then_removed() {
 #[test]
 fn what_cannot_be_animated_writes_nothing() {
     let dir = project("animate-refused");
-    let before = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let before = document(&dir);
     let point = json!([{ "at_seconds": 0, "value": 1 }]);
     let (text, failed) = animate(&dir, "c1", "opactiy", point);
     assert!(failed && text.contains("did you mean `opacity`?"), "{text}");
@@ -115,7 +110,7 @@ fn what_cannot_be_animated_writes_nothing() {
     let (text, failed) = animate(&dir, "c1", "opacity", same);
     assert!(failed && text.contains("both land on frame 30"), "{text}");
 
-    let after = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let after = document(&dir);
     assert_eq!(before, after);
     std::fs::remove_dir_all(dir).ok();
 }
@@ -136,7 +131,7 @@ fn a_member_of_a_group_is_animated_in_place() {
         json!([{ "at_seconds": 0, "value": 15 }]),
     );
     assert!(!failed, "{text}");
-    let document = document(&dir);
+    let document = read(&dir);
     let group = document["assets"]
         .as_array()
         .expect("assets")

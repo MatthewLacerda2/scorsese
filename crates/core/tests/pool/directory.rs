@@ -3,8 +3,8 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};
+use scorsese_core::testing::StubProbe;
 use scorsese_core::{ASSETS_DIR, ImportError, Project, SkipReason, import_path};
 
 /// A folder of two clips, a licence file nothing can infer a kind from, and a

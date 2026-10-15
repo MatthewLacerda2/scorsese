@@ -2,9 +2,9 @@
 
 use std::cell::Cell;
 use std::io::Write;
-use std::path::Path;
 
-use scorsese_core::{Fps, MediaMetadata, ProbeError, ProbeMedia};
+use scorsese_core::testing::StubProbe;
+use scorsese_core::{Fps, MediaMetadata};
 use scorsese_providers::stock::{Candidate, Library, Medium, Page, Query, Rendition, StockError};
 
 /// `count` results for any query, `vertical_every` of them taller than wide.
@@ -144,19 +144,15 @@ impl Library for Fake {
 }
 
 /// A prober that calls every file a 10-second 1080p video.
-pub(crate) struct Probe;
-
-impl ProbeMedia for Probe {
-    fn probe(&self, _: &Path) -> Result<MediaMetadata, ProbeError> {
-        Ok(MediaMetadata {
-            duration_seconds: Some(10.0),
-            width: Some(1920),
-            height: Some(1080),
-            frame_rate: Some(Fps::THIRTY),
-            has_alpha: Some(false),
-            ..MediaMetadata::default()
-        })
-    }
+pub(crate) fn probe() -> StubProbe {
+    StubProbe::reporting(MediaMetadata {
+        duration_seconds: Some(10.0),
+        width: Some(1920),
+        height: Some(1080),
+        frame_rate: Some(Fps::THIRTY),
+        has_alpha: Some(false),
+        ..MediaMetadata::default()
+    })
 }
 
 /// A query for footage of `words`, unfiltered.

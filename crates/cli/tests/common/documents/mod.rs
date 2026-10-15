@@ -15,8 +15,9 @@ use scorsese_core::{PROJECT_FILE_NAME, SCHEMA_VERSION};
 use super::temp_dir;
 
 /// SHA-256 of nothing, so an empty file matches this recorded hash exactly.
-pub(crate) const EMPTY_SHA256: &str =
-    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+pub(crate) fn empty_sha256() -> String {
+    scorsese_core::hash_bytes(b"")
+}
 
 /// A fresh project directory holding `assets` and `tracks`.
 pub(crate) fn written(label: &str, assets: &[String], tracks: &[String]) -> PathBuf {

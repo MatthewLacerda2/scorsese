@@ -3,8 +3,8 @@
 //! listing must not call it unused, and a row speaks the document's words
 //! rather than Rust's.
 
-use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};
+use scorsese_core::testing::StubProbe;
 use scorsese_core::{
     Asset, AssetHealth, AssetId, AssetKind, GenerationState, HashCheck, NamedBy, asset_status,
     import_asset,

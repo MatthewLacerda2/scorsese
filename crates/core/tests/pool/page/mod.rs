@@ -5,8 +5,8 @@ mod beside;
 mod kept;
 mod written;
 
-use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};
+use scorsese_core::testing::StubProbe;
 use scorsese_core::{
     AssetKind, ImportError, PAGES_DIR, Project, SkipReason, import_asset, import_path,
 };

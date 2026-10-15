@@ -2,7 +2,7 @@
 
 use super::folder;
 use crate::common::new_project;
-use crate::common::stub_probe::StubProbe;
+use scorsese_core::testing::StubProbe;
 use scorsese_core::{
     AssetId, Frames, SequenceChange, SequenceError, change_sequence, import_sequence,
 };

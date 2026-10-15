@@ -1,14 +1,9 @@
 //! Removing an asset or a lane: the first call asks what would go, and only a
 //! second call naming those clips destroys anything.
 
-use super::fixture::project;
+use super::fixture::{document, project};
 use crate::{call, said};
 use serde_json::json;
-
-/// The document, for a test that has to see what actually landed in it.
-fn document(dir: &std::path::Path) -> String {
-    std::fs::read_to_string(dir.join("project.json")).expect("the project is on disk")
-}
 
 /// The confirmation round-trip #396 settled on: the refusal names the clip,
 /// and the call that names it back removes the asset and the clip together.

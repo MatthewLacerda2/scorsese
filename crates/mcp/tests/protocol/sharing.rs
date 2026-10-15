@@ -1,14 +1,14 @@
 //! The files beside the pages, through the page tools (#954): `file` instead
 //! of `page`, never an asset, and only the kinds a page loads.
 
-use super::fixture::project;
+use super::fixture::{document, project};
 use crate::{call, said};
 use serde_json::json;
 
 #[test]
 fn page_write_with_file_writes_beside_the_pages_and_page_read_reads_it() {
     let dir = project("page-file");
-    let before = std::fs::read_to_string(dir.join("project.json")).expect("document");
+    let before = document(&dir);
 
     let lib = "function rise(t) { return t * t; }";
     let (text, failed) = said(&call(
@@ -29,7 +29,7 @@ fn page_write_with_file_writes_beside_the_pages_and_page_read_reads_it() {
     ));
     assert!(!failed, "{read}");
     assert_eq!(read, "function fall() {}");
-    let after = std::fs::read_to_string(dir.join("project.json")).expect("document");
+    let after = document(&dir);
     assert_eq!(after, before, "a file beside the pages is not an asset");
     std::fs::remove_dir_all(dir).ok();
 }

@@ -1,9 +1,9 @@
 //! A folder of frames in as one image sequence, then retimed and made anew
 //! from the stills it brought.
 
+use super::fixture::{document, project};
 use std::path::{Path, PathBuf};
 
-use super::fixture::project;
 use crate::{call, said};
 use scorsese_render::Tools;
 use serde_json::json;
@@ -97,7 +97,7 @@ fn a_clip_of_a_sequence_animates_like_any_other() {
     assert!(!failed, "{text}");
 
     let read = || -> serde_json::Value {
-        let text = std::fs::read_to_string(dir.join("project.json")).expect("the project");
+        let text = document(&dir);
         serde_json::from_str(&text).expect("JSON")
     };
     let clips = read()["tracks"][0]["clips"].clone();

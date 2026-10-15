@@ -1,11 +1,11 @@
 //! `project_describe` naming the word a narration is saying (#811), so sync
 //! can be checked without listening.
 
+use super::fixture::{document, project};
 use scorsese_core::ProjectPath;
 use scorsese_core::words::{Word, Words};
 use serde_json::json;
 
-use super::fixture::project;
 use crate::{call, said};
 
 fn word(text: &str, start: f64, end: f64) -> Word {
@@ -19,7 +19,7 @@ fn word(text: &str, start: f64, end: f64) -> Word {
 #[test]
 fn describing_an_instant_names_the_word_being_said() {
     let dir = project("syncing");
-    let document = std::fs::read_to_string(dir.join("project.json")).unwrap();
+    let document = document(&dir);
     let spoken = document.replace(
         r#""prompt": "a line", "state": "sketch""#,
         r#""prompt": "a line", "state": "generated", "path": "generated/vo.mp3""#,

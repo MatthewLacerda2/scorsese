@@ -1,11 +1,11 @@
 //! `clip_set`: the values an inspector shows, set over the wire.
 
-use super::fixture::project;
+use super::fixture::{document, project};
 use crate::{call, said};
 use serde_json::{Value, json};
 
 fn clip(dir: &std::path::Path, track: usize) -> Value {
-    let text = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let text = document(&dir);
     let project: Value = serde_json::from_str(&text).expect("the server writes JSON");
     project["tracks"][track]["clips"][0].clone()
 }
@@ -62,7 +62,7 @@ fn a_speed_shortens_the_clip_to_the_same_footage() {
 #[test]
 fn what_cannot_apply_is_refused_and_nothing_is_written() {
     let dir = project("clip-set-refused");
-    let before = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let before = document(&dir);
     for (mut arguments, expected) in [
         (json!({ "clip": "m1", "rotation": 90 }), "audio track"),
         (json!({ "clip": "c1", "scale": 0 }), "not a size"),
@@ -75,7 +75,7 @@ fn what_cannot_apply_is_refused_and_nothing_is_written() {
         assert!(failed, "{text}");
         assert!(text.contains(expected), "expected {expected:?} in {text}");
     }
-    let after = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let after = document(&dir);
     assert_eq!(after, before);
     std::fs::remove_dir_all(dir).ok();
 }

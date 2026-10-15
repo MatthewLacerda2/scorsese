@@ -6,7 +6,7 @@
 //! that far would be one typo away from spending somebody's money. What a good
 //! token does is pinned in `scorsese-providers`' own tests instead.
 
-use super::fixture::{DOCUMENT, project};
+use super::fixture::{DOCUMENT, document, project};
 use crate::{call, said};
 use serde_json::json;
 
@@ -38,7 +38,7 @@ fn token(text: &str) -> String {
 #[test]
 fn a_first_call_quotes_and_sends_nothing() {
     let dir = voiced("pay-quote");
-    let before = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let before = document(&dir);
 
     let (text, failed) = said(&call("generate", json!({ "project": dir })));
 
@@ -48,7 +48,7 @@ fn a_first_call_quotes_and_sends_nothing() {
     assert!(text.contains("confirm"), "it says how to go ahead: {text}");
     token(&text);
     assert_eq!(
-        std::fs::read_to_string(dir.join("project.json")).expect("read"),
+        document(&dir),
         before,
         "a quote writes nothing into the document"
     );

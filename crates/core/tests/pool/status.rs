@@ -1,7 +1,7 @@
 //! What `scorsese assets` reports about each asset.
 
-use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};
+use scorsese_core::testing::StubProbe;
 use scorsese_core::{
     AssetHealth, AssetKind, AssetStatus, Clip, ClipId, Frames, GenerationState, HashCheck, Track,
     TrackId, TrackKind, asset_status, import_asset,

@@ -2,7 +2,7 @@
 //! member's id, and the edits that cannot leave the timeline say so by naming
 //! the group (#1103).
 
-use super::fixture::{DOCUMENT, project};
+use super::fixture::{DOCUMENT, document, project};
 use crate::{call, said};
 use serde_json::{Value, json};
 
@@ -27,7 +27,7 @@ fn grouped(label: &str) -> std::path::PathBuf {
 
 /// The member called `id`, as the document on disk has it.
 fn member(dir: &std::path::Path, id: &str) -> Option<Value> {
-    let text = std::fs::read_to_string(dir.join("project.json")).expect("read back");
+    let text = document(&dir);
     let document: Value = serde_json::from_str(&text).expect("the document is JSON");
     let group = document["assets"]
         .as_array()?
@@ -88,7 +88,7 @@ fn every_per_clip_tool_reaches_a_member() {
 #[test]
 fn the_edits_a_member_cannot_take_name_its_group() {
     let dir = grouped("members-refused");
-    let before = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let before = document(&dir);
     let refusals = [
         (
             "clip_move",
@@ -107,7 +107,7 @@ fn the_edits_a_member_cannot_take_name_its_group() {
             "{tool}: {text}"
         );
     }
-    let after = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let after = document(&dir);
     assert_eq!(after, before, "nothing was written");
     std::fs::remove_dir_all(dir).ok();
 }

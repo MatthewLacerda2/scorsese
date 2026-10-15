@@ -1,7 +1,7 @@
 //! Importing media into the pool.
 
-use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};
+use scorsese_core::testing::StubProbe;
 use scorsese_core::{AssetKind, Project, import_asset, import_path};
 
 #[test]

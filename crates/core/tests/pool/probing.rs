@@ -2,8 +2,8 @@
 
 use std::path::PathBuf;
 
-use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};
+use scorsese_core::testing::StubProbe;
 use scorsese_core::{
     Asset, AssetId, AssetKind, MediaMetadata, ProbeOutcome, Probed, Project, ProjectPath, Reprobe,
     import_asset, probe_assets, unprobed_assets,

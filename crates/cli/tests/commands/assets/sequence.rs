@@ -2,13 +2,14 @@
 //! timelapse, with only the stills worth a look named beneath it.
 
 use super::{list, row_for};
-use crate::common::documents::{self, EMPTY_SHA256};
+use crate::common::documents::{self, empty_sha256};
 
 /// A probed, hashed still at `assets/{id}.png`.
 fn still(id: &str) -> String {
+    let empty = empty_sha256();
     format!(
         r#"{{ "id": "{id}", "kind": "image", "path": "assets/{id}.png",
-              "sha256": "{EMPTY_SHA256}", "media": {{ "width": 64, "height": 64 }} }}"#
+              "sha256": "{empty}", "media": {{ "width": 64, "height": 64 }} }}"#
     )
 }
 

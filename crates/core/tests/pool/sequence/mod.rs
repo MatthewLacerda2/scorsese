@@ -3,8 +3,8 @@
 
 mod change;
 
-use crate::common::stub_probe::StubProbe;
 use crate::common::{new_project, source_file};
+use scorsese_core::testing::StubProbe;
 use scorsese_core::{
     AssetId, AssetKind, ImportError, MediaMetadata, ProbeError, ProbeMedia, SkipReason,
     import_sequence,

@@ -1,6 +1,6 @@
 //! Grouping clips into one layer and ungrouping them, over the wire.
 
-use super::fixture::project;
+use super::fixture::{document, project, read};
 use crate::{call, said};
 use serde_json::{Value, json};
 
@@ -50,7 +50,7 @@ fn a_clip_is_grouped_and_ungrouped_back_where_it_was() {
 #[test]
 fn a_sound_is_not_grouped() {
     let dir = project("group-sound");
-    let before = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let before = document(&dir);
     let (text, failed) = said(&call(
         "clip_group",
         json!({ "project": dir, "clips": ["m1"] }),
@@ -58,16 +58,8 @@ fn a_sound_is_not_grouped() {
     assert!(failed, "the bed is sound");
     assert!(text.contains("picture only"), "got {text}");
     assert!(text.contains("nothing was written"), "got {text}");
-    assert_eq!(
-        std::fs::read_to_string(dir.join("project.json")).expect("read"),
-        before
-    );
+    assert_eq!(document(&dir), before);
     std::fs::remove_dir_all(dir).ok();
-}
-
-fn read(dir: &std::path::Path) -> Value {
-    let text = std::fs::read_to_string(dir.join("project.json")).expect("read");
-    serde_json::from_str(&text).expect("the server writes JSON")
 }
 
 fn asset<'a>(document: &'a Value, id: &str) -> &'a Value {

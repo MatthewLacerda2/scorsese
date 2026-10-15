@@ -1,17 +1,17 @@
 //! `caption_narration` putting a generated line's words on screen, timed from
 //! the timings stored beside it (#965).
 
+use super::fixture::{document, project, read};
 use scorsese_core::ProjectPath;
 use scorsese_core::words::{Word, Words};
 use serde_json::{Value, json};
 
-use super::fixture::project;
 use crate::{call, said};
 
 #[test]
 fn a_timed_line_becomes_captions_that_a_rerun_replaces() {
     let dir = project("captioning");
-    let document = std::fs::read_to_string(dir.join("project.json")).unwrap();
+    let document = document(&dir);
     let spoken = document.replace(
         r#""prompt": "a line", "state": "sketch""#,
         r#""prompt": "a line", "state": "generated", "path": "generated/vo.mp3""#,
@@ -42,8 +42,7 @@ fn a_timed_line_becomes_captions_that_a_rerun_replaces() {
         );
     }
 
-    let document: Value =
-        serde_json::from_str(&std::fs::read_to_string(dir.join("project.json")).unwrap()).unwrap();
+    let document: Value = read(&dir);
     let track = document["tracks"]
         .as_array()
         .unwrap()

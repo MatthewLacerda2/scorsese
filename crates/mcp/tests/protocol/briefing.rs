@@ -1,6 +1,6 @@
 //! Editing a brief, and the state that has to move with it.
 
-use super::fixture::{DOCUMENT, project};
+use super::fixture::{DOCUMENT, document, project, read};
 use crate::{call, said};
 use serde_json::{Value, json};
 
@@ -14,12 +14,6 @@ fn generated(label: &str) -> std::path::PathBuf {
     );
     std::fs::write(dir.join("project.json"), document).expect("write the document");
     dir
-}
-
-/// What `project.json` says now, parsed.
-fn on_disk(dir: &std::path::Path) -> Value {
-    let text = std::fs::read_to_string(dir.join("project.json")).expect("read back");
-    serde_json::from_str(&text).expect("the document is JSON")
 }
 
 /// The asset row for `id`.
@@ -48,7 +42,7 @@ fn editing_a_generated_prompt_marks_it_stale_in_the_same_write() {
         "the reply must state the state: {text}"
     );
 
-    let vo = asset(&on_disk(&dir), "vo");
+    let vo = asset(&read(&dir), "vo");
     assert_eq!(vo["prompt"], json!("a better line"));
     assert_eq!(vo["state"], json!("stale"));
     std::fs::remove_dir_all(dir).ok();
@@ -60,7 +54,7 @@ fn editing_a_generated_prompt_marks_it_stale_in_the_same_write() {
 #[test]
 fn the_brief_a_kind_does_not_take_is_refused_and_changes_nothing() {
     let dir = generated("rebrief-mismatch");
-    let before = std::fs::read_to_string(dir.join("project.json")).expect("read");
+    let before = document(&dir);
 
     let (text, failed) = said(&call(
         "asset_set",
@@ -76,10 +70,7 @@ fn the_brief_a_kind_does_not_take_is_refused_and_changes_nothing() {
     ));
     assert!(refused, "a prompt on a synth asset must be refused: {also}");
 
-    assert_eq!(
-        std::fs::read_to_string(dir.join("project.json")).expect("read"),
-        before
-    );
+    assert_eq!(document(&dir), before);
     std::fs::remove_dir_all(dir).ok();
 }
 
@@ -99,7 +90,7 @@ fn repointing_a_synth_asset_at_another_recipe_leaves_a_sketch_a_sketch() {
     assert!(!failed, "{text}");
     assert!(text.contains("sketch"), "got {text}");
     assert_eq!(
-        asset(&on_disk(&dir), "bed")["recipe"],
+        asset(&read(&dir), "bed")["recipe"],
         json!("recipes/other.json")
     );
     std::fs::remove_dir_all(dir).ok();
@@ -147,7 +138,7 @@ fn a_brief_that_already_reads_that_way_is_left_generated() {
         json!({ "project": dir, "asset": "vo", "prompt": "a line" }),
     ));
     assert!(!failed, "{text}");
-    assert_eq!(asset(&on_disk(&dir), "vo")["state"], json!("generated"));
+    assert_eq!(asset(&read(&dir), "vo")["state"], json!("generated"));
     std::fs::remove_dir_all(dir).ok();
 }
 
