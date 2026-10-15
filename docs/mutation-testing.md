@@ -482,7 +482,17 @@ merged pull requests.
 So, when writing an entry:
 
 - Use a TOML **literal** string — single quotes, no escape processing — and
-  backslash-escape every metacharacter in it: `'replace \|\| with && in unit'`.
+  backslash-escape every metacharacter in it:
+  `'arrow\.rs:227:28: replace \|\| with && in unit'`.
+- **Name its line**, as `cargo mutants --list` prints it: `file\.rs:LINE:COL:`
+  first. A bare name covers every mutation of that shape in every function
+  whose name starts the same — `in line_len` was quietly excluding
+  `delay.rs`'s `line_length` too, until #1229 — and a line that moves puts the
+  mutant back in the report, which is the direction to fail in. Re-point a
+  moved entry only after reading that the code under it is still the code its
+  comment describes.
+- Put the reason in a comment directly above it.
+- `make scripts` holds the last three (`.github/scripts/mutants/exclusions.py`).
 - Check the surface afterwards with `cargo mutants --list | wc -l`. It builds
   nothing, and the answer is four figures. Six is what the config looks like
   when an entry has eaten everything.

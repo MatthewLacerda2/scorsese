@@ -393,7 +393,9 @@ in a cloud session; `issue-batch` has what that premise shapes.
   and comment lines do not count. **Group by subfolder, not filename prefix** —
   a shared prefix on sibling files is a subfolder waiting to happen. Nothing is
   grandfathered: a file over the limit gets split, not excused. `make size`
-  runs it; `tools/lint/src/classify.rs` decides which cap applies.
+  runs it, and the prefix rule beside it; `tools/lint/src/classify.rs` decides
+  which cap applies, and `tools/lint/src/rules/` holds the other written
+  conventions a check can (inline `lint: allow(<rule>) <why>` excuses one).
 - **Working unattended, decisions are written down, never waited on**: a
   judgement call an issue left open takes the default the issue, this file or
   Filmora 9 (for taste) points to, and the choice and its reason go on the issue
