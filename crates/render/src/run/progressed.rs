@@ -20,7 +20,7 @@ use super::cancelled::{LENGTH, fixture};
 /// Renders the cancel fixture under `cancel`, publishing to a fresh readout,
 /// and hands back every reading it published.
 fn readings(cancel: Cancel, label: &str) -> Vec<Reading> {
-    let tools = Tools::discover().expect("ffmpeg and ffprobe must be on PATH");
+    let tools = crate::testing::tools();
     let (project, root) = fixture(&tools, label);
     let progress = Progress::new();
     let raster = Resolution::new(32, 32).expect("a legal raster");
@@ -91,13 +91,13 @@ fn tone(tools: &Tools) -> (Project, std::path::PathBuf) {
     let root = crate::scratch::fresh("scorsese-progress-tone", "");
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(root.join("assets")).expect("create the fixture directory");
-    let made = tools
-        .ffmpeg()
-        .args(["-v", "error", "-y", "-f", "lavfi", "-i", "sine=d=1"])
-        .arg(root.join("assets/tone.wav"))
-        .output()
-        .expect("run ffmpeg");
-    assert!(made.status.success(), "the tone could not be generated");
+    // lavfi's own `sine`, at its eighth of full scale: what is counted here is
+    // the phases, not the level.
+    crate::testing::generate(
+        tools,
+        &root.join("assets/tone.wav"),
+        &["-f", "lavfi", "-i", "sine=d=1"],
+    );
     let asset = Asset::imported(
         AssetId::new("tone"),
         AssetKind::Audio,
@@ -122,7 +122,7 @@ fn tone(tools: &Tools) -> (Project, std::path::PathBuf) {
 
 #[test]
 fn a_sound_only_render_goes_from_the_mix_to_finishing_with_no_frames() {
-    let tools = Tools::discover().expect("ffmpeg and ffprobe must be on PATH");
+    let tools = crate::testing::tools();
     let (project, root) = tone(&tools);
     let progress = Progress::new();
     let raster = Resolution::new(32, 32).expect("a legal raster");

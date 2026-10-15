@@ -6,22 +6,11 @@
 //! held one to a reference image would be asserting a layout where the thing at
 //! stake is whether the numbers under it are true.
 
-use std::path::{Path, PathBuf};
-
+use scorsese_render::audio;
 use scorsese_render::audio::waveform;
-use scorsese_render::{Tools, audio};
 
-use crate::common::ffmpeg::{fixture_dir, generate, tools};
-
-/// A file of `seconds` at `amplitude`, 440 Hz.
-fn tone(tools: &Tools, dir: &Path, name: &str, amplitude: &str, seconds: f64) -> PathBuf {
-    let file = dir.join(format!("{name}.wav"));
-    let graph = format!(
-        "aevalsrc=exprs=({amplitude})*sin(2*PI*440*t):duration={seconds}:sample_rate=48000"
-    );
-    generate(tools, &file, &["-f", "lavfi", "-i", &graph]);
-    file
-}
+use crate::common::audio::tone_file;
+use crate::common::ffmpeg::{fixture_dir, tools};
 
 /// The finding the whole tool exists for. A file of silence has a duration, a
 /// size and a hash exactly like a file of speech, which is how three narration
@@ -30,7 +19,7 @@ fn tone(tools: &Tools, dir: &Path, name: &str, amplitude: &str, seconds: f64) ->
 fn a_silent_file_is_reported_silent() {
     let tools = tools();
     let dir = fixture_dir("hear-silent");
-    let file = tone(&tools, &dir, "quiet", "0", 2.0);
+    let file = tone_file(&tools, &dir, "quiet", "0", 2.0);
 
     let wave = waveform(&tools, &file).expect("a wav can be heard");
 
@@ -50,7 +39,7 @@ fn a_silent_file_is_reported_silent() {
 fn a_file_with_sound_in_it_reads_at_its_own_level() {
     let tools = tools();
     let dir = fixture_dir("hear-level");
-    let file = tone(&tools, &dir, "half", "0.5", 2.0);
+    let file = tone_file(&tools, &dir, "half", "0.5", 2.0);
 
     let wave = waveform(&tools, &file).expect("a wav can be heard");
     let peak = wave.findings.peak_dbfs().expect("audible");
@@ -71,11 +60,9 @@ fn a_file_with_sound_in_it_reads_at_its_own_level() {
 fn silence_at_the_head_is_measured_rather_than_ignored() {
     let tools = tools();
     let dir = fixture_dir("hear-late");
-    let file = dir.join("late.wav");
     // Silent for the first second, then a tone: `gt(t,1)` is zero until it is
     // not, which is the shape of a narration line that starts late.
-    let graph = "aevalsrc=exprs=0.5*gt(t\\,1)*sin(2*PI*440*t):duration=3:sample_rate=48000";
-    generate(&tools, &file, &["-f", "lavfi", "-i", graph]);
+    let file = tone_file(&tools, &dir, "late", "0.5*gt(t\\,1)", 3.0);
 
     let wave = waveform(&tools, &file).expect("a wav can be heard");
 
@@ -99,7 +86,7 @@ fn silence_at_the_head_is_measured_rather_than_ignored() {
 fn a_file_driven_past_full_scale_is_reported_clipped() {
     let tools = tools();
     let dir = fixture_dir("hear-clipped");
-    let file = tone(&tools, &dir, "loud", "1.4", 2.0);
+    let file = tone_file(&tools, &dir, "loud", "1.4", 2.0);
 
     let wave: audio::Waveform = waveform(&tools, &file).expect("a wav can be heard");
 

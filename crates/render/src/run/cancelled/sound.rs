@@ -24,13 +24,13 @@ fn tones(tools: &Tools, label: &str) -> (Project, PathBuf) {
     let root = crate::scratch::fresh(&format!("scorsese-hush-{label}"), "");
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(root.join("assets")).expect("create the fixture directory");
-    let made = tools
-        .ffmpeg()
-        .args(["-v", "error", "-y", "-f", "lavfi", "-i", "sine=d=3"])
-        .arg(root.join("assets/tone.wav"))
-        .output()
-        .expect("run ffmpeg");
-    assert!(made.status.success(), "the tone could not be generated");
+    // lavfi's own `sine`, at its eighth of full scale: the level the loudness
+    // target's passes were measured stopping on.
+    crate::testing::generate(
+        tools,
+        &root.join("assets/tone.wav"),
+        &["-f", "lavfi", "-i", "sine=d=3"],
+    );
     let tone = Asset::imported(
         AssetId::new("tone"),
         AssetKind::Audio,
@@ -89,7 +89,7 @@ fn left_in(root: &Path) -> Vec<String> {
 
 #[test]
 fn a_cancel_in_the_mix_stops_before_the_next_clip_is_decoded() {
-    let tools = Tools::discover().expect("ffmpeg and ffprobe must be on PATH");
+    let tools = crate::testing::tools();
     let (project, root) = tones(&tools, "mix");
     let plan = Plan::build_sound(&project, Fps::THIRTY, FrameRange::ALL).expect("a plan");
     let raster = Resolution::new(32, 32).expect("a legal raster");
@@ -108,7 +108,7 @@ fn a_cancel_in_the_mix_stops_before_the_next_clip_is_decoded() {
 
 #[test]
 fn a_cancel_during_the_audio_encode_kills_it_and_leaves_nothing() {
-    let tools = Tools::discover().expect("ffmpeg and ffprobe must be on PATH");
+    let tools = crate::testing::tools();
     // Before the mix, both clips, before the encode: the encode's first look
     // at the flag is the one that trips it.
     let (outcome, left) = render(&tools, Cancel::after(4), "encode");
@@ -121,7 +121,7 @@ fn a_cancel_during_the_audio_encode_kills_it_and_leaves_nothing() {
 
 #[test]
 fn an_untripped_flag_mixes_and_encodes_the_whole_soundtrack() {
-    let tools = Tools::discover().expect("ffmpeg and ffprobe must be on PATH");
+    let tools = crate::testing::tools();
     let (outcome, left) = render(&tools, Cancel::new(), "whole");
     outcome.expect("the render finishes");
     assert_eq!(left, ["out.wav"]);
@@ -129,7 +129,7 @@ fn an_untripped_flag_mixes_and_encodes_the_whole_soundtrack() {
 
 #[test]
 fn a_cancel_stops_the_loudness_target_before_its_next_pass_over_the_mix() {
-    let tools = Tools::discover().expect("ffmpeg and ffprobe must be on PATH");
+    let tools = crate::testing::tools();
     let (project, root) = tones(&tools, "loud");
     let plan = Plan::build_sound(&project, Fps::THIRTY, FrameRange::ALL).expect("a plan");
     let raster = Resolution::new(32, 32).expect("a legal raster");

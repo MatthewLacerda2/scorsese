@@ -4,26 +4,14 @@
 //! numbers a render works out as it builds a mix can be recovered from
 //! something already on disk, whatever container it came in.
 
-use std::path::{Path, PathBuf};
-
 use scorsese_render::audio::{Profile, measure};
-use scorsese_render::{Tools, say};
+use scorsese_render::say;
 use scorsese_zimmer::level::Difference;
 
-use crate::common::ffmpeg::{fixture_dir, generate, tools};
+use crate::common::audio::tone_file;
+use crate::common::ffmpeg::{fixture_dir, tools};
 
 use super::SLACK;
-
-/// A file of `seconds` of a sine, whose amplitude is whatever `expression`
-/// evaluates to — a constant, or something that changes partway through.
-fn wav(tools: &Tools, dir: &Path, name: &str, amplitude: &str, seconds: f64) -> PathBuf {
-    let file = dir.join(format!("{name}.wav"));
-    let graph = format!(
-        "aevalsrc=exprs=({amplitude})*sin(2*PI*440*t):duration={seconds}:sample_rate=48000"
-    );
-    generate(tools, &file, &["-f", "lavfi", "-i", &graph]);
-    file
-}
 
 fn mean_of(profile: &Profile) -> f64 {
     profile.whole.loudness.mean_dbfs.expect("audible")
@@ -36,7 +24,7 @@ fn mean_of(profile: &Profile) -> f64 {
 fn a_file_reads_at_the_level_it_was_written_at() {
     let tools = tools();
     let dir = fixture_dir("measure-known");
-    let file = wav(&tools, &dir, "half", "0.5", 2.0);
+    let file = tone_file(&tools, &dir, "half", "0.5", 2.0);
 
     let profile = measure(&tools, &file).expect("a wav can be measured");
     let expected = 20.0 * (0.5 / std::f64::consts::SQRT_2).log10();
@@ -58,7 +46,7 @@ fn a_file_reads_at_the_level_it_was_written_at() {
 fn a_file_compared_with_itself_differs_by_nothing() {
     let tools = tools();
     let dir = fixture_dir("measure-same");
-    let file = wav(&tools, &dir, "same", "0.5", 2.0);
+    let file = tone_file(&tools, &dir, "same", "0.5", 2.0);
 
     let profile = measure(&tools, &file).expect("measured");
     let difference = Difference::between(&profile.whole, &profile.whole);
@@ -76,8 +64,8 @@ fn a_file_compared_with_itself_differs_by_nothing() {
 fn a_quieter_file_reads_as_quieter_than_the_one_it_replaced() {
     let tools = tools();
     let dir = fixture_dir("measure-against");
-    let before = measure(&tools, &wav(&tools, &dir, "before", "0.5", 2.0)).expect("measured");
-    let after = measure(&tools, &wav(&tools, &dir, "after", "0.25", 2.0)).expect("measured");
+    let before = measure(&tools, &tone_file(&tools, &dir, "before", "0.5", 2.0)).expect("measured");
+    let after = measure(&tools, &tone_file(&tools, &dir, "after", "0.25", 2.0)).expect("measured");
 
     let difference = Difference::between(&after.whole, &before.whole);
     let by = difference.mean_db.expect("audible");
@@ -102,7 +90,7 @@ fn a_file_that_changes_partway_reports_the_change_on_a_row() {
     let dir = fixture_dir("measure-sections");
     // The commas are escaped because a filtergraph separates filters with
     // them; unescaped, ffmpeg reads the expression as three filters.
-    let file = wav(&tools, &dir, "halves", r"if(lt(t\,9)\,0.5\,0.125)", 18.0);
+    let file = tone_file(&tools, &dir, "halves", r"if(lt(t\,9)\,0.5\,0.125)", 18.0);
 
     let profile = measure(&tools, &file).expect("measured");
     assert!(
