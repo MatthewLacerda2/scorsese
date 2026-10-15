@@ -8,8 +8,8 @@
 !rust-toolchain.toml
 !crates/
 !tools/icons/
-# The agent-facing guides: `scorsese-core`'s `guide` module compiles them in
-# with `include_str!` (#909, #916). Only these; the rest of docs/ is for developers.
+# The agent-facing guides: the `scorsese-guide` crate compiles them in with
+# `include_str!` (#909, #916, #1129). Only these; the rest of docs/ is for developers.
 # `.github/scripts/tests/test_server_image_docs.py` holds this list to the code.
 !docs/pages.md
 !docs/project-format.md

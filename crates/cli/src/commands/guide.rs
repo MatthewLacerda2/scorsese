@@ -7,7 +7,7 @@
 //! are never told two different things.
 
 use anyhow::{Result, anyhow};
-use scorsese_core::guide;
+use scorsese_guide as guide;
 
 /// Prints the guide called `name`, or the part of it `section` names.
 pub(crate) fn run(name: &str, section: Option<&str>) -> Result<()> {

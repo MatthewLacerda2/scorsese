@@ -10,14 +10,14 @@
 //! and the tool hands back the page.
 //!
 //! The guides themselves, and how a long one is cut into sections, are
-//! `scorsese_core::guide`'s: `scorsese guide` in a terminal reads the same
+//! `scorsese_guide`'s: `scorsese guide` in a terminal reads the same
 //! pages through the same function, so the two surfaces give the same answer.
 
 #[cfg(test)]
 mod tests;
 
 use schemars::JsonSchema;
-use scorsese_core::guide;
+use scorsese_guide as guide;
 use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 

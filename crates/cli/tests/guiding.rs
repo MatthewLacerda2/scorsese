@@ -11,7 +11,7 @@
 use std::path::Path;
 use std::process::Command;
 
-use scorsese_core::guide;
+use scorsese_guide as guide;
 
 /// Runs `scorsese guide` with these arguments: whether it succeeded, and what
 /// it printed on standard output.
