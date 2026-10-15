@@ -65,6 +65,8 @@ def wait_for(
         if state == STOP:
             return state, lines
         if state == GO:
+            # Read every poll: the label that counts is the one at merge time.
+            pull["closes"] = mergeable.closing.closed_by(mergeable.gh, repo, pull)
             runs, jobs = evidence(repo, sha)
             if not runs and skips is None:
                 skips = mergeable.skipped_by_ci(

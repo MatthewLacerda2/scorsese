@@ -273,6 +273,16 @@ itself, so read its output before doing anything else:
 3. **The fix is a rebase**, and it is the same rebase the merge routine above
    asks for anyway — so it costs nothing but doing it now.
 
+**It also refuses what a pull request may not close** (#1221), before reading
+any run, and the queue asks the same before it rebases: an issue the pull
+request closes (by keyword in the body, or linked in the sidebar) that carries
+`planning` or `human`, and a closing keyword pointing at a pull request or an
+already-closed issue. The label is read as it stands at merge time, so once the
+user removes it the pull request can be queued again. Nothing about the label
+is Claude's to change: `planning` is the one rule the user cannot override.
+`make checks` lists any open issue carrying **both** stage labels, for the user
+to say which stays.
+
 **Never hand-roll a "wait for CI" loop that treats zero checks as success.**
 Absent and passing are different states; a loop counting non-completed checks
 finds zero of each. Require checks to **exist** before calling a run settled.

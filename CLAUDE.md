@@ -508,5 +508,7 @@ Any rule in this file may be overridden by the user's explicit say-so — in the
 current prompt or a previous one. The **one exception**: an issue tagged
 `planning` must never be started while the label is on it. The user may tell
 you to **remove the label and then do it** —
-never to do it with the label still on. (The user *may* greenlight an issue
+never to do it with the label still on. The merge path holds it: `make
+mergeable` and `make queue` refuse a pull request that closes a `planning` or
+`human` issue (#1221). (The user *may* greenlight an issue
 that is blocked by another; doing so lifts that block.)

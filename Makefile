@@ -615,7 +615,7 @@ web-e2e-run:
 # a batch report. A human check is never a merge hold, so this is where they
 # come back together (#821, the script's docstring has the rest).
 .PHONY: checks
-checks: ## Unticked human checks in PRs merged since then. make checks SINCE=2026-10-05T18:00:00Z
+checks: ## Unticked human checks in PRs merged since then, and issues with both stage labels. make checks SINCE=2026-10-05T18:00:00Z
 	@test -n "$(SINCE)" || { \
 		echo "checks: since when? e.g. make checks SINCE=2026-10-05T18:00:00Z (UTC)" >&2; \
 		exit 1; }
