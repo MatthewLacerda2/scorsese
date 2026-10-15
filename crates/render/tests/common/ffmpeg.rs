@@ -1,42 +1,20 @@
 //! Fixtures that need real ffmpeg, and questions asked of real output.
 //!
-//! Media is generated here rather than committed: ffmpeg's synthetic sources
-//! make exact, tiny files, and generating them through [`Tools`] exercises the
-//! command builder every ffmpeg invocation in the workspace must go through.
+//! The media itself is `scorsese_render::testing`'s, which every test crate
+//! shares; what is here is how this crate's tests lay it out in a project and
+//! read a render back.
 
 use std::path::{Path, PathBuf};
 
 use scorsese_core::{Asset, AssetKind};
 use scorsese_render::Tools;
-
-pub(crate) fn tools() -> Tools {
-    Tools::discover().expect("ffmpeg and ffprobe must be on PATH to run these tests")
-}
+pub(crate) use scorsese_render::testing::{generate, tools};
 
 /// A fresh empty directory, unique per call and removed when the test ends.
 pub(crate) fn fixture_dir(label: &str) -> PathBuf {
     let dir = super::scratch::fresh(&format!("scorsese-render-{label}"), "");
     std::fs::create_dir_all(&dir).expect("create fixture dir");
     dir
-}
-
-/// Runs ffmpeg with a synthetic input to make one small fixture file.
-pub(crate) fn generate(tools: &Tools, path: &Path, args: &[&str]) {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).expect("create fixture parent");
-    }
-    let output = tools
-        .ffmpeg()
-        .args(["-v", "error", "-y"])
-        .args(args)
-        .arg(path)
-        .output()
-        .expect("run ffmpeg");
-    assert!(
-        output.status.success(),
-        "ffmpeg failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
 }
 
 /// Generates a media file inside a project's `assets/` and returns the assets

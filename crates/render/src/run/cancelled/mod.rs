@@ -32,15 +32,7 @@ pub(super) fn fixture(tools: &Tools, label: &str) -> (Project, PathBuf) {
     let root = crate::scratch::fresh(&format!("scorsese-cancel-{label}"), "");
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(root.join("assets")).expect("create the fixture directory");
-    let made = tools
-        .ffmpeg()
-        .args(["-v", "error", "-y", "-f", "lavfi", "-i"])
-        .arg("color=c=red:s=32x32:d=3:r=30")
-        .args(["-pix_fmt", "yuv420p"])
-        .arg(root.join("assets/red.mp4"))
-        .output()
-        .expect("run ffmpeg");
-    assert!(made.status.success(), "the source could not be generated");
+    crate::testing::colour_video(tools, &root.join("assets/red.mp4"), "red", "32x32", 3);
 
     let red = Asset::imported(
         AssetId::new("red"),
@@ -97,7 +89,7 @@ fn render(tools: &Tools, cancel: Cancel, label: &str) -> Result<u64, RenderError
 
 #[test]
 fn a_cancel_mid_picture_stops_at_that_frame_and_removes_the_file() {
-    let tools = Tools::discover().expect("ffmpeg and ffprobe must be on PATH");
+    let tools = crate::testing::tools();
     // Two checks between stages before the picture starts, then one a frame:
     // so twelve answers of "no" is ten frames encoded and the eleventh refused.
     let outcome = render(&tools, Cancel::after(12), "mid");
@@ -111,7 +103,7 @@ fn a_cancel_mid_picture_stops_at_that_frame_and_removes_the_file() {
 
 #[test]
 fn a_cancel_before_anything_is_drawn_writes_nothing() {
-    let tools = Tools::discover().expect("ffmpeg and ffprobe must be on PATH");
+    let tools = crate::testing::tools();
     let cancel = Cancel::new();
     cancel.cancel();
     let outcome = render(&tools, cancel, "early");
@@ -129,7 +121,7 @@ fn a_cancel_before_anything_is_drawn_writes_nothing() {
 
 #[test]
 fn an_untripped_flag_changes_nothing() {
-    let tools = Tools::discover().expect("ffmpeg and ffprobe must be on PATH");
+    let tools = crate::testing::tools();
     let outcome = render(&tools, Cancel::new(), "whole");
     assert_eq!(outcome.expect("the render finishes"), LENGTH);
 }

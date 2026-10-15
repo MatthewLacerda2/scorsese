@@ -69,7 +69,7 @@ fn rendered(tools: &Tools, project: &Project, root: &std::path::Path) -> (Vec<Ph
 
 #[test]
 fn a_page_is_captured_in_a_phase_of_its_own_and_only_while_it_is_not_cached() {
-    let tools = Tools::discover().expect("ffmpeg and ffprobe must be on PATH");
+    let tools = crate::testing::tools();
     let (project, root) = fixture();
 
     let (phases, progress) = rendered(&tools, &project, &root);

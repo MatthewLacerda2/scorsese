@@ -11,7 +11,7 @@ use scorsese_core::{
 };
 
 use crate::progress::Progress;
-use crate::{Cancel, FrameRange, RenderError, RenderSettings, Renderer, Resolution, Tools};
+use crate::{Cancel, FrameRange, RenderError, RenderSettings, Renderer, Resolution};
 
 /// How long the page is on screen: twenty seconds, far longer than the
 /// capture is let run.
@@ -69,7 +69,7 @@ fn files_under(dir: &Path) -> Vec<PathBuf> {
 
 #[test]
 fn a_cancel_mid_capture_stops_within_a_second_and_keeps_nothing_of_it() {
-    let tools = Tools::discover().expect("ffmpeg and ffprobe must be on PATH");
+    let tools = crate::testing::tools();
     let (project, root) = fixture();
     let out = root.join("out.mp4");
     let (cancel, progress) = (Cancel::new(), Progress::new());

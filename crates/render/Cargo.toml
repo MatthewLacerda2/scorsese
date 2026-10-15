@@ -9,6 +9,11 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+# `testing`: the tiny media files tests make through `Tools`. For test crates
+# only, which turn it on in their `[dev-dependencies]`; nothing that ships does.
+test-support = []
+
 [dependencies]
 scorsese-compositor = { version = "0.1.0", path = "../compositor" }
 scorsese-core = { version = "0.1.0", path = "../core" }
@@ -28,3 +33,7 @@ thiserror = "2.0.19"
 # line pulls clap 2 and image 0.23 for its command line, and whose 1.0 is an
 # alpha. Pure Rust, no I/O: bit-vec, flo_curves and num-traits.
 visioncortex = "0.9.3"
+
+[dev-dependencies]
+# This crate's own integration tests, with `testing` turned on.
+scorsese-render = { version = "0.1.0", path = ".", features = ["test-support"] }

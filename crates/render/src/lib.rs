@@ -136,6 +136,11 @@
 //! it only re-exports the compositor's property names and default caption
 //! look under a path beside [`audio::path::VOLUME`], and its own doc says why.
 //!
+//! **Tests get one more**: `testing`, behind the `test-support` feature, makes
+//! the tiny media files a test renders — [`Tools`] for every one of them, so
+//! a fixture reaches ffmpeg the way everything else does. Nothing that ships
+//! turns the feature on.
+//!
 //! **Everything else is `pub(crate)`.** The ffmpeg processes themselves, the
 //! rasters a fit is worked out on, the slug-card furniture, the font cache and
 //! the whole of the encode side are steps a render is made of rather than
@@ -170,6 +175,8 @@ pub(crate) mod settings;
 pub(crate) mod shape;
 pub(crate) mod slug;
 pub(crate) mod symbol;
+#[cfg(any(test, feature = "test-support"))]
+pub mod testing;
 pub(crate) mod text;
 pub mod tools;
 pub mod trace;
