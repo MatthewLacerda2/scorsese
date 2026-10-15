@@ -65,14 +65,19 @@ fn a_page_name_or_a_name_outside_pages_is_refused_as_a_file() {
 #[test]
 fn a_call_names_a_page_or_a_file_and_not_both() {
     let dir = project("page-file-which");
-    for tool in ["page_write", "page_read"] {
-        let (text, failed) = said(&call(tool, json!({ "project": dir, "html": "<p>x</p>" })));
+    for (tool, html) in [("page_write", Some("<p>x</p>")), ("page_read", None)] {
+        let mut neither = json!({ "project": dir });
+        let mut both = json!({ "project": dir, "page": "card", "file": "lib.js" });
+        if let Some(html) = html {
+            neither["html"] = json!(html);
+            both["html"] = json!(html);
+        }
+        let (text, failed) = said(&call(tool, neither));
         assert!(
             failed && text.contains("`page` is required"),
             "{tool}: {text}"
         );
 
-        let both = json!({ "project": dir, "page": "card", "file": "lib.js", "html": "x" });
         let (text, failed) = said(&call(tool, both));
         assert!(failed && text.contains("not both"), "{tool}: {text}");
     }

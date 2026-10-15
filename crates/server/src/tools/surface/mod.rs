@@ -48,6 +48,7 @@ const STORED: &[&str] = &[
     "project_assets",
     "project_write",
     "track_new",
+    "track_move",
     "asset_set",
     "sequence",
     "asset_remove",

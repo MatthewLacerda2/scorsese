@@ -126,12 +126,11 @@ fn a_wrong_kind_says_what_it_has_to_be_and_what_it_was() {
 }
 
 #[test]
-fn what_is_left_out_or_unknown_is_read_as_nothing() {
+fn what_is_left_out_is_read_as_nothing() {
     let read = parse::<Sample>(&json!({
         "project": "a.scor",
         "clip": " c1 ",
-        "count": null,
-        "something": "else"
+        "count": null
     }))
     .unwrap();
     assert_eq!(read.project.dir(), std::path::Path::new("a.scor"));
@@ -143,6 +142,28 @@ fn what_is_left_out_or_unknown_is_read_as_nothing() {
     assert!(read.way.is_none() && read.spot.is_none());
 }
 
+#[test]
+fn an_unknown_argument_is_refused_with_what_was_meant() {
+    let refused = |extra: serde_json::Value| {
+        let mut arguments = json!({ "project": "a.scor", "clip": "c1" });
+        for (name, value) in extra.as_object().unwrap() {
+            arguments[name] = value.clone();
+        }
+        parse::<Sample>(&arguments).unwrap_err()
+    };
+    let takes = "Nothing was done; it takes `clip`, `count`, `loudly`, `project`, `seconds`, `spot`, `way`.";
+    assert_eq!(
+        refused(json!({ "cuont": 2 })),
+        format!("`cuont` is not an argument here; did you mean `count`? {takes}")
+    );
+    assert_eq!(
+        refused(json!({ "something": "else" })),
+        format!("`something` is not an argument here. {takes}")
+    );
+    // Before a missing one: the typo is the reason it is missing.
+    let refused = parse::<Sample>(&json!({ "project": "a.scor", "clp": "c1" })).unwrap_err();
+    assert!(refused.starts_with("`clp` is not an argument here; did you mean `clip`?"));
+}
 #[test]
 fn an_enum_and_an_object_are_read_as_their_types() {
     let read = parse::<Sample>(&json!({

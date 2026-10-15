@@ -1,6 +1,6 @@
 //! Adding a lane to the timeline.
 
-use super::AuthorError;
+use super::{AuthorError, Layer, move_track};
 use crate::project::Project;
 use crate::timeline::{Track, TrackId, TrackKind};
 
@@ -18,6 +18,9 @@ pub struct Lane {
     /// Why this lane is here, for whoever reads the project next. Never
     /// rendered — see [`Track::note`].
     pub note: Option<String>,
+    /// Where it goes among the video lanes, or `None` for on top. Only a
+    /// video lane has a layer: an audio one given one is refused.
+    pub layer: Option<Layer>,
 }
 
 impl Lane {
@@ -28,17 +31,18 @@ impl Lane {
             id: None,
             name: None,
             note: None,
+            layer: None,
         }
     }
 }
 
 /// Adds an empty track, and hands back the id it got.
 ///
-/// **Appended, which for video means on top.** Video tracks composite in array
-/// order, so the newest lane is drawn over everything already there — which is
-/// what a caption over footage wants, and the reason the position is not an
-/// argument. Reordering the layers is a different edit and stays a
-/// `project_write`.
+/// **Appended, which for video means on top**, unless the lane names a
+/// [`Layer`]. Video tracks composite in array order, so the newest lane is
+/// drawn over everything already there — which is what a caption over footage
+/// wants, and why on top is the default. A logo under the captions names its
+/// layer; moving a lane already there is [`move_track`].
 pub fn add_track(project: &mut Project, lane: &Lane) -> Result<TrackId, AuthorError> {
     let id = match &lane.id {
         Some(asked) => {
@@ -55,6 +59,9 @@ pub fn add_track(project: &mut Project, lane: &Lane) -> Result<TrackId, AuthorEr
     track.name.clone_from(&lane.name);
     track.note.clone_from(&lane.note);
     proposed.tracks.push(track);
+    if let Some(layer) = &lane.layer {
+        move_track(&mut proposed, &id, layer)?;
+    }
     proposed.validate()?;
     *project = proposed;
     Ok(id)
