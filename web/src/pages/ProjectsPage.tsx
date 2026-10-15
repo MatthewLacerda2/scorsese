@@ -7,6 +7,7 @@ import { ExternalLinkIcon, FolderOpenIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { api, type ProjectSummary } from "@/api";
+import { NoCredits } from "@/app/NoCredits";
 import { EditorPage } from "@/app/pages";
 import { useProjects } from "@/app/queries";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ export function ProjectsPage() {
         <h1 className="font-heading text-2xl font-semibold">{t.common.nav.projects}</h1>
         <NewProjectButton />
       </div>
+      <NoCredits />
       {projects.isError && <p className="text-destructive">{projects.error.message}</p>}
       {projects.isPending && <p className="text-muted-foreground">{t.common.loading}</p>}
       {projects.data?.length === 0 && (

@@ -24,14 +24,24 @@ export function useSettled<T>(value: T, ms: number): T {
 /** The picture, or the tool's reason there is none (an empty timeline, say). */
 export type Still = { png: string } | { none: string };
 
+/**
+ * The frame to draw for a playhead at `frame` on a timeline `length` frames
+ * long: a playhead resting at the end (or past it) shows the last frame, as
+ * every editor does, and the key then matches the frame really drawn (#1276).
+ */
+export function clampFrame(frame: number, length: number): number {
+  return Math.max(0, Math.min(frame, length - 1));
+}
+
 export function useStill(
   id: number,
   revision: number,
   frame: number,
+  length: number,
   raster: string,
   enabled: boolean,
 ) {
-  const at = useSettled(frame, SETTLE_MS);
+  const at = clampFrame(useSettled(frame, SETTLE_MS), length);
   return useQuery({
     queryKey: ["projects", "still", id, revision, at, raster],
     enabled,

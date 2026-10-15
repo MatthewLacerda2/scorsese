@@ -16,6 +16,7 @@ import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { chatApi } from "@/api/chat";
 import type { ServerEvent } from "@/api/events";
 import { useServerEvents } from "@/app/events";
+import { NoCredits } from "@/app/NoCredits";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useT } from "@/i18n/I18nProvider";
@@ -205,6 +206,7 @@ function Composer({
           >
             {refused.lead && <p className="font-medium">{refused.lead}</p>}
             <p>{refused.detail}</p>
+            {refused.noCredit && <NoCredits always />}
           </div>
         )}
         <Textarea

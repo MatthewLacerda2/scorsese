@@ -9,6 +9,7 @@ export const common = {
   tryAgain: "Try again",
   nav: { projects: "Projects", library: "Library" },
   balanceTitle: "Your credits — see what you spent",
+  yourCredits: "Your credits",
   account: "Your account",
   spendingHistory: "Spending history",
   logOut: "Log out",

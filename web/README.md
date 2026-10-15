@@ -108,7 +108,7 @@ they become needs, the catalogues port across as they are.
 | step | command | what it checks |
 | --- | --- | --- |
 | install | `bun install --frozen-lockfile` | `bun.lock` matches `package.json` — the packages checked are the ones committed |
-| lint | `bun run lint` (`biome ci`) | lint rules **and** formatting; `bun run format` fixes what it can |
+| lint | `bun run lint` (`biome ci`) | lint rules **and** formatting; `bun run format` fixes what it can. `noShadow` is an error: an inner name never hides an outer one (a local `t` over `useT()`'s, #1209) |
 | typecheck | `bun run typecheck` (`tsc --noEmit`) | TypeScript in strict mode, the end-to-end flows included |
 | test | `bun test` | every `*.test.ts(x)` under `src/`, in a DOM (`src/test/dom.ts`) |
 | build | `bun run build` | the bundle the deploy ships actually builds, and its entry chunk is within budget (`src/build/budget.ts`) |

@@ -126,11 +126,11 @@ describe("an asset tile", () => {
 
   test("removes through the corner bin: the confirm, then one asset_remove", async () => {
     const sent: Edit[] = [];
-    const run = async (edit: Edit) => void sent.push(edit);
+    const run = async (made: Edit) => void sent.push(made);
     const removal = assetRemoval(document([shot]), "beach", en.editor.removal);
     const view = tile(shot, () => confirmThen(removal, run, () => true));
     handler<() => void>(view, (props) => props["aria-label"] === "Remove beach", "onClick")();
-    expect(sent.map((edit) => edit.tool)).toEqual(["asset_remove"]);
+    expect(sent.map((sentEdit) => sentEdit.tool)).toEqual(["asset_remove"]);
   });
 
   test("dragged onto the timeline still places a clip", async () => {

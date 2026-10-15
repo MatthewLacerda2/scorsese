@@ -4,7 +4,7 @@
 // when it has moved since, the server answers with the quote now, which takes
 // the old one's place here so the person sees it before paying again.
 //
-// Its own chunk: the shell's button loads it on the first click, so the
+// Its own chunk: the shell loads it on the first open, so the
 // entry chunk carries none of it.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -66,8 +66,9 @@ export function AddCreditsDialog({
   const pay = useMutation({
     mutationFn: (shown: PaymentQuote) => api.payments.start(shown.brl_centavos, shown.brl_per_usd),
     onSuccess: (begun) => window.location.assign(begun.url),
-    onError: (error, shown) => {
-      const moved = error instanceof ApiError && error.status === 409 ? error.body.quote : null;
+    onError: (failure, shown) => {
+      const moved =
+        failure instanceof ApiError && failure.status === 409 ? failure.body.quote : null;
       if (moved) client.setQueryData(["payments", "quote", shown.brl_centavos], moved);
     },
   });
@@ -95,7 +96,7 @@ export function AddCreditsDialog({
             value={text}
             onChange={(event) => setText(event.target.value)}
           />
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-xs">
             {t.buying.limits(formatReais(MINIMUM_CENTAVOS), formatReais(MAXIMUM_CENTAVOS))}
           </p>
           <div aria-live="polite" className="min-h-12">

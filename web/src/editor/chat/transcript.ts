@@ -200,6 +200,8 @@ export interface Problem {
   tone: "note" | "error";
   lead: string | null;
   detail: string;
+  /** The refusal was for lack of credits (402): the panel offers to add some. */
+  noCredit?: boolean;
 }
 
 export function problem(error: unknown, t: Messages["chat"]): Problem {
@@ -209,7 +211,7 @@ export function problem(error: unknown, t: Messages["chat"]): Problem {
     case 503:
       return { tone: "note", lead: t.problem.unconfigured, detail };
     case 402:
-      return { tone: "error", lead: t.problem.noCredit, detail };
+      return { tone: "error", lead: t.problem.noCredit, detail, noCredit: true };
     case 409:
       return { tone: "error", lead: t.problem.busy, detail };
     default:

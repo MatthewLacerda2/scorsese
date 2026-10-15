@@ -19,21 +19,21 @@ function Panels() {
         grows="right"
         size={panels.sizes.chat}
         label="chat"
-        onSize={(size) => panels.resize("chat", size)}
+        onSize={(next) => panels.resize("chat", next)}
         onReset={() => panels.reset("chat")}
       />
       <Handle
         grows="left"
         size={panels.sizes.assets}
         label="assets"
-        onSize={(size) => panels.resize("assets", size)}
+        onSize={(next) => panels.resize("assets", next)}
         onReset={() => panels.reset("assets")}
       />
       <Handle
         grows="up"
         size={panels.sizes.timeline}
         label="timeline"
-        onSize={(size) => panels.resize("timeline", size)}
+        onSize={(next) => panels.resize("timeline", next)}
         onReset={() => panels.reset("timeline")}
       />
     </div>

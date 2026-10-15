@@ -56,7 +56,7 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
   const raster = previewRaster(deliver, quality);
   const { playable, ask } = usePlayable(projectId, revision, deliver, quality, total > 0);
   const ready = playable.state === "ready";
-  const still = useStill(projectId, revision, playhead, raster, !ready && total > 0);
+  const still = useStill(projectId, revision, playhead, total, raster, !ready && total > 0);
   const video = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [wanted, setWanted] = useState(false);

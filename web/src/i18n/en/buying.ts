@@ -3,6 +3,7 @@
 // sentences (a refusal, a rate that could not be read) stay as they come.
 
 export const buying = {
+  empty: "You have no credits yet.",
   add: "Add credits",
   description:
     "You pay in reais and your credits are in dollars. Stripe takes the payment; scorsese never sees your card.",

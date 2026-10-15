@@ -8,6 +8,7 @@ export const common: Messages["common"] = {
   tryAgain: "Tentar de novo",
   nav: { projects: "Projetos", library: "Biblioteca" },
   balanceTitle: "Seus créditos — veja o que você gastou",
+  yourCredits: "Seus créditos",
   account: "Sua conta",
   spendingHistory: "Histórico de gastos",
   logOut: "Sair",
