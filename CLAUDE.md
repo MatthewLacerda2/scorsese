@@ -321,7 +321,8 @@ in a cloud session; `issue-batch` has what that premise shapes.
     branch that is only front-end and changes what the user sees on screen,
     never how the app uses the API, or that is only the desktop app's egui;
     Opus for DevOps, networking or back-end. Mechanical work (a rebase, a
-    move) takes the cheaper model too (`issue-batch`).
+    move) takes the cheaper model too (`issue-batch`). **A pull request a
+    Sonnet wrote carries the `minor` label** (the maintainer, 2026-10-15).
 - **The gates (push back before you build).** An idea becomes an issue only
   when all three hold; if any fails, **push back instead of complying**:
   1. **Understanding.** Claude actually understands the idea — the user has a

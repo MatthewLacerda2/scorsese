@@ -53,5 +53,10 @@
     "name": "agent",
     "color": "bfd4f2",
     "description": "Written autonomously by an agent (not asked for by a person)."
+  },
+  {
+    "name": "minor",
+    "color": "c5def5",
+    "description": "Written by a Sonnet coder: front-end or desktop-app-only work (CLAUDE.md, Agent velocity)."
   }
 ]

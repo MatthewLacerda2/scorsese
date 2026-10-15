@@ -156,7 +156,8 @@ Survivors in code you wrote: fix, exclude with a reason, or file (`ci-merge`).
 ## Protocol
 
 - Branch as the prompt names it, off the latest `origin/main`; open a **draft**
-  PR on the first commit, `(#N)` in the title. **The body's first line is
+  PR on the first commit, `(#N)` in the title. If you are a Sonnet, add the
+  **`minor`** label to it (CLAUDE.md, *Agent velocity*). **The body's first line is
   `Closes #N`** for every issue it closes (two of the 2026-10-06 batch's nine
   PRs left it out, and an issue its PR does not name stays open after the
   merge). Only an issue it really closes: GitHub matches the keyword anywhere,
