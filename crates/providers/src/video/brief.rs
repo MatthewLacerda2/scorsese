@@ -22,7 +22,9 @@
 
 use std::path::Path;
 
-use scorsese_core::{Asset, AssetId, AssetKind, Project, ProjectPath, VideoRequest, hash_bytes};
+use scorsese_core::{
+    Asset, AssetId, AssetKind, LongPrompt, Project, ProjectPath, VideoRequest, hash_bytes,
+};
 
 use super::GenerationError;
 use crate::fingerprint::{self, Fingerprint};
@@ -78,6 +80,9 @@ impl Brief {
             .ok_or_else(|| GenerationError::NoPrompt {
                 id: asset.id.clone(),
             })?;
+        if let Some(long) = LongPrompt::of(asset) {
+            return Err(GenerationError::LongPrompt(long));
+        }
         let request = asset.video_request();
         let still = |id: &Option<AssetId>| -> Result<Option<Still>, GenerationError> {
             id.as_ref()

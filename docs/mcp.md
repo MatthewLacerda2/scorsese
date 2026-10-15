@@ -1445,6 +1445,13 @@ hash of its recipe. Passing the brief an asset's kind does not take is refused
 rather than resolved: the call has misunderstood the asset, and guessing which
 half was meant would write the half nobody checked.
 
+**The prompt lessons ride on the blocks.** `video`, `image` and `speech` each
+close their description with what `guide prompts` has learned about writing a
+prompt for that provider, a line each: the lessons paid for, and for Veo and
+Nano Banana the vendor's own advice digested (#1309). `voice_design`'s
+`prompt` carries the speech ones. They are read out of the guide when the
+schema is built, so the two never disagree; the reasons stay in the guide.
+
 **It refuses atomically.** The whole document is validated before anything
 reaches disk, so a refusal — an unknown asset, the wrong kind of brief, a
 recipe path that is not there — leaves `project.json` exactly as it was.
@@ -2295,7 +2302,9 @@ So the agent-facing pages are served as a tool. `guide { name }` hands back
 copy to drift, and every gate the file is held to (the format page's examples
 parsed, its animatable table held to the code, the recipe examples held to the
 parser) holds what the tool says. The developer docs are not served; they are
-about building scorsese, not about making a film with it.
+about building scorsese, not about making a film with it. One part of one
+guide also rides on the tools: the prompt lessons, a line each, on the brief
+blocks that send a prompt (above, under `asset_set`).
 
 ```
 guide  { "project": "teaser.scor", "name": "pages" }

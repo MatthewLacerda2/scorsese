@@ -40,6 +40,24 @@ use super::AssetId;
 /// The most reference images one request may carry.
 pub const MAX_REFERENCE_IMAGES: usize = 3;
 
+/// The longest prompt Veo reads, in tokens: the *Model versions* table of
+/// Google's Veo page, the same for all three 3.1 models (read 2026-10-15).
+pub const MAX_PROMPT_TOKENS: usize = 1_024;
+
+/// How many characters a prompt token is counted as when a prompt is held to
+/// [`MAX_PROMPT_TOKENS`] without tokenising it.
+///
+/// Six, deliberately above the four Google gives as its rule of thumb for
+/// English (the figure the image quote prices with): Portuguese and most
+/// other languages take more tokens per character, not fewer, so at six a
+/// prompt over the limit in characters is over it in tokens, and a prompt
+/// between four and six thousand characters that Veo might take is let
+/// through to be tried rather than refused on a guess. It errs toward sending.
+pub const CHARACTERS_PER_PROMPT_TOKEN: usize = 6;
+
+/// [`MAX_PROMPT_TOKENS`] in characters, at [`CHARACTERS_PER_PROMPT_TOKEN`].
+pub const MAX_PROMPT_CHARACTERS: usize = MAX_PROMPT_TOKENS * CHARACTERS_PER_PROMPT_TOKEN;
+
 /// Which tier of the video model a shot is generated with.
 ///
 /// A per-shot judgement rather than a project-wide setting: the shot that

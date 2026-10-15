@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use scorsese_core::{AssetId, AssetKind};
+use scorsese_core::{AssetId, AssetKind, LongPrompt};
 
 use crate::credentials::{CredentialError, OverBudget};
 use crate::prices::Unpriced;
@@ -63,6 +63,12 @@ pub enum GenerationError {
         /// The asset with the empty brief.
         id: AssetId,
     },
+
+    /// A prompt longer than Veo reads (#1309). Refused here, before anything
+    /// is quoted or sent, rather than when the project loads: `scorsese check`
+    /// only warns, so a project already holding one still opens.
+    #[error("{0}")]
+    LongPrompt(LongPrompt),
 
     /// A brief names a still that is not in the assets table.
     #[error("a brief names the image {id}, and no asset answers to it")]

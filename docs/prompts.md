@@ -59,8 +59,8 @@ The paid lessons sit under one heading per provider: Veo first, because it is
 what has been generated most, then Nano Banana, then ElevenLabs. Each opens
 with its lesson **in a line**, and those lines, with the ones that close the
 Veo and Nano Banana vendor sections, are also carried on the tools that send a
-prompt: the `video`, `image` and `speech` blocks of `asset_set` and
-`voice_design`'s description. They are built from this page when the tools
+prompt: the `video`, `image` and `speech` blocks of `asset_set`, and
+`voice_design`'s `prompt`. They are built from this page when the tools
 are, so the two never disagree; the reasons stay here.
 
 ## Veo, learned by paying

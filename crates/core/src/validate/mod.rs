@@ -25,6 +25,7 @@ mod group;
 mod icon;
 mod image;
 mod matte;
+mod prompt;
 mod report;
 mod sequence;
 mod shape;
@@ -40,6 +41,7 @@ pub use error::{
     ValidationError, VideoProblem,
 };
 pub use field::AssetField;
+pub use prompt::LongPrompt;
 pub use report::ValidationErrors;
 pub use source::PastSource;
 
