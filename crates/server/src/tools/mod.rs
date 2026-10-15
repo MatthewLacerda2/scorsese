@@ -89,7 +89,7 @@ use scorsese_render::{Cancel, Tools};
 use serde_json::Value;
 use sqlx::postgres::PgPool;
 
-use crate::db::UserId;
+use crate::db::{self, Says, UserId};
 use crate::jobs::Queue;
 use crate::library::Library;
 use crate::renders::RenderCache;
@@ -358,8 +358,7 @@ fn project_id(arguments: &Value) -> Result<i64, String> {
 
 /// A database failure, said to the caller without its detail.
 fn database(error: impl std::fmt::Display) -> String {
-    eprintln!("scorsese-server: tool call: {error}");
-    "the server's database failed; try again".to_owned()
+    db::user_facing("tool call", Says::TryAgain, error)
 }
 
 /// The registry's tools, by name — the stock ones answering from `stock`

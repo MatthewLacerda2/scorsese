@@ -10,6 +10,7 @@ use serde_json::json;
 use super::Payload;
 use super::adopt::adopt;
 use crate::credits::generations::{self, Answer, Paid};
+use crate::db::{self, Says};
 use crate::jobs::{Context, Job, Outcome};
 use crate::library::{Item, Kind, Library, Made, Unkept};
 use crate::storage::Storage;
@@ -224,8 +225,5 @@ pub(super) fn document(payload: &Payload) -> Result<Project, String> {
 
 /// A failure on the server, logged and said without its detail.
 pub(super) fn database(error: impl std::fmt::Display) -> String {
-    eprintln!("scorsese-server: generation job: {error}");
-    "the server failed while keeping the books on this generation; the operator has the \
-     detail"
-        .to_owned()
+    db::user_facing("generation job", Says::Books("generation"), error)
 }

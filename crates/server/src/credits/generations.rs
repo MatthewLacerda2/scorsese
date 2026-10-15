@@ -17,7 +17,7 @@ use serde_json::Value;
 
 use super::designs::{self, Design};
 use super::ledger::{self, Link, Reservation};
-use super::{CreditError, Product, from_cents, price};
+use super::{CreditError, Product, charge_for, from_cents};
 use crate::db::Tx;
 
 /// A Veo shot about to be submitted, with everything its price depends on.
@@ -139,10 +139,9 @@ pub async fn start(tx: &mut Tx, request: &Request<'_>) -> Result<Paid, CreditErr
         Request::Still(still) => (Product::Still, still.estimated_cents, still.project),
         Request::Design(design) => (Product::VoiceDesign, design.estimated_cents, design.project),
     };
-    let cost = from_cents(cents);
-    let charged = price(product, cost);
+    let charged = charge_for(product, cents);
     ledger::cover(tx, charged).await?;
-    let cost = i64::try_from(cost).unwrap_or(i64::MAX);
+    let cost = i64::try_from(from_cents(cents)).unwrap_or(i64::MAX);
     let (generation, memo, link) = match request {
         Request::Shot(shot) => {
             let id = insert_shot(tx, shot, cost).await?;

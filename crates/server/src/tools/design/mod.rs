@@ -26,7 +26,7 @@ use serde_json::{Value, json};
 use super::{Caller, database, quotes};
 use crate::credits::designs::Design;
 use crate::credits::generations::{Request, start};
-use crate::credits::{CreditError, Product, dollars, from_cents, ledger, price};
+use crate::credits::{CreditError, Product, charge_for, dollars, ledger};
 use crate::db;
 use crate::designs::DesignPayload;
 use crate::jobs::{kinds, store as jobs};
@@ -269,7 +269,7 @@ async fn project(caller: &Caller<'_>, arguments: &Value) -> Result<Option<i64>, 
 
 /// What `cents` of provider cost takes from a balance, in micro-dollars.
 fn credits(cents: u64) -> i64 {
-    price(Product::VoiceDesign, from_cents(cents))
+    charge_for(Product::VoiceDesign, cents)
 }
 
 /// A string argument, blank counting as absent.

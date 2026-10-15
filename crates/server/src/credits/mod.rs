@@ -71,6 +71,8 @@ pub mod tool;
 
 pub use ledger::Reservation;
 
+use scorsese_core::AssetKind;
+
 /// What a user buys, each kind priced by its own multiplier (#1247).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Product {
@@ -87,6 +89,29 @@ pub enum Product {
 }
 
 impl Product {
+    /// What a generated asset of `kind` is sold as, or `None` for a kind the
+    /// user is never charged for: everything that is not prompted
+    /// (`AssetKind::is_prompted`). A voice design makes no asset, so no kind
+    /// is one.
+    pub const fn of(kind: AssetKind) -> Option<Self> {
+        match kind {
+            AssetKind::GeneratedVideo => Some(Self::VeoShot),
+            AssetKind::GeneratedImage => Some(Self::Still),
+            AssetKind::GeneratedAudio => Some(Self::SpokenLine),
+            AssetKind::Video
+            | AssetKind::Image
+            | AssetKind::Audio
+            | AssetKind::Text
+            | AssetKind::Color
+            | AssetKind::Shape
+            | AssetKind::Icon
+            | AssetKind::ImageSequence
+            | AssetKind::Html
+            | AssetKind::SynthAudio
+            | AssetKind::Group => None,
+        }
+    }
+
     /// What the user is charged for it, as a percentage of what it costs
     /// scorsese: **the one table of prices** (the maintainer, 2026-10-13).
     ///
@@ -121,6 +146,13 @@ pub fn price(product: Product, cost_micros: u64) -> i64 {
 /// A provider table's cents, as the ledger's micro-dollars.
 pub fn from_cents(cents: u64) -> u64 {
     cents.saturating_mul(MICROS_PER_CENT)
+}
+
+/// What a user is charged for a `product` whose provider table says it costs
+/// scorsese `cents`: [`price`] over [`from_cents`], the one way a quote, an
+/// offer and a reservation all reach the same figure.
+pub fn charge_for(product: Product, cents: u64) -> i64 {
+    price(product, from_cents(cents))
 }
 
 /// Micro-dollars as dollars a person reads: `$1.06`, `-$0.03`, and as many
@@ -162,4 +194,37 @@ pub enum CreditError {
     /// The database refused.
     #[error("the database refused: {0}")]
     Database(#[from] sqlx::Error),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Only a prompted kind is sold, each as the product its reservation is
+    /// made as (`generations::start`).
+    #[test]
+    fn a_prompted_kind_is_sold_and_nothing_else_is() {
+        assert_eq!(
+            Product::of(AssetKind::GeneratedVideo),
+            Some(Product::VeoShot)
+        );
+        assert_eq!(Product::of(AssetKind::GeneratedImage), Some(Product::Still));
+        assert_eq!(
+            Product::of(AssetKind::GeneratedAudio),
+            Some(Product::SpokenLine)
+        );
+        assert_eq!(Product::of(AssetKind::SynthAudio), None);
+        assert_eq!(Product::of(AssetKind::Image), None);
+    }
+
+    /// A charge is the cents in micro-dollars, marked up and rounded up.
+    #[test]
+    fn a_charge_is_the_price_of_the_cents() {
+        assert_eq!(charge_for(Product::VeoShot, 40), 600_000);
+        assert_eq!(charge_for(Product::Still, 4), 72_000);
+        assert_eq!(
+            charge_for(Product::Still, 4),
+            price(Product::Still, from_cents(4))
+        );
+    }
 }

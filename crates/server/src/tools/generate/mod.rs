@@ -27,7 +27,7 @@ mod offer;
 mod spend;
 
 use scorsese_core::placing::Shortened;
-use scorsese_core::{AssetId, AssetKind, GenerationState, Project, Timestamp};
+use scorsese_core::{AssetId, GenerationState, Project, Timestamp};
 use scorsese_mcp::Reply;
 use scorsese_providers::prices::dollars as cents_as_dollars;
 use scorsese_providers::quote::{self, Item, Quote, generation};
@@ -35,7 +35,7 @@ use serde_json::{Value, json};
 
 use super::surface::project_property;
 use super::{Caller, database, lay_out, project_id, quotes, voiced};
-use crate::credits::{Product, dollars, from_cents, ledger, price};
+use crate::credits::{Product, charge_for, dollars, ledger};
 use crate::db;
 use crate::generations::adopt;
 use crate::jobs::blocking;
@@ -313,17 +313,7 @@ pub(super) fn credits(quote: &Quote, project: &Project) -> i64 {
         .filter_map(|item| {
             let charge = item.charge.as_ref()?;
             let kind = project.asset(&AssetId::new(item.subject.clone()))?.kind;
-            Some(price(product(kind), from_cents(charge.cents)))
+            Some(charge_for(Product::of(kind)?, charge.cents))
         })
         .sum()
-}
-
-/// What a generated asset of `kind` is sold as. A still is what is left: the
-/// quote prices nothing else.
-fn product(kind: AssetKind) -> Product {
-    match kind {
-        AssetKind::GeneratedVideo => Product::VeoShot,
-        AssetKind::GeneratedAudio => Product::SpokenLine,
-        _ => Product::Still,
-    }
 }
