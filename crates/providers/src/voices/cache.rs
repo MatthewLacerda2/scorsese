@@ -21,7 +21,9 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use scorsese_core::{CACHE_DIR, Timestamp, hash_bytes};
+use scorsese_core::{CACHE_DIR, Timestamp};
+
+use crate::diskcache;
 
 use super::catalogue::{More, Page, Voice};
 
@@ -109,11 +111,6 @@ pub fn cache_dir(root: &Path) -> PathBuf {
     root.join(CACHE_DIR).join(VOICES_DIR)
 }
 
-/// Where a query's answer is kept, inside `root`.
-fn file(root: &Path, key: &str) -> PathBuf {
-    cache_dir(root).join(format!("{}.json", hash_bytes(key.as_bytes())))
-}
-
 /// The cached answer to `key`, if there is a readable one.
 ///
 /// Every failure is a miss, and none of them is reported. A cache is an
@@ -122,8 +119,7 @@ fn file(root: &Path, key: &str) -> PathBuf {
 /// a listing because a rebuildable file could not be parsed would be the
 /// optimisation breaking the thing it exists to speed up.
 pub(crate) fn read(root: &Path, key: &str) -> Option<Cached> {
-    let text = std::fs::read_to_string(file(root, key)).ok()?;
-    serde_json::from_str(&text).ok()
+    diskcache::read(&cache_dir(root), key)
 }
 
 /// Every listing this project has cached, whichever query wrote it.
@@ -137,14 +133,7 @@ pub(crate) fn read(root: &Path, key: &str) -> Option<Cached> {
 /// cache is an optimisation, and a corrupt file in one is a miss rather than a
 /// failure.
 pub(crate) fn all(root: &Path) -> Vec<Cached> {
-    let Ok(entries) = std::fs::read_dir(root.join(CACHE_DIR).join(VOICES_DIR)) else {
-        return Vec::new();
-    };
-    entries
-        .flatten()
-        .filter_map(|entry| std::fs::read_to_string(entry.path()).ok())
-        .filter_map(|text| serde_json::from_str::<Cached>(&text).ok())
-        .collect()
+    diskcache::all(&cache_dir(root))
 }
 
 /// Writes a listing into the cache, creating `cache/voices/` if it is the
@@ -154,10 +143,6 @@ pub(crate) fn all(root: &Path) -> Vec<Cached> {
 /// file here is not a crash but something worse — a short list that looks like
 /// a complete one, served for a week.
 pub(crate) fn write(root: &Path, key: &str, page: &Page) -> Result<(), std::io::Error> {
-    let path = file(root, key);
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
     let unix = Timestamp::unix_now();
     let cached = Cached {
         listing: key.to_owned(),
@@ -166,7 +151,5 @@ pub(crate) fn write(root: &Path, key: &str, page: &Page) -> Result<(), std::io::
         voices: page.voices.clone(),
         more: page.more,
     };
-    let text = serde_json::to_string_pretty(&cached)
-        .map_err(|error| std::io::Error::other(error.to_string()))?;
-    scorsese_core::write::atomically(&path, text.as_bytes())
+    diskcache::write(&cache_dir(root), key, &cached).map_err(|(_, error)| error)
 }

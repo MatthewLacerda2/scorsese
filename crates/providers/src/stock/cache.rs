@@ -12,7 +12,9 @@ use std::time::{Duration, SystemTime};
 
 use serde::{Deserialize, Serialize};
 
-use scorsese_core::{CACHE_DIR, Timestamp, hash_bytes};
+use scorsese_core::{CACHE_DIR, Timestamp};
+
+use crate::diskcache;
 
 use super::candidate::{Candidate, Medium};
 use super::library::{Page, StockError};
@@ -51,17 +53,11 @@ fn pages(cache: &Path) -> PathBuf {
     cache.join("pages")
 }
 
-/// The file `key`'s page is kept in.
-fn file(cache: &Path, key: &str) -> PathBuf {
-    pages(cache).join(format!("{}.json", hash_bytes(key.as_bytes())))
-}
-
 /// The cached page for `key`, if a fresh, readable one is there. Anything
 /// else — missing, stale, corrupt — is a miss.
 pub(crate) fn read(cache: &Path, key: &str) -> Option<Page> {
     let now = Timestamp::unix_now()?;
-    let text = std::fs::read_to_string(file(cache, key)).ok()?;
-    let cached: Cached = serde_json::from_str(&text).ok()?;
+    let cached: Cached = diskcache::read(&pages(cache), key)?;
     cached.fresh(now).then_some(Page {
         candidates: cached.candidates,
         total: cached.total,
@@ -70,21 +66,14 @@ pub(crate) fn read(cache: &Path, key: &str) -> Option<Page> {
 
 /// Keeps `page` as `key`'s answer, atomically.
 pub(crate) fn write(cache: &Path, key: &str, page: &Page) -> Result<(), StockError> {
-    let path = file(cache, key);
-    let io = |source| StockError::Io {
-        path: path.clone(),
-        source,
-    };
-    std::fs::create_dir_all(pages(cache)).map_err(io)?;
     let cached = Cached {
         listing: key.to_owned(),
         fetched_unix: Timestamp::unix_now().unwrap_or_default(),
         candidates: page.candidates.clone(),
         total: page.total,
     };
-    let text = serde_json::to_string_pretty(&cached)
-        .map_err(|error| io(std::io::Error::other(error.to_string())))?;
-    scorsese_core::write::atomically(&path, text.as_bytes()).map_err(io)
+    diskcache::write(&pages(cache), key, &cached)
+        .map_err(|(path, source)| StockError::Io { path, source })
 }
 
 /// The candidate `medium` `id` names on any fresh cached page — what a call
@@ -94,11 +83,8 @@ pub(crate) fn write(cache: &Path, key: &str, page: &Page) -> Result<(), StockErr
 /// the results a search really returned.
 pub fn find_cached(cache: &Path, medium: Medium, id: u64) -> Option<Candidate> {
     let now = Timestamp::unix_now()?;
-    let entries = std::fs::read_dir(pages(cache)).ok()?;
-    entries
-        .flatten()
-        .filter_map(|entry| std::fs::read_to_string(entry.path()).ok())
-        .filter_map(|text| serde_json::from_str::<Cached>(&text).ok())
+    diskcache::all::<Cached>(&pages(cache))
+        .into_iter()
         .filter(|cached| cached.fresh(now))
         .flat_map(|cached| cached.candidates)
         .find(|one| one.medium == medium && one.id == id)
