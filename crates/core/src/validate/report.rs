@@ -39,6 +39,19 @@ impl ValidationErrors {
         self.0.is_empty()
     }
 
+    /// Each problem as its own line of text, in validation's order — for a
+    /// caller that lays the list out itself rather than taking the `Display`
+    /// report with its heading.
+    pub fn messages(&self) -> Vec<String> {
+        self.0.iter().map(ToString::to_string).collect()
+    }
+
+    /// The first problem in its own words, for a caller with room for one
+    /// line. `None` only on an empty set, which validation never returns.
+    pub fn first_message(&self) -> Option<String> {
+        self.0.first().map(ToString::to_string)
+    }
+
     /// Takes the problems out, for a caller that wants to sort or filter them
     /// rather than print them.
     pub fn into_vec(self) -> Vec<ValidationError> {

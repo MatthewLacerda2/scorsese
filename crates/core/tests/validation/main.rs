@@ -22,6 +22,7 @@ mod motion;
 mod page;
 mod paths;
 mod references;
+mod report;
 mod sequence;
 mod shape;
 mod source;
