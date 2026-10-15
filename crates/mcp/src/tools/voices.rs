@@ -14,7 +14,7 @@
 use schemars::JsonSchema;
 use scorsese_providers::credentials::{Provider, resolve};
 use scorsese_providers::voices::{
-    Answer, Catalogue, ElevenLabsVoices, Filters, VoiceError, builtin, library, require,
+    Catalogue, ElevenLabsVoices, Filters, VoiceError, builtin, library, require,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -133,7 +133,10 @@ impl Tool for Voices {
         } else {
             builtin(dir, &catalogue, arguments.refresh)
         };
-        Ok(said(&answer.map_err(say)?, from_library).into())
+        Ok(answer
+            .map_err(say)?
+            .says(from_library, "refresh: true")
+            .into())
     }
 }
 
@@ -160,30 +163,4 @@ fn checked(catalogue: &dyn Catalogue, voice_id: &str) -> Result<Reply, String> {
 /// vaguer sentence in front of the useful one.
 fn say(error: VoiceError) -> String {
     format!("{error}")
-}
-
-/// The list, and where it came from.
-///
-/// The provenance line comes out of the library rather than being written here,
-/// so that this and `scorsese voices` cannot drift into describing the same
-/// cache differently.
-fn said(answer: &Answer, from_library: bool) -> String {
-    let what = if from_library {
-        "the Voice Library"
-    } else {
-        "built-in"
-    };
-    let mut lines: Vec<String> = answer
-        .voices
-        .iter()
-        .map(|voice| match voice.description.as_deref().map(str::trim) {
-            Some(about) if !about.is_empty() => format!("{}\n    {about}", voice.says()),
-            _ => voice.says(),
-        })
-        .collect();
-    if lines.is_empty() {
-        lines.push(format!("No voices matched in {what}."));
-    }
-    lines.push(format!("\n{}", answer.summary(what, "refresh: true")));
-    lines.join("\n")
 }

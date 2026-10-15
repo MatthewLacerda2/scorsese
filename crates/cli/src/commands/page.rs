@@ -4,7 +4,7 @@ use std::io::Read as _;
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
-use scorsese_core::{AssetId, AssetKind, write_page};
+use scorsese_core::{AssetId, PageReadError, read_page, write_page};
 
 /// Writes the page called `id` from `file` — `-` is standard input — making
 /// the `html` asset when nothing answers to the id: the `page_write` MCP tool.
@@ -33,16 +33,15 @@ pub(crate) fn write(project_dir: &Path, id: &str, file: &Path) -> Result<()> {
 /// Prints the page called `id` as it is on disk: the `page_read` MCP tool.
 pub(crate) fn read(project_dir: &Path, id: &str) -> Result<()> {
     let project = super::open(project_dir)?;
-    let asset = project
-        .asset(&AssetId::new(id))
-        .with_context(|| format!("there is no asset `{id}`"))?;
-    let (AssetKind::Html, Some(path)) = (asset.kind, &asset.path) else {
-        bail!("`{id}` is not a page");
+    let html = match read_page(&project, project_dir, &AssetId::new(id)) {
+        Ok(html) => html,
+        // The file's own error stays the cause under a context, as the CLI
+        // words every other read.
+        Err(PageReadError::Unreadable { id, path, source }) => {
+            return Err(source).with_context(|| format!("reading the page `{id}` at {path}"));
+        }
+        Err(refused) => bail!(refused),
     };
-    path.check()
-        .map_err(|problem| anyhow::anyhow!("the page `{id}` is at {path}, which {problem}"))?;
-    let html = std::fs::read_to_string(path.resolve(project_dir))
-        .with_context(|| format!("reading the page `{id}` at {path}"))?;
     print!("{html}");
     Ok(())
 }

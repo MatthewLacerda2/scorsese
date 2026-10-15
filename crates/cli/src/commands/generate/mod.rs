@@ -28,11 +28,11 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use scorsese_core::{AssetId, Project};
-use scorsese_providers::credentials::{Budget, Settings};
+use scorsese_providers::credentials::Budget;
 use scorsese_providers::image::Order;
 use scorsese_providers::prices::dollars;
 use scorsese_providers::video::{Outcome, Run, Stopped};
-use scorsese_providers::{image, speech, spending, video};
+use scorsese_providers::{image, speech, video};
 
 use super::confirm;
 
@@ -70,10 +70,7 @@ pub(crate) fn run(project_dir: &Path, asked: &Asked) -> Result<()> {
         return Ok(());
     }
 
-    // A settings file that is there and unreadable refuses to spend: read as
-    // the defaults, it would be a run with no ceiling at all (#1108).
-    let settings = Settings::load().context("nothing was sent")?;
-    let budget = Budget::from_settings(&settings, spent_so_far(&project, project_dir));
+    let budget = Budget::for_project(&project, project_dir).context("nothing was sent")?;
 
     // The document is saved whatever happens, and that is not tidiness: a
     // ticket written before a failure is the only record that money was spent,
@@ -342,16 +339,6 @@ fn quote(project: &Project, root: &Path, order: Order) -> Result<()> {
         );
     }
     Ok(())
-}
-
-/// What this project has already spent, against the ceiling.
-///
-/// The assets **and** the designed-voice ledger, because a ceiling that counted
-/// only one of them would be wrong by however much the other holds — designing
-/// a voice is real money at the same vendor. They stay separate figures
-/// wherever they are *reported*; see [`spending`].
-fn spent_so_far(project: &Project, root: &Path) -> u64 {
-    spending::so_far(project, root).total()
 }
 
 /// Every brief's line, then the one total that spans every provider.

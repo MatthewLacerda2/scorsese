@@ -24,6 +24,7 @@
 //! rather than by a trait nobody can see through.
 
 mod address;
+mod bakes;
 mod create;
 mod current;
 mod error;
@@ -57,6 +58,7 @@ pub use scorsese_zimmer::{Excerpt, Span, Window};
 /// `cli` and `mcp` name it and parse it without depending on the synthesiser.
 pub use scorsese_zimmer::midi::Drum;
 
+pub use bakes::{Bakes, bake, bake_unless};
 pub use create::{check, check_patch, create, is_patch_file};
 pub use current::out_of_date;
 pub use error::SynthesisError;

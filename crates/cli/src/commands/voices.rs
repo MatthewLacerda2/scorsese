@@ -13,7 +13,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use scorsese_providers::credentials::{Provider, resolve};
-use scorsese_providers::voices::{Answer, ElevenLabsVoices, Filters, builtin, library, require};
+use scorsese_providers::voices::{ElevenLabsVoices, Filters, builtin, library, require};
 
 /// What was asked for on the command line.
 pub(crate) struct Options {
@@ -50,34 +50,6 @@ pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
     } else {
         builtin(project_dir, &catalogue, options.refresh)?
     };
-    report(&answer, options.library);
+    println!("{}", answer.says(options.library, "--refresh"));
     Ok(())
-}
-
-/// Prints the list, then where it came from.
-///
-/// The provenance line comes out of the library rather than being written here,
-/// so that this and the MCP tool cannot drift into describing the same cache
-/// differently.
-fn report(answer: &Answer, from_library: bool) {
-    let what = if from_library {
-        "the Voice Library"
-    } else {
-        "built-in"
-    };
-    if answer.voices.is_empty() {
-        println!("No voices matched in {what}.");
-    }
-    for voice in &answer.voices {
-        println!("{}", voice.says());
-        if let Some(description) = voice
-            .description
-            .as_ref()
-            .filter(|it| !it.trim().is_empty())
-        {
-            println!("    {}", description.trim());
-        }
-    }
-    println!();
-    println!("{}", answer.summary(what, "--refresh"));
 }

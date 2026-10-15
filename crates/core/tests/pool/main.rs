@@ -7,6 +7,7 @@ mod directory;
 mod gc;
 mod import;
 mod listing;
+mod many;
 mod naming;
 mod page;
 mod probing;

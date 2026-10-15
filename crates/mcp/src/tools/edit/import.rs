@@ -11,9 +11,10 @@
 //! it is what makes a project survive `scp -r`.
 
 use std::borrow::Cow;
+use std::path::PathBuf;
 
 use schemars::{JsonSchema, Schema, SchemaGenerator};
-use scorsese_core::{AssetKind, Import as Report, Project, import_path};
+use scorsese_core::{AssetKind, Import as Report, ImportBatch, ImportError, Project, import_many};
 use scorsese_render::Ffprobe;
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer};
@@ -128,24 +129,18 @@ impl Tool for Import {
         if arguments.sequence {
             return super::sequenced::import(&mut project, dir, &paths, &probe);
         }
-        let mut reports = Vec::new();
-        let mut failures = Vec::new();
-        let mut copied = false;
-        for path in &paths {
-            match import_path(&mut project, dir, std::path::Path::new(path), kind, &probe) {
-                Ok(report) => {
-                    copied |= report.imported.iter().any(|one| !one.reused);
-                    reports.push(report);
-                }
-                Err(error) => failures.push(format!("{path} — failed: {error}")),
-            }
-        }
+        let ImportBatch {
+            reports,
+            failures,
+            needs_save,
+        } = import_many(&mut project, dir, &paths, kind, &probe);
         // Once, after the loop: an id in the reply has to already be an id on
         // disk, and a failure in the middle must not discard what landed
         // before it.
-        if copied {
+        if needs_save {
             save(&project, dir)?;
         }
+        let failures = failed(&failures);
         // Everything failing is the single-path error this tool has always
         // returned; anything landing is a reply, because the caller needs the
         // ids of what did land and re-importing the rest is free — the same
@@ -155,6 +150,14 @@ impl Tool for Import {
         }
         Ok(said(&project, &reports, &failures).into())
     }
+}
+
+/// One line per path that failed to import, sequence or not: the path, then why.
+pub(super) fn failed(failures: &[(PathBuf, ImportError)]) -> Vec<String> {
+    failures
+        .iter()
+        .map(|(path, error)| format!("{} — failed: {error}", path.display()))
+        .collect()
 }
 
 /// The paths to import: one string, or a list of them.

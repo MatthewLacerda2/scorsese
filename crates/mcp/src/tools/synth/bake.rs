@@ -177,29 +177,16 @@ impl Tool for Bake {
             return Ok(said_partial(&id, &excerpt, &partial).into());
         }
 
-        let baked = match asset {
-            Some(id) => {
-                let id = AssetId::new(id);
-                let one = synth::bake_asset_unless(&mut project, dir, &id, &stop)
-                    .map_err(|error| format!("{error}"))?;
-                vec![(id, one)]
-            }
-            None => synth::bake_pending_unless(&mut project, dir, &stop)
-                .map_err(|error| format!("{error}"))?,
-        };
+        let only = asset.map(AssetId::new);
+        let baked = synth::bake_unless(&mut project, dir, only.as_ref(), &stop)
+            .map_err(|error| format!("{error}"))?;
         if baked.is_empty() {
             return Ok("no synth_audio assets — synth_new starts one".into());
         }
         save(&project, dir)?;
 
-        let fresh = baked.iter().filter(|(_, it)| it.is_fresh()).count();
-        let lines: Vec<String> = baked.iter().map(|(id, it)| said(id, it)).collect();
-        Ok(format!(
-            "{}\n{fresh} rendered, {} cached, $0.00",
-            lines.join("\n"),
-            baked.len() - fresh
-        )
-        .into())
+        let lines: Vec<String> = baked.baked.iter().map(|(id, it)| said(id, it)).collect();
+        Ok(format!("{}\n{}", lines.join("\n"), baked.tally()).into())
     }
 }
 

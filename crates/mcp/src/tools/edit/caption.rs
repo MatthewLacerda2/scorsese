@@ -1,7 +1,7 @@
 //! The narration's words as on-screen captions.
 
 use schemars::JsonSchema;
-use scorsese_core::captions::{Captioned, Captioning, caption};
+use scorsese_core::captions::{Captioned, Captioning, Chunking, caption};
 use scorsese_core::{FontChoice, Rgba, TrackId};
 use scorsese_render::picture::caption as look;
 use serde::Deserialize;
@@ -24,8 +24,11 @@ struct Arguments {
     /// Audio track ids whose lines are captioned. Omit and every generated
     /// narration line on any audio track is.
     narration: Option<Vec<String>>,
-    /// The most characters one caption holds, about two lines at the default
-    /// size in 9:16. Default 36.
+    #[schemars(description = format!(
+        "The most characters one caption holds, about two lines at the default \
+         size in 9:16. Default {}.",
+        Chunking::DEFAULT.max_chars
+    ))]
     max_chars: Option<u32>,
     /// The face: a name this build ships or a font file inside the project.
     /// Default `montserrat`.

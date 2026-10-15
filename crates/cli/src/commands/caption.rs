@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use anyhow::Result;
-use scorsese_core::captions::{Captioned, caption};
+use scorsese_core::captions::{Captioned, Chunking, caption};
 use scorsese_core::{FontChoice, Rgba, TrackId};
 use scorsese_render::picture::caption as look;
 
@@ -20,7 +20,7 @@ pub(crate) struct Options {
     narration: Vec<String>,
     /// The most characters one caption holds — about two lines at the
     /// default size in 9:16.
-    #[arg(long, default_value_t = 36)]
+    #[arg(long, default_value_t = Chunking::DEFAULT.max_chars)]
     max_chars: usize,
     /// The face: a name this build ships, or a font file inside the project.
     /// Montserrat when not given.

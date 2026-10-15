@@ -3,6 +3,7 @@
 mod adopted;
 mod beside;
 mod kept;
+mod read;
 mod written;
 
 use crate::common::{new_project, source_file};

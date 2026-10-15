@@ -84,6 +84,36 @@ pub struct Voicing {
     pub from: Option<f64>,
 }
 
+impl Voicing {
+    /// Seconds from a line's last word to the end of its scene when nobody
+    /// says: a breath before the cut.
+    ///
+    /// This and the two below are the one place the cut's defaults live. The
+    /// CLI's `cut-to-voice` and MCP's `cut_to_voice` both read them, the way
+    /// both read [`crate::dip::Dip::UNDER`] for the duck.
+    pub const GAP: f64 = 0.2;
+    /// Seconds from a scene's start to its line's start when nobody says: the
+    /// line starts with the scene.
+    pub const LEAD_IN: f64 = 0.0;
+    /// Seconds a scene's visuals run on under the next when nobody says: a
+    /// straight cut.
+    pub const OVERLAP: f64 = 0.0;
+}
+
+impl Default for Voicing {
+    /// No scenes yet, every timing at its default, and the first scene left
+    /// where its earliest visual already starts.
+    fn default() -> Self {
+        Self {
+            scenes: Vec::new(),
+            lead_in: Self::LEAD_IN,
+            gap: Self::GAP,
+            overlap: Self::OVERLAP,
+            from: None,
+        }
+    }
+}
+
 /// Where a scene's end was measured from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Measured {
