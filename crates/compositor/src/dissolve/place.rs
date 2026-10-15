@@ -121,10 +121,7 @@ pub(super) fn overlap(
     clip.start = Frames(clip.start.get().saturating_sub(duration.get()));
 
     let (track, created) = home(project, outgoing.track, &clip)?;
-    project.tracks[track].clips.push(clip);
-    project.tracks[track]
-        .clips
-        .sort_by_key(|clip| clip.start.get());
+    project.tracks[track].insert_clip(clip);
 
     Ok(Placed {
         track: project.tracks[track].id.to_string(),
@@ -136,10 +133,8 @@ pub(super) fn overlap(
 /// A track above `below` with room for `clip`, making one if none has room.
 fn home(project: &mut Project, below: usize, clip: &Clip) -> Result<(usize, bool), DissolveError> {
     let above = below + 1;
-    for (index, track) in project.tracks.iter().enumerate().skip(above) {
-        if track.kind == TrackKind::Video && !track.clips.iter().any(|other| clip.overlaps(other)) {
-            return Ok((index, false));
-        }
+    if let Some(index) = project.room_for(TrackKind::Video, above, clip) {
+        return Ok((index, false));
     }
     // Nothing above has room, so the dissolve gets a track of its own — put
     // directly over the outgoing clip rather than at the top, so an unrelated

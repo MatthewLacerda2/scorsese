@@ -42,8 +42,7 @@ pub(super) fn apply(project: &mut Project, moves: &[Move]) -> Vec<(ClipId, Track
             .iter_mut()
             .find(|candidate| candidate.id == track)
             .expect("room hands back a track it found or made");
-        track.clips.push(clip);
-        track.clips.sort_by_key(|clip| clip.start);
+        track.insert_clip(clip);
     }
     rearranged
 }
@@ -56,12 +55,8 @@ fn room(project: &mut Project, home: &TrackId, clip: &Clip) -> (TrackId, bool) {
         .position(|track| &track.id == home)
         .expect("a lifted clip's track is still there");
     let kind = project.tracks[index].kind;
-    let free = project.tracks[index..]
-        .iter()
-        .filter(|track| track.kind == kind)
-        .find(|track| !track.clips.iter().any(|other| other.overlaps(clip)));
-    if let Some(track) = free {
-        return (track.id.clone(), false);
+    if let Some(free) = project.room_for(kind, index, clip) {
+        return (project.tracks[free].id.clone(), false);
     }
     // Directly above its own track rather than on top of everything, so an
     // unrelated overlay stays above both — the place `dissolve` chooses too.

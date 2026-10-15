@@ -64,10 +64,8 @@ pub fn place_spilling(
         .filter_map(|track| member(base, &track.id).map(|number| (number, track)))
         .collect();
     lanes.sort_by_key(|(number, _)| *number);
-    let fits = |track: &Track| !track.clips.iter().any(|clip| clip.overlaps(&window));
-
     let mut proposed = project.clone();
-    let track = match lanes.iter().find(|(_, track)| fits(track)) {
+    let track = match lanes.iter().find(|(_, track)| track.is_free_for(&window)) {
         Some((_, track)) => track.id.clone(),
         None => {
             let id = next_lane(project, base);

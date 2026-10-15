@@ -9,6 +9,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 mod follow;
+mod order;
 pub(crate) mod placement;
 
 use crate::asset::{AssetId, AssetKind};

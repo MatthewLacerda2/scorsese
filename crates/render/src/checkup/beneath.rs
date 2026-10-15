@@ -38,10 +38,7 @@ fn lanes(tracks: &[Track], group: Option<&str>, found: &mut Vec<String>) {
         .collect();
     for (at, track) in video.iter().enumerate() {
         for clip in track.clips.iter().filter(|clip| !clip.blend.is_normal()) {
-            let beneath = video[..at]
-                .iter()
-                .flat_map(|track| &track.clips)
-                .any(|below| below.overlaps(clip));
+            let beneath = video[..at].iter().any(|below| !below.is_free_for(clip));
             if !beneath {
                 found.push(worded(clip, group));
             }
