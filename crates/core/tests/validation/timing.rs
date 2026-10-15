@@ -52,6 +52,19 @@ fn clips_on_different_tracks_may_share_the_same_frame() {
 }
 
 #[test]
+fn a_clip_that_renders_nothing_inside_another_is_not_an_overlap() {
+    let mut p = project();
+    p.tracks[0].clips[1].start = Frames(100);
+    p.tracks[0].clips[1].duration = Frames::ZERO;
+    assert_only_problem(
+        &p,
+        E::ZeroDuration {
+            clip: clip_id("c-title"),
+        },
+    );
+}
+
+#[test]
 fn a_clip_that_renders_nothing_is_reported() {
     let mut p = project();
     p.tracks[0].clips[0].duration = Frames::ZERO;

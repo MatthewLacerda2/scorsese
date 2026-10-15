@@ -183,7 +183,9 @@ fn check_chroma_key(asset: &Asset, clip: &Clip, errors: &mut Vec<TimelineProblem
 /// **Every overlapping pair, not only neighbours** (#1102): a long clip can
 /// cover several short ones that follow each other, and comparing sorted
 /// neighbours alone reported the first and missed the rest. So the sweep keeps
-/// every clip still running at each start, and each one met is a pair.
+/// every clip still running at each start: each began no later and ends after
+/// that start, so each is an overlap — unless the clip starting covers no frame
+/// at all, which is [`TimelineProblem::ZeroDuration`] and not a conflict.
 fn check_overlaps(track: &Track, errors: &mut Vec<TimelineProblem>) {
     let mut ordered: Vec<&Clip> = track.clips.iter().collect();
     ordered.sort_by_key(|clip| clip.start);
@@ -191,12 +193,14 @@ fn check_overlaps(track: &Track, errors: &mut Vec<TimelineProblem>) {
     let mut running: Vec<&Clip> = Vec::new();
     for clip in ordered {
         running.retain(|earlier| earlier.end() > clip.start);
-        for earlier in running.iter().filter(|earlier| earlier.overlaps(clip)) {
-            errors.push(TimelineProblem::OverlappingClips {
-                track: track.id.clone(),
-                first: earlier.id.clone(),
-                second: clip.id.clone(),
-            });
+        if clip.duration > Frames::ZERO {
+            for earlier in &running {
+                errors.push(TimelineProblem::OverlappingClips {
+                    track: track.id.clone(),
+                    first: earlier.id.clone(),
+                    second: clip.id.clone(),
+                });
+            }
         }
         running.push(clip);
     }
