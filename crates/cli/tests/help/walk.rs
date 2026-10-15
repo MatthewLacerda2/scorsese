@@ -13,7 +13,7 @@ use clap::Command;
 /// `"<command path>: <what>"`. The tree is built first: `--help`,
 /// `--version` and the `help` subcommand only exist after clap has assembled
 /// it, and they are part of what a reader sees.
-pub fn undocumented(mut command: Command) -> Vec<String> {
+pub(crate) fn undocumented(mut command: Command) -> Vec<String> {
     command.build();
     let mut found = Vec::new();
     walk(&command, "", &mut found);
@@ -22,7 +22,7 @@ pub fn undocumented(mut command: Command) -> Vec<String> {
 
 /// Every argument in `command`'s built tree, however deep — so a test can
 /// show the walk reached the tree, not an empty shell of it.
-pub fn arguments(mut command: Command) -> usize {
+pub(crate) fn arguments(mut command: Command) -> usize {
     command.build();
     count(&command)
 }
