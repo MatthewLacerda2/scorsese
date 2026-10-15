@@ -121,6 +121,11 @@ pub(super) fn pitch_track(
 /// a separate multiply outside the sum; folding it in changes nothing about
 /// what it does and removes the one place the two conventions met.
 ///
+/// `base` is where the filter sits at each sample when something outside the
+/// note moves it — a song's `cutoff` curve, read across the whole note rather
+/// than once at its onset (#1123) — and the patch's own `cutoff` when nothing
+/// does. Every term above multiplies whichever it is.
+///
 /// Nothing here bounds the result — [`filter::apply`] clamps every cutoff into
 /// the SVF's stable band anyway, and doing it twice would only invite the two
 /// clamps to disagree. An absurd depth exponentiates to zero or to infinity
@@ -131,6 +136,7 @@ pub(super) fn cutoff_track(
     gate: f32,
     n: usize,
     velocity: f32,
+    base: Option<&[f32]>,
 ) -> Vec<f32> {
     let envelope = env::track(&f.adsr, gate, n, RATE);
     let struck = f.vel_octaves * velocity;
@@ -141,7 +147,8 @@ pub(super) fn cutoff_track(
                 Some(l) if l.target == LfoTarget::Cutoff => l.depth * lfo_wave(&l, i),
                 _ => 0.0,
             };
-            f.cutoff * (octaves + wobble).exp2()
+            let at = base.and_then(|base| base.get(i)).copied();
+            at.unwrap_or(f.cutoff) * (octaves + wobble).exp2()
         })
         .collect()
 }

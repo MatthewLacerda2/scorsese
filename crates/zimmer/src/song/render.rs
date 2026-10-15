@@ -75,11 +75,11 @@
 //! puts no asterisk on any of that — and neither does the note renderer
 //! starting each oscillator somewhere in its cycle, which reads the same seed.
 
-use std::borrow::Cow;
 use std::collections::HashMap;
 
 use super::articulation::Stroke;
 use super::automate::{self, Automation};
+use super::clock::Clock;
 use super::excerpt::{Excerpt, Scope};
 use super::feel::swung;
 use super::glide::{Slides, Trail};
@@ -395,11 +395,21 @@ pub(crate) fn mix_song(
                 if stop() {
                     return Ok(None);
                 }
-                let instrument = tuned(&patches[track], riding[track].cutoff, beat_at);
+                let instrument = &patches[track];
+                let swept = riding[track]
+                    .cutoff
+                    .zip(instrument.filter)
+                    .map(|(curve, filter)| sweep(curve, &clock, beat_at, filter.cutoff));
                 // A note too long to render is only found here, where its
                 // gate is known in seconds; the refusal is told where the song
                 // writes it, since "a note" is no help in a piece of hundreds.
-                let rendered = core::render_note(&instrument, pitch, &opts).map_err(|error| {
+                let rendered = core::render_swept(
+                    instrument,
+                    pitch,
+                    &opts,
+                    swept.as_ref().map(|sweep| sweep as &dyn Fn(usize) -> f32),
+                )
+                .map_err(|error| {
                     error.at(NoteAt {
                         pattern: layer.pattern().to_owned(),
                         track: note.track.clone(),
@@ -456,24 +466,28 @@ pub(crate) fn mix_song(
     }))
 }
 
-/// The instrument this note is played on, with a moving cutoff set to what it
-/// reads at this note's onset.
+/// Where a `cutoff` curve puts the filter at each sample-frame of a note
+/// struck on `beat`, counted from its onset — or `fallback`, the patch's own
+/// cutoff, should the curve have no points to read.
 ///
-/// Borrowed when nothing moves, which is every note of every song written
-/// before automation existed: the curve is the only thing that can make a copy
-/// of a patch happen, and it makes one per note of the track it rides. A note
-/// is a whole buffer through a filter whose cutoff is chosen when the voice
-/// starts, so this is where a sweep is read — `super::automate` argues the
-/// resolution.
-fn tuned<'p>(patch: &'p Patch, curve: Option<&Automation>, beat: f32) -> Cow<'p, Patch> {
-    let Some(cutoff) = curve.and_then(|curve| curve.value_at(beat)) else {
-        return Cow::Borrowed(patch);
-    };
-    let mut tuned = patch.clone();
-    if let Some(filter) = tuned.filter.as_mut() {
-        filter.cutoff = cutoff;
+/// Read across the note rather than once at its onset (#1123): a pad held
+/// through an eight-bar build opens with it, where an onset reading held the
+/// whole chord at the value its first sample saw, and a smooth riser had to be
+/// written as noise re-struck every 32nd to sound like one. The note's frames
+/// are turned back into beats by the same clock that placed it, so a sweep
+/// under a ritardando or a `fit` follows the beats it was written on.
+fn sweep<'a>(
+    curve: &'a Automation,
+    clock: &'a Clock,
+    beat: f32,
+    fallback: f32,
+) -> impl Fn(usize) -> f32 + 'a {
+    let onset = (clock.seconds(beat) * RATE).round().max(0.0) as usize;
+    move |frame| {
+        curve
+            .value_at(clock.beat_at(onset + frame))
+            .unwrap_or(fallback)
     }
-    Cow::Owned(tuned)
 }
 
 /// Whether any note in the piece is slid onto — the one question that decides

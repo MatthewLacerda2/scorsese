@@ -281,14 +281,22 @@ exception is `eq`'s band count, below. What each is held to:
   `voices` past 7 is refused instead: there the number is the sound.)
 - Every `mix`, `depth`, `size` and `damp` to `0..=1`.
 
-However long a chain rings, a note is padded by **at most 6 s** of tail.
+A chain is given as much tail as it rings for: a `reverb` until its room has
+fallen 60 dB (about 0.75 s at `size` 0, 1.5 s at 0.5, 4 s at 0.85 and over
+12 s at 1.0, so a full-size room is a long one), a `delay` until its echoes
+have. However long a chain rings, a note is padded by **at most 15 s**, and
+the last few milliseconds of every ring-out are faded so it never ends on a
+click.
 
-The compressor's `attack` and `release` are the lengths of two **straight-line
-gain ramps**: the gain falls to where a peak needs it over `attack` seconds,
-*finishing* as the peak arrives (a bake sees the whole piece, so it can start
-early), and climbs back over `release`. So a long attack does not let a
-transient through the way a hardware compressor's does — it only makes the dip
-gentler and earlier.
+The compressor's `attack` is a ramp that falls to where a peak needs it over
+`attack` seconds, *finishing* as the peak arrives (a bake sees the whole
+piece, so it can start early). So a long attack does not let a transient
+through the way a hardware compressor's does — it only makes the dip gentler
+and earlier. `release` is a **time constant**: the gain climbs back two thirds
+of the way in each `release`, measured in decibels, so a light duck and a deep
+one let go over the same time and `0.2` means about 200 ms either way. The
+level it reacts to is held over 20 ms, so a bass or a kick does not make the
+gain ripple at its own frequency.
 
 A limiter always runs after them and is not listed — a bake must not clip, and
 that is not the recipe's decision. It holds the **true** peak at −1 dBTP: the
@@ -1950,14 +1958,12 @@ Two more things a curve does, and both are what anyone would guess:
 - **One point is a constant**, which is a legitimate thing to write: a value
   for the whole piece, said once.
 
-**A cutoff moves once per note, a fader moves every sample.** A note is
-rendered as one buffer through a filter set when the voice starts, so a
-`cutoff` curve is read at each note's onset and holds for that note — which
-means a sweep is as smooth as the part playing it. Sixteenths give it 16 steps
-a bar of four and it sounds continuous; one chord held across eight bars gets one
-value, and the fix is to write the part as the repeated notes it would be
-played as. `gain` and `pan` are faders, so they are read every sample and a
-held chord does swell.
+**A cutoff moves inside the note, a fader moves on the bus.** A `cutoff`
+curve is read across every note it rides, its release included, so one chord
+held through an eight-bar build opens with it: write a riser as the one held
+note it would be played as, not as a part re-struck every 32nd to fake a
+sweep. `gain` and `pan` are faders, so they are read every sample on the
+track's bus and a held chord swells.
 
 **Under `fit`, beats keep counting from the start of the rendered piece.** A
 `stretch` moves the tempo and leaves the beats alone, so the build stretches

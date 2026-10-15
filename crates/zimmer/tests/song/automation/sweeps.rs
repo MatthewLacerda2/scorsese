@@ -1,9 +1,10 @@
-//! A filter opening across the piece — the build, and the one parameter read
-//! once per note rather than once per sample.
+//! A filter opening across the piece — the build, read at every moment of every
+//! note rather than once at its onset (#1123).
 //!
-//! The exactness here is deliberate: a note rendered under a curve is compared
-//! against the *same note rendered at a written cutoff*, so what is asserted is
-//! the number the filter was given and not merely that something got brighter.
+//! The exactness here is deliberate: a note rendered under a flat curve is
+//! compared against the *same note rendered at a written cutoff*, so what is
+//! asserted is the number the filter was given and not merely that something
+//! got brighter.
 
 use scorsese_zimmer::song::{Param, Song};
 
@@ -29,20 +30,42 @@ fn struck(beat: f32, cutoff: f32) -> Song {
     song
 }
 
-/// The whole of the per-note resolution, pinned: a note is played at the
-/// cutoff the curve reads **at its onset** — not at the curve's first value,
-/// and not at its last.
+/// The number the filter is given, pinned: under a curve that holds one
+/// value, a note is exactly the note written at that cutoff, wherever it is
+/// struck.
 #[test]
-fn a_note_is_played_at_the_cutoff_its_onset_reads() {
-    for (onset, wanted) in [(0.0, 300.0), (4.0, 4300.0), (6.0, 6300.0)] {
+fn a_flat_curve_plays_the_note_written_at_its_value() {
+    for (onset, wanted) in [(0.0, 300.0), (4.0, 4300.0)] {
         let mut moving = struck(onset, 300.0);
-        moving.automation = vec![sweep()];
+        moving.automation = vec![curve(
+            Param::Cutoff,
+            vec![at(0.0, wanted), at(BEATS, wanted)],
+        )];
         assert_eq!(
             render(&moving),
             render(&struck(onset, wanted)),
-            "a note at beat {onset} has to be the note written at {wanted} Hz"
+            "a note at beat {onset} under a flat {wanted} Hz is the note written there"
         );
     }
+}
+
+/// The point of reading the curve across the note: one held note opens while
+/// it is held, where an onset reading held it at 300 Hz throughout.
+#[test]
+fn a_held_note_opens_while_it_is_held() {
+    let mut song = struck(0.0, 300.0);
+    let pattern = song.patterns.get_mut("a").expect("the fixture defines `a`");
+    voice(pattern, 0).dur = BEATS;
+    song.automation = vec![sweep()];
+    let mix = render(&song);
+    let (early, late) = (
+        brightness(&mix[frame(0.5)..frame(1.5)]),
+        brightness(&mix[frame(6.0)..frame(7.0)]),
+    );
+    assert!(
+        late > early * 1.5,
+        "the held note stayed shut: {early} → {late}"
+    );
 }
 
 /// The negative half of the same claim: a curve that is not flat gives two

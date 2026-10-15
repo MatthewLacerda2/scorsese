@@ -198,8 +198,22 @@ fn room(buf: &mut Stereo, sent: Option<&Stereo>, size: f32, damp: f32, mix: f32,
 
 /// How long the tail rings after the dry signal stops, in seconds — what the
 /// renderer pads the buffer by so the reverb is not cut off.
+///
+/// Read off the feedback rather than guessed from `size`: the time the
+/// slowest comb takes to fall 60 dB (RT60, the decay a room is said to have
+/// stopped ringing at), plus one pass through the allpasses behind it. The
+/// damping only ever shortens that — it is a lowpass in the loop, and at the
+/// bottom of the spectrum it passes everything — so the low end is the tail
+/// this has to cover. The straight line this replaced (#1123) gave a full-size
+/// room three seconds where it rings for more than ten, and cut it while it
+/// was still clearly audible; measured on a 110 Hz burst, this lands within a
+/// few hundred milliseconds of the real −60 dB point at every size.
 pub(crate) fn tail_seconds(size: f32) -> f32 {
-    0.5 + size.clamp(0.0, 1.0) * 2.5
+    let feedback = size.clamp(0.0, 1.0) * ROOM_SCALE + ROOM_OFFSET;
+    let samples = |lengths: &[usize]| lengths.iter().copied().max().unwrap_or(0) + STEREO_SPREAD;
+    let loop_seconds = samples(&COMB_LENGTHS) as f32 / TUNED_RATE;
+    let diffusion: usize = ALLPASS_LENGTHS.iter().sum::<usize>() + STEREO_SPREAD;
+    loop_seconds * (0.001f32.ln() / feedback.ln()) + diffusion as f32 / TUNED_RATE
 }
 
 #[cfg(test)]
@@ -314,6 +328,28 @@ mod tests {
         let tail = |size: f32| energy(&rung(88_200, size, 0.5, 1.0).l[44_100..]);
         assert!(tail(1.0) > tail(0.2) * 2.0);
         assert!(tail_seconds(1.0) > tail_seconds(0.0));
+    }
+
+    /// The tail covers the room: where it ends, a burst through the largest
+    /// room has fallen 60 dB below its own peak — the full-size room the old
+    /// three-second tail cut while it was still ringing at −25 dB (#1123).
+    #[test]
+    fn the_tail_ends_where_the_room_has_stopped_ringing() {
+        for size in [0.0, 0.5, 0.85, 1.0] {
+            let tail = (tail_seconds(size) * 44_100.0) as usize;
+            let burst = 4410;
+            let mut mono = vec![0.0; burst + tail];
+            for (i, sample) in mono.iter_mut().take(burst).enumerate() {
+                *sample = (std::f32::consts::TAU * 110.0 * i as f32 / 44_100.0).sin();
+            }
+            let mut buf = Stereo::centred(mono);
+            apply(&mut buf, size, 0.5, 1.0, 44_100.0);
+            let loudest = |s: &[f32]| s.iter().fold(0.0f32, |m, v| m.max(v.abs()));
+            let (peak, end) = (loudest(&buf.l), loudest(&buf.l[buf.l.len() - 2205..]));
+            let down = 20.0 * (end / peak).log10();
+            assert!(down < -55.0, "size {size}: still {down:.1} dB at the end");
+        }
+        assert!(tail_seconds(1.0) > 10.0, "a full-size room is a long one");
     }
 
     #[test]

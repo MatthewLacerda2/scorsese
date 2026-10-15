@@ -66,13 +66,14 @@ pub(crate) mod chorus;
 pub(crate) mod compress;
 pub(crate) mod delay;
 pub(crate) mod eq;
+mod gain;
 pub(crate) mod limiter;
 pub(crate) mod reach;
 pub(crate) mod reverb;
 pub(crate) mod saturate;
 mod send;
 
-pub(crate) use reach::{lookahead_seconds, tail_seconds};
+pub(crate) use reach::{close_tail, lookahead_seconds, tail_seconds};
 pub(crate) use send::apply_chain_sent;
 
 use crate::patch::Fx;

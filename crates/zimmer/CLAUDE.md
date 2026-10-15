@@ -42,7 +42,7 @@ bumping it leaves every project on disk holding audio its own recipe no
 longer describes, silently. The number is declared rather than derived
 because deriving it means hashing rendered output, and a digest has no
 tolerance to spend on a platform's `sin` and `exp` differing; the constant's
-own doc in `src/lib.rs` carries the whole argument. So: touch a source, a
+own doc in `src/lib.rs` carries the argument and a table of the versions. So: touch a source, a
 filter, an envelope or an effect and the samples move — bump it. Touch only
 prose, a name or a document type — leave it alone.
 
@@ -50,8 +50,9 @@ prose, a name or a document type — leave it alone.
 probe corpus against two checkouts settles a genuine doubt — an edited note
 loop, a shared helper moved, a stage reordered — and is waste when the diff
 already answers it: a new optional field defaulting to old behaviour cannot
-move an existing recipe's bytes. Say so in one line and move on. The
-constant's own doc records what previous branches checked, and why; the
+move an existing recipe's bytes. Say so in one line and move on.
+**`SYNTH_VERSION.md`** beside this file records what previous branches checked,
+and why — a bump adds its row to the constant's table and its entry there; the
 `ci-merge` skill has how to run probes and what a conflict on the number means.
 
 **A new optional field is skipped at its default.** Recipes are re-serialised

@@ -69,17 +69,14 @@
 //!   track's own bus, after its chain. That costs one multiply per sample per
 //!   automated track and it is *correct*: a pad holding one chord through the
 //!   whole build actually swells, which a per-note answer could not do.
-//! - [`Param::Cutoff`] is a voice parameter. A note is rendered as one buffer
-//!   through a filter whose cutoff is set when the voice starts, so a curve is
-//!   sampled **once per note onset** and holds for that note. Per sample would
-//!   mean a time-varying cutoff threaded through the filter and its envelope —
-//!   a change to every note rendered in the crate, for a difference audible
-//!   only *inside* one note.
-//!
-//! The honest limit of that second choice: a filter sweep is as smooth as the
-//! part playing it. An arpeggio at a sixteenth gets 32 steps a bar, which is a
-//! sweep; one held chord across eight bars gets one value, which is not. The
-//! fix is to write the part as the repeated notes it would be played as.
+//! - [`Param::Cutoff`] is a voice parameter, so it is read **inside each
+//!   note**: the note's frames are turned back into beats and the curve is
+//!   read across all of them, its release and ring-out included (#1123). It
+//!   used to be read once at the onset and held, on the argument that the
+//!   difference was audible only inside one note. That is exactly where a
+//!   build lives: a pad held through eight bars got one value, and a riser
+//!   had to be written as noise re-struck every 32nd note to sound like one,
+//!   which stuttered.
 //!
 //! ## Under `fit`
 //!
@@ -353,8 +350,8 @@ mod tests {
         }
     }
 
-    /// The faders, and only the faders. A `cutoff` is read once at a note's
-    /// onset and changes nothing about how the part is summed, so a track that
+    /// The faders, and only the faders. A `cutoff` is read inside each note
+    /// and changes nothing about how the part is summed, so a track that
     /// only sweeps its filter keeps the straight-to-master path a track with no
     /// curves at all takes — which is the path the bit-identical promise rests
     /// on.

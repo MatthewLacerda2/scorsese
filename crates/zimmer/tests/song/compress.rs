@@ -149,28 +149,30 @@ fn only_a_track_chain_sits_where_one_part_can_listen_to_another() {
 #[test]
 fn makeup_on_the_sum_never_gets_past_the_limiter() {
     let plain = render(&under_a_silent_kick(Vec::new()));
-    let glued = render(&Song {
+    let glue = |makeup| Song {
         fx: vec![Fx::Compress {
             threshold: -30.0,
             ratio: 4.0,
             attack: 0.01,
             release: 0.1,
-            makeup: 24.0,
+            makeup,
             mix: 1.0,
             sidechain: None,
         }],
         ..under_a_silent_kick(Vec::new())
-    });
+    };
+    let (glued, unmade) = (render(&glue(24.0)), render(&glue(0.0)));
     assert!(peak(&glued) <= 0.98 + 1e-6, "peaked at {}", peak(&glued));
-    // Over a steady moment rather than the whole piece, because a peak across
-    // everything is whatever the limiter decided and says nothing about what
-    // the compressor did on the way to it.
+    // Over a steady moment rather than the whole piece, against the same
+    // compressor with no makeup: the plain pad already sits at the limiter's
+    // ceiling, and a limiter that leaves the waveform's shape alone cannot
+    // make a steady tone louder than that.
     let (before, after) = (
-        peak_between(&plain, 1.85, 1.95),
+        peak_between(&unmade, 1.85, 1.95),
         peak_between(&glued, 1.85, 1.95),
     );
     assert!(
-        after > before * 1.1,
+        after > before * 4.0,
         "and it is louder for it: {before} → {after}"
     );
     assert_eq!(glued.len(), plain.len(), "nothing was added to ring out");

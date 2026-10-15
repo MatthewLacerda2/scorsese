@@ -21,9 +21,11 @@
 //!
 //! The trick [`super::limiter`]'s doc already argues for: this crate renders a
 //! whole buffer rather than streaming it, so the gain every sample needs can
-//! be worked out first and *then* ramped. Two passes over that gain track —
-//! backwards, so it is already down before a peak arrives, and forwards, so it
-//! recovers no faster than the release — and both may only ever lower it.
+//! be worked out first and *then* smoothed: already down before a peak
+//! arrives, and recovering over the release in decibels, so a light duck and a
+//! deep one let go over the same time. [`super::gain`] has the passes, shared
+//! with the limiter, and why the detector holds a peak rather than chasing the
+//! waveform.
 //!
 //! That is a transparent attack rather than a click followed by an overshoot,
 //! and it is the one place this behaves unlike a hardware compressor: the duck
@@ -49,6 +51,7 @@
 //! which part is handed over and says why; this module only ever reads the one
 //! it is given.
 
+use super::gain::Ballistics;
 use crate::level::{db_to_gain_f32, gain_to_db_f32};
 use crate::stereo::Stereo;
 
@@ -155,19 +158,14 @@ impl Compressor {
     }
 
     /// The gain each of `frames` sample-frames is multiplied by: the static
-    /// curve first, then ramped in both directions.
+    /// curve first, then given [`Ballistics`].
     fn gain_track(&self, key: &Stereo, frames: usize, rate: f32) -> Vec<f32> {
-        let mut gain: Vec<f32> = (0..frames)
+        let target: Vec<f32> = (0..frames)
             .map(|frame| self.target(level_at(key, frame)))
             .collect();
-        ramp_down_before_peaks(&mut gain, slope(self.attack, rate));
-        ramp_up_after_peaks(&mut gain, slope(self.release, rate));
-        gain
+        Ballistics::new(self.attack, self.release, rate).smooth(&target)
     }
 
-    /// The gain the static curve asks for at one detected level: unity under
-    /// the threshold, and above it every decibel of excess replaced by
-    /// `1/ratio` of one.
     fn target(&self, level: f32) -> f32 {
         if level <= 0.0 {
             return 1.0;
@@ -193,29 +191,7 @@ fn level_at(key: &Stereo, frame: usize) -> f32 {
     }
 }
 
-/// Backward pass: the gain may fall no faster than `slope` per sample, so it
-/// is already down when the peak arrives. This is what the lookahead buys, and
-/// it is [`super::limiter`]'s pass with a different reason for existing.
-fn ramp_down_before_peaks(gain: &mut [f32], slope: f32) {
-    for i in (0..gain.len().saturating_sub(1)).rev() {
-        gain[i] = gain[i].min(gain[i + 1] + slope);
-    }
-}
-
-/// Forward pass: the gain may rise no faster than `slope` per sample, so it
-/// eases back rather than snapping and pumping.
-fn ramp_up_after_peaks(gain: &mut [f32], slope: f32) {
-    for i in 1..gain.len() {
-        gain[i] = gain[i].min(gain[i - 1] + slope);
-    }
-}
-
-/// Gain change allowed per sample for a ramp lasting `seconds`.
-fn slope(seconds: f32, rate: f32) -> f32 {
-    1.0 / (seconds * rate).max(1.0)
-}
-
-/// `value` if it is a number at all, and `fallback` if it is not.
+/// `value`, or `fallback` when it is not a number.
 fn finite(value: f32, fallback: f32) -> f32 {
     if value.is_finite() { value } else { fallback }
 }
@@ -350,7 +326,7 @@ mod tests {
             gain[1000]
         );
         assert!(
-            gain[900] > 0.5,
+            gain[900] > gain[1000] * 2.0,
             "by a ramp, not by collapsing to nothing: {}",
             gain[900]
         );

@@ -138,14 +138,15 @@ fn line_length(time: f32, frames: usize, rate: f32) -> Option<usize> {
 /// How long the echoes keep ringing after the dry signal stops, in seconds — what
 /// the renderer pads the buffer by so the tail is not cut off mid-repeat.
 pub(crate) fn tail_seconds(time: f32, feedback: f32) -> f32 {
-    let time = time.clamp(0.0, 4.0);
+    let time = if time.is_finite() { time.max(0.0) } else { 0.0 };
     let feedback = feedback.clamp(0.0, 0.95);
     if feedback <= 0.0 {
         return time;
     }
-    // Repeats until the echo is 60 dB down, i.e. feedback^n = 0.001.
-    let repeats = (0.001f32.ln() / feedback.ln()).ceil().clamp(1.0, 32.0);
-    (time * repeats).min(4.0)
+    // Echo `k` lands at `k · time` at `feedback^(k-1)`; the last one kept is
+    // the last still above −60 dB. The chain's own cap bounds the product.
+    let repeats = (0.001f32.ln() / feedback.ln()).ceil() + 1.0;
+    time * repeats
 }
 
 #[cfg(test)]
@@ -318,7 +319,11 @@ mod tests {
             (tail_seconds(0.25, 0.0) - 0.25).abs() < 1e-6,
             "one echo only"
         );
-        assert!(tail_seconds(0.25, 0.5) >= 2.0, "10 repeats at 60 dB down");
-        assert!(tail_seconds(3.0, 0.9) <= 4.0, "but bounded");
+        assert!(tail_seconds(0.25, 0.5) >= 2.75, "11 echoes to 60 dB down");
+        let (time, feedback) = (0.5f32, 0.9f32);
+        let cut = tail_seconds(time, feedback);
+        let last = feedback.powf((cut / time).floor() - 1.0);
+        assert!(last < 0.0011, "the last echo the tail holds is {last}");
+        assert_eq!(tail_seconds(f32::NAN, 0.5), 0.0);
     }
 }
