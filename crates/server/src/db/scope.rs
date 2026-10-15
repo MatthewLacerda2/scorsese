@@ -37,7 +37,10 @@
 //! its webhook arrives (`payments::settle` — Stripe carries no user; the
 //! crediting runs scoped as the owner), and writing the access record
 //! (`accounts::access` — a table that outlives the account by law, so no
-//! member may read it). Every call to it is a place a reviewer
+//! member may read it), and asking whether a voice id is another user's
+//! designed voice (`designs::owners` — the voice is the vendor's, not a
+//! row, so the policy cannot stand between it and the next user). Every
+//! call to it is a place a reviewer
 //! reads twice; it is short on purpose, so `grep privileged` stays a short
 //! list.
 //!

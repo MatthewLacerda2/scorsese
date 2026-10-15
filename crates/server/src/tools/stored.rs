@@ -27,7 +27,7 @@ use scorsese_mcp::{Part, Reply, Tool};
 use serde_json::Value;
 
 use super::surface::Serve;
-use super::{Caller, Refusal, bakes, database, fetched, folder, lay_out, project_id};
+use super::{Caller, Refusal, bakes, database, fetched, folder, lay_out, project_id, voiced};
 use crate::projects::{self, ProjectError, files};
 
 /// How many times a call is run again on a project that moved under it.
@@ -42,6 +42,9 @@ pub(super) async fn run(
 ) -> Result<Reply, Refusal> {
     let id = project_id(arguments)?;
     held(serve, arguments)?;
+    if tool.name() == "voices" {
+        voiced::checked(caller, arguments).await?;
+    }
     let toolbox = caller.toolbox;
     let attempts = if caller.at.is_some() { 1 } else { ATTEMPTS };
     for _ in 0..attempts {

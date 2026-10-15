@@ -23,6 +23,9 @@
 //!   operator's ElevenLabs account and any project of theirs may name it, so
 //!   it is the user's, not a project's. Each row points at the design that
 //!   holds the description and the seed.
+//! - **A kept voice is its maker's alone** ([`owners`], #687): every user's
+//!   voices sit in the same vendor account, so `generate` and `voices`
+//!   refuse a voice another user's ledger names.
 //!
 //! ## Both verbs are jobs
 //!
@@ -38,6 +41,7 @@
 //! ([`Vendors::studio`](crate::generations::Vendors::studio)) a test replaces.
 
 mod job;
+pub mod owners;
 mod store;
 
 pub use job::{design_handler, keep_handler};
