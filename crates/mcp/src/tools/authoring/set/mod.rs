@@ -182,7 +182,10 @@ struct Arguments {
     /// (generated_video, generated_image, generated_audio) The sentence a
     /// provider will be paid to read: what the shot is of, what the still
     /// shows, the words spoken. Required to make one; replaces the old one
-    /// whole. `guide prompts` has what certain words do.
+    /// whole. A shot's is at most 1,024 tokens, and best in English; a
+    /// spoken line's at most 40,000 characters (10,000 on `expressive` and
+    /// `standard`). Each block (`video`, `image`, `speech`) lists what its
+    /// prompt should know.
     prompt: Option<String>,
     /// (synth_audio) Project-relative path of the recipe the asset is baked
     /// from, by convention under recipes/; the file has to exist. This

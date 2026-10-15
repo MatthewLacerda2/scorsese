@@ -9,6 +9,11 @@
 //! such file. So the pointer names this tool instead (`` `guide pages` ``),
 //! and the tool hands back the page.
 //!
+//! One part of one guide also rides on the tools that send a prompt (#1309):
+//! the prompt lessons, a line each, which [`lessons`] closes a brief block's
+//! description with. A line there is what a generation costs money to
+//! relearn; its reasons stay in the guide.
+//!
 //! The guides themselves, and how a long one is cut into sections, are
 //! `scorsese_guide`'s: `scorsese guide` in a terminal reads the same
 //! pages through the same function, so the two surfaces give the same answer.
@@ -100,4 +105,21 @@ impl Tool for Read {
         let arguments: Arguments = args::parse(arguments)?;
         guide::read(arguments.name.as_str(), arguments.section.as_deref()).map(Reply::from)
     }
+}
+
+/// What the guide has learned about writing a prompt for `block`, as a
+/// paragraph to close a description with (#1309): read out of `guide prompts`
+/// when the schema is built, so the two never say different things.
+pub(crate) fn lessons(block: &str) -> String {
+    let lines = guide::lessons(block);
+    if lines.is_empty() {
+        return String::new();
+    }
+    let mut said = String::from(" Writing its prompt, each learned by paying or from the vendor:");
+    for line in lines {
+        said.push_str("\n- ");
+        said.push_str(&line);
+    }
+    said.push_str("\n`guide prompts` has the reasons and the vendors' own advice.");
+    said
 }

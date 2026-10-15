@@ -55,10 +55,20 @@ camera, a sign to read), say so once, in a line, with what usually goes wrong
 and what would hold up instead. If they still want it, it is done their way,
 and done as well as it can be.
 
-The paid lessons are mostly Veo, because that is what has been generated
-most; the image lessons follow them, and the speech lessons close the half.
+The paid lessons sit under one heading per provider: Veo first, because it is
+what has been generated most, then Nano Banana, then ElevenLabs. Each opens
+with its lesson **in a line**, and those lines, with the ones that close the
+Veo and Nano Banana vendor sections, are also carried on the tools that send a
+prompt: the `video`, `image` and `speech` blocks of `asset_set` and
+`voice_design`'s description. They are built from this page when the tools
+are, so the two never disagree; the reasons stay here.
 
-## Ask Veo for a scene that needs no fine detail
+## Veo, learned by paying
+
+### Ask Veo for a scene that needs no fine detail
+
+**In a line:** describe the shot fully, but choose a scene that holds up from its
+broad forms: lettering, hands, small objects and faces come back wrong.
 
 *From the cyberpunk teaser (`cyberpunk-2077-teaser.scor`, 2026-10-10), and
 from the maintainer's own Veo work.*
@@ -82,7 +92,11 @@ In the teaser, a gang standing in an alley came back with walls of signs in
 made-up lettering. It was bought a second time as bare concrete walls with no
 signs, for $0.40.
 
-## Veo cannot act, and fast motion falls apart
+### Veo cannot act, and fast motion falls apart
+
+**In a line:** keep motion slow and faces neutral and away from the camera; no
+chase, fight, fast camera move or line spoken on camera unless the person asks,
+and a line that is needed is a voice over a shot that does not show the mouth.
 
 *From the cyberpunk teaser (2026-10-10), as the maintainer judged it on
 2026-10-11.*
@@ -111,7 +125,11 @@ What to avoid, unless the person asks for it:
 When a line is needed anyway, it is a voice over a shot that does not show the
 mouth: a narrator, or a character seen from behind or from far away.
 
-## Never name the medium
+### Never name the medium
+
+**In a line:** never name a physical medium (16mm, film stock, Super 8, VHS,
+Polaroid), which Veo can draw into the picture as an object; describe the image
+instead: the era, the grain, the lens.
 
 Every shot in Scene 1 of the Summit film wanted a period look, and every one of
 them asked for *"shot on grainy 16mm film"*. Veo rendered the film **object**:
@@ -131,7 +149,10 @@ photographed.
 The two wordings do not look different from each other, which is the entire
 reason this is written down.
 
-## Slow motion is bought, not applied
+### Slow motion is bought, not applied
+
+**In a line:** a shot meant to be slow asks for slow motion in the prompt; a
+clip's `speed` only stretches the frames that came back.
 
 A clip's [`speed`](project-format.md#playing-faster-or-slower-speed)
 (`guide project-format`, section "Playing faster or slower")
@@ -149,7 +170,10 @@ So a shot that should be slow is bought slow, in the sentence, before any money
 changes hands. `speed` is for retiming footage that already exists — and for
 generated footage it is the fallback, not the plan.
 
-## Buy content from Veo; do the look in the edit
+### Buy content from Veo; do the look in the edit
+
+**In a line:** ask for a neutral picture and leave out the tint, vignette, grain,
+faded look, titles and fades, which the edit does for free and can still change.
 
 "Colour film stock, naturally exposed" is a useful sentence: it asks for an
 ordinary rendition and leaves the look to be decided afterwards. Asking Veo for
@@ -170,7 +194,10 @@ still be changed tomorrow, and in a prompt it is pixels that cannot.
 What stays in the prompt is what no edit can add: the subject, what it does,
 the place, the light falling on it, where the camera is and how it moves.
 
-## Veo 3.1 generates sound whether the prompt mentions it or not
+### Veo 3.1 generates sound whether the prompt mentions it or not
+
+**In a line:** every shot comes back with sound, so the prompt says what it should
+sound like.
 
 A prompt that says nothing about audio does not come back silent. It comes back
 with whatever the model decided the shot sounds like — room tone, footsteps,
@@ -180,7 +207,10 @@ Since it is arriving regardless, say what it should be. A prompt that names its
 own sound is not asking for an extra; it is taking a decision that would
 otherwise be made by something that has not read the rest of the cut.
 
-## Veo outputs 24 fps
+### Veo outputs 24 fps
+
+**In a line:** shots come back at 24 fps, so a cut made mostly of generated shots
+is a project created at 24 fps (`scorsese new --fps 24`).
 
 Generated video comes back at 24 fps. A project created at the default 30 will
 [conform](project-format.md#conforming-source-fps--timeline-fps)
@@ -196,7 +226,10 @@ built mostly out of generated shots. The
 project creation and is not a field edit afterwards, so it is worth a moment at
 the start rather than a rescale later.
 
-## A shot between two stills is eight seconds, on every tier
+### A shot between two stills is eight seconds, on every tier
+
+**In a line:** a first and a last image together fix the shot at 8 seconds on
+every tier, which Google's page does not say.
 
 Google's [Veo page](https://ai.google.dev/gemini-api/docs/veo), read
 2026-10-08, says a shot must be eight seconds at 1080p or 4K or with reference
@@ -221,7 +254,13 @@ tier and raster, exactly as reference images do, and `scorsese check` refuses
 anything shorter before it is sent. Standard was not tried; the rule is the
 same one Lite and Fast keep, and is held for it too.
 
-## Nano Banana draws a photograph unless the medium is named
+## Nano Banana, learned by paying
+
+### Nano Banana draws a photograph unless the medium is named
+
+**In a line:** name the kind of picture ("flat vector illustration", "pencil
+sketch", "watercolour"): a prompt that only describes its subject comes back a
+photograph.
 
 A sentence that only describes its subject comes back **photoreal**. On
 2026-10-10 the same character was generated twice for `vectorize` (#1036,
@@ -237,7 +276,11 @@ opposite case: [Never name the medium](#never-name-the-medium) is about a
 *physical* medium drawn into a video as an object. An illustration style
 named for a still is the picture itself.)
 
-## A picture to trace is asked for flat
+### A picture to trace is asked for flat
+
+**In a line:** a still meant for `vectorize` ends with "flat vector illustration,
+thick dark outlines, solid colours, no gradients or shading, plain white
+background".
 
 `vectorize` (`guide pages`, section "A traced picture, drawn on") turns a picture
 into the strokes a page draws on, and what it makes of one depends almost
@@ -258,7 +301,13 @@ a few dozen instead of nearly two hundred, and the plain white background is
 what `vectorize` drops so the drawing sits on the page's board. The subject
 and what it is doing go before it, as usual.
 
-## For narration, the model carries the language
+## ElevenLabs, learned by paying
+
+### For narration, the model carries the language
+
+**In a line:** for a line in a language other than the voice's own, choose the
+`expressive` model, since `standard` reads it with the voice's accent; a voice
+native to the language is a nicety.
 
 An English voice read Portuguese **cleanly on Eleven v3**, what `expressive`
 spoke then, and **with an English accent on `standard`** (Multilingual v2), at
@@ -273,7 +322,11 @@ choice that matters, and a voice native to the language is a nicety rather
 than a requirement. Name `expressive`; hunting the Voice Library for a native
 speaker of the language is a search that the model makes unnecessary.
 
-## A free key lists library voices it cannot speak with
+### A free key lists library voices it cannot speak with
+
+**In a line:** a free ElevenLabs key lists Voice Library voices it is refused when
+it asks them to speak; on a free key, pick a built-in voice, or `check` the
+chosen one with `voices` before writing around it.
 
 An ElevenLabs key on the free plan **lists** Voice Library voices
 (`scorsese voices`, the `voices` tool) like any other key, and is refused
@@ -297,7 +350,8 @@ should ask for — that is the person's video.
 ### Veo, in Google's words
 
 From Google's [Veo guide](https://ai.google.dev/gemini-api/docs/veo), read
-2026-10-08, for the Veo 3.1 models scorsese generates with.
+2026-10-08 and re-read 2026-10-15 (the page *last updated 2026-10-08 UTC*), for
+the Veo 3.1 models scorsese generates with.
 
 **A prompt is descriptive and clear.** Start from the core idea, then refine it
 with keywords and modifiers and with the vocabulary of film. The guide names
@@ -321,6 +375,11 @@ the parts a prompt can have:
   *But see* [Buy content from Veo](#buy-content-from-veo-do-the-look-in-the-edit):
   the light in the scene belongs in the prompt; a tint over the whole picture
   is a `grade`, and free.
+
+The page's *Icicles* example names each part where it falls: *"Close up shot
+(composition) of melting icicles (subject) on a frozen rock wall (context)
+with cool blue tones (ambiance), zoomed in (camera motion) maintaining
+close-up detail of water drips (action)."*
 
 The guide's paired examples make the same point each time: the prompt with
 more detail — camera movement, lighting, depth of field, the subject's
@@ -353,72 +412,109 @@ these (`guide project-format`, section "What a generated video asks for"):
   starts and where it ends; the prompt describes the action between them.
   Such a shot is only generated at eight seconds, which the page does not
   say ([paid for](#a-shot-between-two-stills-is-eight-seconds-on-every-tier)).
-- **Reference images** (`reference_images`, up to three, not on `lite`) of
-  one person, character or product keep that subject looking the same; the
-  prompt then says what the subject does.
+- **Reference images** (`reference_images`, up to three, not on `lite`) are
+  pictures "of a single person, character, or product": three views of one
+  subject, never three subjects. They keep it looking the same, and the
+  prompt then says what it does.
 
 **Extending a shot**, once scorsese offers it (#892), continues from the generated video's last second,
 so its prompt says *what happens next*, not the whole shot again — "the
 paraglider slowly descends". A voice cannot be carried on if there is none in
 that last second.
 
-**Limits worth knowing before paying:** a prompt is at most 1,024 tokens;
-English is the language Google has evaluated, and others "may work but results
-can vary"; a prompt the safety filters block is not charged.
+**Limits worth knowing before paying:** a prompt is at most 1,024 tokens
+(the *Model versions* table, all three 3.1 models), and `generate` refuses one
+clearly past that before it is sent (`guide project-format`, section "What a
+generated video asks for"); English is the language Google has evaluated:
+"English (EN) is fully supported, but other languages have not been evaluated,
+so they may work but results can vary"; a shot the safety filters, or Veo's
+audio processing, block "will not be charged".
+
+**In a line each**, as the `video` block carries them (where the advice above
+has a *But see*, the line takes the paid lesson's side):
+
+- A prompt names the subject, the context, the action and the style, then if
+  wanted the camera position and motion, the composition, the focus and lens
+  and the ambiance — "Close up shot of melting icicles on a frozen rock wall
+  with cool blue tones, zoomed in, maintaining close-up detail of water drips".
+- More detail (the camera, the light, the depth of field, the subject's
+  features, the tone) comes back closer to what was meant than a short prompt.
+- Sound goes in the same sentence: dialogue in quotes and attributed, sound
+  effects described explicitly, ambience as the place's soundscape.
+- With `first_image` the prompt describes what happens from that opening
+  frame; with `last_image` too, the action between the two.
+- `reference_images` are up to three pictures of one single person, character
+  or product, never three subjects, and the prompt says what it does.
+- Write the prompt in English, the only language Google has evaluated, even
+  when the rest of the video is in another.
+- A prompt is at most 1,024 tokens.
 
 ### Nano Banana, in Google's words
 
 From Google's [image generation guide](https://ai.google.dev/gemini-api/docs/image-generation),
-read 2026-10-08, for the Gemini image models (Nano Banana) scorsese's
-`generated_image` uses. Much of the advice is in the page's examples rather
-than in one section; this gathers it.
+read 2026-10-08 and re-read 2026-10-15 (the page *last updated 2026-10-09
+UTC*), for Nano Banana 2.1, the model scorsese's `generated_image` uses.
 
-**Be specific.** "The more specific you are, the more control you have over
-the results": the subject, the setting, the light, the camera angle and lens,
-the background, where things sit in the frame, the colours. The guide's
-templates are shaped like this:
+**In a line each**: Google's six best practices, then the rest of the page,
+as the `image` block carries them:
+
+- Be hyper-specific: describe the thing ("ornate elven plate armor, etched with
+  silver leaf patterns") rather than name it ("fantasy armor"), with the
+  setting, the light, the lens and where things sit in the frame.
+- Say what the picture is for: "a logo for a high-end, minimalist skincare
+  brand" beats "a logo".
+- To change one thing in a still, keep the previous one as a reference and say
+  "Using the provided image, change only the… Keep everything else exactly the
+  same", rather than rewrite the prompt from scratch.
+- For a complex scene, give it in steps: "First, a background of… Then, in the
+  foreground… Finally…".
+- Describe the scene positively ("an empty, deserted street with no signs of
+  traffic", not "no cars"); a short plain exclusion like "No text." is fine.
+- Control the camera in words: wide-angle shot, macro shot, low-angle
+  perspective.
+- Settle a picture's text first, then quote its exact words in the prompt with
+  the font and the placement.
+- Say what each reference is for: the logo on the bottle, these people in that
+  office.
+- It works best in English and fourteen other languages, Portuguese (pt-BR)
+  among them.
+- The aspect ratio and size are this block's settings, never words in the
+  prompt.
+
+Google's *Iterate and refine* is follow-up turns in a chat; a still here is
+one call per brief, which is why the third line is an edit with a reference.
+Its *semantic negative prompts* and its own icon ending *"No text."* read as
+one rule, the fifth line. The page's templates:
 
 - **A photograph**: *A photorealistic [type of shot] of [subject] in
   [setting]. [The light]. Shot from [camera angle] with [lens].*
 - **An illustration or sticker**: *A [style] of [subject, with its details]
   doing [activity]. The design features [bold outlines, cel shading…] and
-  [colour or background].* Naming the visual qualities is what keeps a series
-  consistent.
-  *But see* [A picture to trace is asked for flat](#a-picture-to-trace-is-asked-for-flat):
-  for a picture `vectorize` will trace, shading of any kind (cel shading
-  included) traces as extra shapes, so it asks for none.
+  [colour or background].* Naming the visual qualities keeps a series
+  consistent. *But see* [A picture to trace is asked for flat](#a-picture-to-trace-is-asked-for-flat):
+  shading of any kind traces as extra shapes.
 - **A product shot**: high-resolution, studio-lit, the surface it stands on,
   the lighting set-up, the camera angle, the detail in sharp focus.
 - **Room for a title**: *A minimalist composition with a single [subject] in
-  the [bottom-right…] of the frame*, over an empty background. In scorsese the
-  title itself is then a text layer or a page, not pixels in the picture.
+  the [bottom-right…] of the frame*, over an empty background; the title is
+  then a text layer or a page, not pixels.
 - **A comic**: *Make a 3 panel comic in a [style]. Put the character in a
   [type of scene].*
-
-**Say what it is not, when it could be misread.** The guide's isometric pool
-photograph says *"It is not a miniature, it is a captured photo that just
-happened to be perfectly isometric"*, and its icon ends *"No text."* A plain
-statement of what to leave out works where a list of banned words does not.
-
-**Text in a picture** is asked for in quotes, with the font described and the
-placement stated: *the large bold words "…" in a serif font… No other text.*
-
-**Editing with a picture given** — the pictures in scorsese's `image` block:
-`reference_images` (objects, at most 10) and `character_images` (characters to
-keep looking like themselves, at most 4). There is no style reference — a style
-is described in words:
-
-- **Add, remove or change one thing**: *Using the provided image of
-  [subject], [add/remove/modify] [element]. Make sure the change [fits how].*
-  The model matches the original's style, light and perspective.
+- **Text in a picture**: *the large bold words "…" in a serif font… No other
+  text.* "Gemini works best if you first generate the text and then ask for an
+  image with the text."
 - **Change only one part**: *Using the provided image, change only the
   [element] to [new element]. Keep everything else exactly the same,
-  preserving the original style, lighting and composition.*
-- **Several pictures together** say what each one is for: the logo on the
-  bottle, these people in that office.
+  preserving the original style, lighting and composition.* The model matches
+  the original's style, light and perspective.
 
-**The aspect ratio and size are settings, not words**: scorsese's `image`
-block sets them, and a ratio written only in the prompt is not one.
+The pictures in scorsese's `image` block are `reference_images` (objects, at
+most 10) and `character_images` (characters to keep looking like themselves,
+at most 4); there is no style reference, a style is described in words. The
+languages the page lists are "EN, ar-EG, de-DE, es-MX, fr-FR, hi-IN, id-ID,
+it-IT, ja-JP, ko-KR, pt-BR, ru-RU, ua-UA, vi-VN, zh-CN", so a still can be
+prompted in Portuguese, unlike a Veo shot. And "All generated images include a
+SynthID watermark": invisible, marking the picture as AI-made.
 
 ### ElevenLabs, in its own words
 
@@ -468,6 +564,13 @@ asks for"). Writing the
 line in the language it should be spoken in is what every model honours.
 
 ## Adding to this page
+
+**Every paid lesson opens with `**In a line:**`** and one sentence saying what
+to do, under the heading of the provider it is about, and a vendor section the
+tools carry closes with an `**In a line each**` list. Those lines are what the
+tools put in front of every assistant that writes a prompt, so each is a
+sentence that stands on its own, without a link. A test holds every paid
+lesson to exactly one, and a heading that is no provider's to none.
 
 A paid lesson belongs here when it is a **fact about what a provider does**
 that cost a generation to learn, and it should say what happened rather than
