@@ -1,12 +1,11 @@
 //! Dissolving one shot into the next.
 
 use schemars::JsonSchema;
-use scorsese_core::ClipId;
+use scorsese_core::{ClipId, Frames};
 use scorsese_render::dissolve;
 use serde::Deserialize;
 use serde_json::Value;
 
-use super::frames;
 use crate::tools::args::{self, Name, ProjectDir, Required};
 use crate::tools::inspect::load;
 use crate::tools::{Costs, Reply, Tool};
@@ -65,7 +64,7 @@ impl Tool for Dissolve {
         let (from, to) = (arguments.from.as_str(), arguments.to.as_str());
 
         let seconds = arguments.seconds.unwrap_or(0.5);
-        let duration = frames(seconds, project.timeline_fps.as_f64());
+        let duration = Frames::span(seconds, project.timeline_fps.as_f64());
         let placed = dissolve(&mut project, &ClipId::new(from), &ClipId::new(to), duration)
             .map_err(|error| format!("{error} — nothing was changed"))?;
         project

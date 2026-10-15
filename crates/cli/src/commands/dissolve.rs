@@ -15,21 +15,12 @@ pub(crate) fn run(project_dir: &Path, from: &str, to: &str, seconds: f64) -> Res
     let mut project = Project::load(project_dir)
         .with_context(|| format!("opening the project in {}", project_dir.display()))?;
 
-    let duration = frames(seconds, project.timeline_fps.as_f64());
+    let duration = Frames::span(seconds, project.timeline_fps.as_f64());
     let placed = dissolve(&mut project, &ClipId::new(from), &ClipId::new(to), duration)?;
 
     project.save(project_dir).context("saving the project")?;
     describe(from, to, duration, &placed);
     Ok(())
-}
-
-/// Seconds on the project's own grid, at least one frame when anything was
-/// asked for — a crossover rounded to zero frames is a cut, not a dissolve.
-fn frames(seconds: f64, fps: f64) -> Frames {
-    if seconds <= 0.0 {
-        return Frames::ZERO;
-    }
-    Frames(((seconds * fps).round() as u64).max(1))
 }
 
 /// Says what happened, including the part nobody asked for in so many words.

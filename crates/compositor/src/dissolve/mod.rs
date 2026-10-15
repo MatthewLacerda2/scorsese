@@ -44,7 +44,7 @@
 
 mod place;
 
-use scorsese_core::{Clip, ClipId, Easing, Frames, Keyframe, KeyframeTrack, Project, PropertyPath};
+use scorsese_core::{ClipId, Easing, Frames, Keyframe, KeyframeTrack, Project, PropertyPath};
 
 use crate::properties::path;
 
@@ -97,9 +97,11 @@ fn ramp(
     direction: Ramp,
     duration: Frames,
 ) -> Result<(), DissolveError> {
-    let clip = clip_mut(project, id).ok_or_else(|| DissolveError::NoSuchClip {
-        clip: id.to_string(),
-    })?;
+    let clip = project
+        .clip_mut(id)
+        .ok_or_else(|| DissolveError::NoSuchClip {
+            clip: id.to_string(),
+        })?;
     let total = clip.duration;
     let keyframes = match direction {
         Ramp::In => vec![at(Frames::ZERO, 0.0), at(duration, 1.0)],
@@ -126,13 +128,4 @@ fn at(t: Frames, value: f64) -> Keyframe {
         value,
         easing: Easing::Linear,
     }
-}
-
-/// The clip with this id, mutably, wherever it is.
-fn clip_mut<'a>(project: &'a mut Project, id: &ClipId) -> Option<&'a mut Clip> {
-    project
-        .tracks
-        .iter_mut()
-        .flat_map(|track| track.clips.iter_mut())
-        .find(|clip| &clip.id == id)
 }

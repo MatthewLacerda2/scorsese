@@ -67,6 +67,9 @@ pub enum TrimError {
 /// with a different consequence — [`relocate`](super::relocate) — and folding
 /// it in here would make a tool about *time* quietly able to reorder the
 /// picture.
+///
+/// A group's member is trimmed in place on the group's own track, in the
+/// group's own time.
 pub fn trim(project: &mut Project, id: &ClipId, bounds: &Trim) -> Result<Clip, TrimError> {
     if bounds == &Trim::default() {
         return Err(TrimError::Nothing);
@@ -76,7 +79,7 @@ pub fn trim(project: &mut Project, id: &ClipId, bounds: &Trim) -> Result<Clip, T
     }
     let mut proposed = project.clone();
     let mut trimmed = None;
-    for track in &mut proposed.tracks {
+    for track in proposed.every_track_mut() {
         let Some(clip) = track.clips.iter_mut().find(|clip| &clip.id == id) else {
             continue;
         };

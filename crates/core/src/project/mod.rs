@@ -10,8 +10,10 @@ use crate::baseline::Baseline;
 use crate::note::Noted;
 use crate::path::ProjectPath;
 use crate::time::Fps;
-use crate::timeline::{Clip, Track};
+use crate::timeline::Track;
 use crate::validate::ValidationErrors;
+
+mod walk;
 
 /// The schema version this build reads and writes.
 ///
@@ -159,55 +161,16 @@ impl Project {
         self.assets.iter().find(|asset| &asset.id == id)
     }
 
-    /// Every clip on the project's own timeline, paired with the track holding
-    /// it — **not** the members of a group, which sit on the group's tracks
-    /// inside its asset. See [`Project::every_clip`] for those too.
-    pub fn clips(&self) -> impl Iterator<Item = (&Track, &Clip)> {
-        self.tracks
-            .iter()
-            .flat_map(|track| track.clips.iter().map(move |clip| (track, clip)))
-    }
-
-    /// Every clip in the **document**: the timeline's, then the members of
-    /// every group in the assets table.
-    ///
-    /// The question to ask whenever an id or a reference is at stake. Clip ids
-    /// are unique across the whole document, groups included — arrows name
-    /// clips by id — so a new id has to be free here and not only on the
-    /// timeline; and an asset a group's member shows is in use, however
-    /// deeply it is nested, because nesting is by reference: every group sits
-    /// in the one assets table, so walking each once reaches every member.
-    pub fn every_clip(&self) -> impl Iterator<Item = (&Track, &Clip)> {
-        let members = self
-            .assets
-            .iter()
-            .filter_map(|asset| asset.group.as_ref())
-            .flat_map(crate::Group::clips);
-        self.clips().chain(members)
-    }
-
-    /// Every track in the **document**: the timeline's, then each group's.
-    ///
-    /// Track ids are one namespace for the whole document, as clip ids are, so
-    /// this is the list a new track's id has to be free in.
-    pub fn every_track(&self) -> impl Iterator<Item = &Track> {
-        let lanes = self
-            .assets
-            .iter()
-            .filter_map(|asset| asset.group.as_ref())
-            .flat_map(|group| &group.tracks);
-        self.tracks.iter().chain(lanes)
-    }
-
     /// Every note in the document, in reading order: the assets table first,
-    /// then each track followed by the clips on it.
+    /// then each track followed by the clips on it — the timeline's, then every
+    /// group's, so the reasoning written on a member is read too.
     ///
     /// One pass over the whole document rather than three lists, because the
     /// question anyone asks is *what does this project say about itself?* and
     /// the answer is not sorted by which table a note happens to live in.
     pub fn notes(&self) -> impl Iterator<Item = Noted<'_>> {
         let assets = self.assets.iter().filter_map(Noted::on_asset);
-        let tracks = self.tracks.iter().flat_map(|track| {
+        let tracks = self.every_track().flat_map(|track| {
             Noted::on_track(track)
                 .into_iter()
                 .chain(track.clips.iter().filter_map(Noted::on_clip))

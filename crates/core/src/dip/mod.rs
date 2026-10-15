@@ -93,12 +93,7 @@ impl Dip {
     /// would be a switch, not a ramp. Zero or less is no ramp — which is still
     /// drawn over one frame, the shortest step two keyframes can make.
     pub fn from_seconds(under: f64, attack: f64, release: f64, fps: f64) -> Self {
-        let ramp = |seconds: f64| {
-            if seconds.is_nan() || seconds <= 0.0 {
-                return Frames::ZERO;
-            }
-            Frames(((seconds * fps).round() as u64).max(1))
-        };
+        let ramp = |seconds: f64| Frames::span(seconds, fps);
         Self {
             under,
             over: Self::BETWEEN,

@@ -255,11 +255,11 @@ fn set(project: &mut Project, id: &ClipId, arguments: &Arguments) -> Result<Vec<
     Ok(said)
 }
 
-/// The kind of track clip `id` is on, and the clip.
+/// The kind of track clip `id` is on, and the clip — on the timeline or
+/// among a group's members.
 fn find<'a>(project: &'a mut Project, id: &ClipId) -> Result<(TrackKind, &'a mut Clip), String> {
     project
-        .tracks
-        .iter_mut()
+        .every_track_mut()
         .find_map(|track| {
             let kind = track.kind;
             track

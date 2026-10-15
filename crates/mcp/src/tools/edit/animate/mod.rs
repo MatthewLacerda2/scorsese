@@ -19,7 +19,7 @@
 mod points;
 
 use schemars::JsonSchema;
-use scorsese_core::{Clip, ClipId, KeyframeTrack, Project, PropertyPath};
+use scorsese_core::{ClipId, KeyframeTrack, Project, PropertyPath};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -137,7 +137,8 @@ fn animate(
     points: &[Point],
 ) -> Result<Vec<KeyframeTrack>, String> {
     let mut proposed = project.clone();
-    let clip = clip_mut(&mut proposed, id)
+    let clip = proposed
+        .clip_mut(id)
         .ok_or_else(|| format!("there is no clip `{id}` in this project"))?;
     if let Some(late) = points.iter().find(|point| point.frame > clip.duration) {
         return Err(format!(
@@ -166,22 +167,6 @@ fn animate(
     })?;
     *project = proposed;
     Ok(replaced)
-}
-
-/// The clip called `id`, on the timeline or among a group's members — clip ids
-/// are one namespace for the whole document, so there is only ever one.
-fn clip_mut<'a>(project: &'a mut Project, id: &ClipId) -> Option<&'a mut Clip> {
-    let members = project
-        .assets
-        .iter_mut()
-        .filter_map(|asset| asset.group.as_mut())
-        .flat_map(|group| group.tracks.iter_mut());
-    project
-        .tracks
-        .iter_mut()
-        .chain(members)
-        .flat_map(|track| track.clips.iter_mut())
-        .find(|clip| &clip.id == id)
 }
 
 /// The paths written, as a reply names them.

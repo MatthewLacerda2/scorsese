@@ -16,14 +16,9 @@ use super::source::check_source_range;
 /// members are clips like any other and an id names one thing in the whole
 /// document: arrows find clips by id, and a render report names them.
 pub(super) fn check(project: &Project) -> Vec<TimelineProblem> {
-    let groups = project
-        .assets
-        .iter()
-        .filter_map(|asset| asset.group.as_ref())
-        .flat_map(|group| &group.tracks);
     let mut ids = Ids::default();
     let mut errors = Vec::new();
-    for track in project.tracks.iter().chain(groups) {
+    for track in project.every_track() {
         check_track(project, track, &mut ids, &mut errors);
     }
     errors
@@ -184,19 +179,26 @@ fn check_chroma_key(asset: &Asset, clip: &Clip, errors: &mut Vec<TimelineProblem
 /// Clips on one track may touch but never overlap: at any instant a track
 /// shows exactly one clip, which is what lets the compositor walk tracks
 /// bottom to top without resolving conflicts.
+///
+/// **Every overlapping pair, not only neighbours** (#1102): a long clip can
+/// cover several short ones that follow each other, and comparing sorted
+/// neighbours alone reported the first and missed the rest. So the sweep keeps
+/// every clip still running at each start, and each one met is a pair.
 fn check_overlaps(track: &Track, errors: &mut Vec<TimelineProblem>) {
     let mut ordered: Vec<&Clip> = track.clips.iter().collect();
     ordered.sort_by_key(|clip| clip.start);
 
-    for pair in ordered.windows(2) {
-        let (first, second) = (pair[0], pair[1]);
-        if first.overlaps(second) {
+    let mut running: Vec<&Clip> = Vec::new();
+    for clip in ordered {
+        running.retain(|earlier| earlier.end() > clip.start);
+        for earlier in running.iter().filter(|earlier| earlier.overlaps(clip)) {
             errors.push(TimelineProblem::OverlappingClips {
                 track: track.id.clone(),
-                first: first.id.clone(),
-                second: second.id.clone(),
+                first: earlier.id.clone(),
+                second: clip.id.clone(),
             });
         }
+        running.push(clip);
     }
 }
 

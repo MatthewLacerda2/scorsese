@@ -66,13 +66,8 @@ pub fn fit_to_sources(project: &mut Project, realised: &[AssetId]) -> Vec<Shorte
     if lengths.is_empty() {
         return Vec::new();
     }
-    let groups = project
-        .assets
-        .iter_mut()
-        .filter_map(|asset| asset.group.as_mut())
-        .flat_map(|group| &mut group.tracks);
     let mut shortened = Vec::new();
-    for track in project.tracks.iter_mut().chain(groups) {
+    for track in project.every_track_mut() {
         for clip in &mut track.clips {
             let Some(&available) = lengths.get(&clip.asset) else {
                 continue;
