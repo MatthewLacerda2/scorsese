@@ -12,19 +12,21 @@ const SWEEP_STEP: usize = 32;
 /// `sweep`, a cutoff in Hz at each sample-frame of a note, read every
 /// [`SWEEP_STEP`] frames and joined by straight lines into `n` of them.
 pub(crate) fn swept(sweep: &dyn Fn(usize) -> f32, n: usize) -> Vec<f32> {
-    let mut out = Vec::with_capacity(n);
-    let mut from = sweep(0);
-    let mut at = 0;
-    while at < n {
-        let next = (at + SWEEP_STEP).min(n.saturating_sub(1).max(at + 1));
-        let to = sweep(next);
-        let span = (next - at) as f32;
-        for k in 0..(next - at).min(n - at) {
-            out.push(from + (to - from) * k as f32 / span);
-        }
-        (from, at) = (to, next);
-    }
-    out
+    let last = n.saturating_sub(1);
+    let read = |k: usize| (k * SWEEP_STEP).min(last);
+    let values: Vec<f32> = (0..=last / SWEEP_STEP + 1)
+        .map(|k| sweep(read(k)))
+        .collect();
+    (0..n)
+        .map(|frame| {
+            let (k, into) = (frame / SWEEP_STEP, frame % SWEEP_STEP);
+            let (from, to) = (values[k], values[k + 1]);
+            if into == 0 {
+                return from;
+            }
+            from + (to - from) * into as f32 / (read(k + 1) - read(k)) as f32
+        })
+        .collect()
 }
 
 #[cfg(test)]
