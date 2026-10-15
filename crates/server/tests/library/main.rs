@@ -23,6 +23,7 @@ use std::path::Path;
 
 use common::{Response, send};
 use scorsese_core::hash_bytes;
+use scorsese_render::testing::generate;
 use scorsese_server::accounts::{sessions, users};
 use scorsese_server::db::UserId;
 use sqlx::postgres::PgPool;
@@ -39,16 +40,23 @@ async fn member(pool: &PgPool, email: &str) -> (UserId, String) {
 /// A one-second 64×64 video with a tone, made by ffmpeg under `directory`.
 fn video(directory: &Path) -> Vec<u8> {
     let file = directory.join("fixture.mp4");
-    let output = common::tools()
-        .ffmpeg()
-        .args(["-v", "error", "-y", "-f", "lavfi", "-i"])
-        .arg("testsrc=s=64x64:d=1:r=30")
-        .args(["-f", "lavfi", "-i", "sine=duration=1", "-shortest"])
-        .args(["-pix_fmt", "yuv420p"])
-        .arg(&file)
-        .output()
-        .expect("ffmpeg runs");
-    assert!(output.status.success(), "{output:?}");
+    generate(
+        &common::tools(),
+        &file,
+        &[
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=s=64x64:d=1:r=30",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=duration=1",
+            "-shortest",
+            "-pix_fmt",
+            "yuv420p",
+        ],
+    );
     std::fs::read(file).expect("the fixture reads")
 }
 

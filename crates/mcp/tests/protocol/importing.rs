@@ -9,7 +9,7 @@ use super::fixture::{document, project};
 use std::path::{Path, PathBuf};
 
 use crate::{call, said};
-use scorsese_render::Tools;
+use scorsese_render::testing::{colour_video, tools};
 use serde_json::json;
 
 /// A folder outside any project, holding two clips, a licence file and a
@@ -28,18 +28,7 @@ fn footage(label: &str) -> PathBuf {
 /// Two seconds of a solid colour: a real file, so ffprobe has something to
 /// measure and the reply can say what it measured.
 fn clip(at: &Path, colour: &str) {
-    let tools = Tools::discover().expect("ffmpeg and ffprobe must be on PATH for these tests");
-    std::fs::create_dir_all(at.parent().expect("a clip has a parent directory"))
-        .expect("create the clip's directory");
-    let output = tools
-        .ffmpeg()
-        .args(["-nostdin", "-v", "error", "-y", "-f", "lavfi", "-i"])
-        .arg(format!("color=c={colour}:s=64x64:d=2:r=30"))
-        .args(["-pix_fmt", "yuv420p"])
-        .arg(at)
-        .output()
-        .expect("run ffmpeg");
-    assert!(output.status.success(), "ffmpeg failed making a fixture");
+    colour_video(&tools(), at, colour, "64x64", 2);
 }
 
 #[test]

@@ -1,11 +1,12 @@
 //! A folder of frames in as one image sequence, then retimed and made anew
 //! from the stills it brought.
 
+use std::path::PathBuf;
+
 use super::fixture::{document, project};
-use std::path::{Path, PathBuf};
 
 use crate::{call, said};
-use scorsese_render::Tools;
+use scorsese_render::testing::{still, tools};
 use serde_json::json;
 
 /// A folder of three numbered frames, named so a plain sort plays them wrong.
@@ -14,22 +15,9 @@ fn frames(label: &str) -> PathBuf {
     std::fs::remove_dir_all(&dir).ok();
     std::fs::create_dir_all(&dir).expect("create the frame folder");
     for (name, colour) in [("f_1", "red"), ("f_2", "lime"), ("f_10", "blue")] {
-        still(&dir.join(format!("{name}.png")), colour);
+        still(&tools(), &dir.join(format!("{name}.png")), colour, "64x64");
     }
     dir
-}
-
-fn still(at: &Path, colour: &str) {
-    let tools = Tools::discover().expect("ffmpeg and ffprobe must be on PATH for these tests");
-    let output = tools
-        .ffmpeg()
-        .args(["-nostdin", "-v", "error", "-y", "-f", "lavfi", "-i"])
-        .arg(format!("color=c={colour}:s=64x64"))
-        .args(["-frames:v", "1"])
-        .arg(at)
-        .output()
-        .expect("run ffmpeg");
-    assert!(output.status.success(), "ffmpeg failed making a frame");
 }
 
 #[test]

@@ -3,6 +3,7 @@
 
 use scorsese_core::{Fps, Project, import_path};
 use scorsese_render::Ffprobe;
+use scorsese_render::testing::still;
 use scorsese_server::db;
 use scorsese_server::events::Events;
 use scorsese_server::jobs::Queue;
@@ -40,22 +41,7 @@ async fn a_downloaded_picture_is_admitted_once(pool: PgPool) {
     let (ana, _) = member(&pool, "ana@example.com").await;
     let scratch = common::scratch::dir("fetched-picture");
     let picture = scratch.join("pixabay-7.png");
-    let output = common::tools()
-        .ffmpeg()
-        .args([
-            "-v",
-            "error",
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "color=c=red:s=64x36",
-        ])
-        .args(["-frames:v", "1"])
-        .arg(&picture)
-        .output()
-        .expect("ffmpeg runs");
-    assert!(output.status.success(), "{output:?}");
+    still(&common::tools(), &picture, "red", "64x36");
 
     let root = scratch.join("laid.scor");
     let before = Project::create(&root, Some("laid"), Fps::THIRTY).expect("a project");

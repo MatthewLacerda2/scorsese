@@ -16,3 +16,7 @@ scorsese-render = { version = "0.1.0", path = "../render" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 thiserror = "2.0.19"
+
+[dev-dependencies]
+# `scorsese_render::testing`: the tiny media files the tests make.
+scorsese-render = { version = "0.1.0", path = "../render", features = ["test-support"] }

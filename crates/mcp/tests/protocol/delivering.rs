@@ -10,7 +10,7 @@ use std::path::Path;
 
 use super::fixture::project;
 use crate::{call, said};
-use scorsese_render::Tools;
+use scorsese_render::testing::tools;
 use serde_json::{Value, json};
 
 /// Three frames at a postage stamp: what is asked is what kind of file came
@@ -26,8 +26,7 @@ fn render(dir: &Path, extra: Value) -> (String, bool) {
 
 /// ffprobe's container list and the first video stream's codec.
 fn probe(file: &Path) -> (String, String) {
-    let tools = Tools::discover().expect("ffmpeg and ffprobe must be on PATH for these tests");
-    let output = tools
+    let output = tools()
         .ffprobe()
         .args(["-v", "error", "-select_streams", "v:0", "-show_entries"])
         .args(["format=format_name:stream=codec_name", "-of", "json"])

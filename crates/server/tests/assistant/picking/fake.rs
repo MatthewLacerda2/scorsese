@@ -5,6 +5,7 @@ use std::io::Write;
 use std::sync::{Arc, Mutex};
 
 use scorsese_providers::stock::{Candidate, Library, Medium, Page, Query, Rendition, StockError};
+use scorsese_render::testing::still;
 
 use super::common;
 
@@ -28,15 +29,7 @@ impl Fake {
         let scratch = common::scratch::dir("picking");
         let pngs = ["red", "orange", "yellow"].map(|colour| {
             let file = scratch.join(format!("{colour}.png"));
-            let made = common::tools()
-                .ffmpeg()
-                .args(["-v", "error", "-y", "-f", "lavfi", "-i"])
-                .arg(format!("color=c={colour}:s=64x36"))
-                .args(["-frames:v", "1"])
-                .arg(&file)
-                .output()
-                .expect("ffmpeg runs");
-            assert!(made.status.success(), "{made:?}");
+            still(&common::tools(), &file, colour, "64x36");
             std::fs::read(&file).expect("the picture was made")
         });
         Arc::new(Self {

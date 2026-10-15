@@ -6,21 +6,25 @@ use super::fixture::{document, fingerprint, project, read, with_footage};
 use std::path::Path;
 
 use crate::{call, said};
-use scorsese_render::Tools;
+use scorsese_render::testing::{generate, tools};
 use serde_json::{Value, json};
 
 /// `seconds` of a solid colour at `at`: a real file for ffprobe to measure.
 fn footage(at: &Path, seconds: &str) {
-    let tools = Tools::discover().expect("ffmpeg and ffprobe must be on PATH for these tests");
-    let output = tools
-        .ffmpeg()
-        .args(["-nostdin", "-v", "error", "-y", "-f", "lavfi", "-i"])
-        .arg(format!("color=c=red:s=64x64:d={seconds}:r=30"))
-        .args(["-pix_fmt", "yuv420p"])
-        .arg(at)
-        .output()
-        .expect("run ffmpeg");
-    assert!(output.status.success(), "ffmpeg failed making a fixture");
+    // Not `testing::colour_video`, which counts whole seconds: one test here
+    // needs half of one.
+    generate(
+        &tools(),
+        at,
+        &[
+            "-f",
+            "lavfi",
+            "-i",
+            &format!("color=c=red:s=64x64:d={seconds}:r=30"),
+            "-pix_fmt",
+            "yuv420p",
+        ],
+    );
 }
 
 /// Writes `document` into the project in `dir`, as a client would.

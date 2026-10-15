@@ -5,7 +5,6 @@
 
 use std::net::SocketAddr;
 
-use scorsese_render::Tools;
 use scorsese_server::renders::{Quota, RenderCache};
 use scorsese_server::storage::Storage;
 use scorsese_server::{Files, http};
@@ -34,9 +33,8 @@ pub(crate) async fn listener() -> (TcpListener, SocketAddr) {
 }
 
 /// ffmpeg and ffprobe, which probing uploads and drawing thumbnails need.
-pub(crate) fn tools() -> Tools {
-    Tools::discover().expect("ffmpeg and ffprobe must be on PATH to run these tests")
-}
+#[allow(unused_imports)] // As above.
+pub(crate) use scorsese_render::testing::tools;
 
 /// Users' files in a scratch directory of their own, read with the real tools.
 pub(crate) fn files(label: &str) -> Files {

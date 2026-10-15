@@ -10,25 +10,24 @@ use std::path::Path;
 
 use super::fixture::{DOCUMENT, project};
 use crate::{call, said};
-use scorsese_render::Tools;
+use scorsese_render::testing::{generate, tools};
 use serde_json::{Value, json};
 
 /// The fixture with its music bed swapped for a square wave on disk, and every
 /// clip cut to two seconds so the encode stays cheap.
 fn overshooting(label: &str) -> std::path::PathBuf {
     let dir = project(label);
-    let tools = Tools::discover().expect("ffmpeg must be on PATH for these tests");
     let wave = "0.891*sgn(sin(2*PI*220*t))";
-    let status = tools
-        .ffmpeg()
-        .args(["-v", "error", "-y", "-f", "lavfi", "-i"])
-        .arg(format!(
-            "aevalsrc=exprs={wave}|{wave}:duration=2:sample_rate=48000"
-        ))
-        .arg(dir.join("assets/tone.wav"))
-        .status()
-        .expect("run ffmpeg");
-    assert!(status.success(), "generating the square wave");
+    generate(
+        &tools(),
+        &dir.join("assets/tone.wav"),
+        &[
+            "-f",
+            "lavfi",
+            "-i",
+            &format!("aevalsrc=exprs={wave}|{wave}:duration=2:sample_rate=48000"),
+        ],
+    );
     let bed = r#"{ "id": "bed", "kind": "synth_audio", "recipe": "recipes/bed.json", "state": "sketch" }"#;
     assert!(DOCUMENT.contains(bed), "the fixture no longer has this bed");
     let document = DOCUMENT
@@ -43,8 +42,7 @@ fn overshooting(label: &str) -> std::path::PathBuf {
 
 /// ffprobe's codec_type for every stream in the file.
 fn streams(file: &Path) -> Vec<String> {
-    let tools = Tools::discover().expect("ffprobe must be on PATH for these tests");
-    let output = tools
+    let output = tools()
         .ffprobe()
         .args([
             "-v",
