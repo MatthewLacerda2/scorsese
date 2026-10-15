@@ -1,8 +1,9 @@
 //! A folder of frames in as one image sequence, then retimed and made anew
 //! from the stills it brought.
 
+use std::path::PathBuf;
+
 use super::fixture::{document, project};
-use std::path::{Path, PathBuf};
 
 use crate::{call, said};
 use scorsese_render::testing::{still, tools};
