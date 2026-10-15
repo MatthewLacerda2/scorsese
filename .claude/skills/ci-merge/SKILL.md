@@ -92,10 +92,11 @@ alone and break `main` together — a changed signature in one crate and a new
 caller in another compile apart and not together. No tooling repeals that, so
 **speculative CI and parallel merging stay out**: they answer a question this
 repo does not have. The only exception is a pull request touching **only**
-Markdown, which CI skips. A page the code reads is not one of those: the
-`paths:` list at the top of `ci.yml` re-includes every page a test or an
-`include_str!` reads (`docs/project-format.md`, the guides, `docs/web.md`…),
-and a script test holds that list to the code (#1040).
+Markdown, whose CI run compiles nothing. A page the code reads is not one of
+those: the list `ci.yml`'s `changes` job asks (`.github/scripts/ci-paths.py`)
+re-includes every page a test or an `include_str!` reads
+(`docs/project-format.md`, the guides, `docs/web.md`…), and a script test
+holds that list to the code (#1040).
 
 What *may* be automated is **who does the waiting** (#491, #492). The rebase is
 a minute; the verify is a cold CI run, and it is the verify that serialises. A
@@ -233,15 +234,17 @@ same list again — a PR it already merged is skipped as merged, and a head it
 already pushed is not pushed again. Status 1 is a real hand-back: read why
 (#615; before it, one TLS timeout killed the queue three times on 2026-09-30).
 
-**A Markdown-only pull request gets no run**, and `make mergeable` says yes to
-it anyway when that absence is by design (#1135): no run on the head, every
-changed file (both ends of a rename) one `ci.yml`'s `paths:` skips, read from
-`ci.yml` on the base branch by the parser the #1040 test uses
-(`.github/scripts/ci-paths.py`), and GitHub reporting the branch mergeable. A
-page the code reads is re-included, so a change to it gets a run and goes
-through like code. So it merges like anything else: `make queue`, or a `queue`
-label for the watch, which takes it without waiting out the five-minute
-no-run grace.
+**Every ready pull request gets a run, Markdown-only ones included** (#1351),
+and every run ends in **`CI ok`**, the one check the `main` ruleset requires (#1352): it
+fails when any job failed or was cancelled, and passes when the rest passed or
+skipped. The first job, `changes`, diffs what the merge would bring (both ends
+of a rename) and asks `.github/scripts/ci-paths.py`; on a Markdown-only change
+every other job skips, so the run is `changes` and `CI ok`, about a minute,
+nothing compiled. `make mergeable` and `make queue` wait for that run like any
+other, and a missing one is #153 or #429 whatever the diff — the old yes to a
+Markdown-only pull request with no run (#1135) is gone. A job added to
+`ci.yml` gates `main` only once it is in `CI ok`'s `needs:`;
+`.github/scripts/tests/test_ci_ok.py` fails until it is.
 
 **Because it builds nothing, a clean rebase can still push a broken head.** A
 merge ahead that changed a signature this branch calls, or pushed one of its

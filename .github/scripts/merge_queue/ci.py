@@ -53,9 +53,6 @@ def wait_for(
     """
     began = time.monotonic()
     rerun: set[int] = set()
-    # Asked once, the first time the head has no run: a Markdown-only diff
-    # stays one however often it is polled (#1135).
-    skips: bool | None = None
     while True:
         pull = talk.look(number)
         waited = time.monotonic() - began
@@ -68,12 +65,8 @@ def wait_for(
             # Read every poll: the label that counts is the one at merge time.
             pull["closes"] = mergeable.closing.closed_by(mergeable.gh, repo, pull)
             runs, jobs = evidence(repo, sha)
-            if not runs and skips is None:
-                skips = mergeable.skipped_by_ci(
-                    repo, number, pull.get("baseRefName")
-                )
             state, lines = verdict.progress(
-                pull, runs, jobs, waited, frozenset(rerun), bool(skips)
+                pull, runs, jobs, waited, frozenset(rerun)
             )
             if state == RERUN:
                 run = verdict.never_judged(runs, jobs)[0]

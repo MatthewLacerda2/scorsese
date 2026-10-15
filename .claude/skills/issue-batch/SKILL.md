@@ -583,9 +583,9 @@ exactly one of:
 **Mid-batch, fix what blocks or bites twice.** When a lesson costs the running
 batch time — a tooling bug that stalls the queue, a brief that makes every agent
 re-solve the same trap — fix it now. It is infrastructure, so it outranks
-whatever was next. A skill or doc edit is Markdown-only: CI makes no run for it
-(except a page the code reads, which `ci.yml`'s `paths:` lists), so the queue
-takes it in a minute (`ci-merge` has how). One that changes a **rule in `CLAUDE.md`** rather than recording a step
+whatever was next. A skill or doc edit is Markdown-only: its CI run compiles
+nothing (except for a page the code reads, which `ci-paths.py` lists), so the
+queue takes it in a minute or two (`ci-merge` has how). One that changes a **rule in `CLAUDE.md`** rather than recording a step
 is a change to scorsese's conventions: open it and leave it for the user
 (*Take the initiative*). On rusty's
 2026-09-30 batch, five tooling and skill fixes landed within the hour their

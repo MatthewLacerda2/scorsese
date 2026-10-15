@@ -71,8 +71,8 @@ class Picking(unittest.TestCase):
         self.assertEqual(mergeable.unfinished([red, live, skipped]), [live])
 
     def test_a_skipped_run_is_not_a_failed_one(self):
-        # It is what CI does to a draft and to a Markdown-only change; reading
-        # it as a failure would refuse both.
+        # It is what CI does to a draft; reading it as a failure would refuse
+        # every pull request that was ever one.
         self.assertEqual(mergeable.failed_runs([run(conclusion="skipped")]), [])
 
     def test_a_run_counts_as_having_built_something_only_if_a_job_passed(self):

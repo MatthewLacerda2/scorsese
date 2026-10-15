@@ -91,6 +91,14 @@ class NotJudged(unittest.TestCase):
         self.assertEqual(state, queue.STOP)
         self.assertIn("concluded failure", lines[0])
 
+    def test_ci_ok_failing_for_the_unstarted_jobs_is_not_a_verdict(self):
+        # It runs under `always()` and fails because they were cancelled
+        # (#1351); counting it would make every unjudged run red.
+        run, jobs = recorded()
+        step = {"name": "Every job passed", "status": "completed", "conclusion": "failure"}
+        jobs.append({"name": "CI ok", "conclusion": "failure", "steps": [step]})
+        self.assertEqual(asked(run, jobs)[0], queue.RERUN)
+
     def test_a_failed_run_with_no_jobs_listed_is_not_assumed_unjudged(self):
         self.assertEqual(asked(RUN, [])[0], queue.STOP)
 

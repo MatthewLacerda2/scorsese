@@ -1,24 +1,31 @@
 name: CI
 
-# Markdown-only changes skip CI — except for the pages the code reads, and that
-# is the whole point of the exceptions. `docs/project-format.md`'s JSON
-# examples are parsed and its animatable-property table is compared to the
-# code; `docs/mcp.md`'s tool table is generated from the registry;
-# `docs/web.md`'s route tables are held to the server's router (#994); and the
-# guides an agent is served (`scorsese guide`) are `include_str!`'d into the
-# binary, with tests reading their examples and pointers. Skipping CI for them
-# would mean the documents under test are the ones that can be broken without
-# anything noticing. Patterns are ordered: a later one overrides an earlier one
-# for a path both match.
+# Every ready pull request and every push to `main` gets a run, Markdown-only
+# ones included (#1351), and every run ends in **`CI ok`**: the one check the
+# `main` ruleset requires (#1352), which passes only when every other job passed or was
+# skipped by design. A required check that never reports leaves a pull request
+# pending forever, so the workflow itself has no `paths:` filter any more.
+#
+# What a Markdown-only change skips is the **jobs**. The first job, `changes`,
+# diffs the change and asks `.github/scripts/ci-paths.py`, which holds the
+# list: every file counts except Markdown, and the pages the code reads are
+# re-included by name — `docs/project-format.md`'s JSON examples are parsed,
+# `docs/mcp.md`'s tool table is generated, the guides are `include_str!`'d.
+# Skipping CI for them would mean the documents under test are the ones that
+# can be broken without anything noticing. Every other job `needs: changes`
+# and runs only when it printed `code=true`, so a Markdown-only run is
+# `changes` and `CI ok`, about a minute, and nothing compiled.
 #
 # The list is held to the code (#1040): `.github/scripts/tests/
-# test_ci_read_docs.py` fails when a Rust source reads a page not listed here,
+# test_ci_read_docs.py` fails when a Rust source reads a page not listed there,
 # or when a listed page is gone. A page nothing reads stays off it, so editing
 # it is still the Markdown-only fast path.
 #
 # CI speaks in two situations and no others: a pull request **claims to be
 # finished**, and `main` moves. Every job below carries `if: ${{ !DRAFT }}` —
-# spelled out each time, because Actions has no workflow-level `if`.
+# spelled out each time, because Actions has no workflow-level `if`. `CI ok`
+# carries it too, so a draft's run skips everything; a draft cannot merge, and
+# `ready_for_review` brings the run that counts.
 #
 # The invariant it rests on: **a ready pull request claims it passes; a draft
 # makes no such claim.** CI's job is to check claims, so a red run always means
@@ -46,36 +53,8 @@ name: CI
 on:
   push:
     branches: [main]
-    paths:
-      - "**"
-      - "!**.md"
-      - "docs/mcp.md"
-      - "docs/output-formats.md"
-      - "docs/pages.md"
-      - "docs/prices.md"
-      - "docs/project-format.md"
-      - "docs/prompts.md"
-      - "docs/recipes.md"
-      - "docs/references.md"
-      - "docs/stock.md"
-      - "docs/styles.md"
-      - "docs/web.md"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - "**"
-      - "!**.md"
-      - "docs/mcp.md"
-      - "docs/output-formats.md"
-      - "docs/pages.md"
-      - "docs/prices.md"
-      - "docs/project-format.md"
-      - "docs/prompts.md"
-      - "docs/recipes.md"
-      - "docs/references.md"
-      - "docs/stock.md"
-      - "docs/styles.md"
-      - "docs/web.md"
 
 # `ubuntu-24.04` and not `ubuntu-latest`, everywhere below, and the reason is
 # ffmpeg. It comes from the image's apt archive — 6.1.1-3ubuntu5 there — and
@@ -127,12 +106,51 @@ concurrency:
   cancel-in-progress: ${{ github.event.action == 'synchronize' }}
 
 jobs:
-  check:
-    name: fmt + clippy + test
+  # Whether this change has anything a job below checks (#1351). It replaces
+  # the workflow-level `paths:` filter, which made no run at all for a
+  # Markdown-only change; `ci-paths.py` holds the same list and says why.
+  #
+  # The diff is of what would land. On a pull request the checkout is GitHub's
+  # merge commit, whose first parent is the base branch's tip, so `HEAD^1..HEAD`
+  # is exactly the change the merge brings; on `main` it is the push's
+  # `before..after`. `--no-renames` lists both ends of a rename, because a `.rs`
+  # renamed to `.md` changed a file CI builds. A diff that cannot be read — a
+  # `before` outside the shallow fetch, a new branch's all-zero one — runs
+  # everything rather than guessing.
+  changes:
+    name: changes
     runs-on: ubuntu-24.04
     # Drafts assert nothing, so there is nothing to check. See the top of
     # this file; `ready_for_review` in `types:` is what makes it fire at all.
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      - name: Diff
+        id: diff
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && 'HEAD^1' || github.event.before }}
+        run: |
+          if files=$(git diff --name-only --no-renames "$BASE" HEAD); then
+            printf '%s\n' "$files"
+            printf '%s\n' "$files" | python3 .github/scripts/ci-paths.py | tee -a "$GITHUB_OUTPUT"
+          else
+            echo "could not diff against $BASE; running every job."
+            echo "code=true" | tee -a "$GITHUB_OUTPUT"
+          fi
+
+  check:
+    name: fmt + clippy + test
+    runs-on: ubuntu-24.04
+    # Drafts assert nothing, so there is nothing to check, and a change
+    # `changes` calls Markdown-only has nothing of this job's. See the top.
+    needs: changes
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.changes.outputs.code == 'true'
     # Twice the slowest run on record (about 15 minutes), so a hung capture or
     # server test fails here instead of holding a runner — and the merge queue
     # behind it — for GitHub's default of six hours (#1134). nextest's own
@@ -310,9 +328,10 @@ jobs:
   app:
     name: desktop app
     runs-on: ubuntu-24.04
-    # Drafts assert nothing, so there is nothing to check. See the top of
-    # this file; `ready_for_review` in `types:` is what makes it fire at all.
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    # Drafts assert nothing, so there is nothing to check, and a change
+    # `changes` calls Markdown-only has nothing of this job's. See the top.
+    needs: changes
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -397,9 +416,10 @@ jobs:
   web:
     name: web front-end
     runs-on: ubuntu-24.04
-    # Drafts assert nothing, so there is nothing to check. See the top of
-    # this file; `ready_for_review` in `types:` is what makes it fire at all.
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    # Drafts assert nothing, so there is nothing to check, and a change
+    # `changes` calls Markdown-only has nothing of this job's. See the top.
+    needs: changes
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.changes.outputs.code == 'true'
     defaults:
       run:
         working-directory: web
@@ -443,9 +463,10 @@ jobs:
   size:
     name: size gate
     runs-on: ubuntu-24.04
-    # Drafts assert nothing, so there is nothing to check. See the top of
-    # this file; `ready_for_review` in `types:` is what makes it fire at all.
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    # Drafts assert nothing, so there is nothing to check, and a change
+    # `changes` calls Markdown-only has nothing of this job's. See the top.
+    needs: changes
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -485,9 +506,10 @@ jobs:
   scripts:
     name: signal renderers
     runs-on: ubuntu-24.04
-    # Drafts assert nothing, so there is nothing to check. See the top of
-    # this file; `ready_for_review` in `types:` is what makes it fire at all.
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    # Drafts assert nothing, so there is nothing to check, and a change
+    # `changes` calls Markdown-only has nothing of this job's. See the top.
+    needs: changes
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -501,9 +523,10 @@ jobs:
   deploy:
     name: deploy config
     runs-on: ubuntu-24.04
-    # Drafts assert nothing, so there is nothing to check. See the top of
-    # this file; `ready_for_review` in `types:` is what makes it fire at all.
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    # Drafts assert nothing, so there is nothing to check, and a change
+    # `changes` calls Markdown-only has nothing of this job's. See the top.
+    needs: changes
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -551,9 +574,10 @@ jobs:
   deny:
     name: cargo-deny
     runs-on: ubuntu-24.04
-    # Drafts assert nothing, so there is nothing to check. See the top of
-    # this file; `ready_for_review` in `types:` is what makes it fire at all.
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    # Drafts assert nothing, so there is nothing to check, and a change
+    # `changes` calls Markdown-only has nothing of this job's. See the top.
+    needs: changes
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -573,3 +597,25 @@ jobs:
       # a local run cannot drift apart.
       - name: Both workspaces
         run: make deny
+
+  # The one check the `main` ruleset requires (#1351, #1352): its `name:` is
+  # the context string the ruleset names, so renaming it unguards `main`.
+  # `needs:` lists every other job, and a job added to this file is gated only
+  # once it is listed here too. `always()` so it reports when a job it needs
+  # failed or was cancelled — a skipped required check reads to GitHub as a
+  # satisfied one — and the draft condition so a draft's run stays silent.
+  # `ci-ok.py` is the verdict: `failure` or `cancelled` anywhere refuses,
+  # `skipped` is a job with nothing of its own to check.
+  ok:
+    name: CI ok
+    runs-on: ubuntu-24.04
+    needs: [changes, check, app, web, size, scripts, deploy, deny]
+    if: always() && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Every job passed, or had nothing to check
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: python3 .github/scripts/ci-ok.py

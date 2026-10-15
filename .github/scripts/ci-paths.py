@@ -1,68 +1,68 @@
 #!/usr/bin/env python3
-"""Which changes `ci.yml` runs for, read from `ci.yml` itself (#1040, #1135).
+"""Which changes `ci.yml`'s jobs run for (#1040, #1135, #1351).
 
-CI skips a Markdown-only change, except for the pages a build or a test reads,
-which `ci.yml`'s `paths:` lists re-include by name. Two readers need that list
-and must never disagree about it: `tests/test_ci_read_docs.py`, which holds it
-to the code, and `mergeable.py`, which says yes to a pull request with no run
-only when the list says CI was never going to make one. So the list is parsed
-here, once, and both import it.
+Every ready pull request and every push to `main` gets a CI run (#1351), so
+that its final `CI ok` job always reports and the `main` ruleset can require
+it. What a Markdown-only change skips is the **jobs**: the first one,
+`changes`, pipes the changed paths into this script, and every heavy job reads
+the `code=` line it prints. The pages a build or a test reads are re-included
+by name in [`PATTERNS`], because a page embedded by `include_str!` or opened by
+a test is code in all but name.
 
-A line-wise read rather than a YAML parser: this is stdlib-only, and the `on:`
-block is a fixed, shallow shape.
+So the list lives here, once, and two readers use it: `ci.yml`'s `changes`
+job, and `tests/test_ci_read_docs.py`, which holds it to the code. Before
+#1351 it was the workflow's `on: paths:` filter, which made no run at all for
+a Markdown-only change, and a required check that never reports leaves a pull
+request pending forever.
 
-[`runs_for`] follows GitHub's own rule for a `paths:` filter: the patterns are
-read in order, the last one a file matches decides whether it counts, a `!`
-excludes, and CI runs when any changed file counts. `*` stops at a `/` and
-`**` does not, so `!**.md` is every Markdown file at any depth.
+[`runs_for`] follows GitHub's rule for a `paths:` filter, which is what the list
+was written for: the patterns are read in order, the last one a file matches
+decides whether it counts, a `!` excludes, and the jobs run when any changed
+file counts. `*` stops at a `/` and `**` does not, so `!**.md` is every
+Markdown file at any depth.
+
+    git diff --name-only --no-renames BASE HEAD | python3 .github/scripts/ci-paths.py
 """
 
 from __future__ import annotations
 
 import re
+import sys
+
+# Ordered: a later pattern overrides an earlier one for a path both match.
+# `docs/project-format.md`'s JSON examples are parsed and its
+# animatable-property table is compared to the code; `docs/mcp.md`'s tool table
+# is generated from the registry; `docs/web.md`'s route tables are held to the
+# server's router (#994); and the guides an agent is served (`scorsese guide`)
+# are `include_str!`'d into the binary, with tests reading their examples and
+# pointers. A page nothing reads stays off, so editing it is still the fast
+# path: a run of `changes` and `CI ok`, and nothing compiled.
+PATTERNS = (
+    "**",
+    "!**.md",
+    "docs/mcp.md",
+    "docs/output-formats.md",
+    "docs/pages.md",
+    "docs/prices.md",
+    "docs/project-format.md",
+    "docs/prompts.md",
+    "docs/recipes.md",
+    "docs/references.md",
+    "docs/stock.md",
+    "docs/styles.md",
+    "docs/web.md",
+)
 
 
-def paths(workflow: str) -> dict[str, list[str]]:
-    """Each trigger's `paths:` patterns, in order, by trigger name."""
-    found: dict[str, list[str]] = {}
-    trigger = None
-    in_paths = False
-    for line in workflow.splitlines():
-        if line and not line[0].isspace() and line.rstrip() != "on:":
-            if found:
-                break
-            continue
-        head = re.match(r"^  (\w+):", line)
-        if head:
-            trigger, in_paths = head.group(1), False
-            continue
-        if line.strip() == "paths:":
-            in_paths = True
-            found.setdefault(trigger, [])
-            continue
-        item = re.match(r'^\s+- "([^"]+)"$', line)
-        if in_paths and item:
-            found[trigger].append(item.group(1))
-        elif in_paths and line.strip():
-            in_paths = False
-    return found
+def exceptions(patterns: tuple[str, ...] = PATTERNS) -> set[str]:
+    """The re-included Markdown pages: a pattern naming one `.md` file.
 
-
-def exceptions(workflow: str) -> dict[str, set[str]]:
-    """Each trigger's re-included Markdown pages, by trigger name.
-
-    A pattern is a page when it names one `.md` file — not `**`, not a `!`
-    exclusion.
+    Not `**`, not a `!` exclusion.
     """
     return {
-        trigger: {
-            pattern
-            for pattern in patterns
-            if pattern.endswith(".md")
-            and "*" not in pattern
-            and not pattern.startswith("!")
-        }
-        for trigger, patterns in paths(workflow).items()
+        pattern
+        for pattern in patterns
+        if pattern.endswith(".md") and "*" not in pattern and not pattern.startswith("!")
     }
 
 
@@ -81,12 +81,14 @@ def glob(pattern: str) -> re.Pattern[str]:
     return re.compile("".join(out) + r"\Z")
 
 
-def runs_for(patterns: list[str], files: list[str]) -> bool:
-    """Whether a change to `files` passes a trigger's `paths:` filter.
+def runs_for(patterns: tuple[str, ...] | list[str], files: list[str]) -> bool:
+    """Whether a change to `files` passes the filter `patterns` spell.
 
-    No patterns at all means no filter, and every change runs.
+    No patterns at all means no filter, and every change runs. No files at all
+    runs too: an empty diff is nothing to say the change was Markdown, and a
+    diff that could not be read is not one that may be skipped.
     """
-    if not patterns:
+    if not patterns or not files:
         return True
     compiled = [
         (pattern.startswith("!"), glob(pattern.lstrip("!"))) for pattern in patterns
@@ -101,14 +103,11 @@ def runs_for(patterns: list[str], files: list[str]) -> bool:
     return False
 
 
-def skips(workflow: str, files: list[str]) -> bool:
-    """Whether `ci.yml` makes no run at all for a pull request changing `files`.
+def main(lines: list[str]) -> str:
+    """The `changes` job's output line for the changed paths in `lines`."""
+    files = [line.strip() for line in lines if line.strip()]
+    return f"code={'true' if runs_for(PATTERNS, files) else 'false'}"
 
-    Asked of the `pull_request` trigger, since that is the one a pull request's
-    run comes from. An empty change is not called skipped: there is nothing to
-    say it was Markdown.
-    """
-    triggers = paths(workflow)
-    if not files or "pull_request" not in triggers:
-        return False
-    return not runs_for(triggers["pull_request"], files)
+
+if __name__ == "__main__":
+    print(main(sys.stdin.readlines()))
