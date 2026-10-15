@@ -20,7 +20,7 @@ use scorsese_compositor::sheet::{self, Cell, MAX_CELLS, SheetError};
 use scorsese_compositor::text::Font;
 use scorsese_core::{Frames, Project};
 
-use crate::report::Note;
+use crate::report::{Note, Told};
 use crate::run::Renderer;
 use crate::{Frame, RenderError};
 
@@ -35,6 +35,8 @@ pub struct TimelineSheet {
     /// a page that would not capture, say — in the order the cells are laid
     /// out. Kept apart per instant rather than merged, because the notes go in
     /// the text beside the picture and have to say which cell they are about.
+    /// Each note is listed once, under the first instant that noticed it
+    /// ([`Told`]): a page on every cell is one page with one problem.
     pub notes: Vec<(Frames, Vec<Note>)>,
 }
 
@@ -63,6 +65,7 @@ pub fn timeline_sheet(
     let fps = project.timeline_fps;
     let mut cells = Vec::with_capacity(at.len());
     let mut notes = Vec::with_capacity(at.len());
+    let mut told = Told::default();
     for &instant in at {
         let (frame, noticed) = renderer
             .still_noted(project, project_root, instant)
@@ -74,7 +77,7 @@ pub fn timeline_sheet(
             frame,
             label: cell_label(fps.seconds(instant), instant),
         });
-        notes.push((instant, noticed));
+        notes.push((instant, told.unsaid(noticed)));
     }
     Ok(TimelineSheet {
         image: sheet::tile(cells, Font::sans(), ruled)?,

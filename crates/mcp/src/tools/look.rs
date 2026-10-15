@@ -134,7 +134,7 @@ fn said(sheet: &contact::Sheet, ruled: bool) -> String {
     let moments: Vec<String> = sheet.at_seconds.iter().map(|at| label(*at)).collect();
     let mut text = format!(
         "{} of {} ({:.1}s long), at {}{}",
-        counted(moments.len()),
+        contact::counted(moments.len()),
         sheet.file.display(),
         sheet.duration_seconds,
         moments.join(", "),
@@ -152,15 +152,6 @@ fn said(sheet: &contact::Sheet, ruled: bool) -> String {
         None => text.push_str(" — that is the whole file"),
     }
     text
-}
-
-/// "1 frame" or "4 frames", because a reply that reads wrong reads as a bug.
-fn counted(frames: usize) -> String {
-    if frames == 1 {
-        String::from("1 frame")
-    } else {
-        format!("{frames} frames")
-    }
 }
 
 /// What part of the file the arguments name.

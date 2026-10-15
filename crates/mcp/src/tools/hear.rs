@@ -161,22 +161,16 @@ fn levels(
     }
     if let Some(other) = other {
         let previous = measure(tools, other).map_err(|error| format!("{error}"))?;
-        text.push_str(&format!("\n\n{}  vs  {}", name(file), name(other)));
+        text.push_str(&format!(
+            "\n\n{}  vs  {}",
+            say::name(file),
+            say::name(other)
+        ));
         for row in say::comparison(&profile, &previous) {
             text.push_str(&format!("\n  {row}"));
         }
     }
     Ok(text)
-}
-
-/// How a file is named in a comparison: its file name, not its whole path. Two
-/// files being compared usually differ in one word, and two long paths that
-/// agree for sixty characters bury it.
-fn name(file: &Path) -> String {
-    file.file_name().map_or_else(
-        || file.display().to_string(),
-        |name| name.to_string_lossy().into_owned(),
-    )
 }
 
 /// What the reply says in words.
@@ -197,17 +191,8 @@ pub(crate) fn said(wave: &Waveform) -> String {
         }
         Some(db) => text.push_str(&format!(", peak {db:.1} dBFS")),
     }
-    if wave.findings.clipped > 0 {
-        text.push_str(&format!(
-            ", CLIPPED in {} of the picture's columns",
-            wave.findings.clipped
-        ));
-    }
-    if wave.findings.lead_in > 0.05 {
-        text.push_str(&format!(", starts {:.2}s in", wave.findings.lead_in));
-    }
-    if wave.findings.lead_out > 0.05 {
-        text.push_str(&format!(", ends {:.2}s early", wave.findings.lead_out));
+    for note in wave.findings.says() {
+        text.push_str(&format!(", {note}"));
     }
     text.push_str(
         " — the picture shows where the pauses are. It cannot tell you \

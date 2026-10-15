@@ -43,6 +43,16 @@ pub use pictures::pictures;
 pub use sample::{CELL_LONGEST_SIDE, Look, MAX_FRAMES, STEP_SECONDS, label};
 pub use timeline::{TimelineSheet, TimelineSheetError, cell_label, timeline_sheet};
 
+/// "1 frame" or "4 frames": how many a sheet holds, said as a sentence says
+/// it, because a report that reads wrong reads as a bug.
+pub fn counted(frames: usize) -> String {
+    if frames == 1 {
+        String::from("1 frame")
+    } else {
+        format!("{frames} frames")
+    }
+}
+
 /// A finished contact sheet, and what it is a sheet of.
 ///
 /// The moments come back beside the picture rather than only drawn on it,
@@ -181,4 +191,16 @@ pub enum ContactError {
     /// The cells would not tile.
     #[error(transparent)]
     Tile(#[from] SheetError),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::counted;
+
+    #[test]
+    fn one_frame_is_said_in_the_singular() {
+        assert_eq!(counted(1), "1 frame");
+        assert_eq!(counted(0), "0 frames");
+        assert_eq!(counted(4), "4 frames");
+    }
 }

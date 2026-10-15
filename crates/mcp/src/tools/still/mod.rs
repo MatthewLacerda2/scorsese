@@ -29,7 +29,7 @@ mod sheet;
 
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use scorsese_core::{Fps, Frames};
-use scorsese_render::{Cue, RenderSettings, Renderer, Tools, frames, grid};
+use scorsese_render::{Cue, RenderSettings, Renderer, Told, Tools, frames, grid};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -190,7 +190,7 @@ impl Tool for Still {
         }
 
         let mut parts = Vec::with_capacity(instants.len());
-        let mut told = Vec::new();
+        let mut told = Told::default();
         for (index, at) in instants.into_iter().enumerate() {
             let (mut frame, notes) = renderer
                 .still_noted(&project, dir, at)
@@ -220,11 +220,8 @@ impl Tool for Still {
             }
             // Under the frame it was noticed drawing, and once a call: a page
             // on screen at several instants is one page with one problem.
-            for note in notes {
-                if !told.contains(&note) {
-                    said.push_str(&format!("\nnote: {note}"));
-                    told.push(note);
-                }
+            for note in told.unsaid(notes) {
+                said.push_str(&format!("\nnote: {note}"));
             }
             parts.push(Part::picture(said, &bytes));
         }

@@ -66,13 +66,11 @@ pub(super) fn reply(asked: Asked<'_>) -> Result<Reply, String> {
     if let Some((given, _)) = asked.kept {
         said.push_str(&format!(" — written to {given}"));
     }
-    let mut told = Vec::new();
+    // Once a call: the sheet lists each note under the first instant that
+    // noticed it.
     for (at, notes) in drawn.notes {
         for note in notes {
-            if !told.contains(&note) {
-                said.push_str(&format!("\nnote at frame {}: {note}", at.get()));
-                told.push(note);
-            }
+            said.push_str(&format!("\nnote at frame {}: {note}", at.get()));
         }
     }
     Ok(vec![Part::picture(said, &bytes)].into())

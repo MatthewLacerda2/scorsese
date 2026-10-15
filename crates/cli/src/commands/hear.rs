@@ -32,7 +32,7 @@ pub(crate) fn run(file: &Path, out: Option<PathBuf>) -> Result<()> {
     // Said on its own line rather than folded into the level, because these are
     // the findings somebody is looking for and a sentence they scan past is a
     // sentence that did not help.
-    for note in notes(&wave.findings) {
+    for note in wave.findings.says() {
         println!("  {note}");
     }
     Ok(())
@@ -44,30 +44,6 @@ fn level(findings: &scorsese_render::audio::Findings) -> String {
         None => "SILENT throughout".to_owned(),
         Some(db) => format!("peak {db:.1} dBFS"),
     }
-}
-
-/// Everything worth saying beyond the level, and nothing when there is nothing.
-fn notes(findings: &scorsese_render::audio::Findings) -> Vec<String> {
-    let mut notes = Vec::new();
-    // A silent file is silent all the way through, so "starts 3.00s in" is the
-    // same fact worded as though something were coming. Nothing follows the
-    // headline finding.
-    if findings.is_silent() {
-        return notes;
-    }
-    if findings.clipped > 0 {
-        notes.push(format!(
-            "CLIPPED in {} of the picture's columns",
-            findings.clipped
-        ));
-    }
-    if findings.lead_in > 0.05 {
-        notes.push(format!("starts {:.2}s in", findings.lead_in));
-    }
-    if findings.lead_out > 0.05 {
-        notes.push(format!("ends {:.2}s early", findings.lead_out));
-    }
-    notes
 }
 
 /// `vo-01.mp3` becomes `vo-01.wave.png`, beside it.

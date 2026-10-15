@@ -243,7 +243,7 @@ pub use preview::{Preview, Proxies, Quality};
 pub use probe::{Ffprobe, fill_media};
 pub use progress::{Phase, Progress, Reading};
 pub use properties::{ANIMATABLE, Unknown, unknown_in};
-pub use report::{Note, RenderReport, StandIn};
+pub use report::{Note, RenderReport, StandIn, Told};
 pub use run::Renderer;
 pub use settings::{
     Bands, Bitrate, BitrateError, RenderSettings, Resolution, ResolutionError, SampleRate,

@@ -27,6 +27,7 @@ use scorsese_compositor::waveform::{self, COLUMNS, Column, Wave};
 use scorsese_compositor::{Frame, ResolutionError};
 
 use crate::error::RenderError;
+use crate::say;
 use crate::tools::Tools;
 
 use super::read::{self, ANALYSIS_RATE};
@@ -37,6 +38,13 @@ use super::read::{self, ANALYSIS_RATE};
 /// a few counts above it, and a threshold of exactly zero would report a file
 /// with a gap in it as having none.
 const SILENCE: f32 = 0.001;
+
+/// How much silence at either end is worth saying, in seconds.
+///
+/// A twentieth of a second: an encoder's priming and a breath before the first
+/// word both land under it, and a narration line that starts later than this
+/// is one an edit will place wrongly if nobody says so.
+const LEAD_WORTH_SAYING: f64 = 0.05;
 
 /// What the columns say about the file, in numbers.
 ///
@@ -83,6 +91,33 @@ impl Findings {
     /// where the honest answer is "silent" rather than a large negative number.
     pub fn peak_dbfs(&self) -> Option<f64> {
         (!self.is_silent()).then(|| 20.0 * f64::from(self.peak).log10())
+    }
+
+    /// Everything worth saying beyond the level, one finding a line, and
+    /// nothing when there is nothing.
+    ///
+    /// Nothing for a silent file either: it is silent all the way through, so
+    /// "starts 3.00s in" would be the same fact worded as though something
+    /// were coming. The level itself is the caller's to say, because the CLI
+    /// and the MCP tool word silence for different readers.
+    pub fn says(&self) -> Vec<String> {
+        let mut notes = Vec::new();
+        if self.is_silent() {
+            return notes;
+        }
+        if self.clipped > 0 {
+            notes.push(format!(
+                "CLIPPED in {} of the picture's columns",
+                self.clipped
+            ));
+        }
+        if self.lead_in > LEAD_WORTH_SAYING {
+            notes.push(format!("starts {:.2}s in", self.lead_in));
+        }
+        if self.lead_out > LEAD_WORTH_SAYING {
+            notes.push(format!("ends {:.2}s early", self.lead_out));
+        }
+        notes
     }
 }
 
@@ -193,10 +228,7 @@ fn summarise(columns: &[Column], seconds: f64) -> Findings {
 /// from whatever printed the reply — `scorsese hear` writes a file somebody
 /// opens later, and a waveform with no scale on it is a shape.
 fn caption(file: &Path, seconds: f64, findings: Findings) -> String {
-    let name = file.file_name().map_or_else(
-        || file.display().to_string(),
-        |name| name.to_string_lossy().into_owned(),
-    );
+    let name = say::name(file);
     let level = match findings.peak_dbfs() {
         None => "silent throughout".to_owned(),
         Some(db) => format!("peak {db:.1} dBFS"),
@@ -207,4 +239,37 @@ fn caption(file: &Path, seconds: f64, findings: Findings) -> String {
         String::new()
     };
     format!("{name} — {seconds:.2}s, {level}{clipping}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Findings;
+
+    fn heard(peak: f32, clipped: usize, lead_in: f64, lead_out: f64) -> Findings {
+        Findings {
+            peak,
+            rms: peak / 2.0,
+            clipped,
+            lead_in,
+            lead_out,
+        }
+    }
+
+    #[test]
+    fn a_finding_is_said_only_past_its_threshold() {
+        assert!(heard(0.5, 0, 0.05, 0.05).says().is_empty());
+        assert_eq!(
+            heard(1.0, 3, 0.06, 1.0).says(),
+            [
+                "CLIPPED in 3 of the picture's columns",
+                "starts 0.06s in",
+                "ends 1.00s early"
+            ]
+        );
+    }
+
+    #[test]
+    fn a_silent_file_says_nothing_after_its_silence() {
+        assert!(heard(0.0, 0, 2.0, 0.0).says().is_empty());
+    }
 }
