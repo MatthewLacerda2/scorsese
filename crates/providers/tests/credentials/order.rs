@@ -82,3 +82,28 @@ fn printing_a_key_prints_nothing() {
     let secret = Secret::new("sk-do-not-log-me");
     assert!(!format!("{secret:?}").contains("do-not-log-me"));
 }
+
+/// `Provider::ALL` is what the test harnesses strip from a child's environment
+/// (#1222), so a provider missing from it is a key a test could leak to.
+#[test]
+fn every_provider_is_in_the_list_of_all_of_them() {
+    let listed = |provider: Provider| Provider::ALL.contains(&provider);
+    // A match with no wildcard: a new variant does not compile until it is
+    // named here, and naming it here is what this test then checks.
+    for provider in Provider::ALL {
+        match provider {
+            Provider::Gemini | Provider::ElevenLabs | Provider::Anthropic | Provider::Pixabay => {}
+        }
+    }
+    for provider in [
+        Provider::Gemini,
+        Provider::ElevenLabs,
+        Provider::Anthropic,
+        Provider::Pixabay,
+    ] {
+        assert!(
+            listed(provider),
+            "{provider:?} is missing from Provider::ALL"
+        );
+    }
+}
