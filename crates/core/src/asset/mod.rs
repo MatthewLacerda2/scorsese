@@ -25,7 +25,8 @@ use crate::text::TextStyle;
 use crate::time::{Fps, Frames};
 
 pub use image::{
-    ImageAspect, ImageModel, ImageRequest, ImageResolution, ImageThinking, ReferenceKind,
+    DEFAULT_IMAGE_RESOLUTION, DEFAULT_IMAGE_THINKING, ImageAspect, ImageRequest, ImageResolution,
+    ImageThinking, ReferenceKind,
 };
 pub(crate) use kind::is_page_path;
 pub use kind::{AssetKind, GenerationState};

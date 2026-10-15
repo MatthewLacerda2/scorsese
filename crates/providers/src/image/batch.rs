@@ -6,15 +6,15 @@
 //! is written into the document before anything else can go wrong. A later
 //! run collects them ([`collect`](super::collect)).
 //!
-//! **One job per model, split by weight.** The Batch API is called per model,
-//! so stills on two models are two jobs; and inline requests may weigh 20 MB a
-//! job, so a set heavy with reference pictures is split into as many as it
+//! **Split by weight.** The Batch API is called per model, and every still is
+//! Nano Banana 2.1's, so one job holds them all — until inline requests weigh
+//! 20 MB, so a set heavy with reference pictures is split into as many as it
 //! takes. Each job is ordered on its own, so one refused leaves the others
 //! ordered.
 
 use std::path::Path;
 
-use scorsese_core::{AssetId, GenerationState, ImageModel, Project, Timestamp};
+use scorsese_core::{AssetId, GenerationState, Project, Timestamp};
 
 use crate::api::gemini::batch::INLINE_LIMIT;
 use crate::credentials::Budget;
@@ -115,32 +115,22 @@ pub(super) fn half(brief: &Brief) -> Result<u64, ImageError> {
     Ok(priced.cents)
 }
 
-/// The briefs as jobs: one model each, each under the inline limit — in
-/// document order within a job, and jobs in the order their models first
-/// appear.
+/// The briefs as jobs, each under the inline limit, in document order.
 fn jobs(briefs: &[Brief]) -> Vec<Vec<&Brief>> {
-    let mut models: Vec<ImageModel> = Vec::new();
-    for brief in briefs {
-        if !models.contains(&brief.request.model) {
-            models.push(brief.request.model);
-        }
-    }
     let mut jobs = Vec::new();
-    for model in models {
-        let mut job: Vec<&Brief> = Vec::new();
-        let mut weight = 0;
-        for brief in briefs.iter().filter(|brief| brief.request.model == model) {
-            let heavy = weight_of(brief);
-            if !job.is_empty() && weight + heavy > INLINE_LIMIT {
-                jobs.push(std::mem::take(&mut job));
-                weight = 0;
-            }
-            job.push(brief);
-            weight += heavy;
+    let mut job: Vec<&Brief> = Vec::new();
+    let mut weight = 0;
+    for brief in briefs {
+        let heavy = weight_of(brief);
+        if !job.is_empty() && weight + heavy > INLINE_LIMIT {
+            jobs.push(std::mem::take(&mut job));
+            weight = 0;
         }
-        if !job.is_empty() {
-            jobs.push(job);
-        }
+        job.push(brief);
+        weight += heavy;
+    }
+    if !job.is_empty() {
+        jobs.push(job);
     }
     jobs
 }
@@ -167,49 +157,47 @@ fn queue(project: &mut Project, id: &AssetId, operation: &str) {
 
 #[cfg(test)]
 mod tests {
-    use scorsese_core::{AssetId, ImageModel, ImageRequest};
+    use scorsese_core::{AssetId, ImageRequest};
 
     use super::{Brief, INLINE_LIMIT, jobs, weight_of};
     use crate::video::Still;
 
-    /// A brief on `model` carrying one reference of `bytes` bytes.
-    fn brief(id: &str, model: ImageModel, bytes: usize) -> Brief {
+    /// A brief carrying one reference of `bytes` bytes.
+    fn brief(id: &str, bytes: usize) -> Brief {
         Brief {
             id: AssetId::new(id),
             prompt: String::from("a lighthouse"),
-            request: ImageRequest {
-                model,
-                ..ImageRequest::default()
-            },
+            request: ImageRequest::default(),
             reference_images: vec![Still {
                 id: AssetId::new("ref"),
                 mime_type: String::from("image/png"),
                 bytes: vec![0; bytes],
                 digest: String::new(),
             }],
+            retired: None,
         }
     }
 
     #[test]
     fn a_brief_weighs_its_prompt_and_its_pictures_in_base64() {
-        let one = brief("a", ImageModel::Flash, 3_000);
+        let one = brief("a", 3_000);
         assert_eq!(weight_of(&one), "a lighthouse".len() + 4_000 + 128 + 512);
     }
 
     #[test]
-    fn a_set_heavier_than_the_inline_limit_is_split_and_models_never_share() {
+    fn a_set_heavier_than_the_inline_limit_is_split_in_document_order() {
         let six = 6 * 1024 * 1024;
         let briefs = [
-            brief("a", ImageModel::Flash, six),
-            brief("b", ImageModel::Pro, 10),
-            brief("c", ImageModel::Flash, six),
-            brief("d", ImageModel::Flash, six),
+            brief("a", six),
+            brief("b", 10),
+            brief("c", six),
+            brief("d", six),
         ];
         let ids: Vec<Vec<&str>> = jobs(&briefs)
             .iter()
             .map(|job| job.iter().map(|brief| brief.id.as_str()).collect())
             .collect();
-        assert_eq!(ids, [vec!["a", "c"], vec!["d"], vec!["b"]]);
+        assert_eq!(ids, [vec!["a", "b", "c"], vec!["d"]]);
         assert!(2 * weight_of(&briefs[0]) < INLINE_LIMIT);
         assert!(3 * weight_of(&briefs[0]) > INLINE_LIMIT);
     }
@@ -218,7 +206,7 @@ mod tests {
     /// [`INLINE_LIMIT`] already keeps a megabyte back.
     #[test]
     fn a_job_exactly_at_the_limit_is_one_job() {
-        let halfway = brief("a", ImageModel::Flash, 7_470_615);
+        let halfway = brief("a", 7_470_615);
         assert_eq!(2 * weight_of(&halfway), INLINE_LIMIT);
         let briefs = [halfway.clone(), halfway];
         assert_eq!(jobs(&briefs).len(), 1);
@@ -226,7 +214,7 @@ mod tests {
 
     #[test]
     fn one_brief_heavier_than_the_limit_is_still_its_own_job() {
-        let briefs = [brief("a", ImageModel::Flash, 20 * 1024 * 1024)];
+        let briefs = [brief("a", 20 * 1024 * 1024)];
         assert_eq!(jobs(&briefs).len(), 1);
         assert!(jobs(&[]).is_empty());
     }

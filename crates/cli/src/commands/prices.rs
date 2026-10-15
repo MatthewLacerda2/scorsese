@@ -46,15 +46,15 @@ pub(crate) fn run() -> Result<()> {
     }
 
     println!();
-    println!("Gemini image models, per picture at its size, plus input per million tokens.");
+    println!("Nano Banana 2.1 (gemini-nano-banana-2.1), the one image model, per picture at");
+    println!("its size, plus input per million tokens.");
     println!("Paid tier; there is no free tier.");
     println!();
-    println!("| model | size | per picture | input per 1M tokens | checked |");
-    println!("| --- | --- | --- | --- | --- |");
+    println!("| size | per picture | input per 1M tokens | checked |");
+    println!("| --- | --- | --- | --- |");
     for row in gemini::RATES {
         println!(
-            "| {} | {} | {} | {} | {}{} |",
-            row.model.as_str(),
+            "| {} | {} | {} | {}{} |",
             row.resolution.as_str(),
             microdollars(row.rate.microdollars_per_image),
             dollars(row.rate.cents_per_million_input),

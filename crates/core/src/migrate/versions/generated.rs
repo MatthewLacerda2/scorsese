@@ -45,8 +45,8 @@ fn a_v46_document_s_stills_read_the_same_at_this_version() {
     project.validate().expect("and it validates");
     assert_eq!(project.assets[0].operation, None);
     assert_eq!(
-        project.assets[0].image_request().model,
-        crate::ImageModel::Pro
+        project.assets[0].image_request().size(),
+        crate::ImageResolution::K2
     );
 }
 

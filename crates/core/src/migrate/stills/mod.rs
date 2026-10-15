@@ -1,9 +1,16 @@
-//! v45 → v46: stills at parity with Google's image models (#893).
+//! The steps that rewrite stills: v45 → v46, at parity with Google's image
+//! models (#893), here; and v49 → v50, Nano Banana 2.1 the only one (#1308),
+//! in [`one_model`].
 //!
-//! The one step since the rule began that rewrites anything, because the
-//! version changed what an absence means, not only what may be written.
+//! v45 → v46 was the first step since the rule began that rewrites anything,
+//! because the version changed what an absence means, not only what may be
+//! written.
+
+mod one_model;
 
 use serde_json::{Map, Value};
+
+pub(super) use one_model::one_image_model;
 
 /// How many objects a Flash still may name at v46. At v45 it took fourteen
 /// references of no stated kind; Google's page caps that at ten objects and

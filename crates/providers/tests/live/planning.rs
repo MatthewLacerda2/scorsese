@@ -45,7 +45,7 @@ fn only_the_vendors_with_keys_are_planned_and_priced() {
     assert_eq!(
         cents,
         [
-            (Vendor::Keyed(Provider::Gemini), 5, false),
+            (Vendor::Keyed(Provider::Gemini), 4, false),
             (Vendor::Keyed(Provider::ElevenLabs), 2, false),
             (Vendor::Keyed(Provider::Anthropic), 0, true),
             (Vendor::Keyed(Provider::Pixabay), 0, true),
@@ -53,17 +53,15 @@ fn only_the_vendors_with_keys_are_planned_and_priced() {
         ]
     );
     assert!(planned[0].calls.iter().any(|c| c.contains("free")));
-    for model in scorsese_providers::api::gemini::Model::ALL {
-        let id = format!("models/{}", model.id());
-        assert!(
-            planned[0]
-                .calls
-                .iter()
-                .any(|c| c.contains(&id) && c.contains("free")),
-            "{id} is not looked up for free: {:?}",
-            planned[0].calls
-        );
-    }
+    let id = format!("models/{}", scorsese_providers::api::gemini::MODEL);
+    assert!(
+        planned[0]
+            .calls
+            .iter()
+            .any(|c| c.contains(&id) && c.contains("free")),
+        "{id} is not looked up for free: {:?}",
+        planned[0].calls
+    );
 }
 
 #[test]
@@ -73,7 +71,7 @@ fn the_shot_is_priced_into_the_plan_only_when_asked_for() {
         include_veo: true,
         ..Options::default()
     };
-    assert_eq!(total(&plan(&asked, &env, &Settings::default())), 25);
+    assert_eq!(total(&plan(&asked, &env, &Settings::default())), 24);
 }
 
 /// The ceiling refuses the whole plan before anything is sent, `--yes` or

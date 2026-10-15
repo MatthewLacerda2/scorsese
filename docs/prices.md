@@ -71,22 +71,22 @@ it sells: there is no row kept only for the audit, and none missing from it.
 
 ## Stills
 
-Google's four current image models, US dollars per **picture**, at the size it
-is drawn. Standard tier — none has a free tier. The batch tier is half of every
-figure below; see *Stills in a batch*.
+Every still is drawn by **Nano Banana 2.1** (`gemini-nano-banana-2.1`), the
+one image model scorsese uses (#1308) — there is no model to choose. US dollars
+per **picture**, at the size it is drawn. Standard tier — it has no free tier.
+The batch tier is half of every figure below; see *Stills in a batch*.
 
-| model | on the wire | 0.5K | 1K | 2K | 4K | input, per 1M tokens |
-| --- | --- | --- | --- | --- | --- | --- |
-| `nano_banana_2.1` | `gemini-nano-banana-2.1` | *not sold* | $0.0336 | $0.0504 | $0.113 | $1.50 |
-| `flash` | `gemini-3.1-flash-image` | $0.045 | $0.067 | $0.101 | $0.151 | $0.50 |
-| `lite` | `gemini-3.1-flash-lite-image` | *not sold* | $0.0336 | *not sold* | *not sold* | $0.25 |
-| `pro` | `gemini-3-pro-image` | *not sold* | $0.134 | $0.134 | $0.24 | $2.00 |
+| on the wire | 1K | 2K | 4K | input, per 1M tokens |
+| --- | --- | --- | --- | --- |
+| `gemini-nano-banana-2.1` | $0.0336 | $0.0504 | $0.113 | $1.50 |
 
 Last checked against
-[Google's pricing page](https://ai.google.dev/gemini-api/docs/pricing) on
-**2026-10-08**, read off the page's own HTML rather than through a summariser
-(#893 asked for that, because a summarised reading had 2.1 cheaper than the
-maintainer expected — the page confirms it is).
+[Google's pricing page](https://ai.google.dev/gemini-api/docs/pricing) (last
+updated 2026-10-14) on **2026-10-15**. Its 1K and 2K figures are the
+[image-generation page](https://ai.google.dev/gemini-api/docs/image-generation)'s
+1,120 and 1,680 output tokens at $30 a million; its 4K figure is not — that
+page says 2,520 tokens, which would be $0.0756. The billing page's $0.113 is
+the one kept, so an estimate that errs, errs high.
 
 ### Stills in a batch
 
@@ -94,11 +94,13 @@ Every still can instead be ordered through Google's
 [Batch API](https://ai.google.dev/gemini-api/docs/batch-mode) at **half the
 price**, answered **within 24 hours** (#894). Google's page lists a batch
 column beside each standard one, picture and input alike, and every batch
-figure is exactly half its neighbour — so the table is not copied twice:
+figure is half its neighbour — so the table is not copied twice:
 `prices::gemini::BATCH_PERCENT` is `50`, read on the same day as the rows, and
 `prices::image_in_batch` is the standard arithmetic at that share, rounded up
-to the cent once per still. The day a batch figure stops being half, that
-constant becomes a table.
+to the cent once per still. The one exception is 4K, listed at $0.0567 against
+half of $0.113 — two hundredths of a cent, which no estimate rounded to the
+cent can show. The day a batch figure is off by more, that constant becomes a
+table.
 
 How to use it: **`generate` with `batch`** (MCP, local or the web's), or
 **`scorsese generate --batch`** — and on the web, the assistant's confirmation
@@ -118,42 +120,30 @@ hours"* — and the tool's description tells an assistant to put that choice to
 whoever is paying, never to pick the wait for them. Under a dollar the saving
 is pennies, not worth a day or the question, so it is left out.
 
-The picture is priced like a shot: by a choice the request fixes — its model
-and size — not by anything the vendor decides after the fact. The page states
-it per million output tokens ($30 on 2.1 and Lite, $60 on Flash, $120 on Pro)
-and then per picture; the per-picture figure is the one copied, because it is
-the one a person checks.
+The picture is priced like a shot: by a choice the request fixes — its size
+— not by anything the vendor decides after the fact. The page states it per
+million output tokens ($30) and then per picture; the per-picture figure is the
+one copied, because it is the one a person checks.
 
-**The default is `nano_banana_2.1` at 2K: $0.0504, about six cents** with its
-prompt. It became the default on these numbers (#893): the maintainer's rule
-was that 2.1 takes over only if a typical 2K still costs no more than on Flash
-once input and thinking are counted. A 400-character prompt and two references
-are 2,340 input tokens — 0.35¢ on 2.1 against 0.12¢ on Flash — and even a
-thousand thinking tokens at 2.1's $7.50 a million are 0.75¢: about **6.1¢**
-against Flash's **10.5¢** on the same thousand (at its $3). With speed discounted (nobody is in a hurry for a
-still), 2.1 is the better picture for less, and Google recommends it for new
-work. 2K is what covers a 1080p frame with room left to push into or pan
-across; a 1K still is enlarged before it moves.
-
-`flash` is still the only model drawing 0.5K, though at $0.045 that is dearer
-than a 1K picture from 2.1 or `lite` ($0.0336), so it is not the cheap way to
-test a prompt. `lite` draws 1K only, at 2.1's 1K price on a sixth of its input
-rate, for a picture that matters less than the money. `pro` is
-for the most complex compositions, at more than twice 2.1's 2K price.
+**The default is 2K: $0.0504, about six cents** with its prompt. A
+400-character prompt and two references are 2,340 input tokens, 0.35¢, and a
+thousand thinking tokens at $7.50 a million another 0.75¢: about **6.1¢**. 2K is
+what covers a 1080p frame with room left to push into or pan across; a 1K still
+($0.0336, the cheapest picture there is, and the way to test a prompt) is
+enlarged before it moves.
 
 ### What the estimate counts, and what it does not
 
 **Counted:** the picture; every reference picture, at the **1,120 input
 tokens** a Gemini 3 model reads one as at its default media resolution; and the
 prompt, at one token per four characters (the vendor's own rule of thumb —
-the prompt is never tokenised here). A reference is about **0.17¢** on 2.1 and
-**0.22¢** on Pro, so even fourteen of them add a few cents at most.
+the prompt is never tokenised here). A reference is about **0.17¢**, so even
+fourteen of them — ten objects and four characters, the most a still takes —
+add under three cents.
 
-**Not counted:** any thinking or words the model writes back — $3 per million
-on Flash, $1.50 on Lite, $7.50 on 2.1, $12 on Pro. Flash and Lite think at
-`minimal` unless asked; 2.1 defaults to `medium`. It is the one part no request
-can fix in advance, and at these rates a thousand tokens of it is under a cent
-everywhere but Pro.
+**Not counted:** any thinking or words the model writes back — $7.50 per
+million, at `medium` unless asked. It is the one part no request can fix in
+advance, and a thousand tokens of it is under a cent.
 
 None of these land on whole cents, so the table is kept in micro-dollars and
 the total **rounds up** once, for the reason narration does: a ceiling crossed a

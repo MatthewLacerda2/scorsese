@@ -47,7 +47,7 @@ pub mod veo;
 pub use checked::{Checked, STALE_AFTER_DAYS};
 pub use veo::{Quality, Rate, Tier};
 
-use scorsese_core::{ImageModel, ImageRequest, ImageResolution, SpeechModel, VideoRequest};
+use scorsese_core::{ImageRequest, ImageResolution, SpeechModel, VideoRequest};
 
 /// What a generation is expected to cost, and what that was worked out from.
 ///
@@ -161,15 +161,13 @@ pub struct ImageEstimate {
     pub input_tokens: u64,
 }
 
-/// A model asked for a size it does not draw, so there is no price.
+/// A size the price table has no row for, so there is no price.
 ///
-/// Validation refuses the same combination first; this is the last check
-/// before money moves, for [`Unpriced`]'s reason.
+/// Every size the format offers has a row today; this is the last check before
+/// money moves, for [`Unpriced`]'s reason, should one ever be added without.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-#[error("the {} image model does not draw {} — there is no price to quote", model.as_str(), resolution.as_str())]
+#[error("there is no price for a {} still to quote", resolution.as_str())]
 pub struct UnpricedImage {
-    /// The model asked for.
-    pub model: ImageModel,
     /// The size asked for.
     pub resolution: ImageResolution,
 }
@@ -179,9 +177,9 @@ pub struct UnpricedImage {
 /// **What it counts:** the picture, at the published per-picture price for its
 /// size; every reference picture, at the 1,120 tokens Gemini 3 reads one as;
 /// and the prompt, at a token per four characters. **What it does not:** any
-/// thinking or text the model writes back — $3 a million on Flash and $7.50 on
-/// Nano Banana 2.1, whose default is `medium`, so a thousand tokens of thought
-/// is under a cent there — because it is the one part no request can fix in
+/// thinking or text the model writes back — $7.50 a million, and the default
+/// thinking is `medium`, so a thousand tokens of thought is under a cent —
+/// because it is the one part no request can fix in
 /// advance. Rounded up to the cent, once,
 /// so the ceiling is never crossed a fraction at a time.
 pub fn image(
@@ -216,10 +214,7 @@ fn image_at(
     percent: u64,
 ) -> Result<ImageEstimate, UnpricedImage> {
     let resolution = request.size();
-    let rate = gemini::rate(request.model, resolution).ok_or(UnpricedImage {
-        model: request.model,
-        resolution,
-    })?;
+    let rate = gemini::rate(resolution).ok_or(UnpricedImage { resolution })?;
     let input_tokens = (prompt_characters as u64).div_ceil(gemini::CHARACTERS_PER_TOKEN)
         + (references as u64) * gemini::TOKENS_PER_REFERENCE;
     // Cents per million tokens is a hundredth of a micro-dollar per token.

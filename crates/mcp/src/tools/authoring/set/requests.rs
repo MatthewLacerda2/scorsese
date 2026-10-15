@@ -11,8 +11,7 @@
 
 use schemars::{Schema, SchemaGenerator};
 use scorsese_core::{
-    Asset, AssetKind, ImageAspect, ImageModel, ImageResolution, ImageThinking, Inline,
-    ReferenceKind,
+    Asset, AssetKind, ImageAspect, ImageResolution, ImageThinking, Inline, ReferenceKind,
 };
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -132,56 +131,36 @@ pub(super) fn video_schema(_: &mut SchemaGenerator) -> Schema {
 
 /// The `image` argument's schema.
 ///
-/// The values are read off the core's own lists, so a model, size or shape the
-/// format gains is offered the day it lands. The descriptions say **when to
-/// pick which model**, so an assistant chooses without asking: speed is not a
-/// factor, quality against price per picture is, and what a model cannot do
-/// decides the rest (the maintainer, 2026-10-07, #893).
+/// The values are read off the core's own lists, so a size or shape the format
+/// gains is offered the day it lands. Every still is Nano Banana 2.1's (#1308),
+/// so there is no model to pick and the descriptions are its limits.
 pub(super) fn image_schema(_: &mut SchemaGenerator) -> Schema {
-    let models: Vec<_> = ImageModel::ALL.map(ImageModel::as_str).into();
     let sizes: Vec<_> = ImageResolution::ALL.map(ImageResolution::as_str).into();
     let aspects: Vec<_> = ImageAspect::ALL.map(ImageAspect::as_str).into();
     let levels: Vec<_> = ImageThinking::ALL.map(ImageThinking::as_str).into();
-    let ids = |description: &str, max: usize| {
-        serde_json::json!({ "type": "array", "items": { "type": "string" }, "maxItems": max,
-            "description": description })
-    };
-    let most = |kind| {
-        ImageModel::ALL
-            .map(|m| m.references(kind))
-            .into_iter()
-            .max()
-            .unwrap_or(0)
+    let ids = |description: &str, kind: ReferenceKind| {
+        serde_json::json!({ "type": "array", "items": { "type": "string" },
+            "maxItems": kind.max(), "description": description })
     };
     block(
         "(generated_image) The rest of the still's brief. `resolution` is the money \
          lever: 2K covers a 1080p frame with room to push in. References are asset ids of \
-         image or generated_image assets, sent objects first, then characters, then \
-         styles: say in the prompt what each is for.",
+         image or generated_image assets, sent objects first, then characters: say in the \
+         prompt what each is for.",
         serde_json::json!({
-            "model": { "enum": models, "description": "Default nano_banana_2.1: the best \
-                picture for the money, about $0.05 at 2K, with the best text rendering and \
-                consistency across stills. flash only for 0.5K ($0.045, a cheap test of a \
-                prompt). lite is the cheapest ($0.034), 1K only, objects as its only \
-                references. pro is the dearest ($0.13 at 1K/2K, $0.24 at 4K), for the most \
-                complex compositions, and the only model taking style_images." },
-            "resolution": { "enum": sizes, "description": "Default 2K (1K on lite). 0.5K is \
-                flash only; lite draws 1K only." },
-            "aspect": { "enum": aspects, "description": "Default 16:9. 4:1, 1:4, 8:1 and 1:8 \
-                are nano_banana_2.1 and flash only." },
-            "thinking": { "enum": levels, "description": "How hard \
-                the model thinks first; default the model's own (medium on \
-                nano_banana_2.1, minimal on flash and lite). medium is nano_banana_2.1 only; \
-                pro takes none. high for a crowded or exacting composition." },
+            "resolution": { "enum": sizes, "description": "Default 2K, about $0.05. 1K \
+                ($0.034) is the cheapest, for a test of a prompt; 4K ($0.11) for a still \
+                pushed into a long way." },
+            "aspect": { "enum": aspects, "description": "Default 16:9. Every shape is \
+                drawn at every size; 4:1, 1:4, 8:1 and 1:8 are strips to pan along." },
+            "thinking": { "enum": levels, "description": "How hard the model thinks \
+                first; default medium. high for a crowded or exacting composition, \
+                minimal for a plain one." },
             "reference_images": ids("Objects to include faithfully: a product, a logo, a \
-                place. At most 10 on nano_banana_2.1 and flash, 14 on lite, 6 on pro.",
-                most(ReferenceKind::Object)),
+                place. At most 10.", ReferenceKind::Object),
             "character_images": ids("People or creatures to keep looking like themselves, \
-                e.g. one character sheet named by every still. At most 4 on \
-                nano_banana_2.1 and flash, 5 on pro; lite takes none.",
-                most(ReferenceKind::Character)),
-            "style_images": ids("A look to draw in. pro only, at most 3.",
-                most(ReferenceKind::Style))
+                e.g. one character sheet named by every still. At most 4.",
+                ReferenceKind::Character)
         }),
     )
 }

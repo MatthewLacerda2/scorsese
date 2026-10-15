@@ -48,7 +48,7 @@ use scorsese_core::ProjectPath;
 
 pub use crate::generated::Plan;
 pub use batch::batch;
-pub use brief::Brief;
+pub use brief::{Brief, MODEL};
 pub use collect::collect;
 pub use error::{ImageError, Incomplete};
 pub use gemini::GeminiProvider;

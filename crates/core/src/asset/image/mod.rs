@@ -1,32 +1,30 @@
 //! What a generated still asks for, beyond the sentence.
 //!
-//! The sibling of [`super::video`], and shorter, because a still has no length.
-//! What each model can be asked for differs — sizes, shapes, how many
-//! references of each kind, which thinking levels — and every one of those is
-//! asked of [`ImageModel`] rather than matched on wherever a request is built.
-//! [`model`]'s doc has when to pick which model.
+//! The sibling of [`super::video`], and shorter, because a still has no length
+//! and no model to choose: every still is Nano Banana 2.1's, and [`limits`]
+//! holds what it can be asked for.
 //!
 //! **Resolution is the money lever**, so it is a field and never implied. The
-//! output is billed per picture at a price fixed by its model and size. Aspect
-//! is a field of its own beside it rather than a consequence of it: a model
-//! draws every aspect it offers at every size it offers, so the two are
-//! independent choices and one field could not hold both.
+//! output is billed per picture at a price fixed by its size. Aspect is a
+//! field of its own beside it rather than a consequence of it: every aspect is
+//! drawn at every size, so the two are independent choices and one field could
+//! not hold both.
 
-mod model;
+mod limits;
 mod shape;
 
 use serde::{Deserialize, Serialize};
 
 use super::AssetId;
 
-pub use model::ImageModel;
+pub use limits::{DEFAULT_IMAGE_RESOLUTION, DEFAULT_IMAGE_THINKING};
 pub use shape::{ImageAspect, ImageResolution};
 
 /// What a reference picture is there to keep, which is what Google caps.
 ///
 /// The vendor's API is never told: every reference is handed over as a
 /// picture, in order, and the prompt says what each is for. The kind is in the
-/// brief because the limits are per kind ([`ImageModel::references`]), and a
+/// brief because the limits are per kind ([`ReferenceKind::max`]), and a
 /// brief over one is refused rather than sent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReferenceKind {
@@ -34,13 +32,11 @@ pub enum ReferenceKind {
     Object,
     /// A person or creature to keep looking like themselves.
     Character,
-    /// A look to draw in: a palette, a medium, a period.
-    Style,
 }
 
 impl ReferenceKind {
     /// Every kind, in the order a request hands them over.
-    pub const ALL: [Self; 3] = [Self::Object, Self::Character, Self::Style];
+    pub const ALL: [Self; 2] = [Self::Object, Self::Character];
 
     /// The field of [`ImageRequest`] that holds this kind, as `project.json`
     /// spells it.
@@ -48,23 +44,21 @@ impl ReferenceKind {
         match self {
             Self::Object => "reference_images",
             Self::Character => "character_images",
-            Self::Style => "style_images",
         }
     }
 }
 
-/// How hard a model thinks before it draws.
+/// How hard the model thinks before it draws.
 ///
 /// Google's own control: more thinking for a complex composition, less for a
 /// plain one. It changes the picture and the thinking tokens billed, so it is
-/// part of the brief. Which levels a model takes, and its default, are
-/// [`ImageModel::thinking_levels`] and [`ImageModel::default_thinking`].
+/// part of the brief. Absent means [`DEFAULT_IMAGE_THINKING`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ImageThinking {
-    /// The least: Flash's and Lite's default.
+    /// The least, for a plain composition.
     Minimal,
-    /// 2.1's default. 2.1 only.
+    /// The default.
     Medium,
     /// The most, for a crowded or exacting composition.
     High,
@@ -93,20 +87,18 @@ impl ImageThinking {
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct ImageRequest {
-    /// Which model draws it.
-    pub model: ImageModel,
-    /// How large it comes back. Absent means the model's own default — see
-    /// [`ImageModel::default_resolution`] and [`ImageRequest::size`].
+    /// How large it comes back. Absent means [`DEFAULT_IMAGE_RESOLUTION`] — see
+    /// [`ImageRequest::size`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resolution: Option<ImageResolution>,
     /// Which shape it is.
     pub aspect: ImageAspect,
-    /// How hard the model thinks first. Absent means the model's own default
-    /// — see [`ImageRequest::thinking`].
+    /// How hard the model thinks first. Absent means [`DEFAULT_IMAGE_THINKING`] —
+    /// see [`ImageRequest::thinking`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thinking: Option<ImageThinking>,
     /// Pictures of **objects** to include faithfully, named by asset id — at
-    /// most [`ImageModel::references`] of them for [`ReferenceKind::Object`].
+    /// most [`ReferenceKind::max`] of them for [`ReferenceKind::Object`].
     ///
     /// By id and never by path, as a clip names its asset. A still or another
     /// generated still may be named.
@@ -117,21 +109,17 @@ pub struct ImageRequest {
     /// after it, is what this field is for.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub character_images: Vec<AssetId>,
-    /// Pictures of a **style** to draw in. Pro only.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub style_images: Vec<AssetId>,
 }
 
 impl ImageRequest {
-    /// The size this request is drawn at, its model's default included.
+    /// The size this request is drawn at, the default included.
     pub fn size(&self) -> ImageResolution {
-        self.resolution.unwrap_or(self.model.default_resolution())
+        self.resolution.unwrap_or(DEFAULT_IMAGE_RESOLUTION)
     }
 
-    /// The thinking level this request is drawn at, its model's default
-    /// included — `None` only on a model with no level to name.
-    pub fn thinking(&self) -> Option<ImageThinking> {
-        self.thinking.or(self.model.default_thinking())
+    /// The thinking level this request is drawn at, the default included.
+    pub fn thinking(&self) -> ImageThinking {
+        self.thinking.unwrap_or(DEFAULT_IMAGE_THINKING)
     }
 
     /// The references of one kind.
@@ -139,7 +127,6 @@ impl ImageRequest {
         match kind {
             ReferenceKind::Object => &self.reference_images,
             ReferenceKind::Character => &self.character_images,
-            ReferenceKind::Style => &self.style_images,
         }
     }
 
@@ -148,12 +135,11 @@ impl ImageRequest {
         match kind {
             ReferenceKind::Object => &mut self.reference_images,
             ReferenceKind::Character => &mut self.character_images,
-            ReferenceKind::Style => &mut self.style_images,
         }
     }
 
     /// Every reference, in the order they are handed over: objects, then
-    /// characters, then styles.
+    /// characters.
     pub fn references(&self) -> impl Iterator<Item = &AssetId> {
         ReferenceKind::ALL
             .into_iter()
@@ -165,6 +151,5 @@ impl ImageRequest {
         self.reference_images
             .iter_mut()
             .chain(self.character_images.iter_mut())
-            .chain(self.style_images.iter_mut())
     }
 }

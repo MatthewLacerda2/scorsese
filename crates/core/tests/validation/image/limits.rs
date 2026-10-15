@@ -1,147 +1,69 @@
-//! What each model takes, as Google's page documents it: sizes, shapes,
-//! references per kind, and thinking levels.
+//! What a still takes, as Google's page documents Nano Banana 2.1: every size
+//! and shape it offers, references per kind, and thinking levels.
 
 use super::drawing;
 use crate::common::{assert_only_problem, asset_id, problems};
 use scorsese_core::{
-    ImageAspect, ImageModel, ImageProblem as I, ImageResolution, ImageThinking, ReferenceKind,
+    ImageAspect, ImageProblem as I, ImageRequest, ImageResolution, ImageThinking, ReferenceKind,
 };
 
 #[test]
-fn the_default_is_nano_banana_2_1_at_2k() {
+fn the_default_is_2k_thinking_at_medium() {
     let p = drawing(|_| {});
     let request = p.assets.last().expect("the still").image_request();
-    assert_eq!(request.model, ImageModel::NanoBanana21);
     assert_eq!(request.size(), ImageResolution::K2);
-    assert_eq!(request.thinking(), Some(ImageThinking::Medium));
+    assert_eq!(request.thinking(), ImageThinking::Medium);
 }
 
 #[test]
-fn half_k_is_flash_s_alone_and_says_what_else_is_drawn() {
-    for model in [ImageModel::NanoBanana21, ImageModel::Pro] {
-        let p = drawing(|r| {
-            r.model = model;
-            r.resolution = Some(ImageResolution::K05);
-        });
+fn every_size_shape_and_thinking_level_is_drawn() {
+    for resolution in ImageResolution::ALL {
+        for aspect in ImageAspect::ALL {
+            for thinking in ImageThinking::ALL {
+                let p = drawing(|r| {
+                    r.resolution = Some(resolution);
+                    r.aspect = aspect;
+                    r.thinking = Some(thinking);
+                });
+                assert_eq!(
+                    problems(&p),
+                    vec![],
+                    "{resolution:?} {aspect:?} {thinking:?}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn each_kind_of_reference_is_capped_and_refused_with_the_number() {
+    for kind in ReferenceKind::ALL {
+        let max = kind.max();
+        let p = drawing(|r| *r.references_of_mut(kind) = vec![asset_id("logo"); max]);
+        assert_eq!(problems(&p), vec![], "a still takes {max} {kind:?}");
+        let p = drawing(|r| *r.references_of_mut(kind) = vec![asset_id("logo"); max + 1]);
         assert_only_problem(
             &p,
-            I::ResolutionUnsupported {
+            I::TooManyReferenceImages {
                 asset: asset_id("poster"),
-                model: model.as_str(),
-                resolution: "0.5K",
-                draws: String::from("1K, 2K or 4K"),
+                field: kind.field(),
+                found: max + 1,
+                max,
             },
         );
-    }
-    let p = drawing(|r| {
-        r.model = ImageModel::Flash;
-        r.resolution = Some(ImageResolution::K05);
-    });
-    assert_eq!(problems(&p), vec![]);
-}
-
-#[test]
-fn the_long_strips_are_drawn_by_2_1_and_flash_only() {
-    for (model, drawn) in [
-        (ImageModel::NanoBanana21, true),
-        (ImageModel::Flash, true),
-        (ImageModel::Lite, false),
-        (ImageModel::Pro, false),
-    ] {
-        let p = drawing(|r| {
-            r.model = model;
-            r.aspect = ImageAspect::EightOne;
-        });
-        if drawn {
-            assert_eq!(problems(&p), vec![], "{model:?}");
-        } else {
-            assert_only_problem(
-                &p,
-                I::AspectUnsupported {
-                    asset: asset_id("poster"),
-                    model: model.as_str(),
-                    aspect: "8:1",
-                },
-            );
-        }
-    }
-}
-
-#[test]
-fn each_kind_of_reference_is_capped_by_its_model_and_refused_with_the_number() {
-    for model in ImageModel::ALL {
-        for kind in ReferenceKind::ALL {
-            let max = model.references(kind);
-            let p = drawing(|r| {
-                r.model = model;
-                *r.references_of_mut(kind) = vec![asset_id("logo"); max];
-            });
-            assert_eq!(problems(&p), vec![], "{model:?} takes {max} {kind:?}");
-            let p = drawing(|r| {
-                r.model = model;
-                *r.references_of_mut(kind) = vec![asset_id("logo"); max + 1];
-            });
-            assert_only_problem(
-                &p,
-                I::TooManyReferenceImages {
-                    asset: asset_id("poster"),
-                    model: model.as_str(),
-                    field: kind.field(),
-                    found: max + 1,
-                    max,
-                },
-            );
-        }
     }
 }
 
 #[test]
 fn the_documented_limits_are_the_ones_answered() {
-    let limits = |model: ImageModel| ReferenceKind::ALL.map(|kind| model.references(kind));
-    assert_eq!(limits(ImageModel::NanoBanana21), [10, 4, 0]);
-    assert_eq!(limits(ImageModel::Flash), [10, 4, 0]);
-    assert_eq!(limits(ImageModel::Lite), [14, 0, 0]);
-    assert_eq!(limits(ImageModel::Pro), [6, 5, 3]);
-}
-
-#[test]
-fn a_thinking_level_the_model_does_not_offer_is_refused() {
-    let p = drawing(|r| {
-        r.model = ImageModel::Flash;
-        r.thinking = Some(ImageThinking::Medium);
-    });
-    assert_only_problem(
-        &p,
-        I::ThinkingUnsupported {
-            asset: asset_id("poster"),
-            model: "flash",
-            thinking: "medium",
-            offers: String::from("minimal or high"),
-        },
-    );
-    let p = drawing(|r| {
-        r.model = ImageModel::Pro;
-        r.thinking = Some(ImageThinking::High);
-    });
-    assert_only_problem(
-        &p,
-        I::ThinkingUnsupported {
-            asset: asset_id("poster"),
-            model: "pro",
-            thinking: "high",
-            offers: String::from("no level to choose"),
-        },
-    );
-    let p = drawing(|r| r.thinking = Some(ImageThinking::High));
-    assert_eq!(problems(&p), vec![]);
+    assert_eq!(ReferenceKind::ALL.map(ReferenceKind::max), [10, 4]);
 }
 
 #[test]
 fn every_kind_of_reference_must_name_a_picture() {
     let p = drawing(|r| {
-        r.model = ImageModel::Pro;
+        r.reference_images = vec![asset_id("score")];
         r.character_images = vec![asset_id("gone")];
-        r.style_images = vec![asset_id("score")];
     });
     let found = problems(&p);
     assert_eq!(found.len(), 2, "{found:?}");
@@ -152,9 +74,25 @@ fn every_kind_of_reference_must_name_a_picture() {
 #[test]
 fn each_kind_names_the_field_that_holds_it() {
     for kind in ReferenceKind::ALL {
-        let mut request = scorsese_core::ImageRequest::default();
+        let mut request = ImageRequest::default();
         request.references_of_mut(kind).push(asset_id("logo"));
         let written = serde_json::to_value(&request).expect("serialises");
         assert!(written.get(kind.field()).is_some(), "{kind:?}: {written}");
+    }
+}
+
+/// What only another model took is not in the format any more (#1308): a
+/// block naming a model, a style or the half-K size is refused as written.
+#[test]
+fn a_model_a_style_and_half_k_are_not_in_the_format() {
+    for block in [
+        r#"{ "model": "nano_banana_2.1" }"#,
+        r#"{ "style_images": ["logo"] }"#,
+        r#"{ "resolution": "0.5K" }"#,
+    ] {
+        assert!(
+            serde_json::from_str::<ImageRequest>(block).is_err(),
+            "{block} is refused"
+        );
     }
 }

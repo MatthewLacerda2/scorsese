@@ -127,6 +127,10 @@ pub(crate) const STEPS: &[Step] = &[
         from: 49,
         apply: shot_seeds_arrive,
     },
+    Step {
+        from: 50,
+        apply: stills::one_image_model,
+    },
 ];
 
 /// v33 → v34: the `group` asset kind (#586).

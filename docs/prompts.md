@@ -225,7 +225,7 @@ same one Lite and Fast keep, and is held for it too.
 
 A sentence that only describes its subject comes back **photoreal**. On
 2026-10-10 the same character was generated twice for `vectorize` (#1036,
-`nano_banana_2.1`, 2K, 1:1): *"A friendly young woman waving hello, full body,
+Nano Banana 2.1, 2K, 1:1): *"A friendly young woman waving hello, full body,
 standing, on a white background."* came back as a photograph — a real woman in
 a studio, soft shading, a shadow on the floor — where an illustration had been
 meant.
@@ -404,8 +404,9 @@ statement of what to leave out works where a list of banned words does not.
 placement stated: *the large bold words "…" in a serif font… No other text.*
 
 **Editing with a picture given** — the pictures in scorsese's `image` block:
-`reference_images` (objects), `character_images` (characters to keep looking
-like themselves) and `style_images` (a style to draw in, `pro` only):
+`reference_images` (objects, at most 10) and `character_images` (characters to
+keep looking like themselves, at most 4). There is no style reference — a style
+is described in words:
 
 - **Add, remove or change one thing**: *Using the provided image of
   [subject], [add/remove/modify] [element]. Make sure the change [fits how].*

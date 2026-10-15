@@ -1,4 +1,4 @@
-//! Gemini's image models, as one call: a prompt and pictures in, a picture out.
+//! Gemini's image model, as one call: a prompt and pictures in, a picture out.
 //!
 //! The whole of scorsese's dealings with Google's image API, through the
 //! **Interactions** endpoint, which is the one Google's image-generation page
@@ -35,35 +35,11 @@ const WAIT: Duration = Duration::from_secs(300);
 /// that and bounds a reply that is something else entirely.
 const MAX_REPLY_BYTES: u64 = 256 * 1024 * 1024;
 
-/// Which model draws a picture: the ids the API answers to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Model {
-    /// Gemini Nano Banana 2.1.
-    NanoBanana21,
-    /// Gemini 3.1 Flash Image.
-    Flash,
-    /// Gemini 3.1 Flash Lite Image.
-    Lite,
-    /// Gemini 3 Pro Image.
-    Pro,
-}
+/// The model every picture is drawn by, Nano Banana 2.1, as the API names it
+/// — the only one scorsese uses (#1308).
+pub const MODEL: &str = "gemini-nano-banana-2.1";
 
-impl Model {
-    /// Every model scorsese offers.
-    pub const ALL: [Self; 4] = [Self::NanoBanana21, Self::Flash, Self::Lite, Self::Pro];
-
-    /// The id the request names.
-    pub const fn id(self) -> &'static str {
-        match self {
-            Self::NanoBanana21 => "gemini-nano-banana-2.1",
-            Self::Flash => "gemini-3.1-flash-image",
-            Self::Lite => "gemini-3.1-flash-lite-image",
-            Self::Pro => "gemini-3-pro-image",
-        }
-    }
-}
-
-/// Gemini's image models, reachable.
+/// Gemini's image model, reachable.
 #[derive(Debug, Clone)]
 pub struct Gemini {
     caller: Caller,
@@ -84,14 +60,14 @@ impl Gemini {
         self
     }
 
-    /// What the API says about a model: its full name, and the methods it
+    /// What the API says about [`MODEL`]: its full name, and the methods it
     /// can be called with. Free — nothing is drawn.
     ///
     /// The same lookup as [`Veo::model`](crate::api::veo::Veo::model), and
     /// for the same reader: the live provider check ([`crate::live`]), which
-    /// confirms without paying for a picture that each id is still served.
-    pub fn model(&self, model: Model) -> Result<ModelInfo, HttpError> {
-        google::model(&self.caller, model.id())
+    /// confirms without paying for a picture that the id is still served.
+    pub fn model(&self) -> Result<ModelInfo, HttpError> {
+        google::model(&self.caller, MODEL)
     }
 
     /// Draws one picture. **This is the call that spends the money.**

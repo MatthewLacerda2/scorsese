@@ -50,8 +50,8 @@ make live-check ARGS="--include-veo --record /tmp/live"
 | --- | --- | --- |
 | Gemini (Veo) | `GET models/{id}` for each tier — `veo-3.1-generate-preview`, `…-fast-…` and `…-lite-…` — each listing `predictLongRunning` | free |
 | | with `--include-veo`: one shot — 4 s, Lite, 720p — submitted, polled, downloaded | $0.20 |
-| Gemini (stills) | `GET models/{id}` for every image model — `gemini-nano-banana-2.1`, `gemini-3.1-flash-image`, `gemini-3.1-flash-lite-image`, `gemini-3-pro-image` — each listing `generateContent` and `batchGenerateContent` | free |
-| | one 512x512 still — Flash Image, 0.5K, `1:1`, no references — through the product's own request | $0.05 |
+| Gemini (stills) | `GET models/gemini-nano-banana-2.1`, the one image model, listing `generateContent` and `batchGenerateContent` | free |
+| | one 1024x1024 still — Nano Banana 2.1, 1K, `1:1`, no references, the cheapest picture there is — through the product's own request | $0.04 |
 | ElevenLabs | `GET /v1/voices?category=premade` (also picks the voice to speak with) | free |
 | | text-to-speech of `Checking.` on the `fast` model, with its timestamps | $0.01 |
 | | Voice Design from a 100-character passage — three candidates, **none kept** | $0.01 |
@@ -66,11 +66,10 @@ was spent afterwards comes from the vendor's own token counts.
 
 The still settles what #461's client took from Google's page without a
 reply to check it against: the `interactions` endpoint and body, where the
-picture sits in the reply, and the `0.5K` size's spelling on the wire (`"512"`
-— the page writes "512px (05.K)" and never gives the value). A misspelt size
-is either refused, which costs nothing, or ignored and drawn at the 1K default;
-the check reads the JPEG's frame header, so a picture that is not 512x512 is reported
-as **shape changed** naming `image_size`.
+picture sits in the reply, and that the size and shape are taken. A size or
+shape the endpoint ignored is drawn at its own default and billed as asked; the
+check reads the JPEG's frame header, so a picture that is not 1024x1024 is
+reported as **shape changed** naming `image_size`.
 
 The Anthropic calls confirm the three things #540 could not: the stream's real
 events (every `fixtures/anthropic/*.sse` is hand-written), the

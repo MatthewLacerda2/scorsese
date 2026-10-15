@@ -13,6 +13,7 @@ mod lifecycle;
 mod mock;
 mod pricing;
 mod references;
+mod retired;
 mod says;
 
 use scorsese_core::{Asset, AssetId, AssetKind, Project};
