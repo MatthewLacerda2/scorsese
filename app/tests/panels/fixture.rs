@@ -189,8 +189,10 @@ pub(crate) fn unparseable(label: &str) -> Fixture {
 /// snapshot that cannot reproduce itself is not a reference. Each test uses a
 /// different label, so nothing collides inside one run of this binary.
 pub(crate) fn write(label: &str, document: &str) -> Fixture {
-    let dir = std::env::temp_dir().join(format!("scorsese-panels-{label}.scor"));
-    let _ = std::fs::remove_dir_all(&dir);
+    // The project's own name is fixed (it is in the picture); the folder it
+    // sits in is a scratch one of its own, removed with the test (#1164).
+    let dir =
+        crate::scratch::fresh("scorsese-panels", "").join(format!("scorsese-panels-{label}.scor"));
     for inside in ["assets", "generated", "recipes", "cache"] {
         std::fs::create_dir_all(dir.join(inside)).expect("create the project directory");
     }

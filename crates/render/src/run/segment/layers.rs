@@ -373,7 +373,7 @@ impl Pass<'_> {
                     });
                 }
                 let mut pixels = blank();
-                slug::paint(&mut pixels, shot.asset, absent);
+                slug::paint(&mut pixels, shot.asset, self.pages.absence(absent));
                 return held(pixels);
             }
         };

@@ -35,11 +35,7 @@ fn card() -> Project {
 
 /// A fresh directory for one test's project and file.
 fn directory(label: &str) -> std::path::PathBuf {
-    let root = std::env::temp_dir().join(format!(
-        "scorsese-app-render-{label}-{}",
-        std::process::id()
-    ));
-    let _ = std::fs::remove_dir_all(&root);
+    let root = crate::scratch::fresh(&format!("scorsese-app-render-{label}"), "");
     std::fs::create_dir_all(&root).expect("create the test directory");
     root
 }

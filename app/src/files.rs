@@ -5,7 +5,8 @@
 //! about what is in the pool or what state it is in.
 //!
 //! Grouped by what a thing *is*, because that is how someone looks for one:
-//! footage, sound, titles, and the things that do not exist yet.
+//! footage, sound, titles. A generated asset sits with what it is, whether or
+//! not it has been made yet (#1201).
 //!
 //! It is also where a clip comes from: an asset's name dragged onto a lane of
 //! the timeline places a clip of it there. Right-clicked, it asks to remove the
@@ -144,24 +145,34 @@ impl Files {
 ///
 /// By what a thing *is*, not by what state it is in: someone looking for the
 /// music knows it is sound, and does not know whether it has been generated.
+///
+/// That includes generated media (#1201): a narration line or a baked score is
+/// sound, a generated still or shot is a picture. A heading naming a state
+/// ("not made yet") told people that paid-for media did not exist, so there is
+/// none; an asset that really is not made (`sketch`, `queued`, `stale`) says so
+/// on its own row instead, in [`note`].
 const GROUPS: &[(&str, &[AssetKind])] = &[
     (
         "PICTURE",
-        &[AssetKind::Video, AssetKind::Image, AssetKind::ImageSequence],
-    ),
-    ("SOUND", &[AssetKind::Audio]),
-    (
-        "TITLES",
-        &[AssetKind::Text, AssetKind::Html, AssetKind::Color],
-    ),
-    (
-        "NOT MADE YET",
         &[
+            AssetKind::Video,
+            AssetKind::Image,
+            AssetKind::ImageSequence,
             AssetKind::GeneratedVideo,
             AssetKind::GeneratedImage,
+        ],
+    ),
+    (
+        "SOUND",
+        &[
+            AssetKind::Audio,
             AssetKind::GeneratedAudio,
             AssetKind::SynthAudio,
         ],
+    ),
+    (
+        "TITLES",
+        &[AssetKind::Text, AssetKind::Html, AssetKind::Color],
     ),
 ];
 
@@ -310,7 +321,7 @@ fn chip(ui: &mut Ui, kind: AssetKind) {
 /// The short right-hand note: what is worth knowing at a glance.
 fn note(project: &Project, status: &AssetStatus, warning: egui::Color32) -> RichText {
     let text = match &status.health {
-        AssetHealth::Awaiting(state) => format!("{state:?}").to_lowercase(),
+        AssetHealth::Awaiting(state) => format!("not made · {state:?}").to_lowercase(),
         AssetHealth::Missing => "file missing".to_owned(),
         AssetHealth::HashMismatch { .. } => "changed on disk".to_owned(),
         AssetHealth::Unreadable(_) => "unreadable".to_owned(),

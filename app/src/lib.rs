@@ -39,6 +39,7 @@ mod editing;
 mod files;
 mod generating;
 mod inspector;
+mod launch;
 mod preview;
 mod project;
 mod removing;
@@ -47,5 +48,11 @@ mod theme;
 mod timeline;
 mod ui;
 
+// Test scratch folders, removed when each test ends (#1164).
+#[cfg(test)]
+#[path = "../../tools/scratch.rs"]
+mod scratch;
+
+pub use launch::{Launch, launch};
 pub use preview::pages::fetch_on_first_use;
 pub use ui::Scorsese;

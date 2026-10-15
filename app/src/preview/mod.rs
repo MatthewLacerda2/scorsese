@@ -188,8 +188,14 @@ impl Preview {
         // picture of an instant the film does not contain. Showing the last
         // frame is what a person means by parking at the end.
         let at = editing.playhead.min(last);
-        self.picture
-            .show(ui, open, at, self.quality, self.pages.chrome());
+        self.picture.show(
+            ui,
+            open,
+            at,
+            self.quality,
+            self.pages.chrome(),
+            self.pages.running(),
+        );
         // Not while playing: the playhead has moved on before a capture of
         // this instant could land, and the whole page is on its way anyway.
         if self.picture.uncaptured() && self.playing.is_none() {

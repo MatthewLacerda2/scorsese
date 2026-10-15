@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use eframe::NativeOptions;
 
-use scorsese_app::Scorsese;
+use scorsese_app::{Launch, Scorsese};
 
 /// How big the window opens. Wide enough that a preview and a timeline both
 /// have room, small enough to fit a laptop.
@@ -22,9 +22,19 @@ const ICON: &[u8] = include_bytes!("../assets/icon.png");
 
 fn main() -> eframe::Result {
     // A path argument, so development does not mean clicking through a file
-    // dialog on every run. Not a documented flag: the shipped way in is the
-    // dialog, and this is a convenience for whoever is building the thing.
-    let opened = std::env::args().nth(1).map(std::path::PathBuf::from);
+    // dialog on every run; the usage `--help` prints says so (#1204). Anything
+    // else starting with a dash is refused rather than opened as a project.
+    let opened = match scorsese_app::launch(std::env::args().skip(1)) {
+        Launch::Window(opened) => opened,
+        Launch::Say(text) => {
+            println!("{text}");
+            return Ok(());
+        }
+        Launch::Refuse(text) => {
+            eprintln!("{text}");
+            std::process::exit(2);
+        }
+    };
     // An `html` clip downloads the page renderer the first time one is drawn
     // (#776), with how far it got said under the preview.
     scorsese_app::fetch_on_first_use();

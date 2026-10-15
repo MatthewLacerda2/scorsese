@@ -140,14 +140,13 @@ mod tests {
     /// exist yet; and a folder with no file in it is no choice.
     #[test]
     fn a_choice_survives_a_relaunch() {
-        let folder = std::env::temp_dir().join(format!("scorsese-choice-{}", std::process::id()));
+        let folder = crate::scratch::fresh("scorsese-choice", "");
         let file = folder.join("nested").join(FILE);
         assert_eq!(Choice::read(&file), Choice::SYSTEM);
         Choice::of(Theme::Light).write(&file);
         assert_eq!(Choice::read(&file), Choice::of(Theme::Light));
         Choice::of(Theme::Dark).write(&file);
         assert_eq!(Choice::read(&file), Choice::of(Theme::Dark));
-        let _ = std::fs::remove_dir_all(&folder);
     }
 
     /// The file sits beside `settings.json`, in whatever folder the one

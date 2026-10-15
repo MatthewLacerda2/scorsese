@@ -12,8 +12,11 @@
 //! and this key call one method between them, and the method is what the rest
 //! of the suite covers.
 
+// Test scratch folders, removed when each test ends (#1164).
 #[path = "../panels/fixture.rs"]
 mod fixture;
+#[path = "../../../tools/scratch.rs"]
+mod scratch;
 
 use egui::{Key, Modifiers};
 use egui_kittest::Harness;

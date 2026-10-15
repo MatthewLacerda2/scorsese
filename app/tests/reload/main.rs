@@ -5,8 +5,11 @@
 //! person watches — so these drive the real `draw`, with a real project on
 //! disk being rewritten underneath it, rather than calling the reload directly.
 
+// Test scratch folders, removed when each test ends (#1164).
 #[path = "../panels/fixture.rs"]
 mod fixture;
+#[path = "../../../tools/scratch.rs"]
+mod scratch;
 
 mod following;
 mod voices;

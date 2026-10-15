@@ -36,11 +36,9 @@ use std::sync::atomic::AtomicU64;
 use scorsese_core::words::Words;
 use scorsese_core::{AssetKind, Clip, ClipId, Fps, Project};
 
-use crate::Renderer;
 use crate::cancel::Cancel;
-use crate::error::RenderError;
 use crate::page::{self, Chrome, Request, Span, Wanted};
-use crate::plan::{FrameRange, Plan, Shot};
+use crate::plan::{Plan, Shot};
 use crate::progress::Progress;
 use crate::report::Note;
 use crate::settings::RenderSettings;
@@ -54,6 +52,9 @@ pub(super) struct Browser<'c> {
     pub(super) chrome: Option<&'c Chrome>,
     /// False for a renderer that only reads captures already made.
     pub(super) capturing: bool,
+    /// True when the captures a non-capturing renderer reads are being made
+    /// elsewhere right now (#1202).
+    pub(super) underway: bool,
 }
 
 /// How many frames a clip's stretch of its page is widened by, either side:
@@ -66,9 +67,22 @@ const SPARE: u64 = 2;
 pub(super) struct Pages {
     captured: HashMap<ClipId, (PathBuf, f64)>,
     holding: page::Holding,
+    /// Whether an absent capture is one on its way, for the card to say so.
+    underway: bool,
 }
 
 impl Pages {
+    /// The card a page without a capture stands on: capturing when its capture
+    /// is under way elsewhere, not captured otherwise.
+    pub(super) fn absence(&self, absent: crate::slug::Absent) -> crate::slug::Absent {
+        use crate::slug::Absent;
+        if self.underway && absent == Absent::Uncaptured {
+            Absent::Capturing
+        } else {
+            absent
+        }
+    }
+
     /// The file captured for this clip, if it is a page that was captured, and
     /// how many seconds into the page that file begins — what a seek into it
     /// takes off, since the file's own clock starts at zero.
@@ -89,13 +103,20 @@ impl Pages {
     /// frame and every one after it before it starts (#1088).
     pub(super) fn capture(
         (tools, progress, cancel): (&Tools, &Progress, &Cancel),
-        Browser { chrome, capturing }: Browser<'_>,
+        Browser {
+            chrome,
+            capturing,
+            underway,
+        }: Browser<'_>,
         settings: &RenderSettings,
         plan: &Plan<'_>,
         project_root: &Path,
     ) -> (Self, Vec<Note>) {
         let wanted = asked(settings, plan, project_root);
-        let mut pages = Self::default();
+        let mut pages = Self {
+            underway,
+            ..Self::default()
+        };
         let mut notes = Vec::new();
         if wanted.is_empty() {
             return (pages, notes);
@@ -182,36 +203,6 @@ impl Pages {
     }
 }
 
-impl Renderer<'_> {
-    /// Every page capture rendering `project` at these settings would need,
-    /// once each — what to hand [`crate::page::capture`] ahead of time. The
-    /// project's folder is where a narration's word timings are read from
-    /// (#811), so it has to be the one the render will be given.
-    pub fn page_requests(
-        &self,
-        project: &Project,
-        project_root: &Path,
-    ) -> Result<Vec<page::Request>, RenderError> {
-        let plan = Plan::build(project, self.settings.fps, FrameRange::ALL)?;
-        Ok(requests(&self.settings, &plan, project_root))
-    }
-
-    /// [`Renderer::page_requests`], with the stretch of each page a render
-    /// shows: what a caller capturing ahead of a render that does not capture
-    /// ([`Renderer::without_capturing`]) hands [`crate::page::capture_frames`],
-    /// so only the frames on screen are drawn (#809, #890). A clip's stretch is
-    /// the frames it shows over the whole timeline, a frame or two wider for
-    /// the decoder, whatever `range` the render is later given.
-    pub fn page_captures(
-        &self,
-        project: &Project,
-        project_root: &Path,
-    ) -> Result<Vec<page::Wanted>, RenderError> {
-        let plan = Plan::build(project, self.settings.fps, FrameRange::ALL)?;
-        Ok(wanted(&self.settings, &plan, project_root))
-    }
-}
-
 /// Which of its page's frames each page clip on the plan's own tracks shows, at
 /// `fps`, over every segment it is in — [`SPARE`] wider either side. A clip
 /// only inside a group or a matte has none, and is captured whole.
@@ -273,7 +264,11 @@ fn asked<'p, 'a>(
 
 /// What capturing only the frames `plan` shows would ask for, once each — the
 /// captures a render that does not capture itself reads ([`Pages::capture`]).
-fn wanted(settings: &RenderSettings, plan: &Plan<'_>, project_root: &Path) -> Vec<Wanted> {
+pub(super) fn wanted(
+    settings: &RenderSettings,
+    plan: &Plan<'_>,
+    project_root: &Path,
+) -> Vec<Wanted> {
     let mut wanted: Vec<Wanted> = Vec::new();
     for (_, one) in asked(settings, plan, project_root) {
         if !wanted.contains(&one) {
@@ -284,7 +279,11 @@ fn wanted(settings: &RenderSettings, plan: &Plan<'_>, project_root: &Path) -> Ve
 }
 
 /// What capturing every page `plan` shows would ask for, once each.
-fn requests(settings: &RenderSettings, plan: &Plan<'_>, project_root: &Path) -> Vec<Request> {
+pub(super) fn requests(
+    settings: &RenderSettings,
+    plan: &Plan<'_>,
+    project_root: &Path,
+) -> Vec<Request> {
     let mut requests: Vec<Request> = Vec::new();
     for shot in shots(plan) {
         if let Some(request) = request_for(shot, settings, plan, project_root)
