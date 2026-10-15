@@ -2,13 +2,14 @@
 //! whole pipeline and its workers.
 
 use scorsese_core::{
-    Asset, AssetId, Counter, Easing, Fps, Frames, Keyframe, KeyframeTrack, PropertyPath, Rgba,
-    TextStyle,
+    Asset, AssetId, Clip, Counter, Easing, Fps, Frames, Keyframe, KeyframeTrack, PropertyPath,
+    Rgba, TextStyle,
 };
 use scorsese_render::{Frame, FrameRange, Renderer};
 
-use crate::common::ffmpeg::{fixture_dir, mean_rgb, tools};
-use crate::common::{clip, project, video_track};
+use crate::common::ffmpeg::{mean_rgb, tools};
+use crate::common::scratch;
+use crate::common::{project, video_track};
 use crate::{render, settings};
 
 fn caption(content: &str, number: Option<Counter>) -> Asset {
@@ -47,8 +48,8 @@ fn lit(frame: &Frame) -> u64 {
 #[test]
 fn a_revealing_caption_is_set_again_for_every_frame() {
     let tools = tools();
-    let dir = fixture_dir("typing-reveal");
-    let mut revealing = clip("c1", "caption", 0, 20);
+    let dir = scratch::dir("typing-reveal");
+    let mut revealing = Clip::at("c1", "caption", 0, 20);
     revealing.keyframes.push(ramp("reveal", 1.0));
     let project = project(
         vec![caption("Ship it now", None)],
@@ -82,8 +83,8 @@ fn a_revealing_caption_is_set_again_for_every_frame() {
 #[test]
 fn a_counting_figure_changes_between_frames() {
     let tools = tools();
-    let dir = fixture_dir("typing-count");
-    let mut counting = clip("c1", "caption", 0, 20);
+    let dir = scratch::dir("typing-count");
+    let mut counting = Clip::at("c1", "caption", 0, 20);
     counting.keyframes.push(ramp("number", 1000.0));
     let project = project(
         vec![caption("{n}", Some(Counter::default()))],

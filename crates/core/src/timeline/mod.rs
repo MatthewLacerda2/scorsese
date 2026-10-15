@@ -141,6 +141,15 @@ impl Track {
             clips: Vec::new(),
         }
     }
+
+    /// An unnamed track holding `clips`, as they are given: the short way to
+    /// write one down whole, as tests do.
+    pub fn with_clips(id: impl Into<String>, kind: TrackKind, clips: Vec<Clip>) -> Self {
+        Self {
+            clips,
+            ..Self::new(TrackId::new(id), kind)
+        }
+    }
 }
 
 /// One placement of an asset on a track.
@@ -436,6 +445,17 @@ impl Clip {
             note: None,
             follow: None,
         }
+    }
+
+    /// [`Clip::new`] from plain ids and frame counts: the short way to write
+    /// one down, as tests do.
+    pub fn at(id: impl Into<String>, asset: impl Into<String>, start: u64, duration: u64) -> Self {
+        Self::new(
+            ClipId::new(id),
+            AssetId::new(asset),
+            Frames(start),
+            Frames(duration),
+        )
     }
 
     /// The frame just past this clip's last one — so a clip at frame 0 running

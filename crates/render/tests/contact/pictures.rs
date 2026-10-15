@@ -2,7 +2,8 @@
 
 use scorsese_render::contact;
 
-use crate::common::ffmpeg::{fixture_dir, generate, tools};
+use crate::common::ffmpeg::{generate, tools};
+use crate::common::scratch;
 
 /// A `size` JPEG of one colour.
 fn picture(
@@ -26,7 +27,7 @@ fn picture(
 /// than cropped, in the order given.
 #[test]
 fn pictures_of_mixed_shapes_tile_letterboxed_in_order() {
-    let dir = fixture_dir("contact-pictures");
+    let dir = scratch::dir("contact-pictures");
     let tools = tools();
     let wide = picture(&tools, &dir, "wide", "red", "160x90");
     let tall = picture(&tools, &dir, "tall", "blue", "90x160");

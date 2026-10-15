@@ -5,11 +5,11 @@
 //! one would meet a box that has since moved.
 
 use scorsese_core::{
-    Asset, AssetId, Easing, Geometry, Keyframe, KeyframeTrack, Origin, OriginX, Project,
+    Asset, AssetId, Clip, Easing, Geometry, Keyframe, KeyframeTrack, Origin, OriginX, Project,
     PropertyPath, Rgba, Shape,
 };
 
-use super::common::{clip, project, video_track};
+use super::common::{project, video_track};
 use super::{region, rounded};
 
 /// A half-width, quarter-height box, centred, doubled in width by a keyframe —
@@ -28,7 +28,10 @@ fn doubled(origin: Origin) -> Project {
                 Rgba::WHITE,
             ),
         )],
-        vec![video_track("diagram", vec![clip("box", "panel", 0, 30)])],
+        vec![video_track(
+            "diagram",
+            vec![Clip::at("box", "panel", 0, 30)],
+        )],
     );
     project.tracks[0].clips[0].origin = origin;
     project.tracks[0].clips[0].keyframes = vec![KeyframeTrack::new(

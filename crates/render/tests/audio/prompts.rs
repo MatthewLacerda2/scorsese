@@ -5,13 +5,14 @@
 //! preview of such a cut would be a black screen and a shrug. So the sound is
 //! silence and the prompt is on the picture, for the frames its clip covers.
 
-use scorsese_core::{AssetKind, GenerationState};
+use scorsese_core::{AssetKind, Clip, GenerationState};
 use scorsese_render::{Note, StandIn};
 
 use crate::common::audio::{RATE, assert_silent, has_soundtrack, level, soundtrack};
-use crate::common::ffmpeg::{fixture_dir, generate, mean_rgb, tools};
+use crate::common::ffmpeg::{generate, mean_rgb, tools};
 use crate::common::prompts::in_state;
-use crate::common::{audio_track, clip, narration_asset, project, video_track};
+use crate::common::scratch;
+use crate::common::{audio_track, narration_asset, project, video_track};
 use crate::{picture, render};
 
 /// A tone written where a generated narration would have landed.
@@ -31,12 +32,12 @@ fn generated_tone(tools: &scorsese_render::Tools, root: &std::path::Path, id: &s
 #[test]
 fn a_narration_sketch_is_silence_in_the_mix_and_a_card_on_the_picture() {
     let tools = tools();
-    let dir = fixture_dir("narration-sketch");
+    let dir = scratch::dir("narration-sketch");
     let with_narration = project(
         vec![picture(&tools, &dir, 2), narration_asset("vo")],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 60)]),
-            audio_track("a1", vec![clip("vo1", "vo", 0, 60)]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 60)]),
+            audio_track("a1", vec![Clip::at("vo1", "vo", 0, 60)]),
         ],
     );
 
@@ -65,10 +66,10 @@ fn a_narration_sketch_is_silence_in_the_mix_and_a_card_on_the_picture() {
 #[test]
 fn the_same_cut_without_a_narration_clip_shows_nothing() {
     let tools = tools();
-    let dir = fixture_dir("narration-none");
+    let dir = scratch::dir("narration-none");
     let bare = project(
         vec![picture(&tools, &dir, 2)],
-        vec![video_track("v1", vec![clip("c1", "picture", 0, 60)])],
+        vec![video_track("v1", vec![Clip::at("c1", "picture", 0, 60)])],
     );
 
     let (out, _) = render(&tools, &bare, &dir);
@@ -86,7 +87,7 @@ fn the_same_cut_without_a_narration_clip_shows_nothing() {
 #[test]
 fn a_generated_narration_is_heard_and_leaves_the_picture_alone() {
     let tools = tools();
-    let dir = fixture_dir("narration-generated");
+    let dir = scratch::dir("narration-generated");
     generated_tone(&tools, &dir, "vo");
     let project = project(
         vec![
@@ -94,8 +95,8 @@ fn a_generated_narration_is_heard_and_leaves_the_picture_alone() {
             in_state("vo", AssetKind::GeneratedAudio, GenerationState::Generated),
         ],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 60)]),
-            audio_track("a1", vec![clip("vo1", "vo", 0, 60)]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 60)]),
+            audio_track("a1", vec![Clip::at("vo1", "vo", 0, 60)]),
         ],
     );
 
@@ -120,15 +121,15 @@ fn a_generated_narration_is_heard_and_leaves_the_picture_alone() {
 #[test]
 fn a_generated_narration_that_is_gone_is_silence_and_says_so() {
     let tools = tools();
-    let dir = fixture_dir("narration-gone");
+    let dir = scratch::dir("narration-gone");
     let project = project(
         vec![
             picture(&tools, &dir, 2),
             in_state("vo", AssetKind::GeneratedAudio, GenerationState::Generated),
         ],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 60)]),
-            audio_track("a1", vec![clip("vo1", "vo", 0, 60)]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 60)]),
+            audio_track("a1", vec![Clip::at("vo1", "vo", 0, 60)]),
         ],
     );
 

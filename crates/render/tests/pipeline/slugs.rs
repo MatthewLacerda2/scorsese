@@ -7,14 +7,15 @@
 
 use std::path::PathBuf;
 
-use scorsese_core::{AssetKind, Fps, GenerationState, Project};
+use scorsese_core::{AssetKind, Clip, Fps, GenerationState, Project};
 use scorsese_render::{
     FrameRange, Note, RenderReport, RenderSettings, Renderer, Resolution, StandIn, Tools,
 };
 
-use crate::common::ffmpeg::{fixture_dir, generate, inspect, mean_rgb, tools};
+use crate::common::ffmpeg::{generate, inspect, mean_rgb, tools};
 use crate::common::prompts::in_state;
-use crate::common::{clip, project, sketch_asset, stale_asset, video_track};
+use crate::common::scratch;
+use crate::common::{project, sketch_asset, stale_asset, video_track};
 
 /// Big enough for a card's text to be more than one pixel of ink.
 const RASTER: (u32, u32) = (256, 144);
@@ -42,10 +43,10 @@ fn assert_gray_card(found: (u8, u8, u8), what: &str) {
 #[test]
 fn a_sketch_renders_as_a_card_with_no_decoder_and_no_provider() {
     let tools = tools();
-    let dir = fixture_dir("sketch");
+    let dir = scratch::dir("sketch");
     let project = project(
         vec![sketch_asset("veo1")],
-        vec![video_track("v1", vec![clip("c1", "veo1", 0, 20)])],
+        vec![video_track("v1", vec![Clip::at("c1", "veo1", 0, 20)])],
     );
 
     let (out, report) = render_at(&tools, &project, &dir);
@@ -63,7 +64,7 @@ fn a_sketch_renders_as_a_card_with_no_decoder_and_no_provider() {
 #[test]
 fn a_stale_prompt_renders_its_card_and_not_the_media_it_still_has() {
     let tools = tools();
-    let dir = fixture_dir("stale");
+    let dir = scratch::dir("stale");
     generate(
         &tools,
         &dir.join("generated/veo1.mp4"),
@@ -78,7 +79,7 @@ fn a_stale_prompt_renders_its_card_and_not_the_media_it_still_has() {
     );
     let project = project(
         vec![stale_asset("veo1")],
-        vec![video_track("v1", vec![clip("c1", "veo1", 0, 20)])],
+        vec![video_track("v1", vec![Clip::at("c1", "veo1", 0, 20)])],
     );
 
     let (out, report) = render_at(&tools, &project, &dir);
@@ -95,14 +96,14 @@ fn a_stale_prompt_renders_its_card_and_not_the_media_it_still_has() {
 #[test]
 fn a_generated_file_that_is_gone_falls_back_to_a_card_and_says_so() {
     let tools = tools();
-    let dir = fixture_dir("gone");
+    let dir = scratch::dir("gone");
     let project = project(
         vec![in_state(
             "veo1",
             AssetKind::GeneratedVideo,
             GenerationState::Generated,
         )],
-        vec![video_track("v1", vec![clip("c1", "veo1", 0, 20)])],
+        vec![video_track("v1", vec![Clip::at("c1", "veo1", 0, 20)])],
     );
 
     let (out, report) = render_at(&tools, &project, &dir);
@@ -130,10 +131,10 @@ fn a_generated_file_that_is_gone_falls_back_to_a_card_and_says_so() {
 #[test]
 fn the_prompt_is_what_is_on_the_card() {
     let tools = tools();
-    let (dir, wordy_dir) = (fixture_dir("prompt-ink"), fixture_dir("prompt-ink-long"));
+    let (dir, wordy_dir) = (scratch::dir("prompt-ink"), scratch::dir("prompt-ink-long"));
     let blank = project(
         vec![sketch_asset("veo1")],
-        vec![video_track("v1", vec![clip("c1", "veo1", 0, 6)])],
+        vec![video_track("v1", vec![Clip::at("c1", "veo1", 0, 6)])],
     );
     let mut wordy = blank.clone();
     wordy.assets[0].prompt = Some("WWWW ".repeat(80));

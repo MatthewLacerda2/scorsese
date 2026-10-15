@@ -185,13 +185,6 @@ pub(crate) fn new_project(label: &str) -> PathBuf {
     dir
 }
 
-/// An empty temporary directory, unique per call.
-pub(crate) fn temp_dir(label: &str) -> PathBuf {
-    let dir = scratch(label);
-    std::fs::create_dir_all(&dir).expect("create the temporary directory");
-    dir
-}
-
 /// A path in the temporary area that nothing has created yet.
 /// Removed when the test ends.
 pub(crate) fn scratch(label: &str) -> PathBuf {

@@ -15,11 +15,12 @@ mod font;
 mod paths;
 mod reveal;
 
-use scorsese_core::{Asset, AssetId, AssetKind, Fps, Frames, ProjectPath};
+use scorsese_core::{Asset, AssetId, AssetKind, Clip, Fps, Frames, ProjectPath};
 use scorsese_render::{Frame, RenderSettings, Renderer, Resolution};
 
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{clip, project, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{project, video_track};
 
 /// Draws a page whose `<script>` is `checks` (with the kit loaded) and asserts
 /// that nothing it ran threw and that it reached its end.
@@ -58,7 +59,7 @@ fn drawn(label: &str, page: &str, (width, height): (u32, u32), frame: u64) -> Fr
             Fps::THIRTY,
         ),
     );
-    let dir = fixture_dir(label);
+    let dir = scratch::dir(label);
     std::fs::create_dir_all(dir.join("pages")).expect("pages/");
     std::fs::write(dir.join("pages/checks.html"), page).expect("the page");
     let asset = Asset::imported(
@@ -68,7 +69,7 @@ fn drawn(label: &str, page: &str, (width, height): (u32, u32), frame: u64) -> Fr
     );
     let project = project(
         vec![asset],
-        vec![video_track("v1", vec![clip("c1", "checks", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "checks", 0, 30)])],
     );
     let (drawn, notes) = renderer
         .still_noted(&project, &dir, Frames(frame))

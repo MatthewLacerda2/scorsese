@@ -1,10 +1,10 @@
 //! Several video tracks at once: where the timeline gets cut, and what is
 //! visible through each piece.
 
-use scorsese_core::Fps;
+use scorsese_core::{Clip, Fps};
 use scorsese_render::{FrameRange, Plan};
 
-use crate::common::{clip, project, shape, video_track};
+use crate::common::{project, shape, video_track};
 use crate::{overlaid, two_videos};
 
 #[test]
@@ -12,8 +12,8 @@ fn tracks_stack_bottom_first_in_project_order() {
     let project = project(
         two_videos(),
         vec![
-            video_track("v1", vec![clip("bed", "under", 0, 30)]),
-            video_track("v2", vec![clip("top", "over", 0, 30)]),
+            video_track("v1", vec![Clip::at("bed", "under", 0, 30)]),
+            video_track("v2", vec![Clip::at("top", "over", 0, 30)]),
         ],
     );
     let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
@@ -51,10 +51,13 @@ fn a_hole_in_the_upper_track_leaves_the_lower_one_showing() {
     let project = project(
         two_videos(),
         vec![
-            video_track("v1", vec![clip("bed", "under", 0, 60)]),
+            video_track("v1", vec![Clip::at("bed", "under", 0, 60)]),
             video_track(
                 "v2",
-                vec![clip("first", "over", 0, 20), clip("second", "over", 40, 20)],
+                vec![
+                    Clip::at("first", "over", 0, 20),
+                    Clip::at("second", "over", 40, 20),
+                ],
             ),
         ],
     );
@@ -76,8 +79,8 @@ fn a_stretch_with_nothing_on_any_track_is_still_a_gap() {
     let project = project(
         two_videos(),
         vec![
-            video_track("v1", vec![clip("bed", "under", 0, 20)]),
-            video_track("v2", vec![clip("top", "over", 40, 20)]),
+            video_track("v1", vec![Clip::at("bed", "under", 0, 20)]),
+            video_track("v2", vec![Clip::at("top", "over", 40, 20)]),
         ],
     );
     let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");

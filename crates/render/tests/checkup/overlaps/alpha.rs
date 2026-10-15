@@ -6,7 +6,7 @@ use scorsese_core::{Asset, AssetKind, MediaMetadata, Project};
 
 use super::collisions_in;
 use super::pages::stacked;
-use crate::common::ffmpeg::fixture_dir;
+use crate::common::scratch;
 use crate::common::{extension, file_asset};
 
 /// A 1920x1080 source of `kind` whose probe answered `has_alpha` with `alpha`,
@@ -26,7 +26,7 @@ fn probed(kind: AssetKind, alpha: Option<bool>) -> Asset {
 /// A project folder holding the source's file, which is all placing it asks
 /// of the disk: its size is the one the document records.
 fn on_disk(kind: AssetKind) -> PathBuf {
-    let dir = fixture_dir("alpha-overlap");
+    let dir = scratch::dir("alpha-overlap");
     let file = dir.join(format!("assets/layer.{}", extension(kind)));
     std::fs::create_dir_all(dir.join("assets")).expect("create assets");
     std::fs::write(file, b"").expect("write source");

@@ -1,16 +1,16 @@
 //! Asking for an instant in either unit, and getting the same frame back.
 
-use scorsese_core::{AssetKind, Fps, Frames};
+use scorsese_core::{AssetKind, Clip, Fps, Frames};
 use scorsese_render::{Cue, FrameRange};
 
-use crate::common::{clip, file_asset, project, video_track};
+use crate::common::{file_asset, project, video_track};
 use crate::{described, described_over};
 
 /// Three seconds of one shot on a 30 fps grid.
 fn shot() -> scorsese_core::Project {
     project(
         vec![file_asset("one", AssetKind::Video)],
-        vec![video_track("v1", vec![clip("c1", "one", 0, 90)])],
+        vec![video_track("v1", vec![Clip::at("c1", "one", 0, 90)])],
     )
 }
 

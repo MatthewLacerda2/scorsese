@@ -4,9 +4,9 @@
 //! reader has. A fade that runs backwards, or lands half a second late, is
 //! still a fade — so direction and timing are what these pin down.
 
-use scorsese_core::{AssetKind, Easing, Frames};
+use scorsese_core::{AssetKind, Clip, Easing, Frames};
 
-use crate::common::{clip, file_asset, project, video_track};
+use crate::common::{file_asset, project, video_track};
 use crate::{animated, described, ramp};
 
 /// One two-second shot with `tracks` animated over it.
@@ -15,7 +15,7 @@ fn shot(tracks: Vec<scorsese_core::KeyframeTrack>) -> scorsese_core::Project {
         vec![file_asset("one", AssetKind::Video)],
         vec![video_track(
             "v1",
-            vec![animated(clip("c1", "one", 0, 60), tracks)],
+            vec![animated(Clip::at("c1", "one", 0, 60), tracks)],
         )],
     )
 }
@@ -101,11 +101,11 @@ fn a_ramp_crossing_a_boundary_is_clipped_to_each_stretch() {
             video_track(
                 "v1",
                 vec![animated(
-                    clip("c1", "one", 0, 60),
+                    Clip::at("c1", "one", 0, 60),
                     vec![ramp("opacity", [(0, 0.0), (60, 1.0)], Easing::Linear)],
                 )],
             ),
-            video_track("v2", vec![clip("c2", "two", 30, 30)]),
+            video_track("v2", vec![Clip::at("c2", "two", 30, 30)]),
         ],
     );
 

@@ -17,11 +17,12 @@
 
 use std::path::Path;
 
-use scorsese_core::{Fps, Grade, Project};
+use scorsese_core::{Clip, Fps, Grade, Project};
 use scorsese_render::{Frame, FrameRange, Resolution, frames};
 
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{clip, project, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{project, video_track};
 use crate::{RASTER, colour_asset, render};
 
 /// Far more grain than anybody would author, so that what survives the encoder
@@ -32,7 +33,7 @@ const AMOUNT: f64 = 0.5;
 /// weighted toward the midtones, so this is where there is most of it.
 fn grained(dir: &Path, amount: f64) -> Project {
     let plate = colour_asset(&tools(), dir, "gray", "64x64", 1);
-    let mut shot = clip("c-plate", "gray", 0, 30);
+    let mut shot = Clip::at("c-plate", "gray", 0, 30);
     shot.grade = Grade {
         grain: amount,
         ..Grade::NEUTRAL
@@ -63,7 +64,7 @@ fn the_same_project_renders_the_same_grain_twice() {
     // generator: nothing is seeded from a clock, an address, or the order the
     // workers happened to take their jobs in.
     let tools = tools();
-    let (first, second) = (fixture_dir("grain-once"), fixture_dir("grain-again"));
+    let (first, second) = (scratch::dir("grain-once"), scratch::dir("grain-again"));
     let one = render(
         &tools,
         &grained(&first, AMOUNT),
@@ -98,7 +99,7 @@ fn the_grain_moves_from_one_frame_to_the_next() {
     // two frames is the grain having moved. Static grain reads as dirt on the
     // lens rather than as film, and is what a frame index that never reached
     // the grade would produce.
-    let dir = fixture_dir("grain-moves");
+    let dir = scratch::dir("grain-moves");
     let out = render(
         &tools(),
         &grained(&dir, AMOUNT),
@@ -119,7 +120,7 @@ fn the_grain_moves_from_one_frame_to_the_next() {
 #[test]
 fn a_partial_render_puts_the_same_grain_on_the_same_timeline_frame() {
     let tools = tools();
-    let (whole, part) = (fixture_dir("grain-whole"), fixture_dir("grain-part"));
+    let (whole, part) = (scratch::dir("grain-whole"), scratch::dir("grain-part"));
     let all = render(
         &tools,
         &grained(&whole, AMOUNT),
@@ -154,7 +155,7 @@ fn a_clip_with_no_grain_renders_the_picture_it_always_did() {
     // The other half of the format claim, and what lets every reference frame
     // in the golden set keep meaning what it meant: a project that says nothing
     // about grain is untouched by the feature.
-    let dir = fixture_dir("grain-none");
+    let dir = scratch::dir("grain-none");
     let out = render(
         &tools(),
         &grained(&dir, 0.0),

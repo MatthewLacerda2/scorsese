@@ -10,6 +10,8 @@
 //! - [`crate_docs`] — each crate's module doc names its public modules.
 //! - [`ignored`] — what you push is what CI builds: no code file `.gitignore`
 //!   would leave out of a commit.
+//! - [`schema`] — a Rust test document at this build's version interpolates
+//!   `SCHEMA_VERSION` rather than writing the number.
 //!
 //! **Exceptions are inline, with a written reason** ([`allow`]): a comment
 //! `lint: allow(<rule>) <why>` on the line a rule flags or in the comments
@@ -20,6 +22,7 @@ pub mod crate_docs;
 pub mod ignored;
 pub mod markers;
 pub mod prefix;
+pub mod schema;
 pub mod skips;
 
 use std::fmt;
@@ -63,7 +66,14 @@ pub fn check_tree(root: &Path) -> io::Result<Vec<Finding>> {
     let mut findings = prefix::check(texts.iter().map(|(file, text)| (&file.path, text.as_str())));
     let paths: Vec<&Path> = files.iter().map(|file| file.path.as_path()).collect();
     findings.extend(ignored::check(root, &paths));
+    let current = texts
+        .iter()
+        .find(|(file, _)| file.path == Path::new(schema::DEFINED_IN))
+        .and_then(|(_, text)| schema::defined_version(text));
     for (file, text) in &texts {
+        if let Some(current) = current {
+            findings.extend(schema::check(&file.path, text, current));
+        }
         findings.extend(markers::check(&file.path, text));
         findings.extend(skips::check(&file.path, text));
         findings.extend(crate_docs::check(&file.path, text));

@@ -1,10 +1,11 @@
 //! How sources that are not simply "video of the right shape" are handled.
 
-use scorsese_core::{AssetKind, Fps};
+use scorsese_core::{AssetKind, Clip, Fps};
 use scorsese_render::FrameRange;
 
-use crate::common::ffmpeg::{fixture_dir, generate_asset, inspect, mean_rgb, tools};
-use crate::common::{clip, project, video_track};
+use crate::common::ffmpeg::{generate_asset, inspect, mean_rgb, tools};
+use crate::common::scratch;
+use crate::common::{project, video_track};
 use crate::{BLUE, assert_colour, colour_asset, colour_filter, render};
 
 #[test]
@@ -13,11 +14,11 @@ fn a_source_of_another_shape_is_letterboxed_not_stretched() {
     // the sides, so half the width is the source's colour and half is black —
     // an average of about 127. Stretching it would make the whole frame red.
     let tools = tools();
-    let dir = fixture_dir("letterbox");
+    let dir = scratch::dir("letterbox");
     let tall = colour_asset(&tools, &dir, "red", "32x64", 1);
     let project = project(
         vec![tall],
-        vec![video_track("v1", vec![clip("c1", "red", 0, 15)])],
+        vec![video_track("v1", vec![Clip::at("c1", "red", 0, 15)])],
     );
 
     let (out, _) = render(&tools, &project, &dir, FrameRange::ALL, Fps::THIRTY);
@@ -35,7 +36,7 @@ fn a_still_image_is_held_for_the_clips_length() {
     // A still has no timeline of its own, so how long it is on screen is the
     // clip's business: one frame of source fills as many frames as asked for.
     let tools = tools();
-    let dir = fixture_dir("still");
+    let dir = scratch::dir("still");
     let logo = generate_asset(
         &tools,
         &dir,
@@ -52,7 +53,7 @@ fn a_still_image_is_held_for_the_clips_length() {
     );
     let project = project(
         vec![logo],
-        vec![video_track("v1", vec![clip("c1", "logo", 0, 45)])],
+        vec![video_track("v1", vec![Clip::at("c1", "logo", 0, 45)])],
     );
 
     let (out, report) = render(&tools, &project, &dir, FrameRange::ALL, Fps::THIRTY);
@@ -72,7 +73,7 @@ fn a_source_shot_at_another_rate_is_conformed_onto_the_timeline_grid() {
     // 24 fps source, 30 fps timeline: the clip's length is decided by the
     // timeline, and the source's own rate has nothing to say about it.
     let tools = tools();
-    let dir = fixture_dir("source-rate");
+    let dir = scratch::dir("source-rate");
     let slow = generate_asset(
         &tools,
         &dir,
@@ -89,7 +90,7 @@ fn a_source_shot_at_another_rate_is_conformed_onto_the_timeline_grid() {
     );
     let project = project(
         vec![slow],
-        vec![video_track("v1", vec![clip("c1", "green", 0, 45)])],
+        vec![video_track("v1", vec![Clip::at("c1", "green", 0, 45)])],
     );
 
     let (out, report) = render(&tools, &project, &dir, FrameRange::ALL, Fps::THIRTY);

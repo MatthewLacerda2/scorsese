@@ -1,11 +1,11 @@
 //! The rectangles that can be answered for, and what moves them.
 
 use scorsese_core::{
-    Anchor, AnchorY, Asset, AssetId, Easing, Geometry, Keyframe, KeyframeTrack, Project,
+    Anchor, AnchorY, Asset, AssetId, Clip, Easing, Geometry, Keyframe, KeyframeTrack, Project,
     PropertyPath, Rgba, Shape,
 };
 
-use super::common::{clip, project, text_asset, video_track};
+use super::common::{project, text_asset, video_track};
 use super::{layout, region, rounded};
 
 /// A half-width, quarter-height box, which centred is a rectangle anyone can
@@ -23,7 +23,10 @@ fn boxed() -> Project {
                 Rgba::WHITE,
             ),
         )],
-        vec![video_track("diagram", vec![clip("box", "panel", 0, 30)])],
+        vec![video_track(
+            "diagram",
+            vec![Clip::at("box", "panel", 0, 30)],
+        )],
     )
 }
 
@@ -87,16 +90,17 @@ fn a_scale_keyframe_grows_the_rectangle_about_its_own_centre() {
 fn a_colour_covers_the_whole_frame() {
     let project = project(
         vec![Asset::color(AssetId::new("wash"), Rgba::WHITE)],
-        vec![video_track("bg", vec![clip("plate", "wash", 0, 30)])],
+        vec![video_track("bg", vec![Clip::at("plate", "wash", 0, 30)])],
     );
     assert_eq!(rounded(region(&project, 0, "plate")), (0.0, 0.0, 1.0, 1.0));
 }
 
 #[test]
 fn a_video_sketch_has_the_rectangle_its_card_draws() {
+    let open = Clip::at("open", "shot", 0, 30);
     let project = project(
         vec![super::common::sketch_asset("shot")],
-        vec![video_track("picture", vec![clip("open", "shot", 0, 30)])],
+        vec![video_track("picture", vec![open])],
     );
     assert_eq!(rounded(region(&project, 0, "open")), (0.0, 0.0, 1.0, 1.0));
 }
@@ -106,8 +110,8 @@ fn a_narration_sketch_is_the_band_it_draws_across_the_foot() {
     let project = project(
         vec![text_asset("words"), super::common::narration_asset("vo")],
         vec![
-            video_track("titles", vec![clip("card", "words", 0, 30)]),
-            super::common::audio_track("narration", vec![clip("line", "vo", 0, 30)]),
+            video_track("titles", vec![Clip::at("card", "words", 0, 30)]),
+            super::common::audio_track("narration", vec![Clip::at("line", "vo", 0, 30)]),
         ],
     );
     assert_eq!(rounded(region(&project, 0, "line")), (0.0, 0.7, 1.0, 0.3));
@@ -117,7 +121,10 @@ fn a_narration_sketch_is_the_band_it_draws_across_the_foot() {
 fn a_title_is_the_wrapped_block_and_not_the_frame_it_is_set_on() {
     let project = project(
         vec![text_asset("words")],
-        vec![video_track("titles", vec![clip("card", "words", 0, 30)])],
+        vec![video_track(
+            "titles",
+            vec![Clip::at("card", "words", 0, 30)],
+        )],
     );
     let block = region(&project, 0, "card");
     assert!(
@@ -137,7 +144,7 @@ fn the_layers_come_back_bottom_first_the_way_they_are_drawn() {
         .push(Asset::color(AssetId::new("wash"), Rgba::opaque(0, 0, 0)));
     project
         .tracks
-        .insert(0, video_track("bg", vec![clip("plate", "wash", 0, 30)]));
+        .insert(0, video_track("bg", vec![Clip::at("plate", "wash", 0, 30)]));
     let placed = layout(&project, 0).placed;
     let order: Vec<&str> = placed
         .iter()

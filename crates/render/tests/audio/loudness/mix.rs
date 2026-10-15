@@ -1,24 +1,26 @@
 //! The delivered soundtrack's own level.
 
 use crate::common::audio::tone_asset;
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{audio_track, clip, project, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{audio_track, project, video_track};
 use crate::{picture, render};
+use scorsese_core::Clip;
 
 use super::{SLACK, sine_mean_dbfs};
 
 #[test]
 fn a_tone_of_known_amplitude_is_reported_where_it_should_be() {
     let tools = tools();
-    let dir = fixture_dir("loudness-known");
+    let dir = scratch::dir("loudness-known");
     // Half scale: far enough from both the rail and the noise floor that
     // neither could account for the answer.
     let beep = tone_asset(&tools, &dir, "beep", 440, 2.0, 0.5, "");
     let project = project(
         vec![picture(&tools, &dir, 2), beep],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 60)]),
-            audio_track("a1", vec![clip("m1", "beep", 0, 60)]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 60)]),
+            audio_track("a1", vec![Clip::at("m1", "beep", 0, 60)]),
         ],
     );
 
@@ -52,13 +54,13 @@ fn a_quieter_mix_reads_quieter_by_the_amount_it_is_quieter() {
     let tools = tools();
     let mut heard = Vec::new();
     for (name, amplitude) in [("loud", 0.5), ("quiet", 0.25)] {
-        let dir = fixture_dir(&format!("loudness-{name}"));
+        let dir = scratch::dir(&format!("loudness-{name}"));
         let beep = tone_asset(&tools, &dir, "beep", 440, 2.0, amplitude, "");
         let project = project(
             vec![picture(&tools, &dir, 2), beep],
             vec![
-                video_track("v1", vec![clip("c1", "picture", 0, 60)]),
-                audio_track("a1", vec![clip("m1", "beep", 0, 60)]),
+                video_track("v1", vec![Clip::at("c1", "picture", 0, 60)]),
+                audio_track("a1", vec![Clip::at("m1", "beep", 0, 60)]),
             ],
         );
         let (_, report) = render(&tools, &project, &dir);

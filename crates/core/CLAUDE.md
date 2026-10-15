@@ -50,9 +50,13 @@ unloadable breaks paying users. So:
   decides.
 - The bump also moves `docs/project-format.md`'s title (held to
   `SCHEMA_VERSION` by `the_title_states_this_builds_schema_version`) and the
-  `"schema_version"` literal in every fixture and test document — dozens of
-  files across `crates/`, `web/` and `app/`. Change them last, to `main`'s
-  version + 1.
+  `"schema_version"` in every `.json` fixture (`crates/golden/fixtures`,
+  `crates/core/tests/fixtures`, `web/landing`) and in `web/`'s test
+  documents. Change them last, to `main`'s version + 1. A Rust test
+  document never needs it: it interpolates `SCHEMA_VERSION`, and `make
+  size`'s `schema-literal` rule refuses one that writes the current version
+  as a number. A document at an *older*
+  version (a migration's input) keeps its literal; that one is meant.
 
 Nothing else is compatibility: no reading an older version in place, no field
 kept alive because something might still write it. The migration is the whole

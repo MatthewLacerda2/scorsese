@@ -5,12 +5,13 @@
 //!
 //! Needs the pinned browser, like `pages.rs` beside it.
 
-use scorsese_core::{Asset, AssetId, AssetKind, Fps, Frames, ProjectPath};
+use scorsese_core::{Asset, AssetId, AssetKind, Clip, Fps, Frames, ProjectPath};
 use scorsese_render::page::Chrome;
 use scorsese_render::{Frame, Renderer};
 
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{clip, project, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{project, video_track};
 use crate::{BLUE, assert_colour, colour_asset, settings};
 
 /// Four strips, each lit blue when its generic measures as the face it means.
@@ -44,7 +45,7 @@ fn pixel(frame: &Frame, x: u32, y: u32) -> (u8, u8, u8) {
 #[test]
 fn a_page_s_generic_families_draw_in_the_faces_they_mean() {
     let tools = tools();
-    let dir = fixture_dir("page-generics");
+    let dir = scratch::dir("page-generics");
     std::fs::create_dir_all(dir.join("pages")).expect("pages/");
     std::fs::write(dir.join("pages/generics.html"), PAGE).expect("a page");
     let page = Asset::imported(
@@ -55,8 +56,8 @@ fn a_page_s_generic_families_draw_in_the_faces_they_mean() {
     let project = project(
         vec![colour_asset(&tools, &dir, "red", "64x64", 1), page],
         vec![
-            video_track("v1", vec![clip("c1", "red", 0, 10)]),
-            video_track("v2", vec![clip("c2", "generics", 0, 10)]),
+            video_track("v1", vec![Clip::at("c1", "red", 0, 10)]),
+            video_track("v2", vec![Clip::at("c2", "generics", 0, 10)]),
         ],
     );
     let chrome = Chrome::discover().expect("the pinned browser (SCORSESE_CHROME)");

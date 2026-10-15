@@ -1,10 +1,10 @@
 //! Whether a video clip contributes sound at all.
 
-use scorsese_core::AssetKind;
+use scorsese_core::{AssetKind, Clip};
 
 use super::plan_of;
 use crate::common::{
-    asset_with_channels, audio_shape, clip, file_asset, project, silent_asset, sounding_asset,
+    asset_with_channels, audio_shape, file_asset, project, silent_asset, sounding_asset,
     video_track,
 };
 
@@ -12,7 +12,7 @@ use crate::common::{
 fn a_video_clip_with_sound_on_it_is_mixed() {
     let project = project(
         vec![sounding_asset("interview", AssetKind::Video)],
-        vec![video_track("v1", vec![clip("c1", "interview", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "interview", 0, 30)])],
     );
 
     assert_eq!(
@@ -29,7 +29,7 @@ fn a_video_clip_with_no_sound_on_it_is_not() {
     // a stream of silence.
     let project = project(
         vec![silent_asset("plate", AssetKind::Video)],
-        vec![video_track("v1", vec![clip("c1", "plate", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "plate", 0, 30)])],
     );
 
     assert!(plan_of(&project).audio().is_empty());
@@ -42,7 +42,7 @@ fn a_stream_of_no_channels_is_no_sound() {
     // a stream worth starting a decoder for.
     let project = project(
         vec![asset_with_channels("plate", AssetKind::Video, 0)],
-        vec![video_track("v1", vec![clip("c1", "plate", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "plate", 0, 30)])],
     );
 
     assert!(plan_of(&project).audio().is_empty());
@@ -55,7 +55,7 @@ fn an_unprobed_asset_is_not_taken_for_audible() {
     // answer before the plan ever sees it.
     let project = project(
         vec![file_asset("unknown", AssetKind::Video)],
-        vec![video_track("v1", vec![clip("c1", "unknown", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "unknown", 0, 30)])],
     );
 
     assert!(plan_of(&project).audio().is_empty());

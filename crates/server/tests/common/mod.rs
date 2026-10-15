@@ -4,7 +4,6 @@
 #![allow(dead_code)] // Each test binary uses its own subset of these.
 
 use std::net::SocketAddr;
-use std::path::PathBuf;
 
 use scorsese_render::Tools;
 use scorsese_server::renders::{Quota, RenderCache};
@@ -15,7 +14,7 @@ use tokio::net::TcpListener;
 
 mod client;
 #[path = "../../../../tools/scratch.rs"]
-mod scratch;
+pub(crate) mod scratch;
 mod teardown;
 
 #[allow(unused_imports)] // As above: each test binary uses its own subset.
@@ -34,14 +33,6 @@ pub(crate) async fn listener() -> (TcpListener, SocketAddr) {
     (listener, address)
 }
 
-/// A fresh, empty directory for one test, under the system's temporary one,
-/// removed when the test ends.
-pub(crate) fn scratch(label: &str) -> PathBuf {
-    let directory = scratch::fresh(&format!("scorsese-server-{label}"), "");
-    std::fs::create_dir_all(&directory).expect("a scratch directory can be made");
-    directory
-}
-
 /// ffmpeg and ffprobe, which probing uploads and drawing thumbnails need.
 pub(crate) fn tools() -> Tools {
     Tools::discover().expect("ffmpeg and ffprobe must be on PATH to run these tests")
@@ -49,7 +40,7 @@ pub(crate) fn tools() -> Tools {
 
 /// Users' files in a scratch directory of their own, read with the real tools.
 pub(crate) fn files(label: &str) -> Files {
-    let root = scratch(label);
+    let root = scratch::dir(label);
     Files {
         storage: Storage::new(root.join("kept"), root.join("cache")),
         tools: tools(),

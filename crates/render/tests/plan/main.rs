@@ -23,9 +23,9 @@ mod sampling;
 mod sequencing;
 mod sketches;
 
-use scorsese_core::{Asset, AssetKind, Project};
+use scorsese_core::{Asset, AssetKind, Clip, Project};
 
-use common::{clip, file_asset, project, video_track};
+use common::{file_asset, project, video_track};
 
 /// Two plain video assets, for a lower track and an upper one.
 fn two_videos() -> Vec<Asset> {
@@ -41,8 +41,8 @@ fn overlaid() -> Project {
     project(
         two_videos(),
         vec![
-            video_track("v1", vec![clip("bed", "under", 0, 60)]),
-            video_track("v2", vec![clip("top", "over", 20, 20)]),
+            video_track("v1", vec![Clip::at("bed", "under", 0, 60)]),
+            video_track("v2", vec![Clip::at("top", "over", 20, 20)]),
         ],
     )
 }

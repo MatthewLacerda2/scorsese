@@ -15,11 +15,12 @@
 
 mod common;
 
-use scorsese_core::{AssetKind, Fps, Frames, Project, ProjectPath};
+use scorsese_core::{AssetKind, Clip, Fps, Frames, Project, ProjectPath};
 use scorsese_render::{Frame, RenderSettings, Renderer, Resolution};
 
-use common::ffmpeg::{fixture_dir, generate, tools};
-use common::{clip, file_asset, sketch_asset, text_asset, video_track};
+use common::ffmpeg::{generate, tools};
+use common::scratch;
+use common::{file_asset, sketch_asset, text_asset, video_track};
 
 /// Every frame the fixture is compared on: a shot, a title over it, and the
 /// slug card of a prompt nobody has generated — the three ways something
@@ -42,9 +43,9 @@ fn film(dir: &std::path::Path, tools: &scorsese_render::Tools) -> Project {
         tracks: vec![video_track(
             "v1",
             vec![
-                clip("c-shot", "shot", 0, 30),
-                clip("c-title", "title", 30, 30),
-                clip("c-dream", "dream", 60, 30),
+                Clip::at("c-shot", "shot", 0, 30),
+                Clip::at("c-title", "title", 30, 30),
+                Clip::at("c-dream", "dream", 60, 30),
             ],
         )],
         ..Project::new("Annotated", Fps::THIRTY)
@@ -87,7 +88,7 @@ fn stills(dir: &std::path::Path, project: &Project) -> Vec<Frame> {
 
 #[test]
 fn stripping_every_note_and_the_script_renders_identical_frames() {
-    let dir = fixture_dir("annotations");
+    let dir = scratch::dir("annotations");
     let tools = tools();
     let plain = film(&dir, &tools);
     // The script file is written, so this is not passing merely because a

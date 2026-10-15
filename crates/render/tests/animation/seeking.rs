@@ -10,11 +10,12 @@
 //! The fixture is red for half a second and blue for the next, at 30fps: frames
 //! 0–14 red, 15–29 blue, and from 30 the same again.
 
-use scorsese_core::Frames;
+use scorsese_core::{Clip, Frames};
 use scorsese_render::{FrameRange, Renderer};
 
-use crate::common::ffmpeg::{fixture_dir, mean_rgb, tools};
-use crate::common::{clip, project, video_track};
+use crate::common::ffmpeg::{mean_rgb, tools};
+use crate::common::scratch;
+use crate::common::{project, video_track};
 use crate::{BLUE, RED, assert_colour, gif, rendered_frame, settings};
 
 /// The mean colour of a frame in memory, in the terms [`mean_rgb`] uses.
@@ -38,11 +39,11 @@ fn mean_of(frame: &scorsese_render::Frame) -> (u8, u8, u8) {
 #[test]
 fn a_still_of_an_animated_image_is_the_frame_the_render_writes() {
     let tools = tools();
-    let dir = fixture_dir("animated-still");
+    let dir = scratch::dir("animated-still");
     let asset = gif(&tools, &dir, "wave", &["red", "blue"]);
     let project = project(
         vec![asset],
-        vec![video_track("v1", vec![clip("c1", "wave", 0, 60)])],
+        vec![video_track("v1", vec![Clip::at("c1", "wave", 0, 60)])],
     );
     let renderer = Renderer::new(&tools, settings());
 
@@ -66,11 +67,11 @@ fn a_still_of_an_animated_image_is_the_frame_the_render_writes() {
 #[test]
 fn a_partial_render_continues_the_animation_where_the_full_one_has_it() {
     let tools = tools();
-    let dir = fixture_dir("animated-partial");
+    let dir = scratch::dir("animated-partial");
     let asset = gif(&tools, &dir, "wave", &["red", "blue"]);
     let project = project(
         vec![asset],
-        vec![video_track("v1", vec![clip("c1", "wave", 0, 60)])],
+        vec![video_track("v1", vec![Clip::at("c1", "wave", 0, 60)])],
     );
     let part = dir.join("part.mp4");
     Renderer::new(&tools, settings())
@@ -99,14 +100,14 @@ fn a_partial_render_continues_the_animation_where_the_full_one_has_it() {
 #[test]
 fn a_cut_on_another_track_does_not_restart_the_animation() {
     let tools = tools();
-    let dir = fixture_dir("animated-cut");
+    let dir = scratch::dir("animated-cut");
     let wave = gif(&tools, &dir, "wave", &["red", "blue"]);
     let under = gif(&tools, &dir, "under", &["green"]);
     let project = project(
         vec![wave, under],
         vec![
-            video_track("v1", vec![clip("c0", "under", 0, 20)]),
-            video_track("v2", vec![clip("c1", "wave", 0, 45)]),
+            video_track("v1", vec![Clip::at("c0", "under", 0, 20)]),
+            video_track("v2", vec![Clip::at("c1", "wave", 0, 45)]),
         ],
     );
 

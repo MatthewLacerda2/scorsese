@@ -11,10 +11,10 @@
 //! error of a fraction of a frame per segment is exactly the drift these
 //! functions are written to avoid.
 
-use scorsese_core::{AssetKind, Fps, Frames};
+use scorsese_core::{AssetKind, Clip, Fps, Frames};
 use scorsese_render::{FrameRange, Plan};
 
-use crate::common::{audio_track, clip, file_asset, project, video_track};
+use crate::common::{audio_track, file_asset, project, video_track};
 
 /// What the mixer works at, and the only rate these counts mean anything in.
 const RATE: u32 = 48_000;
@@ -30,8 +30,8 @@ fn ntsc_of(frames: u64) -> scorsese_core::Project {
             file_asset("music", AssetKind::Audio),
         ],
         vec![
-            video_track("v1", vec![clip("c1", "a", 0, frames)]),
-            audio_track("a1", vec![clip("m1", "music", 0, frames)]),
+            video_track("v1", vec![Clip::at("c1", "a", 0, frames)]),
+            audio_track("a1", vec![Clip::at("m1", "music", 0, frames)]),
         ],
     );
     scorsese_core::Project {
@@ -77,10 +77,13 @@ fn a_segments_samples_are_counted_from_where_that_segment_starts() {
             file_asset("music", AssetKind::Audio),
         ],
         vec![
-            video_track("v1", vec![clip("c1", "a", 0, 60)]),
+            video_track("v1", vec![Clip::at("c1", "a", 0, 60)]),
             audio_track(
                 "a1",
-                vec![clip("m1", "music", 0, 30), clip("m2", "music", 30, 30)],
+                vec![
+                    Clip::at("m1", "music", 0, 30),
+                    Clip::at("m2", "music", 30, 30),
+                ],
             ),
         ],
     );
@@ -106,10 +109,13 @@ fn the_instant_a_frame_shows_is_offset_from_its_own_segment() {
             file_asset("music", AssetKind::Audio),
         ],
         vec![
-            video_track("v1", vec![clip("c1", "a", 0, 60)]),
+            video_track("v1", vec![Clip::at("c1", "a", 0, 60)]),
             audio_track(
                 "a1",
-                vec![clip("m1", "music", 0, 30), clip("m2", "music", 30, 30)],
+                vec![
+                    Clip::at("m1", "music", 0, 30),
+                    Clip::at("m2", "music", 30, 30),
+                ],
             ),
         ],
     );

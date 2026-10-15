@@ -7,11 +7,11 @@
 //! that is the property worth pinning, because a speed that moved a boundary
 //! would move a cut nobody asked to move.
 
-use scorsese_core::{AssetKind, Fps};
+use scorsese_core::{AssetKind, Clip, Fps};
 use scorsese_render::{FrameRange, Plan};
 
 use crate::common::{
-    audio_source_ins, audio_track, clip, clip_from, file_asset, project, shape, sounding_asset,
+    audio_source_ins, audio_track, clip_from, file_asset, project, shape, sounding_asset,
     source_ins, sped, video_track,
 };
 use crate::two_videos;
@@ -24,8 +24,8 @@ fn a_sped_clip_walks_its_source_faster_than_the_timeline() {
     let project = project(
         two_videos(),
         vec![
-            video_track("v1", vec![sped(2.0, clip("bed", "under", 0, 60))]),
-            video_track("v2", vec![clip("top", "over", 20, 20)]),
+            video_track("v1", vec![sped(2.0, Clip::at("bed", "under", 0, 60))]),
+            video_track("v2", vec![Clip::at("top", "over", 20, 20)]),
         ],
     );
     let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
@@ -55,7 +55,7 @@ fn bed_opens(rate: f64, source_in: u64, duration: u64, over: (u64, u64)) -> Vec<
                     clip_from("bed", "under", 0, duration, source_in),
                 )],
             ),
-            video_track("v2", vec![clip("top", "over", over.0, over.1)]),
+            video_track("v2", vec![Clip::at("top", "over", over.0, over.1)]),
         ],
     );
     let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
@@ -97,8 +97,8 @@ fn a_rate_that_lands_between_frames_is_not_rounded_to_one() {
 fn a_rate_moves_no_boundary_and_shortens_no_render() {
     let tracks = |rate: f64| {
         vec![
-            video_track("v1", vec![sped(rate, clip("bed", "under", 0, 60))]),
-            video_track("v2", vec![clip("top", "over", 20, 20)]),
+            video_track("v1", vec![sped(rate, Clip::at("bed", "under", 0, 60))]),
+            video_track("v2", vec![Clip::at("top", "over", 20, 20)]),
         ]
     };
     let ordinary = project(two_videos(), tracks(1.0));
@@ -121,8 +121,8 @@ fn the_mix_walks_the_source_at_the_same_rate_as_the_picture() {
             file_asset("music", AssetKind::Audio),
         ],
         vec![
-            video_track("v1", vec![sped(2.0, clip("c1", "interview", 0, 60))]),
-            audio_track("a1", vec![clip("m1", "music", 30, 30)]),
+            video_track("v1", vec![sped(2.0, Clip::at("c1", "interview", 0, 60))]),
+            audio_track("a1", vec![Clip::at("m1", "music", 30, 30)]),
         ],
     );
     let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");

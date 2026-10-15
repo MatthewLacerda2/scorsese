@@ -19,12 +19,13 @@
 //!
 //! These need the pinned browser, as `pages.rs` does.
 
-use scorsese_core::{Asset, AssetId, AssetKind, Fps, Frames, ProjectPath};
+use scorsese_core::{Asset, AssetId, AssetKind, Clip, Fps, Frames, ProjectPath};
 use scorsese_render::trace::{Tracing, trace};
 use scorsese_render::{Frame, RenderSettings, Renderer, Resolution};
 
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{clip, project, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{project, video_track};
 
 /// The guide, found from this crate rather than from the working directory.
 fn guide() -> String {
@@ -119,7 +120,7 @@ fn every_worked_page_captures_without_a_warning_and_draws() {
     let resolution = Resolution::new(320, 180).expect("a legal raster");
     let renderer = Renderer::new(&tools, RenderSettings::new(resolution, Fps::THIRTY));
     for (name, html) in worked(&guide()) {
-        let dir = fixture_dir(&format!("guide-{name}"));
+        let dir = scratch::dir(&format!("guide-{name}"));
         std::fs::create_dir_all(dir.join("pages")).expect("pages/");
         let path = format!("pages/{name}.html");
         std::fs::write(dir.join(&path), &html).expect("the page");
@@ -141,7 +142,7 @@ fn every_worked_page_captures_without_a_warning_and_draws() {
         // finished by then, and no exit timed to `duration` has begun.
         let project = project(
             vec![page],
-            vec![video_track("v1", vec![clip("c1", &name, 0, 120)])],
+            vec![video_track("v1", vec![Clip::at("c1", &name, 0, 120)])],
         );
 
         let (frame, notes) = renderer

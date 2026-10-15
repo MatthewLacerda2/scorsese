@@ -12,7 +12,7 @@ use crate::{member, patch, upload, video};
 
 #[sqlx::test]
 async fn a_file_is_served_whole_or_in_the_range_asked_for(pool: PgPool) {
-    let bytes = video(&common::scratch("files-ranges-media"));
+    let bytes = video(&common::scratch::dir("files-ranges-media"));
     let (address, _) = common::serve_with(pool.clone(), common::files("files-ranges")).await;
     let (_, ana) = member(&pool, "ana@example.com").await;
     let id = upload(address, &ana, "clip.mp4", &bytes).await;
@@ -61,7 +61,7 @@ async fn a_file_is_served_whole_or_in_the_range_asked_for(pool: PgPool) {
 async fn the_worker_draws_each_files_thumbnail(pool: PgPool) {
     let files = common::files("files-thumbnail");
     let registry = kinds::registry(&files);
-    let bytes = video(&common::scratch("files-thumbnail-media"));
+    let bytes = video(&common::scratch::dir("files-thumbnail-media"));
     let (address, state) = common::serve_with(pool.clone(), files).await;
     let (_stop, stopping) = watch::channel(false);
     let worker = tokio::spawn(jobs::work(
@@ -91,7 +91,7 @@ async fn the_worker_draws_each_files_thumbnail(pool: PgPool) {
 
 #[sqlx::test]
 async fn another_users_file_and_upload_are_not_there_for_them(pool: PgPool) {
-    let bytes = video(&common::scratch("files-isolation-media"));
+    let bytes = video(&common::scratch::dir("files-isolation-media"));
     let (address, _) = common::serve_with(pool.clone(), common::files("files-iso")).await;
     let (_, ana) = member(&pool, "ana@example.com").await;
     let (_, bia) = member(&pool, "bia@example.com").await;

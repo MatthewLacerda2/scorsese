@@ -120,27 +120,28 @@ fn next_lane(project: &Project, base: &TrackId) -> TrackId {
 mod tests {
     use super::*;
     use crate::asset::AssetId;
+    use crate::project::SCHEMA_VERSION;
     use crate::time::Frames;
 
     /// A one-second pop (30 frames at 30fps), an audio track `sfx` and a
     /// music track after it.
     fn project() -> Project {
-        Project::from_json(
-            r#"{
-              "schema_version": 49,
+        Project::from_json(&format!(
+            r#"{{
+              "schema_version": {SCHEMA_VERSION},
               "name": "T",
-              "timeline_fps": { "num": 30, "den": 1 },
+              "timeline_fps": {{ "num": 30, "den": 1 }},
               "assets": [
-                { "id": "pop", "kind": "audio", "path": "assets/pop.wav",
-                  "media": { "duration_seconds": 1.0 } }
+                {{ "id": "pop", "kind": "audio", "path": "assets/pop.wav",
+                  "media": {{ "duration_seconds": 1.0 }} }}
               ],
               "tracks": [
-                { "id": "sfx", "kind": "audio", "clips": [] },
-                { "id": "music", "kind": "audio", "clips": [] },
-                { "id": "v1", "kind": "video", "clips": [] }
+                {{ "id": "sfx", "kind": "audio", "clips": [] }},
+                {{ "id": "music", "kind": "audio", "clips": [] }},
+                {{ "id": "v1", "kind": "video", "clips": [] }}
               ]
-            }"#,
-        )
+            }}"#
+        ))
         .expect("the fixture is a project")
     }
 

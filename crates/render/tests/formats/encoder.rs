@@ -14,8 +14,8 @@ use std::os::unix::fs::PermissionsExt;
 
 use scorsese_render::{Container, FrameRange, OutputFormat, RenderError, Renderer, Tools};
 
-use crate::common::ffmpeg::fixture_dir;
 use crate::common::project;
+use crate::common::scratch;
 use crate::settings;
 
 /// An ffmpeg that has AAC and nothing from a library.
@@ -27,7 +27,7 @@ const WITHOUT_LAME: &str = "#!/bin/sh\n\
 
 #[test]
 fn an_mp3_is_refused_by_an_ffmpeg_without_lame_and_named() {
-    let dir = fixture_dir("no-lame");
+    let dir = scratch::dir("no-lame");
     let fake = dir.join("ffmpeg");
     std::fs::write(&fake, WITHOUT_LAME).expect("write the stand-in ffmpeg");
     std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755))

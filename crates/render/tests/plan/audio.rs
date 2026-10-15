@@ -1,9 +1,9 @@
 //! Sequencing the audible half of a timeline.
 
-use scorsese_core::{AssetKind, Fps, Frames};
+use scorsese_core::{AssetKind, Clip, Fps, Frames};
 use scorsese_render::{FrameRange, Note, Plan};
 
-use crate::common::{audio_track, clip, file_asset, project, video_track};
+use crate::common::{audio_track, file_asset, project, video_track};
 
 /// What the mixer works at, and the only rate these counts mean anything in.
 const RATE: u32 = 48_000;
@@ -15,7 +15,7 @@ fn a_project_with_no_audio_gets_no_soundtrack_at_all() {
     // it means.
     let project = project(
         vec![file_asset("a", AssetKind::Video)],
-        vec![video_track("v1", vec![clip("c1", "a", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "a", 0, 30)])],
     );
     let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
     assert!(plan.audio().is_empty());
@@ -29,8 +29,8 @@ fn audio_running_past_the_last_picture_is_reported_rather_than_cut_in_silence() 
             file_asset("music", AssetKind::Audio),
         ],
         vec![
-            video_track("v1", vec![clip("c1", "a", 0, 30)]),
-            audio_track("a1", vec![clip("m1", "music", 0, 90)]),
+            video_track("v1", vec![Clip::at("c1", "a", 0, 30)]),
+            audio_track("a1", vec![Clip::at("m1", "music", 0, 90)]),
         ],
     );
     let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
@@ -55,8 +55,8 @@ fn audio_ending_on_the_last_picture_frame_is_not_trimmed() {
             file_asset("music", AssetKind::Audio),
         ],
         vec![
-            video_track("v1", vec![clip("c1", "a", 0, 90)]),
-            audio_track("a1", vec![clip("m1", "music", 0, 90)]),
+            video_track("v1", vec![Clip::at("c1", "a", 0, 90)]),
+            audio_track("a1", vec![Clip::at("m1", "music", 0, 90)]),
         ],
     );
     let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
@@ -77,12 +77,12 @@ fn an_audio_track_is_cut_where_its_own_clips_change_and_not_where_the_picture_do
             video_track(
                 "v1",
                 vec![
-                    clip("c1", "a", 0, 30),
-                    clip("c2", "a", 30, 30),
-                    clip("c3", "a", 60, 30),
+                    Clip::at("c1", "a", 0, 30),
+                    Clip::at("c2", "a", 30, 30),
+                    Clip::at("c3", "a", 60, 30),
                 ],
             ),
-            audio_track("a1", vec![clip("m1", "music", 0, 90)]),
+            audio_track("a1", vec![Clip::at("m1", "music", 0, 90)]),
         ],
     );
     let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
@@ -107,13 +107,13 @@ fn sample_counts_always_sum_to_the_length_of_the_mix() {
             file_asset("music", AssetKind::Audio),
         ],
         vec![
-            video_track("v1", vec![clip("c1", "a", 0, 3)]),
+            video_track("v1", vec![Clip::at("c1", "a", 0, 3)]),
             audio_track(
                 "a1",
                 vec![
-                    clip("m1", "music", 0, 1),
-                    clip("m2", "music", 1, 1),
-                    clip("m3", "music", 2, 1),
+                    Clip::at("m1", "music", 0, 1),
+                    Clip::at("m2", "music", 1, 1),
+                    Clip::at("m3", "music", 2, 1),
                 ],
             ),
         ],

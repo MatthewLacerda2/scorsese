@@ -24,11 +24,12 @@ mod sound;
 
 use std::path::{Path, PathBuf};
 
-use scorsese_core::{AssetKind, Fps, Project};
+use scorsese_core::{AssetKind, Clip, Fps, Project};
 use scorsese_render::{FrameRange, OutputFormat, RenderSettings, Renderer, Resolution, Tools};
 
-use common::ffmpeg::{fixture_dir, generate_asset, mean_rgb, tools};
-use common::{audio_track, clip, project, video_track};
+use common::ffmpeg::{generate_asset, mean_rgb, tools};
+use common::scratch;
+use common::{audio_track, project, video_track};
 
 /// Small on purpose: what these ask of a file is what kind it is, and every
 /// container here costs a real encode.
@@ -61,8 +62,8 @@ fn demo(tools: &Tools, root: &Path) -> Project {
     project(
         vec![red, tone],
         vec![
-            video_track("v1", vec![clip("c-red", "red", 0, 30)]),
-            audio_track("a1", vec![clip("c-tone", "tone", 0, 30)]),
+            video_track("v1", vec![Clip::at("c-red", "red", 0, 30)]),
+            audio_track("a1", vec![Clip::at("c-tone", "tone", 0, 30)]),
         ],
     )
 }
@@ -80,7 +81,7 @@ fn delivered(label: &str, format: OutputFormat, name: &str) -> probing::Delivere
 /// than which format it is in.
 fn delivered_with(label: &str, settings: RenderSettings, name: &str) -> probing::Delivered {
     let tools = tools();
-    let dir = fixture_dir(label);
+    let dir = scratch::dir(label);
     let out = render(&tools, &dir, settings, name);
     let found = probing::probe(&tools, &out);
     // Labelled right is not the same as watchable: a pairing that produced a

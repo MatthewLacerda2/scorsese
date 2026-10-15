@@ -9,8 +9,8 @@ use std::path::PathBuf;
 use crate::voice::{Scene, Voicing};
 use crate::words::{Word, Words};
 use crate::{
-    Asset, AssetId, AssetKind, Clip, ClipId, Fps, Frames, GenerationState, Project, ProjectPath,
-    Track, TrackId, TrackKind,
+    Asset, AssetId, AssetKind, Clip, ClipId, Fps, GenerationState, Project, ProjectPath, Track,
+    TrackKind,
 };
 
 /// A 30 fps folder with three scenes, cut long:
@@ -109,14 +109,8 @@ fn word(text: &str, start: f64, end: f64) -> Word {
 }
 
 fn track(id: &str, kind: TrackKind, clips: &[(&str, &str, u64, u64)]) -> Track {
-    let mut track = Track::new(TrackId::new(id), kind);
-    for (clip, asset, start, duration) in clips {
-        track.clips.push(Clip::new(
-            ClipId::new(*clip),
-            AssetId::new(*asset),
-            Frames(*start),
-            Frames(*duration),
-        ));
-    }
-    track
+    let clips = clips
+        .iter()
+        .map(|&(clip, asset, start, duration)| Clip::at(clip, asset, start, duration));
+    Track::with_clips(id, kind, clips.collect())
 }

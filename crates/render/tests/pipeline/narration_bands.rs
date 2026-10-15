@@ -1,11 +1,12 @@
 //! A narration line not yet generated, drawn and left out (#966): the band is
 //! pixels over the foot of the shot, and leaving it out leaves the shot alone.
 
-use scorsese_core::{Fps, Frames, Project};
+use scorsese_core::{Clip, Fps, Frames, Project};
 use scorsese_render::{Bands, Frame, FrameRange, Note, Renderer};
 
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{audio_track, clip, narration_asset, project, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{audio_track, narration_asset, project, video_track};
 use crate::{RASTER, RED, assert_colour, colour_asset, settings};
 
 /// A pixel in the bottom row, at the left edge where the band's text never
@@ -23,8 +24,8 @@ fn narrated(dir: &std::path::Path) -> Project {
             narration_asset("vo"),
         ],
         vec![
-            video_track("v1", vec![clip("shot", "red", 0, 20)]),
-            audio_track("a1", vec![clip("vo1", "vo", 0, 20)]),
+            video_track("v1", vec![Clip::at("shot", "red", 0, 20)]),
+            audio_track("a1", vec![Clip::at("vo1", "vo", 0, 20)]),
         ],
     )
 }
@@ -32,7 +33,7 @@ fn narrated(dir: &std::path::Path) -> Project {
 #[test]
 fn a_band_is_drawn_unless_the_render_leaves_it_out() {
     let tools = tools();
-    let dir = fixture_dir("narration-bands");
+    let dir = scratch::dir("narration-bands");
     let project = narrated(&dir);
     let at = Frames(10);
 

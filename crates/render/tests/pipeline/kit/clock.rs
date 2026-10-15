@@ -10,11 +10,12 @@
 //!
 //! This needs the pinned browser, as `pages.rs` does.
 
-use scorsese_core::{Asset, AssetId, AssetKind, Fps, Frames, ProjectPath};
+use scorsese_core::{Asset, AssetId, AssetKind, Clip, Fps, Frames, ProjectPath};
 use scorsese_render::{Frame, RenderSettings, Renderer, Resolution};
 
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{clip, project, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{project, video_track};
 
 /// The page: a 48 px box, its left edge at `t * 480` page px.
 const PAGE: &str = r#"<!doctype html>
@@ -59,7 +60,7 @@ fn the_kit_hands_a_page_its_own_seconds_and_a_shared_file_redraws_its_pages() {
         &tools,
         RenderSettings::new(Resolution::new(320, 180).expect("a raster"), Fps::THIRTY),
     );
-    let dir = fixture_dir("kit");
+    let dir = scratch::dir("kit");
     std::fs::create_dir_all(dir.join("pages")).expect("pages/");
     std::fs::write(dir.join("pages/slide.html"), PAGE).expect("the page");
     std::fs::write(dir.join("pages/lib.js"), lib("#0000ff")).expect("the shared file");
@@ -70,7 +71,7 @@ fn the_kit_hands_a_page_its_own_seconds_and_a_shared_file_redraws_its_pages() {
     );
     let project = project(
         vec![page],
-        vec![video_track("v1", vec![clip("c1", "slide", 0, 90)])],
+        vec![video_track("v1", vec![Clip::at("c1", "slide", 0, 90)])],
     );
     let still = |at: u32| {
         let (frame, notes) = renderer

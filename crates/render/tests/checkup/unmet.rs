@@ -1,15 +1,15 @@
 //! A matte never on screen with the clip it masks: said, worded for which way
 //! round it is, and quiet the moment the two share an instant.
 
-use scorsese_core::{ClipId, HashCheck, Matte, Project};
+use scorsese_core::{Clip, ClipId, HashCheck, Matte, Project};
 use scorsese_render::Checkup;
 
-use crate::common::{clip, project, text_asset, video_track};
+use crate::common::{project, text_asset, video_track};
 
 /// `shown` over 0–30, masked by `matte` placed at `matte_start` for ten
 /// frames.
 fn masked(matte_start: u64, invert: bool) -> Project {
-    let mut shown = clip("shown", "title", 0, 30);
+    let mut shown = Clip::at("shown", "title", 0, 30);
     shown.matte = Some(Matte {
         clip: ClipId::new("matte"),
         invert,
@@ -18,7 +18,7 @@ fn masked(matte_start: u64, invert: bool) -> Project {
         vec![text_asset("title")],
         vec![
             video_track("v1", vec![shown]),
-            video_track("v2", vec![clip("matte", "title", matte_start, 10)]),
+            video_track("v2", vec![Clip::at("matte", "title", matte_start, 10)]),
         ],
     )
 }

@@ -111,7 +111,7 @@ impl VideoProvider for Mock {
 
 /// A file ffmpeg makes from `inputs`, as bytes.
 pub(super) fn made(name: &str, inputs: &[&str]) -> Vec<u8> {
-    let file = common::scratch("vendor").join(name);
+    let file = common::scratch::dir("vendor").join(name);
     let output = common::tools()
         .ffmpeg()
         .args(["-v", "error", "-y"])

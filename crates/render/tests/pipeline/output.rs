@@ -1,23 +1,24 @@
 //! What comes out the far end of a whole-timeline render.
 
-use scorsese_core::Fps;
+use scorsese_core::{Clip, Fps};
 use scorsese_render::FrameRange;
 
-use crate::common::ffmpeg::{fixture_dir, inspect, mean_rgb, tools};
-use crate::common::{clip, project, video_track};
+use crate::common::ffmpeg::{inspect, mean_rgb, tools};
+use crate::common::scratch;
+use crate::common::{project, video_track};
 use crate::{BLACK, BLUE, RED, assert_colour, colour_asset, render};
 
 #[test]
 fn a_timeline_becomes_a_file_of_the_expected_length_and_rate() {
     let tools = tools();
-    let dir = fixture_dir("whole");
+    let dir = scratch::dir("whole");
     let red = colour_asset(&tools, &dir, "red", "64x64", 2);
     let blue = colour_asset(&tools, &dir, "blue", "64x64", 2);
     let project = project(
         vec![red, blue],
         vec![video_track(
             "v1",
-            vec![clip("c1", "red", 0, 30), clip("c2", "blue", 45, 30)],
+            vec![Clip::at("c1", "red", 0, 30), Clip::at("c2", "blue", 45, 30)],
         )],
     );
 
@@ -42,11 +43,11 @@ fn a_timeline_becomes_a_file_of_the_expected_length_and_rate() {
 #[test]
 fn rendering_at_a_higher_rate_than_the_timeline_conforms() {
     let tools = tools();
-    let dir = fixture_dir("conform");
+    let dir = scratch::dir("conform");
     let red = colour_asset(&tools, &dir, "red", "64x64", 2);
     let project = project(
         vec![red],
-        vec![video_track("v1", vec![clip("c1", "red", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "red", 0, 30)])],
     );
 
     let (out, report) = render(&tools, &project, &dir, FrameRange::ALL, Fps::SIXTY);
@@ -65,11 +66,11 @@ fn rendering_at_a_higher_rate_than_the_timeline_conforms() {
 #[test]
 fn a_gap_at_the_front_of_the_timeline_is_black() {
     let tools = tools();
-    let dir = fixture_dir("leading-gap");
+    let dir = scratch::dir("leading-gap");
     let red = colour_asset(&tools, &dir, "red", "64x64", 1);
     let project = project(
         vec![red],
-        vec![video_track("v1", vec![clip("c1", "red", 15, 15)])],
+        vec![video_track("v1", vec![Clip::at("c1", "red", 15, 15)])],
     );
 
     let (out, report) = render(&tools, &project, &dir, FrameRange::ALL, Fps::THIRTY);

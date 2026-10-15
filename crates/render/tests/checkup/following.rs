@@ -4,13 +4,13 @@
 //! ever say so; the checkup is the one place that can.
 
 use scorsese_core::{
-    Asset, AssetId, ClipId, Follow, HashCheck, Heads, Point, Project, Rgba, Shape,
+    Asset, AssetId, Clip, ClipId, Follow, HashCheck, Heads, Point, Project, Rgba, Shape,
 };
 use scorsese_core::{Easing, Frames, Geometry, Keyframe, KeyframeTrack, PropertyPath};
 use scorsese_render::Checkup;
 use scorsese_render::checkup::Severity;
 
-use crate::common::{clip, project, shape_asset, video_track};
+use crate::common::{project, shape_asset, video_track};
 
 /// A dot following a line, with `progress` keyframed or not.
 fn following(progress: bool) -> Project {
@@ -21,7 +21,7 @@ fn following(progress: bool) -> Project {
         heads: Heads::End,
     };
     let line = Asset::shape(AssetId::new("line"), Shape::outlined(geometry, Rgba::WHITE));
-    let mut dot = clip("c-dot", "dot", 0, 30);
+    let mut dot = Clip::at("c-dot", "dot", 0, 30);
     dot.follow = Some(Follow::new(ClipId::new("c-line")));
     if progress {
         let key = |t, value| Keyframe {
@@ -37,7 +37,7 @@ fn following(progress: bool) -> Project {
     project(
         vec![line, shape_asset("dot", 0.05, 0.05)],
         vec![
-            video_track("v1", vec![clip("c-line", "line", 0, 30)]),
+            video_track("v1", vec![Clip::at("c-line", "line", 0, 30)]),
             video_track("v2", vec![dot]),
         ],
     )

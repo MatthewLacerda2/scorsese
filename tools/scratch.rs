@@ -57,3 +57,16 @@ pub(crate) fn fresh(stem: &str, extension: &str) -> PathBuf {
     MADE.with(|made| made.borrow_mut().0.push(path.clone()));
     path
 }
+
+/// A fresh, empty directory, `scorsese-{label}-…`, made now and removed with
+/// everything under it when the calling thread ends: what most tests want
+/// from [`fresh`], so no crate keeps its own wrapper around it.
+#[allow(
+    dead_code,
+    reason = "each crate's tests use their own part of this file"
+)]
+pub(crate) fn dir(label: &str) -> PathBuf {
+    let dir = fresh(&format!("scorsese-{label}"), "");
+    std::fs::create_dir_all(&dir).expect("a scratch directory can be made");
+    dir
+}

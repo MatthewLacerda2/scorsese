@@ -7,13 +7,14 @@
 //! drawing still green.
 
 use scorsese_core::{
-    Asset, AssetId, Easing, Fps, Frames, Geometry, Heads, Keyframe, KeyframeTrack, Point,
+    Asset, AssetId, Clip, Easing, Fps, Frames, Geometry, Heads, Keyframe, KeyframeTrack, Point,
     PropertyPath, Rgba, Shape,
 };
 use scorsese_render::FrameRange;
 
-use crate::common::ffmpeg::{fixture_dir, mean_rgb, tools};
-use crate::common::{clip, project, video_track};
+use crate::common::ffmpeg::{mean_rgb, tools};
+use crate::common::scratch;
+use crate::common::{project, video_track};
 use crate::{colour_asset, render};
 
 /// A plain white line straight across the middle of the frame.
@@ -50,14 +51,14 @@ fn drawn_on(from: u64, to: u64) -> KeyframeTrack {
 #[test]
 fn a_keyframed_trim_is_drawn_again_on_every_frame() {
     let tools = tools();
-    let dir = fixture_dir("trace");
+    let dir = scratch::dir("trace");
     let red = colour_asset(&tools, &dir, "red", "64x64", 1);
-    let mut drawing = clip("c2", "line", 0, 15);
+    let mut drawing = Clip::at("c2", "line", 0, 15);
     drawing.keyframes.push(drawn_on(0, 14));
     let project = project(
         vec![red, line()],
         vec![
-            video_track("v1", vec![clip("c1", "red", 0, 15)]),
+            video_track("v1", vec![Clip::at("c1", "red", 0, 15)]),
             video_track("v2", vec![drawing]),
         ],
     );

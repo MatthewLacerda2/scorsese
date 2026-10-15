@@ -3,11 +3,12 @@
 
 use std::path::Path;
 
-use scorsese_core::{Fit, Fps};
+use scorsese_core::{Clip, Fit, Fps};
 use scorsese_render::{FrameRange, RenderError};
 
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{clip, fitted, project, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{fitted, project, video_track};
 use crate::{colour_asset, render, settings};
 
 /// Every name in `dir` that is not one of the project's own folders.
@@ -30,7 +31,7 @@ fn beside(dir: &Path) -> Vec<String> {
 #[test]
 fn a_render_that_fails_part_way_leaves_the_previous_file_as_it_was() {
     let tools = tools();
-    let dir = fixture_dir("rerender-fails");
+    let dir = scratch::dir("rerender-fails");
     let red = colour_asset(&tools, &dir, "red", "64x64", 1);
     let blue = colour_asset(&tools, &dir, "blue", "64x64", 1);
     let timeline = |clips| {
@@ -41,7 +42,7 @@ fn a_render_that_fails_part_way_leaves_the_previous_file_as_it_was() {
     };
     let (out, _) = render(
         &tools,
-        &timeline(vec![clip("c1", "red", 0, 30)]),
+        &timeline(vec![Clip::at("c1", "red", 0, 30)]),
         &dir,
         FrameRange::ALL,
         Fps::THIRTY,
@@ -54,8 +55,8 @@ fn a_render_that_fails_part_way_leaves_the_previous_file_as_it_was() {
 
     let failed = scorsese_render::Renderer::new(&tools, settings(Fps::THIRTY)).render(
         &timeline(vec![
-            clip("c1", "red", 0, 30),
-            fitted(Fit::Fill, clip("c2", "blue", 30, 30)),
+            Clip::at("c1", "red", 0, 30),
+            fitted(Fit::Fill, Clip::at("c2", "blue", 30, 30)),
         ]),
         &dir,
         FrameRange::ALL,
@@ -78,12 +79,12 @@ fn a_render_that_fails_part_way_leaves_the_previous_file_as_it_was() {
 #[test]
 fn a_render_that_succeeds_replaces_the_previous_file() {
     let tools = tools();
-    let dir = fixture_dir("rerender-succeeds");
+    let dir = scratch::dir("rerender-succeeds");
     let red = colour_asset(&tools, &dir, "red", "64x64", 2);
     let timeline = |frames| {
         project(
             vec![red.clone()],
-            vec![video_track("v1", vec![clip("c1", "red", 0, frames)])],
+            vec![video_track("v1", vec![Clip::at("c1", "red", 0, frames)])],
         )
     };
     let (out, _) = render(&tools, &timeline(15), &dir, FrameRange::ALL, Fps::THIRTY);

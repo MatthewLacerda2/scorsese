@@ -19,7 +19,7 @@ mod sheets;
 use std::path::{Path, PathBuf};
 
 use common::documents::{self, assets};
-use common::{Run, media, run_in, temp_dir};
+use common::{Run, media, run_in, scratch};
 
 /// The raster the stills are taken at: small, because what is being checked is
 /// which pixels come out rather than how many.
@@ -37,7 +37,7 @@ pub(crate) fn titled(label: &str) -> PathBuf {
 
 /// The same shape over real media, for the tests that have to see a colour.
 pub(crate) fn shot(label: &str, colour: &str) -> PathBuf {
-    let dir = temp_dir(label);
+    let dir = scratch::dir(label);
     media::colour_video(&media::tools(), &dir, "shot", colour, 2);
     documents::write_into(
         &dir,

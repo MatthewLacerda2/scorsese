@@ -5,11 +5,10 @@
 //! nothing, and a shot whose file has no audio stream is not in the mix at all.
 //! All three read as "there is sound here" to anything that only counts clips.
 
-use scorsese_core::{AssetKind, Easing};
+use scorsese_core::{AssetKind, Clip, Easing};
 
 use crate::common::{
-    audio_track, clip, file_asset, narration_asset, project, silent_asset, sounding_asset,
-    video_track,
+    audio_track, file_asset, narration_asset, project, silent_asset, sounding_asset, video_track,
 };
 use crate::{animated, described, ramp};
 
@@ -21,11 +20,11 @@ fn a_clip_held_at_zero_volume_is_named_as_silent() {
             sounding_asset("music", AssetKind::Audio),
         ],
         vec![
-            video_track("v1", vec![clip("c1", "shot", 0, 30)]),
+            video_track("v1", vec![Clip::at("c1", "shot", 0, 30)]),
             audio_track(
                 "a1",
                 vec![animated(
-                    clip("m1", "music", 0, 30),
+                    Clip::at("m1", "music", 0, 30),
                     vec![ramp("volume", [(0, 0.0), (30, 0.0)], Easing::Linear)],
                 )],
             ),
@@ -53,11 +52,11 @@ fn a_clip_at_a_real_level_is_audible() {
             sounding_asset("music", AssetKind::Audio),
         ],
         vec![
-            video_track("v1", vec![clip("c1", "shot", 0, 30)]),
+            video_track("v1", vec![Clip::at("c1", "shot", 0, 30)]),
             audio_track(
                 "a1",
                 vec![animated(
-                    clip("m1", "music", 0, 30),
+                    Clip::at("m1", "music", 0, 30),
                     vec![ramp("volume", [(0, 0.3), (30, 0.3)], Easing::Linear)],
                 )],
             ),
@@ -79,11 +78,11 @@ fn a_clip_at_a_real_level_is_audible() {
 fn a_shot_is_in_the_mix_only_when_its_own_file_has_sound_on_it() {
     let heard = project(
         vec![sounding_asset("shot", AssetKind::Video)],
-        vec![video_track("v1", vec![clip("c1", "shot", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "shot", 0, 30)])],
     );
     let mute = project(
         vec![silent_asset("shot", AssetKind::Video)],
-        vec![video_track("v1", vec![clip("c1", "shot", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "shot", 0, 30)])],
     );
 
     let heard = described(&heard);
@@ -108,8 +107,8 @@ fn an_ungenerated_narration_is_in_the_mix_and_silent() {
     let project = project(
         vec![file_asset("shot", AssetKind::Video), narration_asset("vo")],
         vec![
-            video_track("v1", vec![clip("c1", "shot", 0, 30)]),
-            audio_track("a1", vec![clip("vo1", "vo", 0, 30)]),
+            video_track("v1", vec![Clip::at("c1", "shot", 0, 30)]),
+            audio_track("a1", vec![Clip::at("vo1", "vo", 0, 30)]),
         ],
     );
 

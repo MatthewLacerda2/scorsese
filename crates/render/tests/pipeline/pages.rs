@@ -6,12 +6,13 @@
 //! as the golden renders do: a test that passed by drawing the card instead
 //! would be passing by doing nothing.
 
-use scorsese_core::{Asset, AssetId, AssetKind, Fps, Frames, Project, ProjectPath};
+use scorsese_core::{Asset, AssetId, AssetKind, Clip, Fps, Frames, Project, ProjectPath};
 use scorsese_render::page::{self, Chrome};
 use scorsese_render::{Frame, FrameRange, Note, Renderer};
 
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{clip, project, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{project, video_track};
 use crate::{BLUE, RED, assert_colour, colour_asset, settings};
 
 /// The colour of one pixel of a frame still in memory.
@@ -24,7 +25,7 @@ fn pixel(frame: &Frame, x: u32, y: u32) -> (u8, u8, u8) {
 /// A project of a red shot with `html` as a page over it, in `pages/title.html`.
 fn over_red(name: &str, html: &str) -> (std::path::PathBuf, Project) {
     let tools = tools();
-    let dir = fixture_dir(name);
+    let dir = scratch::dir(name);
     std::fs::create_dir_all(dir.join("pages")).expect("pages/");
     std::fs::write(dir.join("pages/title.html"), html).expect("a page");
     let page = Asset::imported(
@@ -35,8 +36,8 @@ fn over_red(name: &str, html: &str) -> (std::path::PathBuf, Project) {
     let project = project(
         vec![colour_asset(&tools, &dir, "red", "64x64", 1), page],
         vec![
-            video_track("v1", vec![clip("c1", "red", 0, 20)]),
-            video_track("v2", vec![clip("c2", "title", 0, 20)]),
+            video_track("v1", vec![Clip::at("c1", "red", 0, 20)]),
+            video_track("v2", vec![Clip::at("c2", "title", 0, 20)]),
         ],
     );
     (dir, project)

@@ -2,13 +2,14 @@
 
 use std::path::{Path, PathBuf};
 
-use scorsese_core::{Asset, AssetId, Fps, Project, Rgba, TextStyle};
+use scorsese_core::{Asset, AssetId, Clip, Fps, Project, Rgba, TextStyle};
 use scorsese_render::{
     FrameRange, RenderError, RenderReport, RenderSettings, Renderer, Resolution, Tools,
 };
 
-use crate::common::ffmpeg::{fixture_dir, inspect, mean_rgb, tools};
-use crate::common::{clip, project, text_asset_in, video_track};
+use crate::common::ffmpeg::{inspect, mean_rgb, tools};
+use crate::common::scratch;
+use crate::common::{project, text_asset_in, video_track};
 
 /// Bigger than the 64×64 the other fixtures use: letters need somewhere to be.
 const RASTER: (u32, u32) = (256, 144);
@@ -45,10 +46,10 @@ fn render_at(
 #[test]
 fn a_text_clip_renders_without_a_file_to_decode() {
     let tools = tools();
-    let dir = fixture_dir("text");
+    let dir = scratch::dir("text");
     let project = project(
         vec![titled("title", "THE END", Rgba::WHITE)],
-        vec![video_track("v1", vec![clip("c1", "title", 0, 20)])],
+        vec![video_track("v1", vec![Clip::at("c1", "title", 0, 20)])],
     );
 
     let (out, report) = render_at(&tools, &project, &dir).expect("a text clip renders");
@@ -69,10 +70,10 @@ fn a_text_clip_renders_without_a_file_to_decode() {
 #[test]
 fn the_colour_the_document_asks_for_reaches_the_file() {
     let tools = tools();
-    let dir = fixture_dir("text-colour");
+    let dir = scratch::dir("text-colour");
     let project = project(
         vec![titled("title", "THE END", Rgba::opaque(255, 0, 0))],
-        vec![video_track("v1", vec![clip("c1", "title", 0, 10)])],
+        vec![video_track("v1", vec![Clip::at("c1", "title", 0, 10)])],
     );
 
     let (out, _) = render_at(&tools, &project, &dir).expect("a text clip renders");
@@ -91,10 +92,10 @@ fn the_colour_the_document_asks_for_reaches_the_file() {
 #[test]
 fn a_font_the_project_does_not_have_stops_the_render() {
     let tools = tools();
-    let dir = fixture_dir("text-font");
+    let dir = scratch::dir("text-font");
     let project = project(
         vec![text_asset_in("title", "assets/Nowhere.ttf")],
-        vec![video_track("v1", vec![clip("c1", "title", 0, 10)])],
+        vec![video_track("v1", vec![Clip::at("c1", "title", 0, 10)])],
     );
 
     let error = render_at(&tools, &project, &dir).expect_err("a missing font is a refusal");
@@ -110,12 +111,12 @@ fn a_font_the_project_does_not_have_stops_the_render() {
 #[test]
 fn a_font_file_that_is_not_a_font_stops_the_render() {
     let tools = tools();
-    let dir = fixture_dir("text-not-a-font");
+    let dir = scratch::dir("text-not-a-font");
     std::fs::create_dir_all(dir.join("assets")).expect("create assets dir");
     std::fs::write(dir.join("assets/Fake.ttf"), b"not a font at all").expect("write the fake");
     let project = project(
         vec![text_asset_in("title", "assets/Fake.ttf")],
-        vec![video_track("v1", vec![clip("c1", "title", 0, 10)])],
+        vec![video_track("v1", vec![Clip::at("c1", "title", 0, 10)])],
     );
 
     let error = render_at(&tools, &project, &dir).expect_err("not a font is a refusal");
@@ -136,10 +137,10 @@ fn a_font_file_that_is_not_a_font_stops_the_render() {
 #[test]
 fn an_emoji_reaches_the_file_in_its_own_colours_and_notes_nothing() {
     let tools = tools();
-    let dir = fixture_dir("text-emoji");
+    let dir = scratch::dir("text-emoji");
     let project = project(
         vec![titled("title", "🔥", Rgba::WHITE)],
-        vec![video_track("v1", vec![clip("c1", "title", 0, 10)])],
+        vec![video_track("v1", vec![Clip::at("c1", "title", 0, 10)])],
     );
 
     let (out, report) = render_at(&tools, &project, &dir).expect("a text clip renders");

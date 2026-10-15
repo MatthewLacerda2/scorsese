@@ -77,7 +77,7 @@ async fn the_record_outlives_the_account(pool: PgPool) {
     access::record(&pool, ana, None, Access::SignIn)
         .await
         .unwrap();
-    let root = common::scratch("1267-delete");
+    let root = common::scratch::dir("1267-delete");
     let files = Storage::new(root.join("kept"), root.join("cache"));
     users::delete(&pool, &files, "ana@example.com")
         .await

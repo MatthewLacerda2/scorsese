@@ -7,7 +7,7 @@
 
 use std::path::Path;
 
-use scorsese_core::{AssetKind, Fps};
+use scorsese_core::{AssetKind, Clip, Fps};
 use scorsese_render::audio::{DELIVERY_CEILING_DBTP, measure};
 use scorsese_render::{
     Container, FrameRange, LoudnessTarget, OutputFormat, RenderReport, RenderSettings, Renderer,
@@ -15,8 +15,9 @@ use scorsese_render::{
 };
 
 use crate::common::audio::RATE;
-use crate::common::ffmpeg::{fixture_dir, generate_asset, tools};
-use crate::common::{audio_track, clip, project};
+use crate::common::ffmpeg::{generate_asset, tools};
+use crate::common::scratch;
+use crate::common::{audio_track, project};
 
 /// LU a delivered file may sit from its target, measured by somebody else's
 /// meter through a codec and a resample.
@@ -27,7 +28,7 @@ const SLACK: f64 = 0.5;
 /// the file's integrated loudness, and its true peak.
 fn deliver(label: &str, expr: &str, container: Container, target: f64) -> (RenderReport, f64, f64) {
     let tools = tools();
-    let dir = fixture_dir(label);
+    let dir = scratch::dir(label);
     let graph = format!("aevalsrc=exprs={expr}|{expr}:duration=3:sample_rate={RATE}");
     let sound = generate_asset(
         &tools,
@@ -38,7 +39,7 @@ fn deliver(label: &str, expr: &str, container: Container, target: f64) -> (Rende
     );
     let project = project(
         vec![sound],
-        vec![audio_track("a1", vec![clip("m1", "sound", 0, 90)])],
+        vec![audio_track("a1", vec![Clip::at("m1", "sound", 0, 90)])],
     );
     let out = dir.join(format!("out.{}", container.name()));
     let target = LoudnessTarget::new(target).expect("a target in range");

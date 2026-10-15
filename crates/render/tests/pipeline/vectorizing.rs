@@ -8,8 +8,9 @@
 use scorsese_core::{Asset, AssetId, AssetKind, GenerationState};
 use scorsese_render::trace::{TraceError, Traced, Tracing, Vectorized, vectorize};
 
-use crate::common::ffmpeg::{fixture_dir, generate_asset, tools};
+use crate::common::ffmpeg::{generate_asset, tools};
 use crate::common::project;
+use crate::common::scratch;
 
 /// A dark-ringed red square on white: flat art, made by ffmpeg.
 const BADGE: &[&str] = &[
@@ -25,7 +26,7 @@ const BADGE: &[&str] = &[
 #[test]
 fn a_picture_is_traced_into_a_file_beside_the_pages() {
     let tools = tools();
-    let dir = fixture_dir("vectorize");
+    let dir = scratch::dir("vectorize");
     let picture = generate_asset(&tools, &dir, "badge", AssetKind::Image, BADGE);
     let project = project(vec![picture], Vec::new());
 
@@ -48,7 +49,7 @@ fn a_picture_is_traced_into_a_file_beside_the_pages() {
 #[test]
 fn what_cannot_be_traced_writes_nothing() {
     let tools = tools();
-    let dir = fixture_dir("vectorize-refused");
+    let dir = scratch::dir("vectorize-refused");
     let picture = generate_asset(&tools, &dir, "badge", AssetKind::Image, BADGE);
     let mut sketch = Asset::sketch(
         AssetId::new("sketch"),

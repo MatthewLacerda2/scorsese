@@ -4,12 +4,12 @@
 //! disk — so it is pinned here, where a whole lifecycle can be sequenced
 //! without ffmpeg being in the room.
 
-use scorsese_core::{AssetKind, Fps, GenerationState};
+use scorsese_core::{AssetKind, Clip, Fps, GenerationState};
 use scorsese_render::{FrameRange, Plan, Showing};
 
 use crate::common::prompts::in_state;
 use crate::common::{
-    audio_shape, audio_track, clip, file_asset, generated_asset, narration_asset, project, shape,
+    audio_shape, audio_track, file_asset, generated_asset, narration_asset, project, shape,
     sketch_asset, sounding_asset, stale_asset, video_track,
 };
 
@@ -31,7 +31,7 @@ fn one_clip(asset: scorsese_core::Asset) -> scorsese_core::Project {
     let id = asset.id.to_string();
     project(
         vec![asset],
-        vec![video_track("v1", vec![clip("c1", &id, 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", &id, 0, 30)])],
     )
 }
 
@@ -92,8 +92,8 @@ fn a_narration_sketch_is_a_layer_over_the_picture() {
     let project = project(
         vec![sounding_asset("a", AssetKind::Video), narration_asset("vo")],
         vec![
-            video_track("v1", vec![clip("shot", "a", 0, 30)]),
-            audio_track("a1", vec![clip("vo1", "vo", 0, 30)]),
+            video_track("v1", vec![Clip::at("shot", "a", 0, 30)]),
+            audio_track("a1", vec![Clip::at("vo1", "vo", 0, 30)]),
         ],
     );
 
@@ -122,8 +122,8 @@ fn a_generated_narration_puts_nothing_on_the_picture() {
             generated_asset("vo", AssetKind::GeneratedAudio),
         ],
         vec![
-            video_track("v1", vec![clip("shot", "a", 0, 30)]),
-            audio_track("a1", vec![clip("vo1", "vo", 0, 30)]),
+            video_track("v1", vec![Clip::at("shot", "a", 0, 30)]),
+            audio_track("a1", vec![Clip::at("vo1", "vo", 0, 30)]),
         ],
     );
 
@@ -137,8 +137,8 @@ fn a_narration_card_never_outlasts_the_picture() {
     let project = project(
         vec![file_asset("a", AssetKind::Video), narration_asset("vo")],
         vec![
-            video_track("v1", vec![clip("shot", "a", 0, 30)]),
-            audio_track("a1", vec![clip("vo1", "vo", 0, 90)]),
+            video_track("v1", vec![Clip::at("shot", "a", 0, 30)]),
+            audio_track("a1", vec![Clip::at("vo1", "vo", 0, 90)]),
         ],
     );
     let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("sequences");

@@ -11,6 +11,9 @@ mod scratch;
 
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::LazyLock;
+
+use scorsese_core::SCHEMA_VERSION;
 
 /// Nothing runnable, on any platform this builds for.
 const NO_FFMPEG: &str = "scorsese-tests-no-such-ffmpeg";
@@ -21,7 +24,7 @@ fn project(label: &str) -> PathBuf {
     let dir = scratch::fresh(&format!("scorsese-describe-{label}"), "");
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("assets")).expect("create the project directory");
-    std::fs::write(dir.join("project.json"), DOCUMENT).expect("write project.json");
+    std::fs::write(dir.join("project.json"), &*DOCUMENT).expect("write project.json");
     dir
 }
 
@@ -143,29 +146,33 @@ fn at_says_where_each_clip_lands_in_fractions_of_the_frame() {
 
 /// A shot, a narration prompt over its first half, then two seconds of nothing
 /// — one of each thing a description has to name.
-const DOCUMENT: &str = r#"{
-  "schema_version": 49,
+static DOCUMENT: LazyLock<String> = LazyLock::new(|| {
+    format!(
+        r#"{{
+  "schema_version": {SCHEMA_VERSION},
   "name": "Teaser",
-  "timeline_fps": { "num": 30, "den": 1 },
+  "timeline_fps": {{ "num": 30, "den": 1 }},
   "assets": [
-    { "id": "shot", "kind": "video", "path": "assets/shot.mp4" },
-    { "id": "vo", "kind": "generated_audio", "state": "sketch", "prompt": "a voice, later" }
+    {{ "id": "shot", "kind": "video", "path": "assets/shot.mp4" }},
+    {{ "id": "vo", "kind": "generated_audio", "state": "sketch", "prompt": "a voice, later" }}
   ],
   "tracks": [
-    {
+    {{
       "id": "v1",
       "kind": "video",
       "clips": [
-        { "id": "c1", "asset": "shot", "start": 0, "duration": 60,
-          "note": "tried full-bleed first; white text over a bright sky did not read" },
-        { "id": "c2", "asset": "shot", "start": 90, "duration": 30 }
+        {{ "id": "c1", "asset": "shot", "start": 0, "duration": 60,
+          "note": "tried full-bleed first; white text over a bright sky did not read" }},
+        {{ "id": "c2", "asset": "shot", "start": 90, "duration": 30 }}
       ]
-    },
-    {
+    }},
+    {{
       "id": "a1",
       "kind": "audio",
-      "clips": [{ "id": "vo1", "asset": "vo", "start": 0, "duration": 60 }]
-    }
+      "clips": [{{ "id": "vo1", "asset": "vo", "start": 0, "duration": 60 }}]
+    }}
   ]
-}
-"#;
+}}
+"#
+    )
+});

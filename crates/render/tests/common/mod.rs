@@ -113,15 +113,6 @@ pub(crate) fn text_asset_in(id: &str, path: &str) -> Asset {
     }
 }
 
-pub(crate) fn clip(id: &str, asset: &str, start: u64, duration: u64) -> Clip {
-    Clip::new(
-        ClipId::new(id),
-        AssetId::new(asset),
-        Frames(start),
-        Frames(duration),
-    )
-}
-
 /// A clip that meets the raster some way other than scaling to fit it.
 pub(crate) fn fitted(fit: Fit, mut clip: Clip) -> Clip {
     clip.fit = fit;
@@ -132,7 +123,7 @@ pub(crate) fn fitted(fit: Fit, mut clip: Clip) -> Clip {
 pub(crate) fn clip_from(id: &str, asset: &str, start: u64, duration: u64, source_in: u64) -> Clip {
     Clip {
         source_in: Frames(source_in),
-        ..clip(id, asset, start, duration)
+        ..Clip::at(id, asset, start, duration)
     }
 }
 
@@ -143,18 +134,11 @@ pub(crate) fn sped(rate: f64, mut clip: Clip) -> Clip {
 }
 
 pub(crate) fn video_track(id: &str, clips: Vec<Clip>) -> Track {
-    track(id, TrackKind::Video, clips)
+    Track::with_clips(id, TrackKind::Video, clips)
 }
 
 pub(crate) fn audio_track(id: &str, clips: Vec<Clip>) -> Track {
-    track(id, TrackKind::Audio, clips)
-}
-
-pub(crate) fn track(id: &str, kind: TrackKind, clips: Vec<Clip>) -> Track {
-    Track {
-        clips,
-        ..Track::new(TrackId::new(id), kind)
-    }
+    Track::with_clips(id, TrackKind::Audio, clips)
 }
 
 /// A project on a 30 fps grid. Built directly rather than loaded, so a plan

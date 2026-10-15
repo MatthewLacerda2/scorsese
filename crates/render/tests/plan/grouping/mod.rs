@@ -3,10 +3,10 @@
 
 mod edges;
 
-use scorsese_core::{Asset, AssetId, Fps, Frames, Group};
+use scorsese_core::{Asset, AssetId, Clip, Fps, Frames, Group};
 use scorsese_render::{FrameRange, Plan, PlanError};
 
-use crate::common::{clip, clip_from, project, shape_asset, video_track};
+use crate::common::{clip_from, project, shape_asset, video_track};
 
 /// A bed over the whole thirty frames, and a clip of a group placed at frame
 /// 10 that opens five frames into it. Inside, `early` runs group frames 0–15
@@ -14,8 +14,8 @@ use crate::common::{clip, clip_from, project, shape_asset, video_track};
 /// leaves at 20.
 fn placed() -> scorsese_core::Project {
     let group = Group::new(vec![
-        video_track("g1", vec![clip("early", "box", 0, 15)]),
-        video_track("g2", vec![clip("late", "box", 12, 18)]),
+        video_track("g1", vec![Clip::at("early", "box", 0, 15)]),
+        video_track("g2", vec![Clip::at("late", "box", 12, 18)]),
     ]);
     project(
         vec![
@@ -23,7 +23,7 @@ fn placed() -> scorsese_core::Project {
             Asset::group(AssetId::new("diagram"), group),
         ],
         vec![
-            video_track("v1", vec![clip("bed", "box", 0, 30)]),
+            video_track("v1", vec![Clip::at("bed", "box", 0, 30)]),
             video_track("v2", vec![clip_from("shown", "diagram", 10, 20, 5)]),
         ],
     )
@@ -82,7 +82,9 @@ fn a_member_keeps_the_groups_time() {
 fn a_group_containing_itself_is_refused_not_recursed_into() {
     let mut project = placed();
     let group = project.assets[1].group.as_mut().expect("the group");
-    group.tracks[0].clips.push(clip("again", "diagram", 20, 5));
+    group.tracks[0]
+        .clips
+        .push(Clip::at("again", "diagram", 20, 5));
     let error = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).unwrap_err();
     assert!(
         matches!(error, PlanError::GroupContainsItself { .. }),

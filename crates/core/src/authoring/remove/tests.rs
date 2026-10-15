@@ -2,47 +2,52 @@
 //! leaves the document as it was.
 
 use std::collections::BTreeSet;
+use std::sync::LazyLock;
 
 use super::{remove_asset, remove_track};
 use crate::asset::AssetId;
 use crate::authoring::AuthorError;
-use crate::project::Project;
+use crate::project::{Project, SCHEMA_VERSION};
 use crate::timeline::{ClipId, TrackId};
 
 /// A caption shown twice on `v1` and once inside a group (beside a frame), a box an arrow is
 /// attached to on `v2`, a card nothing shows, and an empty `a1`.
-const DOCUMENT: &str = r##"{
-  "schema_version": 49, "name": "T", "timeline_fps": { "num": 30, "den": 1 },
+static DOCUMENT: LazyLock<String> = LazyLock::new(|| {
+    format!(
+        r##"{{
+  "schema_version": {SCHEMA_VERSION}, "name": "T", "timeline_fps": {{ "num": 30, "den": 1 }},
   "assets": [
-    { "id": "caption", "kind": "text", "text": "DAWN",
-      "style": { "font": "serif", "size": 0.12 } },
-    { "id": "card", "kind": "color", "color": "#101820" },
-    { "id": "frame", "kind": "color", "color": "#202020" },
-    { "id": "box", "kind": "shape", "shape": {
-      "geometry": { "rectangle": { "width": 0.2, "height": 0.1 } },
-      "fill": "#ffffffff" } },
-    { "id": "arrow", "kind": "shape", "shape": {
-      "geometry": { "arrow": {
-        "from": { "attach": { "clip": "b", "side": "right" } },
-        "to": { "x": 0.5, "y": 0.5 } } },
-      "stroke": "#ffffffff", "stroke_width": 0.004 } },
-    { "id": "inside", "kind": "group", "group": { "tracks": [
-      { "id": "g1", "kind": "video", "clips": [
-        { "id": "nested", "asset": "caption", "start": 0, "duration": 30 },
-        { "id": "kept", "asset": "frame", "start": 30, "duration": 30 } ] } ] } }
+    {{ "id": "caption", "kind": "text", "text": "DAWN",
+      "style": {{ "font": "serif", "size": 0.12 }} }},
+    {{ "id": "card", "kind": "color", "color": "#101820" }},
+    {{ "id": "frame", "kind": "color", "color": "#202020" }},
+    {{ "id": "box", "kind": "shape", "shape": {{
+      "geometry": {{ "rectangle": {{ "width": 0.2, "height": 0.1 }} }},
+      "fill": "#ffffffff" }} }},
+    {{ "id": "arrow", "kind": "shape", "shape": {{
+      "geometry": {{ "arrow": {{
+        "from": {{ "attach": {{ "clip": "b", "side": "right" }} }},
+        "to": {{ "x": 0.5, "y": 0.5 }} }} }},
+      "stroke": "#ffffffff", "stroke_width": 0.004 }} }},
+    {{ "id": "inside", "kind": "group", "group": {{ "tracks": [
+      {{ "id": "g1", "kind": "video", "clips": [
+        {{ "id": "nested", "asset": "caption", "start": 0, "duration": 30 }},
+        {{ "id": "kept", "asset": "frame", "start": 30, "duration": 30 }} ] }} ] }} }}
   ],
   "tracks": [
-    { "id": "v1", "kind": "video", "clips": [
-      { "id": "first", "asset": "caption", "start": 0, "duration": 30 },
-      { "id": "second", "asset": "caption", "start": 60, "duration": 30 } ] },
-    { "id": "v2", "kind": "video", "clips": [
-      { "id": "b", "asset": "box", "start": 0, "duration": 30 } ] },
-    { "id": "a1", "kind": "audio", "clips": [] }
+    {{ "id": "v1", "kind": "video", "clips": [
+      {{ "id": "first", "asset": "caption", "start": 0, "duration": 30 }},
+      {{ "id": "second", "asset": "caption", "start": 60, "duration": 30 }} ] }},
+    {{ "id": "v2", "kind": "video", "clips": [
+      {{ "id": "b", "asset": "box", "start": 0, "duration": 30 }} ] }},
+    {{ "id": "a1", "kind": "audio", "clips": [] }}
   ]
-}"##;
+}}"##
+    )
+});
 
 fn project() -> Project {
-    Project::from_json(DOCUMENT).expect("the fixture is a project")
+    Project::from_json(&DOCUMENT).expect("the fixture is a project")
 }
 
 fn named(ids: &[&str]) -> BTreeSet<ClipId> {

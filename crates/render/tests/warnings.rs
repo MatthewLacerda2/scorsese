@@ -8,11 +8,11 @@ mod common;
 use scorsese_core::{AssetKind, Clip, Easing, Frames, Keyframe, KeyframeTrack, PropertyPath};
 use scorsese_render::{ANIMATABLE, Unknown, unknown_in};
 
-use common::{clip, file_asset, project, video_track};
+use common::{file_asset, project, video_track};
 
 /// A clip animating `property`, whatever that turns out to mean.
 fn animating(id: &str, property: &str) -> Clip {
-    let mut clip = clip(id, "a", 0, 30);
+    let mut clip = Clip::at(id, "a", 0, 30);
     clip.keyframes.push(KeyframeTrack::new(
         PropertyPath::new(property),
         vec![Keyframe {

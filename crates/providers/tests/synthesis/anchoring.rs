@@ -25,22 +25,17 @@ fn scored(label: &str, logo: u64, cta: u64) -> (std::path::PathBuf, Project, Ass
     write(&dir, "recipes/score.json", SONG);
     let id = synth_asset(&mut project, "score", "recipes/score.json");
     let mut music = Track::new(TrackId::new("music"), TrackKind::Audio);
-    music.clips.push(clip("bed", &id, 30, 300));
+    music.clips.push(Clip::at("bed", id.as_str(), 30, 300));
     let mut picture = Track::new(TrackId::new("picture"), TrackKind::Video);
     let shot = AssetId::new("shot");
-    picture.clips.push(clip("logo", &shot, 30 + logo, 30));
-    picture.clips.push(clip("cta", &shot, 30 + cta, 30));
+    picture
+        .clips
+        .push(Clip::at("logo", shot.as_str(), 30 + logo, 30));
+    picture
+        .clips
+        .push(Clip::at("cta", shot.as_str(), 30 + cta, 30));
     project.tracks.extend([music, picture]);
     (dir, project, id)
-}
-
-fn clip(id: &str, asset: &AssetId, start: u64, frames: u64) -> Clip {
-    Clip::new(
-        ClipId::new(id),
-        asset.clone(),
-        Frames(start),
-        Frames(frames),
-    )
 }
 
 fn seconds(project: &Project, id: &AssetId) -> f64 {

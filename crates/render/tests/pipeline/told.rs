@@ -3,12 +3,13 @@
 //!
 //! Needs the pinned browser, like `pages.rs` beside it.
 
-use scorsese_core::{Asset, AssetId, AssetKind, ClipId, Fps, Frames, Project, ProjectPath};
+use scorsese_core::{Asset, AssetId, AssetKind, Clip, ClipId, Fps, Frames, Project, ProjectPath};
 use scorsese_render::page::Chrome;
 use scorsese_render::{Frame, Renderer};
 
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{clip, project, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{project, video_track};
 use crate::{BLUE, RED, assert_colour, colour_asset, settings};
 
 /// Blue over the whole frame for exactly as long as the clip `cue` lasts.
@@ -35,7 +36,7 @@ fn moved(project: &mut Project, id: &str, start: u64) {
 #[test]
 fn a_page_follows_the_clip_it_reads_and_ignores_the_ones_it_does_not() {
     let tools = tools();
-    let dir = fixture_dir("told-clips");
+    let dir = scratch::dir("told-clips");
     std::fs::create_dir_all(dir.join("pages")).expect("pages/");
     std::fs::write(dir.join("pages/stack.html"), PAGE).expect("a page");
     let page = Asset::imported(
@@ -46,7 +47,7 @@ fn a_page_follows_the_clip_it_reads_and_ignores_the_ones_it_does_not() {
     // The page's clip opens 3 frames into it at timeline frame 6, so the cue
     // at frame 10 is 7 frames into the page's clock — and lit on screen from
     // timeline frame 10, wherever the page's clip sits.
-    let mut shown = clip("page", "stack", 6, 14);
+    let mut shown = Clip::at("page", "stack", 6, 14);
     shown.source_in = Frames(3);
     let mut project = project(
         vec![colour_asset(&tools, &dir, "red", "64x64", 1), page],
@@ -54,9 +55,12 @@ fn a_page_follows_the_clip_it_reads_and_ignores_the_ones_it_does_not() {
             // Under the shot: placed, never seen.
             video_track(
                 "under",
-                vec![clip("cue", "red", 10, 5), clip("aside", "red", 16, 2)],
+                vec![
+                    Clip::at("cue", "red", 10, 5),
+                    Clip::at("aside", "red", 16, 2),
+                ],
             ),
-            video_track("v1", vec![clip("shot", "red", 0, 20)]),
+            video_track("v1", vec![Clip::at("shot", "red", 0, 20)]),
             video_track("v2", vec![shown]),
         ],
     );

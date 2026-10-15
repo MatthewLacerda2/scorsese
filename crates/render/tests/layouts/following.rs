@@ -6,12 +6,12 @@
 //! ask the same question the pipeline's `following` tests answer in pixels.
 
 use scorsese_core::{
-    Asset, AssetId, AssetKind, Attach, ClipId, Endpoint, Follow, Geometry, Heads, Point, Project,
-    Rgba, Shape, Side,
+    Asset, AssetId, AssetKind, Attach, Clip, ClipId, Endpoint, Follow, Geometry, Heads, Point,
+    Project, Rgba, Shape, Side,
 };
 use scorsese_render::Absence;
 
-use super::common::{clip, file_asset, held, project, shape_asset, video_track};
+use super::common::{file_asset, held, project, shape_asset, video_track};
 use super::{layout, region, rounded};
 
 /// An arrow from `from` to `to`.
@@ -43,7 +43,7 @@ fn across() -> Asset {
 /// A tenth-of-the-frame dot, held `progress` of the way along `c-line`, on
 /// screen for frames 0..30 — and the line on screen for `line_at`.
 fn scene(line: Asset, line_at: (u64, u64), progress: f64) -> Project {
-    let mut dot = held(clip("c-dot", "dot", 0, 30), "follow.progress", progress);
+    let mut dot = held(Clip::at("c-dot", "dot", 0, 30), "follow.progress", progress);
     dot.follow = Some(Follow::new(ClipId::new("c-line")));
     project(
         vec![
@@ -52,7 +52,7 @@ fn scene(line: Asset, line_at: (u64, u64), progress: f64) -> Project {
             shape_asset("box", 0.2, 0.2),
         ],
         vec![
-            video_track("v1", vec![clip("c-line", "line", line_at.0, line_at.1)]),
+            video_track("v1", vec![Clip::at("c-line", "line", line_at.0, line_at.1)]),
             video_track("v2", vec![dot]),
         ],
     )
@@ -104,7 +104,7 @@ fn an_arrow_attached_to_a_box_is_followed_to_the_box() {
     let mut project = scene(line(Point::new(0.1, 0.5).into(), tied), (0, 30), 1.0);
     project
         .tracks
-        .push(video_track("v3", vec![clip("c-box", "box", 0, 30)]));
+        .push(video_track("v3", vec![Clip::at("c-box", "box", 0, 30)]));
     assert_eq!(middle(&project, "c-dot"), (0.4, 0.5));
 }
 
@@ -116,7 +116,7 @@ fn a_follower_whose_attached_arrow_has_nothing_to_point_at_is_not_placed() {
     let mut project = scene(line(Point::new(0.1, 0.5).into(), tied), (0, 30), 0.5);
     project
         .tracks
-        .push(video_track("v3", vec![clip("c-box", "box", 60, 30)]));
+        .push(video_track("v3", vec![Clip::at("c-box", "box", 60, 30)]));
     let why = why_the_dot_is_unplaced(&project);
     assert!(
         matches!(&why, Some(Absence::Unknown(said)) if said.contains("`c-line`")),
@@ -136,7 +136,7 @@ fn a_follower_whose_arrow_meets_an_unmeasurable_clip_is_not_placed() {
     project.assets.push(file_asset("gone", AssetKind::Video));
     project
         .tracks
-        .push(video_track("v3", vec![clip("c-shot", "gone", 0, 30)]));
+        .push(video_track("v3", vec![Clip::at("c-shot", "gone", 0, 30)]));
     let why = why_the_dot_is_unplaced(&project);
     assert!(
         matches!(&why, Some(Absence::Unknown(said)) if said.contains("cannot place")),

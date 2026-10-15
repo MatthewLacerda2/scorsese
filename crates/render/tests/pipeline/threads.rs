@@ -8,11 +8,12 @@
 
 use std::path::{Path, PathBuf};
 
-use scorsese_core::{Easing, Fps, Frames, Keyframe, KeyframeTrack, Project, PropertyPath};
+use scorsese_core::{Clip, Easing, Fps, Frames, Keyframe, KeyframeTrack, Project, PropertyPath};
 use scorsese_render::{FrameRange, Renderer, Tools, Workers, frames};
 
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{clip, project, text_asset, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{project, text_asset, video_track};
 use crate::{colour_asset, settings};
 
 /// A cut with something for every path through a segment: two decoded layers,
@@ -22,7 +23,7 @@ use crate::{colour_asset, settings};
 fn layered(tools: &Tools, dir: &Path) -> Project {
     let red = colour_asset(tools, dir, "red", "64x64", 2);
     let green = colour_asset(tools, dir, "green", "64x64", 2);
-    let mut over = clip("over", "green", 0, 60);
+    let mut over = Clip::at("over", "green", 0, 60);
     over.keyframes = vec![
         ramp("opacity", &[(0, 0.0), (59, 1.0)]),
         ramp("transform.position.x", &[(0, -0.4), (59, 0.4)]),
@@ -31,9 +32,9 @@ fn layered(tools: &Tools, dir: &Path) -> Project {
     project(
         vec![red, green, text_asset("title")],
         vec![
-            video_track("v1", vec![clip("under", "red", 0, 60)]),
+            video_track("v1", vec![Clip::at("under", "red", 0, 60)]),
             video_track("v2", vec![over]),
-            video_track("v3", vec![clip("caption", "title", 0, 60)]),
+            video_track("v3", vec![Clip::at("caption", "title", 0, 60)]),
         ],
     )
 }
@@ -72,7 +73,7 @@ fn render_on(
 #[test]
 fn the_thread_count_changes_nothing_about_the_frames() {
     let tools = tools();
-    let dir = fixture_dir("threads");
+    let dir = scratch::dir("threads");
     let project = layered(&tools, &dir);
 
     let (serial, one_frames) = render_on(&tools, &project, &dir, 1, "one.mp4");
@@ -98,11 +99,11 @@ fn the_thread_count_changes_nothing_about_the_frames() {
 #[test]
 fn a_pool_of_more_workers_than_frames_still_renders_them_all() {
     let tools = tools();
-    let dir = fixture_dir("threads-wide");
+    let dir = scratch::dir("threads-wide");
     let red = colour_asset(&tools, &dir, "red", "64x64", 1);
     let project = project(
         vec![red],
-        vec![video_track("v1", vec![clip("c1", "red", 0, 3)])],
+        vec![video_track("v1", vec![Clip::at("c1", "red", 0, 3)])],
     );
 
     let (_, written) = render_on(&tools, &project, &dir, 64, "wide.mp4");

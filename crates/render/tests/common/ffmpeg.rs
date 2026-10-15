@@ -10,13 +10,6 @@ use scorsese_core::{Asset, AssetKind};
 use scorsese_render::Tools;
 pub(crate) use scorsese_render::testing::{generate, tools};
 
-/// A fresh empty directory, unique per call and removed when the test ends.
-pub(crate) fn fixture_dir(label: &str) -> PathBuf {
-    let dir = super::scratch::fresh(&format!("scorsese-render-{label}"), "");
-    std::fs::create_dir_all(&dir).expect("create fixture dir");
-    dir
-}
-
 /// Generates a media file inside a project's `assets/` and returns the assets
 /// table row pointing at it.
 pub(crate) fn generate_asset(

@@ -20,11 +20,12 @@ mod seeking;
 
 use std::path::Path;
 
-use scorsese_core::{Asset, AssetId, AssetKind, Fps, Project, ProjectPath};
+use scorsese_core::{Asset, AssetId, AssetKind, Clip, Fps, Project, ProjectPath};
 use scorsese_render::{FrameRange, RenderSettings, Renderer, Resolution, Tools};
 
-use common::ffmpeg::{fixture_dir, generate, mean_rgb, tools};
-use common::{clip, project, video_track};
+use common::ffmpeg::{generate, mean_rgb, tools};
+use common::scratch;
+use common::{project, video_track};
 
 pub(crate) const RED: (u8, u8, u8) = (255, 0, 0);
 pub(crate) const BLUE: (u8, u8, u8) = (0, 0, 255);
@@ -99,11 +100,11 @@ pub(crate) fn rendered_frame(
 #[test]
 fn an_animated_image_plays_and_then_repeats() {
     let tools = tools();
-    let dir = fixture_dir("animated-gif");
+    let dir = scratch::dir("animated-gif");
     let asset = gif(&tools, &dir, "wave", &["red", "blue"]);
     let project = project(
         vec![asset],
-        vec![video_track("v1", vec![clip("c1", "wave", 0, 45)])],
+        vec![video_track("v1", vec![Clip::at("c1", "wave", 0, 45)])],
     );
 
     assert_colour(
@@ -129,11 +130,11 @@ fn an_animated_image_plays_and_then_repeats() {
 #[test]
 fn a_single_frame_gif_is_held_like_any_other_still() {
     let tools = tools();
-    let dir = fixture_dir("static-gif");
+    let dir = scratch::dir("static-gif");
     let asset = gif(&tools, &dir, "card", &["green"]);
     let project = project(
         vec![asset],
-        vec![video_track("v1", vec![clip("c1", "card", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "card", 0, 30)])],
     );
 
     assert_colour(

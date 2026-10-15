@@ -165,15 +165,16 @@ pub(crate) fn show(ctx: &Context, open: &mut Open, asking: &mut Option<Asking>) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use scorsese_core::SCHEMA_VERSION;
 
     fn project() -> Project {
         Project::from_json(
-            r#"{ "schema_version": 49, "name": "T", "timeline_fps": { "num": 30, "den": 1 },
-              "assets": [ { "id": "title", "kind": "text", "text": "T" } ],
-              "tracks": [ { "id": "v1", "kind": "video", "clips": [
-                { "id": "c1", "asset": "title", "start": 0, "duration": 30 },
-                { "id": "c2", "asset": "title", "start": 30, "duration": 30 } ] },
-                { "id": "a1", "kind": "audio", "clips": [] } ] }"#,
+            &format!(r#"{{ "schema_version": {SCHEMA_VERSION}, "name": "T", "timeline_fps": {{ "num": 30, "den": 1 }},
+              "assets": [ {{ "id": "title", "kind": "text", "text": "T" }} ],
+              "tracks": [ {{ "id": "v1", "kind": "video", "clips": [
+                {{ "id": "c1", "asset": "title", "start": 0, "duration": 30 }},
+                {{ "id": "c2", "asset": "title", "start": 30, "duration": 30 }} ] }},
+                {{ "id": "a1", "kind": "audio", "clips": [] }} ] }}"#),
         )
         .expect("the fixture is a project")
     }

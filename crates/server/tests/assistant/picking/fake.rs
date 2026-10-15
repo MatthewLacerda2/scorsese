@@ -25,7 +25,7 @@ pub(crate) struct Fake {
 
 impl Fake {
     pub(crate) fn new() -> Arc<Self> {
-        let scratch = common::scratch("picking");
+        let scratch = common::scratch::dir("picking");
         let pngs = ["red", "orange", "yellow"].map(|colour| {
             let file = scratch.join(format!("{colour}.png"));
             let made = common::tools()

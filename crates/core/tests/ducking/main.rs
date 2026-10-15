@@ -15,7 +15,7 @@ mod rerun;
 mod seconds;
 mod shape;
 
-use scorsese_core::{Clip, ClipId, Dip, Fps, Frames, Project, Track, TrackId, TrackKind};
+use scorsese_core::{Clip, Dip, Fps, Project, Track, TrackKind};
 
 /// A project with a 600-frame music clip on `music`, and narration clips at
 /// the given `(start, duration)` frames on `vo`.
@@ -36,22 +36,11 @@ pub(crate) fn scored(narration: &[(u64, u64)]) -> Project {
 }
 
 pub(crate) fn audio_track(id: &str, clips: Vec<Clip>) -> Track {
-    Track {
-        id: TrackId::new(id),
-        kind: TrackKind::Audio,
-        name: None,
-        note: None,
-        clips,
-    }
+    Track::with_clips(id, TrackKind::Audio, clips)
 }
 
 pub(crate) fn clip(id: &str, start: u64, duration: u64) -> Clip {
-    Clip::new(
-        ClipId::new(id),
-        scorsese_core::AssetId::new("a"),
-        Frames(start),
-        Frames(duration),
-    )
+    Clip::at(id, "a", start, duration)
 }
 
 /// The default dip on a 30 fps grid: 9 frames of attack, 18 of release.

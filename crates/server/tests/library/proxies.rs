@@ -31,7 +31,7 @@ async fn a_heavy_video_gets_a_proxy_on_arrival_and_loses_it_with_the_item(pool: 
     let files = common::files("proxy-arrival");
     let storage = files.storage.clone();
     let registry = kinds::registry(&files);
-    let bytes = wide(&common::scratch("proxy-arrival-media"));
+    let bytes = wide(&common::scratch::dir("proxy-arrival-media"));
     let (address, state) = common::serve_with(pool.clone(), files).await;
     let (_stop, stopping) = watch::channel(false);
     let worker = tokio::spawn(jobs::work(
@@ -71,7 +71,7 @@ async fn a_heavy_video_gets_a_proxy_on_arrival_and_loses_it_with_the_item(pool: 
 #[sqlx::test]
 async fn a_small_video_gets_no_proxy(pool: PgPool) {
     let files = common::files("proxy-small");
-    let bytes = crate::video(&common::scratch("proxy-small-media"));
+    let bytes = crate::video(&common::scratch::dir("proxy-small-media"));
     let (address, state) = common::serve_with(pool.clone(), files).await;
     let (user, ana) = member(&pool, "ana@example.com").await;
     upload(address, &ana, "small.mp4", &bytes).await;

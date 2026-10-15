@@ -1,6 +1,6 @@
 //! Starting a recipe, and refusing one that is not a recipe.
 
-use crate::common::{holds, new_project, reload, run_in, temp_dir};
+use crate::common::{holds, new_project, reload, run_in, scratch};
 use scorsese_core::AssetKind;
 
 #[test]
@@ -80,7 +80,7 @@ fn check_reports_what_a_recipe_is_without_baking_it() {
 
 #[test]
 fn check_fails_on_a_document_that_is_not_a_recipe() {
-    let dir = temp_dir("synth-check-bad");
+    let dir = scratch::dir("synth-check-bad");
     let recipe = dir.join("nonsense.json");
     std::fs::write(&recipe, r#"{ "recipe": "sonata", "bpm": 120 }"#).expect("write");
 

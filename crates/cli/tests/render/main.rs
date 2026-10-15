@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 
 use common::documents::{self, assets};
 use common::media;
-use common::{Run, run_in, temp_dir};
+use common::{Run, run_in, scratch};
 
 /// What one render wrote, and what the command said doing it.
 pub(crate) struct Rendered {
@@ -85,7 +85,7 @@ pub(crate) fn pattern(label: &str, frames: u32) -> PathBuf {
 }
 
 fn shot_over(label: &str, frames: u32, media: impl Fn(&scorsese_render::Tools, &Path)) -> PathBuf {
-    let dir = temp_dir(label);
+    let dir = scratch::dir(label);
     media(&self::media::tools(), &dir);
     documents::write_into(
         &dir,

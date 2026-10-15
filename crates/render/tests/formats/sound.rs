@@ -7,13 +7,14 @@
 
 use std::path::Path;
 
-use scorsese_core::{AssetKind, Project};
+use scorsese_core::{AssetKind, Clip, Project};
 use scorsese_render::{
     Container, FrameRange, OutputFormat, PlanError, RenderError, RenderReport, Renderer, Tools,
 };
 
-use crate::common::ffmpeg::{fixture_dir, generate_asset, tools};
-use crate::common::{audio_track, clip, project};
+use crate::common::ffmpeg::{generate_asset, tools};
+use crate::common::scratch;
+use crate::common::{audio_track, project};
 use crate::probing::{Delivered, probe};
 use crate::{demo, settings};
 
@@ -34,7 +35,7 @@ fn render(
 /// The demo, delivered as `container`, as ffprobe reads it back.
 fn heard(label: &str, container: Container) -> (Delivered, RenderReport) {
     let tools = tools();
-    let dir = fixture_dir(label);
+    let dir = scratch::dir(label);
     let (report, out) = render(&tools, &dir, &demo(&tools, &dir), container);
     let report = report.expect("a sound-only render of a project with sound succeeds");
     let found = probe(&tools, &out);
@@ -87,7 +88,7 @@ fn an_m4a_is_aac_alone() {
 #[test]
 fn the_mix_is_exactly_the_one_the_video_carries() {
     let tools = tools();
-    let dir = fixture_dir("same-mix");
+    let dir = scratch::dir("same-mix");
     let project = demo(&tools, &dir);
     let (video, avi) = render(&tools, &dir, &project, Container::Avi);
     let (sound, wav) = render(&tools, &dir, &project, Container::Wav);
@@ -104,7 +105,7 @@ fn the_mix_is_exactly_the_one_the_video_carries() {
 #[test]
 fn a_sound_only_render_never_touches_the_picture() {
     let tools = tools();
-    let dir = fixture_dir("no-picture");
+    let dir = scratch::dir("no-picture");
     let project = demo(&tools, &dir);
     std::fs::remove_file(dir.join("assets/red.mp4")).expect("the picture existed");
     let (video, _) = render(&tools, &dir, &project, Container::Mp4);
@@ -119,7 +120,7 @@ fn a_sound_only_render_never_touches_the_picture() {
 #[test]
 fn a_project_with_no_picture_runs_as_long_as_its_sound() {
     let tools = tools();
-    let dir = fixture_dir("sound-project");
+    let dir = scratch::dir("sound-project");
     let tone = generate_asset(
         &tools,
         &dir,
@@ -129,7 +130,7 @@ fn a_project_with_no_picture_runs_as_long_as_its_sound() {
     );
     let project = project(
         vec![tone],
-        vec![audio_track("a1", vec![clip("c-tone", "tone", 0, 45)])],
+        vec![audio_track("a1", vec![Clip::at("c-tone", "tone", 0, 45)])],
     );
     let (video, _) = render(&tools, &dir, &project, Container::Mp4);
     let (sound, _) = render(&tools, &dir, &project, Container::Wav);
@@ -150,7 +151,7 @@ fn a_project_with_no_picture_runs_as_long_as_its_sound() {
 #[test]
 fn a_timeline_with_nothing_audible_is_refused() {
     let tools = tools();
-    let dir = fixture_dir("nothing-audible");
+    let dir = scratch::dir("nothing-audible");
     let mut project = demo(&tools, &dir);
     project.tracks.retain(|track| track.id.as_str() != "a1");
     let (sound, out) = render(&tools, &dir, &project, Container::Wav);

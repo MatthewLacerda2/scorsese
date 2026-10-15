@@ -105,7 +105,7 @@ fn a_laid_out_folder_holds_the_files_where_the_document_looks() {
         ("recipes/kit/snare.json", "{}"),
         ("notes/brief.md", "brief"),
     ]);
-    let at = common::scratch("laid-files").join("p.scor");
+    let at = common::scratch::dir("laid-files").join("p.scor");
     let folder = materialise(&project, &kept, &at, &|_: &str| None).unwrap();
     let read = |path: &str| std::fs::read_to_string(folder.root().join(path)).unwrap();
     assert_eq!(read("recipes/kit/snare.json"), "{}");

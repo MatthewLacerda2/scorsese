@@ -10,7 +10,9 @@
 //! writer would never produce — including the broken one.
 
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 
+use scorsese_core::SCHEMA_VERSION;
 use scorsese_providers::credentials::Settings;
 use scorsese_providers::voices::{
     Availability, Catalogue, Filters, Page, Unusable, Voice, VoiceError,
@@ -55,7 +57,7 @@ impl Drop for Fixture {
 /// exercises one case at a time would need six projects and would still miss
 /// how they look beside each other.
 pub(crate) fn project(label: &str) -> Fixture {
-    write(label, DOCUMENT)
+    write(label, &DOCUMENT)
 }
 
 /// The same project with a voice chosen for its narration line — the one state
@@ -73,7 +75,7 @@ pub(crate) fn project(label: &str) -> Fixture {
 /// on it — and the rule against one is exactly what had left the narration
 /// figure in every reference image at $0.00.
 pub(crate) fn voiced(label: &str) -> Fixture {
-    let fixture = write(label, DOCUMENT);
+    let fixture = write(label, &DOCUMENT);
     let chosen = listed(fixture.path());
     let document = DOCUMENT.replace(
         LINE,
@@ -229,37 +231,41 @@ pub(crate) const PIXEL: &[u8] = &[
 /// not a template with a hole in it.
 const LINE: &str = r#"{ "id": "vo", "kind": "generated_audio", "state": "sketch","#;
 
-pub(crate) const DOCUMENT: &str = r##"{
-  "schema_version": 49,
+pub(crate) static DOCUMENT: LazyLock<String> = LazyLock::new(|| {
+    format!(
+        r##"{{
+  "schema_version": {SCHEMA_VERSION},
   "name": "Narrated teaser",
-  "timeline_fps": { "num": 30, "den": 1 },
+  "timeline_fps": {{ "num": 30, "den": 1 }},
   "assets": [
-    { "id": "title", "kind": "text", "text": "CHAPTER ONE",
-      "style": { "font": "serif", "size": 0.14, "color": "#f5f0e6" } },
-    { "id": "shot-city", "kind": "generated_video", "state": "sketch",
+    {{ "id": "title", "kind": "text", "text": "CHAPTER ONE",
+      "style": {{ "font": "serif", "size": 0.14, "color": "#f5f0e6" }} }},
+    {{ "id": "shot-city", "kind": "generated_video", "state": "sketch",
       "prompt": "wide aerial of a city at dawn, slow push in",
-      "video": { "model": "fast", "resolution": "1080p", "seconds": 8 } },
-    { "id": "plate", "kind": "image", "path": "assets/plate.png",
-      "media": { "width": 1, "height": 1 } },
-    { "id": "vo", "kind": "generated_audio", "state": "sketch",
-      "prompt": "In a city that never sleeps, one editor never blinks." },
-    { "id": "bed", "kind": "synth_audio", "state": "sketch",
-      "recipe": "recipes/bed.json" }
+      "video": {{ "model": "fast", "resolution": "1080p", "seconds": 8 }} }},
+    {{ "id": "plate", "kind": "image", "path": "assets/plate.png",
+      "media": {{ "width": 1, "height": 1 }} }},
+    {{ "id": "vo", "kind": "generated_audio", "state": "sketch",
+      "prompt": "In a city that never sleeps, one editor never blinks." }},
+    {{ "id": "bed", "kind": "synth_audio", "state": "sketch",
+      "recipe": "recipes/bed.json" }}
   ],
   "tracks": [
-    { "id": "v1", "kind": "video", "name": "Main", "clips": [
-      { "id": "c-shot", "asset": "shot-city", "start": 0, "duration": 300 },
-      { "id": "c-title", "asset": "title", "start": 300, "duration": 120 } ] },
-    { "id": "a1", "kind": "audio", "name": "Music", "clips": [
-      { "id": "c-bed", "asset": "bed", "start": 0, "duration": 420,
+    {{ "id": "v1", "kind": "video", "name": "Main", "clips": [
+      {{ "id": "c-shot", "asset": "shot-city", "start": 0, "duration": 300 }},
+      {{ "id": "c-title", "asset": "title", "start": 300, "duration": 120 }} ] }},
+    {{ "id": "a1", "kind": "audio", "name": "Music", "clips": [
+      {{ "id": "c-bed", "asset": "bed", "start": 0, "duration": 420,
         "keyframes": [
-          { "property": "volume", "by": "duck", "keyframes": [
-            { "t": 51, "value": 1.0, "easing": "ease_out" },
-            { "t": 60, "value": 0.25 },
-            { "t": 230, "value": 0.25, "easing": "ease_in" },
-            { "t": 248, "value": 1.0 } ] } ] } ] },
-    { "id": "a2", "kind": "audio", "name": "Narration", "clips": [
-      { "id": "c-vo", "asset": "vo", "start": 60, "duration": 170 } ] }
+          {{ "property": "volume", "by": "duck", "keyframes": [
+            {{ "t": 51, "value": 1.0, "easing": "ease_out" }},
+            {{ "t": 60, "value": 0.25 }},
+            {{ "t": 230, "value": 0.25, "easing": "ease_in" }},
+            {{ "t": 248, "value": 1.0 }} ] }} ] }} ] }},
+    {{ "id": "a2", "kind": "audio", "name": "Narration", "clips": [
+      {{ "id": "c-vo", "asset": "vo", "start": 60, "duration": 170 }} ] }}
   ]
-}
-"##;
+}}
+"##
+    )
+});

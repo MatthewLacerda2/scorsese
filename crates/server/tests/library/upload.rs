@@ -9,7 +9,7 @@ use crate::{announce, announce_as, member, patch, upload, video};
 #[sqlx::test]
 async fn a_file_arrives_in_chunks_and_resumes_where_it_stopped(pool: PgPool) {
     let files = common::files("upload-chunks");
-    let bytes = video(&common::scratch("upload-chunks-media"));
+    let bytes = video(&common::scratch::dir("upload-chunks-media"));
     let (address, _) = common::serve_with(pool.clone(), files).await;
     let (_, ana) = member(&pool, "ana@example.com").await;
 
@@ -69,7 +69,7 @@ async fn a_file_arrives_in_chunks_and_resumes_where_it_stopped(pool: PgPool) {
 
 #[sqlx::test]
 async fn the_same_bytes_again_are_refused_by_the_name_they_have(pool: PgPool) {
-    let bytes = video(&common::scratch("upload-duplicate-media"));
+    let bytes = video(&common::scratch::dir("upload-duplicate-media"));
     let (address, _) = common::serve_with(pool.clone(), common::files("upload-dup")).await;
     let (_, ana) = member(&pool, "ana@example.com").await;
     let id = upload(address, &ana, "intro.mp4", &bytes).await;
@@ -97,7 +97,7 @@ async fn the_same_bytes_again_are_refused_by_the_name_they_have(pool: PgPool) {
 
 #[sqlx::test]
 async fn what_arrives_is_checked_rather_than_trusted(pool: PgPool) {
-    let bytes = video(&common::scratch("upload-checked-media"));
+    let bytes = video(&common::scratch::dir("upload-checked-media"));
     let (address, _) = common::serve_with(pool.clone(), common::files("upload-checked")).await;
     let (_, ana) = member(&pool, "ana@example.com").await;
 

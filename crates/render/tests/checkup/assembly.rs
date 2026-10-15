@@ -13,7 +13,7 @@ use scorsese_core::{
 use scorsese_render::Checkup;
 use scorsese_render::checkup::{Severity, Verdict};
 
-use crate::common::{clip, file_asset, project, text_asset, video_track};
+use crate::common::{file_asset, project, text_asset, video_track};
 
 /// A project directory that is not there, so every file the document names is
 /// missing. Nothing is created, and there is nothing to clean up.
@@ -55,7 +55,7 @@ fn titled(face: &str) -> Asset {
 
 /// A clip animating `property`, whatever that turns out to mean.
 fn animating(id: &str, asset: &str, property: &str) -> Clip {
-    let mut clip = clip(id, asset, 0, 30);
+    let mut clip = Clip::at(id, asset, 0, 30);
     clip.keyframes.push(KeyframeTrack::new(
         PropertyPath::new(property),
         vec![Keyframe {
@@ -71,7 +71,7 @@ fn animating(id: &str, asset: &str, property: &str) -> Clip {
 fn a_project_of_inline_text_has_nothing_to_say() {
     let project = project(
         vec![text_asset("title")],
-        vec![video_track("v1", vec![clip("c1", "title", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "title", 0, 30)])],
     );
     let checkup = checkup(&project);
     assert_eq!(checkup.warnings(), 0, "{:?}", checkup.lines());
@@ -87,7 +87,7 @@ fn a_file_a_clip_needs_going_missing_is_a_problem() {
     // the render would die partway through anyway.
     let project = project(
         vec![file_asset("boat", AssetKind::Video)],
-        vec![video_track("v1", vec![clip("c1", "boat", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "boat", 0, 30)])],
     );
     let problems = said(&checkup(&project), Severity::Problem);
     assert_eq!(problems.len(), 1, "{problems:?}");
@@ -99,7 +99,7 @@ fn a_file_a_clip_needs_going_missing_is_a_problem() {
 fn a_font_this_build_does_not_ship_is_a_problem() {
     let project = project(
         vec![titled("blackletter")],
-        vec![video_track("v1", vec![clip("c1", "title", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "title", 0, 30)])],
     );
     let problems = said(&checkup(&project), Severity::Problem);
     assert_eq!(problems.len(), 1, "{problems:?}");
@@ -124,7 +124,7 @@ fn a_script_the_disk_does_not_have_is_a_warning() {
         script: Some(ProjectPath::new("script.md")),
         ..project(
             vec![text_asset("title")],
-            vec![video_track("v1", vec![clip("c1", "title", 0, 30)])],
+            vec![video_track("v1", vec![Clip::at("c1", "title", 0, 30)])],
         )
     };
     let checkup = checkup(&project);
@@ -142,7 +142,10 @@ fn the_document_and_the_media_are_reported_together() {
     // Everything at once, under one heading, is what makes one call the whole
     // repair job — and which half of the checkup noticed what is not
     // something the reader should have to know.
-    let clips = vec![clip("c1", "boat", 0, 30), clip("c2", "ghost", 30, 30)];
+    let clips = vec![
+        Clip::at("c1", "boat", 0, 30),
+        Clip::at("c2", "ghost", 30, 30),
+    ];
     let project = project(
         vec![file_asset("boat", AssetKind::Video)],
         vec![video_track("v1", clips)],
