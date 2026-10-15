@@ -36,7 +36,7 @@ pub(crate) fn run(file: &Path, out: Option<PathBuf>, look: &Look) -> Result<()> 
     println!(
         "Wrote {} — {} of {} ({:.1}s), at {}{}",
         path.display(),
-        counted(sheet.at_seconds.len()),
+        contact::counted(sheet.at_seconds.len()),
         file.display(),
         sheet.duration_seconds,
         moments.join(", "),
@@ -64,13 +64,4 @@ fn default_out(file: &Path) -> PathBuf {
     let mut name = file.file_stem().unwrap_or_default().to_os_string();
     name.push(".sheet.png");
     file.with_file_name(name)
-}
-
-/// "1 frame" or "4 frames", because a report that reads wrong reads as a bug.
-fn counted(frames: usize) -> String {
-    if frames == 1 {
-        String::from("1 frame")
-    } else {
-        format!("{frames} frames")
-    }
 }

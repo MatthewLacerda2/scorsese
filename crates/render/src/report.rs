@@ -217,6 +217,28 @@ impl fmt::Display for StandIn {
     }
 }
 
+/// The notes already said across several frames, so that each is said once.
+///
+/// A page on screen at several instants is one page with one problem. A call
+/// that composites several frames — `still` given a list, a contact sheet —
+/// says each note with the first frame that noticed it, and not again.
+#[derive(Debug, Clone, Default)]
+pub struct Told(Vec<Note>);
+
+impl Told {
+    /// Those of `notes` not said before, in their order, now counted as said.
+    pub fn unsaid(&mut self, notes: Vec<Note>) -> Vec<Note> {
+        let mut fresh = Vec::new();
+        for note in notes {
+            if !self.0.contains(&note) {
+                self.0.push(note.clone());
+                fresh.push(note);
+            }
+        }
+        fresh
+    }
+}
+
 impl fmt::Display for Note {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -386,5 +408,24 @@ impl RenderReport {
             Some(_) => self.fps.seconds(Frames(self.frames)),
             None => self.seconds_of_audio.unwrap_or_default(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Note, Told};
+
+    #[test]
+    fn a_note_is_told_once_across_frames_and_within_one() {
+        let mut told = Told::default();
+        assert_eq!(
+            told.unsaid(vec![Note::SlugCard, Note::SlugCard]),
+            [Note::SlugCard]
+        );
+        assert_eq!(
+            told.unsaid(vec![Note::Silence, Note::SlugCard]),
+            [Note::Silence]
+        );
+        assert!(told.unsaid(vec![Note::Silence]).is_empty());
     }
 }

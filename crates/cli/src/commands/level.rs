@@ -20,7 +20,7 @@ pub(crate) fn run(file: &Path, against: Option<&Path>) -> Result<()> {
     let tools = Tools::discover()?;
     let profile = measure(&tools, file).with_context(|| format!("measuring {}", file.display()))?;
 
-    println!("{}", say::headline(&name(file), &profile));
+    println!("{}", say::headline(&say::name(file), &profile));
     for row in say::sections(&profile) {
         println!("  {row}");
     }
@@ -31,21 +31,9 @@ pub(crate) fn run(file: &Path, against: Option<&Path>) -> Result<()> {
     let previous =
         measure(&tools, other).with_context(|| format!("measuring {}", other.display()))?;
     println!();
-    println!("{}  vs  {}", name(file), name(other));
+    println!("{}  vs  {}", say::name(file), say::name(other));
     for row in say::comparison(&profile, &previous) {
         println!("  {row}");
     }
     Ok(())
-}
-
-/// How a file is named in the report: its file name, not its whole path.
-///
-/// The two files in a comparison usually sit in the same directory and differ
-/// in one word, and printing two long paths that agree for sixty characters
-/// buries the word that differs.
-fn name(file: &Path) -> String {
-    file.file_name().map_or_else(
-        || file.display().to_string(),
-        |name| name.to_string_lossy().into_owned(),
-    )
 }

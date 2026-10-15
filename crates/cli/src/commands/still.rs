@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use scorsese_core::{Frames, Project};
-use scorsese_render::{Cue, RenderSettings, Renderer, Resolution, Tools, contact, frames};
+use scorsese_render::{Cue, RenderSettings, Renderer, Resolution, Told, Tools, contact, frames};
 
 /// The raster a frame is composited at when nobody says: the delivery size most
 /// cuts are made for, since a PNG written here is often kept.
@@ -87,7 +87,7 @@ pub(crate) fn run(project_dir: &Path, out: &Path, at: &[Cue], options: Options) 
     }
     let several = wanted.len() > 1;
 
-    let mut told = Vec::new();
+    let mut told = Told::default();
     for frame in wanted {
         let (mut picture, notes) = renderer
             .still_noted(&project, project_dir, frame)
@@ -109,11 +109,8 @@ pub(crate) fn run(project_dir: &Path, out: &Path, at: &[Cue], options: Options) 
         );
         // As `render` prints them, and once: a page on screen at several
         // instants is one page with one problem.
-        for note in notes {
-            if !told.contains(&note) {
-                println!("  note: {note}");
-                told.push(note);
-            }
+        for note in told.unsaid(notes) {
+            println!("  note: {note}");
         }
     }
     Ok(())
@@ -148,14 +145,11 @@ fn write_sheet(
         }
     );
     // Keyed by the instant, since a sheet has no "under the frame" to put a
-    // note — and once, as the separate PNGs print them.
-    let mut told = Vec::new();
+    // note — and once, as the separate PNGs print them: the sheet lists each
+    // note under the first instant that noticed it.
     for (frame, notes) in drawn.notes {
         for note in notes {
-            if !told.contains(&note) {
-                println!("  note at frame {}: {note}", frame.get());
-                told.push(note);
-            }
+            println!("  note at frame {}: {note}", frame.get());
         }
     }
     Ok(())

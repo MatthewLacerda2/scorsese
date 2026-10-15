@@ -19,6 +19,8 @@ mod layers;
 mod survey;
 mod table;
 
+use std::path::Path;
+
 use scorsese_zimmer::level::Loudness;
 
 pub use compare::comparison;
@@ -59,6 +61,18 @@ pub fn loudness(level: &Loudness) -> String {
 /// within the noise of the interpolation.
 const TRUE_PEAK_WORTH_SAYING: f64 = 0.1;
 
+/// How a file is named in a report: its file name, not its whole path.
+///
+/// Two files being compared usually sit in the same directory and differ in
+/// one word, and two long paths that agree for sixty characters bury it. A
+/// path with no file name (`/`, `..`) is said whole.
+pub fn name(file: &Path) -> String {
+    file.file_name().map_or_else(
+        || file.display().to_string(),
+        |name| name.to_string_lossy().into_owned(),
+    )
+}
+
 /// A time in the piece, as a caller would place something on it.
 ///
 /// Seconds to the millisecond, because that is the unit every tool that puts
@@ -74,7 +88,15 @@ pub(crate) fn moment(seconds: f64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::moment;
+    use std::path::Path;
+
+    use super::{moment, name};
+
+    #[test]
+    fn a_file_is_named_by_its_file_name() {
+        assert_eq!(name(Path::new("generated/vo-01.mp3")), "vo-01.mp3");
+        assert_eq!(name(Path::new("..")), "..");
+    }
 
     #[test]
     fn a_position_is_said_in_seconds_precise_enough_to_place_a_clip_on() {
