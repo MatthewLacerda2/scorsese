@@ -8,6 +8,7 @@
 mod adopt;
 mod file;
 mod import;
+mod read;
 mod write;
 
 pub use file::{
@@ -15,4 +16,5 @@ pub use file::{
     read_page_file, write_page_file,
 };
 pub(super) use import::import_page;
+pub use read::{PageReadError, read_page};
 pub use write::{PageError, PageWritten, write_page};

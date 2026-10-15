@@ -20,15 +20,26 @@ struct Arguments {
     /// The scenes, in the order they play. Each pairs one narration clip with
     /// the visual clips seen while it is said.
     scenes: Vec<SceneArgument>,
-    /// Seconds from a line's last word to the end of its scene, where the
-    /// next scene begins. Default 0.2.
+    // The descriptions are built from `Voicing`'s constants so the number they
+    // print is the number the fallback below uses.
+    #[schemars(description = format!(
+        "Seconds from a line's last word to the end of its scene, where the \
+         next scene begins. Default {}.",
+        Voicing::GAP
+    ))]
     gap_seconds: Option<f64>,
-    /// Seconds from a scene's start to its line's start, for every scene that
-    /// does not set its own. Default 0.
+    #[schemars(description = format!(
+        "Seconds from a scene's start to its line's start, for every scene that \
+         does not set its own. Default {}.",
+        Voicing::LEAD_IN
+    ))]
     lead_in_seconds: Option<f64>,
-    /// Seconds each scene's visuals run on under the next scene, so an exit
-    /// and an entrance play together. Default 0, a straight cut. The incoming
-    /// visual moves to another track to make room, and the reply says which.
+    #[schemars(description = format!(
+        "Seconds each scene's visuals run on under the next scene, so an exit \
+         and an entrance play together. Default {}, a straight cut. The incoming \
+         visual moves to another track to make room, and the reply says which.",
+        Voicing::OVERLAP
+    ))]
     overlap_seconds: Option<f64>,
     /// Where the first scene begins, in seconds. Default: where its earliest
     /// visual starts now.
@@ -108,9 +119,9 @@ fn voicing(arguments: Arguments) -> Voicing {
                 lead_in: scene.lead_in_seconds,
             })
             .collect(),
-        lead_in: arguments.lead_in_seconds.unwrap_or(0.0),
-        gap: arguments.gap_seconds.unwrap_or(0.2),
-        overlap: arguments.overlap_seconds.unwrap_or(0.0),
+        lead_in: arguments.lead_in_seconds.unwrap_or(Voicing::LEAD_IN),
+        gap: arguments.gap_seconds.unwrap_or(Voicing::GAP),
+        overlap: arguments.overlap_seconds.unwrap_or(Voicing::OVERLAP),
         from: arguments.start_seconds,
     }
 }

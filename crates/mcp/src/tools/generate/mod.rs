@@ -26,12 +26,12 @@ use std::time::Duration;
 use schemars::JsonSchema;
 use scorsese_core::placing::{self, Shortened};
 use scorsese_core::{AssetId, Project, Reprobe, probe_assets};
-use scorsese_providers::credentials::{Budget, Settings};
+use scorsese_providers::credentials::Budget;
 use scorsese_providers::image::Order;
 use scorsese_providers::prices::dollars;
 use scorsese_providers::quote::{self, generation};
 use scorsese_providers::video::{Run, WAIT_FOR};
-use scorsese_providers::{image, speech, spending, video};
+use scorsese_providers::{image, speech, video};
 use scorsese_render::Ffprobe;
 use serde::Deserialize;
 use serde_json::Value;
@@ -146,10 +146,8 @@ impl Tool for Generate {
             }
         }
 
-        // A settings file that is there and unreadable refuses to spend: read
-        // as the defaults, it would be a run with no ceiling at all (#1108).
-        let settings = Settings::load().map_err(|error| format!("nothing was sent: {error}"))?;
-        let budget = Budget::from_settings(&settings, spent_so_far(&project, dir));
+        let budget = Budget::for_project(&project, dir)
+            .map_err(|error| format!("nothing was sent: {error}"))?;
         let patience = arguments.wait_seconds.map_or(WAIT_FOR, Duration::from_secs);
 
         let mut shots = Run {
@@ -319,16 +317,6 @@ fn landed(shots: &Run, spoken: &lines::Spoken) -> Vec<AssetId> {
     shot.map(|(id, _)| id.clone())
         .chain(line.map(|(id, _)| id.clone()))
         .collect()
-}
-
-/// What this project has already spent, against the ceiling.
-///
-/// The assets **and** the designed-voice ledger, because a ceiling that counted
-/// only one of them would be wrong by however much the other holds — designing
-/// a voice is real money at the same vendor. They stay separate figures
-/// wherever they are *reported*; see [`spending`].
-fn spent_so_far(project: &Project, root: &Path) -> u64 {
-    spending::so_far(project, root).total()
 }
 
 /// What the run reads as.

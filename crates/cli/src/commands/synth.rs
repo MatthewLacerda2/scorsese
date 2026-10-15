@@ -4,7 +4,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use scorsese_core::AssetId;
-use scorsese_providers::synth::{self, Baked, Drum, Excerpt, Partial, Span, Starter, Window, kit};
+use scorsese_providers::synth::{
+    self, Baked, Bakes, Drum, Excerpt, Partial, Span, Starter, Window, kit,
+};
 use scorsese_render::say;
 
 /// What `synth bake` was asked for beyond "everything that is not on disk".
@@ -184,15 +186,11 @@ pub(crate) fn bake(project_dir: &Path, only: Option<&str>, less: &Less) -> Resul
         return Ok(());
     }
     let mut project = super::open(project_dir)?;
-    let baked = match only {
-        Some(id) => {
-            let id = AssetId::new(id);
-            let one = synth::bake_asset(&mut project, project_dir, &id)
-                .with_context(|| format!("baking `{id}`"))?;
-            vec![(id, one)]
-        }
-        None => synth::bake_pending(&mut project, project_dir).context("baking")?,
-    };
+    let only = only.map(AssetId::new);
+    let baked = synth::bake(&mut project, project_dir, only.as_ref()).with_context(|| {
+        only.as_ref()
+            .map_or_else(|| "baking".to_owned(), |id| format!("baking `{id}`"))
+    })?;
 
     if baked.is_empty() {
         println!("no synth_audio assets — `scorsese synth new <name>` starts one");
@@ -249,8 +247,8 @@ pub(crate) fn survey(project_dir: &Path) -> Result<()> {
 }
 
 /// What each bake did, and one line saying how much of it was free.
-fn report(baked: &[(AssetId, Baked)]) {
-    for (id, outcome) in baked {
+fn report(baked: &Bakes) {
+    for (id, outcome) in &baked.baked {
         match outcome {
             Baked::Rendered {
                 path,
@@ -291,8 +289,7 @@ fn report(baked: &[(AssetId, Baked)]) {
             }
         }
     }
-    let fresh = baked.iter().filter(|(_, it)| it.is_fresh()).count();
-    println!("{fresh} rendered, {} cached, $0.00", baked.len() - fresh);
+    println!("{}", baked.tally());
 }
 
 /// What a partial bake did, and the one line that says it is not the file the

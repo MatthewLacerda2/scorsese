@@ -12,6 +12,7 @@ mod common;
 
 mod caching;
 mod fake;
+mod listing;
 mod recovery;
 
 use scorsese_providers::voices::Voice;

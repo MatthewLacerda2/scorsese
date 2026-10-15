@@ -17,9 +17,8 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use scorsese_providers::credentials::{Budget, Provider, Settings, resolve};
+use scorsese_providers::credentials::{Budget, Provider, resolve};
 use scorsese_providers::prices::dollars;
-use scorsese_providers::spending;
 use scorsese_providers::voices::design::{
     Brief, Designing, ElevenLabsStudio, Kept, LEDGER_FILE, design, designed, estimate, keep,
 };
@@ -70,11 +69,7 @@ pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
 
     let key = resolve(Provider::ElevenLabs)?;
     let studio = ElevenLabsStudio::new(&key.secret);
-    let budget = Budget::from_settings(
-        // Unreadable settings refuse to spend rather than lose the ceiling (#1108).
-        &Settings::load().context("nothing was sent")?,
-        spending::so_far(&project, project_dir).total(),
-    );
+    let budget = Budget::for_project(&project, project_dir).context("nothing was sent")?;
     report(&design(project_dir, &studio, &brief, budget)?);
     Ok(())
 }

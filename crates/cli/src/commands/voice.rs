@@ -18,15 +18,15 @@ pub(crate) struct Options {
     scenes: Vec<SceneSpec>,
     /// Seconds from a line's last word to the end of its scene, where the
     /// next one begins.
-    #[arg(long, default_value_t = 0.2)]
+    #[arg(long, default_value_t = Voicing::GAP)]
     gap: f64,
     /// Seconds from a scene's start to its line's start, for every scene
     /// without its own `@SECONDS`.
-    #[arg(long, default_value_t = 0.0)]
+    #[arg(long, default_value_t = Voicing::LEAD_IN)]
     lead_in: f64,
     /// Seconds each scene's visuals run on under the next, so an exit and an
     /// entrance play together. The incoming visual moves to another track.
-    #[arg(long, default_value_t = 0.0)]
+    #[arg(long, default_value_t = Voicing::OVERLAP)]
     overlap: f64,
     /// Where the first scene begins, in seconds. Where its earliest visual
     /// starts now, when not given.

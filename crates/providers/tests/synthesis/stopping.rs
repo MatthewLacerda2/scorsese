@@ -7,7 +7,7 @@ use std::path::Path;
 
 use crate::common::{project, synth_asset, write};
 use scorsese_providers::synth::{
-    SynthesisError, bake_asset_unless, bake_pending, bake_pending_unless,
+    SynthesisError, bake, bake_asset_unless, bake_pending, bake_pending_unless,
 };
 
 /// Two notes on an inline pluck: enough for a stop to land between them.
@@ -95,5 +95,23 @@ fn a_bake_nobody_can_stop_bakes_every_recipe() {
     assert_eq!(baked.len(), 1);
     assert!(baked[0].1.is_fresh());
     assert_eq!(bakes(&dir), 1);
+    std::fs::remove_dir_all(dir).ok();
+}
+
+/// The surfaces' one entry: every recipe when none is named, the one named
+/// otherwise, and the closing tally counting rendered against cached.
+#[test]
+fn the_shared_bake_tallies_what_it_rendered_and_what_was_cached() {
+    let (dir, mut project) = project("bake-tally");
+    write(&dir, "recipes/tune.json", TUNE);
+    let id = synth_asset(&mut project, "tune", "recipes/tune.json");
+
+    let first = bake(&mut project, &dir, None).expect("bakes");
+    assert_eq!(first.tally(), "1 rendered, 0 cached, $0.00");
+
+    let again = bake(&mut project, &dir, Some(&id)).expect("bakes again");
+    assert_eq!(again.baked.len(), 1);
+    assert_eq!(again.baked[0].0, id);
+    assert_eq!(again.tally(), "0 rendered, 1 cached, $0.00");
     std::fs::remove_dir_all(dir).ok();
 }

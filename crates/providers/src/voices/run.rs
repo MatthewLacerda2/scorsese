@@ -108,6 +108,34 @@ pub struct Answer {
 }
 
 impl Answer {
+    /// The whole listing as a reader is shown it: each voice, its description
+    /// indented under it, then a blank line and [`Answer::summary`] — or, when
+    /// nothing matched, a line saying so in its place.
+    ///
+    /// `from_library` says which listing this is, the Voice Library or the
+    /// built-in set; `refresh` is as for [`Answer::summary`]. The CLI's
+    /// `voices` and MCP's `voices` both print this, so they cannot drift.
+    pub fn says(&self, from_library: bool, refresh: &str) -> String {
+        let what = if from_library {
+            "the Voice Library"
+        } else {
+            "built-in"
+        };
+        let mut lines: Vec<String> = self
+            .voices
+            .iter()
+            .map(|voice| match voice.description.as_deref().map(str::trim) {
+                Some(about) if !about.is_empty() => format!("{}\n    {about}", voice.says()),
+                _ => voice.says(),
+            })
+            .collect();
+        if lines.is_empty() {
+            lines.push(format!("No voices matched in {what}."));
+        }
+        lines.push(format!("\n{}", self.summary(what, refresh)));
+        lines.join("\n")
+    }
+
     /// The lines that close a listing: how many voices, where they came from,
     /// and — where it applies — that they are not all of them.
     ///

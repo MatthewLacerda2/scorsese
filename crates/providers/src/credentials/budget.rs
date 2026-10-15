@@ -62,6 +62,23 @@ impl Budget {
         }
     }
 
+    /// The budget this machine's settings set for `project`, against all it
+    /// has spent so far: the assets **and** the designed-voice ledger
+    /// ([`crate::spending::so_far`]), because a ceiling that counted only one
+    /// of them would be wrong by however much the other holds.
+    ///
+    /// A settings file that is there and unreadable is an error, never the
+    /// defaults: read as the defaults, it would be a run with no ceiling at
+    /// all (#1108). Every surface that spends builds its budget here.
+    pub fn for_project(
+        project: &scorsese_core::Project,
+        root: &std::path::Path,
+    ) -> Result<Self, super::SettingsError> {
+        let settings = super::Settings::load()?;
+        let spent = crate::spending::so_far(project, root).total();
+        Ok(Self::from_settings(&settings, spent))
+    }
+
     /// The same budget, with `more` cents counted as already spent.
     ///
     /// What a run uses to hold itself to the ceiling **as it goes**. A budget is

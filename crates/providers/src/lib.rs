@@ -39,8 +39,8 @@
 //!
 //! ## What this publishes
 //!
-//! [`synth`], by that one path: the verbs (`create`, `check`, `bake_asset` and
-//! `bake_pending`, `survey`, `set`), the [`Recipe`](synth::Recipe) they read and
+//! [`synth`], by that one path: the verbs (`create`, `check`, `bake` — over
+//! `bake_asset` and `bake_pending` — `survey`, `set`), the [`Recipe`](synth::Recipe) they read and
 //! write, the [`Starter`](synth::Starter) a new one is cut from, and what they
 //! answer with. How a recipe becomes samples — reading it, addressing the bake
 //! by the recipe and the synthesiser both, resolving the instruments it names

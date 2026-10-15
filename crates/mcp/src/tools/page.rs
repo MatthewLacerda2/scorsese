@@ -19,7 +19,9 @@
 //! `docs/pages.md`, which the descriptions point at as `guide pages` (#909).
 
 use schemars::JsonSchema;
-use scorsese_core::{AssetId, AssetKind, read_page_file, write_page, write_page_file};
+use scorsese_core::{
+    AssetId, PageReadError, read_page, read_page_file, write_page, write_page_file,
+};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -224,18 +226,11 @@ impl Tool for Read {
             }
         };
         let project = load(dir)?;
-        let id = AssetId::new(page.as_str());
-        let asset = project
-            .asset(&id)
-            .ok_or_else(|| format!("there is no asset `{id}`; page_write starts a page"))?;
-        let path = match (asset.kind, &asset.path) {
-            (AssetKind::Html, Some(path)) => path,
-            _ => return Err(format!("`{id}` is not a page")),
-        };
-        path.check()
-            .map_err(|problem| format!("the page `{id}` is at {path}, which {problem}"))?;
-        std::fs::read_to_string(path.resolve(dir))
+        read_page(&project, dir, &AssetId::new(page.as_str()))
             .map(Reply::from)
-            .map_err(|error| format!("the page `{id}` at {path} could not be read: {error}"))
+            .map_err(|error| match error {
+                PageReadError::NoAsset { .. } => format!("{error}; page_write starts a page"),
+                _ => error.to_string(),
+            })
     }
 }

@@ -7,7 +7,7 @@
 
 use std::path::Path;
 
-use scorsese_core::{Project, SequenceImport, import_sequence};
+use scorsese_core::{ImportBatch, Project, SequenceImport, import_sequences};
 use scorsese_render::Ffprobe;
 
 use crate::tools::Reply;
@@ -21,21 +21,19 @@ pub(super) fn import(
     paths: &[String],
     probe: &Ffprobe,
 ) -> Result<Reply, String> {
-    let mut lines = Vec::new();
-    let mut failures = Vec::new();
-    let mut added = false;
-    for path in paths {
-        match import_sequence(project, dir, Path::new(path), probe) {
-            Ok(report) => {
-                added |= !report.existed;
-                lines.extend(said(project, &report));
-            }
-            Err(error) => failures.push(format!("{path} — failed: {error}")),
-        }
-    }
-    if added {
+    let ImportBatch {
+        reports,
+        failures,
+        needs_save,
+    } = import_sequences(project, dir, paths, probe);
+    if needs_save {
         save(project, dir)?;
     }
+    let failures = super::import::failed(&failures);
+    let mut lines: Vec<String> = reports
+        .iter()
+        .flat_map(|report| said(project, report))
+        .collect();
     if lines.is_empty() {
         return Err(format!("{} — nothing was imported", failures.join("; ")));
     }

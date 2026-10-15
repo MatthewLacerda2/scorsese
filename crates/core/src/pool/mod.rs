@@ -12,6 +12,7 @@ mod gc;
 mod hash;
 mod import;
 mod listing;
+mod many;
 mod naming;
 mod page;
 mod probing;
@@ -24,10 +25,11 @@ pub use gc::{GcError, GcReport, NamedByPage, named_by_pages, remove_assets, unus
 pub use hash::{hash_bytes, hash_file};
 pub use import::{ImportError, import_asset, measure};
 pub use listing::{Listed, listing};
+pub use many::{ImportBatch, import_many, import_sequences};
 pub use naming::{asset_id_for, infer_kind};
 pub use page::{
-    MAX_PAGE_FILE_BYTES, PAGE_FILE_KINDS, PageError, PageFileError, PageFileWritten, PageWritten,
-    page_file_path, read_page_file, write_page, write_page_file,
+    MAX_PAGE_FILE_BYTES, PAGE_FILE_KINDS, PageError, PageFileError, PageFileWritten, PageReadError,
+    PageWritten, page_file_path, read_page, read_page_file, write_page, write_page_file,
 };
 pub use probing::{ProbeOutcome, Probed, Reprobe, probe_assets, unprobed_assets};
 pub use reference::{Reference, reference_asset};

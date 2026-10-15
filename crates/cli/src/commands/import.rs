@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
-use scorsese_core::{AssetKind, Import, Project, import_path};
+use scorsese_core::{AssetKind, Import, ImportBatch, Project, import_many};
 use scorsese_render::Ffprobe;
 
 /// Copies media into the project, probes it, and records it in the pool.
@@ -22,22 +22,15 @@ pub(crate) fn run(project_dir: &Path, paths: &[PathBuf], kind: Option<AssetKind>
     let mut project = super::open(project_dir)?;
     let probe = Ffprobe::discover().context("ffprobe is needed to import media")?;
 
-    let mut reports = Vec::new();
-    let mut failures = Vec::new();
-    let mut copied = false;
-    for path in paths {
-        match import_path(&mut project, project_dir, path, kind, &probe) {
-            Ok(report) => {
-                copied |= report.imported.iter().any(|one| !one.reused);
-                reports.push(report);
-            }
-            Err(why) => failures.push((path.clone(), why)),
-        }
-    }
+    let ImportBatch {
+        reports,
+        failures,
+        needs_save,
+    } = import_many(&mut project, project_dir, paths, kind, &probe);
     // Saved before anything is printed, and once rather than per path: an id
     // on screen has to already be an id on disk, and a crash between two
     // paths must not leave the pool describing files it never copied.
-    if copied {
+    if needs_save {
         super::save(&project, project_dir)?;
     }
     for report in &reports {

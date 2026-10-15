@@ -24,8 +24,7 @@
 //! this answers with where they are, so anything that can play a file can.
 
 use schemars::JsonSchema;
-use scorsese_providers::credentials::{Budget, Provider, Settings, resolve};
-use scorsese_providers::spending;
+use scorsese_providers::credentials::{Budget, Provider, resolve};
 use scorsese_providers::voices::design::{
     Brief, DesignError, Designing, ElevenLabsStudio, Kept, LEDGER_FILE, PASSAGE, PROMPT, design,
     designed, keep, quote,
@@ -154,12 +153,8 @@ impl Tool for VoiceDesign {
 
         let key = resolve(Provider::ElevenLabs).map_err(|error| format!("{error}"))?;
         let studio = ElevenLabsStudio::new(&key.secret);
-        let budget = Budget::from_settings(
-            // Unreadable settings refuse to spend rather than lose the
-            // ceiling (#1108).
-            &Settings::load().map_err(|error| format!("nothing was sent: {error}"))?,
-            spending::so_far(&project, dir).total(),
-        );
+        let budget = Budget::for_project(&project, dir)
+            .map_err(|error| format!("nothing was sent: {error}"))?;
         Ok(said(&design(dir, &studio, &brief, budget).map_err(say)?).into())
     }
 }
