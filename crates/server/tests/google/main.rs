@@ -4,6 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod access;
 mod accounts;
 mod config;
 mod flow;

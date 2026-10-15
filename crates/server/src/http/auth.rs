@@ -14,6 +14,9 @@
 //!    quietly succeed as somebody else.
 //! 2. **The session cookie**, for the browser.
 //!
+//! Either way, an account's first request of the day is written to the access
+//! record (`accounts::access`, #1267) on its way through.
+//!
 //! ## The cookie
 //!
 //! `HttpOnly` (no script reads it, so an XSS cannot carry it off), `Secure`
@@ -38,6 +41,7 @@ use axum::http::request::Parts;
 
 use super::AppState;
 use super::error::ApiError;
+use super::visitor::Visitor;
 use crate::accounts::{sessions, tokens};
 use crate::db::UserId;
 
@@ -68,32 +72,40 @@ impl FromRequestParts<AppState> for Member {
     type Rejection = ApiError;
 
     async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, ApiError> {
-        if let Some(header) = parts.headers.get(AUTHORIZATION) {
-            let bearer = header
-                .to_str()
-                .ok()
-                .and_then(|value| value.strip_prefix("Bearer "))
-                .map(str::trim)
-                .ok_or(ApiError::Unauthorized(
-                    "the Authorization header is not `Bearer <token>`",
-                ))?;
-            let (user, token) = tokens::find(&state.pool, bearer)
-                .await?
-                .ok_or(ApiError::Unauthorized("that API token is not valid"))?;
-            return Ok(Self {
-                user,
-                via: Via::Token(token),
-            });
-        }
-        let cookie = session_cookie(&parts.headers).ok_or(ApiError::Unauthorized(NOT_LOGGED_IN))?;
-        let user = sessions::find(&state.pool, &cookie)
-            .await?
-            .ok_or(ApiError::Unauthorized(NOT_LOGGED_IN))?;
-        Ok(Self {
-            user,
-            via: Via::Session(cookie),
-        })
+        let member = authenticate(parts, state).await?;
+        let Visitor(address) = Visitor::of(parts);
+        state.daily.note(&state.pool, member.user, address).await;
+        Ok(member)
     }
+}
+
+/// Who `parts` says they are, by token or by cookie.
+async fn authenticate(parts: &Parts, state: &AppState) -> Result<Member, ApiError> {
+    if let Some(header) = parts.headers.get(AUTHORIZATION) {
+        let bearer = header
+            .to_str()
+            .ok()
+            .and_then(|value| value.strip_prefix("Bearer "))
+            .map(str::trim)
+            .ok_or(ApiError::Unauthorized(
+                "the Authorization header is not `Bearer <token>`",
+            ))?;
+        let (user, token) = tokens::find(&state.pool, bearer)
+            .await?
+            .ok_or(ApiError::Unauthorized("that API token is not valid"))?;
+        return Ok(Member {
+            user,
+            via: Via::Token(token),
+        });
+    }
+    let cookie = session_cookie(&parts.headers).ok_or(ApiError::Unauthorized(NOT_LOGGED_IN))?;
+    let user = sessions::find(&state.pool, &cookie)
+        .await?
+        .ok_or(ApiError::Unauthorized(NOT_LOGGED_IN))?;
+    Ok(Member {
+        user,
+        via: Via::Session(cookie),
+    })
 }
 
 /// The session cookie's value, if the request carries one.
