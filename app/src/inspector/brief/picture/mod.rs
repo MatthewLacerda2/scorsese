@@ -1,12 +1,10 @@
-//! The brief behind a generated still: a sentence, a model, a size, a shape,
-//! and the pictures it is drawn from.
+//! The brief behind a generated still: a sentence, a size, a shape, and the
+//! pictures it is drawn from.
 //!
 //! The third brief, beside [`shot`](super::shot) and [`line`](super::line),
-//! and kept apart from both for [`super`]'s reason. Its one constraint is shown
-//! the way theirs are: a model is offered only the sizes and shapes it draws,
-//! and Lite, which draws one size, says `1K — the only size lite draws`
-//! instead. Changing the model puts back to its default any size, shape or
-//! thinking level the new one would refuse.
+//! and kept apart from both for [`super`]'s reason. There is no model to pick:
+//! every still is Nano Banana 2.1's (#1308), which draws every shape at every
+//! size, so both drop-downs offer the whole list.
 //!
 //! **References are listed, not picked.** Which pictures a still is drawn
 //! from is a structured choice — a character sheet, two props — and the rule
@@ -16,8 +14,7 @@
 
 use egui::{ComboBox, Grid, RichText, TextEdit, Ui};
 use scorsese_core::{
-    Asset, AssetId, AssetKind, ImageAspect, ImageModel, ImageRequest, ImageResolution, Project,
-    ReferenceKind,
+    Asset, AssetId, AssetKind, ImageAspect, ImageRequest, ImageResolution, Project, ReferenceKind,
 };
 
 use crate::inspector::Inspector;
@@ -30,7 +27,7 @@ pub(in crate::inspector) struct Picture {
     asset: AssetId,
     /// The sentence.
     prompt: String,
-    /// Model, size, aspect and references.
+    /// Size, aspect and references.
     request: ImageRequest,
 }
 
@@ -73,58 +70,24 @@ impl Inspector {
 
         let request = &brief.request;
         Grid::new("picture-brief").num_columns(2).show(ui, |ui| {
-            if let Some(model) = choose(
+            if let Some(size) = choose(
                 ui,
-                "Model",
-                request.model,
-                &ImageModel::ALL,
-                ImageModel::as_str,
+                "Size",
+                request.size(),
+                &ImageResolution::ALL,
+                ImageResolution::as_str,
             ) {
-                self.attempt_brief(open, selected, &brief.asset, "the model", move |asset| {
-                    let request = request_of(asset);
-                    request.model = model;
-                    // A size the new model does not draw goes back to its default
-                    // rather than leaving a brief validation would refuse.
-                    if request.resolution.is_some_and(|size| !model.supports(size)) {
-                        request.resolution = None;
-                    }
-                    if !model.draws(request.aspect) {
-                        request.aspect = ImageAspect::default();
-                    }
-                    if request
-                        .thinking
-                        .is_some_and(|level| !model.thinking_levels().contains(&level))
-                    {
-                        request.thinking = None;
-                    }
-                });
-            }
-            let sizes: Vec<ImageResolution> = ImageResolution::ALL
-                .into_iter()
-                .filter(|size| request.model.supports(*size))
-                .collect();
-            if sizes.len() == 1 {
-                ui.label("Size");
-                ui.label(format!(
-                    "{} — the only size {} draws",
-                    request.size().as_str(),
-                    request.model.as_str()
-                ));
-                ui.end_row();
-            } else if let Some(size) =
-                choose(ui, "Size", request.size(), &sizes, ImageResolution::as_str)
-            {
                 self.attempt_brief(open, selected, &brief.asset, "the size", move |asset| {
                     request_of(asset).resolution = Some(size);
                 });
             }
-            let aspects: Vec<ImageAspect> = ImageAspect::ALL
-                .into_iter()
-                .filter(|aspect| request.model.draws(*aspect))
-                .collect();
-            if let Some(aspect) =
-                choose(ui, "Aspect", request.aspect, &aspects, ImageAspect::as_str)
-            {
+            if let Some(aspect) = choose(
+                ui,
+                "Aspect",
+                request.aspect,
+                &ImageAspect::ALL,
+                ImageAspect::as_str,
+            ) {
                 self.attempt_brief(open, selected, &brief.asset, "the aspect", move |asset| {
                     request_of(asset).aspect = aspect;
                 });
@@ -153,7 +116,6 @@ fn kind_word(kind: ReferenceKind) -> &'static str {
     match kind {
         ReferenceKind::Object => "Objects",
         ReferenceKind::Character => "Characters",
-        ReferenceKind::Style => "Style",
     }
 }
 

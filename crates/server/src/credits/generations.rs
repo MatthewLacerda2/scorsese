@@ -54,9 +54,10 @@ pub struct Still<'a> {
     pub tool_call: Option<i64>,
     /// The job that runs it.
     pub job: Option<i64>,
-    /// `flash` or `lite`.
+    /// `nano_banana_2.1`, the only image model since #1308; older rows name
+    /// the one they were drawn by.
     pub model: &'a str,
-    /// `0.5K`, `1K`, `2K` or `4K`.
+    /// `1K`, `2K` or `4K` (`0.5K` on older rows).
     pub resolution: &'a str,
     /// `16:9`, `1:1`, ...
     pub aspect: &'a str,

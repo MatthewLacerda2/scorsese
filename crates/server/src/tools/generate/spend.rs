@@ -88,7 +88,7 @@ pub(super) fn charged(quote: &Quote, project: &Project, root: &std::path::Path) 
             },
             AssetKind::GeneratedImage => match image::Brief::of(project, root, asset) {
                 Ok(brief) => What::Still {
-                    model: brief.request.model.as_str(),
+                    model: image::MODEL,
                     resolution: brief.request.size().as_str(),
                     aspect: brief.request.aspect.as_str(),
                     references: brief.reference_images.len(),

@@ -1,13 +1,14 @@
 //! Ordering: every sketch in as few jobs as the vendor allows, each ticket
 //! written down, the ceiling counted across them.
 
-use scorsese_core::{Asset, AssetId, AssetKind, GenerationState, ImageModel, ImageRequest};
+use scorsese_core::{Asset, AssetId, AssetKind, GenerationState, ImageRequest, ProjectPath};
 use scorsese_providers::credentials::Budget;
 use scorsese_providers::image::{Outcome, batch, generate};
 
 use super::half;
+use crate::common::write;
 use crate::mock::Mock;
-use crate::sketched;
+use crate::{asset_mut, sketched};
 
 #[test]
 fn every_sketch_is_ordered_in_one_job_and_its_ticket_written_down() {
@@ -44,23 +45,6 @@ fn every_sketch_is_ordered_in_one_job_and_its_ticket_written_down() {
 }
 
 #[test]
-fn stills_on_two_models_are_two_jobs() {
-    let (dir, mut project, _) = sketched("batch-models", "a lighthouse");
-    let mut pro = Asset::sketch(AssetId::new("pro"), AssetKind::GeneratedImage, "a harbour");
-    pro.image = Some(ImageRequest {
-        model: ImageModel::Pro,
-        ..ImageRequest::default()
-    });
-    project.assets.push(pro);
-    let provider = Mock::willing();
-
-    batch(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a run");
-
-    assert_eq!(provider.ordered.borrow().len(), 2);
-    std::fs::remove_dir_all(&dir).ok();
-}
-
-#[test]
 fn a_batch_over_the_ceiling_orders_nothing() {
     let (dir, mut project, id) = sketched("batch-ceiling", "a lighthouse");
     let provider = Mock::willing();
@@ -86,18 +70,50 @@ fn a_still_already_drawn_is_recorded_and_never_ordered() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+/// Two stills each naming a ten-megabyte picture outweigh one job's inline
+/// limit together, so they go as two jobs — the only split there is, now every
+/// still is one model's.
+fn heavy(label: &str) -> (std::path::PathBuf, scorsese_core::Project) {
+    let (dir, mut project, id) = sketched(label, "a lighthouse");
+    let picture = "x".repeat(10 * 1024 * 1024);
+    write(&dir, "assets/plate.png", &picture);
+    project.assets.push(Asset::imported(
+        AssetId::new("plate"),
+        AssetKind::Image,
+        ProjectPath::new("assets/plate.png"),
+    ));
+    let mut harbour = Asset::sketch(
+        AssetId::new("harbour"),
+        AssetKind::GeneratedImage,
+        "a harbour",
+    );
+    for still in [asset_mut(&mut project, &id), &mut harbour] {
+        still.image = Some(ImageRequest {
+            reference_images: vec![AssetId::new("plate")],
+            ..ImageRequest::default()
+        });
+    }
+    project.assets.push(harbour);
+    (dir, project)
+}
+
 #[test]
-fn the_ceiling_counts_every_job_the_run_has_ordered() {
-    let (dir, mut project, _) = sketched("batch-ceiling-jobs", "a lighthouse");
-    let mut pro = Asset::sketch(AssetId::new("pro"), AssetKind::GeneratedImage, "a harbour");
-    pro.image = Some(ImageRequest {
-        model: ImageModel::Pro,
-        ..ImageRequest::default()
-    });
-    project.assets.push(pro);
+fn stills_heavier_than_one_job_are_two_jobs() {
+    let (dir, mut project) = heavy("batch-heavy");
     let provider = Mock::willing();
 
-    let refused = batch(&mut project, &dir, &provider, Budget::new(9, 0));
+    batch(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a run");
+
+    assert_eq!(provider.ordered.borrow().len(), 2);
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn the_ceiling_counts_every_job_the_run_has_ordered() {
+    let (dir, mut project) = heavy("batch-ceiling-jobs");
+    let provider = Mock::willing();
+
+    let refused = batch(&mut project, &dir, &provider, Budget::new(5, 0));
 
     assert!(refused.is_err());
     assert_eq!(provider.ordered.borrow().len(), 1, "the first job fit");

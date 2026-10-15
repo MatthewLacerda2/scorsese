@@ -44,12 +44,25 @@ fn a_v45_document_s_stills_stay_flash_and_keep_every_reference() {
             .expect(id)
             .image_request()
     };
-    assert_eq!(request("bare").model, crate::ImageModel::Flash);
-    assert_eq!(request("cheap").model, crate::ImageModel::Lite);
     let sheet = request("sheet");
-    assert_eq!(sheet.model, crate::ImageModel::Flash);
     assert_eq!(sheet.reference_images.len(), 10);
     assert_eq!(sheet.character_images.len(), 2);
     let order: Vec<String> = sheet.references().map(ToString::to_string).collect();
     assert_eq!(order, many, "the same pictures, in the same order");
+}
+
+/// The rewrites v46 made, read off the walk's halfway point: a still that
+/// named no model is written out as Flash, and a Lite one keeps its own.
+#[test]
+fn v46_wrote_a_bare_still_out_as_flash() {
+    let mut document = json!({
+        "schema_version": 45,
+        "assets": [
+            { "id": "bare", "kind": "generated_image", "prompt": "a" },
+            { "id": "cheap", "kind": "generated_image", "image": { "model": "lite" } }
+        ]
+    });
+    super::stills_parity_arrives(&mut document).expect("v45 → v46");
+    assert_eq!(document["assets"][0]["image"]["model"], "flash");
+    assert_eq!(document["assets"][1]["image"]["model"], "lite");
 }

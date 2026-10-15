@@ -94,7 +94,7 @@ pub trait Vendors: Send + Sync + 'static {
     fn video(&self) -> Result<Video, String>;
     /// ElevenLabs, or why it cannot be reached.
     fn speech(&self) -> Result<Speech, String>;
-    /// Gemini's image models, or why they cannot be reached.
+    /// Gemini's image model, or why it cannot be reached.
     fn image(&self) -> Result<Image, String>;
     /// ElevenLabs' voice design, or why it cannot be reached
     /// ([`crate::designs`]).

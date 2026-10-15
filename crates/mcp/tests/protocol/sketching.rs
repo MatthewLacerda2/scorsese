@@ -68,7 +68,7 @@ fn a_brief_of_the_wrong_kind_is_refused() {
 
     let (text, failed) = said(&call(
         "asset_set",
-        json!({ "project": dir, "kind": "generated_image", "image": { "model": "lite" } }),
+        json!({ "project": dir, "kind": "generated_image", "image": { "resolution": "1K" } }),
     ));
     assert!(failed, "no prompt");
     assert!(text.contains("`prompt` is required"), "got {text}");

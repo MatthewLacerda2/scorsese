@@ -231,11 +231,10 @@ fn still(project: &Project, root: &Path, asset: &Asset, order: Order) -> Result<
             Item {
                 subject: asset.id.to_string(),
                 says: format!(
-                    "{} — a {} {} still in {}{references}{when}",
+                    "{} — a {} {} still{references}{when}",
                     dollars(priced.cents),
                     brief.request.size().as_str(),
-                    brief.request.aspect.as_str(),
-                    brief.request.model.as_str()
+                    brief.request.aspect.as_str()
                 ),
                 charge: Some(Charge {
                     brief: brief.digest(),

@@ -1,16 +1,15 @@
-//! Gemini's image part of the live check: every model's id, free, then one
+//! Gemini's image part of the live check: the model's id, free, then one
 //! still, the smallest Google sells.
 //!
 //! # The free part
 //!
-//! `GET models/{id}` for every [`ImageModel`] scorsese offers, as
-//! [`veo`](super::veo) does for its tiers (#948). It proves each id is still
-//! served, and with both methods the product calls: `generateContent`, the
-//! method a [batch](crate::api::gemini::batch) is made of, and
-//! `batchGenerateContent`, which creates one. A renamed or retired model is
-//! the change that fails every still on the web at once, and it costs nothing
-//! to catch — the default model's id once merged unconfirmed (#893). The list
-//! is [`ImageModel::ALL`], so a model added later is checked with no edit here.
+//! `GET models/gemini-nano-banana-2.1`, the one image model scorsese uses
+//! (#1308), as [`veo`](super::veo) does for its tiers (#948). It proves the id
+//! is still served, and with both methods the product calls:
+//! `generateContent`, the method a [batch](crate::api::gemini::batch) is made
+//! of, and `batchGenerateContent`, which creates one. A renamed or retired
+//! model is the change that fails every still on the web at once, and it costs
+//! nothing to catch — the model's id once merged unconfirmed (#893).
 //!
 //! # The paid part
 //!
@@ -22,34 +21,32 @@
 //! - **the endpoint and body** — `POST /v1beta/interactions`, sent exactly as
 //!   the product sends it, because the body is built by the product's own
 //!   translation of a brief (`image::gemini::create`), not here;
-//! - **the `0.5K` spelling** — the page writes the size as "512px (05.K)" and
-//!   never as a value, and the client sends `"512"`. A wrong guess is either a
-//!   `400` (refused, free) or, worse, ignored — and an ignored size comes back
-//!   at the 1K default. So the picture's own header is read: at `1:1` the page's
-//!   table gives `512x512` for 0.5K and `1024x1024` for 1K, and anything but
-//!   the first is reported as the request's shape having changed;
+//! - **that the size and shape are taken** — an ignored `image_size` or
+//!   `aspect_ratio` comes back at whatever the model defaults to, billed as
+//!   what was asked. So the picture's own header is read: at `1:1` the page's
+//!   table gives `1024x1024` for 1K, and anything else is reported as the
+//!   request's shape having changed;
 //! - **where the picture is in the reply** — [`Interaction::image`]'s reading.
 //!   If it finds nothing, the recorded body says where the picture really was.
 //!
 //! No free call stands in for it, for [`veo`](super::veo)'s reason: a request
 //! the API is meant to refuse is the vendor's to start accepting. It is the
-//! smallest picture there is — Flash at 0.5K, no references, $0.045 — and it is quoted
-//! and held to the ceiling with the rest. The reply is base64 inside JSON, so a
-//! recording keeps it whole: that body is what replaces
+//! smallest picture there is — 2.1 at 1K, no references, $0.0336 — and it is
+//! quoted and held to the ceiling with the rest. The reply is base64 inside
+//! JSON, so a recording keeps it whole: that body is what replaces
 //! `fixtures/gemini/interaction.json`.
 
 use base64::Engine;
-use scorsese_core::{AssetId, ImageAspect, ImageModel, ImageRequest, ImageResolution};
+use scorsese_core::{AssetId, ImageAspect, ImageRequest, ImageResolution};
 
 use crate::api::gemini::request::Create;
 use crate::api::gemini::response::Interaction;
-use crate::api::gemini::{Gemini, Model};
+use crate::api::gemini::{Gemini, MODEL};
 use crate::api::google::ModelInfo;
 use crate::api::http::HttpError;
 use crate::api::tap::Tap;
 use crate::credentials::Secret;
 use crate::image::Brief;
-use crate::image::gemini::model_of;
 use crate::prices::{self, dollars};
 
 use super::{Step, Verdict, judge};
@@ -58,19 +55,18 @@ use super::{Step, Verdict, judge};
 /// content filter as [`veo::PROMPT`](super::veo::PROMPT).
 pub const PROMPT: &str = "A glass of water on a wooden table, in soft daylight.";
 
-/// The methods an image model must list: the one a batch's requests are in,
+/// The methods the image model must list: the one a batch's requests are in,
 /// and the one that creates the batch.
 const METHODS: [&str; 2] = ["generateContent", "batchGenerateContent"];
 
-/// The side of the square a 0.5K still is, by Google's table.
-pub const SIDE: u32 = 512;
+/// The side of the square a 1K still is, by Google's table.
+pub const SIDE: u32 = 1024;
 
 /// The still the check pays for: the cheapest one Gemini sells, square so its
 /// expected size is one number.
 pub fn still() -> ImageRequest {
     ImageRequest {
-        model: ImageModel::Flash,
-        resolution: Some(ImageResolution::K05),
+        resolution: Some(ImageResolution::K1),
         aspect: ImageAspect::Square,
         ..ImageRequest::default()
     }
@@ -79,20 +75,16 @@ pub fn still() -> ImageRequest {
 /// What the still costs, in cents.
 pub fn cost() -> u64 {
     prices::image(&still(), PROMPT.chars().count(), 0)
-        .expect("Flash Image at 0.5K has a published rate")
+        .expect("Nano Banana 2.1 at 1K has a published rate")
         .cents
 }
 
 /// The calls, as a quote lists them.
 pub(super) fn calls() -> Vec<String> {
-    let ids: Vec<String> = ImageModel::ALL
-        .iter()
-        .map(|m| format!("models/{}", model_of(*m).id()))
-        .collect();
     vec![
-        format!("GET {} — free", ids.join(", ")),
+        format!("GET models/{MODEL} — free"),
         format!(
-            "draw one {SIDE}x{SIDE} still (Flash Image, 0.5K, no references) — {}",
+            "draw one {SIDE}x{SIDE} still (Nano Banana 2.1, 1K, no references) — {}",
             dollars(cost())
         ),
     ]
@@ -105,16 +97,14 @@ fn body() -> Create {
         prompt: PROMPT.to_owned(),
         request: still(),
         reference_images: Vec::new(),
+        retired: None,
     })
 }
 
 /// Runs the image part; returns what it found and what it spent, in cents.
 pub(super) fn check(key: &Secret, tap: &Tap) -> (Vec<Step>, u64) {
     let gemini = Gemini::new(key).tapped(tap);
-    let mut steps: Vec<Step> = ImageModel::ALL
-        .iter()
-        .map(|model| model_step(model_of(*model), gemini.model(model_of(*model))))
-        .collect();
+    let mut steps = vec![model_step(gemini.model())];
     let step = picture_step(gemini.create(&body()));
     let spent = match step.verdict {
         // A shape change was billed before we failed to read it.
@@ -125,10 +115,10 @@ pub(super) fn check(key: &Secret, tap: &Tap) -> (Vec<Step>, u64) {
     (steps, spent)
 }
 
-/// What `GET models/{id}` said about one image model.
-pub fn model_step(model: Model, answer: Result<ModelInfo, HttpError>) -> Step {
-    let verdict = judge::model(model.id(), &METHODS, answer);
-    Step::new(format!("GET models/{}", model.id()), verdict)
+/// What `GET models/{id}` said about the image model.
+pub fn model_step(answer: Result<ModelInfo, HttpError>) -> Step {
+    let verdict = judge::model(MODEL, &METHODS, answer);
+    Step::new(format!("GET models/{MODEL}"), verdict)
 }
 
 /// What the drawing gave back: a JPEG, the size asked for.
@@ -162,7 +152,7 @@ pub fn picture_step(answer: Result<Interaction, HttpError>) -> Step {
             judge::looks_like(&bytes)
         )),
         Some((width, height)) if (width, height) != (SIDE, SIDE) => shape(format!(
-            "response_format.image_size: asked for 0.5K ({SIDE}x{SIDE}), got {width}x{height} — the size's spelling was not taken"
+            "response_format.image_size: asked for 1K ({SIDE}x{SIDE}), got {width}x{height} — the size or the shape was not taken"
         )),
         Some((width, height)) => Step::new(call, Verdict::Ok)
             .noting(format!("{width}x{height} JPEG, {} bytes", bytes.len())),
@@ -180,13 +170,13 @@ mod tests {
         assert_eq!(
             serde_json::to_value(super::body()).unwrap(),
             json!({
-                "model": "gemini-3.1-flash-image",
+                "model": "gemini-nano-banana-2.1",
                 "input": [{"type": "text", "text": super::PROMPT}],
                 "response_format": {
                     "type": "image",
                     "mime_type": "image/jpeg",
                     "aspect_ratio": "1:1",
-                    "image_size": "512",
+                    "image_size": "1K",
                 },
                 "store": false,
             })

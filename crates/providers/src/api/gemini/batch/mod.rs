@@ -22,7 +22,7 @@ use std::time::Duration;
 
 use crate::api::http::{HttpError, encoded};
 
-use super::{Gemini, Model};
+use super::{Gemini, MODEL};
 use crate::api::google::BASE;
 
 /// The most one inline batch may weigh, in bytes of request body.
@@ -42,15 +42,11 @@ const CREATE_WAIT: Duration = Duration::from_secs(300);
 const MAX_RESULT_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 
 impl Gemini {
-    /// Creates a batch job of `body`'s requests on `model`, and answers with
+    /// Creates a batch job of `body`'s requests on [`MODEL`], and answers with
     /// the job's name. **This is the call that spends the money**, half of it,
     /// whenever Google gets to the work.
-    pub fn batch(
-        &self,
-        model: Model,
-        body: &request::Create,
-    ) -> Result<response::Operation, HttpError> {
-        let url = format!("{BASE}/models/{}:batchGenerateContent", model.id());
+    pub fn batch(&self, body: &request::Create) -> Result<response::Operation, HttpError> {
+        let url = format!("{BASE}/models/{MODEL}:batchGenerateContent");
         self.caller
             .post_large(&url, body, CREATE_WAIT, super::MAX_REPLY_BYTES)
     }

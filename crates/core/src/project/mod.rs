@@ -22,7 +22,7 @@ mod walk;
 /// previous version (`CLAUDE.md`, *A schema bump ships with a migration*):
 /// this format is the contract between the CLI, the MCP server, the GUI, the
 /// web app, and every project already stored — on a disk or in its database.
-pub const SCHEMA_VERSION: u32 = 50;
+pub const SCHEMA_VERSION: u32 = 51;
 
 /// The document's file name inside a `*.scor/` project directory.
 pub const PROJECT_FILE_NAME: &str = "project.json";

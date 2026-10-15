@@ -1481,7 +1481,7 @@ Gemini's image models, narration to ElevenLabs. Like every paid tool it **quotes
 generate  { "project": "teaser.scor" }
           → "hero: $0.96 — 8s of fast at 1080p
              wide: $0.20 — 4s of lite at 720p
-             backdrop: $0.06 — a 2K 16:9 still in nano_banana_2.1
+             backdrop: $0.06 — a 2K 16:9 still
              vo-open: $0.01 — 58 characters in fast
              About $1.23 in all — our arithmetic over published rates, never a
              bill.

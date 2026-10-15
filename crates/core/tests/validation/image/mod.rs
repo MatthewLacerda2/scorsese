@@ -4,8 +4,7 @@ mod limits;
 
 use crate::common::{assert_only_problem, asset_id, problems, project};
 use scorsese_core::{
-    Asset, AssetField, AssetKind, AssetProblem, ImageModel, ImageProblem as I, ImageRequest,
-    ImageResolution, Project,
+    Asset, AssetField, AssetKind, AssetProblem, ImageProblem as I, ImageRequest, Project,
 };
 
 /// The fixture project with a sketched still in it, its request edited.
@@ -32,29 +31,6 @@ fn a_still_waiting_in_a_batch_carries_its_ticket() {
     let still = p.assets.last_mut().expect("the still");
     still.state = Some(scorsese_core::GenerationState::Queued);
     still.operation = Some(String::from("batches/abc123"));
-    assert_eq!(problems(&p), vec![]);
-}
-
-#[test]
-fn the_cheaper_model_draws_one_size_and_says_so() {
-    let p = drawing(|r| {
-        r.model = ImageModel::Lite;
-        r.resolution = Some(ImageResolution::K4);
-    });
-    assert_only_problem(
-        &p,
-        I::ResolutionUnsupported {
-            asset: asset_id("poster"),
-            model: "lite",
-            resolution: "4K",
-            draws: String::from("1K"),
-        },
-    );
-}
-
-#[test]
-fn the_cheaper_model_with_no_size_named_takes_the_one_it_draws() {
-    let p = drawing(|r| r.model = ImageModel::Lite);
     assert_eq!(problems(&p), vec![]);
 }
 

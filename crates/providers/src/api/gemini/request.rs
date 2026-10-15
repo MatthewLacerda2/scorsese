@@ -58,16 +58,16 @@ pub struct ResponseFormat {
     pub mime_type: &'static str,
     /// `16:9`, `1:1`, ...
     pub aspect_ratio: &'static str,
-    /// `512`, `1K`, `2K` or `4K` — the uppercase K is the vendor's, and a
-    /// lowercase one is refused.
+    /// `1K`, `2K` or `4K` — the uppercase K is the vendor's, and a lowercase
+    /// one is refused.
     pub image_size: &'static str,
 }
 
 /// How the model works before it draws.
 #[derive(Debug, Clone, Serialize)]
 pub struct GenerationConfig {
-    /// `minimal`, `medium` or `high` — which of them a model takes is
-    /// [`scorsese_core::ImageModel::thinking_levels`].
+    /// `minimal`, `medium` or `high`, every one of which Nano Banana 2.1
+    /// takes.
     pub thinking_level: &'static str,
 }
 
@@ -81,7 +81,7 @@ mod tests {
     #[test]
     fn a_drawing_with_one_reference_is_the_documented_body() {
         let body = Create {
-            model: "gemini-3.1-flash-image",
+            model: "gemini-nano-banana-2.1",
             input: vec![
                 Input::Text {
                     text: String::from("a lighthouse at dusk"),
@@ -103,7 +103,7 @@ mod tests {
         assert_eq!(
             serde_json::to_value(&body).unwrap(),
             json!({
-                "model": "gemini-3.1-flash-image",
+                "model": "gemini-nano-banana-2.1",
                 "input": [
                     {"type": "text", "text": "a lighthouse at dusk"},
                     {"type": "image", "mime_type": "image/png", "data": "QUJD"},

@@ -54,7 +54,7 @@ async fn a_batched_still_is_ordered_once_and_lands_at_half_price(pool: PgPool) {
 
     let (quote, said) = batched(address, &who, id).await;
     assert!(
-        quote.contains("backdrop: $0.03 — a 2K 16:9 still in nano_banana_2.1, in a batch"),
+        quote.contains("backdrop: $0.03 — a 2K 16:9 still, in a batch"),
         "{quote}"
     );
     assert!(said.contains("half-price batch"), "{said}");

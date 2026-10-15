@@ -1,6 +1,5 @@
 //! What Gemini's image answers mean, and what the still costs.
 
-use scorsese_providers::api::gemini::Model;
 use scorsese_providers::api::gemini::response::Interaction;
 use scorsese_providers::api::google::ModelInfo;
 use scorsese_providers::live::Verdict;
@@ -8,9 +7,9 @@ use scorsese_providers::live::image::{cost, model_step, picture_step};
 
 use super::{parsed, refused};
 
-/// A JPEG frame header claiming 1024x1024 — what an ignored `image_size`
-/// gives back.
-const JPEG_1K: &str = "/9j/wAARCAQABAA=";
+/// A JPEG frame header claiming 2048x2048 — what an ignored `image_size`
+/// could give back.
+const JPEG_2K: &str = "/9j/wAARCAgACAA=";
 
 /// A Huffman table, whose marker sits inside the frame markers' range without
 /// being one, ahead of a 640x360 progressive frame.
@@ -37,23 +36,23 @@ fn field(answer: Interaction) -> String {
 }
 
 #[test]
-fn a_512_square_jpeg_is_ok_and_says_so() {
+fn a_1k_square_jpeg_is_ok_and_says_so() {
     let step = picture_step(Ok(parsed("gemini/interaction.json")));
     assert_eq!(step.verdict, Verdict::Ok, "{step:?}");
     assert!(
-        step.notes[0].starts_with("512x512 JPEG"),
+        step.notes[0].starts_with("1024x1024 JPEG"),
         "{:?}",
         step.notes
     );
 }
 
-/// The guess the check exists to settle: an ignored `"512"` comes back at
-/// the 1K default, billed as 0.5K, and only the picture's header shows it.
+/// What the check exists to settle: an ignored `"1K"` comes back at another
+/// size, billed as 1K, and only the picture's header shows it.
 #[test]
 fn a_picture_at_another_size_says_the_size_was_not_taken() {
-    let said = field(drawn(JPEG_1K));
+    let said = field(drawn(JPEG_2K));
     assert!(
-        said.contains("image_size") && said.contains("1024x1024"),
+        said.contains("image_size") && said.contains("2048x2048"),
         "{said}"
     );
 }
@@ -102,16 +101,16 @@ fn a_rejected_key_is_an_auth_failure_and_a_bad_request_a_refusal() {
     assert!(matches!(&step.verdict, Verdict::Refused { said } if said.contains("image_size")));
 }
 
-/// Flash at 0.5K is $0.045 a picture and the prompt a fraction of a cent:
-/// five cents, rounded up once.
+/// 2.1 at 1K is $0.0336 a picture and the prompt a fraction of a cent:
+/// four cents, rounded up once.
 #[test]
-fn the_still_costs_five_cents() {
-    assert_eq!(cost(), 5);
+fn the_still_costs_four_cents() {
+    assert_eq!(cost(), 4);
 }
 
 #[test]
 fn a_model_served_for_drawing_and_batches_is_ok() {
-    let step = model_step(Model::NanoBanana21, Ok(parsed("gemini/model.json")));
+    let step = model_step(Ok(parsed("gemini/model.json")));
     assert_eq!(step.verdict, Verdict::Ok, "{step:?}");
     assert_eq!(step.call, "GET models/gemini-nano-banana-2.1");
 }
@@ -121,14 +120,17 @@ fn a_model_served_for_drawing_and_batches_is_ok() {
 #[test]
 fn a_renamed_model_or_either_missing_method_is_a_shape_change_naming_it() {
     let mut info: ModelInfo = parsed("gemini/model.json");
-    let renamed = model_step(Model::Pro, Ok(info.clone()));
+    let renamed = model_step(Ok(ModelInfo {
+        name: String::from("models/gemini-nano-banana-2.2"),
+        ..info.clone()
+    }));
     assert!(
         matches!(&renamed.verdict, Verdict::ShapeChanged { field } if field.starts_with("name"))
     );
 
     for kept in ["generateContent", "batchGenerateContent"] {
         info.supported_generation_methods = vec![kept.to_owned()];
-        let step = model_step(Model::NanoBanana21, Ok(info.clone()));
+        let step = model_step(Ok(info.clone()));
         assert!(
             matches!(&step.verdict, Verdict::ShapeChanged { field }
                 if field.contains("has no") && !field.contains(&format!("no {kept}"))),
@@ -140,6 +142,6 @@ fn a_renamed_model_or_either_missing_method_is_a_shape_change_naming_it() {
 #[test]
 fn a_retired_model_is_a_refusal() {
     let gone = r#"{"error":{"code":404,"message":"models/x is not found"}}"#;
-    let step = model_step(Model::Lite, Err(refused(404, gone)));
+    let step = model_step(Err(refused(404, gone)));
     assert!(matches!(step.verdict, Verdict::Refused { .. }), "{step:?}");
 }
