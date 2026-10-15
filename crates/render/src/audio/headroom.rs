@@ -36,7 +36,7 @@ use std::fs::OpenOptions;
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
-use scorsese_zimmer::level::{Loudness, Meter};
+use scorsese_zimmer::level::{Loudness, Meter, db_to_gain};
 
 use super::mix::CHANNELS;
 use super::read;
@@ -147,7 +147,7 @@ pub(crate) fn measure(tools: &Tools, file: &Path) -> Result<Loudness, RenderErro
 
 /// The linear factor that lowers a signal by `db` decibels.
 fn gain_of(db: f64) -> f32 {
-    10_f64.powf(-db / 20.0) as f32
+    db_to_gain(-db) as f32
 }
 
 /// Multiplies every sample of the raw `f32` mix at `path` by `gain`, in place.

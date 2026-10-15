@@ -111,7 +111,7 @@ pub(crate) fn mixdown_unless(
     }
 
     let mixdown = Mixdown {
-        path: scratch_path(out),
+        path: scratch_beside(out, "scorsese-mix.pcm"),
     };
     let file = File::create(&mixdown.path).map_err(|source| RenderError::Scratch {
         path: mixdown.path.clone(),
@@ -260,11 +260,6 @@ fn audio_source(shot: &Shot<'_>, file: PathBuf, plan: &Plan<'_>, frames: u64) ->
         speed: shot.clip.speed,
         frames,
     }
-}
-
-/// Where to put the mix while it is being made.
-fn scratch_path(out: &Path) -> PathBuf {
-    scratch_beside(out, "scorsese-mix.pcm")
 }
 
 /// A scratch file beside the output, hidden, and named after it so two

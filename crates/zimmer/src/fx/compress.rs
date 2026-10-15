@@ -49,6 +49,7 @@
 //! which part is handed over and says why; this module only ever reads the one
 //! it is given.
 
+use crate::level::{db_to_gain_f32, gain_to_db_f32};
 use crate::stereo::Stereo;
 
 /// The quietest a threshold may be set, in dBFS. Below this a compressor is
@@ -134,7 +135,7 @@ impl Compressor {
             }
         });
         let gain = self.gain_track(key.unwrap_or(&*buf), buf.frames(), rate);
-        let makeup = 10f32.powf(self.makeup_db / 20.0);
+        let makeup = db_to_gain_f32(self.makeup_db);
         let (wet, dry) = (self.mix, 1.0 - self.mix);
         buf.each(|channel| {
             for (sample, gain) in channel.iter_mut().zip(&gain) {
@@ -171,11 +172,11 @@ impl Compressor {
         if level <= 0.0 {
             return 1.0;
         }
-        let over = 20.0 * level.log10() - self.threshold_db;
+        let over = gain_to_db_f32(level) - self.threshold_db;
         if over <= 0.0 {
             return 1.0;
         }
-        10f32.powf(-(over * (1.0 - 1.0 / self.ratio)) / 20.0)
+        db_to_gain_f32(-(over * (1.0 - 1.0 / self.ratio)))
     }
 }
 
@@ -248,9 +249,9 @@ mod tests {
         four_to_one().apply(&mut buf, None, RATE);
         let out = peak(&buf.l[11_025..]);
         assert!(
-            (20.0 * out.log10() + 15.0).abs() < 1.0,
+            (gain_to_db_f32(out) + 15.0).abs() < 1.0,
             "settled at {} dBFS",
-            20.0 * out.log10()
+            gain_to_db_f32(out)
         );
     }
 

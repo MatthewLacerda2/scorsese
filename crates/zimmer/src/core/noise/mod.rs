@@ -76,6 +76,7 @@ fn color_into(out: &mut [f32], channel: u64, color: NoiseColor, seed: u64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::level::gain_to_db_f32;
 
     fn filled(n: usize, color: NoiseColor, seed: u64) -> Stereo {
         let mut buf = Stereo::silence(n);
@@ -178,7 +179,7 @@ mod tests {
         let white = rms(&filled(1 << 16, NoiseColor::White, 3).l);
         for color in [NoiseColor::Pink, NoiseColor::Brown] {
             let level = rms(&filled(1 << 16, color, 3).l);
-            let db = 20.0 * (level / white).log10();
+            let db = gain_to_db_f32(level / white);
             assert!(db.abs() < 0.5, "{color:?} is {db:+.2} dB from white");
         }
     }
@@ -241,7 +242,7 @@ mod tests {
             let buf = filled(1 << 15, color, 17);
             let opening = rms(&buf.l[..441]);
             let settled = rms(&buf.l[4410..]);
-            let db = 20.0 * (opening / settled).log10();
+            let db = gain_to_db_f32(opening / settled);
             assert!(
                 db.abs() < 6.0,
                 "{color:?} opens {db:+.2} dB off its own level"

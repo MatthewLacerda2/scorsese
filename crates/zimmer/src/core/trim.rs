@@ -34,6 +34,7 @@
 //! its own length with `tail`, and [`crate::render_note`] hands a caller the
 //! raw buffer, for the same reason it hands it unlimited.
 
+use crate::level::db_to_gain_f32;
 use crate::stereo::Stereo;
 
 /// How far below its own peak a one-shot has to fall, in dB, for the rest of
@@ -55,7 +56,7 @@ pub(crate) fn to_floor(buf: &mut Stereo) {
         l.abs().max(r.abs())
     };
     let peak = (0..buf.frames()).map(loudest).fold(0.0, f32::max);
-    let floor = peak * 10f32.powf(FLOOR_DB / 20.0);
+    let floor = peak * db_to_gain_f32(FLOOR_DB);
     let last = (0..buf.frames())
         .rev()
         .find(|&i| peak > 0.0 && loudest(i) >= floor)
@@ -74,7 +75,7 @@ mod tests {
 
     /// The floor as an amplitude ratio, for building probes either side of it.
     fn ratio() -> f32 {
-        10f32.powf(FLOOR_DB / 20.0)
+        db_to_gain_f32(FLOOR_DB)
     }
 
     #[test]

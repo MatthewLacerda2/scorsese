@@ -47,6 +47,7 @@
 //! echo to cut off mid-repeat, which is what the tail exists to protect.
 //! Padding every note for it would grow every recipe using an EQ for nothing.
 
+use crate::level::db_to_gain_f32;
 use crate::patch::{EqBand, EqKind};
 
 /// The widest a band may be. Below this a "band" is most of the spectrum and
@@ -118,7 +119,7 @@ impl Biquad {
         let alpha = sin / (2.0 * q);
         // The cookbook's `A`: an amplitude ratio at *half* the gain, because a
         // bell and a shelf each apply it twice over.
-        let a = 10f32.powf(gain_db / 40.0);
+        let a = db_to_gain_f32(gain_db / 2.0);
 
         let (b, denominator) = match band.kind {
             EqKind::HighPass => (
@@ -214,6 +215,7 @@ fn finite(value: f32, fallback: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::level::gain_to_db;
     use std::f32::consts::TAU;
 
     const RATE: f32 = 44_100.0;
@@ -255,7 +257,7 @@ mod tests {
     fn response_db(band: EqBand, probe: f32) -> f64 {
         let mut buf = sine(probe);
         apply(&mut buf, &[band], RATE);
-        20.0 * magnitude_at(&buf, probe).log10()
+        gain_to_db(magnitude_at(&buf, probe))
     }
 
     #[test]

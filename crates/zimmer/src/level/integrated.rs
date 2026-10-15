@@ -27,6 +27,8 @@
 
 use std::f64::consts::PI;
 
+use super::gain::db_to_gain;
+
 /// The offset in the standard's definition, which makes a 997 Hz tone read
 /// its own RMS level in LUFS once the K-weighting is applied.
 const OFFSET: f64 = -0.691;
@@ -152,7 +154,7 @@ impl KWeighting {
             0.707_175_236_955_419_6,
         );
         let k = (PI * f0 / rate).tan();
-        let vh = 10_f64.powf(gain_db / 20.0);
+        let vh = db_to_gain(gain_db);
         let vb = vh.powf(0.499_666_774_154_541_6);
         let a0 = 1.0 + k / q + k * k;
         let shelf = Biquad::new(
