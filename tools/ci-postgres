@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Start the Postgres 17 a CI job's tests run against, without a container.
+#
+#   tools/ci-postgres      # then DATABASE_URL=postgres://scorsese:scorsese@localhost:5432/scorsese
+#
+# CI's jobs used to run postgres:17-alpine as a service container, and every
+# registry it came from refused it once a batch's worth of runs had pulled it
+# from GitHub's shared runner addresses: Docker Hub's anonymous pull limit
+# (#986), then ECR Public's anonymous data limit (#1260). Either way the job
+# failed before checkout, red with nothing wrong in the code, and the merge
+# queue handed a healthy branch back. So there is no image at all: Postgres 17
+# comes from the PostgreSQL project's own apt repository (PGDG), which serves
+# packages without an anonymous quota, and runs as the runner's own user.
+#
+# What the tests see is what the image gave them: a server on localhost:5432,
+# a superuser `scorsese` with password `scorsese` checked over TCP
+# (scram-sha-256, the image's default), and a database of the same name. The
+# major version is the one `tools/with-postgres` and `deploy/compose.yaml` run
+# -- change the three together (PG_MAJOR below).
+#
+# fsync off and the data under $RUNNER_TEMP: nothing outlives the job, so
+# durability is paid for and never used (as `tools/with-postgres` does).
+#
+# For a CI runner only: it installs system packages with sudo, and wants port
+# 5432 free. Locally, `tools/with-postgres` is the way in.
+
+set -euo pipefail
+
+PG_MAJOR=17
+PORT=${PGPORT:-5432}
+DATA=${RUNNER_TEMP:-${TMPDIR:-/tmp}}/ci-postgres
+
+# The runner image ships Postgres 16 from PGDG with its service stopped; a
+# runner whose image starts one would hold the port, so stop it either way.
+sudo systemctl stop postgresql 2>/dev/null || true
+
+# postgresql-common (on the runner image) carries PGDG's own setup script: it
+# adds the repository with its signing key, and runs `apt-get update`. Told
+# not to make a `main` cluster, the package install starts no server of its
+# own -- the one below is the only one.
+if [ ! -x /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh ]; then
+    sudo apt-get update
+    sudo apt-get install -y --no-install-recommends postgresql-common
+fi
+sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+echo "create_main_cluster = false" | sudo tee -a /etc/postgresql-common/createcluster.conf >/dev/null
+sudo apt-get install -y --no-install-recommends "postgresql-$PG_MAJOR"
+
+bin=/usr/lib/postgresql/$PG_MAJOR/bin
+rm -rf "$DATA"
+mkdir -p "$DATA"
+password=$(mktemp)
+trap 'rm -f "$password"' EXIT
+echo scorsese >"$password"
+"$bin/initdb" --pgdata "$DATA/data" --username scorsese --pwfile "$password" \
+    --auth-local trust --auth-host scram-sha-256 >/dev/null
+"$bin/pg_ctl" --pgdata "$DATA/data" --log "$DATA/log" --wait start \
+    -o "-c port=$PORT -c listen_addresses=localhost -c unix_socket_directories=$DATA -c fsync=off -c full_page_writes=off" \
+    || { cat "$DATA/log" >&2; exit 1; }
+
+# Over TCP with the password, the way the tests connect, so a server that
+# would refuse them fails here instead.
+export PGPASSWORD=scorsese
+"$bin/createdb" --host localhost --port "$PORT" --username scorsese scorsese
+"$bin/psql" --host localhost --port "$PORT" --username scorsese --dbname scorsese \
+    --no-psqlrc --tuples-only --command "SELECT version()"

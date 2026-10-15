@@ -81,21 +81,15 @@ jobs:
     # Nothing here can fail anything else, and nothing waits on it; a red run
     # means the instrument broke — a flag, llvm-cov itself — and says so.
     timeout-minutes: 60
-    # The same tests as `ci.yml`'s `check`, so the same database.
-    services:
-      postgres:
-        image: public.ecr.aws/docker/library/postgres:17-alpine
-        env:
-          POSTGRES_USER: scorsese
-          POSTGRES_PASSWORD: scorsese
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready --host 127.0.0.1 --username scorsese"
-          --health-interval 2s --health-timeout 5s --health-retries 30
     env:
       DATABASE_URL: postgres://scorsese:scorsese@localhost:5432/scorsese
     steps:
       - uses: actions/checkout@v7
+
+      # The same tests as `ci.yml`'s `check`, so the same database, started
+      # the same way (#1260).
+      - name: Postgres
+        run: tools/ci-postgres
 
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
