@@ -7,11 +7,12 @@ mod common;
 
 use std::borrow::Cow;
 
-use scorsese_core::{AssetKind, Project};
+use scorsese_core::{AssetKind, Clip, Project};
 use scorsese_render::{Note, fill_media};
 
-use common::ffmpeg::{fixture_dir, generate, tools};
-use common::{audio_track, clip, file_asset, project, silent_asset, video_track};
+use common::ffmpeg::{generate, tools};
+use common::scratch;
+use common::{audio_track, file_asset, project, silent_asset, video_track};
 
 /// A project with one video clip showing `id`, and a real file behind it.
 fn shot(dir: &std::path::Path, tools: &scorsese_render::Tools, sound: bool) -> Project {
@@ -28,14 +29,14 @@ fn shot(dir: &std::path::Path, tools: &scorsese_render::Tools, sound: bool) -> P
     generate(tools, &dir.join("assets").join("shot.mp4"), &media);
     project(
         vec![file_asset("shot", AssetKind::Video)],
-        vec![video_track("v1", vec![clip("c1", "shot", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "shot", 0, 30)])],
     )
 }
 
 #[test]
 fn an_unprobed_video_asset_is_probed_and_what_it_has_recorded() {
     let tools = tools();
-    let dir = fixture_dir("fill-sound");
+    let dir = scratch::dir("fill-sound");
     let project = shot(&dir, &tools, true);
 
     let (filled, notes) = fill_media(&tools, &project, &dir);
@@ -60,10 +61,10 @@ fn a_project_that_already_knows_is_left_exactly_as_it_was() {
     // No clone and no subprocess. The assets table is meant to hold this, and a
     // render that re-learns it every time is paying for the table twice.
     let tools = tools();
-    let dir = fixture_dir("fill-known");
+    let dir = scratch::dir("fill-known");
     let project = project(
         vec![silent_asset("shot", AssetKind::Video)],
-        vec![video_track("v1", vec![clip("c1", "shot", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "shot", 0, 30)])],
     );
 
     let (filled, notes) = fill_media(&tools, &project, &dir);
@@ -79,7 +80,7 @@ fn an_audio_assets_metadata_is_nobodys_business_here() {
     // there is already the answer to the question this pass asks — so probing
     // it would be a process spawned to learn nothing.
     let tools = tools();
-    let dir = fixture_dir("fill-audio");
+    let dir = scratch::dir("fill-audio");
     generate(
         &tools,
         &dir.join("assets").join("music.wav"),
@@ -91,8 +92,8 @@ fn an_audio_assets_metadata_is_nobodys_business_here() {
             file_asset("music", AssetKind::Audio),
         ],
         vec![
-            video_track("v1", vec![clip("c1", "shot", 0, 30)]),
-            audio_track("a1", vec![clip("m1", "music", 0, 30)]),
+            video_track("v1", vec![Clip::at("c1", "shot", 0, 30)]),
+            audio_track("a1", vec![Clip::at("m1", "music", 0, 30)]),
         ],
     );
 
@@ -108,13 +109,13 @@ fn a_file_that_cannot_be_probed_leaves_a_note_naming_the_clip() {
     // left out, and nothing said about it. Whatever else happens, that never
     // happens quietly.
     let tools = tools();
-    let dir = fixture_dir("fill-broken");
+    let dir = scratch::dir("fill-broken");
     std::fs::create_dir_all(dir.join("assets")).expect("create assets dir");
     std::fs::write(dir.join("assets").join("shot.mp4"), b"not a video at all")
         .expect("write the broken file");
     let project = project(
         vec![file_asset("shot", AssetKind::Video)],
-        vec![video_track("v1", vec![clip("c1", "shot", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "shot", 0, 30)])],
     );
 
     let (filled, notes) = fill_media(&tools, &project, &dir);

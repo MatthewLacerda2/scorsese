@@ -1,11 +1,11 @@
 //! Where each layer opens in its own source, once other tracks start cutting
 //! the timeline underneath it.
 
-use scorsese_core::{AssetKind, Fps};
+use scorsese_core::{AssetKind, Clip, Fps};
 use scorsese_render::{FrameRange, Plan};
 
 use crate::common::{
-    audio_source_ins, audio_track, clip, clip_from, file_asset, project, shape, sounding_asset,
+    audio_source_ins, audio_track, clip_from, file_asset, project, shape, sounding_asset,
     source_ins, video_track,
 };
 use crate::{overlaid, two_videos};
@@ -35,7 +35,7 @@ fn a_clips_own_source_in_still_counts_when_another_track_cuts_it() {
         two_videos(),
         vec![
             video_track("v1", vec![clip_from("bed", "under", 0, 60, 100)]),
-            video_track("v2", vec![clip("top", "over", 20, 20)]),
+            video_track("v2", vec![Clip::at("top", "over", 20, 20)]),
         ],
     );
     let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
@@ -86,8 +86,8 @@ fn a_shot_resumes_its_own_sound_across_a_cut_on_another_track() {
             file_asset("music", AssetKind::Audio),
         ],
         vec![
-            video_track("v1", vec![clip("c1", "interview", 0, 60)]),
-            audio_track("a1", vec![clip("m1", "music", 30, 30)]),
+            video_track("v1", vec![Clip::at("c1", "interview", 0, 60)]),
+            audio_track("a1", vec![Clip::at("m1", "music", 30, 30)]),
         ],
     );
     let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");

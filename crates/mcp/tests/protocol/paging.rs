@@ -54,7 +54,8 @@ fn a_name_that_is_not_a_page_is_refused_both_ways() {
         text.contains("nothing written") && text.contains("`text`"),
         "{text}"
     );
-    assert!(!dir.join("pages").exists(), "no file landed");
+    let landed = std::fs::read_dir(dir.join("pages")).map_or(0, Iterator::count);
+    assert_eq!(landed, 0, "no file landed");
 
     let (text, failed) = said(&call(
         "page_read",

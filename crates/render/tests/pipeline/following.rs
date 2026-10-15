@@ -7,13 +7,13 @@
 //! line cannot be known.
 
 use scorsese_core::{
-    Asset, AssetId, Attach, ClipId, Endpoint, Follow, Fps, Frames, Geometry, Heads, Point, Project,
-    Rgba, Shape, Side,
+    Asset, AssetId, Attach, Clip, ClipId, Endpoint, Follow, Fps, Frames, Geometry, Heads, Point,
+    Project, Rgba, Shape, Side,
 };
 use scorsese_render::{Frame, FrameRange, Renderer};
 
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{clip, held, project, shape_asset, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::{held, project, scratch, shape_asset, video_track};
 use crate::{RASTER, render, settings};
 
 /// A thin, dark line from `from` to `to`, drawn but invisible against black.
@@ -41,7 +41,7 @@ fn block(id: &str, width: f64, height: f64) -> Asset {
 
 /// The red square, `progress` of the way along the line `c-line`.
 fn follower(progress: f64) -> scorsese_core::Clip {
-    let mut dot = held(clip("c-dot", "dot", 0, 30), "follow.progress", progress);
+    let mut dot = held(Clip::at("c-dot", "dot", 0, 30), "follow.progress", progress);
     dot.follow = Some(Follow::new(ClipId::new("c-line")));
     dot
 }
@@ -62,7 +62,7 @@ fn scene(line: Asset, line_clip: scorsese_core::Clip, dot: scorsese_core::Clip) 
 }
 
 fn still(project: &Project, at: u64) -> Frame {
-    let dir = fixture_dir("following");
+    let dir = scratch::dir("following");
     let frame = Renderer::new(&tools(), settings(Fps::THIRTY))
         .still(project, &dir, Frames(at))
         .expect("the frame is inside the edit");
@@ -100,7 +100,7 @@ fn assert_near(found: (f64, f64), expected: (f64, f64)) {
 #[test]
 fn progress_puts_the_middle_of_the_clip_on_the_line() {
     let frame = still(
-        &scene(across(), clip("c-line", "line", 0, 30), follower(0.25)),
+        &scene(across(), Clip::at("c-line", "line", 0, 30), follower(0.25)),
         5,
     );
     let (middle, _) = red(&frame).expect("the square is drawn");
@@ -111,7 +111,7 @@ fn progress_puts_the_middle_of_the_clip_on_the_line() {
 #[test]
 fn position_is_an_offset_from_the_line() {
     let dot = held(follower(0.5), "transform.position.y", 0.25);
-    let frame = still(&scene(across(), clip("c-line", "line", 0, 30), dot), 5);
+    let frame = still(&scene(across(), Clip::at("c-line", "line", 0, 30), dot), 5);
     let (middle, _) = red(&frame).expect("the square is drawn");
     assert_near(middle, (32.0, 48.0));
 }
@@ -121,7 +121,7 @@ fn position_is_an_offset_from_the_line() {
 #[test]
 fn an_arrow_not_yet_on_screen_is_followed_all_the_same() {
     let frame = still(
-        &scene(across(), clip("c-line", "line", 20, 10), follower(1.0)),
+        &scene(across(), Clip::at("c-line", "line", 20, 10), follower(1.0)),
         5,
     );
     let (middle, _) = red(&frame).expect("the square is drawn");
@@ -137,7 +137,7 @@ fn orient_turns_the_clip_to_face_along_the_line() {
         clip: ClipId::new("c-line"),
         orient: true,
     });
-    let mut project = scene(down, clip("c-line", "line", 0, 30), bar);
+    let mut project = scene(down, Clip::at("c-line", "line", 0, 30), bar);
     project.assets[1] = block("dot", 0.25, 0.0625);
     let (middle, (wide, tall)) = red(&still(&project, 5)).expect("the bar is drawn");
     assert_near(middle, (32.0, 32.0));
@@ -159,18 +159,18 @@ fn a_follower_of_an_attached_arrow_off_screen_is_left_out_and_reported() {
     };
     let mut project = scene(
         line(Point::new(0.1, 0.1).into(), to_box),
-        clip("c-line", "line", 20, 10),
+        Clip::at("c-line", "line", 20, 10),
         follower(0.5),
     );
     project.assets.push(shape_asset("box", 0.1, 0.1));
     project
         .tracks
-        .push(video_track("v3", vec![clip("c-box", "box", 0, 30)]));
+        .push(video_track("v3", vec![Clip::at("c-box", "box", 0, 30)]));
     project.validate().expect("a valid document");
     assert!(red(&still(&project, 5)).is_none(), "the square is left out");
 
     let tools = tools();
-    let dir = fixture_dir("following-lost");
+    let dir = scratch::dir("following-lost");
     let (_, report) = render(&tools, &project, &dir, FrameRange::ALL, Fps::THIRTY);
     std::fs::remove_dir_all(&dir).ok();
     let said: Vec<String> = report.notes.iter().map(ToString::to_string).collect();

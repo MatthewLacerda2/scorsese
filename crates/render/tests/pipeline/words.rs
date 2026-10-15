@@ -5,13 +5,14 @@
 //! Needs the pinned browser, like `pages.rs` beside it.
 
 use scorsese_core::words::{Word, Words};
-use scorsese_core::{Asset, AssetId, AssetKind, Fps, Frames, ProjectPath};
+use scorsese_core::{Asset, AssetId, AssetKind, Clip, Fps, Frames, ProjectPath};
 use scorsese_render::page::Chrome;
 use scorsese_render::{Frame, Renderer};
 
-use crate::common::ffmpeg::{fixture_dir, generate, tools};
+use crate::common::ffmpeg::{generate, tools};
 use crate::common::prompts::generated_asset;
-use crate::common::{audio_track, clip, project, video_track};
+use crate::common::scratch;
+use crate::common::{audio_track, project, video_track};
 use crate::{BLUE, RED, assert_colour, colour_asset, settings};
 
 /// Blue over the whole frame while the narration `vo` says *gradient*.
@@ -28,7 +29,7 @@ fn top_left(frame: &Frame) -> (u8, u8, u8) {
 #[test]
 fn a_page_lights_on_the_word_where_the_clip_plays_it() {
     let tools = tools();
-    let dir = fixture_dir("told-words");
+    let dir = scratch::dir("told-words");
     std::fs::create_dir_all(dir.join("pages")).expect("pages/");
     std::fs::write(dir.join("pages/lit.html"), PAGE).expect("a page");
     let line = generated_asset("line", AssetKind::GeneratedAudio);
@@ -61,13 +62,13 @@ fn a_page_lights_on_the_word_where_the_clip_plays_it() {
     );
     // The line opens 0.5 s in at timeline frame 15 (0.5 s), so *gradient* is
     // heard from 1.0 s to 1.5 s of the timeline: frames 30 to 45.
-    let mut vo = clip("vo", "line", 15, 45);
+    let mut vo = Clip::at("vo", "line", 15, 45);
     vo.source_in = Frames(15);
     let project = project(
         vec![colour_asset(&tools, &dir, "red", "64x64", 2), page, line],
         vec![
-            video_track("v1", vec![clip("shot", "red", 0, 60)]),
-            video_track("v2", vec![clip("page", "lit", 0, 60)]),
+            video_track("v1", vec![Clip::at("shot", "red", 0, 60)]),
+            video_track("v2", vec![Clip::at("page", "lit", 0, 60)]),
             audio_track("a1", vec![vo]),
         ],
     );

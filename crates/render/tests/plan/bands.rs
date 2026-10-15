@@ -4,11 +4,11 @@
 //! stays a clip in the mix and drops out of the picture, and the plan says
 //! which lines it left out.
 
-use scorsese_core::{AssetKind, Fps, Frames, Project};
+use scorsese_core::{AssetKind, Clip, Fps, Frames, Project};
 use scorsese_render::{Bands, FrameRange, Note, Plan};
 
 use crate::common::{
-    audio_shape, audio_track, clip, file_asset, generated_asset, narration_asset, project, shape,
+    audio_shape, audio_track, file_asset, generated_asset, narration_asset, project, shape,
     video_track,
 };
 
@@ -17,8 +17,8 @@ fn narrated(narration: scorsese_core::Asset) -> Project {
     project(
         vec![file_asset("a", AssetKind::Video), narration],
         vec![
-            video_track("v1", vec![clip("shot", "a", 0, 60)]),
-            audio_track("a1", vec![clip("vo1", "vo", 30, 30)]),
+            video_track("v1", vec![Clip::at("shot", "a", 0, 60)]),
+            audio_track("a1", vec![Clip::at("vo1", "vo", 30, 30)]),
         ],
     )
 }

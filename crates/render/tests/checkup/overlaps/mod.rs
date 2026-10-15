@@ -7,13 +7,13 @@
 
 use std::path::Path;
 
-use scorsese_core::{Asset, AssetId, Frames, HashCheck, Project, Rgba, TextStyle};
+use scorsese_core::{Asset, AssetId, Clip, Frames, HashCheck, Project, Rgba, TextStyle};
 use scorsese_render::Checkup;
 
 mod alpha;
 mod pages;
 
-use crate::common::{clip, held, project, shape_asset, text_asset, video_track};
+use crate::common::{held, project, shape_asset, text_asset, video_track};
 
 /// Only what this module is about, out of a whole checkup — so a fixture that
 /// happens to warn about something else cannot make one of these pass.
@@ -56,7 +56,7 @@ fn caption(id: &str, width: f64) -> Asset {
 /// Two half-frame panels on two tracks, each pushed 0.15 to one side: they
 /// share a fifth of the frame's width for two seconds.
 fn panels() -> Project {
-    let aside = |id, by| held(clip(id, "panel", 0, 60), "transform.position.x", by);
+    let aside = |id, by| held(Clip::at(id, "panel", 0, 60), "transform.position.x", by);
     project(
         vec![shape_asset("panel", 0.5, 0.5)],
         vec![
@@ -85,9 +85,10 @@ fn a_cut_underneath_does_not_split_one_collision_into_two() {
         .push(Asset::color(AssetId::new("wash"), Rgba::WHITE));
     // A background arriving halfway cuts the timeline in two, and the pair
     // above it is one finding across both halves.
-    project
-        .tracks
-        .insert(0, video_track("bg", vec![clip("plate", "wash", 30, 30)]));
+    project.tracks.insert(
+        0,
+        video_track("bg", vec![Clip::at("plate", "wash", 30, 30)]),
+    );
     reported(&project);
     assert!(collisions(&project)[0].contains("0.00–2.00s (f0–60)"));
 }
@@ -100,8 +101,8 @@ fn a_layer_covering_the_whole_frame_is_a_background_and_says_nothing() {
             shape_asset("panel", 0.5, 0.5),
         ],
         vec![
-            video_track("bg", vec![clip("plate", "wash", 0, 60)]),
-            video_track("front", vec![clip("card", "panel", 0, 60)]),
+            video_track("bg", vec![Clip::at("plate", "wash", 0, 60)]),
+            video_track("front", vec![Clip::at("card", "panel", 0, 60)]),
         ],
     ));
 }
@@ -112,11 +113,11 @@ fn labelled(by: f64) -> Project {
     project(
         vec![shape_asset("plaque", 0.95, 0.2), text_asset("words")],
         vec![
-            video_track("boxes", vec![clip("frame", "plaque", 0, 60)]),
+            video_track("boxes", vec![Clip::at("frame", "plaque", 0, 60)]),
             video_track(
                 "labels",
                 vec![held(
-                    clip("label", "words", 0, 60),
+                    Clip::at("label", "words", 0, 60),
                     "transform.position.y",
                     by,
                 )],
@@ -134,7 +135,7 @@ fn a_label_inside_its_box_is_silent_and_the_same_label_hanging_out_of_it_is_not(
 /// Two captions on one line, `apart` between the second one and the middle of
 /// the frame.
 fn captions(apart: f64) -> Project {
-    let aside = |id: &str, by| held(clip(id, id, 0, 60), "transform.position.x", by);
+    let aside = |id: &str, by| held(Clip::at(id, id, 0, 60), "transform.position.x", by);
     project(
         vec![caption("near", 0.4), caption("far", 0.34)],
         vec![
@@ -160,8 +161,8 @@ fn plated(plate: f64, badge: f64) -> Project {
             shape_asset("badge", badge, badge),
         ],
         vec![
-            video_track("plates", vec![clip("back", "plate", 0, 60)]),
-            video_track("badges", vec![clip("front", "badge", 0, 60)]),
+            video_track("plates", vec![Clip::at("back", "plate", 0, 60)]),
+            video_track("badges", vec![Clip::at("front", "badge", 0, 60)]),
         ],
     )
 }

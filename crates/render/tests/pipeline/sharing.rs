@@ -7,12 +7,13 @@
 
 use std::path::{Path, PathBuf};
 
-use scorsese_core::{Asset, AssetId, AssetKind, Fps, Project, ProjectPath};
+use scorsese_core::{Asset, AssetId, AssetKind, Clip, Fps, Project, ProjectPath};
 use scorsese_render::page::Chrome;
 use scorsese_render::{FrameRange, Note, RenderReport, Renderer};
 
-use crate::common::ffmpeg::{fixture_dir, mean_rgb, tools};
-use crate::common::{clip, clip_from, project, video_track};
+use crate::common::ffmpeg::{mean_rgb, tools};
+use crate::common::scratch;
+use crate::common::{clip_from, project, video_track};
 use crate::{BLUE, assert_colour, colour_asset, settings};
 
 /// A red shot under a blue page, shown twice: first entering the page ten
@@ -20,7 +21,7 @@ use crate::{BLUE, assert_colour, colour_asset, settings};
 /// first is a piece of the slot the second captures whole.
 fn twice(name: &str) -> (PathBuf, Project) {
     let tools = tools();
-    let dir = fixture_dir(name);
+    let dir = scratch::dir(name);
     std::fs::create_dir_all(dir.join("pages")).expect("pages/");
     let html = "<div style='position:absolute;inset:0;background:#00f'></div>";
     std::fs::write(dir.join("pages/blue.html"), html).expect("a page");
@@ -32,12 +33,12 @@ fn twice(name: &str) -> (PathBuf, Project) {
     let project = project(
         vec![colour_asset(&tools, &dir, "red", "64x64", 1), page],
         vec![
-            video_track("v1", vec![clip("under", "red", 0, 30)]),
+            video_track("v1", vec![Clip::at("under", "red", 0, 30)]),
             video_track(
                 "v2",
                 vec![
                     clip_from("trimmed", "blue", 0, 10, 10),
-                    clip("whole", "blue", 10, 20),
+                    Clip::at("whole", "blue", 10, 20),
                 ],
             ),
         ],

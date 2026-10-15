@@ -1,11 +1,12 @@
 //! A group drawn as one layer: its members composited offscreen, then the
 //! result composited with the group clip's own properties.
 
-use scorsese_core::{Asset, AssetId, Fit, Fps, Frames, Geometry, Group, Rgba, Shape};
+use scorsese_core::{Asset, AssetId, Clip, Fit, Fps, Frames, Geometry, Group, Rgba, Shape};
 use scorsese_render::{Frame, RenderSettings, Renderer, Resolution};
 
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{clip, fitted, held, project, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{fitted, held, project, video_track};
 use crate::{RED, assert_colour, colour_asset};
 
 const WIDTH: u32 = 160;
@@ -39,13 +40,21 @@ fn square(id: &str, color: Rgba) -> Asset {
 /// once — and it is exactly the colour of its own uncovered half.
 #[test]
 fn a_faded_group_does_not_show_its_members_through_each_other() {
-    let red = held(clip("red-in", "red", 0, 10), "transform.position.x", -0.1);
-    let blue = held(clip("blue-in", "blue", 0, 10), "transform.position.x", 0.1);
+    let red = held(
+        Clip::at("red-in", "red", 0, 10),
+        "transform.position.x",
+        -0.1,
+    );
+    let blue = held(
+        Clip::at("blue-in", "blue", 0, 10),
+        "transform.position.x",
+        0.1,
+    );
     let pair = Group::new(vec![
         video_track("g-red", vec![red]),
         video_track("g-blue", vec![blue]),
     ]);
-    let shown = held(clip("c-pair", "pair", 0, 10), "opacity", 0.5);
+    let shown = held(Clip::at("c-pair", "pair", 0, 10), "opacity", 0.5);
     let project = project(
         vec![
             square("red", Rgba::new(220, 0, 0, 255)),
@@ -55,7 +64,7 @@ fn a_faded_group_does_not_show_its_members_through_each_other() {
         vec![video_track("v1", vec![shown])],
     );
     project.validate().expect("valid");
-    let dir = fixture_dir("group-faded");
+    let dir = scratch::dir("group-faded");
     let still = Renderer::new(&tools(), settings())
         .still(&project, &dir, Frames(0))
         .expect("a frame of drawn layers");
@@ -76,12 +85,16 @@ fn a_faded_group_does_not_show_its_members_through_each_other() {
 #[test]
 fn a_decoded_member_moves_with_its_group() {
     let tools = tools();
-    let dir = fixture_dir("group-decoded");
+    let dir = scratch::dir("group-decoded");
     let plate = Group::new(vec![video_track(
         "g-plate",
-        vec![fitted(Fit::Fill, clip("plate", "red", 0, 10))],
+        vec![fitted(Fit::Fill, Clip::at("plate", "red", 0, 10))],
     )]);
-    let shown = held(clip("c-plate", "moved", 0, 10), "transform.position.x", 0.5);
+    let shown = held(
+        Clip::at("c-plate", "moved", 0, 10),
+        "transform.position.x",
+        0.5,
+    );
     let project = project(
         vec![
             colour_asset(&tools, &dir, "red", "64x64", 1),

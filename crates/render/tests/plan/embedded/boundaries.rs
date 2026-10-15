@@ -1,10 +1,10 @@
 //! Where an embedded clip does — and does not — cut the mix.
 
-use scorsese_core::AssetKind;
+use scorsese_core::{AssetKind, Clip};
 
 use super::plan_of;
 use crate::common::{
-    audio_shape, audio_track, clip, file_asset, project, silent_asset, sounding_asset, video_track,
+    audio_shape, audio_track, file_asset, project, silent_asset, sounding_asset, video_track,
 };
 
 #[test]
@@ -21,12 +21,12 @@ fn a_silent_shot_does_not_cut_the_bed_it_sits_over() {
             video_track(
                 "v1",
                 vec![
-                    clip("c1", "plate", 0, 30),
-                    clip("c2", "plate", 30, 30),
-                    clip("c3", "plate", 60, 30),
+                    Clip::at("c1", "plate", 0, 30),
+                    Clip::at("c2", "plate", 30, 30),
+                    Clip::at("c3", "plate", 60, 30),
                 ],
             ),
-            audio_track("a1", vec![clip("m1", "music", 0, 90)]),
+            audio_track("a1", vec![Clip::at("m1", "music", 0, 90)]),
         ],
     );
     let plan = plan_of(&project);
@@ -49,9 +49,9 @@ fn an_audible_shot_cuts_the_mix_where_its_own_clip_starts_and_ends() {
         vec![
             // A silent plate runs the whole length, so the picture — which is
             // what decides how long the render is — outlasts everything.
-            video_track("v1", vec![clip("c0", "plate", 0, 90)]),
-            video_track("v2", vec![clip("c1", "interview", 30, 30)]),
-            audio_track("a1", vec![clip("m1", "music", 0, 90)]),
+            video_track("v1", vec![Clip::at("c0", "plate", 0, 90)]),
+            video_track("v2", vec![Clip::at("c1", "interview", 30, 30)]),
+            audio_track("a1", vec![Clip::at("m1", "music", 0, 90)]),
         ],
     );
     let plan = plan_of(&project);
@@ -84,14 +84,17 @@ fn a_track_of_mixed_shots_contributes_only_the_ones_with_sound() {
             video_track(
                 "v1",
                 vec![
-                    clip("c1", "interview", 0, 30),
-                    clip("c2", "broll", 40, 20),
-                    clip("c3", "interview", 70, 20),
+                    Clip::at("c1", "interview", 0, 30),
+                    Clip::at("c2", "broll", 40, 20),
+                    Clip::at("c3", "interview", 70, 20),
                 ],
             ),
             audio_track(
                 "a1",
-                vec![clip("m1", "music", 0, 50), clip("m2", "music", 50, 40)],
+                vec![
+                    Clip::at("m1", "music", 0, 50),
+                    Clip::at("m2", "music", 50, 40),
+                ],
             ),
         ],
     );

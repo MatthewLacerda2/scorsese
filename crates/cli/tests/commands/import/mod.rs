@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use scorsese_core::{ASSETS_DIR, AssetKind};
 
 use crate::common::media::{generate, tools};
-use crate::common::{Run, new_project, reload, run_in, temp_dir};
+use crate::common::{Run, new_project, reload, run_in, scratch};
 
 /// A project, and a directory of media beside it that is not part of it.
 pub(crate) struct Outside {
@@ -26,7 +26,7 @@ impl Outside {
     pub(crate) fn new(label: &str) -> Self {
         Self {
             project: new_project(label),
-            elsewhere: temp_dir(&format!("{label}-sources")),
+            elsewhere: scratch::dir(&format!("{label}-sources")),
         }
     }
 

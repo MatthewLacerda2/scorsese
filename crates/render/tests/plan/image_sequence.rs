@@ -1,10 +1,10 @@
 //! A clip of an image sequence: its stills resolved once, in the plan, and a
 //! sequence that names anything but imported pictures refused there.
 
-use scorsese_core::{Asset, AssetId, AssetKind, Fps, ImageSequence};
+use scorsese_core::{Asset, AssetId, AssetKind, Clip, Fps, ImageSequence};
 use scorsese_render::{FrameRange, Plan, PlanError};
 
-use crate::common::{clip, file_asset, project, text_asset, video_track};
+use crate::common::{file_asset, project, text_asset, video_track};
 
 fn sequenced(stills: &[&str]) -> scorsese_core::Project {
     let sequence = ImageSequence::new(stills.iter().map(|&id| AssetId::new(id)).collect());
@@ -15,7 +15,7 @@ fn sequenced(stills: &[&str]) -> scorsese_core::Project {
             text_asset("title"),
             Asset::image_sequence(AssetId::new("spin"), sequence),
         ],
-        vec![video_track("v1", vec![clip("c1", "spin", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "spin", 0, 30)])],
     )
 }
 

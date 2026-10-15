@@ -5,16 +5,16 @@
 //! last of them could land on the segment's `end`, which is the next clip's
 //! first frame and the outgoing one's out point (#1092).
 
-use scorsese_core::{AssetKind, Fps, Frames, Project};
+use scorsese_core::{AssetKind, Clip, Fps, Frames, Project};
 use scorsese_render::{FrameRange, Plan};
 
-use crate::common::{clip, file_asset, project, video_track};
+use crate::common::{file_asset, project, video_track};
 
 /// One-frame clips back to back, so every timeline frame is its own segment
 /// and every segment end is a place to land on.
 fn single_frames(timeline_fps: Fps) -> Project {
     let clips = (0..24)
-        .map(|frame| clip(&format!("c{frame}"), "a", frame, 1))
+        .map(|frame| Clip::at(format!("c{frame}"), "a", frame, 1))
         .collect();
     Project {
         timeline_fps,
@@ -63,9 +63,9 @@ fn the_last_frame_of_a_24_fps_clip_is_drawn_inside_it_at_30() {
             vec![video_track(
                 "v1",
                 vec![
-                    clip("lead", "a", 0, 1),
-                    clip("out", "a", 1, 1),
-                    clip("next", "a", 2, 24),
+                    Clip::at("lead", "a", 0, 1),
+                    Clip::at("out", "a", 1, 1),
+                    Clip::at("next", "a", 2, 24),
                 ],
             )],
         )

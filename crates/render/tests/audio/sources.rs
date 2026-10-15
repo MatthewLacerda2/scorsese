@@ -1,29 +1,31 @@
 //! Where a clip opens in its own media, and what happens when it runs out.
 
+use scorsese_core::Clip;
 use scorsese_render::Note;
 
 use crate::common::audio::{
     assert_audible, assert_silent, level, soundtrack, tone_asset, with_volume,
 };
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{audio_track, clip, clip_from, project, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{audio_track, clip_from, project, video_track};
 use crate::{picture, render};
 
 #[test]
 fn source_in_skips_into_the_audio_rather_than_the_timeline() {
     let tools = tools();
-    let dir = fixture_dir("source-in");
+    let dir = scratch::dir("source-in");
     // A second of silence, then a second of tone.
     let beep = tone_asset(&tools, &dir, "beep", 440, 1.0, 0.8, ",adelay=1000:all=1");
     let project = project(
         vec![picture(&tools, &dir, 2), beep],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 60)]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 60)]),
             audio_track(
                 "a1",
                 vec![
                     // The fixture's own silent half...
-                    clip("m1", "beep", 0, 30),
+                    Clip::at("m1", "beep", 0, 30),
                     // ...and its tone, reached by skipping a second in.
                     clip_from("m2", "beep", 30, 30, 30),
                 ],
@@ -42,7 +44,7 @@ fn source_in_skips_into_the_audio_rather_than_the_timeline() {
 #[test]
 fn a_bed_carries_on_across_a_cut_rather_than_restarting() {
     let tools = tools();
-    let dir = fixture_dir("resume");
+    let dir = scratch::dir("resume");
     // A second of silence, then a second of tone — a bed that sounds different
     // depending on how far into it you are. A flat one would hide this entirely:
     // restarting a constant tone is indistinguishable from carrying on with it.
@@ -51,14 +53,14 @@ fn a_bed_carries_on_across_a_cut_rather_than_restarting() {
     let project = project(
         vec![picture(&tools, &dir, 2), bed, marker],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 60)]),
-            audio_track("a1", vec![clip("m1", "bed", 0, 60)]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 60)]),
+            audio_track("a1", vec![Clip::at("m1", "bed", 0, 60)]),
             // Muted, and here only to put a cut halfway through the bed: a clip
             // entering on another track splits the timeline, and the bed has to
             // pick up where it left off rather than starting again.
             audio_track(
                 "a2",
-                vec![with_volume(clip("m2", "marker", 30, 30), &[(0, 0.0)])],
+                vec![with_volume(Clip::at("m2", "marker", 30, 30), &[(0, 0.0)])],
             ),
         ],
     );
@@ -77,14 +79,14 @@ fn a_bed_carries_on_across_a_cut_rather_than_restarting() {
 #[test]
 fn a_clip_outlasting_its_source_goes_silent_and_says_so() {
     let tools = tools();
-    let dir = fixture_dir("short");
+    let dir = scratch::dir("short");
     let beep = tone_asset(&tools, &dir, "beep", 440, 1.0, 0.8, "");
     let project = project(
         vec![picture(&tools, &dir, 2), beep],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 60)]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 60)]),
             // Two seconds of clip over one second of source.
-            audio_track("a1", vec![clip("m1", "beep", 0, 60)]),
+            audio_track("a1", vec![Clip::at("m1", "beep", 0, 60)]),
         ],
     );
 

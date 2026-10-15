@@ -79,12 +79,6 @@ mod tests {
         path
     }
 
-    fn scratch(name: &str) -> PathBuf {
-        let dir = crate::scratch::fresh(&format!("scorsese-find-{name}"), "");
-        std::fs::create_dir_all(&dir).expect("scratch");
-        dir
-    }
-
     /// A supply that has `installed` (or nothing) and fetches `fetched`,
     /// counting the fetches.
     fn supply(
@@ -107,7 +101,7 @@ mod tests {
 
     #[test]
     fn the_environment_wins_then_the_download_then_path() {
-        let dir = scratch("order");
+        let dir = crate::scratch::dir("order");
         let (named, installed, path) = (
             browser(&dir, "1.0"),
             browser(&dir, "2.0"),
@@ -128,7 +122,7 @@ mod tests {
 
     #[test]
     fn nothing_found_is_downloaded_and_said_so() {
-        let dir = scratch("fetch");
+        let dir = crate::scratch::dir("fetch");
         let (fetching, fetches) = supply(None, Ok(browser(&dir, "4.0")));
         let found = find_in(None, Some(&fetching), Path::new(NOWHERE)).expect("fetched");
         assert_eq!((found.chrome.version(), found.fetched), ("4.0", true));
@@ -141,7 +135,7 @@ mod tests {
 
     #[test]
     fn a_broken_override_is_reported_rather_than_passed_over() {
-        let dir = scratch("broken");
+        let dir = crate::scratch::dir("broken");
         let (fetching, fetches) = supply(Some(browser(&dir, "2.0")), Ok(browser(&dir, "4.0")));
         let refused = find_in(Some(NOWHERE.into()), Some(&fetching), Path::new(NOWHERE));
         assert!(

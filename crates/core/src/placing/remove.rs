@@ -81,6 +81,7 @@ pub fn remove(project: &mut Project, ids: &BTreeSet<ClipId>) -> Result<Vec<Remov
 mod tests {
     use super::super::fixture::placed;
     use super::*;
+    use crate::project::SCHEMA_VERSION;
 
     fn named(ids: &[&str]) -> BTreeSet<ClipId> {
         ids.iter().map(|id| ClipId::new(*id)).collect()
@@ -118,21 +119,21 @@ mod tests {
     #[test]
     fn a_clip_an_arrow_is_attached_to_stays() {
         let mut project = Project::from_json(
-            r##"{
-              "schema_version": 49, "name": "T", "timeline_fps": { "num": 30, "den": 1 },
+            &format!(r##"{{
+              "schema_version": {SCHEMA_VERSION}, "name": "T", "timeline_fps": {{ "num": 30, "den": 1 }},
               "assets": [
-                { "id": "box", "kind": "shape", "shape": {
-                  "geometry": { "rectangle": { "width": 0.2, "height": 0.1 } },
-                  "fill": "#ffffffff" } },
-                { "id": "arrow", "kind": "shape", "shape": {
-                  "geometry": { "arrow": {
-                    "from": { "attach": { "clip": "b", "side": "right" } },
-                    "to": { "x": 0.5, "y": 0.5 } } },
-                  "stroke": "#ffffffff", "stroke_width": 0.004 } }
+                {{ "id": "box", "kind": "shape", "shape": {{
+                  "geometry": {{ "rectangle": {{ "width": 0.2, "height": 0.1 }} }},
+                  "fill": "#ffffffff" }} }},
+                {{ "id": "arrow", "kind": "shape", "shape": {{
+                  "geometry": {{ "arrow": {{
+                    "from": {{ "attach": {{ "clip": "b", "side": "right" }} }},
+                    "to": {{ "x": 0.5, "y": 0.5 }} }} }},
+                  "stroke": "#ffffffff", "stroke_width": 0.004 }} }}
               ],
-              "tracks": [ { "id": "v1", "kind": "video", "clips": [
-                { "id": "b", "asset": "box", "start": 0, "duration": 30 } ] } ]
-            }"##,
+              "tracks": [ {{ "id": "v1", "kind": "video", "clips": [
+                {{ "id": "b", "asset": "box", "start": 0, "duration": 30 }} ] }} ]
+            }}"##),
         )
         .expect("the fixture is a project");
         let before = project.clone();

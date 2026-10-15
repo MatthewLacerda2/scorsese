@@ -6,11 +6,12 @@
 //! the first test below compares a still against the frame a real render put in
 //! a real file, at the same instant.
 
-use scorsese_core::{AssetKind, Fps, Frames};
+use scorsese_core::{AssetKind, Clip, Fps, Frames};
 use scorsese_render::{Frame, FrameRange, PlanError, RenderError, Renderer};
 
-use crate::common::ffmpeg::{fixture_dir, mean_rgb, tools};
-use crate::common::{audio_track, clip, file_asset, project, sketch_asset, video_track};
+use crate::common::ffmpeg::{mean_rgb, tools};
+use crate::common::scratch;
+use crate::common::{audio_track, file_asset, project, sketch_asset, video_track};
 use crate::{GREEN, RED, assert_colour, colour_asset, render, settings};
 
 /// The average colour of a frame that is still in memory, in the same terms
@@ -35,10 +36,10 @@ fn mean_of(frame: &Frame) -> (u8, u8, u8) {
 #[test]
 fn a_still_is_the_frame_the_render_writes_at_the_same_instant() {
     let tools = tools();
-    let dir = fixture_dir("still-agrees");
+    let dir = scratch::dir("still-agrees");
     let project = project(
         vec![colour_asset(&tools, &dir, "red", "64x64", 1)],
-        vec![video_track("v1", vec![clip("c1", "red", 0, 20)])],
+        vec![video_track("v1", vec![Clip::at("c1", "red", 0, 20)])],
     );
 
     let (out, _) = render(&tools, &project, &dir, FrameRange::ALL, Fps::THIRTY);
@@ -58,7 +59,7 @@ fn a_still_is_the_frame_the_render_writes_at_the_same_instant() {
 #[test]
 fn a_still_shows_whichever_side_of_a_cut_it_is_asked_for() {
     let tools = tools();
-    let dir = fixture_dir("still-cut");
+    let dir = scratch::dir("still-cut");
     let project = project(
         vec![
             colour_asset(&tools, &dir, "red", "64x64", 1),
@@ -66,7 +67,10 @@ fn a_still_shows_whichever_side_of_a_cut_it_is_asked_for() {
         ],
         vec![video_track(
             "v1",
-            vec![clip("c1", "red", 0, 10), clip("c2", "green", 10, 10)],
+            vec![
+                Clip::at("c1", "red", 0, 10),
+                Clip::at("c2", "green", 10, 10),
+            ],
         )],
     );
     let renderer = Renderer::new(&tools, settings(Fps::THIRTY));
@@ -89,10 +93,10 @@ fn a_still_shows_whichever_side_of_a_cut_it_is_asked_for() {
 #[test]
 fn a_sketch_stills_as_its_card_with_nothing_generated() {
     let tools = tools();
-    let dir = fixture_dir("still-sketch");
+    let dir = scratch::dir("still-sketch");
     let project = project(
         vec![sketch_asset("veo1")],
-        vec![video_track("v1", vec![clip("c1", "veo1", 0, 20)])],
+        vec![video_track("v1", vec![Clip::at("c1", "veo1", 0, 20)])],
     );
 
     let still = Renderer::new(&tools, settings(Fps::THIRTY))
@@ -115,10 +119,10 @@ fn a_sketch_stills_as_its_card_with_nothing_generated() {
 #[test]
 fn a_frame_past_the_end_has_no_still() {
     let tools = tools();
-    let dir = fixture_dir("still-past-end");
+    let dir = scratch::dir("still-past-end");
     let project = project(
         vec![colour_asset(&tools, &dir, "red", "64x64", 1)],
-        vec![video_track("v1", vec![clip("c1", "red", 0, 20)])],
+        vec![video_track("v1", vec![Clip::at("c1", "red", 0, 20)])],
     );
 
     let refused = Renderer::new(&tools, settings(Fps::THIRTY)).still(&project, &dir, Frames(20));
@@ -134,10 +138,10 @@ fn a_frame_past_the_end_has_no_still() {
 #[test]
 fn a_project_with_only_music_has_no_still_as_it_has_no_render() {
     let tools = tools();
-    let dir = fixture_dir("still-music-only");
+    let dir = scratch::dir("still-music-only");
     let project = project(
         vec![file_asset("song", AssetKind::Audio)],
-        vec![audio_track("a1", vec![clip("c1", "song", 0, 60)])],
+        vec![audio_track("a1", vec![Clip::at("c1", "song", 0, 60)])],
     );
     let renderer = Renderer::new(&tools, settings(Fps::THIRTY));
 

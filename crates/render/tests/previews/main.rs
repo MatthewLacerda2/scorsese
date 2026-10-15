@@ -13,12 +13,13 @@ mod proxies;
 
 use std::path::Path;
 
-use scorsese_core::{AssetKind, Fit, Fps, Frames, Project};
+use scorsese_core::{AssetKind, Clip, Fit, Fps, Frames, Project};
 use scorsese_render::preview::{self, Preview, Proxies, Quality};
 use scorsese_render::{Frame, FrameRange, RenderSettings, Renderer, Resolution, Tools};
 
-use common::ffmpeg::{fixture_dir, generate, generate_asset, mean_rgb, tools};
-use common::{clip, fitted, project, video_track};
+use common::ffmpeg::{generate, generate_asset, mean_rgb, tools};
+use common::scratch;
+use common::{fitted, project, video_track};
 
 /// The hash the fixture's source is recorded under — anything will do, as
 /// long as the proxy is filed under the same one.
@@ -46,7 +47,7 @@ fn red_with_blue_proxy(tools: &Tools, root: &Path, side: u32, fit: Fit) -> Proje
         vec![asset],
         vec![video_track(
             "v1",
-            vec![fitted(fit, clip("c1", "shot", 0, 30))],
+            vec![fitted(fit, Clip::at("c1", "shot", 0, 30))],
         )],
     )
 }
@@ -89,7 +90,7 @@ fn still(
 #[test]
 fn a_reduced_preview_reads_the_proxy_and_nothing_else_does() {
     let tools = tools();
-    let root = fixture_dir("preview-proxy");
+    let root = scratch::dir("preview-proxy");
     let project = red_with_blue_proxy(&tools, &root, 32, Fit::Fit);
     let proxies = Proxies::made_in(&preview::folder(&root), &project);
     assert_eq!(
@@ -124,7 +125,7 @@ fn a_reduced_preview_reads_the_proxy_and_nothing_else_does() {
 #[test]
 fn a_native_clip_is_the_same_share_of_the_frame_at_every_quality() {
     let tools = tools();
-    let root = fixture_dir("preview-native");
+    let root = scratch::dir("preview-native");
     let project = red_with_blue_proxy(&tools, &root, 16, Fit::Native);
     let full = shares(&still(&tools, &root, &project, 64, None)).0;
     assert!(

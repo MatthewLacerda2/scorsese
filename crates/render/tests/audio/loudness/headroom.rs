@@ -10,15 +10,16 @@
 
 use std::path::{Path, PathBuf};
 
-use scorsese_core::{Asset, AssetKind, Fps};
+use scorsese_core::{Asset, AssetKind, Clip, Fps};
 use scorsese_render::audio::{DELIVERY_CEILING_DBTP, measure};
 use scorsese_render::{
     Container, FrameRange, OutputFormat, RenderReport, RenderSettings, Renderer, Resolution, Tools,
 };
 
 use crate::common::audio::RATE;
-use crate::common::ffmpeg::{fixture_dir, generate_asset, tools};
-use crate::common::{audio_track, clip, project, video_track};
+use crate::common::ffmpeg::{generate_asset, tools};
+use crate::common::scratch;
+use crate::common::{audio_track, project, video_track};
 use crate::picture;
 
 /// −1 dBFS, as a sample value: the ceiling a bake's own limiter holds to.
@@ -49,15 +50,15 @@ fn tone(tools: &Tools, root: &Path, square: bool, amplitude: f64) -> Asset {
 /// Renders the tone over two seconds of picture into `container`.
 fn deliver(label: &str, square: bool, amplitude: f64, container: Container) -> Delivered {
     let tools = tools();
-    let dir = fixture_dir(label);
+    let dir = scratch::dir(label);
     let project = project(
         vec![
             picture(&tools, &dir, 2),
             tone(&tools, &dir, square, amplitude),
         ],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 60)]),
-            audio_track("a1", vec![clip("m1", "tone", 0, 60)]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 60)]),
+            audio_track("a1", vec![Clip::at("m1", "tone", 0, 60)]),
         ],
     );
     let out = dir.join(format!("out.{}", container.name()));

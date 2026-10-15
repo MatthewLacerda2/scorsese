@@ -61,7 +61,7 @@ async fn red_in_library(pool: &PgPool, files: &Files, user: UserId) -> Project {
             .expect(setup);
         assert!(status.success(), "ffmpeg made the {colour} fixture");
     };
-    let scratch = common::scratch("red").join("red.mp4");
+    let scratch = common::scratch::dir("red").join("red.mp4");
     make("red", &scratch);
     let sha = hash_bytes(&std::fs::read(&scratch).expect(setup));
     let home = files.storage.library_file(user, &sha, "mp4");

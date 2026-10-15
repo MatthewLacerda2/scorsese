@@ -10,11 +10,12 @@
 //!
 //! These need the pinned browser, as `pages.rs` does.
 
-use scorsese_core::{Asset, AssetId, AssetKind, Fps, Frames, ProjectPath};
+use scorsese_core::{Asset, AssetId, AssetKind, Clip, Fps, Frames, ProjectPath};
 use scorsese_render::{Frame, RenderSettings, Renderer, Resolution};
 
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{clip, project, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{project, video_track};
 
 /// The stand-in Lottie.
 const WAVE: &str = include_str!("../fixtures/lottie/wave.json");
@@ -70,7 +71,7 @@ fn a_lottie_is_drawn_at_the_frame_the_clock_says_and_its_library_is_recorded() {
         &tools,
         RenderSettings::new(Resolution::new(320, 180).expect("a raster"), Fps::THIRTY),
     );
-    let dir = fixture_dir("lottie");
+    let dir = scratch::dir("lottie");
     std::fs::create_dir_all(dir.join("pages")).expect("pages/");
     std::fs::write(dir.join("pages/wave.json"), WAVE).expect("the Lottie");
     std::fs::write(dir.join("pages/wave.html"), PAGE).expect("the page");
@@ -81,7 +82,7 @@ fn a_lottie_is_drawn_at_the_frame_the_clock_says_and_its_library_is_recorded() {
     );
     let project = project(
         vec![page],
-        vec![video_track("v1", vec![clip("c1", "wave", 0, 90)])],
+        vec![video_track("v1", vec![Clip::at("c1", "wave", 0, 90)])],
     );
 
     for at in [15, 45] {

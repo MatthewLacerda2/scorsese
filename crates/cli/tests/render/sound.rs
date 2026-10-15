@@ -9,14 +9,14 @@ use std::path::PathBuf;
 use crate::common::documents::{self, assets};
 use crate::common::media::probe::probe;
 use crate::common::media::tools;
-use crate::common::{media, temp_dir};
+use crate::common::{media, scratch};
 use crate::{one_shot, render};
 
 const SOUND: &str = "stream=sample_rate,channels,codec_name,bit_rate";
 
 /// A shot with a tone under it on its own audio track.
 fn with_sound(label: &str, video_frames: u32, audio_frames: u32) -> PathBuf {
-    let dir = temp_dir(label);
+    let dir = scratch::dir(label);
     let tools = tools();
     media::colour_video(&tools, &dir, "red", "red", 4);
     media::tone(&tools, &dir, "bed", 4);

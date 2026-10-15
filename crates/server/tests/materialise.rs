@@ -5,7 +5,7 @@
 #[path = "../../../tools/scratch.rs"]
 mod scratch;
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use scorsese_core::{
     Asset, AssetHealth, AssetId, AssetKind, Fps, HashCheck, Project, ProjectPath, asset_status,
@@ -18,14 +18,6 @@ use scorsese_server::projects::media::{self, MaterialiseError, materialise};
 /// the recipes and the script).
 fn none() -> ProjectFiles {
     ProjectFiles::default()
-}
-
-/// A fresh directory for one test, standing in for a user's storage.
-fn scratch(label: &str) -> PathBuf {
-    let dir = scratch::fresh(&format!("scorsese-server-materialise-{label}"), "");
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("the scratch directory is created");
-    dir
 }
 
 /// A user's file with these bytes, stored under its hash; the hash.
@@ -43,7 +35,7 @@ fn asset(id: &str, path: ProjectPath, hash: &str) -> Asset {
 
 #[test]
 fn every_file_is_linked_by_hash_and_the_folder_goes_when_dropped() {
-    let library = scratch("library");
+    let library = scratch::dir("library");
     let footage = store(&library, b"footage");
     let rendered = store(&library, b"a generated shot");
     let mut project = Project::new("teaser", Fps::default());
@@ -65,7 +57,7 @@ fn every_file_is_linked_by_hash_and_the_folder_goes_when_dropped() {
         ),
     ];
     let locate = |hash: &str| Some(library.join(hash)).filter(|path| path.exists());
-    let at = scratch("folder").join("render.scor");
+    let at = scratch::dir("folder").join("render.scor");
 
     let folder = materialise(&project, &none(), &at, &locate).unwrap();
     let laid_out = Project::load(folder.root()).expect("the folder is a project");
@@ -96,9 +88,9 @@ fn every_file_is_linked_by_hash_and_the_folder_goes_when_dropped() {
 
 #[test]
 fn a_path_outside_the_project_is_refused_and_leaves_nothing() {
-    let library = scratch("escape-library");
+    let library = scratch::dir("escape-library");
     let hash = store(&library, b"bytes");
-    let at = scratch("escape").join("render.scor");
+    let at = scratch::dir("escape").join("render.scor");
     for bad in ["../outside.mp4", "/etc/passwd", "assets/../../x"] {
         let mut project = Project::new("p", Fps::default());
         project.assets = vec![asset("bad", ProjectPath::new(bad), &hash)];
@@ -115,11 +107,11 @@ fn a_path_outside_the_project_is_refused_and_leaves_nothing() {
 fn the_document_cannot_be_written_through_a_link() {
     // An asset claiming `project.json` as its path gets no link: the document
     // is already there, and the user's file is never written to.
-    let library = scratch("clobber-library");
+    let library = scratch::dir("clobber-library");
     let hash = store(&library, b"precious");
     let mut project = Project::new("p", Fps::default());
     project.assets = vec![asset("sly", ProjectPath::new("project.json"), &hash)];
-    let at = scratch("clobber").join("render.scor");
+    let at = scratch::dir("clobber").join("render.scor");
 
     let folder = materialise(&project, &none(), &at, &|_: &str| Some(library.join(&hash))).unwrap();
     assert!(!folder.root().join("project.json").is_symlink());

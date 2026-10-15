@@ -4,12 +4,12 @@
 use scorsese_core::{Asset, AssetId, Blend, Clip, Group, HashCheck, Project};
 use scorsese_render::Checkup;
 
-use crate::common::{clip, project, text_asset, video_track};
+use crate::common::{project, text_asset, video_track};
 
 fn blended(id: &str, blend: Blend, start: u64, duration: u64) -> Clip {
     Clip {
         blend,
-        ..clip(id, "title", start, duration)
+        ..Clip::at(id, "title", start, duration)
     }
 }
 
@@ -65,8 +65,8 @@ fn anything_beneath_for_any_instant_is_enough() {
             video_track(
                 "v1",
                 vec![
-                    clip("plate", "title", 20, 30),
-                    clip("bottom", "title", 60, 10),
+                    Clip::at("plate", "title", 20, 30),
+                    Clip::at("bottom", "title", 60, 10),
                 ],
             ),
             video_track("v2", vec![blended("over", Blend::Screen, 0, 25)]),
@@ -88,7 +88,10 @@ fn a_member_blending_with_its_groups_empty_canvas_is_named_with_the_group() {
             text_asset("title"),
             Asset::group(AssetId::new("diagram"), group),
         ],
-        vec![video_track("v1", vec![clip("c-diagram", "diagram", 0, 30)])],
+        vec![video_track(
+            "v1",
+            vec![Clip::at("c-diagram", "diagram", 0, 30)],
+        )],
     );
     let said = about_blends(&project);
     assert_eq!(said.len(), 1, "{said:?}");

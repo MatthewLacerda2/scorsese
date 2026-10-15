@@ -7,14 +7,16 @@
 //! have done.
 
 use crate::common::audio::{assert_audible, assert_silent, level, pitch, soundtrack, tone_asset};
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{audio_track, clip, project, sped, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{audio_track, project, sped, video_track};
 use crate::{picture, render};
+use scorsese_core::Clip;
 
 #[test]
 fn a_sped_clip_reaches_the_far_end_of_its_source_sooner() {
     let tools = tools();
-    let dir = fixture_dir("speed-sound");
+    let dir = scratch::dir("speed-sound");
     // A second of silence, then a second of tone — a source that sounds
     // different depending on how far into it you are. A flat one would prove
     // nothing: a tone played faster is still a tone.
@@ -22,9 +24,9 @@ fn a_sped_clip_reaches_the_far_end_of_its_source_sooner() {
     let project = project(
         vec![picture(&tools, &dir, 2), beep],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 60)]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 60)]),
             // Two seconds of source in one second of timeline.
-            audio_track("a1", vec![sped(2.0, clip("m1", "beep", 0, 30))]),
+            audio_track("a1", vec![sped(2.0, Clip::at("m1", "beep", 0, 30))]),
         ],
     );
 
@@ -45,17 +47,17 @@ fn a_sped_clip_reaches_the_far_end_of_its_source_sooner() {
 #[test]
 fn playing_a_clip_faster_takes_its_pitch_up_with_it() {
     let tools = tools();
-    let dir = fixture_dir("speed-pitch");
+    let dir = scratch::dir("speed-pitch");
     let beep = tone_asset(&tools, &dir, "beep", 440, 2.0, 0.8, "");
     let project = project(
         vec![picture(&tools, &dir, 2), beep],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 60)]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 60)]),
             audio_track(
                 "a1",
                 vec![
-                    clip("m1", "beep", 0, 30),
-                    sped(2.0, clip("m2", "beep", 30, 30)),
+                    Clip::at("m1", "beep", 0, 30),
+                    sped(2.0, Clip::at("m2", "beep", 30, 30)),
                 ],
             ),
         ],
@@ -82,13 +84,13 @@ fn playing_a_clip_faster_takes_its_pitch_up_with_it() {
 #[test]
 fn playing_a_clip_slower_takes_its_pitch_down() {
     let tools = tools();
-    let dir = fixture_dir("speed-slow");
+    let dir = scratch::dir("speed-slow");
     let beep = tone_asset(&tools, &dir, "beep", 880, 2.0, 0.8, "");
     let project = project(
         vec![picture(&tools, &dir, 2), beep],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 60)]),
-            audio_track("a1", vec![sped(0.5, clip("m1", "beep", 0, 60))]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 60)]),
+            audio_track("a1", vec![sped(0.5, Clip::at("m1", "beep", 0, 60))]),
         ],
     );
 

@@ -6,11 +6,12 @@
 //! leaves the render standing rather than stopping it — with a note, because an
 //! empty layer is otherwise invisible to anything counting frames.
 
-use scorsese_core::{Asset, AssetId, Fps, Icon, Rgba};
+use scorsese_core::{Asset, AssetId, Clip, Fps, Icon, Rgba};
 use scorsese_render::{FrameRange, Note};
 
-use crate::common::ffmpeg::{fixture_dir, inspect, mean_rgb, tools};
-use crate::common::{clip, project, video_track};
+use crate::common::ffmpeg::{inspect, mean_rgb, tools};
+use crate::common::scratch;
+use crate::common::{project, video_track};
 use crate::{colour_asset, render};
 
 /// Nearly filling the 64×64 raster, so a symbol that draws lifts the frame's
@@ -25,13 +26,13 @@ fn badge(name: &str) -> Asset {
 /// A white symbol over a red bed, and the render's report.
 fn over_red(label: &str, name: &str) -> (u8, Vec<Note>) {
     let tools = tools();
-    let dir = fixture_dir(label);
+    let dir = scratch::dir(label);
     let red = colour_asset(&tools, &dir, "red", "64x64", 1);
     let project = project(
         vec![red, badge(name)],
         vec![
-            video_track("v1", vec![clip("c1", "red", 0, 15)]),
-            video_track("v2", vec![clip("c2", "badge", 0, 15)]),
+            video_track("v1", vec![Clip::at("c1", "red", 0, 15)]),
+            video_track("v2", vec![Clip::at("c2", "badge", 0, 15)]),
         ],
     );
 

@@ -6,23 +6,29 @@
 //! end it runs to. Neither is stated in most projects, so neither is asserted
 //! anywhere else.
 
-use scorsese_core::{Curve, Geometry, Heads, Project, Shape};
+use std::sync::LazyLock;
+
+use scorsese_core::{Curve, Geometry, Heads, Project, SCHEMA_VERSION, Shape};
 
 /// One arrow asset, with the two optional fields left out.
-const TERSE: &str = r##"{
-  "schema_version": 49,
+static TERSE: LazyLock<String> = LazyLock::new(|| {
+    format!(
+        r##"{{
+  "schema_version": {SCHEMA_VERSION},
   "name": "arrows",
-  "timeline_fps": { "num": 30, "den": 1 },
+  "timeline_fps": {{ "num": 30, "den": 1 }},
   "assets": [
-    { "id": "a-to-b", "kind": "shape",
-      "shape": {
-        "geometry": { "arrow": { "from": { "x": 0.2, "y": 0.3 },
-                                 "to":   { "x": 0.8, "y": 0.7 } } },
+    {{ "id": "a-to-b", "kind": "shape",
+      "shape": {{
+        "geometry": {{ "arrow": {{ "from": {{ "x": 0.2, "y": 0.3 }},
+                                 "to":   {{ "x": 0.8, "y": 0.7 }} }} }},
         "stroke": "#000000"
-      } }
+      }} }}
   ],
   "tracks": []
-}"##;
+}}"##
+    )
+});
 
 fn only_shape(json: &str) -> Shape {
     let project = Project::from_json(json).expect("a project with one arrow in it");
@@ -34,7 +40,7 @@ fn only_shape(json: &str) -> Shape {
 
 #[test]
 fn an_arrow_with_nothing_said_about_it_is_straight_and_points_at_its_end() {
-    let Geometry::Arrow { curve, heads, .. } = only_shape(TERSE).geometry else {
+    let Geometry::Arrow { curve, heads, .. } = only_shape(&TERSE).geometry else {
         panic!("the geometry parsed as something other than an arrow");
     };
     assert_eq!(curve, Curve::Straight);
@@ -43,7 +49,7 @@ fn an_arrow_with_nothing_said_about_it_is_straight_and_points_at_its_end() {
 
 #[test]
 fn the_endpoints_are_read_as_written() {
-    let Geometry::Arrow { from, to, .. } = only_shape(TERSE).geometry else {
+    let Geometry::Arrow { from, to, .. } = only_shape(&TERSE).geometry else {
         panic!("the geometry parsed as something other than an arrow");
     };
     let from = from.point().expect("a plain point, not an attachment");
@@ -83,7 +89,7 @@ fn a_bowed_arrow_says_so() {
 /// its author would then be held to.
 #[test]
 fn an_arrow_round_trips() {
-    let project = Project::from_json(TERSE).expect("parse");
+    let project = Project::from_json(&TERSE).expect("parse");
     let again = Project::from_json(&project.to_json().expect("serialise")).expect("reparse");
     assert_eq!(project, again);
 }

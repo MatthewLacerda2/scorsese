@@ -3,11 +3,11 @@
 //! It loaded before speed counted against the source, so it still loads, and
 //! the checkup is where it is said: the render goes on decoding after the end.
 
-use scorsese_core::{AssetKind, HashCheck, MediaMetadata, Project};
+use scorsese_core::{AssetKind, Clip, HashCheck, MediaMetadata, Project};
 use scorsese_render::Checkup;
 use scorsese_render::checkup::Severity;
 
-use crate::common::{clip, file_asset, project, sped, video_track};
+use crate::common::{file_asset, project, sped, video_track};
 
 /// A ten-second shot (300 frames at 30fps) under a 200-frame clip at `rate`.
 fn shot_at(rate: f64) -> Project {
@@ -20,7 +20,7 @@ fn shot_at(rate: f64) -> Project {
         vec![shot],
         vec![video_track(
             "v1",
-            vec![sped(rate, clip("c-shot", "shot", 0, 200))],
+            vec![sped(rate, Clip::at("c-shot", "shot", 0, 200))],
         )],
     )
 }

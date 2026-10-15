@@ -1,24 +1,26 @@
 //! Which clip put the level there.
 
 use crate::common::audio::{soundtrack, tone_asset};
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{audio_track, clip, project, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{audio_track, project, video_track};
 use crate::{picture, render};
+use scorsese_core::Clip;
 
 /// The per-clip numbers are what say *which* clip: in the noise-swell defect
 /// the mix was unremarkable and one track was the problem.
 #[test]
 fn each_audible_clip_is_reported_on_its_own() {
     let tools = tools();
-    let dir = fixture_dir("loudness-per-clip");
+    let dir = scratch::dir("loudness-per-clip");
     let loud = tone_asset(&tools, &dir, "loud", 220, 2.0, 0.5, "");
     let quiet = tone_asset(&tools, &dir, "quiet", 880, 2.0, 0.05, "");
     let project = project(
         vec![picture(&tools, &dir, 2), loud, quiet],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 60)]),
-            audio_track("a1", vec![clip("m-loud", "loud", 0, 60)]),
-            audio_track("a2", vec![clip("m-quiet", "quiet", 0, 60)]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 60)]),
+            audio_track("a1", vec![Clip::at("m-loud", "loud", 0, 60)]),
+            audio_track("a2", vec![Clip::at("m-quiet", "quiet", 0, 60)]),
         ],
     );
 
@@ -58,10 +60,10 @@ fn each_audible_clip_is_reported_on_its_own() {
 #[test]
 fn a_silent_project_reports_no_level_rather_than_a_silent_one() {
     let tools = tools();
-    let dir = fixture_dir("loudness-none");
+    let dir = scratch::dir("loudness-none");
     let project = project(
         vec![picture(&tools, &dir, 2)],
-        vec![video_track("v1", vec![clip("c1", "picture", 0, 60)])],
+        vec![video_track("v1", vec![Clip::at("c1", "picture", 0, 60)])],
     );
 
     let (out, report) = render(&tools, &project, &dir);

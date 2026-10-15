@@ -4,25 +4,27 @@
 use crate::common::audio::{
     assert_audible, assert_silent, level, soundtrack, tone_asset, with_volume,
 };
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{audio_track, clip, project, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{audio_track, project, video_track};
 use crate::{picture, render};
+use scorsese_core::Clip;
 
 #[test]
 fn a_volume_ramp_actually_ramps() {
     let tools = tools();
-    let dir = fixture_dir("ramp");
+    let dir = scratch::dir("ramp");
     let beep = tone_asset(&tools, &dir, "beep", 440, 3.0, 0.8, "");
     let project = project(
         vec![picture(&tools, &dir, 3), beep],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 90)]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 90)]),
             audio_track(
                 "a1",
                 // Silent at the start of the clip, full by its end. Ordinary
                 // keyframes: there is no fade mechanism, and this is the proof.
                 vec![with_volume(
-                    clip("m1", "beep", 0, 90),
+                    Clip::at("m1", "beep", 0, 90),
                     &[(0, 0.0), (90, 1.0)],
                 )],
             ),
@@ -52,19 +54,19 @@ fn a_volume_ramp_actually_ramps() {
 #[test]
 fn a_ramp_is_timed_from_the_clip_rather_than_the_timeline() {
     let tools = tools();
-    let dir = fixture_dir("ramp-offset");
+    let dir = scratch::dir("ramp-offset");
     let beep = tone_asset(&tools, &dir, "beep", 440, 2.0, 0.8, "");
     let project = project(
         vec![picture(&tools, &dir, 3), beep],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 90)]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 90)]),
             audio_track(
                 "a1",
                 // The clip starts a second in, and its ramp starts with it. Timed
                 // from the timeline instead, the whole fade would be over before
                 // the clip was ever heard.
                 vec![with_volume(
-                    clip("m1", "beep", 30, 60),
+                    Clip::at("m1", "beep", 30, 60),
                     &[(0, 0.0), (60, 1.0)],
                 )],
             ),
@@ -91,17 +93,17 @@ fn a_ramp_is_timed_from_the_clip_rather_than_the_timeline() {
 #[test]
 fn volume_zero_is_how_a_clip_is_muted() {
     let tools = tools();
-    let dir = fixture_dir("mute");
+    let dir = scratch::dir("mute");
     let beep = tone_asset(&tools, &dir, "beep", 440, 2.0, 0.8, "");
     let project = project(
         vec![picture(&tools, &dir, 2), beep],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 60)]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 60)]),
             // A single keyframe holds for the whole clip, so muting needs no
             // flag on the clip and no concept of its own.
             audio_track(
                 "a1",
-                vec![with_volume(clip("m1", "beep", 0, 60), &[(0, 0.0)])],
+                vec![with_volume(Clip::at("m1", "beep", 0, 60), &[(0, 0.0)])],
             ),
         ],
     );

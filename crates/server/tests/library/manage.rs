@@ -10,7 +10,7 @@ use crate::{member, upload, video};
 
 #[sqlx::test]
 async fn a_file_is_renamed_and_described_for_the_assistant_to_read(pool: PgPool) {
-    let bytes = video(&common::scratch("manage-rename-media"));
+    let bytes = video(&common::scratch::dir("manage-rename-media"));
     let (address, _) = common::serve_with(pool.clone(), common::files("manage-rename")).await;
     let (_, ana) = member(&pool, "ana@example.com").await;
     let id = upload(address, &ana, "clip.mp4", &bytes).await;
@@ -48,7 +48,7 @@ async fn a_file_is_renamed_and_described_for_the_assistant_to_read(pool: PgPool)
 async fn a_file_a_project_uses_cannot_be_deleted_and_says_which(pool: PgPool) {
     let files = common::files("manage-delete");
     let storage = files.storage.clone();
-    let bytes = video(&common::scratch("manage-delete-media"));
+    let bytes = video(&common::scratch::dir("manage-delete-media"));
     let (address, _) = common::serve_with(pool.clone(), files).await;
     let (user, ana) = member(&pool, "ana@example.com").await;
     let id = upload(address, &ana, "clip.mp4", &bytes).await;

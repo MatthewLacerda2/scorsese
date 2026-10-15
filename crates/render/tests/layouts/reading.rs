@@ -1,9 +1,9 @@
 //! How the answer reads, which is the whole of the interface for a caller that
 //! is being handed prose rather than a struct.
 
-use scorsese_core::{AssetId, Geometry, Rgba, Shape};
+use scorsese_core::{AssetId, Clip, Geometry, Rgba, Shape};
 
-use super::common::{clip, project, text_asset, video_track};
+use super::common::{project, text_asset, video_track};
 use super::layout;
 
 /// A frame with a box on it, a title on it, and a title that runs later.
@@ -24,12 +24,12 @@ fn cut() -> scorsese_core::Project {
             text_asset("words"),
         ],
         vec![
-            video_track("diagram", vec![clip("box", "panel", 0, 60)]),
+            video_track("diagram", vec![Clip::at("box", "panel", 0, 60)]),
             video_track(
                 "titles",
                 vec![
-                    clip("caption", "words", 0, 30),
-                    clip("later", "words", 30, 30),
+                    Clip::at("caption", "words", 0, 30),
+                    Clip::at("later", "words", 30, 30),
                 ],
             ),
         ],
@@ -70,7 +70,9 @@ fn a_gap_says_so_rather_than_listing_nothing() {
     project.tracks[0].clips[0].duration = scorsese_core::Frames(30);
     project.tracks[1].clips.pop();
     project.tracks[1].clips[0].duration = scorsese_core::Frames(30);
-    project.tracks[0].clips.push(clip("tail", "panel", 60, 30));
+    project.tracks[0]
+        .clips
+        .push(Clip::at("tail", "panel", 60, 30));
     let said = layout(&project, 45).to_string();
     assert!(said.contains("nothing is on screen here"), "{said}");
 }

@@ -2,19 +2,12 @@ use super::{SCRIPT_FILE, Start, StartError};
 use crate::style::{Platform, style};
 use crate::{Fps, Project};
 
-/// A fresh, empty directory for one test.
-fn scratch(label: &str) -> std::path::PathBuf {
-    let dir = crate::scratch::fresh(&format!("scorsese-brief-{label}"), "");
-    let _ = std::fs::remove_dir_all(&dir);
-    dir
-}
-
 #[test]
 fn nothing_chosen_writes_nothing() {
     let start = Start::new(None, None).expect("an empty start");
     assert_eq!(start.brief(), None);
 
-    let dir = scratch("nothing");
+    let dir = crate::scratch::fresh("scorsese-brief-nothing", "");
     let mut project = Project::create(&dir, None, Fps::THIRTY).expect("create");
     assert_eq!(
         start.write(&dir, &mut project).expect("nothing to write"),
@@ -28,7 +21,7 @@ fn nothing_chosen_writes_nothing() {
 #[test]
 fn a_platform_and_a_style_are_written_into_the_script() {
     let start = Start::new(Some(Platform::TiktokAd), Some("kinetic_type")).expect("suits");
-    let dir = scratch("both");
+    let dir = crate::scratch::fresh("scorsese-brief-both", "");
     let mut project = Project::create(&dir, None, Fps::THIRTY).expect("create");
     let script = start.write(&dir, &mut project).expect("write");
 

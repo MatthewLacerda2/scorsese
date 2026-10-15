@@ -62,26 +62,32 @@ pub use trim::{Trim, TrimError, trim};
 /// drift apart.
 #[cfg(test)]
 mod fixture {
+    use std::sync::LazyLock;
+
     use crate::asset::AssetId;
-    use crate::project::Project;
+    use crate::project::{Project, SCHEMA_VERSION};
     use crate::time::Frames;
     use crate::timeline::TrackId;
 
-    const DOCUMENT: &str = r#"{
-      "schema_version": 49,
+    static DOCUMENT: LazyLock<String> = LazyLock::new(|| {
+        format!(
+            r#"{{
+      "schema_version": {SCHEMA_VERSION},
       "name": "T",
-      "timeline_fps": { "num": 30, "den": 1 },
+      "timeline_fps": {{ "num": 30, "den": 1 }},
       "assets": [
-        { "id": "shot", "kind": "video", "path": "assets/shot.mp4",
-          "media": { "duration_seconds": 4.0 } }
+        {{ "id": "shot", "kind": "video", "path": "assets/shot.mp4",
+          "media": {{ "duration_seconds": 4.0 }} }}
       ],
-      "tracks": [ { "id": "v1", "kind": "video", "clips": [] } ]
-    }"#;
+      "tracks": [ {{ "id": "v1", "kind": "video", "clips": [] }} ]
+    }}"#
+        )
+    });
 
     /// A 4-second shot on a 30fps grid — 120 frames of media — and an empty
     /// video track to put it on.
     pub(super) fn project() -> Project {
-        Project::from_json(DOCUMENT).expect("the fixture is a project")
+        Project::from_json(&DOCUMENT).expect("the fixture is a project")
     }
 
     /// The same, with the whole shot placed at the head of `v1` as clip `shot`.

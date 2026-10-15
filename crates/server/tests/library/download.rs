@@ -10,7 +10,7 @@ use crate::{member, upload, video};
 
 #[sqlx::test]
 async fn a_file_downloads_under_its_name_for_its_owner_only(pool: PgPool) {
-    let bytes = video(&common::scratch("download-media"));
+    let bytes = video(&common::scratch::dir("download-media"));
     let (address, _) = common::serve_with(pool.clone(), common::files("download")).await;
     let (_, ana) = member(&pool, "ana@example.com").await;
     let (_, bia) = member(&pool, "bia@example.com").await;

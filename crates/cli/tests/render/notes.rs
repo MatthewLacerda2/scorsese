@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use crate::common::documents::{self, assets};
 use crate::common::media::probe::probe;
 use crate::common::media::tools;
-use crate::common::{media, temp_dir};
+use crate::common::{media, scratch};
 use crate::{Rendered, one_shot, render};
 
 /// How many frames the render actually wrote.
@@ -37,7 +37,7 @@ fn a_range_running_past_the_end_of_the_timeline_is_reported_and_clamped() {
 fn a_clip_outlasting_its_own_source_is_reported_and_rendered_black() {
     // One second of media under a two-second clip. The film is still two
     // seconds long — the shot just runs out, which is the thing worth saying.
-    let dir = temp_dir("short-source");
+    let dir = scratch::dir("short-source");
     media::colour_video(&tools(), &dir, "red", "red", 1);
     documents::write_into(
         &dir,
@@ -81,7 +81,7 @@ fn a_generated_shot_with_no_file_says_a_slug_card_stood_in_for_it() {
 fn a_generated_narration_with_no_file_says_silence_stood_in_for_it() {
     // The other half of the same fault, and not the same finding: a card is
     // visible to whoever watches the result, silence is not.
-    let dir = temp_dir("narration-gone");
+    let dir = scratch::dir("narration-gone");
     media::colour_video(&tools(), &dir, "red", "red", 1);
     documents::write_into(
         &dir,
@@ -106,7 +106,7 @@ fn a_generated_narration_with_no_file_says_silence_stood_in_for_it() {
 fn a_soundtrack_outlasting_the_last_picture_is_reported_as_trimmed() {
     // Picture decides how long the film is. Audio lost that way is reported,
     // never dropped in silence — this is the report that makes that true.
-    let dir = temp_dir("trimmed");
+    let dir = scratch::dir("trimmed");
     let tools = tools();
     media::colour_video(&tools, &dir, "red", "red", 4);
     media::tone(&tools, &dir, "bed", 4);

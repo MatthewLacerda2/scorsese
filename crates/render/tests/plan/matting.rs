@@ -2,16 +2,16 @@
 //! rides on the shot it masks, and a masked shot with no matte on screen is
 //! either nothing (the ordinary way round) or itself (inverted).
 
-use scorsese_core::{Asset, AssetId, ClipId, Fps, Group, Matte, Project};
+use scorsese_core::{Asset, AssetId, Clip, ClipId, Fps, Group, Matte, Project};
 use scorsese_render::{FrameRange, Plan};
 
-use crate::common::{clip, project, shape, shape_asset, video_track};
+use crate::common::{project, shape, shape_asset, video_track};
 use crate::two_videos;
 
 /// A bed and a picture over the whole sixty frames, the picture masked by a
 /// shape that is only there from 20 to 40.
 fn wiped(invert: bool) -> Project {
-    let mut top = clip("top", "over", 0, 60);
+    let mut top = Clip::at("top", "over", 0, 60);
     top.matte = Some(Matte {
         clip: ClipId::new("wipe"),
         invert,
@@ -21,9 +21,9 @@ fn wiped(invert: bool) -> Project {
     project(
         assets,
         vec![
-            video_track("v1", vec![clip("bed", "under", 0, 60)]),
+            video_track("v1", vec![Clip::at("bed", "under", 0, 60)]),
             video_track("v2", vec![top]),
-            video_track("v3", vec![clip("wipe", "box", 20, 20)]),
+            video_track("v3", vec![Clip::at("wipe", "box", 20, 20)]),
         ],
     )
 }
@@ -81,18 +81,18 @@ fn inverted_the_masked_shot_is_whole_while_the_matte_is_away() {
 /// Inside a group the same rule holds among the group's own members.
 #[test]
 fn a_matte_inside_a_group_rides_on_the_member_it_masks() {
-    let mut inner = clip("inner", "box", 0, 30);
+    let mut inner = Clip::at("inner", "box", 0, 30);
     inner.matte = Some(Matte::new(ClipId::new("hole")));
     let group = Group::new(vec![
         video_track("g1", vec![inner]),
-        video_track("g2", vec![clip("hole", "box", 0, 30)]),
+        video_track("g2", vec![Clip::at("hole", "box", 0, 30)]),
     ]);
     let project = project(
         vec![
             shape_asset("box", 0.5, 0.5),
             Asset::group(AssetId::new("g"), group),
         ],
-        vec![video_track("v1", vec![clip("shown", "g", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("shown", "g", 0, 30)])],
     );
     project.validate().expect("valid");
     let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");

@@ -18,7 +18,7 @@ fn voiced(label: &str) -> std::path::PathBuf {
         r#""prompt": "a line", "state": "sketch""#,
         r#""prompt": "a line", "state": "sketch", "speech": { "voice_id": "a-voice" }"#,
     );
-    assert_ne!(document, DOCUMENT, "the fixture no longer has the line");
+    assert_ne!(document, *DOCUMENT, "the fixture no longer has the line");
     std::fs::write(dir.join("project.json"), document).expect("write the document");
     dir
 }

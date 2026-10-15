@@ -235,29 +235,35 @@ pub enum AuthorError {
 /// four fixtures that drift apart.
 #[cfg(test)]
 mod fixture {
-    use crate::project::Project;
+    use std::sync::LazyLock;
 
-    const DOCUMENT: &str = r##"{
-      "schema_version": 49,
+    use crate::project::{Project, SCHEMA_VERSION};
+
+    static DOCUMENT: LazyLock<String> = LazyLock::new(|| {
+        format!(
+            r##"{{
+      "schema_version": {SCHEMA_VERSION},
       "name": "T",
-      "timeline_fps": { "num": 30, "den": 1 },
+      "timeline_fps": {{ "num": 30, "den": 1 }},
       "assets": [
-        { "id": "caption", "kind": "text", "text": "DAWN",
-          "style": { "font": "serif", "size": 0.12 } },
-        { "id": "card", "kind": "color", "color": "#101820" },
-        { "id": "box", "kind": "shape",
-          "shape": { "geometry": { "rectangle": { "width": 0.4, "height": 0.2 } },
-                     "fill": "#ffffff" } },
-        { "id": "mark", "kind": "icon",
-          "icon": { "name": "clapperboard", "size": 0.2, "color": "#ffffff" } },
-        { "id": "shot", "kind": "video", "path": "assets/shot.mp4" }
+        {{ "id": "caption", "kind": "text", "text": "DAWN",
+          "style": {{ "font": "serif", "size": 0.12 }} }},
+        {{ "id": "card", "kind": "color", "color": "#101820" }},
+        {{ "id": "box", "kind": "shape",
+          "shape": {{ "geometry": {{ "rectangle": {{ "width": 0.4, "height": 0.2 }} }},
+                     "fill": "#ffffff" }} }},
+        {{ "id": "mark", "kind": "icon",
+          "icon": {{ "name": "clapperboard", "size": 0.2, "color": "#ffffff" }} }},
+        {{ "id": "shot", "kind": "video", "path": "assets/shot.mp4" }}
       ],
       "tracks": []
-    }"##;
+    }}"##
+        )
+    });
 
     /// A caption in a serif face at 0.12, a colour card, a filled rectangle,
     /// an icon, and one asset that is none of those.
     pub(super) fn project() -> Project {
-        Project::from_json(DOCUMENT).expect("the fixture is a project")
+        Project::from_json(&DOCUMENT).expect("the fixture is a project")
     }
 }

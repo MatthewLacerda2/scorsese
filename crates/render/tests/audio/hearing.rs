@@ -10,7 +10,8 @@ use scorsese_render::audio;
 use scorsese_render::audio::waveform;
 
 use crate::common::audio::tone_file;
-use crate::common::ffmpeg::{fixture_dir, tools};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
 
 /// The finding the whole tool exists for. A file of silence has a duration, a
 /// size and a hash exactly like a file of speech, which is how three narration
@@ -18,7 +19,7 @@ use crate::common::ffmpeg::{fixture_dir, tools};
 #[test]
 fn a_silent_file_is_reported_silent() {
     let tools = tools();
-    let dir = fixture_dir("hear-silent");
+    let dir = scratch::dir("hear-silent");
     let file = tone_file(&tools, &dir, "quiet", "0", 2.0);
 
     let wave = waveform(&tools, &file).expect("a wav can be heard");
@@ -38,7 +39,7 @@ fn a_silent_file_is_reported_silent() {
 #[test]
 fn a_file_with_sound_in_it_reads_at_its_own_level() {
     let tools = tools();
-    let dir = fixture_dir("hear-level");
+    let dir = scratch::dir("hear-level");
     let file = tone_file(&tools, &dir, "half", "0.5", 2.0);
 
     let wave = waveform(&tools, &file).expect("a wav can be heard");
@@ -59,7 +60,7 @@ fn a_file_with_sound_in_it_reads_at_its_own_level() {
 #[test]
 fn silence_at_the_head_is_measured_rather_than_ignored() {
     let tools = tools();
-    let dir = fixture_dir("hear-late");
+    let dir = scratch::dir("hear-late");
     // Silent for the first second, then a tone: `gt(t,1)` is zero until it is
     // not, which is the shape of a narration line that starts late.
     let file = tone_file(&tools, &dir, "late", "0.5*gt(t\\,1)", 3.0);
@@ -85,7 +86,7 @@ fn silence_at_the_head_is_measured_rather_than_ignored() {
 #[test]
 fn a_file_driven_past_full_scale_is_reported_clipped() {
     let tools = tools();
-    let dir = fixture_dir("hear-clipped");
+    let dir = scratch::dir("hear-clipped");
     let file = tone_file(&tools, &dir, "loud", "1.4", 2.0);
 
     let wave: audio::Waveform = waveform(&tools, &file).expect("a wav can be heard");

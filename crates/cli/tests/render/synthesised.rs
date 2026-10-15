@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use crate::common::documents::{self, assets};
 use crate::common::media::probe::probe;
 use crate::common::media::tools;
-use crate::common::{document, media, run_in, temp_dir};
+use crate::common::{document, media, run_in, scratch};
 use crate::render;
 
 /// A project whose only sound is a baked recipe, under a plain colour shot.
@@ -18,7 +18,7 @@ use crate::render;
 /// left behind rather than hand-written, so the test cannot assert against a
 /// row the real command would never produce.
 fn scored(label: &str) -> PathBuf {
-    let dir = temp_dir(label);
+    let dir = scratch::dir(label);
     media::colour_video(&tools(), &dir, "red", "red", 4);
     documents::write_into(&dir, &[assets::raw("red", "video", "mp4")], &[]);
 

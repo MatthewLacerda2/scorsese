@@ -9,7 +9,8 @@ use scorsese_render::say;
 use scorsese_zimmer::level::Difference;
 
 use crate::common::audio::tone_file;
-use crate::common::ffmpeg::{fixture_dir, tools};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
 
 use super::SLACK;
 
@@ -23,7 +24,7 @@ fn mean_of(profile: &Profile) -> f64 {
 #[test]
 fn a_file_reads_at_the_level_it_was_written_at() {
     let tools = tools();
-    let dir = fixture_dir("measure-known");
+    let dir = scratch::dir("measure-known");
     let file = tone_file(&tools, &dir, "half", "0.5", 2.0);
 
     let profile = measure(&tools, &file).expect("a wav can be measured");
@@ -45,7 +46,7 @@ fn a_file_reads_at_the_level_it_was_written_at() {
 #[test]
 fn a_file_compared_with_itself_differs_by_nothing() {
     let tools = tools();
-    let dir = fixture_dir("measure-same");
+    let dir = scratch::dir("measure-same");
     let file = tone_file(&tools, &dir, "same", "0.5", 2.0);
 
     let profile = measure(&tools, &file).expect("measured");
@@ -63,7 +64,7 @@ fn a_file_compared_with_itself_differs_by_nothing() {
 #[test]
 fn a_quieter_file_reads_as_quieter_than_the_one_it_replaced() {
     let tools = tools();
-    let dir = fixture_dir("measure-against");
+    let dir = scratch::dir("measure-against");
     let before = measure(&tools, &tone_file(&tools, &dir, "before", "0.5", 2.0)).expect("measured");
     let after = measure(&tools, &tone_file(&tools, &dir, "after", "0.25", 2.0)).expect("measured");
 
@@ -87,7 +88,7 @@ fn a_quieter_file_reads_as_quieter_than_the_one_it_replaced() {
 #[test]
 fn a_file_that_changes_partway_reports_the_change_on_a_row() {
     let tools = tools();
-    let dir = fixture_dir("measure-sections");
+    let dir = scratch::dir("measure-sections");
     // The commas are escaped because a filtergraph separates filters with
     // them; unescaped, ffmpeg reads the expression as three filters.
     let file = tone_file(&tools, &dir, "halves", r"if(lt(t\,9)\,0.5\,0.125)", 18.0);

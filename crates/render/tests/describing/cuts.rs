@@ -5,10 +5,10 @@
 //! the times here are pinned exactly, in frames and in seconds, rather than to
 //! anything near them.
 
-use scorsese_core::{AssetKind, Fps, Frames};
+use scorsese_core::{AssetKind, Clip, Fps, Frames};
 use scorsese_render::FrameRange;
 
-use crate::common::{audio_track, clip, file_asset, project, sounding_asset, video_track};
+use crate::common::{audio_track, file_asset, project, sounding_asset, video_track};
 use crate::{described, described_over, shape};
 
 /// Two shots meeting at frame 60, on a 30 fps grid: 2.00s exactly.
@@ -20,7 +20,7 @@ fn back_to_back() -> scorsese_core::Project {
         ],
         vec![video_track(
             "v1",
-            vec![clip("c1", "one", 0, 60), clip("c2", "two", 60, 30)],
+            vec![Clip::at("c1", "one", 0, 60), Clip::at("c2", "two", 60, 30)],
         )],
     )
 }
@@ -87,7 +87,7 @@ fn a_hole_between_two_clips_is_described_as_a_gap() {
         ],
         vec![video_track(
             "v1",
-            vec![clip("c1", "one", 0, 30), clip("c2", "two", 45, 30)],
+            vec![Clip::at("c1", "one", 0, 30), Clip::at("c2", "two", 45, 30)],
         )],
     );
 
@@ -119,8 +119,8 @@ fn the_mix_changing_cuts_a_stretch_the_picture_would_not_have() {
             sounding_asset("music", AssetKind::Audio),
         ],
         vec![
-            video_track("v1", vec![clip("c1", "shot", 0, 60)]),
-            audio_track("a1", vec![clip("m1", "music", 0, 30)]),
+            video_track("v1", vec![Clip::at("c1", "shot", 0, 60)]),
+            audio_track("a1", vec![Clip::at("m1", "music", 0, 30)]),
         ],
     );
 

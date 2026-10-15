@@ -10,14 +10,6 @@ use std::path::{Path, PathBuf};
 
 use super::*;
 
-/// A fresh folder of the test's own.
-fn scratch(name: &str) -> PathBuf {
-    let dir = crate::scratch::fresh(&format!("scorsese-chromium-{name}"), "");
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).expect("scratch folder");
-    dir
-}
-
 /// A zip shaped like Chrome for Testing's — `chrome-headless-shell-linux64/`
 /// with an executable in it, unless `binary` is false — and the build that
 /// names it, checksum included.
@@ -103,7 +95,7 @@ fn leftovers(root: &Path, build: &Build) -> Vec<String> {
 
 #[test]
 fn a_fetch_installs_the_verified_build_and_a_second_finds_it() {
-    let dir = scratch("installs");
+    let dir = crate::scratch::dir("installs");
     let (file, build) = zip(&dir, true);
     let root = dir.join("chromium");
     let source = Local::new(file);
@@ -145,7 +137,7 @@ fn a_fetch_installs_the_verified_build_and_a_second_finds_it() {
 
 #[test]
 fn a_zip_that_is_not_the_pinned_build_installs_nothing() {
-    let dir = scratch("checksum");
+    let dir = crate::scratch::dir("checksum");
     let (file, mut build) = zip(&dir, true);
     build.sha256 = "0".repeat(64);
     let root = dir.join("chromium");
@@ -164,7 +156,7 @@ fn a_zip_that_is_not_the_pinned_build_installs_nothing() {
 
 #[test]
 fn a_zip_with_no_browser_in_it_installs_nothing() {
-    let dir = scratch("empty");
+    let dir = crate::scratch::dir("empty");
     let (file, build) = zip(&dir, false);
     let root = dir.join("chromium");
     let refused = fetch_with(&Local::new(file), &root, &build, &mut |_| {});
@@ -182,7 +174,7 @@ fn a_zip_with_no_browser_in_it_installs_nothing() {
 
 #[test]
 fn an_install_stamped_by_another_pin_is_downloaded_again() {
-    let dir = scratch("restamp");
+    let dir = crate::scratch::dir("restamp");
     let (file, build) = zip(&dir, true);
     let root = dir.join("chromium");
     let source = Local::new(file);
@@ -215,7 +207,7 @@ fn a_download_that_fails_leaves_nothing_behind() {
             }))
         }
     }
-    let dir = scratch("offline");
+    let dir = crate::scratch::dir("offline");
     let (_, build) = zip(&dir, true);
     let root = dir.join("chromium");
     let failed = fetch_with(&Offline, &root, &build, &mut |_| {});

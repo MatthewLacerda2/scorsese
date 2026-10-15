@@ -17,14 +17,15 @@ mod thumbnails;
 
 use std::path::{Path, PathBuf};
 
-use scorsese_core::{AssetKind, Fps, Project};
+use scorsese_core::{AssetKind, Clip, Fps, Project};
 use scorsese_render::frames::{self, Still};
 use scorsese_render::{
     Description, Frame, FrameRange, RenderSettings, Renderer, Resolution, Tools,
 };
 
-use common::ffmpeg::{fixture_dir, generate_asset, tools};
-use common::{clip, file_asset, project, video_track};
+use common::ffmpeg::{generate_asset, tools};
+use common::scratch;
+use common::{file_asset, project, video_track};
 
 /// Red for the first second, blue for the second: the cut is at frame 30.
 fn cut_at_thirty(tools: &Tools, root: &Path) -> Project {
@@ -51,7 +52,7 @@ fn cut_at_thirty(tools: &Tools, root: &Path) -> Project {
         ],
         vec![video_track(
             "v1",
-            vec![clip("c1", "red", 0, 30), clip("c2", "blue", 30, 30)],
+            vec![Clip::at("c1", "red", 0, 30), Clip::at("c2", "blue", 30, 30)],
         )],
     )
 }
@@ -92,7 +93,7 @@ struct Rendered {
 impl Rendered {
     fn new(label: &str) -> Self {
         let tools = tools();
-        let dir = fixture_dir(label);
+        let dir = scratch::dir(label);
         let project = cut_at_thirty(&tools, &dir);
         let out = dir.join("out.mp4");
         let report = Renderer::new(&tools, RenderSettings::new(raster(), Fps::THIRTY))

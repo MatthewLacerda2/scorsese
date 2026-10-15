@@ -3,7 +3,7 @@
 
 use scorsese_core::{ASSETS_DIR, CACHE_DIR, Fps, GENERATED_DIR, PROJECT_FILE_NAME, SCHEMA_VERSION};
 
-use crate::common::{holds, new_at, reload, scratch, temp_dir};
+use crate::common::{holds, new_at, reload, scratch};
 
 /// The directory's own name without its extension, which is what the project
 /// is called when nobody says otherwise.
@@ -98,7 +98,7 @@ fn creating_a_project_where_one_already_is_refuses_and_leaves_it_alone() {
 fn a_directory_that_exists_but_holds_no_project_is_filled_in() {
     // Someone made the directory first, or cloned an empty one. There is no
     // project in it, so there is nothing to protect and nothing to refuse.
-    let dir = temp_dir("existing-empty");
+    let dir = scratch::dir("existing-empty");
     new_at(&dir, &[]).ok();
 
     assert!(holds(&dir, PROJECT_FILE_NAME));

@@ -4,9 +4,11 @@ use crate::common::audio::{
     SHOT_LEVEL, assert_audible, assert_silent, generated_talking_shot, level, soundtrack,
     talking_picture, tone_asset, with_volume,
 };
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{audio_track, clip, project, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{audio_track, project, video_track};
 use crate::{picture, render};
+use scorsese_core::Clip;
 
 #[test]
 fn a_video_clips_own_sound_is_heard() {
@@ -14,11 +16,11 @@ fn a_video_clips_own_sound_is_heard() {
     // dialogue is in the file. Before this it was silently gone, with nothing
     // said about it.
     let tools = tools();
-    let dir = fixture_dir("embedded");
+    let dir = scratch::dir("embedded");
     let interview = talking_picture(&tools, &dir, "interview", 2, 440);
     let project = project(
         vec![interview],
-        vec![video_track("v1", vec![clip("c1", "interview", 0, 60)])],
+        vec![video_track("v1", vec![Clip::at("c1", "interview", 0, 60)])],
     );
 
     let (out, report) = render(&tools, &project, &dir);
@@ -42,11 +44,11 @@ fn a_generated_shots_own_sound_is_heard_too() {
     // generated shot arrives unmeasured now, like any other unprobed file, and
     // the render finds out what is on it.
     let tools = tools();
-    let dir = fixture_dir("embedded-generated");
+    let dir = scratch::dir("embedded-generated");
     let shot = generated_talking_shot(&tools, &dir, "pit-lane", 2, 440);
     let project = project(
         vec![shot],
-        vec![video_track("v1", vec![clip("c1", "pit-lane", 0, 60)])],
+        vec![video_track("v1", vec![Clip::at("c1", "pit-lane", 0, 60)])],
     );
 
     let (out, report) = render(&tools, &project, &dir);
@@ -69,13 +71,13 @@ fn volume_zero_mutes_a_video_clip_like_any_other() {
     // No new field and no new concept: muting a talking head under a voiceover
     // is the same keyframe that mutes a music bed.
     let tools = tools();
-    let dir = fixture_dir("embedded-mute");
+    let dir = scratch::dir("embedded-mute");
     let interview = talking_picture(&tools, &dir, "interview", 2, 440);
     let project = project(
         vec![interview],
         vec![video_track(
             "v1",
-            vec![with_volume(clip("c1", "interview", 0, 60), &[(0, 0.0)])],
+            vec![with_volume(Clip::at("c1", "interview", 0, 60), &[(0, 0.0)])],
         )],
     );
 
@@ -96,10 +98,10 @@ fn a_silent_video_contributes_nothing_and_warns_about_nothing() {
     // problem to report — it is a silent film, and reporting it every render
     // would train an agent to ignore the notes that matter.
     let tools = tools();
-    let dir = fixture_dir("embedded-silent");
+    let dir = scratch::dir("embedded-silent");
     let project = project(
         vec![picture(&tools, &dir, 1)],
-        vec![video_track("v1", vec![clip("c1", "picture", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "picture", 0, 30)])],
     );
 
     let (out, report) = render(&tools, &project, &dir);
@@ -119,7 +121,7 @@ fn a_shots_own_sound_and_a_music_bed_play_together() {
     // The mix does not care which track a sound came from: a video clip is one
     // more thing to add, and two of them at once are summed like any others.
     let tools = tools();
-    let dir = fixture_dir("embedded-and-bed");
+    let dir = scratch::dir("embedded-and-bed");
     let interview = talking_picture(&tools, &dir, "interview", 2, 440);
     // At the shot's own level, so the two together stay inside full scale and
     // this measures the sum rather than the clipper.
@@ -127,10 +129,10 @@ fn a_shots_own_sound_and_a_music_bed_play_together() {
     let project = project(
         vec![interview, bed],
         vec![
-            video_track("v1", vec![clip("c1", "interview", 0, 60)]),
+            video_track("v1", vec![Clip::at("c1", "interview", 0, 60)]),
             // The bed covers only the second half, so the first half is the
             // shot's own sound on its own.
-            audio_track("a1", vec![clip("m1", "bed", 30, 30)]),
+            audio_track("a1", vec![Clip::at("m1", "bed", 30, 30)]),
         ],
     );
 
@@ -152,14 +154,14 @@ fn a_shot_whose_sound_starts_later_is_cut_where_its_own_clip_is() {
     // A video clip's boundaries cut the mix now, the same way an audio clip's
     // always did — it is one more audible thing on the timeline.
     let tools = tools();
-    let dir = fixture_dir("embedded-placed");
+    let dir = scratch::dir("embedded-placed");
     let interview = talking_picture(&tools, &dir, "interview", 1, 440);
     let project = project(
         vec![picture(&tools, &dir, 3), interview],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 90)]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 90)]),
             // On a second video track, a second in and a second long.
-            video_track("v2", vec![clip("c2", "interview", 30, 30)]),
+            video_track("v2", vec![Clip::at("c2", "interview", 30, 30)]),
         ],
     );
 

@@ -38,7 +38,7 @@ async fn held(pool: &PgPool, sha256: &str) -> i64 {
 async fn a_downloaded_picture_is_admitted_once(pool: PgPool) {
     let library = library(&pool).await;
     let (ana, _) = member(&pool, "ana@example.com").await;
-    let scratch = common::scratch("fetched-picture");
+    let scratch = common::scratch::dir("fetched-picture");
     let picture = scratch.join("pixabay-7.png");
     let output = common::tools()
         .ffmpeg()

@@ -1,8 +1,8 @@
 //! Saying that a clip runs at a rate of its own.
 
-use scorsese_core::{AssetKind, Speed};
+use scorsese_core::{AssetKind, Clip, Speed};
 
-use crate::common::{clip, file_asset, project, sounding_asset, sped, video_track};
+use crate::common::{file_asset, project, sounding_asset, sped, video_track};
 use crate::described;
 
 /// A speed is invisible in a frame count — a ten-second slot holding twenty
@@ -14,7 +14,7 @@ fn a_clip_running_at_its_own_rate_says_so_on_both_lines() {
         vec![sounding_asset("shot", AssetKind::Video)],
         vec![video_track(
             "v1",
-            vec![sped(2.0, clip("c1", "shot", 0, 60))],
+            vec![sped(2.0, Clip::at("c1", "shot", 0, 60))],
         )],
     );
     let description = described(&project);
@@ -38,7 +38,7 @@ fn a_clip_running_at_its_own_rate_says_so_on_both_lines() {
 fn a_clip_at_its_sources_own_rate_says_nothing_about_speed() {
     let plain = project(
         vec![file_asset("shot", AssetKind::Video)],
-        vec![video_track("v1", vec![clip("c1", "shot", 0, 60)])],
+        vec![video_track("v1", vec![Clip::at("c1", "shot", 0, 60)])],
     );
     let said = format!("{}", described(&plain));
     assert!(!said.contains('×'), "got:\n{said}");

@@ -1,7 +1,9 @@
 //! A project directory for the tool tests to work on.
 
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 
+use scorsese_core::{Fps, Project, SCHEMA_VERSION};
 use serde_json::Value;
 
 /// The project document in `dir`, as it is on disk: for a test that has to see
@@ -38,12 +40,11 @@ pub(crate) fn fingerprint(dir: &std::path::Path) -> String {
 /// rather than a gap worth working around.
 pub(crate) fn project(label: &str) -> PathBuf {
     let dir = crate::scratch::fresh(&format!("scorsese-mcp-{label}"), ".scor");
-    // The directories `scorsese new` makes, because a hand-written fixture
-    // that skips them is testing a project shape nothing produces.
-    for inside in ["assets", "generated", "recipes", "cache"] {
-        std::fs::create_dir_all(dir.join(inside)).expect("create the project directory");
-    }
-    std::fs::write(dir.join("project.json"), DOCUMENT).expect("write project.json");
+    // Made the way `scorsese new` makes one, then given this document, because
+    // a hand-written fixture that skips a directory is testing a project shape
+    // nothing produces.
+    Project::create(&dir, None, Fps::THIRTY).expect("create the project");
+    std::fs::write(dir.join("project.json"), &*DOCUMENT).expect("write project.json");
     // The bed's recipe really exists: a synth asset pointing at a recipe that
     // is not there is a broken project, not a starting point.
     std::fs::write(dir.join("recipes/bed.json"), BED).expect("write the bed recipe");
@@ -104,22 +105,26 @@ pub(crate) fn with_footage(extra: &str) -> String {
     document
 }
 
-pub(crate) const DOCUMENT: &str = r#"{
-  "schema_version": 49,
+pub(crate) static DOCUMENT: LazyLock<String> = LazyLock::new(|| {
+    format!(
+        r#"{{
+  "schema_version": {SCHEMA_VERSION},
   "name": "Teaser",
-  "timeline_fps": { "num": 30, "den": 1 },
+  "timeline_fps": {{ "num": 30, "den": 1 }},
   "assets": [
-    { "id": "title", "kind": "text", "text": "TEASER" },
-    { "id": "vo", "kind": "generated_audio", "prompt": "a line", "state": "sketch" },
-    { "id": "bed", "kind": "synth_audio", "recipe": "recipes/bed.json", "state": "sketch" }
+    {{ "id": "title", "kind": "text", "text": "TEASER" }},
+    {{ "id": "vo", "kind": "generated_audio", "prompt": "a line", "state": "sketch" }},
+    {{ "id": "bed", "kind": "synth_audio", "recipe": "recipes/bed.json", "state": "sketch" }}
   ],
   "tracks": [
-    { "id": "v1", "kind": "video",
-      "clips": [ { "id": "c1", "asset": "title", "start": 0, "duration": 600 } ] },
-    { "id": "music", "kind": "audio",
-      "clips": [ { "id": "m1", "asset": "bed", "start": 0, "duration": 600 } ] },
-    { "id": "vo", "kind": "audio",
-      "clips": [ { "id": "v1c", "asset": "vo", "start": 60, "duration": 90 } ] }
+    {{ "id": "v1", "kind": "video",
+      "clips": [ {{ "id": "c1", "asset": "title", "start": 0, "duration": 600 }} ] }},
+    {{ "id": "music", "kind": "audio",
+      "clips": [ {{ "id": "m1", "asset": "bed", "start": 0, "duration": 600 }} ] }},
+    {{ "id": "vo", "kind": "audio",
+      "clips": [ {{ "id": "v1c", "asset": "vo", "start": 60, "duration": 90 }} ] }}
   ]
-}
-"#;
+}}
+"#
+    )
+});

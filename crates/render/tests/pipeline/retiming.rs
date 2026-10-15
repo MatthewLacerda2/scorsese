@@ -5,11 +5,12 @@
 //! puller had walked by then. A puller that still assumed one source frame per
 //! timeline frame would be a whole band out.
 
-use scorsese_core::Fps;
+use scorsese_core::{Clip, Fps};
 use scorsese_render::{FrameRange, Note};
 
-use crate::common::ffmpeg::{fixture_dir, inspect, mean_rgb, tools};
-use crate::common::{clip, clip_from, project, sped, video_track};
+use crate::common::ffmpeg::{inspect, mean_rgb, tools};
+use crate::common::scratch;
+use crate::common::{clip_from, project, sped, video_track};
 use crate::{BLACK, BLUE, GREEN, RED, assert_colour, banded_source, colour_asset, render};
 
 /// At 2× the render reaches the second band halfway through the first second
@@ -18,13 +19,13 @@ use crate::{BLACK, BLUE, GREEN, RED, assert_colour, banded_source, colour_asset,
 #[test]
 fn a_sped_clip_walks_its_source_at_the_rate_it_asks_for() {
     let tools = tools();
-    let dir = fixture_dir("speed-up");
+    let dir = scratch::dir("speed-up");
     let bands = banded_source(&tools, &dir);
     let project = project(
         vec![bands],
         vec![video_track(
             "v1",
-            vec![sped(2.0, clip("c1", "bands", 0, 45))],
+            vec![sped(2.0, Clip::at("c1", "bands", 0, 45))],
         )],
     );
 
@@ -43,13 +44,13 @@ fn a_sped_clip_walks_its_source_at_the_rate_it_asks_for() {
 #[test]
 fn a_slowed_clip_holds_each_part_of_its_source_for_longer() {
     let tools = tools();
-    let dir = fixture_dir("slow-down");
+    let dir = scratch::dir("slow-down");
     let bands = banded_source(&tools, &dir);
     let project = project(
         vec![bands],
         vec![video_track(
             "v1",
-            vec![sped(0.5, clip("c1", "bands", 0, 90))],
+            vec![sped(0.5, Clip::at("c1", "bands", 0, 90))],
         )],
     );
 
@@ -66,7 +67,7 @@ fn a_slowed_clip_holds_each_part_of_its_source_for_longer() {
 #[test]
 fn a_rate_starts_from_the_clips_own_source_in() {
     let tools = tools();
-    let dir = fixture_dir("speed-seek");
+    let dir = scratch::dir("speed-seek");
     let bands = banded_source(&tools, &dir);
     let project = project(
         vec![bands],
@@ -91,13 +92,16 @@ fn a_rate_starts_from_the_clips_own_source_in() {
 #[test]
 fn a_clip_sped_past_the_end_of_its_source_finishes_blank_and_says_so() {
     let tools = tools();
-    let dir = fixture_dir("speed-short");
+    let dir = scratch::dir("speed-short");
     let red = colour_asset(&tools, &dir, "red", "64x64", 1);
     // Thirty frames of source, asked for at 4× over thirty frames of timeline:
     // the source is spent after eight of them.
     let project = project(
         vec![red],
-        vec![video_track("v1", vec![sped(4.0, clip("c1", "red", 0, 30))])],
+        vec![video_track(
+            "v1",
+            vec![sped(4.0, Clip::at("c1", "red", 0, 30))],
+        )],
     );
 
     let (out, report) = render(&tools, &project, &dir, FrameRange::ALL, Fps::THIRTY);

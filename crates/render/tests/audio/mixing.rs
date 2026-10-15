@@ -1,25 +1,26 @@
 //! Where sound lands on the timeline, and what happens when several land at
 //! once.
 
-use scorsese_core::Frames;
+use scorsese_core::{Clip, Frames};
 use scorsese_render::Note;
 
 use crate::common::audio::{assert_audible, assert_silent, level, soundtrack, tone_asset};
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{audio_track, clip, project, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{audio_track, project, video_track};
 use crate::{picture, render};
 
 #[test]
 fn a_clip_is_heard_where_it_sits_and_nowhere_else() {
     let tools = tools();
-    let dir = fixture_dir("placement");
+    let dir = scratch::dir("placement");
     let beep = tone_asset(&tools, &dir, "beep", 440, 1.0, 0.8, "");
     let project = project(
         vec![picture(&tools, &dir, 3), beep],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 90)]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 90)]),
             // One second in, one second long, on a three-second timeline.
-            audio_track("a1", vec![clip("m1", "beep", 30, 30)]),
+            audio_track("a1", vec![Clip::at("m1", "beep", 30, 30)]),
         ],
     );
 
@@ -37,7 +38,7 @@ fn a_clip_is_heard_where_it_sits_and_nowhere_else() {
 #[test]
 fn two_tracks_playing_at_once_are_summed_rather_than_one_winning() {
     let tools = tools();
-    let dir = fixture_dir("sum");
+    let dir = scratch::dir("sum");
     // Quiet enough that two of them together stay inside full scale, so this
     // measures the sum rather than the clipper.
     let low = tone_asset(&tools, &dir, "low", 220, 2.0, 0.3, "");
@@ -45,10 +46,10 @@ fn two_tracks_playing_at_once_are_summed_rather_than_one_winning() {
     let project = project(
         vec![picture(&tools, &dir, 2), low, high],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 60)]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 60)]),
             // The second half of the timeline has both; the first has only one.
-            audio_track("a1", vec![clip("m1", "low", 0, 60)]),
-            audio_track("a2", vec![clip("m2", "high", 30, 30)]),
+            audio_track("a1", vec![Clip::at("m1", "low", 0, 60)]),
+            audio_track("a2", vec![Clip::at("m2", "high", 30, 30)]),
         ],
     );
 
@@ -68,15 +69,18 @@ fn two_tracks_playing_at_once_are_summed_rather_than_one_winning() {
 #[test]
 fn a_hole_in_the_only_audio_track_is_silence_rather_than_a_shortened_soundtrack() {
     let tools = tools();
-    let dir = fixture_dir("hole");
+    let dir = scratch::dir("hole");
     let beep = tone_asset(&tools, &dir, "beep", 440, 1.0, 0.8, "");
     let project = project(
         vec![picture(&tools, &dir, 3), beep],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 90)]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 90)]),
             audio_track(
                 "a1",
-                vec![clip("m1", "beep", 0, 30), clip("m2", "beep", 60, 30)],
+                vec![
+                    Clip::at("m1", "beep", 0, 30),
+                    Clip::at("m2", "beep", 60, 30),
+                ],
             ),
         ],
     );
@@ -96,13 +100,13 @@ fn a_hole_in_the_only_audio_track_is_silence_rather_than_a_shortened_soundtrack(
 #[test]
 fn audio_running_past_the_last_picture_is_cut_there_and_said_so() {
     let tools = tools();
-    let dir = fixture_dir("trimmed");
+    let dir = scratch::dir("trimmed");
     let beep = tone_asset(&tools, &dir, "beep", 440, 3.0, 0.8, "");
     let project = project(
         vec![picture(&tools, &dir, 1), beep],
         vec![
-            video_track("v1", vec![clip("c1", "picture", 0, 30)]),
-            audio_track("a1", vec![clip("m1", "beep", 0, 90)]),
+            video_track("v1", vec![Clip::at("c1", "picture", 0, 30)]),
+            audio_track("a1", vec![Clip::at("m1", "beep", 0, 90)]),
         ],
     );
 
@@ -127,10 +131,10 @@ fn audio_running_past_the_last_picture_is_cut_there_and_said_so() {
 #[test]
 fn a_project_with_no_audio_gets_a_file_with_no_soundtrack() {
     let tools = tools();
-    let dir = fixture_dir("silent");
+    let dir = scratch::dir("silent");
     let project = project(
         vec![picture(&tools, &dir, 1)],
-        vec![video_track("v1", vec![clip("c1", "picture", 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "picture", 0, 30)])],
     );
 
     let (out, report) = render(&tools, &project, &dir);

@@ -5,11 +5,11 @@
 //! counting frames. So a card has to be named as a card, with the prompt it
 //! carries and the lifecycle state it is in.
 
-use scorsese_core::{AssetKind, GenerationState};
+use scorsese_core::{AssetKind, Clip, GenerationState};
 use scorsese_render::{Absent, Shown};
 
 use crate::common::prompts::{NARRATION_PROMPT, SHOT_PROMPT, in_state};
-use crate::common::{audio_track, clip, file_asset, project, stale_asset, text_asset, video_track};
+use crate::common::{audio_track, file_asset, project, stale_asset, text_asset, video_track};
 use crate::described;
 
 /// One clip, one asset, one stretch — the shape every question here reduces to.
@@ -17,7 +17,7 @@ fn one(asset: scorsese_core::Asset) -> scorsese_core::Project {
     let id = asset.id.to_string();
     project(
         vec![asset],
-        vec![video_track("v1", vec![clip("c1", &id, 0, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", &id, 0, 30)])],
     )
 }
 
@@ -83,8 +83,8 @@ fn a_narration_prompt_is_a_card_on_the_picture_and_silence_under_it() {
             in_state("vo", AssetKind::GeneratedAudio, GenerationState::Sketch),
         ],
         vec![
-            video_track("v1", vec![clip("c1", "shot", 0, 30)]),
-            audio_track("a1", vec![clip("vo1", "vo", 0, 30)]),
+            video_track("v1", vec![Clip::at("c1", "shot", 0, 30)]),
+            audio_track("a1", vec![Clip::at("vo1", "vo", 0, 30)]),
         ],
     );
 

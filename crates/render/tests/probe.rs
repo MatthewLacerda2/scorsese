@@ -13,12 +13,13 @@ use scorsese_core::Fps;
 use scorsese_core::ProbeMedia;
 use scorsese_render::Ffprobe;
 
-use common::ffmpeg::{fixture_dir, generate, tools};
+use common::ffmpeg::{generate, tools};
+use common::scratch;
 
 #[test]
 fn a_video_reports_size_rate_and_duration() {
     let tools = tools();
-    let dir = fixture_dir("video");
+    let dir = scratch::dir("video");
     let file = dir.join("clip.mp4");
     generate(
         &tools,
@@ -40,7 +41,7 @@ fn a_video_reports_size_rate_and_duration() {
 #[test]
 fn audio_reports_channels_and_sample_rate() {
     let tools = tools();
-    let dir = fixture_dir("audio");
+    let dir = scratch::dir("audio");
     let file = dir.join("beep.wav");
     generate(
         &tools,
@@ -64,7 +65,7 @@ fn a_still_image_has_size_but_no_real_frame_rate() {
     // ffprobe describes a PNG as a one-frame video. What matters is that the
     // dimensions survive; import is what discards the invented timing.
     let tools = tools();
-    let dir = fixture_dir("image");
+    let dir = scratch::dir("image");
     let file = dir.join("logo.png");
     generate(
         &tools,
@@ -93,7 +94,7 @@ fn a_transparent_image_is_recorded_as_carrying_alpha() {
     // around its scale, and a source without is left exactly as it was. Read
     // off the pixel format, which is all ffprobe reports about transparency.
     let tools = tools();
-    let dir = fixture_dir("transparent");
+    let dir = scratch::dir("transparent");
     let file = dir.join("badge.png");
     generate(
         &tools,
@@ -116,7 +117,7 @@ fn a_transparent_image_is_recorded_as_carrying_alpha() {
 
 #[test]
 fn probing_something_that_is_not_media_fails_with_a_reason() {
-    let dir = fixture_dir("garbage");
+    let dir = scratch::dir("garbage");
     let file = dir.join("not-media.mp4");
     std::fs::write(&file, b"this is not a video").expect("write");
 

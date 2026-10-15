@@ -12,7 +12,8 @@ use std::path::{Path, PathBuf};
 use scorsese_render::Tools;
 use scorsese_render::audio::{measure, waveform};
 
-use crate::common::ffmpeg::{fixture_dir, generate, tools};
+use crate::common::ffmpeg::{generate, tools};
+use crate::common::scratch;
 use crate::loudness::SLACK;
 
 /// Two seconds of a stereo file whose channels are `left` and `right`.
@@ -32,7 +33,7 @@ const HALF: &str = "0.5*sin(2*PI*440*t)";
 #[test]
 fn a_stereo_file_reads_at_the_level_it_was_written_at() {
     let tools = tools();
-    let dir = fixture_dir("stereo-level");
+    let dir = scratch::dir("stereo-level");
     let file = pair(&tools, &dir, "centred", HALF, HALF);
 
     let level = measure(&tools, &file).expect("a stereo wav can be measured");
@@ -64,7 +65,7 @@ fn a_stereo_file_reads_at_the_level_it_was_written_at() {
 #[test]
 fn a_centred_file_under_full_scale_is_not_reported_clipping() {
     let tools = tools();
-    let dir = fixture_dir("stereo-clipping");
+    let dir = scratch::dir("stereo-clipping");
     let loud = "0.8*sin(2*PI*440*t)";
     let file = pair(&tools, &dir, "loud", loud, loud);
 
@@ -85,7 +86,7 @@ fn a_centred_file_under_full_scale_is_not_reported_clipping() {
 #[test]
 fn a_hard_panned_file_reads_at_the_peak_it_actually_has() {
     let tools = tools();
-    let dir = fixture_dir("stereo-panned");
+    let dir = scratch::dir("stereo-panned");
     let file = pair(&tools, &dir, "left", "0.9*sin(2*PI*440*t)", "0");
 
     let level = measure(&tools, &file).expect("measured");
@@ -104,7 +105,7 @@ fn a_hard_panned_file_reads_at_the_peak_it_actually_has() {
 #[test]
 fn the_picture_and_the_report_agree_about_a_stereo_file() {
     let tools = tools();
-    let dir = fixture_dir("stereo-picture");
+    let dir = scratch::dir("stereo-picture");
     let file = pair(&tools, &dir, "centred", HALF, HALF);
 
     let reported = measure(&tools, &file).expect("measured");

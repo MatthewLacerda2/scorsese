@@ -15,14 +15,15 @@ use scorsese_core::Fps;
 use scorsese_render::Resolution;
 use scorsese_render::page::{self, Chrome, Request};
 
-use crate::common::ffmpeg::{fixture_dir, inspect, mean_rgb, tools};
+use crate::common::ffmpeg::{inspect, mean_rgb, tools};
+use crate::common::scratch;
 
 /// The size `raster`'s capture of a one-colour page comes out at. The page is
 /// blue while the browser tells it the raster's own device scale, and magenta
 /// otherwise — asked by a media query, so the browser answers as it draws.
 fn captured_at(chrome: &Chrome, raster: Resolution) -> (u64, u64) {
     let tools = tools();
-    let dir = fixture_dir(&format!(
+    let dir = scratch::dir(&format!(
         "capture-size-{}x{}",
         raster.width(),
         raster.height()

@@ -7,7 +7,8 @@ use scorsese_core::ProbeMedia;
 use scorsese_render::Ffprobe;
 use scorsese_render::frames::{Thumbnail, thumbnail};
 
-use crate::common::ffmpeg::{fixture_dir, generate, tools};
+use crate::common::ffmpeg::{generate, tools};
+use crate::common::scratch;
 
 /// The width and height of a picture file.
 fn size_of(file: &Path) -> (u32, u32) {
@@ -20,7 +21,7 @@ fn size_of(file: &Path) -> (u32, u32) {
 #[test]
 fn each_kind_of_source_draws_a_thumbnail_that_fits_and_is_never_enlarged() {
     let tools = tools();
-    let dir = fixture_dir("thumbnails");
+    let dir = scratch::dir("thumbnails");
     let video = dir.join("wide.mp4");
     let wide = ["-f", "lavfi", "-i", "testsrc=s=640x360:d=2:r=30"];
     generate(
@@ -50,7 +51,7 @@ fn each_kind_of_source_draws_a_thumbnail_that_fits_and_is_never_enlarged() {
 #[test]
 fn a_frame_past_the_end_is_refused_rather_than_written_empty() {
     let tools = tools();
-    let dir = fixture_dir("thumbnail-past-end");
+    let dir = scratch::dir("thumbnail-past-end");
     let video = dir.join("short.mp4");
     let red = ["-f", "lavfi", "-i", "color=c=red:s=32x32:d=1:r=30"];
     generate(

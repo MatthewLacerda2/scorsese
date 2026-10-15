@@ -1,9 +1,9 @@
 //! Rendering only part of the timeline.
 
-use scorsese_core::{AssetKind, Fps, Frames, Project};
+use scorsese_core::{AssetKind, Clip, Fps, Frames, Project};
 use scorsese_render::{FrameRange, FrameRangeError, Note, Plan};
 
-use crate::common::{clip, clip_from, file_asset, project, shape, source_ins, video_track};
+use crate::common::{clip_from, file_asset, project, shape, source_ins, video_track};
 
 fn timeline() -> Project {
     project(
@@ -13,7 +13,7 @@ fn timeline() -> Project {
         ],
         vec![video_track(
             "v1",
-            vec![clip("c1", "a", 0, 60), clip("c2", "b", 60, 60)],
+            vec![Clip::at("c1", "a", 0, 60), Clip::at("c2", "b", 60, 60)],
         )],
     )
 }

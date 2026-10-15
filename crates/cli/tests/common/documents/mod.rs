@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 
 use scorsese_core::{PROJECT_FILE_NAME, SCHEMA_VERSION};
 
-use super::temp_dir;
+use super::scratch;
 
 /// SHA-256 of nothing, so an empty file matches this recorded hash exactly.
 pub(crate) fn empty_sha256() -> String {
@@ -21,7 +21,7 @@ pub(crate) fn empty_sha256() -> String {
 
 /// A fresh project directory holding `assets` and `tracks`.
 pub(crate) fn written(label: &str, assets: &[String], tracks: &[String]) -> PathBuf {
-    let dir = temp_dir(label);
+    let dir = scratch::dir(label);
     write_into(&dir, assets, tracks);
     dir
 }

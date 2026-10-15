@@ -1,9 +1,9 @@
 //! What occupies each stretch of the timeline, and how many frames it is worth.
 
-use scorsese_core::{AssetKind, Fps};
+use scorsese_core::{AssetKind, Clip, Fps};
 use scorsese_render::{FrameRange, Plan};
 
-use crate::common::{clip, file_asset, project, shape, video_track};
+use crate::common::{file_asset, project, shape, video_track};
 
 fn two_clip_project() -> scorsese_core::Project {
     project(
@@ -13,7 +13,7 @@ fn two_clip_project() -> scorsese_core::Project {
         ],
         vec![video_track(
             "v1",
-            vec![clip("c1", "a", 0, 60), clip("c2", "b", 90, 30)],
+            vec![Clip::at("c1", "a", 0, 60), Clip::at("c2", "b", 90, 30)],
         )],
     )
 }
@@ -39,7 +39,7 @@ fn clips_are_sequenced_with_black_in_the_holes() {
 fn a_timeline_that_starts_late_opens_on_black() {
     let project = project(
         vec![file_asset("a", AssetKind::Video)],
-        vec![video_track("v1", vec![clip("c1", "a", 15, 30)])],
+        vec![video_track("v1", vec![Clip::at("c1", "a", 15, 30)])],
     );
     let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
 
@@ -60,7 +60,7 @@ fn clips_out_of_order_in_the_document_are_still_sequenced_in_time() {
         ],
         vec![video_track(
             "v1",
-            vec![clip("late", "b", 30, 30), clip("early", "a", 0, 30)],
+            vec![Clip::at("late", "b", 30, 30), Clip::at("early", "a", 0, 30)],
         )],
     );
     let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
@@ -78,7 +78,7 @@ fn touching_clips_leave_no_gap_between_them() {
         ],
         vec![video_track(
             "v1",
-            vec![clip("c1", "a", 0, 30), clip("c2", "b", 30, 30)],
+            vec![Clip::at("c1", "a", 0, 30), Clip::at("c2", "b", 30, 30)],
         )],
     );
     let plan = Plan::build(&project, Fps::THIRTY, FrameRange::ALL).expect("plan");
@@ -116,9 +116,9 @@ fn segment_frame_counts_always_sum_to_the_render_length() {
         vec![video_track(
             "v1",
             vec![
-                clip("c1", "a", 0, 7),
-                clip("c2", "a", 7, 7),
-                clip("c3", "a", 21, 7),
+                Clip::at("c1", "a", 0, 7),
+                Clip::at("c2", "a", 7, 7),
+                Clip::at("c3", "a", 21, 7),
             ],
         )],
     );

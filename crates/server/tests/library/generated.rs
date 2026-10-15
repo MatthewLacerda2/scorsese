@@ -58,7 +58,7 @@ async fn output_is_found_by_its_brief_and_only_by_its_owner(pool: PgPool) {
     let library = library(&pool).await;
     let (ana, _) = member(&pool, "ana@example.com").await;
     let (bia, _) = member(&pool, "bia@example.com").await;
-    let scratch = common::scratch("generated-found");
+    let scratch = common::scratch::dir("generated-found");
 
     assert!(library.find_generated(ana, BRIEF).await.unwrap().is_none());
     let kept = library
@@ -86,7 +86,7 @@ async fn output_is_found_by_its_brief_and_only_by_its_owner(pool: PgPool) {
 async fn a_generated_item_carries_the_record_of_what_it_cost(pool: PgPool) {
     let library = library(&pool).await;
     let (ana, _) = member(&pool, "ana@example.com").await;
-    let scratch = common::scratch("generated-record");
+    let scratch = common::scratch::dir("generated-record");
     let kept = library
         .keep_generated(ana, BRIEF, arrival(line(&scratch, "a.wav")))
         .await

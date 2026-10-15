@@ -8,7 +8,7 @@ use super::{card, common, idle_for, kept, member, on_disk, rows, stored};
 
 /// A cache whose quota the renders below already fill.
 fn tight(label: &str) -> RenderCache {
-    RenderCache::new(common::scratch(label), Quota::bytes(60))
+    RenderCache::new(common::scratch::dir(label), Quota::bytes(60))
 }
 
 #[sqlx::test]
@@ -45,7 +45,7 @@ async fn pressure_evicts_every_idle_render_and_nothing_fresh_or_open(pool: PgPoo
 
 #[sqlx::test]
 async fn under_the_quota_nothing_is_evicted_however_idle(pool: PgPool) {
-    let cache = RenderCache::new(common::scratch("evict-roomy"), Quota::bytes(1_000));
+    let cache = RenderCache::new(common::scratch::dir("evict-roomy"), Quota::bytes(1_000));
     let (ana, _) = member(&pool, "ana@example.com").await;
     let project = stored(&pool, ana, &card(|_| {})).await;
     let old = kept(&pool, &cache, ana, project, &"1".repeat(64)).await;
@@ -76,7 +76,7 @@ async fn over_the_quota_with_nothing_idle_the_new_render_is_kept_anyway(pool: Pg
 
 #[sqlx::test]
 async fn the_sweep_takes_idle_renders_and_files_no_row_names(pool: PgPool) {
-    let cache = RenderCache::new(common::scratch("evict-sweep"), Quota::bytes(u64::MAX));
+    let cache = RenderCache::new(common::scratch::dir("evict-sweep"), Quota::bytes(u64::MAX));
     let (ana, _) = member(&pool, "ana@example.com").await;
     let project = stored(&pool, ana, &card(|_| {})).await;
     let doomed = stored(&pool, ana, &card(|_| {})).await;
@@ -125,7 +125,7 @@ fn captured(
 
 #[sqlx::test]
 async fn page_captures_count_against_the_quota_and_go_when_idle(pool: PgPool) {
-    let cache = RenderCache::new(common::scratch("evict-pages"), Quota::bytes(100));
+    let cache = RenderCache::new(common::scratch::dir("evict-pages"), Quota::bytes(100));
     let (ana, _) = member(&pool, "ana@example.com").await;
     let project = stored(&pool, ana, &card(|_| {})).await;
     let other = stored(&pool, ana, &card(|_| {})).await;
@@ -143,7 +143,10 @@ async fn page_captures_count_against_the_quota_and_go_when_idle(pool: PgPool) {
 
 #[sqlx::test]
 async fn the_sweep_takes_a_deleted_projects_captures_unless_a_job_holds_them(pool: PgPool) {
-    let cache = RenderCache::new(common::scratch("evict-pages-sweep"), Quota::bytes(u64::MAX));
+    let cache = RenderCache::new(
+        common::scratch::dir("evict-pages-sweep"),
+        Quota::bytes(u64::MAX),
+    );
     let (ana, _) = member(&pool, "ana@example.com").await;
     let kept_project = stored(&pool, ana, &card(|_| {})).await;
     let doomed = stored(&pool, ana, &card(|_| {})).await;

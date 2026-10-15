@@ -8,8 +8,9 @@ use scorsese_core::Fps;
 use scorsese_core::{Clip, Easing, Frames, Keyframe, KeyframeTrack, PropertyPath};
 use scorsese_render::{FrameRange, Note};
 
-use crate::common::ffmpeg::{fixture_dir, inspect, tools};
-use crate::common::{clip, project, video_track};
+use crate::common::ffmpeg::{inspect, tools};
+use crate::common::scratch;
+use crate::common::{project, video_track};
 use crate::{colour_asset, render};
 
 /// A clip animating `property`, whatever that turns out to mean.
@@ -35,14 +36,14 @@ fn animating(mut clip: Clip, property: &str) -> Clip {
 #[test]
 fn a_typo_warns_and_the_render_goes_ahead_anyway() {
     let tools = tools();
-    let dir = fixture_dir("typo");
+    let dir = scratch::dir("typo");
     let red = colour_asset(&tools, &dir, "red", "64x64", 1);
     let project = project(
         vec![red],
         vec![video_track(
             "v1",
             // A fade that will never happen, because nothing reads `opactiy`.
-            vec![animating(clip("c1", "red", 0, 15), "opactiy")],
+            vec![animating(Clip::at("c1", "red", 0, 15), "opactiy")],
         )],
     );
 
@@ -69,7 +70,7 @@ fn a_novel_property_is_no_reason_to_refuse_a_render() {
     // A project authored against a newer scorsese has to render on this one.
     // The warning says the track does nothing here; it does not say no.
     let tools = tools();
-    let dir = fixture_dir("novel");
+    let dir = scratch::dir("novel");
     let red = colour_asset(&tools, &dir, "red", "64x64", 1);
     let project = project(
         vec![red],
@@ -78,7 +79,10 @@ fn a_novel_property_is_no_reason_to_refuse_a_render() {
             // `transform.rotation` stood here until this build learned to draw
             // it. What this needs is a property nothing animates *and* nothing
             // would guess at, which is the pair the test is really about.
-            vec![animating(clip("c1", "red", 0, 15), "lighting.intensity")],
+            vec![animating(
+                Clip::at("c1", "red", 0, 15),
+                "lighting.intensity",
+            )],
         )],
     );
 

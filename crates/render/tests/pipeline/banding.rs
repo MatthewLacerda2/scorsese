@@ -19,11 +19,12 @@
 //! the P frames after it copy it until rate control settles, around frame 19.
 //! The steady state, which is what anybody watches, is the claim.
 
-use scorsese_core::{Asset, AssetId, Fill, Fps, Linear, Rgba, Stop};
+use scorsese_core::{Asset, AssetId, Clip, Fill, Fps, Linear, Rgba, Stop};
 use scorsese_render::{Bitrate, FrameRange, RenderSettings, Renderer, Resolution, Tools};
 
-use crate::common::ffmpeg::{fixture_dir, tools};
-use crate::common::{clip, project, video_track};
+use crate::common::ffmpeg::tools;
+use crate::common::scratch;
+use crate::common::{project, video_track};
 
 const WIDTH: u32 = 640;
 const HEIGHT: u32 = 360;
@@ -65,10 +66,10 @@ fn row_means(tools: &Tools, file: &std::path::Path, index: u64) -> Vec<f64> {
 #[test]
 fn a_dark_gradient_survives_a_low_bitrate_encode_without_banding() {
     let tools = tools();
-    let dir = fixture_dir("banding");
+    let dir = scratch::dir("banding");
     let project = project(
         vec![backdrop()],
-        vec![video_track("v1", vec![clip("c1", "bg", 0, 60)])],
+        vec![video_track("v1", vec![Clip::at("c1", "bg", 0, 60)])],
     );
     let resolution = Resolution::new(WIDTH, HEIGHT).expect("a raster");
     let bitrate = "300k".parse::<Bitrate>().expect("a bitrate");

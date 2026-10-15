@@ -3,12 +3,13 @@
 
 use scorsese_render::preview::{self, PROXY_SHORT_SIDE};
 
-use super::common::ffmpeg::{fixture_dir, generate, inspect, tools};
+use super::common::ffmpeg::{generate, inspect, tools};
+use super::common::scratch;
 
 #[test]
 fn a_proxy_brings_the_short_side_down_and_keeps_every_frame() {
     let tools = tools();
-    let dir = fixture_dir("proxy-make");
+    let dir = scratch::dir("proxy-make");
     for (size, expected) in [("1280x720", (960, 540)), ("720x1280", (540, 960))] {
         let source = dir.join(format!("{size}.mp4"));
         generate(
@@ -47,7 +48,7 @@ fn a_proxy_brings_the_short_side_down_and_keeps_every_frame() {
 #[test]
 fn a_source_ffmpeg_cannot_read_is_refused_and_leaves_nothing() {
     let tools = tools();
-    let dir = fixture_dir("proxy-refused");
+    let dir = scratch::dir("proxy-refused");
     let source = dir.join("not-a-video.mp4");
     std::fs::write(&source, b"nothing a decoder recognises").unwrap();
     let out = dir.join(preview::file_name("x"));

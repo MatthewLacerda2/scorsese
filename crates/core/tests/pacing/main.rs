@@ -12,8 +12,8 @@ mod refusals;
 use std::collections::BTreeSet;
 
 use scorsese_core::{
-    Asset, AssetId, AssetKind, Clip, ClipId, Fps, Frames, GenerationState, Project, ProjectPath,
-    Track, TrackId, TrackKind,
+    Asset, AssetId, AssetKind, Clip, ClipId, Fps, GenerationState, Project, ProjectPath, Track,
+    TrackKind,
 };
 
 /// A cut with air in it, and one clip of each kind that matters here.
@@ -47,22 +47,30 @@ pub(crate) fn project() -> Project {
         baked(),
     ];
     project.tracks = vec![
-        track(
+        Track::with_clips(
             "v1",
             TrackKind::Video,
             vec![
-                clip("head", "words", 0, 120),
-                clip("tail", "words", 120, 60),
-                clip("logo", "still", 300, 60),
+                Clip::at("head", "words", 0, 120),
+                Clip::at("tail", "words", 120, 60),
+                Clip::at("logo", "still", 300, 60),
             ],
         ),
-        track(
+        Track::with_clips(
             "v2",
             TrackKind::Video,
-            vec![clip("plate", "footage", 240, 60)],
+            vec![Clip::at("plate", "footage", 240, 60)],
         ),
-        track("a1", TrackKind::Audio, vec![clip("score", "music", 0, 360)]),
-        track("a2", TrackKind::Audio, vec![clip("line", "brief", 60, 60)]),
+        Track::with_clips(
+            "a1",
+            TrackKind::Audio,
+            vec![Clip::at("score", "music", 0, 360)],
+        ),
+        Track::with_clips(
+            "a2",
+            TrackKind::Audio,
+            vec![Clip::at("line", "brief", 60, 60)],
+        ),
     ];
     project
 }
@@ -78,25 +86,6 @@ fn baked() -> Asset {
     asset.state = Some(GenerationState::Generated);
     asset.path = Some(ProjectPath::new("generated/theme.wav"));
     asset
-}
-
-pub(crate) fn track(id: &str, kind: TrackKind, clips: Vec<Clip>) -> Track {
-    Track {
-        note: None,
-        id: TrackId::new(id),
-        kind,
-        name: None,
-        clips,
-    }
-}
-
-pub(crate) fn clip(id: &str, asset: &str, start: u64, duration: u64) -> Clip {
-    Clip::new(
-        ClipId::new(id),
-        AssetId::new(asset),
-        Frames(start),
-        Frames(duration),
-    )
 }
 
 /// A selection, as the window and the MCP tool both hand one in.

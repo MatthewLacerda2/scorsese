@@ -12,7 +12,7 @@ mod common;
 
 use std::path::{Path, PathBuf};
 
-use common::{document, documents, reload, run_in_env, temp_dir};
+use common::{document, documents, reload, run_in_env, scratch};
 
 /// A project with one shot nobody has paid for.
 fn sketched(label: &str) -> PathBuf {
@@ -30,7 +30,7 @@ fn sketched(label: &str) -> PathBuf {
 /// a test that read those would be one provider change away from spending
 /// somebody's money.
 fn machine(label: &str, ceiling: u64) -> PathBuf {
-    let home = temp_dir(label);
+    let home = scratch::dir(label);
     let settings = format!(
         r#"{{ "gemini_api_key": "not-a-key", "elevenlabs_api_key": "not-a-key",
               "budget_cents": {ceiling} }}"#

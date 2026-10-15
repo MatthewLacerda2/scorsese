@@ -4,7 +4,8 @@ use scorsese_compositor::Frame;
 use scorsese_render::contact::{self, ContactError, Look};
 
 use crate::banded;
-use crate::common::ffmpeg::{fixture_dir, generate, tools};
+use crate::common::ffmpeg::{generate, tools};
+use crate::common::scratch;
 
 /// The colour at the middle of one cell of the grid, as `(r, g, b)`.
 ///
@@ -35,7 +36,7 @@ fn band(colour: (u8, u8, u8)) -> Option<&'static str> {
 /// five-second bands, and the sheet shows them in order.
 #[test]
 fn the_cells_are_the_moments_that_were_asked_for() {
-    let dir = fixture_dir("contact-bands");
+    let dir = scratch::dir("contact-bands");
     let tools = tools();
     let file = banded(&tools, &dir);
 
@@ -63,7 +64,7 @@ fn the_cells_are_the_moments_that_were_asked_for() {
 /// band's colour: so the same pixel is white here and coloured there.
 #[test]
 fn a_ruled_sheet_marks_the_cells_and_not_the_tiling() {
-    let dir = fixture_dir("contact-ruled");
+    let dir = scratch::dir("contact-ruled");
     let tools = tools();
     let file = banded(&tools, &dir);
 
@@ -92,7 +93,7 @@ fn a_ruled_sheet_marks_the_cells_and_not_the_tiling() {
 /// one cell and three times as wide.
 #[test]
 fn five_frames_tile_three_across_and_two_down() {
-    let dir = fixture_dir("contact-grid");
+    let dir = scratch::dir("contact-grid");
     let tools = tools();
     let file = banded(&tools, &dir);
 
@@ -112,7 +113,7 @@ fn five_frames_tile_three_across_and_two_down() {
 /// A file longer than one sheet says where to pick up.
 #[test]
 fn a_longer_file_says_where_to_carry_on_from() {
-    let dir = fixture_dir("contact-long");
+    let dir = scratch::dir("contact-long");
     let tools = tools();
     let file = dir.join("long.mp4");
     generate(
@@ -137,7 +138,7 @@ fn a_longer_file_says_where_to_carry_on_from() {
 /// so is a different answer from failing.
 #[test]
 fn a_file_with_no_picture_says_so() {
-    let dir = fixture_dir("contact-audio");
+    let dir = scratch::dir("contact-audio");
     let tools = tools();
     let file = dir.join("tone.wav");
     generate(
@@ -157,7 +158,7 @@ fn a_file_with_no_picture_says_so() {
 /// because every cell of one sheet comes from one file at one scale.
 #[test]
 fn a_vertical_source_keeps_its_shape() {
-    let dir = fixture_dir("contact-vertical");
+    let dir = scratch::dir("contact-vertical");
     let tools = tools();
     let file = dir.join("tall.mp4");
     generate(
