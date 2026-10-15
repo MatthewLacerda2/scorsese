@@ -12,6 +12,7 @@
 //! −0.2 dBFS can clip after AAC. That is precisely the case a delivery render
 //! should mention and precisely the one a sample peak cannot see.
 
+use super::gain::gain_to_db;
 use super::peaks::FramePeaks;
 
 /// Full scale, as the number a sample of `1.0` is.
@@ -203,5 +204,5 @@ impl Meter {
 
 /// A linear amplitude ratio as decibels below full scale.
 fn ratio_to_dbfs(ratio: f64) -> f64 {
-    20.0 * ratio.log10()
+    gain_to_db(ratio)
 }

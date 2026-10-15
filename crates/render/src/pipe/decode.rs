@@ -11,7 +11,7 @@ use crate::error::{RenderError, Stage};
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
 use scorsese_compositor::{Frame, PIXEL_FORMAT, Resolution};
-use scorsese_core::{Crop, Speed};
+use scorsese_core::{Crop, SEQUENCE_FORMATS, Speed};
 
 /// How a source meets the render's raster, resolved to pixels.
 ///
@@ -257,13 +257,6 @@ pub(super) fn read_frame(pipe: &mut impl Read, frame: &mut Frame) -> Result<bool
     }
 }
 
-/// Extensions ffmpeg reads through its `image2` demuxer.
-///
-/// `-loop` is a **private option of that demuxer**, not a general one, so the
-/// list is not decoration: passing it to any other demuxer is an error before
-/// a frame is read. Held to what ffmpeg actually accepts by the test below it.
-const IMAGE2: [&str; 7] = ["png", "jpg", "jpeg", "bmp", "tif", "tiff", "webp"];
-
 /// Asks ffmpeg to hold a still for as long as the clip needs it.
 ///
 /// There are two ways to say that and they are not interchangeable. `-loop 1`
@@ -314,12 +307,18 @@ fn into_animation(command: &mut Command, seconds: f64) {
 /// Decided from the extension, which is the same evidence ffmpeg itself uses
 /// to pick a demuxer for these formats. Anything unrecognised takes the
 /// general path: being slower is recoverable, and refusing to decode is not.
+///
+/// The extensions are core's [`SEQUENCE_FORMATS`]: the formats that hold
+/// exactly one picture are the ones `image2` reads. `-loop` is a **private
+/// option of that demuxer**, not a general one, so the list is not decoration:
+/// passing it to any other demuxer is an error before a frame is read. Held to
+/// what ffmpeg actually accepts by this file's tests.
 pub(crate) fn reads_through_image2(file: &Path) -> bool {
     file.extension()
         .and_then(|extension| extension.to_str())
         .is_some_and(|extension| {
             let extension = extension.to_ascii_lowercase();
-            IMAGE2.contains(&extension.as_str())
+            SEQUENCE_FORMATS.contains(&extension.as_str())
         })
 }
 

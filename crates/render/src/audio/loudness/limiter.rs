@@ -25,7 +25,7 @@
 
 use std::collections::VecDeque;
 
-use scorsese_zimmer::level::FramePeaks;
+use scorsese_zimmer::level::{FramePeaks, db_to_gain, gain_to_db};
 
 /// How far ahead a peak starts pulling the gain down, in seconds. The bake
 /// limiter's figure: long enough to duck without a click.
@@ -83,7 +83,7 @@ impl Limiter {
         let ramp = |seconds: f64| 1.0 / (seconds * rate).max(1.0);
         Self {
             channels: channels.max(1),
-            ceiling: 10_f64.powf(ceiling_dbtp / 20.0),
+            ceiling: db_to_gain(ceiling_dbtp),
             attack: ramp(LOOKAHEAD),
             release: ramp(RELEASE),
             reach: (LOOKAHEAD * rate).ceil() as u64,
@@ -133,7 +133,7 @@ impl Limiter {
     /// How far the deepest gain reduction went, in dB: `0.0` when the limiter
     /// never acted.
     pub(crate) fn deepest_db(&self) -> f64 {
-        -20.0 * self.deepest.log10()
+        -gain_to_db(self.deepest)
     }
 
     /// Records the next frame's peak as the gain it would need on its own.

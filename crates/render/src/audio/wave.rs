@@ -25,6 +25,7 @@ use std::path::{Path, PathBuf};
 use scorsese_compositor::text::Font;
 use scorsese_compositor::waveform::{self, COLUMNS, Column, Wave};
 use scorsese_compositor::{Frame, ResolutionError};
+use scorsese_zimmer::level::gain_to_db;
 
 use crate::error::RenderError;
 use crate::say;
@@ -90,7 +91,7 @@ impl Findings {
     /// The peak as dBFS, or `None` for a file with no signal in it at all —
     /// where the honest answer is "silent" rather than a large negative number.
     pub fn peak_dbfs(&self) -> Option<f64> {
-        (!self.is_silent()).then(|| 20.0 * f64::from(self.peak).log10())
+        (!self.is_silent()).then(|| gain_to_db(f64::from(self.peak)))
     }
 
     /// Everything worth saying beyond the level, one finding a line, and

@@ -9,7 +9,7 @@ use std::fs::File;
 use std::io::{self, BufWriter, Read, Write};
 use std::path::Path;
 
-use scorsese_zimmer::level::Integrated;
+use scorsese_zimmer::level::{Integrated, db_to_gain};
 
 use super::limiter::Limiter;
 use crate::audio::mix::CHANNELS;
@@ -42,7 +42,7 @@ pub(crate) fn raise(
     gain_db: f64,
     ceiling_dbtp: f64,
 ) -> io::Result<Raised> {
-    let gain = 10_f64.powf(gain_db / 20.0) as f32;
+    let gain = db_to_gain(gain_db) as f32;
     let mut limiter = Limiter::new(CHANNELS, rate, ceiling_dbtp);
     let mut meter = Integrated::new(CHANNELS, rate);
     let mut writer = BufWriter::new(File::create(to)?);

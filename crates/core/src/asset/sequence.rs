@@ -58,6 +58,9 @@ pub struct ImageSequence {
 /// A gif or an avif can carry an animation, and a still with a timeline in it
 /// inside a sequence with one of its own would be two clocks for one picture.
 /// Every format a camera, a renderer or an upscaler writes frames in is here.
+///
+/// `scorsese-render` reads the same list as the stills ffmpeg's `image2`
+/// demuxer opens, so a format added here must be one that demuxer reads.
 pub const SEQUENCE_FORMATS: [&str; 7] = ["png", "jpg", "jpeg", "bmp", "tif", "tiff", "webp"];
 
 /// Whether two of [`SEQUENCE_FORMATS`] are one format: one decoder reads both

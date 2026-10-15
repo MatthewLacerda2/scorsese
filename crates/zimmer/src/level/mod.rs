@@ -79,6 +79,7 @@
 
 pub(crate) mod bands;
 pub(crate) mod diff;
+pub(crate) mod gain;
 pub(crate) mod integrated;
 pub(crate) mod intersample;
 pub(crate) mod layer;
@@ -88,6 +89,7 @@ pub(crate) mod profile;
 
 pub use bands::{BandMeter, Bands};
 pub use diff::{BandsDifference, Difference};
+pub use gain::{db_to_gain, db_to_gain_f32, gain_to_db, gain_to_db_f32};
 pub use integrated::Integrated;
 pub use layer::Layer;
 pub use meter::{Loudness, Meter};
