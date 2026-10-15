@@ -26,6 +26,7 @@ mod studio;
 mod transport;
 mod vendors;
 mod voicing;
+mod waiting;
 
 use std::net::SocketAddr;
 

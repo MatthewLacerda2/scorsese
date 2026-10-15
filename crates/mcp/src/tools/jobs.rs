@@ -20,10 +20,11 @@
 //! ([`crate::renders::await_end`]), progress notifications included; cancelling
 //! the waiting call ends the wait and leaves the render running.
 //!
-//! The web's `jobs` has no `wait`, as its `render` has none: there a job is a
-//! row the queue works through, and a call held open on it would hold an HTTP
-//! request and a chat turn for as long as the render takes. Its assistant has
-//! no shell to wander off to either; it asks `jobs` again.
+//! The web's `jobs` takes the same `wait` with a bound (#1301): there a job is
+//! a row the queue works through, and a call held open on it holds an HTTP
+//! request and a chat turn, so it answers after a minute at most, with the
+//! job's line either way, and a job still going is waited on again. Its
+//! `render` has no `wait`.
 //!
 //! A job lives as long as the server does. The renders are this session's
 //! (`crate::renders`), so a restarted server has none, and a render still
