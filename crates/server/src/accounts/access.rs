@@ -27,7 +27,6 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex, PoisonError};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use sqlx::postgres::PgPool;
 
@@ -130,7 +129,7 @@ impl Daily {
 /// Days since the epoch, in UTC — the same day the table's `day` column
 /// counts.
 fn today() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |elapsed| elapsed.as_secs() / 86_400)
+    scorsese_core::civil::today()
+        .and_then(|day| u64::try_from(day).ok())
+        .unwrap_or(0)
 }

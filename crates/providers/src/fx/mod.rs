@@ -11,7 +11,7 @@
 //! arithmetic in [`Rate::micros_for`] is integer: the decimal's digits over
 //! its power of ten, in `u128`, floored to the micro-dollar.
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use scorsese_core::civil;
 
 use crate::api::rates;
 
@@ -132,7 +132,7 @@ impl Rates for Live {
             },
             Err(error) => error.to_string(),
         };
-        let today = days_since_epoch();
+        let today = civil::today().unwrap_or(0);
         let ptax = match rates::ptax_selling(&bcb_date(today - 7), &bcb_date(today)) {
             Ok(Some(text)) => match Rate::parse(&text, Source::Ptax) {
                 Some(rate) => return Ok(rate),
@@ -145,33 +145,9 @@ impl Rates for Live {
     }
 }
 
-/// Days from 1970-01-01 to today, in UTC.
-fn days_since_epoch() -> i64 {
-    let seconds = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |since| since.as_secs());
-    i64::try_from(seconds / 86_400).unwrap_or(0)
-}
-
 /// The day `days` after 1970-01-01 as the BCB writes it, `MM-DD-YYYY`.
-///
-/// Howard Hinnant's `civil_from_days`, as `prices::Checked` does it: a date
-/// is all that is needed, and no calendar crate is.
 fn bcb_date(days: i64) -> String {
-    let days = days + 719_468;
-    let era = days.div_euclid(146_097);
-    let day_of_era = days - era * 146_097;
-    let year_of_era =
-        (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let shifted = (5 * day_of_year + 2) / 153;
-    let day = day_of_year - (153 * shifted + 2) / 5 + 1;
-    let month = if shifted < 10 {
-        shifted + 3
-    } else {
-        shifted - 9
-    };
-    let year = year_of_era + era * 400 + i64::from(month <= 2);
+    let (year, month, day) = civil::date_of_day(days);
     format!("{month:02}-{day:02}-{year}")
 }
 

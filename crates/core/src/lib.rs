@@ -175,7 +175,7 @@ pub use project::{
 pub use shape::{
     Attach, Curve, DEFAULT_STROKE_WIDTH, Endpoint, Geometry, Heads, MAX_RADIUS, Point, Shape, Side,
 };
-pub use stamp::{Timestamp, TimestampError};
+pub use stamp::{Timestamp, TimestampError, civil};
 pub use text::{
     Counter, DEFAULT_FONT, FontChoice, Locale, MAX_DECIMALS, MAX_WEIGHT, MIN_WEIGHT, PLACEHOLDER,
     Reveal, RevealUnit, TextAlign, TextStyle,

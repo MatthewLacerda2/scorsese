@@ -1,4 +1,9 @@
-//! Turning a count of seconds since the Unix epoch into a calendar date.
+//! Turning a count of seconds or days since the Unix epoch into a calendar
+//! date, and a calendar date back into days.
+//!
+//! Public as `scorsese_core::civil` (#1279) because a plain date is wanted
+//! outside this crate too — the day a price was checked, the day a bank
+//! bulletin is asked for — and this is the one copy of the arithmetic.
 //!
 //! Twenty lines rather than a dependency, and it earns them: the whole of what
 //! this crate needs from a clock is "what UTC instant is it", and every calendar
@@ -15,7 +20,33 @@ const DAYS_TO_UNIX_EPOCH: i64 = 719_468;
 
 /// Seconds in a day. No leap seconds: UTC has them and Unix time does not,
 /// which is the vendor's convention as well as the format's.
-const SECONDS_A_DAY: i64 = 86_400;
+pub const SECONDS_A_DAY: i64 = 86_400;
+
+/// Today, as days since 1970-01-01 in UTC, from
+/// [`Timestamp::unix_now`](super::Timestamp::unix_now); `None` on a clock set
+/// before 1970.
+pub fn today() -> Option<i64> {
+    Some(super::Timestamp::unix_now()?.div_euclid(SECONDS_A_DAY))
+}
+
+/// The civil date, `(year, month, day)`, `days` after 1970-01-01.
+pub fn date_of_day(days: i64) -> (i32, u32, u32) {
+    civil_from_days(days + DAYS_TO_UNIX_EPOCH)
+}
+
+/// How many days `(year, month, day)` is after 1970-01-01, negative before it.
+///
+/// Hinnant's `days_from_civil`, the inverse of [`date_of_day`]. Not validated:
+/// February the thirty-first counts as March the third.
+pub fn day_of_date(year: i32, month: u32, day: u32) -> i64 {
+    let year = i64::from(year) - i64::from(month <= 2);
+    let era = year.div_euclid(400);
+    let year_of_era = year - era * 400;
+    let month = i64::from(month);
+    let day_of_year = (153 * (month + if month > 2 { -3 } else { 9 }) + 2) / 5 + i64::from(day) - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    era * 146_097 + day_of_era - DAYS_TO_UNIX_EPOCH
+}
 
 /// A UTC instant, split the way [`Timestamp::from_utc`](super::Timestamp::from_utc)
 /// takes it.
@@ -34,7 +65,7 @@ impl Utc {
     pub(super) fn from_unix(seconds: i64) -> Self {
         let days = seconds.div_euclid(SECONDS_A_DAY);
         let within = seconds.rem_euclid(SECONDS_A_DAY);
-        let (year, month, day) = civil_from_days(days + DAYS_TO_UNIX_EPOCH);
+        let (year, month, day) = date_of_day(days);
         Self {
             year,
             month,
@@ -64,4 +95,24 @@ fn civil_from_days(days: i64) -> (i32, u32, u32) {
         u32::try_from(month).unwrap_or(1),
         u32::try_from(day).unwrap_or(1),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn days_and_dates_turn_into_each_other_across_the_leap_rules() {
+        for (days, date) in [
+            (0, (1970, 1, 1)),
+            (-1, (1969, 12, 31)),
+            (11_016, (2000, 2, 29)),
+            (-25_508, (1900, 3, 1)),
+            (20_740, (2026, 10, 14)),
+        ] {
+            assert_eq!(date_of_day(days), date, "{days}");
+            assert_eq!(day_of_date(date.0, date.1, date.2), days, "{date:?}");
+        }
+        assert_eq!(day_of_date(1900, 3, 1) - day_of_date(1900, 2, 28), 1);
+    }
 }

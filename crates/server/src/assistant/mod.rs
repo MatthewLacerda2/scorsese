@@ -152,6 +152,8 @@ pub use store::{
 pub use store::{conversation, detail, recover};
 
 /// What a turn is not allowed to cost by default, in micro-dollars: $3.50.
+/// The server's one statement of it: [`crate::config::ASSISTANT_TURN_CAP`]
+/// falls back to it, and that variable's error names it in dollars.
 ///
 /// What a user is charged, so it moved with the multipliers (#1247): six
 /// turns on the hosted server (2026-10-13) averaged $0.74 (Gemini 3.8 Flash)

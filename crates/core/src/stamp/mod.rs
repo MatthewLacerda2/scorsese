@@ -45,7 +45,7 @@ pub struct TimestampError {
     pub found: String,
 }
 
-mod civil;
+pub mod civil;
 
 impl Timestamp {
     /// Now, in UTC, to the second.
