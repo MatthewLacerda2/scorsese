@@ -13,6 +13,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use scorsese_providers::video::{self, Progress, ProviderError, Ready, Ticket, VideoProvider};
+use scorsese_render::testing::generate;
 use scorsese_server::generations::{Image, Speech, Studio, Timing, Vendors, Video};
 use scorsese_server::http::AppState;
 use scorsese_server::jobs::{self, kinds};
@@ -112,14 +113,7 @@ impl VideoProvider for Mock {
 /// A file ffmpeg makes from `inputs`, as bytes.
 pub(super) fn made(name: &str, inputs: &[&str]) -> Vec<u8> {
     let file = common::scratch::dir("vendor").join(name);
-    let output = common::tools()
-        .ffmpeg()
-        .args(["-v", "error", "-y"])
-        .args(inputs)
-        .arg(&file)
-        .output()
-        .expect("ffmpeg runs");
-    assert!(output.status.success(), "{output:?}");
+    generate(&common::tools(), &file, inputs);
     std::fs::read(file).expect("the fixture reads")
 }
 

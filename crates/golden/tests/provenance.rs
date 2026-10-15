@@ -9,7 +9,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use scorsese_golden::{Fixture, GoldenError, Mode, RECORD_FILE, run};
 use scorsese_render::frames;
-use scorsese_render::{Frame, Resolution, Tools};
+use scorsese_render::testing::tools;
+use scorsese_render::{Frame, Resolution};
 
 const FIXTURES: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures");
 const WORKSPACE: &str = env!("CARGO_TARGET_TMPDIR");
@@ -45,8 +46,7 @@ fn vandalise(fixture: &Path) {
     for pixel in blue.bytes_mut().chunks_exact_mut(4) {
         pixel.copy_from_slice(&[0, 0, 255, u8::MAX]);
     }
-    frames::write_png(&Tools::discover().expect("ffmpeg"), &reference, &blue)
-        .expect("overwrite the reference");
+    frames::write_png(&tools(), &reference, &blue).expect("overwrite the reference");
 }
 
 fn record_of(fixture: &Path) -> PathBuf {
@@ -71,10 +71,7 @@ fn a_failure_names_the_ffmpeg_that_decoded_the_frames() {
     let fixture = borrowed("names-the-decoder");
     vandalise(&fixture);
 
-    let running = Tools::discover()
-        .expect("ffmpeg")
-        .ffmpeg_version()
-        .expect("a version");
+    let running = tools().ffmpeg_version().expect("a version");
     let text = failure_text(&fixture);
 
     assert!(
@@ -134,10 +131,7 @@ fn blessing_records_the_ffmpeg_that_produced_the_new_references() {
 
     run(&fixture, Mode::Bless, Path::new(WORKSPACE)).expect("blessing succeeds");
 
-    let running = Tools::discover()
-        .expect("ffmpeg")
-        .ffmpeg_version()
-        .expect("a version");
+    let running = tools().ffmpeg_version().expect("a version");
     let written = std::fs::read_to_string(record_of(&fixture)).expect("the record was rewritten");
     assert_eq!(
         written.trim(),

@@ -3,6 +3,7 @@
 
 use std::path::{Path, PathBuf};
 
+use scorsese_render::testing::generate;
 use scorsese_server::credits::generations::{self, Answer, Request, Shot};
 use scorsese_server::credits::ledger;
 use scorsese_server::db::{self, UserId};
@@ -19,13 +20,13 @@ const BRIEF: &str = "b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b
 /// A spoken line, as a provider would have left it: a wav under `directory`.
 fn line(directory: &Path, name: &str) -> PathBuf {
     let file = directory.join(name);
-    let output = common::tools()
-        .ffmpeg()
-        .args(["-v", "error", "-y", "-f", "lavfi", "-i", "sine=duration=1"])
-        .arg(&file)
-        .output()
-        .expect("ffmpeg runs");
-    assert!(output.status.success(), "{output:?}");
+    // lavfi's own `sine` at its eighth of full scale: a line only has to be
+    // there, not at any level.
+    generate(
+        &common::tools(),
+        &file,
+        &["-f", "lavfi", "-i", "sine=duration=1"],
+    );
     file
 }
 

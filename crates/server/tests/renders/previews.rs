@@ -7,6 +7,7 @@
 use std::path::Path;
 
 use scorsese_core::{Project, hash_bytes};
+use scorsese_render::testing::colour_video;
 use scorsese_render::{Resolution, frames};
 use scorsese_server::Files;
 use scorsese_server::db::UserId;
@@ -48,19 +49,7 @@ pub(super) async fn worker(pool: &PgPool, files: &Files) -> watch::Sender<bool> 
 /// proxy; a project showing it for six frames.
 async fn red_in_library(pool: &PgPool, files: &Files, user: UserId) -> Project {
     let setup = "the test setup works";
-    let make = |colour: &str, file: &Path| {
-        std::fs::create_dir_all(file.parent().expect(setup)).expect(setup);
-        let status = files
-            .tools
-            .ffmpeg()
-            .args(["-v", "error", "-y", "-f", "lavfi", "-i"])
-            .arg(format!("color=c={colour}:s=32x32:d=1:r=30"))
-            .args(["-pix_fmt", "yuv420p"])
-            .arg(file)
-            .status()
-            .expect(setup);
-        assert!(status.success(), "ffmpeg made the {colour} fixture");
-    };
+    let make = |colour: &str, file: &Path| colour_video(&files.tools, file, colour, "32x32", 1);
     let scratch = common::scratch::dir("red").join("red.mp4");
     make("red", &scratch);
     let sha = hash_bytes(&std::fs::read(&scratch).expect(setup));

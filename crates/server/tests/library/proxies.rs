@@ -3,6 +3,7 @@
 
 use std::time::{Duration, Instant};
 
+use scorsese_render::testing::generate;
 use scorsese_server::jobs::{self, kinds};
 use sqlx::postgres::PgPool;
 use tokio::sync::watch;
@@ -14,15 +15,18 @@ use crate::{member, upload};
 /// side, so worth one — made by ffmpeg under `directory`.
 fn wide(directory: &std::path::Path) -> Vec<u8> {
     let file = directory.join("wide.mp4");
-    let output = common::tools()
-        .ffmpeg()
-        .args(["-v", "error", "-y", "-f", "lavfi", "-i"])
-        .arg("testsrc=s=1280x720:d=0.2:r=30")
-        .args(["-pix_fmt", "yuv420p"])
-        .arg(&file)
-        .output()
-        .expect("ffmpeg runs");
-    assert!(output.status.success(), "{output:?}");
+    generate(
+        &common::tools(),
+        &file,
+        &[
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=s=1280x720:d=0.2:r=30",
+            "-pix_fmt",
+            "yuv420p",
+        ],
+    );
     std::fs::read(file).expect("the fixture reads")
 }
 

@@ -13,7 +13,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use scorsese_golden::{Fixture, GoldenError, Mode, run};
 use scorsese_render::frames;
-use scorsese_render::{Frame, Resolution, Tools};
+use scorsese_render::testing::tools;
+use scorsese_render::{Frame, Resolution};
 
 const FIXTURES: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures");
 const WORKSPACE: &str = env!("CARGO_TARGET_TMPDIR");
@@ -54,8 +55,7 @@ fn a_wrong_reference_fails_and_leaves_the_frame_to_look_at() {
     for pixel in blue.bytes_mut().chunks_exact_mut(4) {
         pixel.copy_from_slice(&[0, 0, 255, u8::MAX]);
     }
-    frames::write_png(&Tools::discover().expect("ffmpeg"), &reference, &blue)
-        .expect("overwrite the reference");
+    frames::write_png(&tools(), &reference, &blue).expect("overwrite the reference");
 
     let error = outcome_of(&fixture, Mode::Check).expect_err("a blue reference cannot pass");
 

@@ -6,7 +6,7 @@
 //! `scorsese-render`'s tests.
 
 use crate::{call, said};
-use scorsese_render::Tools;
+use scorsese_render::testing::{generate, tools};
 use serde_json::{Value, json};
 
 /// What the base64 of a PNG starts with, whatever is in the picture.
@@ -16,18 +16,20 @@ const PNG_HEADER: &str = "iVBORw0KGgo";
 /// this tool.
 fn footage(label: &str, seconds: u32) -> std::path::PathBuf {
     let dir = crate::scratch::fresh(&format!("scorsese-look-{label}"), "");
-    std::fs::create_dir_all(&dir).expect("create the fixture directory");
     let file = dir.join("footage.mp4");
-    let tools = Tools::discover().expect("ffmpeg must be on PATH to run these tests");
-    let output = tools
-        .ffmpeg()
-        .args(["-nostdin", "-v", "error", "-y", "-f", "lavfi", "-i"])
-        .arg(format!("color=c=teal:s=64x32:d={seconds}:r=10"))
-        .args(["-pix_fmt", "yuv420p"])
-        .arg(&file)
-        .output()
-        .expect("run ffmpeg");
-    assert!(output.status.success(), "ffmpeg failed making the fixture");
+    // Ten frames a second, where `testing::colour_video` makes thirty.
+    generate(
+        &tools(),
+        &file,
+        &[
+            "-f",
+            "lavfi",
+            "-i",
+            &format!("color=c=teal:s=64x32:d={seconds}:r=10"),
+            "-pix_fmt",
+            "yuv420p",
+        ],
+    );
     file
 }
 
