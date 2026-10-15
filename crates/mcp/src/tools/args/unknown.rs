@@ -95,6 +95,8 @@ mod tests {
         assert_eq!(nearest("sclae", KNOWN), Some("scale"));
         assert_eq!(nearest("duration", KNOWN), Some("duration_seconds"));
         assert_eq!(nearest("start", KNOWN), Some("start_seconds"));
+        // One letter off a three-letter name is still that name.
+        assert_eq!(nearest("fot", &["fit"]), Some("fit"));
     }
 
     #[test]
