@@ -30,7 +30,7 @@ def look(number: int) -> dict:
         str(number),
         "--json",
         "isDraft,headRefOid,headRefName,number,state,mergeable,mergeStateStatus,author,"
-        "baseRefName",
+        "baseRefName,body",
     )
 
 
