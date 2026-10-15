@@ -191,7 +191,9 @@ the run ends. So **Docker is needed for `make gates`**, unless
 `SCORSESE_TEST_DATABASE_URL` names a Postgres the tests may create and drop
 databases on. An ambient `DATABASE_URL` is deliberately ignored, so a test run
 never touches the development database. CI's `check` job and the weekly coverage
-workflow run a Postgres service container instead.
+workflow start a native Postgres 17 with `tools/ci-postgres` instead, from the
+PostgreSQL project's apt repository rather than an image, since every
+registry's anonymous limit was hit from GitHub's shared runners (#1260).
 
 ## Running the service
 

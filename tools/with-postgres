@@ -21,9 +21,11 @@
 # that is the database the server itself runs against, and a test run should
 # never be one typo away from it. Hence a name of its own for the opt-in.
 #
-# CI does not come through here: its job has a Postgres service container and
-# sets DATABASE_URL itself (see .github/workflows/ci.yml). The image below is
-# the same one that service runs; change both together.
+# CI does not come through here: its job starts a native Postgres with
+# tools/ci-postgres and sets DATABASE_URL itself (see .github/workflows/ci.yml),
+# because pulling an image from the shared runners hit every registry's
+# anonymous limit (#1260). That script's PG_MAJOR is this image's major
+# version; change both together.
 
 set -euo pipefail
 
