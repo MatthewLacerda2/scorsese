@@ -22,7 +22,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::tools::args::{self, Name, ProjectDir, Required};
-use crate::tools::inspect::load;
+use crate::tools::inspect::{load, save};
 use crate::tools::{Costs, Reply, Tool};
 
 /// Set a clip's speed, fit, position, rotation, scale, shadow, glow, blend or
@@ -163,9 +163,7 @@ impl Tool for ClipSet {
         let mut project = load(dir)?;
         let id = ClipId::new(arguments.clip.as_str());
         let said = set(&mut project, &id, &arguments)?;
-        project
-            .save(dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
+        save(&project, dir)?;
         Ok(format!("`{id}`: {}. Nothing else changed.", said.join("; ")).into())
     }
 }

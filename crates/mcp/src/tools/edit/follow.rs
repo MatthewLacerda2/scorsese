@@ -15,7 +15,7 @@ use serde_json::Value;
 
 use super::seconds;
 use crate::tools::args::{self, Name, ProjectDir, Required};
-use crate::tools::inspect::load;
+use crate::tools::inspect::{load, save};
 use crate::tools::{Costs, Reply, Tool};
 
 /// Set or clear the arrow a clip travels along.
@@ -88,9 +88,7 @@ impl Tool for ClipFollow {
         let mut project = load(dir)?;
         let id = ClipId::new(arguments.clip.as_str());
         let said = follow(&mut project, &id, &arguments)?;
-        project
-            .save(dir)
-            .map_err(|error| format!("saving the project: {error}"))?;
+        save(&project, dir)?;
         Ok(format!("`{id}`: {said}.").into())
     }
 }
