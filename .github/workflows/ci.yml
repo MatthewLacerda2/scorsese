@@ -438,7 +438,8 @@ jobs:
   # that quietly misfiles a path is a gate that has stopped gating without
   # saying so. The same run holds the conventions in `tools/lint/src/rules`
   # (#1229): no filename-prefix groups, no markers promising later work, no
-  # skipped tests, and crate docs naming their public modules.
+  # skipped tests, crate docs naming their public modules, and no code file
+  # `.gitignore` would leave out of a commit.
   size:
     name: size gate
     runs-on: ubuntu-24.04

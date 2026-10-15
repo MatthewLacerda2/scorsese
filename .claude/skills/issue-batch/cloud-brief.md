@@ -112,7 +112,9 @@ Only a reference **your branch adds or deliberately changes**, by name, and you
   2026-10-07 `.gitignore`'s bare `cache/` swallowed a new
   `crates/render/src/page/cache/pieces.rs`: #872's gates passed on the
   coder's disk, and its pushed tree could not compile (the rule was narrowed
-  in #876, but other ignore rules remain).
+  in #876). `make size` now fails on any code file an ignore rule swallows
+  (#1229), but a non-code file it needs — a fixture, a page — is still yours
+  to check.
 - **Numbers are taken last**, from `origin/main` + 1: a `schema_version` bump
   (with its migration step), `SYNTH_VERSION`, and a SQL migration's `NNNN_`.
   Renumber if a sibling's lands first (#714 and #716 both took `0017`; the queue

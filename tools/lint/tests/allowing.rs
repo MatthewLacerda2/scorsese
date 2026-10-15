@@ -6,6 +6,7 @@ use std::path::Path;
 
 use scorsese_lint::check_tree;
 use scorsese_lint::rules::allow::{allowed, grants};
+use scorsese_lint::rules::ignored;
 
 #[test]
 fn an_allow_needs_its_rule_and_a_reason() {
@@ -45,9 +46,12 @@ fn the_tree_is_walked_and_its_findings_ordered() {
     write("target/debug/build/x.rs", "#[ignore]\n");
     write("notes.md", "#[ignore]\n");
 
+    // This tree sits under the checkout's ignored target directory, so the
+    // `ignored` rule rightly reports every file; `tests/ignored.rs` covers it.
     let found: Vec<String> = check_tree(&root)
         .expect("walk")
         .iter()
+        .filter(|finding| finding.rule != ignored::RULE)
         .map(ToString::to_string)
         .collect();
 

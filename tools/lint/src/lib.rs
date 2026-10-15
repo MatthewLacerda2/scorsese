@@ -23,7 +23,7 @@
 //!
 //! **The conventions** ([`rules`], #1229): written rules a check can hold, so
 //! they are held by one — group by subfolder, nothing temporary, tests never
-//! skip, crate docs name their modules. Each takes exceptions inline, with a
+//! skip, crate docs name their modules, no code `.gitignore` swallows. Each takes exceptions inline, with a
 //! written reason.
 
 pub mod classify;

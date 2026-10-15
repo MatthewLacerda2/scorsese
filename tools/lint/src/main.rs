@@ -62,7 +62,9 @@ fn rules(root: &Path) -> bool {
         }
     };
     if findings.is_empty() {
-        println!("conventions: prefix groups, markers, skipped tests, crate docs -- all held");
+        println!(
+            "conventions: prefix groups, markers, skipped tests, crate docs, ignored code -- all held"
+        );
         return true;
     }
     eprintln!("conventions: {} findings.", findings.len());

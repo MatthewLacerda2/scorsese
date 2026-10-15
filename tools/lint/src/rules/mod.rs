@@ -8,6 +8,8 @@
 //! - [`skips`] — a test runs or fails, never skips; the database tests read
 //!   their own variable, never the server's.
 //! - [`crate_docs`] — each crate's module doc names its public modules.
+//! - [`ignored`] — what you push is what CI builds: no code file `.gitignore`
+//!   would leave out of a commit.
 //!
 //! **Exceptions are inline, with a written reason** ([`allow`]): a comment
 //! `lint: allow(<rule>) <why>` on the line a rule flags or in the comments
@@ -15,6 +17,7 @@
 
 pub mod allow;
 pub mod crate_docs;
+pub mod ignored;
 pub mod markers;
 pub mod prefix;
 pub mod skips;
@@ -58,6 +61,8 @@ pub fn check_tree(root: &Path) -> io::Result<Vec<Finding>> {
         texts.push((file, String::from_utf8_lossy(&bytes).into_owned()));
     }
     let mut findings = prefix::check(texts.iter().map(|(file, text)| (&file.path, text.as_str())));
+    let paths: Vec<&Path> = files.iter().map(|file| file.path.as_path()).collect();
+    findings.extend(ignored::check(root, &paths));
     for (file, text) in &texts {
         findings.extend(markers::check(&file.path, text));
         findings.extend(skips::check(&file.path, text));
