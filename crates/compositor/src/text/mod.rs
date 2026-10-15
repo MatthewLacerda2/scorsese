@@ -205,6 +205,9 @@ pub fn block_in(
     Laid::out(text, font, style, band, resolution).block
 }
 
+/// The tightest baseline-to-baseline gap drawn, as a multiple of the size.
+const TIGHTEST_LINE_HEIGHT: f32 = 0.5;
+
 /// The layout of one block, worked out before any glyph is filled.
 struct Laid<'a> {
     lines: Vec<layout::Line>,
@@ -225,7 +228,10 @@ impl<'a> Laid<'a> {
         // returns the other operand. A style that says nothing sane still draws
         // something rather than looping forever or vanishing.
         let size = style.size.max(1.0);
-        let line_height = style.line_height.max(size);
+        // Tighter than solid is honoured — a title set at 0.85 overlaps its
+        // ascenders and descenders on purpose — down to half the size, where
+        // lines would start landing on each other (#1090).
+        let line_height = style.line_height.max(size * TIGHTEST_LINE_HEIGHT);
         let max_width = if style.max_width.is_finite() && style.max_width > 0.0 {
             style.max_width
         } else {

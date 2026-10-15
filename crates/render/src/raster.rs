@@ -182,20 +182,55 @@ pub(crate) fn fitted_inside(source: Resolution, raster: Resolution) -> Resolutio
 
 /// What a crop leaves of a source, in pixels.
 ///
-/// `iw*w` truncated to whole pixels. The two must agree, because this sizes the
-/// buffer and ffmpeg's `crop` fills it, and today they do not always: ffmpeg
-/// rounds to nearest, and to an even width on 4:2:0 input, so a fraction that
-/// is not a whole number of pixels can come back a pixel or two apart (#1089).
-/// At least one pixel each way: a rectangle that rounds to nothing is a raster
-/// nothing can be read into, and validation has already established that the
-/// fractions themselves enclose some of the source.
+/// Each kept side is `round(size * fraction)`, held between one pixel and the
+/// whole side: a rectangle that rounds to nothing is a raster nothing can be
+/// read into, and validation has already established that the fractions
+/// themselves enclose some of the source.
+///
+/// This sizes the buffer the pipe is read into and ffmpeg's `crop` fills it,
+/// so the two must agree to the pixel, and they once did not: this truncated
+/// while ffmpeg rounded, and rounded the width down to even on 4:2:0 input, so
+/// a native or alpha source read at the wrong stride and slid (#1089). Now
+/// [`crop_filter`] hands ffmpeg this same arithmetic as its own expression,
+/// with `exact=1` so it rounds nothing further, and the two agree by
+/// construction.
 pub(crate) fn cropped(size: Resolution, crop: Option<scorsese_core::Crop>) -> Resolution {
     let Some(crop) = crop else {
         return size;
     };
-    let width = (f64::from(size.width()) * crop.width) as u32;
-    let height = (f64::from(size.height()) * crop.height) as u32;
-    Resolution::source(width.max(1), height.max(1)).unwrap_or(size)
+    let kept = |side: u32, fraction: f64| {
+        let pixels = (f64::from(side) * fraction).round();
+        // In range by the clamp, so the cast neither truncates nor wraps.
+        pixels.clamp(1.0, f64::from(side)) as u32
+    };
+    Resolution::source(
+        kept(size.width(), crop.width),
+        kept(size.height(), crop.height),
+    )
+    .unwrap_or(size)
+}
+
+/// ffmpeg's `crop` filter for `crop`, keeping exactly the pixels [`cropped`]
+/// counts.
+///
+/// Written in terms of the input's own `iw`/`ih` rather than as numbers baked
+/// from a measured size, because the file decoded is not always the one that
+/// was measured: a preview reads a smaller proxy, and an asset can be replaced
+/// by a bigger capture of the same thing. Rounding is to nearest, the same
+/// `round` in the same double arithmetic as [`cropped`]; `exact=1` stops
+/// ffmpeg rounding a subsampled source's rectangle to even on top of that,
+/// which on 4:2:0 input it would otherwise do. The offset needs no clamp of
+/// ours: ffmpeg keeps the rectangle inside the frame, and where it sits never
+/// sizes a buffer.
+pub(crate) fn crop_filter(crop: scorsese_core::Crop) -> String {
+    format!(
+        "crop=w='clip(round(iw*{w}),1,iw)':h='clip(round(ih*{h}),1,ih)':\
+         x='round(iw*{x})':y='round(ih*{y})':exact=1",
+        w = crop.width,
+        h = crop.height,
+        x = crop.x,
+        y = crop.y,
+    )
 }
 
 /// The asset's own pixel size, from what was probed at import or from a probe
@@ -225,4 +260,51 @@ fn dimensions_of(asset: &Asset) -> Option<Resolution> {
 fn dimensions(media: scorsese_core::MediaMetadata) -> Option<Resolution> {
     let (width, height) = (media.width?, media.height?);
     Resolution::source(width, height).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use scorsese_core::Crop;
+
+    fn third() -> Option<Crop> {
+        Some(Crop {
+            x: 1.0 / 3.0,
+            y: 1.0 / 3.0,
+            width: 1.0 / 3.0,
+            height: 1.0 / 3.0,
+        })
+    }
+
+    /// Rounded to nearest, as ffmpeg's expression in [`crop_filter`] rounds:
+    /// a third of 50 is 16.67 and keeps 17, of 52 is 17.33 and keeps 17 —
+    /// odd, which `exact=1` lets a 4:2:0 source keep too.
+    #[test]
+    fn a_crop_keeps_the_nearest_whole_pixels() {
+        let size = |width, height| Resolution::source(width, height).expect("a size");
+        assert_eq!(cropped(size(50, 52), third()), size(17, 17));
+        assert_eq!(cropped(size(1920, 1080), third()), size(640, 360));
+    }
+
+    /// Never nothing, never more than the source.
+    #[test]
+    fn a_crop_keeps_at_least_a_pixel_and_at_most_the_source() {
+        let size = Resolution::source(10, 10).expect("a size");
+        let sliver = Crop {
+            width: 0.01,
+            height: 1.0,
+            ..Crop::default()
+        };
+        assert_eq!(
+            cropped(size, Some(sliver)),
+            Resolution::source(1, 10).expect("a size")
+        );
+    }
+
+    #[test]
+    fn the_filter_rounds_the_same_way_and_exactly() {
+        let filter = crop_filter(third().expect("a crop"));
+        assert!(filter.contains("w='clip(round(iw*0.3333333333333333),1,iw)'"));
+        assert!(filter.ends_with(":exact=1"));
+    }
 }

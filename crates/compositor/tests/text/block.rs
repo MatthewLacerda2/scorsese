@@ -65,3 +65,29 @@ fn the_anchor_places_the_block_in_its_band() {
     assert_eq!(at(AnchorX::Center, AnchorY::Center), (110.0, 77.5));
     assert_eq!(at(AnchorX::Right, AnchorY::Bottom), (220.0, 115.0));
 }
+
+/// Under 1.0 the lines are set tighter than solid, as asked, down to half the
+/// size (#1090): a 20-pixel style at 0.8 is 16 pixels a line, and one asking
+/// for less than 0.5 gets 10.
+#[test]
+fn a_line_height_under_the_size_is_honoured_down_to_half_of_it() {
+    let resolution = Resolution::new(WIDTH, HEIGHT).expect("a legal raster");
+    let tall = |line_height: f32| {
+        let style = text::Style {
+            line_height,
+            max_width: 300.0,
+            ..style(20.0, Rgba::WHITE)
+        };
+        text::block_in(
+            "Ship\nit",
+            Font::sans(),
+            &style,
+            Band::whole(resolution),
+            resolution,
+        )
+        .height
+    };
+    assert_eq!(tall(16.0), 32.0);
+    assert_eq!(tall(4.0), 20.0);
+    assert_eq!(tall(f32::NAN), 20.0);
+}

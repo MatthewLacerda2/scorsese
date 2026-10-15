@@ -112,7 +112,8 @@ const ALIGN: &str = "Which edge the lines line up against inside the wrapped \
                      block. Default `center`, which is what a title wants.";
 /// `line_height`.
 const LINE_HEIGHT: &str = "Baseline to baseline, as a multiple of `size`. 1.0 sets the \
-                           lines solid; the default 1.25 leaves a readable gap.";
+                           lines solid and under it they overlap, down to 0.5, the \
+                           tightest drawn; the default 1.25 leaves a readable gap.";
 /// `max_width`.
 const MAX_WIDTH: &str = "How wide the text runs before it wraps, as a fraction of the \
                          frame's WIDTH. Default 0.9, a margin down each side.";
