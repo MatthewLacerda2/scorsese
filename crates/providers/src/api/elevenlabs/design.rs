@@ -52,14 +52,6 @@ pub const PASSAGE: std::ops::RangeInclusive<usize> = 100..=1000;
 /// one passage is charged.
 pub const CANDIDATES: usize = 3;
 
-/// The format the samples come back in.
-///
-/// The API's own default, and the same one the rest of scorsese's ElevenLabs
-/// audio uses. Not a picker: the alternatives need somebody's subscription
-/// tier, and a setting whose options depend on a plan is tier detection wearing
-/// a dropdown.
-pub const OUTPUT_FORMAT: &str = "mp3_44100_128";
-
 /// What a design call asks for.
 ///
 /// Declared rather than assembled, like every request in this directory, and

@@ -154,6 +154,7 @@ pub mod chat;
 pub mod chromium;
 pub mod credentials;
 mod diskcache;
+mod fingerprint;
 pub mod fx;
 mod generated;
 pub mod image;

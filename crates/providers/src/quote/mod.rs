@@ -51,7 +51,7 @@ pub use generation::{OFFER_FROM_CENTS, Offer, Unquotable, batch, generation, off
 pub use local::{ProjectQuotes, QUOTES_DIR};
 pub use token::{Issued, LIFETIME_SECONDS, Quotes, Refused, issue, redeem};
 
-use scorsese_core::hash_bytes;
+use crate::fingerprint::Fingerprint;
 
 /// What kind of spending a quote is for.
 ///
@@ -136,18 +136,18 @@ impl Quote {
     /// the reason every brief fingerprint here is written that way: one
     /// field's value can never run into the next.
     pub fn digest(&self) -> String {
-        let mut charges: Vec<String> = self
+        let mut charges: Vec<Fingerprint> = self
             .charges()
             .map(|(subject, charge)| {
-                format!(
-                    "item:{subject}\nbrief:{}\ncents:{}\n",
-                    charge.brief, charge.cents
-                )
+                Fingerprint::default()
+                    .line("item", subject)
+                    .line("brief", &charge.brief)
+                    .line("cents", charge.cents)
             })
             .collect();
         charges.sort();
-        let text = format!("spend:{}\n{}", self.spend.as_str(), charges.concat());
-        hash_bytes(text.as_bytes())
+        let spend = Fingerprint::default().line("spend", self.spend.as_str());
+        charges.into_iter().fold(spend, Fingerprint::then).digest()
     }
 
     /// Every charged item, with what it is about.
@@ -155,5 +155,37 @@ impl Quote {
         self.items
             .iter()
             .filter_map(|item| Some((item.subject.as_str(), item.charge.as_ref()?)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A quote's digest, pinned: a token issued before a release must still
+    /// redeem after it. The free item is left out of the hash, and the charged
+    /// ones go in sorted, so the order they are listed in does not matter.
+    #[test]
+    fn a_quotes_digest_does_not_move() {
+        let item = |subject: &str, charge: Option<(&str, u64)>| Item {
+            subject: subject.to_owned(),
+            says: String::from("would be generated"),
+            charge: charge.map(|(brief, cents)| Charge {
+                brief: brief.to_owned(),
+                cents,
+            }),
+        };
+        let quote = Quote {
+            spend: Spend::Generation,
+            items: vec![
+                item("b", Some(("bbb", 40))),
+                item("free", None),
+                item("a", Some(("aaa", 120))),
+            ],
+        };
+        assert_eq!(
+            quote.digest(),
+            "2d22e28d44a4b0f7ac37fdfa206e55e2d84f6df016669e80ed50a169176627f8"
+        );
     }
 }

@@ -34,3 +34,16 @@ const BASE: &str = "https://api.elevenlabs.io/v1";
 
 /// The header ElevenLabs reads the key from.
 const KEY_HEADER: &str = "xi-api-key";
+
+/// The one output format scorsese asks for, for speech and for a voice
+/// design's samples alike.
+///
+/// The API's own default, and not gated behind any subscription tier — which is
+/// the whole reason it is a constant rather than a choice. 192kbps MP3 needs
+/// Creator, PCM and WAV at 44.1kHz need Pro, and a picker whose options depend
+/// on somebody's plan is a tier-detection feature wearing a dropdown.
+///
+/// It is also a line of every ElevenLabs brief's fingerprint, read from here,
+/// so changing it asks for every line and design again rather than serving the
+/// old format's files as the new one's.
+pub const OUTPUT_FORMAT: &str = "mp3_44100_128";

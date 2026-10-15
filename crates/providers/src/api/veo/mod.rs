@@ -14,14 +14,9 @@
 pub mod request;
 pub mod response;
 
+use crate::api::google::{self, BASE, ModelInfo};
 use crate::api::http::{Caller, HttpError};
 use crate::credentials::Secret;
-
-/// Every Veo endpoint hangs off this.
-const BASE: &str = "https://generativelanguage.googleapis.com/v1beta";
-
-/// The header Google reads the key from.
-const KEY_HEADER: &str = "x-goog-api-key";
 
 /// The most a generated video is allowed to be, in bytes.
 ///
@@ -68,7 +63,7 @@ impl Veo {
     /// A client that authenticates with this key.
     pub fn new(key: &Secret) -> Self {
         Self {
-            caller: Caller::new(KEY_HEADER, key),
+            caller: google::caller(key),
         }
     }
 
@@ -86,8 +81,8 @@ impl Veo {
     /// ([`crate::live`]) confirms, without paying for a shot, that the key is
     /// accepted and that the `-preview` id is still served with
     /// `predictLongRunning` — the two things most likely to change under us.
-    pub fn model(&self, model: Model) -> Result<response::ModelInfo, HttpError> {
-        self.caller.get(&format!("{BASE}/models/{}", model.id()))
+    pub fn model(&self, model: Model) -> Result<ModelInfo, HttpError> {
+        google::model(&self.caller, model.id())
     }
 
     /// Hands a generation to the model and returns its ticket.

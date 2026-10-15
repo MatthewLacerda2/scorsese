@@ -17,17 +17,9 @@
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 
-use super::{BASE, KEY_HEADER};
+use super::{BASE, KEY_HEADER, OUTPUT_FORMAT};
 use crate::api::http::{Caller, HttpError};
 use crate::credentials::Secret;
-
-/// The one output format scorsese asks for.
-///
-/// The API's own default, and not gated behind any subscription tier — which is
-/// the whole reason it is a constant rather than a choice. 192kbps MP3 needs
-/// Creator, PCM and WAV at 44.1kHz need Pro, and a picker whose options depend
-/// on somebody's plan is a tier-detection feature wearing a dropdown.
-const OUTPUT_FORMAT: &str = "mp3_44100_128";
 
 /// The most a spoken line's reply is allowed to be, in bytes.
 ///

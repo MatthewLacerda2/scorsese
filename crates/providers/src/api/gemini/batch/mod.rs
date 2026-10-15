@@ -22,7 +22,8 @@ use std::time::Duration;
 
 use crate::api::http::{HttpError, encoded};
 
-use super::{BASE, Gemini, Model};
+use super::{Gemini, Model};
+use crate::api::google::BASE;
 
 /// The most one inline batch may weigh, in bytes of request body.
 ///
