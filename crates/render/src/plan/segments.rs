@@ -112,7 +112,7 @@ pub(super) fn tracks_of(project: &Project, kind: TrackKind) -> Vec<&Track> {
 pub(super) fn timeline_end(tracks: &[&Track]) -> Frames {
     tracks
         .iter()
-        .flat_map(|track| track.clips.iter().map(Clip::end))
+        .map(|track| track.end())
         .max()
         .unwrap_or(Frames::ZERO)
 }

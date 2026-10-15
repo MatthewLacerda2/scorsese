@@ -87,7 +87,7 @@ pub fn trim(project: &mut Project, id: &ClipId, bounds: &Trim) -> Result<Clip, T
         trimmed = Some(clip.clone());
         // Moving a clip can carry it past its neighbour, so the order a reader
         // depends on is restored — the same reason `place` sorts.
-        track.clips.sort_by_key(|clip| clip.start);
+        track.sort_clips();
         break;
     }
     let trimmed = trimmed.ok_or_else(|| TrimError::NoSuchClip { clip: id.clone() })?;

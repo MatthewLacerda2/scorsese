@@ -13,6 +13,7 @@ use crate::time::Fps;
 use crate::timeline::Track;
 use crate::validate::ValidationErrors;
 
+mod lanes;
 mod walk;
 
 /// The schema version this build reads and writes.

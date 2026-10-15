@@ -187,11 +187,8 @@ fn check_chroma_key(asset: &Asset, clip: &Clip, errors: &mut Vec<TimelineProblem
 /// that start, so each is an overlap — unless the clip starting covers no frame
 /// at all, which is [`TimelineProblem::ZeroDuration`] and not a conflict.
 fn check_overlaps(track: &Track, errors: &mut Vec<TimelineProblem>) {
-    let mut ordered: Vec<&Clip> = track.clips.iter().collect();
-    ordered.sort_by_key(|clip| clip.start);
-
     let mut running: Vec<&Clip> = Vec::new();
-    for clip in ordered {
+    for clip in track.in_order() {
         running.retain(|earlier| earlier.end() > clip.start);
         if clip.duration > Frames::ZERO {
             for earlier in &running {

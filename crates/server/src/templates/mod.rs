@@ -76,11 +76,7 @@ pub struct Summary {
 
 impl Summary {
     fn of(id: i64, updated_at: i64, template: &Project, description: Option<Description>) -> Self {
-        let end = template
-            .clips()
-            .map(|(_, clip)| clip.end())
-            .max()
-            .unwrap_or_default();
+        let end = template.length();
         Self {
             id,
             name: template.name.clone(),

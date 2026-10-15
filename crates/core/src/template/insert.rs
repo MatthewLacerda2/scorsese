@@ -124,7 +124,7 @@ pub fn insert(
                 done.clips.push((clip.id.clone(), lane.id.clone()));
                 lane.clips.push(clip);
             }
-            lane.clips.sort_by_key(|clip| clip.start);
+            lane.sort_clips();
         }
     }
     proposed.validate()?;

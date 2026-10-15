@@ -70,8 +70,9 @@ impl Group {
     /// zero frames long, which validation refuses: a layer that can never show
     /// anything is a mistake that would otherwise look like a render failure.
     pub fn length(&self) -> Frames {
-        self.clips()
-            .map(|(_, clip)| clip.end())
+        self.tracks
+            .iter()
+            .map(Track::end)
             .max()
             .unwrap_or(Frames::ZERO)
     }

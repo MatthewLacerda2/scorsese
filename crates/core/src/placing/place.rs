@@ -147,12 +147,7 @@ pub fn place(project: &mut Project, placement: &Placement) -> Result<Clip, Place
     let mut proposed = project.clone();
     let mut clip = Clip::new(id, placement.asset.clone(), placement.start, duration);
     clip.source_in = placement.source_in;
-    let track = &mut proposed.tracks[lane];
-    track.clips.push(clip.clone());
-    // `project.json` is a document people and agents read, and a track listed
-    // out of order is one nobody can follow. Nothing depends on the order —
-    // clips on a track cannot overlap — so this is for the reader alone.
-    track.clips.sort_by_key(|clip| clip.start);
+    proposed.tracks[lane].insert_clip(clip.clone());
 
     proposed.validate()?;
     *project = proposed;

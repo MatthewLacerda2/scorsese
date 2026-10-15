@@ -163,7 +163,7 @@ fn place(project: &mut Project, timed: Vec<Chunk>, asked: &Captioning) -> Result
         }
         let clip = clip(&id, start, Frames(end.get() - start.get()), asked);
         let track = &mut project.tracks[index];
-        if let Some(other) = track.clips.iter().find(|other| other.overlaps(&clip)) {
+        if let Some(other) = track.first_overlap(&clip) {
             return Err(CaptionError::Overlap {
                 caption: clip.id,
                 clip: other.id.clone(),
@@ -173,7 +173,7 @@ fn place(project: &mut Project, timed: Vec<Chunk>, asked: &Captioning) -> Result
         track.clips.push(clip);
         project.assets.push(asset(&id, &chunk, asked));
     }
-    project.tracks[index].clips.sort_by_key(|clip| clip.start);
+    project.tracks[index].sort_clips();
     Ok(())
 }
 

@@ -120,10 +120,7 @@ pub fn relocate(
         .expect("the track was chosen because it holds this clip");
     let mut moved = clips.remove(at);
     to.bounds.apply(&mut moved);
-    let landed = &mut lane(&mut proposed, onto).clips;
-    landed.push(moved.clone());
-    // Kept in time order for the reader, as `place` and `trim` keep it.
-    landed.sort_by_key(|clip| clip.start);
+    lane(&mut proposed, onto).insert_clip(moved.clone());
 
     proposed.validate()?;
     *project = proposed;

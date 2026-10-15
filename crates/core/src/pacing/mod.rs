@@ -198,7 +198,7 @@ pub fn scale(
         // track cannot overlap — but `project.json` is a document people and
         // agents read, and a track listed out of order is one nobody can
         // follow.
-        track.clips.sort_by_key(|clip| clip.start);
+        track.sort_clips();
     }
     if paced.moved == 0 {
         return Err(PaceError::Nothing);

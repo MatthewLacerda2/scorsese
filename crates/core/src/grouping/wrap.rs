@@ -157,8 +157,7 @@ pub fn group(project: &mut Project, grouping: &Grouping) -> Result<Grouped, Grou
     let duration = Frames(end.get() - start.get());
     let placed = Clip::new(clip.clone(), asset.clone(), start, duration);
     let track = &mut proposed.tracks[lane];
-    track.clips.push(placed);
-    track.clips.sort_by_key(|clip| clip.start);
+    track.insert_clip(placed);
     let track = track.id.clone();
     let lanes = inner.into_iter().map(|(_, lane)| lane).collect();
     proposed
