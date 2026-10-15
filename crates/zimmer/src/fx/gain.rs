@@ -276,4 +276,30 @@ mod tests {
             "still moving past {reach}"
         );
     }
+
+    /// A duck of uneven depths, once out of the window, leaves exactly unity
+    /// behind — not the rounding a running sum carries away from it.
+    #[test]
+    fn an_uneven_duck_leaves_nothing_behind_once_it_has_passed() {
+        let mut depths: Vec<f32> = (0..400)
+            .map(|k| {
+                if k % 2 == 0 {
+                    -119.9
+                } else {
+                    -1.3e-9 * (k as f32 + 1.0)
+                }
+            })
+            .collect();
+        depths.extend([0.0; 64]);
+        let out = averaged(&depths, 32);
+        assert!(out[..400].iter().all(|d| *d < 0.0));
+        assert!(out[432..].iter().all(|d| *d == 0.0), "{:?}", &out[432..436]);
+    }
+
+    #[test]
+    fn a_gain_that_is_not_a_number_is_read_as_unity_rather_than_silence() {
+        assert_eq!(decibels(f32::NAN), 0.0);
+        assert_eq!(decibels(0.0), FLOOR_DB);
+        assert_eq!(decibels(1.0), 0.0);
+    }
 }
