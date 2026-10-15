@@ -1,12 +1,11 @@
 //! `clip_follow`: a clip sent along an arrow over the wire, and brought back.
 
-use super::fixture::{document, project};
+use super::fixture::{document, project, read};
 use crate::{call, said};
 use serde_json::{Value, json};
 
 fn clip_of(dir: &std::path::Path, id: &str) -> Value {
-    let text = document(&dir);
-    let document: Value = serde_json::from_str(&text).expect("the project is JSON");
+    let document = read(dir);
     document["tracks"]
         .as_array()
         .expect("tracks")

@@ -1,12 +1,11 @@
 //! A dashed border authored over the wire, and a pattern that could not be one.
 
-use super::fixture::{document, project};
+use super::fixture::{project, read};
 use crate::{call, said};
 use serde_json::{Value, json};
 
 fn shape_of(dir: &std::path::Path, id: &str) -> Value {
-    let text = document(&dir);
-    let document: Value = serde_json::from_str(&text).expect("the project is JSON");
+    let document = read(dir);
     document["assets"]
         .as_array()
         .expect("an assets table")

@@ -2,7 +2,7 @@
 //! it brings in, a write probes the assets it names a file for and nobody has
 //! measured — before validating, so a clip is held to the source it really is.
 
-use super::fixture::{document, fingerprint, project, with_footage};
+use super::fixture::{document, fingerprint, project, read, with_footage};
 use std::path::Path;
 
 use crate::{call, said};
@@ -34,8 +34,7 @@ fn write(dir: &Path, document: &str, reprobe: bool) -> (String, bool) {
 
 /// The boat's `media` block as it is on disk.
 fn recorded(dir: &Path) -> Value {
-    let on_disk = document(&dir);
-    let document: Value = serde_json::from_str(&on_disk).expect("the document is JSON");
+    let document = read(dir);
     let assets = document["assets"].as_array().expect("an assets table");
     let boat = assets.iter().find(|asset| asset["id"] == "boat");
     boat.expect("the boat was written")["media"].clone()

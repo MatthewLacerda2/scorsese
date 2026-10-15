@@ -2,7 +2,7 @@
 //! member's id, and the edits that cannot leave the timeline say so by naming
 //! the group (#1103).
 
-use super::fixture::{DOCUMENT, document, project};
+use super::fixture::{DOCUMENT, document, project, read};
 use crate::{call, said};
 use serde_json::{Value, json};
 
@@ -27,8 +27,7 @@ fn grouped(label: &str) -> std::path::PathBuf {
 
 /// The member called `id`, as the document on disk has it.
 fn member(dir: &std::path::Path, id: &str) -> Option<Value> {
-    let text = document(&dir);
-    let document: Value = serde_json::from_str(&text).expect("the document is JSON");
+    let document = read(dir);
     let group = document["assets"]
         .as_array()?
         .iter()

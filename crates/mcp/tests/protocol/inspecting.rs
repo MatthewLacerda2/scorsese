@@ -1,12 +1,11 @@
 //! `clip_set`: the values an inspector shows, set over the wire.
 
-use super::fixture::{document, project};
+use super::fixture::{document, project, read};
 use crate::{call, said};
 use serde_json::{Value, json};
 
 fn clip(dir: &std::path::Path, track: usize) -> Value {
-    let text = document(&dir);
-    let project: Value = serde_json::from_str(&text).expect("the server writes JSON");
+    let project = read(dir);
     project["tracks"][track]["clips"][0].clone()
 }
 

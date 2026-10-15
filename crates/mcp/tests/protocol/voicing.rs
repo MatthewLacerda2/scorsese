@@ -1,14 +1,13 @@
 //! `cut_to_voice` laying a cut out from its lines (#1008).
 
-use super::fixture::{document, project};
-use serde_json::{Value, json};
+use super::fixture::{document, project, read};
+use serde_json::json;
 
 use crate::{call, said};
 
 /// Where clip `id` sits in the saved document: its start and duration.
 fn placed(dir: &std::path::Path, id: &str) -> (u64, u64) {
-    let text = document(&dir);
-    let document: Value = serde_json::from_str(&text).expect("the project is JSON");
+    let document = read(dir);
     let clip = document["tracks"]
         .as_array()
         .into_iter()
