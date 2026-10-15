@@ -130,6 +130,7 @@ impl Brief {
                 "reference",
                 self.reference_images.iter().map(|still| &still.digest),
             )
+            .when("seed", self.request.seed)
     }
 
     /// Where a generation of this brief lands, project-relative.
@@ -267,5 +268,29 @@ mod tests {
             brief.digest(),
             "cf6f0698c009166f90843bb6f6c7c7d651269374e74648291cb9c67e5c466702"
         );
+    }
+
+    /// A seed is a line of its own (#1191): set, it is a different take; and
+    /// unset, the brief is the one above, digest unmoved.
+    #[test]
+    fn a_seed_changes_the_fingerprint_only_when_set() {
+        let brief = |seed| Brief {
+            id: AssetId::new("shot"),
+            prompt: String::from("a butterfly lands on a leaf"),
+            request: VideoRequest {
+                seed,
+                ..VideoRequest::default()
+            },
+            first_image: None,
+            last_image: None,
+            reference_images: Vec::new(),
+        };
+        assert_eq!(
+            brief(None).digest(),
+            "c2ab690ac91c7657bc875836f4a9919be580102065626f40c6bb98fe597a9b7a"
+        );
+        assert!(brief(Some(7)).fingerprint().text().ends_with("seed:7\n"));
+        assert_ne!(brief(Some(7)).digest(), brief(Some(8)).digest());
+        assert_ne!(brief(Some(7)).digest(), brief(None).digest());
     }
 }
