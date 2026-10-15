@@ -41,7 +41,7 @@ fn every_example_is_actually_playable() {
         let recipe = Recipe::from_json(&document(&example)).expect("parsed above");
         let played = match &recipe {
             Recipe::Patch(one_shot) => one_shot.note.to_midi().and_then(|midi| {
-                scorsese_zimmer::bake_note(&one_shot.patch, midi, &one_shot.opts())
+                scorsese_zimmer::bake_note(&one_shot.instrument(), midi, &one_shot.opts())
             }),
             // The song example names one instrument by path on purpose, to
             // document that references exist. Resolving it would need a whole

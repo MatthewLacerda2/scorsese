@@ -33,7 +33,7 @@ scorsese synth check recipes/theme.json
 Over MCP the same work is `synth_new`, `synth_read`, `synth_write`,
 `synth_check`, `synth_bake` and `synth_kit`, plus **`synth_set`**, which changes
 one number — a track's `gain`, `pan` or `send`, or the recipe's `bpm`, `seed`,
-`swing`, `duration` or `velocity` — without re-sending the whole document: the
+`swing`, `duration`, `velocity` or `vary` — without re-sending the whole document: the
 tool for tuning a level over several bakes. It cannot reach a `gain` or `pan`
 that an [automation curve](#making-something-build) overrides, because the
 curve is what plays; move the curve's points with `synth_write` instead.
@@ -76,8 +76,18 @@ its own peak, so a reverb on a short pop costs its file only the ring you can
 hear. `velocity` is `0..=1`. `seed` re-rolls the
 stochastic sources — same seed, same bytes, forever.
 
+**`vary` makes each seed another take.** On its own a new `seed` is new grain:
+a different file that the ear hears as the same sound. With `vary` above zero
+(`0..=1`), the seed also scatters the numbers that give a hit its character:
+the envelope timings, the filter's `cutoff` and the `pitch_env`'s depth. At
+`1` a timing lands anywhere from half to twice what was written and a cutoff
+an octave either side; `0.3` is a gentle nudge. So twenty pops in one video
+are one patch, one `vary` and twenty seeds — still free, and each one still
+the same bytes every time it is baked.
+
 Only `note` and `patch` are required; the rest default: `duration` to **0.5 s**,
-`velocity` to **1.0** and `seed` to 0.
+`velocity` to **1.0**, `seed` to 0 and `vary` to 0 (the patch exactly as
+written).
 
 ### The signal path
 
@@ -95,7 +105,7 @@ source ─► filter ─► amp envelope ─► fx
 
 | `kind` | Fields | Good for |
 | --- | --- | --- |
-| `osc_stack` | `oscs`: up to 4 of `{ wave, detune_cents, gain, octave, voices, spread }` | leads, basses, pads |
+| `osc_stack` | `oscs`: up to 4 of `{ wave, detune_cents, gain, octave, voices, spread, width }` | leads, basses, pads |
 | `karplus` | `damping` 0..1, `brightness` 0..1 | plucked strings, marimbas |
 | `noise` | `color`: `white`, `pink` or `brown` | gunshots, impacts, wind, thunder. A `bandpass` over one narrows it to a pitched whistle, a telephone hiss or a hi-hat |
 | `fm2` | `ratio`, `index`, `vel_index`, `mod_decay` | bells, electric pianos, metal |
@@ -167,10 +177,18 @@ shimmer; `25` is a fat lead, and past `50` the copies start to be heard as a
 chord rather than as one thick note. At most **7** voices, and a recipe asking
 for more is refused rather than trimmed.
 
+**`width` spreads those voices across the stereo field**, `0..=1`: evenly from
+left to right, lowest-pitched on the left, so at `1` the outermost pair is
+hard over and the middle one, at an odd count, stays centred. Each copy is a
+different signal, so this is real width — a wide pad or a supersaw lead —
+where a `chorus` can only smear one signal against a delayed copy of itself.
+It defaults to `0`, every voice centred, and moves nothing off centre: placing
+the part is still its track's `pan`.
+
 ```json fields
 "tracks": [{ "name": "lead", "gain": 0.6, "patch": {
   "source": { "kind": "osc_stack", "oscs": [
-    { "wave": "saw", "voices": 7, "spread": 25 },
+    { "wave": "saw", "voices": 7, "spread": 25, "width": 0.8 },
     { "wave": "sine", "octave": -1, "gain": 0.4 }
   ] },
   "amp": { "a": 0.02, "d": 0.3, "s": 0.7, "r": 0.3 } } }],
@@ -2344,10 +2362,12 @@ in one video, or the same whoosh in two, should not be the same file.
 | `kit:page` | a page turning, a soft papery swish | `amp.a` and `amp.d`, `cutoff` |
 | `kit:thud` | a heavy impact, low and dull, in a room | `note` (lower is heavier), `pitch_env.semitones`, `amp.d` |
 
-**Which number makes a different take is the one in the last column, not the
-seed.** A one-shot's `seed` re-rolls the grain of its noise and the phase its
-oscillators start at, which is a different file and the same sound to the ear.
-And the five made of noise — whoosh, riser, key, scribble, page — **ignore
+**Another take is one number: give the one-shot a `vary` and change its
+`seed`.** Without `vary` a new seed only re-rolls the grain of its noise and
+the phase its oscillators start at, which is a different file and the same
+sound to the ear; with it, every seed is a different shape (see
+[`vary`](#effects-recipe-patch)). The last column is for a take that is
+different on purpose — higher, longer, darker. And the five made of noise — whoosh, riser, key, scribble, page — **ignore
 `note`**, because noise has no pitch to move: their `cutoff` is where they sit.
 A test holds both halves of that claim, per effect.
 
@@ -2585,7 +2605,8 @@ much of the signal is common to both channels, from `+1.00` to `-1.00`.
   On a `sub` that is an instrument doing its job, the way `low 96%` is. On a
   whole mix it is the one number that says a score never used the `pan` it has.
 - **Down towards `0.00` is wide**: the two sides increasingly disagree, which is
-  what a `pan` spread, a stereo `reverb` and a `chorus` are all for. There is no
+  what a `pan` spread, a unison `width`, a stereo `reverb` and a `chorus` are
+  all for. There is no
   correct value here — a bed can be wide and a sting can be dead centre, and
   neither is a mistake.
 - **Below zero is the defect**, and it is the only reading in this column that

@@ -21,7 +21,8 @@ struct Arguments {
     /// Which number to change. On a song: `bpm`, `seed`, `swing`, `gain`,
     /// `pan` or `send` — and the last three are a track's, so they need
     /// `track`. `send` (0 to 1, default 1) is how much of the track the song's
-    /// reverb and delay hear. On a patch: `duration`, `velocity`, `seed`.
+    /// reverb and delay hear. On a patch: `duration`, `velocity`, `seed`,
+    /// `vary` (0 to 1: how far each seed makes a different take).
     /// Anything else, including a note or an arrangement entry, is a
     /// synth_write.
     // A string checked by the synthesiser rather than an enum here, so that a
@@ -47,8 +48,8 @@ impl Tool for Set {
 
     fn description(&self) -> &'static str {
         "Change one number in a recipe and leave the rest of the document alone: \
-         a track's gain, pan or send, or the recipe's own bpm, seed, swing, duration \
-         or velocity. Reach for this while **tuning** — chasing a level over \
+         a track's gain, pan or send, or the recipe's own bpm, seed, swing, duration, \
+         velocity or vary. Reach for this while **tuning** — chasing a level over \
          several bakes — where synth_write would re-send every note in the piece \
          to move one float. Refused whole, changing nothing, if the field or the \
          track named is not there. The result is an ordinary recipe, and its \

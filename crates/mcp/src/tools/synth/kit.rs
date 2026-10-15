@@ -38,7 +38,8 @@ impl Tool for Kit {
          a pluck, a supersaw lead, a brass section, strings, a pad, an \
          electric piano and a bell; and sound effects to vary rather than use as they are \
          (whoosh, riser, pop, click, ding, key, scribble, page, thud), each \
-         listed with the numbers that make a different take of it. A song track uses one by writing \"patch\": \"kit:kick\" and \
+         listed with the numbers that make a different take of it; a one-shot's \
+         `vary` (0 to 1) makes every `seed` another take on its own. A song track uses one by writing \"patch\": \"kit:kick\" and \
          passing the recipe to synth_write, which copies the patch into the \
          recipe: the song keeps its own copy, edits it freely, and never \
          changes sound when scorsese is upgraded. The instruments carry no \

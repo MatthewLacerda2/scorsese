@@ -61,7 +61,8 @@ mod unison;
 use std::f32::consts::TAU;
 
 use crate::patch::{Osc, Wave};
-use unison::{start_phase, voice_detune, voice_gain, voices};
+use crate::stereo::{Stereo, pan_gains};
+use unison::{start_phase, voice_detune, voice_gain, voice_pan, voices};
 
 /// Render the summed stack for `freqs` (one base frequency per output sample) into
 /// `out`. The mix is normalized by the total gain, so adding oscillators thickens
@@ -70,7 +71,14 @@ use unison::{start_phase, voice_detune, voice_gain, voices};
 /// `seed` is the note's, and decides only where each oscillator and each of its
 /// unison voices starts in its cycle — see the module doc for why that is not
 /// zero.
-pub(crate) fn render(oscs: &[Osc], freqs: &[f32], seed: u64, out: &mut [f32], sample_rate: f32) {
+///
+/// **Stereo, because unison may be.** An oscillator's `width` places each of
+/// its voices somewhere on the pan axis, through the same constant-power law a
+/// track's `pan` uses, so the stack is the one source besides `noise` whose
+/// two sides can differ. A centred voice is scaled by an exact `1.0` on both
+/// sides, so a stack nobody widened writes the same samples into each channel
+/// that a mono render would have, bit for bit.
+pub(crate) fn render(oscs: &[Osc], freqs: &[f32], seed: u64, out: &mut Stereo, sample_rate: f32) {
     let total_gain: f32 = oscs.iter().map(|o| o.gain.max(0.0)).sum();
     let norm = if total_gain > 0.0 {
         1.0 / total_gain
@@ -82,10 +90,14 @@ pub(crate) fn render(oscs: &[Osc], freqs: &[f32], seed: u64, out: &mut [f32], sa
         let gain = voice_gain(osc, norm);
         for voice in 0..voices {
             let ratio = pitch_ratio(osc, voice_detune(osc, voice));
+            let (left, right) = pan_gains(voice_pan(osc, voice));
             let mut phase = start_phase(index, voice, seed);
-            for (s, base) in out.iter_mut().zip(freqs) {
+            let sides = out.l.iter_mut().zip(out.r.iter_mut());
+            for ((l, r), base) in sides.zip(freqs) {
                 let dt = (base * ratio / sample_rate).clamp(0.0, 0.5);
-                *s += gain * sample(osc.wave, phase, dt);
+                let s = gain * sample(osc.wave, phase, dt);
+                *l += s * left;
+                *r += s * right;
                 phase = (phase + dt).fract();
             }
         }
@@ -143,6 +155,7 @@ mod tests {
             octave,
             voices: 1,
             spread: 12.0,
+            width: 0.0,
         }
     }
 
@@ -155,22 +168,22 @@ mod tests {
         }
     }
 
-    fn render_stack(oscs: &[Osc], hz: f32, n: usize, seed: u64) -> Vec<f32> {
-        let mut out = vec![0.0; n];
+    fn render_pair(oscs: &[Osc], hz: f32, n: usize, seed: u64) -> Stereo {
+        let mut out = Stereo::silence(n);
         render(oscs, &vec![hz; n], seed, &mut out, 44_100.0);
         out
     }
 
+    /// One side of a stack that nothing widened — and the proof that the
+    /// other side is the same samples, which every caller of this relies on.
+    fn render_stack(oscs: &[Osc], hz: f32, n: usize, seed: u64) -> Vec<f32> {
+        let out = render_pair(oscs, hz, n, seed);
+        assert_eq!(out.l, out.r, "an unwidened stack parted its channels");
+        out.l
+    }
+
     fn render_one(wave: Wave, hz: f32, n: usize) -> Vec<f32> {
-        let mut out = vec![0.0; n];
-        render(
-            &[osc(wave, 1.0, 0, 0.0)],
-            &vec![hz; n],
-            7,
-            &mut out,
-            44_100.0,
-        );
-        out
+        render_stack(&[osc(wave, 1.0, 0, 0.0)], hz, n, 7)
     }
 
     /// Rising zero-crossings in a buffer — one per cycle, wherever the cycle
@@ -225,22 +238,8 @@ mod tests {
     fn octave_and_detune_shift_the_pitch() {
         // An octave-down oscillator crosses zero half as often.
         let n = 44_100;
-        let mut base = vec![0.0; n];
-        let mut down = vec![0.0; n];
-        render(
-            &[osc(Wave::Sine, 1.0, 0, 0.0)],
-            &vec![200.0; n],
-            3,
-            &mut base,
-            44_100.0,
-        );
-        render(
-            &[osc(Wave::Sine, 1.0, -1, 0.0)],
-            &vec![200.0; n],
-            3,
-            &mut down,
-            44_100.0,
-        );
+        let base = render_stack(&[osc(Wave::Sine, 1.0, 0, 0.0)], 200.0, n, 3);
+        let down = render_stack(&[osc(Wave::Sine, 1.0, -1, 0.0)], 200.0, n, 3);
         assert!((199..=200).contains(&rising(&base)));
         assert!((99..=100).contains(&rising(&down)));
         assert!((pitch_ratio(&osc(Wave::Saw, 1.0, 0, 1200.0), 0.0) - 2.0).abs() < 1e-5);
@@ -254,11 +253,8 @@ mod tests {
         // nothing, and a second oscillator thickens the tone without making it
         // louder. Both halves are read off peaks rather than samples because
         // the two oscillators no longer start in step.
-        let n = 4410;
-        let freqs = vec![440.0; n];
         let loudest = |oscs: &[Osc]| {
-            let mut out = vec![0.0; n];
-            render(oscs, &freqs, 5, &mut out, 44_100.0);
+            let out = render_stack(oscs, 440.0, 4410, 5);
             out.iter().fold(0.0f32, |m, s| m.max(s.abs()))
         };
         let one = loudest(&[osc(Wave::Sine, 1.0, 0, 0.0)]);
@@ -273,15 +269,8 @@ mod tests {
     #[test]
     fn a_second_strike_differs_but_each_one_replays() {
         let struck = |seed: u64| {
-            let mut out = vec![0.0; 2048];
-            render(
-                &[osc(Wave::Saw, 1.0, 0, 0.0), osc(Wave::Saw, 1.0, 0, 7.0)],
-                &vec![220.0; 2048],
-                seed,
-                &mut out,
-                44_100.0,
-            );
-            out
+            let oscs = [osc(Wave::Saw, 1.0, 0, 0.0), osc(Wave::Saw, 1.0, 0, 7.0)];
+            render_stack(&oscs, 220.0, 2048, seed)
         };
         assert_eq!(struck(4), struck(4), "same seed, same samples");
         assert_ne!(struck(4), struck(5), "a second strike is not the first");
@@ -388,10 +377,40 @@ mod tests {
     fn a_stack_with_no_gain_left_is_silence_not_a_divide_by_zero() {
         // `Patch::validate` refuses this stack, so it can only arrive by calling the
         // renderer directly — and then the normalization must not divide by zero.
-        let n = 512;
-        let mut out = vec![0.0; n];
         let oscs = [osc(Wave::Saw, 0.0, 0, 0.0), osc(Wave::Sine, -1.0, 0, 0.0)];
-        render(&oscs, &vec![440.0; n], 1, &mut out, 44_100.0);
+        let out = render_stack(&oscs, 440.0, 512, 1);
         assert!(out.iter().all(|s| *s == 0.0), "got {:?}", &out[..8]);
+    }
+
+    /// A wide unison is two different signals, one per side — not one signal
+    /// turned up on one side — and its power is what the centred stack's was,
+    /// because each voice is placed by a constant-power law.
+    #[test]
+    fn a_wide_unison_puts_different_voices_on_each_side() {
+        let centred = unison(Wave::Saw, 5, 25.0);
+        let wide = Osc {
+            width: 1.0,
+            ..centred
+        };
+        let n = 44_100;
+        let pair = render_pair(&[wide], 220.0, n, 3);
+        let correlation = correlate(&pair.l, &pair.r);
+        assert!(
+            correlation < 0.6,
+            "the two sides correlate at {correlation}: that is not width"
+        );
+        let power = |buf: &[f32]| buf.iter().map(|s| s * s).sum::<f32>();
+        let flat = render_stack(&[centred], 220.0, n, 3);
+        let ratio = (power(&pair.l) + power(&pair.r)) / (2.0 * power(&flat));
+        assert!(
+            (0.7..1.4).contains(&ratio),
+            "widening moved the stack's power by {ratio}"
+        );
+    }
+
+    /// Pearson correlation of two equally long signals.
+    fn correlate(a: &[f32], b: &[f32]) -> f32 {
+        let dot = |x: &[f32], y: &[f32]| x.iter().zip(y).map(|(p, q)| p * q).sum::<f32>();
+        dot(a, b) / (dot(a, a) * dot(b, b)).sqrt()
     }
 }

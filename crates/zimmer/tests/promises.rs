@@ -34,6 +34,7 @@ fn sine() -> Patch {
                 octave: 0,
                 voices: 1,
                 spread: 12.0,
+                width: 0.0,
             }],
         })
     }
