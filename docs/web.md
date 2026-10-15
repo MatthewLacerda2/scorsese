@@ -1587,6 +1587,7 @@ the web — or be left off it — without a reason written down.
 - `project_assets`
 - `project_write`
 - `track_new`
+- `track_move`
 - `asset_set`
 - `sequence`
 - `asset_remove`
