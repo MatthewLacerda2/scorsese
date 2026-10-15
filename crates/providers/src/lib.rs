@@ -153,6 +153,7 @@ pub mod api;
 pub mod chat;
 pub mod chromium;
 pub mod credentials;
+mod diskcache;
 pub mod fx;
 mod generated;
 pub mod image;
