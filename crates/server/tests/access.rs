@@ -16,7 +16,7 @@ async fn rows(pool: &PgPool) -> Vec<(i64, String, Option<String>)> {
     sqlx::query_as("SELECT user_id, kind, host(address) FROM access_log ORDER BY id")
         .fetch_all(pool)
         .await
-        .unwrap()
+        .expect("the record reads")
 }
 
 #[sqlx::test]
