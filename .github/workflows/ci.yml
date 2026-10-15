@@ -436,7 +436,9 @@ jobs:
   # one. The rule deciding which cap a path falls under lives in
   # `tools/lint/src/classify.rs`, and its tests run here first: a classifier
   # that quietly misfiles a path is a gate that has stopped gating without
-  # saying so.
+  # saying so. The same run holds the conventions in `tools/lint/src/rules`
+  # (#1229): no filename-prefix groups, no markers promising later work, no
+  # skipped tests, and crate docs naming their public modules.
   size:
     name: size gate
     runs-on: ubuntu-24.04

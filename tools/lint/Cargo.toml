@@ -22,6 +22,7 @@ unreachable_pub = "warn"
 unwrap_used = "deny"
 dbg_macro = "deny"
 todo = "deny"
+unimplemented = "deny"
 
 [package]
 name = "scorsese-lint"
@@ -43,5 +44,5 @@ name = "scorsese_lint"
 path = "src/lib.rs"
 
 [[bin]]
-name = "size-gate"
+name = "scorsese-lint"
 path = "src/main.rs"

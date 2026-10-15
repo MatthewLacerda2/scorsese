@@ -62,6 +62,9 @@ unwrap_used = "deny"
 # Debugging leftovers must not survive a merge.
 dbg_macro = "deny"
 todo = "deny"
+# Nothing in the codebase is temporary (CLAUDE.md): a stub is either written
+# or filed, never merged as a panic waiting for a caller (#1229).
+unimplemented = "deny"
 
 # The ordinary build has to be fast enough to render with, because rendering is
 # what this program does and nobody should have to know a second command to do

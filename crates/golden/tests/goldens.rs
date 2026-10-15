@@ -62,6 +62,7 @@ macro_rules! goldens {
             #[test]
             // Off Linux the frames are not ours to judge — see the module doc.
             // `ignore` rather than `cfg` so the runner counts them and says so.
+            // lint: allow(skip) the pixel gate is authoritative only on Linux.
             #[cfg_attr(
                 not(target_os = "linux"),
                 ignore = "the pixel gate is authoritative only on Linux, where the references were blessed"

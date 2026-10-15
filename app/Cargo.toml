@@ -23,6 +23,7 @@ unreachable_pub = "warn"
 unwrap_used = "deny"
 dbg_macro = "deny"
 todo = "deny"
+unimplemented = "deny"
 
 # The same reasoning as the workspace root's, for the same reason: the preview
 # composites through `scorsese-render`, so an unoptimised app scrubs at the

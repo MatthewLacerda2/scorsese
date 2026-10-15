@@ -22,6 +22,11 @@
 //! ahead of time: the failure lands on the person doing the vendoring, who can
 //! see both versions, rather than on a render.
 //!
+//! Four steps, a module each: [`mod@svg`] reads one vendored icon into its
+//! elements, [`mod@path`] reads a `d` attribute's grammar, [`mod@geometry`]
+//! turns every element into the one shape the compositor draws, and
+//! [`mod@blob`] writes the catalogue.
+//!
 //! Boundary: nothing here is compiled into scorsese. It depends on no crate of
 //! this workspace, and no crate of this workspace depends on it.
 
