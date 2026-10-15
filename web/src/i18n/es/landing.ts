@@ -36,6 +36,8 @@ export const landing: Messages["landing"] = {
     soundOn: "Activar el sonido",
     soundOff: "Silenciar",
     volume: "Volumen",
+    play: "Reproducir",
+    pause: "Pausar",
   },
   handles: {
     eyebrow: "Lo que hace por ti",
