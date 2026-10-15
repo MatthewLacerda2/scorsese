@@ -17,10 +17,20 @@
 
 use super::{chorus, delay, reverb};
 use crate::patch::Fx;
+use crate::stereo::Stereo;
 
 /// Longest fx tail a note is padded by, in seconds. A chain of long effects should
-/// not turn a 200 ms blip into a half-minute file.
-const MAX_TAIL: f32 = 6.0;
+/// not turn a 200 ms blip into a half-minute file — but a full-size room rings
+/// for over ten (#1123), so the cap sits past the longest one effect makes.
+const MAX_TAIL: f32 = 15.0;
+
+/// How long the very end of a ring-out is faded over, in seconds.
+///
+/// A tail is sized to where an effect has fallen 60 dB, which is quiet but not
+/// zero, and [`MAX_TAIL`] can cut a long chain sooner. Either way the buffer
+/// stops on whatever sample the echo was at; a few milliseconds of fade turn
+/// that step into nothing an ear can find.
+const FADE: f32 = 0.01;
 
 /// How far **ahead of itself** the chain looks: the sum of the attack ramps
 /// its compressors duck over.
@@ -79,6 +89,24 @@ pub(crate) fn tail_seconds(chain: &[Fx]) -> f32 {
         })
         .sum();
     total.min(MAX_TAIL)
+}
+
+/// Fades the last [`FADE`] of `buf` to silence when `chain` rang out into it.
+///
+/// Called on a buffer [`tail_seconds`] grew, after the chain ran: the end of
+/// that buffer is where a ring-out was cut. A chain with no tail leaves the
+/// buffer alone, since its end is the signal's own.
+pub(crate) fn close_tail(buf: &mut Stereo, chain: &[Fx], rate: f32) {
+    if tail_seconds(chain) <= 0.0 {
+        return;
+    }
+    let frames = buf.frames();
+    let fade = ((FADE * rate).round() as usize).min(frames);
+    buf.each(|channel| {
+        for (k, sample) in channel[frames - fade..].iter_mut().enumerate() {
+            *sample *= 1.0 - (k + 1) as f32 / fade as f32;
+        }
+    });
 }
 
 #[cfg(test)]
@@ -167,6 +195,30 @@ mod tests {
             mix: 1.0,
         }]);
         assert!(deep < room / 10.0, "{deep} against a small room's {room}");
+    }
+
+    #[test]
+    fn a_rung_out_buffer_ends_on_silence_and_a_dry_one_is_left_alone() {
+        let room = [Fx::Reverb {
+            size: 0.5,
+            damp: 0.5,
+            mix: 1.0,
+        }];
+        let mut rung = Stereo::centred(vec![0.5; 4410]);
+        close_tail(&mut rung, &room, 44_100.0);
+        assert_eq!(rung.l[4409], 0.0, "the last sample is silence");
+        assert_eq!(rung.l[3000], 0.5, "and only the last 10 ms moved");
+        assert!(rung.l[4000] < 0.5 && rung.l[4000] > 0.0);
+        let mut dry = Stereo::centred(vec![0.5; 4410]);
+        close_tail(&mut dry, &[], 44_100.0);
+        assert_eq!(dry, Stereo::centred(vec![0.5; 4410]));
+        let mut short = Stereo::centred(vec![0.5; 3]);
+        close_tail(&mut short, &room, 44_100.0);
+        assert_eq!(
+            short.l[2], 0.0,
+            "a buffer shorter than the fade fades whole"
+        );
+        assert!(short.l[0] > short.l[1] && short.l[1] > 0.0);
     }
 
     /// The other end of the same question: only the two stages that walk a

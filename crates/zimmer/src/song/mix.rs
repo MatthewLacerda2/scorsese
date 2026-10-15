@@ -278,6 +278,7 @@ impl<'a> Mix<'a> {
             };
             ring_out(bus, &track.fx);
             fx::apply_chain_keyed(bus, &track.fx, RATE, &keys);
+            fx::close_tail(bus, &track.fx, RATE);
             if rides {
                 // The fader is written onto the part itself and the part then
                 // arrives at unity, because there is no single number to add
@@ -308,6 +309,7 @@ impl<'a> Mix<'a> {
             }
             None => fx::apply_chain(&mut self.master, &song.fx, RATE),
         }
+        fx::close_tail(&mut self.master, &song.fx, RATE);
         let layers = if self.measured {
             measure(song, parts, self.master.frames(), self.scope, cuts)
         } else {

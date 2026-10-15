@@ -17,11 +17,11 @@
 //! again.
 //!
 //! Because we render offline we can do this properly, with **lookahead**: compute
-//! the gain each sample needs, then walk the track backwards so the gain is already
-//! down *before* a peak arrives (a short attack ramp instead of an instant duck),
-//! and forwards so it recovers no faster than the release. Both passes only ever
-//! lower the gain, so the ceiling is guaranteed, and a signal that never approaches
-//! it is left untouched.
+//! the gain each sample needs, then smooth it so the gain is already down *before*
+//! a peak arrives (a short attack ramp instead of an instant duck) and recovers
+//! over the release in decibels. Every pass of [`super::gain`] only ever lowers the
+//! gain, so the ceiling is guaranteed, and a signal that never approaches it is
+//! left untouched.
 //!
 //! **The two channels are linked**, which is the one thing a stereo limiter has
 //! to get right. There is a single gain track, computed from whichever side is
@@ -32,6 +32,7 @@
 //! costs a `max`; not linking costs the stereo image, and a peak on one side
 //! genuinely *is* a moment when the mix is too loud.
 
+use super::gain::Ballistics;
 use crate::level::intersample::{Channel, TAPS};
 use crate::stereo::Stereo;
 
@@ -59,15 +60,14 @@ const CEILING: f32 = 0.891_251; // 10^(-1/20)
 /// [`crate::song::excerpt`] renders that far past a window for exactly that
 /// reason, which is why the number is published rather than private.
 pub(crate) const LOOKAHEAD: f32 = 0.002;
-/// Recovery, in seconds. Slower than the attack, or the gain pumps audibly.
+/// Recovery time constant, in seconds. Slower than the attack, or the gain
+/// pumps audibly.
 const RELEASE: f32 = 0.06;
 
 /// Limit `buf` in place so no sample exceeds the ceiling. Non-finite samples (from
 /// a pathological patch) are flushed to silence rather than written to the file.
 pub(crate) fn apply(buf: &mut Stereo, rate: f32) {
-    let mut gain = required_gain(buf);
-    ramp_down_before_peaks(&mut gain, slope(LOOKAHEAD, rate));
-    ramp_up_after_peaks(&mut gain, slope(RELEASE, rate));
+    let gain = Ballistics::new(LOOKAHEAD, RELEASE, rate).smooth(&required_gain(buf));
     buf.each(|channel| {
         for (s, g) in channel.iter_mut().zip(&gain) {
             *s = (*s * g).clamp(-1.0, 1.0);
@@ -88,8 +88,8 @@ pub(crate) fn apply(buf: &mut Stereo, rate: f32) {
 /// So the buffer is limited with enough of its own other end wrapped on to
 /// each side for every stage to see what it would see mid-loop, and only the
 /// middle is kept. How much is enough is how far any one frame's gain can
-/// reach: the release ramp forwards, the lookahead ramp backwards, and the
-/// reconstruction's taps under both. That is **exactly** the result of
+/// reach ([`Ballistics::reach_frames`]: the hold and the release forwards,
+/// the lookahead backwards), and the reconstruction's taps under both. That is **exactly** the result of
 /// limiting the loop played three times and keeping the middle pass, which
 /// is what the test below holds it to — and it costs a few thousand frames
 /// rather than two whole passes.
@@ -98,7 +98,7 @@ pub(crate) fn apply_looped(buf: &mut Stereo, rate: f32) {
     if frames == 0 {
         return;
     }
-    let reach = ((RELEASE + LOOKAHEAD) * rate).ceil() as usize + 2 * TAPS + 2;
+    let reach = Ballistics::new(LOOKAHEAD, RELEASE, rate).reach_frames() + 2 * TAPS + 2;
     // Index `reach` of the circle is frame 0 of the loop; `frames * reach`
     // is a multiple of `frames` at least `reach` long, so nothing underflows.
     let circle = |channel: &[f32]| -> Vec<f32> {
@@ -163,27 +163,6 @@ fn sanitise(buf: &mut Stereo) {
             }
         }
     });
-}
-
-/// Backward pass: the gain may fall no faster than `slope` per sample, so it is
-/// already down when the peak arrives. This is what the lookahead buys.
-fn ramp_down_before_peaks(gain: &mut [f32], slope: f32) {
-    for i in (0..gain.len().saturating_sub(1)).rev() {
-        gain[i] = gain[i].min(gain[i + 1] + slope);
-    }
-}
-
-/// Forward pass: the gain may rise no faster than `slope` per sample, so it eases
-/// back to unity instead of snapping.
-fn ramp_up_after_peaks(gain: &mut [f32], slope: f32) {
-    for i in 1..gain.len() {
-        gain[i] = gain[i].min(gain[i - 1] + slope);
-    }
-}
-
-/// Gain change allowed per sample for a ramp lasting `seconds`.
-fn slope(seconds: f32, rate: f32) -> f32 {
-    1.0 / (seconds * rate).max(1.0)
 }
 
 #[cfg(test)]
@@ -334,9 +313,9 @@ mod tests {
         let buf = limited(Stereo::centred(mono));
         assert!(buf.l[2205] <= CEILING + 1e-6);
         // The gain ramps back over the release, not instantly.
-        let mut gain = required_gain(&mut Stereo::centred(vec![0.0, 10.0, 0.0, 0.0]));
-        ramp_down_before_peaks(&mut gain, slope(LOOKAHEAD, 44_100.0));
-        ramp_up_after_peaks(&mut gain, slope(RELEASE, 44_100.0));
+        let gain = Ballistics::new(LOOKAHEAD, RELEASE, 44_100.0).smooth(&required_gain(
+            &mut Stereo::centred(vec![0.0, 10.0, 0.0, 0.0]),
+        ));
         assert!(gain[0] < 1.0, "ducked before the peak");
         assert!(gain[2] < 1.0, "and recovers gradually after it");
     }

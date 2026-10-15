@@ -52,7 +52,8 @@
 //! harmonic series), [`noise`] (the one seeded RNG), [`nyquist`] (what any of
 //! them may place above the played pitch), [`source`] (which of those runs),
 //! [`mod@env`] (ADSR), [`filter`] (state-variable filter), [`tracks`] (the
-//! per-sample curves the stages walk: pitch, cutoff, tremolo), [`trim`] (where
+//! per-sample curves the stages walk: pitch, cutoff, tremolo), [`sweep`] (a
+//! cutoff moved from outside the note), [`trim`] (where
 //! a baked one-shot's file ends).
 
 pub(crate) mod additive;
@@ -64,6 +65,7 @@ pub(crate) mod noise;
 pub(crate) mod nyquist;
 pub(crate) mod osc;
 pub(crate) mod source;
+pub(crate) mod sweep;
 pub(crate) mod tracks;
 pub(crate) mod trim;
 
@@ -110,6 +112,20 @@ const MAX_SECONDS: f32 = 60.0;
 /// the same band, for the reason above; `timbre` of zero collapses them back
 /// into the single number every note was struck at before.
 pub(crate) fn render_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<Stereo, SynthError> {
+    render_swept(patch, midi, opts, None)
+}
+
+/// [`render_note`] with the filter's base cutoff moved from outside the note:
+/// `sweep` is the cutoff in Hz at each sample-frame from the note's onset,
+/// and takes the place of the patch's own `cutoff` for the whole note, its
+/// release and its ring-out included. A song's `cutoff` curve is the one
+/// caller, so a sweep across one held chord is a sweep (#1123).
+pub(crate) fn render_swept(
+    patch: &Patch,
+    midi: f32,
+    opts: &NoteOpts,
+    sweep: Option<&dyn Fn(usize) -> f32>,
+) -> Result<Stereo, SynthError> {
     patch.validate()?;
     let gate = gate_length(opts.duration)?;
     let n = sample_count(gate, patch.amp.r.max(0.0) + fx::tail_seconds(&patch.fx))?;
@@ -128,11 +144,13 @@ pub(crate) fn render_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<S
     if let Some(f) = patch.filter {
         // One cutoff track, both channels: the filter's *state* belongs to a
         // channel, and the curve it is following belongs to the note.
-        let cutoffs = cutoff_track(&f, patch.lfo, gate, n, brightness);
+        let base = sweep.map(|sweep| sweep::swept(sweep, n));
+        let cutoffs = cutoff_track(&f, patch.lfo, gate, n, brightness, base.as_deref());
         buf.each(|channel| filter::apply(channel, &f, &cutoffs, RATE));
     }
     apply_amp(&mut buf, patch, gate, velocity);
     fx::apply_chain(&mut buf, &patch.fx, RATE);
+    fx::close_tail(&mut buf, &patch.fx, RATE);
     Ok(buf)
 }
 
