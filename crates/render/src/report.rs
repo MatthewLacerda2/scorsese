@@ -415,17 +415,17 @@ impl RenderReport {
 mod tests {
     use super::{Note, Told};
 
+    fn arrow(clip: &str) -> Note {
+        Note::ArrowUnattached {
+            clip: clip.to_owned(),
+        }
+    }
+
     #[test]
     fn a_note_is_told_once_across_frames_and_within_one() {
         let mut told = Told::default();
-        assert_eq!(
-            told.unsaid(vec![Note::SlugCard, Note::SlugCard]),
-            [Note::SlugCard]
-        );
-        assert_eq!(
-            told.unsaid(vec![Note::Silence, Note::SlugCard]),
-            [Note::Silence]
-        );
-        assert!(told.unsaid(vec![Note::Silence]).is_empty());
+        assert_eq!(told.unsaid(vec![arrow("a"), arrow("a")]), [arrow("a")]);
+        assert_eq!(told.unsaid(vec![arrow("b"), arrow("a")]), [arrow("b")]);
+        assert!(told.unsaid(vec![arrow("b")]).is_empty());
     }
 }
