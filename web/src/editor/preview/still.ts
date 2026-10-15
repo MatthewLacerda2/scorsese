@@ -5,21 +5,12 @@
 // the next one comes so the picture never blinks out.
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 import { ApiError, api } from "@/api";
+import { useSettled } from "@/lib/useSettled";
+import { clamp } from "@/lib/utils";
 
 /** How long the playhead has to rest before its frame is asked for. */
 const SETTLE_MS = 200;
-
-/** `value`, once it has stopped changing for `ms`. */
-export function useSettled<T>(value: T, ms: number): T {
-  const [settled, setSettled] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setSettled(value), ms);
-    return () => clearTimeout(timer);
-  }, [value, ms]);
-  return settled;
-}
 
 /** The picture, or the tool's reason there is none (an empty timeline, say). */
 export type Still = { png: string } | { none: string };
@@ -30,7 +21,7 @@ export type Still = { png: string } | { none: string };
  * every editor does, and the key then matches the frame really drawn (#1276).
  */
 export function clampFrame(frame: number, length: number): number {
-  return Math.max(0, Math.min(frame, length - 1));
+  return clamp(frame, 0, length - 1);
 }
 
 export function useStill(

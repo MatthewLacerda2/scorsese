@@ -7,7 +7,8 @@
 import type { GenerationRecord as Record } from "@/api";
 import type { Messages } from "@/i18n/catalogue";
 import { useLanguage, useT } from "@/i18n/I18nProvider";
-import { formatDate } from "@/lib/format";
+import type { Language } from "@/i18n/language";
+import { formatDate, formatNumber } from "@/lib/format";
 import { formatDollars } from "@/lib/money";
 
 export function GenerationRecord({ record }: { record: Record }) {
@@ -56,7 +57,7 @@ function Row({ name, value }: { name: string; value: string }) {
 function settings(
   record: Record,
   words: Messages["files"]["generation"],
-  language: string,
+  language: Language,
 ): [string, string][] {
   if (record.kind !== "spoken_line") {
     const pairs: [string, string | number | undefined][] = [
@@ -65,7 +66,7 @@ function settings(
         words.length,
         record.seconds === undefined
           ? undefined
-          : words.seconds(new Intl.NumberFormat(language).format(record.seconds)),
+          : words.seconds(formatNumber(record.seconds, {}, language)),
       ],
       [words.aspect, record.aspect],
       [words.references, record.references || undefined],

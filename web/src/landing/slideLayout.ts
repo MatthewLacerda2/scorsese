@@ -9,6 +9,8 @@
 // Everything here is a pure function of the slides' heights and the scroll
 // position, so any scroll position is a frame of its own.
 
+import { clamp } from "@/lib/utils";
+
 /** How much scroll, in windows, one crossfade takes. */
 export const CROSSFADE = 0.8;
 
@@ -46,14 +48,14 @@ export interface SlideFrame {
   time: number;
 }
 
-const unit = (value: number) => Math.max(0, Math.min(1, value));
+const unit = (value: number) => clamp(value, 0, 1);
 /** Eases a 0..1 value in and out, so a fade starts and ends gently. */
 export const smooth = (value: number) => value * value * (3 - 2 * value);
 
 /** Where slide `span` is at scroll position `y`, with crossfades `fade` long. */
 export function frameAt(span: Span, y: number, fade: number): SlideFrame {
   const local = y - span.start;
-  const shift = Math.max(0, Math.min(local, span.extra));
+  const shift = clamp(local, 0, span.extra);
   const linear =
     fade <= 0 ? 1 : local < 0 ? unit(1 + local / fade) : unit(1 - (local - span.extra) / fade);
   const opacity = smooth(linear);

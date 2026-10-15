@@ -22,6 +22,22 @@ export function formatBytes(bytes: number, locale: Language = "en"): string {
   return `${number.format(value)} ${UNITS[unit]}`;
 }
 
+/**
+ * A number in the page's language. `digits` fixes the decimals shown
+ * (`1.5` → `1,5` in Portuguese); without it, `Intl`'s own default applies.
+ */
+export function formatNumber(
+  value: number,
+  { digits }: { digits?: number } = {},
+  locale: Language = "en",
+): string {
+  const options =
+    digits === undefined
+      ? undefined
+      : { minimumFractionDigits: digits, maximumFractionDigits: digits };
+  return new Intl.NumberFormat(locale, options).format(value);
+}
+
 /** `75.4` → `1:15`; an hour or more → `1:02:03`. */
 export function formatDuration(seconds: number): string {
   const total = Math.round(seconds);
