@@ -17,6 +17,7 @@ path = "src/main.rs"
 base64.workspace = true
 schemars = "1.2.2"
 scorsese-core = { version = "0.1.0", path = "../core" }
+scorsese-guide = { version = "0.1.0", path = "../guide" }
 scorsese-providers = { version = "0.1.0", path = "../providers" }
 scorsese-render = { version = "0.1.0", path = "../render" }
 serde = { version = "1.0.229", features = ["derive"] }

@@ -248,7 +248,10 @@ and no dependency on `core`) ← `crates/providers` (every call to a vendor —
 Veo video, Gemini images, ElevenLabs speech, Pixabay and LottieFiles stock,
 the chat models behind the web assistant — plus local synthesis and the
 brief-hash cache) ; `crates/zimmer` ← `crates/render` too, for
-reading only — loudness and song surveys, never synthesising ; `crates/cli` (the headless `scorsese` binary) ;
+reading only — loudness and song surveys, never synthesising ;
+`crates/guide` (the agent-facing `docs/` pages, compiled in; a leaf with **no
+dependencies at all**, so editing a guide rebuilds only it and what serves it)
+← `crates/cli` and `crates/mcp` ; `crates/cli` (the headless `scorsese` binary) ;
 `crates/mcp` (MCP server, thin wrapper over the same logic) ; `crates/golden`
 (test infrastructure: the golden-render gate, which nothing ships and nothing
 depends on) ; `crates/server` (`scorsese-server`, the web API: HTTP, Postgres,

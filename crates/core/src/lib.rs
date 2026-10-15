@@ -64,9 +64,7 @@
 //! cuts a narrated video to its lines;
 //! [`mod@write`] is the one way a document is written into a project (an
 //! imported file is copied in plainly, under a name nothing references until
-//! the copy is done); and [`mod@guide`] hands
-//! back the agent-facing pages of `docs/`, compiled in, so an installed build
-//! can still read them; and [`mod@style`] is the menu a video starts from — the
+//! the copy is done); and [`mod@style`] is the menu a video starts from — the
 //! platforms it can be made for and the styles it can be made in. [`note`] keeps its own as well — the paragraph
 //! above sends the reader to it.
 //!
@@ -87,7 +85,6 @@ pub(crate) mod fill;
 pub(crate) mod grade;
 pub(crate) mod group;
 pub mod grouping;
-pub mod guide;
 pub(crate) mod icon;
 pub(crate) mod keyframe;
 pub mod level;

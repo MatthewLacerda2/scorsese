@@ -17,6 +17,7 @@ path = "src/main.rs"
 anyhow = "1.0.104"
 clap = { version = "4.6.4", features = ["derive"] }
 scorsese-core = { version = "0.1.0", path = "../core" }
+scorsese-guide = { version = "0.1.0", path = "../guide" }
 scorsese-providers = { version = "0.1.0", path = "../providers" }
 scorsese-render = { version = "0.1.0", path = "../render" }
 
