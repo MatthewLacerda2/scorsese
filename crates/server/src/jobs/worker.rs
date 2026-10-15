@@ -70,6 +70,16 @@ impl Queue {
         job
     }
 
+    /// Everything `user` is told from now on, their jobs' changes among it:
+    /// what a call waiting on one of their jobs listens to (web MCP's `jobs`
+    /// `wait`, #1301), so the wait is a long poll rather than a loop of reads.
+    pub fn subscribe(
+        &self,
+        user: UserId,
+    ) -> impl futures_util::Stream<Item = Event> + Send + use<> {
+        self.events.subscribe(user)
+    }
+
     /// The flags of the jobs running now, by id.
     pub(super) fn running(&self) -> &Running {
         &self.running

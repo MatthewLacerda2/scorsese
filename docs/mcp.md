@@ -1882,9 +1882,13 @@ never has to leave the tools to wait — on 2026-10-10 one improvised a shell
 loop that matched its own command line and sat three hours past a finished
 render. `wait` without `job` is refused, since waiting on every job has no
 clear end. Cancelling the waiting call ends the wait and leaves the render
-running; `cancel` is what stops it. The hosted server's `jobs` has no `wait`,
-as its `render` has none: a call held open there would hold an HTTP request
-for the whole render, and its assistant has no shell to wander off to.
+running; `cancel` is what stops it. The hosted server's `jobs` takes the same
+`wait` with a bound (#1301): there a call is an HTTP request and a chat turn,
+and a batch of stills can take a day, so it answers once the job has ended or
+after a minute at most, with the job's line either way, and a job still going
+is waited on again. It listens for the job's announcements rather than reading
+its row in a loop, so the wait costs that server nothing. Its `render` still
+answers at once.
 
 **Both ship, because they serve different callers.** The notifications need a
 client that shows them and an open call, and an assistant cannot read them: a

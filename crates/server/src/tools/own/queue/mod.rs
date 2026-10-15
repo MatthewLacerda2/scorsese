@@ -15,6 +15,11 @@
 //! notification to stop, and `jobs`' `cancel` is the same "stop" said about
 //! the job (#660, a tool of its own until #783) —
 //! [`crate::jobs::cancel`], exactly as `POST /api/jobs/{id}/cancel` says it.
+//!
+//! What it does not do is hold the call for the whole job. `jobs`' `wait`
+//! (#1301) is the local tool's, bounded at a minute: [`wait`] has why.
+
+mod wait;
 
 use scorsese_mcp::Reply;
 use serde_json::{Value, json};
@@ -110,7 +115,10 @@ still wants it — and a job that already finished is left as it is. A queued ge
 render lands in the project on its own when it finishes, and a shot takes minutes: check a \
 job when the person asks about it or a later step needs what it made, never over and over to \
 wait it out — the call costs nothing here, but every check is a full round trip for whoever \
-is calling. Leave it running and say it is on its way.";
+is calling. Leave it running and say it is on its way. When a later step really needs what \
+a job made, add wait: true to its job id: the call answers as soon as that job is done, \
+failed, stuck or cancelled, or after a minute at most with how it stands then — wait again \
+if it is still going.";
 
 /// `jobs`' arguments.
 pub(super) fn jobs_schema() -> Value {
@@ -125,6 +133,13 @@ pub(super) fn jobs_schema() -> Value {
                 "type": "integer",
                 "description": "Stop this render, by the id render answered with. One that \
                                 already finished is left as it is and described instead."
+            },
+            "wait": {
+                "type": "boolean",
+                "description": "true, with `job`, to answer only once that job has ended — \
+                                done, failed, stuck or cancelled — or after a minute at most, \
+                                with its line then either way. One already ended answers at \
+                                once. Default false: answer at once."
             }
         }
     })
@@ -195,6 +210,13 @@ pub(super) async fn jobs(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
             .as_i64()
             .ok_or("`cancel` is a job id: the number render answered with")?;
         return cancel(caller, id).await;
+    }
+    if arguments.get("wait").and_then(Value::as_bool) == Some(true) {
+        let id = arguments.get("job").and_then(Value::as_i64).ok_or(
+            "wait waits for one job: give job, the id render or generate answered with — \
+             jobs without it lists them all, and waiting on all of them has no end",
+        )?;
+        return wait::waited(caller, id).await;
     }
     let pool = &caller.toolbox.pool;
     let listed: Vec<JobView> = match arguments.get("job").and_then(Value::as_i64) {
