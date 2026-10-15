@@ -468,7 +468,10 @@ labels mean, what gets filed, and in what order it lands.
   or filed as an issue, never dropped. **A change that needs the user's
   approval is never folded in**: one that changes how the user sees or
   understands their existing data or project, changes stored data, or needs a
-  migration. **Every issue Claude writes on its own carries the `agent`
+  migration. **A bug or a documentation fix never needs it** (the maintainer,
+  2026-10-15): filed without `planning`, built and merged without waiting,
+  even when the fix changes how existing projects render — a format change
+  still carries its schema bump. **Every issue Claude writes on its own carries the `agent`
   label**, which only says who decided to file it and never stops work. Fold
   in what is small or in the way, a stale doc included (*Take the
   initiative*); file the rest — a branch that grows to cover everything it
@@ -494,7 +497,7 @@ labels mean, what gets filed, and in what order it lands.
   answers, and the answers go into the issue, filed **startable**. **The one
   exception Claude applies itself:** a finding made **unattended** that needs
   the user's approval is filed with `planning`, and raised at the next
-  check-in.
+  check-in — never a bug or a documentation fix (*File what you notice*).
 - **The dependency graph is the plan.** Blocked by / Blocks and sub-issues;
   split by responsibility, never by parallelism. A `planning` issue that would
   change how another is built blocks that other one.
