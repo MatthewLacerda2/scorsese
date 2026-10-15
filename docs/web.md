@@ -393,7 +393,7 @@ DHCP lease — is a `web` container that does not start.
 ### Infrastructure, as code
 
 Everything a vendor lets Terraform manage is managed in `deploy/terraform/`
-(#957, #952, #1256), so it is versioned, reviewed in a pull request, and something an
+(#957, #952, #1256, #1352), so it is versioned, reviewed in a pull request, and something an
 agent can change. A change made in a dashboard is drift: the next plan shows
 it, and the next apply undoes it. There is one configuration per vendor, each
 with its own state at `$SCORSESE_DATA/terraform/<name>.tfstate`, outside the
@@ -406,9 +406,11 @@ checkout, so applying from a worktree that is then removed loses nothing.
 | `cloudflare/email.tf` | Email Routing's records, the `security@` and `contato@` forwards (one verified destination, `SCORSESE_SECURITY_FORWARD_TO`), and DMARC `p=reject` (the domain never sends mail) |
 | `google/project.tf` | the `scorseseestudio` Google Cloud project (deletion-protected) and the APIs enabled on it |
 | `stripe/webhook.tf` | the webhook endpoint for credit purchases (*Buying credits*): `<SCORSESE_PUBLIC_ORIGIN>/api/payments/stripe/webhook` and the three events it acts on, and its signing secret as a sensitive output |
-| `tf` | runs one configuration with its credentials: `tf cloudflare plan`, `tf google apply`, `tf stripe secret` |
+| `github/repository.tf` | the `MatthewLacerda2/scorsese` repository's settings: squash merges only, a merged branch deleted, no wiki or projects, Dependabot alerts and security updates on, secret scanning and push protection on. Imported, never created, and impossible to destroy by accident (`prevent_destroy`, and `archive_on_destroy` behind it) |
+| `github/ruleset.tf` | `main`'s ruleset: a change arrives as a squashed pull request with `CI ok` green on `main`'s tip, no review required, no deletion or force-push, nobody bypasses it |
+| `tf` | runs one configuration with its credentials: `tf cloudflare plan`, `tf google apply`, `tf stripe secret`, `tf github plan` |
 
-    make infra-plan     # what would change, for all three; changes nothing
+    make infra-plan     # what would change, for all four; changes nothing
     make infra-apply    # shows each plan again and asks before applying it
 
 **Credentials.** `tf cloudflare` reads three values from `deploy/.env`:
@@ -419,6 +421,8 @@ else, and `SCORSESE_SECURITY_FORWARD_TO`, kept out of the repository because it
 is a personal mailbox. `tf google` uses the maintainer's own `gcloud` login,
 through a short-lived access token, so no service-account key exists anywhere.
 `tf stripe` reads `STRIPE_SECRET_KEY` and `SCORSESE_PUBLIC_ORIGIN`.
+`tf github` uses the maintainer's own `gh` login (`gh auth token`), so no
+GitHub token is kept anywhere either; it needs an admin of the repository.
 `make infra`, the gate, checks formatting and each configuration against its
 provider's schema without credentials, in `make gates` and in CI's
 `deploy config` job.
@@ -466,6 +470,15 @@ apply tries to create it a second time:
 
     deploy/terraform/tf cloudflare import cloudflare_zero_trust_tunnel_cloudflared_config.site <account_id>/<tunnel_id>
     deploy/terraform/tf cloudflare import cloudflare_zone_dnssec.site <zone_id>
+
+The GitHub repository and its ruleset are imported by `import {}` blocks in
+`github/` itself, so the first apply does it and nobody runs an import by hand.
+
+**The ruleset requires `CI ok`**, the one job in CI that stands for every
+other (#1351). A required check that never reports blocks every pull request,
+so that job must be on `main` before the ruleset asking for it is applied.
+The check is also *strict*: the branch must hold `main`'s tip. That costs
+nothing, because every merge goes through `make queue`, which rebases first.
 
 ### Updating
 

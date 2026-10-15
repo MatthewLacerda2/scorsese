@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Terraform on one of deploy/terraform's three configurations, with the
+# Terraform on one of deploy/terraform's four configurations, with the
 # credentials each needs:
 #
 #   deploy/terraform/tf cloudflare plan
 #   deploy/terraform/tf google apply
 #   deploy/terraform/tf stripe secret
+#   deploy/terraform/tf github plan
 #
-# `make infra-plan` and `make infra-apply` call it for all three. It reads what it
+# `make infra-plan` and `make infra-apply` call it for all four. It reads what it
 # needs from the env file (DEPLOY_ENV, default deploy/.env beside this folder)
 # without sourcing it, and keeps each state at
 # $SCORSESE_DATA/terraform/<name>.tfstate, outside the checkout, so applying
@@ -21,13 +22,16 @@
 #               state is stripe-test or stripe-live by the key's mode.
 #               `tf stripe secret` writes the endpoint's signing secret into
 #               the env file as STRIPE_WEBHOOK_SECRET, printing nothing.
+#   github      the maintainer's own `gh` login, through `gh auth token`, so
+#               no key exists anywhere either. Only SCORSESE_DATA, for the
+#               state, comes from the env file.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
 root=${1:-}
 case "$root" in
-  cloudflare | google | stripe) shift ;;
-  *) echo "usage: tf cloudflare|google|stripe <terraform command…>" >&2; exit 2 ;;
+  cloudflare | google | stripe | github) shift ;;
+  *) echo "usage: tf cloudflare|google|stripe|github <terraform command…>" >&2; exit 2 ;;
 esac
 
 env_file=${DEPLOY_ENV:-$here/../.env}
@@ -55,6 +59,12 @@ case "$root" in
     GOOGLE_OAUTH_ACCESS_TOKEN=$(gcloud auth print-access-token) || {
       echo "tf: gcloud is not logged in -- run 'gcloud auth login'" >&2; exit 1; }
     export GOOGLE_OAUTH_ACCESS_TOKEN
+    ;;
+  github)
+    command -v gh >/dev/null 2>&1 || { echo "tf: gh is not installed" >&2; exit 1; }
+    GITHUB_TOKEN=$(gh auth token 2>/dev/null) || {
+      echo "tf: gh is not logged in -- run 'gh auth login'" >&2; exit 1; }
+    export GITHUB_TOKEN
     ;;
   stripe)
     STRIPE_API_KEY=$(need STRIPE_SECRET_KEY)
