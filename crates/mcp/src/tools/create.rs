@@ -20,11 +20,6 @@ use serde_json::Value;
 use super::args::{self, ProjectDir};
 use super::{Costs, Reply, Tool};
 
-/// The grid a project is authored on when nobody names one — the same default
-/// `scorsese new` carries, because two clients disagreeing about it would put
-/// every time in the document somewhere different.
-const DEFAULT_FPS: Fps = Fps::THIRTY;
-
 /// Lay out a new project directory.
 pub(crate) struct New;
 
@@ -139,7 +134,7 @@ fn start(platform: Option<&str>, style: Option<&str>) -> Result<Start, String> {
 /// what they mean on the command line — the second of them nothing, and loudly.
 fn fps(asked: Option<&Value>) -> Result<Fps, String> {
     let Some(asked) = asked else {
-        return Ok(DEFAULT_FPS);
+        return Ok(Fps::DEFAULT);
     };
     let text = match asked {
         Value::String(text) => text.clone(),

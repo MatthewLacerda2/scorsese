@@ -34,8 +34,12 @@ impl Fps {
     pub const FILM: Self = Self { num: 24, den: 1 };
     /// 25 — PAL.
     pub const PAL: Self = Self { num: 25, den: 1 };
-    /// 30 — the default grid for a new project.
+    /// 30.
     pub const THIRTY: Self = Self { num: 30, den: 1 };
+    /// The grid a new project is authored on when nobody names one. Every
+    /// surface that makes a project reads it here: two clients disagreeing
+    /// would put every time in the document somewhere different.
+    pub const DEFAULT: Self = Self::THIRTY;
     /// 60.
     pub const SIXTY: Self = Self { num: 60, den: 1 };
     /// 23.976 — film pulled down for NTSC, exactly 24000/1001.
@@ -130,7 +134,7 @@ impl Fps {
 
 impl Default for Fps {
     fn default() -> Self {
-        Self::THIRTY
+        Self::DEFAULT
     }
 }
 
