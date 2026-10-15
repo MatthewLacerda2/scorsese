@@ -510,8 +510,12 @@ CLAUDE.md, *Agent velocity*):
 - **Opus** for DevOps (CI, `deploy/`, Terraform), networking, and back-end
   (`crates/`, the server, anything that changes a request or a response).
 
-A branch that mixes the two takes Opus, or is split. The rest of this section
-is for everything that is not writing a branch.
+A branch that mixes the two takes Opus, or is split. **A Sonnet's pull
+request carries the `minor` label** (the maintainer, 2026-10-15), so which
+model wrote a change is visible from the pull-request list. The coder adds it
+when it opens the pull request (`cloud-brief.md`); whoever reviews it checks
+it is there before adding `queue`, and adds it if not. The rest of this
+section is for everything that is not writing a branch.
 
 Judgement work — design, implementation, triage — wants the strongest model. A
 rebase, a module-list conflict, an attribute moved between files does not. Most
