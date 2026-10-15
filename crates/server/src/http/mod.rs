@@ -27,6 +27,7 @@ pub mod styles;
 pub mod templates;
 pub mod tokens;
 pub mod uploads;
+pub mod visitor;
 
 use std::future::Future;
 use std::net::SocketAddr;
@@ -78,6 +79,8 @@ pub struct AppState {
     /// Stripe (#548), or `None` where it is not configured and a purchase
     /// answers "not configured".
     pub payments: Option<crate::payments::Payments>,
+    /// Which accounts' access is already recorded today (#1267).
+    pub daily: crate::accounts::access::Daily,
 }
 
 impl AppState {
@@ -108,6 +111,7 @@ impl AppState {
             assistant: Assistant::default(),
             google: None,
             payments: None,
+            daily: crate::accounts::access::Daily::default(),
             pool,
             jobs,
             events,

@@ -25,6 +25,7 @@
 
 pub mod flow;
 
+use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -40,6 +41,8 @@ pub use flow::Flow;
 
 use super::AppState;
 use super::auth;
+use super::visitor::Visitor;
+use crate::accounts::access::{self, Access};
 use crate::accounts::{AccountError, sessions, users};
 use crate::config::{ConfigError, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, PUBLIC_ORIGIN};
 
@@ -166,6 +169,7 @@ pub struct Callback {
 /// `GET /api/auth/google/callback`: finish a sign-in.
 pub async fn callback(
     State(state): State<AppState>,
+    Visitor(address): Visitor,
     headers: HeaderMap,
     Query(callback): Query<Callback>,
 ) -> Response {
@@ -173,7 +177,7 @@ pub async fn callback(
         return to_login("unconfigured");
     };
     let flow = Flow::from_headers(&headers);
-    let signed = finish(&state, google, flow.as_ref(), callback).await;
+    let signed = finish(&state, google, flow.as_ref(), callback, address).await;
     let clear = (SET_COOKIE, flow::clear_cookie());
     match signed {
         Ok(cookie) => {
@@ -202,6 +206,7 @@ async fn finish(
     google: Google,
     flow: Option<&Flow>,
     callback: Callback,
+    address: Option<IpAddr>,
 ) -> Result<String, &'static str> {
     if callback.error.is_some() {
         return Err("cancelled");
@@ -243,12 +248,14 @@ async fn finish(
             user.get()
         );
     }
-    sessions::open(&state.pool, signed.user())
+    let cookie = sessions::open(&state.pool, signed.user())
         .await
         .map_err(|error| {
             eprintln!("scorsese-server: a Google sign-in failed: {error}");
             "failed"
-        })
+        })?;
+    access::record_or_log(&state.pool, signed.user(), address, Access::SignIn).await;
+    Ok(cookie)
 }
 
 /// Seconds since the epoch, for an ID token's `exp`.

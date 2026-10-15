@@ -9,7 +9,11 @@ use sqlx::postgres::PgPool;
 /// Tables that are not a user's data. Adding one here is a decision a
 /// reviewer should see argued in the same pull request. (The login's attempt
 /// counters, `login_throttle`, were one until #952 took passwords away.)
-const NOT_PER_USER: &[&str] = &["_sqlx_migrations"];
+///
+/// - `access_log` (#1267): the access record Marco Civil art. 15 keeps for at
+///   least six months, which the law says outlives the account, so it has no
+///   cascade. No member may read it at all (`tests/access.rs`).
+const NOT_PER_USER: &[&str] = &["_sqlx_migrations", "access_log"];
 
 #[sqlx::test]
 async fn every_table_is_owned_cascaded_and_policed(pool: PgPool) {

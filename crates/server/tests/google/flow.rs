@@ -21,7 +21,7 @@ fn cookies(response: &Response) -> Vec<String> {
 }
 
 /// The value of `name` in a URL's query.
-fn query<'a>(url: &'a str, name: &str) -> &'a str {
+pub(super) fn query<'a>(url: &'a str, name: &str) -> &'a str {
     let query = url.split_once('?').expect("a URL with a query").1;
     let pair = query
         .split('&')
@@ -31,7 +31,7 @@ fn query<'a>(url: &'a str, name: &str) -> &'a str {
 }
 
 /// Start a sign-in landing on `next`: Google's URL, and the flow cookie.
-async fn start(address: SocketAddr, next: &str) -> (String, String) {
+pub(super) async fn start(address: SocketAddr, next: &str) -> (String, String) {
     let path = format!("/api/auth/google?next={next}");
     let started = request(address, "GET", &path, &[], None).await;
     assert_eq!(started.status, 303, "{}", started.body);

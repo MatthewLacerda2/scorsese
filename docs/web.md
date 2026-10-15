@@ -215,7 +215,7 @@ reads is in the example.
 down the tunnel `cloudflared` holds open from this machine. `cloudflared` sends
 everything to `web` on its port 80; nginx serves the React build and passes
 `/api/` to `server`, unchanged but for naming the client's address
-(*The login's brake*, which says what is left of that). Nothing is published to the network: `web`
+(*The access record* has why). Nothing is published to the network: `web`
 also answers on `$SCORSESE_WEB_BIND:$SCORSESE_WEB_PORT` — its port 8080 inside,
 a second door so it can tell the two apart — loopback unless `.env` says
 otherwise, for checking the site from this machine and for `tailscale serve`.
@@ -279,7 +279,7 @@ them. The rest is commands, from the checkout on the machine that serves.
    turns it on. **Add no public hostname in the dashboard**: the hostnames,
    their DNS records and the rest come from `make infra-apply` (*Infrastructure,
    as code*), each to `http://web:80` — nginx's tunnel-only door, never 8080
-   (*The login's brake* says why).
+   (*The access record* says why).
 4. **The backup destination.** Somewhere off this machine the maintainer
    chooses — an object store (Backblaze B2, S3, R2), a cloud drive, another
    machine over SFTP. `rclone config` creates a remote for it; then
@@ -699,8 +699,54 @@ sign-in. The `login_throttle` table, `user locks` and `user unlock` went with
 it. What is left is nginx's two doors (`deploy/nginx.conf`): `web:80`, the
 only one the tunnel points at, and `web:8080`, the one compose publishes,
 with nginx naming the client's address to the server as `X-Scorsese-Client`.
-The server reads that header no more; retiring the doors, and this section,
-is #1245.
+The brake read that header no more, but the access record below does (#1267),
+so the two doors stay: they are what keeps a visitor on the published port
+from naming somebody else's address in `CF-Connecting-IP`.
+
+### The access record
+
+Marco Civil da Internet (Lei 12.965/2014) art. 15 asks an application run by
+a company for profit to keep the address, date and time of each access for
+at least six months (#1267). The server writes it to the `access_log` table,
+privileged, at two moments, never on every request:
+
+- **`sign_in`**: each Google sign-in that opens a session;
+- **`day`**: an account's first request of each day (UTC), by session or by
+  API token, so a month-long session or an MCP client's token still leaves a
+  row for every day it is used. Which accounts are done today is kept in the
+  server's memory, so the database is asked once per account per day; a
+  restart forgets it, and a unique index makes the repeat write a no-op.
+
+Each row is `user_id`, `kind`, `address` (an `inet`) and `at`. The address is
+the one nginx names in `X-Scorsese-Client`: Cloudflare's `CF-Connecting-IP`
+through the tunnel, the connection's own address through the published port
+(*The login's brake* above); with no nginx in front, the server's peer. A
+write that fails is logged and never fails the request, and a missed `day`
+is written on the account's next request.
+
+**Kept forever, and past the account** (the maintainer, 2026-10-14): six
+months is the law's minimum, not a ceiling, so nothing prunes the table. It
+is not per user (`tests/isolation.rs` lists it with the reason): `user_id`
+has no foreign key, so `user delete` leaves the rows, and account ids are
+never reused, so they keep naming the same account. No member may read it,
+their own rows included, and nothing in the server does.
+
+The operator reads it as the server's login role, read-only, where the
+server runs:
+
+```sh
+docker compose exec -e PGOPTIONS='-c default_transaction_read_only=on' \
+  postgres psql -U scorsese scorsese -c "
+SELECT a.at, a.kind, host(a.address) AS address, a.user_id, u.email
+FROM access_log a LEFT JOIN users u ON u.id = a.user_id
+WHERE a.user_id = 7 AND a.at > now() - interval '6 months'
+ORDER BY a.at"
+```
+
+A deleted account's rows show no email: the record names an account by its id
+alone. To ask who used an address, filter on
+`a.address = '203.0.113.9'` (or `<<= '2001:db8::/64'`) and a time range
+instead.
 
 ### Per-user isolation: how a new table follows it
 

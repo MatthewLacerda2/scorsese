@@ -35,7 +35,9 @@
 //! owner), the render cache's quota and sweep (`renders::evict` — the
 //! quota is the whole machine's), and finding whose a Stripe payment is when
 //! its webhook arrives (`payments::settle` — Stripe carries no user; the
-//! crediting runs scoped as the owner). Every call to it is a place a reviewer
+//! crediting runs scoped as the owner), and writing the access record
+//! (`accounts::access` — a table that outlives the account by law, so no
+//! member may read it). Every call to it is a place a reviewer
 //! reads twice; it is short on purpose, so `grep privileged` stays a short
 //! list.
 //!

@@ -10,7 +10,7 @@ import { SELLER } from "@/legal/seller";
 
 export const PRIVACY: LegalDocument = {
   title: "Política de privacidade",
-  updated: "2026-10-14",
+  updated: "2026-10-15",
   sections: [
     {
       heading: "Quem cuida dos seus dados",
@@ -26,7 +26,7 @@ export const PRIVACY: LegalDocument = {
           "Conteúdo: os arquivos que você envia (que podem mostrar pessoas, inclusive o rosto e a voz delas), os seus projetos, o que é gerado para você e os textos que você escreve para pedir cada geração.",
           "Conversas com o assistente: as mensagens e o registro de cada ação que o assistente faz no seu projeto. A gente usa esse registro para encontrar erros e melhorar o assistente.",
           "Créditos e pagamentos: o seu saldo, o histórico de gastos e, de cada compra, o valor, a cotação usada e o identificador do pagamento na Stripe. Os dados do seu cartão vão direto para a Stripe e nunca passam pelo nosso servidor.",
-          "Registros de acesso: endereço IP, data e hora dos acessos, guardados por até 6 meses, como determina o Marco Civil da Internet (Lei 12.965/2014).",
+          "Registros de acesso: o endereço IP, a data e a hora de cada vez que você entra com o Google e do primeiro acesso de cada dia, guardados por no mínimo 6 meses, como determina o Marco Civil da Internet (Lei 12.965/2014).",
         ],
       ],
     },
@@ -61,7 +61,7 @@ export const PRIVACY: LegalDocument = {
       heading: "Onde ficam e por quanto tempo",
       blocks: [
         "Os seus dados ficam no nosso servidor, no Brasil, e numa cópia de segurança, refeita periodicamente e mantida por 30 dias.",
-        "Eles ficam guardados enquanto a sua conta existir. Quando a conta é encerrada, tudo é apagado do servidor, e as cópias de segurança que ainda tiverem os seus dados expiram em até 30 dias. Os registros de pagamento continuam na Stripe e na nossa contabilidade pelo prazo que a lei fiscal exige, e os registros de acesso pelo prazo do Marco Civil.",
+        "Eles ficam guardados enquanto a sua conta existir. Quando a conta é encerrada, tudo é apagado do servidor, e as cópias de segurança que ainda tiverem os seus dados expiram em até 30 dias. Os registros de pagamento continuam na Stripe e na nossa contabilidade pelo prazo que a lei fiscal exige, e os registros de acesso continuam guardados, como determina o Marco Civil.",
       ],
     },
     {

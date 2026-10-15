@@ -19,6 +19,7 @@
 //! this scale is nothing. (The Google OAuth client's secret is Google's, not
 //! ours: it proves the server to Google and signs nothing here.)
 
+pub mod access;
 pub mod secret;
 pub mod sessions;
 pub mod tokens;
