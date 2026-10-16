@@ -9,6 +9,7 @@
 pub mod account;
 pub mod auth;
 pub mod chat;
+pub mod client_errors;
 pub mod credits;
 mod disposition;
 pub mod editor;
@@ -17,6 +18,7 @@ pub mod events;
 pub mod google;
 pub mod jobs;
 pub mod library;
+pub mod limits;
 pub mod mcp;
 pub mod payments;
 pub mod projects;
@@ -67,7 +69,9 @@ pub struct AppState {
     /// built-in assistant (#540) calls in-process.
     pub tools: Toolbox,
     /// How many tool calls each user has made lately, over web MCP.
-    pub limits: mcp::Limits,
+    pub limits: limits::Limits,
+    /// How many crash reports each address has sent lately (#1428).
+    pub reports: limits::Limits<Option<std::net::IpAddr>>,
     /// The web MCP calls each user has running, for a cancel to find.
     pub in_flight: mcp::InFlight,
     /// The built-in assistant (#540): how it reaches Claude, and what a turn
@@ -106,7 +110,8 @@ impl AppState {
             library,
             renders: files.renders,
             tools,
-            limits: mcp::Limits::default(),
+            limits: limits::Limits::new(mcp::CALLS_PER_MINUTE),
+            reports: limits::Limits::new(client_errors::REPORTS_PER_MINUTE),
             in_flight: mcp::InFlight::default(),
             assistant: Assistant::default(),
             google: None,
