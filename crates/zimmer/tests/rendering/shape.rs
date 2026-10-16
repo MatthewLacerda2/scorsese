@@ -31,6 +31,7 @@ fn an_fx_chain_lengthens_the_buffer_so_its_tail_survives() {
         size: 0.8,
         damp: 0.5,
         mix: 0.4,
+        predelay: 0.0,
     }];
     let dry = render(&saw_patch(), 60.0, &opts(0.2));
     let wet = render(&patch, 60.0, &opts(0.2));
@@ -88,6 +89,7 @@ fn a_note_past_the_ceiling_is_refused_tail_included() {
         size: 0.9,
         damp: 0.5,
         mix: 0.4,
+        predelay: 0.0,
     }];
     let rings_past = refusal(&drone, 60.0, &opts(58.0));
     assert!(

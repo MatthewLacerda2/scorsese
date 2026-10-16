@@ -276,9 +276,9 @@ impl<'a> Mix<'a> {
             let Some(bus) = part.as_mut().filter(|_| !track.fx.is_empty() || rides) else {
                 continue;
             };
-            ring_out(bus, &track.fx);
-            fx::apply_chain_keyed(bus, &track.fx, RATE, &keys);
-            fx::close_tail(bus, &track.fx, RATE);
+            ring_out(bus, &track.fx, self.clock);
+            fx::apply_chain_keyed(bus, &track.fx, RATE, &keys, self.clock);
+            fx::close_tail(bus, &track.fx, RATE, self.clock);
             if rides {
                 // The fader is written onto the part itself and the part then
                 // arrives at unity, because there is no single number to add
@@ -301,15 +301,15 @@ impl<'a> Mix<'a> {
             // copy being measured moves.
             scale(bus, placed);
         }
-        ring_out(&mut self.master, &song.fx);
+        ring_out(&mut self.master, &song.fx, self.clock);
         match self.sent.as_mut() {
             Some(sent) => {
                 sent.grow_to(self.master.frames());
-                fx::apply_chain_sent(&mut self.master, sent, &song.fx, RATE);
+                fx::apply_chain_sent(&mut self.master, sent, &song.fx, RATE, self.clock);
             }
-            None => fx::apply_chain(&mut self.master, &song.fx, RATE),
+            None => fx::apply_chain_timed(&mut self.master, &song.fx, RATE, self.clock),
         }
-        fx::close_tail(&mut self.master, &song.fx, RATE);
+        fx::close_tail(&mut self.master, &song.fx, RATE, self.clock);
         let layers = if self.measured {
             measure(song, parts, self.master.frames(), self.scope, cuts)
         } else {
@@ -443,12 +443,13 @@ fn measure(
         .collect()
 }
 
-/// Grows `buf` by however long `chain` needs to decay into.
+/// Grows `buf` by however long `chain` needs to decay into, at the tempo
+/// `clock` plays.
 ///
 /// A dry chain, and no chain at all, ask for nothing — so this is a no-op on
 /// the path every existing song takes.
-fn ring_out(buf: &mut Stereo, chain: &[Fx]) {
-    let tail = (fx::tail_seconds(chain) * RATE).round() as usize;
+fn ring_out(buf: &mut Stereo, chain: &[Fx], clock: &Clock) {
+    let tail = (fx::tail_seconds(chain, clock) * RATE).round() as usize;
     buf.resize(buf.frames() + tail);
 }
 

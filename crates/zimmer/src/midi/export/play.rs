@@ -59,6 +59,7 @@ pub(super) struct Unsaid {
     too_loud: usize,
     shared_channels: usize,
     humanize: bool,
+    pushed: bool,
     fit: bool,
 }
 
@@ -78,7 +79,10 @@ pub(super) fn parts<'s>(song: &'s Song, voices: &[Voice]) -> Result<Played<'s>, 
         .collect();
 
     let mut unsaid = Unsaid {
-        humanize: song.humanize.is_some_and(|feel| feel != Default::default()),
+        humanize: song.humanize.is_some_and(|feel| feel != Default::default())
+            || (song.tracks.iter())
+                .any(|it| it.humanize.is_some_and(|feel| feel != Default::default())),
+        pushed: song.tracks.iter().any(|it| it.push != 0.0),
         fit: song.fit.is_some(),
         ..Unsaid::default()
     };
@@ -129,7 +133,8 @@ pub(super) fn parts<'s>(song: &'s Song, voices: &[Voice]) -> Result<Played<'s>, 
             else {
                 continue;
             };
-            let onset = cursor + f64::from(swung(note.start, song.swing));
+            let swing = song.tracks[track].swing.unwrap_or(song.swing);
+            let onset = cursor + f64::from(swung(note.start, swing));
             let held = f64::from(note.dur * stroke.gate);
             let start = ticks(onset);
             parts[track].notes.push(Struck {
@@ -216,6 +221,13 @@ impl Unsaid {
             said.push(
                 "`humanize` is not written: the file is the part as composed, and a DAW's own \
                  humanize can be applied to it"
+                    .to_owned(),
+            );
+        }
+        if self.pushed {
+            said.push(
+                "a track's `push` is not written: the file is on the grid, and a DAW's own track \
+                 delay can sit a part ahead of the beat or behind it"
                     .to_owned(),
             );
         }

@@ -28,6 +28,7 @@ fn room() -> Fx {
         size: 0.5,
         damp: 0.5,
         mix: 0.3,
+        predelay: 0.0,
     }
 }
 

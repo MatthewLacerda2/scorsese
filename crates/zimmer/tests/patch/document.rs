@@ -38,6 +38,7 @@ fn full_patch() -> Patch {
         fx: vec![
             Fx::Delay {
                 time: 0.25,
+                beats: None,
                 feedback: 0.35,
                 mix: 0.3,
                 ping_pong: false,
@@ -46,6 +47,7 @@ fn full_patch() -> Patch {
                 size: 0.6,
                 damp: 0.5,
                 mix: 0.2,
+                predelay: 0.0,
             },
         ],
     }
@@ -67,6 +69,7 @@ fn tags_are_snake_case_and_named_as_documented() {
 
     let json = serde_json::to_string(&Fx::Delay {
         time: 0.1,
+        beats: None,
         feedback: 0.2,
         mix: 0.3,
         ping_pong: false,

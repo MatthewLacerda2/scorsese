@@ -73,6 +73,7 @@ pub(crate) mod reverb;
 pub(crate) mod saturate;
 mod send;
 
+pub(crate) use delay::Spacing;
 pub(crate) use reach::{close_tail, lookahead_seconds, tail_seconds};
 pub(crate) use send::apply_chain_sent;
 
@@ -93,6 +94,36 @@ pub(crate) trait Keys {
     fn part(&self, track: &str) -> Option<&Stereo>;
 }
 
+/// What a beat lasts where a chain is playing — how a delay timed in `beats`
+/// finds its spacing in samples.
+///
+/// A trait for the reason [`Keys`] is one: the tempo belongs to the song, and
+/// this module has never heard of a song. A song hands over the clock it is
+/// actually rendered at, so a beat here is a beat after `fit` and the anchors
+/// have moved the tempo, and one that follows a tempo map as it changes.
+pub(crate) trait Tempo {
+    /// Seconds one beat lasts at sample-frame `frame` of the signal.
+    fn beat_seconds(&self, frame: usize) -> f32;
+    /// The longest a beat lasts anywhere — how long a delay line timed in
+    /// beats has to be, and how far its tail can reach.
+    fn longest_beat(&self) -> f32;
+}
+
+/// The tempo of a chain that has none: a patch's, which plays one note and
+/// refuses `beats` in validation. A beat lasts nothing here, so a delay that
+/// asked for beats anyway is a delay of no time — the no-op a `time` of zero
+/// already is.
+pub(crate) struct NoTempo;
+
+impl Tempo for NoTempo {
+    fn beat_seconds(&self, _frame: usize) -> f32 {
+        0.0
+    }
+    fn longest_beat(&self) -> f32 {
+        0.0
+    }
+}
+
 /// The lookup for a chain sitting somewhere a track name means nothing: a
 /// patch's, which runs per note, and the song's own, which runs on the sum.
 /// Both refuse a `sidechain` in validation, so this is what a chain that
@@ -110,22 +141,37 @@ impl Keys for NoKeys {
 /// For the two chains that have no tracks to name — a patch's and the song's.
 /// A compressor on one of those reads its level from the signal it is
 /// changing, which is what a compressor with no `sidechain` does anyway.
+///
+/// This is a patch's: it has no tempo either. The song's is
+/// [`apply_chain_timed`].
 pub(crate) fn apply_chain(buf: &mut Stereo, chain: &[Fx], rate: f32) {
-    apply_chain_keyed(buf, chain, rate, &NoKeys);
+    apply_chain_timed(buf, chain, rate, &NoTempo);
 }
 
-/// [`apply_chain`], with somewhere for a sidechained compressor to find the
-/// part it listens to — what a **track's** chain gets, and only a track's.
-pub(crate) fn apply_chain_keyed(buf: &mut Stereo, chain: &[Fx], rate: f32, keys: &dyn Keys) {
+/// [`apply_chain`], with a delay timed in beats reading them off `tempo` —
+/// the song's own chain, which has a tempo and no track to name.
+pub(crate) fn apply_chain_timed(buf: &mut Stereo, chain: &[Fx], rate: f32, tempo: &dyn Tempo) {
+    apply_chain_keyed(buf, chain, rate, &NoKeys, tempo);
+}
+
+/// [`apply_chain_timed`], with somewhere for a sidechained compressor to find
+/// the part it listens to — what a **track's** chain gets, and only a track's.
+pub(crate) fn apply_chain_keyed(
+    buf: &mut Stereo,
+    chain: &[Fx],
+    rate: f32,
+    keys: &dyn Keys,
+    tempo: &dyn Tempo,
+) {
     for fx in chain {
-        apply_one(buf, fx, rate, keys);
+        apply_one(buf, fx, rate, keys, tempo);
     }
 }
 
 /// Runs one stage of a chain on `buf` — the whole of what a chain is, one
 /// entry at a time, so a chain run beside a send ([`send`]) takes the same
 /// path for every stage that does not care about one.
-fn apply_one(buf: &mut Stereo, fx: &Fx, rate: f32, keys: &dyn Keys) {
+fn apply_one(buf: &mut Stereo, fx: &Fx, rate: f32, keys: &dyn Keys, tempo: &dyn Tempo) {
     match fx {
         // Not through `each` when the repeats cross: one line's output is
         // the other line's input, so the two sides are one delay rather
@@ -133,17 +179,30 @@ fn apply_one(buf: &mut Stereo, fx: &Fx, rate: f32, keys: &dyn Keys) {
         // handed both channels at once.
         Fx::Delay {
             time,
+            beats,
             feedback,
             mix,
             ping_pong: true,
-        } => delay::ping_pong(buf, *time, *feedback, *mix, rate),
+        } => {
+            let spacing = Spacing::new(*time, *beats, tempo);
+            delay::ping_pong(buf, spacing, *feedback, *mix, rate);
+        }
         Fx::Delay {
             time,
+            beats,
             feedback,
             mix,
             ping_pong: false,
-        } => buf.each(|channel| delay::apply(channel, *time, *feedback, *mix, rate)),
-        Fx::Reverb { size, damp, mix } => reverb::apply(buf, *size, *damp, *mix, rate),
+        } => {
+            let spacing = Spacing::new(*time, *beats, tempo);
+            buf.each(|channel| delay::apply(channel, spacing, *feedback, *mix, rate));
+        }
+        Fx::Reverb {
+            size,
+            damp,
+            mix,
+            predelay,
+        } => reverb::apply(buf, *size, *damp, *predelay, *mix, rate),
         Fx::Saturate { drive, mix } => {
             buf.each(|channel| saturate::apply(channel, *drive, *mix));
         }
@@ -196,6 +255,7 @@ mod tests {
         let chain = [
             Fx::Delay {
                 time: 0.05,
+                beats: None,
                 feedback: 0.4,
                 mix: 0.5,
                 ping_pong: false,
@@ -204,6 +264,7 @@ mod tests {
                 size: 0.6,
                 damp: 0.5,
                 mix: 0.5,
+                predelay: 0.0,
             },
         ];
         let mut forward = impulse(22_050);
@@ -231,6 +292,7 @@ mod tests {
                 size: 0.7,
                 damp: 0.5,
                 mix: 1.0,
+                predelay: 0.0,
             }],
             44_100.0,
         );
@@ -253,6 +315,7 @@ mod tests {
             &[
                 Fx::Delay {
                     time: 0.05,
+                    beats: None,
                     feedback: 0.4,
                     mix: 0.5,
                     ping_pong: false,
@@ -273,6 +336,7 @@ mod tests {
             &mut walked,
             &[Fx::Delay {
                 time: 0.05,
+                beats: None,
                 feedback: 0.4,
                 mix: 0.5,
                 ping_pong: true,

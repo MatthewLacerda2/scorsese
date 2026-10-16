@@ -128,7 +128,10 @@ pub(crate) fn render_swept(
 ) -> Result<Stereo, SynthError> {
     patch.validate()?;
     let gate = gate_length(opts.duration)?;
-    let n = sample_count(gate, patch.amp.r.max(0.0) + fx::tail_seconds(&patch.fx))?;
+    let n = sample_count(
+        gate,
+        patch.amp.r.max(0.0) + fx::tail_seconds(&patch.fx, &fx::NoTempo),
+    )?;
     let velocity = opts.velocity.clamp(0.0, 1.0);
     let brightness = (opts.velocity + opts.timbre).clamp(0.0, 1.0);
 
@@ -150,7 +153,7 @@ pub(crate) fn render_swept(
     }
     apply_amp(&mut buf, patch, gate, velocity);
     fx::apply_chain(&mut buf, &patch.fx, RATE);
-    fx::close_tail(&mut buf, &patch.fx, RATE);
+    fx::close_tail(&mut buf, &patch.fx, RATE, &fx::NoTempo);
     Ok(buf)
 }
 

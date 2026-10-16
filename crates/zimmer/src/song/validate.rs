@@ -6,7 +6,7 @@
 
 use super::automate::{Automation, Param};
 use super::chord::Led;
-use super::{ArrangementEntry, Context, Key, Layer, Pattern, PatternEntry, Song, Track};
+use super::{ArrangementEntry, Context, Humanize, Key, Layer, Pattern, PatternEntry, Song, Track};
 use crate::error::SynthError;
 use crate::patch::Patch;
 
@@ -129,7 +129,8 @@ impl Song {
     }
 
     /// The performance fields: how much the song swings, and how far its player
-    /// strays from the page.
+    /// strays from the page — and the same of each track that writes its own,
+    /// with how far it sits off the beat.
     ///
     /// Both are refused only for values that stop meaning what the field is
     /// named after. A swing at or past 1 does not swing harder — it moves the
@@ -140,16 +141,27 @@ impl Song {
         if !(self.swing.is_finite() && (0.0..1.0).contains(&self.swing)) {
             return Err(SynthError::BadSwing { swing: self.swing });
         }
-        let Some(feel) = self.humanize else {
-            return Ok(());
-        };
-        for (field, amount) in [
-            ("timing", feel.timing),
-            ("velocity", feel.velocity),
-            ("timbre", feel.timbre),
-        ] {
-            if !(amount.is_finite() && amount >= 0.0) {
-                return Err(SynthError::BadHumanize { field, amount });
+        if let Some((at, amount)) = self.humanize.and_then(unscattered) {
+            let field = ["timing", "velocity", "timbre"][at];
+            return Err(SynthError::BadHumanize { field, amount });
+        }
+        for track in &self.tracks {
+            let refuse = |field, amount| SynthError::BadTrackFeel {
+                track: track.name.clone(),
+                field,
+                amount,
+            };
+            if !track.push.is_finite() {
+                return Err(refuse("push", track.push));
+            }
+            if let Some(swing) = track.swing
+                && !(swing.is_finite() && (0.0..1.0).contains(&swing))
+            {
+                return Err(refuse("swing", swing));
+            }
+            if let Some((at, amount)) = track.humanize.and_then(unscattered) {
+                let field = ["humanize.timing", "humanize.velocity", "humanize.timbre"][at];
+                return Err(refuse(field, amount));
             }
         }
         Ok(())
@@ -284,6 +296,17 @@ impl PatternEntry {
 
 /// One curve's own points: that there are some, that they ascend, and that
 /// each is a number the parameter can take.
+/// The first `humanize` amount that is not an amount — negative, or not a
+/// number — as its place among `timing`, `velocity` and `timbre`, and its
+/// value. A scatter is a magnitude, so a negative one is not the other
+/// direction, it is nonsense.
+fn unscattered(feel: Humanize) -> Option<(usize, f32)> {
+    [feel.timing, feel.velocity, feel.timbre]
+        .into_iter()
+        .enumerate()
+        .find(|(_, amount)| !(amount.is_finite() && *amount >= 0.0))
+}
+
 fn check_curve(curve: &Automation) -> Result<(), SynthError> {
     let (track, param) = (curve.track.clone(), curve.param.as_str());
     let bad_curve = |why| SynthError::BadAutomationCurve {

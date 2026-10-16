@@ -184,6 +184,19 @@ impl Map {
         self.segments[0].bpm
     }
 
+    /// The slowest tempo anywhere in the map: the lowest a segment starts or
+    /// ends on, since a ramp moves evenly between the two.
+    pub(super) fn slowest(&self) -> f64 {
+        let ends = self.segments.iter().enumerate().map(|(index, it)| {
+            let end = self
+                .segments
+                .get(index + 1)
+                .map_or(it.from, |next| next.from);
+            (it.bpm + it.slope * (end - it.from)).min(it.bpm)
+        });
+        ends.fold(f64::INFINITY, f64::min)
+    }
+
     /// The tempo on beat `beats` of the piece.
     pub(super) fn tempo(&self, beats: f64) -> f64 {
         let pass = self.pass_of(beats / self.period);
@@ -320,6 +333,21 @@ mod tests {
         for beats in [0.0, 1.0, 7.25, 16.0, 16.5, 40.0] {
             assert!((map.beats(map.seconds(beats)) - beats).abs() < 1e-9);
         }
+    }
+
+    #[test]
+    fn the_slowest_tempo_is_found_at_either_end_of_a_ramp() {
+        assert_eq!(accelerando().slowest(), 120.0);
+        let ritardando = Map::new(120.0, &[TempoChange::ramp(16.0, 60.0)], 1.0, 32.0, 1);
+        assert_eq!(ritardando.slowest(), 60.0);
+        let dip = Map::new(
+            120.0,
+            &[TempoChange::jump(8.0, 90.0), TempoChange::jump(16.0, 140.0)],
+            2.0,
+            32.0,
+            1,
+        );
+        assert_eq!(dip.slowest(), 180.0);
     }
 
     #[test]

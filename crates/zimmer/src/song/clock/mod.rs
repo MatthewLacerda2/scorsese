@@ -160,6 +160,25 @@ impl Clock {
     }
 }
 
+/// A delay timed in beats reads them off the clock the song is rendered at —
+/// so after a `stretch` fit or the anchors have moved the tempo, and following
+/// a tempo map as it goes.
+impl crate::fx::Tempo for Clock {
+    fn beat_seconds(&self, frame: usize) -> f32 {
+        match &self.map {
+            None => self.beat,
+            Some(map) => (60.0 / map.tempo(map.beats(frame as f64 / f64::from(RATE)))) as f32,
+        }
+    }
+
+    fn longest_beat(&self) -> f32 {
+        match &self.map {
+            None => self.beat,
+            Some(map) => (60.0 / map.slowest()) as f32,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -171,5 +190,28 @@ mod tests {
         assert_eq!(clock.seconds(8.0), 4.0);
         assert_eq!(clock.span(3.0, 2.0), 1.0);
         assert_eq!(clock.beat_at(RATE as usize), 2.0);
+    }
+
+    /// What a delay timed in beats reads: the beat as long as it is where the
+    /// frame falls, and the longest anywhere to size its line by.
+    #[test]
+    fn a_beat_lasts_what_the_tempo_says_where_it_is_played() {
+        use crate::fx::Tempo;
+        let steady = Clock::at(120.0);
+        assert_eq!(steady.beat_seconds(123_456), 0.5);
+        assert_eq!(steady.longest_beat(), 0.5);
+        let song = crate::Song::from_json(
+            r#"{"bpm": 120, "tempo": [{"beat": 4, "bpm": 60}], "tracks": [],
+                "patterns": {"a": {"beats": 8, "notes": []}}, "arrangement": ["a"]}"#,
+        )
+        .unwrap();
+        let slowing = Clock::written(&song, 1);
+        assert_eq!(slowing.beat_seconds(RATE as usize), 0.5, "beat 2, at 120");
+        assert_eq!(
+            slowing.beat_seconds(3 * RATE as usize),
+            1.0,
+            "beat 5, at 60"
+        );
+        assert_eq!(slowing.longest_beat(), 1.0);
     }
 }

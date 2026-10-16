@@ -130,8 +130,20 @@ impl EqBand {
 pub enum Fx {
     /// Feedback echo.
     Delay {
-        /// Echo spacing in seconds.
+        /// Echo spacing in seconds. Absent (zero) when [`beats`](Fx::Delay::beats)
+        /// says it instead — a recipe writes one or the other.
+        #[serde(default, skip_serializing_if = "no_time")]
         time: f32,
+        /// Echo spacing in **beats** of the song it plays in — `0.75` is a
+        /// dotted eighth — in place of `time`.
+        ///
+        /// Read off the clock the song is actually rendered at, so it is
+        /// resolved **after** a `stretch` fit or an anchor has moved the tempo
+        /// and follows a tempo map as it goes: the echoes stay on the grid
+        /// however the piece was made to land. A track's or the song's chain
+        /// only — a patch has no tempo, and refuses one.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        beats: Option<f32>,
         /// How much of each echo feeds the next, `0..1`.
         feedback: f32,
         /// Wet/dry blend, `0..=1`.
@@ -161,6 +173,13 @@ pub enum Fx {
         damp: f32,
         /// Wet/dry blend, `0..=1`.
         mix: f32,
+        /// Seconds of silence between a sound and the first of its room, up to
+        /// half a second. Absent is none, which is Freeverb as it always was:
+        /// the tail starting on the transient and smearing it. `0.02`–`0.06`
+        /// keeps a snare's crack or a lead's attack clear of the room it is
+        /// in — the gap a big hall has before its first wall answers.
+        #[serde(default, skip_serializing_if = "no_predelay")]
+        predelay: f32,
     },
     /// A `tanh` soft clip: the one nonlinearity in the signal path, and so the
     /// only stage that can put a harmonic into the output that was not in the
@@ -276,6 +295,19 @@ pub enum Fx {
 /// `song`'s own `no_swing` is the same rule at the other document.
 fn not_ping_pong(ping_pong: &bool) -> bool {
     !*ping_pong
+}
+
+/// Whether a delay leaves its spacing to `beats` — the test that keeps
+/// `"time": 0.0` out of a beat-timed delay, for the reason [`not_ping_pong`]
+/// gives. A delay written with `"time": 0` was a no-op, and still is.
+fn no_time(time: &f32) -> bool {
+    *time == 0.0
+}
+
+/// Whether a room answers at once — the test that keeps `"predelay": 0.0`
+/// out of every saved document, for the reason [`not_ping_pong`] gives.
+fn no_predelay(predelay: &f32) -> bool {
+    *predelay == 0.0
 }
 
 fn gentle_q() -> f32 {

@@ -14,6 +14,7 @@ fn in_a_room(send: f32) -> Song {
         size: 0.8,
         damp: 0.3,
         mix: 0.3,
+        predelay: 0.0,
     }];
     song.tracks[0].send = send;
     song

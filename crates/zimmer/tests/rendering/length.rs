@@ -23,6 +23,7 @@ fn pop() -> Patch {
         size: 0.25,
         damp: 0.6,
         mix: 0.2,
+        predelay: 0.0,
     }];
     patch
 }

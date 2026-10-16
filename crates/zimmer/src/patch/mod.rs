@@ -38,12 +38,41 @@ pub use stages::{
 /// be written. The song's own validation calls this for the other two.
 pub(crate) fn check_chain(chain: &[Fx]) -> Result<(), SynthError> {
     for fx in chain {
-        if let Fx::Eq { bands } = fx
-            && bands.len() > MAX_EQ_BANDS
+        match fx {
+            Fx::Eq { bands } if bands.len() > MAX_EQ_BANDS => {
+                return Err(SynthError::TooManyEqBands {
+                    found: bands.len(),
+                    limit: MAX_EQ_BANDS,
+                });
+            }
+            Fx::Delay {
+                time,
+                beats: Some(beats),
+                ..
+            } if *time != 0.0 => {
+                return Err(SynthError::DelayTwoTimes {
+                    time: *time,
+                    beats: *beats,
+                });
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+/// Rejects a delay timed in `beats` on a patch's chain, which plays one note
+/// and has no tempo to count them by — refused, like a `sidechain` there,
+/// rather than played as no delay at all.
+fn check_no_beats(chain: &[Fx]) -> Result<(), SynthError> {
+    for fx in chain {
+        if let Fx::Delay {
+            beats: Some(beats), ..
+        } = fx
         {
-            return Err(SynthError::TooManyEqBands {
-                found: bands.len(),
-                limit: MAX_EQ_BANDS,
+            return Err(SynthError::MisplacedBeats {
+                place: "patch",
+                beats: *beats,
             });
         }
     }
@@ -138,6 +167,7 @@ impl Patch {
             return Err(SynthError::NegativeLfoRate { rate: lfo.rate });
         }
         check_chain(&self.fx)?;
+        check_no_beats(&self.fx)?;
         check_no_sidechain(&self.fx, "patch")
     }
 
