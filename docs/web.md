@@ -1470,7 +1470,7 @@ while its render streams.
 
 | route | who | what |
 | --- | --- | --- |
-| `POST /api/projects/{id}/renders` | a member | `{container?, video_codec?, audio_codec?, resolution?, narration_bands?, loudness?}` → `200 {render}` when kept, `202 {job}` when queued or already on its way; `400` for a shape `docs/output-formats.md` does not allow. No `resolution` is the project's frame with 1080 lines on its shorter side (`Resolution::of_project`) |
+| `POST /api/projects/{id}/renders` | a member | `{container?, video_codec?, audio_codec?, resolution?, platform?, fps?, range?, narration_bands?, loudness?}`, spelled and checked as MCP `render`'s arguments (`scorsese_render::RenderAsk`, #1070) → `200 {render}` when kept, `202 {job}` when queued or already on its way; `400` for a shape `docs/output-formats.md` does not allow, a picture setting (`resolution`, `platform`, `fps`) on sound only, or `resolution` beside `platform`. No `resolution` or `platform` is the project's frame with 1080 lines on its shorter side (`Resolution::of_project`); no `fps` is the project's own rate; no `range` is the whole timeline |
 | `GET /api/projects/{id}/renders` | a member | the project's kept renders, most recently used first |
 | `GET /api/renders/{id}/file` | a member | the file as an attachment, in HTTP ranges; counts as use |
 

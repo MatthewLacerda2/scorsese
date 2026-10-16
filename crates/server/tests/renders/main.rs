@@ -9,6 +9,7 @@
 mod common;
 
 mod cancelled;
+mod choices;
 mod evict;
 mod framed;
 mod job;
