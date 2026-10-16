@@ -1846,7 +1846,7 @@ takes no quote, no token and no `credits::Product`. It runs as a `voice_keep`
 job — the same kind as keeping a design, one at a time, so the slot check
 before it (`owners::no_slot`) cannot be raced by a keep or another clone — and
 is recorded in `designed_voices` with `kind = 'cloned'` and the library items
-it was made from in `recordings` (migration `0034`). Being a row there is what
+it was made from in `recordings` (migration `0035`). Being a row there is what
 makes every rule above hold for it unchanged: it takes a slot, it is its
 maker's alone, `forget` queues the same `voice_forget` job, and deleting the
 account deletes it at the vendor (`designs::clones`).
