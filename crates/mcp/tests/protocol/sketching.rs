@@ -79,7 +79,10 @@ fn a_brief_of_the_wrong_kind_is_refused() {
                 "speech": { "voice": "v" } }),
     ));
     assert!(failed, "`voice` is not a field of the speech block");
-    assert!(text.starts_with("`speech`:"), "got {text}");
+    assert!(
+        text.starts_with("`speech.voice` is not an argument here; did you mean `speech.voice_id`?"),
+        "got {text}"
+    );
     std::fs::remove_dir_all(dir).ok();
 }
 

@@ -103,13 +103,20 @@ impl From<Tips> for Heads {
 
 /// The `to` argument's schema: an end like `from`, said once rather than
 /// twice — the two take the same four fields, and every model call pays for
-/// each word of a listing.
+/// each word of a listing. The fields are still listed, bare, so a misspelt
+/// one is refused as it is in `from` (#1330).
 pub(super) fn to_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
     schemars::json_schema!({
         "type": "object",
         "description": "(shape: an arrow, when making it) Where the arrow ends, head \
                         first — written exactly as `from` is: `x` and `y`, or a `clip` \
-                        and its `side`."
+                        and its `side`.",
+        "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "clip": { "type": "string" },
+            "side": { "type": "string", "enum": ["left", "right", "top", "bottom", "center"] }
+        }
     })
 }
 

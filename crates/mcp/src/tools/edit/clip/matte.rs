@@ -43,12 +43,8 @@ pub(super) fn apply(clip: &mut Clip, given: Option<&Value>) -> Result<Option<Str
     let Some(fields) = given.as_object() else {
         return Err("`matte` is an object or `false`".to_owned());
     };
-    if let Some(key) = fields
-        .keys()
-        .find(|key| !["clip", "invert"].contains(&key.as_str()))
-    {
-        return Err(format!("`matte` takes `clip` and `invert`, not `{key}`"));
-    }
+    // A key besides `clip` and `invert` never reaches here: the schema lists
+    // those two, and the argument parser refuses any other (#1330).
     let named = match fields.get("clip") {
         None => None,
         Some(id) => Some(ClipId::new(id.as_str().ok_or("`matte.clip` is a clip id")?)),
