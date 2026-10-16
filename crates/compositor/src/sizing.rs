@@ -68,10 +68,17 @@ impl Sizing {
     /// The raster this asks for at `budget`, or `project`'s frame at it when
     /// nothing was asked.
     pub fn resolve(asked: Option<Self>, project: &Project, budget: Budget) -> Resolution {
+        Self::shaped(asked, project.aspect, budget)
+    }
+
+    /// The raster this asks for at `budget`, or a frame of shape `aspect` at
+    /// it when nothing was asked — for a caller holding the shape but not
+    /// the project.
+    pub fn shaped(asked: Option<Self>, aspect: Ratio, budget: Budget) -> Resolution {
         match asked {
             Some(Self::Exact(resolution)) => resolution,
             Some(Self::Shaped(aspect)) => Resolution::framed(aspect, budget),
-            None => Resolution::of_project(project, budget),
+            None => Resolution::framed(aspect, budget),
         }
     }
 }
@@ -115,12 +122,27 @@ mod tests {
     fn a_shape_is_spent_at_the_budget_and_a_raster_is_kept() {
         let project = Project::new("tall", scorsese_core::Fps::THIRTY);
         let tall: Sizing = "9:16".parse().expect("a shape");
-        assert_eq!(Sizing::resolve(Some(tall), &project, Budget::Delivery).to_string(), "1080x1920");
-        assert_eq!(Sizing::resolve(Some(tall), &project, Budget::Preview).to_string(), "720x1280");
-        assert_eq!(Sizing::resolve(Some(tall), &project, Budget::Cell).to_string(), "360x640");
+        assert_eq!(
+            Sizing::resolve(Some(tall), &project, Budget::Delivery).to_string(),
+            "1080x1920"
+        );
+        assert_eq!(
+            Sizing::resolve(Some(tall), &project, Budget::Preview).to_string(),
+            "720x1280"
+        );
+        assert_eq!(
+            Sizing::resolve(Some(tall), &project, Budget::Cell).to_string(),
+            "360x640"
+        );
         let exact: Sizing = "800x600".parse().expect("a raster");
-        assert_eq!(Sizing::resolve(Some(exact), &project, Budget::Cell).to_string(), "800x600");
-        assert_eq!(Sizing::resolve(None, &project, Budget::Delivery), Resolution::HD);
+        assert_eq!(
+            Sizing::resolve(Some(exact), &project, Budget::Cell).to_string(),
+            "800x600"
+        );
+        assert_eq!(
+            Sizing::resolve(None, &project, Budget::Delivery),
+            Resolution::HD
+        );
         assert!("wide".parse::<Sizing>().is_err());
         assert!("8:1".parse::<Sizing>().is_err());
     }

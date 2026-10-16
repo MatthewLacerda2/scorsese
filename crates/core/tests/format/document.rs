@@ -10,9 +10,9 @@
 use scorsese_core::{
     Aspect, Asset, AssetId, AssetKind, Baseline, ClipSeconds, Counter, Fill, FontChoice, Fps,
     Frames, GenerationState, Group, Icon, ImageAspect, ImageRequest, ImageResolution,
-    ImageSequence, ImageThinking, Locale, MediaMetadata, Project, ProjectPath, Reveal, RevealUnit,
-    Rgba, SCHEMA_VERSION, Shape, SpeechModel, SpeechRequest, TextAlign, TextStyle, Timestamp,
-    Track, TrackId, TrackKind, VideoModel, VideoRequest, VideoResolution,
+    ImageSequence, ImageThinking, Locale, MediaMetadata, Project, ProjectPath, Ratio, Reveal,
+    RevealUnit, Rgba, SCHEMA_VERSION, Shape, SpeechModel, SpeechRequest, TextAlign, TextStyle,
+    Timestamp, Track, TrackId, TrackKind, VideoModel, VideoRequest, VideoResolution,
 };
 
 use super::clip::clip;
@@ -24,6 +24,7 @@ pub(crate) fn project() -> Project {
         schema_version: SCHEMA_VERSION,
         name: "Every field".to_owned(),
         timeline_fps: Fps::new(30, 1).expect("30 fps"),
+        aspect: Ratio::new(4, 5).expect("a portrait frame"),
         script: Some(ProjectPath::new("script.md")),
         assets: vec![asset()],
         tracks: vec![track()],

@@ -17,7 +17,7 @@ use crate::layout::Layout;
 use crate::plan::Plan;
 use crate::properties::unknown_in;
 use crate::report::Note;
-use crate::settings::Resolution;
+use crate::settings::{Budget, Sizing};
 
 /// Why an instant asked about could not be laid out.
 #[derive(Debug, thiserror::Error)]
@@ -33,14 +33,20 @@ pub struct AtError {
 /// the script and the notes left on its elements, ahead of the cut since they
 /// are its context; the cut and a note for whatever a render would note; then
 /// for each instant in `at`, in the order asked, where each clip's content
-/// lands against `raster` and which word each narration is saying.
+/// lands and which word each narration is saying.
+///
+/// Where is measured against the size `asked`, or by default the project's
+/// own frame at delivery size (#1116, #1278) — the shape the caller will
+/// deliver, since a vertical edit measured against a landscape frame wraps
+/// its titles wrongly.
 pub fn described(
     project: &Project,
     project_root: &Path,
     plan: &Plan<'_>,
     at: &[Frames],
-    raster: Resolution,
+    asked: Option<Sizing>,
 ) -> Result<String, AtError> {
+    let raster = Sizing::resolve(asked, project, Budget::Delivery);
     let commentary = Commentary::of(project);
     let mut out = String::new();
     if !commentary.is_empty() {

@@ -49,7 +49,11 @@ impl fmt::Display for Reframed {
             write!(
                 f,
                 "\n  {} that filled the old frame {} the new one (fit → fill): {}",
-                if filled.len() == 1 { "1 clip".to_owned() } else { format!("{} clips", filled.len()) },
+                if filled.len() == 1 {
+                    "1 clip".to_owned()
+                } else {
+                    format!("{} clips", filled.len())
+                },
                 if filled.len() == 1 { "fills" } else { "fill" },
                 named.join(", ")
             )?;

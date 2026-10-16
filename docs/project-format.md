@@ -1,4 +1,4 @@
-# `project.json` — schema v51
+# `project.json` — schema v52
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -36,6 +36,7 @@ carries forward) up to this one.
 | v48 → v49 | `expressive` is Eleven v4, and `natural` retires (#1248) | one rewrite: a line's `"model": "natural"` becomes `"expressive"`, the same vendor model under the one name left for it. Such a line's brief fingerprint moves, so one already spoken is spoken again at the next run; `natural` existed for less than a day. Every `expressive` line now asks for v4 instead of v3 — the decision itself — with its fingerprint unmoved, so a v3 file already paid for keeps playing until the line is edited |
 | v49 → v50 | a shot's optional `seed` (#1191) | nothing: one optional field was added to `video`, absent in every v49 document and absent asking Veo for what v49 asked — no seed. A shot's brief fingerprint gains a line only when a seed is set, so no shot already generated turns `stale` or is quoted again |
 | v50 → v51 | Nano Banana 2.1 is the only image model (#1308): `image.model` leaves the format, and with it `0.5K` (Flash's alone) and `style_images` (Pro's alone) | one rewrite of every still's `image` block: `model` is dropped, whatever it named; `"resolution": "0.5K"` becomes `"1K"`; `style_images` is dropped; objects past the tenth move to `character_images` while it has room for four and the rest are dropped, and characters past the fourth are dropped (Lite took fourteen objects, Pro five characters). A still already drawn keeps its `state` and its file, and nothing is redrawn or billed again: a 2.1 still's brief fingerprint does not move, and one drawn with `flash`, `lite` or `pro` — whose fingerprint does, its model line now reading 2.1 — is recognised by the fingerprint that model gave it (`scorsese_providers::image`'s retired briefs) for as long as its brief is unchanged. The one exception is a `pro` still that named a style or a fifth character: it lost a picture, so its brief is not the one it was drawn from, and the next `generate` quotes it and draws it again with 2.1 |
+| v51 → v52 | the project carries its frame's shape, `aspect` (#1278) | every document gains an `aspect`: the shape of the first clip, in time, on the lowest video track whose picture has a known shape (a probed size, or the `aspect` a generated shot or still asked for), else `"16:9"`. The web server, which remembers the platform a project was started for, frames such a project in its platform's shape instead |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -44,9 +45,10 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 51,
+  "schema_version": 52,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
+  "aspect": "16:9",
   "assets": [],
   "tracks": []
 }
@@ -58,8 +60,39 @@ omitted, and omitted is written as *absent*, never as `null`. Unknown fields
 are an error, not a warning — a typo like `"trackz"` fails the load rather
 than being silently dropped.
 
-`script` is the other optional top-level field, and it has a section of its
-own below.
+`aspect` and `script` are the other optional top-level fields, and each has
+a section of its own below.
+
+## `aspect` — the shape of the frame
+
+```json fields
+"aspect": "9:16"
+```
+
+The shape the edit is made in, `across:down`: `"16:9"` landscape, `"9:16"` for
+an upright feed, `"1:1"`, `"4:5"`, or any ratio within 4:1 of square. Written
+in lowest terms (`"1080:1920"` reads as `"9:16"`), and spelled the way a
+generated asset's `aspect` is. Absent reads as `"16:9"`; a document is always
+written with it.
+
+**A shape, not a size.** How many pixels a render has is still chosen per
+render; what shape they are arranged in is a fact about the edit, since a
+title laid out upright is a different title landscape. So **every default
+follows it**: a render that names no size is delivered at this shape with 1080
+lines on its shorter side (1920x1080, 1080x1920, 1080x1350 for 4:5); a still,
+a contact sheet and a preview are drawn in it at their own smaller budgets;
+`describe --at` and the checkup measure layouts against it; and both editors
+preview it. A render may still ask for any other size.
+
+It is chosen when the project is made — `scorsese new --aspect 9:16`, or
+`--platform`, whose placement sets it (`project_new` takes the same) — and
+**changed with `scorsese reframe` or the MCP `project_reframe` tool, never by a
+bare write**. A change is carried out, never refused: positions, sizes, text
+and shapes are fractions of the frame and follow on their own, and a clip whose
+picture filled the old frame under `fit` is set to `fill` the new one, which
+drew the same pixels before and crops what falls outside now. What a program
+cannot settle — a title that now wraps past its band, a clip that now leaves
+the frame — is listed in the checkup's words for the agent to fix.
 
 ## The script, and notes
 
@@ -113,8 +146,8 @@ and sets the field in one call, which is what a stub was for.
 A project **started for a platform or a style** is different, because it has
 something to say: `scorsese new --platform tiktok_ad --style kinetic_type`
 (or `project_new`'s `platform` and `style`) writes a real brief into
-`script.md` and points `script` at it — the placement and the render preset it
-means, the style's prompt, and the next step: propose the script scene by
+`script.md` and points `script` at it — the placement, the shape it frames
+the project in and the render preset it means, the style's prompt, and the next step: propose the script scene by
 scene (narration, what is on screen, music or sound) before editing anything.
 From then on it is the script like any other, edited as text; nothing reads it
 back, so changing the style later is an edit, not a command.
@@ -1863,9 +1896,9 @@ the field is a fraction.
 ### Timeline fps is not output fps
 
 Render settings — resolution, fps, bitrate — are still chosen per render.
-(Aspect ratio is not a setting of its own: it is whatever the resolution says,
-and how a source of another shape meets it is the clip's `fit`, below.) The
-two are different questions:
+(A render that names no resolution takes the project's `aspect`, above; one
+that names another shape gets it, and how a source of another shape meets it
+is the clip's `fit`, below.) The two framerates are different questions:
 
 - the **timeline** framerate answers *what is on screen when*, and
 - the **output** framerate is what the file you deliver is encoded at.
@@ -1968,9 +2001,9 @@ what survives it.
 
 **A `native` layer previewed at one resolution is not the layout the render
 delivers.** `scorsese still` and the `still` tool composite at whatever raster
-they are asked for — 1920×1080 by default on the command line; over MCP,
-1280×720's pixels in the shape of the edit's first sized picture, so 720×1280
-for a vertical one — and for everything measured in fractions a smaller one is the same
+they are asked for — the project's `aspect` at delivery size by default on the
+command line (1080×1920 for 9:16); over MCP, 1280×720's pixels in that shape, so
+720×1280 for a vertical one — and for everything measured in fractions a smaller one is the same
 picture with fewer pixels in it. A `native` layer is the exception, because the
 same count of pixels in a smaller frame is a bigger layer: a badge 240 pixels
 across is 240 pixels across in either, which is 18.8% of the width of a

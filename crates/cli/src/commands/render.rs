@@ -8,7 +8,7 @@ use scorsese_core::style::Platform;
 use scorsese_render::say;
 use scorsese_render::{
     AudioCodec, Bands, Bitrate, Container, Cue, FrameRange, LoudnessTarget, RenderAsk,
-    RenderSettings, Renderer, Resolution, SampleRate, Tools, VideoCodec, Workers, frames,
+    RenderSettings, Renderer, SampleRate, Sizing, Tools, VideoCodec, Workers, frames,
 };
 
 /// Everything the command line can say about the file to produce. Gathered into
@@ -16,11 +16,13 @@ use scorsese_render::{
 /// `Option<Bitrate>` next to each other are a bug waiting to be written.
 pub(crate) struct Options {
     /// The canvas every layer is composited onto, and so the size of the file.
-    /// `None` means the platform's size, or 1920x1080 without one — which is
-    /// also what a sound-only render takes, having no canvas to ask about.
+    /// `None` means the platform's size, or without one the project's own
+    /// shape at delivery size (#1278) — which is also what a sound-only render
+    /// takes, having no canvas to ask about. A shape (`9:16`) is spent at
+    /// delivery size.
     /// Never given beside `platform`: clap refuses the pair, as the MCP
     /// `render` tool does, since both would size the render.
-    pub(crate) resolution: Option<Resolution>,
+    pub(crate) resolution: Option<Sizing>,
     /// The placement the file is made for, which sizes it instead of
     /// `resolution`. `None` leaves the size to `resolution`.
     pub(crate) platform: Option<Platform>,
@@ -101,9 +103,10 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
 
     let project = super::open(project_dir)?;
 
-    // The project's own grid is the right default: rendering at the rate the
-    // edit was authored against is the one output rate that needs no conform.
-    let settings = ask.settings(format, project.timeline_fps)?;
+    // The project's own grid and frame are the right defaults: rendering at
+    // the rate the edit was authored against is the one output rate that
+    // needs no conform, and at its own shape the one frame that crops nothing.
+    let settings = ask.settings(format, &project)?;
     let range = options.range.unwrap_or(FrameRange::ALL);
     // A render plays whatever a synth asset was last baked to and never bakes
     // it again, so a recipe edited since, or a clip a song is fitted to that

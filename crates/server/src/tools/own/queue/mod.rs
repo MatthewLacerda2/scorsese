@@ -22,12 +22,13 @@
 mod wait;
 
 use scorsese_mcp::Reply;
+use scorsese_render::{Budget, Resolution};
 use serde_json::{Value, json};
 
 use super::super::surface::project_property;
 use super::super::{Caller, database, project_id};
 use crate::jobs::{CancelError, JobView, ProgressView, State, store as jobs};
-use crate::projects::ProjectError;
+use crate::projects::{self, ProjectError};
 use crate::renders::request::{AskError, Asked, ask};
 use crate::renders::{Ask, Settings};
 
@@ -71,8 +72,10 @@ pub(super) fn render_schema() -> Value {
             },
             "resolution": {
                 "type": "string",
-                "description": "Output size, e.g. 1920x1080 (the default). Refused for a \
-                                sound-only container, which has no picture to size."
+                "description": "Output size, e.g. 1080x1920. Defaults to the project's \
+                                own frame at delivery size (1920x1080 for 16:9, 1080x1920 \
+                                for 9:16). Refused for a sound-only container, which has \
+                                no picture to size."
             },
             "narration_bands": {
                 "type": "boolean",
@@ -168,10 +171,20 @@ pub(super) async fn render(caller: &Caller<'_>, arguments: &Value) -> Result<Rep
     if let Some(fields) = shape.as_object_mut() {
         fields.remove("project");
     }
-    let asked: Ask = serde_json::from_value(shape)
+    let mut asked: Ask = serde_json::from_value(shape)
         .map_err(|error| format!("the arguments do not read: {error}"))?;
-    let settings = Settings::from_ask(&asked)?;
+    let mut settings = Settings::from_ask(&asked)?;
     let toolbox = caller.toolbox;
+    // A picture with no size asked for is the project's own frame at delivery
+    // size (#1278), as it is over HTTP and on the command line.
+    if asked.resolution.is_none() && settings.resolution.is_some() {
+        let stored = projects::open(&toolbox.pool, caller.user, project)
+            .await
+            .map_err(|error| error.to_string())?;
+        let frame = Resolution::of_project(&stored.document, Budget::Delivery);
+        asked.resolution = Some(frame.to_string());
+        settings = Settings::from_ask(&asked)?;
+    }
     let asked = ask(
         &toolbox.pool,
         &toolbox.queue,

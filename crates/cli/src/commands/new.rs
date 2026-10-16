@@ -41,17 +41,19 @@ pub(crate) fn run(args: NewArgs) -> Result<()> {
         fps,
         platform,
         style,
+        aspect,
     } = args;
     let start = Start::new(platform, style.as_deref())?;
+    let aspect = aspect.or(start.aspect()).unwrap_or_default();
     let directory: &Path = &directory;
-    let mut project = Project::create(directory, name.as_deref(), fps)
+    let mut project = Project::create(directory, name.as_deref(), fps, aspect)
         .with_context(|| format!("creating a project in {}", directory.display()))?;
     let script = start
         .write(directory, &mut project)
         .with_context(|| format!("writing the brief in {}", directory.display()))?;
 
     println!(
-        "Created project \"{}\" at {fps} fps in {}",
+        "Created project \"{}\" at {fps} fps, framed {aspect}, in {}",
         project.name,
         directory.display()
     );

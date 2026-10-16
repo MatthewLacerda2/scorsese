@@ -157,6 +157,7 @@ fn dispatch(cli: Cli) -> Result<()> {
         Command::Probe { all } => commands::probe::run(&directory, all),
         Command::Check { verify } => commands::check::run(&directory, verify),
         Command::Migrate => commands::migrate::run(&directory),
+        Command::Reframe { aspect } => commands::reframe::run(&directory, aspect),
         Command::Import { paths, kind } => {
             commands::import::run(&directory, &paths, kind.map(Into::into))
         }

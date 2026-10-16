@@ -47,7 +47,8 @@ generated only where it must be, often for the price of its narration.
    `look: <id>` shows five frames across the whole shot before anything is
    imported.
 2. **`stock_import`** (`scorsese stock import`) — one id or several, and the
-   render `resolution` (default 1920x1080). The smallest file that fills that
+   render `resolution` (default the project's own `aspect` at delivery size,
+   1920x1080 for 16:9 and 1080x1920 for 9:16). The smallest file that fills that
    frame without being enlarged is downloaded, by its measured size — Pixabay's
    rendition names do not say a size. It becomes an ordinary `video` or `image`
    asset at `assets/pixabay-<id>.<ext>`, probed and hashed like any import: no

@@ -9,7 +9,7 @@
 
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use scorsese_core::style::{Platform, Start};
-use scorsese_core::{Fps, PROJECT_DIRS, PROJECT_FILE_NAME, Project};
+use scorsese_core::{Fps, PROJECT_DIRS, PROJECT_FILE_NAME, Project, Ratio};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -40,8 +40,13 @@ struct Arguments {
     /// The placement the video is made for: youtube, youtube_shorts,
     /// instagram_reels, instagram_reels_ad, instagram_stories_ad, tiktok or
     /// tiktok_ad. Written into the brief with the render preset it means
-    /// (render's platform); the project stores no platform.
+    /// (render's platform), and frames the project in its shape; the project
+    /// stores the shape, never the platform.
     platform: Option<String>,
+    /// The shape of the frame, e.g. "9:16", "16:9", "1:1" or "4:5": what every
+    /// render, still and layout of the project defaults to. Defaults to
+    /// platform's shape, or 16:9 without one. project_reframe changes it later.
+    aspect: Option<String>,
     /// The kind of video, by id: kinetic_type, whiteboard, narrated_captions…
     /// An unknown id, or one not made for platform, is refused with the ids
     /// that fit. Its prompt is written into the brief.
@@ -89,17 +94,24 @@ impl Tool for New {
         let dir = arguments.project.dir();
         let fps = fps(arguments.fps.as_ref())?;
         let start = start(arguments.platform.as_deref(), arguments.style.as_deref())?;
+        let aspect = match arguments.aspect.as_deref() {
+            Some(text) => text
+                .parse::<Ratio>()
+                .map_err(|problem| format!("aspect: {problem}"))?,
+            None => start.aspect().unwrap_or_default(),
+        };
 
-        let mut project = Project::create(dir, arguments.name.as_deref(), fps)
+        let mut project = Project::create(dir, arguments.name.as_deref(), fps, aspect)
             .map_err(|error| error.to_string())?;
         let script = start
             .write(dir, &mut project)
             .map_err(|error| format!("the project was made, but its brief: {error}"))?;
 
         let mut reply = format!(
-            "Created project \"{}\" at {} fps in {}\n  {PROJECT_FILE_NAME}, {}/",
+            "Created project \"{}\" at {} fps, framed {}, in {}\n  {PROJECT_FILE_NAME}, {}/",
             project.name,
             project.timeline_fps,
+            project.aspect,
             dir.display(),
             PROJECT_DIRS.join("/, ")
         );

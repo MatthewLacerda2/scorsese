@@ -4,7 +4,7 @@
 //! it means once every default is filled in — the form stored with the row
 //! and hashed into its key, so `{}` and `{"container": "mp4"}` are one render.
 
-use scorsese_core::{Project, hash_bytes};
+use scorsese_core::{Project, Ratio, hash_bytes};
 use scorsese_render::{
     Bands, LoudnessTarget, OutputFormat, Quality, RenderAsk, RenderSettings, Resolution, Spelled,
 };
@@ -25,8 +25,8 @@ pub struct Ask {
     /// The sound codec; defaults to the container's.
     #[serde(default)]
     pub audio_codec: Option<String>,
-    /// `WIDTHxHEIGHT`; defaults to 1920x1080, or over HTTP to the size of the
-    /// platform the project is made for (#1016). Refused for sound only.
+    /// `WIDTHxHEIGHT`; defaults to 1920x1080, or over HTTP to the project's own frame at delivery size
+    /// (#1278). Refused for sound only.
     #[serde(default)]
     pub resolution: Option<String>,
     /// `false` leaves out the band an ungenerated narration line draws across
@@ -86,7 +86,7 @@ fn is_drawn(narration_bands: &bool) -> bool {
 pub struct PreviewAsk {
     /// The size the film would be delivered at, `WIDTHxHEIGHT`: the shape,
     /// and what the quality is a fraction of. Defaults to 1920x1080, or over
-    /// HTTP to the size of the platform the project is made for (#1016).
+    /// HTTP to the project's own frame at delivery size (#1278).
     #[serde(default)]
     pub resolution: Option<String>,
     /// `full`, `half` or `quarter`; defaults to half.
@@ -103,7 +103,11 @@ impl Settings {
             container: format.container().name().to_owned(),
             video_codec: format.video().map(|codec| codec.name().to_owned()),
             audio_codec: format.audio().name().to_owned(),
-            resolution: format.has_picture().then(|| ask.resolution().to_string()),
+            // No project is open here: a size left out over HTTP was already
+            // filled with the project's own frame, so this fallback is 16:9's.
+            resolution: format
+                .has_picture()
+                .then(|| ask.resolution(Ratio::WIDE).to_string()),
             preview: None,
             narration_bands: ask.bands == Bands::Drawn,
             loudness: ask.loudness.map(LoudnessTarget::lufs),
@@ -155,8 +159,7 @@ impl Settings {
             narration_bands: Some(self.narration_bands),
             loudness: self.loudness,
         })?;
-        ask.settings(format, project.timeline_fps)
-            .map_err(|e| e.to_string())
+        ask.settings(format, project).map_err(|e| e.to_string())
     }
 
     /// The delivered file's extension: the container's name (`docs/output-formats.md`).

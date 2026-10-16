@@ -3,7 +3,7 @@
 
 use scorsese_providers::chat::{Call, Part, ResultPart};
 use scorsese_providers::stock::{Choice, Medium};
-use scorsese_render::Resolution;
+use scorsese_render::{Budget, Resolution};
 
 use super::read;
 use crate::assistant::calls::revision;
@@ -11,6 +11,7 @@ use crate::assistant::store::{CandidateView, QuestionView};
 use crate::db::UserId;
 use crate::events::Event;
 use crate::http::AppState;
+use crate::projects;
 use crate::tools::Client;
 
 /// How much of the import's answer the browser is shown as it happens.
@@ -62,7 +63,15 @@ pub(in crate::assistant) async fn result(
                 .iter()
                 .map(|one| format!("{} {}", one.medium.word(), one.id))
                 .collect();
-            let frame = read(&call.input).map_or(Resolution::HD, |asked| asked.frame);
+            let asked = read(&call.input).ok().and_then(|asked| asked.frame);
+            let frame = match asked {
+                Some(frame) => frame,
+                None => projects::open(&state.pool, user, project)
+                    .await
+                    .map_or(Resolution::HD, |stored| {
+                        Resolution::of_project(&stored.document, Budget::Delivery)
+                    }),
+            };
             let brought = fetch(state, (user, turn, project), choices, frame).await;
             format!("The person picked {}. {brought}", named.join(", "))
         }

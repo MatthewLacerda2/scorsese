@@ -5,9 +5,11 @@
 //! `scorsese_core::style::Start::brief`, written into the project's script
 //! exactly as `scorsese new` and the local `project_new` write it — that is
 //! what the assistant reads, and once written it is the assistant's to edit
-//! like any other text. **The columns** `platform` and `style` are the web's
-//! memory of the choice: what the editor shows as chosen, and what a render
-//! that names no size is delivered at. They never enter the document
+//! like any other text. **The shape**: a platform frames the project in its
+//! own aspect, which the document carries (#1278) and every render that names
+//! no size is delivered at. **The columns** `platform` and `style` are the
+//! web's memory of the choice: what the editor shows as chosen. They never
+//! enter the document
 //! (`docs/web.md`, *The edit is a document*), and changing them later rewrites
 //! no script: the assistant is told, and the script is its to change.
 
@@ -18,9 +20,9 @@ use sqlx::postgres::PgPool;
 use super::{ProjectError, ProjectFiles, Stored, store};
 use crate::db::{self, UserId};
 
-/// Store `project` as a new project of `user`'s, started for `start`: with
-/// the brief in its script when anything was chosen, and the choice recorded
-/// beside it. With nothing chosen it is a plain [`super::create`].
+/// Store `project` as a new project of `user`'s, started for `start`: framed
+/// in its platform's shape, with the brief in its script when anything was
+/// chosen, and the choice recorded beside it. With nothing chosen it is a plain [`super::create`].
 pub async fn begin(
     pool: &PgPool,
     user: UserId,
@@ -28,6 +30,11 @@ pub async fn begin(
     start: &Start,
 ) -> Result<Stored, ProjectError> {
     let mut kept = ProjectFiles::default();
+    // Framed in the placement's shape (#1278): what the editor previews and
+    // every render defaults to, read from the document from now on.
+    if let Some(aspect) = start.aspect() {
+        project.aspect = aspect;
+    }
     if let Some(brief) = start.brief() {
         // A few kilobytes of fixed text, against a cap of a megabyte.
         kept.insert(SCRIPT_FILE, brief)

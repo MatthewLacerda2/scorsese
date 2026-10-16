@@ -95,6 +95,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `project_describe` | Say what the cut contains, shot by shot and sound by sound. | nothing |
 | `project_check` | Report everything wrong or questionable about a project — the document, the media it references, and the layers it draws over each other — without rendering. | nothing |
 | `project_assets` | List the media pool: every asset, its kind, what state it is in, and how many clips use it. | nothing |
+| `project_reframe` | Change the shape of the project's frame (its aspect), e.g. | nothing |
 | `import` | Copy media into the project's assets/ and add it to the assets table, ready for a clip to reference. | ffprobe |
 | `script_read` | Read the document this edit is being cut from — the brief, the outline, whatever the project's `script` field points at. | nothing |
 | `script_write` | Write the project's script — the document the edit is cut from. | nothing |
@@ -1315,13 +1316,11 @@ the same notes in its reply.
 
 The default is a preview, not a delivery size, because layout is a fraction of
 the frame — the same picture with a fraction of the wire cost. It is 1280x720's
-pixels in the shape of the edit's first sized picture (a probed shot or photo,
-or a generated clip's aspect, on the lowest video track): 1280x720 for a
-landscape edit, 720x1280 for a 9:16 one, 960x960 for a square one, and the
-reply names the clip the shape came from (#827). A project has no shape of its
-own, so where the timeline does not say — titles, pages, landscape footage
-cropped upright — pass an aspect: `"resolution": "9:16"` is that preview in that
-shape. Pass a raster such as `1080x1920` for delivery size. **A clip with `fit: "native"` is the one
+pixels in the project's own shape, its `aspect` (#827, #1278): 1280x720 for a
+landscape project, 720x1280 for a 9:16 one, 960x960 for a square one, and the
+reply says which frame it drew. To look in another shape pass an aspect:
+`"resolution": "9:16"` is that preview in that shape; `project_reframe` changes
+the project's own. Pass a raster such as `1080x1920` for delivery size. **A clip with `fit: "native"` is the one
 exception**: it is a fixed count of pixels rather than a fraction, so it covers
 more of a small frame than of a large one and looks bigger in the default raster
 than it will in the delivery. Ask for the delivery raster before judging the

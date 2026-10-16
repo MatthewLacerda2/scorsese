@@ -46,6 +46,7 @@ const STORED: &[&str] = &[
     "project_describe",
     "project_check",
     "project_assets",
+    "project_reframe",
     "project_write",
     "track_new",
     "track_move",

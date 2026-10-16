@@ -88,8 +88,9 @@ pub fn refit(project: &mut Project, to: Ratio) -> Refit {
 pub fn picture_shape(asset: &Asset) -> Option<Ratio> {
     if let Some(media) = &asset.media
         && let (Some(width), Some(height)) = (media.width, media.height)
+        && let Some(measured) = Ratio::of_size(width, height)
     {
-        return Ratio::of_size(width, height);
+        return Some(measured);
     }
     let spelled = match asset.kind {
         AssetKind::GeneratedVideo => asset.video_request().aspect.as_str(),

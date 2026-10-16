@@ -19,7 +19,11 @@ fn asked(out: &str, extra: Value) -> Result<(RenderSettings, FrameRange), String
     }
     let arguments: Arguments = args::parse(&arguments)?;
     let format = OutputFormat::for_path(Path::new(out), None, None, None).expect("a format");
-    settings::of(&arguments, format, Fps::THIRTY)
+    settings::of(
+        &arguments,
+        format,
+        &scorsese_core::Project::new("t", Fps::THIRTY),
+    )
 }
 
 fn built(extra: Value) -> RenderSettings {

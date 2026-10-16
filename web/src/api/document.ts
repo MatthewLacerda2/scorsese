@@ -102,13 +102,15 @@ export interface DocumentAsset {
  * `scorsese_core::SCHEMA_VERSION`, held equal to it by `make size`'s
  * `schema-literal` rule. A test document writes this, never the number.
  */
-export const SCHEMA_VERSION = 51;
+export const SCHEMA_VERSION = 52;
 
 /** `scorsese_core::Project`, as far as the editor reads it. */
 export interface ProjectDocument {
   schema_version: number;
   name: string;
   timeline_fps: Fps;
+  /** The frame's shape, `across:down` (`"9:16"`); absent reads as `"16:9"`. */
+  aspect?: string;
   assets?: DocumentAsset[];
   tracks?: Track[];
 }

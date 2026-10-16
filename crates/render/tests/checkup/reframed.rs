@@ -42,7 +42,9 @@ fn landscape() -> scorsese_core::Project {
 fn upright_the_shot_fills_and_the_headline_is_said_to_be_cut() {
     let mut project = landscape();
     assert!(
-        reframe(&mut project, &nowhere(), Ratio::WIDE).unsettled.is_empty(),
+        reframe(&mut project, &nowhere(), Ratio::WIDE)
+            .unsettled
+            .is_empty(),
         "the same shape reads nothing"
     );
     let reframed = reframe(&mut project, &nowhere(), Ratio::TALL);
@@ -58,6 +60,9 @@ fn upright_the_shot_fills_and_the_headline_is_said_to_be_cut() {
     assert_eq!(project.tracks[0].clips[0].fit, Fit::Fill);
     let said = reframed.to_string();
     assert!(said.starts_with("Reframed from 16:9 to 9:16."), "{said}");
-    assert!(said.contains("1 clip that filled the old frame fills the new one"), "{said}");
+    assert!(
+        said.contains("1 clip that filled the old frame fills the new one"),
+        "{said}"
+    );
     assert!(said.contains("text clip `words` is cut off"), "{said}");
 }

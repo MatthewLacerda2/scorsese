@@ -100,26 +100,25 @@ fn a_sheet_of_more_than_five_instants_is_refused() {
     std::fs::remove_dir_all(dir).ok();
 }
 
-/// With no `resolution`, a vertical edit is looked at upright and at preview
-/// size (#827): the cells take the shape of the first sized clip, here a
-/// sketched 9:16 shot, and the reply says that is where it came from.
+/// With no `resolution`, a vertical project is looked at upright and at
+/// preview size (#827, #1278): the cells take the project's own shape, and the
+/// reply says so.
 #[test]
-fn a_vertical_edit_is_previewed_upright_without_being_asked() {
+fn a_vertical_project_is_previewed_upright_without_being_asked() {
     let dir = project("still-sheet-tall");
-    let document = super::fixture::DOCUMENT
-        .replace(
-            r#"{ "id": "title", "kind": "text", "text": "TEASER" },"#,
-            r#"{ "id": "title", "kind": "text", "text": "TEASER" },
-    { "id": "shot", "kind": "generated_video", "prompt": "a pier", "state": "sketch",
-      "video": { "aspect": "9:16" } },"#,
-        )
-        .replace(r#""asset": "title""#, r#""asset": "shot""#);
-    assert!(document.contains(r#""asset": "shot""#), "the fixture moved");
+    let document = super::fixture::DOCUMENT.replace(
+        r#""timeline_fps": { "num": 30, "den": 1 },"#,
+        r#""timeline_fps": { "num": 30, "den": 1 }, "aspect": "9:16","#,
+    );
+    assert!(
+        document.contains(r#""aspect": "9:16""#),
+        "the fixture moved"
+    );
     std::fs::write(dir.join("project.json"), document).expect("rewrite project.json");
     let reply = call("still", json!({ "project": dir, "at": "0", "sheet": true }));
     let (text, failed) = said(&reply);
     assert!(!failed, "{text}");
-    assert!(text.contains("the shape of shot"), "{text}");
+    assert!(text.contains("the project's 9:16 frame"), "{text}");
     // 46 rows of label: 0.13 of the 360-pixel side, rounded to even.
     assert_eq!(png_size(&the_picture(&reply)), (360, 640 + 46));
     std::fs::remove_dir_all(dir).ok();

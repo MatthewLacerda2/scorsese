@@ -10,7 +10,8 @@
 //! [`RenderAsk`], and everything after that is said here.
 //!
 //! **What every default is.** The frame rate is the project's own; the size is
-//! the platform's, or [`RenderAsk::resolution`]'s fallback; the sample rate is
+//! the platform's, or the project's own frame at delivery size
+//! ([`RenderAsk::resolution`], #1278); the sample rate is
 //! [`SampleRate::DEFAULT`]. The container is the one the output path's
 //! extension asks for ([`RenderAsk::format_for`]), or mp4 for a surface that
 //! names its own file ([`RenderAsk::format`]).
@@ -18,12 +19,12 @@
 use std::path::Path;
 use std::str::FromStr;
 
-use scorsese_core::Fps;
 use scorsese_core::style::Platform;
+use scorsese_core::{Fps, Project, Ratio};
 
 use crate::audio::LoudnessTarget;
 use crate::format::{AudioCodec, Container, FormatError, OutputFormat, VideoCodec};
-use crate::settings::{Bands, Bitrate, RenderSettings, Resolution, SampleRate};
+use crate::settings::{Bands, Bitrate, Budget, RenderSettings, Resolution, SampleRate, Sizing};
 
 /// Every choice a render offers about the file it delivers, each `None` (or
 /// [`Bands::Drawn`]) when the caller left it to its default.
@@ -35,8 +36,9 @@ pub struct RenderAsk {
     pub video_codec: Option<VideoCodec>,
     /// The sound codec; `None` takes the container's.
     pub audio_codec: Option<AudioCodec>,
-    /// The canvas; never given beside `platform`, which sizes it too.
-    pub resolution: Option<Resolution>,
+    /// The canvas, an exact raster or a shape spent at delivery size; never
+    /// given beside `platform`, which sizes it too.
+    pub resolution: Option<Sizing>,
     /// The placement the file is made for, which sizes it.
     pub platform: Option<Platform>,
     /// The delivery rate; `None` keeps the project's timeline rate.
@@ -63,7 +65,7 @@ pub struct Spelled<'a> {
     pub video_codec: Option<&'a str>,
     /// `aac`, `pcm_s16le`, `wmav2` or `mp3`.
     pub audio_codec: Option<&'a str>,
-    /// `WIDTHxHEIGHT`.
+    /// `WIDTHxHEIGHT`, or a shape like `9:16`.
     pub resolution: Option<&'a str>,
     /// A platform's name, e.g. `tiktok`.
     pub platform: Option<&'a str>,
@@ -133,15 +135,16 @@ impl RenderAsk {
         OutputFormat::new(container, self.video_codec, self.audio_codec)
     }
 
-    /// The canvas every layer is composited onto: the one asked for, the
-    /// platform's, or 1920x1080.
+    /// The canvas every layer is composited onto: the one asked for (a shape
+    /// at delivery size), the platform's, or a frame of the project's shape,
+    /// `aspect`, at delivery size (#1278) — 1080x1920 for a 9:16 project.
     ///
-    /// The one place the fallback lives, so the frame a project is made for
-    /// (#1278) replaces it here for every surface at once.
-    pub fn resolution(&self) -> Resolution {
-        self.resolution
-            .or(self.platform.map(Resolution::of))
-            .unwrap_or(Resolution::HD)
+    /// The one place the fallback lives, so every surface follows the project.
+    pub fn resolution(&self, aspect: Ratio) -> Resolution {
+        match (self.resolution, self.platform) {
+            (None, Some(platform)) => Resolution::of(platform),
+            (asked, _) => Sizing::shaped(asked, aspect, Budget::Delivery),
+        }
     }
 
     /// Refuses what `format` cannot carry: every setting that only means
@@ -168,24 +171,23 @@ impl RenderAsk {
         Ok(())
     }
 
-    /// The settings this asks for, delivered in `format`, at the project's
-    /// `timeline` rate unless another was named — once [`RenderAsk::check`]
-    /// allows them.
+    /// The settings this asks for, delivered in `format`, at `project`'s
+    /// timeline rate and its own frame unless others were named — once
+    /// [`RenderAsk::check`] allows them.
     pub fn settings(
         &self,
         format: OutputFormat,
-        timeline: Fps,
+        project: &Project,
     ) -> Result<RenderSettings, AskError> {
         self.check(format)?;
         let sample_rate = self.sample_rate.unwrap_or(SampleRate::DEFAULT);
-        Ok(
-            RenderSettings::new(self.resolution(), self.fps.unwrap_or(timeline))
-                .with_bitrate(self.bitrate)
-                .with_audio(sample_rate, self.audio_bitrate)
-                .with_format(format)
-                .with_bands(self.bands)
-                .with_loudness(self.loudness),
-        )
+        let fps = self.fps.unwrap_or(project.timeline_fps);
+        Ok(RenderSettings::new(self.resolution(project.aspect), fps)
+            .with_bitrate(self.bitrate)
+            .with_audio(sample_rate, self.audio_bitrate)
+            .with_format(format)
+            .with_bands(self.bands)
+            .with_loudness(self.loudness))
     }
 }
 
@@ -220,14 +222,37 @@ mod tests {
         OutputFormat::defaults_for(Container::Mp4)
     }
 
+    fn project(fps: Fps) -> Project {
+        Project::new("asked", fps)
+    }
+
     #[test]
     fn nothing_asked_is_the_project_rate_at_1080p_in_mp4() {
         let ask = RenderAsk::default();
         assert_eq!(ask.format(), Ok(mp4()));
-        let settings = ask.settings(mp4(), Fps::SIXTY).expect("the defaults");
+        let settings = ask
+            .settings(mp4(), &project(Fps::SIXTY))
+            .expect("the defaults");
         assert_eq!(
             settings,
             RenderSettings::new(Resolution::HD, Fps::SIXTY).with_format(mp4())
+        );
+    }
+
+    #[test]
+    fn nothing_asked_takes_the_projects_frame_and_a_shape_is_spent_at_delivery() {
+        let mut tall = project(Fps::THIRTY);
+        tall.aspect = "9:16".parse().expect("a shape");
+        let framed = RenderAsk::default().settings(mp4(), &tall);
+        assert_eq!(framed.expect("framed").resolution.to_string(), "1080x1920");
+        let square = RenderAsk::read(&Spelled {
+            resolution: Some("1:1"),
+            ..Spelled::default()
+        });
+        let settings = square.expect("read").settings(mp4(), &tall);
+        assert_eq!(
+            settings.expect("square").resolution.to_string(),
+            "1080x1080"
         );
     }
 
@@ -266,14 +291,16 @@ mod tests {
             },
         ] {
             let ask = RenderAsk::read(&spelled).expect("read");
-            let refused = ask.settings(mp3, Fps::THIRTY).expect_err("sound only");
+            let refused = ask
+                .settings(mp3, &project(Fps::THIRTY))
+                .expect_err("sound only");
             assert!(refused.to_string().contains("mp3"), "{refused}");
         }
         let tiktok = RenderAsk::read(&Spelled {
             platform: Some("tiktok"),
             ..Spelled::default()
         });
-        let settings = tiktok.expect("read").settings(mp4(), Fps::THIRTY);
+        let settings = tiktok.expect("read").settings(mp4(), &project(Fps::THIRTY));
         assert_eq!(settings.expect("sized").resolution.to_string(), "1080x1920");
     }
 
@@ -284,14 +311,18 @@ mod tests {
             platform: Some("youtube"),
             ..Spelled::default()
         });
-        let refused = both.expect("read").settings(mp4(), Fps::THIRTY);
+        let refused = both.expect("read").settings(mp4(), &project(Fps::THIRTY));
         assert_eq!(refused, Err(AskError::BothSized));
         let wmv = OutputFormat::defaults_for(Container::Wmv);
         let fast = RenderAsk::read(&Spelled {
             sample_rate: Some("96000"),
             ..Spelled::default()
         });
-        assert!(fast.expect("read").settings(wmv, Fps::THIRTY).is_err());
+        assert!(
+            fast.expect("read")
+                .settings(wmv, &project(Fps::THIRTY))
+                .is_err()
+        );
     }
 
     #[test]
