@@ -48,7 +48,7 @@ fn a_bake_writes_its_shape_onto_the_asset() {
     let id = synth_asset(&mut project, "tune", "recipes/tune.json");
     bake_asset(&mut project, &dir, &id).expect("bakes");
 
-    let media = project.asset(&id).and_then(|asset| asset.media.clone());
+    let media = project.asset(&id).and_then(|asset| asset.media);
     let media = media.expect("the bake recorded its metadata");
     assert_eq!(media.audio_channels, Some(2));
     assert_eq!(media.sample_rate, Some(SAMPLE_RATE));

@@ -67,7 +67,14 @@ fn an_export_goes_where_it_is_told_with_its_drums_named() {
     let chosen = dir.join("elsewhere.mid");
     let kick: Drum = "kick=36".parse().expect("a drum");
 
-    let out = export_midi(&project, &dir, &id, &[kick.clone()], Some(&chosen)).expect("exports");
+    let out = export_midi(
+        &project,
+        &dir,
+        &id,
+        std::slice::from_ref(&kick),
+        Some(&chosen),
+    )
+    .expect("exports");
     assert_eq!(out.file, chosen);
     assert_eq!(
         out.shown,
