@@ -11,19 +11,30 @@ use scorsese_core::{AssetId, Project};
 use scorsese_providers::credentials::{Budget, Provider, resolve};
 use scorsese_providers::speech::{ElevenLabsProvider, Outcome, generate};
 
-/// Speaks every line that needs it.
+/// Speaks every line that needs it, into `spoken`.
 ///
 /// The key is resolved **here**, and only when this pass has something to do —
 /// see [`super::pending`]. A project of nothing but Veo shots must never be
-/// asked for an ElevenLabs key.
+/// asked for an ElevenLabs key. **A run that stops part-way still fills
+/// `spoken`** with the lines it spoke before stopping, and the error says in
+/// words how many went (#1153).
 pub(super) fn pass(
     project: &mut Project,
     project_dir: &Path,
     budget: Budget,
-) -> Result<Vec<(AssetId, Outcome)>> {
+    spoken: &mut Vec<(AssetId, Outcome)>,
+) -> Result<()> {
     let key = resolve(Provider::ElevenLabs)?;
     let provider = ElevenLabsProvider::new(&key.secret);
-    Ok(generate(project, project_dir, &provider, budget)?)
+    match generate(project, project_dir, &provider, budget) {
+        Ok(run) => *spoken = run,
+        Err(stopped) => {
+            let says = stopped.says();
+            *spoken = stopped.run;
+            return Err(anyhow::anyhow!(says));
+        }
+    }
+    Ok(())
 }
 
 /// One line per line of narration.

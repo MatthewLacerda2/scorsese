@@ -6,33 +6,52 @@
 
 use scorsese_core::{AssetId, Project};
 use scorsese_providers::credentials::{Budget, Provider, resolve};
-use scorsese_providers::image::{GeminiProvider, Outcome, batch, collect, generate};
+use scorsese_providers::image::{GeminiProvider, Outcome, Stopped, batch, collect, generate};
 
 /// What one stills run produced.
 pub(super) type Drawn = Vec<(AssetId, Outcome)>;
 
-/// Draws every still that needs it. The key — the Gemini key Veo also takes —
-/// is resolved only when this pass has something to do.
+/// Draws every still that needs it, into `drawn`. The key — the Gemini key
+/// Veo also takes — is resolved only when this pass has something to do.
+///
+/// **A run that stops part-way still fills `drawn`** with the stills it drew
+/// before stopping, and the error is the whole story in words (#1153).
 pub(super) fn pass(
     project: &mut Project,
     dir: &std::path::Path,
     budget: Budget,
-) -> Result<Drawn, String> {
-    let key = resolve(Provider::Gemini).map_err(|error| format!("{error}"))?;
+    drawn: &mut Drawn,
+) -> Result<(), String> {
+    let key = resolve(Provider::Gemini).map_err(|error| super::stopped_at(&error))?;
     let provider = GeminiProvider::new(&key.secret);
-    generate(project, dir, &provider, budget).map_err(|error| format!("{error}"))
+    kept(generate(project, dir, &provider, budget), drawn)
 }
 
 /// Orders every still that needs it as a half-price batch, collecting any
-/// earlier batch first.
+/// earlier batch first — into `drawn`, as [`pass`] does.
 pub(super) fn order(
     project: &mut Project,
     dir: &std::path::Path,
     budget: Budget,
-) -> Result<Drawn, String> {
+    drawn: &mut Drawn,
+) -> Result<(), String> {
     let key = resolve(Provider::Gemini).map_err(|error| format!("{error}"))?;
     let provider = GeminiProvider::new(&key.secret);
-    batch(project, dir, &provider, budget).map_err(|error| format!("{error}"))
+    kept(batch(project, dir, &provider, budget), drawn)
+}
+
+/// What a run did, into `drawn` — a stopped one's included — and why it
+/// stopped, in words.
+fn kept(run: Result<Drawn, Stopped>, drawn: &mut Drawn) -> Result<(), String> {
+    match run {
+        Ok(run) => *drawn = run,
+        Err(stopped) => {
+            let says = stopped.says();
+            *drawn = stopped.run;
+            return Err(says);
+        }
+    }
+    Ok(())
 }
 
 /// Collects every still waiting in a batch, and orders nothing. Asks for a

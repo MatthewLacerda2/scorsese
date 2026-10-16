@@ -29,7 +29,7 @@ use crate::credentials::Budget;
 use crate::generated::{self, Prompted, write};
 use crate::prices;
 
-use super::{Brief, Incomplete, Outcome, SpeechError, SpeechProvider, Spoken};
+use super::{Brief, Incomplete, Outcome, SpeechError, SpeechProvider, Spoken, Stopped};
 
 /// Speaks every line that needs it, and reports what happened to each.
 ///
@@ -40,7 +40,8 @@ use super::{Brief, Incomplete, Outcome, SpeechError, SpeechProvider, Spoken};
 ///
 /// The project is left describing what is on disk. Saving it is the caller's,
 /// and the caller should save it **even when this returns an error** — a line
-/// spoken before the failure is a line that has been paid for.
+/// spoken before the failure is a line that has been paid for, and the
+/// [`Stopped`] it answers with lists it beside the reason (#1153).
 ///
 /// Each line is held to the ceiling **including what this run has already
 /// spent**, passed in rather than read back off the project: the project
@@ -53,13 +54,24 @@ pub fn generate(
     root: &Path,
     provider: &dyn SpeechProvider,
     budget: Budget,
-) -> Result<Vec<(AssetId, Outcome)>, SpeechError> {
+) -> Result<Vec<(AssetId, Outcome)>, Stopped> {
+    let ids = generated::ids::<Lines>(project);
     let mut done = Vec::new();
     let mut spent = 0;
-    for id in generated::ids::<Lines>(project) {
-        let outcome = one(project, root, provider, budget.spend(spent), &id)?;
-        spent += outcome.spent_cents();
-        done.push((id, outcome));
+    for (at, id) in ids.iter().enumerate() {
+        match one(project, root, provider, budget.spend(spent), id) {
+            Ok(outcome) => {
+                spent += outcome.spent_cents();
+                done.push((id.clone(), outcome));
+            }
+            Err(error) => {
+                return Err(Stopped {
+                    unsent: generated::unsent::<Lines>(project, root, &ids[at..]),
+                    run: done,
+                    error,
+                });
+            }
+        }
     }
     Ok(done)
 }

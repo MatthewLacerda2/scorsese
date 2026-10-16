@@ -13,14 +13,16 @@ use crate::credentials::Budget;
 use crate::generated::{self, Plan, Prompted, record, write};
 use crate::prices::{self, ImageEstimate, UnpricedImage};
 
-use super::{Brief, ImageError, ImageProvider, Incomplete, Outcome, collect};
+use super::stopped::stopped;
+use super::{Brief, ImageError, ImageProvider, Incomplete, Outcome, Stopped, collect};
 
 /// Draws every still that needs it, and reports what happened to each.
 ///
 /// **Idempotent by construction, and that is the money guarantee**: a still
 /// whose file already exists is recorded and never sent. The project is left
 /// describing what is on disk; saving it is the caller's, **even when this
-/// returns an error** — a still drawn before the failure has been paid for.
+/// returns an error** — a still drawn before the failure has been paid for,
+/// and the [`Stopped`] it answers with lists it beside the reason (#1153).
 ///
 /// Whatever is waiting in a batch is collected first, and a still the
 /// collection touched is not drawn again on the same run, even one whose batch
@@ -35,9 +37,12 @@ pub fn generate(
     root: &Path,
     provider: &dyn ImageProvider,
     budget: Budget,
-) -> Result<Vec<(AssetId, Outcome)>, ImageError> {
+) -> Result<Vec<(AssetId, Outcome)>, Stopped> {
     let unready = unready(project, root);
-    let mut done = collect(project, root, provider)?;
+    let mut done = match collect(project, root, provider) {
+        Ok(collected) => collected,
+        Err(error) => return Err(stopped(project, root, Vec::new(), &unready, error)),
+    };
     let mut spent = 0;
     for id in generated::ids::<Stills>(project) {
         if done.iter().any(|(handled, _)| handled == &id) {
@@ -47,9 +52,13 @@ pub fn generate(
             done.push((id, Outcome::Incomplete { why: why.clone() }));
             continue;
         }
-        let outcome = one(project, root, provider, budget.spend(spent), &id)?;
-        spent += outcome.spent_cents();
-        done.push((id, outcome));
+        match one(project, root, provider, budget.spend(spent), &id) {
+            Ok(outcome) => {
+                spent += outcome.spent_cents();
+                done.push((id, outcome));
+            }
+            Err(error) => return Err(stopped(project, root, done, &unready, error)),
+        }
     }
     Ok(done)
 }

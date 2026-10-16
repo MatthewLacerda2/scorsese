@@ -40,6 +40,7 @@ mod elevenlabs;
 mod error;
 mod provider;
 mod run;
+mod stopped;
 
 use std::path::Path;
 
@@ -51,6 +52,7 @@ pub use elevenlabs::ElevenLabsProvider;
 pub use error::{Incomplete, SpeechError};
 pub use provider::{ProviderError, SpeechProvider, Spoken};
 pub use run::{Plan, adopt, generate, pending, plan, quote};
+pub use stopped::Stopped;
 
 /// What happened to one line in a run.
 ///

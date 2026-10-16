@@ -228,7 +228,7 @@ fn run(
     // waiting to be sent.
     if asked.order == Order::Batch {
         if image::pending(project, dir) {
-            *drawn = stills::order(project, dir, asked.budget)?;
+            stills::order(project, dir, asked.budget, drawn)?;
         }
         return Ok(());
     }
@@ -244,19 +244,18 @@ fn run(
         return Ok(());
     }
     if image::pending(project, dir) {
-        *drawn = stills::pass(project, dir, asked.budget.spend(shots.spent_cents))
-            .map_err(|why| stopped_at(&why))?;
+        stills::pass(project, dir, asked.budget.spend(shots.spent_cents), drawn)?;
     }
     if speech::pending(project, dir) {
         let committed = shots.spent_cents + stills::spent(drawn);
-        *spoken = lines::pass(project, dir, asked.budget.spend(committed))
-            .map_err(|why| stopped_at(&why))?;
+        lines::pass(project, dir, asked.budget.spend(committed), spoken)?;
     }
     Ok(())
 }
 
-/// A pass after the shots stopping the run, in words.
-fn stopped_at(why: &str) -> String {
+/// A pass after the shots that could not start — no key — stopping the run,
+/// in words. One that started and stopped part-way says so itself.
+fn stopped_at(why: &dyn std::fmt::Display) -> String {
     format!("The run stopped: {why} — nothing after it was attempted.")
 }
 

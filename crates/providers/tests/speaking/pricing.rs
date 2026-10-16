@@ -82,6 +82,16 @@ fn the_ceiling_counts_what_this_run_has_already_committed() {
         1,
         "the first line fits and the second must not"
     );
+    // The line spoken before the stop is reported with it, not dropped (#1153).
+    let spoken: Vec<&str> = refused.run.iter().map(|(id, _)| id.as_str()).collect();
+    assert_eq!(spoken, [id.as_str()]);
+    let unsent: Vec<&str> = refused.unsent.iter().map(AssetId::as_str).collect();
+    assert_eq!(unsent, ["vo-second"]);
+    let says = refused.says();
+    assert!(
+        says.contains("1 line was spoken, 1 line was not (vo-second)"),
+        "{says}"
+    );
     std::fs::remove_dir_all(&dir).ok();
 }
 

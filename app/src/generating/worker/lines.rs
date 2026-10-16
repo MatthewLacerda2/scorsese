@@ -10,29 +10,41 @@
 
 use std::path::Path;
 
-use scorsese_core::{AssetId, AssetKind, Project};
+use scorsese_core::{AssetId, Project};
 use scorsese_providers::credentials::{Budget, Provider, resolve};
-use scorsese_providers::speech::{ElevenLabsProvider, Outcome, generate};
+use scorsese_providers::speech::{self, ElevenLabsProvider, Outcome, generate};
 
-use super::{Pass, counted, wants};
+use super::{Pass, counted};
 
-/// Speaks every line that needs it.
+/// Speaks every line that needs it, into `spoken`.
 ///
 /// **The key is resolved here, and only when this pass has work** — the same
 /// rule the shots pass follows, and for the same reason: a project of nothing
 /// but Veo shots must never be stopped for want of an ElevenLabs key.
+///
+/// **A run that stops part-way still fills `spoken`** with the lines it spoke,
+/// and the error says in one sentence how many went (#1153).
 pub(super) fn pass(
     project: &mut Project,
     root: &Path,
     pass: Pass,
     budget: Budget,
-) -> Result<Vec<(AssetId, Outcome)>, String> {
-    if pass != Pass::Submit || !wants(project, root, AssetKind::GeneratedAudio) {
-        return Ok(Vec::new());
+    spoken: &mut Vec<(AssetId, Outcome)>,
+) -> Result<(), String> {
+    if pass != Pass::Submit || !speech::pending(project, root) {
+        return Ok(());
     }
     let key = resolve(Provider::ElevenLabs).map_err(|error| error.to_string())?;
     let provider = ElevenLabsProvider::new(&key.secret);
-    generate(project, root, &provider, budget).map_err(|error| error.to_string())
+    match generate(project, root, &provider, budget) {
+        Ok(run) => *spoken = run,
+        Err(stopped) => {
+            let says = stopped.says();
+            *spoken = stopped.run;
+            return Err(says);
+        }
+    }
+    Ok(())
 }
 
 /// The lines that arrived on disk on this pass, and so have something to
