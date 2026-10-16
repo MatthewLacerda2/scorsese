@@ -187,7 +187,7 @@ impl Tool for Generate {
 fn says(halt: Halt) -> String {
     match halt {
         Halt::Key {
-            step: Step::Stills | Step::Lines,
+            step: Step::Stills | Step::Lines | Step::Tracks,
             error,
         } => format!("The run stopped: {error} — nothing after it was attempted."),
         Halt::Key { error, .. } => error.to_string(),

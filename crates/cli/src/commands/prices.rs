@@ -1,15 +1,16 @@
 //! `scorsese prices` — what a generation costs, and when we last checked.
 //!
-//! Four vendors, four tables, one page. They are billed by different things —
-//! a shot by its length, a still by its size, a line by its characters, a reply
-//! by its tokens — so a
+//! Four vendors, five tables, one page. They are billed by different things —
+//! a shot by its length, a still by its size, a line by its characters, a
+//! track by its minutes, a reply by its tokens — so a
 //! single table would have to carry a unit column and would read as though the
 //! numbers were comparable. They are not: eight seconds of video is ninety-six cents and a
 //! sentence of narration is one.
 
 use anyhow::Result;
+use scorsese_providers::api::elevenlabs::music::MODEL_ID as MUSIC_MODEL;
 use scorsese_providers::prices::{
-    Checked, STALE_AFTER_DAYS, chat, dollars, elevenlabs, from_cents, gemini, veo,
+    self, Checked, STALE_AFTER_DAYS, chat, dollars, elevenlabs, from_cents, gemini, veo,
 };
 
 /// Prints the rate table, as Markdown.
@@ -89,6 +90,25 @@ pub(crate) fn run() -> Result<()> {
     }
 
     println!();
+    println!("ElevenLabs Music, per minute of music asked for — one rate, every model.");
+    println!();
+    println!("| model | on the wire | per minute | a 40-second track | checked |");
+    println!("| --- | --- | --- | --- | --- |");
+    let music = elevenlabs::MUSIC;
+    println!(
+        "| music | `{}` | {} | {} | {}{} |",
+        MUSIC_MODEL,
+        dollars(from_cents(music.cents_per_minute), 2),
+        dollars(from_cents(prices::music(40).cents), 2),
+        music.checked,
+        if music.checked.is_stale_on(today) {
+            " ⚠️"
+        } else {
+            ""
+        },
+    );
+
+    println!();
     println!("The web assistant's models, per million tokens. Exact, not estimated —");
     println!("a reply counts the tokens it was billed for.");
     println!();
@@ -137,6 +157,7 @@ fn stale_note(today: Checked) {
         .map(|row| row.rate.checked)
         .chain(gemini::RATES.iter().map(|row| row.rate.checked))
         .chain(elevenlabs::RATES.iter().map(|row| row.rate.checked))
+        .chain([elevenlabs::MUSIC.checked])
         .chain(chat::RATES.iter().map(|row| row.rate.checked))
         .min();
     let Some(oldest) = oldest else {

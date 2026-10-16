@@ -22,6 +22,7 @@
 
 pub mod cloning;
 pub mod design;
+pub mod music;
 pub mod refusal;
 pub mod speech;
 pub mod voices;

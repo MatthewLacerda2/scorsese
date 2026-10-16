@@ -105,6 +105,7 @@ macro_rules! write_error_into {
 
 write_error_into!(
     crate::image::ImageError,
+    crate::music::MusicError,
     crate::speech::SpeechError,
     crate::video::GenerationError
 );

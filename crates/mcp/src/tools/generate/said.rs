@@ -31,6 +31,9 @@ pub(super) fn run(done: &Done, dir: &Path) -> String {
     for (id, outcome) in &done.lines {
         lines.push(format!("{id}: {}", outcome.says_in(dir)));
     }
+    for (id, outcome) in &done.tracks {
+        lines.push(format!("{id}: {}", outcome.says()));
+    }
     lines.push(format!(
         "About {} spent on this run — our calculation, never a bill.",
         dollars(from_cents(done.spent_cents()), 2)

@@ -1,8 +1,8 @@
-//! The passes one `generate` makes on this machine — shots, stills, lines —
+//! The passes one `generate` makes on this machine — shots, stills, lines, tracks —
 //! for the CLI and the MCP tool alike (#1118).
 //!
-//! **Three passes, one ceiling, one total.** Shots, stills and narration are
-//! separate passes because they are separate models and vendors, but the
+//! **Four passes, one ceiling, one total.** Shots, stills, narration and
+//! music are separate passes because they are separate models and vendors, but the
 //! budget is threaded from each into the next: a ceiling each pass checked on
 //! its own would be worth three times what somebody set. That threading, which
 //! pass runs, what a stopped one hands back and what landed to be measured
@@ -30,6 +30,7 @@ use scorsese_core::{AssetId, AssetKind, ProbeMedia, Project, Reprobe, probe_asse
 
 use crate::credentials::{Budget, CredentialError, Provider, resolve};
 use crate::image::{self, GeminiProvider, ImageError, ImageProvider, Order};
+use crate::music::{self, ElevenLabsComposer, MusicProvider};
 use crate::speech::{self, ElevenLabsProvider, SpeechProvider};
 use crate::video::{self, GenerationError, Run, VeoProvider, VideoProvider};
 
@@ -55,6 +56,8 @@ pub trait Vendors {
     fn image(&self) -> Result<Box<dyn ImageProvider>, CredentialError>;
     /// ElevenLabs, keyed.
     fn speech(&self) -> Result<Box<dyn SpeechProvider>, CredentialError>;
+    /// ElevenLabs Music, keyed (#1264).
+    fn music(&self) -> Result<Box<dyn MusicProvider>, CredentialError>;
     /// Sleeps between polls of the shots in flight.
     fn rest(&self, wait: Duration);
 }
@@ -83,6 +86,12 @@ impl Vendors for Keyed {
         )))
     }
 
+    fn music(&self) -> Result<Box<dyn MusicProvider>, CredentialError> {
+        Ok(Box::new(ElevenLabsComposer::new(
+            &resolve(Provider::ElevenLabs)?.secret,
+        )))
+    }
+
     fn rest(&self, wait: Duration) {
         std::thread::sleep(wait);
     }
@@ -97,6 +106,8 @@ pub struct Done {
     pub stills: Vec<(AssetId, image::Outcome)>,
     /// The narration.
     pub lines: Vec<(AssetId, speech::Outcome)>,
+    /// The music (#1264).
+    pub tracks: Vec<(AssetId, music::Outcome)>,
 }
 
 impl Default for Done {
@@ -109,6 +120,7 @@ impl Default for Done {
             },
             stills: Vec::new(),
             lines: Vec::new(),
+            tracks: Vec::new(),
         }
     }
 }
@@ -116,7 +128,10 @@ impl Default for Done {
 impl Done {
     /// Whether no pass did anything at all.
     pub fn is_empty(&self) -> bool {
-        self.shots.outcomes.is_empty() && self.stills.is_empty() && self.lines.is_empty()
+        self.shots.outcomes.is_empty()
+            && self.stills.is_empty()
+            && self.lines.is_empty()
+            && self.tracks.is_empty()
     }
 
     /// What the stills committed.
@@ -127,12 +142,20 @@ impl Done {
     /// What the whole run is estimated to have spent, in US cents — the one
     /// total that spans every provider. Our arithmetic, never a bill.
     pub fn spent_cents(&self) -> u64 {
-        self.shots.spent_cents
-            + self.stills_spent()
-            + self.lines.iter().map(|(_, o)| o.spent_cents()).sum::<u64>()
+        self.shots.spent_cents + self.stills_spent() + self.voiced_spent()
     }
 
-    /// The shots and lines that arrived on disk with a length nothing has
+    /// What the lines and the tracks committed — the ElevenLabs passes.
+    fn voiced_spent(&self) -> u64 {
+        self.lines.iter().map(|(_, o)| o.spent_cents()).sum::<u64>()
+            + self
+                .tracks
+                .iter()
+                .map(|(_, o)| o.spent_cents())
+                .sum::<u64>()
+    }
+
+    /// The shots, lines and tracks that arrived on disk with a length nothing has
     /// measured yet — the ones whose clips may now outlast them.
     ///
     /// A cache hit is not one of them: its file was already there, and
@@ -147,8 +170,13 @@ impl Done {
             .lines
             .iter()
             .filter(|(_, outcome)| matches!(outcome, speech::Outcome::Generated { .. }));
+        let track = self
+            .tracks
+            .iter()
+            .filter(|(_, outcome)| matches!(outcome, music::Outcome::Generated { .. }));
         shot.map(|(id, _)| id)
             .chain(line.map(|(id, _)| id))
+            .chain(track.map(|(id, _)| id))
             .cloned()
             .collect()
     }
@@ -188,6 +216,8 @@ pub enum Step {
     Stills,
     /// The narration pass.
     Lines,
+    /// The music pass.
+    Tracks,
     /// The stills, ordered as a batch.
     Batch,
     /// Collecting what was in flight.
@@ -281,6 +311,20 @@ fn passes(
             Err(stopped) => {
                 let says = stopped.says();
                 done.lines = stopped.run;
+                return Err(Halt::Stopped(says));
+            }
+        }
+    }
+    if music::pending(project, root) {
+        let provider = vendors.music().map_err(key(Step::Tracks))?;
+        let budget = asked
+            .budget
+            .spend(done.shots.spent_cents + done.stills_spent() + done.voiced_spent());
+        match music::generate(project, root, &*provider, budget) {
+            Ok(run) => done.tracks = run,
+            Err(stopped) => {
+                let says = stopped.says();
+                done.tracks = stopped.run;
                 return Err(Halt::Stopped(says));
             }
         }

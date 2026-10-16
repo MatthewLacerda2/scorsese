@@ -141,3 +141,22 @@ pub fn rate(model: Model) -> Option<Rate> {
         .find(|row| row.model == model)
         .map(|row| row.rate)
 }
+
+/// What a generated track costs: one rate, per minute of music asked for.
+///
+/// The vendor prices Eleven Music by the minute and lists one rate on every
+/// plan, whatever the model — $0.15 a minute (the page, read 2026-10-16). So
+/// this is a constant rather than a table: there is no row to pick.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MusicRate {
+    /// US cents per minute of music.
+    pub cents_per_minute: u64,
+    /// The day this figure was last read off the vendor's page.
+    pub checked: Checked,
+}
+
+/// Eleven Music's rate (#1264).
+pub const MUSIC: MusicRate = MusicRate {
+    cents_per_minute: 15,
+    checked: Checked::on(2026, 10, 16),
+};

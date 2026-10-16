@@ -30,7 +30,7 @@ use scorsese_providers::credentials::Budget;
 use scorsese_providers::image::Order;
 use scorsese_providers::passes::{self, Halt, Keyed};
 use scorsese_providers::prices::{dollars, from_cents};
-use scorsese_providers::{image, speech, video};
+use scorsese_providers::{image, music, speech, video};
 
 use super::confirm;
 
@@ -147,7 +147,10 @@ fn permitted(project: &Project, root: &Path, yes: bool, order: Order) -> Result<
 /// exists and still resolves, and consulting it is how a stale shot used to be
 /// skipped as *nothing to do*.
 fn pending(project: &Project, root: &Path) -> bool {
-    video::pending(project, root) || image::pending(project, root) || speech::pending(project, root)
+    video::pending(project, root)
+        || image::pending(project, root)
+        || speech::pending(project, root)
+        || music::pending(project, root)
 }
 
 /// Picks up whatever finished while nobody was watching. Submits nothing.

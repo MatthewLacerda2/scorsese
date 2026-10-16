@@ -6,7 +6,7 @@
 //! output already sits in `generated/`, or whose shot is in flight, costs this
 //! run nothing, however much it cost the run that paid for it.
 //!
-//! Shots first, then stills, then lines, each in document order — the order every surface
+//! Shots first, then stills, then lines and tracks, each in document order — the order every surface
 //! has always printed them in, and the order a person reads a cut in.
 //!
 //! **A batch is quoted on its own** ([`batch`], #894): stills only, at half
@@ -17,12 +17,12 @@
 
 use std::path::Path;
 
-use scorsese_core::{Asset, AssetKind, Project};
+use scorsese_core::{Asset, AssetKind, AudioBlock, Project};
 
 use super::{Charge, Item, Quote, Spend};
 use crate::image::Order;
 use crate::prices::{self, Unpriced, UnpricedImage, UnpricedSpeech, dollars, from_cents};
-use crate::{image, speech, video};
+use crate::{image, music, speech, video};
 
 /// Below this many cents of stills drawn now, the quote does not offer a
 /// batch: the saving is under half a dollar, not worth a day's wait or the
@@ -63,7 +63,10 @@ pub fn generation(project: &Project, root: &Path) -> Result<Quote, Unquotable> {
         items.push(still(project, root, asset, Order::Now)?);
     }
     for asset in of_kind(project, AssetKind::GeneratedAudio) {
-        items.push(line(root, asset)?);
+        items.push(match asset.audio_block() {
+            Some(AudioBlock::Music) => track(root, asset),
+            _ => line(root, asset)?,
+        });
     }
     Ok(Quote {
         spend: Spend::Generation,
@@ -280,4 +283,37 @@ fn line(root: &Path, asset: &Asset) -> Result<Item, Unquotable> {
             }
         }
     })
+}
+
+/// One track of music, as the run would treat it (#1264): priced by the
+/// minute of what it asks for, so exact before anything is sent, and still an
+/// estimate — the rate is a page somebody copied.
+fn track(root: &Path, asset: &Asset) -> Item {
+    let free = |says: String| Item {
+        subject: asset.id.to_string(),
+        says,
+        charge: None,
+    };
+    match music::plan(root, asset) {
+        music::Plan::Realized(path) => free(format!("already composed — {path} — nothing to pay")),
+        music::Plan::Unready(why) => free(format!("not yet — {why}")),
+        music::Plan::Submit => match music::Brief::of(asset) {
+            Ok(brief) => {
+                let priced = prices::music(brief.seconds);
+                Item {
+                    subject: asset.id.to_string(),
+                    says: format!(
+                        "{} — {} seconds of music",
+                        dollars(from_cents(priced.cents), 2),
+                        priced.seconds
+                    ),
+                    charge: Some(Charge {
+                        brief: brief.digest(),
+                        cents: priced.cents,
+                    }),
+                }
+            }
+            Err(why) => free(format!("not yet — {why}")),
+        },
+    }
 }

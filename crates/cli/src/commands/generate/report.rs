@@ -22,6 +22,9 @@ pub(super) fn run(done: &Done, project_dir: &Path) {
     for (id, outcome) in &done.lines {
         println!("{id:<24} {}", outcome.says_in(project_dir));
     }
+    for (id, outcome) in &done.tracks {
+        println!("{id:<24} {}", outcome.says());
+    }
     println!();
     println!(
         "About {} spent on this run — our calculation, never a bill.",

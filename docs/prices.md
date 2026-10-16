@@ -1,6 +1,6 @@
 # What a generation costs, and why we can only estimate it
 
-Generating a shot, a still or a line of narration costs money. This page is where the
+Generating a shot, a still, a line of narration or a track of music costs money. This page is where the
 numbers live, how they are kept honest, and the one thing worth knowing before
 trusting any total scorsese prints: **it is our arithmetic, not a bill.**
 
@@ -9,7 +9,7 @@ figure was last checked and how old that is.
 
 **Every table here is held to the code** (#1218). A test
 (`crates/providers/tests/pricing/documented/`) reads each one — *Shots*, both
-of them, *Stills*, *Narration*, *The assistant* — with the day each section
+of them, *Stills*, *Narration*, *Music*, *The assistant* — with the day each section
 says its figures were read, and compares every cell with `prices`, both ways:
 a wrong figure, a missing row or an extra one fails `make gates` and names the
 cell. So a repricing is one pull request that changes the code's table, this
@@ -251,6 +251,31 @@ the picture.
 Which is why the two are quoted on separate lines and never summed into one
 per-item average: an average across them would describe nothing that exists.
 
+
+## Music
+
+ElevenLabs Music, US cents per **minute of music asked for** (a track's
+`music.seconds`), the same on every model.
+
+| model | on the wire | per minute | a 40-second track |
+| --- | --- | --- | --- |
+| `music` | `music_v2_5` | $0.15 | $0.10 |
+
+Last checked against
+[ElevenLabs' API pricing page](https://elevenlabs.io/pricing/api) on
+**2026-10-16**: one rate, $0.15 a minute, in every row of its Music table, and
+*Commercial use licensing on Starter+ plans* on the product card. The page's
+FAQ also says music is "billed per generation", which reads against its own
+table; the table is what is priced here. `music_v2_5` is the newest model, the
+one the vendor's models page calls its most advanced (read 2026-10-16), and
+the only one scorsese composes with — `music_v1` is "outclassed" in the
+vendor's words, and no model costs more than another, so there is no choice
+worth offering.
+
+Like a shot, a track is priced by its length, which the request fixes: the
+figure is known before anything is sent, rounded **up** to the cent. A
+`synth_audio` recipe costs nothing at all ([recipes.md](recipes.md)), which is
+why it stays the first choice for a score.
 ## The assistant
 
 The hosted web app's assistant (#540) runs on the model each project chooses

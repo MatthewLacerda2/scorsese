@@ -1,5 +1,5 @@
 //! The rest of a prompted brief — a shot's `video`, a still's `image`, a
-//! line's `speech` — as `asset_set` takes it (#826).
+//! line's `speech`, a track's `music` — as `asset_set` takes it (#826).
 //!
 //! Each block is read by the document's own deserialiser, so a misspelt field
 //! is refused in the words a hand-written `project.json` would get, and it is
@@ -27,16 +27,18 @@ pub(super) fn sketch(kind: AssetKind, arguments: &Arguments) -> Result<Inline, S
         .clone()
         .filter(|text| !text.trim().is_empty())
         .ok_or("`prompt` is required: the sentence a provider will be paid to read")?;
-    let (mut video, mut image, mut speech) = (None, None, None);
+    let (mut video, mut image, mut speech, mut music) = (None, None, None, None);
     merged(&mut video, arguments.video.as_ref(), "video")?;
     merged(&mut image, arguments.image.as_ref(), "image")?;
     merged(&mut speech, arguments.speech.as_ref(), "speech")?;
+    merged(&mut music, arguments.music.as_ref(), "music")?;
     Ok(Inline::Sketch {
         kind,
         prompt,
         video,
         image,
         speech,
+        music,
     })
 }
 
@@ -49,7 +51,13 @@ pub(super) fn merge(
     match asset.kind {
         AssetKind::GeneratedVideo => merged(&mut asset.video, arguments.video.as_ref(), "video"),
         AssetKind::GeneratedImage => merged(&mut asset.image, arguments.image.as_ref(), "image"),
-        AssetKind::GeneratedAudio => merged(&mut asset.speech, arguments.speech.as_ref(), "speech"),
+        // A line or a track, by the block it carries: both are offered, and
+        // the format refuses the two together.
+        AssetKind::GeneratedAudio => {
+            let spoken = merged(&mut asset.speech, arguments.speech.as_ref(), "speech")?;
+            let composed = merged(&mut asset.music, arguments.music.as_ref(), "music")?;
+            Ok(composed.or(spoken))
+        }
         _ => Ok(None),
     }
 }
@@ -184,10 +192,25 @@ pub(super) fn speech_schema(_: &mut SchemaGenerator) -> Schema {
     )
 }
 
+/// The `music` argument's schema (#1264).
+pub(super) fn music_schema(_: &mut SchemaGenerator) -> Schema {
+    block(
+        "music",
+        "(generated_audio) Makes the asset a track of music composed from its prompt — \
+         genre, mood, instruments, tempo — rather than a line read aloud; never beside \
+         `speech`. 15 cents a minute; a synth_audio recipe is free and comes first for a \
+         score.",
+        serde_json::json!({
+            "seconds": { "type": "integer", "minimum": scorsese_core::MIN_MUSIC_SECONDS, "maximum": scorsese_core::MAX_MUSIC_SECONDS, "description": "How long, in whole seconds — usually the cut it sits under. Needed before it is generated: the price is per minute." },
+            "instrumental": { "type": "boolean", "description": "Default true: no singing, so it sits under narration. false for a song, with its lyrics described in the prompt." }
+        }),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scorsese_core::{ImageRequest, SpeechRequest, VideoRequest};
+    use scorsese_core::{ImageRequest, MusicRequest, SpeechRequest, VideoRequest};
 
     /// Every value a schema offers is one the document's type reads — the
     /// schema is hand-written, so this is what keeps it from drifting.
@@ -210,6 +233,7 @@ mod tests {
         every_value_reads::<VideoRequest>(&video_schema(generator));
         every_value_reads::<ImageRequest>(&image_schema(generator));
         every_value_reads::<SpeechRequest>(&speech_schema(generator));
+        every_value_reads::<MusicRequest>(&music_schema(generator));
     }
 
     /// Each block's description closes with every lesson the guide holds for

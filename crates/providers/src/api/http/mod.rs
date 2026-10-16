@@ -298,8 +298,26 @@ impl Caller {
         body: &B,
         limit: u64,
     ) -> Result<Vec<u8>, HttpError> {
+        self.post_bytes_within(url, body, TIMEOUT, limit)
+    }
+
+    /// [`post_bytes`](Caller::post_bytes), waiting up to `wait` for the whole
+    /// reply rather than a minute — for media the vendor makes while the
+    /// connection waits, as ElevenLabs composes a track of music (#1264).
+    pub fn post_bytes_within<B: Serialize>(
+        &self,
+        url: &str,
+        body: &B,
+        wait: Duration,
+        limit: u64,
+    ) -> Result<Vec<u8>, HttpError> {
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .timeout_global(Some(wait))
+            .http_status_as_error(false)
+            .build()
+            .into();
         let sent = self
-            .signed(self.agent().post(url))
+            .signed(agent.post(url))
             .header("Content-Type", "application/json")
             .send_json(body);
         self.bytes(url, sent, limit)
