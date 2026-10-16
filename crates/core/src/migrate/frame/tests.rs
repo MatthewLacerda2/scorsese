@@ -114,4 +114,7 @@ fn a_picture_near_a_picked_shape_takes_it() {
         migrated(&showing(photo(2560, 1080))),
         Ratio::new(21, 9).expect("21:9")
     );
+    let shot = json!({ "id": "picture", "kind": "generated_video", "prompt": "a street",
+                       "state": "sketch", "video": { "aspect": "9:16" } });
+    assert_eq!(migrated(&showing(shot)), Ratio::TALL);
 }
