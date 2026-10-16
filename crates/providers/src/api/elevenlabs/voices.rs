@@ -131,10 +131,13 @@ impl Voices {
 
     /// The Voice Library, narrowed by whatever was asked for.
     ///
-    /// **Not available through the API on a free plan.** The refusal that
-    /// produces is a fact about somebody's subscription rather than about their
-    /// request, and reading it as one is [`crate::voices`]'s job — this call
-    /// reports what the vendor said and nothing more.
+    /// A free key lists it too (measured 2026-08-17) and is refused only when a
+    /// line is sent in one of its voices; any paid plan speaks in them (proved
+    /// on Starter, 2026-10-14, #1262). Should the listing itself ever be
+    /// refused for the plan, that is a fact about somebody's subscription
+    /// rather than about their request, and reading it as one is
+    /// [`crate::voices`]'s job — this call reports what the vendor said and
+    /// nothing more.
     pub fn shared(&self, filters: &Filters) -> Result<Listing, HttpError> {
         self.caller
             .get(&format!("{BASE}/shared-voices{}", filters.query()))

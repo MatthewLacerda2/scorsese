@@ -1733,14 +1733,19 @@ There is no cursor and no second page to ask for: narrowing is the way to a
 different hundred. The count is the vendor's own and is never estimated — where
 it sends none, the listing says there are more without saying how many.
 
-**Searching the Voice Library works on any key; generating with one of its
-voices needs a paid plan.** A free key lists the Library like any other —
-3,386 Portuguese voices when the maintainer checked one on 2026-08-17 — and is
-refused when a line is sent in one of them. So `check` a Library voice before
-writing it onto a line: on a free plan it answers that this account may not use
-it, and points at the built-in voices, which generate the same way. No
-subscription tier is detected to produce that message — it is only ever what
-the vendor answered when asked.
+**A Library voice narrates exactly like a built-in one.** Write its id onto a
+line and `generate` speaks it: on Starter a line in `Francis - Brazil`, found
+by a `language: "pt"` search, came back as audio on 2026-10-14, and the vendor
+added the voice to the account by itself — which takes none of the account's
+custom voice slots (ElevenLabs' own page: "Voices saved from the Voice Library
+do not use custom voice slots").
+
+The one key it does not work on is a free one. A free key lists the Library
+like any other — 3,386 Portuguese voices on 2026-08-17 — and is refused when a
+line is sent in one of them. `check` answers that ahead of time: on a free plan
+it says this account may not use the voice and points at the built-in voices,
+which generate the same way. No subscription tier is detected to produce that
+message — it is only ever what the vendor answered when asked.
 
 **Ask about one id with `check`, and believe the answer.** A voice that can no
 longer be generated with is reported as such, with the reason: it has gone, or
@@ -1775,8 +1780,8 @@ expensive kind of wrong error message.
 `voice_design` is the escape hatch for the case `voices` cannot answer: the
 voice a person had in mind before they heard anything, which neither the
 built-in set nor the Voice Library happens to contain. It is especially the
-pt-BR case — the Library's coverage there is thin, and a free account can
-search it but not generate with it. **Designing needs a paid plan too**: the
+pt-BR case when the Library has no speaker that fits — and a free account
+can search the Library but not generate with it. **Designing needs a paid plan too**: the
 quote needs no key and cannot tell, so a free key is refused at the confirming
 call, before anything is billed, and the refusal points at the built-in
 voices.
