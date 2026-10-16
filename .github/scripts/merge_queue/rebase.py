@@ -14,7 +14,7 @@ import tempfile
 import time
 
 from . import numbering, talk
-from .numbering import MIGRATIONS, SCHEMA_FILE
+from .numbering import MIGRATIONS, SCHEMA_FILE, SYNTH_FILE
 
 
 # The command Dependabot obeys to rebase its own branch onto `main`.
@@ -123,15 +123,20 @@ def collisions(head: str, work: str) -> list[str]:
         # itself rather than the files in it.
         return talk.git(*args, "--", f"{MIGRATIONS}/", cwd=work).stdout.split()
 
-    def version(rev: str) -> int | None:
-        shown = talk.git("show", f"{rev}:{SCHEMA_FILE}", cwd=work)
-        return numbering.schema_version(shown.stdout if shown.returncode == 0 else None)
-
     fork = talk.git("merge-base", head, "origin/main", cwd=work).stdout.strip()
+
+    def versions(path: str, read) -> numbering.Versions:
+        def at(rev: str) -> int | None:
+            shown = talk.git("show", f"{rev}:{path}", cwd=work)
+            return read(shown.stdout if shown.returncode == 0 else None)
+
+        return (at(fork), at(head), at("HEAD"), at("origin/main"))
+
     return numbering.numbering(
         listing("ls-tree", "--name-only", "origin/main"),
         listing("diff", "--name-only", "--diff-filter=A", "origin/main", "HEAD"),
-        (version(fork), version(head), version("HEAD"), version("origin/main")),
+        versions(SCHEMA_FILE, numbering.schema_version),
+        versions(SYNTH_FILE, numbering.synth_version),
     )
 
 
