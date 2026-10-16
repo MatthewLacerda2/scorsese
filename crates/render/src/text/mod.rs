@@ -148,8 +148,20 @@ impl Painter {
         project_root: &Path,
         resolution: Resolution,
     ) -> Result<Area, RenderError> {
+        Ok(self.setting(asset, clip, project_root, resolution)?.block)
+    }
+
+    /// [`Painter::block`], with what else setting the words found out: where
+    /// they actually reach, and whether the band cut any of them (#1096).
+    pub(crate) fn setting(
+        &mut self,
+        asset: &Asset,
+        clip: &Clip,
+        project_root: &Path,
+        resolution: Resolution,
+    ) -> Result<text::Setting, RenderError> {
         let typing = self.typing(asset, clip, project_root, resolution)?;
-        Ok(typing.block(resolution))
+        Ok(typing.setting(resolution))
     }
 
     /// The face a style names, at the weight it names, opening and keeping a

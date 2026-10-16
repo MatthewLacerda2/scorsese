@@ -147,7 +147,7 @@ fn with_alpha(project: &Project) -> HashSet<&str> {
 /// is sensitive enough to a raster for a different one to change what this
 /// reports, and an overlap that only exists at one delivery size is not one this
 /// check is for.
-fn reference() -> Resolution {
+pub(super) fn reference() -> Resolution {
     Resolution::new(1920, 1080).expect("1920x1080 is a legal raster")
 }
 

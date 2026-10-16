@@ -14,6 +14,7 @@ mod common;
 mod assembly;
 mod beneath;
 mod following;
+mod framed;
 mod overlaps;
 mod severity;
 mod sped;

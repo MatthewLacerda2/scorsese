@@ -35,6 +35,17 @@ pub(super) fn measure(faces: &Faces<'_>, text: &str) -> f32 {
     faces.shape(text).width
 }
 
+/// A block wrapped to its width: the lines kept, and how many there were.
+pub(super) struct Wrapped {
+    /// The lines that fit, the last ellipsised when any were dropped.
+    pub lines: Vec<Line>,
+    /// How many lines the text wrapped to before any were dropped — more than
+    /// `lines` holds exactly when the block was cut (#1096). Counted here,
+    /// where the dropping happens, because nothing downstream can tell an
+    /// ellipsis the author typed from one this module added.
+    pub set: usize,
+}
+
 /// Wraps `text` to `max_width`, keeping at most `max_lines` of it.
 ///
 /// Newlines in the content are honoured — an author who broke a title in two
@@ -47,19 +58,20 @@ pub(super) fn measure(faces: &Faces<'_>, text: &str) -> f32 {
 /// ellipsis. Truncating rather than overflowing is the honest failure: text
 /// running off the bottom of the frame looks like a render bug, where an
 /// ellipsis says "there is more here than fits" to whoever is watching.
-pub(super) fn wrap(text: &str, faces: &Faces<'_>, max_width: f32, max_lines: usize) -> Vec<Line> {
+pub(super) fn wrap(text: &str, faces: &Faces<'_>, max_width: f32, max_lines: usize) -> Wrapped {
     let mut lines = Vec::new();
     for paragraph in text.split('\n') {
         wrap_paragraph(paragraph, faces, max_width, &mut lines);
     }
-    if lines.len() <= max_lines {
-        return lines;
+    let set = lines.len();
+    if set <= max_lines {
+        return Wrapped { lines, set };
     }
     lines.truncate(max_lines.max(1));
     if let Some(last) = lines.pop() {
         lines.push(ellipsise(last, faces, max_width));
     }
-    lines
+    Wrapped { lines, set }
 }
 
 /// Greedy wrapping: take words until the next one would not fit, then break.
@@ -189,6 +201,7 @@ mod tests {
         let exact = measure(&faces, "aaa");
         let broken = |max_width: f32| {
             wrap("aaaaaa", &faces, max_width, 8)
+                .lines
                 .into_iter()
                 .map(|line| line.text)
                 .collect::<Vec<_>>()

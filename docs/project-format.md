@@ -3460,6 +3460,17 @@ label, it is a layer nobody can see.
 What is left is partial overlap between two layers of comparable size, held for
 seconds, which is what an authoring mistake actually looks like.
 
+`check` also names the **text cut to fit** and the **clips running off the
+frame** (#1096), from the same rectangles. A title wrapped to more lines than
+the frame holds is drawn with the rest dropped and an ellipsis on the last line
+shown — *6 lines set, 4 shown* says so before anyone watches it. A clip whose
+drawn content (for text, the words rather than the wrap box) runs past one edge
+is named with the edge and how far, at the instant it is furthest out. Each
+stretch of the timeline is read at its middle, where a slide-in has landed; a
+picture past *both* edges of an axis is cropped by the frame, not leaving it,
+and one wholly outside has not come in yet, so neither is reported. Both are
+warnings, since off the frame is sometimes exactly what was meant.
+
 `style.weight` splits the same way, and the split is worth reading once. What
 the document alone can say is checked here, and it is one thing: a number
 outside OpenType's own 1–1000 is not a weight for any face. What only the

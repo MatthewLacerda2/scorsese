@@ -1200,6 +1200,24 @@ different things to do about it:
   missing, or a source whose pixel size the document never recorded, which
   `project_write` measures as it writes it.
 
+**A placed clip that is cut or leaves the frame says so, on the line beneath
+it** (#1096):
+
+```
+  titles/caption  text     x 0.180–0.820  y 0.402–0.598  (0.640 × 0.196)
+                  is cut off: 6 lines set, 4 shown
+  logo/badge      image    x 0.880–1.070  y 0.050–0.180  (0.190 × 0.130)
+                  runs off the right of the frame by 7.0% of its width
+```
+
+*Cut off* is a title with more lines than the frame holds: the render drops the
+rest and ends the last line shown in an ellipsis. Widen `max_width`, lower
+`size` or shorten the text. *Runs off* is measured on what is drawn — for text,
+the words, not the wrap box — and is said only when one side is past the edge:
+a picture wider than the frame on both sides is being cropped by it, and one
+wholly outside has not come in yet. Neither is refused, since a slide-in is
+meant to start off the frame; `project_check` reports both too, once per clip.
+
 `resolution` sets the frame it is measured against, default `1920x1080`. The
 answer is in fractions either way, but the frame's *shape* still decides it: a
 `fit` picture letterboxes against that aspect and a title wraps against that

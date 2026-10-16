@@ -205,12 +205,88 @@ pub fn block_in(
     Laid::out(text, font, style, band, resolution).block
 }
 
+/// What setting a block of text comes to, worked out without filling a glyph.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Setting {
+    /// The wrapped block at `max_width` — what [`block_in`] answers, and what
+    /// an anchor and an arrow reason about.
+    pub block: Area,
+    /// The part of the block the lines actually reach: as tall as the block,
+    /// and only as wide as its longest line, placed where `align` puts it.
+    /// What a question about the *words* leaving the frame asks about, since
+    /// a short title in a wide block has a block edge with nothing drawn at it.
+    pub ink: Area,
+    /// Whether lines were dropped to fit the band, and how many.
+    pub overset: Option<Overset>,
+}
+
+/// A block wrapped to more lines than its band holds, so the tail was dropped
+/// and the last line shown ends in an ellipsis.
+///
+/// A plain count rather than a sentence, so whoever reports it — a checkup, a
+/// layout, a re-fit after the frame changes shape — words it once and decides
+/// for itself what to do about it (#1096).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Overset {
+    /// How many lines the text wrapped to.
+    pub set: usize,
+    /// How many of them are drawn.
+    pub shown: usize,
+}
+
+/// [`block_in`], with what else setting it found out: where the words reach,
+/// and whether any of them were cut.
+pub fn setting_in(
+    text: &str,
+    font: &Font,
+    style: &Style,
+    band: Band,
+    resolution: Resolution,
+) -> Setting {
+    let laid = Laid::out(text, font, style, band, resolution);
+    let widest = laid
+        .lines
+        .iter()
+        .map(|line| line.shaped.width)
+        .fold(0.0, f32::max)
+        .min(laid.max_width);
+    let shown = laid.lines.len();
+    Setting {
+        block: laid.block,
+        ink: Area {
+            left: aligned(style.align, laid.block.left, laid.max_width, widest),
+            width: widest,
+            ..laid.block
+        },
+        overset: (laid.set > shown).then_some(Overset {
+            set: laid.set,
+            shown,
+        }),
+    }
+}
+
+/// Where a line `width` wide starts in a block starting at `left`.
+///
+/// `align` places a line inside the block; the anchor placed the block inside
+/// the frame. Centring a line has to be centring it in the *block*, not in the
+/// frame, or an anchored column's lines would drift back to the middle of the
+/// picture one at a time.
+fn aligned(align: TextAlign, left: f32, max_width: f32, width: f32) -> f32 {
+    match align {
+        TextAlign::Left => left,
+        TextAlign::Center => left + (max_width - width) / 2.0,
+        TextAlign::Right => left + max_width - width,
+    }
+}
+
 /// The tightest baseline-to-baseline gap drawn, as a multiple of the size.
 const TIGHTEST_LINE_HEIGHT: f32 = 0.5;
 
 /// The layout of one block, worked out before any glyph is filled.
 struct Laid<'a> {
     lines: Vec<layout::Line>,
+    /// How many lines the text wrapped to, `lines` and any dropped.
+    set: usize,
     faces: super::text::font::Faces<'a>,
     max_width: f32,
     line_height: f32,
@@ -240,7 +316,7 @@ impl<'a> Laid<'a> {
         let rows = (height / line_height).floor().max(1.0) as usize;
 
         let faces = font.faces(size).with(style.figures);
-        let lines = layout::wrap(text, &faces, max_width, rows);
+        let layout::Wrapped { lines, set } = layout::wrap(text, &faces, max_width, rows);
         // The named face's, always: an emoji in a caption must not make the
         // caption taller than the same caption without it.
         let (ascent, descent) = faces.extents();
@@ -257,6 +333,7 @@ impl<'a> Laid<'a> {
         };
         Self {
             lines,
+            set,
             faces,
             max_width,
             line_height,
@@ -318,6 +395,7 @@ fn set(
     let laid = Laid::out(text, font, style, band, resolution);
     let Laid {
         lines,
+        set: _,
         faces,
         max_width,
         line_height,
@@ -335,15 +413,7 @@ fn set(
     let mut ink = draw::Ink::new(resolution, style.color, style.edge);
     let mut fading: Vec<(f32, draw::Ink)> = Vec::new();
     for (row, line) in lines.iter().enumerate() {
-        // `align` places a line inside the block; the anchor placed the block
-        // inside the frame. Centring a line has to be centring it in the
-        // *block*, not in the frame, or an anchored column's lines would drift
-        // back to the middle of the picture one at a time.
-        let left = match style.align {
-            TextAlign::Left => box_left,
-            TextAlign::Center => box_left + (max_width - line.shaped.width) / 2.0,
-            TextAlign::Right => box_left + max_width - line.shaped.width,
-        };
+        let left = aligned(style.align, box_left, max_width, line.shaped.width);
         // The visual middle of a line of text sits `(ascent + descent) / 2`
         // above its baseline — descent being negative — so centring the block
         // means putting that midpoint, not the baseline, on the row's centre.
