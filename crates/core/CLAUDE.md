@@ -56,7 +56,9 @@ unloadable breaks paying users. So:
   to overwrite a record of the version it is already at. A field or variant
   added to the model does not compile until that test's document sets it.
 - The bump also moves `docs/project-format.md`'s title (held to
-  `SCHEMA_VERSION` by `the_title_states_this_builds_schema_version`) and the
+  `SCHEMA_VERSION` by `the_title_states_this_builds_schema_version`), adds
+  the step's row to its migration table (held to the same range by
+  `tests/migration_table.rs`) and moves the
   `"schema_version"` in every `.json` fixture (`crates/golden/fixtures`,
   `crates/core/tests/fixtures`, `web/landing`), and the web's copy of the
   constant, `SCHEMA_VERSION` in `web/src/api/document.ts`, which `make

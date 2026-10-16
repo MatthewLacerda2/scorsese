@@ -172,7 +172,10 @@ rates.
 
 ## Running it
 
-You need [Rust](https://rustup.rs) and `ffmpeg` on your PATH.
+You need [Rust](https://rustup.rs) and `ffmpeg` on your PATH. An ffmpeg kept
+elsewhere is found through `SCORSESE_FFMPEG` and `SCORSESE_FFPROBE`, each the
+path to that binary; they are set separately because the two need not come
+from the same place.
 
 ```sh
 git clone https://github.com/MatthewLacerda2/scorsese && cd scorsese

@@ -5,7 +5,8 @@ Four places name one: the deploy's database (`deploy/compose.yaml`), its backup
 sidecar built on the same image (`deploy/backup/Dockerfile`), the throwaway
 container `make test` runs against (`tools/with-postgres`), and the native
 server CI installs because pulling an image there hit every registry's
-anonymous limit (`tools/ci-postgres`, #1260). Each said "change these
+anonymous limit (`tools/ci-postgres`, #1260); and `docs/web.md`, which tells
+a reader which one those are (#1226). Each said "change these
 together" in a comment; this holds them to it, so a bump that misses one
 fails here instead of letting the tests pass against a server production
 does not run.
@@ -22,6 +23,8 @@ ROOT = Path(__file__).resolve().parents[3]
 # `postgres:5432` is a host and port, not a version.
 IMAGE = re.compile(r"(?:image:\s*|FROM\s+|IMAGE=)\S*\bpostgres:(\d+)")
 PG_MAJOR = re.compile(r"^PG_MAJOR=(\d+)$", re.MULTILINE)
+# Prose names it as an image in backticks or as "Postgres 17".
+PROSE = re.compile(r"(?:`postgres:|\bPostgres )(\d+)\b")
 
 # Each place, and how its major version is read.
 PLACES = {
@@ -29,6 +32,7 @@ PLACES = {
     "deploy/backup/Dockerfile": IMAGE,
     "tools/with-postgres": IMAGE,
     "tools/ci-postgres": PG_MAJOR,
+    "docs/web.md": PROSE,
 }
 
 
@@ -81,10 +85,16 @@ class PostgresVersions(unittest.TestCase):
             "deploy/compose.yaml": "image: postgres:17-alpine\nurl: postgres://postgres:5432/x\n",
             "tools/with-postgres": "IMAGE=public.ecr.aws/docker/library/postgres:17-alpine\n",
             "tools/ci-postgres": "set -e\nPG_MAJOR=17\n",
+            "docs/web.md": "a `postgres:17-alpine` container, or a native Postgres 16\n",
         }
         self.assertEqual(
             majors(texts),
-            {"deploy/compose.yaml": {"17"}, "tools/with-postgres": {"17"}, "tools/ci-postgres": {"17"}},
+            {
+                "deploy/compose.yaml": {"17"},
+                "tools/with-postgres": {"17"},
+                "tools/ci-postgres": {"17"},
+                "docs/web.md": {"16", "17"},
+            },
         )
 
 

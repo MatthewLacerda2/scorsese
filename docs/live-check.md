@@ -146,8 +146,14 @@ Every response shape scorsese parses, and where its test body came from.
 | Gemini image model lookup | `api::veo::response::ModelInfo` | `fixtures/gemini/model.json` | hand-written, in the shape of `veo/model.json` |
 | Gemini refusals | carried whole, never parsed | inline in `tests/live/veo.rs`, `tests/live/image.rs` | hand-written |
 | LottieFiles search | `api::lottiefiles::Searched` | `fixtures/lottiefiles/search.json` | **captured** 2026-10-08 (three results) |
+| Pixabay video search | `api::pixabay::Listing<VideoHit>` | `fixtures/pixabay/videos.json` | **captured** 2026-10-08 (three hits) |
+| Pixabay image search | `api::pixabay::Listing<ImageHit>` | `fixtures/pixabay/images.json` | **captured** (two hits, their signed URLs' tokens replaced) |
 | Claude streams: tool use, answer, refusal, overload | `api::anthropic::stream` + `claude::Assembler` | `fixtures/anthropic/*.sse` | hand-written |
 | Anthropic refusals | carried whole, never parsed | inline in `tests/live/claude.rs` | hand-written |
+
+`.github/scripts/tests/test_live_check_fixtures.py` holds this table to
+`crates/providers/fixtures/`: a file with no row, or a row naming no file,
+fails the `scripts` gate (#1226).
 
 Hand-written JSON fixtures carry a `_provenance` field the parsers ignore;
 hand-written streams open with `:` comment lines, which server-sent events
