@@ -32,6 +32,7 @@
 //! knows one does is in this folder.
 
 mod browser;
+mod budget;
 mod cache;
 mod capture;
 mod cdp;
@@ -57,6 +58,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicU64;
 
 pub use browser::{CHROME_ENV, Chrome, ChromeError, NO_SANDBOX, NO_SANDBOX_ENV};
+pub use budget::Browsers;
 pub use cdp::CdpError;
 pub use holding::Holding;
 pub use origin::SHIPPED_ORIGIN;
@@ -234,7 +236,7 @@ pub fn capture_frames(
         (project_root, follow),
         request,
         frames,
-        (browsers, &drawn, &Cancel::new()),
+        (&Browsers::new(browsers), &drawn, &Cancel::new()),
     )
 }
 
