@@ -16,15 +16,38 @@ pub const FRAMED: u32 = 52;
 /// The guess carried forward is the one MCP `still` made: the shape of the
 /// first clip, in time, on the lowest video track that has one whose shape is
 /// a fact — a probed size, or the aspect a generated shot or still was asked
-/// for. That is the bottom layer, which is what fills the frame. Nothing sized
-/// reads as 16:9, which is what every other surface assumed.
+/// for. That is the bottom layer, which is what fills the frame.
+///
+/// That shape is kept only when it is one a person picks for a video
+/// ([`PICKED`], within [`NEAR`]); anything else — nothing sized, or a photo's
+/// own 735x478 (#1430) — reads as 16:9, which is what every other surface
+/// assumed. A picture's size is a fact about the picture, not a frame anyone
+/// chose.
 pub(super) fn frames_arrive(document: &mut Value) -> Result<(), String> {
-    let shape = footage(document).unwrap_or_default();
+    let shape = footage(document).and_then(picked).unwrap_or_default();
     let Some(fields) = document.as_object_mut() else {
         return Err("the document is not an object".to_owned());
     };
     fields.insert("aspect".to_owned(), Value::from(shape.to_string()));
     Ok(())
+}
+
+/// The frames a person picks for a video, `across:down`. The photograph and
+/// print shapes (3:2, 5:4 and their portraits) are left out on purpose: a
+/// still of that shape says what camera took it, not what the edit is for.
+const PICKED: [(u32, u32); 7] = [(16, 9), (9, 16), (1, 1), (4, 5), (4, 3), (3, 4), (21, 9)];
+
+/// How far footage may be from a [`PICKED`] shape and still be read as it:
+/// a twentieth of the ratio. The nearest two (4:5 and 3:4) are a fifteenth
+/// apart, so no shape is near two.
+const NEAR: f64 = 0.05;
+
+/// The [`PICKED`] shape `shape` is within [`NEAR`] of, if any.
+fn picked(shape: Ratio) -> Option<Ratio> {
+    PICKED.into_iter().find_map(|(across, down)| {
+        let frame = Ratio::new(across, down).ok()?;
+        ((shape.value() / frame.value() - 1.0).abs() < NEAR).then_some(frame)
+    })
 }
 
 /// The shape of the first sized clip on the lowest video track that has one.
