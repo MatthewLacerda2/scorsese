@@ -63,6 +63,7 @@ export const files = {
       still_image: "Gemini, by Google",
       spoken_line: "ElevenLabs",
       voice_design: "ElevenLabs",
+      music_track: "ElevenLabs",
     },
     model: "Model",
     made: "Made",

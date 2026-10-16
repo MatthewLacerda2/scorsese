@@ -63,6 +63,7 @@ export const files: Messages["files"] = {
       still_image: "Gemini, de Google",
       spoken_line: "ElevenLabs",
       voice_design: "ElevenLabs",
+      music_track: "ElevenLabs",
     },
     model: "Modelo",
     made: "Creado",
