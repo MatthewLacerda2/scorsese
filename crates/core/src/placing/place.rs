@@ -3,7 +3,7 @@
 use super::unsaid_duration;
 use crate::asset::AssetId;
 use crate::project::Project;
-use crate::time::{Fps, Frames};
+use crate::time::Frames;
 use crate::timeline::{Clip, ClipId, TrackId};
 use crate::validate::ValidationErrors;
 
