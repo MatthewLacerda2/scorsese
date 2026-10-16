@@ -8,6 +8,7 @@ import type { JobView } from "./events";
 import type {
   Account,
   Balance,
+  ClientError,
   EditorProject,
   FileKind,
   History,
@@ -79,6 +80,13 @@ export interface HistoryFilter {
 }
 
 export const api = {
+  /**
+   * Tell the server the page crashed (#1428): it writes a line to its log and
+   * answers `204`, signed in or not.
+   */
+  crashes: {
+    report: (report: ClientError) => request<void>("POST", "/client-errors", report),
+  },
   account: {
     logout: () => request<void>("POST", "/logout"),
     me: () => request<Account>("GET", "/me"),

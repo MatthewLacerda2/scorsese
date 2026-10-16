@@ -40,7 +40,11 @@ export const common: Messages["common"] = {
       failed: "Algo deu errado ao entrar. Tente de novo.",
     },
   },
-  crashed: { text: "Algo deu errado nesta página.", reload: "Recarregar" },
+  crashed: {
+    text: "Algo deu errado nesta página.",
+    part: "Esta parte falhou.",
+    reload: "Recarregar",
+  },
   unreachable: (error: string) => `Não foi possível falar com o servidor: ${error}`,
   notFound: { text: "Não tem nada aqui.", link: "Ir para seus projetos" },
 };

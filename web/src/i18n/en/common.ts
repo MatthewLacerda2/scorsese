@@ -41,7 +41,11 @@ export const common = {
       failed: "Something went wrong signing you in. Please try again.",
     },
   },
-  crashed: { text: "Something went wrong on this page.", reload: "Reload" },
+  crashed: {
+    text: "Something went wrong on this page.",
+    part: "This part failed.",
+    reload: "Reload",
+  },
   unreachable: (error: string) => `Could not reach the server: ${error}`,
   notFound: { text: "There is nothing here.", link: "Go to your projects" },
 };
