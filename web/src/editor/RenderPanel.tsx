@@ -12,6 +12,7 @@ import { useServerEvents } from "@/app/events";
 import { queryKeys } from "@/app/queryKeys";
 import { rememberRender } from "@/app/RenderToasts";
 import { Button } from "@/components/ui/button";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { useLanguage, useT } from "@/i18n/I18nProvider";
 import { formatBytes, formatDate } from "@/lib/format";
 import { folded, JobProgressBar } from "./JobProgressBar";
@@ -70,18 +71,18 @@ export function RenderPanel({ projectId, name, shape }: Props) {
   return (
     <div className="flex flex-col gap-3 text-sm">
       <div className="flex gap-2">
-        <select
+        <NativeSelect
           aria-label={t.editor.render.resolution}
-          className="h-8 flex-1 rounded-md border bg-transparent px-2"
+          className="flex-1"
           value={sizes.includes(resolution) ? resolution : sizes[0]}
           onChange={(event) => setResolution(event.target.value)}
         >
           {sizes.map((size) => (
-            <option key={size} value={size}>
+            <NativeSelectOption key={size} value={size}>
               {size} · MP4
-            </option>
+            </NativeSelectOption>
           ))}
-        </select>
+        </NativeSelect>
         <Button size="sm" onClick={render}>
           <FilmIcon /> {t.editor.render.render}
         </Button>

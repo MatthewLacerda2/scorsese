@@ -19,6 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { useT } from "@/i18n/I18nProvider";
 import type { EditOutcome } from "./project";
 import { RenderPanel } from "./RenderPanel";
@@ -54,18 +55,17 @@ export function EditorActions({
       <div className="ml-auto flex shrink-0 items-center gap-2">
         <StartControl projectId={projectId} onShape={onShape} />
         <SaveTemplate clips={selected} edit={edit} />
-        <select
+        <NativeSelect
           aria-label={t.editor.page.frameShape}
-          className="h-8 rounded-md border bg-transparent px-2 text-sm"
           value={shape}
           onChange={(event) => onShape(event.target.value as Shape)}
         >
           {(Object.keys(SHAPES) as Shape[]).map((choice) => (
-            <option key={choice} value={choice}>
+            <NativeSelectOption key={choice} value={choice}>
               {SHAPES[choice].label}
-            </option>
+            </NativeSelectOption>
           ))}
-        </select>
+        </NativeSelect>
         <Dialog>
           <DialogTrigger asChild>
             <Button size="sm" variant="outline" aria-label={t.editor.page.render}>

@@ -48,6 +48,12 @@
         "!**/*.test.tsx",
         "!**/src/test/**"
       ]
+    },
+    {
+      "path": "./lint/shadcnControls.grit",
+      // components/ui is where the shadcn controls are built from the native
+      // elements. Tests render controls of their own as a harness.
+      "includes": ["**/*.tsx", "!**/src/components/ui/**", "!**/*.test.tsx", "!**/src/test/**"]
     }
   ],
   "formatter": {
@@ -61,6 +67,10 @@
     "rules": {
       "preset": "recommended",
       "suspicious": { "noShadow": "error" },
+      // A label wrapping shadcn's Input is wrapping an input.
+      "a11y": {
+        "noLabelWithoutControl": { "level": "error", "options": { "inputComponents": ["Input"] } }
+      },
       "style": {
         // Only src/api talks to the server (web/README.md, *How it is laid out*);
         // the overrides below name the files that may.

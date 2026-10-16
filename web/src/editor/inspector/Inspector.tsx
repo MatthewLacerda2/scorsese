@@ -12,6 +12,7 @@
 // one springs back to what the document still says.
 
 import type { Clip, DocumentAsset, FitMode, Fps, Track } from "@/api";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { useT } from "@/i18n/I18nProvider";
 import { kindColor, kindName } from "../assets/kinds";
 import { toSeconds } from "../timeline/time";
@@ -75,30 +76,30 @@ export function Inspector({ clip, track, asset, fps, onChange }: Props) {
           onCommit={trim("duration_seconds")}
         />
         <span>{words.speed}</span>
-        <select
-          className="h-8 rounded-md border bg-transparent px-2"
+        <NativeSelect
           value={SPEEDS.includes(speed) ? String(speed) : "other"}
           onChange={(event) => set("speed")(Number(event.target.value))}
         >
-          {!SPEEDS.includes(speed) && <option value="other">{speed}×</option>}
+          {!SPEEDS.includes(speed) && (
+            <NativeSelectOption value="other">{speed}×</NativeSelectOption>
+          )}
           {SPEEDS.map((choice) => (
-            <option key={choice} value={choice}>
+            <NativeSelectOption key={choice} value={choice}>
               {choice}×
-            </option>
+            </NativeSelectOption>
           ))}
-        </select>
+        </NativeSelect>
         {picture && (
           <>
             <span>{words.fit}</span>
-            <select
-              className="h-8 rounded-md border bg-transparent px-2"
+            <NativeSelect
               value={clip.fit ?? "fit"}
               onChange={(event) => set("fit")(event.target.value as FitMode)}
             >
-              <option value="fit">{words.fits.fit}</option>
-              <option value="fill">{words.fits.fill}</option>
-              <option value="native">{words.fits.native}</option>
-            </select>
+              <NativeSelectOption value="fit">{words.fits.fit}</NativeSelectOption>
+              <NativeSelectOption value="fill">{words.fits.fill}</NativeSelectOption>
+              <NativeSelectOption value="native">{words.fits.native}</NativeSelectOption>
+            </NativeSelect>
             <span title={words.positionTitle}>{words.position}</span>
             <div className="flex gap-1">
               <Value held={transform.x} unit="percent" prefix="x" onCommit={set("position_x")} />

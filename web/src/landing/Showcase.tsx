@@ -16,6 +16,7 @@
 
 import { Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { useLanguage, useT } from "@/i18n/I18nProvider";
 import englishStill from "@/landing/media/showcase/promo-en.jpg";
 import english from "@/landing/media/showcase/promo-en.mp4";
@@ -114,22 +115,26 @@ export function Showcase() {
           onPause={() => setPlaying(false)}
         />
         <div className="absolute right-3 bottom-3 flex items-center gap-2 rounded-full bg-screen/55 p-1.5 text-paper sm:pr-4 backdrop-blur">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-lg"
             onClick={playPause}
             aria-label={playing ? t.pause : t.play}
-            className="grid size-9 place-items-center rounded-full hover:bg-on-screen/10"
+            className="rounded-full hover:bg-on-screen/10 hover:text-paper dark:hover:bg-on-screen/10"
           >
             {playing ? <Pause className="size-5" /> : <Play className="size-5" />}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-lg"
             onClick={toggle}
             aria-label={muted ? t.soundOn : t.soundOff}
-            className="grid size-9 place-items-center rounded-full hover:bg-on-screen/10"
+            className="rounded-full hover:bg-on-screen/10 hover:text-paper dark:hover:bg-on-screen/10"
           >
             {muted ? <VolumeX className="size-5" /> : <Volume2 className="size-5" />}
-          </button>
+          </Button>
           <input
             type="range"
             min={0}

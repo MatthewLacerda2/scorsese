@@ -3,6 +3,7 @@
 // server, so a keystroke is not an edit. Escape puts back what the document says.
 
 import { useEffect, useState } from "react";
+import { Input } from "@/components/ui/input";
 
 interface Props {
   value: number;
@@ -33,9 +34,9 @@ export function NumberField({ value, prefix, suffix, min, onCommit }: Props) {
   return (
     <label className="flex h-8 min-w-0 flex-1 items-center gap-1 rounded-md border px-2 focus-within:ring-2 focus-within:ring-ring/50">
       {prefix && <span className="text-xs text-muted-foreground">{prefix}</span>}
-      <input
+      <Input
         inputMode="decimal"
-        className="w-full min-w-0 bg-transparent outline-none"
+        className="h-auto rounded-none border-0 bg-transparent p-0 text-sm focus-visible:ring-0 dark:bg-transparent"
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={commit}

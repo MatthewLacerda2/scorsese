@@ -126,13 +126,14 @@ function Item({ item }: { item: QuoteItem }) {
         <span className="text-muted-foreground">{t.chat.quote.brief[item.brief]}: </span>
         {open ? item.description : shown}
         {clipped && (
-          <button
+          <Button
             type="button"
-            className="ml-1 text-muted-foreground underline"
+            variant="link"
+            className="ml-1 h-auto p-0 text-xs text-muted-foreground underline"
             onClick={() => setOpen(!open)}
           >
             {open ? t.chat.quote.less : t.chat.quote.more}
-          </button>
+          </Button>
         )}
       </span>
     </li>

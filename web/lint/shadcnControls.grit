@@ -1,0 +1,29 @@
+// A control shadcn/ui has a component for is built from that component (#1213).
+//
+// `<button>` is `Button` (or `Toggle`, `ToggleGroup`, `RadioGroup`…), a text-like
+// `<input>` is `Input`, `<textarea>` is `Textarea` and `<select>` is `Select` or
+// `NativeSelect`, so the UI stays consistent and nobody writes a control twice.
+// An `<input>` whose type shadcn has no component for (`checkbox`, `range`,
+// `file`, `color`, `hidden`) is left alone. A genuine custom surface (a clip
+// dragged on the timeline, a tile that is both draggable and a button) keeps the
+// native element with a `biome-ignore` that says why. web/README.md, *House
+// rules*, has the rest.
+language js
+
+pattern raw_control() {
+  or {
+    JsxOpeningElement(name=r"button|select|textarea"),
+    JsxSelfClosingElement(name=r"button|select|textarea"),
+    JsxOpeningElement(name=r"input", attributes=$attrs) where { $attrs <: text_like() },
+    JsxSelfClosingElement(name=r"input", attributes=$attrs) where { $attrs <: text_like() }
+  }
+}
+
+// No `type`, or one that is not on the list shadcn leaves native.
+pattern text_like() {
+  not contains JsxAttribute(name=r"type", initializer=JsxAttributeInitializerClause(value=r"[\"'](?:checkbox|range|file|color|hidden)[\"']"))
+}
+
+raw_control() as $element where {
+  register_diagnostic(span=$element, message="shadcnControls: build this from the shadcn component in src/components/ui (Button, Input, Textarea, NativeSelect, or another shadcn primitive), not a native element. A real custom surface keeps it with a biome-ignore saying why (web/README.md, House rules).")
+}

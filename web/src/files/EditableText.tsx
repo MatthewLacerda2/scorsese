@@ -36,6 +36,7 @@ export function EditableText({ label, value, onSave, multiline, placeholder, cla
 
   if (!editing) {
     return (
+      // biome-ignore lint/plugin/shadcnControls: click-to-edit text that must read as the text it stands for; a Button would draw a control over it
       <button
         type="button"
         aria-label={t.files.edit(label)}

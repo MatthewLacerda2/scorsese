@@ -4,6 +4,7 @@
 // the system" (the default) is something they can see and pick back.
 
 import { type LucideIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n/I18nProvider";
 import { type ThemeChoice, useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -16,7 +17,7 @@ const CHOICES = [
 
 const GROUP = "flex rounded-md border p-0.5";
 const SEGMENT =
-  "flex flex-1 items-center justify-center gap-1 rounded-sm px-2 py-1 text-xs text-muted-foreground outline-hidden hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-muted data-[active=true]:font-medium data-[active=true]:text-foreground [&_svg]:size-3.5";
+  "h-auto flex-1 gap-1 rounded-sm px-2 py-1 text-xs text-muted-foreground outline-hidden hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-muted data-[active=true]:font-medium data-[active=true]:text-foreground [&_svg]:size-3.5";
 
 export function ThemeControl({ className }: { className?: string }) {
   const t = useT();
@@ -25,16 +26,17 @@ export function ThemeControl({ className }: { className?: string }) {
     <fieldset className={cn(GROUP, className)}>
       <legend className="sr-only">{t.common.settings.theme}</legend>
       {CHOICES.map(({ choice: value, Icon }) => (
-        <button
+        <Button
           key={value}
           type="button"
+          variant="ghost"
           aria-pressed={choice === value}
           data-active={choice === value}
           className={SEGMENT}
           onClick={() => choose(value)}
         >
           <Icon /> {t.common.theme[value]}
-        </button>
+        </Button>
       ))}
     </fieldset>
   );

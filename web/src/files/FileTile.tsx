@@ -42,6 +42,7 @@ export function FileTile({
     <div
       className={`relative flex flex-col overflow-hidden rounded-lg border transition-colors ${disabled ? "opacity-50" : "hover:bg-muted/50"} ${selected ? "border-primary ring-2 ring-primary/30" : ""}`}
     >
+      {/* biome-ignore lint/plugin/shadcnControls: the whole tile face (thumbnail and name) is one click target; a Button's fixed height and centring would fight the layout */}
       <button
         type="button"
         onClick={onSelect}

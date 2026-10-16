@@ -21,6 +21,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import type { ProjectDocument } from "@/api";
 import { Button } from "@/components/ui/button";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { useT } from "@/i18n/I18nProvider";
 import { clamp } from "@/lib/utils";
 import { JobProgressBar } from "../JobProgressBar";
@@ -173,10 +174,11 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
         <span className="shrink-0 whitespace-nowrap font-mono text-xs tabular-nums">
           {clock(playhead, fps)} / {clock(total, fps)}
         </span>
-        <select
+        <NativeSelect
           aria-label={t.quality}
           title={t.qualities[quality].says}
-          className="h-8 rounded-md border bg-transparent px-1 text-xs"
+          size="sm"
+          className="text-xs"
           value={quality}
           onChange={(event) => {
             const next = event.target.value as Quality;
@@ -185,11 +187,11 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
           }}
         >
           {(Object.keys(QUALITIES) as Quality[]).map((choice) => (
-            <option key={choice} value={choice}>
+            <NativeSelectOption key={choice} value={choice}>
               {t.qualities[choice].label}
-            </option>
+            </NativeSelectOption>
           ))}
-        </select>
+        </NativeSelect>
       </div>
     </div>
   );
