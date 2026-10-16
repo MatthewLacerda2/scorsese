@@ -111,6 +111,19 @@ mod tests {
         assert!(bytes("nope.ttf").is_none());
     }
 
+    /// The faces a page is served are the compositor's own bytes, not a copy.
+    /// Fails if `SHIPPED` goes back to being a `const`, which pastes the whole
+    /// catalogue — 54 MB — into this crate a second time (#1168).
+    #[test]
+    fn the_served_faces_are_the_bytes_the_compositor_links() {
+        let served = bytes("inter.ttf").expect("inter is shipped");
+        let Some(Cut::Variable(drawn)) = scorsese_compositor::text::family("inter").map(|f| f.cut)
+        else {
+            panic!("inter is a variable face");
+        };
+        assert!(std::ptr::eq(served, drawn));
+    }
+
     #[test]
     fn faces_are_declared_by_the_catalogue_name_not_the_file_name() {
         let script = declarations("https://lib.scorsese");
