@@ -1,7 +1,7 @@
 //! *Shots*: Veo's per-second table, and the per-length one derived from it.
 
 use scorsese_core::{ClipSeconds, VideoModel, VideoRequest, VideoResolution};
-use scorsese_providers::prices::{Quality, Tier, dollars, estimate, veo};
+use scorsese_providers::prices::{Quality, Tier, dollars, estimate, from_cents, veo};
 
 use super::{checked_on, micros, section, table};
 
@@ -61,7 +61,7 @@ fn every_shot_by_length_is_what_the_code_estimates() {
                 ..VideoRequest::default()
             };
             let code = match made {
-                true => dollars(estimate(&request).expect("sold").cents),
+                true => dollars(from_cents(estimate(&request).expect("sold").cents), 2),
                 false => "—".to_owned(),
             };
             assert_eq!(

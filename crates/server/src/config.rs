@@ -21,6 +21,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use scorsese_providers::credentials::{Environment, Secret};
+use scorsese_providers::prices::parse_dollars;
 
 use crate::assistant::DEFAULT_TURN_CAP_MICROS;
 use crate::credits::dollars;
@@ -263,9 +264,11 @@ impl Config {
             });
         }
         let assistant_turn_cap = match environment.get(ASSISTANT_TURN_CAP) {
-            Some(cap) => micro_dollars(cap).ok_or_else(|| ConfigError::TurnCap {
-                value: cap.to_owned(),
-            })?,
+            Some(cap) => parse_dollars(cap)
+                .filter(|micros| *micros > 0)
+                .ok_or_else(|| ConfigError::TurnCap {
+                    value: cap.to_owned(),
+                })?,
             None => DEFAULT_TURN_CAP_MICROS,
         };
 
@@ -292,21 +295,6 @@ impl Config {
     pub fn files(&self) -> Storage {
         Storage::new(&self.storage, &self.cache)
     }
-}
-
-/// Dollars written `2`, `2.5`, `$2.50` — at most six places, as micro-dollars
-/// — when above zero.
-fn micro_dollars(text: &str) -> Option<i64> {
-    let text = text.trim().trim_start_matches('$');
-    let (whole, fraction) = text.split_once('.').unwrap_or((text, ""));
-    let digits = |part: &str| part.bytes().all(|b| b.is_ascii_digit());
-    if whole.is_empty() || !digits(whole) || !digits(fraction) || fraction.len() > 6 {
-        return None;
-    }
-    let whole: i64 = whole.parse().ok()?;
-    let fraction: i64 = format!("{fraction:0<6}").parse().ok()?;
-    let micros = whole.checked_mul(1_000_000)?.checked_add(fraction)?;
-    (micros > 0).then_some(micros)
 }
 
 /// The absolute directory `variable` names.

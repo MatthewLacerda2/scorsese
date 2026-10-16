@@ -31,7 +31,7 @@ use crate::chat::claude::{
 use crate::credentials::Secret;
 use crate::prices::Checked;
 use crate::prices::chat::{Usage, rate};
-use crate::prices::dollars;
+use crate::prices::{dollars, from_cents};
 
 use super::{Step, Verdict, judge};
 
@@ -75,7 +75,7 @@ pub(super) fn calls() -> Vec<String> {
     vec![format!(
         "two streamed calls to {MODEL} at low effort — a tool call, then its result with a \
          mid-conversation system message — at most {}, billed by the tokens used",
-        dollars(cost())
+        dollars(from_cents(cost()), 2)
     )]
 }
 

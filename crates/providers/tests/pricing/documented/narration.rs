@@ -1,7 +1,7 @@
 //! *Narration*: ElevenLabs' rate per thousand characters, and a line's price.
 
 use scorsese_core::SpeechModel;
-use scorsese_providers::prices::{dollars, elevenlabs, speech};
+use scorsese_providers::prices::{dollars, elevenlabs, from_cents, speech};
 
 use super::{checked_on, code, micros, section, table};
 
@@ -27,7 +27,12 @@ fn every_rate_per_character_is_the_codes() {
             at("per 1000 characters")
         );
         let line = speech(spoken, 200).expect("priced").cents;
-        assert_eq!(row[3], dollars(line), "{}", at("a 200-character line"));
+        assert_eq!(
+            row[3],
+            dollars(from_cents(line), 2),
+            "{}",
+            at("a 200-character line")
+        );
     }
 }
 

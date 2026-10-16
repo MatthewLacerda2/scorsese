@@ -230,7 +230,7 @@ fn the_start_is_said_in_one_line_with_its_size_when_known() {
     };
     assert_eq!(
         known.starting(),
-        "fetching the page renderer, once (100 MB) — it draws html clips"
+        "fetching the page renderer, once (99.2 MB) — it draws html clips"
     );
     let unknown = Fetching {
         received: 0,

@@ -251,7 +251,10 @@ fn ledger(dir: &std::path::Path) -> String {
         "\n{} designed here, about {} spent designing them — our arithmetic over the \
          published rate, never a bill, and counted apart from what the shots cost.",
         entries.len(),
-        scorsese_providers::prices::dollars(scorsese_providers::voices::design::spent(dir))
+        scorsese_providers::prices::dollars(
+            scorsese_providers::prices::from_cents(scorsese_providers::voices::design::spent(dir)),
+            2
+        )
     ));
     lines.join("\n")
 }

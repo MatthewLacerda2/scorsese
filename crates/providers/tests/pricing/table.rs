@@ -1,7 +1,7 @@
 //! The rates themselves, and the arithmetic over them.
 
 use scorsese_core::{ClipSeconds, VideoModel, VideoRequest, VideoResolution};
-use scorsese_providers::prices::{Quality, Tier, dollars, estimate, veo};
+use scorsese_providers::prices::{Quality, Tier, dollars, estimate, from_cents, veo};
 
 /// A request for a shot at this tier, size and length.
 fn asking(model: VideoModel, resolution: VideoResolution, seconds: ClipSeconds) -> VideoRequest {
@@ -99,8 +99,8 @@ fn the_full_tier_at_4k_costs_four_dollars_eighty() {
 
 #[test]
 fn money_prints_as_money() {
-    assert_eq!(dollars(5), "$0.05");
-    assert_eq!(dollars(96), "$0.96");
-    assert_eq!(dollars(100), "$1.00");
-    assert_eq!(dollars(1925), "$19.25");
+    assert_eq!(dollars(from_cents(5), 2), "$0.05");
+    assert_eq!(dollars(from_cents(96), 2), "$0.96");
+    assert_eq!(dollars(from_cents(100), 2), "$1.00");
+    assert_eq!(dollars(from_cents(1925), 2), "$19.25");
 }

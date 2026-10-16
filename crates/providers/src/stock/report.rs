@@ -6,6 +6,8 @@
 //! each result, the failures beside them and the licence are said here; a
 //! surface adds only what is its own, such as how a page plays a Lottie.
 
+use scorsese_core::bytes::format_bytes;
+
 use super::{Choice, Fetched, Kept, LICENCE, LOTTIE_LICENCE, StockError};
 
 /// What importing footage and photos came to: a line for each, in the order
@@ -136,7 +138,7 @@ fn fetched(one: &Fetched, (width, height): (u32, u32)) -> String {
 /// One animation's line.
 fn animation(one: &Kept) -> String {
     let mut line = format!(
-        "{} — \"{}\" by {}, {}x{}, {} frames at {} fps ({:.2}s), {} KB — {}",
+        "{} — \"{}\" by {}, {}x{}, {} frames at {} fps ({:.2}s), {} — {}",
         one.path,
         one.candidate.title,
         one.candidate.author,
@@ -145,7 +147,7 @@ fn animation(one: &Kept) -> String {
         one.frames,
         one.fps,
         one.seconds(),
-        one.bytes.div_ceil(1024),
+        format_bytes(one.bytes),
         one.candidate.page_url,
     );
     if one.reused {

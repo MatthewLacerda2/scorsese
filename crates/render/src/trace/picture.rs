@@ -10,6 +10,7 @@
 use std::path::{Path, PathBuf};
 
 use scorsese_compositor::Resolution;
+use scorsese_core::bytes::format_bytes;
 use scorsese_core::probe::ProbeMedia;
 use scorsese_core::{AssetId, AssetKind, GenerationState, PAGES_DIR, Project};
 
@@ -82,7 +83,7 @@ impl Vectorized {
     pub fn summary(&self) -> String {
         let traced = &self.traced;
         let mut said = format!(
-            "{} — {}x{}, {} pen strokes then {} filled shapes, in {} colours ({}), {} KB.\n\
+            "{} — {}x{}, {} pen strokes then {} filled shapes, in {} colours ({}), {}.\n\
              From a page in pages/ it is \"{}.svg\"; its marks are the group \
              id=\"{}\", in the order a hand would draw them.",
             self.path,
@@ -92,7 +93,7 @@ impl Vectorized {
             traced.shapes,
             traced.colours.len(),
             traced.colours.join(" "),
-            traced.svg.len().div_ceil(1024),
+            format_bytes(traced.svg.len() as u64),
             self.name,
             self.name,
         );

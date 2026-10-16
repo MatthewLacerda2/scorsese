@@ -33,7 +33,7 @@ use scorsese_core::SpeechModel;
 
 use std::path::Path;
 
-use crate::prices::{self, SpeechEstimate, UnpricedSpeech, dollars};
+use crate::prices::{self, SpeechEstimate, UnpricedSpeech, dollars, from_cents};
 use crate::quote::{Charge, Item, Quote, Spend};
 
 use super::brief::Brief;
@@ -76,7 +76,7 @@ impl Estimate {
         format!(
             "{} for the design — {} characters of preview text at {}¢ per 1000, charged once for \
              all three candidates. Our arithmetic over the published rate as of {}, never a bill.",
-            dollars(self.cents),
+            dollars(from_cents(self.cents), 2),
             self.characters,
             self.rate.cents_per_1k_chars,
             self.rate.checked

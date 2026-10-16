@@ -29,13 +29,12 @@ mod spend;
 use scorsese_core::placing::Shortened;
 use scorsese_core::{AssetId, GenerationState, Project, Timestamp};
 use scorsese_mcp::Reply;
-use scorsese_providers::prices::dollars as cents_as_dollars;
 use scorsese_providers::quote::{self, Item, Quote, generation};
 use serde_json::{Value, json};
 
 use super::surface::project_property;
 use super::{Caller, database, lay_out, project_id, quotes, voiced};
-use crate::credits::{Product, charge_for, dollars, ledger};
+use crate::credits::{Product, charge_for, dollars, from_cents, ledger};
 use crate::db;
 use crate::generations::adopt;
 use crate::jobs::blocking;
@@ -296,7 +295,7 @@ fn said(quote: &Quote, project: &Project) -> Vec<String> {
         lines.push(format!(
             "About {} at the providers' published rates — {} from your credits. Our \
              arithmetic, never a bill.",
-            cents_as_dollars(quote.cents()),
+            dollars(from_cents(quote.cents())),
             dollars(credits(quote, project))
         ));
     }

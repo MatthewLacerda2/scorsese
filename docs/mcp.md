@@ -532,7 +532,7 @@ stock_search  { "project": "teaser.scor", "query": "cat waving", "kind": "lottie
              by Kati — https://lottiefiles.com/animations/waving-kitty-cKjwAiaWqg …"
 stock_import  { "project": "teaser.scor", "id": 121035, "kind": "lottie" }
        → "pages/lottie-121035.json — \"Waving kitty\" by Kati, 1291x1200, 192 frames
-             at 48 fps (4.00s), 118 KB — …
+             at 48 fps (4.00s), 121 KB — …
              from a page in pages/ it is \"lottie-121035.json\""
 ```
 
@@ -551,7 +551,7 @@ asset_set  { "project": "sermon.scor", "asset": "jesus", "kind": "generated_imag
 generate   { "project": "sermon.scor" }                  → quoted first, as always
 vectorize  { "project": "sermon.scor", "asset": "jesus" }
        → "pages/jesus.svg — 1024x1024, 17 pen strokes then 12 filled shapes, in 6 colours
-             (#eae4d4 #1c1b1b #593b25 #deac7a #b83229 #f1b133), 75 KB. …"
+             (#eae4d4 #1c1b1b #593b25 #deac7a #b83229 #f1b133), 76.8 KB. …"
          + a page that draws it on over four seconds
 ```
 

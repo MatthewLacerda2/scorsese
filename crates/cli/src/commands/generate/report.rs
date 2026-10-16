@@ -8,7 +8,7 @@ use scorsese_core::AssetId;
 use scorsese_core::placing::Shortened;
 use scorsese_providers::image;
 use scorsese_providers::passes::Done;
-use scorsese_providers::prices::dollars;
+use scorsese_providers::prices::{dollars, from_cents};
 use scorsese_providers::video::Run;
 
 /// Every brief's line, then the total.
@@ -25,7 +25,7 @@ pub(super) fn run(done: &Done, project_dir: &Path) {
     println!();
     println!(
         "About {} spent on this run — our calculation, never a bill.",
-        dollars(done.spent_cents())
+        dollars(from_cents(done.spent_cents()), 2)
     );
 }
 

@@ -13,6 +13,7 @@
 
 use schemars::JsonSchema;
 use scorsese_core::AssetId;
+use scorsese_core::bytes::format_bytes;
 use scorsese_providers::synth::{self, Baked, Excerpt, Partial, Span, Window};
 use scorsese_render::audio::Profile;
 use scorsese_render::audio::reference::{self, Reference};
@@ -223,8 +224,8 @@ fn said(id: &AssetId, outcome: &Baked, like: Option<&Reference>) -> String {
             tracks,
         } => {
             let head = format!(
-                "{id} — baked, {} KB, {path}, {}",
-                bytes / 1024,
+                "{id} — baked, {}, {path}, {}",
+                format_bytes(*bytes as u64),
                 say::summary(profile)
             );
             rows(
@@ -262,8 +263,8 @@ fn said_partial(
     // over eight bars than over the whole piece, and this line is the only
     // place a client is told which one it is reading.
     let head = format!(
-        "{id} — part of it ({excerpt}), {} KB, {}, {}",
-        partial.bytes / 1024,
+        "{id} — part of it ({excerpt}), {}, {}, {}",
+        format_bytes(partial.bytes as u64),
         partial.shown,
         say::summary(&partial.profile)
     );

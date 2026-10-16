@@ -2608,7 +2608,7 @@ energy that is low, mid and high, and how much of it is common to both
 channels:
 
 ```
-trilha — baked, 3702 KB
+trilha — baked, 3.8 MB
   generated/9f3c….wav
   43.0 s  mean -14.4 dBFS, peak -2.9 dBFS, low  47%  mid  45%  high   8%, corr +0.62
        0.000-8.000    intro   mean  -19.1   peak   -8.2   crest  10.9   low  42%  mid  51%  high   7%   corr +0.74

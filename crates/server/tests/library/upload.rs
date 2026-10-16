@@ -113,6 +113,17 @@ async fn what_arrives_is_checked_rather_than_trusted(pool: PgPool) {
     let notes = announce(address, &ana, "notes.txt", b"hello").await;
     assert_eq!(notes.status, 415, "{}", notes.body);
 
+    // The cap is decimal, said the way every size is said (#1287).
+    assert_eq!(options.header("tus-max-size"), Some("20000000000"));
+    let huge = announce_as(address, &ana, "a.mp4", &"0".repeat(64), 20_000_000_001).await;
+    assert_eq!(huge.status, 400, "{}", huge.body);
+    assert!(
+        huge.body
+            .contains("a file must be between one byte and 20.0 GB"),
+        "{}",
+        huge.body
+    );
+
     // The bytes do not have the hash announced.
     let wrong = announce_as(address, &ana, "a.mp4", &"0".repeat(64), bytes.len()).await;
     let location = wrong.header("location").unwrap().to_owned();

@@ -32,6 +32,7 @@ mod glance;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
+use scorsese_core::bytes::format_bytes;
 use scorsese_core::{AssetKind, Frames, Project};
 use scorsese_providers::chromium::{self, Fetching};
 use scorsese_render::page::{self, Chrome, Supply};
@@ -195,16 +196,15 @@ impl Drop for Capturer {
 
 /// How far the download has got, in the words under the preview.
 fn fetching_said(at: Fetching) -> String {
-    let megabytes = |bytes: u64| bytes.div_ceil(1_000_000);
     match at.total {
         Some(total) => format!(
-            "fetching the page renderer, once: {} of {} MB",
-            megabytes(at.received),
-            megabytes(total)
+            "fetching the page renderer, once: {} of {}",
+            format_bytes(at.received),
+            format_bytes(total)
         ),
         None => format!(
-            "fetching the page renderer, once: {} MB",
-            megabytes(at.received)
+            "fetching the page renderer, once: {}",
+            format_bytes(at.received)
         ),
     }
 }
@@ -278,11 +278,11 @@ mod tests {
         let at = |received, total| Fetching { received, total };
         assert_eq!(
             fetching_said(at(45_000_000, Some(121_000_000))),
-            "fetching the page renderer, once: 45 of 121 MB"
+            "fetching the page renderer, once: 45.0 MB of 121 MB"
         );
         assert_eq!(
             fetching_said(at(0, None)),
-            "fetching the page renderer, once: 0 MB"
+            "fetching the page renderer, once: 0 B"
         );
     }
 

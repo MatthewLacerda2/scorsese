@@ -29,7 +29,7 @@ use scorsese_core::Project;
 use scorsese_providers::credentials::Budget;
 use scorsese_providers::image::Order;
 use scorsese_providers::passes::{self, Halt, Keyed};
-use scorsese_providers::prices::dollars;
+use scorsese_providers::prices::{dollars, from_cents};
 use scorsese_providers::{image, speech, video};
 
 use super::confirm;
@@ -179,7 +179,7 @@ pub(crate) fn sweep(project_dir: &Path) -> Result<()> {
     println!();
     println!(
         "About {} spent on this run — nothing, because a sweep only collects.",
-        dollars(0)
+        dollars(from_cents(0), 2)
     );
     Ok(())
 }
@@ -208,15 +208,15 @@ fn quote(project: &Project, root: &Path, order: Order) -> Result<()> {
     println!(
         "About {} for the whole run — calculated from the published rates, never a bill. \
          See `scorsese guide prices`.",
-        dollars(quote.cents())
+        dollars(from_cents(quote.cents()), 2)
     );
     if order == Order::Now
         && let Some(offer) = scorsese_providers::quote::offer(project, root)?
     {
         println!(
             "Stills: {} now · {} with --batch, ready within 24 hours (half price).",
-            dollars(offer.now_cents),
-            dollars(offer.batch_cents)
+            dollars(from_cents(offer.now_cents), 2),
+            dollars(from_cents(offer.batch_cents), 2)
         );
     }
     Ok(())
