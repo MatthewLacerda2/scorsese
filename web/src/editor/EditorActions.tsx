@@ -10,6 +10,7 @@
 // template by its hover text too).
 
 import { FilmIcon } from "lucide-react";
+import type { Fps } from "@/api";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,6 +38,8 @@ export interface EditorActionsProps {
   aspect: string;
   /** Asks for the frame in another shape: a re-fit, never a setting kept aside. */
   onAspect: (aspect: string) => void;
+  /** The project's own rate, which Render offers first. */
+  fps: Fps;
 }
 
 /** What `EditorHeader` puts in the header; its own file so it can be drawn alone. */
@@ -47,6 +50,7 @@ export function EditorActions({
   edit,
   aspect,
   onAspect,
+  fps,
 }: EditorActionsProps) {
   const t = useT();
   return (
@@ -80,7 +84,7 @@ export function EditorActions({
               <DialogTitle>{t.editor.page.renderTitle}</DialogTitle>
               <DialogDescription>{t.editor.page.renderDescription}</DialogDescription>
             </DialogHeader>
-            <RenderPanel projectId={projectId} name={name} aspect={aspect} />
+            <RenderPanel projectId={projectId} name={name} aspect={aspect} fps={fps} />
           </DialogContent>
         </Dialog>
       </div>

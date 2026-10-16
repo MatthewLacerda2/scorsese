@@ -26,6 +26,18 @@ export const editor = {
   },
   render: {
     resolution: "Resolution",
+    file: "File",
+    video: (extension: string) => `Video — .${extension}`,
+    sound: (extension: string) => `Sound only — .${extension}`,
+    rate: "Frame rate",
+    ownRate: (fps: string) => `Same as the edit (${fps} fps)`,
+    fps: (fps: string) => `${fps} fps`,
+    loudness: "Loudness",
+    loudnesses: {
+      mixed: "As mixed",
+      streaming: "Streaming and social (−14 LUFS)",
+      podcast: "Podcast (−16 LUFS)",
+    },
     render: "Render",
     stop: "Stop",
     download: "Download",
