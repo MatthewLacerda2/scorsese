@@ -34,6 +34,34 @@ pub(crate) const ORIGIN: &str = "https://page.scorsese";
 /// than a folder of the page's, so no project directory can ever shadow one.
 pub const SHIPPED_ORIGIN: &str = "https://lib.scorsese";
 
+/// The motion kit's source files, `shipped/kit/`, in the order they are joined
+/// into the one `kit.js` a page loads.
+///
+/// The kit is one script — a single IIFE defining `window.kit` — kept as
+/// pieces only so that no source file outgrows the size gate (#1205). A piece
+/// is a stretch of that script and not a script of its own: only the first
+/// opens the IIFE and only the last closes it. The order is the pieces' names
+/// sorted, which is how the web front-end joins them too (`web/src/build/
+/// kit.ts`, for the landing page), and a test holds this list to it.
+pub(crate) const KIT_PIECES: [&str; 6] = [
+    "01-easing.js",
+    "02-timing.js",
+    "03-text.js",
+    "04-drawing.js",
+    "05-glyphs.js",
+    "06-scene.js",
+];
+
+/// The motion kit as a page receives it: [`KIT_PIECES`] joined, byte for byte.
+const KIT: &str = concat!(
+    include_str!("../shipped/kit/01-easing.js"),
+    include_str!("../shipped/kit/02-timing.js"),
+    include_str!("../shipped/kit/03-text.js"),
+    include_str!("../shipped/kit/04-drawing.js"),
+    include_str!("../shipped/kit/05-glyphs.js"),
+    include_str!("../shipped/kit/06-scene.js"),
+);
+
 /// The libraries every page may load, by the file name they are served at.
 /// The shipped fonts are served beside them, under `fonts/` ([`super::fonts`]),
 /// the icon set under `icons/` ([`super::icons`]) and the Humaaans people
@@ -46,7 +74,8 @@ pub const SHIPPED_ORIGIN: &str = "https://lib.scorsese";
 /// brings in: a page drives it from the clock with `goToAndStop`, never its
 /// own playback. Both MIT, each licence vendored beside it. And scorsese's
 /// own motion kit (#812), `kit.js`: the helpers every timed page was writing
-/// for itself, on the page's seconds. opentype.js 2.0.0 (#997, MIT), for
+/// for itself, on the page's seconds, served as one file joined from
+/// [`KIT_PIECES`]. opentype.js 2.0.0 (#997, MIT), for
 /// `kit.write`: a browser cannot hand a page a glyph's outline, and this reads
 /// one from a shipped face, variable ones at any weight. Vendored with its
 /// source-map comment dropped, since nothing serves the map.
@@ -65,7 +94,7 @@ const SHIPPED: &[(&str, &[u8])] = &[
         "lottie.LICENSE.txt",
         include_bytes!("../shipped/lottie.LICENSE.txt"),
     ),
-    ("kit.js", include_bytes!("../shipped/kit.js")),
+    ("kit.js", KIT.as_bytes()),
     (
         "opentype.min.js",
         include_bytes!("../shipped/opentype.min.js"),

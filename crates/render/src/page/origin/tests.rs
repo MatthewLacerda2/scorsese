@@ -177,9 +177,7 @@ fn a_shipped_file_is_recorded_by_its_url_and_hashed_as_this_build_serves_it() {
     );
     assert_eq!(
         shipped_hash("https://lib.scorsese/kit.js"),
-        Some(scorsese_core::hash_bytes(include_bytes!(
-            "../shipped/kit.js"
-        ))),
+        Some(scorsese_core::hash_bytes(KIT.as_bytes())),
         "the motion kit is recorded like any shipped library"
     );
     assert!(record_key("https://page.scorsese/pages/a.html").is_none());
@@ -250,4 +248,25 @@ fn a_response_says_what_it_is_by_extension() {
     );
     assert_eq!(Answer::mime("https://x/f.woff2"), "font/woff2");
     assert_eq!(Answer::mime("https://x/blob"), "application/octet-stream");
+}
+
+#[test]
+fn the_kit_is_every_piece_joined_in_name_order() {
+    // The web front-end joins `shipped/kit/` by sorted name, not from this
+    // list: a piece added there and not here, or out of order, would serve
+    // pages one kit and the landing page another.
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/page/shipped/kit");
+    let mut names: Vec<String> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .collect();
+    names.sort();
+    assert_eq!(names, KIT_PIECES);
+    let joined: Vec<u8> = names
+        .iter()
+        .flat_map(|name| std::fs::read(dir.join(name)).unwrap())
+        .collect();
+    assert_eq!(joined, KIT.as_bytes());
+    assert!(KIT.starts_with("// scorsese's motion kit"));
+    assert!(KIT.ends_with("})();\n"), "the last piece closes the kit");
 }
