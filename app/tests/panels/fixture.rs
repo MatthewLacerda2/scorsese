@@ -197,7 +197,8 @@ pub(crate) fn write(label: &str, document: &str) -> Fixture {
         crate::scratch::fresh("scorsese-panels", "").join(format!("scorsese-panels-{label}.scor"));
     // The folders a real project has come from `Project::create`; the document
     // it writes is then replaced by the one this test is about.
-    Project::create(&dir, None, Fps::THIRTY, scorsese_core::Ratio::WIDE).expect("create the project directory");
+    Project::create(&dir, None, Fps::THIRTY, scorsese_core::Ratio::WIDE)
+        .expect("create the project directory");
     std::fs::write(dir.join("project.json"), document).expect("write project.json");
     // A real file behind the image asset. An asset whose file is missing is a
     // warning the pool draws, and a snapshot of a panel should not also be a

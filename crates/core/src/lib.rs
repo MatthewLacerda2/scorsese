@@ -56,7 +56,8 @@
 //! lanes they sit on; [`mod@placing`] puts a clip on a track and
 //! moves, trims or removes one already there; [`mod@grouping`] wraps clips
 //! already there into a group that renders as one layer, and back; [`mod@pacing`] retimes a cut;
-//! [`mod@dip`] is auto-ducking; [`mod@level`] holds one clip's property at a
+//! [`mod@dip`] is auto-ducking; [`mod@frame`] is the shape of a project's frame,
+//! the arithmetic every raster is sized with, and the re-fit that changes it; [`mod@level`] holds one clip's property at a
 //! value; [`mod@probe`] is the seam an ffprobe lives behind, so this crate can
 //! reason about media without spawning anything; [`mod@migrate`] brings a
 //! document written by an older build forward to this one; [`mod@template`]

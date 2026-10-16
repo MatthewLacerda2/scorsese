@@ -81,8 +81,9 @@ title laid out upright is a different title landscape. So **every default
 follows it**: a render that names no size is delivered at this shape with 1080
 lines on its shorter side (1920x1080, 1080x1920, 1080x1350 for 4:5); a still,
 a contact sheet and a preview are drawn in it at their own smaller budgets;
-`describe --at` and the checkup measure layouts against it; and both editors
-preview it. A render may still ask for any other size.
+`describe --at` and the checkup measure layouts against it; and the web
+server's renders and previews default to it (the editors' own previews follow
+it in #1403). A render may still ask for any other size.
 
 It is chosen when the project is made — `scorsese new --aspect 9:16`, or
 `--platform`, whose placement sets it (`project_new` takes the same) — and
