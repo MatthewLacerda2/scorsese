@@ -127,7 +127,7 @@ already built:
 | --- | --- | --- |
 | server | `cargo build -p scorsese-server` | the binary the flows drive |
 | browser | `bunx playwright install --only-shell chromium` | Playwright's pinned headless Chromium, fetched once; skipped when `E2E_CHROMIUM` names one |
-| flows | `bunx playwright test`, through `tools/with-postgres` | sign in, make a project, upload and place a file, resize a panel, ask the assistant — against the real server and a real Postgres |
+| flows | `bunx playwright test`, through `tools/with-postgres` | sign in, make a project, upload and place a file, resize a panel, ask the assistant — against the real server and a real Postgres. The flows that run an assistant turn (a message, a new platform, a confirmed quote) run in every language, since a translated piece can crash in one language only (#1429); the rest stay English |
 
 `playwright.config.ts` starts the server (away from any `.env`, so no provider
 key reaches it) and `vite preview` of the production build, and makes the run's
