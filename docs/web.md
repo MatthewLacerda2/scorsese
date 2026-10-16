@@ -396,19 +396,23 @@ Everything a vendor lets Terraform manage is managed in `deploy/terraform/`
 (#957, #952, #1256, #1352), so it is versioned, reviewed in a pull request, and something an
 agent can change. A change made in a dashboard is drift: the next plan shows
 it, and the next apply undoes it. There is one configuration per vendor, each
-with its own state at `$SCORSESE_DATA/terraform/<name>.tfstate`, outside the
-checkout, so applying from a worktree that is then removed loses nothing.
+with its own state in one versioned Google Cloud Storage bucket,
+`gs://scorseseestudio-tfstate`, so applying from a worktree that is then
+removed, or from a machine that then dies, loses nothing (*Where the state
+lives*, below).
 
 | File | What it holds |
 | --- | --- |
 | `cloudflare/zone.tf` | the zone, looked up by `domain`; DNSSEC on |
 | `cloudflare/tunnel.tf` | the tunnel's ingress (the apex and `www` to `http://web:80`, anything else 404), their proxied CNAMEs, and the `www` → apex 301 |
 | `cloudflare/email.tf` | Email Routing's records, the `security@` and `contato@` forwards (one verified destination, `SCORSESE_SECURITY_FORWARD_TO`), and DMARC `p=reject` (the domain never sends mail) |
-| `google/project.tf` | the `scorseseestudio` Google Cloud project (deletion-protected) and the APIs enabled on it |
+| `google/project.tf` | the `scorseseestudio` Google Cloud project (deletion-protected), the billing account it is charged to, and the APIs enabled on it |
+| `google/billing.tf` | a monthly budget on the project, R$5 (about US$1; the billing account is in reais, and a budget must be in its account's currency), emailing the billing admins at 50% and 100%. It warns; it stops nothing |
+| `google/state.tf` | the bucket every configuration's state lives in: `us-central1` (Always Free), private, versioned, impossible to destroy by accident (`prevent_destroy`, no `force_destroy`) |
 | `stripe/webhook.tf` | the webhook endpoint for credit purchases (*Buying credits*): `<SCORSESE_PUBLIC_ORIGIN>/api/payments/stripe/webhook` and the three events it acts on, and its signing secret as a sensitive output |
 | `github/repository.tf` | the `MatthewLacerda2/scorsese` repository's settings: squash merges only, a merged branch deleted, no wiki or projects, Dependabot alerts and security updates on, secret scanning and push protection on. Imported, never created, and impossible to destroy by accident (`prevent_destroy`, and `archive_on_destroy` behind it) |
 | `github/ruleset.tf` | `main`'s ruleset: a change arrives as a squashed pull request with `CI ok` green on `main`'s tip, no review required, no deletion or force-push, nobody bypasses it |
-| `tf` | runs one configuration with its credentials: `tf cloudflare plan`, `tf google apply`, `tf stripe secret`, `tf github plan` |
+| `tf` | runs one configuration with its credentials and its state: `tf cloudflare plan`, `tf google apply`, `tf stripe secret`, `tf github plan`; and, once, `tf google bootstrap` and `tf <name> migrate` (*Moving the state into the bucket*) |
 
     make infra-plan     # what would change, for all four; changes nothing
     make infra-apply    # shows each plan again and asks before applying it
@@ -423,9 +427,55 @@ through a short-lived access token, so no service-account key exists anywhere.
 `tf stripe` reads `STRIPE_SECRET_KEY` and `SCORSESE_PUBLIC_ORIGIN`.
 `tf github` uses the maintainer's own `gh` login (`gh auth token`), so no
 GitHub token is kept anywhere either; it needs an admin of the repository.
-`make infra`, the gate, checks formatting and each configuration against its
-provider's schema without credentials, in `make gates` and in CI's
-`deploy config` job.
+**Every** configuration also needs the `gcloud` login, because every state is
+in the bucket: `tf` hands Terraform's `gcs` backend the same short-lived token
+(`GOOGLE_OAUTH_ACCESS_TOKEN`), and stops with one line saying so when there is
+no login. `make infra`, the gate, checks formatting and each configuration
+against its provider's schema without credentials or state
+(`init -backend=false`), in `make gates` and in CI's `deploy config` job.
+
+**Where the state lives.** A state records what Terraform made, and two of
+them hold secrets: Cloudflare's tunnel token and Stripe's signing secret. So
+they live in `gs://scorseseestudio-tfstate` (`google/state.tf`), not on one
+disk that no backup covers: one prefix per state (`cloudflare`, `github`,
+`google`, `stripe-test`, `stripe-live`), each a `default.tfstate` object that
+Terraform locks while it writes. Public access is prevented and access is
+uniform, so only the project's owners read it. Every apply leaves the
+previous version behind; an old version is deleted once it is both more than
+30 days old and 20 versions behind, so there is always a month and always
+twenty applies to go back to. Going back is copying a noncurrent version over
+the live one: `gcloud storage ls --all-versions gs://scorseseestudio-tfstate/<prefix>/`
+lists them, `gcloud storage cp <that version's URL> gs://scorseseestudio-tfstate/<prefix>/default.tfstate`
+restores one. It costs nothing (kilobytes inside the free tier) and Cloud
+Storage is the one part that made the project need a billing account, which
+the budget watches. The bucket was chosen over Cloudflare R2 (no object
+versioning), HCP Terraform (one more account) and a gist or the repository
+(both public).
+
+**Moving the state into the bucket** is done once, on the machine that holds
+the old states (the maintainer linked the billing account it needs by hand on
+2026-10-15). Before the bucket, each state was a file in
+`$SCORSESE_DATA/terraform/<state>.tfstate`. The google configuration makes
+the bucket, so it goes first, against its old file, and then every state
+moves in, one command each:
+
+    deploy/terraform/tf google bootstrap plan    # bucket, budget, two APIs; the project unchanged
+    deploy/terraform/tf google bootstrap apply
+    deploy/terraform/tf google migrate           # answer yes when Terraform asks to copy
+    deploy/terraform/tf cloudflare migrate
+    deploy/terraform/tf github migrate
+    deploy/terraform/tf stripe migrate           # stripe-test and stripe-live; needs no key
+    make infra-plan                              # every configuration: no changes
+
+`migrate` copies the file to `<state>.tfstate.migrated` first, runs
+`terraform init -migrate-state`, checks the bucket holds the same state
+(Terraform's lineage), and only then removes the original; delete the
+`.migrated` copies (and `cloudflare.tfstate.backup`) once `make infra-plan`
+shows no changes, since they hold the same secrets on the same unbacked disk.
+Until a state has moved, every other `tf` command on it refuses, so nothing is
+ever planned or applied against an empty state, which would try to make
+everything a second time. `bootstrap` refuses once google's state is in the
+bucket.
 
 **What stays by hand**, because no API reaches it or it should not be
 automated:
@@ -458,8 +508,8 @@ refuses: roll the secret in Stripe's Dashboard and paste it by hand, or delete
 that endpoint there and let the apply make a new one.
 
 **Test and live mode are different endpoints at Stripe**, each with its own
-secret. `tf` keeps a state for each, `stripe-test.tfstate` or
-`stripe-live.tfstate`, chosen by whether `STRIPE_SECRET_KEY` is a test or a
+secret. `tf` keeps a state for each, under the bucket's `stripe-test` or
+`stripe-live` prefix, chosen by whether `STRIPE_SECRET_KEY` is a test or a
 live key, so the test endpoint is neither forgotten nor touched when the key
 changes. Switching to live (after #547) is: put the `sk_live_…` key in
 `deploy/.env`, `make infra-apply`, `deploy/terraform/tf stripe secret`,

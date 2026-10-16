@@ -5,14 +5,16 @@
 # next `make infra-plan` shows it as such.
 #
 # `deploy/terraform/tf cloudflare …` runs it with what deploy/.env holds, and
-# keeps the state out of the checkout (docs/web.md, "Infrastructure, as code").
+# keeps the state in Google Cloud Storage (docs/web.md, "Infrastructure, as
+# code").
 
 terraform {
   required_version = ">= 1.9"
 
-  # The state's path is given at init by `tf`, under SCORSESE_DATA, so it
-  # outlives the worktree a change was applied from.
-  backend "local" {}
+  # The bucket and prefix are given at init by `tf`: the state bucket the
+  # google configuration makes, so the state outlives both the worktree a
+  # change was applied from and the disk it was applied on.
+  backend "gcs" {}
 
   required_providers {
     cloudflare = {

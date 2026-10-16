@@ -3,13 +3,13 @@
 #
 # `deploy/terraform/tf stripe …` runs it with deploy/.env's STRIPE_SECRET_KEY.
 # Test and live mode are separate worlds at Stripe, so `tf` keeps one state
-# for each and picks it by the key's mode (docs/web.md, "Infrastructure, as
-# code").
+# for each in the state bucket (google/state.tf), under its own prefix, and
+# picks it by the key's mode (docs/web.md, "Infrastructure, as code").
 
 terraform {
   required_version = ">= 1.9"
 
-  backend "local" {}
+  backend "gcs" {}
 
   required_providers {
     stripe = {

@@ -5,12 +5,12 @@
 # them.
 #
 # `deploy/terraform/tf github …` runs it with the maintainer's own `gh` login,
-# and keeps the state out of the checkout.
+# and keeps the state in the state bucket (google/state.tf).
 
 terraform {
   required_version = ">= 1.9"
 
-  backend "local" {}
+  backend "gcs" {}
 
   required_providers {
     github = {

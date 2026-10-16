@@ -71,8 +71,10 @@ cache/
 # synth bake`, the same bytes every time, so only the recipe is kept.
 web/landing/*.scor/generated/
 
-# Terraform's provider download. Its lockfile is committed; the state lives
-# under SCORSESE_DATA, never here (deploy/terraform/tf).
+# Terraform's provider download. Its lockfile is committed; the state lives in
+# the state bucket, never here (deploy/terraform/tf), and the override `tf`
+# writes to reach an old local state is deleted when it exits.
 deploy/terraform/*/.terraform/
+deploy/terraform/*/tf_local_override.tf
 *.tfstate
 *.tfstate.*
