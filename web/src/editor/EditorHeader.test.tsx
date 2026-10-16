@@ -19,8 +19,8 @@ const props: EditorActionsProps = {
   name: "teaser",
   selected: [],
   edit: { run: async () => null, refused: null, dismiss: () => {}, pending: false },
-  shape: "portrait",
-  onShape: () => {},
+  aspect: "9:16",
+  onAspect: () => {},
 };
 
 const draw = (node: React.ReactNode) =>
@@ -31,7 +31,7 @@ test("the header's editor controls: name, Save as template, frame shape, Render"
   expect(html).toContain(">teaser</h1>");
   expect(html).toContain("Save as template");
   expect(html).toContain('aria-label="Frame shape"');
-  expect(html).toMatch(/<option [^>]*value="portrait" selected="">9:16<\/option>/);
+  expect(html).toMatch(/<option [^>]*value="9:16" selected="">9:16<\/option>/);
   expect(html).toContain("Render");
   expect(html).not.toMatch(/revision/i);
 });

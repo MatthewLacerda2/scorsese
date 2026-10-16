@@ -27,8 +27,6 @@ export const KEYS = {
   effort: (project: number) => `scorsese-effort-${project}`,
   /** Whether a project's chat fills the page (`editor/chat/full.ts`). */
   chatFull: (project: number) => `scorsese-chat-full-${project}`,
-  /** A project's frame shape (`editor/shape.ts`). */
-  shape: (project: number) => `scorsese.shape.${project}`,
 } as const;
 
 /** The part of `Storage` a read needs; tests hand in a map or one that throws. */

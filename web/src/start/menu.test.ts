@@ -3,7 +3,7 @@
 
 import { expect, test } from "bun:test";
 import { MENU } from "./fixture";
-import { keptStyle, nameOf, shapeOf, stylesFor } from "./menu";
+import { aspectFor, keptStyle, nameOf, stylesFor } from "./menu";
 
 const menu = MENU;
 
@@ -19,9 +19,9 @@ test("a style not made for the new platform is dropped, never kept as a mismatch
 });
 
 test("a placement's shape follows its size", () => {
-  expect(shapeOf(menu, "youtube")).toBe("landscape");
-  expect(shapeOf(menu, "tiktok_ad")).toBe("portrait");
-  expect(shapeOf(menu, null)).toBeNull();
+  expect(aspectFor(menu, "youtube")).toBe("16:9");
+  expect(aspectFor(menu, "tiktok_ad")).toBe("9:16");
+  expect(aspectFor(menu, null)).toBeNull();
 });
 
 test("names come from the menu", () => {

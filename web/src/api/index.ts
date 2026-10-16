@@ -34,7 +34,8 @@ export * from "./types";
 /**
  * The tools the editor calls — the server's allowlist (`http::editor`): the
  * hand-edits (a lane, a placement, a trim, a value, a move to another lane, a
- * delete, and removing a lane or an asset with the clips that go named — #396),
+ * delete, removing a lane or an asset with the clips that go named — #396 — and
+ * a new frame shape, #1278),
  * bringing a library file in, looking at a frame, and saving the selection as a
  * template or putting one in (#546).
  */
@@ -47,6 +48,7 @@ export type EditorTool =
   | "clip_move"
   | "clip_remove"
   | "sequence"
+  | "project_reframe"
   | "import"
   | "still"
   | "template_save"

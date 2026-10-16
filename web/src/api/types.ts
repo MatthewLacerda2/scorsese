@@ -232,7 +232,6 @@ export interface ToolPart {
   image: string | null;
 }
 
-/** `POST /api/projects/{id}/tools/{name}` — `http::editor::call`. */
 /** `templates::Summary` — a saved piece of an edit (#546), as a list shows it. */
 export interface TemplateSummary {
   id: number;
@@ -247,6 +246,7 @@ export interface TemplateSummary {
   updated_at: number;
 }
 
+/** `POST /api/projects/{id}/tools/{name}` — `http::editor::call`. */
 export interface ToolAnswer {
   said: ToolPart[];
   /** The project as it is after the edit; `null` after a `still`. */

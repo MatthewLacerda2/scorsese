@@ -178,7 +178,9 @@ impl Preview {
                 .into_iter()
                 .flatten()
                 .reduce(|one, other| format!("{one} · {other}"));
-            if let Some(chosen) = quality::show(ui, self.quality, making.as_deref()) {
+            if let Some(chosen) =
+                quality::show(ui, self.quality, open.project.aspect, making.as_deref())
+            {
                 self.quality = chosen;
             }
         });

@@ -28,6 +28,7 @@ use scorsese_providers::credentials::Settings;
 
 use crate::editing::Editing;
 use crate::files::Files;
+use crate::framing::Framing;
 use crate::generating::Generating;
 use crate::inspector::Inspector;
 use crate::preview::Preview;
@@ -65,6 +66,8 @@ pub struct Scorsese {
     preview: Preview,
     /// The generate dialog, and whatever it has running.
     generating: Generating,
+    /// The frame-shape picker on the bar, and what its last re-fit said.
+    framing: Framing,
     /// The render dialog, and the render it started — kept across opening
     /// another project, since a render runs from its own copy of the last one.
     rendering: Rendering,
@@ -113,6 +116,7 @@ impl Scorsese {
             inspector: Inspector::default(),
             preview: Preview::default(),
             generating: Generating::default(),
+            framing: Framing::default(),
             rendering: Rendering::default(),
             settings,
             theme: Choice::SYSTEM,
@@ -145,6 +149,7 @@ impl Scorsese {
                 // playhead would be the preview lying on its first repaint.
                 self.preview.reset();
                 self.generating.reset();
+                self.framing.reset();
                 if let Some(open) = &self.opened {
                     self.files.refresh(open);
                     // Started here and nowhere else: opening is the one moment
@@ -424,6 +429,13 @@ impl Scorsese {
     pub(crate) fn preview(&mut self) -> Option<(&mut Preview, &Open, &mut Editing)> {
         let opened = self.opened.as_ref()?;
         Some((&mut self.preview, opened, &mut self.editing))
+    }
+
+    /// The frame-shape picker and the document it re-fits — by `&mut`, since
+    /// a new shape is an edit saved like the inspector's.
+    pub(crate) fn framing(&mut self) -> Option<(&mut Framing, &mut Open)> {
+        let opened = self.opened.as_mut()?;
+        Some((&mut self.framing, opened))
     }
 
     /// Why the last open failed, for the panel that has to say so.

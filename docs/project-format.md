@@ -82,13 +82,13 @@ follows it**: a render that names no size is delivered at this shape with 1080
 lines on its shorter side (1920x1080, 1080x1920, 1080x1350 for 4:5); a still,
 a contact sheet and a preview are drawn in it at their own smaller budgets;
 `describe --at` and the checkup measure layouts against it; and the web
-server's renders and previews default to it (the editors' own previews follow
-it in #1403). A render may still ask for any other size.
+server's renders and previews default to it, and both editors preview in it
+and offer render sizes in it (#1403). A render may still ask for any other size.
 
 It is chosen when the project is made — `scorsese new --aspect 9:16`, or
 `--platform`, whose placement sets it (`project_new` takes the same) — and
 **changed with `scorsese reframe` or the MCP `project_reframe` tool, never by a
-bare write**. A change is carried out, never refused: positions, sizes, text
+bare write**; the editors' shape pickers run the same re-fit. A change is carried out, never refused: positions, sizes, text
 and shapes are fractions of the frame and follow on their own, and a clip whose
 picture filled the old frame under `fit` is set to `fill` the new one, which
 drew the same pixels before and crops what falls outside now. What a program

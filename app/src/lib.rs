@@ -37,6 +37,7 @@
 
 mod editing;
 mod files;
+mod framing;
 mod generating;
 mod inspector;
 mod launch;

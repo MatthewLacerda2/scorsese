@@ -104,7 +104,10 @@ impl Capturer {
         let stop = Arc::new(AtomicBool::new(false));
         let (shared, stopping) = (Arc::clone(&progress), Arc::clone(&stop));
         let (project, root) = (open.project.clone(), open.root.clone());
-        let settings = RenderSettings::new(super::quality::raster(quality), project.timeline_fps);
+        let settings = RenderSettings::new(
+            super::quality::raster(quality, project.aspect),
+            project.timeline_fps,
+        );
         std::thread::spawn(move || {
             capture_all(&project, &root, settings, &shared, &stopping);
         });

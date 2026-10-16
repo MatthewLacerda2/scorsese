@@ -29,7 +29,7 @@ test("creating a project opens its editor, and the list then has it", async ({ p
   await expect(page.getByText("Lighthouse")).toBeVisible();
 });
 
-test("a project started for a platform and a style opens upright, and says so", async ({
+test("a project started for a platform and a style opens upright, renders upright, and says so", async ({
   page,
 }) => {
   await logIn(page);
@@ -48,8 +48,30 @@ test("a project started for a platform and a style opens upright, and says so", 
   await modal.getByRole("button", { name: "Create" }).click();
 
   await expect(page).toHaveURL(/\/projects\/\d+\/edit$/);
-  await expect(page.getByRole("combobox", { name: "Frame shape" })).toHaveValue("portrait");
+  // The server framed the document in the platform's shape (#1278), and the
+  // editor reads it there: nobody chose anything.
+  await expect(page.getByRole("combobox", { name: "Frame shape" })).toHaveValue("9:16");
   await expect(page.getByRole("button", { name: "Platform and style" })).toContainText(
     "Flash offer",
+  );
+  await page.getByRole("button", { name: "Render", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("combobox", { name: "Resolution" })).toHaveValue(
+    "1080x1920",
+  );
+});
+
+test("choosing another frame shape re-fits the project and says what it did", async ({ page }) => {
+  await newProject(page, "Square cut");
+  const shape = page.getByRole("combobox", { name: "Frame shape" });
+  await expect(shape).toHaveValue("16:9");
+  await shape.selectOption("1:1");
+  await expect(page.getByText("Reframed from 16:9 to 1:1.")).toBeVisible();
+  await expect(shape).toHaveValue("1:1");
+  // The shape is the project's, not this browser's: it is there on a reload.
+  await page.reload();
+  await expect(shape).toHaveValue("1:1");
+  await page.getByRole("button", { name: "Render", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("combobox", { name: "Resolution" })).toHaveValue(
+    "1080x1080",
   );
 });
