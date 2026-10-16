@@ -107,7 +107,13 @@ mod serif;
 /// One slice, assembled at compile time from a file per kind, because a
 /// catalogue of forty-one families does not fit one file and its readers — the
 /// lookup below, the page's font declarations — want one list, not six.
-pub const SHIPPED: &[Family] = &ALL;
+///
+/// **A `static`, never a `const`** (#1168). A `const` is pasted into every
+/// crate that names it, and with it every face it points at: as a `const`,
+/// `scorsese-render`'s page fonts and the compositor each carried their own
+/// copy of the whole catalogue, 54 MB apiece, in every binary linking both.
+/// A `static` is one item in this crate, so the bytes are linked once.
+pub static SHIPPED: &[Family] = &ALL;
 
 const ALL: [Family; COUNT] = concat(&[
     &DEFAULTS,
