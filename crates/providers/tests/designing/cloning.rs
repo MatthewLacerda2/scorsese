@@ -151,3 +151,18 @@ fn a_cloned_voice_is_forgotten_at_the_vendor_and_marked() {
     assert!(!cloned(&dir)[0].kept());
     forget(&dir, &studio, &voice).expect_err("it is no longer kept");
 }
+
+#[test]
+fn forgetting_one_clone_leaves_the_others_kept() {
+    let studio = Fake::offering(&[]);
+    let (dir, project) = recorded("clone-forget-one", 90.0);
+    let first = clone(&dir, &project, &studio, &ask(&["take"], true)).expect("the first");
+    let second = clone(&dir, &project, &studio, &ask(&["take"], true)).expect("the second");
+
+    forget(&dir, &studio, &second.voice.id).expect("forgetting the second");
+
+    let ledger = cloned(&dir);
+    assert_eq!(ledger[0].voice_id, first.voice.id);
+    assert!(ledger[0].kept(), "the first is still kept");
+    assert!(!ledger[1].kept());
+}

@@ -253,6 +253,27 @@ mod tests {
     }
 
     #[test]
+    fn a_needle_is_found_in_every_field_of_a_part_and_nowhere_else() {
+        let text = |name: &str, value: &str| Part::Text {
+            name: name.to_owned(),
+            value: value.to_owned(),
+        };
+        let file = |name: &str, file_name: &str, bytes: &[u8]| Part::File {
+            name: name.to_owned(),
+            file_name: file_name.to_owned(),
+            media_type: String::from("audio/mpeg"),
+            bytes: bytes.to_vec(),
+        };
+        assert!(text("xNEEDLEx", "v").contains(b"NEEDLE"));
+        assert!(text("n", "xNEEDLEx").contains(b"NEEDLE"));
+        assert!(!text("n", "v").contains(b"NEEDLE"));
+        assert!(file("xNEEDLE", "f", b"b").contains(b"NEEDLE"));
+        assert!(file("n", "NEEDLE.mp3", b"b").contains(b"NEEDLE"));
+        assert!(file("n", "f", b"..NEEDLE..").contains(b"NEEDLE"));
+        assert!(!file("n", "f", b"b").contains(b"NEEDLE"));
+    }
+
+    #[test]
     fn a_quote_or_a_line_break_cannot_end_a_header() {
         assert_eq!(quoted("a\"b\r\nc"), "a%22b%0D%0Ac");
     }

@@ -134,6 +134,8 @@ mod tests {
     fn advice_is_only_given_outside_what_the_vendor_recommends() {
         assert!(advice(Some(20.0)).is_some_and(|said| said.contains("one to two")));
         assert_eq!(advice(Some(90.0)), None);
+        assert_eq!(advice(Some(60.0)), None, "a minute is inside it");
+        assert_eq!(advice(Some(180.0)), None, "three minutes is inside it");
         assert!(advice(Some(400.0)).is_some_and(|said| said.contains("little improvement")));
         assert_eq!(advice(None), None);
     }
