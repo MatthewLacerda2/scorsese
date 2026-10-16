@@ -1,51 +1,101 @@
-// Asking the assistant something, with its reply faked in the browser: the
-// one request a real turn would spend money on never leaves the page. What is
-// checked is the page's half — the message goes out, and the turn the server
-// would answer with is drawn.
+// The flows that run an assistant turn, in every language the web app speaks
+// (#1429): a message, a new platform, a confirmed quote. Each checks the page
+// still shows the editor while the turn runs and after it ends, because the
+// pieces a running turn draws are translated and stateful — the 2026-10-16
+// black page (#1426) broke them in Portuguese and Spanish only, where no
+// English flow could see it. The turns are faked in the browser
+// (`fakeAssistant.ts`); the rest of the app is the real server.
+//
+// Only these flows run three times: the others draw nothing a language
+// changes the shape of, and `make web-e2e` should not triple for them.
 
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+import { CATALOGUES, type Messages } from "@/i18n/catalogue";
+import { LANGUAGES, type Language } from "@/i18n/language";
+import { KEYS } from "@/lib/storage";
+import { type FakeAssistant, fakeAssistant } from "./fakeAssistant";
 import { newProject } from "./session";
 
 const REPLY = "Here is a cut with the lighthouse first.";
 
-test("a message to the assistant shows its reply", async ({ page }) => {
-  await newProject(page, "Assistant");
-  let asked: unknown = null;
-  await page.route(/\/api\/projects\/(\d+)\/chat$/, async (route, request) => {
-    if (request.method() !== "POST") return route.fallback();
-    asked = request.postDataJSON();
-    const project = Number(/projects\/(\d+)\/chat/.exec(request.url())?.[1]);
-    await route.fulfill({ json: turn(project, (asked as { prompt: string }).prompt) });
+for (const { language } of LANGUAGES) {
+  const t = CATALOGUES[language];
+
+  test.describe(`in ${language}`, () => {
+    test("a message to the assistant runs, then shows its reply", async ({ page }) => {
+      const assistant = await editing(page, language, "Assistant");
+      await page.getByPlaceholder(t.chat.composer.placeholder).fill("Put the lighthouse first");
+      await page.keyboard.press("Enter");
+      await runsThenAnswers(page, t, assistant);
+    });
+
+    test("a new platform starts a turn that runs, then answers", async ({ page }) => {
+      const assistant = await editing(page, language, "Retarget");
+      await page.getByRole("button", { name: t.start.button }).click();
+      const modal = page.getByRole("dialog");
+      // Any platform but none: what changes is what matters, not which.
+      await modal.getByRole("radio").nth(1).click();
+      await modal.getByRole("button", { name: t.start.save }).click();
+      await expect(modal).toBeHidden();
+      await runsThenAnswers(page, t, assistant);
+    });
+
+    test("a confirmed quote carries the turn on, running, then answered", async ({ page }) => {
+      const assistant = await editing(page, language, "Quote");
+      await page.getByPlaceholder(t.chat.composer.placeholder).fill("Make the opening shot");
+      await page.keyboard.press("Enter");
+      await expect(busy(page, t)).toBeVisible();
+      assistant.finish(assistant.latest(), "That shot costs money.", QUOTE);
+      await page.getByRole("button", { name: t.chat.quote.confirm, exact: true }).click();
+      await runsThenAnswers(page, t, assistant);
+    });
   });
-
-  await page.getByRole("textbox").last().fill("Put the lighthouse first");
-  await page.keyboard.press("Enter");
-
-  await expect(page.getByText(REPLY)).toBeVisible();
-  expect(asked).toMatchObject({ prompt: "Put the lighthouse first" });
-});
-
-/** A finished turn, as `POST /api/projects/{id}/chat` returns one. */
-function turn(project: number, prompt: string) {
-  return {
-    id: 1,
-    session: 1,
-    project,
-    prompt,
-    state: "answered",
-    answer: REPLY,
-    stop_reason: null,
-    model: "claude-sonnet-5-5",
-    calls: 1,
-    input_tokens: 0,
-    output_tokens: 0,
-    cache_write_tokens: 0,
-    cache_read_tokens: 0,
-    charged_micros: 0,
-    quote: null,
-    quote_answer: null,
-    questions: [],
-    started_at: Math.floor(Date.now() / 1000),
-    finished_at: Math.floor(Date.now() / 1000),
-  };
 }
+
+/**
+ * A new project's editor with the assistant faked, in `language`: made in
+ * English, then switched the way a visitor switches — the stored choice
+ * Settings writes — and reloaded.
+ */
+async function editing(page: Page, language: Language, name: string): Promise<FakeAssistant> {
+  const assistant = await fakeAssistant(page);
+  await newProject(page, name);
+  await page.evaluate(({ key, value }) => localStorage.setItem(key, value), {
+    key: KEYS.language,
+    value: language,
+  });
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("lang", language);
+  await editorShown(page, CATALOGUES[language]);
+  return assistant;
+}
+
+/** The latest turn is drawn running, then answered — the editor whole throughout. */
+async function runsThenAnswers(page: Page, t: Messages, assistant: FakeAssistant) {
+  await expect(busy(page, t)).toBeVisible();
+  await editorShown(page, t);
+  assistant.finish(assistant.latest(), REPLY);
+  await expect(page.getByText(REPLY)).toBeVisible();
+  await expect(busy(page, t)).toBeHidden();
+  await editorShown(page, t);
+}
+
+/** The editor, not an empty root or a page-wide error. */
+async function editorShown(page: Page, t: Messages) {
+  await expect(page.getByRole("heading", { name: t.assets.heading })).toBeVisible();
+  await expect(page.getByPlaceholder(t.chat.composer.placeholder)).toBeVisible();
+}
+
+/** A running turn's status line: whichever of its words it is on. */
+function busy(page: Page, t: Messages) {
+  const words = t.chat.turn.busy.map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  return page.getByText(new RegExp(`^\\s*(${words.join("|")})\\s*$`));
+}
+
+/** A paid tool's quote, waiting for a yes. */
+const QUOTE = {
+  tool: "generate_video",
+  lines: ["One Veo shot, 8 seconds."],
+  micros: 3_200_000,
+  expires_at: Math.floor(Date.now() / 1000) + 3600,
+};
