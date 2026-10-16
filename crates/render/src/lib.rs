@@ -249,7 +249,8 @@ pub use cancel::Cancel;
 pub use checkup::Checkup;
 pub use contact::{ContactError, Look, Sheet};
 pub use describe::{
-    Animated, Commentary, Cue, CueError, Description, Moment, Playing, Shown, Stretch, Travel,
+    Animated, AtError, Commentary, Cue, CueError, Description, Moment, Playing, Shown, Stretch,
+    Travel, described,
 };
 pub use error::{RenderError, Stage};
 pub use format::{AudioCodec, Container, FormatError, OutputFormat, VideoCodec};

@@ -600,7 +600,10 @@ pub(crate) enum Command {
         /// for a time, `75` for a timeline frame. The rectangle a title's
         /// wrapped block, a shape's box or a fitted picture covers, in
         /// fractions of the frame, which is the unit the document is written
-        /// in. Repeatable: a block that fits at `0:12` may not at `0:48`.
+        /// in. Also names the word each generated narration is saying then,
+        /// and the name a page reads it by in `scorsese.words`, so sync is
+        /// checked without listening. Repeatable: a block that fits at `0:12`
+        /// may not at `0:48`.
         #[arg(long, value_delimiter = ',')]
         at: Vec<Cue>,
         /// The frame `--at` is measured against. The answer is in fractions,

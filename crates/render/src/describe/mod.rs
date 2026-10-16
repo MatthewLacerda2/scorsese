@@ -31,6 +31,7 @@ mod commentary;
 mod cue;
 pub(crate) mod display;
 mod stretch;
+mod told;
 
 use scorsese_core::{Fps, Frames};
 
@@ -40,6 +41,7 @@ pub use animation::{Animated, Travel};
 pub use commentary::Commentary;
 pub use cue::{Cue, CueError};
 pub use stretch::{Playing, Shown, Stretch};
+pub use told::{AtError, described};
 
 /// A point on the timeline, said both ways.
 ///
