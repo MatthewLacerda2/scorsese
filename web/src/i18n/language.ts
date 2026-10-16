@@ -45,7 +45,7 @@ export function saveLanguage(
 }
 
 /** The language a page opens in when nothing else decides it (#770). */
-export const FALLBACK_LANGUAGE: Language = "pt-BR";
+const FALLBACK_LANGUAGE: Language = "pt-BR";
 
 /** One browser language tag read as a language we speak, or `null`. */
 function spoken(tag: string): Language | null {

@@ -19,7 +19,7 @@ export type LazyPage = LazyExoticComponent<ComponentType> & {
 };
 
 /** The page named `name` in the module `load` imports, as a lazy component. */
-export function lazyPage<M, K extends keyof M>(load: () => Promise<M>, name: K): LazyPage {
+function lazyPage<M, K extends keyof M>(load: () => Promise<M>, name: K): LazyPage {
   let loading: Promise<M> | undefined;
   const preload = () => {
     loading ??= load();

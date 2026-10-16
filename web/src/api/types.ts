@@ -88,7 +88,7 @@ export interface LibraryTile {
 }
 
 /** `scorsese_core::MediaMetadata` — what probing the file found. */
-export interface MediaMetadata {
+interface MediaMetadata {
   duration_seconds?: number;
   width?: number;
   height?: number;
@@ -227,7 +227,7 @@ export interface EditorProject extends ProjectSummary {
 }
 
 /** One part of a tool's answer: its words, and a PNG in base64 when it drew one. */
-export interface ToolPart {
+interface ToolPart {
   text: string;
   image: string | null;
 }
@@ -254,7 +254,7 @@ export interface ToolAnswer {
 }
 
 /** `renders::Settings` — the shape of a render, as docs/output-formats.md allows. */
-export interface RenderSettings {
+interface RenderSettings {
   container: string;
   video_codec: string | null;
   audio_codec: string;

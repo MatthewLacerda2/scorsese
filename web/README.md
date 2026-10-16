@@ -115,6 +115,7 @@ they become needs, the catalogues port across as they are.
 | install | `bun install --frozen-lockfile` | `bun.lock` matches `package.json` — the packages checked are the ones committed |
 | lint | `bun run lint` (`biome ci`) | lint rules, the house rules below, **and** formatting; `bun run format` fixes what it can. `noShadow` is an error: an inner name never hides an outer one (a local `t` over `useT()`'s, #1209) |
 | typecheck | `bun run typecheck` (`tsc --noEmit`) | TypeScript in strict mode, the end-to-end flows included |
+| dead code | `bun run deadcode` ([knip](https://knip.dev), `knip.jsonc`) | what is dead *between* files, which `noUnusedLocals` cannot see: a file nothing imports, an export nothing outside its file uses, a `package.json` dependency nothing needs — see *Dead code* below |
 | test | `bun test` | every `*.test.ts(x)` under `src/`, in a DOM (`src/test/dom.ts`) |
 | build | `bun run build` | the bundle the deploy ships actually builds, and its entry chunk is within budget (`src/build/budget.ts`) |
 
@@ -146,6 +147,26 @@ size gate (`make size`) holds `.ts`/`.tsx` to the same caps as Rust: 300 lines
 of code for source, 150 for a `*.test.ts(x)` file or anything under `tests/`;
 `tools/lint/src/classify.rs` says why.
 
+## Dead code
+
+`bun run deadcode` fails on a file nothing reaches from an entry point, an
+export no other file imports, and a dependency no file needs (#1208). The
+entry points are the app (`index.html` → `src/main.tsx`), the two configs,
+every `bun test` file and its preloads, and the end-to-end flows; knip's Vite,
+Playwright and Bun plugins find most of them and `knip.jsonc` names the rest.
+
+- **An export only its own file uses** loses its `export`; one that is used
+  nowhere is deleted. It comes back the moment a second file needs it.
+- **`landing/` and `lint/fixtures/` are not checked**: the first is the hero
+  film's scorsese project, whose pages scorsese-render loads and the build
+  never imports; the second is input Biome reads in the house-rule tests.
+- **Exemptions live in `knip.jsonc`, each with its reason beside it.**
+  `src/components/ui/` keeps its unused *exports*, since shadcn ships whole
+  families (`DialogClose`, `TableFooter`…) and is re-added with `shadcn add`;
+  an unused *file* there is still reported and deleted. A redundant entry or
+  exemption is a config hint, and the gate treats a hint as an error, so the
+  config cannot keep a line that no longer does anything.
+
 ## House rules
 
 Conventions of this codebase that Biome's built-in set does not have, each
@@ -155,7 +176,7 @@ and CI's `web` job report them like any other lint.
 
 | rule | what it holds |
 | --- | --- |
-| `oneComponentPerFile` | a `.tsx` file exports **at most one React component** (#1207) — a PascalCase function, class or const, a default export, or a name in an `export { … }` list. Helpers only the file uses stay in it, unexported; anything else gets its own file, and a family of them a subfolder. An agent looking for a component then finds it by its file's name. `src/components/ui/` is exempt: shadcn ships compound modules (`Card`, `CardHeader`…) on purpose |
+| `oneComponentPerFile` | a `.tsx` file exports **at most one React component** (#1207) — a PascalCase function, class or const, a default export, or a name in an `export { … }` list. Helpers only the file uses stay in it, unexported; anything else gets its own file, and a family of them a subfolder. An agent looking for a component then finds it by its file's name. `src/components/ui/` is exempt: shadcn ships compound modules (`Dialog`, `DialogHeader`…) on purpose |
 | `noRawStorage` | browser storage goes through **`src/lib/storage.ts`** (#1212), never `localStorage` or `sessionStorage` directly — bare, off `window` or `globalThis`, or destructured. The module's `KEYS` names every key the app keeps, so what a user's browser holds is one list; a caller pairs its key with a codec (its fallback, how it is read and written) and calls `read` / `write`, which catch the storage a private window throws. A key's name, once shipped, never changes: renaming it forgets every user's saved choice. `src/test/` is exempt: the test setup clears storage between tests |
 | `literalUiText` | words a user reads come from the catalogue (#1211, *Strings and languages*): no text between JSX tags, no string or template literal in a JSX child — `?:`, `??`, `\|\|` and `&&` branches included — and none in `alt`, `title`, `placeholder`, `label` or the text `aria-*` attributes. Symbols, numbers, single letters, acronyms and `scorsese` alone pass; calls (`t.x(…)`, `cn("…")`) are not looked into. **Its hole:** a literal outside JSX (`name \|\| "Untitled"` in a hook) is not seen, so review still reads for one. Tests and `src/test/` are exempt, since their JSX is a harness no user sees; `src/components/ui/` is not, since a shadcn component's screen-reader text is read by users too |
 | `colorsFromTokens` | a colour comes from a **theme token**, never a literal (#1210): no hex, `rgb(` / `hsl(` / `oklch(`… or Tailwind palette class (`bg-sky-500`, `text-zinc-400`, `bg-black`) in a `.ts` / `.tsx` string, template or JSX attribute — `className`, `cn(…)`, `style` alike. Tokens live in `src/index.css` (`--background`, `--kind-video`, `--screen`, `--color-paper`…) and are used as classes (`bg-kind-video`, `text-on-screen`, `border-paper/10`); a new colour is a token there first, with its dark value where it differs. Stripping Tailwind's default palette from the theme instead was weighed and not done: it would break every shadcn component re-added by `shadcn add` and say nothing about a hex. The rule reads quoted text only, so a colour built at run time, a CSS named colour inside a value and four-digit hex (`#1210` is a ticket) are not seen. `src/components/ui/`, `src/index.css` and tests are out of scope; a literal that must stay (a flag's colours in SVG) takes `biome-ignore-all lint/plugin/colorsFromTokens: <why>` |
@@ -226,6 +247,10 @@ what it is about.
 
 ## Choices, and why
 
+- **knip for dead code.** It reads the Vite, Playwright and Bun configs for
+  entry points, so it knows what runs without a hand-kept list, and it checks
+  files, exports and `package.json` in one pass. `tsc`'s `noUnusedLocals`
+  stays: it sees inside a file, which knip does not.
 - **Biome, not ESLint + Prettier.** One tool, one config, one dev dependency,
   and it is both the linter and the formatter — the `cargo fmt --check` +
   `clippy` pair in one command. ESLint's plugin ecosystem is larger, but its

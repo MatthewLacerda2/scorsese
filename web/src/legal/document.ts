@@ -6,9 +6,9 @@
 // another language.
 
 /** A paragraph, or a list of items when it is an array. */
-export type Block = string | readonly string[];
+type Block = string | readonly string[];
 
-export interface Section {
+interface Section {
   heading: string;
   blocks: readonly Block[];
 }

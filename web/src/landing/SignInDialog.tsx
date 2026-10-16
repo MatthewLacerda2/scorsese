@@ -36,7 +36,7 @@ interface Props {
 }
 
 /** Where the button sends the browser: the server's start of the flow. */
-export function googleSignIn(next: string | null): string {
+function googleSignIn(next: string | null): string {
   return api.account.googleSignIn(next === null ? null : safeNext(next));
 }
 

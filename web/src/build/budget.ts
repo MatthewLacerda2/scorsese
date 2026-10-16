@@ -19,7 +19,7 @@
 import { gzipSync } from "node:zlib";
 
 /** The most the entry and its static imports may weigh, gzipped, in bytes. */
-export const ENTRY_BUDGET = 220 * 1024;
+const ENTRY_BUDGET = 220 * 1024;
 
 /** The parts of a Rolldown output chunk the budget reads. */
 interface Chunk {

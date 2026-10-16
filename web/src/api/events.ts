@@ -6,7 +6,7 @@
 import type { QuoteView, TurnView } from "./chat";
 
 /** Where a job is in its life — `jobs::State`. */
-export type JobState = "waiting" | "running" | "done" | "failed" | "stuck" | "cancelled";
+type JobState = "waiting" | "running" | "done" | "failed" | "stuck" | "cancelled";
 
 /** `jobs::ProgressView` — how far a running render or preview has got (#698). */
 export interface JobProgress {

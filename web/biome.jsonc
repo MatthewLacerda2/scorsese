@@ -10,7 +10,7 @@
   "plugins": [
     {
       "path": "./lint/oneComponentPerFile.grit",
-      // components/ui is shadcn's, which ships compound modules (Card, CardHeader…)
+      // components/ui is shadcn's, which ships compound modules (Dialog, DialogHeader…)
       // on purpose, and is re-added with `shadcn add` rather than hand-shaped.
       "includes": ["**/*.tsx", "!**/src/components/ui/**"]
     },

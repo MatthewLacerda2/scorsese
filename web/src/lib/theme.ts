@@ -56,7 +56,7 @@ export function resolveTheme(stored: Theme | null, systemDark: boolean): Theme {
 }
 
 /** Put a theme on the page: the class Tailwind reads, and native controls' scheme. */
-export function applyTheme(root: HTMLElement, theme: Theme): void {
+function applyTheme(root: HTMLElement, theme: Theme): void {
   root.classList.toggle("dark", theme === "dark");
   root.style.colorScheme = theme;
 }

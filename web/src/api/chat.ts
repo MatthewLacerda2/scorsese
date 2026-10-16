@@ -143,7 +143,7 @@ export interface Conversation {
 }
 
 /** `assistant::ToolCallView` — one tool call a turn made. */
-export interface ToolCallView {
+interface ToolCallView {
   id: number;
   position: number;
   client: string;

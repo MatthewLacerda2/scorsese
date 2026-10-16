@@ -12,10 +12,10 @@ import { api } from "@/api";
 import { shouldRetry } from "./duplicate";
 
 /** Chunks stay well under Cloudflare's 100 MB request cap. */
-export const CHUNK_BYTES = 50 * 1024 * 1024;
+const CHUNK_BYTES = 50 * 1024 * 1024;
 
 /** What each file carries: the server reads `name` and `sha256` from it. */
-export interface UploadMeta {
+interface UploadMeta {
   name: string;
   sha256: string;
   [key: string]: unknown;

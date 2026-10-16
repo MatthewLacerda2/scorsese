@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { expect, type Page } from "@playwright/test";
 import { accountFile } from "./setup";
 
-export function account(): { email: string; session: string } {
+function account(): { email: string; session: string } {
   return JSON.parse(readFileSync(accountFile(), "utf8"));
 }
 
