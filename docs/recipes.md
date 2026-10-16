@@ -23,9 +23,9 @@ is what lets everything on this page promise free and deterministic.
 
 **A recipe is the first choice for a score; a generated track is the
 fallback.** A `generated_audio` asset with a `music` block
-([project-format.md](project-format.md), *What a generated track asks for*)
-has ElevenLabs Music compose a track from a description, at 15 cents a minute
-(`guide prices`, *Music*). Reach for it only when a recipe cannot make the
+([project-format.md](project-format.md), `guide project-format`, *What a
+generated track asks for*) has ElevenLabs Music compose a track from a
+description, at 15 cents a minute (`guide prices`, *Music*). Reach for it only when a recipe cannot make the
 music the video needs:
 
 - **a genre built on real instruments or production** — a lo-fi bed with

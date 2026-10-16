@@ -274,8 +274,8 @@ worth offering.
 
 Like a shot, a track is priced by its length, which the request fixes: the
 figure is known before anything is sent, rounded **up** to the cent. A
-`synth_audio` recipe costs nothing at all ([recipes.md](recipes.md)), which is
-why it stays the first choice for a score.
+`synth_audio` recipe costs nothing at all ([recipes.md](recipes.md),
+`guide recipes`), which is why it stays the first choice for a score.
 ## The assistant
 
 The hosted web app's assistant (#540) runs on the model each project chooses

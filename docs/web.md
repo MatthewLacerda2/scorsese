@@ -877,7 +877,7 @@ no passwords (#952).
 
 ## Jobs
 
-Long work — a render, a Veo shot, a spoken line, a thumbnail, a proxy — is a
+Long work — a render, a Veo shot, a spoken line, a music track, a thumbnail, a proxy — is a
 row in the `jobs` table, run by a worker inside the server (#536). The code is
 `crates/server/src/jobs/`, and its module doc carries the argument.
 
