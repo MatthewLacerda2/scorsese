@@ -7,6 +7,8 @@
 // Kept per browser, not per project and not in project.json: it is about this
 // device and this person's patience, not about the edit.
 
+import { browserStorage, KEYS, oneOf, read, write } from "@/lib/storage";
+
 export type Quality = "full" | "half" | "quarter";
 
 /** Each quality's divisor. What each is called, and what it says it is, are
@@ -30,22 +32,13 @@ export function previewRaster(deliver: string, quality: Quality): string {
   return `${side(width)}x${side(height)}`;
 }
 
-const KEY = "scorsese.preview-quality";
+const CODEC = oneOf(Object.keys(QUALITIES) as Quality[], DEFAULT_QUALITY);
 
 /** The quality last chosen in this browser; half otherwise. */
 export function savedQuality(): Quality {
-  try {
-    const saved = localStorage.getItem(KEY);
-    return saved && saved in QUALITIES ? (saved as Quality) : DEFAULT_QUALITY;
-  } catch {
-    return DEFAULT_QUALITY;
-  }
+  return read(browserStorage(), KEYS.previewQuality, CODEC);
 }
 
 export function saveQuality(quality: Quality) {
-  try {
-    localStorage.setItem(KEY, quality);
-  } catch {
-    // A private window: the choice lasts as long as the page does.
-  }
+  write(browserStorage(), KEYS.previewQuality, CODEC, quality);
 }

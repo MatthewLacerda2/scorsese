@@ -71,9 +71,10 @@ Cloudflare's 100 MB request cap (docs/web.md, *Library*).
 
 The web app speaks English, Brazilian Portuguese and Spanish (#704). The
 choice is the browser's, not the account's: Settings (the gear in the header,
-and a picker on the login page) stores it in `localStorage`, and until then
-`navigator.language` decides (`pt*` → pt-BR, `es*` → es, anything else
-English). Text the **server** writes — error sentences, job messages, tool
+and a picker on the login page) stores it in the browser (`src/lib/storage.ts`),
+and until then the browser's preferred languages decide, the first we speak
+winning (`pt*` → pt-BR, `es*` → es, `en*` → en), with Brazilian Portuguese
+when none is (#770). Text the **server** writes — error sentences, job messages, tool
 replies — and anything the **assistant** writes stay as they arrive; the
 assistant already answers in the language the user writes in.
 
@@ -152,6 +153,7 @@ and CI's `web` job report them like any other lint.
 | rule | what it holds |
 | --- | --- |
 | `oneComponentPerFile` | a `.tsx` file exports **at most one React component** (#1207) — a PascalCase function, class or const, a default export, or a name in an `export { … }` list. Helpers only the file uses stay in it, unexported; anything else gets its own file, and a family of them a subfolder. An agent looking for a component then finds it by its file's name. `src/components/ui/` is exempt: shadcn ships compound modules (`Card`, `CardHeader`…) on purpose |
+| `noRawStorage` | browser storage goes through **`src/lib/storage.ts`** (#1212), never `localStorage` or `sessionStorage` directly — bare, off `window` or `globalThis`, or destructured. The module's `KEYS` names every key the app keeps, so what a user's browser holds is one list; a caller pairs its key with a codec (its fallback, how it is read and written) and calls `read` / `write`, which catch the storage a private window throws. A key's name, once shipped, never changes: renaming it forgets every user's saved choice. `src/test/` is exempt: the test setup clears storage between tests |
 
 **How one is made.** A rule is a [GritQL plugin](https://biomejs.dev/linter/plugins/)
 in `lint/<rule>.grit` whose message starts with `<rule>:`, listed under

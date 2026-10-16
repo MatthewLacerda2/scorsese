@@ -4,17 +4,11 @@
 // that runs before the bundle — so they cannot drift apart.
 
 import { describe, expect, test } from "bun:test";
-import {
-  resolveTheme,
-  saveChoice,
-  storedChoice,
-  storedTheme,
-  THEME_KEY,
-  type Theme,
-} from "@/lib/theme";
+import { KEYS } from "@/lib/storage";
+import { resolveTheme, saveChoice, storedChoice, storedTheme, type Theme } from "@/lib/theme";
 
 const storage = (value: string | null) => ({
-  getItem: (key: string) => (key === THEME_KEY ? value : null),
+  getItem: (key: string) => (key === KEYS.theme ? value : null),
 });
 const throwing = {
   getItem: (): string | null => {
@@ -74,9 +68,9 @@ describe("theme.ts", () => {
   test("choosing System clears the stored choice, so the system decides again", () => {
     const store = memory();
     saveChoice(store, "light");
-    expect(store.values.get(THEME_KEY)).toBe("light");
+    expect(store.values.get(KEYS.theme)).toBe("light");
     saveChoice(store, "system");
-    expect(store.values.has(THEME_KEY)).toBe(false);
+    expect(store.values.has(KEYS.theme)).toBe(false);
     expect(resolveTheme(storedTheme(store), true)).toBe("dark");
   });
 });
@@ -86,7 +80,7 @@ async function inlineScript(getItem: () => string | null, systemDark: boolean): 
   const html = await Bun.file(new URL("../../index.html", import.meta.url)).text();
   const body = html.match(/<script id="theme">([\s\S]*?)<\/script>/)?.[1];
   if (!body) throw new Error('index.html has no <script id="theme">');
-  expect(body).toContain(`"${THEME_KEY}"`);
+  expect(body).toContain(`"${KEYS.theme}"`);
   const classes = new Set<string>();
   const document = {
     documentElement: {

@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { QueryError } from "@/components/ui/query-error";
 import { Textarea } from "@/components/ui/textarea";
 import { useT } from "@/i18n/I18nProvider";
-import { browserStorage } from "@/i18n/language";
+import { browserStorage } from "@/lib/storage";
 import { EffortPicker } from "./EffortPicker";
 import { type Effort, saveEffort, storedEffort } from "./effort";
 import { ModelPicker } from "./ModelPicker";

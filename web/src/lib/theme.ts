@@ -8,34 +8,35 @@
 // white; that script cannot import this module, so it repeats `resolveTheme`
 // in a few lines and `theme.test.ts` runs it to hold the two together.
 //
-// `localStorage` can throw — a private window, storage disabled — so every
-// access is caught, and a failure reads as "not chosen".
+// Stored through `lib/storage.ts`, which catches a storage that throws — a
+// private window, storage disabled — so a failure reads as "not chosen".
 
 import { useCallback, useEffect, useState } from "react";
+import { browserStorage, type Codec, KEYS, read, write } from "./storage";
 
 export type Theme = "light" | "dark";
 
 /** What the user picks: a theme, or "follow the system" (the default). */
 export type ThemeChoice = Theme | "system";
 
-/** The `localStorage` key; `index.html`'s script reads the same one. */
-export const THEME_KEY = "scorsese-theme";
-
 const SYSTEM_DARK = "(prefers-color-scheme: dark)";
 
-/** What the user chose, or `null` if nothing (or storage cannot be read). */
-export function storedTheme(storage: Pick<Storage, "getItem"> | undefined): Theme | null {
-  try {
-    const value = storage?.getItem(THEME_KEY);
-    return value === "light" || value === "dark" ? value : null;
-  } catch {
-    return null;
-  }
-}
+/** A theme is stored; System is no stored value at all. */
+const CODEC: Codec<ThemeChoice> = {
+  fallback: "system",
+  parse: (raw) => (raw === "light" || raw === "dark" ? raw : undefined),
+  format: (choice) => (choice === "system" ? null : choice),
+};
 
 /** The stored choice, read as one of the three the control shows. */
 export function storedChoice(storage: Pick<Storage, "getItem"> | undefined): ThemeChoice {
-  return storedTheme(storage) ?? "system";
+  return read(storage, KEYS.theme, CODEC);
+}
+
+/** What the user chose, or `null` if nothing (or storage cannot be read). */
+export function storedTheme(storage: Pick<Storage, "getItem"> | undefined): Theme | null {
+  const choice = storedChoice(storage);
+  return choice === "system" ? null : choice;
 }
 
 /**
@@ -46,12 +47,7 @@ export function saveChoice(
   storage: Pick<Storage, "setItem" | "removeItem"> | undefined,
   choice: ThemeChoice,
 ): void {
-  try {
-    if (choice === "system") storage?.removeItem(THEME_KEY);
-    else storage?.setItem(THEME_KEY, choice);
-  } catch {
-    // Private window or storage disabled: the choice lasts this page only.
-  }
+  write(storage, KEYS.theme, CODEC, choice);
 }
 
 /** The stored choice wins; otherwise the system's preference. */
@@ -63,15 +59,6 @@ export function resolveTheme(stored: Theme | null, systemDark: boolean): Theme {
 export function applyTheme(root: HTMLElement, theme: Theme): void {
   root.classList.toggle("dark", theme === "dark");
   root.style.colorScheme = theme;
-}
-
-/** `localStorage`, or `undefined` where even reading the property throws. */
-function browserStorage(): Storage | undefined {
-  try {
-    return typeof window === "undefined" ? undefined : window.localStorage;
-  } catch {
-    return undefined;
-  }
 }
 
 /** The theme the page shows, the user's choice, and a way to change it. */

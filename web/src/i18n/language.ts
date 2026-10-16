@@ -10,9 +10,10 @@
 // missing from a catalogue still falls back to English's, the source catalogue
 // the others are typed against.
 //
-// Wrapped as `lib/theme.ts` wraps the theme: `localStorage` can throw — a
-// private window, storage disabled — so every access is caught, and a failure
-// reads as "not chosen".
+// Stored through `lib/storage.ts`, which catches a storage that throws — a
+// private window, storage disabled — so a failure reads as "not chosen".
+
+import { browserStorage, type Codec, KEYS, oneOf, read, write } from "@/lib/storage";
 
 /** A language the web app speaks; also the locale `Intl` formats in. */
 export type Language = "en" | "pt-BR" | "es";
@@ -24,21 +25,15 @@ export const LANGUAGES: readonly { language: Language; name: string }[] = [
   { language: "es", name: "Español" },
 ];
 
-/** The `localStorage` key. */
-export const LANGUAGE_KEY = "scorsese-language";
-
-function isLanguage(value: unknown): value is Language {
-  return LANGUAGES.some(({ language }) => language === value);
-}
+/** The stored choice; `null` is "not chosen". */
+const CODEC: Codec<Language | null> = oneOf(
+  LANGUAGES.map(({ language }) => language),
+  null,
+);
 
 /** What the user chose, or `null` if nothing (or storage cannot be read). */
 export function storedLanguage(storage: Pick<Storage, "getItem"> | undefined): Language | null {
-  try {
-    const value = storage?.getItem(LANGUAGE_KEY);
-    return isLanguage(value) ? value : null;
-  } catch {
-    return null;
-  }
+  return read(storage, KEYS.language, CODEC);
 }
 
 /** Remember a choice. A storage that refuses only means it is not remembered. */
@@ -46,11 +41,7 @@ export function saveLanguage(
   storage: Pick<Storage, "setItem"> | undefined,
   language: Language,
 ): void {
-  try {
-    storage?.setItem(LANGUAGE_KEY, language);
-  } catch {
-    // Private window or storage disabled: the choice lasts this page only.
-  }
+  write(storage, KEYS.language, CODEC, language);
 }
 
 /** The language a page opens in when nothing else decides it (#770). */
@@ -83,15 +74,6 @@ export function resolveLanguage(
   browserTags: readonly string[] | undefined,
 ): Language {
   return stored ?? browserLanguage(browserTags);
-}
-
-/** `localStorage`, or `undefined` where even reading the property throws. */
-export function browserStorage(): Storage | undefined {
-  try {
-    return typeof window === "undefined" ? undefined : window.localStorage;
-  } catch {
-    return undefined;
-  }
 }
 
 /** The language a page opens in, read from the browser it runs in. */

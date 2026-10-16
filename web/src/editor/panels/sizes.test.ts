@@ -3,16 +3,8 @@
 // browser saved read back — with anything unreadable falling to the defaults.
 
 import { describe, expect, test } from "bun:test";
-import {
-  DEFAULTS,
-  fit,
-  HANDLE,
-  PREVIEW_SHARE,
-  resize,
-  SIZES_KEY,
-  savedSizes,
-  saveSizes,
-} from "./sizes";
+import { KEYS } from "@/lib/storage";
+import { DEFAULTS, fit, HANDLE, PREVIEW_SHARE, resize, savedSizes, saveSizes } from "./sizes";
 
 /** A desktop's editor, in rem: room for every panel at its most. */
 const desktop = { width: 120, height: 60 };
@@ -98,16 +90,16 @@ describe("the sizes a browser keeps", () => {
     expect(savedSizes(undefined)).toEqual(DEFAULTS);
     expect(savedSizes(throwing)).toEqual(DEFAULTS);
     const junk = memory();
-    junk.setItem(SIZES_KEY, "{not json");
+    junk.setItem(KEYS.panels, "{not json");
     expect(savedSizes(junk)).toEqual(DEFAULTS);
-    junk.setItem(SIZES_KEY, JSON.stringify({ assets: "wide", chat: 24 }));
+    junk.setItem(KEYS.panels, JSON.stringify({ assets: "wide", chat: 24 }));
     expect(savedSizes(junk)).toEqual({ ...DEFAULTS, chat: 24 });
     expect(() => saveSizes(throwing, DEFAULTS)).not.toThrow();
   });
 
   test("a saved size outside its range is held inside it", () => {
     const storage = memory();
-    storage.setItem(SIZES_KEY, JSON.stringify({ assets: 1000, chat: 0, timeline: 15 }));
+    storage.setItem(KEYS.panels, JSON.stringify({ assets: 1000, chat: 0, timeline: 15 }));
     expect(savedSizes(storage)).toEqual({ assets: 15 * 1.3, chat: 22 * 0.3, timeline: 15 });
   });
 });

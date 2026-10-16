@@ -4,9 +4,11 @@
 // remembered per project in this browser: a project of nudges stays on Quick,
 // one being built stays on Thorough.
 //
-// Wrapped as `i18n/language.ts` wraps the language: `localStorage` can throw —
-// a private window, storage disabled — so every access is caught, and a
-// failure reads as "not chosen", which is Thorough, today's behaviour.
+// Stored through `lib/storage.ts`, which catches a storage that throws — a
+// private window, storage disabled — so a failure reads as "not chosen", which
+// is Thorough, today's behaviour.
+
+import { KEYS, oneOf, read, write } from "@/lib/storage";
 
 /** The levels, cheapest first, as the server names them. */
 export const EFFORTS = ["low", "medium", "high"] as const;
@@ -16,26 +18,14 @@ export type Effort = (typeof EFFORTS)[number];
 /** What a message is sent at until the user picks otherwise. */
 export const DEFAULT_EFFORT: Effort = "high";
 
-/** The `localStorage` key for `project`'s choice. */
-export function effortKey(project: number): string {
-  return `scorsese-effort-${project}`;
-}
-
-function isEffort(value: unknown): value is Effort {
-  return EFFORTS.some((effort) => effort === value);
-}
+const CODEC = oneOf<Effort>(EFFORTS, DEFAULT_EFFORT);
 
 /** `project`'s remembered level, or the default. */
 export function storedEffort(
   storage: Pick<Storage, "getItem"> | undefined,
   project: number,
 ): Effort {
-  try {
-    const value = storage?.getItem(effortKey(project));
-    return isEffort(value) ? value : DEFAULT_EFFORT;
-  } catch {
-    return DEFAULT_EFFORT;
-  }
+  return read(storage, KEYS.effort(project), CODEC);
 }
 
 /** Remember `project`'s level. A storage that refuses only means it is not remembered. */
@@ -44,9 +34,5 @@ export function saveEffort(
   project: number,
   effort: Effort,
 ): void {
-  try {
-    storage?.setItem(effortKey(project), effort);
-  } catch {
-    // Private window or storage disabled: the choice lasts this page only.
-  }
+  write(storage, KEYS.effort(project), CODEC, effort);
 }
