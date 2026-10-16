@@ -1,0 +1,22 @@
+// Only `src/api/` names a server path (#1227).
+//
+// `src/api/` is the one door to the server: `request` for calls, and the few
+// URLs a browser follows by itself (the event stream, tus's endpoint, a file's
+// `src`, the sign-in link) as `api.*` values. A path written anywhere else is a
+// route that changes without its file changing with it, and one the route
+// test (`src/api/routes.test.ts`) never sees. web/README.md, *House rules*.
+//
+// Flagged: a string, template or JSX attribute literal that starts with
+// `/api` — alone, or followed by `/`, `?`, `#` or `${` — or is an absolute
+// URL whose path does (`https://host/api/…`, `//host/api`). Comments, and
+// paths that merely contain `api` (`/apiary`, `/projects/api`), are not.
+language js
+
+or {
+  JsStringLiteralExpression(),
+  JsTemplateExpression(),
+  JsxString()
+} as $literal where {
+  $literal <: r"^[\x22\x27\x60](?:(?:https?:)?//[^/\x22\x27\x60]*)?/api(?:[/?#$\x22\x27\x60][\s\S]*)?$",
+  register_diagnostic(span=$literal, message="serverUrlOutsideApi: a server path outside src/api. Add it to `api` in src/api/index.ts and use that (web/README.md, House rules).")
+}

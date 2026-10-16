@@ -17,6 +17,7 @@
 // direction.
 
 import { Link, useSearchParams } from "react-router";
+import { api } from "@/api";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
@@ -36,8 +37,7 @@ interface Props {
 
 /** Where the button sends the browser: the server's start of the flow. */
 export function googleSignIn(next: string | null): string {
-  if (next === null) return "/api/auth/google";
-  return `/api/auth/google?next=${encodeURIComponent(safeNext(next))}`;
+  return api.account.googleSignIn(next === null ? null : safeNext(next));
 }
 
 export function SignInDialog({ open, onOpenChange }: Props) {

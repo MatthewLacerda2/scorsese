@@ -11,6 +11,7 @@
 // re-read what you show.
 
 import { useEffect, useRef } from "react";
+import { api } from "@/api";
 import type { ServerEvent } from "@/api/events";
 
 type Listener = (event: ServerEvent) => void;
@@ -30,7 +31,7 @@ function deliver(event: ServerEvent) {
 }
 
 function open() {
-  const stream = new EventSource("/api/events");
+  const stream = new EventSource(api.events.url);
   let opened = false;
   stream.onopen = () => {
     if (opened) deliver({ type: "resync" });
