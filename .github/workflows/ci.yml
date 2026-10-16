@@ -535,8 +535,13 @@ jobs:
 
       # deploy/terraform (#957): formatted, and valid against the Cloudflare,
       # Google and Stripe providers' schemas. No credentials; plan and apply are run by hand.
+      # The version is the one cloud sessions install (`TERRAFORM` in
+      # `.claude/hooks/session-start.sh`): `terraform fmt`'s output has changed
+      # between releases, so a floating one could turn `infra` red here and
+      # green there (#1370). `test_tool_pins.py` holds the two together.
       - uses: hashicorp/setup-terraform@v3
         with:
+          terraform_version: 1.16.6
           terraform_wrapper: false
 
       - name: Terraform
@@ -586,7 +591,8 @@ jobs:
       # from Docker Hub on every run, and a batch's worth of runs hits Docker
       # Hub's anonymous pull limit — a red gate that said nothing about the
       # code (#986). The version is the one `make deny`'s callers pin
-      # (`.claude/hooks/session-start.sh`).
+      # (`DENY` in `.claude/hooks/session-start.sh`; `test_tool_pins.py`
+      # holds the two together).
       - name: Install cargo-deny
         uses: taiki-e/install-action@v2
         with:

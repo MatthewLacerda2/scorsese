@@ -29,13 +29,16 @@ cd "${CLAUDE_PROJECT_DIR:-$(dirname "$0")/../..}" || exit 0
 # The versions CI and the brief pin. cargo-deny must be 0.19 or newer: older
 # releases cannot parse the advisory database's CVSS 4.0 entries. cargo-mutants
 # is the version `.github/workflows/mutation-sweep.yml` runs.
+# `.github/scripts/tests/test_tool_pins.py` holds DENY and TERRAFORM to the
+# versions the workflows install (#1370).
 NEXTEST=0.9.146
 DENY=0.20.2
 MUTANTS=27.1.0
-# Terraform for the `infra` gate (#1319). deploy/terraform asks only for >= 1.9
-# and CI's setup-terraform takes the latest release; this pins the one that was
-# latest when it was added, with its linux_amd64 zip's SHA-256 from HashiCorp's
-# own SHA256SUMS, so a tampered or truncated download is refused. Bump both
+# Terraform for the `infra` gate (#1319). deploy/terraform asks only for >= 1.9;
+# this pins the release that was latest when it was added, and CI's
+# setup-terraform installs the same one (#1370). The SHA-256 is the linux_amd64
+# zip's from HashiCorp's own SHA256SUMS, so a tampered or truncated download is
+# refused. Bump the version, its SHA-256 and ci.yml's `terraform_version`
 # together.
 TERRAFORM=1.16.6
 TERRAFORM_SHA256=38034b38d03096399a7a1264a14561a8029b2b496fd1f169452656e53968f1b7
