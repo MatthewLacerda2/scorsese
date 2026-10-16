@@ -2,7 +2,9 @@
 //!
 //! The lint has no dependencies on purpose (its `Cargo.toml` says why), so
 //! this reads TOML by hand, the way `tests/policy.rs` does: comments and blank
-//! lines are dropped, a `[header]` opens a table, and a value spread over
+//! lines are dropped, a line opening with `[` is a header (a key never does,
+//! and a header may hold an `=`: `[target.'cfg(unix = "x")'.dependencies]`)
+//! that opens a table, and a value spread over
 //! several lines (an inline table or array left open) is skipped until it
 //! closes, so its inner keys are never read as dependencies.
 
@@ -80,7 +82,7 @@ pub fn parse(text: &str) -> Manifest {
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
-        if line.starts_with('[') && !line.contains('=') {
+        if line.starts_with('[') {
             table = line
                 .trim_matches(|c| c == '[' || c == ']')
                 .trim()

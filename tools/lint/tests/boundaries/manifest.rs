@@ -4,23 +4,31 @@ use scorsese_lint::rules::boundary::manifest::parse;
 
 #[test]
 fn every_dependency_table_is_read_and_nothing_else() {
-    let text = r#"
+    let text = r##"
 [package]
 name = "scorsese-x"
 version = "0.1.0"
+
+[package.metadata.docs]
+all-features = true
 
 [dependencies]
 scorsese-core = { path = "../core" }
 serde = "1"
 proptest = { version = "1", features = [
     "std",
+    "]", "]",
     nested = "not a key",
 ] }
+# retired = "1"
+quoted = { version = "1", features = ["#", "["] }
+commented = "1" # an open [ in a comment
+after = "1"
 
 [dev-dependencies]
 renamed = { package = "scorsese-render", path = "../render" }
 
-[target.'cfg(unix)'.dependencies]
+[target.'cfg(target_os = "linux")'.dependencies]
 libc = "0.2"
 
 [dependencies.ureq]
@@ -28,7 +36,7 @@ version = "3"
 
 [features]
 test-support = []
-"#;
+"##;
     let manifest = parse(text);
     assert_eq!(manifest.name.as_deref(), Some("scorsese-x"));
     let names: Vec<(&str, usize)> = manifest
@@ -39,12 +47,15 @@ test-support = []
     assert_eq!(
         names,
         [
-            ("scorsese-core", 7),
-            ("serde", 8),
-            ("proptest", 9),
-            ("scorsese-render", 15),
-            ("libc", 18),
-            ("ureq", 20),
+            ("scorsese-core", 10),
+            ("serde", 11),
+            ("proptest", 12),
+            ("quoted", 18),
+            ("commented", 19),
+            ("after", 20),
+            ("scorsese-render", 23),
+            ("libc", 26),
+            ("ureq", 28),
         ]
     );
 }

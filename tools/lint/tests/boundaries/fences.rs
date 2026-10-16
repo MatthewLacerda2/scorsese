@@ -13,6 +13,11 @@ fn rules(path: &str, text: &str) -> Vec<&'static str> {
 
 #[test]
 fn zimmer_doing_io_is_flagged_and_its_doc_saying_so_is_not() {
+    let found = check(
+        Path::new("crates/zimmer/src/a.rs"),
+        "fn a() {}\n\nstd::fs::read(p);\n",
+    );
+    assert_eq!(found[0].line, Some(3));
     assert_eq!(
         rules("crates/zimmer/src/bake.rs", "let f = std::fs::read(p);\n"),
         ["no-io"]

@@ -84,6 +84,22 @@ fn an_http_or_postgres_client_belongs_to_its_one_owner() {
 }
 
 #[test]
+fn an_allow_excuses_the_line_below_it_and_not_the_one_above() {
+    let text = format!(
+        "[package]\nname = \"scorsese-guide\"\n[dependencies]\nserde = \"1\"\n# lint: allow({EDGE}) a probe, filed as #1\nscorsese-cli = \"1\"\n"
+    );
+    let found = findings(&text);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].line, Some(4));
+    let text = format!(
+        "[package]\nname = \"scorsese-guide\"\n[dependencies]\n# lint: allow({EDGE}) generated, filed as #1\nserde = \"1\"\nscorsese-cli = \"1\"\n"
+    );
+    let found = findings(&text);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].line, Some(6));
+}
+
+#[test]
 fn an_allow_with_a_reason_excuses_one_line() {
     let text = format!(
         "[package]\nname = \"scorsese-render\"\n[dependencies]\n# lint: allow({OWNER}) a probe, filed as #1\nureq = \"3\"\n# lint: allow({EDGE})\nscorsese-cli = \"1\"\n"
