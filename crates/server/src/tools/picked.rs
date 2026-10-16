@@ -20,9 +20,7 @@ use std::sync::Arc;
 
 use scorsese_mcp::{Reply, Stock};
 use scorsese_providers::credentials::{Provider, resolve};
-use scorsese_providers::stock::{
-    self, Choice, Fetched, Medium, PixabayLibrary, StockError, cache_dir,
-};
+use scorsese_providers::stock::{self, Choice, Imports, Medium, PixabayLibrary, cache_dir};
 use scorsese_render::Ffprobe;
 use serde_json::json;
 
@@ -154,8 +152,11 @@ impl Toolbox {
                 },
             )
             .await?;
-            let lines = said(choices, &answers)?;
-            if !answers.iter().flatten().any(|one| !one.imported.reused) {
+            // The words and the save rule every surface shares, the
+            // attribution and the licence among them.
+            let imports = Imports::new(choices, answers, frame);
+            let lines = imports.lines()?.join("\n");
+            if !imports.needs_save() {
                 return Ok(lines);
             }
             fetched::keep(
@@ -217,41 +218,6 @@ fn joined(answers: Vec<Result<String, String>>) -> Result<String, String> {
 /// A choice in words: `video 39009`.
 fn named(choice: Choice) -> String {
     format!("{} {}", choice.medium.word(), choice.id)
-}
-
-/// A line for each answer — or, when none came in, why not.
-fn said(choices: &[Choice], answers: &[Result<Fetched, StockError>]) -> Result<String, String> {
-    let lines: Vec<String> = choices
-        .iter()
-        .zip(answers)
-        .map(|(choice, answer)| match answer {
-            Ok(one) if one.imported.reused => format!(
-                "{} — asset `{}`, already in the project",
-                named(*choice),
-                one.imported.id
-            ),
-            Ok(one) => {
-                let rendition = &one.rendition;
-                let mut line = format!(
-                    "{} — asset `{}` ({}x{}), by {}",
-                    named(*choice),
-                    one.imported.id,
-                    rendition.width,
-                    rendition.height,
-                    one.candidate.author
-                );
-                if !one.fills {
-                    line.push_str(", smaller than the frame: it will look soft full-frame");
-                }
-                line
-            }
-            Err(error) => format!("{} — failed: {error}", named(*choice)),
-        })
-        .collect();
-    if answers.iter().all(Result::is_err) {
-        return Err(lines.join("; "));
-    }
-    Ok(lines.join("\n"))
 }
 
 #[cfg(test)]

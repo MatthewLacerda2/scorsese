@@ -3,7 +3,7 @@
 use std::borrow::Cow;
 
 use schemars::{JsonSchema, Schema, SchemaGenerator};
-use scorsese_providers::stock::{self, Choice, Fetched, Kept, Medium, StockError, cache_dir};
+use scorsese_providers::stock::{self, Animations, Choice, Imports, Medium, cache_dir};
 use scorsese_render::{Ffprobe, Resolution};
 use serde::Deserialize;
 use serde_json::Value;
@@ -120,136 +120,38 @@ impl Tool for Import {
         let mut project = load(dir)?;
         let library = super::library(self.library.as_ref(), medium)?;
         if medium == Medium::Lottie {
-            return kept(&ids, &stock::keep(dir, &cache_dir(dir), &*library, &ids));
+            let kept = stock::keep(dir, &cache_dir(dir), &*library, &ids);
+            return kept_said(&Animations::new(&ids, kept));
         }
         let probe = Ffprobe::discover().map_err(|error| format!("{error}"))?;
         let choices: Vec<Choice> = ids.iter().map(|&id| Choice { medium, id }).collect();
+        let frame = (frame.width(), frame.height());
         let answers = stock::import(
             &mut project,
             dir,
             &cache_dir(dir),
             &*library,
             &choices,
-            (frame.width(), frame.height()),
+            frame,
             &probe,
         );
-        if answers
-            .iter()
-            .any(|answer| answer.as_ref().is_ok_and(|one| !one.imported.reused))
-        {
+        // The words and the save rule every surface shares: what came in,
+        // from where and by whom, what did not, and the licence.
+        let imports = Imports::new(&choices, answers, frame);
+        if imports.needs_save() {
             save(&project, dir)?;
         }
-        said(&ids, &answers, frame)
+        Ok(imports.lines()?.join("\n").into())
     }
 }
 
-/// What came in, from where, and what did not.
-fn said(
-    ids: &[u64],
-    answers: &[Result<Fetched, StockError>],
-    frame: Resolution,
-) -> Result<Reply, String> {
-    let mut lines = Vec::new();
-    let mut failures = Vec::new();
-    for (id, answer) in ids.iter().zip(answers) {
-        match answer {
-            Ok(one) => lines.push(fetched(one, frame)),
-            Err(error) => failures.push(format!("{id} — failed: {error}")),
-        }
+/// What came in of the animations asked for, and how a page plays them.
+fn kept_said(animations: &Animations) -> Result<Reply, String> {
+    let mut lines = animations.lines()?;
+    if let Some(first) = animations.first() {
+        // Before the licence, which closes every import's answer.
+        let licence = lines.len() - 1;
+        lines.insert(licence, super::player::page(&first.file));
     }
-    if lines.is_empty() {
-        return Err(format!("{} — nothing was imported", failures.join("; ")));
-    }
-    lines.extend(failures);
-    lines.push(String::from(
-        "From Pixabay, under the Pixabay Content License: free for commercial use, no \
-         attribution needed.",
-    ));
     Ok(lines.join("\n").into())
-}
-
-/// What came in of the animations asked for, and how a page plays each.
-fn kept(ids: &[u64], answers: &[Result<Kept, StockError>]) -> Result<Reply, String> {
-    let mut lines = Vec::new();
-    let mut failures = Vec::new();
-    for (id, answer) in ids.iter().zip(answers) {
-        match answer {
-            Ok(one) => lines.push(animation(one)),
-            Err(error) => failures.push(format!("{id} — failed: {error}")),
-        }
-    }
-    if lines.is_empty() {
-        return Err(format!("{} — nothing was imported", failures.join("; ")));
-    }
-    lines.extend(failures);
-    if let Some(first) = answers.iter().flatten().next() {
-        lines.push(super::player::page(&first.file));
-    }
-    lines.push(format!(
-        "From LottieFiles. {}",
-        stock::licence(Medium::Lottie)
-    ));
-    Ok(lines.join("\n").into())
-}
-
-/// One animation's line.
-fn animation(one: &Kept) -> String {
-    let mut line = format!(
-        "{} — \"{}\" by {}, {}x{}, {} frames at {} fps ({:.2}s), {} KB — {}",
-        one.path,
-        one.candidate.title,
-        one.candidate.author,
-        one.size.0,
-        one.size.1,
-        one.frames,
-        one.fps,
-        one.seconds(),
-        one.bytes.div_ceil(1024),
-        one.candidate.page_url,
-    );
-    if one.reused {
-        line.push_str("\n   already there, nothing written");
-    }
-    line.push_str(&format!(
-        "\n   from a page in pages/ it is \"{}\"",
-        one.file
-    ));
-    if !one.outside.is_empty() {
-        line.push_str(&format!(
-            "\n   it names pictures it does not carry ({}), which a page will not find",
-            one.outside.join(", ")
-        ));
-    }
-    line
-}
-
-/// One import's line.
-fn fetched(one: &Fetched, frame: Resolution) -> String {
-    let (rendition, id) = (&one.rendition, &one.imported.id);
-    let mut line = if one.imported.reused {
-        format!("{id} — already in the pool, nothing copied")
-    } else {
-        format!(
-            "{id} — {} {} ({}, {}x{}), by {} — {}",
-            one.candidate.medium.word(),
-            one.candidate.id,
-            rendition.name,
-            rendition.width,
-            rendition.height,
-            one.candidate.author,
-            one.candidate.page_url
-        )
-    };
-    if let Some(wanted) = &one.imported.wanted {
-        line.push_str(&format!(", renamed: `{wanted}` taken"));
-    }
-    if !one.fills {
-        line.push_str(&format!(
-            "\n   smaller than the {}x{} frame: it is the largest Pixabay offers, and will \
-             look soft full-frame",
-            frame.width(),
-            frame.height()
-        ));
-    }
-    line
 }

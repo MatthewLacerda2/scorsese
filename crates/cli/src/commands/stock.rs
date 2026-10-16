@@ -11,8 +11,8 @@ use std::path::Path;
 
 use anyhow::{Context, Result, bail};
 use scorsese_providers::stock::{
-    self, Choice, Library, Medium, Orientation, Query, cache_dir, footage, labelled_previews,
-    licence,
+    self, Animations, Choice, Imports, Library, Medium, Orientation, Query, cache_dir, footage,
+    labelled_previews, licence,
 };
 use scorsese_render::contact::{self, Look};
 use scorsese_render::{Ffprobe, Tools, frames};
@@ -95,39 +95,15 @@ pub(crate) fn run(dir: &Path, action: StockAction) -> Result<()> {
                 frame,
                 &probe,
             );
-            let mut failed = 0;
-            for (id, answer) in ids.iter().zip(&answers) {
-                match answer {
-                    Ok(one) => println!(
-                        "{} — {} ({}x{}), by {} — {}{}",
-                        one.imported.id,
-                        one.rendition.name,
-                        one.rendition.width,
-                        one.rendition.height,
-                        one.candidate.author,
-                        one.candidate.page_url,
-                        if one.fills {
-                            ""
-                        } else {
-                            " — smaller than the frame"
-                        }
-                    ),
-                    Err(error) => {
-                        failed += 1;
-                        eprintln!("{id} — failed: {error}");
-                    }
-                }
-            }
-            if answers
-                .iter()
-                .any(|answer| answer.as_ref().is_ok_and(|one| !one.imported.reused))
-            {
+            // The words and the save rule every surface shares: a failure
+            // beside what came in rather than on stderr, as the tool and the
+            // web say it, and the licence.
+            let imports = Imports::new(&choices, answers, frame);
+            if imports.needs_save() {
                 super::save(&project, dir)?;
             }
-            if failed == answers.len() {
-                bail!("nothing was imported");
-            }
-            println!("From Pixabay. {}", licence(medium));
+            let lines = imports.lines().map_err(anyhow::Error::msg)?;
+            println!("{}", lines.join("\n"));
             Ok(())
         }
     }
@@ -145,34 +121,17 @@ const fn medium(image: bool, lottie: bool) -> Medium {
 /// Imports animations `ids` into `pages/` and says how a page plays them.
 fn animations(dir: &Path, cache: &Path, ids: &[u64]) -> Result<()> {
     let library = stock::library(Medium::Lottie)?;
-    let answers = stock::keep(dir, cache, &*library, ids);
-    let mut failed = 0;
-    for (id, answer) in ids.iter().zip(&answers) {
-        match answer {
-            Ok(one) => println!(
-                "{} — \"{}\" by {}, {} frames at {} fps ({:.2}s){}",
-                one.path,
-                one.candidate.title,
-                one.candidate.author,
-                one.frames,
-                one.fps,
-                one.seconds(),
-                if one.reused { ", already there" } else { "" }
-            ),
-            Err(error) => {
-                failed += 1;
-                eprintln!("{id} — failed: {error}");
-            }
-        }
-    }
-    if failed == answers.len() {
-        bail!("nothing was imported");
-    }
-    println!(
-        "Play it from an html page with lottie-web, driven from the page's clock: \
-         `scorsese guide pages --section lottie`. From LottieFiles. {}",
-        licence(Medium::Lottie)
+    let animations = Animations::new(ids, stock::keep(dir, cache, &*library, ids));
+    let mut lines = animations.lines().map_err(anyhow::Error::msg)?;
+    // Before the licence, which closes every import's answer.
+    lines.insert(
+        lines.len() - 1,
+        String::from(
+            "Play it from an html page with lottie-web, driven from the page's clock: \
+             `scorsese guide pages --section lottie`.",
+        ),
     );
+    println!("{}", lines.join("\n"));
     Ok(())
 }
 
