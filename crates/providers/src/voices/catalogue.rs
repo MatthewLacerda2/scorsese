@@ -149,7 +149,8 @@ impl Page {
 ///
 /// **Named for the outcome, not for the status code**, because more than one
 /// thing makes a voice unusable and only one of them is deletion. A Voice
-/// Library voice that exists perfectly well is refused to a free account per
+/// Library voice that exists perfectly well — and narrates on any paid plan —
+/// is refused to a free account per
 /// voice, not merely per listing — so a type that only knew how to say *gone*
 /// would report a plan limit as a withdrawn voice, and send somebody looking
 /// for a replacement they do not need.
@@ -191,8 +192,8 @@ impl std::fmt::Display for Unusable {
             ),
             Self::NotOnThisPlan { said } => write!(
                 f,
-                "the account may not use it: {said} Voice Library voices need a paid plan; \
-                 the built-in voices do not"
+                "the account may not use it: {said} A free plan cannot speak in Voice Library \
+                 voices (any paid plan can); the built-in voices work on every plan"
             ),
         }
     }

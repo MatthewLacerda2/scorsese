@@ -74,9 +74,10 @@ pub(crate) enum Command {
     /// outage with a date already on it.
     Voices {
         /// Search the Voice Library — thousands of voices other people
-        /// published — instead of the small built-in set. Searching works on
-        /// any key; generating with a Library voice needs a paid ElevenLabs
-        /// plan, and `--check` says whether this account may use one. A search that matched
+        /// published — instead of the small built-in set. A Library voice
+        /// narrates exactly like a built-in one on any paid ElevenLabs plan;
+        /// only a free key is refused when a line is sent in one, and
+        /// `--check` says whether this account may use it. A search that matched
         /// more than one page says so, and how many matched in all.
         #[arg(long)]
         library: bool,

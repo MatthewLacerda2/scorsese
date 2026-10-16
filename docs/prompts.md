@@ -340,6 +340,13 @@ So on a free key, pick from the built-in voices, or ask `voices` to `check`
 the one chosen (`guide mcp`, section "Choosing a voice") before a script is written
 around it. The refusal names the plan limit, never a missing voice.
 
+Any paid plan speaks in them. On Starter (2026-10-14) a line in `Francis -
+Brazil` (`75FhDGLofkNSQ8G4Htts`, `eleven_flash_v2_5`), found by a Portuguese
+search, came back `200` with audio, and the vendor added the voice to the
+account as a side effect — without taking a custom voice slot. So on a paid key
+a Library voice is as usable as a built-in one; the refusal above is the free
+plan's alone.
+
 ## What the vendors advise
 
 Everything from here to *Adding to this page* is the vendors' guidance, not

@@ -164,10 +164,11 @@ pub enum Refusal {
     /// The account's plan does not cover this — a voice, or an endpoint.
     ///
     /// Free accounts are refused **per voice** as well as per endpoint: a
-    /// library voice answers `402` on a plan that cannot use library voices,
-    /// even though the same key speaks perfectly well with another voice. So
-    /// this is not "upgrade to use scorsese", it is "that voice needs a paid
-    /// plan", and the message says which because the vendor's does.
+    /// library voice answers `402` on the free plan, even though the same key
+    /// speaks perfectly well with a built-in voice — and any paid plan speaks
+    /// in library voices too (Starter, 2026-10-14). So this is not "upgrade to
+    /// use scorsese", it is "that voice needs a paid plan", and the message
+    /// says which because the vendor's does.
     #[error("ElevenLabs refused this on the account's current plan: {message}")]
     PlanRequired {
         /// The vendor's sentence.

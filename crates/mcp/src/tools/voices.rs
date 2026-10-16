@@ -30,10 +30,10 @@ pub(crate) struct Voices;
 struct Arguments {
     project: ProjectDir,
     /// Search the Voice Library — thousands of voices other people published —
-    /// instead of the small built-in set. Searching works on any key;
-    /// generating with a Library voice needs a paid ElevenLabs plan, and
-    /// `check` says whether this account may use one. The filters below apply
-    /// only to this. A search
+    /// instead of the small built-in set. A Library voice narrates exactly
+    /// like a built-in one on any paid ElevenLabs plan; only a free key is
+    /// refused when a line is sent in one, and `check` says whether this
+    /// account may use it. The filters below apply only to this. A search
     /// that matched more voices than one reply can carry says so, and how many
     /// matched in all — so a truncated search is never mistaken for a complete
     /// one.
@@ -100,7 +100,7 @@ impl Tool for Voices {
          a list read today rather than remembered. Pass library to search the \
          Voice Library instead of the built-in set, narrowed by language — which \
          is what surfaces people who actually speak a language rather than read \
-         it. Pass check with a voice id to ask about exactly that one; a voice \
+         it; a Library voice id narrates the same way a built-in one does. Pass check with a voice id to ask about exactly that one; a voice \
          that has gone is reported as such, and nothing is ever silently \
          substituted."
     }
@@ -158,7 +158,7 @@ fn checked(catalogue: &dyn Catalogue, voice_id: &str) -> Result<Reply, String> {
 /// A failure as the sentence a client is shown.
 ///
 /// Every one of these already carries its own advice — which permission to add,
-/// which plan the Voice Library needs, that a missing voice has changed
+/// that a free plan cannot speak in a Voice Library voice, that a missing voice has changed
 /// nothing — so nothing is added here. Wrapping them would only put a second,
 /// vaguer sentence in front of the useful one.
 fn say(error: VoiceError) -> String {

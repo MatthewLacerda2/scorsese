@@ -225,7 +225,8 @@ being exact:
 
 - The rate above is a page somebody copied.
 - A handful of Voice Library voices carry a **credit multiplier** and cost more
-  per character than the base rate. scorsese ignores this deliberately —
+  per character than the base rate — and Library voices narrate on any paid
+  plan, so a line can land on one. scorsese ignores this deliberately —
   modelling a credit system to move an advisory counter by a few cents is not
   worth what it would cost to keep true. So the estimate can be a little low
   for those voices.
