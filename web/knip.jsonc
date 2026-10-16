@@ -1,0 +1,29 @@
+{
+  // The dead-code gate (#1208, web/README.md, *The gate*): files nothing
+  // imports, exports nothing uses, and package.json dependencies nothing needs.
+  // `noUnusedLocals` already catches what is dead inside a file; this catches
+  // what is dead between files. An exemption is written here with its reason.
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // What runs, besides what knip's Vite and Playwright plugins already find
+  // (index.html's src/main.tsx, vite.config.ts and so src/build/,
+  // playwright.config.ts): every `bun test` file and its preloads
+  // (bunfig.toml), and the end-to-end flows with their setup. The gate treats
+  // a redundant entry as an error, so this list says only what knip would miss.
+  "entry": ["src/**/*.test.{ts,tsx}", "src/test/{dom,kit}.ts", "tests/e2e/**/*.ts"],
+  // What is checked. Left out on purpose: `landing/`, the hero film's
+  // scorsese project, whose pages scorsese-render loads, never the build (the
+  // build uses only public/landing/og.png, rendered from it); and
+  // `lint/fixtures/`, which Biome reads as input to the house-rule tests and
+  // nothing imports.
+  "project": ["src/**/*.{ts,tsx,css}", "tests/**/*.ts", "*.ts"],
+  "ignoreIssues": {
+    // shadcn ships whole families (DialogClose, TableFooter…) and is re-added
+    // with `shadcn add`, so an unused member of one is not dead code. An
+    // unused *file* there still is, and is reported.
+    "src/components/ui/**": ["exports", "types"],
+    // #1403 is editing src/editor/ in the same wave as this gate, and may be
+    // what uses an export flagged there today; #1414 removes this line once it
+    // has landed and the folder is cleaned.
+    "src/editor/**": ["exports", "types"]
+  }
+}

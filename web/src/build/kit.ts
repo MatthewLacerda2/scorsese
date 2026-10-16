@@ -19,7 +19,7 @@ import type { Plugin } from "vite";
 export const MOTION_KIT = "virtual:motion-kit";
 
 /** Where the kit's pieces are, in the repo and in the web image alike. */
-export const KIT_DIR = fileURLToPath(
+const KIT_DIR = fileURLToPath(
   new URL("../../../crates/render/src/page/shipped/kit/", import.meta.url),
 );
 

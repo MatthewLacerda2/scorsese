@@ -448,6 +448,9 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      - name: Dead code
+        run: bun run deadcode
+
       - name: Test
         run: bun test
 

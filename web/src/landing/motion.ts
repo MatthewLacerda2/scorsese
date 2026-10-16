@@ -48,9 +48,9 @@ export function draw(root: ParentNode, t: number, pace: Pace, locale: string) {
 /** The pace of a section moved by the scroll. */
 export const SCROLLED: Pace = { length: 0.3, distance: 48 };
 /** The pace of the hero, moved by the clock from the moment it is shown. */
-export const TIMED: Pace = { length: 0.9, distance: 32 };
+const TIMED: Pace = { length: 0.9, distance: 32 };
 /** How much faster than real time the hero's entrance plays: its marks and lengths are read at this speed. */
-export const ENTRANCE_SPEED = 1.5;
+const ENTRANCE_SPEED = 1.5;
 
 /** Runs `frame` on every scroll and resize, at most once a frame, and once at the start. */
 export function useOnScroll(frame: () => void) {

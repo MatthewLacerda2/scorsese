@@ -15,7 +15,7 @@ export interface Fps {
  * four `cubic-bezier()` numbers. The back curves, `spring` and a bezier with a
  * `y` outside 0..1 overshoot — the value goes past the keyframe on the way.
  */
-export type Easing =
+type Easing =
   | "linear"
   | "ease_in"
   | "ease_out"
@@ -56,7 +56,7 @@ export interface Track {
   clips: Clip[];
 }
 
-export type AssetKind =
+type AssetKind =
   | "video"
   | "image"
   | "audio"

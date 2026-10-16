@@ -566,7 +566,9 @@ web: ## [gate] The web front-end, when the branch touches web/
 # The same commands CI's `web` job runs, in the same order. `--frozen-lockfile`
 # is `--locked`'s counterpart: an install that would change `bun.lock` fails
 # instead, so the packages checked are the packages committed. Biome is both
-# the linter and the formatter, so `lint` is also the format check. `build` is
+# the linter and the formatter, so `lint` is also the format check. `deadcode`
+# (knip, #1208) finds what is dead between files: one nothing imports, an
+# export nothing uses, a dependency nothing needs. `build` is
 # on the list because it is what the deploy ships — a page that typechecks and
 # does not bundle is not a page.
 web-gates:
@@ -577,6 +579,7 @@ web-gates:
 	cd web && bun install --frozen-lockfile
 	cd web && bun run lint
 	cd web && bun run typecheck
+	cd web && bun run deadcode
 	cd web && bun test
 	cd web && bun run build
 

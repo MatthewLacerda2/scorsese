@@ -6,7 +6,6 @@ import type { NewProject, StyleMenu } from "@/api";
 import { keptStyle } from "@/start/menu";
 
 export const STEPS = ["name", "assets", "platform", "style"] as const;
-export type Step = (typeof STEPS)[number];
 
 /** What the dialog holds until Create. */
 export interface Draft {
