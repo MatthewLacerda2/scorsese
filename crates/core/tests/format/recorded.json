@@ -1,0 +1,488 @@
+{
+  "project": {
+    "assets": [
+      {
+        "color": {
+          "linear": {
+            "angle": 90.0,
+            "stops": [
+              [
+                "#0b1020",
+                0.0
+              ],
+              [
+                "#0b1020",
+                1.0
+              ]
+            ]
+          }
+        },
+        "created_at": "2026-10-16T12:00:00Z",
+        "estimated_cost_cents": 120,
+        "group": {
+          "tracks": [
+            {
+              "clips": [],
+              "id": "inner",
+              "kind": "audio"
+            }
+          ]
+        },
+        "icon": {
+          "color": "#0b1020",
+          "name": "star",
+          "size": 64.0,
+          "stroke_width": 1.5
+        },
+        "id": "everything",
+        "image": {
+          "aspect": "9:16",
+          "character_images": [
+            "character"
+          ],
+          "reference_images": [
+            "reference"
+          ],
+          "resolution": "2K",
+          "thinking": "high"
+        },
+        "kind": "generated_video",
+        "media": {
+          "audio_channels": 2,
+          "duration_seconds": 8.0,
+          "frame_rate": {
+            "den": 1,
+            "num": 24
+          },
+          "has_alpha": true,
+          "height": 1080,
+          "sample_rate": 48000,
+          "width": 1920
+        },
+        "note": "Why this asset",
+        "operation": "operations/1",
+        "path": "generated/everything.mp4",
+        "prompt": "A prompt",
+        "queued_at": "2026-10-16T12:00:00Z",
+        "recipe": "recipes/everything.json",
+        "sequence": {
+          "hold": 2,
+          "loop": true,
+          "stills": [
+            "still"
+          ]
+        },
+        "sha256": "abababababababababababababababababababababababababababababababab",
+        "shape": {
+          "dash": [
+            4.0,
+            2.0
+          ],
+          "fill": "#0b1020",
+          "geometry": {
+            "arrow": {
+              "curve": "s",
+              "from": {
+                "x": 0.25,
+                "y": 0.5
+              },
+              "heads": "both",
+              "to": {
+                "attach": {
+                  "clip": "c1",
+                  "side": "top"
+                }
+              }
+            }
+          },
+          "stroke": "#0b1020",
+          "stroke_width": 3.5
+        },
+        "speech": {
+          "language": "pt",
+          "model": "expressive",
+          "seed": 7,
+          "voice_id": "voice"
+        },
+        "state": "generated",
+        "style": {
+          "align": "left",
+          "color": "#0b1020",
+          "font": "serif",
+          "italic": true,
+          "line_height": 1.25,
+          "max_width": 0.75,
+          "number": {
+            "decimals": 1,
+            "grouping": true,
+            "locale": "pt-BR",
+            "value": 1234.5
+          },
+          "reveal": {
+            "rise": 0.5,
+            "stagger": 0.25,
+            "unit": "char"
+          },
+          "size": 48.0,
+          "stroke": "#0b1020",
+          "stroke_width": 2.0,
+          "weight": 700
+        },
+        "text": "Some text",
+        "video": {
+          "aspect": "9:16",
+          "first_image": "first",
+          "last_image": "last",
+          "model": "standard",
+          "reference_images": [
+            "reference"
+          ],
+          "resolution": "4k",
+          "seconds": 4,
+          "seed": 11
+        }
+      }
+    ],
+    "name": "Every field",
+    "schema_version": 51,
+    "script": "script.md",
+    "timeline_fps": {
+      "den": 1,
+      "num": 30
+    },
+    "tracks": [
+      {
+        "clips": [
+          {
+            "aberration": 0.5,
+            "anchor": {
+              "x": "left",
+              "y": "bottom"
+            },
+            "asset": "everything",
+            "blend": "screen",
+            "blur": 2.0,
+            "chroma_key": {
+              "color": "#0b1020",
+              "softness": 0.125,
+              "spill": true,
+              "tolerance": 0.25
+            },
+            "crop": {
+              "height": 0.5,
+              "width": 0.5,
+              "x": 0.125,
+              "y": 0.25
+            },
+            "duration": 90,
+            "fit": "fill",
+            "follow": {
+              "clip": "leader",
+              "orient": true
+            },
+            "glow": {
+              "color": "#0b1020",
+              "intensity": 0.75,
+              "radius": 12.0
+            },
+            "grade": {
+              "brightness": 0.125,
+              "contrast": 1.25,
+              "grain": 0.25,
+              "saturation": 0.5,
+              "temperature": 0.25,
+              "vignette": 0.5
+            },
+            "id": "c1",
+            "keyframes": [
+              {
+                "by": "Why it moves",
+                "keyframes": [
+                  {
+                    "easing": "ease_in_out",
+                    "t": 0,
+                    "value": 0.25
+                  }
+                ],
+                "property": "transform.x"
+              }
+            ],
+            "matte": {
+              "clip": "mask",
+              "invert": true
+            },
+            "note": "Why this clip",
+            "origin": {
+              "x": "right",
+              "y": "top"
+            },
+            "shadow": {
+              "color": "#0b1020",
+              "offset_x": 4.0,
+              "offset_y": 6.0,
+              "opacity": 0.5,
+              "softness": 8.0
+            },
+            "source_in": 15,
+            "speed": 1.5,
+            "start": 30,
+            "vhs": {
+              "chroma_bleed": 0.5,
+              "head_switch": 0.25,
+              "jitter": 0.125,
+              "mono": true,
+              "noise": 0.25,
+              "scanlines": 0.5
+            }
+          }
+        ],
+        "id": "v1",
+        "kind": "video",
+        "name": "Picture",
+        "note": "Why this track"
+      }
+    ]
+  },
+  "variants": {
+    "AnchorX": [
+      "left",
+      "center",
+      "right"
+    ],
+    "AnchorY": [
+      "top",
+      "center",
+      "bottom"
+    ],
+    "Aspect": [
+      "16:9",
+      "9:16"
+    ],
+    "AssetKind": [
+      "video",
+      "image",
+      "audio",
+      "text",
+      "color",
+      "shape",
+      "icon",
+      "image_sequence",
+      "html",
+      "generated_video",
+      "generated_image",
+      "generated_audio",
+      "synth_audio",
+      "group"
+    ],
+    "Blend": [
+      "normal",
+      "add",
+      "screen",
+      "multiply"
+    ],
+    "ClipSeconds": [
+      4,
+      6,
+      8
+    ],
+    "Curve": [
+      "straight",
+      "s"
+    ],
+    "Easing": [
+      "linear",
+      "ease_in",
+      "ease_out",
+      "ease_in_out",
+      "hold",
+      "back_in",
+      "back_out",
+      "back_in_out",
+      "spring",
+      {
+        "cubic_bezier": [
+          0.25,
+          0.0,
+          0.75,
+          1.0
+        ]
+      }
+    ],
+    "Endpoint": [
+      {
+        "x": 0.5,
+        "y": 0.5
+      },
+      {
+        "attach": {
+          "clip": "c1",
+          "side": "left"
+        }
+      }
+    ],
+    "Fill": [
+      "#0b1020",
+      {
+        "linear": {
+          "angle": 90.0,
+          "stops": [
+            [
+              "#0b1020",
+              0.0
+            ],
+            [
+              "#0b1020",
+              1.0
+            ]
+          ]
+        }
+      },
+      {
+        "radial": {
+          "center": {
+            "x": 0.25,
+            "y": 0.75
+          },
+          "radius": 0.5,
+          "stops": [
+            [
+              "#0b1020",
+              0.0
+            ],
+            [
+              "#0b1020",
+              1.0
+            ]
+          ]
+        }
+      }
+    ],
+    "Fit": [
+      "fit",
+      "fill",
+      "native"
+    ],
+    "FontChoice": [
+      "sans",
+      "fonts/face.ttf"
+    ],
+    "GenerationState": [
+      "sketch",
+      "queued",
+      "generated",
+      "stale"
+    ],
+    "Geometry": [
+      {
+        "rectangle": {
+          "height": 0.25,
+          "radius": 0.125,
+          "width": 0.5
+        }
+      },
+      {
+        "ellipse": {
+          "height": 0.25,
+          "width": 0.5
+        }
+      },
+      {
+        "arrow": {
+          "curve": "s",
+          "from": {
+            "x": 0.25,
+            "y": 0.5
+          },
+          "heads": "both",
+          "to": {
+            "attach": {
+              "clip": "c1",
+              "side": "top"
+            }
+          }
+        }
+      }
+    ],
+    "Heads": [
+      "none",
+      "end",
+      "both"
+    ],
+    "ImageAspect": [
+      "16:9",
+      "9:16",
+      "1:1",
+      "4:3",
+      "3:4",
+      "3:2",
+      "2:3",
+      "5:4",
+      "4:5",
+      "21:9",
+      "4:1",
+      "1:4",
+      "8:1",
+      "1:8"
+    ],
+    "ImageResolution": [
+      "1K",
+      "2K",
+      "4K"
+    ],
+    "ImageThinking": [
+      "minimal",
+      "medium",
+      "high"
+    ],
+    "Locale": [
+      "en",
+      "pt-BR"
+    ],
+    "OriginX": [
+      "left",
+      "center",
+      "right"
+    ],
+    "OriginY": [
+      "top",
+      "center",
+      "bottom"
+    ],
+    "RevealUnit": [
+      "char",
+      "word",
+      "line"
+    ],
+    "Side": [
+      "left",
+      "right",
+      "top",
+      "bottom",
+      "center"
+    ],
+    "SpeechModel": [
+      "expressive",
+      "standard",
+      "fast"
+    ],
+    "TextAlign": [
+      "left",
+      "center",
+      "right"
+    ],
+    "TrackKind": [
+      "video",
+      "audio"
+    ],
+    "VideoModel": [
+      "standard",
+      "fast",
+      "lite"
+    ],
+    "VideoResolution": [
+      "720p",
+      "1080p",
+      "4k"
+    ]
+  }
+}

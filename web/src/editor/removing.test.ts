@@ -1,7 +1,7 @@
 // A removal's confirm lists the clips that go, and a yes names exactly those.
 
 import { describe, expect, test } from "bun:test";
-import type { ProjectDocument } from "@/api";
+import { type ProjectDocument, SCHEMA_VERSION } from "@/api";
 import { en } from "@/i18n/en";
 import type { Edit } from "./project";
 import { assetRemoval, confirmThen, showing, trackRemoval } from "./removing";
@@ -9,7 +9,7 @@ import { assetRemoval, confirmThen, showing, trackRemoval } from "./removing";
 const clip = (id: string, asset: string) => ({ id, asset, start: 0, duration: 30 });
 
 const document: ProjectDocument = {
-  schema_version: 1,
+  schema_version: SCHEMA_VERSION,
   name: "T",
   timeline_fps: { num: 30, den: 1 },
   assets: [

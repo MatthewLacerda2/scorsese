@@ -3,7 +3,13 @@
 // places the clip there; on a lane that takes it, it places it there.
 
 import { describe, expect, test } from "bun:test";
-import type { EditorProject, ProjectDocument, ToolAnswer, Track } from "@/api";
+import {
+  type EditorProject,
+  type ProjectDocument,
+  SCHEMA_VERSION,
+  type ToolAnswer,
+  type Track,
+} from "@/api";
 import { dropOnto } from "./drop";
 import type { Edit } from "./project";
 
@@ -15,7 +21,7 @@ const assets = [
 const project = (tracks: Track[]): EditorProject =>
   ({
     revision: 1,
-    document: { schema_version: 51, name: "t", timeline_fps: THIRTY, assets, tracks },
+    document: { schema_version: SCHEMA_VERSION, name: "t", timeline_fps: THIRTY, assets, tracks },
   }) as unknown as EditorProject;
 
 /** A server that does what `track_new` and `place_clip` do, and remembers the calls. */

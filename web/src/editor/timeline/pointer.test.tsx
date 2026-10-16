@@ -6,7 +6,7 @@
 
 import { describe, expect, mock, test } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
-import type { ProjectDocument } from "@/api";
+import { type ProjectDocument, SCHEMA_VERSION } from "@/api";
 import { Handle } from "../panels/Handle";
 import type { Release } from "./drag";
 import { Timeline } from "./Timeline";
@@ -15,7 +15,7 @@ import { START_ZOOM } from "./zoom";
 const fps = { num: 30, den: 1 };
 /** One clip, two seconds long, starting at two seconds: 80px wide at 80px. */
 const document: ProjectDocument = {
-  schema_version: 1,
+  schema_version: SCHEMA_VERSION,
   name: "p",
   timeline_fps: fps,
   assets: [{ id: "a", kind: "text", text: "Title" }],

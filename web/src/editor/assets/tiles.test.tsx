@@ -9,6 +9,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import type { DragEvent, ReactElement, ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import type { DocumentAsset, EditorProject, ProjectDocument, ToolAnswer } from "@/api";
+import { SCHEMA_VERSION } from "@/api";
 import { createQueryClient } from "@/app/queryClient";
 import { en } from "@/i18n/en";
 import { dropOnto } from "../drop";
@@ -28,7 +29,7 @@ const sequence: DocumentAsset = {
   sequence: { stills: ["s1", "s2"] },
 };
 const document = (assets: DocumentAsset[]): ProjectDocument => ({
-  schema_version: 1,
+  schema_version: SCHEMA_VERSION,
   name: "p",
   timeline_fps: { num: 30, den: 1 },
   assets,
