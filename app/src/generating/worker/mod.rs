@@ -34,7 +34,7 @@ use std::sync::mpsc::{Receiver, TryRecvError, channel};
 use scorsese_core::placing::{self, Shortened};
 use scorsese_core::{AssetId, Project, Reprobe, probe_assets};
 use scorsese_providers::credentials::{Budget, Settings};
-use scorsese_providers::prices::dollars;
+use scorsese_providers::prices::{dollars, from_cents};
 use scorsese_providers::spending;
 use scorsese_providers::video::Run;
 use scorsese_providers::{image, speech};
@@ -247,7 +247,7 @@ fn sentence(mut parts: Vec<String>, spent: u64, pass: Pass) -> String {
         // deciding to spend more, and no provider tells us what was billed.
         parts.push(format!(
             "about {} spent, by our calculation",
-            dollars(spent)
+            dollars(from_cents(spent), 2)
         ));
     }
     parts.join(" · ")

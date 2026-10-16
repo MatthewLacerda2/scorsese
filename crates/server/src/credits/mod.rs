@@ -72,6 +72,7 @@ pub mod tool;
 pub use ledger::Reservation;
 
 use scorsese_core::AssetKind;
+pub use scorsese_providers::prices::{MICROS_PER_CENT, from_cents};
 
 /// What a user buys, each kind priced by its own multiplier (#1247).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -131,21 +132,12 @@ impl Product {
     }
 }
 
-/// Micro-dollars in a US cent. The provider tables speak cents; the ledger
-/// speaks micro-dollars, and this is the one place they meet.
-pub const MICROS_PER_CENT: u64 = 10_000;
-
 /// What a user is charged for a `product` that costs scorsese `cost_micros`:
 /// the cost times [`Product::percent`], **rounded up** (`docs/prices.md`) —
 /// rounding down would give away a fraction of a micro-dollar at a time.
 pub fn price(product: Product, cost_micros: u64) -> i64 {
     let marked = u128::from(cost_micros) * u128::from(product.percent());
     i64::try_from(marked.div_ceil(100)).unwrap_or(i64::MAX)
-}
-
-/// A provider table's cents, as the ledger's micro-dollars.
-pub fn from_cents(cents: u64) -> u64 {
-    cents.saturating_mul(MICROS_PER_CENT)
 }
 
 /// What a user is charged for a `product` whose provider table says it costs
@@ -155,15 +147,12 @@ pub fn charge_for(product: Product, cents: u64) -> i64 {
     price(product, from_cents(cents))
 }
 
-/// Micro-dollars as dollars a person reads: `$1.06`, `-$0.03`, and as many
-/// places past the cent as a fraction of one needs — `$0.0022`.
-pub fn dollars(micros: i64) -> String {
-    let sign = if micros < 0 { "-" } else { "" };
-    let magnitude = micros.unsigned_abs();
-    let whole = magnitude / 1_000_000;
-    let fraction = format!("{:06}", magnitude % 1_000_000);
-    let places = fraction.trim_end_matches('0').len().max(2);
-    format!("{sign}${whole}.{}", &fraction[..places])
+/// Micro-dollars as dollars a person reads: `$1.06`, `-$0.03`, `$1,234.00`,
+/// and as many places past the cent as a fraction of one needs — `$0.0022`.
+/// [`prices::dollars`](scorsese_providers::prices::dollars) at two places,
+/// the one formatter every surface prints money with (#1287).
+pub fn dollars(micros: impl Into<i128>) -> String {
+    scorsese_providers::prices::dollars(micros, 2)
 }
 
 /// Why spending or recording credits did not happen.

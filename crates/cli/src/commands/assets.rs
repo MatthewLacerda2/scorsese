@@ -3,6 +3,7 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use scorsese_core::bytes::format_bytes;
 use scorsese_core::pool::{Paid, named_by_pages, remove_assets, unused_assets};
 use scorsese_core::{Asset, AssetId, AssetStatus, HashCheck, Listed, asset_status, listing};
 
@@ -105,7 +106,7 @@ pub(crate) fn gc(project_dir: &Path, delete: bool, include_paid: bool) -> Result
         "\nRemoved {} assets, deleted {} files, freed {}",
         report.removed.len(),
         report.files_deleted,
-        human_bytes(report.bytes_freed)
+        format_bytes(report.bytes_freed)
     );
     Ok(())
 }
@@ -150,19 +151,4 @@ fn format_row(row: &AssetStatus) -> String {
         "{:<20} {:<16} {:<10} {}",
         row.id, row.kind, uses, row.health
     )
-}
-
-fn human_bytes(bytes: u64) -> String {
-    const UNITS: [&str; 4] = ["B", "KB", "MB", "GB"];
-    let mut size = bytes as f64;
-    let mut unit = 0;
-    while size >= 1024.0 && unit < UNITS.len() - 1 {
-        size /= 1024.0;
-        unit += 1;
-    }
-    if unit == 0 {
-        format!("{bytes} B")
-    } else {
-        format!("{size:.1} {}", UNITS[unit])
-    }
 }

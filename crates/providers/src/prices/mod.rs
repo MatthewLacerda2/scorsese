@@ -42,9 +42,11 @@ pub mod chat;
 pub mod checked;
 pub mod elevenlabs;
 pub mod gemini;
+mod money;
 pub mod veo;
 
 pub use checked::{Checked, STALE_AFTER_DAYS};
+pub use money::{MICROS_PER_CENT, dollars, from_cents, parse_dollars};
 pub use veo::{Quality, Rate, Tier};
 
 use scorsese_core::{ImageRequest, ImageResolution, SpeechModel, VideoRequest};
@@ -225,12 +227,4 @@ fn image_at(
         rate,
         input_tokens,
     })
-}
-
-/// Cents as the dollars-and-cents string a person expects to read.
-///
-/// Integer arithmetic on the way out as well as in: `$0.05` is a division and
-/// a remainder, not a float that prints as `0.05000000000000001`.
-pub fn dollars(cents: u64) -> String {
-    format!("${}.{:02}", cents / 100, cents % 100)
 }

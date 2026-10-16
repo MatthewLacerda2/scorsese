@@ -154,8 +154,8 @@ pub fn redeem<S: Quotes>(
     }
     if issued.digest != current.digest() {
         return Err(Refused::Changed {
-            quoted: crate::prices::dollars(issued.cents),
-            now: crate::prices::dollars(current.cents()),
+            quoted: crate::prices::dollars(crate::prices::from_cents(issued.cents), 2),
+            now: crate::prices::dollars(crate::prices::from_cents(current.cents()), 2),
         });
     }
     Ok(issued)

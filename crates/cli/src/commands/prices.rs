@@ -9,7 +9,7 @@
 
 use anyhow::Result;
 use scorsese_providers::prices::{
-    Checked, STALE_AFTER_DAYS, chat, dollars, elevenlabs, gemini, veo,
+    Checked, STALE_AFTER_DAYS, chat, dollars, elevenlabs, from_cents, gemini, veo,
 };
 
 /// Prints the rate table, as Markdown.
@@ -34,8 +34,8 @@ pub(crate) fn run() -> Result<()> {
             "| {} | {} | {} | {} | {}{} |",
             row.tier.label(),
             row.quality.label(),
-            dollars(row.rate.cents_per_second),
-            dollars(row.rate.cents_per_second * 8),
+            dollars(from_cents(row.rate.cents_per_second), 2),
+            dollars(from_cents(row.rate.cents_per_second * 8), 2),
             row.rate.checked,
             if row.rate.checked.is_stale_on(today) {
                 " ⚠️"
@@ -56,8 +56,8 @@ pub(crate) fn run() -> Result<()> {
         println!(
             "| {} | {} | {} | {}{} |",
             row.resolution.as_str(),
-            microdollars(row.rate.microdollars_per_image),
-            dollars(row.rate.cents_per_million_input),
+            dollars(row.rate.microdollars_per_image, RATE_PLACES),
+            dollars(from_cents(row.rate.cents_per_million_input), 2),
             row.rate.checked,
             if row.rate.checked.is_stale_on(today) {
                 " ⚠️"
@@ -77,8 +77,8 @@ pub(crate) fn run() -> Result<()> {
             "| {} | `{}` | {} | {} | {}{} |",
             row.model.label(),
             row.model.model_id(),
-            dollars(row.rate.cents_per_1k_chars),
-            dollars(row.rate.cents_per_1k_chars.div_ceil(5)),
+            dollars(from_cents(row.rate.cents_per_1k_chars), 2),
+            dollars(from_cents(row.rate.cents_per_1k_chars.div_ceil(5)), 2),
             row.rate.checked,
             if row.rate.checked.is_stale_on(today) {
                 " ⚠️"
@@ -96,7 +96,7 @@ pub(crate) fn run() -> Result<()> {
     println!("| --- | --- | --- | --- | --- | --- | --- |");
     for row in chat::RATES {
         let rate = row.rate;
-        let price = |micros: u64| format!("${}.{:06}", micros / 1_000_000, micros % 1_000_000);
+        let price = |micros: u64| dollars(micros, RATE_PLACES);
         println!(
             "| `{}`{} | {} | {} | {} | {} | {} | {}{} |",
             row.model.id(),
@@ -160,24 +160,21 @@ fn stale_note(today: Checked) {
     }
 }
 
-/// Micro-dollars as the vendor writes them — `$0.067`, `$0.0336` — with as
-/// many places as the figure has and never fewer than three, so a column of
-/// them reads like the page it was copied from.
-fn microdollars(micro: u64) -> String {
-    let fraction = format!("{:06}", micro % 1_000_000);
-    let kept = fraction.trim_end_matches('0');
-    let places = kept.len().max(3);
-    format!("${}.{}", micro / 1_000_000, &fraction[..places])
-}
+/// The places a micro-dollar rate is shown with at least — `$0.067`,
+/// `$0.0336`, `$3.000` — so a column of them reads like the page it was copied
+/// from, more only when the figure has them.
+const RATE_PLACES: usize = 3;
 
 #[cfg(test)]
 mod tests {
-    use super::microdollars;
+    use super::{RATE_PLACES, dollars};
 
     #[test]
     fn micro_dollars_read_like_the_vendors_page() {
-        assert_eq!(microdollars(67_000), "$0.067");
-        assert_eq!(microdollars(33_600), "$0.0336");
-        assert_eq!(microdollars(1_500_000), "$1.500");
+        assert_eq!(dollars(67_000_u64, RATE_PLACES), "$0.067");
+        assert_eq!(dollars(33_600_u64, RATE_PLACES), "$0.0336");
+        assert_eq!(dollars(1_500_000_u64, RATE_PLACES), "$1.500");
+        assert_eq!(dollars(3_000_000_u64, RATE_PLACES), "$3.000");
+        assert_eq!(dollars(300_000_u64, RATE_PLACES), "$0.300");
     }
 }

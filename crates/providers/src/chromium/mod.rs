@@ -30,6 +30,8 @@ use std::sync::{Mutex, PoisonError};
 
 pub use pin::{Build, Platform};
 
+use scorsese_core::bytes::format_bytes;
+
 use crate::api::http::{self, HttpError};
 
 /// The most a download may be. The zips are ~100–150 MB; anything far past
@@ -52,7 +54,7 @@ impl Fetching {
     pub fn starting(&self) -> String {
         let size = self
             .total
-            .map(|bytes| format!(" ({} MB)", bytes.div_ceil(1_000_000)))
+            .map(|bytes| format!(" ({})", format_bytes(bytes)))
             .unwrap_or_default();
         format!("fetching the page renderer, once{size} — it draws html clips")
     }

@@ -19,7 +19,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use scorsese_providers::credentials::{Budget, Provider, resolve};
-use scorsese_providers::prices::dollars;
+use scorsese_providers::prices::{dollars, from_cents};
 use scorsese_providers::voices::design::{
     Brief, Designing, ElevenLabsStudio, FORGOTTEN, Kept, LEDGER_FILE, design, designed, estimate,
     forget, keep,
@@ -164,6 +164,9 @@ fn ledger(project_dir: &Path) {
         "{} designed here, about {} spent designing them — our arithmetic over the \
          published rate, never a bill, and counted apart from what the shots cost.",
         entries.len(),
-        dollars(scorsese_providers::voices::design::spent(project_dir))
+        dollars(
+            from_cents(scorsese_providers::voices::design::spent(project_dir)),
+            2
+        )
     );
 }

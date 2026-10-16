@@ -160,7 +160,7 @@ impl Outcome {
             } => format!(
                 "ordered at half price, {} — ready within 24 hours; generate again to collect \
                  it ({operation})",
-                crate::prices::dollars(*estimated_cost_cents)
+                crate::prices::dollars(crate::prices::from_cents(*estimated_cost_cents), 2)
             ),
             Self::Collected { path, bytes } => {
                 format!("drawn in its batch — {path} ({bytes} bytes)")

@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use scorsese_providers::passes::Done;
-use scorsese_providers::prices::dollars;
+use scorsese_providers::prices::{dollars, from_cents};
 
 /// The run, in lines.
 pub(super) fn run(done: &Done, dir: &Path) -> String {
@@ -33,7 +33,7 @@ pub(super) fn run(done: &Done, dir: &Path) -> String {
     }
     lines.push(format!(
         "About {} spent on this run — our calculation, never a bill.",
-        dollars(done.spent_cents())
+        dollars(from_cents(done.spent_cents()), 2)
     ));
     lines.join("\n")
 }

@@ -25,7 +25,7 @@ use crate::api::elevenlabs::voices::{Listing, Voices};
 use crate::api::http::HttpError;
 use crate::api::tap::Tap;
 use crate::credentials::Secret;
-use crate::prices::{self, dollars};
+use crate::prices::{self, dollars, from_cents};
 use crate::voices::design as price;
 
 use super::{Step, Verdict, judge};
@@ -70,12 +70,12 @@ pub(super) fn calls() -> Vec<String> {
         format!(
             "speak {LINE:?} ({} characters, fast model) — {}",
             LINE.chars().count(),
-            dollars(speech_cents())
+            dollars(from_cents(speech_cents()), 2)
         ),
         format!(
             "design a voice from a {}-character passage, keeping none of the three — {}",
             PASSAGE.chars().count(),
-            dollars(design_cents())
+            dollars(from_cents(design_cents()), 2)
         ),
     ]
 }

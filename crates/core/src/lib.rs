@@ -74,6 +74,10 @@
 //! test doubles every crate's tests share, such as a [`ProbeMedia`] answering
 //! from memory.
 //!
+//! **[`mod@bytes`] keeps its path too**, though it is about no project: it is
+//! how big a file is, said the one way every surface says it, and this is the
+//! one crate everything that prints a size can reach.
+//!
 //! **Everything else is `pub(crate)`.** How the document is parsed and saved,
 //! how the frame grid does its arithmetic, how a font choice and a colour are
 //! read, and the whole of validation's machinery behind [`Project::validate`]
@@ -83,6 +87,7 @@
 pub(crate) mod asset;
 pub mod authoring;
 pub(crate) mod baseline;
+pub mod bytes;
 pub mod captions;
 pub(crate) mod chroma;
 pub(crate) mod color;

@@ -18,7 +18,6 @@ mod keep;
 
 use scorsese_core::Timestamp;
 use scorsese_mcp::Reply;
-use scorsese_providers::prices::dollars as cents_as_dollars;
 use scorsese_providers::quote::{Charge, Item, Quote, Spend};
 use scorsese_providers::voices::design::{Brief, PASSAGE, PROMPT, estimate};
 use serde_json::{Value, json};
@@ -26,7 +25,7 @@ use serde_json::{Value, json};
 use super::{Caller, database, quotes};
 use crate::credits::designs::Design;
 use crate::credits::generations::{Request, start};
-use crate::credits::{CreditError, Product, charge_for, dollars, ledger};
+use crate::credits::{CreditError, Product, charge_for, dollars, from_cents, ledger};
 use crate::db;
 use crate::designs::DesignPayload;
 use crate::jobs::{kinds, store as jobs};
@@ -190,7 +189,7 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
              been sent. To design, call voice_design again with confirm: \"{}\" — once whoever \
              is paying has agreed to {}. Good once, for fifteen minutes.",
             estimate.says(),
-            cents_as_dollars(estimate.cents),
+            dollars(from_cents(estimate.cents)),
             dollars(charged),
             dollars(balance),
             issued.token,

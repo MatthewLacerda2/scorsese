@@ -47,7 +47,7 @@ use crate::api::http::HttpError;
 use crate::api::tap::Tap;
 use crate::credentials::Secret;
 use crate::image::Brief;
-use crate::prices::{self, dollars};
+use crate::prices::{self, dollars, from_cents};
 
 use super::{Step, Verdict, judge};
 
@@ -85,7 +85,7 @@ pub(super) fn calls() -> Vec<String> {
         format!("GET models/{MODEL} — free"),
         format!(
             "draw one {SIDE}x{SIDE} still (Nano Banana 2.1, 1K, no references) — {}",
-            dollars(cost())
+            dollars(from_cents(cost()), 2)
         ),
     ]
 }

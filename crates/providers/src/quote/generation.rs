@@ -21,7 +21,7 @@ use scorsese_core::{Asset, AssetKind, Project};
 
 use super::{Charge, Item, Quote, Spend};
 use crate::image::Order;
-use crate::prices::{self, Unpriced, UnpricedImage, UnpricedSpeech, dollars};
+use crate::prices::{self, Unpriced, UnpricedImage, UnpricedSpeech, dollars, from_cents};
 use crate::{image, speech, video};
 
 /// Below this many cents of stills drawn now, the quote does not offer a
@@ -115,8 +115,8 @@ impl Offer {
         format!(
             "Stills: {} now · {} in a batch, ready within 24 hours (half price). Ask whoever \
              is paying which they'd rather — never choose the wait for them.",
-            dollars(self.now_cents),
-            dollars(self.batch_cents)
+            dollars(from_cents(self.now_cents), 2),
+            dollars(from_cents(self.batch_cents), 2)
         )
     }
 }
@@ -176,7 +176,7 @@ fn shot(project: &Project, root: &Path, asset: &Asset) -> Result<Item, Unquotabl
                 subject: asset.id.to_string(),
                 says: format!(
                     "{} — {}s of {} at {}",
-                    dollars(priced.cents),
+                    dollars(from_cents(priced.cents), 2),
                     priced.seconds,
                     brief.request.model.as_str(),
                     brief.request.resolution.as_str()
@@ -232,7 +232,7 @@ fn still(project: &Project, root: &Path, asset: &Asset, order: Order) -> Result<
                 subject: asset.id.to_string(),
                 says: format!(
                     "{} — a {} {} still{references}{when}",
-                    dollars(priced.cents),
+                    dollars(from_cents(priced.cents), 2),
                     brief.request.size().as_str(),
                     brief.request.aspect.as_str()
                 ),
@@ -269,7 +269,7 @@ fn line(root: &Path, asset: &Asset) -> Result<Item, Unquotable> {
                 subject: asset.id.to_string(),
                 says: format!(
                     "{} — {} characters in {}",
-                    dollars(priced.cents),
+                    dollars(from_cents(priced.cents), 2),
                     priced.characters,
                     brief.request.model.as_str()
                 ),

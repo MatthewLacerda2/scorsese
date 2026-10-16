@@ -13,7 +13,7 @@ use std::time::Duration;
 use anyhow::{Context, Result, bail};
 use scorsese_providers::credentials::{Budget, Environment, Settings};
 use scorsese_providers::live::{self, Planned, Report, record};
-use scorsese_providers::prices::dollars;
+use scorsese_providers::prices::{dollars, from_cents};
 
 use super::confirm;
 
@@ -97,7 +97,7 @@ fn quote(plan: &[Planned]) {
     println!();
     println!(
         "At most {} in all — our arithmetic over the published rates, never a bill.",
-        dollars(live::total(plan))
+        dollars(from_cents(live::total(plan)), 2)
     );
 }
 
@@ -119,7 +119,7 @@ fn reported(reports: &[Report]) {
     println!();
     println!(
         "About {} spent — our arithmetic, never a bill.",
-        dollars(cents)
+        dollars(from_cents(cents), 2)
     );
 }
 

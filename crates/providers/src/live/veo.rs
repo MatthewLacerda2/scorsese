@@ -36,7 +36,7 @@ use crate::api::tap::Tap;
 use crate::api::veo::response::{Operation, Submitted};
 use crate::api::veo::{Model, Veo};
 use crate::credentials::Secret;
-use crate::prices::{self, dollars};
+use crate::prices::{self, dollars, from_cents};
 use crate::video::{Brief, POLL_EVERY};
 
 use super::{Options, Step, Verdict, judge};
@@ -78,15 +78,18 @@ pub(super) fn calls(options: &Options) -> Vec<String> {
     let shot = if options.include_veo {
         format!(
             "one 4-second 720p Veo 3.1 Lite shot — submit, poll, download — {}",
-            dollars(cost(options))
+            dollars(from_cents(cost(options)), 2)
         )
     } else {
         format!(
             "no shot — a real one is opt-in, at {}",
-            dollars(cost(&Options {
-                include_veo: true,
-                ..*options
-            }))
+            dollars(
+                from_cents(cost(&Options {
+                    include_veo: true,
+                    ..*options
+                })),
+                2
+            )
         )
     };
     vec![format!("GET {} — free", ids.join(", ")), shot]
@@ -110,10 +113,13 @@ pub(super) fn check(
             Verdict::Skipped {
                 why: format!(
                     "opt-in: it costs {}",
-                    dollars(cost(&Options {
-                        include_veo: true,
-                        ..*options
-                    }))
+                    dollars(
+                        from_cents(cost(&Options {
+                            include_veo: true,
+                            ..*options
+                        })),
+                        2
+                    )
                 ),
             },
         ));

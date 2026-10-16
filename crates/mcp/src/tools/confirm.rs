@@ -18,7 +18,7 @@ use std::path::Path;
 
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use scorsese_core::Timestamp;
-use scorsese_providers::prices::dollars;
+use scorsese_providers::prices::{dollars, from_cents};
 use scorsese_providers::quote::{LIFETIME_SECONDS, ProjectQuotes, Quote, issue, redeem};
 use serde::Deserialize;
 
@@ -82,7 +82,7 @@ pub(crate) fn gate(
          confirm: \"{}\" — once whoever is paying has agreed to {}. Good once, for {} \
          minutes, for exactly these briefs; if one changes, quote again.",
         issued.token,
-        dollars(issued.cents),
+        dollars(from_cents(issued.cents), 2),
         LIFETIME_SECONDS / 60
     ));
     Ok(Some(lines.join("\n").into()))
@@ -97,7 +97,7 @@ pub(crate) fn said(quote: &Quote) -> Vec<String> {
         .collect();
     lines.push(format!(
         "About {} in all — our arithmetic over published rates, never a bill.",
-        dollars(quote.cents())
+        dollars(from_cents(quote.cents()), 2)
     ));
     lines
 }

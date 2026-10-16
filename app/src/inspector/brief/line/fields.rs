@@ -7,7 +7,7 @@
 
 use egui::{ComboBox, RichText, TextEdit, Ui};
 use scorsese_core::{SpeechModel, SpeechRequest};
-use scorsese_providers::prices::{dollars, speech};
+use scorsese_providers::prices::{dollars, from_cents, speech};
 
 /// What is written beside a field nobody has to fill in.
 pub(super) const OPTIONAL: &str = "(optional)";
@@ -63,7 +63,7 @@ pub(super) fn cost_row(ui: &mut Ui, text: &str, model: SpeechModel) {
     ui.label(
         RichText::new(format!(
             "{characters} characters · about {}, by our own calculation",
-            dollars(cents)
+            dollars(from_cents(cents), 2)
         ))
         .weak()
         .small(),
@@ -175,7 +175,10 @@ fn about(model: SpeechModel) -> &'static str {
 /// What a model costs, read out of the price table.
 fn rate(model: SpeechModel) -> String {
     match speech(model, PER) {
-        Ok(estimate) => format!("about {} per {PER} characters", dollars(estimate.cents)),
+        Ok(estimate) => format!(
+            "about {} per {PER} characters",
+            dollars(from_cents(estimate.cents), 2)
+        ),
         // A model with no published rate cannot be quoted, and saying so is the
         // honest answer — a blank where a price belongs reads as free.
         Err(why) => why.to_string(),

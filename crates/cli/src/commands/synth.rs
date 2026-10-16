@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use scorsese_core::AssetId;
+use scorsese_core::bytes::format_bytes;
 use scorsese_providers::synth::{
     self, Baked, Bakes, Drum, Excerpt, Partial, Span, Starter, Window, kit,
 };
@@ -263,7 +264,7 @@ fn report(baked: &Bakes, like: Option<&Reference>) {
                 profile,
                 tracks,
             } => {
-                println!("{id} — baked, {} KB", bytes / 1024);
+                println!("{id} — baked, {}", format_bytes(*bytes as u64));
                 println!("  {path}");
                 // A recipe's level is a property of the recipe, so saying it
                 // here is saying it before the sound is ever mixed. The rows
@@ -308,7 +309,10 @@ fn report_partial(id: &AssetId, excerpt: &Excerpt, partial: &Partial, like: Opti
     // Named in the headline, because a level is a different finding over eight
     // bars than over the whole piece and this line is the only place a reader
     // is told which they are looking at.
-    println!("{id} — part of it ({excerpt}), {} KB", partial.bytes / 1024);
+    println!(
+        "{id} — part of it ({excerpt}), {}",
+        format_bytes(partial.bytes as u64)
+    );
     println!("  {}", partial.shown);
     println!("  {}", say::summary(&partial.profile));
     for row in say::sections(&partial.profile) {

@@ -30,13 +30,15 @@ use futures_util::{Stream, StreamExt};
 use serde::Serialize;
 use tokio::io::AsyncWriteExt;
 
+use scorsese_core::bytes::format_bytes;
+
 use super::{Arrival, Item, Kind, Library, LibraryError, store};
 use crate::db::{self, UserId};
 use crate::projects::files::MAX_FILE_BYTES;
 
-/// The largest file an upload may announce: 20 GiB, a long screen recording
-/// with room to spare.
-pub const MAX_UPLOAD_BYTES: i64 = 20 * 1024 * 1024 * 1024;
+/// The largest file an upload may announce: 20 GB, a long screen recording
+/// with room to spare. Decimal, as every size scorsese prints is (#1287).
+pub const MAX_UPLOAD_BYTES: i64 = 20 * 1000 * 1000 * 1000;
 
 /// What an upload says it will be, before any of its bytes are sent.
 #[derive(Debug, Clone)]
@@ -118,8 +120,8 @@ impl Library {
         }
         if !(1..=MAX_UPLOAD_BYTES).contains(&announced.length) {
             return Err(LibraryError::Invalid(format!(
-                "a file must be between one byte and {} GiB",
-                MAX_UPLOAD_BYTES >> 30
+                "a file must be between one byte and {}",
+                format_bytes(MAX_UPLOAD_BYTES.unsigned_abs())
             )));
         }
 

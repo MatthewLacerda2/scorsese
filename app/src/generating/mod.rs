@@ -36,7 +36,7 @@ use std::time::{Duration, Instant};
 use egui::{Context, RichText, Ui, Window};
 use scorsese_core::{AssetKind, Project};
 use scorsese_providers::credentials::Settings;
-use scorsese_providers::prices::dollars;
+use scorsese_providers::prices::{dollars, from_cents};
 use scorsese_providers::quote::Item;
 
 use crate::project::Open;
@@ -273,7 +273,7 @@ fn group(ui: &mut Ui, heading: &str, items: &[&Item]) {
             RichText::new(format!(
                 "{} to pay for · {}",
                 charged.len(),
-                dollars(charged.iter().sum())
+                dollars(from_cents(charged.iter().sum()), 2)
             ))
             .weak()
             .small(),
@@ -307,7 +307,7 @@ fn budget(ui: &mut Ui, quote: &Quote, settings: &mut Settings) {
         None => ui.label(
             RichText::new(format!(
                 "{} spent so far · no ceiling set",
-                dollars(quote.spent_cents)
+                dollars(from_cents(quote.spent_cents), 2)
             ))
             .weak()
             .small(),

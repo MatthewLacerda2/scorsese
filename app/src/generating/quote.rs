@@ -31,7 +31,7 @@ use std::path::Path;
 
 use scorsese_core::{AssetKind, Project};
 use scorsese_providers::credentials::{Budget, Settings};
-use scorsese_providers::prices::dollars;
+use scorsese_providers::prices::{dollars, from_cents};
 use scorsese_providers::quote::{self, Item, Unquotable};
 use scorsese_providers::spending;
 
@@ -97,7 +97,7 @@ impl Quote {
 
     /// The total, as a person reads money.
     pub(crate) fn total(&self) -> String {
-        dollars(self.total_cents())
+        dollars(from_cents(self.total_cents()), 2)
     }
 
     /// Whether this run would cross the ceiling — asked of [`Budget`], the same
@@ -114,8 +114,8 @@ impl Quote {
         let ceiling = self.ceiling_cents?;
         Some(format!(
             "{} spent of a {} ceiling",
-            dollars(self.spent_cents),
-            dollars(ceiling)
+            dollars(from_cents(self.spent_cents), 2),
+            dollars(from_cents(ceiling), 2)
         ))
     }
 
