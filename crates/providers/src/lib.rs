@@ -148,6 +148,9 @@
 //! ceiling asks it to decide whether the next call may go ahead and a person
 //! asks it to decide whether they want to; two answers to that would first be
 //! noticed by somebody who had already paid.
+//!
+//! [`Stopped`], what every prompted run — shots, stills, narration — answers
+//! with when it stops part-way: what it made before the stop, and why (#1153).
 
 pub mod api;
 pub mod chat;
@@ -169,6 +172,8 @@ pub mod stock;
 pub mod synth;
 pub mod video;
 pub mod voices;
+
+pub use generated::Stopped;
 // Test scratch folders, removed when each test ends (#1132).
 #[cfg(test)]
 #[path = "../../../tools/scratch.rs"]

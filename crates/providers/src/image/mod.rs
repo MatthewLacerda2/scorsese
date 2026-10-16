@@ -43,6 +43,7 @@ mod error;
 pub(crate) mod gemini;
 mod provider;
 mod run;
+mod stopped;
 
 use scorsese_core::ProjectPath;
 
@@ -54,6 +55,7 @@ pub use error::{ImageError, Incomplete};
 pub use gemini::GeminiProvider;
 pub use provider::{Batch, ImageProvider, ProviderError};
 pub use run::{adopt, generate, pending, plan};
+pub use stopped::Stopped;
 
 /// How a still is ordered: drawn on the call, or in a half-price batch that
 /// answers within 24 hours (#894). Not part of the brief — see the module.

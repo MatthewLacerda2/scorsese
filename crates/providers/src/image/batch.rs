@@ -21,7 +21,8 @@ use crate::credentials::Budget;
 use crate::prices;
 
 use super::run::{Stills, unready};
-use super::{Brief, ImageError, ImageProvider, Outcome, collect};
+use super::stopped::stopped;
+use super::{Brief, ImageError, ImageProvider, Outcome, Stopped, collect};
 use crate::generated::{self, record};
 
 /// Orders every still that needs drawing as a half-price batch, after
@@ -32,17 +33,37 @@ use crate::generated::{self, record};
 /// is already there is recorded and never ordered, and one already waiting in
 /// a batch is asked after rather than ordered twice. Saving the project is
 /// the caller's, **even when this returns an error**: a ticket written before
-/// it is the only record of a batch that will be billed.
+/// it is the only record of a batch that will be billed, and the [`Stopped`]
+/// it answers with lists every still ordered before the stop (#1153).
 pub fn batch(
     project: &mut Project,
     root: &Path,
     provider: &dyn ImageProvider,
     budget: Budget,
-) -> Result<Vec<(AssetId, Outcome)>, ImageError> {
+) -> Result<Vec<(AssetId, Outcome)>, Stopped> {
     // Read before the collection lands anything: a still whose reference
     // arrives in it was *not yet* on the quote, and stays so (#1058).
     let unready = unready(project, root);
-    let mut done = collect(project, root, provider)?;
+    let mut done = match collect(project, root, provider) {
+        Ok(collected) => collected,
+        Err(error) => return Err(stopped(project, root, Vec::new(), &unready, error)),
+    };
+    match order(project, root, provider, budget, &unready, &mut done) {
+        Ok(()) => Ok(done),
+        Err(error) => Err(stopped(project, root, done, &unready, error)),
+    }
+}
+
+/// Orders every still the collection left that needs it, into `done` as it
+/// goes — so a stop part-way leaves what was ordered before it for the reply.
+fn order(
+    project: &mut Project,
+    root: &Path,
+    provider: &dyn ImageProvider,
+    budget: Budget,
+    unready: &[(AssetId, String)],
+    done: &mut Vec<(AssetId, Outcome)>,
+) -> Result<(), ImageError> {
     let mut briefs = Vec::new();
     for id in generated::ids::<Stills>(project) {
         if done.iter().any(|(handled, _)| handled == &id) {
@@ -101,7 +122,7 @@ pub fn batch(
             }
         }
     }
-    Ok(done)
+    Ok(())
 }
 
 /// What one still costs in a batch — the one figure the quote, the ceiling

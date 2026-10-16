@@ -14,13 +14,15 @@
 //! The pattern is [`Probing`](crate::project::probing::Probing)'s: a channel, a
 //! copy to the worker, and a poll from the repaint loop that never blocks.
 //!
-//! # Two vendors, one ceiling, one total
+//! # Three passes, one ceiling, one total
 //!
-//! [`shots`] is Veo and [`lines`] is ElevenLabs, run in that order with the
-//! ceiling threaded from the first into the second — a limit each pass checked
-//! on its own would be a limit worth twice what somebody set. Each resolves its
-//! own key, and only when it has work: a project of nothing but narration must
-//! not be stopped for want of a Veo key, and the other way round.
+//! [`shots`] is Veo, [`stills`] Gemini and [`lines`] ElevenLabs, run in that
+//! order with the ceiling threaded from each into the next — a limit each pass
+//! checked on its own would be a limit worth twice what somebody set. Each
+//! resolves its own key, and only when it has work: a project of nothing but
+//! narration must not be stopped for want of a Veo key, and the other way
+//! round. A pass that stops part-way ends the run, and the line says what was
+//! made before the reason it stopped (#1153).
 
 mod lines;
 mod shots;
@@ -30,10 +32,12 @@ use std::path::Path;
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
 
 use scorsese_core::placing::{self, Shortened};
-use scorsese_core::{Asset, AssetId, AssetKind, Project, Reprobe, probe_assets};
+use scorsese_core::{AssetId, Project, Reprobe, probe_assets};
 use scorsese_providers::credentials::{Budget, Settings};
 use scorsese_providers::prices::dollars;
 use scorsese_providers::spending;
+use scorsese_providers::video::Run;
+use scorsese_providers::{image, speech};
 use scorsese_render::Ffprobe;
 
 /// What one background pass did.
@@ -43,9 +47,9 @@ pub(crate) struct Report {
     /// Whether anything is still in flight, which is what decides whether the
     /// window keeps sweeping.
     pub(crate) in_flight: usize,
-    /// True when the pass could not run at all — no key, over the ceiling. The
-    /// window stops sweeping rather than saying the same thing every ten
-    /// seconds.
+    /// True when the pass could not run at all — no key, over the ceiling —
+    /// or stopped part-way with nothing left in flight. The window stops
+    /// sweeping rather than saying the same thing every ten seconds.
     pub(crate) failed: bool,
 }
 
@@ -103,19 +107,33 @@ fn run(pass: Pass, mut project: Project, root: &Path) -> Report {
     };
     let budget = Budget::from_settings(&settings, spending::so_far(&project, root).total());
 
-    let made = match shots::pass(&mut project, root, pass, budget) {
-        Ok(made) => made,
-        Err(said) => return stopped(&project, root, said),
+    let mut made = Run {
+        outcomes: Vec::new(),
+        spent_cents: 0,
     };
-    let drawn = match stills::pass(&mut project, root, pass, budget.spend(made.spent_cents)) {
-        Ok(drawn) => drawn,
-        Err(said) => return stopped(&project, root, said),
-    };
+    let mut drawn = Vec::new();
+    let mut spoken = Vec::new();
+    let stop = passes(
+        &mut project,
+        root,
+        pass,
+        budget,
+        &mut made,
+        &mut drawn,
+        &mut spoken,
+    )
+    .err();
+    // A pass that could not start, with nothing done before it, is the
+    // reason alone. One that stopped after making something says what it
+    // made first: the reason alone reads as nothing having happened (#1153).
+    if let Some(said) = &stop
+        && made.outcomes.is_empty()
+        && drawn.is_empty()
+        && spoken.is_empty()
+    {
+        return stopped(&project, root, said.clone());
+    }
     let committed = made.spent_cents + stills::spent(&drawn);
-    let spoken = match lines::pass(&mut project, root, pass, budget.spend(committed)) {
-        Ok(spoken) => spoken,
-        Err(said) => return stopped(&project, root, said),
-    };
 
     // Before the save, so what was measured is in the document the window
     // reloads rather than in a copy this thread is about to drop.
@@ -135,15 +153,36 @@ fn run(pass: Pass, mut project: Project, root: &Path) -> Report {
     parts.extend(stills::said(&drawn));
     parts.extend(lines::said(&spoken));
     parts.extend(shortened.iter().map(Shortened::says));
-    Report {
-        in_flight: made
-            .outcomes
-            .iter()
-            .filter(|(_, outcome)| outcome.is_in_flight())
-            .count(),
-        said: sentence(parts, committed + lines::spent(&spoken), pass),
-        failed: false,
+    let in_flight = made.in_flight();
+    let mut said = sentence(parts, committed + lines::spent(&spoken), pass);
+    if let Some(stop) = &stop {
+        said = format!("{said} · {stop}");
     }
+    Report {
+        in_flight,
+        said,
+        // Shots a stopped run sent are still worth sweeping for: collecting
+        // spends nothing, and whatever stopped it does not stop that.
+        failed: stop.is_some() && in_flight == 0,
+    }
+}
+
+/// Every pass, in order, each into its own slot as it goes — so one that
+/// stops leaves the earlier ones' work, and its own as far as it got, for the
+/// report. A pass that stops ends the run, the ceiling threaded through.
+fn passes(
+    project: &mut Project,
+    root: &Path,
+    pass: Pass,
+    budget: Budget,
+    made: &mut Run,
+    drawn: &mut Vec<(AssetId, image::Outcome)>,
+    spoken: &mut Vec<(AssetId, speech::Outcome)>,
+) -> Result<(), String> {
+    shots::pass(project, root, pass, budget, made)?;
+    stills::pass(project, root, pass, budget.spend(made.spent_cents), drawn)?;
+    let committed = made.spent_cents + stills::spent(drawn);
+    lines::pass(project, root, pass, budget.spend(committed), spoken)
 }
 
 /// Measures whatever has just landed, for both vendors at once.
@@ -212,29 +251,6 @@ fn sentence(mut parts: Vec<String>, spent: u64, pass: Pass) -> String {
         ));
     }
     parts.join(" · ")
-}
-
-/// Whether this kind has anything left to do, and so whether its key is needed.
-///
-/// True when a brief of that kind has no file behind it yet, or has work in
-/// flight. The **disk** and not the document, deliberately: an asset can say
-/// `generated` and have lost its file — deleted, or never copied along with the
-/// project — and that one does need making again, whatever the state field
-/// claims.
-fn wants(project: &Project, root: &Path, kind: AssetKind) -> bool {
-    project
-        .assets
-        .iter()
-        .filter(|asset| asset.kind == kind)
-        .any(|asset| asset.operation.is_some() || !present(asset, root))
-}
-
-/// Whether this asset's media is actually on disk.
-fn present(asset: &Asset, root: &Path) -> bool {
-    asset
-        .path
-        .as_ref()
-        .is_some_and(|path| path.resolve(root).is_file())
 }
 
 /// One clause of a report — `3 arrived` — and nothing at all when the count is

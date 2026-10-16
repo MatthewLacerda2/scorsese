@@ -63,7 +63,7 @@ pub fn generate(
             }
             Err(error) => {
                 return Err(Stopped {
-                    unsent: unsent(project, root, &ids[at..]),
+                    unsent: generated::unsent::<Shots>(project, root, &ids[at..]),
                     run: Run {
                         outcomes: done,
                         spent_cents: spent,
@@ -74,18 +74,6 @@ pub fn generate(
         }
     }
     Ok(done)
-}
-
-/// Which of `ids` a run would have sent — what a stopped run never reached.
-fn unsent(project: &Project, root: &Path, ids: &[AssetId]) -> Vec<AssetId> {
-    ids.iter()
-        .filter(|id| {
-            project
-                .asset(id)
-                .is_some_and(|asset| plan(project, root, asset) == Plan::Submit)
-        })
-        .cloned()
-        .collect()
 }
 
 /// Collects whatever finished while nobody was watching — and nothing else.

@@ -5,26 +5,38 @@
 
 use std::path::Path;
 
-use scorsese_core::{AssetId, AssetKind, Project};
+use scorsese_core::{AssetId, Project};
 use scorsese_providers::credentials::{Budget, Provider, resolve};
-use scorsese_providers::image::{GeminiProvider, Outcome, generate};
+use scorsese_providers::image::{self, GeminiProvider, Outcome, generate};
 
-use super::{Pass, counted, wants};
+use super::{Pass, counted};
 
-/// Draws every still that needs it. The key — the Gemini key Veo takes too —
-/// is resolved only when this pass has work.
+/// Draws every still that needs it, into `drawn`. The key — the Gemini key
+/// Veo takes too — is resolved only when this pass has work.
+///
+/// **A run that stops part-way still fills `drawn`** with the stills it drew,
+/// and the error says in one sentence how many went (#1153).
 pub(super) fn pass(
     project: &mut Project,
     root: &Path,
     pass: Pass,
     budget: Budget,
-) -> Result<Vec<(AssetId, Outcome)>, String> {
-    if pass != Pass::Submit || !wants(project, root, AssetKind::GeneratedImage) {
-        return Ok(Vec::new());
+    drawn: &mut Vec<(AssetId, Outcome)>,
+) -> Result<(), String> {
+    if pass != Pass::Submit || !image::pending(project, root) {
+        return Ok(());
     }
     let key = resolve(Provider::Gemini).map_err(|error| error.to_string())?;
     let provider = GeminiProvider::new(&key.secret);
-    generate(project, root, &provider, budget).map_err(|error| error.to_string())
+    match generate(project, root, &provider, budget) {
+        Ok(run) => *drawn = run,
+        Err(stopped) => {
+            let says = stopped.says();
+            *drawn = stopped.run;
+            return Err(says);
+        }
+    }
+    Ok(())
 }
 
 /// Whether a still arrived on disk on this pass, and so has something to measure.

@@ -15,6 +15,7 @@ mod pricing;
 mod references;
 mod retired;
 mod says;
+mod stops;
 
 use scorsese_core::{Asset, AssetId, AssetKind, Project};
 

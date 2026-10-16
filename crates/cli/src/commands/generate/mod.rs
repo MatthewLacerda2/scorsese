@@ -188,16 +188,15 @@ fn passes(
     // far as the next is concerned.
     if image::pending(project, project_dir) {
         let budget = budget.spend(done.shots.spent_cents);
-        match stills::pass(project, project_dir, budget) {
-            Ok(drawn) => done.stills = drawn,
-            Err(error) => return (done, Err(error)),
+        // A pass that stops part-way fills its slot with what it made first.
+        if let Err(error) = stills::pass(project, project_dir, budget, &mut done.stills) {
+            return (done, Err(error));
         }
     }
     if speech::pending(project, project_dir) {
         let budget = budget.spend(done.shots.spent_cents + done.stills_spent());
-        match lines::pass(project, project_dir, budget) {
-            Ok(spoken) => done.lines = spoken,
-            Err(error) => return (done, Err(error)),
+        if let Err(error) = lines::pass(project, project_dir, budget, &mut done.lines) {
+            return (done, Err(error));
         }
     }
     (done, Ok(()))
@@ -214,11 +213,10 @@ fn batched(project: &mut Project, project_dir: &Path, budget: Budget) -> (Done, 
         stills: Vec::new(),
         lines: Vec::new(),
     };
-    if image::pending(project, project_dir) {
-        match stills::order(project, project_dir, budget) {
-            Ok(ordered) => done.stills = ordered,
-            Err(error) => return (done, Err(error)),
-        }
+    if image::pending(project, project_dir)
+        && let Err(error) = stills::order(project, project_dir, budget, &mut done.stills)
+    {
+        return (done, Err(error));
     }
     (done, Ok(()))
 }

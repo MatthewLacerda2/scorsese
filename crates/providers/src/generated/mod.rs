@@ -14,6 +14,7 @@
 //! through with the file, its bytes and its figure in hand.
 
 mod prompted;
+mod stopped;
 
 use std::path::{Path, PathBuf};
 
@@ -21,6 +22,8 @@ use scorsese_core::{AssetId, GenerationState, Project, ProjectPath, hash_bytes};
 
 pub use prompted::Plan;
 pub(crate) use prompted::{Prompted, adopt, found, ids, pending, plan};
+pub use stopped::Stopped;
+pub(crate) use stopped::{Counted, tell, unsent};
 
 /// Points the asset at what is now on disk, clears any ticket, and says what
 /// it was calculated to cost.

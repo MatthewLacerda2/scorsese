@@ -9,30 +9,52 @@ use std::path::Path;
 use anyhow::Result;
 use scorsese_core::{AssetId, Project};
 use scorsese_providers::credentials::{Budget, Provider, resolve};
-use scorsese_providers::image::{GeminiProvider, Outcome, batch, collect, generate};
+use scorsese_providers::image::{GeminiProvider, Outcome, Stopped, batch, collect, generate};
 
-/// Draws every still that needs it. The key — the same Gemini key Veo takes —
-/// is resolved only when this pass has something to do.
+/// Draws every still that needs it, into `drawn`. The key — the same Gemini
+/// key Veo takes — is resolved only when this pass has something to do.
+///
+/// **A run that stops part-way still fills `drawn`** with the stills it drew
+/// before stopping, and the error says in words how many went (#1153).
 pub(super) fn pass(
     project: &mut Project,
     project_dir: &Path,
     budget: Budget,
-) -> Result<Vec<(AssetId, Outcome)>> {
+    drawn: &mut Vec<(AssetId, Outcome)>,
+) -> Result<()> {
     let key = resolve(Provider::Gemini)?;
     let provider = GeminiProvider::new(&key.secret);
-    Ok(generate(project, project_dir, &provider, budget)?)
+    kept(generate(project, project_dir, &provider, budget), drawn)
 }
 
 /// Orders every still that needs it as a half-price batch, collecting any
-/// earlier batch first.
+/// earlier batch first — into `ordered`, as [`pass`] does.
 pub(super) fn order(
     project: &mut Project,
     project_dir: &Path,
     budget: Budget,
-) -> Result<Vec<(AssetId, Outcome)>> {
+    ordered: &mut Vec<(AssetId, Outcome)>,
+) -> Result<()> {
     let key = resolve(Provider::Gemini)?;
     let provider = GeminiProvider::new(&key.secret);
-    Ok(batch(project, project_dir, &provider, budget)?)
+    kept(batch(project, project_dir, &provider, budget), ordered)
+}
+
+/// What a run did, into `drawn` — a stopped one's included — and why it
+/// stopped, in words.
+fn kept(
+    run: Result<Vec<(AssetId, Outcome)>, Stopped>,
+    drawn: &mut Vec<(AssetId, Outcome)>,
+) -> Result<()> {
+    match run {
+        Ok(run) => *drawn = run,
+        Err(stopped) => {
+            let says = stopped.says();
+            *drawn = stopped.run;
+            return Err(anyhow::anyhow!(says));
+        }
+    }
+    Ok(())
 }
 
 /// Collects every still waiting in a batch, and orders nothing. Asks for a

@@ -8,11 +8,11 @@
 use std::path::Path;
 use std::time::Duration;
 
-use scorsese_core::{AssetId, AssetKind, Project};
+use scorsese_core::{AssetId, Project};
 use scorsese_providers::credentials::{Budget, Provider, resolve};
-use scorsese_providers::video::{Outcome, Run, VeoProvider, collect, generate_waiting};
+use scorsese_providers::video::{self, Outcome, Run, VeoProvider, collect, generate_waiting};
 
-use super::{Pass, counted, wants};
+use super::{Pass, counted};
 
 /// Submits or collects, and says nothing to the vendor when there is nothing to
 /// say.
@@ -21,32 +21,40 @@ use super::{Pass, counted, wants};
 /// whose shots are all made and present asks Veo for nothing at all — which is
 /// what makes a narration-only project generatable by somebody who has one
 /// vendor's key and not the other's.
+///
+/// **A run that stops part-way still fills `made`** with the shots it sent,
+/// and the error is the run in one sentence — so many sent, so many not —
+/// rather than the bare reason (#1057).
 pub(super) fn pass(
     project: &mut Project,
     root: &Path,
     pass: Pass,
     budget: Budget,
-) -> Result<Run, String> {
-    if !wants(project, root, AssetKind::GeneratedVideo) {
-        return Ok(Run {
-            outcomes: Vec::new(),
-            spent_cents: 0,
-        });
+    made: &mut Run,
+) -> Result<(), String> {
+    if !video::pending(project, root) {
+        return Ok(());
     }
     let key = resolve(Provider::Gemini).map_err(|error| error.to_string())?;
     let provider = VeoProvider::new(&key.secret);
     match pass {
         // Zero patience: the submit itself is what is wanted, and the window
         // does the waiting by sweeping.
-        Pass::Submit => generate_waiting(project, root, &provider, budget, Duration::ZERO, |_| {})
-            .map_err(|error| error.to_string()),
-        Pass::Sweep => collect(project, root, &provider)
-            .map(|outcomes| Run {
-                outcomes,
-                spent_cents: 0,
-            })
-            .map_err(|error| error.to_string()),
+        Pass::Submit => {
+            match generate_waiting(project, root, &provider, budget, Duration::ZERO, |_| {}) {
+                Ok(run) => *made = run,
+                Err(stopped) => {
+                    let says = stopped.says();
+                    *made = stopped.run;
+                    return Err(says);
+                }
+            }
+        }
+        Pass::Sweep => {
+            made.outcomes = collect(project, root, &provider).map_err(|error| error.to_string())?;
+        }
     }
+    Ok(())
 }
 
 /// The shots that arrived on disk on this pass, and so have something to

@@ -11,19 +11,29 @@ use scorsese_providers::speech::{ElevenLabsProvider, Outcome, generate};
 /// What one narration run produced.
 pub(super) type Spoken = Vec<(AssetId, Outcome)>;
 
-/// Speaks every line that needs it.
+/// Speaks every line that needs it, into `spoken`.
 ///
 /// The key is resolved **here**, and only when this pass has something to do —
 /// a project of nothing but Veo shots must never be asked for an ElevenLabs
-/// key.
+/// key. **A run that stops part-way still fills `spoken`** with the lines it
+/// spoke before stopping, and the error is the whole story in words (#1153).
 pub(super) fn pass(
     project: &mut Project,
     dir: &std::path::Path,
     budget: Budget,
-) -> Result<Spoken, String> {
-    let key = resolve(Provider::ElevenLabs).map_err(|error| format!("{error}"))?;
+    spoken: &mut Spoken,
+) -> Result<(), String> {
+    let key = resolve(Provider::ElevenLabs).map_err(|error| super::stopped_at(&error))?;
     let provider = ElevenLabsProvider::new(&key.secret);
-    generate(project, dir, &provider, budget).map_err(|error| format!("{error}"))
+    match generate(project, dir, &provider, budget) {
+        Ok(run) => *spoken = run,
+        Err(stopped) => {
+            let says = stopped.says();
+            *spoken = stopped.run;
+            return Err(says);
+        }
+    }
+    Ok(())
 }
 
 /// What the narration in a run reads as.
