@@ -1,4 +1,4 @@
-# `project.json` — schema v52
+# `project.json` — schema v53
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -37,6 +37,7 @@ carries forward) up to this one.
 | v49 → v50 | a shot's optional `seed` (#1191) | nothing: one optional field was added to `video`, absent in every v49 document and absent asking Veo for what v49 asked — no seed. A shot's brief fingerprint gains a line only when a seed is set, so no shot already generated turns `stale` or is quoted again |
 | v50 → v51 | Nano Banana 2.1 is the only image model (#1308): `image.model` leaves the format, and with it `0.5K` (Flash's alone) and `style_images` (Pro's alone) | one rewrite of every still's `image` block: `model` is dropped, whatever it named; `"resolution": "0.5K"` becomes `"1K"`; `style_images` is dropped; objects past the tenth move to `character_images` while it has room for four and the rest are dropped, and characters past the fourth are dropped (Lite took fourteen objects, Pro five characters). A still already drawn keeps its `state` and its file, and nothing is redrawn or billed again: a 2.1 still's brief fingerprint does not move, and one drawn with `flash`, `lite` or `pro` — whose fingerprint does, its model line now reading 2.1 — is recognised by the fingerprint that model gave it (`scorsese_providers::image`'s retired briefs) for as long as its brief is unchanged. The one exception is a `pro` still that named a style or a fifth character: it lost a picture, so its brief is not the one it was drawn from, and the next `generate` quotes it and draws it again with 2.1 |
 | v51 → v52 | the project carries its frame's shape, `aspect` (#1278) | every document gains an `aspect`: the shape of the first clip, in time, on the lowest video track whose picture has a known shape (a probed size, or the `aspect` a generated shot or still asked for), else `"16:9"`. The web server, which remembers the platform a project was started for, frames such a project in its platform's shape instead |
+| v52 → v53 | an imported file's stock `source` (#1237) | nothing: one optional block was added to `video` and `image` assets, absent in every v52 document and absent meaning a file the user brought. A `pixabay-<id>` file name is not read back into a `source`: the author and page were never stored, and half a record would read as the whole of one |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -45,7 +46,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 52,
+  "schema_version": 53,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "aspect": "16:9",
@@ -220,10 +221,25 @@ re-importing or regenerating a file is one edit in one place.
 | `queued_at` | optional, generated kinds | When a provider took the request. Not the same fact as `created_at` |
 | `operation` | optional, `generated_video`, `generated_image` | The provider's name for work in flight, while `queued`: a shot's Veo operation, or the batch a still waits in |
 | `estimated_cost_cents` | optional, prompted kinds | What realising it was *calculated* to cost, in US cents — our arithmetic, never a bill. See [prices.md](prices.md) (`guide prices`) |
+| `source` | optional, `video` and `image` only | Where a stock import came from: `library` (`pixabay`), its `id` there, and where known its `author`, `page_url` (an `http(s)` address) and `licence` — see below |
 
 ```json asset
 { "id": "shot-city", "kind": "generated_video", "state": "sketch",
   "prompt": "wide aerial of a city at dawn, slow push in" }
+```
+
+`source` is written by a stock import (`stock_import`, `scorsese stock
+import`, the web assistant's picker) from the result it chose, and only
+there: it is bookkeeping, never hashed and never rendered, so it changes
+nothing about a frame. An asset without one is a file somebody brought — or a
+stock file imported before v53. `scorsese assets` and `project_assets` print
+it, and the web library shows it on the file's details.
+
+```json asset
+{ "id": "pixabay-39009", "kind": "video", "path": "assets/pixabay-39009.mp4",
+  "source": { "library": "pixabay", "id": "39009", "author": "someone",
+              "page_url": "https://pixabay.com/videos/id-39009/",
+              "licence": "Pixabay Content License" } }
 ```
 
 `media` is what something measured, never what anyone chose — so an asset you
@@ -2799,7 +2815,7 @@ compositing-suite line.
 
 ```json project
 {
-  "schema_version": 52,
+  "schema_version": 53,
   "name": "wipe",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

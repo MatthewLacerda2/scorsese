@@ -8,6 +8,7 @@ pub(crate) mod image;
 pub(crate) mod kind;
 mod references;
 pub(crate) mod sequence;
+mod source;
 pub(crate) mod speech;
 pub(crate) mod video;
 
@@ -31,6 +32,7 @@ pub use image::{
 pub(crate) use kind::is_page_path;
 pub use kind::{AssetKind, GenerationState};
 pub use sequence::{ImageSequence, SEQUENCE_FORMATS};
+pub use source::{Source, SourceProblem, StockLibrary};
 pub use speech::{LanguageIgnored, MAX_CHARACTERS, SpeechModel, SpeechRequest};
 pub use video::{
     Aspect, CHARACTERS_PER_PROMPT_TOKEN, ClipSeconds, LengthLock, MAX_PROMPT_CHARACTERS,
@@ -242,6 +244,14 @@ pub struct Asset {
     /// includes every synthesised asset — those are free by construction.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub estimated_cost_cents: Option<u64>,
+    /// Where an imported `video` or `image` came from, when a stock library
+    /// supplied it: the library, its id, author, page and licence (#1237).
+    ///
+    /// Bookkeeping like `created_at`, never hashed or rendered, and refused on
+    /// every other kind. Absent on a file the user brought — and on one
+    /// imported before the block existed. See [`Source`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<Source>,
 }
 
 impl Asset {
@@ -298,6 +308,7 @@ impl Asset {
             queued_at: None,
             operation: None,
             estimated_cost_cents: None,
+            source: None,
         }
     }
 

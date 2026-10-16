@@ -125,6 +125,12 @@ pub enum AssetField {
     /// arithmetic and an imported one is a file that was already there, so a
     /// price on either is a number that came from nowhere.
     Cost,
+    /// Where an imported file came from, when a stock library supplied it.
+    ///
+    /// Only `video` and `image` are imported from a library. A library's name
+    /// on a title or a generated shot would claim an origin the asset never
+    /// had.
+    Source,
 }
 
 impl AssetField {
@@ -148,6 +154,7 @@ impl AssetField {
             Self::Operation => "operation",
             Self::QueuedAt => "queued_at",
             Self::Cost => "estimated_cost_cents",
+            Self::Source => "source",
         }
     }
 }

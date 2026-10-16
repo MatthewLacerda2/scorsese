@@ -27,6 +27,7 @@ mod sequence;
 mod shape;
 mod source;
 mod speech;
+mod stock;
 mod synth;
 mod text;
 mod timing;

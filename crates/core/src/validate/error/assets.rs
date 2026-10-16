@@ -1,7 +1,7 @@
 //! What the assets-table checks can find: identity, paths, and the fields a
 //! kind requires.
 
-use crate::asset::{AssetId, AssetKind};
+use crate::asset::{AssetId, AssetKind, SourceProblem};
 use crate::path::{PathProblem, ProjectPath};
 use crate::validate::error::{
     FillProblem, IconProblem, ImageProblem, SequenceProblem, ShapeProblem, SpeechProblem,
@@ -218,5 +218,15 @@ pub enum AssetProblem {
         asset: AssetId,
         /// The thickness as written.
         width: f64,
+    },
+
+    /// A stock origin that names nothing, or names a page that is not on the
+    /// web — a record a person following it could not use.
+    #[error("asset `{asset}`: its `source` {problem}")]
+    BadSource {
+        /// The asset carrying it.
+        asset: AssetId,
+        /// What is wrong with it.
+        problem: SourceProblem,
     },
 }
