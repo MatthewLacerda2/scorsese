@@ -2924,6 +2924,16 @@ is what `scorsese probe` is for: a ceiling that applied to half the pool would
 be worse than none, because the half it skipped would be invisible to whoever
 was trimming.
 
+**Placing a clip without saying how long** (`place_clip`, or a drop in the
+desktop app or the web editor) follows one rule, core's
+`placing::unsaid_duration`. Measured media runs the rest of its source, an
+`image_sequence` one pass through its stills and a `group` to its last member.
+A kind with no length by nature — `image`, `generated_image`, `text`, `color`,
+`shape`, `icon`, `html` — runs five seconds. A length nobody has measured yet —
+an unprobed `video` or `audio`, a `generated_video`, `generated_audio` or
+`synth_audio` not made yet — is refused rather than guessed. Nothing of this is
+stored: the clip's `duration` is written out like any other.
+
 Clips on one track may *touch* but never overlap, and with integer frames that
 is a fact rather than a tolerance. A clip ending at frame 240 and one starting
 at 240 do not overlap: frame 240 belongs to the second, and nothing has to

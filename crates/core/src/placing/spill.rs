@@ -1,7 +1,7 @@
 //! Writing a sound onto the first lane of a set that has room for it.
 
-use super::place::{remaining, track_ids};
-use super::{PlaceError, Placement, place};
+use super::place::track_ids;
+use super::{PlaceError, Placement, place, unsaid_duration};
 use crate::project::Project;
 use crate::timeline::{Clip, ClipId, Track, TrackId, TrackKind};
 
@@ -48,7 +48,7 @@ pub fn place_spilling(
         })?;
     let duration = match placement.duration {
         Some(duration) => duration,
-        None => remaining(asset, project.timeline_fps, placement.source_in)?,
+        None => unsaid_duration(asset, project.timeline_fps, placement.source_in)?,
     };
     // Only where it lands is decided here; `place` still says whether it may.
     let window = Clip::new(

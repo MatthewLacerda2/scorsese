@@ -95,18 +95,25 @@ fn a_clip_landing_on_one_already_there_writes_nothing() {
     std::fs::remove_dir_all(dir).ok();
 }
 
-/// A title has no length of its own, so there is no rest of the source to
-/// take — and guessing one is how a card sits on screen for a length nobody
-/// chose.
+/// A title has no length of its own, so leaving the duration out is five
+/// seconds of it, the way a drop in the app gives it — while a line nobody has
+/// generated has a length nobody knows yet, and guessing one is refused.
 #[test]
-fn an_omitted_duration_on_an_unmeasured_asset_is_refused_by_name() {
+fn an_omitted_duration_holds_a_title_and_refuses_an_unmade_line() {
     let dir = project("place-unmeasured");
     let (text, failed) = said(&call(
         "place_clip",
         json!({ "project": dir, "asset": "title", "track": "v1", "start_seconds": 25.0 }),
     ));
-    assert!(failed, "a text asset has no measured length");
-    assert!(text.contains("no measured length"), "got {text}");
+    assert!(!failed, "{text}");
+    assert_eq!(shape(&read(&dir), "v1", 1), (750, 150));
+
+    let (text, failed) = said(&call(
+        "place_clip",
+        json!({ "project": dir, "asset": "vo", "track": "vo", "start_seconds": 100.0 }),
+    ));
+    assert!(failed, "a sketch has no measured length");
+    assert!(text.contains("nobody has measured"), "got {text}");
     std::fs::remove_dir_all(dir).ok();
 }
 

@@ -1,7 +1,7 @@
 //! The drop's arithmetic and the lane it picks, without a window.
 
 use super::*;
-use scorsese_core::{Asset, AssetKind, Clip, ProjectPath, Track, TrackKind};
+use scorsese_core::{Asset, AssetKind, Clip, Fps, ProjectPath, Track, TrackKind};
 
 /// A 4-second shot already on `v1` at 0..120, a title with no length, a
 /// sound, and an empty audio track.
@@ -40,7 +40,7 @@ fn landing(track: &str, start: u64, duration: u64) -> Landing {
     Landing {
         onto: Onto::Track(TrackId::new(track)),
         start: Frames(start),
-        duration: Frames(duration),
+        duration: Some(Frames(duration)),
     }
 }
 
@@ -52,12 +52,25 @@ fn anew(start: u64, duration: u64) -> Landing {
 }
 
 /// A measured shot is placed whole; a title, which has no length of its
-/// own, gets five seconds rather than a refusal.
+/// own, gets core's five seconds; a sound nobody probed gets no guess.
 #[test]
-fn a_placed_clip_runs_the_whole_asset_or_five_seconds() {
+fn a_placed_clip_runs_what_core_says() {
     let project = project();
-    assert_eq!(duration_of(&project, &AssetId::new("shot")), Frames(120));
-    assert_eq!(duration_of(&project, &AssetId::new("title")), Frames(150));
+    let of = |id| duration_of(&project, &AssetId::new(id));
+    assert_eq!(of("shot"), Some(Frames(120)));
+    assert_eq!(of("title"), Some(Frames(150)));
+    assert_eq!(of("music"), None);
+}
+
+/// The drop carries core's refusal, not five invented seconds of footage.
+#[test]
+fn a_drop_of_unmeasured_sound_says_why() {
+    let landing = Landing {
+        duration: None,
+        ..landing("a1", 0, 0)
+    };
+    let why = place(&project(), &AssetId::new("music"), &landing).expect_err("unmeasured");
+    assert!(why.contains("nobody has measured"), "got {why}");
 }
 
 /// Dropped past the end of what is there, the clip lands, gets an id of

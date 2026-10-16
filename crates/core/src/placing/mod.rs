@@ -24,6 +24,10 @@
 //!   track a picture sits on decides what is drawn over what.
 //! - [`remove`] takes placed clips off the timeline, and leaves their assets
 //!   and the gap they leave where they are.
+//! - [`unsaid_duration`] is how long a clip runs when a placement leaves its
+//!   duration out — the one rule a drop and `place_clip` share: the rest of
+//!   the source, [`HOLD_SECONDS`] for an asset with no length by nature, and a
+//!   refusal for one whose length nobody has measured.
 //! - [`fit_to_sources`] shortens the clips of a just-realised asset that now
 //!   outlast it — the one operation here that is a repair rather than an edit,
 //!   and so the one that does not validate: it runs on a document a fresh
@@ -42,6 +46,7 @@
 //! it.
 
 mod fit;
+mod length;
 mod new_track;
 mod place;
 mod relocate;
@@ -50,6 +55,7 @@ mod spill;
 mod trim;
 
 pub use fit::{Shortened, fit_to_sources};
+pub use length::{HOLD_SECONDS, unsaid_duration};
 pub use new_track::place_on_new_track;
 pub use place::{PlaceError, Placement, place};
 pub use relocate::{RelocateError, Relocation, relocate};

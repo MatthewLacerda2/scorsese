@@ -487,16 +487,7 @@ impl Asset {
     /// shot. So does an **image sequence**: a shorter clip of a timelapse shows
     /// less of the day, and a faster one shows all of it sooner.
     pub fn has_intrinsic_duration(&self) -> bool {
-        match self.kind {
-            AssetKind::Image
-            | AssetKind::GeneratedImage
-            | AssetKind::Html
-            | AssetKind::Text
-            | AssetKind::Color
-            | AssetKind::Shape
-            | AssetKind::Icon => false,
-            _ => self.state.is_none_or(GenerationState::has_media),
-        }
+        !self.kind.is_timeless() && self.state.is_none_or(GenerationState::has_media)
     }
 
     /// True when this asset has something to render right now.

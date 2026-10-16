@@ -7,7 +7,11 @@
 //! same call `place_clip` makes for an assistant: a new clip on an existing
 //! track, validated whole, all or nothing. The window decides only *where* —
 //! the lane under the pointer and the frame under it, pulled onto a nearby cut
-//! the way a dragged clip is — and *how long* when the asset cannot say.
+//! the way a dragged clip is. *How long* is core's to say
+//! (`placing::unsaid_duration`, the rule `place_clip` follows too): the whole
+//! of a measured asset, five seconds of a still or a title, and a refusal for
+//! footage nobody has measured — the window probes the pool when a project
+//! opens, never in the middle of a drag, so until then the ghost says why.
 //!
 //! **A drop never needs a track made first** (#771). Where no lane there can
 //! take the asset — the timeline is empty, the pointer is below the last lane,
@@ -23,8 +27,8 @@
 
 use egui::{Pos2, Rect, Response, Stroke, StrokeKind, Ui};
 use scorsese_core::{
-    AssetId, AssetKind, ClipId, Fps, Frames, PlaceError, Placement, Project, Track, TrackId,
-    TrackKind, placing,
+    AssetId, AssetKind, ClipId, Frames, PlaceError, Placement, Project, Track, TrackId, TrackKind,
+    placing,
 };
 
 use super::drag::{SNAP, commit::first_problem, snap::Targets};
@@ -32,11 +36,6 @@ use super::{Timeline, lanes, ruler};
 use crate::editing::Editing;
 use crate::project::Open;
 use crate::theme::{ROUND_SM, palette};
-
-/// How long a clip runs when its asset has no length to give it: a still, a
-/// title, a colour, a shot nobody has generated yet. Five seconds, which is
-/// what an editor gives a still — long enough to read, short enough to trim.
-const UNMEASURED_SECONDS: f64 = 5.0;
 
 /// Which lane a drop goes on.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -52,7 +51,9 @@ enum Onto {
 struct Landing {
     onto: Onto,
     start: Frames,
-    duration: Frames,
+    /// How long the clip runs, or `None` where core refuses to say — the
+    /// placement then carries none, and core's refusal is what the ghost shows.
+    duration: Option<Frames>,
 }
 
 /// What the timeline draws while an asset hovers over a lane.
@@ -132,7 +133,7 @@ impl Timeline {
             project,
             playhead,
             pointed,
-            duration,
+            duration.unwrap_or(Frames::ZERO),
             self.view.frames_in(SNAP),
         );
         Some(Landing {
@@ -166,7 +167,12 @@ impl Timeline {
         let lane = lanes::lane_rect(area, top, offset);
         Rect::from_min_size(
             egui::pos2(area.left() + self.view.offset_of(landing.start), lane.top()),
-            egui::vec2(self.view.width_of(landing.duration).max(2.0), lane.height()),
+            egui::vec2(
+                self.view
+                    .width_of(landing.duration.unwrap_or(Frames::ZERO))
+                    .max(2.0),
+                lane.height(),
+            ),
         )
     }
 }
@@ -202,15 +208,11 @@ pub(super) fn ghost(painter: &egui::Painter, ghost: &Ghost) {
     );
 }
 
-/// How long a clip of `asset` runs when placed: the whole of it, when it has a
-/// measured length, and [`UNMEASURED_SECONDS`] when it has none.
-fn duration_of(project: &Project, asset: &AssetId) -> Frames {
-    let fps: Fps = project.timeline_fps;
-    project
-        .asset(asset)
-        .and_then(|found| found.length(fps))
-        .filter(|length| *length > Frames::ZERO)
-        .unwrap_or_else(|| fps.frames(UNMEASURED_SECONDS))
+/// How long a clip of `asset` runs when placed — core's answer for a
+/// placement that says nothing, so a drop and `place_clip` cannot disagree.
+fn duration_of(project: &Project, asset: &AssetId) -> Option<Frames> {
+    let found = project.asset(asset)?;
+    placing::unsaid_duration(found, project.timeline_fps, Frames::ZERO).ok()
 }
 
 /// Where a clip pointed at `pointed` starts once pulled onto a nearby cut.
@@ -241,7 +243,7 @@ fn place(
     landing: &Landing,
 ) -> Result<(Project, ClipId, TrackId), String> {
     let mut placed = project.clone();
-    let duration = Some(landing.duration);
+    let duration = landing.duration;
     let outcome = match &landing.onto {
         Onto::Track(track) => {
             let placement = Placement {

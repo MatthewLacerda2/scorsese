@@ -66,7 +66,7 @@ export async function dropOnto(
   const fps = document.timeline_fps;
   const length = dropLength(asset, fps);
   const start = dropStart(pointed, length, targets(document, playhead), reach);
-  const args = placeArguments(asset, dragged.asset, onto.id, start, fps);
+  const args = placeArguments(dragged.asset, onto.id, start, fps);
   const placed = await run({ tool: "place_clip", args, edit: true });
   const had = clipIds(current);
   return [...clipIds(placed?.project)].find((clip) => !had.has(clip)) ?? null;
