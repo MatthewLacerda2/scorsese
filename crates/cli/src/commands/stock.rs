@@ -7,11 +7,12 @@
 //! assets, or a Lottie as a file under `pages/` for a page to play. Nothing
 //! here spends money.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use anyhow::{Context, Result, bail};
 use scorsese_providers::stock::{
-    self, Choice, Library, Medium, Orientation, Query, cache_dir, footage, licence, previews,
+    self, Choice, Library, Medium, Orientation, Query, cache_dir, footage, labelled_previews,
+    licence,
 };
 use scorsese_render::contact::{self, Look};
 use scorsese_render::{Ffprobe, Tools, frames};
@@ -206,11 +207,7 @@ fn searched(
     if found.candidates.is_empty() {
         return Ok(());
     }
-    let pictures: Vec<(PathBuf, String)> = previews(cache, library, &found.candidates)
-        .into_iter()
-        .zip(found.candidates.iter().enumerate())
-        .filter_map(|(path, (index, one))| Some((path?, one.label(index))))
-        .collect();
+    let pictures = labelled_previews(cache, library, &found.candidates);
     let tools = Tools::discover()?;
     let vertical = query.orientation == Some(Orientation::Vertical);
     let sheet = contact::pictures(&tools, &pictures, vertical)?;
@@ -233,11 +230,7 @@ fn looked(cache: &Path, library: &dyn Library, medium: Medium, id: u64, out: &Pa
     let (candidate, file) = footage(cache, library, medium, id)?;
     let tools = Tools::discover()?;
     let seconds = f64::from(candidate.seconds.unwrap_or_default());
-    let range = Look {
-        to_seconds: (seconds > 0.0).then_some(seconds),
-        ..Look::default()
-    };
-    let sheet = contact::sheet(&tools, &file, &range)?;
+    let sheet = contact::sheet(&tools, &file, &Look::across(seconds))?;
     frames::write_png(&tools, out, &sheet.image)
         .with_context(|| format!("writing {}", out.display()))?;
     println!("{}\nFrames: {}", candidate.says(), out.display());

@@ -35,8 +35,12 @@ pub(crate) struct Options {
     /// The words' colour, `#rrggbb` or `#rrggbbaa`. White when not given.
     #[arg(long)]
     color: Option<Rgba>,
-    /// Leave out the black rim outside each letter.
-    #[arg(long)]
+    /// The rim outside each letter, `#rrggbb` or `#rrggbbaa`, or `none`.
+    /// Black when not given.
+    #[arg(long, value_name = "COLOUR|none")]
+    stroke: Option<look::Stroke>,
+    /// Leave out the rim outside each letter: `--stroke none`.
+    #[arg(long, conflicts_with = "stroke")]
     no_stroke: bool,
     /// How far up from the frame's bottom edge, as a fraction of its height.
     /// 0.2, the lower third, when not given.
@@ -50,26 +54,22 @@ pub(crate) struct Options {
 /// after a line is regenerated or moved re-times them.
 pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
     let mut project = super::open(project_dir)?;
-    let mut asked = look::captioning(
+    let asked = look::Choices {
+        narration: options.narration.iter().map(TrackId::new).collect(),
+        max_chars: Some(options.max_chars),
+        font: options.font.clone().map(FontChoice::from),
+        weight: options.weight,
+        size: options.size,
+        color: options.color,
+        stroke: options
+            .stroke
+            .or(options.no_stroke.then_some(look::Stroke(None))),
+        lift: options.lift,
+    }
+    .captioning(
         TrackId::new(options.track.as_str()),
         project.timeline_fps.as_f64(),
     );
-    asked.narration = options.narration.iter().map(TrackId::new).collect();
-    asked.chunking.max_chars = options.max_chars;
-    asked.lift = options.lift.unwrap_or(asked.lift);
-    let style = &mut asked.style;
-    if let Some(font) = &options.font {
-        style.font = FontChoice::from(font.clone());
-        if style.font.file().is_some() {
-            style.weight = None;
-        }
-    }
-    style.weight = options.weight.or(style.weight);
-    style.size = options.size.unwrap_or(style.size);
-    style.color = options.color.unwrap_or(style.color);
-    if options.no_stroke {
-        style.stroke = None;
-    }
 
     let report = caption(&mut project, project_dir, &asked)?;
     super::save(&project, project_dir)?;

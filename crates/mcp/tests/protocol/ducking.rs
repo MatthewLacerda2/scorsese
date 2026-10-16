@@ -89,7 +89,8 @@ fn a_named_clip_and_a_min_gap_are_accepted() {
     assert_eq!(points, vec![(51, 1.0), (60, 0.25), (150, 0.25), (168, 1.0)]);
 }
 
-/// A typo'd clip and a backwards range are refused, and nothing is written.
+/// A typo'd clip, a backwards range and a negative one are refused, and
+/// nothing is written.
 #[test]
 fn what_cannot_be_ducked_under_is_refused() {
     let (text, failed, points) = duck("duck-typo", json!({ "clips": ["v9"] }));
@@ -97,5 +98,13 @@ fn what_cannot_be_ducked_under_is_refused() {
     assert!(points.is_empty());
 
     let (text, failed, _) = duck("duck-backwards", json!({ "ranges": [[5.0, 2.0]] }));
-    assert!(failed && text.contains("forward"), "got {text}");
+    assert!(
+        failed && text.contains("ends before it starts"),
+        "got {text}"
+    );
+
+    // Refused as `scorsese duck --range` refuses it (#1288), not clamped.
+    let (text, failed, points) = duck("duck-negative", json!({ "ranges": [[-3.0, 2.0]] }));
+    assert!(failed && text.contains("-3 in the range"), "got {text}");
+    assert!(points.is_empty());
 }

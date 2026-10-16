@@ -59,3 +59,21 @@ fn pictures_of_mixed_shapes_tile_letterboxed_in_order() {
         "the tall picture is letterboxed in black"
     );
 }
+
+/// More pictures than a sheet holds are cut to the first
+/// [`contact::MAX_FRAMES`], not refused (#1288): the cap is the sheet's own,
+/// so neither surface has to remember it.
+#[test]
+fn pictures_past_the_cap_are_left_out() {
+    let dir = scratch::dir("contact-pictures-capped");
+    let tools = tools();
+    let many: Vec<_> = (0..=contact::MAX_FRAMES)
+        .map(|index| {
+            let name = format!("p{index}");
+            (picture(&tools, &dir, &name, "green", "160x90"), name)
+        })
+        .collect();
+    let sheet = contact::pictures(&tools, &many, false).expect("a sheet of the first five");
+    assert_eq!(sheet.resolution().width(), 480 * 3, "a row of three");
+    assert_eq!(sheet.resolution().height(), 2 * (270 + 34), "and two rows");
+}

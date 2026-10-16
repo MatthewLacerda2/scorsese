@@ -7,8 +7,10 @@
 //! black so it reads over any shot, small enough to leave the picture alone
 //! on a phone.
 
+use std::str::FromStr;
+
 use scorsese_core::captions::{Captioning, Chunking};
-use scorsese_core::{FontChoice, PropertyPath, Rgba, TextStyle, TrackId};
+use scorsese_core::{ColorError, FontChoice, PropertyPath, Rgba, TextStyle, TrackId};
 
 use crate::path;
 
@@ -47,5 +49,75 @@ pub fn captioning(track: TrackId, fps: f64) -> Captioning {
         arrive: ((ARRIVE * fps).round() as u64).max(1),
         reveal: PropertyPath::new(path::REVEAL),
         height: PropertyPath::new(path::POSITION_Y),
+    }
+}
+
+/// The rim outside each letter as asked for: a colour, or `none` for no rim.
+///
+/// One spelling for both surfaces — `--stroke` on the command line and
+/// `stroke` on `caption_narration` read it through the same parser (#1288).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Stroke(pub Option<Rgba>);
+
+impl FromStr for Stroke {
+    type Err = ColorError;
+
+    /// `none`, or anything [`Rgba`] reads.
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        if text.trim().eq_ignore_ascii_case("none") {
+            return Ok(Self(None));
+        }
+        text.trim().parse().map(|colour| Self(Some(colour)))
+    }
+}
+
+/// What a caller was asked about a caption run, already parsed. Anything left
+/// `None` keeps the default [`captioning`] starts from.
+#[derive(Debug, Clone, Default)]
+pub struct Choices {
+    /// The audio tracks whose lines are captioned; empty is every one.
+    pub narration: Vec<TrackId>,
+    /// The most characters one caption holds.
+    pub max_chars: Option<usize>,
+    /// The face. A file is whatever weight it is, so naming one drops the
+    /// default weight.
+    pub font: Option<FontChoice>,
+    /// How heavy, 1 to 1000.
+    pub weight: Option<u16>,
+    /// How big, as a fraction of the frame's height.
+    pub size: Option<f64>,
+    /// The words' colour.
+    pub color: Option<Rgba>,
+    /// The rim outside each letter.
+    pub stroke: Option<Stroke>,
+    /// How far up from the frame's bottom edge, as a fraction of its height.
+    pub lift: Option<f64>,
+}
+
+impl Choices {
+    /// The whole run onto `track` on a timeline of `fps`: [`captioning`]'s
+    /// defaults with these choices laid over them — the one function the
+    /// command line and the MCP server both build a caption run with.
+    pub fn captioning(self, track: TrackId, fps: f64) -> Captioning {
+        let mut asked = captioning(track, fps);
+        asked.narration = self.narration;
+        asked.chunking.max_chars = self.max_chars.unwrap_or(asked.chunking.max_chars);
+        asked.lift = self.lift.unwrap_or(asked.lift);
+        let style = &mut asked.style;
+        if let Some(font) = self.font {
+            // A file is whatever weight it is, and says so itself; naming one
+            // beside a static file is refused.
+            if font.file().is_some() {
+                style.weight = None;
+            }
+            style.font = font;
+        }
+        style.weight = self.weight.or(style.weight);
+        style.size = self.size.unwrap_or(style.size);
+        style.color = self.color.unwrap_or(style.color);
+        if let Some(Stroke(stroke)) = self.stroke {
+            style.stroke = stroke;
+        }
+        asked
     }
 }

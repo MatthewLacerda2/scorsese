@@ -2,6 +2,7 @@
 
 mod bands;
 mod block;
+mod captioning;
 mod cards;
 mod catalogue;
 mod coverage;

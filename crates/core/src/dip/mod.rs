@@ -30,12 +30,14 @@
 
 mod apply;
 mod plan;
+mod range;
 mod spans;
 
 use crate::time::Frames;
 
 pub use apply::{DuckError, Ducked, Under, duck_track};
 pub(crate) use plan::plan;
+pub use range::DuckRangeError;
 pub(crate) use spans::{Span, covering, merge};
 
 /// Who signs the keyframe tracks this module produces.

@@ -3,8 +3,8 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use scorsese_core::Project;
 use scorsese_core::style::Start;
+use scorsese_core::{PROJECT_DIRS, PROJECT_FILE_NAME, Project};
 
 use crate::cli::NewArgs;
 
@@ -31,6 +31,9 @@ use crate::cli::NewArgs;
 /// with a real brief in its script ([`Start::brief`]) — written words, not an
 /// empty file — so the claim it makes is true. Both are checked before anything
 /// is made, so a typo in either leaves no directory behind.
+///
+/// **A directory with anything in it is refused**, by [`Project::create`]
+/// itself, so this and `project_new` refuse the same folders.
 pub(crate) fn run(args: NewArgs) -> Result<()> {
     let NewArgs {
         directory,
@@ -52,7 +55,7 @@ pub(crate) fn run(args: NewArgs) -> Result<()> {
         project.name,
         directory.display()
     );
-    println!("  project.json, assets/, generated/, recipes/, pages/, cache/");
+    println!("  {PROJECT_FILE_NAME}, {}/", PROJECT_DIRS.join("/, "));
     if let Some(script) = script {
         println!("  {script}: the brief. Next, propose the script, scene by scene.");
     }

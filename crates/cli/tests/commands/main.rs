@@ -1,5 +1,6 @@
-//! `new`, `import`, `probe`, `migrate`, `page` and `assets` — the commands that change what is on
-//! disk, driven end to end against real project directories.
+//! `new`, `import`, `probe`, `migrate`, `page`, `caption` and `assets` — the
+//! commands that change what is on disk, driven end to end against real
+//! project directories.
 //!
 //! What each asserts is the effect: the directory that exists afterwards, the
 //! bytes that were copied, the table the reloaded document holds. `assets` is
@@ -11,6 +12,7 @@
 mod common;
 
 mod assets;
+mod caption;
 mod import;
 mod migrate;
 mod new;

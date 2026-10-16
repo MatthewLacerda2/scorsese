@@ -57,7 +57,7 @@ mod search;
 
 pub use cache::{FRESH_FOR, cache_dir, find_cached};
 pub use candidate::{Candidate, Medium, Orientation, Rendition, named_in};
-pub use fetch::{Choice, Fetched, footage, import, previews};
+pub use fetch::{Choice, Fetched, footage, import, labelled_previews, previews};
 pub use library::{Library, Page, Query, StockError};
 pub use lottie::{Kept, LottieLibrary, keep};
 pub use pixabay::PixabayLibrary;

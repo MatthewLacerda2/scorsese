@@ -131,6 +131,17 @@ pub enum StockError {
         id: u64,
     },
 
+    /// A still asked to be looked through: a photo has no frames to take,
+    /// and its preview is already the whole of it.
+    #[error(
+        "image {id} is a still, so there is nothing to look through: its preview in the \
+         search is the whole of it. Looking is for a video or a lottie."
+    )]
+    Still {
+        /// The image's id.
+        id: u64,
+    },
+
     /// The result has no file to download.
     #[error("{library}'s {} {id} lists no file to download", medium.word())]
     NoFile {

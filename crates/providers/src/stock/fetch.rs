@@ -76,15 +76,34 @@ pub fn previews(
         .collect()
 }
 
+/// Each candidate's preview with what a contact sheet writes under it — its
+/// number in the reply and its id ([`Candidate::label`]) — leaving out the
+/// ones [`previews`] could not fetch.
+pub fn labelled_previews(
+    cache: &Path,
+    library: &dyn Library,
+    candidates: &[Candidate],
+) -> Vec<(PathBuf, String)> {
+    previews(cache, library, candidates)
+        .into_iter()
+        .zip(candidates.iter().enumerate())
+        .filter_map(|(path, (index, one))| Some((path?, one.label(index))))
+        .collect()
+}
+
 /// Something of `medium` `id` that moves, under the cache, for a contact
 /// sheet to be taken of before anything is imported: a video's smallest
-/// rendition, or an animation's MP4 of itself playing. A picture has none.
+/// rendition, or an animation's MP4 of itself playing. A picture has none,
+/// and is refused before the library is asked ([`StockError::Still`]).
 pub fn footage(
     cache: &Path,
     library: &dyn Library,
     medium: Medium,
     id: u64,
 ) -> Result<(Candidate, PathBuf), StockError> {
+    if medium == Medium::Image {
+        return Err(StockError::Still { id });
+    }
     let candidate = find(cache, library, medium, id)?;
     let moving = match medium {
         Medium::Video => candidate.renditions.first().map(|one| one.url.clone()),

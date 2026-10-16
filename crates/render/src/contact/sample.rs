@@ -55,6 +55,17 @@ impl Default for Look {
 }
 
 impl Look {
+    /// Frames spread across the whole of something `seconds` long, first to
+    /// last: what looking through a stock video or animation before importing
+    /// it asks for. A length of zero or less is not known, and walks from the
+    /// start as [`Look::default`] does.
+    pub fn across(seconds: f64) -> Self {
+        Self {
+            to_seconds: (seconds > 0.0).then_some(seconds),
+            ..Self::default()
+        }
+    }
+
     /// The moments to decode, in order, none of them past the end of the file.
     ///
     /// The two behaviours are deliberately different, because the two questions

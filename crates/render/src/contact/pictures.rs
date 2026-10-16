@@ -14,15 +14,16 @@ use scorsese_compositor::text::Font;
 use scorsese_compositor::{Frame, Resolution};
 
 use super::ContactError;
-use super::sample::CELL_LONGEST_SIDE;
+use super::sample::{CELL_LONGEST_SIDE, MAX_FRAMES};
 use crate::tools::Tools;
 
 /// The cell's shorter side: a 16:9 cell on the longest one.
 const CELL_SHORTER_SIDE: u32 = CELL_LONGEST_SIDE * 9 / 16;
 
-/// Tiles each `(file, label)` into one sheet, at most
-/// [`MAX_FRAMES`](super::MAX_FRAMES) of them — cells taller than wide when
-/// `vertical`, so a vertical search is not shown as slivers.
+/// Tiles each `(file, label)` into one sheet — the first
+/// [`MAX_FRAMES`](super::MAX_FRAMES) of them, the rest left out rather than
+/// refusing the whole sheet — with cells taller than wide when `vertical`, so
+/// a vertical search is not shown as slivers.
 pub fn pictures(
     tools: &Tools,
     pictures: &[(PathBuf, String)],
@@ -37,8 +38,8 @@ pub fn pictures(
         file: PathBuf::new(),
         source,
     })?;
-    let mut cells = Vec::with_capacity(pictures.len());
-    for (file, label) in pictures {
+    let mut cells = Vec::with_capacity(MAX_FRAMES);
+    for (file, label) in pictures.iter().take(MAX_FRAMES) {
         cells.push(Cell {
             frame: fitted(tools, file, cell)?,
             label: label.clone(),

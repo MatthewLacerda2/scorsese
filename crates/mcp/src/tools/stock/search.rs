@@ -2,10 +2,10 @@
 
 use schemars::JsonSchema;
 use scorsese_providers::stock::{
-    self, Candidate, Found, Library, Medium, Orientation, Query, cache_dir, footage, licence,
-    previews,
+    self, Candidate, Found, Library, Medium, Orientation, Query, cache_dir, footage,
+    labelled_previews, licence,
 };
-use scorsese_render::contact::{self, Look, MAX_FRAMES};
+use scorsese_render::contact::{self, Look};
 use scorsese_render::{Tools, frames};
 use serde::Deserialize;
 use serde_json::Value;
@@ -209,12 +209,7 @@ fn sheet(
     orientation: Option<Orientation>,
 ) -> Result<Vec<u8>, String> {
     let tools = Tools::discover().map_err(|error| format!("{error}"))?;
-    let pictures: Vec<(std::path::PathBuf, String)> = previews(cache, library, candidates)
-        .into_iter()
-        .zip(candidates.iter().enumerate())
-        .filter_map(|(path, (index, one))| Some((path?, one.label(index))))
-        .take(MAX_FRAMES)
-        .collect();
+    let pictures = labelled_previews(cache, library, candidates);
     if pictures.is_empty() {
         return Err(String::from("no preview would download"));
     }
@@ -239,20 +234,12 @@ fn looked(
     medium: Medium,
     id: u64,
 ) -> Result<Reply, String> {
-    if medium == Medium::Image {
-        return Err(String::from(
-            "look is for a video or a lottie (pass its kind); a photo is all in its preview",
-        ));
-    }
     let (candidate, file) =
         footage(cache, library, medium, id).map_err(|error| format!("{error}"))?;
     let tools = Tools::discover().map_err(|error| format!("{error}"))?;
     let seconds = f64::from(candidate.seconds.unwrap_or_default());
-    let range = Look {
-        to_seconds: (seconds > 0.0).then_some(seconds),
-        ..Look::default()
-    };
-    let sheet = contact::sheet(&tools, &file, &range).map_err(|error| format!("{error}"))?;
+    let sheet = contact::sheet(&tools, &file, &Look::across(seconds))
+        .map_err(|error| format!("{error}"))?;
     let moments: Vec<String> = sheet
         .at_seconds
         .iter()
