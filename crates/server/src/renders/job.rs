@@ -33,7 +33,7 @@
 //! result's `notes`, the reason a page was not captured among them: the
 //! assistant reads those, since nothing else would tell it. They are the lines
 //! `scorsese render` prints after its file, a synth bake played out of date
-//! among them ([`super::said`], #1289).
+//! among them (`renders::said`, #1289).
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
