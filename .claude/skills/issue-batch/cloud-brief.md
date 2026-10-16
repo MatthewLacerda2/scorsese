@@ -77,6 +77,12 @@ they are missing, run it yourself (`CLAUDE_PROJECT_DIR=$PWD
   CI's `deploy config` job answers for it.
 - **The app gate can be killed for memory** (exit 137): `CARGO_BUILD_JOBS=2`.
 - **No docker daemon is needed**; start `dockerd` only to run a container.
+- **The `infra` gate needs the network.** The hook installs a pinned,
+  checksummed terraform from `releases.hashicorp.com` (#1319), and the gate's
+  `terraform init` fetches the providers from `registry.terraform.io`; both
+  passed the proxy on 2026-10-16. If either is refused, name `infra` on the
+  *Gates* line (CI's `deploy config` job answers for it) and run the gates
+  after it in `make help`'s list one per call.
 - **GitHub's GraphQL and search APIs answer 403 here** (2026-10-06, #821's
   coder): `gh pr list`, `gh pr view --json` and `search/issues` fail, while
   REST (`gh api repos/{owner}/{repo}/…`) and the GitHub MCP tools work. A

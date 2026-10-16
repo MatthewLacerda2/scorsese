@@ -32,6 +32,13 @@ cd "${CLAUDE_PROJECT_DIR:-$(dirname "$0")/../..}" || exit 0
 NEXTEST=0.9.146
 DENY=0.20.2
 MUTANTS=27.1.0
+# Terraform for the `infra` gate (#1319). deploy/terraform asks only for >= 1.9
+# and CI's setup-terraform takes the latest release; this pins the one that was
+# latest when it was added, with its linux_amd64 zip's SHA-256 from HashiCorp's
+# own SHA256SUMS, so a tampered or truncated download is refused. Bump both
+# together.
+TERRAFORM=1.16.6
+TERRAFORM_SHA256=38034b38d03096399a7a1264a14561a8029b2b496fd1f169452656e53968f1b7
 
 SUDO=
 [ "$(id -u)" -eq 0 ] || SUDO=sudo
@@ -96,6 +103,22 @@ deny() {
 }
 mutants() {
     prebuilt cargo-mutants "$MUTANTS" "https://github.com/sourcefrog/cargo-mutants/releases/download/v$MUTANTS/cargo-mutants-x86_64-unknown-linux-gnu.tar.gz"
+}
+
+terraform_() {
+    # releases.hashicorp.com passes the container's proxy (2026-10-16), and so
+    # does registry.terraform.io, which the gate's `terraform init` fetches the
+    # providers from.
+    if "$BIN/terraform" version 2>/dev/null | grep -qF "v$TERRAFORM"; then echo "terraform $TERRAFORM"; return; fi
+    local tmp
+    tmp=$(mktemp -d)
+    curl -sSfL -o "$tmp/tf.zip" "https://releases.hashicorp.com/terraform/$TERRAFORM/terraform_${TERRAFORM}_linux_amd64.zip" \
+        && echo "$TERRAFORM_SHA256  $tmp/tf.zip" | sha256sum -c --quiet \
+        && unzip -q -o "$tmp/tf.zip" terraform -d "$tmp" \
+        && install -m 755 "$tmp/terraform" "$BIN/terraform" \
+        || { rm -rf "$tmp"; echo "install it: https://developer.hashicorp.com/terraform/install (terraform $TERRAFORM)"; return 1; }
+    rm -rf "$tmp"
+    echo "terraform $TERRAFORM"
 }
 
 postgres() {
@@ -166,6 +189,7 @@ step ffmpeg ffmpeg_
 step nextest nextest
 step deny deny
 step mutants mutants
+step terraform terraform_
 step postgres postgres
 step disk disk
 step bun bun_
