@@ -5,9 +5,9 @@
 //! fails when the two disagree, so both places the page names them are read
 //! here.
 
-use super::Product;
+use crate::credits::Product;
 
-const PAGE: &str = include_str!("../../../../docs/web.md");
+const PAGE: &str = include_str!("../../../../../docs/web.md");
 
 /// Every product, beside the *multipliers* table row that names it. A product
 /// added without a row fails to compile here.

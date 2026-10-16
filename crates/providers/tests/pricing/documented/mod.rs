@@ -20,7 +20,7 @@ const PAGE: &str = include_str!("../../../../../docs/prices.md");
 ///
 /// Matched literally: renaming a heading fails here rather than quietly
 /// finding nothing and passing.
-pub fn section(heading: &str) -> &'static str {
+fn section(heading: &str) -> &'static str {
     let start = PAGE
         .split_once(&format!("\n## {heading}\n"))
         .unwrap_or_else(|| panic!("docs/prices.md has no `## {heading}` section"))
@@ -30,7 +30,7 @@ pub fn section(heading: &str) -> &'static str {
 
 /// The rows of the table in `text` whose header line is `header`, each split
 /// into its trimmed cells, the header and the `---` line left out.
-pub fn table(text: &str, header: &str) -> Vec<Vec<String>> {
+fn table(text: &str, header: &str) -> Vec<Vec<String>> {
     let after = text
         .split_once(&format!("\n{header}\n"))
         .unwrap_or_else(|| panic!("docs/prices.md has no table headed `{header}`"))
@@ -48,7 +48,7 @@ pub fn table(text: &str, header: &str) -> Vec<Vec<String>> {
 
 /// The first `**YYYY-MM-DD**` in `text`: the day the section says its figures
 /// were read.
-pub fn checked_on(text: &str) -> String {
+fn checked_on(text: &str) -> String {
     text.split("**")
         .find(|piece| is_date(piece))
         .unwrap_or_else(|| panic!("no **YYYY-MM-DD** date in:\n{text}"))
@@ -65,7 +65,7 @@ fn is_date(piece: &str) -> bool {
 }
 
 /// `$4`, `$0.20`, `$0.0336` as whole micro-dollars, exactly.
-pub fn micros(cell: &str) -> u64 {
+fn micros(cell: &str) -> u64 {
     let figure = cell
         .strip_prefix('$')
         .unwrap_or_else(|| panic!("`{cell}` is not a dollar figure"));
@@ -81,13 +81,13 @@ pub fn micros(cell: &str) -> u64 {
 }
 
 /// A cell as code, with its backticks taken off.
-pub fn code(cell: &str) -> &str {
+fn code(cell: &str) -> &str {
     cell.trim_matches('`')
 }
 
 /// The page's prose, with every run of whitespace one space, so a sentence a
 /// line break falls in still matches.
-pub fn prose(text: &str) -> String {
+fn prose(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
