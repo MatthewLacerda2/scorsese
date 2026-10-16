@@ -57,7 +57,10 @@ pub(crate) const BUDGET_VAR: &str = "PANELS_WATCHDOG_BUDGET_SECONDS";
 ///
 /// Every test calls this, and the first call arms it. The thread dies with the
 /// process, so a suite that finishes never notices it was there.
-#[expect(clippy::disallowed_methods, reason = "the watchdog's time budget is a test setting, not a secret")]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the watchdog's time budget is a test setting, not a secret"
+)]
 pub(crate) fn arm() {
     static ARMED: Once = Once::new();
     ARMED.call_once(|| {
