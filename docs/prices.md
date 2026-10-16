@@ -7,6 +7,15 @@ trusting any total scorsese prints: **it is our arithmetic, not a bill.**
 `scorsese prices` prints the table below from the code, with the day each
 figure was last checked and how old that is.
 
+**Every table here is held to the code** (#1218). A test
+(`crates/providers/tests/pricing/documented/`) reads each one — *Shots*, both
+of them, *Stills*, *Narration*, *The assistant* — with the day each section
+says its figures were read, and compares every cell with `prices`, both ways:
+a wrong figure, a missing row or an extra one fails `make gates` and names the
+cell. So a repricing is one pull request that changes the code's table, this
+page and the date together. The web app's multipliers over these costs are
+held the same way to `docs/web.md`.
+
 ## Shots
 
 Veo 3.1, US dollars per second of finished video. Paid tier — there is no free

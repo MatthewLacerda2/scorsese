@@ -200,6 +200,8 @@ pub enum CreditError {
 mod tests {
     use super::*;
 
+    mod documented;
+
     /// Only a prompted kind is sold, each as the product its reservation is
     /// made as (`generations::start`).
     #[test]
