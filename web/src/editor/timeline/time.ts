@@ -7,6 +7,7 @@
 // is what makes a drag land on the frame it was drawn at.
 
 import type { Fps } from "@/api";
+import { formatClock } from "@/lib/format";
 
 /** Frames per second, as a number: 30000/1001 is 29.97… */
 export function rate(fps: Fps): number {
@@ -24,15 +25,11 @@ export function toFrames(seconds: number, fps: Fps): number {
   return Math.max(0, Math.round(seconds * rate(fps)));
 }
 
-/** A frame count as the preview's clock (#1006): `02:59` under an hour,
- * `1:02:59` from one — whole seconds, rounded down. No frames: a part after a
- * dot reads as hundredths, which frames are not. */
+/** A frame count as the preview's clock (#1006): `2:59` under an hour,
+ * `1:02:59` from one — a position, so whole seconds rounded down. No frames: a
+ * part after a dot reads as hundredths, which frames are not. */
 export function clock(frames: number, fps: Fps): string {
-  const whole = Math.floor(toSeconds(frames, fps));
-  const hours = Math.floor(whole / 3600);
-  const minutes = String(Math.floor(whole / 60) % 60).padStart(2, "0");
-  const seconds = String(whole % 60).padStart(2, "0");
-  return hours > 0 ? `${hours}:${minutes}:${seconds}` : `${minutes}:${seconds}`;
+  return formatClock(toSeconds(frames, fps), "floor");
 }
 
 /** How the timeline is drawn: how many pixels one second takes. */

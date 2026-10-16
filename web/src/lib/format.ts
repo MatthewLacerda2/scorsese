@@ -38,13 +38,35 @@ export function formatNumber(
   return new Intl.NumberFormat(locale, options).format(value);
 }
 
-/** `75.4` → `1:15`; an hour or more → `1:02:03`. */
-export function formatDuration(seconds: number): string {
-  const total = Math.round(seconds);
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const secs = String(total % 60).padStart(2, "0");
-  return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${secs}` : `${minutes}:${secs}`;
+/**
+ * How finely `formatClock` reads a time — the caller's call, because it
+ * depends on what the time is. `floor` for a position (a playhead, a ruler
+ * tick: at 59.9 s you are not at a minute yet), `round` for a length (a 59.6 s
+ * clip runs `1:00`), `tenths` where a reading is finer than a second.
+ */
+export type Precision = "floor" | "round" | "tenths";
+
+/**
+ * Seconds as a clock reads them: `0:59`, `1:01:40`, or `0:04.5` in tenths.
+ * Hours only when there are any, and the first field is never zero-padded.
+ * The total is rounded before it is split, so a length never reads `0:60`.
+ * The same rule as `scorsese_core::clock`, which the desktop app uses.
+ */
+export function formatClock(seconds: number, precision: Precision): string {
+  const clamped = Number.isNaN(seconds) ? 0 : Math.max(0, seconds);
+  const tenths = precision === "tenths" ? Math.round(clamped * 10) : null;
+  const whole =
+    tenths !== null
+      ? Math.floor(tenths / 10)
+      : precision === "floor"
+        ? Math.floor(clamped)
+        : Math.round(clamped);
+  const hours = Math.floor(whole / 3600);
+  const minutes = Math.floor(whole / 60) % 60;
+  const secs = String(whole % 60).padStart(2, "0");
+  const text =
+    hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${secs}` : `${minutes}:${secs}`;
+  return tenths !== null ? `${text}.${tenths % 10}` : text;
 }
 
 /** Seconds since the epoch, in the page's language and the reader's time zone. */

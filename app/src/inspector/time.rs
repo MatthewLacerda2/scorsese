@@ -4,7 +4,7 @@
 //! becomes a time, the same edge `scorsese-core` already draws between its
 //! exact grid and the seconds it shows anybody.
 
-use scorsese_core::{Fps, Frames};
+use scorsese_core::{Fps, Frames, Precision, clock};
 
 /// A frame count as a clock reading: `0:04.5`, `2:03.0`, `1:02:03.4`.
 ///
@@ -18,16 +18,7 @@ use scorsese_core::{Fps, Frames};
 /// Hours appear only when there are hours: `1:02:03.4` is a reading, and
 /// `0:00:04.5` for a four-second clip is a form to be filled in.
 pub(super) fn readable(frames: Frames, fps: Fps) -> String {
-    // Rounded once, into tenths, so a value a hair under a second cannot come
-    // out as `0:00.10`.
-    let tenths = (fps.seconds(frames).max(0.0) * 10.0).round() as u64;
-    let (whole, tenth) = (tenths / 10, tenths % 10);
-    let (hours, minutes, seconds) = (whole / 3600, (whole / 60) % 60, whole % 60);
-    if hours > 0 {
-        format!("{hours}:{minutes:02}:{seconds:02}.{tenth}")
-    } else {
-        format!("{minutes}:{seconds:02}.{tenth}")
-    }
+    clock(fps.seconds(frames), Precision::Tenths)
 }
 
 #[cfg(test)]

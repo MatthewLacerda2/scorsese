@@ -42,9 +42,9 @@ describe("time", () => {
     expect(pxToFrames(-40, zoom, THIRTY)).toBe(0);
   });
 
-  test("the clock is mm:ss under an hour, h:mm:ss from one, frames dropped", () => {
-    expect(clock(75, THIRTY)).toBe("00:02");
-    expect(clock(30 * 179 + 29, THIRTY)).toBe("02:59");
+  test("the clock is m:ss under an hour, h:mm:ss from one, frames dropped", () => {
+    expect(clock(75, THIRTY)).toBe("0:02");
+    expect(clock(30 * 179 + 29, THIRTY)).toBe("2:59");
     expect(clock(30 * 3600, THIRTY)).toBe("1:00:00");
     expect(clock(30 * 3779, THIRTY)).toBe("1:02:59");
   });

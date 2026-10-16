@@ -3,6 +3,7 @@
 // sends. Kept apart from React so it is tested as plain data.
 
 import type { CandidateView, QuestionView } from "@/api/chat";
+import { formatClock } from "@/lib/format";
 
 /** Whether `question` is a picker rather than a question in words. */
 export function isPicker(question: QuestionView): boolean {
@@ -26,8 +27,7 @@ export function pickedOf(question: QuestionView): CandidateView[] {
 /** A clip's length as a badge reads it: `0:08`, `1:30`. */
 export function length(seconds: number | null): string | null {
   if (seconds === null || seconds < 0) return null;
-  const minutes = Math.floor(seconds / 60);
-  return `${minutes}:${String(Math.round(seconds % 60)).padStart(2, "0")}`;
+  return formatClock(seconds, "round");
 }
 
 /** Each source's own name, as it is credited. */

@@ -19,7 +19,7 @@ use crate::theme::{marks, palette};
 pub(super) const HEIGHT: f32 = 26.0;
 
 /// The narrowest a label may be spaced before the ruler chooses a coarser
-/// interval. Roughly the width of `00:00:00` plus room to breathe — below this
+/// interval. Roughly the width of `1:00:00` plus room to breathe — below this
 /// the labels touch and the ruler becomes a smear.
 const MIN_LABEL_GAP: f32 = 76.0;
 
@@ -127,14 +127,14 @@ struct Tick {
 /// Every tick in view, at `divisions` marks per labelled step.
 ///
 /// Walks whole steps from zero rather than from the left edge, so a tick sits
-/// on 00:00:30 wherever the view happens to be scrolled to — a ruler whose
+/// on 0:30 wherever the view happens to be scrolled to — a ruler whose
 /// marks depend on the scroll position is a ruler you cannot read a time off.
 ///
 /// The division is done in the **index** and not in the frame count, which is
 /// the whole of why `labelled` is computed here rather than tested for by the
 /// caller. A second at 30 fps is 30 frames and does not divide by four: a tick
 /// every `30 / 4 = 7` frames lands on a whole second only every *seven* of them,
-/// so a ruler fitted to a fourteen-second cut labelled 00:00:00 and 00:00:07 and
+/// so a ruler fitted to a fourteen-second cut labelled 0:00 and 0:07 and
 /// nothing in between. Multiplying first and dividing after puts every fourth
 /// mark exactly on the step, whatever the rate.
 fn ticks(rect: Rect, view: View, fps: Fps, step: u64, divisions: u64) -> Vec<Tick> {

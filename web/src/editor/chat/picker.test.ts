@@ -67,6 +67,8 @@ describe("length and source", () => {
   test("read as a badge and a credit", () => {
     expect(length(8)).toBe("0:08");
     expect(length(90)).toBe("1:30");
+    expect(length(59.6)).toBe("1:00");
+    expect(length(3700)).toBe("1:01:40");
     expect(length(null)).toBeNull();
     expect(sourceName(offered)).toBe("Pixabay");
     const lottie = { ...offered[0], source: "lottiefiles" } as CandidateView;

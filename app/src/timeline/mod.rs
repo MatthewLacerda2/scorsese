@@ -24,11 +24,11 @@ use crate::theme::{marks, palette};
 use gesture::Gesture;
 use view::View;
 
-/// A frame count as a person reads a time. Lives with the view because that is
+/// A frame count as a person reads a time — a position, or a length. Lives with the view because that is
 /// the one module allowed to turn frames into seconds; re-exported because the
 /// transport under the preview reads out the same playhead this ruler labels,
 /// and two spellings of a timecode would be two answers to the same question.
-pub(crate) use view::timecode;
+pub(crate) use view::{duration, timecode};
 
 /// How wide the track-label gutter is.
 ///

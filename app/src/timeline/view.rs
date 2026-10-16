@@ -10,7 +10,7 @@
 //! meaning frames. That is the same rule `scorsese-core` already holds — the
 //! grid is exact and seconds are for the edges.
 
-use scorsese_core::{Fps, Frames};
+use scorsese_core::{Fps, Frames, Precision, clock};
 
 /// How far the view may zoom in, in pixels per frame. One frame a hundred
 /// pixels wide is already far past where trimming stops being the problem.
@@ -113,15 +113,21 @@ impl View {
     }
 }
 
-/// A frame count as `HH:MM:SS`, which is how a person reads a time.
+/// A frame count as a position on the clock: `0:59`, `1:02:03`.
 ///
-/// Whole seconds: this labels a ruler, and a ruler crowded with frame counts
-/// is harder to read than one that admits it is approximate. The exact frame
-/// is what the document holds and what the inspector will show.
+/// Whole seconds, rounded down — this labels a ruler and a playhead, and at
+/// 59.9s neither is at a minute yet. A ruler crowded with frame counts is
+/// harder to read than one that admits it is approximate; the exact frame is
+/// what the document holds and what the inspector shows.
 pub(crate) fn timecode(frame: Frames, fps: Fps) -> String {
-    let total = fps.seconds(frame).max(0.0) as u64;
-    let (hours, minutes, seconds) = (total / 3600, (total / 60) % 60, total % 60);
-    format!("{hours:02}:{minutes:02}:{seconds:02}")
+    clock(fps.seconds(frame), Precision::Floor)
+}
+
+/// A frame count as a length on the clock: rounded to the nearest second, so
+/// an edit 59.6s long runs `1:00` where its playhead at that frame reads
+/// `0:59`.
+pub(crate) fn duration(length: Frames, fps: Fps) -> String {
+    clock(fps.seconds(length), Precision::Round)
 }
 
 #[cfg(test)]
@@ -204,9 +210,16 @@ mod tests {
 
     #[test]
     fn timecode_reads_the_way_a_clock_does() {
-        assert_eq!(timecode(Frames(0), Fps::THIRTY), "00:00:00");
-        assert_eq!(timecode(Frames(450), Fps::THIRTY), "00:00:15");
-        assert_eq!(timecode(Frames(1800), Fps::THIRTY), "00:01:00");
-        assert_eq!(timecode(Frames(108_000), Fps::THIRTY), "01:00:00");
+        assert_eq!(timecode(Frames(0), Fps::THIRTY), "0:00");
+        assert_eq!(timecode(Frames(450), Fps::THIRTY), "0:15");
+        assert_eq!(timecode(Frames(1799), Fps::THIRTY), "0:59");
+        assert_eq!(timecode(Frames(1800), Fps::THIRTY), "1:00");
+        assert_eq!(timecode(Frames(108_000), Fps::THIRTY), "1:00:00");
+    }
+
+    #[test]
+    fn a_length_rounds_where_a_position_rounds_down() {
+        assert_eq!(timecode(Frames(1788), Fps::THIRTY), "0:59");
+        assert_eq!(duration(Frames(1788), Fps::THIRTY), "1:00");
     }
 }

@@ -3,7 +3,7 @@
 
 import { expect, test } from "bun:test";
 import { ApiError, type LibraryTile } from "@/api";
-import { formatBytes, formatDuration } from "@/lib/format";
+import { formatBytes, formatClock } from "@/lib/format";
 import { safeNext } from "@/session/session";
 import { inUseBy } from "./DetailsSheet";
 import { sortTiles } from "./sort";
@@ -30,8 +30,8 @@ test("sizes and durations read as a file manager shows them", () => {
   expect(formatBytes(999)).toBe("999 B");
   expect(formatBytes(1_536_000)).toBe("1.5 MB");
   expect(formatBytes(250_000_000)).toBe("250 MB");
-  expect(formatDuration(75.4)).toBe("1:15");
-  expect(formatDuration(3723)).toBe("1:02:03");
+  expect(formatClock(75.4, "round")).toBe("1:15");
+  expect(formatClock(3723, "round")).toBe("1:02:03");
 });
 
 test("a 409 naming projects is read as the projects keeping a file", () => {

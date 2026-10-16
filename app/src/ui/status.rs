@@ -16,7 +16,7 @@ use scorsese_core::Project;
 
 use super::Scorsese;
 use crate::theme::{marks, palette};
-use crate::timeline::timecode;
+use crate::timeline::{duration, timecode};
 
 /// Draws the strip for whatever is open, or the one thing there is to say when
 /// nothing is.
@@ -31,7 +31,7 @@ pub(super) fn show(ui: &mut Ui, window: &Scorsese) {
     ui.horizontal(|ui| {
         ui.label(marks::figure_dim(format!("{fps} fps")));
         separator(ui);
-        ui.label(marks::figure(timecode(project.length(), fps)))
+        ui.label(marks::figure(duration(project.length(), fps)))
             .on_hover_text("How long the edit runs — the end of the last clip on any track");
         separator(ui);
         ui.label(marks::figure_dim(counted(project)));
