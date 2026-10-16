@@ -132,3 +132,27 @@ fn a_v49_document_s_shots_arrive_unseeded() {
     assert_eq!(request.seed, None);
     assert_eq!(request.seconds, crate::ClipSeconds::Six);
 }
+
+/// v53 → v54: a v53 document's narration stays narration.
+#[test]
+fn a_v53_document_s_lines_stay_lines() {
+    let document = json!({
+        "schema_version": 53,
+        "name": "Before music",
+        "timeline_fps": { "num": 30, "den": 1 },
+        "aspect": "16:9",
+        "assets": [
+            { "id": "vo", "kind": "generated_audio", "state": "sketch", "prompt": "Hello.",
+              "speech": { "model": "fast" } }
+        ],
+        "tracks": []
+    });
+    let (project, from) = parse(&document.to_string()).expect("a v53 document migrates");
+    assert_eq!(from, Some(53));
+    project.validate().expect("and it validates");
+    assert_eq!(project.assets[0].music, None);
+    assert_eq!(
+        project.assets[0].audio_block(),
+        Some(crate::AudioBlock::Speech)
+    );
+}

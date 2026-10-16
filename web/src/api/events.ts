@@ -24,7 +24,7 @@ export interface JobProgress {
 /** `jobs::JobView` — a job as its owner sees it. Times are Unix seconds. */
 export interface JobView {
   id: number;
-  /** `render`, `thumbnail`, `veo_shot`, `still_image`, `spoken_line`, … */
+  /** `render`, `thumbnail`, `veo_shot`, `still_image`, `spoken_line`, `music_track`, … */
   kind: string;
   state: JobState;
   attempts: number;

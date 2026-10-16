@@ -1,14 +1,14 @@
 //! Spending a confirmed quote: every charged brief reserved from the user's
 //! credits and queued as a job, in one transaction — all of it, or none.
 
-use scorsese_core::{AssetId, AssetKind, Project};
+use scorsese_core::{AssetId, AssetKind, AudioBlock, Project};
 use scorsese_providers::quote::{Quote, Spend};
-use scorsese_providers::{image, speech, video};
+use scorsese_providers::{image, music, speech, video};
 use serde_json::Value;
 
 use super::super::{Caller, database};
 use crate::credits::CreditError;
-use crate::credits::generations::{Line, Request, Shot, Still, start};
+use crate::credits::generations::{Line, Request, Shot, Still, Track, start};
 use crate::db;
 use crate::generations::Payload;
 use crate::jobs::{JobView, kinds, store as jobs};
@@ -32,7 +32,7 @@ impl Charged {
     pub(super) fn voice(&self) -> Option<&str> {
         match &self.what {
             What::Line { voice, .. } => Some(voice),
-            What::Shot { .. } | What::Still { .. } => None,
+            What::Shot { .. } | What::Still { .. } | What::Track { .. } => None,
         }
     }
 }
@@ -61,6 +61,11 @@ enum What {
         prompt: String,
         /// Ordered in a half-price batch rather than drawn now (#947).
         batch: bool,
+    },
+    Track {
+        prompt: String,
+        seconds: u32,
+        instrumental: bool,
     },
 }
 
@@ -97,6 +102,16 @@ pub(super) fn charged(quote: &Quote, project: &Project, root: &std::path::Path) 
                 },
                 Err(_) => continue,
             },
+            AssetKind::GeneratedAudio if asset.audio_block() == Some(AudioBlock::Music) => {
+                match music::Brief::of(asset) {
+                    Ok(brief) => What::Track {
+                        prompt: brief.prompt,
+                        seconds: brief.seconds,
+                        instrumental: brief.instrumental,
+                    },
+                    Err(_) => continue,
+                }
+            }
             AssetKind::GeneratedAudio => match speech::Brief::of(asset) {
                 Ok(brief) => What::Line {
                     model: brief.request.model.as_str(),
@@ -142,6 +157,7 @@ pub(super) async fn spend(
         let kind = match one.what {
             What::Shot { .. } => kinds::VEO_SHOT,
             What::Line { .. } => kinds::SPOKEN_LINE,
+            What::Track { .. } => kinds::MUSIC_TRACK,
             What::Still { batch: false, .. } => kinds::STILL_IMAGE,
             What::Still { batch: true, .. } => kinds::BATCH_STILL,
         };
@@ -219,6 +235,21 @@ fn request(one: &Charged, project: i64, call: i64, job: i64) -> Request<'_> {
             brief_hash: &one.brief,
             estimated_cents: one.cents,
             batch: *batch,
+        }),
+        What::Track {
+            prompt,
+            seconds,
+            instrumental,
+        } => Request::Track(Track {
+            project: Some(project),
+            tool_call: Some(call),
+            job: Some(job),
+            model: music::MODEL_ID,
+            prompt,
+            seconds: *seconds,
+            instrumental: *instrumental,
+            brief_hash: &one.brief,
+            estimated_cents: one.cents,
         }),
     }
 }

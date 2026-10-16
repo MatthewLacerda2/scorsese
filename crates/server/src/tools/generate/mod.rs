@@ -254,7 +254,7 @@ async fn on_its_way(caller: &Caller<'_>, quote: &mut Quote) -> Result<(), String
         .map_err(database)?;
     let running: Vec<(i64, String)> = sqlx::query_as(
         "SELECT id, payload->>'brief' FROM jobs
-         WHERE kind IN ('veo_shot', 'still_image', 'batch_still', 'spoken_line')
+         WHERE kind IN ('veo_shot', 'still_image', 'batch_still', 'spoken_line', 'music_track')
            AND state IN ('waiting', 'running', 'stuck')
            AND payload->>'brief' = ANY($1)",
     )
@@ -311,8 +311,8 @@ pub(super) fn credits(quote: &Quote, project: &Project) -> i64 {
         .iter()
         .filter_map(|item| {
             let charge = item.charge.as_ref()?;
-            let kind = project.asset(&AssetId::new(item.subject.clone()))?.kind;
-            Some(charge_for(Product::of(kind)?, charge.cents))
+            let asset = project.asset(&AssetId::new(item.subject.clone()))?;
+            Some(charge_for(Product::of(asset)?, charge.cents))
         })
         .sum()
 }

@@ -26,7 +26,7 @@ mod fields;
 mod voices;
 
 use egui::{Grid, Ui};
-use scorsese_core::{Asset, AssetId, AssetKind, Project, SpeechModel, SpeechRequest};
+use scorsese_core::{Asset, AssetId, AudioBlock, Project, SpeechModel, SpeechRequest};
 
 use crate::inspector::Inspector;
 use crate::inspector::selected::Selected;
@@ -51,10 +51,11 @@ pub(in crate::inspector) struct Line {
 }
 
 impl Line {
-    /// Reads the brief of `asset`, or `None` when it is not a generated line.
+    /// Reads the brief of `asset`, or `None` when it is not a generated line
+    /// — a track of music (#1264) is `generated_audio` too, and has no voice.
     pub(super) fn of(project: &Project, asset: &AssetId) -> Option<Self> {
         let found = project.asset(asset)?;
-        if found.kind != AssetKind::GeneratedAudio {
+        if found.audio_block() != Some(AudioBlock::Speech) {
             return None;
         }
         Some(Self {

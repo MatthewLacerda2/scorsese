@@ -30,6 +30,7 @@ pub(super) fn check(project: &Project) -> Vec<AssetProblem> {
         super::image::check(project, asset, &mut errors);
         super::sequence::check(project, asset, &mut errors);
         super::speech::check(asset, &mut errors);
+        super::music::check(asset, &mut errors);
     }
     errors
 }

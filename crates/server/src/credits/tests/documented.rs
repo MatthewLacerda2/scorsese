@@ -14,16 +14,21 @@ const PAGE: &str = include_str!("../../../../../docs/web.md");
 fn row(product: Product) -> &'static str {
     match product {
         Product::VeoShot => "Veo shot",
-        Product::Still | Product::SpokenLine | Product::VoiceDesign | Product::Assistant => {
-            "still (drawn now or batched), spoken line, voice design, assistant call"
+        Product::Still
+        | Product::SpokenLine
+        | Product::MusicTrack
+        | Product::VoiceDesign
+        | Product::Assistant => {
+            "still (drawn now or batched), spoken line, music track, voice design, assistant call"
         }
     }
 }
 
-const ALL: [Product; 5] = [
+const ALL: [Product; 6] = [
     Product::VeoShot,
     Product::Still,
     Product::SpokenLine,
+    Product::MusicTrack,
     Product::VoiceDesign,
     Product::Assistant,
 ];

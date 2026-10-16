@@ -21,7 +21,7 @@ use scorsese_core::{Asset, AssetId, AssetKind, Project, ProjectPath};
 
 /// One prompted kind of asset, as its run sees it.
 pub(crate) trait Prompted {
-    /// The assets this kind generates.
+    /// The kind of asset this generates.
     const KIND: AssetKind;
     /// What a generation of one asset is asked from.
     type Brief;
@@ -29,6 +29,14 @@ pub(crate) trait Prompted {
     type Unready: Display;
     /// What stops a run.
     type Error;
+
+    /// Whether `asset` is one this run generates: every asset of
+    /// [`KIND`](Self::KIND), unless the kind is shared — `generated_audio` is
+    /// a line or a track by the block it carries (#1264), and each run claims
+    /// its own.
+    fn claims(asset: &Asset) -> bool {
+        asset.kind == Self::KIND
+    }
 
     /// The asset's brief, or why it is not ready.
     fn brief(project: &Project, root: &Path, asset: &Asset) -> Result<Self::Brief, Self::Unready>;
@@ -51,12 +59,12 @@ pub(crate) trait Prompted {
     ) -> Result<(), Self::Error>;
 }
 
-/// Every asset of the kind, by id, in document order.
+/// Every asset the kind [claims](Prompted::claims), by id, in document order.
 pub(crate) fn ids<K: Prompted>(project: &Project) -> Vec<AssetId> {
     project
         .assets
         .iter()
-        .filter(|asset| asset.kind == K::KIND)
+        .filter(|asset| K::claims(asset))
         .map(|asset| asset.id.clone())
         .collect()
 }
@@ -144,7 +152,7 @@ pub(crate) fn pending<K: Prompted>(project: &Project, root: &Path) -> bool {
     project
         .assets
         .iter()
-        .filter(|asset| asset.kind == K::KIND)
+        .filter(|asset| K::claims(asset))
         .any(|asset| {
             asset.operation.is_some()
                 || !matches!(plan::<K>(project, root, asset), Plan::Realized(_))

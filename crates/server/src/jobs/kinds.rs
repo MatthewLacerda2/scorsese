@@ -52,6 +52,14 @@ pub const SPOKEN_LINE: Kind = Kind {
     budget: Some(ELEVENLABS),
 };
 
+/// An ElevenLabs Music track (#1264). Up to minutes of composing, and all
+/// network.
+pub const MUSIC_TRACK: Kind = Kind {
+    name: "music_track",
+    limit: VENDOR_BOUND,
+    budget: Some(ELEVENLABS),
+};
+
 /// A Gemini still (#461). Seconds, mostly network, like a line.
 pub const STILL_IMAGE: Kind = Kind {
     name: "still_image",
@@ -162,7 +170,7 @@ pub const PATIENT: [Kind; 1] = [BATCH_STILL];
 /// the server's environment ([`Keys`]).
 ///
 /// [`THUMBNAIL`] (#535), [`RENDER`] (#541), [`VEO_SHOT`] and [`SPOKEN_LINE`]
-/// (#539, `crate::generations`), [`STILL_IMAGE`] (#461), [`BATCH_STILL`]
+/// (#539, `crate::generations`), [`MUSIC_TRACK`] (#1264), [`STILL_IMAGE`] (#461), [`BATCH_STILL`]
 /// (#947), [`PREVIEW`] and [`PROXY`] (#542),
 /// [`VOICE_DESIGN`] and [`VOICE_KEEP`] (#572, `crate::designs`) and
 /// [`VOICE_FORGET`] (#1381) have theirs.
@@ -252,6 +260,14 @@ pub fn with_vendors(
             ),
         )
         .register(VOICE_FORGET, designs::forget::handler(Arc::clone(&vendors)))
+        .register(
+            MUSIC_TRACK,
+            generations::track_handler(
+                files.storage.clone(),
+                files.tools.clone(),
+                Arc::clone(&vendors),
+            ),
+        )
         .register(
             SPOKEN_LINE,
             generations::line_handler(files.storage.clone(), files.tools.clone(), vendors),

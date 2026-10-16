@@ -21,7 +21,7 @@
 
 use std::path::Path;
 
-use scorsese_core::{Asset, AssetId, AssetKind, Project, ProjectPath, SpeechModel};
+use scorsese_core::{Asset, AssetId, AssetKind, AudioBlock, Project, ProjectPath, SpeechModel};
 
 use scorsese_core::words::Words;
 
@@ -122,7 +122,8 @@ pub fn plan(root: &Path, asset: &Asset) -> Plan {
     }
 }
 
-/// Whether a run over this project's narration would have anything to do.
+/// Whether a run over this project's narration would have anything to do —
+/// its lines, never its tracks ([`crate::music`]).
 ///
 /// An incomplete line counts, because the pass is where *not yet* is voiced,
 /// naming the line and what it is missing.
@@ -130,7 +131,7 @@ pub fn pending(project: &Project, root: &Path) -> bool {
     project
         .assets
         .iter()
-        .filter(|asset| asset.kind == AssetKind::GeneratedAudio)
+        .filter(|asset| Lines::claims(asset))
         .any(|asset| !matches!(plan(root, asset), Plan::Realized(_)))
 }
 
@@ -142,6 +143,10 @@ impl Prompted for Lines {
     type Brief = Brief;
     type Unready = Incomplete;
     type Error = SpeechError;
+
+    fn claims(asset: &Asset) -> bool {
+        asset.audio_block() == Some(AudioBlock::Speech)
+    }
 
     fn brief(_project: &Project, _root: &Path, asset: &Asset) -> Result<Brief, Incomplete> {
         Brief::of(asset)

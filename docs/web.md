@@ -116,8 +116,8 @@ new build, before it serves anything.
   what a user was charged in reais, and the rate it bought their dollars at
   (*Buying credits*).
 - Credits are paid up front and **never expire**. Every paid generation —
-  Veo shots, Gemini stills (one at a time or batched), ElevenLabs lines and
-  voice designs — and the assistant are charged at **cost times a multiplier
+  Veo shots, Gemini stills (one at a time or batched), ElevenLabs lines, music
+  tracks and voice designs — and the assistant are charged at **cost times a multiplier
   per kind** (`credits::Product`: ×1.5 on a Veo shot, ×1.8 on the rest;
   *Credits*, *Pricing* has why), and **nothing else: there is no monthly fee**
   (#1243). Users top up themselves through Stripe (*Buying credits*, #548); the
@@ -877,7 +877,7 @@ no passwords (#952).
 
 ## Jobs
 
-Long work — a render, a Veo shot, a spoken line, a thumbnail, a proxy — is a
+Long work — a render, a Veo shot, a spoken line, a music track, a thumbnail, a proxy — is a
 row in the `jobs` table, run by a worker inside the server (#536). The code is
 `crates/server/src/jobs/`, and its module doc carries the argument.
 
@@ -1156,7 +1156,7 @@ maintainer, 2026-10-13):
 | kind | multiplier |
 | --- | --- |
 | Veo shot | ×1.5 |
-| still (drawn now or batched), spoken line, voice design, assistant call | ×1.8 |
+| still (drawn now or batched), spoken line, music track, voice design, assistant call | ×1.8 |
 
 The principle: charge in line with what scorsese actually spends, which is
 third-party APIs, and make it profitable. Electricity, time, the machine and

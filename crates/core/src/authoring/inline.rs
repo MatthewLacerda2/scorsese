@@ -1,7 +1,9 @@
 //! Adding an asset whose content is the document.
 
 use super::AuthorError;
-use crate::asset::{Asset, AssetId, AssetKind, ImageRequest, SpeechRequest, VideoRequest};
+use crate::asset::{
+    Asset, AssetId, AssetKind, ImageRequest, MusicRequest, SpeechRequest, VideoRequest,
+};
 use crate::fill::Fill;
 use crate::icon::Icon;
 use crate::pool::asset_id_for;
@@ -60,6 +62,9 @@ pub enum Inline {
         image: Option<ImageRequest>,
         /// The rest of a spoken line's brief, or `None` for every default.
         speech: Option<SpeechRequest>,
+        /// The rest of a generated track's brief — which makes the
+        /// `generated_audio` sketch a track rather than a line (#1264).
+        music: Option<MusicRequest>,
     },
 }
 
@@ -101,10 +106,12 @@ impl Inline {
                 video,
                 image,
                 speech,
+                music,
             } => Asset {
                 video,
                 image,
                 speech,
+                music,
                 ..Asset::sketch(id, kind, prompt)
             },
         }
@@ -276,6 +283,7 @@ mod tests {
                 video: None,
                 image: None,
                 speech: Some(speech.clone()),
+                music: None,
             },
         )
         .expect("a narration sketch is a valid asset");
@@ -298,6 +306,7 @@ mod tests {
                 video: None,
                 image: None,
                 speech: Some(SpeechRequest::default()),
+                music: None,
             },
         );
         assert!(matches!(refused, Err(AuthorError::Refused(_))));

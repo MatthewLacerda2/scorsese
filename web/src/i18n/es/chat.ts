@@ -9,6 +9,7 @@ export const chat: Messages["chat"] = {
     veo_shot: "Toma de video",
     still_image: "Imagen",
     spoken_line: "Locución",
+    music_track: "Pista de música",
     voice_design: "Diseño de voz",
   },
   jobState: {

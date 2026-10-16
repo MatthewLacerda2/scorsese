@@ -26,6 +26,7 @@ use crate::db::{self, UserId};
 pub const KINDS: &[&str] = &[
     "veo_shot",
     "spoken_line",
+    "music_track",
     "still_image",
     "voice_design",
     "assistant",

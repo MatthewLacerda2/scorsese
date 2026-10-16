@@ -42,6 +42,7 @@ export const pages = {
     kinds: {
       veo_shot: "Video generation",
       spoken_line: "Speech generation",
+      music_track: "Music generation",
       still_image: "Still generation",
       voice_design: "Voice design",
       assistant: "Assistant",

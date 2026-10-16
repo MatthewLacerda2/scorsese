@@ -60,6 +60,10 @@
           "sample_rate": 48000,
           "width": 1920
         },
+        "music": {
+          "instrumental": false,
+          "seconds": 40
+        },
         "note": "Why this asset",
         "operation": "operations/1",
         "path": "generated/everything.mp4",
@@ -152,7 +156,7 @@
       }
     ],
     "name": "Every field",
-    "schema_version": 53,
+    "schema_version": 54,
     "script": "script.md",
     "timeline_fps": {
       "den": 1,

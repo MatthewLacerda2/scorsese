@@ -181,11 +181,11 @@ struct Arguments {
     number: Option<Value>,
     /// (generated_video, generated_image, generated_audio) The sentence a
     /// provider will be paid to read: what the shot is of, what the still
-    /// shows, the words spoken. Required to make one; replaces the old one
-    /// whole. A shot's is at most 1,024 tokens, and best in English; a
-    /// spoken line's at most 40,000 characters (10,000 on `expressive` and
-    /// `standard`). Each block (`video`, `image`, `speech`) lists what its
-    /// prompt should know.
+    /// shows, the words spoken, the music composed. Required to make one;
+    /// replaces the old one whole. A shot's is at most 1,024 tokens, and best
+    /// in English; a spoken line's at most 40,000 characters (10,000 on
+    /// `expressive` and `standard`). Each block (`video`, `image`, `speech`,
+    /// `music`) lists what its prompt should know.
     prompt: Option<String>,
     /// (synth_audio) Project-relative path of the recipe the asset is baked
     /// from, by convention under recipes/; the file has to exist. This
@@ -202,6 +202,9 @@ struct Arguments {
     #[serde(default)]
     #[schemars(schema_with = "requests::speech_schema")]
     speech: Option<Value>,
+    #[serde(default)]
+    #[schemars(schema_with = "requests::music_schema")]
+    music: Option<Value>,
 }
 
 impl args::Arguments for Arguments {}
@@ -229,7 +232,7 @@ impl Tool for AssetSet {
          generated asset is made in state sketch and renders as a slug card, so \
          a cut previews for $0 — nothing is generated or spent here; generate \
          realises it. A new brief (`prompt`, `recipe`, a field of `video`, \
-         `image` or `speech`) on one already generated marks it stale in the \
+         `image`, `speech` or `music`) on one already generated marks it stale in the \
          same write, so the next generate redoes it; a sketch stays sketch. \
          Nothing is written unless the whole document still loads."
     }

@@ -21,6 +21,27 @@ a `generated_audio` asset — a prompt handed to a provider, costing money and a
 network, reproducible from nothing but its cache. Keeping the two kinds apart
 is what lets everything on this page promise free and deterministic.
 
+**A recipe is the first choice for a score; a generated track is the
+fallback.** A `generated_audio` asset with a `music` block
+([project-format.md](project-format.md), `guide project-format`, *What a
+generated track asks for*) has ElevenLabs Music compose a track from a
+description, at 15 cents a minute (`guide prices`, *Music*). Reach for it only when a recipe cannot make the
+music the video needs:
+
+- **a genre built on real instruments or production** — a lo-fi bed with
+  vinyl crackle, an orchestral swell, a rock riff, a jazz trio: a synthesiser
+  can sketch these, and a listener hears the sketch;
+- **a song** — anything sung, which a recipe has no voice for (`"instrumental":
+  false`, with the lyrics described in the prompt);
+- **a cue the person describes in words and will not iterate on** — the
+  bed under an ad that has to sound like a known style the first time.
+
+Everything else stays a recipe: a UI blip, a whoosh, a pulse under a title, a
+melody that has to land on a cut, a piece that will be tuned over several
+bakes. A recipe is timed to the beat and edited a number at a time for
+nothing; a generated track is a file, timed by its length alone and redone
+whole, for money, whenever its description changes.
+
 ```
 scorsese synth new zap                 # a patch recipe, and its asset
 scorsese synth new theme --kind song   # a song recipe, and its asset

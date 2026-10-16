@@ -67,11 +67,13 @@ pub mod designs;
 pub mod generations;
 pub mod history;
 pub mod ledger;
+pub mod lines;
 pub mod tool;
+pub mod tracks;
 
 pub use ledger::Reservation;
 
-use scorsese_core::AssetKind;
+use scorsese_core::{Asset, AssetKind, AudioBlock};
 pub use scorsese_providers::prices::{MICROS_PER_CENT, from_cents};
 
 /// What a user buys, each kind priced by its own multiplier (#1247).
@@ -83,6 +85,8 @@ pub enum Product {
     Still,
     /// An ElevenLabs spoken line.
     SpokenLine,
+    /// An ElevenLabs Music track (#1264).
+    MusicTrack,
     /// An ElevenLabs voice design.
     VoiceDesign,
     /// One call to the assistant's model.
@@ -90,15 +94,19 @@ pub enum Product {
 }
 
 impl Product {
-    /// What a generated asset of `kind` is sold as, or `None` for a kind the
-    /// user is never charged for: everything that is not prompted
-    /// (`AssetKind::is_prompted`). A voice design makes no asset, so no kind
-    /// is one.
-    pub const fn of(kind: AssetKind) -> Option<Self> {
-        match kind {
+    /// What a generated asset is sold as, or `None` for a kind the user is
+    /// never charged for: everything that is not prompted
+    /// (`AssetKind::is_prompted`). A voice design makes no asset, so no asset
+    /// is one. A `generated_audio` asset is a line or a track by the block it
+    /// carries (`Asset::audio_block`).
+    pub fn of(asset: &Asset) -> Option<Self> {
+        match asset.kind {
             AssetKind::GeneratedVideo => Some(Self::VeoShot),
             AssetKind::GeneratedImage => Some(Self::Still),
-            AssetKind::GeneratedAudio => Some(Self::SpokenLine),
+            AssetKind::GeneratedAudio => match asset.audio_block() {
+                Some(AudioBlock::Music) => Some(Self::MusicTrack),
+                _ => Some(Self::SpokenLine),
+            },
             AssetKind::Video
             | AssetKind::Image
             | AssetKind::Audio
@@ -127,7 +135,11 @@ impl Product {
     pub const fn percent(self) -> u64 {
         match self {
             Self::VeoShot => 150,
-            Self::Still | Self::SpokenLine | Self::VoiceDesign | Self::Assistant => 180,
+            Self::Still
+            | Self::SpokenLine
+            | Self::MusicTrack
+            | Self::VoiceDesign
+            | Self::Assistant => 180,
         }
     }
 }
@@ -191,21 +203,31 @@ mod tests {
 
     mod documented;
 
+    fn of(kind: AssetKind) -> Option<Product> {
+        Product::of(&Asset::sketch(scorsese_core::AssetId::new("a"), kind, "p"))
+    }
+
     /// Only a prompted kind is sold, each as the product its reservation is
     /// made as (`generations::start`).
     #[test]
     fn a_prompted_kind_is_sold_and_nothing_else_is() {
-        assert_eq!(
-            Product::of(AssetKind::GeneratedVideo),
-            Some(Product::VeoShot)
+        assert_eq!(of(AssetKind::GeneratedVideo), Some(Product::VeoShot));
+        assert_eq!(of(AssetKind::GeneratedImage), Some(Product::Still));
+        assert_eq!(of(AssetKind::GeneratedAudio), Some(Product::SpokenLine));
+        assert_eq!(of(AssetKind::SynthAudio), None);
+        assert_eq!(of(AssetKind::Image), None);
+    }
+
+    /// A `generated_audio` asset with a `music` block is a track (#1264).
+    #[test]
+    fn a_track_is_sold_as_one() {
+        let mut track = Asset::sketch(
+            scorsese_core::AssetId::new("bed"),
+            AssetKind::GeneratedAudio,
+            "lo-fi",
         );
-        assert_eq!(Product::of(AssetKind::GeneratedImage), Some(Product::Still));
-        assert_eq!(
-            Product::of(AssetKind::GeneratedAudio),
-            Some(Product::SpokenLine)
-        );
-        assert_eq!(Product::of(AssetKind::SynthAudio), None);
-        assert_eq!(Product::of(AssetKind::Image), None);
+        track.music = Some(scorsese_core::MusicRequest::default());
+        assert_eq!(Product::of(&track), Some(Product::MusicTrack));
     }
 
     /// A charge is the cents in micro-dollars, marked up and rounded up.

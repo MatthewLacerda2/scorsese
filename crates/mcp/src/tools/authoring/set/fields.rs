@@ -66,8 +66,8 @@ const VIDEO: &[&str] = &["prompt", "video"];
 /// A still's brief.
 const IMAGE: &[&str] = &["prompt", "image"];
 
-/// A spoken line's brief.
-const SPEECH: &[&str] = &["prompt", "speech"];
+/// A spoken line's brief, or a track's (#1264).
+const AUDIO: &[&str] = &["prompt", "speech", "music"];
 
 /// A synthesised asset's brief: the recipe it is baked from.
 const SYNTH: &[&str] = &["recipe"];
@@ -83,7 +83,7 @@ fn takes(kind: AssetKind, making: bool) -> Option<&'static [&'static str]> {
         AssetKind::Icon => Some(ICON),
         AssetKind::GeneratedVideo => Some(VIDEO),
         AssetKind::GeneratedImage => Some(IMAGE),
-        AssetKind::GeneratedAudio => Some(SPEECH),
+        AssetKind::GeneratedAudio => Some(AUDIO),
         AssetKind::SynthAudio => Some(SYNTH),
         _ => None,
     }
@@ -119,7 +119,7 @@ pub(super) fn check(kind: AssetKind, making: bool, arguments: &Arguments) -> Res
 /// The arguments the call gave a value, in the order they are declared. A
 /// JSON `null` reads as absent, block arguments included, so it names nothing.
 fn named(arguments: &Arguments) -> Vec<&'static str> {
-    let asked: [(&'static str, bool); 29] = [
+    let asked: [(&'static str, bool); 30] = [
         ("text", arguments.text.is_some()),
         ("font", arguments.font.is_some()),
         ("weight", arguments.weight.is_some()),
@@ -149,6 +149,7 @@ fn named(arguments: &Arguments) -> Vec<&'static str> {
         ("video", arguments.video.is_some()),
         ("image", arguments.image.is_some()),
         ("speech", arguments.speech.is_some()),
+        ("music", arguments.music.is_some()),
     ];
     asked
         .into_iter()

@@ -146,6 +146,36 @@ pub fn speech(model: SpeechModel, characters: usize) -> Result<SpeechEstimate, U
     })
 }
 
+/// What composing a track is expected to cost, and what that was worked out
+/// from (#1264).
+///
+/// Seconds, like a shot: the vendor bills a track by its length, which the
+/// request fixes, so the figure is known before anything is sent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MusicEstimate {
+    /// The total, in US cents. **Our calculation, never a billed figure.**
+    pub cents: u64,
+    /// The rate it came from, date included.
+    pub rate: elevenlabs::MusicRate,
+    /// How many seconds of music were priced.
+    pub seconds: u32,
+}
+
+/// What composing `seconds` of music is expected to cost.
+///
+/// **Rounds up**, for [`speech`]'s reason: 40 seconds at 15¢ a minute is
+/// exactly 10¢, but 41 is 10.25¢, and a ceiling crossed a fraction at a time
+/// is not a ceiling.
+pub fn music(seconds: u32) -> MusicEstimate {
+    let rate = elevenlabs::MUSIC;
+    let sixtieths = u64::from(seconds).saturating_mul(rate.cents_per_minute);
+    MusicEstimate {
+        cents: sixtieths.div_ceil(60),
+        rate,
+        seconds,
+    }
+}
+
 /// What drawing a still is expected to cost, and what that was worked out from.
 ///
 /// The third sibling. It carries what the input was counted as, because that

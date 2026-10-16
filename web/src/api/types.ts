@@ -105,11 +105,11 @@ export interface ProjectRef {
 
 /**
  * The record of the paid generation that made a file (`library/generation.sql`):
- * a Veo shot, a generated still, a spoken line or a voice design's sample, what it was asked, and what it
- * cost.
+ * a Veo shot, a generated still, a spoken line, a music track or a voice design's sample, what it was
+ * asked, and what it cost.
  */
 export interface GenerationRecord {
-  kind: "veo_shot" | "still_image" | "spoken_line" | "voice_design";
+  kind: "veo_shot" | "still_image" | "spoken_line" | "music_track" | "voice_design";
   id: number;
   model: string;
   created_at: number;
@@ -118,7 +118,7 @@ export interface GenerationRecord {
   estimated_cost_micros: number;
   /** What the ledger charged: `0` when the provider failed, which is free. */
   charged_micros: number;
-  // A Veo shot's or a still's brief.
+  // A Veo shot's, a still's or a music track's brief.
   prompt?: string;
   resolution?: string;
   seconds?: number;
@@ -132,6 +132,8 @@ export interface GenerationRecord {
   // A voice design's brief (#572): the description is `prompt`.
   passage?: string;
   seed?: number | null;
+  /** Whether a music track was asked to have no singing (#1264). */
+  instrumental?: boolean;
 }
 
 /** The stock libraries a file can come from — `scorsese_core::StockLibrary`. */
@@ -206,6 +208,7 @@ export interface Payment {
 export const HISTORY_KINDS = [
   "veo_shot",
   "spoken_line",
+  "music_track",
   "still_image",
   "voice_design",
   "assistant",

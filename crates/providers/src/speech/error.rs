@@ -39,6 +39,14 @@ pub enum Incomplete {
         kind: AssetKind,
     },
 
+    /// A track of music, which is composed rather than spoken
+    /// ([`crate::music`], #1264).
+    #[error("{id} is a track of music, not a line — it is composed, not spoken")]
+    Track {
+        /// The asset asked about.
+        id: AssetId,
+    },
+
     /// A line with nothing in it.
     #[error("{id} has no prompt — there is nothing to speak")]
     NoPrompt {

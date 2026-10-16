@@ -10,6 +10,7 @@
 //! and each table sits where the argument about it is made.
 
 mod assistant;
+mod music;
 mod narration;
 mod shots;
 mod stills;

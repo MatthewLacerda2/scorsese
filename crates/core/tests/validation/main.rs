@@ -19,6 +19,7 @@ mod keyframes;
 mod keying;
 mod matte;
 mod motion;
+mod music;
 mod page;
 mod paths;
 mod references;

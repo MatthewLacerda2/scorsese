@@ -10,9 +10,9 @@
 use scorsese_core::{
     Aspect, Asset, AssetId, AssetKind, Baseline, ClipSeconds, Counter, Fill, FontChoice, Fps,
     Frames, GenerationState, Group, Icon, ImageAspect, ImageRequest, ImageResolution,
-    ImageSequence, ImageThinking, Locale, MediaMetadata, Project, ProjectPath, Ratio, Reveal,
-    RevealUnit, Rgba, SCHEMA_VERSION, Shape, SpeechModel, SpeechRequest, TextAlign, TextStyle,
-    Timestamp, Track, TrackId, TrackKind, VideoModel, VideoRequest, VideoResolution,
+    ImageSequence, ImageThinking, Locale, MediaMetadata, MusicRequest, Project, ProjectPath, Ratio,
+    Reveal, RevealUnit, Rgba, SCHEMA_VERSION, Shape, SpeechModel, SpeechRequest, TextAlign,
+    TextStyle, Timestamp, Track, TrackId, TrackKind, VideoModel, VideoRequest, VideoResolution,
 };
 
 use super::clip::clip;
@@ -97,6 +97,10 @@ fn asset() -> Asset {
             voice_id: Some("voice".to_owned()),
             language: Some("pt".to_owned()),
             seed: Some(7),
+        }),
+        music: Some(MusicRequest {
+            seconds: Some(40),
+            instrumental: false,
         }),
         image: Some(ImageRequest {
             resolution: Some(ImageResolution::K2),

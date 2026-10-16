@@ -35,6 +35,8 @@ pub struct Link {
     pub image: Option<i64>,
     /// The voice design it paid for (#572).
     pub design: Option<i64>,
+    /// The music track it paid for (#1264).
+    pub music: Option<i64>,
 }
 
 /// The user's balance, in micro-dollars: the sum of their entries.
@@ -80,8 +82,8 @@ pub async fn reserve(
     let entry = sqlx::query_scalar(
         "INSERT INTO credit_entries
              (user_id, kind, amount_micros, project_id, veo_generation_id, speech_generation_id,
-              image_generation_id, voice_design_id, memo)
-         VALUES (member_id(), 'reservation', $1, $2, $3, $4, $5, $6, $7) RETURNING id",
+              image_generation_id, voice_design_id, music_generation_id, memo)
+         VALUES (member_id(), 'reservation', $1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
     )
     .bind(-micros)
     .bind(link.project)
@@ -89,6 +91,7 @@ pub async fn reserve(
     .bind(link.speech)
     .bind(link.image)
     .bind(link.design)
+    .bind(link.music)
     .bind(memo)
     .fetch_one(&mut **tx)
     .await?;
@@ -119,9 +122,10 @@ async fn settle(
     let written = sqlx::query(
         "INSERT INTO credit_entries (user_id, kind, amount_micros, settles, project_id,
                                      veo_generation_id, speech_generation_id,
-                                     image_generation_id, voice_design_id, memo)
+                                     image_generation_id, voice_design_id, music_generation_id,
+                                     memo)
          SELECT member_id(), $1, $2, id, project_id, veo_generation_id, speech_generation_id,
-                image_generation_id, voice_design_id, memo
+                image_generation_id, voice_design_id, music_generation_id, memo
          FROM credit_entries WHERE id = $3 AND kind = 'reservation'",
     )
     .bind(kind)

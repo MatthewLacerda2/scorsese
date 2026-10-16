@@ -1,10 +1,11 @@
 //! Vendors that never spend a cent: a Veo, a Gemini — drawing now or in a
 //! batch — and an ElevenLabs —
-//! speech and voice design — answering from files ffmpeg made, and counting
-//! how often they were asked. The Gemini half is [`image`], ElevenLabs'
-//! speech [`speech`].
+//! speech, music and voice design — answering from files ffmpeg made, and
+//! counting how often they were asked. The Gemini half is [`image`],
+//! ElevenLabs' speech [`speech`] and its music [`music`].
 
 mod image;
+mod music;
 mod speech;
 
 use std::net::SocketAddr;
@@ -14,7 +15,7 @@ use std::time::Duration;
 
 use scorsese_providers::video::{self, Progress, ProviderError, Ready, Ticket, VideoProvider};
 use scorsese_render::testing::generate;
-use scorsese_server::generations::{Image, Speech, Studio, Timing, Vendors, Video};
+use scorsese_server::generations::{Image, Music, Speech, Studio, Timing, Vendors, Video};
 use scorsese_server::http::AppState;
 use scorsese_server::jobs::elevenlabs::ElevenLabs;
 use scorsese_server::jobs::{self, kinds};
@@ -34,6 +35,7 @@ pub(super) struct Mock {
     pub(super) stop: Option<String>,
     pub(super) ordered: Arc<AtomicUsize>,
     pub(super) spoken: Arc<AtomicUsize>,
+    pub(super) composed: Arc<AtomicUsize>,
     pub(super) submitted: Arc<AtomicUsize>,
     pub(super) drawn: Arc<AtomicUsize>,
     pub(super) designed: Arc<AtomicUsize>,
@@ -68,6 +70,10 @@ impl Vendors for Mock {
     }
 
     fn speech(&self) -> Result<Speech, String> {
+        Ok(Box::new(self.clone()))
+    }
+
+    fn music(&self) -> Result<Music, String> {
         Ok(Box::new(self.clone()))
     }
 

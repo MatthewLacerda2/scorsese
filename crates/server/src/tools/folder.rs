@@ -19,7 +19,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use scorsese_core::{AssetKind, Project, ProjectPath};
-use scorsese_providers::{image, speech, video};
+use scorsese_providers::{image, music, speech, video};
 use sqlx::postgres::PgPool;
 
 use crate::db::{self, UserId};
@@ -109,6 +109,9 @@ fn briefs(project: &Project, root: &Path) -> HashMap<String, ProjectPath> {
             }
             AssetKind::GeneratedAudio => {
                 if let Ok(brief) = speech::Brief::of(asset) {
+                    briefs.insert(brief.digest(), brief.output());
+                }
+                if let Ok(brief) = music::Brief::of(asset) {
                     briefs.insert(brief.digest(), brief.output());
                 }
             }

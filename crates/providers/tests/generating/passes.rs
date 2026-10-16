@@ -8,6 +8,7 @@ use std::time::Duration;
 use scorsese_core::{Asset, AssetId, AssetKind, Project, SpeechRequest};
 use scorsese_providers::credentials::{Budget, CredentialError};
 use scorsese_providers::image::{ImageProvider, Order};
+use scorsese_providers::music::MusicProvider;
 use scorsese_providers::passes::{self, Halt, Step, Vendors};
 use scorsese_providers::quote::generation;
 use scorsese_providers::speech::{Brief, ProviderError, SpeechProvider, Spoken};
@@ -59,6 +60,10 @@ impl Vendors for Fakes {
             return Err(missing("ElevenLabs"));
         }
         Ok(Box::new(Voice))
+    }
+
+    fn music(&self) -> Result<Box<dyn MusicProvider>, CredentialError> {
+        Err(missing("ElevenLabs"))
     }
 
     fn rest(&self, _: Duration) {}

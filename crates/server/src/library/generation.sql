@@ -52,6 +52,22 @@ SELECT record FROM (
     )
     FROM image_generations g WHERE g.library_item_id = $1
     UNION ALL
+    SELECT g.id, g.created_at, jsonb_build_object(
+        'kind', 'music_track',
+        'id', g.id,
+        'model', g.model,
+        'prompt', g.prompt,
+        'seconds', g.seconds,
+        'instrumental', g.instrumental,
+        'brief_hash', g.brief_hash,
+        'project_id', g.project_id,
+        'created_at', extract(epoch FROM g.created_at)::bigint,
+        'estimated_cost_micros', g.estimated_cost_micros,
+        'charged_micros', coalesce((SELECT -sum(e.amount_micros) FROM credit_entries e
+                                    WHERE e.music_generation_id = g.id AND e.kind = 'charge'), 0)
+    )
+    FROM music_generations g WHERE g.library_item_id = $1
+    UNION ALL
     -- A design's three samples are three items, each kept under its own
     -- hash; the design names all three in its candidates.
     SELECT g.id, g.created_at, jsonb_build_object(

@@ -62,6 +62,11 @@ impl Brief {
                 kind: asset.kind,
             });
         }
+        if asset.music.is_some() {
+            return Err(Incomplete::Track {
+                id: asset.id.clone(),
+            });
+        }
         let text = asset
             .prompt
             .clone()
