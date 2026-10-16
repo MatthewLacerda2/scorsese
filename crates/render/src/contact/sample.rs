@@ -186,7 +186,7 @@ fn even(side: u32) -> u32 {
 /// named a range that does not divide evenly. Whole seconds are the common
 /// case and `0:05.0` reads as more precision than anybody asked for.
 pub fn label(seconds: f64) -> String {
-    let whole_tenth = (seconds.max(0.0) * 10.0).round() as u64 % 10 == 0;
+    let whole_tenth = ((seconds.max(0.0) * 10.0).round() as u64).is_multiple_of(10);
     let precision = if whole_tenth {
         Precision::Round
     } else {
