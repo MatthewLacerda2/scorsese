@@ -10,7 +10,8 @@
 //! speaks MCP get the same tools, the same way an HTTP API does not care
 //! whether a browser, a phone or curl is calling. Claude is who this is
 //! developed and tested against, not a dependency, and nothing here may assume
-//! otherwise.
+//! otherwise. `tests/neutral.rs` holds the part a test can see: no tool or
+//! argument names a client in what it says about itself.
 //!
 //! Boundary: protocol handling only. No editing logic of its own, no display,
 //! no direct ffmpeg or provider calls — everything goes through the lower
