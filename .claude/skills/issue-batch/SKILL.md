@@ -335,7 +335,9 @@ request:
    resume: <command>`** — start exactly that command again the same way (a
    background command into the log, the Monitor re-armed on it; the Monitor
    also needs re-arming each time it expires). Exit status 4 means something was still unfinished, 3
-   that GitHub stopped answering; the resume line is the answer to both. It merges only on `make mergeable`'s verdict. It does
+   that GitHub stopped answering; the resume line is the answer to both. Exit
+   status 5 means another queue already holds this repository's lock (#1346):
+   its pid is in the line, and nothing was attempted — never start a second. It merges only on `make mergeable`'s verdict. It does
    **not** compile the rebased tree before pushing, and a clean textual rebase
    still breaks when a merge ahead changed a signature this branch uses — on
    rusty a removed argument cost a ten-minute CI round to find, and a rebase

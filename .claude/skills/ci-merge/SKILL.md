@@ -165,18 +165,22 @@ same five steps (#690):
   optimisation and never stops the queue. **Dependabot goes after all of
   them**, whatever its labels or conflicts say. A list run keeps the order it
   was given.
-- **The order has no aging yet** (#1345). A pull request with one conflict
-  loses every pick to one with none, so in a busy batch it can sit in line
-  for hours without ever being tried or handed back (#1292 and four others,
-  4–5 h, on 2026-10-15). If one has waited past an hour, run it by hand:
-  `make queue PRS="<numbers>"` takes them in the order given.
-- **One watch at a time** (#1346, until the watch takes a lock). A session that
-  restarts can leave its background watch running as an orphan; two watches
-  on one repository race each other's rebases. Before starting one, run
-  `ps -eo pid,etime,args | grep '[m]erge-queue.py --watch'` (the bracket keeps
-  the grep from matching itself), and resume only if it prints nothing. A
-  `git fetch` of your own in the main checkout can collide with the watch's
-  (`cannot lock ref`): harmless, run it again.
+- **No pull request waits forever** (#1345). Fewest-conflicts-first alone let
+  a pull request with one conflict lose every pick to ones with none (#1292
+  and four others, 4–5 h, on 2026-10-15). So the watch counts the picks each
+  one was passed over for, and at three it goes first, whatever its conflicts
+  (Dependabot still last); the `#A goes before #B` line says when. A pull
+  request that **conflicts with `main`** is not kept in line at all: the
+  watch hands it back at once with the files named, as a rebase conflict is.
+- **One queue at a time, enforced** (#1346). A session that restarts can leave
+  its background watch running as an orphan, and two queues on one
+  repository race each other's rebases. Every run, a watch or a one-off
+  `PRS=…`, takes a `flock` on `merge-queue.lock` in the clone's git directory
+  (shared by every worktree; the kernel drops it when the process dies), and
+  a second refuses with exit status 5, naming the holder's pid and how long it
+  has run. A refusal is the answer: follow the running watch's log, or stop
+  that pid first. A `git fetch` of your own in the main checkout can collide
+  with the watch's (`cannot lock ref`): harmless, run it again.
 - **Dependabot labels its own pull requests `queue`** (`.github/dependabot.yml`,
   #721) — all but GitHub Actions', which only ever proposes majors and waits
   for a person to read and label it. That is the decision: they are monthly, grouped, semver-compatible

@@ -153,6 +153,14 @@ ready, going back to draft or closing — and what it did with each one it took,
 one `watch: ` line per event, so a background `Monitor` on its output filtered
 to those lines is a batch's only watch (#819, `merge-watch.py`).
 
+## One at a time, enforced
+
+Two queues on one repository race each other's rebases and pushes, so every
+run, a list or a watch, holds an exclusive lock for its lifetime, and a second
+one refuses at once with [`LOCKED_STATUS`], naming the holder's pid and how
+long it has run. It is a `flock`, which the kernel drops with the process, so a
+crash leaves nothing stale (#1346, `merge_queue/lock.py`).
+
 Run it:
 
     python3 .github/scripts/merge-queue.py 486 488 489
@@ -173,7 +181,8 @@ and a watch over turns, and `main`. The rest is the `merge_queue` package
 beside it, one responsibility a module (#1136): `rebase` (rebase and push, or
 Dependabot's own), `ci` (waiting on the run) over `verdict` (the pure
 decision), `merge` (verifying a merge that failed in transit), `report` (the
-summary and exit status), `numbering` (#729's collisions), `talk` (git,
+summary and exit status), `numbering` (#729's collisions), `lock` (one queue
+at a time per repository, #1346), `talk` (git,
 GitHub's view of the pull request, and the queue's output), `options` (the
 command line) and `states` (the words they share). Each calls another's
 functions through the module (`ci.wait_for(…)`), never by imported name, so a
@@ -194,12 +203,12 @@ HERE = str(Path(__file__).resolve().parent)
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-from merge_queue import ci, merge, mergeable, options, rebase, report, talk, verdict, watch  # noqa: E402,F401
+from merge_queue import ci, lock, merge, mergeable, options, rebase, report, talk, verdict, watch  # noqa: E402,F401
 from merge_queue.numbering import migration_number, numbering, schema_version  # noqa: E402,F401
 from merge_queue.options import DEADLINE_MINUTES, POLL_SECONDS, parse, since  # noqa: E402,F401
 from merge_queue.states import (  # noqa: E402,F401
-    GO, GREEN, HANDED_BACK, LATE, MERGED, NOT_REACHED, RERUN, STOP, UNFINISHED,
-    UNFINISHED_STATUS, UNJUDGED, UNREACHABLE, WAIT,
+    GO, GREEN, HANDED_BACK, LATE, LOCKED_STATUS, MERGED, NOT_REACHED, RERUN, STOP,
+    UNFINISHED, UNFINISHED_STATUS, UNJUDGED, UNREACHABLE, WAIT,
 )
 from merge_queue.verdict import RUN_APPEARS_SECONDS, head_state, progress  # noqa: E402,F401
 from merge_queue.ci import wait_for  # noqa: E402,F401
@@ -349,6 +358,8 @@ def run_watch(repo: str, opts: argparse.Namespace) -> list[tuple[int, str, str]]
     dropped: dict[int, str] = {}
     issues: dict[int, list[str]] = {}
     merges: dict[frozenset[str], bool] = {}
+    behind_main: dict[frozenset[str], list[str] | None] = {}
+    passes: dict[int, int] = {}
     board = watch.Board(opts.since)
     stop_taking = time.monotonic() + opts.watch_for * 60
 
@@ -375,17 +386,26 @@ def run_watch(repo: str, opts: argparse.Namespace) -> list[tuple[int, str, str]]
                     record(number, UNFINISHED, "still in line when the watch ended.")
                 return results
             labels = watch.issue_labels(pulls, issues)
+            paths = watch.against_main(watch.contenders(pulls, dropped), opts.root, behind_main)
+            for number, why in watch.behind(pulls, dropped, paths):
+                # Its turn could only end in this hand-back; have it now (#1345).
+                talk.say(f"#{number}: {why}")
+                record(number, HANDED_BACK, why)
+                dropped[number] = next(
+                    p.get("headRefOid", "") for p in pulls if p["number"] == number
+                )
             clashes = watch.clashing(
                 watch.contenders(pulls, dropped), opts.root, merges
             )
-            pull = watch.pick(pulls, dropped, labels, clashes)
+            pull = watch.pick(pulls, dropped, labels, clashes, passes)
             if pull is None:
                 time.sleep(watch.IDLE_SECONDS)
                 continue
-            note = watch.reordered(pulls, dropped, labels, clashes)
+            note = watch.reordered(pulls, dropped, labels, clashes, passes)
             if note:
                 talk.say(note)
             number = pull["number"]
+            watch.count_passes(passes, pulls, dropped, number)
             heads: dict[int, str] = {}
             try:
                 outcome = take(repo, number, opts, heads, tick)
@@ -406,6 +426,11 @@ def run_watch(repo: str, opts: argparse.Namespace) -> list[tuple[int, str, str]]
 
 def main(argv: list[str] | None = None) -> int:
     opts = options.parse(sys.argv[1:] if argv is None else argv)
+    try:
+        held = lock.acquire(lock.path_for(opts.root))  # noqa: F841 — kept until exit
+    except lock.Held as busy:
+        talk.say(str(busy), "Nothing was attempted.")
+        return LOCKED_STATUS
     try:
         repo = mergeable.gh("repo", "view", "--json", "nameWithOwner")
     except mergeable.Unreachable as outage:

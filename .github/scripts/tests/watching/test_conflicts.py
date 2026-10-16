@@ -165,6 +165,7 @@ class Watching(unittest.TestCase):
         with mock.patch.object(queue.mergeable, "gh", side_effect=gh), \
             mock.patch("builtins.print"), \
             mock.patch.object(watch, "clashing", return_value={pair(1, 2), pair(1, 3)}), \
+            mock.patch.object(watch, "against_main", return_value={}), \
             mock.patch.object(queue, "take", side_effect=take) as took, \
             mock.patch.object(queue.time, "monotonic", side_effect=lambda: clock[0]), \
             mock.patch.object(queue.time, "sleep", side_effect=lambda s: clock.__setitem__(0, clock[0] + s)), \

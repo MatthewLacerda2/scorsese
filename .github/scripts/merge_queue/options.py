@@ -52,7 +52,8 @@ def parse(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help=(
             f"take ready pull requests labelled `{watch.QUEUE_LABEL}` as they"
-            " appear, fewest conflicts first, then label priority, then age,"
+            " appear, fewest conflicts first (none passed over more than"
+            f" {watch.AGED_PASSES} times), then label priority, then age,"
             " instead of a list"
         ),
     )

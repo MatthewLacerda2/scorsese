@@ -110,6 +110,7 @@ class Unanswered(unittest.TestCase):
         outage = queue.mergeable.Unreachable("network: GitHub unreachable")
         took = [(486, queue.MERGED, "CI passed"), outage]
         with mock.patch.object(queue.mergeable, "gh", return_value={"nameWithOwner": "o/r"}), \
+            mock.patch.object(queue.lock, "acquire"), \
             mock.patch.object(queue, "take", side_effect=took) as take, \
             mock.patch("builtins.print") as printed:
             status = queue.main(["486", "488", "489"])
