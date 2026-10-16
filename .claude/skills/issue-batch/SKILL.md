@@ -114,7 +114,28 @@ second to land renumbers (`ci-merge`, *Rebasing*). The bump also turns on the
 conditional `web` and `app` gates, so a branch with no UI in it still needs Bun
 and the app's libraries to prove itself. The server's SQL migrations number the
 same way: two branches adding `0012_` rebase without a conflict and fail
-`crates/server/tests/migrations.rs` — the second renumbers.
+`crates/server/tests/migrations.rs` — the second renumbers. **Hand out a
+number only in landing order**: on 2026-10-16 #1406 and #1412 were each told a
+migration number while both were queued, and #1412's `0036` failed the
+no-gaps test until #1406's `0035` had landed. Renumber the next one in line,
+let it land, then the one after.
+
+**Reference images collide in binary.** Every branch that re-blesses an app
+snapshot or a golden has a conflict no rebase can merge with any other branch
+that re-blesses the same picture: it has to be re-blessed again on the new
+`main`. On 2026-10-16 three app branches (#1375 palette, #1387 file tiles,
+#1383 one clock) all moved `a_whole_edit.png`; each landed only after a coder
+rebased and re-blessed it in turn. Sequence such branches in one lane, or plan
+the re-bless as a step of the second and third.
+
+**A new gate breaks the branches already in line.** A pull request that adds
+a check (a lint rule, a dead-code gate, a clippy ban) proves the tree clean on
+*its* `main`; branches written meanwhile meet it only after the queue rebases
+them, as a red run. On 2026-10-16 #1368's shebang rule, #1415's knip and
+#1396's `env::var` ban each failed a queued sibling (#1362, #1411, …) that way.
+When such a pull request is next to merge, run its check over the queued
+branches' heads and fix them before their turn; a coder briefed before the gate
+existed cannot know it.
 
 ## Group the work before splitting it
 
@@ -232,7 +253,10 @@ shape) with `run_once_at` a minute or two out, this repository as its source,
 and the short fixed prompt below (the brief itself is an issue comment, #820).
 Compute that time, never type it: `date -u -d '+2 min' +%Y-%m-%dT%H:%M:00Z` on
 Linux (`date -u -v+2M …` on macOS). On rusty a hand-typed time fired 45 minutes
-late, and the API refuses a time already past. Set its **model** on purpose: the `schedule`
+late, and the API refuses a time already past. **Creating routines is rate-limited** (2026-10-16): about four
+`create` calls in a burst, then `429 … Try again in 15s`. Send them in fours,
+wait the seconds it names, and give each a `run_once_at` far enough out that
+the wait does not make it already past. Set its **model** on purpose: the `schedule`
 skill's example body defaults to a Sonnet, and writing a feature branch is
 judgement work (*Model, as a hint* below). Its example
 `allowed_tools` lists only shell and file tools, so check it leaves room for
