@@ -48,6 +48,13 @@ unloadable breaks paying users. So:
 - `OLDEST_MIGRATABLE` (33) is the floor: older documents are refused as
   `MigrateError::TooOld`. It moves back never, and forward only if the user
   decides.
+- **The bump records the new format.** `crates/core/tests/format` holds
+  `project.json`'s shape — one project with every field set, and every enum
+  variant as written — against `recorded.json`, so a format change without
+  a bump fails there, saying what changed. After the step is in, `RECORD_FORMAT=1
+  cargo test -p scorsese-core --test format` rewrites the record; it refuses
+  to overwrite a record of the version it is already at. A field or variant
+  added to the model does not compile until that test's document sets it.
 - The bump also moves `docs/project-format.md`'s title (held to
   `SCHEMA_VERSION` by `the_title_states_this_builds_schema_version`) and the
   `"schema_version"` in every `.json` fixture (`crates/golden/fixtures`,
