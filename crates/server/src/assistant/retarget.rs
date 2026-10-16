@@ -54,6 +54,9 @@ pub async fn retarget(
         fresh: false,
         notes: vec![prompt::retargeted(&before, &now)],
         effort: None,
+        told: Some(prompt::app_said(
+            "they changed what this video is made for in its settings.",
+        )),
     };
     Ok(match start(state, user, project, opening).await {
         Ok(turn) => Retargeted {

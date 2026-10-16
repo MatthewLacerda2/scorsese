@@ -56,6 +56,7 @@ pub async fn send(
         fresh: send.fresh,
         notes: Vec::new(),
         effort,
+        told: None,
     };
     let turn = assistant::start(&state, member.user, project, opening).await?;
     Ok((StatusCode::ACCEPTED, Json(turn)))
