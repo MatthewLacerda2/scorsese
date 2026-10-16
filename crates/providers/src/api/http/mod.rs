@@ -21,9 +21,11 @@ use super::tap::{Tap, Tee};
 
 mod explain;
 mod file;
+mod multipart;
 
 pub use explain::{AT_ITS_LIMIT, scrubbed};
 pub use file::stream_to;
+pub use multipart::Form;
 
 /// How long to wait on a single request before giving up on it.
 ///
