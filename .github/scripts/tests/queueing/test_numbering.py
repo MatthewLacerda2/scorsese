@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """The queue hands back a number `main` already holds, before it pushes (#729).
 
-Two branches cut from the same `main` count up to the same migration number or
-the same `SCHEMA_VERSION`, and git rebases both cleanly. On 2026-10-04 #714 and
+Two branches cut from the same `main` count up to the same migration number,
+the same `SCHEMA_VERSION` or the same `SYNTH_VERSION` (#1216), and git rebases
+both cleanly. On 2026-10-04 #714 and
 #716 each added `crates/server/migrations/0017_*.sql`; a person caught it by
 reading. [`queue.numbering`] is that reading, tested without git.
 """
@@ -18,6 +19,10 @@ SCRIPT = Path(__file__).resolve().parents[2] / "merge-queue.py"
 _spec = importlib.util.spec_from_file_location("merge_queue", SCRIPT)
 queue = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(queue)
+
+# Loading the script put its directory on the path; the package is read
+# directly for what the script itself has no use to re-export.
+from merge_queue import numbering  # noqa: E402
 
 DIR = "crates/server/migrations"
 MAIN = [f"{DIR}/0016_voice_designs.sql", f"{DIR}/0017_library_midi.sql", f"{DIR}/README.md"]
@@ -72,10 +77,50 @@ class SchemaVersion(unittest.TestCase):
         self.assertEqual(queue.schema_version(None), None)
 
 
+class SynthVersion(unittest.TestCase):
+    """The silent one: a shared bump ships the second branch's sound change
+    under the first's number, so every bake of that number goes stale."""
+
+    def test_a_bump_main_already_made_is_handed_back_with_the_next_number(self):
+        lines = queue.numbering(MAIN, [], UNTOUCHED, synth=(8, 9, 9, 9))
+        self.assertEqual(len(lines), 1)
+        self.assertIn("`SYNTH_VERSION` 9", lines[0])
+        self.assertIn("Renumber to 10", lines[0])
+        self.assertIn("SYNTH_VERSION.md", lines[0])
+
+    def test_a_bump_main_has_not_made_passes(self):
+        self.assertEqual(queue.numbering(MAIN, [], UNTOUCHED, synth=(8, 9, 9, 8)), [])
+
+    def test_a_branch_that_never_bumped_is_not_blamed_for_mains_bump(self):
+        self.assertEqual(queue.numbering(MAIN, [], UNTOUCHED, synth=(8, 8, 9, 9)), [])
+
+    def test_a_caller_with_no_reading_passes(self):
+        self.assertEqual(queue.numbering(MAIN, [], UNTOUCHED), [])
+
+    def test_the_constant_is_read_from_its_declaration(self):
+        source = "/// The table.\npub const SYNTH_VERSION: u32 = 9;\n"
+        self.assertEqual(numbering.synth_version(source), 9)
+        self.assertEqual(numbering.synth_version("pub const SCHEMA_VERSION: u32 = 9;"), None)
+        self.assertEqual(numbering.synth_version(None), None)
+
+    def test_the_paths_read_are_the_ones_that_declare_the_constants(self):
+        # A moved file reads as no evidence, so the check would pass every
+        # branch without a word: `project.rs` became `project/mod.rs` in #1295
+        # and the `SCHEMA_VERSION` check went blind until this test (#1216).
+        root = Path(__file__).resolve().parents[4]
+        for path, read in (
+            (numbering.SYNTH_FILE, numbering.synth_version),
+            (numbering.SCHEMA_FILE, numbering.schema_version),
+        ):
+            self.assertIsNotNone(read((root / path).read_text()), path)
+
+
 class Both(unittest.TestCase):
     def test_both_collisions_are_named_together(self):
-        lines = queue.numbering(MAIN, [f"{DIR}/0017_x.sql"], (43, 44, 44, 44))
-        self.assertEqual(len(lines), 2)
+        lines = queue.numbering(
+            MAIN, [f"{DIR}/0017_x.sql"], (43, 44, 44, 44), synth=(8, 9, 9, 9)
+        )
+        self.assertEqual(len(lines), 3)
 
 
 if __name__ == "__main__":

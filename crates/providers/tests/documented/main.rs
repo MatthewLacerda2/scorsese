@@ -7,6 +7,8 @@
 //! complete ones are checked by actually rendering them.
 
 mod pages;
+#[path = "../../../zimmer/tests/common/written.rs"]
+mod written;
 
 use pages::{document, examples};
 use scorsese_providers::synth::Recipe;
@@ -101,4 +103,25 @@ fn stub() -> scorsese_zimmer::Patch {
         lfo: None,
         fx: vec![],
     }
+}
+
+/// Every worked recipe writes back only the keys it was written with.
+///
+/// The page's examples reach every stage a recipe has, so a new optional
+/// field that writes its default shows up here as a key the example never
+/// wrote — the rule `crates/zimmer/CLAUDE.md` states, and
+/// `crates/zimmer/tests/common/written.rs` enforces and explains.
+#[test]
+fn every_example_writes_back_only_what_it_was_written_with() {
+    let drifted: Vec<String> = examples()
+        .iter()
+        .filter_map(|example| {
+            let json = document(example);
+            let recipe = Recipe::from_json(&json).expect("parsed above");
+            let rewritten = serde_json::to_string(&recipe).expect("serialise");
+            let what = format!("the `{}` example at line {}", example.marker, example.line);
+            written::drift(&what, "", &json, &rewritten)
+        })
+        .collect();
+    assert!(drifted.is_empty(), "{}", drifted.join("\n\n"));
 }
