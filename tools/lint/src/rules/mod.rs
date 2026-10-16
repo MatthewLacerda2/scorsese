@@ -12,6 +12,8 @@
 //!   would leave out of a commit.
 //! - [`schema`] — a Rust test document at this build's version interpolates
 //!   `SCHEMA_VERSION` rather than writing the number.
+//! - [`shebang`] — a tracked script with a shebang is executable, and an
+//!   executable text file has a shebang (#1347).
 //!
 //! **Exceptions are inline, with a written reason** ([`allow`]): a comment
 //! `lint: allow(<rule>) <why>` on the line a rule flags or in the comments
@@ -23,6 +25,7 @@ pub mod ignored;
 pub mod markers;
 pub mod prefix;
 pub mod schema;
+pub mod shebang;
 pub mod skips;
 
 use std::fmt;
@@ -66,6 +69,7 @@ pub fn check_tree(root: &Path) -> io::Result<Vec<Finding>> {
     let mut findings = prefix::check(texts.iter().map(|(file, text)| (&file.path, text.as_str())));
     let paths: Vec<&Path> = files.iter().map(|file| file.path.as_path()).collect();
     findings.extend(ignored::check(root, &paths));
+    findings.extend(shebang::check(root));
     let current = texts
         .iter()
         .find(|(file, _)| file.path == Path::new(schema::DEFINED_IN))
