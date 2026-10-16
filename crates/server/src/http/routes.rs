@@ -11,13 +11,14 @@
 //! belongs to, and one row in `docs/web.md`. Two lines with the same path and
 //! different methods are one route with two methods, as axum merges them.
 
+use axum::extract::DefaultBodyLimit;
 use axum::handler::Handler;
 use axum::http::Method;
 use axum::routing::{MethodFilter, MethodRouter, on};
 
 use super::{
-    AppState, account, chat, credits, editor, events, google, health, jobs, library, mcp, payments,
-    projects, renders, styles, templates, tokens, uploads,
+    AppState, account, chat, client_errors, credits, editor, events, google, health, jobs, library,
+    mcp, payments, projects, renders, styles, templates, tokens, uploads,
 };
 
 /// One method on one path, and what answers it.
@@ -43,6 +44,13 @@ impl Route {
             path,
             handler: on(filter, handler),
         }
+    }
+
+    /// The same route, refusing a body over `bytes` with `413` before it is
+    /// read, where axum's own default would allow two megabytes.
+    fn capped(mut self, bytes: usize) -> Self {
+        self.handler = self.handler.layer(DefaultBodyLimit::max(bytes));
+        self
     }
 }
 
@@ -119,6 +127,8 @@ pub fn table() -> Vec<Route> {
         Route::new(M::POST, "/projects/{id}/tools/{name}", editor::call),
         Route::new(M::GET, "/templates", templates::list),
         Route::new(M::DELETE, "/templates/{id}", templates::delete),
+        // The browser's crash reports (#1428), signed in or not.
+        Route::new(M::POST, "/client-errors", client_errors::report).capped(client_errors::CAP),
     ]
 }
 

@@ -1,7 +1,7 @@
 //! The HTTP half: who may post, what comes back, and how often.
 
 use scorsese_server::accounts::sessions;
-use scorsese_server::http::mcp::Limits;
+use scorsese_server::http::limits::Limits;
 use serde_json::json;
 use sqlx::postgres::PgPool;
 
