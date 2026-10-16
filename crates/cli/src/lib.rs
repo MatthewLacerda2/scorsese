@@ -277,6 +277,7 @@ fn dispatch(cli: Cli) -> Result<()> {
                 seconds,
                 only,
                 out,
+                like,
             }) => commands::synth::bake(
                 &directory,
                 asset.as_deref(),
@@ -286,9 +287,12 @@ fn dispatch(cli: Cli) -> Result<()> {
                     only,
                     out,
                 },
+                like,
             ),
             Some(SynthAction::Survey) => commands::synth::survey(&directory),
-            None => commands::synth::bake(&directory, None, &commands::synth::Less::default()),
+            None => {
+                commands::synth::bake(&directory, None, &commands::synth::Less::default(), None)
+            }
         },
         Command::Dissolve { from, to, seconds } => {
             commands::dissolve::run(&directory, &from, &to, seconds)
@@ -297,7 +301,11 @@ fn dispatch(cli: Cli) -> Result<()> {
         Command::Caption(options) => commands::caption::run(&directory, &options),
         Command::CutToVoice(options) => commands::voice::run(&directory, &options),
         Command::Stock { action } => commands::stock::run(&directory, action),
-        Command::Level { file, against } => commands::level::run(&file, against.as_deref()),
+        Command::Level {
+            file,
+            against,
+            like,
+        } => commands::level::run(&file, against.as_deref(), like),
         Command::Vectorize(options) => commands::vectorize::run(&directory, &options),
         Command::Assets {
             action: None,

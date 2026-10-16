@@ -14,6 +14,7 @@ use clap::{Args, Subcommand, ValueEnum};
 use scorsese_core::style::Platform;
 use scorsese_core::{AssetKind, Fps};
 use scorsese_providers::synth::{Drum, Span, Starter};
+use scorsese_render::audio::reference::{self, Reference};
 
 /// What `new` takes.
 #[derive(Debug, Args)]
@@ -205,6 +206,16 @@ pub(crate) enum SynthAction {
         /// `cache/synth/<asset>.wav` and the next overwrites it.
         #[arg(long, value_name = "FILE")]
         out: Option<PathBuf>,
+        /// Hold the body against a reference record's measured ranges —
+        /// crest, low/mid/high share, width and how it opens — one row each,
+        /// saying how many sections fall outside and which way. One of
+        /// `billie-jean`, `fuego-drops`, `fuego-breaks`, `techno-syndrome`,
+        /// `bfg-division`, `brutal-doom`; `scorsese guide references` says
+        /// which suits which cue. A floor to clear, never a target.
+        /// A recipe already baked measures nothing, so it has nothing to hold:
+        /// `scorsese level <file> --like` reads its file instead.
+        #[arg(long, value_name = "RECORD", value_parser = reference::find)]
+        like: Option<&'static Reference>,
     },
     /// Parse a recipe, or a bare patch file a song names, and report what it
     /// is, without rendering it — so a malformed document costs milliseconds

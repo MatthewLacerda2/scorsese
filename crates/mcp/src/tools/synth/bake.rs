@@ -14,6 +14,8 @@
 use schemars::JsonSchema;
 use scorsese_core::AssetId;
 use scorsese_providers::synth::{self, Baked, Excerpt, Partial, Span, Window};
+use scorsese_render::audio::Profile;
+use scorsese_render::audio::reference::{self, Reference};
 use scorsese_render::{Cancel, say};
 use serde::Deserialize;
 use serde_json::Value;
@@ -61,6 +63,14 @@ struct Arguments {
     /// used as given. Omit and it lands in cache/synth/<asset>.wav, which the
     /// next partial bake of the same recipe overwrites.
     out: Option<String>,
+    /// Hold each bake's body against a reference record's measured ranges —
+    /// crest, low/mid/high share, width and how it opens — one row each under
+    /// the report, saying how many sections fall outside and which way. One
+    /// of billie-jean, fuego-drops, fuego-breaks, techno-syndrome,
+    /// bfg-division, brutal-doom; guide references says which suits which
+    /// cue. A floor to clear, never a target. A recipe already baked measures
+    /// nothing, so it has nothing to hold: hear its file with `like` instead.
+    like: Option<String>,
 }
 
 impl args::Arguments for Arguments {}
@@ -114,7 +124,8 @@ impl Tool for Bake {
          whole file, then \
          a row per section of the arrangement, then a row per track of a song \
          saying which instrument is taking up the room, then a grid of each \
-         track's mean in each section saying which instrument is quiet where. \
+         track's mean in each section saying which instrument is quiet where. Give `like` and it ends with \
+         rows holding the bake against a reference record. \
          Each section row starts with its bounds in seconds to the millisecond \
          (`8.000-24.000`): that start is place_clip's start_seconds and the end \
          minus the start its duration_seconds. A recipe already baked measures \
@@ -152,6 +163,7 @@ impl Tool for Bake {
         let dir = arguments.project.dir();
         let mut project = load(dir)?;
         let asset = arguments.asset.as_deref();
+        let like = arguments.like.as_deref().map(reference::find).transpose()?;
 
         if let Some(excerpt) = arguments.excerpt()? {
             let Some(id) = asset else {
@@ -174,7 +186,7 @@ impl Tool for Bake {
             if let Some(given) = arguments.out.as_deref() {
                 given.clone_into(&mut partial.shown);
             }
-            return Ok(said_partial(&id, &excerpt, &partial).into());
+            return Ok(said_partial(&id, &excerpt, &partial, like).into());
         }
 
         let only = asset.map(AssetId::new);
@@ -185,7 +197,11 @@ impl Tool for Bake {
         }
         save(&project, dir)?;
 
-        let lines: Vec<String> = baked.baked.iter().map(|(id, it)| said(id, it)).collect();
+        let lines: Vec<String> = baked
+            .baked
+            .iter()
+            .map(|(id, it)| said(id, it, like))
+            .collect();
         Ok(format!("{}\n{}", lines.join("\n"), baked.tally()).into())
     }
 }
@@ -198,7 +214,7 @@ impl Tool for Bake {
 /// piece the change landed. The per-track rows are the other half of the same
 /// question: a client that cannot hear can be told a mix is muddy, and can do
 /// nothing with that until it is told which of five instruments is the mud.
-fn said(id: &AssetId, outcome: &Baked) -> String {
+fn said(id: &AssetId, outcome: &Baked, like: Option<&Reference>) -> String {
     match outcome {
         Baked::Rendered {
             path,
@@ -217,6 +233,7 @@ fn said(id: &AssetId, outcome: &Baked) -> String {
                     say::sections(profile),
                     say::layers(tracks),
                     say::grid(tracks),
+                    likeness(profile, like),
                 ],
             )
         }
@@ -235,7 +252,12 @@ fn said(id: &AssetId, outcome: &Baked) -> String {
 
 /// The same report for a partial bake, ending in the sentence that keeps this
 /// file from being mistaken for the asset's own.
-fn said_partial(id: &AssetId, excerpt: &Excerpt, partial: &Partial) -> String {
+fn said_partial(
+    id: &AssetId,
+    excerpt: &Excerpt,
+    partial: &Partial,
+    like: Option<&Reference>,
+) -> String {
     // The excerpt is in the headline because a level is a different finding
     // over eight bars than over the whole piece, and this line is the only
     // place a client is told which one it is reading.
@@ -251,6 +273,7 @@ fn said_partial(id: &AssetId, excerpt: &Excerpt, partial: &Partial) -> String {
             say::sections(&partial.profile),
             say::layers(&partial.tracks),
             say::grid(&partial.tracks),
+            likeness(&partial.profile, like),
         ],
     );
     said.push_str(&format!(
@@ -258,6 +281,11 @@ fn said_partial(id: &AssetId, excerpt: &Excerpt, partial: &Partial) -> String {
          is what makes that."
     ));
     said
+}
+
+/// The rows holding a bake against a reference record, when one was named.
+fn likeness(profile: &Profile, like: Option<&Reference>) -> Vec<String> {
+    like.map_or_else(Vec::new, |reference| say::likeness(profile, reference))
 }
 
 /// A headline with the section, track and track-by-section tables indented
