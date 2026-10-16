@@ -5,7 +5,8 @@
 import { expect, test } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MENU } from "./fixture";
-import { PlatformPicker, StylePicker } from "./Pickers";
+import { PlatformPicker } from "./PlatformPicker";
+import { StylePicker } from "./StylePicker";
 
 test("the platforms are offered after none, and a click chooses one", () => {
   const chosen: (string | null)[] = [];

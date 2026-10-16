@@ -7,7 +7,6 @@
 
 import { LibraryIcon } from "lucide-react";
 import { useState } from "react";
-import { useLibrary } from "@/app/queries";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,10 +16,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { FileBrowser, type Picking } from "@/files/FileBrowser";
 import { useT } from "@/i18n/I18nProvider";
 import type { EditOutcome } from "../project";
-import { importEdit, refusal } from "./picking";
+import { LibraryPicker } from "./LibraryPicker";
 
 interface Props {
   projectId: number;
@@ -45,25 +43,8 @@ export function LibraryModal({ projectId, edit }: Props) {
           <DialogTitle>{t.assets.library.title}</DialogTitle>
           <DialogDescription>{t.assets.library.description}</DialogDescription>
         </DialogHeader>
-        {open && <Picker projectId={projectId} edit={edit} />}
+        {open && <LibraryPicker projectId={projectId} edit={edit} />}
       </DialogContent>
     </Dialog>
-  );
-}
-
-/** The browser itself — mounted only while the modal is open, so is its query. */
-export function Picker({ projectId, edit }: Props) {
-  const t = useT();
-  const inProject = useLibrary({ project: projectId });
-  const added = new Set((inProject.data ?? []).map((tile) => tile.id));
-  const picking: Picking = {
-    pick: (tile) => void edit.run(importEdit(tile.id)),
-    refuse: (tile) => refusal(tile, added, t.assets.library),
-  };
-  return (
-    <>
-      {edit.refused && <p className="text-sm text-destructive">{edit.refused}</p>}
-      <FileBrowser picking={picking} />
-    </>
   );
 }

@@ -1,28 +1,17 @@
-// One file in the grid: thumbnail and name, without its extension. A tile can be `disabled` with a `note`
-// saying why (the editor's picking modal, #702), and carries `actions` beside
-// its main button — buttons of their own, since a button cannot hold one. The thumbnail is drawn by a job after the
-// file arrives and answers 404 until then, so a missing one shows the kind's
-// icon and is asked for again a little later.
+// One file in the grid: thumbnail (`Thumbnail.tsx`) and name, without its
+// extension. A tile can be `disabled` with a `note` saying why (the editor's
+// picking modal, #702), and carries `actions` beside its main button — buttons
+// of their own, since a button cannot hold one.
 
-import { FileAudioIcon, FileImageIcon, FileVideoIcon } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
-import type { FileKind, LibraryTile } from "@/api";
-
-export const KIND_ICON = {
-  video: FileVideoIcon,
-  image: FileImageIcon,
-  audio: FileAudioIcon,
-};
+import type { ReactNode } from "react";
+import type { LibraryTile } from "@/api";
+import { Thumbnail } from "./Thumbnail";
 
 /** `name` without its last extension; a dotfile or an extensionless name is whole. */
 export function withoutExtension(name: string): string {
   const dot = name.lastIndexOf(".");
   return dot > 0 ? name.slice(0, dot) : name;
 }
-
-/** How often, and how many times, a thumbnail still being drawn is re-asked. */
-const RETRY_MS = 4000;
-const RETRIES = 8;
 
 interface Props {
   tile: LibraryTile;
@@ -71,36 +60,6 @@ export function FileTile({
         {note && <span className="px-2 pb-2 text-xs text-muted-foreground">{note}</span>}
       </button>
       {actions && <div className="absolute top-1 right-1 flex gap-1">{actions}</div>}
-    </div>
-  );
-}
-
-export function Thumbnail({ src, kind }: { src: string; kind: FileKind }) {
-  const [attempt, setAttempt] = useState(0);
-  const [missing, setMissing] = useState(false);
-  useEffect(() => {
-    if (!missing || attempt >= RETRIES) return;
-    const timer = setTimeout(() => {
-      setMissing(false);
-      setAttempt((n) => n + 1);
-    }, RETRY_MS);
-    return () => clearTimeout(timer);
-  }, [missing, attempt]);
-  const Icon = KIND_ICON[kind];
-  return (
-    <div className="relative flex aspect-video items-center justify-center overflow-hidden bg-muted">
-      {missing ? (
-        <Icon className="size-10 text-muted-foreground" aria-hidden />
-      ) : (
-        <img
-          // A changed URL is what makes the browser ask again after a 404.
-          src={attempt === 0 ? src : `${src}?attempt=${attempt}`}
-          alt=""
-          loading="lazy"
-          className="absolute inset-0 size-full object-cover"
-          onError={() => setMissing(true)}
-        />
-      )}
     </div>
   );
 }

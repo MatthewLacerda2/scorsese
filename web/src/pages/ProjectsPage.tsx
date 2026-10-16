@@ -18,7 +18,7 @@ import { ConfirmDialog } from "@/files/ConfirmDialog";
 import { EditableText } from "@/files/EditableText";
 import { useLanguage, useT } from "@/i18n/I18nProvider";
 import { formatDate } from "@/lib/format";
-import { NewProjectButton } from "./NewProjectDialog";
+import { NewProjectButton } from "./newProject/NewProjectButton";
 
 export function ProjectsPage() {
   const projects = useProjects();

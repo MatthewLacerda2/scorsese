@@ -1,3 +1,4 @@
+// biome-ignore-all lint/plugin/oneComponentPerFile: the provider and the one component that reads it share a private context; split, the context would be exported and any page could fill the header without the slot
 // A page's own room in the app header (#764). The shell draws an empty place
 // between its nav and the balance, and a page that has something to put there
 // — today only the editor: the project's name, Save as template, the frame

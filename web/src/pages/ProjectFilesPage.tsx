@@ -1,5 +1,5 @@
-// The two views of files (#544): everything in the library, and the files
-// one project uses — the same browser, narrowed by `?project=` on the server.
+// The files one project uses (#544): the library's browser, narrowed by
+// `?project=` on the server, under the project's name and a way back.
 
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeftIcon } from "lucide-react";
@@ -8,16 +8,6 @@ import { api } from "@/api";
 import { queryKeys } from "@/app/queryKeys";
 import { FileBrowser } from "@/files/FileBrowser";
 import { useT } from "@/i18n/I18nProvider";
-
-export function LibraryPage() {
-  const t = useT();
-  return (
-    <div className="flex flex-col gap-4">
-      <h1 className="font-heading text-2xl font-semibold">{t.common.nav.library}</h1>
-      <FileBrowser />
-    </div>
-  );
-}
 
 export function ProjectFilesPage() {
   const t = useT();

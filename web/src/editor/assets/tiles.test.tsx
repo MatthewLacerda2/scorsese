@@ -15,9 +15,9 @@ import { dropOnto } from "../drop";
 import type { Edit, EditOutcome } from "../project";
 import { assetRemoval, confirmThen } from "../removing";
 import { AssetGrid } from "./AssetGrid";
-import { TileView } from "./AssetTile";
 import { dropped } from "./dragged";
 import { look } from "./look";
+import { TileView } from "./TileView";
 
 const shot: DocumentAsset = { id: "beach", kind: "video", sha256: "aa", path: "assets/aa.mp4" };
 const sketch: DocumentAsset = { id: "dusk", kind: "generated_video", state: "sketch", prompt: "a" };

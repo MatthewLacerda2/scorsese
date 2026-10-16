@@ -21,7 +21,7 @@ import {
 import { useLanguage, useT } from "@/i18n/I18nProvider";
 import { formatBytes, formatDate, formatDuration } from "@/lib/format";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { DownloadButton } from "./Download";
+import { DownloadButton } from "./download/DownloadButton";
 import { EditableText } from "./EditableText";
 import { GenerationRecord } from "./GenerationRecord";
 import type { Opened } from "./Viewer";

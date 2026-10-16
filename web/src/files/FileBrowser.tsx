@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { useT } from "@/i18n/I18nProvider";
 import { DetailsSheet } from "./DetailsSheet";
-import { DownloadAction } from "./Download";
+import { DownloadAction } from "./download/DownloadAction";
 import { FileTile } from "./FileTile";
 import { SORTS, type Sort, sortTiles } from "./sort";
 import { useUploads } from "./uploads";
