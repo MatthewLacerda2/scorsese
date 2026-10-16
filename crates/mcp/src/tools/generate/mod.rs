@@ -16,22 +16,18 @@
 //! is threaded from each into the next and the totals are added — a ceiling each pass
 //! checked on its own would be worth twice what somebody set.
 
-mod lines;
-mod shots;
-mod stills;
+mod said;
 
-use std::path::Path;
 use std::time::Duration;
 
 use schemars::JsonSchema;
-use scorsese_core::placing::{self, Shortened};
-use scorsese_core::{AssetId, Project, Reprobe, probe_assets};
+use scorsese_core::Project;
+use scorsese_core::placing::Shortened;
 use scorsese_providers::credentials::Budget;
 use scorsese_providers::image::Order;
-use scorsese_providers::prices::dollars;
+use scorsese_providers::passes::{self, Done, Halt, Keyed, Step};
 use scorsese_providers::quote::{self, generation};
-use scorsese_providers::video::{Run, WAIT_FOR};
-use scorsese_providers::{image, speech, video};
+use scorsese_providers::video::WAIT_FOR;
 use scorsese_render::Ffprobe;
 use serde::Deserialize;
 use serde_json::Value;
@@ -150,25 +146,16 @@ impl Tool for Generate {
             .map_err(|error| format!("nothing was sent: {error}"))?;
         let patience = arguments.wait_seconds.map_or(WAIT_FOR, Duration::from_secs);
 
-        let mut shots = Run {
-            outcomes: Vec::new(),
-            spent_cents: 0,
-        };
-        let mut drawn = stills::Drawn::new();
-        let mut spoken = lines::Spoken::new();
-        let outcome = run(
-            &mut project,
-            dir,
-            Passes {
+        let (done, outcome) = if collecting {
+            passes::collect(&mut project, dir, &Keyed)
+        } else {
+            let asked = passes::Asked {
                 budget,
                 patience,
-                collecting,
                 order,
-            },
-            &mut shots,
-            &mut drawn,
-            &mut spoken,
-        );
+            };
+            passes::run(&mut project, dir, &asked, &Keyed)
+        };
 
         // Saved whatever happened, and before the error is reported: a ticket
         // written just before a failure is the only record that money was
@@ -179,16 +166,13 @@ impl Tool for Generate {
         // nothing having happened, and is the reply most likely to be retried
         // blindly (#1057). Only a run that did nothing at all is an error.
         let stopped = match outcome {
-            Err(why) if shots.outcomes.is_empty() && drawn.is_empty() && spoken.is_empty() => {
-                return Err(why);
-            }
-            Err(why) => Some(why),
+            Err(halt) if done.is_empty() => return Err(says(halt)),
+            Err(halt) => Some(says(halt)),
             Ok(()) => None,
         };
 
-        let landed = landed(&shots, &spoken);
-        let shortened = measure(&mut project, dir, &landed, stills::landed(&drawn))?;
-        let mut reply = said(&shots, &drawn, &spoken, dir);
+        let shortened = measure(&mut project, dir, &done)?;
+        let mut reply = said::run(&done, dir);
         for one in shortened.iter().map(Shortened::says).chain(stopped) {
             reply.push('\n');
             reply.push_str(&one);
@@ -197,66 +181,20 @@ impl Tool for Generate {
     }
 }
 
-/// What one call asked for, beyond the project.
-struct Passes {
-    budget: Budget,
-    patience: Duration,
-    collecting: bool,
-    order: Order,
-}
-
-/// Every pass, each run only if it has something to do.
-///
-/// Each fills its own slot as it goes, so a pass that stops leaves the earlier
-/// ones' outcomes — and its own, as far as it got — for the reply. **A pass
-/// that stops ends the run**: nothing after it is attempted, and the error says
-/// so in words.
-fn run(
-    project: &mut Project,
-    dir: &std::path::Path,
-    asked: Passes,
-    shots: &mut Run,
-    drawn: &mut stills::Drawn,
-    spoken: &mut lines::Spoken,
-) -> Result<(), String> {
-    // Whether a pass runs at all is each provider's `pending`, which consults
-    // the **current brief's** output file — never the asset's recorded `path`.
-    // The recorded path is the previous generation's file: after an edit it
-    // still exists and still resolves, and consulting it is how a stale shot
-    // used to be skipped as *nothing to do*.
-    // A batch is stills alone: its quote was refused had anything else been
-    // waiting to be sent.
-    if asked.order == Order::Batch {
-        if image::pending(project, dir) {
-            stills::order(project, dir, asked.budget, drawn)?;
-        }
-        return Ok(());
+/// Why a run ended early, in words. A pass after the shots that could not
+/// start — no key — stopped the run, and says so; one that started and
+/// stopped part-way says so itself.
+fn says(halt: Halt) -> String {
+    match halt {
+        Halt::Key {
+            step: Step::Stills | Step::Lines,
+            error,
+        } => format!("The run stopped: {error} — nothing after it was attempted."),
+        Halt::Key { error, .. } => error.to_string(),
+        Halt::Stopped(says) => says,
+        Halt::Shots(error) => error.to_string(),
+        Halt::Stills(error) => error.to_string(),
     }
-    if video::pending(project, dir) {
-        shots::pass(project, dir, &asked, shots)?;
-    }
-    // Collecting submits nothing by definition. Stills waiting in a batch are
-    // collected; narration is never in flight, so there is nothing for its
-    // pass to collect and asking for a key would be asking for one to do
-    // nothing with.
-    if asked.collecting {
-        *drawn = stills::sweep(project, dir)?;
-        return Ok(());
-    }
-    if image::pending(project, dir) {
-        stills::pass(project, dir, asked.budget.spend(shots.spent_cents), drawn)?;
-    }
-    if speech::pending(project, dir) {
-        let committed = shots.spent_cents + stills::spent(drawn);
-        lines::pass(project, dir, asked.budget.spend(committed), spoken)?;
-    }
-    Ok(())
-}
-
-/// A pass after the shots that could not start — no key — stopping the run,
-/// in words. One that started and stopped part-way says so itself.
-fn stopped_at(why: &dyn std::fmt::Display) -> String {
-    format!("The run stopped: {why} — nothing after it was attempted.")
 }
 
 /// Measures what has just been generated.
@@ -276,67 +214,20 @@ fn stopped_at(why: &dyn std::fmt::Display) -> String {
 /// **Measuring is what can make the document refuse to load**: a clip laid
 /// out over a sketch may outlast what came back, and the length just written
 /// is what says so. So the clips of what landed are shortened to it before the
-/// save ([`placing::fit_to_sources`], #825), and the ones that were are handed
+/// save ([`Done::measure`], #825), and the ones that were are handed
 /// back for the reply.
 fn measure(
     project: &mut Project,
     dir: &std::path::Path,
-    landed: &[AssetId],
-    drawn: bool,
+    done: &Done,
 ) -> Result<Vec<Shortened>, String> {
-    if landed.is_empty() && !drawn {
+    if !done.unmeasured() {
         return Ok(Vec::new());
     }
     let Ok(probe) = Ffprobe::discover() else {
         return Ok(Vec::new());
     };
-    probe_assets(project, dir, &probe, Reprobe::Skip);
-    let shortened = placing::fit_to_sources(project, landed);
+    let shortened = done.measure(project, dir, &probe);
     save(project, dir)?;
     Ok(shortened)
-}
-
-/// What arrived on disk with a length nothing has measured yet.
-///
-/// A cache hit is not one of them: its file was already there, and whatever ran
-/// when it first landed has had every chance to look at it.
-fn landed(shots: &Run, spoken: &lines::Spoken) -> Vec<AssetId> {
-    let shot = shots.outcomes.iter().filter(|(_, outcome)| {
-        matches!(
-            outcome,
-            scorsese_providers::video::Outcome::Generated { .. }
-        )
-    });
-    let line = spoken.iter().filter(|(_, outcome)| {
-        matches!(
-            outcome,
-            scorsese_providers::speech::Outcome::Generated { .. }
-        )
-    });
-    shot.map(|(id, _)| id.clone())
-        .chain(line.map(|(id, _)| id.clone()))
-        .collect()
-}
-
-/// What the run reads as.
-fn said(shots: &Run, drawn: &stills::Drawn, spoken: &lines::Spoken, dir: &Path) -> String {
-    if shots.outcomes.is_empty() && drawn.is_empty() && spoken.is_empty() {
-        return String::from(
-            "Nothing to generate: every prompted brief in this project is already generated \
-             (or there are none), and nothing is in flight.",
-        );
-    }
-    let mut lines = Vec::new();
-    shots::said(shots, &mut lines);
-    stills::said(drawn, &mut lines);
-    lines::said(spoken, dir, &mut lines);
-
-    let spent = shots.spent_cents
-        + stills::spent(drawn)
-        + spoken.iter().map(|(_, o)| o.spent_cents()).sum::<u64>();
-    lines.push(format!(
-        "About {} spent on this run — our calculation, never a bill.",
-        dollars(spent)
-    ));
-    lines.join("\n")
 }

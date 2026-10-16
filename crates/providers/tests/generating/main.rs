@@ -11,6 +11,7 @@ mod common;
 mod cache;
 mod lifecycle;
 mod mock;
+mod passes;
 mod plans;
 mod refusals;
 mod retakes;
