@@ -773,18 +773,6 @@ that project:
 4. Sign in once with the maintainer's own Google account and check `user
    list`: account 1 now shows a Google id, and no new account was made.
 
-### The login's brake
-
-**Gone with the passwords** (#952). It braked guessing at a public password
-form (#557), and there is no password form any more: Google brakes its own
-sign-in. The `login_throttle` table, `user locks` and `user unlock` went with
-it. What is left is nginx's two doors (`deploy/nginx.conf`): `web:80`, the
-only one the tunnel points at, and `web:8080`, the one compose publishes,
-with nginx naming the client's address to the server as `X-Scorsese-Client`.
-The brake read that header no more, but the access record below does (#1267),
-so the two doors stay: they are what keeps a visitor on the published port
-from naming somebody else's address in `CF-Connecting-IP`.
-
 ### The access record
 
 Marco Civil da Internet (Lei 12.965/2014) art. 15 asks an application run by
@@ -800,11 +788,29 @@ privileged, at two moments, never on every request:
   restart forgets it, and a unique index makes the repeat write a no-op.
 
 Each row is `user_id`, `kind`, `address` (an `inet`) and `at`. The address is
-the one nginx names in `X-Scorsese-Client`: Cloudflare's `CF-Connecting-IP`
-through the tunnel, the connection's own address through the published port
-(*The login's brake* above); with no nginx in front, the server's peer. A
-write that fails is logged and never fails the request, and a missed `day`
-is written on the account's next request.
+the one nginx names in `X-Scorsese-Client`; with no nginx in front, the
+server's peer. A write that fails is logged and never fails the request, and a
+missed `day` is written on the account's next request.
+
+**Two doors, so nobody names another's address** (`deploy/nginx.conf`, #1245).
+nginx listens on two ports, and the port a request came through decides whose
+word is taken for its address:
+
+- `web:80` is the tunnel's door. Compose publishes it to nothing, so only
+  `cloudflared` connects there, and Cloudflare writes `CF-Connecting-IP`
+  itself: it is believed.
+- `web:8080` is the one compose publishes, on `$SCORSESE_WEB_BIND`: loopback
+  by default, which `tailscale serve` can front, or the LAN if `.env` widens
+  it. There
+  `CF-Connecting-IP` is whatever the client typed, so it is ignored and the
+  connection's own address is recorded.
+
+One port that took `CF-Connecting-IP` from everyone would let any client on
+the published port write somebody else's address into the record, and leave
+loopback requests with no address at all. The door is a port rather than an
+address range because container addresses are Docker's to hand out. The
+login's brake (#557) was the header's first reader; it went with the
+passwords (#952).
 
 **Kept forever, and past the account** (the maintainer, 2026-10-14): six
 months is the law's minimum, not a ceiling, so nothing prunes the table. It
