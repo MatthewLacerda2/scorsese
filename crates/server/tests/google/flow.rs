@@ -12,12 +12,8 @@ use super::{ORIGIN, Recorded, id_token, serve};
 
 /// Every `Set-Cookie` line's `name=value`.
 fn cookies(response: &Response) -> Vec<String> {
-    let set = response.headers.iter().filter_map(|line| {
-        let (key, value) = line.split_once(':')?;
-        key.eq_ignore_ascii_case("set-cookie")
-            .then(|| value.trim().to_owned())
-    });
-    set.collect()
+    let set = response.headers_named("set-cookie").into_iter();
+    set.map(str::to_owned).collect()
 }
 
 /// The value of `name` in a URL's query.
@@ -86,6 +82,15 @@ async fn a_sign_in_ends_signed_in_where_it_was_going(pool: PgPool) {
     ] {
         assert!(session.contains(attribute), "{session}");
     }
+    // The hint beside it (#1246): every page and script reads it, it carries nothing.
+    let hint = set
+        .iter()
+        .find(|c| c.starts_with("scorsese_signed_in=1;"))
+        .unwrap();
+    for attribute in ["Path=/;", "Secure", "SameSite=Strict", "Max-Age=2592000"] {
+        assert!(hint.contains(attribute), "{hint}");
+    }
+    assert!(!hint.contains("HttpOnly"), "{hint}");
     assert!(
         set.iter()
             .any(|c| c.starts_with("scorsese_google=;") && c.contains("Max-Age=0"))
@@ -113,9 +118,9 @@ async fn a_callback_without_its_own_flow_signs_nobody_in(pool: PgPool) {
         let refused = back(address, state, flow).await;
         assert_eq!(refused.header("location"), Some("/login?error=expired"));
         assert!(
-            !cookies(&refused)
-                .iter()
-                .any(|c| c.starts_with("scorsese_session="))
+            !cookies(&refused).iter().any(
+                |c| c.starts_with("scorsese_session=") || c.starts_with("scorsese_signed_in=")
+            )
         );
     }
     assert!(google.sent().is_empty(), "no code was traded");

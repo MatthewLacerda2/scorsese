@@ -33,6 +33,17 @@
 //! Every way in before there is a domain — a quick tunnel, `tailscale serve` —
 //! is HTTPS already; `docs/web.md`, *Testing before there is a domain*, has
 //! them and the argument.
+//!
+//! ## The hint beside it
+//!
+//! Because no script can read the session cookie, the web app cannot tell on
+//! first paint whether `/` should be the landing page or the projects list
+//! without a round trip to `/api/me`. So every response that sets or clears
+//! the session sets or clears [`HINT_COOKIE`] too (#1246): readable, `Path=/`,
+//! the same lifetime, and carrying nothing — no id, no token, only `1`. It
+//! decides what is drawn while `/api/me` is asked, never who anybody is: a
+//! forged one costs its owner the wait a signed-in visitor has, and a stale one
+//! is cleared by the page when `/api/me` answers `401`.
 
 use axum::extract::FromRequestParts;
 use axum::http::HeaderMap;
@@ -47,6 +58,9 @@ use crate::db::UserId;
 
 /// The session cookie's name.
 pub const SESSION_COOKIE: &str = "scorsese_session";
+
+/// The script-readable "a session was set here" hint's name (`web/src/session/hint.ts`).
+pub const HINT_COOKIE: &str = "scorsese_signed_in";
 
 /// An authenticated user, and how they proved it.
 #[derive(Debug, Clone)]
@@ -120,15 +134,25 @@ pub fn session_cookie(headers: &HeaderMap) -> Option<String> {
         .map(|(_, value)| value.to_owned())
 }
 
-/// The `Set-Cookie` value that logs a browser in with `value`.
-pub fn set_cookie(value: &str) -> String {
+/// The `Set-Cookie` values that log a browser in with `value`: the session,
+/// and the hint that one is there.
+pub fn set_cookies(value: &str) -> [String; 2] {
     let max_age = sessions::LIFETIME_DAYS * 24 * 60 * 60;
-    format!("{SESSION_COOKIE}={value}; {ATTRIBUTES}; Max-Age={max_age}")
+    [
+        format!("{SESSION_COOKIE}={value}; {ATTRIBUTES}; Max-Age={max_age}"),
+        format!("{HINT_COOKIE}=1; {HINT_ATTRIBUTES}; Max-Age={max_age}"),
+    ]
 }
 
-/// The `Set-Cookie` value that makes a browser forget its session.
-pub fn clear_cookie() -> String {
-    format!("{SESSION_COOKIE}=; {ATTRIBUTES}; Max-Age=0")
+/// The `Set-Cookie` values that make a browser forget its session, and the hint.
+pub fn clear_cookies() -> [String; 2] {
+    [
+        format!("{SESSION_COOKIE}=; {ATTRIBUTES}; Max-Age=0"),
+        format!("{HINT_COOKIE}=; {HINT_ATTRIBUTES}; Max-Age=0"),
+    ]
 }
 
 const ATTRIBUTES: &str = "Path=/api; HttpOnly; Secure; SameSite=Strict";
+
+/// The session's attributes but two: every page reads it, and so does script.
+const HINT_ATTRIBUTES: &str = "Path=/; Secure; SameSite=Strict";

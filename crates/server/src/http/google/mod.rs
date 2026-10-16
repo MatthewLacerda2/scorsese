@@ -13,8 +13,9 @@
 //!    secret ([`scorsese_providers::sign_in`] — which also says why the
 //!    token's signature is not checked); the token names a Google account,
 //!    which [`users::sign_in`] turns into a scorsese account; and the browser
-//!    gets **the same session cookie a login always gave it** ([`auth`]) and
-//!    is sent on to where it was going, `/projects` by default.
+//!    gets **the same session cookie a login always gave it**, and its hint
+//!    ([`auth`]), and is sent on to where it was going, `/projects` by
+//!    default.
 //!
 //! Every way that can fail ends on `/login?error=<why>`, where the web app
 //! says it in words: `unconfigured`, `cancelled` (the person said no at
@@ -181,11 +182,13 @@ pub async fn callback(
     match signed {
         Ok(cookie) => {
             let next = flow.map_or_else(|| flow::HOME.to_owned(), |flow| flow.next);
+            let [session, hint] = auth::set_cookies(&cookie);
             (
                 StatusCode::SEE_OTHER,
                 AppendHeaders([
                     (LOCATION, next),
-                    (SET_COOKIE, auth::set_cookie(&cookie)),
+                    (SET_COOKIE, session),
+                    (SET_COOKIE, hint),
                     clear,
                 ]),
             )

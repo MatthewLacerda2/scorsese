@@ -1,7 +1,8 @@
 // The landing page at its URLs (#904): who sees it, and the sign-in popup
 // that replaced the login page — opened by its button, already open at
 // `/login`, its one "Continue with Google" link (#952) carrying `?next=`
-// through, and a failed sign-in's `?error=` said in words.
+// through, and a failed sign-in's `?error=` said in words. And what `/` draws
+// while the session is asked, with and without the hint (#1246).
 
 import { afterEach, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
@@ -11,6 +12,7 @@ import { App } from "@/App";
 import type { Account } from "@/api";
 import { setFetch } from "@/api/client";
 import { createQueryClient, ME } from "@/app/queryClient";
+import { forgetSignedInHint, HINT_COOKIE, signedInHint } from "@/session/hint";
 
 const ana: Account = { id: 1, email: "ana@example.com", created_at: 0 };
 
@@ -32,7 +34,21 @@ function visit(url: string, account?: Account | null) {
 const real = setFetch((input, init) => fetch(input, init));
 afterEach(() => {
   setFetch(real);
+  forgetSignedInHint();
 });
+
+/** `GET /api/me`, held until the test answers it with an account or a `401`. */
+function heldSession(): (account: Account | null) => void {
+  let answer: (account: Account | null) => void = () => {};
+  setFetch(
+    () =>
+      new Promise((resolve) => {
+        answer = (account) =>
+          resolve(account ? Response.json(account) : Response.json({ error: "no" }, { status: 401 }));
+      }),
+  );
+  return (account) => answer(account);
+}
 
 test("without a session, / is the landing page", async () => {
   visit("/", null);
@@ -48,13 +64,33 @@ test("with a session, / is the projects list", async () => {
 });
 
 test("/ draws the landing page before the session answers, and leaves once it says signed in", async () => {
-  let answer: (account: Account) => void = () => {};
-  setFetch(() => new Promise((resolve) => (answer = (account) => resolve(Response.json(account)))));
+  const answer = heldSession();
   visit("/");
   expect(await screen.findByText("It gets made.")).toBeDefined();
   answer(ana);
   expect(await screen.findByRole("heading", { name: "Projects" })).toBeDefined();
   expect(screen.queryByText("It gets made.")).toBeNull();
+});
+
+test("signed in here before, / waits on the session and never draws the landing page (#1246)", async () => {
+  document.cookie = `${HINT_COOKIE}=1; Path=/`;
+  const answer = heldSession();
+  visit("/");
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  // Text and a count, not elements: a failure prints them, not a whole DOM node.
+  expect(document.body.textContent).not.toContain("It gets made.");
+  expect(document.querySelectorAll("video").length).toBe(0);
+  answer(ana);
+  expect(await screen.findByRole("heading", { name: "Projects" })).toBeDefined();
+});
+
+test("a hint the session no longer stands behind costs the wait, then is dropped", async () => {
+  document.cookie = `${HINT_COOKIE}=1; Path=/`;
+  const answer = heldSession();
+  visit("/");
+  answer(null);
+  expect(await screen.findByText("It gets made.")).toBeDefined();
+  expect(signedInHint()).toBe(false);
 });
 
 test("the Sign in button opens the popup", async () => {
