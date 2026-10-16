@@ -116,9 +116,18 @@ mod tests {
 
     #[test]
     fn a_file_is_named_for_its_extension() {
-        assert_eq!(media_type("take.MP3"), "audio/mpeg");
-        assert_eq!(media_type("assets/a.wav"), "audio/wav");
-        assert_eq!(media_type("noext"), "application/octet-stream");
+        for (file, media) in [
+            ("take.MP3", "audio/mpeg"),
+            ("assets/a.wav", "audio/wav"),
+            ("a.m4a", "audio/mp4"),
+            ("a.aac", "audio/mp4"),
+            ("a.opus", "audio/ogg"),
+            ("a.flac", "audio/flac"),
+            ("a.webm", "audio/webm"),
+            ("noext", "application/octet-stream"),
+        ] {
+            assert_eq!(media_type(file), media, "{file}");
+        }
     }
 
     #[test]
