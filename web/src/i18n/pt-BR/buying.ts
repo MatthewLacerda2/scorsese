@@ -7,6 +7,7 @@ export const buying: Messages["buying"] = {
   add: "Adicionar créditos",
   description:
     "Você paga em reais e os créditos ficam em dólares. O pagamento é feito pelo Stripe; o scorsese nunca vê o seu cartão.",
+  accepted: "Pix ou cartão de crédito Visa/Mastercard.",
   amount: "Valor em reais",
   preview: (reais, dollars) => `${reais} → ${dollars} em créditos`,
   rate: (rate) => `A R$ ${rate.replace(".", ",")} por dólar, travado no momento em que você paga.`,

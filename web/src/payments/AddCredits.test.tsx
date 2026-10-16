@@ -36,6 +36,11 @@ test("the credits the reais buy, and the rate, are shown before paying", () => {
   expect(pay.disabled).toBe(false);
 });
 
+test("the accepted ways to pay are stated before choosing an amount", () => {
+  dialog();
+  expect(screen.getByText("Pix or Visa/Mastercard credit card.")).toBeTruthy();
+});
+
 test("an amount that is not one, or is outside the limits, cannot be paid", () => {
   dialog();
   const field = screen.getByLabelText("Amount in reais");

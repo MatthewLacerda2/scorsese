@@ -9,7 +9,7 @@ import { SELLER } from "@/legal/seller";
 
 export const TERMS: LegalDocument = {
   title: "Termos de uso",
-  updated: "2026-10-14",
+  updated: "2026-10-16",
   sections: [
     {
       heading: "Quem somos",
@@ -37,7 +37,7 @@ export const TERMS: LegalDocument = {
       blocks: [
         "Não há mensalidade. Você compra créditos e eles são gastos conforme o uso.",
         [
-          "Créditos são comprados em reais, de R$ 20 a R$ 5.000 por compra, pela Stripe, com cartão. O valor é convertido para dólares americanos (US$) pela cotação mostrada na hora da compra, porque é em dólar que os serviços que usamos nos cobram. O seu saldo é mostrado em US$.",
+          "Créditos são comprados em reais, de R$ 20 a R$ 5.000 por compra, pela Stripe, por Pix ou cartão de crédito Visa ou Mastercard (outras bandeiras, como Elo e American Express, e cartões de débito não são aceitos). O valor é convertido para dólares americanos (US$) pela cotação mostrada na hora da compra, porque é em dólar que os serviços que usamos nos cobram. O seu saldo é mostrado em US$.",
           "Antes de cada geração (narração, imagem, vídeo e outras), o scorsese mostra quanto ela vai custar e só gera depois que você confirma.",
           "Cada mensagem ao assistente consome créditos conforme o trabalho que ele faz para responder, com um limite máximo por mensagem. O custo de cada uma aparece no seu histórico de gastos.",
           "Créditos não expiram.",
