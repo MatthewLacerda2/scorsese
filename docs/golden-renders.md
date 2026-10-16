@@ -625,8 +625,27 @@ Two rules keep that honest:
 
 - A missing reference **fails** rather than being created silently. A fixture
   with nothing to compare against would otherwise pass by asserting nothing.
-- Re-blessed PNGs must be in the diff. A reviewer seeing `expected/*.png` change
-  should expect the PR description to explain it.
+- Re-blessed PNGs must be in the diff, and the description names each one with
+  its reason. **The merge path enforces the naming** (#1217): `make mergeable`
+  and `make queue` hand back a pull request that modifies a reference under
+  `crates/golden/fixtures/*/expected/` or `app/tests/snapshots/` without it.
+  An added reference needs nothing — a new fixture is not a re-bless. What
+  satisfies it is a `Re-blessed` heading, or a line starting with the word,
+  naming the fixture (its directory) or snapshot (its file stem) with a
+  reason on the same line; `prefix_*` names a set:
+
+  ```markdown
+  ## Re-blessed
+  - `alpha`, `blend`: the new dither moves every gradient by one level.
+  - `page_*`: the Chromium pin moved to 155.0.1234.5.
+  ```
+
+  A machine can check that a reason is written — at least three words once
+  the names are taken out — not that it is sound. That stays review.
+- **Moving the Chromium pin re-blesses every `page_*` fixture in the same pull
+  request**, and the merge path enforces that too: a pull request changing
+  `tools/chromium/pin` while leaving a `page_*` fixture's references as they
+  were is handed back with the ones it missed. `page_*` names them all at once.
 
 ## When a golden fails
 

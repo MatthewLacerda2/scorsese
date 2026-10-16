@@ -297,7 +297,15 @@ any run, and the queue asks the same before it rebases: an issue the pull
 request closes (by keyword in the body, or linked in the sidebar) that carries
 `planning` or `human`, and a closing keyword pointing at a pull request or an
 already-closed issue. The label is read as it stands at merge time, so once the
-user removes it the pull request can be queued again. Nothing about the label
+user removes it the pull request can be queued again.
+
+**And a re-blessed reference it does not explain** (#1217), asked at the same
+point: a pull request that modifies a golden reference or an app snapshot (an
+added one needs nothing) must name it under a `Re-blessed` heading or line with
+a reason on that line, and one that moves `tools/chromium/pin` must change
+every `page_*` fixture's references. `docs/golden-renders.md`, *Re-blessing*,
+has the words that satisfy it. The check proves a reason was written, never
+that it is sound; reading it is still the reviewer's. Nothing about the label
 is Claude's to change: `planning` is the one rule the user cannot override.
 `make checks` lists any open issue carrying **both** stage labels, for the user
 to say which stays.

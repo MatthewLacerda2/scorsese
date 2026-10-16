@@ -97,6 +97,12 @@ _spec = importlib.util.spec_from_file_location(
 closing = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(closing)
 
+_spec = importlib.util.spec_from_file_location(
+    "reblessed", Path(__file__).resolve().parent / "reblessed.py"
+)
+reblessed = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(reblessed)
+
 # The workflow that gates a merge. A run of anything else — a scheduled job, a
 # future workflow — is not the one being asked about, and counting it would be
 # the same mistake in a new costume.
@@ -333,7 +339,9 @@ def judge(
     a run's id to its jobs. `pull["closes"]`, when present, is [`closing.closed_by`]: an
     issue it closes that is labelled `planning` or `human`, or a keyword
     pointing at a pull request or a closed issue, refuses whatever CI says
-    (#1221).
+    (#1221). So does `pull["reblessed"]`, when present, [`reblessed.evidence`]:
+    a modified reference the description does not explain, or a Chromium pin
+    move that leaves a `page_*` reference as it was (#1217).
 
     Stated over the set rather than over a chosen run — see the module doc, and
     #245 for what picking one by list position did.
@@ -349,6 +357,9 @@ def judge(
         ]
 
     refused = closing.refusal(pull.get("closes") or {})
+    refused = refused or reblessed.refusal(
+        pull.get("reblessed") or {}, pull.get("body") or ""
+    )
     if refused:
         return False, refused
 
@@ -462,6 +473,7 @@ def answer(number: str) -> int:
     )
     sha = pull["headRefOid"]
     pull["closes"] = closing.closed_by(gh, repo, pull)
+    pull["reblessed"] = reblessed.evidence(gh, repo, pull)
 
     listed = gh("api", f"repos/{repo}/actions/runs?head_sha={sha}&per_page=100")
     runs = runs_for(listed.get("workflow_runs", []), sha)

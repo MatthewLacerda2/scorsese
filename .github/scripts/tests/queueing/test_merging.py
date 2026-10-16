@@ -102,6 +102,12 @@ class Merging(unittest.TestCase):
 class Taking(unittest.TestCase):
     """[`queue.take`] end to end, with `gh` and `git` replaced (#495)."""
 
+    def setUp(self):
+        # What it re-blesses is its own question (`test_reblessed.py`, #1217).
+        quiet = mock.patch.object(queue.mergeable.reblessed, "evidence", return_value={})
+        quiet.start()
+        self.addCleanup(quiet.stop)
+
     def take(self, merge_stderr: str, record: dict | None):
         opts = queue.parse(["490", "--poll", "0"])
         failed = subprocess.CompletedProcess([], 1, "", merge_stderr)

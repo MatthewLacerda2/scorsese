@@ -73,6 +73,12 @@ class Order(unittest.TestCase):
 
 
 class Branch(unittest.TestCase):
+    def setUp(self):
+        # What it re-blesses is its own question (`test_reblessed.py`, #1217).
+        quiet = mock.patch.object(queue.mergeable.reblessed, "evidence", return_value={})
+        quiet.start()
+        self.addCleanup(quiet.stop)
+
     def take(self, bot_head):
         opts = queue.parse(["801", "--poll", "0"])
         merged = subprocess.CompletedProcess([], 0, "", "")
