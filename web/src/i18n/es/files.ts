@@ -56,6 +56,13 @@ export const files: Messages["files"] = {
       spoken_line: "Voz generada",
       voice_design: "Muestra de diseño de voz",
     },
+    provider: "Proveedor",
+    providers: {
+      veo_shot: "Veo, de Google",
+      still_image: "Gemini, de Google",
+      spoken_line: "ElevenLabs",
+      voice_design: "ElevenLabs",
+    },
     model: "Modelo",
     made: "Creado",
     cost: "Costo",
@@ -69,6 +76,13 @@ export const files: Messages["files"] = {
     references: "Referencias",
     seed: "Semilla",
     voice: "Voz",
+  },
+  source: {
+    libraries: { pixabay: "Pixabay" },
+    title: (library: string) => `De ${library}`,
+    author: "Autor",
+    licence: "Licencia",
+    page: (library: string) => `Verlo en ${library}`,
   },
   uploads: {
     title: "Subidas",

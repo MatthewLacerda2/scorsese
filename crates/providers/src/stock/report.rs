@@ -33,11 +33,14 @@ impl Imports {
     }
 
     /// Whether the project changed and so is to be saved: something came in
-    /// that it did not already hold.
+    /// that it did not already hold, or a file it held learned where it came
+    /// from.
     pub fn needs_save(&self) -> bool {
-        self.answers
-            .iter()
-            .any(|(_, answer)| answer.as_ref().is_ok_and(|one| !one.imported.reused))
+        self.answers.iter().any(|(_, answer)| {
+            answer
+                .as_ref()
+                .is_ok_and(|one| one.recorded || !one.imported.reused)
+        })
     }
 
     /// What came in, from where and by whom, what did not, and the licence

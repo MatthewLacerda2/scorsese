@@ -9,6 +9,9 @@
 //! the document is saved, as an upload would be. From then on it is linked
 //! into every layout by hash like any other file.
 //!
+//! A stock file's `source` (#1237) is copied onto its item, so the library's
+//! details panel says where it came from; the asset keeps the record itself.
+//!
 //! Only a **regular file** a new asset names counts. Every file the project
 //! already had was linked into the folder, and a link is never admitted.
 
@@ -61,10 +64,11 @@ pub async fn keep(
             brief_hash: None,
             words: None,
         };
-        match library.admit(user, arrival).await {
+        let item = match library.admit(user, arrival).await {
+            Ok(item) => item.id,
             // The same bytes already in the library are the file the
             // document needs, under whatever name the user gave them.
-            Ok(_) | Err(LibraryError::Duplicate { .. }) => {}
+            Err(LibraryError::Duplicate { id, .. }) => id,
             Err(LibraryError::Rejected(why) | LibraryError::Invalid(why)) => {
                 return Err(format!(
                     "`{}` could not be kept in your library: {why}",
@@ -72,6 +76,14 @@ pub async fn keep(
                 ));
             }
             Err(other) => return Err(super::database(other)),
+        };
+        // Where a stock file came from rides on the item too, for the
+        // library's details panel (#1237).
+        if let Some(source) = &asset.source {
+            library
+                .record_source(user, item, source)
+                .await
+                .map_err(super::database)?;
         }
     }
     Ok(())

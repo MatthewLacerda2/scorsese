@@ -27,6 +27,9 @@ pub(super) struct Selected {
     /// Where a generated asset is in the sketch lifecycle, which is the answer
     /// to "why is this a slug card?" for anyone who has not asked yet.
     pub(super) state: Option<GenerationState>,
+    /// Where a stock file came from, in the one line every surface says it
+    /// in (#1237) — read-only here, as everything about an asset's origin is.
+    pub(super) source: Option<String>,
     /// The track the clip sits on.
     pub(super) track: TrackId,
     /// True when that track carries picture. `fit` is a question about a
@@ -80,6 +83,9 @@ impl Selected {
             asset: found.asset.clone(),
             kind: asset.map(|asset| asset.kind),
             state: asset.and_then(|asset| asset.state),
+            source: asset
+                .and_then(|asset| asset.source.as_ref())
+                .map(scorsese_core::Source::says),
             track: track.id.clone(),
             picture,
             start: found.start,

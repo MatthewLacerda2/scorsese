@@ -8,6 +8,7 @@
 mod gc;
 mod paid;
 mod sequence;
+mod stock;
 mod verify;
 
 use std::path::{Path, PathBuf};
