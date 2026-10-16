@@ -8,7 +8,7 @@ fn nothing_chosen_writes_nothing() {
     assert_eq!(start.brief(), None);
 
     let dir = crate::scratch::fresh("scorsese-brief-nothing", "");
-    let mut project = Project::create(&dir, None, Fps::THIRTY).expect("create");
+    let mut project = Project::create(&dir, None, Fps::THIRTY, crate::Ratio::WIDE).expect("create");
     assert_eq!(
         start.write(&dir, &mut project).expect("nothing to write"),
         None
@@ -22,7 +22,7 @@ fn nothing_chosen_writes_nothing() {
 fn a_platform_and_a_style_are_written_into_the_script() {
     let start = Start::new(Some(Platform::TiktokAd), Some("kinetic_type")).expect("suits");
     let dir = crate::scratch::fresh("scorsese-brief-both", "");
-    let mut project = Project::create(&dir, None, Fps::THIRTY).expect("create");
+    let mut project = Project::create(&dir, None, Fps::THIRTY, crate::Ratio::WIDE).expect("create");
     let script = start.write(&dir, &mut project).expect("write");
 
     assert_eq!(

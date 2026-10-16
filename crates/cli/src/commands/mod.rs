@@ -23,6 +23,7 @@ pub(crate) mod new;
 pub(crate) mod page;
 pub(crate) mod prices;
 pub(crate) mod probe;
+pub(crate) mod reframe;
 pub(crate) mod render;
 pub(crate) mod sequence;
 pub(crate) mod settings;

@@ -7,7 +7,7 @@
 //! the tool so the settings a call builds can be held to in a test without
 //! ffmpeg.
 
-use scorsese_core::Fps;
+use scorsese_core::Project;
 use scorsese_render::{FrameRange, OutputFormat, RenderAsk, RenderSettings, Spelled};
 
 use super::Arguments;
@@ -31,15 +31,16 @@ pub(super) fn ask(arguments: &Arguments) -> Result<RenderAsk, String> {
 }
 
 /// The settings `arguments` ask for, delivered in `format`, and the stretch
-/// of the timeline to render. `timeline` is the project's own rate, which a
-/// render keeps unless `fps` names another.
+/// of the timeline to render. A render keeps `project`'s own rate unless `fps`
+/// names another, and its own frame at delivery size unless a resolution or a
+/// platform names another.
 pub(super) fn of(
     arguments: &Arguments,
     format: OutputFormat,
-    timeline: Fps,
+    project: &Project,
 ) -> Result<(RenderSettings, FrameRange), String> {
     let settings = ask(arguments)?
-        .settings(format, timeline)
+        .settings(format, project)
         .map_err(|problem| problem.to_string())?;
     // `FrameRange`'s own `FromStr` is the one set of rules, so `30:`, `:120`
     // and every refusal read the same from either client.

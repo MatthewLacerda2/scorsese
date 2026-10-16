@@ -19,21 +19,18 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use scorsese_core::{Frames, Project};
-use scorsese_render::{Cue, RenderSettings, Renderer, Resolution, Told, Tools, contact, frames};
-
-/// The raster a frame is composited at when nobody says: the delivery size most
-/// cuts are made for, since a PNG written here is often kept.
-const DEFAULT_RASTER: (u32, u32) = (1920, 1080);
-
-/// What a sheet's cell is composited at when nobody says — five of them side by
-/// side are about as wide as one full frame, and a title in one still reads.
-const DEFAULT_CELL: (u32, u32) = (640, 360);
+use scorsese_render::{
+    Budget, Cue, RenderSettings, Renderer, Sizing, Told, Tools, contact, frames,
+};
 
 /// How the frames are drawn and written, beyond which instants they are.
 pub(crate) struct Options {
     /// The raster to composite at — each cell's, with `sheet`. `None` takes
-    /// the default for the mode.
-    pub(crate) resolution: Option<Resolution>,
+    /// the project's own shape: at delivery size for a frame, since a PNG
+    /// written here is often kept, and at a sheet cell's budget with `sheet`,
+    /// five of which side by side are about one frame. A shape (`9:16`) is
+    /// spent the same way.
+    pub(crate) resolution: Option<Sizing>,
     /// Rule each frame (or cell) with coordinates.
     pub(crate) grid: bool,
     /// Tile the instants into one contact sheet, written to exactly `out`.
@@ -58,14 +55,13 @@ pub(crate) fn run(project_dir: &Path, out: &Path, at: &[Cue], options: Options) 
         grid,
         sheet,
     } = options;
-    let resolution = match resolution {
-        Some(asked) => asked,
-        None => {
-            let (width, height) = if sheet { DEFAULT_CELL } else { DEFAULT_RASTER };
-            Resolution::new(width, height).context("the default raster")?
-        }
-    };
     let project = super::open(project_dir)?;
+    let budget = if sheet {
+        Budget::Cell
+    } else {
+        Budget::Delivery
+    };
+    let resolution = Sizing::resolve(resolution, &project, budget);
     // The project's own grid, always. Nothing is being encoded, so there is no
     // output rate for a time to conform to, and reading `2.5s` against any
     // other rate would name an instant the edit does not have.

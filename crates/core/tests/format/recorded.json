@@ -1,5 +1,6 @@
 {
   "project": {
+    "aspect": "4:5",
     "assets": [
       {
         "color": {
@@ -144,7 +145,7 @@
       }
     ],
     "name": "Every field",
-    "schema_version": 51,
+    "schema_version": 52,
     "script": "script.md",
     "timeline_fps": {
       "den": 1,

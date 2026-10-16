@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::asset::{Asset, AssetId};
 use crate::baseline::Baseline;
+use crate::frame::Ratio;
 use crate::note::Noted;
 use crate::path::ProjectPath;
 use crate::time::Fps;
@@ -25,7 +26,7 @@ use vacant::vacant;
 /// previous version (`CLAUDE.md`, *A schema bump ships with a migration*):
 /// this format is the contract between the CLI, the MCP server, the GUI, the
 /// web app, and every project already stored — on a disk or in its database.
-pub const SCHEMA_VERSION: u32 = 51;
+pub const SCHEMA_VERSION: u32 = 52;
 
 /// The document's file name inside a `*.scor/` project directory.
 pub const PROJECT_FILE_NAME: &str = "project.json";
@@ -79,6 +80,21 @@ pub struct Project {
     /// in the file meaning something other than what its author intended, and
     /// guessing 30 is a worse failure than refusing to load.
     pub timeline_fps: Fps,
+    /// The shape of the frame this edit is made in (#1278) — `"16:9"`,
+    /// `"9:16"`, `"4:5"`, any `across:down` within 4:1 of square.
+    ///
+    /// **A shape, not a size.** How many pixels a render has is chosen per
+    /// render; what shape they are in is a fact about the edit, since a title
+    /// laid out upright is a different title landscape. Every default follows
+    /// it: a render's size, a still's, the frame `describe` measures against,
+    /// and both editors' preview. Chosen when the project is made (a platform
+    /// sets it) and changed with [`crate::frame::refit`], never by a bare
+    /// write, which would leave footage that filled the old frame in bars.
+    ///
+    /// Absent reads as 16:9, what every surface assumed before the field was
+    /// there; a document is always written with it.
+    #[serde(default)]
+    pub aspect: Ratio,
     /// The document this edit is being cut from, as a project-relative path —
     /// by convention `script.md` at the root.
     ///
@@ -128,6 +144,7 @@ impl Project {
             schema_version: SCHEMA_VERSION,
             name: name.into(),
             timeline_fps,
+            aspect: Ratio::WIDE,
             script: None,
             assets: Vec::new(),
             tracks: Vec::new(),
@@ -136,7 +153,8 @@ impl Project {
     }
 
     /// Creates a `*.scor/` directory: the sub-directories and a
-    /// `project.json` for an empty project on the given grid. Refuses a
+    /// `project.json` for an empty project on the given grid, in the given
+    /// shape. Refuses a
     /// directory that already holds anything, a project or not, before a
     /// single file is written.
     ///
@@ -149,13 +167,15 @@ impl Project {
         project_dir: &Path,
         name: Option<&str>,
         timeline_fps: Fps,
+        aspect: Ratio,
     ) -> Result<Self, SaveError> {
         vacant(project_dir)?;
         for directory in PROJECT_DIRS {
             let path = project_dir.join(directory);
             fs::create_dir_all(&path).map_err(|source| SaveError::Io { path, source })?;
         }
-        let project = Self::new(name_for(project_dir, name), timeline_fps);
+        let mut project = Self::new(name_for(project_dir, name), timeline_fps);
+        project.aspect = aspect;
         project.save(project_dir)?;
         Ok(project)
     }

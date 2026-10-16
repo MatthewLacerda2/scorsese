@@ -221,6 +221,16 @@ pub(super) fn retargeted(before: &Start, now: &Start) -> String {
          the edit until they answer.",
         changes.join("; ")
     );
+    // The frame is the document's, and only a re-fit changes it (#1278).
+    if before.platform != now.platform
+        && let Some(aspect) = now.aspect()
+    {
+        said.push_str(&format!(
+            " The new placement is watched {aspect}: once they agree, and if the project \
+             is not {aspect} already, change its frame with project_reframe, which says \
+             what it could not re-fit."
+        ));
+    }
     match now.brief() {
         Some(brief) => {
             said.push_str(

@@ -4,7 +4,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use scorsese_core::Fps;
-use scorsese_render::{Cue, FrameRange, Plan, Resolution, described};
+use scorsese_render::{Cue, FrameRange, Plan, Sizing, described};
 
 /// Prints what the timeline contains, without rendering any of it.
 ///
@@ -22,7 +22,7 @@ pub(crate) fn run(
     fps: Option<Fps>,
     range: Option<FrameRange>,
     at: &[Cue],
-    resolution: Resolution,
+    resolution: Option<Sizing>,
 ) -> Result<()> {
     let project = super::open(project_dir)?;
     let fps = fps.unwrap_or(project.timeline_fps);
@@ -38,7 +38,8 @@ pub(crate) fn run(
         .collect();
     // The answer `project_describe` gives, assembled in one place: the
     // script, the cut and its notes, and for each instant where everything
-    // lands and which word each narration is saying.
+    // lands — against the project's own frame unless `resolution` names
+    // another — and which word each narration is saying.
     let described = described(&project, project_dir, &plan, &at, resolution)
         .context("finding what is on screen")?;
     print!("{described}");

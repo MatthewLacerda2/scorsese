@@ -96,7 +96,7 @@ pub(in crate::assistant) fn tool() -> Tool {
                 "resolution": {
                     "type": "string",
                     "description": "The size the video will be rendered at, e.g. 1080x1920 for \
-                        a vertical cut; default 1920x1080. What they pick is downloaded at the \
+                        a vertical cut; default the project's own frame at delivery size. What they pick is downloaded at the \
                         smallest size that fills it."
                 }
             },
@@ -112,8 +112,9 @@ pub(in crate::assistant) struct Asked {
     pub(in crate::assistant) question: String,
     /// The candidates, in the order to show them.
     pub(in crate::assistant) candidates: Vec<Choice>,
-    /// The frame what is picked must fill.
-    pub(in crate::assistant) frame: Resolution,
+    /// The frame what is picked must fill, when the model named one; the
+    /// project's own frame at delivery size otherwise (#1278).
+    pub(in crate::assistant) frame: Option<Resolution>,
 }
 
 /// `input` read as a picker, or why it is not one, in words for the model.
@@ -161,10 +162,11 @@ pub(in crate::assistant) fn read(input: &Value) -> Result<Asked, String> {
         .and_then(Value::as_str)
         .map(str::trim)
     {
-        None | Some("") => Resolution::HD,
-        Some(text) => text
-            .parse()
-            .map_err(|problem| format!("Not shown: resolution: {problem}"))?,
+        None | Some("") => None,
+        Some(text) => Some(
+            text.parse()
+                .map_err(|problem| format!("Not shown: resolution: {problem}"))?,
+        ),
     };
     Ok(Asked {
         question: question.to_owned(),
@@ -218,7 +220,7 @@ mod tests {
         let lottie = lottie.expect("a picker of mixed kinds").candidates[0];
         assert_eq!(key(lottie), "lottiefiles-lottie-3");
         assert_eq!(read.question, "Which sunrise?");
-        assert_eq!(read.frame, Resolution::HD);
+        assert_eq!(read.frame, None);
         let video = Choice {
             medium: Medium::Video,
             id: 3,
@@ -258,7 +260,7 @@ mod tests {
     fn a_resolution_is_the_frame_to_fill() {
         let two = json!([{ "kind": "video", "id": 1 }, { "kind": "video", "id": 2 }]);
         let input = json!({ "question": "Which?", "candidates": two, "resolution": "1080x1920" });
-        let frame = read(&input).expect("a picker").frame;
+        let frame = read(&input).expect("a picker").frame.expect("a frame");
         assert_eq!((frame.width(), frame.height()), (1080, 1920));
         let input = json!({ "question": "Which?", "candidates": two, "resolution": "huge" });
         assert!(read(&input).is_err());

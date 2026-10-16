@@ -10,9 +10,9 @@ mod common;
 
 mod cancelled;
 mod evict;
+mod framed;
 mod job;
 mod loudness;
-mod platform;
 mod previews;
 mod progress;
 mod request;

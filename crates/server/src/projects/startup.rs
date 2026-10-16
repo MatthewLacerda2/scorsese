@@ -1,6 +1,7 @@
 //! Carrying every stored document forward when the server starts on a new build.
 
-use scorsese_core::{SCHEMA_VERSION, migrate};
+use scorsese_core::style::Platform;
+use scorsese_core::{Ratio, SCHEMA_VERSION, migrate};
 use sqlx::postgres::PgPool;
 
 use super::{ProjectError, store};
@@ -24,17 +25,27 @@ use crate::db;
 /// refused rather than overwriting the migration.
 pub async fn migrate_stored(pool: &PgPool) -> Result<usize, ProjectError> {
     let mut tx = db::privileged(pool).await?;
-    let behind: Vec<(i64, i64, String)> = sqlx::query_as(
-        "SELECT id, revision, document::text FROM projects
+    let behind: Vec<(i64, i64, String, Option<String>)> = sqlx::query_as(
+        "SELECT id, revision, document::text, platform FROM projects
          WHERE document -> 'schema_version' IS DISTINCT FROM to_jsonb($1::bigint)
          ORDER BY id FOR UPDATE",
     )
     .bind(i64::from(SCHEMA_VERSION))
     .fetch_all(&mut *tx)
     .await?;
-    for (id, revision, json) in &behind {
-        let (project, _) =
+    for (id, revision, json, platform) in &behind {
+        let (mut project, from) =
             migrate::parse(json).map_err(|source| ProjectError::Migrate { id: *id, source })?;
+        // A project from before documents carried their shape had it read off
+        // its footage; the platform it was started for knows better (#1278).
+        let platform = platform
+            .as_deref()
+            .and_then(|id| id.parse::<Platform>().ok());
+        if let (Some(from), Some(platform)) = (from, platform)
+            && from < migrate::FRAMED
+        {
+            project.aspect = Ratio::from(platform.aspect());
+        }
         store::write(&mut tx, *id, *revision, &project).await?;
     }
     tx.commit().await?;

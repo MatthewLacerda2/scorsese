@@ -4,6 +4,7 @@
 //! another lane is `clip_move`, the Delete key is
 //! `clip_remove`, a file dropped onto a lane is `import` and then `place_clip`,
 //! a value typed into the inspector is `clip_set`, a new lane is `track_new`,
+//! a new frame shape is `project_reframe`,
 //! a lane or an asset deleted after its confirm is `track_remove` or
 //! `asset_remove` with the clips that go named (#396),
 //! the preview's frame is `still`, and a selection saved as a template or a
@@ -59,6 +60,7 @@ pub const EDITS: &[&str] = &[
     "clip_move",
     "clip_remove",
     "sequence",
+    "project_reframe",
 ];
 
 /// The tools that do not: bringing a library file into the assets table,

@@ -33,7 +33,7 @@ pub(super) fn off_frame(project: &Project, project_dir: &Path) -> Vec<String> {
     let mut leaving: Vec<(String, Overhang, Frames)> = Vec::new();
     for segment in plan.segments() {
         let middle = segment.start + Frames(segment.duration.get() / 2);
-        let Ok(layout) = Layout::at(project, project_dir, reference(), middle) else {
+        let Ok(layout) = Layout::at(project, project_dir, reference(project), middle) else {
             continue;
         };
         for placement in &layout.placed {

@@ -29,7 +29,7 @@ mod sheet;
 
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use scorsese_core::{Fps, Frames};
-use scorsese_render::{Cue, RenderSettings, Renderer, Told, Tools, grid};
+use scorsese_render::{Budget, Cue, RenderSettings, Renderer, Told, Tools, grid};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -54,10 +54,8 @@ struct Arguments {
     /// The shape to look in, e.g. "9:16" for a vertical edit or "1:1" for a
     /// square one: a preview of the default's pixels in that shape (720x1280
     /// for 9:16). Or an exact raster, e.g. 1080x1920. Default: the default's
-    /// pixels in the shape of the edit's first sized picture (the first shot,
-    /// photo or generated clip on the lowest video track), 1280x720 when
-    /// nothing on it has a size — the reply names the clip it took the shape
-    /// from. Layout is a fraction of the frame, so a preview is the same
+    /// pixels in the project's own shape (its aspect) — 1280x720 for 16:9,
+    /// 720x1280 for 9:16. Layout is a fraction of the frame, so a preview is the same
     /// picture as the delivery and a smaller reply; there is no need to ask
     /// for the delivery raster to see a layout. The exception is a clip with
     /// fit: native, which is a fixed count of pixels and so looks bigger in a
@@ -113,10 +111,9 @@ impl Tool for Still {
          the encoder taken out. One sentence and one picture comes back per \
          instant, in the order asked, so checking every section of a cut is \
          one call rather than one per section. Pictures come back preview-sized \
-         in the shape of the edit's first sized clip; for a vertical edit whose \
-         timeline does not say so (titles, pages, landscape footage cropped \
-         upright) pass resolution: \"9:16\" — never the delivery size, which \
-         costs more and shows the same layout. Needs ffmpeg, but encodes \
+         in the project's own shape (its aspect; project_reframe changes it); \
+         pass resolution: \"9:16\" to look in another — never the delivery \
+         size, which costs more and shows the same layout. Needs ffmpeg, but encodes \
          nothing: seconds, not a whole render. Use it to check what \
          project_describe can only assert — that a title is readable, that a \
          layer is where it was meant to be, that a cut lands. Sketch and stale \
@@ -153,17 +150,14 @@ impl Tool for Still {
         let files = if arguments.sheet { 1 } else { instants.len() };
         let kept = kept(dir, arguments.out.as_deref(), files)?;
         let budget = if arguments.sheet {
-            raster::CELL
+            Budget::Cell
         } else {
-            raster::FRAME
+            Budget::Preview
         };
-        let (resolution, shaped_by) =
+        // Said once, in the first sentence: a default raster names the
+        // project's frame it was drawn in.
+        let (resolution, shaped) =
             raster::choose(arguments.resolution.as_deref(), &project, budget)?;
-        // Said once, in the first sentence: a preview whose shape was guessed
-        // from a clip names it, so a wrong guess is one argument to correct.
-        let shaped = shaped_by
-            .map(|asset| format!(" (the shape of {asset}; pass resolution: \"9:16\" or another aspect for a different one)"))
-            .unwrap_or_default();
 
         // Discovered per call rather than held, as `render` does: a server that
         // found ffmpeg at startup would keep insisting it was there after

@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use scorsese_providers::stock::{self, Animations, Choice, Imports, Medium, cache_dir};
-use scorsese_render::{Ffprobe, Resolution};
+use scorsese_render::{Budget, Ffprobe, Sizing};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -59,8 +59,9 @@ struct Arguments {
     /// Ids are only unique within a kind.
     #[schemars(extend("enum" = ["video", "image", "lottie"]))]
     kind: Option<String>,
-    /// The size the video will be rendered at, e.g. 1080x1920 for a vertical
-    /// cut. Default 1920x1080. The smallest file that fills it without being
+    /// The size the video will be rendered at, e.g. 1080x1920, or a shape
+    /// like "9:16" at delivery size. Default: the project's own shape at
+    /// delivery size (1920x1080 for 16:9, 1080x1920 for 9:16). The smallest file that fills it without being
     /// enlarged is downloaded, or the largest there is when none does. Not
     /// for lottie, which is vector and sharp at any size.
     resolution: Option<String>,
@@ -111,13 +112,12 @@ impl Tool for Import {
             Ids::Many(ids) if ids.is_empty() => return Err("`id` is required".to_owned()),
             Ids::Many(ids) => ids,
         };
-        let frame = match args::given(arguments.resolution.as_deref()) {
-            Some(text) => text
-                .parse::<Resolution>()
-                .map_err(|problem| format!("resolution: {problem}"))?,
-            None => Resolution::HD,
-        };
+        let asked = args::given(arguments.resolution.as_deref())
+            .map(str::parse::<Sizing>)
+            .transpose()
+            .map_err(|problem| format!("resolution: {problem}"))?;
         let mut project = load(dir)?;
+        let frame = Sizing::resolve(asked, &project, Budget::Delivery);
         let library = super::library(self.library.as_ref(), medium)?;
         if medium == Medium::Lottie {
             let kept = stock::keep(dir, &cache_dir(dir), &*library, &ids);

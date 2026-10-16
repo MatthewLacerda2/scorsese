@@ -43,8 +43,10 @@ struct Arguments {
     /// what the container is written with — aac for mp4, mkv and m4a, pcm_s16le
     /// for avi and wav, wmav2 for wmv, mp3 for mp3.
     audio_codec: Option<String>,
-    /// Output size, e.g. 1920x1080. Sources of another shape meet it the way
-    /// each clip's fit says, and are never stretched. Default 1920x1080.
+    /// Output size, e.g. 1080x1920, or a shape like "9:16" at delivery size.
+    /// Sources of another shape meet it the way each clip's fit says, and are
+    /// never stretched. Default: the project's own shape at delivery size
+    /// (1920x1080 for 16:9, 1080x1920 for 9:16).
     /// Refused for a sound-only container, which has no picture to size.
     resolution: Option<String>,
     /// The placement the video is delivered for, which sizes it: youtube
@@ -217,7 +219,7 @@ fn prepared(dir: &Path, arguments: &Arguments) -> Result<(String, PathBuf, Work)
     // for; an edit made while it runs is in the next one.
     let project = load(dir)?;
 
-    let (settings, range) = settings::of(arguments, format, project.timeline_fps)?;
+    let (settings, range) = settings::of(arguments, format, &project)?;
 
     // Discovered per call rather than held: a server that found ffmpeg at
     // startup would keep insisting it was there after someone uninstalled

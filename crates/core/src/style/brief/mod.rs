@@ -14,7 +14,7 @@ use std::path::Path;
 use super::{Platform, STYLES, Style, style, styles_for};
 use crate::asset::Aspect;
 use crate::project::{Project, SaveError};
-use crate::{ProjectPath, write};
+use crate::{ProjectPath, Ratio, write};
 
 /// Where a started project's brief goes: the script's conventional name.
 pub const SCRIPT_FILE: &str = "script.md";
@@ -71,6 +71,12 @@ impl Start {
         Ok(Self { platform, style })
     }
 
+    /// The shape a project started for this is framed in: its platform's, when
+    /// it names one.
+    pub fn aspect(&self) -> Option<Ratio> {
+        self.platform.map(|platform| Ratio::from(platform.aspect()))
+    }
+
     /// The brief for this start, or `None` when nothing was chosen.
     pub fn brief(&self) -> Option<String> {
         if self.platform.is_none() && self.style.is_none() {
@@ -119,9 +125,11 @@ fn platform_section(text: &mut String, platform: Platform) {
     let _ = write!(
         text,
         "## Platform: {name} (`{id}`)\n\n\
-         Render it for this placement: `scorsese render --platform {id}`, or the \
-         MCP `render` tool's `platform`. That delivers it {shape}, {width}x{height}; \
-         the project itself never stores a platform.\n\n",
+         The project is framed {shape} ({ratio}), so every render and still of it \
+         defaults to {width}x{height}. Render it for this placement with \
+         `scorsese render --platform {id}`, or the MCP `render` tool's `platform`; \
+         the project stores its shape, never the platform.\n\n",
+        ratio = Ratio::from(platform.aspect()),
         name = platform.name(),
         id = platform.id(),
     );

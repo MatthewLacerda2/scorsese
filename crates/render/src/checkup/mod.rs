@@ -31,6 +31,7 @@ mod beneath;
 mod framed;
 mod media;
 mod overlap;
+mod reframe;
 mod unmet;
 
 use std::fmt;
@@ -45,6 +46,7 @@ use crate::symbol::unknown_icons;
 use crate::text::{uncovered_glyphs, unknown_fonts, unusable_faces};
 
 pub use media::{Finding, Severity, findings};
+pub use reframe::{Reframed, reframe};
 
 /// One thing a checkup has to say, already worded and naming its subject.
 ///

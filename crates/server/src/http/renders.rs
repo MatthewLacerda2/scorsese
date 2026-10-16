@@ -13,6 +13,7 @@ use axum::http::header::CONTENT_DISPOSITION;
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::Response;
 use futures_util::StreamExt;
+use scorsese_render::{Budget, Resolution};
 use serde_json::{Value, json};
 
 use super::AppState;
@@ -26,8 +27,8 @@ use crate::renders::{Ask, PreviewAsk, RenderView, Settings, store};
 /// `POST /api/projects/{id}/renders`: the render of the project as it is now,
 /// in the shape asked for — kept (`200`) or on its way (`202`).
 ///
-/// A picture with no size asked for is delivered at the size of the platform
-/// the project is made for (#1016), when it names one.
+/// A picture with no size asked for is delivered at the project's own frame at
+/// delivery size (#1278): 1080x1920 for a 9:16 project.
 pub async fn request(
     State(state): State<AppState>,
     member: Member,
@@ -38,30 +39,27 @@ pub async fn request(
     // cheapest thing to refuse, as it is for `scorsese render`.
     let mut settings = Settings::from_ask(&ask).map_err(ApiError::BadRequest)?;
     if ask.resolution.is_none() && settings.resolution.is_some() {
-        ask.resolution = platform_size(&state, &member, id).await?;
+        ask.resolution = frame_size(&state, &member, id).await?;
         settings = Settings::from_ask(&ask).map_err(ApiError::BadRequest)?;
     }
     answer(&state, &member, id, settings).await
 }
 
-/// The delivery size of the platform project `id` is made for, as
-/// `WIDTHxHEIGHT` — `None` when it names none.
-async fn platform_size(
+/// Project `id`'s own frame at delivery size, as `WIDTHxHEIGHT`.
+async fn frame_size(
     state: &AppState,
     member: &Member,
     id: i64,
 ) -> Result<Option<String>, ApiError> {
     let stored = projects::open(&state.pool, member.user, id).await?;
-    Ok(stored.summary.platform.map(|platform| {
-        let (width, height) = platform.size();
-        format!("{width}x{height}")
-    }))
+    let frame = Resolution::of_project(&stored.document, Budget::Delivery);
+    Ok(Some(frame.to_string()))
 }
 
 /// `POST /api/projects/{id}/previews`: the editor's preview video of the
 /// project as it is now (#542) — a render at a preview quality, answered in
-/// the same shape as a render — at the platform's size, like a render, when
-/// none is asked for.
+/// the same shape as a render — at the project's own frame, like a render,
+/// when no size is asked for.
 pub async fn preview(
     State(state): State<AppState>,
     member: Member,
@@ -69,7 +67,7 @@ pub async fn preview(
     Json(mut ask): Json<PreviewAsk>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     if ask.resolution.is_none() {
-        ask.resolution = platform_size(&state, &member, id).await?;
+        ask.resolution = frame_size(&state, &member, id).await?;
     }
     let settings = Settings::from_preview(&ask).map_err(ApiError::BadRequest)?;
     answer(&state, &member, id, settings).await

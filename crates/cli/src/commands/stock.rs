@@ -15,7 +15,7 @@ use scorsese_providers::stock::{
     labelled_previews, licence,
 };
 use scorsese_render::contact::{self, Look};
-use scorsese_render::{Ffprobe, Tools, frames};
+use scorsese_render::{Budget, Ffprobe, Sizing, Tools, frames};
 
 use crate::cli::StockAction;
 
@@ -85,6 +85,7 @@ pub(crate) fn run(dir: &Path, action: StockAction) -> Result<()> {
             let library = stock::library(medium)?;
             let choices: Vec<Choice> = ids.iter().map(|&id| Choice { medium, id }).collect();
             let probe = Ffprobe::discover()?;
+            let resolution = Sizing::resolve(resolution, &project, Budget::Delivery);
             let frame = (resolution.width(), resolution.height());
             let answers = stock::import(
                 &mut project,

@@ -44,7 +44,8 @@ async fn a_downloaded_picture_is_admitted_once(pool: PgPool) {
     still(&common::tools(), &picture, "red", "64x36");
 
     let root = scratch.join("laid.scor");
-    let before = Project::create(&root, Some("laid"), Fps::THIRTY).expect("a project");
+    let before = Project::create(&root, Some("laid"), Fps::THIRTY, scorsese_core::Ratio::WIDE)
+        .expect("a project");
     let mut after = before.clone();
     let probe = Ffprobe::new(common::tools());
     import_path(&mut after, &root, &picture, None, &probe).expect("the picture imports");

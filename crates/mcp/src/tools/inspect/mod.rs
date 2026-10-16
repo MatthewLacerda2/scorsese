@@ -6,7 +6,7 @@ mod assets;
 
 use schemars::JsonSchema;
 use scorsese_core::{HashCheck, Project, fingerprint_of};
-use scorsese_render::{Checkup, FrameRange, Plan, Resolution, described};
+use scorsese_render::{Checkup, FrameRange, Plan, Sizing, described};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -15,13 +15,6 @@ use super::compact::compact;
 use super::{Costs, Part, Reply, Tool};
 
 pub(super) use assets::Assets;
-
-/// The frame a layout question is answered against when nobody names one.
-///
-/// The delivery raster rather than the smaller one `still` composites at:
-/// nothing is drawn here, so there is no reply size to save, and the shape a
-/// caller is reasoning about is the one they will deliver.
-const DEFAULT_RASTER: &str = "1920x1080";
 
 /// The project document itself.
 pub(super) struct Read;
@@ -128,7 +121,7 @@ impl Tool for Describe {
             None => Vec::new(),
             Some(at) => super::still::instants(at, project.timeline_fps)?,
         };
-        let raster = raster(arguments.resolution.as_deref())?;
+        let asked = asked(arguments.resolution.as_deref())?;
         // `scorsese describe --fps --range`, parsed by the same types: the cut
         // as a render at that rate, of that stretch, would sequence it. `at`
         // stays on the timeline's own grid, where `2.5s` is the same instant
@@ -150,22 +143,21 @@ impl Tool for Describe {
         // script, the cut and its notes, and for each instant — in the order
         // asked, so the answers line up with the questions — where everything
         // lands and which word each narration is saying.
-        let described = described(&project, dir, &plan, &instants, raster)
-            .map_err(|error| error.to_string())?;
+        let described =
+            described(&project, dir, &plan, &instants, asked).map_err(|error| error.to_string())?;
         Ok(described.into())
     }
 }
 
-/// The raster a layout question is measured against — the delivery size unless
-/// the caller named another.
-///
-/// A default at all, rather than the project's own anything, because a project
-/// does not carry a raster: resolution is chosen per render, and a question
-/// about where a title sits has to be asked against *some* frame.
-fn raster(resolution: Option<&str>) -> Result<Resolution, String> {
+/// The size a layout question is measured against, if the caller named one;
+/// `described` takes the project's own frame at delivery size otherwise
+/// (#1116) — the delivery raster rather than the smaller one `still`
+/// composites at: nothing is drawn here, so there is no reply size to save,
+/// and the shape a caller is reasoning about is the one they will deliver.
+fn asked(resolution: Option<&str>) -> Result<Option<Sizing>, String> {
     resolution
-        .unwrap_or(DEFAULT_RASTER)
-        .parse()
+        .map(str::parse::<Sizing>)
+        .transpose()
         .map_err(|problem| format!("resolution: {problem}"))
 }
 
@@ -188,10 +180,12 @@ struct DescribeArguments {
     #[serde(default)]
     #[schemars(schema_with = "super::still::at_schema")]
     at: Option<Value>,
-    /// The frame `at` is measured against, e.g. 1920x1080, which is the
-    /// default. The answer is in fractions, but the frame's shape still decides
-    /// it: a `fit` picture letterboxes against this aspect and a title wraps
-    /// against this width. Nothing is composited either way.
+    /// The frame `at` is measured against: a raster like 1080x1920, or a shape
+    /// like "9:16" at delivery size. Default: the project's own shape at
+    /// delivery size (1920x1080 for 16:9, 1080x1920 for 9:16). The answer is
+    /// in fractions, but the frame's shape still decides it: a `fit` picture
+    /// letterboxes against this aspect and a title wraps against this width.
+    /// Nothing is composited either way.
     resolution: Option<String>,
     /// Describe the cut as a render at this frame rate would sequence it: 30,
     /// 60, or a fraction like 30000/1001 (a decimal is refused). Defaults to

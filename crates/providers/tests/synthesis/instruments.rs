@@ -49,8 +49,13 @@ fn a_named_instrument_may_not_climb_out_of_the_project() {
     // sits beside it is this test's and not the whole temporary directory's.
     let outside = scratch("instrument-escape");
     let dir = outside.join("inside.scor");
-    let mut project =
-        Project::create(&dir, Some("inside"), Fps::THIRTY).expect("create the project");
+    let mut project = Project::create(
+        &dir,
+        Some("inside"),
+        Fps::THIRTY,
+        scorsese_core::Ratio::WIDE,
+    )
+    .expect("create the project");
     write(&dir, "recipes/tune.json", &song_naming("../bass.json"));
     std::fs::write(outside.join("bass.json"), BASS).expect("write it outside");
 

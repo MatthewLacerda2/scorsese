@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use clap::{Args, Subcommand, ValueEnum};
 
 use scorsese_core::style::Platform;
-use scorsese_core::{AssetKind, Fps};
+use scorsese_core::{AssetKind, Fps, Ratio};
 use scorsese_providers::synth::{Drum, Span, Starter};
 use scorsese_render::audio::reference::{self, Reference};
 
@@ -32,9 +32,16 @@ pub(crate) struct NewArgs {
     /// The placement the video is made for: `youtube`, `youtube_shorts`,
     /// `instagram_reels`, `instagram_reels_ad`, `instagram_stories_ad`,
     /// `tiktok` or `tiktok_ad`. Written into the brief with the render
-    /// preset it means (`render --platform`); the project stores no platform.
+    /// preset it means (`render --platform`), and frames the project in the
+    /// placement's shape; the project stores the shape, never the platform.
     #[arg(long)]
     pub(crate) platform: Option<Platform>,
+    /// The shape of the frame, e.g. `9:16`, `16:9`, `1:1` or `4:5`: what
+    /// every render, still and layout of the project defaults to. Defaults to
+    /// `--platform`'s shape, or 16:9 without one. `scorsese reframe` changes
+    /// it later.
+    #[arg(long)]
+    pub(crate) aspect: Option<Ratio>,
     /// The kind of video, by id: `kinetic_type`, `whiteboard`… An unknown id,
     /// or one not made for `--platform`, is refused with the ones that fit.
     /// Its prompt is written into the brief.
@@ -359,8 +366,10 @@ pub(crate) enum StockAction {
         /// The ids are LottieFiles animations, not footage.
         #[arg(long)]
         lottie: bool,
-        /// The size the video will be rendered at.
-        #[arg(long, default_value = "1920x1080")]
-        resolution: scorsese_render::Resolution,
+        /// The size the video will be rendered at: `WIDTHxHEIGHT`, or a shape
+        /// like `9:16` at delivery size. Default: the project's own shape at
+        /// delivery size.
+        #[arg(long)]
+        resolution: Option<scorsese_render::Sizing>,
     },
 }

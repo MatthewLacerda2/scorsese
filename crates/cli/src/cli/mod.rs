@@ -13,13 +13,12 @@ mod args;
 pub(crate) use args::{AssetsAction, KindArg, NewArgs, SequenceAction, StockAction, SynthAction};
 
 use clap::{Parser, Subcommand};
-use scorsese_core::Fps;
 use scorsese_core::style::Platform;
+use scorsese_core::{Fps, Ratio};
 use scorsese_render::audio::reference::{self, Reference};
 use scorsese_render::contact;
 use scorsese_render::{
-    AudioCodec, Bitrate, Container, Cue, FrameRange, LoudnessTarget, Resolution, SampleRate,
-    VideoCodec,
+    AudioCodec, Bitrate, Container, Cue, FrameRange, LoudnessTarget, SampleRate, Sizing, VideoCodec,
 };
 
 /// The whole command line: one verb, plus the options that outlive the choice
@@ -389,6 +388,16 @@ pub(crate) enum Command {
     /// time and saves it. A project that is already current is not touched.
     /// Nothing goes backwards: a project from a newer build is refused.
     Migrate,
+    /// Change the shape of the project's frame, e.g. to `9:16`, `16:9`, `1:1`
+    /// or `4:5`. Never refused: positions and sizes are fractions of the
+    /// frame and follow on their own, and footage that filled the old frame
+    /// is set to fill the new one. What that cannot settle — a title that now
+    /// wraps past its band, a clip that now leaves the frame — is listed, to
+    /// be fixed by hand.
+    Reframe {
+        /// The new shape, `across:down`.
+        aspect: Ratio,
+    },
     /// Report everything wrong or questionable about the project — the
     /// document, the media it references, and the layers it draws over each
     /// other — without rendering. Problems fail; warnings do not.
@@ -406,12 +415,15 @@ pub(crate) enum Command {
         /// for the soundtrack alone.
         #[arg(long)]
         out: PathBuf,
-        /// Output resolution, default 1920x1080. Sources of a different shape
-        /// meet it the way each clip's `fit` says — letterboxed, cropped, or
-        /// left at their own size — and are never stretched. Refused for a
-        /// sound-only format, which has no picture to size.
+        /// Output size: `WIDTHxHEIGHT`, or a shape like `9:16` at delivery
+        /// size (1080 lines on the shorter side). Default: the project's own
+        /// shape at delivery size — 1920x1080 for 16:9, 1080x1920 for 9:16.
+        /// Sources of a different shape meet it the way each clip's `fit` says
+        /// — letterboxed, cropped, or left at their own size — and are never
+        /// stretched. Refused for a sound-only format, which has no picture to
+        /// size.
         #[arg(long)]
-        resolution: Option<Resolution>,
+        resolution: Option<Sizing>,
         /// Deliver for a placement, at the size it is watched in: `youtube`
         /// (1920x1080), or `youtube_shorts`, `instagram_reels`,
         /// `instagram_reels_ad`, `instagram_stories_ad`, `tiktok` or
@@ -515,10 +527,11 @@ pub(crate) enum Command {
         /// make. A clip with `fit: native` is the exception — it is a fixed
         /// count of pixels, so it covers more of a small frame than of a
         /// large one, and its size has to be judged at the delivery raster.
-        /// Default 1920x1080; with `--sheet` it is each cell's raster, default
-        /// 640x360.
+        /// `WIDTHxHEIGHT`, or a shape like `9:16`. Default: the project's own
+        /// shape at delivery size (1080x1920 for 9:16); with `--sheet` it is
+        /// each cell's raster, default the project's shape at 640x360's pixels.
         #[arg(long)]
-        resolution: Option<Resolution>,
+        resolution: Option<Sizing>,
         /// Rule the frame with coordinates: a line every 0.1 of the raster,
         /// heavier at 0.5, labelled along the top and left edges. Fractions of
         /// the frame, which is what `transform.position.*` is written in, so a
@@ -607,11 +620,12 @@ pub(crate) enum Command {
         /// may not at `0:48`.
         #[arg(long, value_delimiter = ',')]
         at: Vec<Cue>,
-        /// The frame `--at` is measured against. The answer is in fractions,
-        /// but the frame's shape still decides it: a `fit` picture letterboxes
-        /// against this aspect and a title wraps against this width.
-        #[arg(long, default_value = "1920x1080")]
-        resolution: Resolution,
+        /// The frame `--at` is measured against: `WIDTHxHEIGHT`, or a shape
+        /// like `9:16`. The answer is in fractions, but the frame's shape still
+        /// decides it: a `fit` picture letterboxes against this aspect and a
+        /// title wraps against this width. Default: the project's own shape.
+        #[arg(long)]
+        resolution: Option<Sizing>,
     },
     /// Find free stock footage and photos on Pixabay, and bring them in as
     /// ordinary assets — or free Lottie animations on LottieFiles, brought in

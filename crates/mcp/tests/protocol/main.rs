@@ -42,6 +42,7 @@ mod placing;
 mod probing;
 mod progressing;
 mod queueing;
+mod reframing;
 mod removing;
 mod rendering;
 #[path = "../../../../tools/scratch.rs"]

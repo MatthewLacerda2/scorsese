@@ -1,7 +1,10 @@
 //! Stored projects below HTTP: which files each one uses, racing writers, and
 //! the migration the server runs over every document when it starts.
 
+#[path = "../common/mod.rs"]
 mod common;
+
+mod framed;
 
 use scorsese_core::{Asset, AssetId, AssetKind, Fps, Project, SCHEMA_VERSION};
 use scorsese_server::ServerError;

@@ -1678,6 +1678,7 @@ the web — or be left off it — without a reason written down.
 - `project_describe`
 - `project_check`
 - `project_assets`
+- `project_reframe`
 - `project_write`
 - `track_new`
 - `track_move`

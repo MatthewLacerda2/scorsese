@@ -1,5 +1,5 @@
-//! A render that asks for no size is delivered at the size of the platform
-//! its project is made for (#1016), and one that asks for a size gets it.
+//! A render that asks for no size is delivered at the project's own frame at
+//! delivery size (#1278), and one that asks for a size gets it.
 
 use serde_json::json;
 use sqlx::postgres::PgPool;
@@ -7,15 +7,15 @@ use sqlx::postgres::PgPool;
 use super::{call, card, common, member, stored};
 
 #[sqlx::test]
-async fn no_size_asked_is_the_platforms_size(pool: PgPool) {
+async fn no_size_asked_is_the_projects_own_frame(pool: PgPool) {
     let address = common::serve(pool.clone()).await;
     let (ana, cookie) = member(&pool, "ana@example.com").await;
-    let id = stored(&pool, ana, &card(|_| {})).await;
-    sqlx::query("UPDATE projects SET platform = 'tiktok' WHERE id = $1")
-        .bind(id)
-        .execute(&pool)
-        .await
-        .unwrap();
+    let id = stored(
+        &pool,
+        ana,
+        &card(|document| document["aspect"] = json!("9:16")),
+    )
+    .await;
     let renders = format!("/api/projects/{id}/renders");
     let previews = format!("/api/projects/{id}/previews");
     for (path, body) in [

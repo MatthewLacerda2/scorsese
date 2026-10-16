@@ -22,12 +22,15 @@
 //! is read by the strict path from then on. That keeps "this build understands
 //! v38" a statement about one version rather than about a range.
 
+mod frame;
 mod speech;
 mod stills;
 
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
+
+pub use frame::FRAMED;
 
 use crate::baseline::Baseline;
 use crate::project::{LoadError, PROJECT_FILE_NAME, Project, SCHEMA_VERSION, SaveError};
@@ -130,6 +133,10 @@ pub(crate) const STEPS: &[Step] = &[
     Step {
         from: 50,
         apply: stills::one_image_model,
+    },
+    Step {
+        from: 51,
+        apply: frame::frames_arrive,
     },
 ];
 
