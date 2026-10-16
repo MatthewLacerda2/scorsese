@@ -40,25 +40,25 @@ function Media({ file }: { file: Opened }) {
       // biome-ignore lint/a11y/useMediaCaption: a user's own recording has no caption track to offer.
       return <audio src={src} controls autoPlay className="w-full" />;
     case "html":
-      return <PageSource src={src} />;
+      return <PageSource id={file.id} />;
   }
 }
 
 /** A page is shown as its source, read-only: it is served as `text/plain` and never run here. */
-function PageSource({ src }: { src: string }) {
+function PageSource({ id }: { id: number }) {
   const t = useT();
   const [text, setText] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let live = true;
-    fetch(src)
-      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
+    api.library
+      .fileText(id)
       .then((body) => live && setText(body))
       .catch(() => live && setFailed(true));
     return () => {
       live = false;
     };
-  }, [src]);
+  }, [id]);
   if (failed) return <p className="text-sm text-muted-foreground">{t.files.viewer.failed}</p>;
   if (text === null)
     return <p className="text-sm text-muted-foreground">{t.files.viewer.loading}</p>;

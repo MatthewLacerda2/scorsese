@@ -115,6 +115,12 @@ export const api = {
     fileUrl: (id: number) => `/api/library/${id}/file`,
     /** The same file sent to be saved under its own name and extension (#711). */
     downloadUrl: (id: number) => `/api/library/${id}/file?download=1`,
+    /** The file as text — a page's source, shown and never run (#1300). */
+    fileText: async (id: number): Promise<string> => {
+      const response = await fetch(`/api/library/${id}/file`);
+      if (!response.ok) throw new Error(`library file ${id}: ${response.status}`);
+      return response.text();
+    },
   },
   editor: {
     /** The project with its document typed for drawing the timeline. */
