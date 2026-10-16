@@ -1,4 +1,5 @@
-//! Whose a designed voice is, across every user (#687).
+//! Whose a designed or cloned voice is, across every user (#687, #1263) —
+//! both are rows of `designed_voices`, so every rule here holds for both.
 //!
 //! A kept voice lives in the operator's ElevenLabs account, the one every
 //! user's jobs share, and its `voice_id` is only a string: a user who learns
@@ -63,9 +64,9 @@ pub async fn others(
 /// The refusal for narrating with, or asking about, `voice`: another user's.
 pub fn refusal(voice: &str) -> String {
     format!(
-        "voice {voice} is not one you can use: it was designed by another account, and a \
-         designed voice is only its maker's. Choose a voice from voices, or design your own \
-         with voice_design."
+        "voice {voice} is not one you can use: it was made by another account, and a voice \
+         designed or cloned here is only its maker's. Choose a voice from voices, or make your \
+         own with voice_design or voice_clone."
     )
 }
 
@@ -99,19 +100,20 @@ pub async fn slots(pool: &PgPool, user: UserId) -> Result<Slots, sqlx::Error> {
 /// user has their share, or the account is full. `None` when there is room.
 pub fn no_slot(slots: Slots, of: usize) -> Option<String> {
     let account = i64::try_from(of).unwrap_or(i64::MAX);
-    let instead = "Narrate with a voice you already keep (voice_design with list), forget one \
-                   you no longer need (voice_design with forget) to free its slot, or choose \
-                   one from voices: a built-in or Voice Library voice takes no slot. Nothing \
-                   was created or charged.";
+    let instead = "Narrate with a voice you already keep (voice_design or voice_clone with \
+                   list), forget one you no longer need (voice_design or voice_clone with \
+                   forget) to free its slot, or choose one from voices: a built-in or Voice \
+                   Library voice takes no slot. Nothing was created or charged.";
     if slots.mine >= KEPT_PER_USER {
         Some(format!(
-            "you already keep {} designed voices, the most one account keeps here. {instead}",
+            "you already keep {} voices you designed or cloned, the most one account keeps \
+             here. {instead}",
             slots.mine
         ))
     } else if slots.everyone >= account {
         Some(format!(
-            "scorsese's voice account is full: all {account} of its slots for designed voices \
-             are taken. {instead}"
+            "scorsese's voice account is full: all {account} of its slots for designed and \
+             cloned voices are taken. {instead}"
         ))
     } else {
         None
@@ -136,7 +138,7 @@ mod tests {
         let why = no_slot(taken(KEPT_PER_USER, KEPT_PER_USER), 10).unwrap();
         assert!(why.contains("already keep 3"), "{why}");
         assert!(why.contains("Nothing was created"), "{why}");
-        assert!(why.contains("voice_design with forget"), "{why}");
+        assert!(why.contains("voice_clone with"), "{why}");
     }
 
     #[test]

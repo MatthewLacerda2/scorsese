@@ -909,7 +909,8 @@ past the plan's concurrent requests with a `429`, every endpoint counted
 together, so every ElevenLabs kind draws on one shared budget,
 `jobs::kinds::ELEVENLABS`, sized by `SCORSESE_ELEVENLABS_CONCURRENCY` (3,
 Starter's), and a kind runs only while both its own limit and its budget have
-room. Music, sound and cloning join that budget when they arrive.
+room. Cloning a voice (#1263) runs as a `voice_keep` job and draws on it
+too; music and sound join it when they arrive.
 
 | kind | at once | why |
 | --- | --- | --- |
@@ -922,7 +923,7 @@ room. Music, sound and cloning join that budget when they arrive.
 | `still_image` | 4 | a Gemini still (#461): seconds, mostly network |
 | `batch_still` | 64 | a Gemini still in a half-price batch (#947): one order, then asking once a minute for up to a day — many at once, so a slot held for a day never makes the next person's still wait a day to be ordered |
 | `voice_design` | the ElevenLabs budget | an ElevenLabs voice design (#572): seconds, mostly network |
-| `voice_keep` | 1, within the ElevenLabs budget | a designed candidate kept as a voice (#572): one free call, one at a time so the voice-slot count it checks first is never raced |
+| `voice_keep` | 1, within the ElevenLabs budget | a designed candidate kept as a voice (#572), or a voice cloned from a user's recordings (#1263): one free call, one at a time so the voice-slot count it checks first is never raced |
 | `voice_forget` | 1, within the ElevenLabs budget | a kept voice deleted at ElevenLabs, then its row (#1381): one free call, freeing the voice slot it took |
 
 **Every kind has a handler** — `thumbnail` and `proxy` (#535, #542, *Library*),
@@ -1667,6 +1668,7 @@ the web — or be left off it — without a reason written down.
 | `render`, `jobs` | the server's own: a render is a job (*Renders*), downloaded from `/api/renders/{id}/file` with the same token; `jobs` says where any job is, and with `cancel` stops a render — locally a client stops one by cancelling the `render` call, which here has already answered |
 | `generate` | the server's own: paid from credits, made by the queue — below |
 | `voice_design` | the server's own: paid from credits, made by the queue, the samples kept in the library and the voices in the user's own record — *Designing a voice*, below |
+| `voice_clone` | the server's own: free, made by the queue from the user's uploaded recordings, the voice in the same record as a designed one — *Cloning a voice*, below |
 | `spending_history` | the ledger, read for the caller (*Credits*) |
 | `template_list`, `template_save`, `template_insert` | the server's own: a user's templates are rows (*Templates*) |
 
@@ -1830,8 +1832,24 @@ Every verb that reaches the vendor is a job. A design is paid, and a job interru
 reservation is run again and settles it, where a call cut off mid-way would
 leave the money held; keeping is free, but it reaches the same vendor, so the
 vendor stays behind one seam (`generations::Vendors::studio`) a test replaces.
-`keep`, `forget` and `list` take no token. Voice cloning is not offered, as
-locally.
+`keep`, `forget` and `list` take no token.
+
+**Cloning a voice (#1263).** `voice_clone` clones a voice from recordings the
+user uploaded to their library and imported into a project: the project's
+audio assets, each an upload (`library_items` of kind `audio` with no
+`brief_hash` — never a generated line). Consent comes first, exactly as
+locally: `consent: true` only once the voice is the user's own or its owner
+said yes, and without it nothing is read or queued; the description says the
+rule and links ElevenLabs' terms and prohibited use policy. Creating a clone is
+not billed (elevenlabs.io/pricing lists nothing for it, read 2026-10-16), so it
+takes no quote, no token and no `credits::Product`. It runs as a `voice_keep`
+job — the same kind as keeping a design, one at a time, so the slot check
+before it (`owners::no_slot`) cannot be raced by a keep or another clone — and
+is recorded in `designed_voices` with `kind = 'cloned'` and the library items
+it was made from in `recordings` (migration `0034`). Being a row there is what
+makes every rule above hold for it unchanged: it takes a slot, it is its
+maker's alone, `forget` queues the same `voice_forget` job, and deleting the
+account deletes it at the vendor (`designs::clones`).
 
 **Every call is recorded** in `tool_calls` — tool, arguments, project, how it
 ended and its words (not its pictures), with `client` `external` for web MCP,

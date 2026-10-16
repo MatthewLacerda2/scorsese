@@ -15,6 +15,7 @@
 
 mod args;
 mod authoring;
+mod clone;
 mod compact;
 mod confirm;
 mod create;
@@ -367,6 +368,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(vectorize::Vectorize),
         Box::new(voices::Voices),
         Box::new(design::VoiceDesign),
+        Box::new(clone::VoiceClone),
         Box::new(generate::Generate),
         Box::new(edit::Render),
         // Beside the tool that starts what it follows: a render runs in the

@@ -136,6 +136,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `vectorize` | Trace a picture into an SVG a page draws on, stroke by stroke. | ffmpeg |
 | `voices` | List the ElevenLabs voices a narration can be read in, or check that one still exists. | a network, and a key where the vendor needs one, but no money |
 | `voice_design` | Design a new ElevenLabs voice from a description, for when no voice in either list is the one the video needs. | money, at a provider |
+| `voice_clone` | Clone a voice from recordings already in the project, so a video can be narrated in the user's own voice: ElevenLabs' Instant Voice Cloning, on its Starter plan and above. | a network, and a key where the vendor needs one, but no money |
 | `generate` | Realise the sketched briefs — this costs money (voice_design is the only other tool that does), and it quotes before it spends. | money, at a provider |
 | `render` | Render the timeline to a video file, or to a sound file of its mix alone. | ffmpeg, and real time |
 | `jobs` | Say how far your renders of a project have got, and what each one made. | nothing |
@@ -1868,9 +1869,37 @@ keeping the same candidate again can bring the voice back. A line already
 generated with it is a file in the project and still plays. `scorsese
 voice-design --forget <VOICE_ID>` does the same from the command line.
 
-**Voice cloning is not here, in any form.** No user-supplied audio, no
-likeness, no consent surface. That is a decision rather than an omission, and
-it is not a smaller version of this tool.
+## Narrating in the user's own voice
+
+`voice_clone` (#1263) is ElevenLabs' Instant Voice Cloning: recordings already
+in the project — imported `audio` assets, about one to two minutes of clear
+speech in all, which is what the vendor recommends — become a voice with a
+`voice_id`, narrating like any other. It needs the Starter plan or above.
+
+**Consent is part of the tool.** Clone only the user's own voice, or the voice
+of someone who has given them permission; a cloned voice is bound by
+ElevenLabs' [terms of use](https://elevenlabs.io/terms-of-use) and its
+[prohibited use policy](https://elevenlabs.io/use-policy). The vendor's API
+takes no consent field, so the tool does: `consent` must be `true`, given only
+once whoever is speaking in the recordings has said yes, and without it
+nothing is read or sent.
+
+```
+voice_clone  { "project": "teaser.scor", "assets": ["me-reading"],
+               "name": "Ana (her own voice)", "consent": true }
+             → "c38kUX8p…  Ana (her own voice)  [cloned] …"
+```
+
+**It costs nothing**: creating a clone is not on the vendor's list of what
+credits pay for (elevenlabs.io/pricing, read 2026-10-16), so there is no quote
+and no token; what the voice narrates is charged as any line is. **It takes a
+custom voice slot**, as a kept design does, and `forget` with its `voice_id`
+gives it back. As with a designed voice, the voice lives in the account and not
+the project, so `cloned-voices.json` beside `project.json` records which
+recordings made it — they stay assets of the project, and cloning them again
+brings a voice like it back. `list` reads it; `scorsese voice-clone` does the
+same from the command line. Only imported audio is cloned from: never a line a
+voice already narrated, nor a video's soundtrack.
 
 ## Rendering part of the timeline
 

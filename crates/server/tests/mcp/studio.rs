@@ -1,10 +1,11 @@
 //! A voice design studio that never spends a cent (#572): three candidates
 //! read by ffmpeg's sine, a kept voice named after its candidate, and a
-//! forgotten one counted (#1381).
+//! forgotten one counted (#1381), and a clone named for its count (#1263).
 
 use std::sync::atomic::Ordering;
 
 use scorsese_providers::video::ProviderError;
+use scorsese_providers::voices::clone::{CloneError, Made, Request};
 use scorsese_providers::voices::design::{self, Candidate, DesignError, Studio};
 use scorsese_providers::voices::{Voice, VoiceError};
 
@@ -21,6 +22,10 @@ impl Mock {
 
     pub(super) fn forgotten(&self) -> usize {
         self.forgotten.load(Ordering::SeqCst)
+    }
+
+    pub(super) fn cloned(&self) -> usize {
+        self.cloned.load(Ordering::SeqCst)
     }
 }
 
@@ -69,6 +74,20 @@ impl Studio for Mock {
         }
         self.forgotten.fetch_add(1, Ordering::SeqCst);
         Ok(())
+    }
+
+    fn clone_voice(&self, request: &Request) -> Result<Made, CloneError> {
+        let n = self.cloned.fetch_add(1, Ordering::SeqCst) + 1;
+        Ok(Made {
+            voice: Voice {
+                id: format!("clone-{n}"),
+                name: request.name.clone(),
+                traits: Vec::new(),
+                description: None,
+                preview: None,
+            },
+            requires_verification: false,
+        })
     }
 
     fn name(&self) -> &'static str {

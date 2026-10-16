@@ -167,6 +167,18 @@ pub(crate) enum Command {
         #[arg(long, value_name = "VOICE_ID", conflicts_with_all = ["keep"])]
         forget: Option<String>,
     },
+    /// Clone a voice from recordings already in the project, so a video can be
+    /// narrated in your own voice: ElevenLabs' Instant Voice Cloning, on its
+    /// Starter plan and above.
+    ///
+    /// Clone only your own voice, or the voice of someone who has given you
+    /// permission to clone it; a cloned voice is bound by ElevenLabs' terms of
+    /// use (https://elevenlabs.io/terms-of-use) and its prohibited use policy
+    /// (https://elevenlabs.io/use-policy). Creating it costs nothing — what it
+    /// narrates is charged as any line is — but it takes one of the account's
+    /// custom voice slots. The recordings it was made from are written into
+    /// cloned-voices.json.
+    VoiceClone(crate::commands::clone::Options),
     /// Check every hand-written provider client against the real API: the
     /// smallest real call to Veo, ElevenLabs and Claude that exercises what
     /// scorsese depends on, and whether each reply is still the shape it reads.

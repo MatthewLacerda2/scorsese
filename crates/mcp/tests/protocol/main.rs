@@ -12,6 +12,7 @@ mod briefing;
 mod cancelling;
 mod captioning;
 mod changing;
+mod cloning;
 mod composing;
 mod counting;
 mod dashing;

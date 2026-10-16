@@ -102,6 +102,7 @@ const REPLACED: &[&str] = &[
     "jobs",
     "generate",
     "voice_design",
+    "voice_clone",
 ];
 
 /// How the registry tool called `name` is served, or `None` for one nobody

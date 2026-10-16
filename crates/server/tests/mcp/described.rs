@@ -59,6 +59,7 @@ async fn the_registrys_tools_keep_the_registrys_words(pool: PgPool) {
             "jobs",
             "generate",
             "voice_design",
+            "voice_clone",
         ];
         if replaced.contains(&tool.name()) {
             assert_ne!(served["description"], json!(tool.description()));
@@ -77,6 +78,7 @@ async fn the_registrys_tools_keep_the_registrys_words(pool: PgPool) {
         "jobs",
         "spending_history",
         "voice_design",
+        "voice_clone",
     ] {
         assert!(named(web).is_some(), "{web} is served");
     }

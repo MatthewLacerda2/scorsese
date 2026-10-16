@@ -65,7 +65,7 @@ async fn another_users_designed_voice_is_refused_at_generate(pool: PgPool) {
     let theirs = super::stored(&pool, bob, read_in(KEPT)).await;
     let (said, refused) = call(address, &his, "generate", json!({ "project": theirs })).await;
     assert!(
-        refused && said.contains("designed by another account"),
+        refused && said.contains("made by another account"),
         "{said}"
     );
     assert!(!said.contains("confirm: \""), "no token for it: {said}");
@@ -94,7 +94,7 @@ async fn another_users_designed_voice_cannot_be_looked_up(pool: PgPool) {
     let asked = json!({ "project": project, "check": format!("  {KEPT} ") });
     let (said, refused) = call(address, &his, "voices", asked).await;
     assert!(
-        refused && said.contains("designed by another account"),
+        refused && said.contains("made by another account"),
         "{said}"
     );
 }
