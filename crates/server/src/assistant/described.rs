@@ -9,7 +9,7 @@
 //! money — the token is bound to the briefs as quoted, so a brief edited
 //! after this read is refused at the yes and quoted again.
 
-use scorsese_core::AssetKind;
+use scorsese_core::AudioBlock;
 use serde_json::Value;
 
 use super::store::{BriefKind, QuoteItem};
@@ -75,8 +75,10 @@ async fn briefs(
                 // Only the prompted kinds carry a prompt: validation refuses
                 // one on every other.
                 .filter_map(|asset| {
-                    let brief = match asset.kind {
-                        AssetKind::GeneratedAudio => BriefKind::Line,
+                    // A track's prompt describes music, as a shot's does a
+                    // picture: only a line is spoken as written.
+                    let brief = match asset.audio_block() {
+                        Some(AudioBlock::Speech) => BriefKind::Line,
                         _ => BriefKind::Prompt,
                     };
                     Some((asset.id.to_string(), brief, asset.prompt?))

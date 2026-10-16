@@ -37,6 +37,9 @@ pub use provider::{MusicProvider, ProviderError};
 pub use run::{adopt, generate, pending, plan, quote};
 pub use stopped::Stopped;
 
+/// The vendor model every track is composed with.
+pub use crate::api::elevenlabs::music::MODEL_ID;
+
 /// What a run would do with one track — [`speech::Plan`](crate::speech::Plan),
 /// whose shape is the same for the same reason: nothing is ever in flight.
 pub use crate::speech::Plan;

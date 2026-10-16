@@ -1,7 +1,7 @@
 //! The paid generation jobs (#539): a Veo shot, a Gemini still (#461) — drawn
-//! now, or ordered in a half-price batch (#947) — and an ElevenLabs line, made
-//! by
-//! the job queue for one user, paid from their credits, kept in their library.
+//! now, or ordered in a half-price batch (#947) — an ElevenLabs line and an
+//! ElevenLabs Music track (#1264), made by the job queue for one user, paid
+//! from their credits, kept in their library.
 //!
 //! A job is enqueued by web `generate` once the user has confirmed a quote,
 //! in the same transaction that reserves its price
@@ -42,11 +42,13 @@ mod land;
 mod line;
 mod shot;
 mod still;
+mod track;
 
 use std::time::Duration;
 
 use scorsese_providers::credentials::{Provider, resolve};
 use scorsese_providers::image::{GeminiProvider, ImageProvider};
+use scorsese_providers::music::{ElevenLabsComposer, MusicProvider};
 use scorsese_providers::speech::{ElevenLabsProvider, SpeechProvider};
 use scorsese_providers::video::{POLL_EVERY, VeoProvider, VideoProvider};
 use scorsese_providers::voices::design::{ElevenLabsStudio, Studio as DesignStudio};
@@ -59,6 +61,7 @@ pub(crate) use land::{paying, refusal};
 pub use line::handler as line_handler;
 pub use shot::handler as shot_handler;
 pub use still::handler as still_handler;
+pub use track::handler as track_handler;
 
 use crate::jobs::kinds::{BATCH_PATIENCE, PROVIDER_PATIENCE};
 
@@ -85,6 +88,9 @@ pub type Image = Box<dyn ImageProvider + Send + Sync>;
 /// A speech provider a job can own and move between threads.
 pub type Speech = Box<dyn SpeechProvider + Send + Sync>;
 
+/// A music provider a job can own and move between threads (#1264).
+pub type Music = Box<dyn MusicProvider + Send + Sync>;
+
 /// Where voices are designed (#572), owned and moved between threads.
 pub type Studio = Box<dyn DesignStudio + Send + Sync>;
 
@@ -94,6 +100,8 @@ pub trait Vendors: Send + Sync + 'static {
     fn video(&self) -> Result<Video, String>;
     /// ElevenLabs, or why it cannot be reached.
     fn speech(&self) -> Result<Speech, String>;
+    /// ElevenLabs Music, or why it cannot be reached.
+    fn music(&self) -> Result<Music, String>;
     /// Gemini's image model, or why it cannot be reached.
     fn image(&self) -> Result<Image, String>;
     /// ElevenLabs' voice design, or why it cannot be reached
@@ -116,6 +124,11 @@ impl Vendors for Keys {
     fn speech(&self) -> Result<Speech, String> {
         let key = resolve(Provider::ElevenLabs).map_err(|error| error.to_string())?;
         Ok(Box::new(ElevenLabsProvider::new(&key.secret)))
+    }
+
+    fn music(&self) -> Result<Music, String> {
+        let key = resolve(Provider::ElevenLabs).map_err(|error| error.to_string())?;
+        Ok(Box::new(ElevenLabsComposer::new(&key.secret)))
     }
 
     fn image(&self) -> Result<Image, String> {

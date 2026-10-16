@@ -1,7 +1,7 @@
 //! The audit of every paid generation: `veo_generations`,
-//! `image_generations`, `speech_generations` and `voice_designs` (#572,
-//! [`designs`]), each row bound to the reservation that pays
-//! for it.
+//! `image_generations`, `speech_generations`, `music_generations` (#1264)
+//! and `voice_designs` (#572, [`designs`]), each row bound to the reservation
+//! that pays for it.
 //!
 //! For debugging, disputes and improving the platform — and for the user, who
 //! can read every charge of theirs in the history. A generation's life is
@@ -13,12 +13,15 @@
 //! that enqueues its job, and the job finds what pays for it with
 //! [`for_job`].
 
-use serde_json::Value;
-
 use super::designs::{self, Design};
 use super::ledger::{self, Link, Reservation};
+use super::lines;
+use super::tracks;
 use super::{CreditError, Product, charge_for, from_cents};
 use crate::db::Tx;
+
+pub use super::lines::Line;
+pub use super::tracks::Track;
 
 /// A Veo shot about to be submitted, with everything its price depends on.
 #[derive(Debug, Clone)]
@@ -74,27 +77,6 @@ pub struct Still<'a> {
     pub batch: bool,
 }
 
-/// A line of narration about to be spoken.
-#[derive(Debug, Clone)]
-pub struct Line<'a> {
-    /// The project it is for.
-    pub project: Option<i64>,
-    /// The assistant tool call that asked for it (#540).
-    pub tool_call: Option<i64>,
-    /// The job that runs it.
-    pub job: Option<i64>,
-    /// The model, as scorsese names it.
-    pub model: &'a str,
-    /// The voice id.
-    pub voice: &'a str,
-    /// What is spoken.
-    pub text: &'a str,
-    /// The rest of the request: stability, style, speed…
-    pub settings: &'a Value,
-    /// `scorsese_providers::prices::speech`'s cents: the quoted figure.
-    pub estimated_cents: u64,
-}
-
 /// Which audit row a generation is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Generation {
@@ -106,6 +88,8 @@ pub enum Generation {
     Still(i64),
     /// A row of `voice_designs`.
     Design(i64),
+    /// A row of `music_generations`.
+    Track(i64),
 }
 
 /// A generation recorded and paid for, waiting on its provider.
@@ -128,6 +112,8 @@ pub enum Request<'a> {
     Still(Still<'a>),
     /// A voice design.
     Design(Design<'a>),
+    /// A music track.
+    Track(Track<'a>),
 }
 
 /// Price, reserve and record a generation — or refuse, writing nothing, when
@@ -138,6 +124,7 @@ pub async fn start(tx: &mut Tx, request: &Request<'_>) -> Result<Paid, CreditErr
         Request::Line(line) => (Product::SpokenLine, line.estimated_cents, line.project),
         Request::Still(still) => (Product::Still, still.estimated_cents, still.project),
         Request::Design(design) => (Product::VoiceDesign, design.estimated_cents, design.project),
+        Request::Track(track) => (Product::MusicTrack, track.estimated_cents, track.project),
     };
     let charged = charge_for(product, cents);
     ledger::cover(tx, charged).await?;
@@ -157,12 +144,8 @@ pub async fn start(tx: &mut Tx, request: &Request<'_>) -> Result<Paid, CreditErr
             (Generation::Shot(id), memo, link)
         }
         Request::Line(line) => {
-            let id = insert_line(tx, line, cost).await?;
-            let memo = format!(
-                "Spoken line: {} characters in {}",
-                line.text.chars().count(),
-                line.model
-            );
+            let id = lines::insert(tx, line, cost).await?;
+            let memo = lines::memo(line);
             let link = Link {
                 project,
                 speech: Some(id),
@@ -192,6 +175,16 @@ pub async fn start(tx: &mut Tx, request: &Request<'_>) -> Result<Paid, CreditErr
                 ..Link::default()
             };
             (Generation::Design(id), designs::memo(design), link)
+        }
+        Request::Track(track) => {
+            let id = tracks::insert(tx, track, cost).await?;
+            let memo = tracks::memo(track);
+            let link = Link {
+                project,
+                music: Some(id),
+                ..Link::default()
+            };
+            (Generation::Track(id), memo, link)
         }
     };
     let reservation = ledger::reserve(tx, charged, &memo, link).await?;
@@ -245,26 +238,6 @@ async fn insert_still(tx: &mut Tx, still: &Still<'_>, cost: i64) -> Result<i64, 
     .await
 }
 
-/// The audit row of a line.
-async fn insert_line(tx: &mut Tx, line: &Line<'_>, cost: i64) -> Result<i64, sqlx::Error> {
-    sqlx::query_scalar(
-        "INSERT INTO speech_generations (user_id, project_id, tool_call_id, job_id, model,
-             voice, text, characters, settings, estimated_cost_micros)
-         VALUES (member_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id",
-    )
-    .bind(line.project)
-    .bind(line.tool_call)
-    .bind(line.job)
-    .bind(line.model)
-    .bind(line.voice)
-    .bind(line.text)
-    .bind(i32::try_from(line.text.chars().count()).unwrap_or(i32::MAX))
-    .bind(line.settings)
-    .bind(cost)
-    .fetch_one(&mut **tx)
-    .await
-}
-
 /// Record Google's ticket on a shot's or a batched still's audit row — its
 /// operation, or its batch job's name. The job's own row keeps it too
 /// (`jobs::Context::keep_ticket`); this one outlives the job. Nothing else
@@ -277,7 +250,7 @@ pub async fn keep_ticket(
     let (query, id) = match generation {
         Generation::Shot(id) => ("UPDATE veo_generations SET ticket = $2 WHERE id = $1", id),
         Generation::Still(id) => ("UPDATE image_generations SET ticket = $2 WHERE id = $1", id),
-        Generation::Line(_) | Generation::Design(_) => return Ok(()),
+        Generation::Line(_) | Generation::Design(_) | Generation::Track(_) => return Ok(()),
     };
     sqlx::query(query)
         .bind(id)
@@ -297,38 +270,51 @@ pub async fn keep_ticket(
 pub async fn for_job(tx: &mut Tx, job: i64) -> Result<Option<Paid>, sqlx::Error> {
     let row: Option<Reserved> = sqlx::query_as(
         "SELECT e.veo_generation_id, e.speech_generation_id, e.image_generation_id,
-                e.voice_design_id, e.id, -e.amount_micros
+                e.voice_design_id, e.music_generation_id, e.id, -e.amount_micros
          FROM credit_entries e
          LEFT JOIN veo_generations v ON v.id = e.veo_generation_id
          LEFT JOIN speech_generations s ON s.id = e.speech_generation_id
          LEFT JOIN image_generations i ON i.id = e.image_generation_id
          LEFT JOIN voice_designs d ON d.id = e.voice_design_id
+         LEFT JOIN music_generations m ON m.id = e.music_generation_id
          WHERE e.kind = 'reservation'
-           AND (v.job_id = $1 OR s.job_id = $1 OR i.job_id = $1 OR d.job_id = $1)
+           AND (v.job_id = $1 OR s.job_id = $1 OR i.job_id = $1 OR d.job_id = $1
+                OR m.job_id = $1)
            AND NOT EXISTS (SELECT 1 FROM credit_entries r
                            WHERE r.settles = e.id AND r.kind = 'release')",
     )
     .bind(job)
     .fetch_optional(&mut **tx)
     .await?;
-    Ok(row.and_then(|(shot, line, still, design, entry, micros)| {
-        let generation = match (shot, line, still, design) {
-            (Some(id), ..) => Generation::Shot(id),
-            (None, Some(id), ..) => Generation::Line(id),
-            (None, None, Some(id), _) => Generation::Still(id),
-            (None, None, None, Some(id)) => Generation::Design(id),
-            (None, None, None, None) => return None,
-        };
-        Some(Paid {
-            generation,
-            reservation: Reservation { entry, micros },
-        })
-    }))
+    Ok(
+        row.and_then(|(shot, line, still, design, track, entry, micros)| {
+            let generation = match (shot, line, still, design, track) {
+                (Some(id), ..) => Generation::Shot(id),
+                (None, Some(id), ..) => Generation::Line(id),
+                (None, None, Some(id), ..) => Generation::Still(id),
+                (None, None, None, Some(id), _) => Generation::Design(id),
+                (None, None, None, None, Some(id)) => Generation::Track(id),
+                (None, None, None, None, None) => return None,
+            };
+            Some(Paid {
+                generation,
+                reservation: Reservation { entry, micros },
+            })
+        }),
+    )
 }
 
-/// An open reservation's row: the shot, line, still or design it pays for —
-/// one of the four — then its entry and what it holds.
-type Reserved = (Option<i64>, Option<i64>, Option<i64>, Option<i64>, i64, i64);
+/// An open reservation's row: the shot, line, still, design or track it pays
+/// for — one of the five — then its entry and what it holds.
+type Reserved = (
+    Option<i64>,
+    Option<i64>,
+    Option<i64>,
+    Option<i64>,
+    Option<i64>,
+    i64,
+    i64,
+);
 
 /// How the provider answered.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -369,6 +355,11 @@ pub async fn finish(tx: &mut Tx, paid: Paid, answer: &Answer) -> Result<(), Cred
         ),
         Generation::Design(id) => (
             "UPDATE voice_designs SET state = $2, library_item_id = $3, error = $4,
+                 finished_at = now() WHERE id = $1",
+            id,
+        ),
+        Generation::Track(id) => (
+            "UPDATE music_generations SET state = $2, library_item_id = $3, error = $4,
                  finished_at = now() WHERE id = $1",
             id,
         ),

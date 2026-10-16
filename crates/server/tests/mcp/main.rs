@@ -8,6 +8,7 @@ mod common;
 mod batching;
 mod clients;
 mod cloning;
+mod composing;
 mod described;
 mod designing;
 mod drawing;

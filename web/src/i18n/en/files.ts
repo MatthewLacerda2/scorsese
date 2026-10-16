@@ -54,6 +54,7 @@ export const files = {
       veo_shot: "Generated video",
       still_image: "Generated still",
       spoken_line: "Generated speech",
+      music_track: "Generated music",
       voice_design: "Voice design sample",
     },
     provider: "Provider",

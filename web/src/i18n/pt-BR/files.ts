@@ -54,6 +54,7 @@ export const files: Messages["files"] = {
       veo_shot: "Vídeo gerado",
       still_image: "Imagem gerada",
       spoken_line: "Fala gerada",
+      music_track: "Música gerada",
       voice_design: "Amostra de criação de voz",
     },
     provider: "Provedor",

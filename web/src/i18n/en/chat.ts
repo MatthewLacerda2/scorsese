@@ -8,6 +8,7 @@ export const chat = {
     veo_shot: "Video shot",
     still_image: "Still",
     spoken_line: "Spoken line",
+    music_track: "Music track",
     voice_design: "Voice design",
   },
   jobState: {

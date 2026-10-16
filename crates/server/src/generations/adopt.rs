@@ -13,7 +13,7 @@
 
 use scorsese_core::placing::{Shortened, fit_to_sources};
 use scorsese_core::{AssetId, Project, ProjectPath, Reprobe, probe_assets};
-use scorsese_providers::{image, speech, video};
+use scorsese_providers::{image, music, speech, video};
 use scorsese_render::{Ffprobe, Tools};
 use sqlx::postgres::PgPool;
 
@@ -91,6 +91,7 @@ fn pointed(document: &mut Project, root: &std::path::Path, tools: &Tools) -> Ado
     let mut adopted = video::adopt(document, root);
     adopted.extend(image::adopt(document, root));
     adopted.extend(speech::adopt(document, root));
+    adopted.extend(music::adopt(document, root));
     let mut moved = Vec::new();
     for asset in &mut document.assets {
         let was = before.iter().find(|(id, _, _)| *id == asset.id);
