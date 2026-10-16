@@ -14,7 +14,7 @@
 use schemars::JsonSchema;
 use scorsese_providers::credentials::{Provider, resolve};
 use scorsese_providers::voices::{
-    Catalogue, ElevenLabsVoices, Filters, VoiceError, builtin, library, require,
+    Catalogue, ElevenLabsVoices, Filters, VoiceError, builtin, check, library,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -147,12 +147,7 @@ impl Tool for Voices {
 /// between a stale id and a generation that would be billed for reading the
 /// film in somebody else's voice.
 fn checked(catalogue: &dyn Catalogue, voice_id: &str) -> Result<Reply, String> {
-    let voice = require(catalogue, voice_id).map_err(say)?;
-    Ok(format!(
-        "{}\n\nStill a voice at ElevenLabs, and can be generated with.",
-        voice.says()
-    )
-    .into())
+    Ok(check(catalogue, voice_id).map_err(say)?.into())
 }
 
 /// A failure as the sentence a client is shown.

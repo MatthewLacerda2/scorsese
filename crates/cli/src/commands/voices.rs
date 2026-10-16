@@ -13,7 +13,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use scorsese_providers::credentials::{Provider, resolve};
-use scorsese_providers::voices::{ElevenLabsVoices, Filters, builtin, library, require};
+use scorsese_providers::voices::{ElevenLabsVoices, Filters, builtin, check, library};
 
 /// What was asked for on the command line.
 pub(crate) struct Options {
@@ -39,9 +39,7 @@ pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
     let catalogue = ElevenLabsVoices::new(&key.secret);
 
     if let Some(voice_id) = &options.check {
-        let voice = require(&catalogue, voice_id)?;
-        println!("{}", voice.says());
-        println!("\nStill a voice at ElevenLabs. It can be generated with.");
+        println!("{}", check(&catalogue, voice_id)?);
         return Ok(());
     }
 

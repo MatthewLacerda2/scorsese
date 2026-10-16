@@ -204,6 +204,14 @@ impl std::fmt::Display for Unusable {
 pub enum Availability {
     /// It is there and usable, and this is it.
     Available(Voice),
+    /// The account does not hold it yet, and the Voice Library publishes it
+    /// (#1424).
+    ///
+    /// Usable all the same: any paid plan narrates in a Library voice, and the
+    /// first line spoken in it saves it to the account (#1262). Its own variant
+    /// rather than [`Availability::Available`], because a free plan is refused
+    /// it and the answer has to say so.
+    InLibrary(Voice),
     /// It is not something to generate with, and this is why.
     Unusable(Unusable),
 }

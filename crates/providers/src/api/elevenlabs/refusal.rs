@@ -45,6 +45,14 @@ pub const TOO_MANY_CONCURRENT: &str = "too_many_concurrent_requests";
 /// The vendor itself is loaded.
 pub const SYSTEM_BUSY: &str = "system_busy";
 
+/// Nothing the account holds answers to the voice id that was named.
+///
+/// The vendor's `code`, and the word to read rather than the number beside it:
+/// `GET /v1/voices/{id}` sends it with a **`400`**, not a `404` (measured
+/// 2026-10-16, #1424), so sorting by status alone read it as an unexplained
+/// failure and handed the vendor's JSON to whoever asked.
+pub const VOICE_NOT_FOUND: &str = "voice_not_found";
+
 /// What the vendor said about a refusal, where it said anything readable.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Detail {
@@ -292,6 +300,11 @@ impl Refusal {
         if detail.is(PAID_PLAN_REQUIRED) {
             return Self::PlanRequired { message };
         }
+        if detail.caused_by(VOICE_NOT_FOUND) {
+            return Self::VoiceGone {
+                voice_id: voice_id.to_owned(),
+            };
+        }
 
         match status {
             401 => Self::BadKey { message },
@@ -343,6 +356,26 @@ mod tests {
     fn a_detail_that_is_not_an_object_is_simply_no_detail() {
         let detail = read(r#"{"detail":[{"loc":["body","text"],"msg":"field required"}]}"#);
         assert_eq!(detail, Detail::default());
+    }
+
+    /// What `GET /v1/voices/{id}` answered on 2026-10-16 for a Voice Library
+    /// voice the account had not saved (#1424): a `400`, and the word that
+    /// says what it means.
+    #[test]
+    fn a_voice_not_found_is_a_voice_gone_whatever_the_status() {
+        let body = concat!(
+            r#"{"detail":{"type":"not_found","code":"voice_not_found","#,
+            r#""message":"A voice with ID 'DYpTnojhyMHD94FH6bmF' was not found."}}"#
+        );
+        for status in [400, 404] {
+            assert_eq!(
+                Refusal::of(status, "DYpTnojhyMHD94FH6bmF", body),
+                Refusal::VoiceGone {
+                    voice_id: String::from("DYpTnojhyMHD94FH6bmF")
+                },
+                "{status}"
+            );
+        }
     }
 
     #[test]

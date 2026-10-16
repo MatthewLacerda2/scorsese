@@ -2,7 +2,7 @@
 //! on it.
 
 use scorsese_providers::voices::{
-    Availability, Filters, MAX_PAGE_SIZE, Unusable, VoiceError, library, require,
+    Availability, Filters, MAX_PAGE_SIZE, Unusable, VoiceError, check, library, require,
 };
 
 use super::fake::Fake;
@@ -66,6 +66,32 @@ fn a_voice_that_is_there_comes_back_whole() {
     let fake = Fake::answering(Availability::Available(voice("v1", "Ana")));
     let found = require(&fake, "v1").expect("an available voice");
     assert_eq!(found, voice("v1", "Ana"));
+}
+
+/// #1424: a Library voice the account has not saved is a voice to use, and
+/// `check` says on which plans — never that it is gone.
+#[test]
+fn check_answers_a_library_voice_as_usable_on_a_paid_plan() {
+    let fake = Fake::answering(Availability::InLibrary(voice("v1", "Andre")));
+    let said = check(&fake, "v1").expect("a Library voice is usable");
+    assert!(said.contains("Andre"), "{said}");
+    assert!(said.contains("Voice Library"), "{said}");
+    assert!(said.contains("paid plan"), "{said}");
+    assert_eq!(require(&fake, "v1").expect("usable"), voice("v1", "Andre"));
+}
+
+/// The account's own voice, and a gone one, keep the answers they had.
+#[test]
+fn check_answers_a_held_voice_and_refuses_a_gone_one() {
+    let held = Fake::answering(Availability::Available(voice("v1", "Ana")));
+    let said = check(&held, "v1").expect("a held voice");
+    assert!(said.contains("Still a voice"), "{said}");
+
+    let gone = Fake::answering(Availability::Unusable(Unusable::Gone));
+    assert!(matches!(
+        check(&gone, "v1"),
+        Err(VoiceError::Unusable { .. })
+    ));
 }
 
 /// The free-plan refusal on the listing itself, which is the other half of the
