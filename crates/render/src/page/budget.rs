@@ -107,6 +107,7 @@ mod tests {
 
     #[test]
     fn a_budget_of_none_is_a_budget_of_one() {
+        assert_eq!(Browsers::new(4).most(), 4);
         assert_eq!(Browsers::new(0).most(), 1);
     }
 
