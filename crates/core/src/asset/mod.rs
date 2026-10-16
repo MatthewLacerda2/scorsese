@@ -450,6 +450,16 @@ impl Asset {
         self.state.is_some_and(GenerationState::needs_generation)
     }
 
+    /// True when this asset is a file somebody paid a provider for: a prompted
+    /// kind (a Veo shot, a Nano Banana still, an ElevenLabs line) with a file
+    /// behind it. What was paid for is kept as the vendor sent it, so nothing
+    /// deletes it unless the user asked ([`crate::pool::Paid`]). A sketch has
+    /// no file and cost nothing; a stale one still points at the generation
+    /// that was bought.
+    pub fn is_paid(&self) -> bool {
+        self.kind.is_prompted() && self.path.is_some()
+    }
+
     /// True when there is media behind this asset with a length of its own —
     /// so a clip of it has a `duration` that is a **window onto something**,
     /// rather than a statement about the timeline alone.

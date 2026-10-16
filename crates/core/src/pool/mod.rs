@@ -21,7 +21,7 @@ mod sequence;
 mod status;
 
 pub use directory::{Import, Imported, SkipReason, Skipped, import_path};
-pub use gc::{GcError, GcReport, NamedByPage, named_by_pages, remove_assets, unused_assets};
+pub use gc::{GcError, GcReport, NamedByPage, Paid, named_by_pages, remove_assets, unused_assets};
 pub use hash::{hash_bytes, hash_file};
 pub use import::{ImportError, import_asset, measure};
 pub use listing::{Listed, listing};

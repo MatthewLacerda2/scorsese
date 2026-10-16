@@ -1,9 +1,10 @@
 //! Collecting what nothing references.
 
 mod named;
+mod paid;
 
 use crate::common::{new_project, source_file};
-use scorsese_core::pool::{GcError, remove_assets, unused_assets};
+use scorsese_core::pool::{GcError, Paid, remove_assets, unused_assets};
 use scorsese_core::testing::StubProbe;
 use scorsese_core::{
     Asset, AssetId, Clip, ClipId, Frames, ImageSequence, Project, Track, TrackId, TrackKind,
@@ -55,7 +56,8 @@ fn collecting_removes_the_entry_and_the_file() {
     let file = dir.join("assets/spare.mp4");
     assert!(file.is_file());
 
-    let report = remove_assets(&mut project, &dir, std::slice::from_ref(&spare)).expect("collect");
+    let report = remove_assets(&mut project, &dir, std::slice::from_ref(&spare), Paid::Keep)
+        .expect("collect");
 
     assert_eq!(report.removed, vec![spare]);
     assert_eq!(report.files_deleted, 1);
@@ -70,7 +72,7 @@ fn a_referenced_asset_is_refused() {
     // Removing it would leave a dangling clip reference, which is exactly
     // what validation exists to prevent.
     let (dir, mut project, used, _spare) = project_with_one_used_asset("gc-refuse");
-    let error = remove_assets(&mut project, &dir, &[used]).expect_err("must refuse");
+    let error = remove_assets(&mut project, &dir, &[used], Paid::Keep).expect_err("must refuse");
     assert!(
         matches!(error, GcError::StillReferenced { .. }),
         "got {error:?}"
@@ -81,7 +83,8 @@ fn a_referenced_asset_is_refused() {
 #[test]
 fn an_unknown_id_is_refused() {
     let (dir, mut project, _used, _spare) = project_with_one_used_asset("gc-unknown");
-    let error = remove_assets(&mut project, &dir, &[AssetId::new("ghost")]).expect_err("refuse");
+    let error = remove_assets(&mut project, &dir, &[AssetId::new("ghost")], Paid::Keep)
+        .expect_err("refuse");
     assert!(
         matches!(error, GcError::NoSuchAsset { .. }),
         "got {error:?}"
@@ -93,7 +96,7 @@ fn an_already_deleted_file_still_collects() {
     let (dir, mut project, _used, spare) = project_with_one_used_asset("gc-already-gone");
     std::fs::remove_file(dir.join("assets/spare.mp4")).expect("delete by hand");
 
-    let report = remove_assets(&mut project, &dir, &[spare]).expect("collect anyway");
+    let report = remove_assets(&mut project, &dir, &[spare], Paid::Keep).expect("collect anyway");
     assert_eq!(report.files_missing, 1);
     assert_eq!(report.files_deleted, 0);
     assert_eq!(
@@ -106,7 +109,7 @@ fn an_already_deleted_file_still_collects() {
 #[test]
 fn the_project_still_validates_after_collecting() {
     let (dir, mut project, _used, spare) = project_with_one_used_asset("gc-valid");
-    remove_assets(&mut project, &dir, &[spare]).expect("collect");
+    remove_assets(&mut project, &dir, &[spare], Paid::Keep).expect("collect");
     assert_eq!(project.validate(), Ok(()));
 }
 
@@ -119,12 +122,13 @@ fn a_still_a_sequence_plays_is_in_use_until_the_sequence_is_gone() {
         .assets
         .push(Asset::image_sequence(spin.clone(), sequence));
     assert_eq!(unused_assets(&project), vec![spin.clone()]);
-    let error = remove_assets(&mut project, &dir, std::slice::from_ref(&spare)).expect_err("used");
+    let error = remove_assets(&mut project, &dir, std::slice::from_ref(&spare), Paid::Keep)
+        .expect_err("used");
     assert!(
         matches!(error, GcError::StillReferenced { .. }),
         "{error:?}"
     );
 
-    remove_assets(&mut project, &dir, &[spin]).expect("collect the sequence");
+    remove_assets(&mut project, &dir, &[spin], Paid::Keep).expect("collect the sequence");
     assert_eq!(unused_assets(&project), vec![spare], "then its stills");
 }
