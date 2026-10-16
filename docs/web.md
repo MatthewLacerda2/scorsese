@@ -713,6 +713,17 @@ has no secret of its own for `docs/credentials.md`'s resolver to find. (The
 OAuth client's secret is Google's: it proves the server to Google and signs
 nothing here.)
 
+**Beside it, a hint that a session exists** (#1246): `scorsese_signed_in=1`,
+`Path=/; Secure; SameSite=Strict`, the session's lifetime, and **not**
+`HttpOnly`, because its only reader is the page. No script can read the
+session itself, so without it `/` would draw the landing page (and start its
+film) before `/api/me` answered for a signed-in visitor. It carries nothing — no
+id, no token — and decides only what is drawn while `/api/me` is asked, never
+who anybody is: a forged one costs its owner a moment's wait, and the page drops
+a stale one when `/api/me` answers `401`. Sign-in sets it and logout clears it,
+in the same response as the session (`crates/server/src/http/auth.rs`, *The
+hint beside it*).
+
 **Anything that is not a browser sends a per-user API token** —
 `Authorization: Bearer scor_…`. That is the answer for web MCP (#539) in v1:
 the MCP spec's remote authorization is OAuth 2.1, but the clients people will
