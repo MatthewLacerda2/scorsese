@@ -1,7 +1,7 @@
 //! *Music*: Eleven Music's rate per minute, and a track's price (#1264).
 
 use scorsese_providers::api::elevenlabs::music::MODEL_ID;
-use scorsese_providers::prices::{dollars, elevenlabs, music};
+use scorsese_providers::prices::{dollars, elevenlabs, from_cents, music};
 
 use super::{checked_on, code, micros, section, table};
 
@@ -18,7 +18,11 @@ fn the_rate_per_minute_is_the_codes() {
         elevenlabs::MUSIC.cents_per_minute,
         "Music, per minute"
     );
-    assert_eq!(row[3], dollars(music(40).cents), "Music, a 40-second track");
+    assert_eq!(
+        row[3],
+        dollars(from_cents(music(40).cents), 2),
+        "Music, a 40-second track"
+    );
 }
 
 #[test]
