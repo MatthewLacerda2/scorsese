@@ -137,6 +137,12 @@ class Watching(unittest.TestCase):
 
 
 class Ending(unittest.TestCase):
+    def setUp(self):
+        # What it re-blesses is its own question (`test_reblessed.py`, #1217).
+        quiet = mock.patch.object(queue.mergeable.reblessed, "evidence", return_value={})
+        quiet.start()
+        self.addCleanup(quiet.stop)
+
     def test_a_run_still_out_at_the_deadline_is_unfinished(self):
         pull = {"headRefOid": "s" * 40, "isDraft": False}
         live = [{"name": "CI", "head_sha": "s" * 40, "id": 1, "status": "in_progress"}]

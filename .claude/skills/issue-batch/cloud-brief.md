@@ -103,7 +103,9 @@ they are missing, run it yourself (`CLAUDE_PROJECT_DIR=$PWD
 ## Blessing references
 
 Only a reference **your branch adds or deliberately changes**, by name, and you
-**look at** every PNG you bless before committing and explain it in the PR.
+**look at** every PNG you bless before committing and explain it in the PR under a `Re-blessed` heading — the queue hands back a
+modified reference that is not named there with a reason (#1217,
+`docs/golden-renders.md`, *Re-blessing*).
 
 - **Render goldens**: run the others first and bless nothing if any fails;
   `UPDATE_GOLDENS=1 cargo test -p scorsese-golden --test goldens -- --exact
