@@ -80,12 +80,15 @@ assistant already answers in the language the user writes in.
 
 **Adding a string.** Put it in the English catalogue for its area
 (`src/i18n/en/<area>.ts`), then in `pt-BR/` and `es/` — `tsc` refuses a
-catalogue that lacks a key English has, and `catalogue.test.ts` checks the same
-at run time. Read it with `const t = useT()` and `t.<area>.<key>`. A message
-that carries a value is a function (`deleted: (name: string) => …`), and a
-plural is a function of the count, so each language words it its own way. A
-plain function that returns words (a label, a warning) takes the messages as
-an argument; its tests pass `en`. Numbers and dates go through `Intl` in
+catalogue that lacks a key English has, and `catalogue.test.ts` checks the
+same at run time. Read it with `const t = useT()` and `t.<area>.<key>`. A word
+written straight into JSX is refused by the `literalUiText` house rule (*House
+rules*); text that is genuinely not the UI's language, like the legal pages'
+Portuguese, says so in a `biome-ignore` with its reason. A message that
+carries a value is a function (`deleted: (name: string) => …`), and a plural
+is a function of the count, so each language words it its own way. A plain
+function that returns words (a label, a warning) takes the messages as an
+argument; its tests pass `en`. Numbers and dates go through `Intl` in
 `useLanguage().language` (`lib/format.ts` takes it); **money stays dollars**,
 formatted by `lib/money.ts` whatever the language — only the words around it
 translate. Write the translation the way a native speaker would say it in an
@@ -154,6 +157,7 @@ and CI's `web` job report them like any other lint.
 | --- | --- |
 | `oneComponentPerFile` | a `.tsx` file exports **at most one React component** (#1207) — a PascalCase function, class or const, a default export, or a name in an `export { … }` list. Helpers only the file uses stay in it, unexported; anything else gets its own file, and a family of them a subfolder. An agent looking for a component then finds it by its file's name. `src/components/ui/` is exempt: shadcn ships compound modules (`Card`, `CardHeader`…) on purpose |
 | `noRawStorage` | browser storage goes through **`src/lib/storage.ts`** (#1212), never `localStorage` or `sessionStorage` directly — bare, off `window` or `globalThis`, or destructured. The module's `KEYS` names every key the app keeps, so what a user's browser holds is one list; a caller pairs its key with a codec (its fallback, how it is read and written) and calls `read` / `write`, which catch the storage a private window throws. A key's name, once shipped, never changes: renaming it forgets every user's saved choice. `src/test/` is exempt: the test setup clears storage between tests |
+| `literalUiText` | words a user reads come from the catalogue (#1211, *Strings and languages*): no text between JSX tags, no string or template literal in a JSX child — `?:`, `??`, `\|\|` and `&&` branches included — and none in `alt`, `title`, `placeholder`, `label` or the text `aria-*` attributes. Symbols, numbers, single letters, acronyms and `scorsese` alone pass; calls (`t.x(…)`, `cn("…")`) are not looked into. **Its hole:** a literal outside JSX (`name \|\| "Untitled"` in a hook) is not seen, so review still reads for one. Tests and `src/test/` are exempt, since their JSX is a harness no user sees; `src/components/ui/` is not, since a shadcn component's screen-reader text is read by users too |
 
 **How one is made.** A rule is a [GritQL plugin](https://biomejs.dev/linter/plugins/)
 in `lint/<rule>.grit` whose message starts with `<rule>:`, listed under

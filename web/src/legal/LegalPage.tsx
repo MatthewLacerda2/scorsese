@@ -42,7 +42,10 @@ export function LegalPage({ document: doc }: { document: LegalDocument }) {
         )}
         <article lang="pt-BR" className="mt-10">
           <h1 className="display text-4xl sm:text-5xl">{doc.title}</h1>
-          <p className="dim mt-3 text-sm">Última atualização: {longDate(doc.updated)}</p>
+          <p className="dim mt-3 text-sm">
+            {/* biome-ignore lint/plugin/literalUiText: part of the document, which is Portuguese in every language (see above) */}
+            Última atualização: {longDate(doc.updated)}
+          </p>
           {doc.sections.map((section, index) => (
             <section key={section.heading} className="mt-10">
               <h2 className="text-xl font-semibold">
