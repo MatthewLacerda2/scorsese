@@ -300,9 +300,13 @@ fn dispatch(cli: Cli) -> Result<()> {
             verify,
         } => commands::assets::list(&directory, verify),
         Command::Assets {
-            action: Some(AssetsAction::Gc { delete }),
+            action:
+                Some(AssetsAction::Gc {
+                    delete,
+                    include_paid,
+                }),
             ..
-        } => commands::assets::gc(&directory, delete),
+        } => commands::assets::gc(&directory, delete, include_paid),
     }
 }
 

@@ -3,7 +3,9 @@
 //! drawing a broken picture.
 
 use crate::common::{new_project, source_file};
-use scorsese_core::pool::{GcError, NamedByPage, named_by_pages, remove_assets, unused_assets};
+use scorsese_core::pool::{
+    GcError, NamedByPage, Paid, named_by_pages, remove_assets, unused_assets,
+};
 use scorsese_core::testing::StubProbe;
 use scorsese_core::{Asset, AssetId, AssetKind, Project, import_asset};
 use std::path::PathBuf;
@@ -29,7 +31,8 @@ fn a_still_a_shot_starts_from_is_kept_until_the_shot_is_gone() {
     project.assets.push(shot);
 
     assert_eq!(unused_assets(&project), vec![AssetId::new("shot")]);
-    let error = remove_assets(&mut project, &dir, std::slice::from_ref(&photo)).expect_err("used");
+    let error = remove_assets(&mut project, &dir, std::slice::from_ref(&photo), Paid::Keep)
+        .expect_err("used");
     assert!(
         matches!(error, GcError::StillReferenced { .. }),
         "{error:?}"
@@ -39,7 +42,13 @@ fn a_still_a_shot_starts_from_is_kept_until_the_shot_is_gone() {
         "nothing was deleted"
     );
 
-    remove_assets(&mut project, &dir, &[AssetId::new("shot"), photo]).expect("shot, then still");
+    remove_assets(
+        &mut project,
+        &dir,
+        &[AssetId::new("shot"), photo],
+        Paid::Keep,
+    )
+    .expect("shot, then still");
     assert!(project.assets.is_empty());
     assert_eq!(project.validate(), Ok(()));
 }
@@ -52,7 +61,7 @@ fn a_picture_a_generated_still_is_drawn_after_is_kept() {
     project.assets.push(drawn);
 
     assert_eq!(unused_assets(&project), vec![AssetId::new("drawn")]);
-    let error = remove_assets(&mut project, &dir, &[photo]).expect_err("used");
+    let error = remove_assets(&mut project, &dir, &[photo], Paid::Keep).expect_err("used");
     assert!(
         matches!(error, GcError::StillReferenced { .. }),
         "{error:?}"
@@ -80,7 +89,7 @@ fn a_picture_a_page_names_survives_and_says_which_page() {
             page: page.clone(),
         }]
     );
-    let error = remove_assets(&mut project, &dir, &[photo]).expect_err("named");
+    let error = remove_assets(&mut project, &dir, &[photo], Paid::Keep).expect_err("named");
     assert!(matches!(error, GcError::NamedByPage { .. }), "{error:?}");
     assert!(
         dir.join("assets/photo.png").is_file(),

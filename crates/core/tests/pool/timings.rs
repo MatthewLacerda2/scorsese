@@ -1,7 +1,7 @@
 //! A generated line's word timings leave with it.
 
 use crate::common::new_project;
-use scorsese_core::pool::remove_assets;
+use scorsese_core::pool::{Paid, remove_assets};
 use scorsese_core::words::{Word, Words};
 use scorsese_core::{Asset, AssetId, AssetKind, GenerationState, ProjectPath};
 
@@ -41,7 +41,8 @@ fn removing_a_timed_line_leaves_neither_file() {
     let timings = Words::beside(&audio).resolve(&dir);
     assert!(timings.is_file());
 
-    let report = remove_assets(&mut project, &dir, &[AssetId::new("vo")]).expect("collect");
+    let report =
+        remove_assets(&mut project, &dir, &[AssetId::new("vo")], Paid::Delete).expect("collect");
 
     assert!(!audio.resolve(&dir).exists(), "the audio is gone");
     assert!(!timings.exists(), "and its timings with it");
@@ -59,7 +60,8 @@ fn a_line_without_timings_still_collects() {
     let (dir, mut project) = new_project("gc-untimed");
     let audio = generated_line(&dir, &mut project, "vo", false);
 
-    let report = remove_assets(&mut project, &dir, &[AssetId::new("vo")]).expect("collect");
+    let report =
+        remove_assets(&mut project, &dir, &[AssetId::new("vo")], Paid::Delete).expect("collect");
 
     assert!(!audio.resolve(&dir).exists());
     assert_eq!(report.files_deleted, 1);
@@ -73,7 +75,8 @@ fn timings_go_even_if_the_audio_was_already_gone() {
     let audio = generated_line(&dir, &mut project, "vo", true);
     std::fs::remove_file(audio.resolve(&dir)).unwrap();
 
-    let report = remove_assets(&mut project, &dir, &[AssetId::new("vo")]).expect("collect");
+    let report =
+        remove_assets(&mut project, &dir, &[AssetId::new("vo")], Paid::Delete).expect("collect");
 
     assert_eq!(report.files_missing, 1);
     assert!(!Words::beside(&audio).resolve(&dir).exists());

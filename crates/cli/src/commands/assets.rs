@@ -3,8 +3,8 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use scorsese_core::pool::{named_by_pages, remove_assets, unused_assets};
-use scorsese_core::{AssetStatus, HashCheck, Listed, asset_status, listing};
+use scorsese_core::pool::{Paid, named_by_pages, remove_assets, unused_assets};
+use scorsese_core::{Asset, AssetId, AssetStatus, HashCheck, Listed, asset_status, listing};
 
 /// Prints one line per asset: what it is, how many clips lean on it, and
 /// whether the file behind it is still there and still the one that was
@@ -33,7 +33,8 @@ pub(crate) fn list(project_dir: &Path, verify: bool) -> Result<()> {
         .iter()
         .filter(|row| row.health.needs_attention())
         .count();
-    // Exactly what `gc` would collect: nothing shows it and nothing names it.
+    // What `gc` lists: nothing shows it and nothing names it. A paid one
+    // among them it keeps unless asked with `--include-paid`.
     let unused = rows
         .iter()
         .filter(|row| row.clip_count == 0 && row.named_by.is_none())
@@ -53,27 +54,39 @@ pub(crate) fn list(project_dir: &Path, verify: bool) -> Result<()> {
 /// an agent running this unattended should have to mean it.
 ///
 /// A picture a page's text names is kept and listed as kept: nothing in the
-/// document records that use, so the reason has to be said.
-pub(crate) fn gc(project_dir: &Path, delete: bool) -> Result<()> {
+/// document records that use, so the reason has to be said. So is media paid
+/// for from a provider, unless `include_paid` says the user asked for it to
+/// go: what was bought is never deleted on a tidy-up's say-so.
+pub(crate) fn gc(project_dir: &Path, delete: bool, include_paid: bool) -> Result<()> {
     let mut project = super::open(project_dir)?;
     let named = named_by_pages(&project, project_dir);
-    let (kept, unused): (Vec<_>, Vec<_>) = unused_assets(&project)
-        .into_iter()
-        .partition(|id| named.iter().any(|by| &by.asset == id));
+    let paid = |id: &AssetId| project.asset(id).is_some_and(Asset::is_paid);
 
-    for id in &kept {
-        let by = named
-            .iter()
-            .find(|by| &by.asset == id)
-            .expect("partitioned on it");
-        println!("kept: {id} — named by page {}", by.page);
+    let mut kept = 0;
+    let mut unused = Vec::new();
+    for id in unused_assets(&project) {
+        if let Some(by) = named.iter().find(|by| by.asset == id) {
+            println!("kept: {id} — named by page {}", by.page);
+            kept += 1;
+        } else if paid(&id) && !include_paid {
+            println!("kept: {id} — paid for; pass --include-paid to delete it");
+            kept += 1;
+        } else {
+            unused.push(id);
+        }
     }
     if unused.is_empty() {
-        println!("Every asset is in use.");
+        let none = if kept == 0 {
+            "Every asset is in use."
+        } else {
+            "Nothing to collect."
+        };
+        println!("{none}");
         return Ok(());
     }
     for id in &unused {
-        println!("unused: {id}");
+        let note = if paid(id) { " (paid for)" } else { "" };
+        println!("unused: {id}{note}");
     }
 
     if !delete {
@@ -84,7 +97,9 @@ pub(crate) fn gc(project_dir: &Path, delete: bool) -> Result<()> {
         return Ok(());
     }
 
-    let report = remove_assets(&mut project, project_dir, &unused).context("collecting assets")?;
+    // Every paid id still in the list was asked for by `--include-paid`.
+    let report = remove_assets(&mut project, project_dir, &unused, Paid::Delete)
+        .context("collecting assets")?;
     super::save(&project, project_dir)?;
     println!(
         "\nRemoved {} assets, deleted {} files, freed {}",

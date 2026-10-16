@@ -243,10 +243,18 @@ impl From<StarterArg> for Starter {
 pub(crate) enum AssetsAction {
     /// Report assets nothing uses — no clip shows them, no other asset names
     /// them, no page's text names their file — and optionally delete them.
+    /// Media paid for from a provider (a generated video, image or line) is
+    /// kept and listed as kept unless --include-paid is passed.
     Gc {
         /// Actually remove them. Without this, nothing is deleted.
         #[arg(long)]
         delete: bool,
+        /// Also treat paid media — generated video, images and narration a
+        /// provider was paid for — as collectable, so --delete deletes it too.
+        /// Pass it only when the user explicitly asked for paid media to be
+        /// deleted; never to tidy up on your own.
+        #[arg(long)]
+        include_paid: bool,
     },
 }
 

@@ -6,6 +6,7 @@
 //! fact is true before the command runs.
 
 mod gc;
+mod paid;
 mod sequence;
 mod verify;
 

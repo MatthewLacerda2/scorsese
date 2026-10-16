@@ -25,6 +25,10 @@ pub use pages::{NamedByPage, named_by_pages};
 ///
 /// What a page's *text* names is not in the document, so it is not here:
 /// [`named_by_pages`] reads the pages, and [`remove_assets`] refuses those too.
+///
+/// Nor is whether an asset was paid for: an unused Veo shot is listed like
+/// any other, and it is [`remove_assets`] that keeps it unless told
+/// [`Paid::Delete`].
 pub fn unused_assets(project: &Project) -> Vec<AssetId> {
     project
         .assets
@@ -45,7 +49,7 @@ fn in_use(project: &Project, id: &AssetId) -> bool {
 
 /// Drops these assets from the table and deletes the media files they own —
 /// never a page, which is a document somebody wrote. A generated line's word
-/// timings, kept beside its audio, go with it.
+/// timings, kept beside its audio, go with it, and only when the line does.
 ///
 /// Every id is checked, and the project without them validated, **before any
 /// file is touched**: an asset still shown, named by another or named by a
@@ -53,10 +57,18 @@ fn in_use(project: &Project, id: &AssetId) -> bool {
 /// [`crate::Project::load`] refuses. Deleting media is not undoable, so a
 /// collection that cannot finish never starts. The ids are taken in order, so
 /// a sequence followed by its stills is one collection.
+///
+/// **A paid asset ([`Asset::is_paid`]) is refused under [`Paid::Keep`]**:
+/// what was bought from a provider is never deleted unless the user asked for
+/// exactly that. Even under [`Paid::Delete`] only the file the asset's row
+/// points at goes; the older generations a regenerated brief left beside it
+/// (`<asset>-<brief hash>`) belong to no asset, and collection never touches
+/// them.
 pub fn remove_assets(
     project: &mut Project,
     project_root: &Path,
     ids: &[AssetId],
+    paid: Paid,
 ) -> Result<GcReport, GcError> {
     let named = named_by_pages(project, project_root);
     let mut after = project.clone();
@@ -73,6 +85,9 @@ pub fn remove_assets(
         let Some(index) = after.assets.iter().position(|asset| &asset.id == id) else {
             return Err(GcError::NoSuchAsset { id: id.clone() });
         };
+        if paid == Paid::Keep && after.assets[index].is_paid() {
+            return Err(GcError::Paid { id: id.clone() });
+        }
         after.assets.remove(index);
     }
     after.validate()?;
@@ -129,6 +144,17 @@ fn remove_timings(asset: &Asset, project_root: &Path) -> Result<u64, GcError> {
     Ok(metadata.len())
 }
 
+/// Whether a collection may delete what was paid for ([`Asset::is_paid`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Paid {
+    /// Refuse a paid asset ([`GcError::Paid`]). The answer whenever the user
+    /// has not asked for paid media to be deleted.
+    Keep,
+    /// Delete it like any other — only because the user explicitly asked for
+    /// paid media to go.
+    Delete,
+}
+
 /// What a collection actually did.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GcReport {
@@ -163,6 +189,12 @@ pub enum GcError {
         id: AssetId,
         /// The page naming it.
         page: AssetId,
+    },
+    /// It was paid for, and the caller did not pass [`Paid::Delete`].
+    #[error("asset `{id}` was paid for; it is deleted only when the user asks for that")]
+    Paid {
+        /// The paid asset.
+        id: AssetId,
     },
     /// The project without these assets would not load — a reference this
     /// collection does not know about. Nothing was deleted.

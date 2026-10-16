@@ -3,7 +3,7 @@
 
 use super::{PAGE, no_probe};
 use crate::common::{new_project, source_file};
-use scorsese_core::pool::{remove_assets, unused_assets};
+use scorsese_core::pool::{Paid, remove_assets, unused_assets};
 use scorsese_core::{
     AssetHealth, HashCheck, Reprobe, asset_status, import_asset, probe_assets, unprobed_assets,
 };
@@ -42,7 +42,7 @@ fn collecting_a_page_keeps_its_file() {
     let id = import_asset(&mut project, &dir, &source, None, &no_probe()).expect("imports");
     assert_eq!(unused_assets(&project), vec![id.clone()]);
 
-    let report = remove_assets(&mut project, &dir, &[id]).expect("collects");
+    let report = remove_assets(&mut project, &dir, &[id], Paid::Keep).expect("collects");
 
     assert!(project.assets.is_empty());
     assert_eq!(report.files_deleted, 0);
