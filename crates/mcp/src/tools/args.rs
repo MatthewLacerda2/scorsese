@@ -18,7 +18,8 @@
 //! **An argument a tool does not take is refused**, before anything else is
 //! read, naming it and the argument it was probably meant to be
 //! (`args::unknown`). A misspelt argument read as nothing is a call that goes on
-//! without it and reports success (#1117).
+//! without it and reports success (#1117). A key inside an object argument is
+//! held to the same rule, wherever its schema lists the keys it takes (#1330).
 
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
@@ -152,6 +153,8 @@ fn untyped_null(object: &mut Map<String, Value>) {
 /// An argument `T`'s schema does not list is refused before anything is read,
 /// with the name it was probably meant to be: an unknown name is far more
 /// often a typo than a field to skip, and skipping it is a silent wrong edit.
+/// The same goes for a key inside an object argument whose schema lists its
+/// `properties` (`args::unknown`).
 pub(crate) fn parse<T: Arguments>(arguments: &Value) -> Result<T, String> {
     let empty = Value::Object(Map::new());
     let arguments = if arguments.is_object() {
@@ -159,13 +162,8 @@ pub(crate) fn parse<T: Arguments>(arguments: &Value) -> Result<T, String> {
     } else {
         &empty
     };
-    if let (Some(given), Value::Object(properties)) =
-        (arguments.as_object(), &schema::<T>()["properties"])
-    {
-        let known: Vec<&str> = properties.keys().map(String::as_str).collect();
-        if let Some(refused) = unknown::refused(given, &known) {
-            return Err(refused);
-        }
+    if let Some(refused) = unknown::refused(arguments, &schema::<T>()) {
+        return Err(refused);
     }
     serde_path_to_error::deserialize(arguments).map_err(|error| {
         let field = error.path().to_string();

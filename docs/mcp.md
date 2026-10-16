@@ -68,7 +68,14 @@ argument it was probably meant to be and listing the ones it takes:
 `place_clip` given `duration` answers *`` `duration` is not an argument here;
 did you mean `duration_seconds`? ``*. A misspelt name used to be read as
 nothing, and the call went on without it and reported success — a clip run to
-the end of its source, an opacity silently lost (#1117).
+the end of its source, an opacity silently lost (#1117). **A key inside an
+object argument is held to the same rule** (#1330), named by its path:
+`clip_set` given `{"shadow": {"softnes": 0.1}}` answers *`` `shadow.softnes`
+is not an argument here; did you mean `shadow.softness`? ``*, and a scene of
+`cut_to_voice` is named `scenes[1].visual`. The schema decides: an object whose
+schema lists its `properties` takes those and no others; one that lists none —
+a gradient written as `fill` or `color`, an easing's `cubic_bezier` — is open,
+and whatever reads it has its own rule.
 
 **The table is generated from the tools themselves.** Each row is a tool's name,
 the first sentence of the description a client is shown, and what calling it
