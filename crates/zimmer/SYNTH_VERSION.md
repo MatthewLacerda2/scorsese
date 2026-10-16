@@ -323,3 +323,17 @@ defaults argument to have. A probe corpus was baked before and after anyway,
 because the maintainer asked to see what moved: the PR for #1123 has the
 per-recipe table. **rusty re-bakes** everything the next time it moves its pin
 past this version.
+
+**A delay in beats, a track's own feel and a reverb's pre-delay left it
+alone** (#1122). Five new optional fields — `Fx::Delay::beats`,
+`Fx::Reverb::predelay`, and a track's `push`, `swing` and `humanize` — each
+skipped at a default that renders what was always rendered. But a delay line
+that can follow a tempo map is read at a computed offset rather than by a
+stepping pointer, and every chain now carries the clock through, so the delay
+loop was edited and measured rather than argued: **30 probes against
+`44914ad`, all byte-identical** — a two-track song (an inline saw stack with
+a patch delay and reverb, a noise step string with a patch ping-pong) under
+three track chains (none, a delay, a ping-pong into a full-size room), each
+with and without a track `send`, in five songs: plain, swung and humanised,
+a song chain of delay and reverb, the same with a ping-pong under a
+`stretch` fit, and a ramped tempo map under a long room.
