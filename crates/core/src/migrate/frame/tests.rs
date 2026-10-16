@@ -72,3 +72,49 @@ fn an_edit_with_nothing_sized_is_landscape() {
     assert_eq!(migrated(&json), Ratio::WIDE);
     assert_eq!(migrated(&v51(json!([]), json!([]))), Ratio::WIDE);
 }
+
+/// One video track whose only clip shows `asset`.
+fn showing(asset: Value) -> String {
+    v51(
+        json!([asset]),
+        json!([{ "id": "v1", "kind": "video", "clips": [
+            { "id": "first", "asset": "picture", "start": 0, "duration": 30 }
+        ]}]),
+    )
+}
+
+fn photo(width: u32, height: u32) -> Value {
+    json!({ "id": "picture", "kind": "image", "path": "assets/photo.png",
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "media": { "width": width, "height": height } })
+}
+
+#[test]
+fn a_picture_of_no_picked_shape_is_landscape() {
+    // #1430: a 735x478 image framed a hosted project as 735:478.
+    assert_eq!(migrated(&showing(photo(735, 478))), Ratio::WIDE);
+    // A photograph's 3:2 says what camera took it, not what the edit is for.
+    assert_eq!(migrated(&showing(photo(3000, 2000))), Ratio::WIDE);
+    let asked = json!({ "id": "picture", "kind": "generated_image", "prompt": "a cup",
+                        "state": "sketch", "image": { "aspect": "2:3" } });
+    assert_eq!(migrated(&showing(asked)), Ratio::WIDE);
+}
+
+#[test]
+fn a_picture_near_a_picked_shape_takes_it() {
+    // 1080x1350 is 4:5 exactly; 1000x1240 is within a twentieth of it.
+    let portrait = Ratio::new(4, 5).expect("4:5");
+    assert_eq!(migrated(&showing(photo(1080, 1350))), portrait);
+    assert_eq!(migrated(&showing(photo(1000, 1240))), portrait);
+    assert_eq!(
+        migrated(&showing(photo(1440, 1080))),
+        Ratio::new(4, 3).expect("4:3")
+    );
+    assert_eq!(
+        migrated(&showing(photo(2560, 1080))),
+        Ratio::new(21, 9).expect("21:9")
+    );
+    let shot = json!({ "id": "picture", "kind": "generated_video", "prompt": "a street",
+                       "state": "sketch", "video": { "aspect": "9:16" } });
+    assert_eq!(migrated(&showing(shot)), Ratio::TALL);
+}
