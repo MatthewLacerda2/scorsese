@@ -270,12 +270,37 @@ export interface ToolAnswer {
   project: EditorProject | null;
 }
 
+/**
+ * `renders::Ask` — what a render is asked to be (#1070), every field left to
+ * its default when absent. The panel sends a few; the rest are the
+ * assistant's, spelled as MCP `render` spells them.
+ */
+export interface RenderAsk {
+  /** `mp4` by default; `mp3`, `wav` or `m4a` for the soundtrack alone. */
+  container?: string;
+  video_codec?: string;
+  audio_codec?: string;
+  /** `WIDTHxHEIGHT`; the project's own frame by default. */
+  resolution?: string;
+  /** A placement that sizes the render, never beside `resolution`. */
+  platform?: string;
+  /** `30`, or `30000/1001`; the project's own rate by default. */
+  fps?: string;
+  /** Frames, `30:120`; the whole timeline by default. */
+  range?: string;
+  narration_bands?: boolean;
+  /** Integrated loudness in LUFS; the mix as balanced by default. */
+  loudness?: number;
+}
+
 /** `renders::Settings` — the shape of a render, as docs/output-formats.md allows. */
 interface RenderSettings {
   container: string;
   video_codec: string | null;
   audio_codec: string;
   resolution: string | null;
+  /** The delivery rate, absent for the project's own. */
+  fps?: string;
 }
 
 /** `renders::RenderView`, with `file`: where to download it. */

@@ -97,6 +97,7 @@ async fn render(
     let project = Project::from_json(&payload.document.to_string())
         .map_err(|error| format!("the project does not load: {error}"))?;
     let settings = payload.settings.render(&project)?;
+    let range = payload.settings.range()?;
     let quality = payload.settings.quality()?;
     if quality.is_some() && preview::superseded(context, job.user, &payload).await {
         return Ok(json!({ "superseded": true }));
@@ -138,6 +139,7 @@ async fn render(
     let (tools, written) = (tools.clone(), out.clone());
     let drawn = Drawn {
         settings,
+        range,
         preview: previewing,
         cancel: context.cancel().clone(),
         progress: context.progress().clone(),
@@ -222,6 +224,8 @@ async fn render(
 /// and `progress` says how far it has got.
 struct Drawn {
     settings: RenderSettings,
+    /// The frames asked for: the whole timeline unless a range was (#1070).
+    range: FrameRange,
     preview: Option<Preview>,
     cancel: Cancel,
     progress: Progress,
@@ -296,7 +300,7 @@ fn produce(
         }
     };
     let report = renderer
-        .render(project, laid.root(), FrameRange::ALL, out)
+        .render(project, laid.root(), drawn.range, out)
         .map_err(rendering)?;
     Ok(super::said::said(report, project, laid.root(), &failed))
 }

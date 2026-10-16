@@ -6,7 +6,8 @@
 
 use scorsese_core::{Project, Ratio, hash_bytes};
 use scorsese_render::{
-    Bands, LoudnessTarget, OutputFormat, Quality, RenderAsk, RenderSettings, Resolution, Spelled,
+    Bands, FrameRange, LoudnessTarget, OutputFormat, Quality, RenderAsk, RenderSettings,
+    Resolution, Spelled,
 };
 use serde::{Deserialize, Serialize};
 
@@ -25,10 +26,25 @@ pub struct Ask {
     /// The sound codec; defaults to the container's.
     #[serde(default)]
     pub audio_codec: Option<String>,
-    /// `WIDTHxHEIGHT`; defaults to 1920x1080, or over HTTP to the project's own frame at delivery size
-    /// (#1278). Refused for sound only.
+    /// `WIDTHxHEIGHT`, or a shape like `9:16` at delivery size; defaults to
+    /// 1920x1080, or over HTTP to the project's own frame at delivery size
+    /// (#1278). Refused for sound only, and beside `platform`.
     #[serde(default)]
     pub resolution: Option<String>,
+    /// The placement the file is made for, which sizes it — `tiktok`,
+    /// `youtube`… (`scorsese_core::style::Platform`). Refused for sound only,
+    /// and beside `resolution`.
+    #[serde(default)]
+    pub platform: Option<String>,
+    /// The frame rate to deliver at: `30`, or a fraction like `30000/1001`.
+    /// Defaults to the project's own timeline rate. Refused for sound only.
+    #[serde(default)]
+    pub fps: Option<String>,
+    /// The stretch of the timeline to render, in frames: `30:120`, `30:` or
+    /// `:120`, as `scorsese render --range` reads it. Defaults to the whole
+    /// timeline.
+    #[serde(default)]
+    pub range: Option<String>,
     /// `false` leaves out the band an ungenerated narration line draws across
     /// the foot of the picture (#966, #983); defaults to `true`, every band
     /// drawn. Refused for sound only.
@@ -49,8 +65,18 @@ pub struct Settings {
     pub video_codec: Option<String>,
     /// The sound codec.
     pub audio_codec: String,
-    /// The picture's size, or `None` for sound only.
+    /// The picture's size, or `None` for sound only. A platform asked for is
+    /// kept as the size it delivers at: the file is the same either way.
     pub resolution: Option<String>,
+    /// The delivery rate, or `None` for the project's own. Left out of the
+    /// stored form when absent, so every render asked for before the choice
+    /// existed keeps its key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fps: Option<String>,
+    /// The frames rendered, as `FrameRange` writes them, or `None` for the
+    /// whole timeline. Left out of the stored form when absent, likewise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub range: Option<String>,
     /// The preview quality this was drawn at, when it is a **preview** (#542)
     /// rather than a finished render — `None` for every render a person
     /// downloads. Left out of the stored form when absent, so a finished
@@ -94,10 +120,20 @@ pub struct PreviewAsk {
     pub quality: Option<String>,
 }
 
+impl Ask {
+    /// Whether this asks for a picture without saying its size, so a surface
+    /// that has the project open fills in its own frame (#1278) — never when
+    /// a platform sizes it, which a resolution beside would contradict.
+    pub fn leaves_size(&self, settings: &Settings) -> bool {
+        self.resolution.is_none() && self.platform.is_none() && settings.resolution.is_some()
+    }
+}
+
 impl Settings {
     /// What `ask` means, or why `docs/output-formats.md` does not allow it —
     /// in the words the CLI refuses it in, since it is the same constructor.
     pub fn from_ask(ask: &Ask) -> Result<Self, String> {
+        let range = ask.range.as_deref().map(frames).transpose()?;
         let (ask, format) = checked(ask)?;
         Ok(Self {
             container: format.container().name().to_owned(),
@@ -108,6 +144,8 @@ impl Settings {
             resolution: format
                 .has_picture()
                 .then(|| ask.resolution(Ratio::WIDE).to_string()),
+            fps: ask.fps.map(|fps| fps.to_string()),
+            range: range.map(|range| range.to_string()),
             preview: None,
             narration_bands: ask.bands == Bands::Drawn,
             loudness: ask.loudness.map(LoudnessTarget::lufs),
@@ -156,10 +194,19 @@ impl Settings {
             video_codec: self.video_codec.clone(),
             audio_codec: Some(self.audio_codec.clone()),
             resolution: self.resolution.clone(),
+            platform: None,
+            fps: self.fps.clone(),
+            range: None,
             narration_bands: Some(self.narration_bands),
             loudness: self.loudness,
         })?;
         ask.settings(format, project).map_err(|e| e.to_string())
+    }
+
+    /// The frames to render, parsed again from the stored form like
+    /// [`Settings::render`]'s settings.
+    pub fn range(&self) -> Result<FrameRange, String> {
+        self.range.as_deref().map_or(Ok(FrameRange::ALL), frames)
     }
 
     /// The delivered file's extension: the container's name (`docs/output-formats.md`).
@@ -193,6 +240,8 @@ fn checked(ask: &Ask) -> Result<(RenderAsk, OutputFormat), String> {
         video_codec: ask.video_codec.as_deref(),
         audio_codec: ask.audio_codec.as_deref(),
         resolution: ask.resolution.as_deref(),
+        platform: ask.platform.as_deref(),
+        fps: ask.fps.as_deref(),
         narration_bands: ask.narration_bands,
         loudness: ask.loudness,
         ..Spelled::default()
@@ -201,6 +250,13 @@ fn checked(ask: &Ask) -> Result<(RenderAsk, OutputFormat), String> {
     let format = ask.format().map_err(|e| e.to_string())?;
     ask.check(format).map_err(|e| e.to_string())?;
     Ok((ask, format))
+}
+
+/// `text` read as a frame range by `FrameRange`'s own rules — the ones
+/// `scorsese render --range` and the MCP `render` tool read it by — its
+/// refusal named for the argument as theirs is.
+fn frames(text: &str) -> Result<FrameRange, String> {
+    text.parse().map_err(|problem| format!("range: {problem}"))
 }
 
 /// The key a render of `project` with `settings` is kept under: a SHA-256 of

@@ -21,6 +21,7 @@ const props: EditorActionsProps = {
   edit: { run: async () => null, refused: null, dismiss: () => {}, pending: false },
   aspect: "9:16",
   onAspect: () => {},
+  fps: { num: 30, den: 1 },
 };
 
 const draw = (node: React.ReactNode) =>

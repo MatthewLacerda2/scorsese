@@ -25,6 +25,18 @@ export const editor: Messages["editor"] = {
   },
   render: {
     resolution: "Resolução",
+    file: "Arquivo",
+    video: (extension: string) => `Vídeo — .${extension}`,
+    sound: (extension: string) => `Só o som — .${extension}`,
+    rate: "Taxa de quadros",
+    ownRate: (fps: string) => `A mesma da edição (${fps} fps)`,
+    fps: (fps: string) => `${fps} fps`,
+    loudness: "Volume",
+    loudnesses: {
+      mixed: "Como foi mixado",
+      streaming: "Streaming e redes sociais (−14 LUFS)",
+      podcast: "Podcast (−16 LUFS)",
+    },
     render: "Renderizar",
     stop: "Parar",
     download: "Baixar",

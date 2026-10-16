@@ -98,6 +98,7 @@ function Editor({ project }: { project: EditorProject }) {
         edit={edit}
         aspect={aspect}
         onAspect={(next) => void reframe(next)}
+        fps={document.timeline_fps}
       />
       {reframed && (
         <div className="flex items-start gap-2 border-b bg-muted px-3 py-1.5 text-sm">

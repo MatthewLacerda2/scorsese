@@ -19,6 +19,7 @@ import type {
   PaymentBegun,
   PaymentQuote,
   ProjectSummary,
+  RenderAsk,
   RenderView,
   StoredProject,
   StyleMenu,
@@ -163,7 +164,7 @@ export const api = {
   },
   renders: {
     /** `200 {render}` when it is already made, `202 {job}` while it is on its way. */
-    request: (id: number, settings: { resolution?: string } = {}) =>
+    request: (id: number, settings: RenderAsk = {}) =>
       request<{ render: RenderView | null; job: JobView | null }>(
         "POST",
         `/projects/${id}/renders`,

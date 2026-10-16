@@ -38,7 +38,7 @@ pub async fn request(
     // First, before the project is read: a shape we do not write is the
     // cheapest thing to refuse, as it is for `scorsese render`.
     let mut settings = Settings::from_ask(&ask).map_err(ApiError::BadRequest)?;
-    if ask.resolution.is_none() && settings.resolution.is_some() {
+    if ask.leaves_size(&settings) {
         ask.resolution = frame_size(&state, &member, id).await?;
         settings = Settings::from_ask(&ask).map_err(ApiError::BadRequest)?;
     }

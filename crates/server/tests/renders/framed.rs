@@ -1,5 +1,6 @@
 //! A render that asks for no size is delivered at the project's own frame at
-//! delivery size (#1278), and one that asks for a size gets it.
+//! delivery size (#1278), and one that asks for a size, or a platform that
+//! sizes it, gets it.
 
 use serde_json::json;
 use sqlx::postgres::PgPool;
@@ -20,8 +21,9 @@ async fn no_size_asked_is_the_projects_own_frame(pool: PgPool) {
     let previews = format!("/api/projects/{id}/previews");
     for (path, body) in [
         (&renders, json!({})),
-        (&renders, json!({ "resolution": "1920x1080" })),
+        (&renders, json!({ "resolution": "1280x720" })),
         (&renders, json!({ "container": "mp3" })),
+        (&renders, json!({ "platform": "youtube" })),
         (&previews, json!({ "quality": "full" })),
     ] {
         let (status, asked) = call(address, &cookie, "POST", path, Some(body.clone())).await;
@@ -34,7 +36,7 @@ async fn no_size_asked_is_the_projects_own_frame(pool: PgPool) {
         .unwrap();
     assert!(sizes[0].contains("1080x1920"), "{}", sizes[0]);
     assert!(
-        sizes[1].contains("1920x1080"),
+        sizes[1].contains("1280x720"),
         "an asked size is kept: {}",
         sizes[1]
     );
@@ -44,8 +46,13 @@ async fn no_size_asked_is_the_projects_own_frame(pool: PgPool) {
         sizes[2]
     );
     assert!(
-        sizes[3].contains("1080x1920"),
-        "the preview too: {}",
+        sizes[3].contains("1920x1080"),
+        "a platform sizes it, not the frame (#1070): {}",
         sizes[3]
+    );
+    assert!(
+        sizes[4].contains("1080x1920"),
+        "the preview too: {}",
+        sizes[4]
     );
 }

@@ -19,88 +19,16 @@
 //! What it does not do is hold the call for the whole job. `jobs`' `wait`
 //! (#1301) is the local tool's, bounded at a minute: [`wait`] has why.
 
+mod render;
 mod wait;
 
 use scorsese_mcp::Reply;
-use scorsese_render::{Budget, Resolution};
 use serde_json::{Value, json};
 
-use super::super::surface::project_property;
-use super::super::{Caller, database, project_id};
+use super::super::{Caller, database};
 use crate::jobs::{CancelError, JobView, ProgressView, State, store as jobs};
-use crate::projects::{self, ProjectError};
-use crate::renders::request::{AskError, Asked, ask};
-use crate::renders::{Ask, Settings};
 
-/// How a client names the render.
-pub(super) const RENDER: &str = "render";
-
-/// What the render does.
-pub(super) const RENDER_SAYS: &str = "Render the whole timeline to a video file, or to a sound \
-file of its mix alone, made by the server's render queue and kept for you to download. Takes \
-real time, on a machine other people share — call project_describe first to check the cut is \
-right, since that costs nothing. The same project, unchanged, in the same shape is rendered \
-once: asking again answers with the file already made. The reply is either the download \
-address, or the job making it; `jobs` says when that job is done and what it made. Download \
-with an HTTP GET on this server, with the same token. Sketch and stale generated assets render \
-as slug cards rather than failing; narration_bands: false leaves the narration lines' bands \
-off the picture. loudness: -14 (any LUFS) brings the soundtrack to that loudness, with a \
-limiter holding its peaks; the finished job's notes say how loud the file came out.";
-
-/// `render`'s arguments: the shape of the file, as the stdio tool spells it.
-pub(super) fn render_schema() -> Value {
-    json!({
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-            "project": project_property(),
-            "container": {
-                "type": "string",
-                "description": "Container to deliver in: mp4 (the default), mkv, avi or wmv \
-                                for video; mp3, wav or m4a for the soundtrack alone."
-            },
-            "video_codec": {
-                "type": "string",
-                "description": "Picture codec: h264, mpeg4 or wmv2. Defaults to what the \
-                                container is written with; a pairing scorsese does not write \
-                                is refused before anything is queued."
-            },
-            "audio_codec": {
-                "type": "string",
-                "description": "Sound codec: aac, pcm_s16le, wmav2 or mp3. Defaults to what \
-                                the container is written with."
-            },
-            "resolution": {
-                "type": "string",
-                "description": "Output size, e.g. 1080x1920. Defaults to the project's \
-                                own frame at delivery size (1920x1080 for 16:9, 1080x1920 \
-                                for 9:16). Refused for a sound-only container, which has \
-                                no picture to size."
-            },
-            "narration_bands": {
-                "type": "boolean",
-                "description": "false to leave out the band a narration line not yet \
-                                generated draws across the foot of the picture: for a preview \
-                                whose captions already carry the words. The line keeps its \
-                                place on the timeline, stays silent until generated and still \
-                                ducks the music, and the finished job's notes name every line \
-                                left out. Default true, every band drawn. Refused for a \
-                                sound-only container."
-            },
-            "loudness": {
-                "type": "number",
-                "description": "Deliver the soundtrack at this integrated loudness, in LUFS, \
-                                e.g. -14: the mix is measured, raised or lowered to it, and \
-                                its peaks held under -1 dBTP by a limiter, so a quiet mix \
-                                arrives as loud as the feed around it. Between -40 and -5. \
-                                Without it the mix is delivered as balanced. The finished \
-                                job's notes give the loudness before and after, and the gain \
-                                and limiting it took."
-            }
-        },
-        "required": ["project"]
-    })
-}
+pub(super) use render::{RENDER, RENDER_SAYS, render, render_schema};
 
 /// How a client names the job listing.
 pub(super) const JOBS: &str = "jobs";
@@ -160,58 +88,6 @@ async fn cancel(caller: &Caller<'_>, id: i64) -> Result<Reply, String> {
     Ok(match job.state {
         State::Running => format!("Stopping job {id}; it will say cancelled in a moment."),
         _ => line(&job),
-    }
-    .into())
-}
-
-/// Ask for a render.
-pub(super) async fn render(caller: &Caller<'_>, arguments: &Value) -> Result<Reply, String> {
-    let project = project_id(arguments)?;
-    let mut shape = arguments.clone();
-    if let Some(fields) = shape.as_object_mut() {
-        fields.remove("project");
-    }
-    let mut asked: Ask = serde_json::from_value(shape)
-        .map_err(|error| format!("the arguments do not read: {error}"))?;
-    let mut settings = Settings::from_ask(&asked)?;
-    let toolbox = caller.toolbox;
-    // A picture with no size asked for is the project's own frame at delivery
-    // size (#1278), as it is over HTTP and on the command line.
-    if asked.resolution.is_none() && settings.resolution.is_some() {
-        let stored = projects::open(&toolbox.pool, caller.user, project)
-            .await
-            .map_err(|error| error.to_string())?;
-        let frame = Resolution::of_project(&stored.document, Budget::Delivery);
-        asked.resolution = Some(frame.to_string());
-        settings = Settings::from_ask(&asked)?;
-    }
-    let asked = ask(
-        &toolbox.pool,
-        &toolbox.queue,
-        &toolbox.renders,
-        caller.user,
-        project,
-        settings,
-    )
-    .await
-    .map_err(|error| match error {
-        AskError::Invalid(why) => why,
-        AskError::Project(ProjectError::NotFound) => "there is no such project of yours".into(),
-        other => database(other),
-    })?;
-    Ok(match asked {
-        Asked::Kept(view) => format!(
-            "Already rendered, {} bytes: GET {} to download it.",
-            view.size,
-            view.file()
-        ),
-        Asked::Queued(job) => format!(
-            "Rendering as job {}, {}. Call jobs with job: {} to see when it is done; its \
-             result names where to download the file.",
-            job.id,
-            state(&job),
-            job.id
-        ),
     }
     .into())
 }
