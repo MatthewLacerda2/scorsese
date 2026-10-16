@@ -135,7 +135,7 @@ export interface GenerationRecord {
 }
 
 /** The stock libraries a file can come from — `scorsese_core::StockLibrary`. */
-export type StockLibrary = "pixabay";
+type StockLibrary = "pixabay";
 
 /**
  * Where a stock file came from (#1237) — `scorsese_core::Source`: the library,
