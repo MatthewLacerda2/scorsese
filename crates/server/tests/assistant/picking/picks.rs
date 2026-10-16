@@ -70,9 +70,14 @@ async fn a_picker_waits_free_and_imports_exactly_what_was_picked(pool: PgPool) {
         "{told}"
     );
     assert!(
-        told.contains("`pixabay-1`") && told.contains("`pixabay-3`"),
+        told.contains("pixabay-1 — image 1") && told.contains("pixabay-3 — image 3"),
         "{told}"
     );
+    // What a local agent's `stock_import` is told (#1289): who made it, where
+    // it came from, and the licence it came under.
+    for says in ["by ", "https://", "Pixabay Content License"] {
+        assert!(told.contains(says), "{says}: {told}");
+    }
     let imported = done["tools"]
         .as_array()
         .unwrap()

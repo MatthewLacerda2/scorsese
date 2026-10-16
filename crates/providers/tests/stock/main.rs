@@ -11,4 +11,5 @@ mod fake;
 mod importing;
 mod looking;
 mod lottie;
+mod reporting;
 mod searching;

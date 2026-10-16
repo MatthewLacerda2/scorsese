@@ -6,8 +6,10 @@
 //! review really is free, before a frame has been encoded and before the media
 //! even has to be on the machine.
 
-#[path = "../../../tools/scratch.rs"]
+#[path = "../../../../tools/scratch.rs"]
 mod scratch;
+
+mod words;
 
 use std::path::PathBuf;
 use std::process::Command;

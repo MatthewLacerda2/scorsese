@@ -33,6 +33,11 @@
 //! copied into `assets/`. No new asset kind and no format change; where it
 //! came from is in the file name, `pixabay-<id>`.
 //!
+//! **Every surface says an import the same way.** [`Imports`] and
+//! [`Animations`] word what came in, from where, by whom and under which
+//! licence, and say whether the project is to be saved; the CLI, the MCP tool
+//! and the web print them rather than each wording its own (#1289).
+//!
 //! # Animations are a third medium, not a third tool
 //!
 //! LottieFiles' free animations — characters, mascots, animated icons — are
@@ -53,6 +58,7 @@ mod fetch;
 mod library;
 mod lottie;
 mod pixabay;
+mod report;
 mod search;
 
 pub use cache::{FRESH_FOR, cache_dir, find_cached};
@@ -61,6 +67,7 @@ pub use fetch::{Choice, Fetched, footage, import, labelled_previews, previews};
 pub use library::{Library, Page, Query, StockError};
 pub use lottie::{Kept, LottieLibrary, keep};
 pub use pixabay::PixabayLibrary;
+pub use report::{Animations, Imports};
 pub use search::{Found, PAGE_SIZE, PER_REPLY, find, search};
 
 /// What every reply that shows results says about the licence, in one line —

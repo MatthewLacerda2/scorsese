@@ -6,8 +6,7 @@
 
 use scorsese_core::{Project, hash_bytes};
 use scorsese_render::{
-    AudioCodec, Bands, Container, LoudnessTarget, OutputFormat, Quality, RenderSettings,
-    Resolution, VideoCodec,
+    Bands, LoudnessTarget, OutputFormat, Quality, RenderAsk, RenderSettings, Resolution, Spelled,
 };
 use serde::{Deserialize, Serialize};
 
@@ -99,20 +98,15 @@ impl Settings {
     /// What `ask` means, or why `docs/output-formats.md` does not allow it —
     /// in the words the CLI refuses it in, since it is the same constructor.
     pub fn from_ask(ask: &Ask) -> Result<Self, String> {
-        let Parsed {
-            format,
-            resolution,
-            bands,
-            loudness,
-        } = parse(ask)?;
+        let (ask, format) = checked(ask)?;
         Ok(Self {
             container: format.container().name().to_owned(),
             video_codec: format.video().map(|codec| codec.name().to_owned()),
             audio_codec: format.audio().name().to_owned(),
-            resolution: resolution.map(|resolution| resolution.to_string()),
+            resolution: format.has_picture().then(|| ask.resolution().to_string()),
             preview: None,
-            narration_bands: bands == Bands::Drawn,
-            loudness: loudness.map(LoudnessTarget::lufs),
+            narration_bands: ask.bands == Bands::Drawn,
+            loudness: ask.loudness.map(LoudnessTarget::lufs),
         })
     }
 
@@ -153,7 +147,7 @@ impl Settings {
     /// [`Settings::from_ask`] — a job row edited by hand — are refused rather
     /// than trusted.
     pub fn render(&self, project: &Project) -> Result<RenderSettings, String> {
-        let parsed = parse(&Ask {
+        let (ask, format) = checked(&Ask {
             container: Some(self.container.clone()),
             video_codec: self.video_codec.clone(),
             audio_codec: Some(self.audio_codec.clone()),
@@ -161,11 +155,8 @@ impl Settings {
             narration_bands: Some(self.narration_bands),
             loudness: self.loudness,
         })?;
-        let resolution = parsed.resolution.unwrap_or(Resolution::HD);
-        Ok(RenderSettings::new(resolution, project.timeline_fps)
-            .with_format(parsed.format)
-            .with_bands(parsed.bands)
-            .with_loudness(parsed.loudness))
+        ask.settings(format, project.timeline_fps)
+            .map_err(|e| e.to_string())
     }
 
     /// The delivered file's extension: the container's name (`docs/output-formats.md`).
@@ -188,59 +179,25 @@ impl Settings {
     }
 }
 
-/// What an [`Ask`] means to the renderer.
-struct Parsed {
-    /// The format it names.
-    format: OutputFormat,
-    /// Its picture's size — `None` for sound only.
-    resolution: Option<Resolution>,
-    /// Whether narration bands are drawn.
-    bands: Bands,
-    /// The loudness to deliver at, if any.
-    loudness: Option<LoudnessTarget>,
-}
-
-/// What `ask` means, or why it is refused.
-fn parse(ask: &Ask) -> Result<Parsed, String> {
-    let container = match &ask.container {
-        Some(name) => name.parse::<Container>().map_err(|e| e.to_string())?,
-        None => Container::Mp4,
-    };
-    let video = ask.video_codec.as_deref().map(str::parse::<VideoCodec>);
-    let video = video.transpose().map_err(|e| e.to_string())?;
-    let audio = ask.audio_codec.as_deref().map(str::parse::<AudioCodec>);
-    let audio = audio.transpose().map_err(|e| e.to_string())?;
-    let format = OutputFormat::new(container, video, audio).map_err(|e| e.to_string())?;
-    let resolution = match &ask.resolution {
-        Some(text) => {
-            format
-                .picture_setting("a resolution")
-                .map_err(|e| e.to_string())?;
-            Some(text.parse().map_err(|e| format!("resolution: {e}"))?)
-        }
-        None => format.has_picture().then_some(Resolution::HD),
-    };
-    // Refused for a format with no picture in the stdio tool's and the CLI's
-    // words.
-    let bands = match ask.narration_bands {
-        Some(false) => {
-            format
-                .picture_setting("leaving narration bands out")
-                .map_err(|e| e.to_string())?;
-            Bands::Omitted
-        }
-        Some(true) | None => Bands::Drawn,
-    };
-    // The CLI's `--loudness` and the stdio tool's `loudness`, held to the
-    // same range in the same words.
-    let loudness = ask.loudness.map(LoudnessTarget::new).transpose();
-    let loudness = loudness.map_err(|e| e.to_string())?;
-    Ok(Parsed {
-        format,
-        resolution,
-        bands,
-        loudness,
+/// What `ask` means and the format it is delivered in, or why it is refused
+/// — read and checked by the rules every surface shares ([`RenderAsk`]), so
+/// in the words the CLI and the stdio tool refuse it in. The container
+/// defaults to mp4 rather than to a path's, since the server names its own
+/// file.
+fn checked(ask: &Ask) -> Result<(RenderAsk, OutputFormat), String> {
+    let ask = RenderAsk::read(&Spelled {
+        container: ask.container.as_deref(),
+        video_codec: ask.video_codec.as_deref(),
+        audio_codec: ask.audio_codec.as_deref(),
+        resolution: ask.resolution.as_deref(),
+        narration_bands: ask.narration_bands,
+        loudness: ask.loudness,
+        ..Spelled::default()
     })
+    .map_err(|e| e.to_string())?;
+    let format = ask.format().map_err(|e| e.to_string())?;
+    ask.check(format).map_err(|e| e.to_string())?;
+    Ok((ask, format))
 }
 
 /// The key a render of `project` with `settings` is kept under: a SHA-256 of

@@ -5,9 +5,11 @@
 //! here. They once did not: the MCP reply named the path and the format and
 //! nothing about sound, so an agent could not tell its soundtrack had been
 //! turned down 4 dB to fit a lossy codec without a second call it had no
-//! reason to make (#519).
+//! reason to make (#519). The web's renders say them too, and so do they the
+//! synth bakes a render played out of date, which the web once left out
+//! (#1289).
 
-use crate::report::RenderReport;
+use crate::report::{Note, RenderReport};
 
 /// What was written, and how much of it: `90 frames at 30 fps, 1920x1080
 /// (3.00s)`, or `3.00s of sound, no picture` for a sound-only file.
@@ -41,4 +43,27 @@ pub fn delivery(report: &RenderReport) -> Vec<String> {
         lines.push(format!("note: the soundtrack was {trim}"));
     }
     lines
+}
+
+/// Everything a finished render says after the line naming its file: how its
+/// sound came out ([`delivery`]), then its [`notes`].
+///
+/// `stale` is what `scorsese_providers::synth::out_of_date` said of the
+/// project — a layer up, which this crate cannot call, so every surface asks
+/// it and hands the answer in.
+pub fn report(report: &RenderReport, stale: &[String]) -> Vec<String> {
+    let mut lines = delivery(report);
+    lines.extend(notes(&report.notes, stale));
+    lines
+}
+
+/// A `note:` line for each of a render's `notes`, then for each synth bake in
+/// `stale` that it played though it is out of date: what nobody would know
+/// until they heard it.
+pub fn notes(notes: &[Note], stale: &[String]) -> Vec<String> {
+    let notes = notes.iter().map(ToString::to_string);
+    notes
+        .chain(stale.iter().cloned())
+        .map(|note| format!("note: {note}"))
+        .collect()
 }

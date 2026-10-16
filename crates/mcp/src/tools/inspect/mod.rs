@@ -4,14 +4,9 @@
 
 mod assets;
 
-use std::path::Path;
-
 use schemars::JsonSchema;
-use scorsese_core::words::{self, Saying};
-use scorsese_core::{Frames, HashCheck, Project, fingerprint_of};
-use scorsese_render::{
-    Checkup, Commentary, Description, FrameRange, Layout, Note, Plan, Resolution, unknown_in,
-};
+use scorsese_core::{HashCheck, Project, fingerprint_of};
+use scorsese_render::{Checkup, FrameRange, Plan, Resolution, described};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -151,51 +146,14 @@ impl Tool for Describe {
         let plan = Plan::build(&project, fps, range)
             .map_err(|error| format!("sequencing the timeline: {error}"))?;
 
-        // Ahead of the cut, not after it: a script is meant to be read before
-        // the edit is touched, and a note is the context the shot only makes
-        // sense in.
-        let commentary = Commentary::of(&project);
-        let mut out = String::new();
-        if !commentary.is_empty() {
-            out.push_str(&format!("{commentary}\n\n"));
-        }
-        out.push_str(&format!("{} — {}\n", project.name, Description::of(&plan)));
-        for note in plan.notes() {
-            out.push_str(&format!("  note: {note}\n"));
-        }
-        for unknown in unknown_in(&project) {
-            out.push_str(&format!("  note: {}\n", Note::from(unknown)));
-        }
-        // Each instant on its own and in the order it was asked about: a list
-        // of instants is a list of questions, and the answers have to line up
-        // with them.
-        for at in instants {
-            let layout = Layout::at(&project, dir, raster, at)
-                .map_err(|error| format!("frame {}: {error}", at.get()))?;
-            out.push_str(&format!("\n{layout}\n"));
-            out.push_str(&said(&project, dir, at));
-        }
-        Ok(out.into())
+        // The answer `scorsese describe` prints, assembled in one place: the
+        // script, the cut and its notes, and for each instant — in the order
+        // asked, so the answers line up with the questions — where everything
+        // lands and which word each narration is saying.
+        let described = described(&project, dir, &plan, &instants, raster)
+            .map_err(|error| error.to_string())?;
+        Ok(described.into())
     }
-}
-
-/// Which word each generated narration playing at `at` is saying, one line a
-/// clip — nothing at all when no narration is playing.
-fn said(project: &Project, dir: &Path, at: Frames) -> String {
-    let seconds = project.timeline_fps.seconds(at);
-    words::saying(project, dir, seconds)
-        .into_iter()
-        .map(|(clip, saying)| match saying {
-            Saying::Word(word) => format!(
-                "  {clip} is saying {:?} — scorsese.words[\"{clip}/{}\"], {:.2}s to {:.2}s\n",
-                word.text, word.name, word.start, word.end
-            ),
-            Saying::Between => format!("  {clip} is between words\n"),
-            Saying::Untimed => format!(
-                "  {clip} has no word timings: not spoken yet, or spoken before they were kept\n"
-            ),
-        })
-        .collect()
 }
 
 /// The raster a layout question is measured against — the delivery size unless
