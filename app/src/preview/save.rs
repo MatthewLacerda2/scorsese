@@ -25,16 +25,9 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 
 use scorsese_core::{Frames, Project};
-use scorsese_render::{RenderSettings, Renderer, Resolution, Tools, frames};
+use scorsese_render::{Budget, RenderSettings, Renderer, Resolution, Tools, frames};
 
 use crate::project::Open;
-
-/// The raster a kept frame is composited at.
-///
-/// The default delivery size rather than the preview's, because the point of
-/// keeping a frame is to look at it closely — and a still small enough to scrub
-/// with is a still too small to judge a title by.
-const DELIVERY: (u32, u32) = (1920, 1080);
 
 /// What happened to the last frame someone asked to keep.
 pub(super) enum Saved {
@@ -129,7 +122,10 @@ impl Keeper {
 /// the transport rather than for a terminal.
 fn write(project: &Project, root: &Path, at: Frames, path: &Path) -> Result<(), String> {
     let tools = Tools::discover().map_err(|error| error.to_string())?;
-    let raster = Resolution::new(DELIVERY.0, DELIVERY.1).map_err(|error| error.to_string())?;
+    // The project's frame at its delivery size rather than the preview's,
+    // because the point of keeping a frame is to look at it closely — and a
+    // still small enough to scrub with is a still too small to judge a title by.
+    let raster = Resolution::of_project(project, Budget::Delivery);
     // The project's own grid, so the frame written is the frame the playhead is
     // standing on rather than the nearest one at some other rate.
     let settings = RenderSettings::new(raster, project.timeline_fps);
@@ -236,11 +232,18 @@ mod tests {
         assert!(matches!(keeper.last, Some(Saved::Failed(_))));
     }
 
-    /// A constant the renderer would refuse is a panic the first time anyone
-    /// presses the button.
+    /// A kept frame is the project's shape, at the size a render delivers.
     #[test]
-    fn the_delivery_raster_is_one_a_render_would_accept() {
-        let raster = Resolution::new(DELIVERY.0, DELIVERY.1).expect("a legal raster");
-        assert_eq!(raster.to_string(), "1920x1080");
+    fn a_kept_frame_is_in_the_projects_shape() {
+        let mut project = Project::new("tall", scorsese_core::Fps::THIRTY);
+        assert_eq!(
+            Resolution::of_project(&project, Budget::Delivery).to_string(),
+            "1920x1080"
+        );
+        project.aspect = scorsese_core::Ratio::TALL;
+        assert_eq!(
+            Resolution::of_project(&project, Budget::Delivery).to_string(),
+            "1080x1920"
+        );
     }
 }

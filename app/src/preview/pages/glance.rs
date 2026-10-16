@@ -112,8 +112,10 @@ fn capture_at(project: &Project, root: &std::path::Path, at: Frames, quality: Qu
     let tools = Tools::discover().map_err(|error| error.to_string())?;
     let chrome = Chrome::discover().map_err(|error| error.to_string())?;
     // The preview's settings, so the capture is the one it reads.
-    let settings =
-        RenderSettings::new(super::super::quality::raster(quality), project.timeline_fps);
+    let settings = RenderSettings::new(
+        super::super::quality::raster(quality, project.aspect),
+        project.timeline_fps,
+    );
     let proxies = Proxies::made_in(&preview::folder(root), project);
     Renderer::new(&tools, settings)
         .with_preview(Preview::new(quality).with_proxies(proxies))

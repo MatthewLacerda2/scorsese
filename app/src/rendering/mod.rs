@@ -77,7 +77,7 @@ impl Rendering {
 
     /// The settings and the button that asks where to save.
     fn dialog(&mut self, ctx: &Context, open: &Open) {
-        let own = open.project.timeline_fps;
+        let (aspect, own) = (open.project.aspect, open.project.timeline_fps);
         let mut showing = true;
         let mut start = false;
         Window::new("Render")
@@ -85,13 +85,13 @@ impl Rendering {
             .collapsible(false)
             .resizable(false)
             .show(ctx, |ui| {
-                self.choices.show(ui, own);
+                self.choices.show(ui, aspect, own);
                 ui.separator();
                 start = ui.button("Render…").clicked();
             });
         self.asking = showing && !start;
         if start && let Some(out) = self.destination(open) {
-            let settings = self.choices.settings(own);
+            let settings = self.choices.settings(aspect, own);
             self.job = Some(Job::start(&open.project, &open.root, settings, out));
         }
     }

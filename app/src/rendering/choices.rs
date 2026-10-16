@@ -2,24 +2,21 @@
 //!
 //! Three choices and no more — size, frame rate, kind of file — each with a
 //! default good enough that pressing Render without touching any of them gives
-//! the file most people want: a 1080p mp4 at the edit's own rate. Bitrates,
+//! the file most people want: a 1080p mp4 at the edit's own rate, in the
+//! project's own shape (#1278) — 1920 × 1080 for 16:9, 1080 × 1920 for 9:16. Bitrates,
 //! codecs and sample rates stay at the renderer's defaults; they are how the
 //! file is made, not what it is, and the CLI is where somebody who cares about
 //! them already is.
 
 use egui::{ComboBox, Ui};
-use scorsese_core::Fps;
+use scorsese_core::frame::{DELIVERY_LINES, even};
+use scorsese_core::{Fps, Ratio};
 use scorsese_render::{Container, OutputFormat, RenderSettings, Resolution};
 
-/// The sizes on offer, as `(label, width, height)`. The shape of the frame is
-/// the size's, since a project has no canvas of its own to ask.
-const SIZES: [(&str, u32, u32); 5] = [
-    ("1080p — 1920 × 1080", 1920, 1080),
-    ("720p — 1280 × 720", 1280, 720),
-    ("4K — 3840 × 2160", 3840, 2160),
-    ("Vertical — 1080 × 1920", 1080, 1920),
-    ("Square — 1080 × 1080", 1080, 1080),
-];
+/// The sizes on offer, as `(name, lines on the frame's shorter side)`, each in
+/// the project's shape: its default delivery first (`Ratio::delivery`). The
+/// shape itself is the project's to change (`crate::framing`), not a size's.
+const SIZES: [(&str, u32); 3] = [("1080p", DELIVERY_LINES), ("720p", 720), ("4K", 2160)];
 
 /// The rates on offer besides the edit's own.
 const RATES: [Fps; 4] = [Fps::FILM, Fps::PAL, Fps::THIRTY, Fps::SIXTY];
@@ -27,7 +24,7 @@ const RATES: [Fps; 4] = [Fps::FILM, Fps::PAL, Fps::THIRTY, Fps::SIXTY];
 /// The render settings as the dialog holds them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Choices {
-    /// An index into [`SIZES`].
+    /// An index into [`SIZES`]: the same choice whatever the shape.
     size: usize,
     /// `None` is the edit's own rate — the one that conforms nothing.
     rate: Option<Fps>,
@@ -46,11 +43,11 @@ impl Default for Choices {
 }
 
 impl Choices {
-    /// The renderer's settings for a project whose own rate is `own`.
-    pub(crate) fn settings(&self, own: Fps) -> RenderSettings {
-        let (_, width, height) = SIZES.get(self.size).copied().unwrap_or(SIZES[0]);
-        let resolution = Resolution::new(width, height).unwrap_or(Resolution::HD);
-        RenderSettings::new(resolution, self.rate.unwrap_or(own))
+    /// The renderer's settings for a project shaped `aspect` whose own rate is
+    /// `own`.
+    pub(crate) fn settings(&self, aspect: Ratio, own: Fps) -> RenderSettings {
+        let (_, lines) = SIZES.get(self.size).copied().unwrap_or(SIZES[0]);
+        RenderSettings::new(sized(aspect, lines), self.rate.unwrap_or(own))
             .with_format(OutputFormat::defaults_for(self.container))
     }
 
@@ -59,8 +56,9 @@ impl Choices {
         self.container
     }
 
-    /// The three menus. `own` is the edit's rate, named in its option.
-    pub(crate) fn show(&mut self, ui: &mut Ui, own: Fps) {
+    /// The three menus. The sizes are in the project's shape, `aspect`; `own`
+    /// is the edit's rate, named in its option.
+    pub(crate) fn show(&mut self, ui: &mut Ui, aspect: Ratio, own: Fps) {
         egui::Grid::new("render choices")
             .num_columns(2)
             .spacing([12.0, 6.0])
@@ -81,10 +79,14 @@ impl Choices {
                 }
                 ui.label("Size");
                 ComboBox::from_id_salt("render size")
-                    .selected_text(SIZES.get(self.size).map_or("", |size| size.0))
+                    .selected_text(
+                        SIZES
+                            .get(self.size)
+                            .map_or_else(String::new, |size| label(*size, aspect)),
+                    )
                     .show_ui(ui, |ui| {
-                        for (index, (label, ..)) in SIZES.iter().enumerate() {
-                            ui.selectable_value(&mut self.size, index, *label);
+                        for (index, size) in SIZES.iter().enumerate() {
+                            ui.selectable_value(&mut self.size, index, label(*size, aspect));
                         }
                     });
                 ui.end_row();
@@ -100,6 +102,22 @@ impl Choices {
                 ui.end_row();
             });
     }
+}
+
+/// The raster `lines` on the shorter side of a frame shaped `aspect`: its
+/// delivery size scaled, each side rounded to even as every framed raster is.
+fn sized(aspect: Ratio, lines: u32) -> Resolution {
+    let (width, height) = aspect.delivery();
+    let scale = f64::from(lines) / f64::from(DELIVERY_LINES);
+    let side = |pixels: u32| even(f64::from(pixels) * scale);
+    // `even` never goes below two, so neither side is ever zero.
+    Resolution::new(side(width), side(height)).unwrap_or(Resolution::HD)
+}
+
+/// A size as the menu says it: `1080p — 1080 × 1920`.
+fn label((name, lines): (&str, u32), aspect: Ratio) -> String {
+    let raster = sized(aspect, lines);
+    format!("{name} — {} × {}", raster.width(), raster.height())
 }
 
 /// A container in words a person reads: what it is, then its extension.
@@ -128,28 +146,51 @@ mod tests {
     /// an mp4 of H.264 and AAC — what `scorsese render` makes by default too.
     #[test]
     fn the_defaults_are_the_file_most_people_want() {
-        let settings = Choices::default().settings(Fps::PAL);
+        let settings = Choices::default().settings(Ratio::WIDE, Fps::PAL);
         assert_eq!(settings.resolution, Resolution::HD);
+        let upright = Choices::default().settings(Ratio::TALL, Fps::PAL);
+        assert_eq!(upright.resolution.to_string(), "1080x1920");
         assert_eq!(settings.fps, Fps::PAL);
         assert_eq!(settings.format, OutputFormat::default());
     }
 
-    /// A size the renderer refused would fall back to 1080p without a word, so
-    /// every one on offer is held to being legal.
+    /// Every size on offer is in the project's shape, and says what it is.
     #[test]
-    fn every_size_on_offer_is_one_a_render_accepts() {
-        for (index, (label, width, height)) in SIZES.iter().enumerate() {
-            let chosen = Choices {
-                size: index,
-                ..Choices::default()
-            };
-            let resolution = chosen.settings(Fps::THIRTY).resolution;
-            assert_eq!(
-                (resolution.width(), resolution.height()),
-                (*width, *height),
-                "{label}"
-            );
-        }
+    fn every_size_on_offer_is_in_the_projects_shape() {
+        let offered = |aspect: Ratio| -> Vec<String> {
+            SIZES.iter().map(|size| label(*size, aspect)).collect()
+        };
+        assert_eq!(
+            offered(Ratio::WIDE),
+            [
+                "1080p — 1920 × 1080",
+                "720p — 1280 × 720",
+                "4K — 3840 × 2160"
+            ]
+        );
+        assert_eq!(
+            offered(Ratio::TALL),
+            [
+                "1080p — 1080 × 1920",
+                "720p — 720 × 1280",
+                "4K — 2160 × 3840"
+            ]
+        );
+        let post: Ratio = "4:5".parse().expect("a shape");
+        assert_eq!(
+            offered(post),
+            [
+                "1080p — 1080 × 1350",
+                "720p — 720 × 900",
+                "4K — 2160 × 2700"
+            ]
+        );
+        let chosen = Choices {
+            size: 1,
+            ..Choices::default()
+        };
+        let resolution = chosen.settings(post, Fps::THIRTY).resolution;
+        assert_eq!(resolution.to_string(), "720x900");
     }
 
     #[test]
@@ -159,7 +200,7 @@ mod tests {
             container: Container::Mp3,
             ..Choices::default()
         };
-        let settings = chosen.settings(Fps::THIRTY);
+        let settings = chosen.settings(Ratio::WIDE, Fps::THIRTY);
         assert_eq!(settings.fps, Fps::SIXTY);
         assert!(!settings.format.has_picture());
         assert_eq!(kind(Container::Mp3), "Sound — .mp3");

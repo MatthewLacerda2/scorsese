@@ -63,7 +63,7 @@ impl Still {
         chrome: Option<&Chrome>,
         underway: bool,
     ) {
-        let raster = super::quality::raster(quality);
+        let raster = super::quality::raster(quality, open.project.aspect);
         let wanted = [raster.width() as usize, raster.height() as usize];
         let stale = self.asked != Some(at)
             || self.says_stale_capture(underway)
@@ -87,7 +87,7 @@ impl Still {
         chrome: Option<&Chrome>,
         underway: bool,
     ) {
-        let raster = super::quality::raster(quality);
+        let raster = super::quality::raster(quality, open.project.aspect);
         self.asked = Some(at);
         self.underway = underway;
         // Cloned out of `self` before anything else is touched: the discovery

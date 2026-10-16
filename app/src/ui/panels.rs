@@ -97,6 +97,12 @@ fn opened(ui: &mut Ui, window: &mut Scorsese) {
     {
         window.start_generating();
     }
+    // The frame's shape, before Render as on the web's header: it is the
+    // shape every render is delivered in. Disabled on a read-only project, as
+    // every edit is.
+    if let Some((framing, open)) = window.framing() {
+        framing.show(ui, open, !read_only);
+    }
     // Beside Generate, and disabled on a read-only project for the same
     // reason: the renderer takes a document that validates, and a broken one
     // would only fail after the save dialog had been answered.

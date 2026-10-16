@@ -1470,7 +1470,7 @@ while its render streams.
 
 | route | who | what |
 | --- | --- | --- |
-| `POST /api/projects/{id}/renders` | a member | `{container?, video_codec?, audio_codec?, resolution?, narration_bands?, loudness?}` → `200 {render}` when kept, `202 {job}` when queued or already on its way; `400` for a shape `docs/output-formats.md` does not allow. No `resolution` is the project's platform's size, or 1920x1080 |
+| `POST /api/projects/{id}/renders` | a member | `{container?, video_codec?, audio_codec?, resolution?, narration_bands?, loudness?}` → `200 {render}` when kept, `202 {job}` when queued or already on its way; `400` for a shape `docs/output-formats.md` does not allow. No `resolution` is the project's frame with 1080 lines on its shorter side (`Resolution::of_project`) |
 | `GET /api/projects/{id}/renders` | a member | the project's kept renders, most recently used first |
 | `GET /api/renders/{id}/file` | a member | the file as an attachment, in HTTP ranges; counts as use |
 
@@ -2342,7 +2342,7 @@ in the browser is not attempted.
   (revision, frame). The page follows the job on the event stream and asks
   again every few seconds too, because the quick tunnel carries no events.
 - **Preview quality** — Full, 1/2, 1/4 — is a fraction of the delivery size of
-  the chosen shape (1920x1080 for 16:9), chosen beside the transport and said
+  the project's shape (1920x1080 for 16:9, 1080x1920 for 9:16), chosen beside the transport and said
   under it, and it means the same as the desktop app's control: one
   `scorsese_render::Quality`, one arithmetic. Full is the render's own picture
   from the originals; the reduced ones draw fewer pixels and read proxies, and a
@@ -2356,11 +2356,17 @@ in the browser is not attempted.
   the three knobs, and none of them is a decision worth defending against
   evidence.
 
-The frame's **shape** (16:9, 9:16, 1:1) is chosen in the header and remembered
-per project in the browser: a project has no aspect of its own, a render's
-resolution is its aspect. It sets the preview raster and the sizes the **Render**
-dialog offers; that dialog asks for a finished render, follows it through the
-queue and lists the project's kept renders to download.
+The frame's **shape** is the project's own, the document's `aspect` (#1278):
+a project started for a platform opens in its shape, and nobody chooses
+anything. The header shows it (16:9, 9:16, 1:1, 4:5, and the project's own if
+it is none of those), and choosing another calls `project_reframe` with the
+revision — the re-fit every surface makes — and shows its reply: what it
+re-fitted, and what it left to settle, which the assistant can be asked to
+settle. Changing the platform to one of another shape re-fits the same way. The
+shape sets the preview raster and the sizes the **Render** dialog offers, 1080
+lines on the shorter side first (`Ratio::delivery`); that dialog asks for a
+finished render, follows it through the queue and lists the project's kept
+renders to download.
 
 **The chat panel** is *Assistant turns* on screen: each turn's prompt, its
 progress lines and tool calls as they stream, its answer, what it cost and the
