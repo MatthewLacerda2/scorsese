@@ -32,14 +32,14 @@ const SONG: &str = r#"{
 fn the_smallest_patch_writes_back_only_what_it_was_given() {
     let patch = Patch::from_json(PATCH).expect("the smallest patch parses");
     let rewritten = patch.to_json().expect("serialise");
-    written::same_keys("the smallest patch", "patch", PATCH, &rewritten);
+    same_keys("the smallest patch", "patch", PATCH, &rewritten);
 }
 
 #[test]
 fn the_smallest_song_writes_back_only_what_it_was_given() {
     let song = Song::from_json(SONG).expect("the smallest song parses");
     let rewritten = song.to_json().expect("serialise");
-    written::same_keys("the smallest song", "", SONG, &rewritten);
+    same_keys("the smallest song", "", SONG, &rewritten);
 }
 
 /// The check itself: a field that appears on the way out is named.
@@ -47,10 +47,17 @@ fn the_smallest_song_writes_back_only_what_it_was_given() {
 #[should_panic(expected = "patch.width")]
 fn a_field_written_at_its_default_is_named() {
     let grown = r#"{"source": {"kind": "noise"}, "width": 0.0}"#;
-    written::same_keys(
+    same_keys(
         "a patch",
         "patch",
         r#"{"source": {"kind": "noise"}}"#,
         grown,
     );
+}
+
+/// Fails with [`written::drift`]'s words, if it has any.
+fn same_keys(what: &str, root: &str, written: &str, rewritten: &str) {
+    if let Some(problem) = written::drift(what, root, written, rewritten) {
+        panic!("{problem}");
+    }
 }

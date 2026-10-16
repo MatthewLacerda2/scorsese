@@ -4,7 +4,7 @@
 //! a recipe whenever they write one. So an optional field that writes its
 //! default into every document changes every recipe's bytes, and every cached
 //! bake misses, without a sample moving (`crates/zimmer/CLAUDE.md`). Each such
-//! field takes `skip_serializing_if`, and [`same_keys`] holds every one of them
+//! field takes `skip_serializing_if`, and [`drift`] holds every one of them
 //! at once — including the next one, which is the point.
 //!
 //! Shared by path with `crates/providers/tests/documented`, which holds the
@@ -46,13 +46,6 @@ const PREDATES_THE_RULE: &[&str] = &[
     // A one-shot recipe's own field, `providers`' `OneShot`.
     ".velocity",
 ];
-
-/// Fails with [`drift`]'s words if there are any.
-pub(crate) fn same_keys(what: &str, root: &str, written: &str, rewritten: &str) {
-    if let Some(problem) = drift(what, root, written, rewritten) {
-        panic!("{problem}");
-    }
-}
 
 /// Every key the round trip from `written` to `rewritten` added or dropped,
 /// beyond [`PREDATES_THE_RULE`], as a failure message; `what` names the
