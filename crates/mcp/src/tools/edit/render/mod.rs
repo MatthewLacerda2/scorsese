@@ -3,9 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use schemars::JsonSchema;
-use scorsese_render::{
-    AudioCodec, Cancel, Container, OutputFormat, Renderer, Tools, VideoCodec, say,
-};
+use scorsese_render::{Cancel, Renderer, Tools, say};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -208,8 +206,13 @@ fn prepared(dir: &Path, arguments: &Arguments) -> Result<(String, PathBuf, Work)
     let out = arguments.out.clone();
     // First, before the project is opened — the order `scorsese render`
     // keeps, for its reason: the shape of the file is the cheapest thing
-    // to get wrong and the most expensive to find out late.
-    let format = format(arguments, &path)?;
+    // to get wrong and the most expensive to find out late. Built by the
+    // rules every surface shares, from `out` as the CLI builds it.
+    let ask = settings::ask(arguments)?;
+    let format = ask
+        .format_for(&path)
+        .map_err(|problem| problem.to_string())?;
+    ask.check(format).map_err(|problem| problem.to_string())?;
     // Read now, so the render is of the cut as it stood when it was asked
     // for; an edit made while it runs is in the next one.
     let project = load(dir)?;
@@ -230,50 +233,16 @@ fn prepared(dir: &Path, arguments: &Arguments) -> Result<(String, PathBuf, Work)
             .with_progress(progress)
             .render(&project, &dir, range, &target)
             .map_err(|error| format!("rendering: {error}"))?;
-        // Then what the CLI prints about sound, in its words: how loud the
-        // file came out, and whether it had to be turned down to get there.
-        // An agent is the caller least able to hear the result for itself.
+        // Then what the CLI prints after its file, in its words: how loud the
+        // file came out and whether it had to be turned down to get there,
+        // then a note for a page that could not be captured (#777) or a bake
+        // played out of date (#1000). An agent is the caller least able to
+        // hear the result for itself, and cannot fix what it is not told.
         let mut words = format!("wrote {said} — {}, as {format}", say::written(&report));
-        for line in say::delivery(&report) {
+        for line in say::report(&report, &stale) {
             words.push_str(&format!("\n{line}"));
-        }
-        // What the CLI prints as `note:` lines, in the same words: a page
-        // that could not be captured, or one that asked for something it was
-        // not given (#777). An agent cannot fix what it is not told.
-        for note in &report.notes {
-            words.push_str(&format!("\nnote: {note}"));
-        }
-        for note in &stale {
-            words.push_str(&format!("\nnote: {note}"));
         }
         Ok(words)
     });
     Ok((out, path, work))
-}
-
-/// The shape of the file, built the way `scorsese render` builds it — by
-/// [`OutputFormat::for_path`] — so a file name, an override and every refusal
-/// read the same from either client. Checked before the project's media or
-/// ffmpeg are touched, because a combination we do not write costs nothing to
-/// refuse and a whole encode to discover.
-fn format(arguments: &Arguments, out: &Path) -> Result<OutputFormat, String> {
-    let container = arguments
-        .container
-        .as_deref()
-        .map(str::parse::<Container>)
-        .transpose()
-        .map_err(|problem| format!("{problem}"))?;
-    let video = arguments
-        .video_codec
-        .as_deref()
-        .map(str::parse::<VideoCodec>)
-        .transpose()
-        .map_err(|problem| format!("{problem}"))?;
-    let audio = arguments
-        .audio_codec
-        .as_deref()
-        .map(str::parse::<AudioCodec>)
-        .transpose()
-        .map_err(|problem| format!("{problem}"))?;
-    OutputFormat::for_path(out, container, video, audio).map_err(|problem| format!("{problem}"))
 }

@@ -25,7 +25,7 @@ use std::path::Path;
 use scorsese_zimmer::level::Loudness;
 
 pub use compare::comparison;
-pub use delivery::{delivery, written};
+pub use delivery::{delivery, notes, report, written};
 pub use grid::grid;
 pub use layers::layers;
 pub use like::likeness;

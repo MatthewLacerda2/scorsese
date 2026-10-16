@@ -31,7 +31,9 @@
 //! starting a browser itself. A capture that fails is not a failed render — the
 //! clip shows its slug card — so what the render said comes back in the
 //! result's `notes`, the reason a page was not captured among them: the
-//! assistant reads those, since nothing else would tell it.
+//! assistant reads those, since nothing else would tell it. They are the lines
+//! `scorsese render` prints after its file, a synth bake played out of date
+//! among them ([`super::said`], #1289).
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -44,7 +46,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use super::{RenderCache, RenderView, Settings, evict, preview, store};
-use crate::captures::dispatch::{self, Pages};
+use crate::captures::dispatch::Pages;
 use crate::db::{self, Says, UserId};
 use crate::jobs::{Context, Handler, Job, Outcome, blocking};
 use crate::library::locate::{self, Located};
@@ -234,7 +236,7 @@ struct Places {
 }
 
 /// Lay the project out, have its pages captured, and render it to `out`;
-/// what the render said: the delivered soundtrack's loudness, then its notes. Blocking: a render is minutes of CPU, and waiting
+/// what the render said ([`super::said`]). Blocking: a render is minutes of CPU, and waiting
 /// on captures minutes more, so it runs off the server's async threads.
 fn produce(
     tools: &Tools,
@@ -296,11 +298,7 @@ fn produce(
     let report = renderer
         .render(project, laid.root(), FrameRange::ALL, out)
         .map_err(rendering)?;
-    // How loud the file came out and what reaching a loudness target took,
-    // in the words `scorsese render` and the stdio tool say it in (#990).
-    let mut said = scorsese_render::say::delivery(&report);
-    said.extend(dispatch::said(&report.notes, project, &failed));
-    Ok(said)
+    Ok(super::said::said(report, project, laid.root(), &failed))
 }
 
 /// Where each of the owner's library files `project` names is, by hash —

@@ -7,7 +7,7 @@ use scorsese_core::Fps;
 use scorsese_core::style::Platform;
 use scorsese_render::say;
 use scorsese_render::{
-    AudioCodec, Bands, Bitrate, Container, Cue, FrameRange, LoudnessTarget, OutputFormat,
+    AudioCodec, Bands, Bitrate, Container, Cue, FrameRange, LoudnessTarget, RenderAsk,
     RenderSettings, Renderer, Resolution, SampleRate, Tools, VideoCodec, Workers, frames,
 };
 
@@ -70,51 +70,40 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
     // First, before the project is even opened: what shape the file is asked
     // to be is the cheapest thing to get wrong and the most expensive thing to
     // find out late. A combination we do not write is refused here, with
-    // nothing spent and no ffmpeg yet located.
-    let format = OutputFormat::for_path(
-        out,
-        options.container,
-        options.video_codec,
-        options.audio_codec,
-    )?;
-    // Then every flag that only means something to a picture, against a
-    // format that may have none: refused rather than ignored, because a flag
-    // that silently does nothing is the worse of the two.
+    // nothing spent and no ffmpeg yet located — by the rules every surface
+    // shares (`RenderAsk`), so a flag means here what an argument means over
+    // MCP and on the web.
+    let ask = RenderAsk {
+        container: options.container,
+        video_codec: options.video_codec,
+        audio_codec: options.audio_codec,
+        resolution: options.resolution,
+        platform: options.platform,
+        fps: options.fps,
+        bitrate: options.bitrate,
+        sample_rate: Some(options.sample_rate),
+        audio_bitrate: options.audio_bitrate,
+        bands: options.bands,
+        loudness: options.loudness,
+    };
+    let format = ask.format_for(out)?;
+    ask.check(format)?;
+    // The two flags only this command has, refused for a format with no
+    // picture as the shared ones are, rather than ignored.
     for (given, setting) in [
-        (options.resolution.is_some(), "a resolution"),
-        (options.platform.is_some(), "a platform"),
-        (options.fps.is_some(), "a frame rate"),
-        (options.bitrate.is_some(), "a video bitrate"),
         (options.threads.is_some(), "a compositing thread count"),
         (options.stills.is_some(), "stills"),
-        (
-            options.bands == Bands::Omitted,
-            "leaving narration bands out",
-        ),
     ] {
         if given {
             format.picture_setting(setting)?;
         }
     }
-    // And the sound's one limit of the same kind: a rate the encoder will
-    // not take, which ffmpeg would only say after the whole mix.
-    format.sample_rate(options.sample_rate)?;
 
     let project = super::open(project_dir)?;
 
     // The project's own grid is the right default: rendering at the rate the
     // edit was authored against is the one output rate that needs no conform.
-    let fps = options.fps.unwrap_or(project.timeline_fps);
-    let resolution = options
-        .resolution
-        .or(options.platform.map(Resolution::of))
-        .unwrap_or(Resolution::HD);
-    let settings = RenderSettings::new(resolution, fps)
-        .with_bitrate(options.bitrate)
-        .with_audio(options.sample_rate, options.audio_bitrate)
-        .with_format(format)
-        .with_bands(options.bands)
-        .with_loudness(options.loudness);
+    let settings = ask.settings(format, project.timeline_fps)?;
     let range = options.range.unwrap_or(FrameRange::ALL);
     // A render plays whatever a synth asset was last baked to and never bakes
     // it again, so a recipe edited since, or a clip a song is fitted to that
@@ -158,20 +147,15 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
             println!("    {clip:<20} {}", say::loudness(level));
         }
     }
-    // The file itself, read back — which is a different number from the mix
-    // above whenever the codec is lossy, and the one a clipping verdict is
-    // about. Then what was done to keep it under full scale, if anything was.
-    for line in say::delivery(&report) {
-        println!("  {line}");
-    }
     if let Some(bitrate) = options.bitrate {
         println!("  bitrate {bitrate}");
     }
-    for note in &report.notes {
-        println!("  note: {note}");
-    }
-    for note in &stale {
-        println!("  note: {note}");
+    // The file itself, read back — which is a different number from the mix
+    // above whenever the codec is lossy, and the one a clipping verdict is
+    // about. Then what was done to keep it under full scale, if anything was,
+    // and a note for whatever the render could not do as asked.
+    for line in say::report(&report, &stale) {
+        println!("  {line}");
     }
     // What is actually in the file, which until now nobody could learn without
     // watching it. Printed every time rather than behind a flag: an unattended

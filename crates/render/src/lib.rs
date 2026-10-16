@@ -76,8 +76,9 @@
 //! **A render, at the crate root.** [`Tools`] locates the binaries, [`Plan`]
 //! decides what occupies every frame, [`Renderer`] produces the file and
 //! [`RenderReport`] says what happened while it did; [`RenderSettings`] and
-//! [`OutputFormat`] are what the caller chose about the file, with [`Workers`]
-//! for how much of the machine to spend producing it. The review half is
+//! [`OutputFormat`] are what the caller chose about the file, read from what
+//! every surface offers by [`RenderAsk`], with [`Workers`] for how much of the
+//! machine to spend producing it. The review half is
 //! [`Description`] — with [`Stretch`], [`Playing`] and [`Shown`] under it —
 //! and [`Cue`], which names a frame in the delivered file. [`Layout`] is the
 //! same review asked *where*: the rectangle each clip's content covers at one
@@ -103,8 +104,8 @@
 //! show ([`frames::thumbnail`]); and [`mod@say`] turns a measurement into rows a
 //! person reads ([`say::summary`], [`say::sections`], [`say::layers`],
 //! [`say::survey`], [`say::comparison`], [`say::grid`]) — and what a render says about the
-//! file it delivered ([`say::written`], [`say::delivery`]), so the two clients
-//! that render say it in the same words. [`mod@tools`] holds the two
+//! file it delivered ([`say::written`], [`say::report`]), so every surface
+//! that renders says it in the same words. [`mod@tools`] holds the two
 //! environment variables that point the binaries somewhere else
 //! ([`tools::FFMPEG_ENV`], [`tools::FFPROBE_ENV`]) beside the [`Tools`] the
 //! root publishes. [`mod@checkup`] keeps its path for the verb reason too —
@@ -147,6 +148,7 @@
 //! things to call: nothing above this crate composes them differently, and a
 //! second caller of any of them would be a second renderer.
 
+pub(crate) mod ask;
 pub(crate) mod attach;
 pub mod audio;
 pub(crate) mod cancel;
@@ -241,6 +243,7 @@ pub mod picture {
     pub use scorsese_compositor::text::caption;
 }
 
+pub use ask::{AskError, RenderAsk, Spelled};
 pub use audio::{LoudnessTarget, LoudnessTargetError};
 pub use cancel::Cancel;
 pub use checkup::Checkup;

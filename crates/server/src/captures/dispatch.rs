@@ -159,11 +159,11 @@ fn none_captured(requests: &[Wanted], why: &str, chrome: Option<Chrome>) -> Capt
     }
 }
 
-/// What a render said, in the words its owner reads: every note, with a page
+/// What a render noted, as its owner is told it: every note once, with a page
 /// that showed its card saying why the worker did not capture it rather than
 /// the renderer's "not captured yet".
-pub fn said(notes: &[Note], project: &Project, failed: &HashMap<String, String>) -> Vec<String> {
-    let mut said: Vec<String> = Vec::new();
+pub fn told(notes: &[Note], project: &Project, failed: &HashMap<String, String>) -> Vec<Note> {
+    let mut told: Vec<Note> = Vec::new();
     for note in notes {
         let note = match note {
             Note::PageNotCaptured { clip, asset, .. } => {
@@ -183,12 +183,11 @@ pub fn said(notes: &[Note], project: &Project, failed: &HashMap<String, String>)
             }
             other => other.clone(),
         };
-        let line = note.to_string();
-        if !said.contains(&line) {
-            said.push(line);
+        if !told.contains(&note) {
+            told.push(note);
         }
     }
-    said
+    told
 }
 
 #[cfg(test)]
@@ -217,19 +216,22 @@ mod tests {
         let failed = HashMap::from([("pages/title.html".to_owned(), "stopped".to_owned())]);
         let notes = [card("not captured yet"), warned.clone(), warned.clone()];
 
-        let said = said(&notes, &project, &failed);
+        let told = told(&notes, &project, &failed);
 
-        assert_eq!(said, [card("stopped").to_string(), warned.to_string()]);
-        let none = said_with_nothing_failed(&project);
-        assert!(none[0].ends_with("not captured yet"), "{none:?}");
+        assert_eq!(told, [card("stopped"), warned]);
+        let none = told_with_nothing_failed(&project);
+        assert!(
+            none[0].to_string().ends_with("not captured yet"),
+            "{none:?}"
+        );
     }
 
-    fn said_with_nothing_failed(project: &Project) -> Vec<String> {
+    fn told_with_nothing_failed(project: &Project) -> Vec<Note> {
         let card = Note::PageNotCaptured {
             clip: "c1".into(),
             asset: "title".into(),
             reason: "not captured yet".into(),
         };
-        said(&[card], project, &HashMap::new())
+        told(&[card], project, &HashMap::new())
     }
 }
