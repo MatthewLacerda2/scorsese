@@ -219,8 +219,8 @@ pub fn cached(root: &Path) -> Vec<Voice> {
 /// already chose can still be generated with, so answering it out of a saved
 /// list would be answering with the very information that has gone out of date.
 ///
-/// This is the call a generation makes before spending anything. What it must
-/// never do is return some other voice.
+/// A Voice Library voice the account has not saved yet counts as usable, as it
+/// is on any paid plan. What this must never do is return some other voice.
 pub fn require(catalogue: &dyn Catalogue, voice_id: &str) -> Result<Voice, VoiceError> {
     match catalogue.one(voice_id)? {
         Availability::Available(voice) | Availability::InLibrary(voice) => Ok(voice),
