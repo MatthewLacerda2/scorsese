@@ -63,7 +63,7 @@ fn rules(root: &Path) -> bool {
     };
     if findings.is_empty() {
         println!(
-            "conventions: prefix groups, markers, skipped tests, crate docs, ignored code, schema literals -- all held"
+            "conventions: prefix groups, markers, skipped tests, crate docs, ignored code, schema literals, script modes -- all held"
         );
         return true;
     }
