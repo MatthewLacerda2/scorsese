@@ -9,6 +9,8 @@ fn a_ratio_is_kept_in_lowest_terms_and_spelled_as_written() {
         serde_json::to_string(&tall).expect("serialises"),
         "\"9:16\""
     );
+    assert_eq!(Ratio::from(Aspect::Tall), Ratio::TALL);
+    assert_eq!(Ratio::from(Aspect::Wide), Ratio::WIDE);
     let read: Ratio = serde_json::from_str("\"4:5\"").expect("deserialises");
     assert_eq!((read.across(), read.down()), (4, 5));
 }
