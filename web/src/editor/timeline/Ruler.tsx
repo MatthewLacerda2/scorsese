@@ -3,6 +3,7 @@
 
 import type { PointerEvent } from "react";
 import type { Fps } from "@/api";
+import { formatClock } from "@/lib/format";
 import { framesToPx, rate, type Zoom } from "./time";
 
 interface Props {
@@ -38,9 +39,7 @@ export function Ruler({ width, zoom, fps, onScrub }: Props) {
           className="absolute top-0 h-full border-l pl-1"
           style={{ left: framesToPx(second * rate(fps), zoom, fps) }}
         >
-          {second >= 60
-            ? `${Math.floor(second / 60)}:${String(second % 60).padStart(2, "0")}`
-            : `${second}s`}
+          {formatClock(second, "floor")}
         </span>
       ))}
     </div>

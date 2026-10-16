@@ -184,7 +184,7 @@ pub use text::{
     Counter, DEFAULT_FONT, FontChoice, Locale, MAX_DECIMALS, MAX_WEIGHT, MIN_WEIGHT, PLACEHOLDER,
     Reveal, RevealUnit, TextAlign, TextStyle,
 };
-pub use time::{Fps, FpsError, FpsParseError, Frames, Speed};
+pub use time::{Fps, FpsError, FpsParseError, Frames, Precision, Speed, clock};
 pub use timeline::{
     Anchor, AnchorX, AnchorY, Clip, ClipId, Crop, Fit, Follow, Origin, OriginX, OriginY, Track,
     TrackId, TrackKind,

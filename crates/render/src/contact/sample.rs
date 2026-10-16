@@ -5,6 +5,8 @@
 //! is taller than it is wide) are decided somewhere they can be checked without
 //! decoding anything.
 
+use scorsese_core::{Precision, clock};
+
 /// The most frames one sheet may hold.
 ///
 /// The compositor's cap, taken rather than restated: two numbers meaning "how
@@ -184,27 +186,11 @@ fn even(side: u32) -> u32 {
 /// named a range that does not divide evenly. Whole seconds are the common
 /// case and `0:05.0` reads as more precision than anybody asked for.
 pub fn label(seconds: f64) -> String {
-    let seconds = seconds.max(0.0);
-    let whole = seconds.trunc() as u64;
-    let tenth = ((seconds - seconds.trunc()) * 10.0).round() as u64;
-    let (whole, tenth) = if tenth >= 10 {
-        (whole + 1, 0)
+    let whole_tenth = ((seconds.max(0.0) * 10.0).round() as u64).is_multiple_of(10);
+    let precision = if whole_tenth {
+        Precision::Round
     } else {
-        (whole, tenth)
+        Precision::Tenths
     };
-
-    let mut clock = if whole >= 3600 {
-        format!(
-            "{}:{:02}:{:02}",
-            whole / 3600,
-            (whole / 60) % 60,
-            whole % 60
-        )
-    } else {
-        format!("{}:{:02}", whole / 60, whole % 60)
-    };
-    if tenth != 0 {
-        clock.push_str(&format!(".{tenth}"));
-    }
-    clock
+    clock(seconds, precision)
 }

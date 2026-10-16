@@ -19,7 +19,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useLanguage, useT } from "@/i18n/I18nProvider";
-import { formatBytes, formatDate, formatDuration } from "@/lib/format";
+import { formatBytes, formatClock, formatDate } from "@/lib/format";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { DownloadButton } from "./download/DownloadButton";
 import { EditableText } from "./EditableText";
@@ -113,7 +113,7 @@ function Details({
         {item.media.duration_seconds !== undefined && (
           <>
             <dt className="text-muted-foreground">{words.duration}</dt>
-            <dd>{formatDuration(item.media.duration_seconds)}</dd>
+            <dd>{formatClock(item.media.duration_seconds, "round")}</dd>
           </>
         )}
         <dt className="text-muted-foreground">{words.added}</dt>

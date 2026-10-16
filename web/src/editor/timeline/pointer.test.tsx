@@ -103,7 +103,7 @@ describe("a clip dragged on the timeline", () => {
 describe("the timeline's panel handle", () => {
   test("a press on the ruler scrubs, and a drag on the handle above it does not", () => {
     const { seeks } = mount();
-    const ruler = screen.getByText("0s").parentElement as HTMLElement;
+    const ruler = screen.getByText("0:00").parentElement as HTMLElement;
     fireEvent.pointerDown(ruler, { button: 0, pointerId: 2, clientX: 40, clientY: 5 });
     expect(seeks).toHaveBeenCalledTimes(1);
     seeks.mockClear();
