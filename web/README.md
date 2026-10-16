@@ -48,6 +48,7 @@ button work here too.
 | `src/build/budget.ts` | the entry chunk's budget, a Vite plugin: the build fails when what a first visit downloads outgrows it, and says why the number is what it is | — |
 | `src/build/kit.ts` | the motion kit for the landing page, a Vite plugin (and, for `bun test`, `src/test/kit.ts`): joins the kit's pieces into the one script a video's page loads, in the same order | — |
 | `src/app/events.ts` | `useServerEvents`: the one `EventSource` on `/api/events` a page holds, shared by every listener, with a `resync` after a reconnect | anything live — jobs, the assistant, a project another tab changed |
+| `src/app/ErrorBoundary.tsx`, `src/app/crashes.ts` | a crash contained where it happened: one boundary around the app (#1426), one around each editor panel with `place="panel"` (#1428); what a boundary catches, and what the window sees thrown or rejected, is posted once to `POST /api/client-errors` for the server's log | a new independent piece of a page — give it its own boundary |
 | `src/session/` | `useAccount`, `useLogout`, the `RequireSession` guard and the `?next=` rule | anything that needs to know who is logged in |
 | `src/files/` | the Drive-like browser (grid, details panel, viewer), and uploads: an `UploadsProvider` around the signed-in app, so an upload survives navigation | showing or picking library files anywhere |
 | `src/lib/upload/` | the browser-side hash, the Uppy + tus uploader, and the duplicate rule (a `409` with `item` is never retried) | — |
