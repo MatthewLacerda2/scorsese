@@ -8,6 +8,7 @@
 
 import Uppy from "@uppy/core";
 import Tus from "@uppy/tus";
+import { api } from "@/api";
 import { shouldRetry } from "./duplicate";
 
 /** Chunks stay well under Cloudflare's 100 MB request cap. */
@@ -25,7 +26,7 @@ export type Uploader = Uppy<UploadMeta, Record<string, never>>;
 /** A new uploader. Files added to it start uploading at once. */
 export function createUploader(): Uploader {
   return new Uppy<UploadMeta, Record<string, never>>({ autoProceed: true }).use(Tus, {
-    endpoint: "/api/uploads",
+    endpoint: api.uploads.endpoint,
     chunkSize: CHUNK_BYTES,
     // Only what the server reads; Uppy would otherwise send every field it
     // keeps (type, relative path…) in `Upload-Metadata`.

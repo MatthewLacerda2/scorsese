@@ -3,7 +3,7 @@
   // runs Biome with this config. The web's own biome.jsonc leaves this folder out,
   // since a fixture that must be flagged would fail the real lint.
   "$schema": "../../node_modules/@biomejs/biome/configuration_schema.json",
-  "plugins": ["../oneComponentPerFile.grit", "../noRawStorage.grit", "../literalUiText.grit", "../colorsFromTokens.grit"],
+  "plugins": ["../oneComponentPerFile.grit", "../noRawStorage.grit", "../literalUiText.grit", "../colorsFromTokens.grit", "../serverUrlOutsideApi.grit"],
   "formatter": { "enabled": false },
   "assist": { "enabled": false },
   "linter": { "rules": { "preset": "none" } }

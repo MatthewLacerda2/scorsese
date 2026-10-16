@@ -36,6 +36,16 @@
         "!**/src/components/ui/**",
         "!**/*.test.ts",
         "!**/*.test.tsx"
+    },
+    {
+      "path": "./lint/serverUrlOutsideApi.grit",
+      // src/api is where server paths live; tests name the URL they expect or fake.
+      "includes": [
+        "**/src/**",
+        "!**/src/api/**",
+        "!**/*.test.ts",
+        "!**/*.test.tsx",
+        "!**/src/test/**"
       ]
     }
   ],
@@ -49,9 +59,53 @@
     "enabled": true,
     "rules": {
       "preset": "recommended",
-      "suspicious": { "noShadow": "error" }
+      "suspicious": { "noShadow": "error" },
+      "style": {
+        // Only src/api talks to the server (web/README.md, *How it is laid out*);
+        // the overrides below name the files that may.
+        "noRestrictedGlobals": {
+          "level": "error",
+          "options": {
+            "deniedGlobals": {
+              "fetch": "Call the server through `api` (src/api), never `fetch` in a page.",
+              "EventSource": "Listen with `useServerEvents` (src/app/events.ts): one stream per page."
+            }
+          }
+        },
+        // A page is a lazy chunk (#896): imported only by src/app/pages.ts.
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "patterns": [
+              {
+                "group": ["@/pages/**", "../pages/**", "../../pages/**"],
+                "message": "A page is imported only by src/app/pages.ts, lazily, so the landing page never downloads it."
+              }
+            ]
+          }
+        }
+      }
     }
   },
+  "overrides": [
+    {
+      // src/api is the door to the server, src/app/events.ts holds the one stream,
+      // and tests stand in their own transport.
+      "includes": [
+        "**/src/api/**",
+        "**/src/app/events.ts",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/src/test/**",
+        "**/tests/**"
+      ],
+      "linter": { "rules": { "style": { "noRestrictedGlobals": "off" } } }
+    },
+    {
+      "includes": ["**/src/app/pages.ts"],
+      "linter": { "rules": { "style": { "noRestrictedImports": "off" } } }
+    }
+  ],
   "css": {
     "parser": {
       "tailwindDirectives": true

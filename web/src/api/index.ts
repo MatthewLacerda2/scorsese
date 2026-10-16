@@ -76,6 +76,21 @@ export const api = {
   account: {
     logout: () => request<void>("POST", "/logout"),
     me: () => request<Account>("GET", "/me"),
+    /**
+     * Where the sign-in button sends the browser: the server's start of the
+     * Google flow, a run of full-page redirects rather than a call. `next` is
+     * the path to come back to, already made safe by the caller.
+     */
+    googleSignIn: (next: string | null) =>
+      next === null ? "/api/auth/google" : `/api/auth/google?next=${encodeURIComponent(next)}`,
+  },
+  /** The live stream (`src/app/events.ts` holds the one `EventSource` on it). */
+  events: {
+    url: "/api/events",
+  },
+  /** Where tus sends a file (`src/lib/upload/uploader.ts`); chunks follow its `Location`. */
+  uploads: {
+    endpoint: "/api/uploads",
   },
   projects: {
     list: () => request<ProjectSummary[]>("GET", "/projects"),
