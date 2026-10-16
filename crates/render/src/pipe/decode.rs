@@ -491,7 +491,7 @@ mod tests {
     }
 
     fn holding(file: &str) -> Vec<String> {
-        let mut command = Command::new("ffmpeg");
+        let mut command = crate::tools::Tools::at("ffmpeg", "ffprobe").ffmpeg();
         hold(&mut command, Path::new(file), "30/1");
         command
             .get_args()
