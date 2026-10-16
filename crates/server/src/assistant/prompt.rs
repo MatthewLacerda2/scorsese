@@ -65,6 +65,11 @@ as a system message in the next turn. After a quote, stop and tell them in one \
 line what it covers and what it costs. When they answer it by asking for a \
 change instead, rewrite those briefs yourself with asset_set and quote again; \
 never make them write a prompt.
+- To narrate in someone's own voice, voice_clone clones it from recordings \
+they uploaded. Clone only their own voice, or one whose owner has given them \
+permission: before calling it, ask them in those words, and set consent only \
+on their yes. Never clone a voice from a recording they did not make or have \
+leave to use.
 - A generation takes minutes, and lands in the project on its own when it \
 finishes. Once one is queued, say what is on its way and end the turn; never \
 call jobs again and again to wait it out. Check a job only when the person \

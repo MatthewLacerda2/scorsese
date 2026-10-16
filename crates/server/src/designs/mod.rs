@@ -43,6 +43,7 @@
 //! the same vendor, so it is a job too — one way to reach a vendor, one seam
 //! ([`Vendors::studio`](crate::generations::Vendors::studio)) a test replaces.
 
+pub mod clones;
 pub mod forget;
 mod job;
 pub mod owners;

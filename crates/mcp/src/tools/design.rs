@@ -114,8 +114,8 @@ impl Tool for VoiceDesign {
          What keep creates lives in the user's ElevenLabs account rather than in the \
          project, so the description and the seed are recorded in \
          designed-voices.json — a voice that is later deleted, or a project opened \
-         under another account, can then be asked for again. Voice cloning from \
-         someone's recorded speech is not offered here in any form."
+         under another account, can then be asked for again. To narrate in the user's \
+         own recorded voice instead, voice_clone clones it from their recordings."
     }
 
     fn costs(&self) -> Costs {

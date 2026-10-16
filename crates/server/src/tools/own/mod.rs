@@ -37,6 +37,8 @@ pub(crate) enum Own {
     Generate,
     /// A voice designed, kept or listed (#572).
     VoiceDesign,
+    /// A voice cloned from recordings, listed or forgotten (#1263).
+    VoiceClone,
     /// What the caller has spent.
     Spending,
     /// The caller's templates.
@@ -49,7 +51,7 @@ pub(crate) enum Own {
 
 impl Own {
     /// Every one of them.
-    pub(crate) const ALL: [Self; 12] = [
+    pub(crate) const ALL: [Self; 13] = [
         Self::ProjectList,
         Self::ProjectNew,
         Self::Library,
@@ -58,6 +60,7 @@ impl Own {
         Self::Jobs,
         Self::Generate,
         Self::VoiceDesign,
+        Self::VoiceClone,
         Self::Spending,
         Self::TemplateList,
         Self::TemplateSave,
@@ -84,6 +87,7 @@ impl Own {
             "import" => &[Self::Library, Self::Import],
             "generate" => &[Self::Generate],
             "voice_design" => &[Self::VoiceDesign],
+            "voice_clone" => &[Self::VoiceClone],
             "render" => &[Self::Render, Self::Jobs],
             _ => &[],
         }
@@ -100,6 +104,7 @@ impl Own {
             Self::Jobs => queue::JOBS,
             Self::Generate => super::generate::NAME,
             Self::VoiceDesign => super::design::NAME,
+            Self::VoiceClone => super::design::clone::NAME,
             Self::Spending => spending::NAME,
             Self::TemplateList => templates::LIST,
             Self::TemplateSave => templates::SAVE,
@@ -118,6 +123,7 @@ impl Own {
             Self::Jobs => queue::JOBS_SAYS,
             Self::Generate => super::generate::DESCRIPTION,
             Self::VoiceDesign => super::design::DESCRIPTION,
+            Self::VoiceClone => super::design::clone::DESCRIPTION,
             Self::Spending => spending::DESCRIPTION,
             Self::TemplateList => templates::LIST_SAYS,
             Self::TemplateSave => templates::SAVE_SAYS,
@@ -136,6 +142,7 @@ impl Own {
             Self::Jobs => queue::jobs_schema(),
             Self::Generate => super::generate::schema(),
             Self::VoiceDesign => super::design::schema(),
+            Self::VoiceClone => super::design::clone::schema(),
             Self::Spending => spending::schema(),
             Self::TemplateList => json!({ "type": "object", "properties": {} }),
             Self::TemplateSave => templates::save_schema(),
@@ -167,6 +174,7 @@ impl Own {
             Self::Jobs => queue::jobs(caller, arguments).await,
             Self::Generate => super::generate::call(caller, arguments).await,
             Self::VoiceDesign => super::design::call(caller, arguments).await,
+            Self::VoiceClone => super::design::clone::call(caller, arguments).await,
             Self::Spending => spending_history(caller, arguments).await,
             Self::TemplateList => templates::list(caller).await,
             Self::TemplateSave => templates::save(caller, arguments).await,

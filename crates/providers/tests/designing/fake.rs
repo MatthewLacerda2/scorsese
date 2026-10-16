@@ -7,6 +7,7 @@
 use std::cell::RefCell;
 
 use scorsese_providers::video::ProviderError;
+use scorsese_providers::voices::clone::{CloneError, Made, Request};
 use scorsese_providers::voices::design::{Brief, Candidate, DesignError, Studio};
 use scorsese_providers::voices::{Voice, VoiceError};
 
@@ -31,6 +32,8 @@ pub(crate) struct Fake {
     pub(crate) kept: RefCell<Vec<Keeping>>,
     /// Every voice deleted from the account, in order.
     pub(crate) forgotten: RefCell<Vec<String>>,
+    /// Every clone asked for, in order.
+    pub(crate) cloned: RefCell<Vec<Request>>,
 }
 
 impl Fake {
@@ -54,6 +57,7 @@ impl Fake {
             designs: RefCell::new(0),
             kept: RefCell::new(Vec::new()),
             forgotten: RefCell::new(Vec::new()),
+            cloned: RefCell::new(Vec::new()),
         }
     }
 
@@ -112,5 +116,24 @@ impl Studio for Fake {
         }
         self.forgotten.borrow_mut().push(voice_id.to_owned());
         Ok(())
+    }
+
+    fn clone_voice(&self, request: &Request) -> Result<Made, CloneError> {
+        if self.free_plan {
+            return Err(CloneError::NotOnThisPlan {
+                said: String::from("Instant voice cloning is not available on your plan."),
+            });
+        }
+        self.cloned.borrow_mut().push(request.clone());
+        Ok(Made {
+            voice: Voice {
+                id: format!("clone-{}", self.cloned.borrow().len()),
+                name: request.name.clone(),
+                traits: vec![String::from("cloned")],
+                description: request.description.clone(),
+                preview: None,
+            },
+            requires_verification: false,
+        })
     }
 }

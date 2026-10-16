@@ -57,6 +57,7 @@
 
 mod cache;
 mod catalogue;
+pub mod clone;
 pub mod design;
 mod elevenlabs;
 mod error;

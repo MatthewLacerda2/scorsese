@@ -14,6 +14,8 @@
 //! token) designs what was quoted. `keep`, `list` and `forget` spend nothing
 //! and take no token, as locally.
 
+mod args;
+pub(crate) mod clone;
 mod keep;
 
 use scorsese_core::Timestamp;
@@ -29,6 +31,7 @@ use crate::credits::{CreditError, Product, charge_for, dollars, from_cents, ledg
 use crate::db;
 use crate::designs::DesignPayload;
 use crate::jobs::{kinds, store as jobs};
+use args::{seed, text};
 
 /// How a client names it.
 pub(crate) const NAME: &str = "voice_design";
@@ -49,7 +52,8 @@ can name — free, no token, also a job whose result is the voice_id. Pass list 
 every voice you have designed, and forget with one of their voice_ids to delete it and free \
 its slot — free, no token, a job. A kept voice lives in scorsese's ElevenLabs account, not in a \
 project, so it is yours in every project, and the description and seed that made it are kept \
-with it. Voice cloning from someone's recorded speech is not offered here in any form.";
+with it. To narrate in your own recorded voice instead, voice_clone clones it from your \
+recordings.";
 
 /// Its arguments.
 pub(crate) fn schema() -> Value {
@@ -284,49 +288,9 @@ fn credits(cents: u64) -> i64 {
     charge_for(Product::VoiceDesign, cents)
 }
 
-/// A string argument, blank counting as absent.
-fn text(arguments: &Value, name: &str) -> Option<String> {
-    arguments
-        .get(name)
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-}
-
-/// The seed, refused rather than rounded when it is not a whole number.
-fn seed(arguments: &Value) -> Result<Option<u32>, String> {
-    match arguments.get("seed") {
-        None | Some(Value::Null) => Ok(None),
-        Some(value) => value
-            .as_u64()
-            .and_then(|value| u32::try_from(value).ok())
-            .map(Some)
-            .ok_or_else(|| format!("seed: {value} is not a whole number a seed can be")),
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::designs;
-
-    #[test]
-    fn a_seed_is_a_whole_number_or_nothing() {
-        assert_eq!(seed(&json!({})), Ok(None));
-        assert_eq!(seed(&json!({ "seed": 7 })), Ok(Some(7)));
-        assert!(seed(&json!({ "seed": 1.5 })).is_err());
-        assert!(seed(&json!({ "seed": -1 })).is_err());
-    }
-
-    #[test]
-    fn blank_text_is_absent() {
-        assert_eq!(text(&json!({ "keep": "  " }), "keep"), None);
-        assert_eq!(
-            text(&json!({ "keep": " a " }), "keep"),
-            Some("a".to_owned())
-        );
-    }
 
     #[test]
     fn a_design_sample_has_a_hash_the_library_accepts() {

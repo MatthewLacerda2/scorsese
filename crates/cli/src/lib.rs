@@ -114,6 +114,7 @@ fn dispatch(cli: Cli) -> Result<()> {
                 check,
             },
         ),
+        Command::VoiceClone(options) => commands::clone::run(&directory, &options),
         Command::VoiceDesign {
             prompt,
             text,

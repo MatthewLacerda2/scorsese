@@ -24,11 +24,13 @@
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 
+use crate::api::elevenlabs::cloning::Cloning;
 use crate::api::elevenlabs::design::{CreateRequest, Design, PreviewSample};
 use crate::api::http::HttpError;
 use crate::credentials::Secret;
 use crate::video::ProviderError;
 
+use super::super::clone::{CloneError, Made, Request};
 use super::super::refusal::{NO_VOICE, failure, plan_limited, refused};
 use super::super::{Voice, VoiceError};
 use super::brief::Brief;
@@ -42,6 +44,7 @@ const NAME: &str = "ElevenLabs";
 #[derive(Debug, Clone)]
 pub struct ElevenLabsStudio {
     design: Design,
+    cloning: Cloning,
 }
 
 impl ElevenLabsStudio {
@@ -49,6 +52,7 @@ impl ElevenLabsStudio {
     pub fn new(key: &Secret) -> Self {
         Self {
             design: Design::new(key),
+            cloning: Cloning::new(key),
         }
     }
 }
@@ -108,6 +112,43 @@ impl Studio for ElevenLabsStudio {
             Err(error) if error.status() == Some(NOT_FOUND) => Ok(()),
             answer => answer.map_err(refusal),
         }
+    }
+
+    fn clone_voice(&self, request: &Request) -> Result<Made, CloneError> {
+        self.cloned(request)
+    }
+}
+
+impl ElevenLabsStudio {
+    /// A clone, as the vendor answered it.
+    fn cloned(&self, request: &Request) -> Result<Made, CloneError> {
+        let added = self.cloning.add(request).map_err(|error| {
+            match refused(NO_VOICE, &error).as_ref().and_then(plan_limited) {
+                Some(said) => CloneError::NotOnThisPlan {
+                    said: said.to_owned(),
+                },
+                None => CloneError::Voice(failure(NAME, error)),
+            }
+        })?;
+        if added.voice_id.trim().is_empty() {
+            return Err(CloneError::Voice(VoiceError::Provider(ProviderError::new(
+                NAME,
+                "the clone was answered with no voice id",
+            ))));
+        }
+        Ok(Made {
+            voice: Voice {
+                id: added.voice_id,
+                name: request.name.clone(),
+                // Said outright, as a designed voice's `designed` is: a voice
+                // with no traits beside a listing's reads as one that failed
+                // to load.
+                traits: vec![String::from("cloned")],
+                description: request.description.clone(),
+                preview: None,
+            },
+            requires_verification: added.requires_verification,
+        })
     }
 }
 

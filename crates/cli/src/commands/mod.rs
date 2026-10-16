@@ -5,6 +5,7 @@
 pub(crate) mod assets;
 pub(crate) mod caption;
 pub(crate) mod check;
+pub(crate) mod clone;
 pub(crate) mod confirm;
 pub(crate) mod describe;
 pub(crate) mod design;

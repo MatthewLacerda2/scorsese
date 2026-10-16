@@ -78,8 +78,8 @@ pub const VOICE_DESIGN: Kind = Kind {
     budget: Some(ELEVENLABS),
 };
 
-/// A designed candidate kept as a voice (#572). Free, one call — and one at a
-/// time, so the count of the account's voice slots it checks first
+/// A designed candidate kept as a voice (#572), or a voice cloned from a
+/// user's recordings (#1263). Free, one call — and one at a time, so the count of the account's voice slots it checks first
 /// (`designs::owners::slots`) cannot be raced by another keep.
 pub const VOICE_KEEP: Kind = Kind {
     name: "voice_keep",
@@ -245,7 +245,11 @@ pub fn with_vendors(
         )
         .register(
             VOICE_KEEP,
-            designs::keep_handler(Arc::clone(&vendors), elevenlabs.voice_slots),
+            designs::keep_handler(
+                files.storage.clone(),
+                Arc::clone(&vendors),
+                elevenlabs.voice_slots,
+            ),
         )
         .register(VOICE_FORGET, designs::forget::handler(Arc::clone(&vendors)))
         .register(

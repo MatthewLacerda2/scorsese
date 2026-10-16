@@ -15,6 +15,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod cloning;
 mod fake;
 mod forgetting;
 mod keeping;

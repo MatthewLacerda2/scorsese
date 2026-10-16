@@ -12,6 +12,11 @@
 //! unable to do the other by accident — and because a listing implementation
 //! that had to stub out a billed method would be a listing that could bill.
 //!
+//! A studio also **clones** (#1263): a voice from somebody's recordings
+//! rather than from a sentence, but the same kind of thing left in the same
+//! account, taking the same kind of slot, deleted by the same call — so one
+//! seam holds every way a voice is made there and the one way it is undone.
+//!
 //! What they do share is the answer: a design ends in a
 //! [`Voice`](super::super::Voice), the same type a listing yields, because a
 //! designed voice is a voice. Anything else would leave two ways to say the
@@ -74,6 +79,16 @@ pub trait Studio {
     /// `Ok`: forgetting twice — a retry after the record of it failed to
     /// change — must not be an error somebody has to read.
     fn forget(&self, voice_id: &str) -> Result<(), DesignError>;
+
+    /// Clones a voice from somebody's own recordings into the account (#1263)
+    /// — the other way a voice is made there, and the other thing
+    /// [`Studio::forget`] undoes. **Not billed**: the vendor charges for what
+    /// the voice narrates, not for making it. Consent is asked before this is
+    /// reached ([`clone::check`](super::super::clone::check)).
+    fn clone_voice(
+        &self,
+        request: &super::super::clone::Request,
+    ) -> Result<super::super::clone::Made, super::super::clone::CloneError>;
 
     /// What this studio is called, for a message somebody reads.
     fn name(&self) -> &'static str;
