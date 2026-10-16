@@ -197,6 +197,9 @@ pub enum CreditError {
 }
 
 #[cfg(test)]
+mod documented;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
