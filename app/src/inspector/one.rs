@@ -175,7 +175,7 @@ pub(super) fn kind_name(kind: AssetKind) -> &'static str {
         AssetKind::Icon => "icon",
         AssetKind::GeneratedVideo => "generated video",
         AssetKind::GeneratedImage => "generated still",
-        AssetKind::GeneratedAudio => "generated audio",
+        AssetKind::GeneratedAudio => "generated speech",
         AssetKind::SynthAudio => "synthesised audio",
         AssetKind::Group => "group",
         AssetKind::ImageSequence => "image sequence",
