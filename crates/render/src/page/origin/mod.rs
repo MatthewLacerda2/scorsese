@@ -34,25 +34,15 @@ pub(crate) const ORIGIN: &str = "https://page.scorsese";
 /// than a folder of the page's, so no project directory can ever shadow one.
 pub const SHIPPED_ORIGIN: &str = "https://lib.scorsese";
 
-/// The motion kit's source files, `shipped/kit/`, in the order they are joined
-/// into the one `kit.js` a page loads.
+/// The motion kit as a page receives it: its source files, `shipped/kit/`,
+/// joined byte for byte in name order.
 ///
 /// The kit is one script — a single IIFE defining `window.kit` — kept as
 /// pieces only so that no source file outgrows the size gate (#1205). A piece
 /// is a stretch of that script and not a script of its own: only the first
-/// opens the IIFE and only the last closes it. The order is the pieces' names
-/// sorted, which is how the web front-end joins them too (`web/src/build/
-/// kit.ts`, for the landing page), and a test holds this list to it.
-pub(crate) const KIT_PIECES: [&str; 6] = [
-    "01-easing.js",
-    "02-timing.js",
-    "03-text.js",
-    "04-drawing.js",
-    "05-glyphs.js",
-    "06-scene.js",
-];
-
-/// The motion kit as a page receives it: [`KIT_PIECES`] joined, byte for byte.
+/// opens the IIFE and only the last closes it. Name order is how the web
+/// front-end joins them too (`web/src/build/kit.ts`, for the landing page), and
+/// a test holds this list to it: a piece added to the folder belongs here.
 const KIT: &str = concat!(
     include_str!("../shipped/kit/01-easing.js"),
     include_str!("../shipped/kit/02-timing.js"),
@@ -75,7 +65,7 @@ const KIT: &str = concat!(
 /// own playback. Both MIT, each licence vendored beside it. And scorsese's
 /// own motion kit (#812), `kit.js`: the helpers every timed page was writing
 /// for itself, on the page's seconds, served as one file joined from
-/// [`KIT_PIECES`]. opentype.js 2.0.0 (#997, MIT), for
+/// its pieces ([`KIT`]). opentype.js 2.0.0 (#997, MIT), for
 /// `kit.write`: a browser cannot hand a page a glyph's outline, and this reads
 /// one from a shipped face, variable ones at any weight. Vendored with its
 /// source-map comment dropped, since nothing serves the map.

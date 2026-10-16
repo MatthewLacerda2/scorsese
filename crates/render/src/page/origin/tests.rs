@@ -252,7 +252,7 @@ fn a_response_says_what_it_is_by_extension() {
 
 #[test]
 fn the_kit_is_every_piece_joined_in_name_order() {
-    // The web front-end joins `shipped/kit/` by sorted name, not from this
+    // The web front-end joins `shipped/kit/` by sorted name, not from `KIT`'s
     // list: a piece added there and not here, or out of order, would serve
     // pages one kit and the landing page another.
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/page/shipped/kit");
@@ -261,7 +261,6 @@ fn the_kit_is_every_piece_joined_in_name_order() {
         .map(|entry| entry.unwrap().file_name().into_string().unwrap())
         .collect();
     names.sort();
-    assert_eq!(names, KIT_PIECES);
     let joined: Vec<u8> = names
         .iter()
         .flat_map(|name| std::fs::read(dir.join(name)).unwrap())
