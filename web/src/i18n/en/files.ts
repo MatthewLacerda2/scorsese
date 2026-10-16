@@ -3,7 +3,8 @@
 // what the server says (a refusal, a duplicate's sentence) stay as they come.
 
 export const files = {
-  kinds: { video: "Video", image: "Image", audio: "Audio" },
+  kinds: { video: "Video", image: "Image", audio: "Audio", html: "Page" },
+  viewer: { loading: "Loading…", failed: "The page could not be read." },
   sorts: {
     newest: "Newest first",
     oldest: "Oldest first",
