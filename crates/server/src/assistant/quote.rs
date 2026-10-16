@@ -19,9 +19,9 @@ use scorsese_providers::chat::Effort;
 use serde::Serialize;
 use serde_json::json;
 
-use super::AssistantError;
 use super::start::{Opening, start};
 use super::store::{QuoteView, TurnView};
+use super::{AssistantError, prompt};
 use crate::db::{self, UserId};
 use crate::http::AppState;
 use crate::tools::Client;
@@ -96,6 +96,7 @@ pub async fn answer(
         fresh: false,
         notes: vec![change_note(&quote)],
         effort: Some(effort),
+        told: None,
     };
     let (turn, note) = started(start(state, user, project, opening).await);
     Ok(Answered {
@@ -239,6 +240,7 @@ async fn confirm(
         fresh: false,
         notes: vec![note],
         effort: Some(effort),
+        told: Some(prompt::app_said("they confirmed the quote.")),
     };
     let (turn, note) = started(start(state, user, project, opening).await);
     Ok(Answered {

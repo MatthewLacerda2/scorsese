@@ -93,8 +93,10 @@ pub struct Retarget {
     /// The kind of video, by style id; none when omitted.
     #[serde(default)]
     pub style: Option<String>,
-    /// The person's words for the turn that carries the change, in their own
-    /// language — the web app writes them. A plain default when omitted.
+    /// The words the person's chat shows for the turn that carries the change,
+    /// in the site's language — the web app writes them. A plain default when
+    /// omitted. The model never reads them: it is told the change in the app's
+    /// own words, so it answers in the person's language, not the site's.
     #[serde(default)]
     pub message: Option<String>,
 }

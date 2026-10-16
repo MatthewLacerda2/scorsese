@@ -25,6 +25,11 @@ pub struct Opening {
     pub notes: Vec<String>,
     /// How hard the model thinks on it (#769); `None` is [`DEFAULT_EFFORT`].
     pub effort: Option<Effort>,
+    /// What the model reads in place of `prompt`, when `prompt` is words the
+    /// web app wrote on the person's behalf rather than theirs. The person
+    /// still sees `prompt`, in the site's language; the model must not, or it
+    /// would answer in the site's language instead of the person's.
+    pub told: Option<String>,
 }
 
 /// Start a turn in `user`'s conversation about `project`: refused when the
@@ -85,7 +90,7 @@ pub async fn start(
     let written = |error: serde_json::Error| AssistantError::Internal(error.to_string());
     let history = chat::replay(model, &kept).map_err(written)?;
     let said: Vec<Message> = kept.iter().flat_map(|turn| turn.record.clone()).collect();
-    let record = prompt::opening(&said, &prompt, &notes);
+    let record = prompt::opening(&said, opening.told.as_deref().unwrap_or(&prompt), &notes);
     let first = record
         .iter()
         .map(|message| chat::freeze(model, message))
