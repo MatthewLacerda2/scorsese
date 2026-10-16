@@ -2,8 +2,8 @@
 //!
 //! The rules, stated once so they can be argued with rather than guessed at:
 //!
-//! - **Code is measured: `.rs`, the web front-end's `.ts` and `.tsx`, and
-//!   the development scripts' `.py`.** The cap exists because code is what
+//! - **Code is measured: `.rs`, the web front-end's `.ts` and `.tsx`, the
+//!   development scripts' `.py`, and hand-written `.js`.** The cap exists because code is what
 //!   gets read and edited to change behaviour; prose and data files are long
 //!   for reasons that splitting them would not improve.
 //! - **Python takes the same two caps, and no exception either** (#1136).
@@ -20,14 +20,27 @@
 //!   copies them into `web/src/components/ui/` precisely so they are ours to
 //!   edit, which makes them source like any other, and one that arrives over
 //!   the cap is split or not vendored.
+//! - **Hand-written JavaScript takes the same two caps, and no exception
+//!   either** (#1205), for the reason TypeScript does: the pages' motion kit
+//!   (`crates/render/src/page/shipped/kit/`) and the capture scripts beside it
+//!   are edited by agents holding one file in context, and the kit is where
+//!   every new graphics capability goes (CLAUDE.md, *New motion graphics are
+//!   pages*). It had reached 376 lines of code unmeasured. Its comments are
+//!   free, as TypeScript's are.
+//! - **A vendored minified build is not ours to split**: a name ending
+//!   `.min.js` is not measured. That is a name rule rather than a marker
+//!   comment, so it stays a property of what the file *is* — the published
+//!   build of someone else's library, the form `npm` and its CDNs ship — and
+//!   not something any file could grow. A minified file is one line long
+//!   anyway; counting it would measure nothing.
 //! - **A file is a *test* file when a directory named `tests` is anywhere in
 //!   its path.** That is the Cargo convention for integration-test targets
 //!   (`crates/*/tests/**`), and it is the file's role in the build that decides
 //!   the cap, not its subject matter. So `crates/golden/src/**` — test
 //!   infrastructure, but compiled as a library others use — is *source*, and
 //!   a helper module under `crates/render/tests/common/` is a *test* file.
-//! - **A TypeScript file is also a test file when its name ends `.test.ts` or
-//!   `.test.tsx`.** That is how `bun test` finds tests — beside the component
+//! - **A TypeScript or JavaScript file is also a test file when its name ends
+//!   `.test.ts`, `.test.tsx` or `.test.js`.** That is how `bun test` finds tests — beside the component
 //!   they test, not in a `tests` directory — so it is the same rule: the file's
 //!   role in the build decides the cap.
 //! - **A Python file is also a test file when its name starts `test_`.**
@@ -96,10 +109,9 @@ impl Kind {
 /// scripts the merge path runs (`.github/scripts/`), which are code like any
 /// other (#1136); its workflows are YAML, which is never measured anyway. `node_modules/`,
 /// anywhere, is the web front-end's installed packages, which ship `.ts` of
-/// their own. (`web/dist/` needs no entry: a build writes `.js`, which is never
-/// measured.) A directory whose name is not UTF-8 is not walked either.
+/// their own. A directory whose name is not UTF-8 is not walked either.
 ///
-/// The other three are skipped **by where they sit, not by name alone**, because
+/// The others are skipped **by where they sit, not by name alone**, because
 /// a name is also a perfectly good module name. Until #1131 they were skipped
 /// anywhere, and `crates/render/src/page/cache/` went unmeasured — over the cap
 /// — for as long as it existed:
@@ -111,6 +123,10 @@ impl Kind {
 ///   rule is that no directory above it is a module tree (`src`, `tests`,
 ///   `benches`, `examples`): a workspace root is never inside one, and a Rust
 ///   module named `target` always is.
+/// - `dist/`, `test-results/` and `playwright-report/` on the same rule: what
+///   `vite build` and a Playwright run write beside `web/package.json`, all of
+///   it JavaScript nobody wrote by hand (and all of it gitignored, which
+///   [`crate::rules::ignored`] would otherwise report).
 pub fn is_skipped_dir(dir: &Path) -> bool {
     let Some(name) = dir.file_name() else {
         return false;
@@ -125,7 +141,7 @@ pub fn is_skipped_dir(dir: &Path) -> bool {
             .and_then(Path::file_name)
             .and_then(|parent| parent.to_str())
             .is_some_and(|parent| parent.ends_with(".scor")),
-        "target" => !dir.components().any(|c| {
+        "target" | "dist" | "test-results" | "playwright-report" => !dir.components().any(|c| {
             matches!(
                 c.as_os_str().to_str(),
                 Some("src" | "tests" | "benches" | "examples")
@@ -146,7 +162,8 @@ pub fn classify(path: &Path) -> Option<Kind> {
     let stem = path.file_stem().and_then(|stem| stem.to_str());
     let named_as_test = match extension {
         "rs" => false,
-        "ts" | "tsx" => stem.is_some_and(|stem| stem.ends_with(".test")),
+        "js" if stem.is_some_and(|stem| stem.ends_with(".min")) => return None,
+        "ts" | "tsx" | "js" => stem.is_some_and(|stem| stem.ends_with(".test")),
         "py" => stem.is_some_and(|stem| stem.starts_with("test_")),
         _ => return None,
     };

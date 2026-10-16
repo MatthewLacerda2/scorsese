@@ -14,9 +14,12 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { entryBudget } from "./src/build/budget.ts";
+import { motionKit } from "./src/build/kit.ts";
 
 // `entryBudget` fails the build when what a first visit downloads outgrows its
-// budget; src/build/budget.ts has the number and why.
+// budget; src/build/budget.ts has the number and why. `motionKit` joins the
+// motion kit's pieces into the one script the landing page imports, as
+// scorsese-render does for a page (src/build/kit.ts).
 //
 // Where the Rust server listens while developing. 8080 is the default the
 // server crate is expected to take; override it when running it elsewhere:
@@ -24,14 +27,15 @@ import { entryBudget } from "./src/build/budget.ts";
 const api = process.env.SCORSESE_API ?? "http://localhost:8080";
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), entryBudget()],
+  plugins: [react(), tailwindcss(), entryBudget(), motionKit()],
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   server: {
-    // The landing page (#904) loads two files from outside web/, so the faces
-    // and the motion kit it uses are the ones a video gets, never copies.
-    fs: { allow: [".", "../crates/compositor/fonts", "../crates/render/src/page/shipped"] },
+    // The landing page (#904) loads the faces a video gets from outside web/,
+    // never copies. (The motion kit, the other thing it shares, is read by
+    // `motionKit`, src/build/kit.ts, which no file-serving rule governs.)
+    fs: { allow: [".", "../crates/compositor/fonts"] },
     proxy: { "/api": { target: api, changeOrigin: true } },
   },
 });
