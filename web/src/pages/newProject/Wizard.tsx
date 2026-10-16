@@ -11,10 +11,8 @@ import { useInvalidatingMutation } from "@/app/useInvalidatingMutation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { QueryError } from "@/components/ui/query-error";
-import { saveShape } from "@/editor/shape";
 import { FileBrowser } from "@/files/FileBrowser";
 import { useT } from "@/i18n/I18nProvider";
-import { shapeOf } from "@/start/menu";
 import { PlatformPicker } from "@/start/PlatformPicker";
 import { StylePicker } from "@/start/StylePicker";
 import { useStyleMenu } from "@/start/useStyleMenu";
@@ -30,9 +28,8 @@ export function Wizard({ initial = EMPTY }: { initial?: Draft }) {
   const [missing, setMissing] = useState(false);
   const create = useInvalidatingMutation([queryKeys.projects, queryKeys.library], {
     mutationFn: api.projects.create,
+    // The server frames the project in its platform's shape (#1278).
     onSuccess: (project) => {
-      const shape = menu.data ? shapeOf(menu.data, draft.platform) : null;
-      if (shape) saveShape(project.id, shape);
       navigate(`/projects/${project.id}/edit`);
     },
   });

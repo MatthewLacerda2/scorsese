@@ -21,19 +21,18 @@ import {
 } from "@/components/ui/dialog";
 import { QueryError } from "@/components/ui/query-error";
 import { useT } from "@/i18n/I18nProvider";
-import { keptStyle, nameOf, shapeOf } from "@/start/menu";
+import { aspectFor, keptStyle, nameOf } from "@/start/menu";
 import { PlatformPicker } from "@/start/PlatformPicker";
 import { StylePicker } from "@/start/StylePicker";
 import { useStyleMenu } from "@/start/useStyleMenu";
 import { useEditorProject } from "./project";
-import type { Shape } from "./shape";
 
 interface Props {
   projectId: number;
-  onShape: (shape: Shape) => void;
+  onAspect: (aspect: string) => void;
 }
 
-export function StartControl({ projectId, onShape }: Props) {
+export function StartControl({ projectId, onAspect }: Props) {
   const t = useT().start;
   const project = useEditorProject(projectId);
   const menu = useStyleMenu();
@@ -66,8 +65,8 @@ export function StartControl({ projectId, onShape }: Props) {
             platform={project.data.platform}
             style={project.data.style}
             onSaved={(platform) => {
-              const shape = menu.data && shapeOf(menu.data, platform);
-              if (shape) onShape(shape);
+              const aspect = menu.data && aspectFor(menu.data, platform);
+              if (aspect) onAspect(aspect);
               setOpen(false);
             }}
           />

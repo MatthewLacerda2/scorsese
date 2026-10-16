@@ -16,22 +16,25 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { useLanguage, useT } from "@/i18n/I18nProvider";
 import { formatBytes, formatDate } from "@/lib/format";
 import { folded, JobProgressBar } from "./JobProgressBar";
-import { SHAPES, type Shape } from "./shape";
+import { deliveries } from "./shape";
 
 interface Props {
   projectId: number;
   /** The project's name, for the toast its render raises on another page. */
   name: string;
-  shape: Shape;
+  /** The project's frame shape: the sizes offered are in it, the default first. */
+  aspect: string;
 }
 
-export function RenderPanel({ projectId, name, shape }: Props) {
+export function RenderPanel({ projectId, name, aspect }: Props) {
   const queryClient = useQueryClient();
   const t = useT();
   const key = queryKeys.renders(projectId);
   const renders = useQuery({ queryKey: key, queryFn: () => api.renders.list(projectId) });
-  const sizes = SHAPES[shape].deliver;
-  const [resolution, setResolution] = useState<string>(sizes[0] ?? "1920x1080");
+  const sizes = deliveries(aspect);
+  const [resolution, setResolution] = useState<string>(sizes[0]);
+  // A size from before the shape changed is not offered any more.
+  const chosen = sizes.includes(resolution) ? resolution : sizes[0];
   const [job, setJob] = useState<JobView | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,7 +49,7 @@ export function RenderPanel({ projectId, name, shape }: Props) {
   const render = async () => {
     setError(null);
     try {
-      const asked = await api.renders.request(projectId, { resolution });
+      const asked = await api.renders.request(projectId, { resolution: chosen });
       if (asked.job) rememberRender(asked.job.id, { id: projectId, name });
       setJob(asked.job);
       if (asked.render) queryClient.invalidateQueries({ queryKey: key });
@@ -74,7 +77,7 @@ export function RenderPanel({ projectId, name, shape }: Props) {
         <NativeSelect
           aria-label={t.editor.render.resolution}
           className="flex-1"
-          value={sizes.includes(resolution) ? resolution : sizes[0]}
+          value={chosen}
           onChange={(event) => setResolution(event.target.value)}
         >
           {sizes.map((size) => (

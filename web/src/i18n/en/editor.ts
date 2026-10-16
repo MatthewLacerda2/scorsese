@@ -9,6 +9,7 @@ export const editor = {
   page: {
     opening: "Opening the project…",
     frameShape: "Frame shape",
+    reframeHint: "If anything is left to settle, ask the assistant to settle it.",
     render: "Render",
     renderTitle: "Render the video",
     renderDescription: "The whole cut as it is now, as an MP4 to download.",

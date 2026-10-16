@@ -12,13 +12,13 @@ import { useT } from "@/i18n/I18nProvider";
 import { kindColor } from "../assets/kinds";
 import { adds } from "../selection";
 import {
+  type Extent,
+  extentOf,
   type Handle,
   type Limits,
   limitsOf,
   type Release,
-  type Shape,
   SNAP_PX,
-  shapeOf,
   snapped,
   targets,
   toolCall,
@@ -53,7 +53,7 @@ interface Held {
   from: number;
   limits: Limits;
   at: number[];
-  shape: Shape;
+  extent: Extent;
   /** Where the pointer went down, vertically, and how far it has gone since —
    * a body drag follows it off the lane. */
   y: number;
@@ -75,7 +75,7 @@ export function Lane(props: Props) {
   const t = useT();
   const fps = document.timeline_fps;
   const [held, setHeld] = useState<Held | null>(null);
-  const [landing, setLanding] = useState<{ clip: string; shape: Shape; dy: number } | null>(null);
+  const [landing, setLanding] = useState<{ clip: string; extent: Extent; dy: number } | null>(null);
   const assets = document.assets ?? [];
 
   const grab = (event: PointerEvent<HTMLElement>, clip: Clip) => {
@@ -92,12 +92,12 @@ export function Lane(props: Props) {
       from: event.clientX,
       limits: limitsOf(clip, asset, fps),
       at: targets(document, props.playhead, clip.id),
-      shape: shapeOf(clip),
+      extent: extentOf(clip),
       y: event.clientY,
       dy: 0,
     });
   };
-  // Where the pointer is now proposes the shape — worked out from the event
+  // Where the pointer is now proposes the extent — worked out from the event
   // itself on release too, since the last move may not have been drawn yet.
   const proposal = (event: PointerEvent, from: Held) => {
     const delta = pxSpan(event.clientX - from.from, zoom, fps);
@@ -107,19 +107,19 @@ export function Lane(props: Props) {
   const follow = (event: PointerEvent) => {
     if (!held) return;
     const dy = held.handle === "body" ? event.clientY - held.y : 0;
-    setHeld({ ...held, shape: proposal(event, held), dy });
+    setHeld({ ...held, extent: proposal(event, held), dy });
   };
   const release = (event: PointerEvent) => {
     if (!held) return;
-    const shape = proposal(event, held);
+    const extent = proposal(event, held);
     const onto =
       held.handle === "body" ? (laneAt(event.clientX, event.clientY) ?? track.id) : track.id;
-    const call = toolCall(held.clip, track.id, onto, shape, fps);
+    const call = toolCall(held.clip, track.id, onto, extent, fps);
     setHeld(null);
     if (!call) return;
     // Drawn where it was let go until the server answers: moved there, or
     // refused and springing back.
-    setLanding({ clip: held.clip.id, shape, dy: held.dy });
+    setLanding({ clip: held.clip.id, extent, dy: held.dy });
     void props.onRelease(call).finally(() => setLanding(null));
   };
 
@@ -134,12 +134,12 @@ export function Lane(props: Props) {
       onDrop={(event) => props.onDrop(event, event.currentTarget)}
     >
       {track.clips.map((clip) => {
-        const shape =
+        const extent =
           held?.clip.id === clip.id
-            ? held.shape
+            ? held.extent
             : landing?.clip === clip.id
-              ? landing.shape
-              : shapeOf(clip);
+              ? landing.extent
+              : extentOf(clip);
         const dy = held?.clip.id === clip.id ? held.dy : landing?.clip === clip.id ? landing.dy : 0;
         const asset = assets.find((found) => found.id === clip.asset);
         const chosen = props.selected.includes(clip.id);
@@ -155,8 +155,8 @@ export function Lane(props: Props) {
             title={t.editor.timeline.clipTitle(clip.id)}
             className={`absolute top-1 bottom-1 cursor-grab touch-none overflow-hidden rounded-sm px-1.5 text-[11px] select-none ${body} ${chosen ? "ring-2 ring-foreground" : "opacity-90"} ${held?.clip.id === clip.id ? "z-10 cursor-grabbing shadow-lg" : ""}`}
             style={{
-              left: framesToPx(shape.start, zoom, fps),
-              width: Math.max(3, framesToPx(shape.duration, zoom, fps)),
+              left: framesToPx(extent.start, zoom, fps),
+              width: Math.max(3, framesToPx(extent.duration, zoom, fps)),
               transform: dy ? `translateY(${dy}px)` : undefined,
             }}
             data-made={made}

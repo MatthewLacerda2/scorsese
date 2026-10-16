@@ -4,7 +4,7 @@
 // the editor's control draw from it.
 
 import type { StyleMenu, StyleView } from "@/api";
-import type { Shape } from "@/editor/shape";
+import { aspectOfSize } from "@/editor/shape";
 import type { Messages } from "@/i18n/catalogue";
 
 /** A catalogue's words for the menu, read by any id — one it lacks is `undefined`. */
@@ -45,12 +45,10 @@ export function keptStyle(menu: StyleMenu, platform: string | null, style: strin
   return stylesFor(menu, platform).some((offered) => offered.id === style) ? style : null;
 }
 
-/** The editor's frame shape for a placement: upright, or landscape for YouTube. */
-export function shapeOf(menu: StyleMenu, platform: string | null): Shape | null {
+/** A placement's frame shape, `across:down` — upright for a feed, landscape for YouTube. */
+export function aspectFor(menu: StyleMenu, platform: string | null): string | null {
   const found = menu.platforms.find((offered) => offered.id === platform);
-  if (!found) return null;
-  if (found.width === found.height) return "square";
-  return found.width > found.height ? "landscape" : "portrait";
+  return found ? aspectOfSize(found.width, found.height) : null;
 }
 
 /** A choice's name as the menu gives it, or `null` for none. */

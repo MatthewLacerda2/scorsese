@@ -36,7 +36,7 @@ import { Preview } from "./preview/Preview";
 import { useEdit, useEditorProject } from "./project";
 import { confirmThen, trackRemoval } from "./removing";
 import { choose, kept } from "./selection";
-import { SHAPES, type Shape, savedShape, saveShape } from "./shape";
+import { aspectOf, deliveries } from "./shape";
 import { Timeline } from "./timeline/Timeline";
 
 /** Full mode's grid: the chat's three rows, all of them its own. */
@@ -58,7 +58,7 @@ function Editor({ project }: { project: EditorProject }) {
   const edit = useEdit(id);
   const [playhead, setPlayhead] = useState(0);
   const [picked, setPicked] = useState<string[]>([]);
-  const [shape, setShape] = useState<Shape>(() => savedShape(id));
+  const [reframed, setReframed] = useState<string | null>(null);
   const [full, setFull] = useFull(id);
   const panels = usePanels();
   const drop = useDrop(id, edit, playhead, (clip) => setPicked([clip]));
@@ -79,6 +79,15 @@ function Editor({ project }: { project: EditorProject }) {
   useDeleteKey(selected, edit.run, deselect);
   const chosen =
     selected.length === 1 ? found.find(({ clip }) => clip.id === selected[0]) : undefined;
+  const aspect = aspectOf(document);
+
+  // Another shape is a re-fit on the server (#1278); its reply says what it
+  // re-fitted and what it left to settle, which the assistant can be asked to.
+  const reframe = async (next: string) => {
+    if (next === aspect) return;
+    const answer = await edit.run({ tool: "project_reframe", args: { aspect: next }, edit: true });
+    if (answer) setReframed(answer.said.map((part) => part.text).join("\n"));
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -87,12 +96,25 @@ function Editor({ project }: { project: EditorProject }) {
         name={document.name}
         selected={selected}
         edit={edit}
-        shape={shape}
-        onShape={(next) => {
-          setShape(next);
-          saveShape(id, next);
-        }}
+        aspect={aspect}
+        onAspect={(next) => void reframe(next)}
       />
+      {reframed && (
+        <div className="flex items-start gap-2 border-b bg-muted px-3 py-1.5 text-sm">
+          <div className="flex-1">
+            <p className="whitespace-pre-line">{reframed}</p>
+            <p className="text-muted-foreground">{t.editor.page.reframeHint}</p>
+          </div>
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label={t.editor.page.dismiss}
+            onClick={() => setReframed(null)}
+          >
+            <XIcon />
+          </Button>
+        </div>
+      )}
       {edit.refused && (
         <div className="flex items-start gap-2 border-b bg-destructive/10 px-3 py-1.5 text-sm text-destructive">
           <p className="flex-1">{edit.refused}</p>
@@ -149,7 +171,7 @@ function Editor({ project }: { project: EditorProject }) {
                 document={document}
                 playhead={playhead}
                 onSeek={setPlayhead}
-                deliver={SHAPES[shape].deliver[0]}
+                deliver={deliveries(aspect)[0]}
               />
             </section>
             <Handle

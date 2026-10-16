@@ -24,7 +24,7 @@ import { useT } from "@/i18n/I18nProvider";
 import type { EditOutcome } from "./project";
 import { RenderPanel } from "./RenderPanel";
 import { StartControl } from "./StartControl";
-import { SHAPES, type Shape } from "./shape";
+import { offered } from "./shape";
 import { SaveTemplate } from "./templates/SaveTemplate";
 
 export interface EditorActionsProps {
@@ -33,8 +33,10 @@ export interface EditorActionsProps {
   /** The selected clips, which Save as template saves. */
   selected: string[];
   edit: EditOutcome;
-  shape: Shape;
-  onShape: (shape: Shape) => void;
+  /** The project's frame shape, `across:down` (`shape.ts`). */
+  aspect: string;
+  /** Asks for the frame in another shape: a re-fit, never a setting kept aside. */
+  onAspect: (aspect: string) => void;
 }
 
 /** What `EditorHeader` puts in the header; its own file so it can be drawn alone. */
@@ -43,8 +45,8 @@ export function EditorActions({
   name,
   selected,
   edit,
-  shape,
-  onShape,
+  aspect,
+  onAspect,
 }: EditorActionsProps) {
   const t = useT();
   return (
@@ -53,16 +55,17 @@ export function EditorActions({
         {name}
       </h1>
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        <StartControl projectId={projectId} onShape={onShape} />
+        <StartControl projectId={projectId} onAspect={onAspect} />
         <SaveTemplate clips={selected} edit={edit} />
         <NativeSelect
           aria-label={t.editor.page.frameShape}
-          value={shape}
-          onChange={(event) => onShape(event.target.value as Shape)}
+          value={aspect}
+          disabled={edit.pending}
+          onChange={(event) => onAspect(event.target.value)}
         >
-          {(Object.keys(SHAPES) as Shape[]).map((choice) => (
+          {offered(aspect).map((choice) => (
             <NativeSelectOption key={choice} value={choice}>
-              {SHAPES[choice].label}
+              {choice}
             </NativeSelectOption>
           ))}
         </NativeSelect>
@@ -77,7 +80,7 @@ export function EditorActions({
               <DialogTitle>{t.editor.page.renderTitle}</DialogTitle>
               <DialogDescription>{t.editor.page.renderDescription}</DialogDescription>
             </DialogHeader>
-            <RenderPanel projectId={projectId} name={name} shape={shape} />
+            <RenderPanel projectId={projectId} name={name} aspect={aspect} />
           </DialogContent>
         </Dialog>
       </div>

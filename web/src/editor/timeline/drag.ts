@@ -15,7 +15,7 @@ import { toFrames, toSeconds } from "./time";
 export type Handle = "body" | "left" | "right";
 
 /** Where a clip sits: in timeline frames, as the document stores it. */
-export interface Shape {
+export interface Extent {
   start: number;
   duration: number;
   sourceIn: number;
@@ -49,7 +49,7 @@ export const HOLD_SECONDS = 5;
 /** How close, in pixels, an edge has to come to something to snap onto it. */
 export const SNAP_PX = 8;
 
-export function shapeOf(clip: Clip): Shape {
+export function extentOf(clip: Clip): Extent {
   return { start: clip.start, duration: clip.duration, sourceIn: clip.source_in ?? 0 };
 }
 
@@ -73,32 +73,32 @@ export function limitsOf(clip: Clip, asset: DocumentAsset | undefined, fps: Fps)
   };
 }
 
-/** The shape a drag of `delta` frames on `handle` proposes. */
-export function propose(clip: Clip, handle: Handle, delta: number, limits: Limits): Shape {
-  const shape = shapeOf(clip);
+/** The extent a drag of `delta` frames on `handle` proposes. */
+export function propose(clip: Clip, handle: Handle, delta: number, limits: Limits): Extent {
+  const extent = extentOf(clip);
   const speed = clip.speed ?? 1;
-  if (handle === "body") return { ...shape, start: Math.max(0, shape.start + delta) };
+  if (handle === "body") return { ...extent, start: Math.max(0, extent.start + delta) };
   if (handle === "right") {
     const forward = limits.tail === null ? Infinity : Math.floor(limits.tail / speed);
-    return { ...shape, duration: Math.max(1, shape.duration + Math.min(delta, forward)) };
+    return { ...extent, duration: Math.max(1, extent.duration + Math.min(delta, forward)) };
   }
   const back =
-    limits.head === null ? shape.start : Math.min(Math.floor(limits.head / speed), shape.start);
-  const moved = Math.min(Math.max(delta, -back), shape.duration - 1);
+    limits.head === null ? extent.start : Math.min(Math.floor(limits.head / speed), extent.start);
+  const moved = Math.min(Math.max(delta, -back), extent.duration - 1);
   const consumed = Math.sign(moved) * Math.round(Math.abs(moved) * speed);
   return {
-    start: shape.start + moved,
-    duration: shape.duration - moved,
-    sourceIn: Math.max(0, shape.sourceIn + consumed),
+    start: extent.start + moved,
+    duration: extent.duration - moved,
+    sourceIn: Math.max(0, extent.sourceIn + consumed),
   };
 }
 
-/** The edges of a shape that snap, for the handle being dragged. */
-export function edges(shape: Shape, handle: Handle): number[] {
-  const end = shape.start + shape.duration;
-  if (handle === "left") return [shape.start];
+/** The edges of a extent that snap, for the handle being dragged. */
+export function edges(extent: Extent, handle: Handle): number[] {
+  const end = extent.start + extent.duration;
+  if (handle === "left") return [extent.start];
   if (handle === "right") return [end];
-  return [shape.start, end];
+  return [extent.start, end];
 }
 
 /** Everywhere a drag may come to rest: the playhead, the head of the
@@ -137,21 +137,25 @@ export function snapped(
   limits: Limits,
   at: number[],
   reach: number,
-): Shape {
+): Extent {
   const free = propose(clip, handle, delta, limits);
   const shift = snap(at, edges(free, handle), reach);
   return shift === null ? free : propose(clip, handle, delta + shift, limits);
 }
 
-/** `clip_move`'s arguments for moving `clip` to `shape`: only the fields that
+/** `clip_move`'s arguments for moving `clip` to `extent`: only the fields that
  * changed, in seconds — a start alone moves it and leaves the rest. `null`
  * when the drag ended where it began. */
-export function trimArguments(clip: Clip, shape: Shape, fps: Fps): Record<string, unknown> | null {
-  const was = shapeOf(clip);
+export function trimArguments(
+  clip: Clip,
+  extent: Extent,
+  fps: Fps,
+): Record<string, unknown> | null {
+  const was = extentOf(clip);
   const args: Record<string, unknown> = { clip: clip.id };
-  if (shape.start !== was.start) args.start_seconds = toSeconds(shape.start, fps);
-  if (shape.duration !== was.duration) args.duration_seconds = toSeconds(shape.duration, fps);
-  if (shape.sourceIn !== was.sourceIn) args.source_in_seconds = toSeconds(shape.sourceIn, fps);
+  if (extent.start !== was.start) args.start_seconds = toSeconds(extent.start, fps);
+  if (extent.duration !== was.duration) args.duration_seconds = toSeconds(extent.duration, fps);
+  if (extent.sourceIn !== was.sourceIn) args.source_in_seconds = toSeconds(extent.sourceIn, fps);
   return Object.keys(args).length > 1 ? args : null;
 }
 
@@ -161,7 +165,7 @@ export interface Release {
   args: Record<string, unknown>;
 }
 
-/** What a drag of `clip` from lane `from`, let go over lane `onto` in `shape`,
+/** What a drag of `clip` from lane `from`, let go over lane `onto` in `extent`,
  * asks the server for: one `clip_move`. On another lane it carries the track
  * and the new start — never a move and then a trim, which would pass through a
  * document nobody asked for; on its own lane, what changed.
@@ -170,14 +174,14 @@ export function toolCall(
   clip: Clip,
   from: string,
   onto: string,
-  shape: Shape,
+  extent: Extent,
   fps: Fps,
 ): Release | null {
   if (onto !== from) {
-    const args = { clip: clip.id, track: onto, start_seconds: toSeconds(shape.start, fps) };
+    const args = { clip: clip.id, track: onto, start_seconds: toSeconds(extent.start, fps) };
     return { tool: "clip_move", args };
   }
-  const args = trimArguments(clip, shape, fps);
+  const args = trimArguments(clip, extent, fps);
   return args && { tool: "clip_move", args };
 }
 

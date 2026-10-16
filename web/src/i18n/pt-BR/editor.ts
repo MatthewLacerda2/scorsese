@@ -9,6 +9,7 @@ export const editor: Messages["editor"] = {
   page: {
     opening: "Abrindo o projeto…",
     frameShape: "Formato do quadro",
+    reframeHint: "Se algo ficou por resolver, peça ao assistente para resolver.",
     render: "Renderizar",
     renderTitle: "Renderizar o vídeo",
     renderDescription: "O corte inteiro, do jeito que está agora, em MP4 para baixar.",
