@@ -91,3 +91,26 @@ fn a_line_height_under_the_size_is_honoured_down_to_half_of_it() {
     assert_eq!(tall(4.0), 20.0);
     assert_eq!(tall(f32::NAN), 20.0);
 }
+
+/// What setting the block found out besides where it is (#1096): a band one
+/// line tall holding two lines cuts one, and a short line's words reach only
+/// as far as the line, centred in its block.
+#[test]
+fn a_setting_counts_the_lines_cut_and_measures_the_words_not_the_block() {
+    let resolution = Resolution::new(WIDTH, HEIGHT).expect("a legal raster");
+    let style = text::Style {
+        max_width: 300.0,
+        ..style(20.0, Rgba::WHITE)
+    };
+    let set = |content: &str, height: f32| {
+        let band = Band { top: 0.0, height };
+        text::setting_in(content, Font::sans(), &style, band, resolution)
+    };
+    let cut = set("Ship\nit", 25.0);
+    assert_eq!(cut.overset, Some(text::Overset { set: 2, shown: 1 }));
+    let whole = set("Ship\nit", HEIGHT as f32);
+    assert_eq!(whole.overset, None);
+    assert!(whole.ink.width > 0.0 && whole.ink.width < whole.block.width);
+    let middle = |area: scorsese_compositor::Area| area.left + area.width / 2.0;
+    assert!((middle(whole.ink) - middle(whole.block)).abs() < 0.01);
+}

@@ -13,7 +13,8 @@
 //! [`crate::uncovered_glyphs`]), the symbols an icon asset names
 //! ([`crate::unknown_icons`]), the properties a keyframe track
 //! animates ([`crate::unknown_in`]), what the picture draws on top of what
-//! ([`crate::Layout`], filtered down to the stacks nobody meant), which clips
+//! ([`crate::Layout`], filtered down to the stacks nobody meant, and the words
+//! it cut or the clips it found running off the frame), which clips
 //! blend with nothing beneath them, which are masked by a matte they never
 //! meet, and the document's own validation. That is why the assembly sits in this crate rather
 //! than in `core`: a face is a file this crate opens, a symbol is a catalogue it
@@ -27,6 +28,7 @@
 //! about rather than spawning a probe for.
 
 mod beneath;
+mod framed;
 mod media;
 mod overlap;
 mod unmet;
@@ -111,7 +113,8 @@ impl Verdict {
 ///   file whose content changed since it was imported, a script the document
 ///   names and the disk does not have, two layers of comparable size drawn
 ///   across each other for long enough that it was probably not a transition,
-///   an `add` blend on the lowest layer where there is nothing to add to.
+///   an `add` blend on the lowest layer where there is nothing to add to, a
+///   title with more lines than its band holds, a clip running off the frame.
 ///
 /// Both are collected even when there are problems: an agent repairing a
 /// project unattended should see the whole list, not discover it one
@@ -183,6 +186,13 @@ impl Checkup {
         // have been meant, in the report the author is already reading.
         lines.extend(
             overlap::collisions(project, project_dir)
+                .into_iter()
+                .map(Line::warning),
+        );
+        // Words their band had no room for, and clips running off the frame:
+        // both render, and a slide-in is meant, so both are only ever said.
+        lines.extend(
+            framed::off_frame(project, project_dir)
                 .into_iter()
                 .map(Line::warning),
         );

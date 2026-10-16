@@ -26,9 +26,11 @@
 //! with the reason.
 
 mod display;
+mod edges;
 
 use std::path::Path;
 
+use scorsese_compositor::text::{Overset, Setting};
 use scorsese_compositor::{Area, Properties, Resolution};
 use scorsese_core::{AssetKind, Clip, Frames, Project, TrackId};
 
@@ -39,6 +41,9 @@ use crate::follow;
 use crate::plan::{FrameRange, Plan, Shot};
 use crate::raster::Sizes;
 use crate::text::Painter;
+
+pub use edges::Overhang;
+pub(crate) use edges::cut_off;
 
 /// Where everything on one frame of the timeline sits.
 #[derive(Debug, Clone, PartialEq)]
@@ -116,6 +121,20 @@ impl Layout {
                 }),
             })
             .collect();
+        // A title's words, as well as its block: where they reach and whether
+        // any were cut. A font that will not open is `rects`' to report.
+        let settings: Vec<Option<Setting>> = shots
+            .iter()
+            .map(|shot| {
+                (shot.asset.kind == AssetKind::Text)
+                    .then(|| {
+                        painter
+                            .setting(shot.asset, shot.clip, project_root, raster)
+                            .ok()
+                    })
+                    .flatten()
+            })
+            .collect();
         let (riders, _) = follow::riders(&placing, project);
         let stranded = follow::place(
             &riders,
@@ -144,14 +163,28 @@ impl Layout {
                 _ => rects[layer].clone(),
             };
             match rect {
-                Ok(rect) => placed.push(Placement {
-                    clip: shot.clip.id.to_string(),
-                    track: shot.track.to_string(),
-                    asset: shot.asset.id.to_string(),
-                    kind: shot.asset.kind,
+                Ok(rect) => {
                     // Put through the compositor's matrix rather than a copy.
-                    area: Region::of(rect.bounds_on(&properties[layer], raster), raster),
-                }),
+                    let on_frame = |area| {
+                        Region::of(
+                            Rect { area, ..rect }.bounds_on(&properties[layer], raster),
+                            raster,
+                        )
+                    };
+                    let setting = settings[layer];
+                    // The words, not the block, are what can leave the frame:
+                    // a short title in a wide block has edges nothing is drawn at.
+                    let drawn = setting.map_or(rect.area, |setting| setting.ink);
+                    placed.push(Placement {
+                        clip: shot.clip.id.to_string(),
+                        track: shot.track.to_string(),
+                        asset: shot.asset.id.to_string(),
+                        kind: shot.asset.kind,
+                        area: on_frame(rect.area),
+                        overhang: Overhang::of(on_frame(drawn)),
+                        overset: setting.and_then(|setting| setting.overset),
+                    });
+                }
                 Err(why) => unplaced.push(Unplaced::new(shot.track, shot.clip, why)),
             }
         }
@@ -204,6 +237,11 @@ pub struct Placement {
     pub kind: AssetKind,
     /// What the content covers, in fractions of the raster.
     pub area: Region,
+    /// How far what it draws runs past the frame's edges, when it does — for
+    /// text, the words rather than the wrap block.
+    pub overhang: Option<Overhang>,
+    /// For text, the lines its band had no room for, when there were any.
+    pub overset: Option<Overset>,
 }
 
 /// A clip with no rectangle at this instant, and why it has none.

@@ -13,7 +13,7 @@ use std::fmt;
 
 use crate::describe::display::kind;
 
-use super::{Absence, Layout, Placement, Region, Unplaced};
+use super::{Absence, Layout, Placement, Region, Unplaced, cut_off};
 
 impl fmt::Display for Layout {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -41,6 +41,14 @@ impl fmt::Display for Layout {
                 kind(placement.kind),
                 placement.area
             )?;
+            // Beneath the rectangle it is about, indented past the name so
+            // the column of rectangles still reads straight down.
+            if let Some(overset) = &placement.overset {
+                write!(f, "\n  {:<width$}  {}", "", cut_off(overset))?;
+            }
+            if let Some(overhang) = &placement.overhang {
+                write!(f, "\n  {:<width$}  {overhang}", "")?;
+            }
         }
         for unplaced in &self.unplaced {
             if let Absence::Unknown(why) = &unplaced.why {

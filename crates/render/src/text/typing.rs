@@ -17,7 +17,7 @@
 
 use scorsese_compositor::path;
 use scorsese_compositor::text::{self, Reveal, Style, Sweep, Unpaintable};
-use scorsese_compositor::{Area, Frame, Resolution};
+use scorsese_compositor::{Frame, Resolution};
 use scorsese_core::{Asset, Clip, Counter};
 
 use super::Typeface;
@@ -107,10 +107,10 @@ impl Typing {
         text::draw_revealing(frame, &content, &self.font, &self.style, &reveal)
     }
 
-    /// Where the block is set: the widest figure's block, since that is the
-    /// room the layout keeps.
-    pub(super) fn block(&self, resolution: Resolution) -> Area {
-        text::block_in(
+    /// Where the block is set, where its words reach and whether any were
+    /// cut: the widest figure's, since that is the room the layout keeps.
+    pub(super) fn setting(&self, resolution: Resolution) -> text::Setting {
+        text::setting_in(
             &self.content(None),
             &self.font,
             &self.style,

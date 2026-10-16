@@ -194,6 +194,11 @@ pub use scorsese_compositor::{Frame, PIXEL_FORMAT};
 /// project meets the vocabulary of the thing that draws it.
 pub use scorsese_compositor::{DissolveError, Placed, dissolve};
 
+/// A block of text whose band had no room for all of it, which belongs to the
+/// compositor because it is the one that drops the lines. Re-exported because
+/// [`Placement`] carries it to callers that never depend on the compositor.
+pub use scorsese_compositor::text::Overset;
+
 /// The coordinate ruler, which belongs to the compositor because it draws.
 /// Re-exported because the callers that want it — the CLI and the MCP server —
 /// reach a frame through this crate and never depend on the compositor
@@ -242,7 +247,7 @@ pub use describe::{
 };
 pub use error::{RenderError, Stage};
 pub use format::{AudioCodec, Container, FormatError, OutputFormat, VideoCodec};
-pub use layout::{Absence, Layout, Placement, Region, Unplaced};
+pub use layout::{Absence, Layout, Overhang, Placement, Region, Unplaced};
 pub use plan::{FrameRange, FrameRangeError, Plan, PlanError, Showing};
 pub use preview::{Preview, Proxies, Quality};
 pub use probe::{Ffprobe, fill_media};

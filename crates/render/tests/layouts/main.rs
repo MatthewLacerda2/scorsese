@@ -8,6 +8,7 @@
 mod common;
 
 mod absent;
+mod edges;
 mod following;
 mod pivoted;
 mod placed;
