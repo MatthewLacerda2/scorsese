@@ -12,7 +12,7 @@ use crate::credentials::Secret;
 
 use super::PAGE_SIZE;
 use super::candidate::{Candidate, Medium, Rendition};
-use super::library::{Library, Page, Query, StockError};
+use super::library::{Library, Page, Query, StockError, failed};
 
 /// What this library is called wherever a message names it.
 const NAME: &str = "Pixabay";
@@ -43,23 +43,19 @@ impl PixabayLibrary {
         }
     }
 
-    /// A transport error as the refusal it means.
+    /// A transport error as the refusal it means: a refused key named, and
+    /// everything else read the way every library's is ([`failed`]).
     fn failure(&self, error: &HttpError) -> StockError {
-        let scrub = |text: &str| text.replace(self.key.expose(), "<key>");
         match error {
-            HttpError::Refused { status: 429, .. } => StockError::RateLimited { library: NAME },
             HttpError::Refused { status, body, .. }
                 if matches!(status, 400 | 401 | 403) && body.contains("API key") =>
             {
                 StockError::KeyRefused {
                     library: NAME,
-                    said: scrub(body.trim()),
+                    said: http::scrubbed(body.trim(), Some(&self.key)),
                 }
             }
-            other => StockError::Provider {
-                library: NAME,
-                said: scrub(&other.to_string()),
-            },
+            other => failed(NAME, other, Some(&self.key)),
         }
     }
 }
@@ -318,5 +314,11 @@ mod tests {
             library.failure(&limited),
             StockError::RateLimited { .. }
         ));
+        let unreachable = HttpError::Unreachable {
+            url: String::from("https://pixabay.com/api/?key=sekrit"),
+            message: String::from("timed out"),
+        };
+        let said = library.failure(&unreachable).to_string();
+        assert!(!said.contains("sekrit"), "{said}");
     }
 }
