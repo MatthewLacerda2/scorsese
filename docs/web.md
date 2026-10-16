@@ -177,6 +177,8 @@ provider keys use, and is documented in `.env.example`:
 | `ANTHROPIC_API_KEY` | The key the assistant's Claude models answer with (*Assistant turns*), by the same resolver. Optional: without it a turn on a Claude model is refused with "`ANTHROPIC_API_KEY` is not set", and nothing else changes. |
 | `PIXABAY_API_KEY` | The key `stock_search` and `stock_import` look Pixabay up with, by the same resolver, shared by every user (*Web MCP*). Optional: without it a Pixabay search fails with the variable's name; LottieFiles needs no key. |
 | `SCORSESE_ASSISTANT_TURN_CAP` | The most one assistant turn may cost a user, in dollars: `2.50`. Defaults to `3.50`. |
+| `SCORSESE_ELEVENLABS_CONCURRENCY` | How many ElevenLabs calls may be in flight at once, every kind of job together (*The job queue*): the plan's concurrent requests. Defaults to `3`, Starter's; Free allows `2`. A whole number above zero, or the server will not start. |
+| `SCORSESE_ELEVENLABS_VOICE_SLOTS` | How many designed voices the ElevenLabs account holds, every user's together (*Designing a voice*). Defaults to `10`, Starter's. A whole number above zero, or the server will not start. |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | The Google OAuth client people sign in with (*Accounts*). Optional, with the next one: without all three, Google sign-in is off, the server says so in its log, and everything else is served. The secret is never printed. |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Stripe's secret key and the webhook endpoint's signing secret, for users buying credits (*Buying credits*). Optional, with the next one: without all three, buying is off, the server says so in its log, and a purchase is answered `503` "not configured". Both are secrets and never printed. |
 | `SCORSESE_PUBLIC_ORIGIN` | Where browsers reach the site, `https://scorseseestudio.com`: what Google sends a sign-in back to, at `/api/auth/google/callback`, and where Stripe sends a buyer back to. `https://` and a host, or `http://localhost` / `http://127.0.0.1`; anything else stops the server from starting. |
@@ -884,7 +886,13 @@ handler reads) runs `db::scoped` as that owner. The claim is fair between
 users: whoever has the fewest jobs running goes first, so one person's batch
 does not hold everybody else up.
 
-**Concurrency is per kind**, declared beside each kind in `jobs/kinds.rs`:
+**Concurrency is per kind**, declared beside each kind in `jobs/kinds.rs`,
+**and per vendor where the vendor counts** (#1261). ElevenLabs refuses calls
+past the plan's concurrent requests with a `429`, every endpoint counted
+together, so every ElevenLabs kind draws on one shared budget,
+`jobs::kinds::ELEVENLABS`, sized by `SCORSESE_ELEVENLABS_CONCURRENCY` (3,
+Starter's), and a kind runs only while both its own limit and its budget have
+room. Music, sound and cloning join that budget when they arrive.
 
 | kind | at once | why |
 | --- | --- | --- |
@@ -893,11 +901,11 @@ does not hold everybody else up.
 | `proxy` | 1 | a whole transcode, as heavy as a render |
 | `thumbnail` | 2 | one decoded frame |
 | `veo_shot` | 4 | minutes of waiting on Google, almost no machine |
-| `spoken_line` | 4 | seconds, mostly network |
+| `spoken_line` | the ElevenLabs budget | seconds, mostly network |
 | `still_image` | 4 | a Gemini still (#461): seconds, mostly network |
 | `batch_still` | 64 | a Gemini still in a half-price batch (#947): one order, then asking once a minute for up to a day — many at once, so a slot held for a day never makes the next person's still wait a day to be ordered |
-| `voice_design` | 4 | an ElevenLabs voice design (#572): seconds, mostly network |
-| `voice_keep` | 4 | a designed candidate kept as a voice (#572): one free call |
+| `voice_design` | the ElevenLabs budget | an ElevenLabs voice design (#572): seconds, mostly network |
+| `voice_keep` | 1, within the ElevenLabs budget | a designed candidate kept as a voice (#572): one free call, one at a time so the voice-slot count it checks first is never raced |
 
 **Every kind has a handler** — `thumbnail` and `proxy` (#535, #542, *Library*),
 `render` and `preview` (#541, #542, *Renders*), `veo_shot`, `still_image`,
@@ -1772,7 +1780,21 @@ homes that outlive a call (`crate::designs`):
   `designed_voices` names, before quoting it, and `voices` refuses to `check`
   one. The listings need no filter — they are the built-in set and the Voice
   Library, and designed voices are in neither — and built-in and Library voices
-  stay open to everyone.
+  stay open to everyone;
+- **a kept voice takes one of the account's voice slots** (#1261), shared by
+  every user: 10 on Starter, `SCORSESE_ELEVENLABS_VOICE_SLOTS`. ElevenLabs'
+  own page settles which voices count: "Voices saved from the Voice Library do
+  not use custom voice slots. Custom voice slots are only used for voices you
+  create with Voice Design or Voice Cloning"
+  (elevenlabs.io/docs/eleven-creative/voices/voice-library, read 2026-10-16).
+  So narrating with a Library voice, which the vendor adds to the account by
+  itself, is free of slots, and what takes one is exactly a `designed_voices`
+  row — counted from those rows (`designs::owners::slots`), since the
+  operator's key lacks the `user_read` permission the vendor's live count
+  needs. A `voice_keep` job checks before it asks the vendor: a user keeps at
+  most three, so the first few cannot take every slot, and nobody keeps one
+  once the account is full. Either is refused in plain words, free, pointing
+  at the voices the user has and at Library voices.
 
 Both verbs are jobs. A design is paid, and a job interrupted after the
 reservation is run again and settles it, where a call cut off mid-way would

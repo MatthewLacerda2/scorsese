@@ -32,12 +32,21 @@
 //! goes first, oldest first among equals — so one person's batch of twenty
 //! does not make everybody else wait behind all of it.
 //!
-//! ## Concurrency is per kind
+//! ## Concurrency is per kind, and per vendor
 //!
 //! Each [`Kind`] declares how many may run at once ([`kinds`]). The machine
 //! has four cores: a render gets a couple of slots and the rest wait in line,
 //! visibly, while a Veo shot — minutes of waiting on Google — takes almost no
 //! machine and gets more.
+//!
+//! A kind may also draw on a [`Budget`] it shares with other kinds: a limit
+//! that is not the machine's but a vendor's (#1261). ElevenLabs refuses more
+//! than the plan's concurrent requests with a `429`, whichever endpoint they
+//! are for, so a spoken line, a voice design and a kept voice all draw on
+//! [`kinds::ELEVENLABS`]. How big a budget is comes from configuration, not
+//! code — it moves with the plan — and is given to the [`Registry`]
+//! ([`Registry::budget`]). A kind runs only while both its own limit and its
+//! budget have room.
 //!
 //! ## After a crash
 //!
@@ -103,6 +112,7 @@
 //! carries it too ([`Queue::progressed`]).
 
 mod blocking;
+pub mod elevenlabs;
 pub mod kinds;
 mod progress;
 mod registry;
@@ -112,7 +122,7 @@ mod worker;
 
 pub use blocking::blocking;
 pub use progress::ProgressView;
-pub use registry::{Context, Handler, Registry};
+pub use registry::{Context, Handler, Registry, UNSIZED};
 pub use stop::{CancelError, cancel};
 pub use worker::{Queue, work};
 
@@ -135,6 +145,18 @@ pub struct Kind {
     pub name: &'static str,
     /// At most this many run at once.
     pub limit: usize,
+    /// The budget this kind shares with others, if any: then at most as many
+    /// of all its kinds together run at once as the budget's size.
+    pub budget: Option<Budget>,
+}
+
+/// Slots several kinds share — a vendor's concurrency limit, which counts
+/// every call to it whatever it is for. Its size is the [`Registry`]'s to
+/// know ([`Registry::budget`]), since it comes from configuration.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Budget {
+    /// What it is called, in the log and in code: lower snake case.
+    pub name: &'static str,
 }
 
 /// Where a job is in its life.

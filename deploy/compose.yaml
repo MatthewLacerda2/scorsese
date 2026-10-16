@@ -104,6 +104,10 @@ services:
       # a generation needing one fails, free.
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      # What the ElevenLabs plan allows (#1261): calls at once and designed
+      # voices kept. Blank is Starter's, 3 and 10.
+      SCORSESE_ELEVENLABS_CONCURRENCY: ${SCORSESE_ELEVENLABS_CONCURRENCY:-}
+      SCORSESE_ELEVENLABS_VOICE_SLOTS: ${SCORSESE_ELEVENLABS_VOICE_SLOTS:-}
       # Free stock footage and photos (#900). No paid tier, so nothing a user
       # does with it is charged; blank means stock_search says it has no key.
       PIXABAY_API_KEY: ${PIXABAY_API_KEY:-}

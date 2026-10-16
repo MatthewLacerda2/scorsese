@@ -1,5 +1,6 @@
 //! Which handler runs which kind, and what a handler is given to run with.
 
+use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
 
@@ -7,7 +8,7 @@ use futures_util::future::BoxFuture;
 use scorsese_render::{Cancel, Progress};
 use sqlx::postgres::PgPool;
 
-use super::{Job, Kind, Outcome, Queue, store};
+use super::{Budget, Job, Kind, Outcome, Queue, store};
 use crate::db::{self, Tx, UserId};
 
 /// The work one kind of job does.
@@ -32,10 +33,17 @@ where
     }
 }
 
-/// Every kind the worker claims, each with its handler.
+/// How many of a [`Budget`]'s kinds run at once when nobody said
+/// ([`Registry::budget`]): one, so a budget somebody forgot to size is slow,
+/// never a flood of the vendor it stands for.
+pub const UNSIZED: usize = 1;
+
+/// Every kind the worker claims, each with its handler, and how big each
+/// budget they share is.
 #[derive(Clone, Default)]
 pub struct Registry {
     entries: Vec<(Kind, Arc<dyn Handler>)>,
+    budgets: HashMap<Budget, usize>,
 }
 
 impl Registry {
@@ -49,6 +57,18 @@ impl Registry {
         self.entries.retain(|(known, _)| known.name != kind.name);
         self.entries.push((kind, Arc::new(handler)));
         self
+    }
+
+    /// Let at most `size` jobs of `budget`'s kinds run at once, together.
+    pub fn budget(mut self, budget: Budget, size: usize) -> Self {
+        self.budgets.insert(budget, size);
+        self
+    }
+
+    /// How many of `budget`'s kinds may run at once: what
+    /// [`budget`](Self::budget) said, or [`UNSIZED`].
+    pub(super) fn size(&self, budget: Budget) -> usize {
+        self.budgets.get(&budget).copied().unwrap_or(UNSIZED)
     }
 
     /// Every registered kind.

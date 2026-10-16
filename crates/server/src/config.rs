@@ -1,6 +1,6 @@
 //! What the server is told by the environment it is started in.
 //!
-//! Twelve things, and four of them are secrets. The database URL carries a
+//! Fourteen things, and four of them are secrets. The database URL carries a
 //! password, the Google OAuth client has a secret and Stripe has two, so all
 //! are held as a [`Secret`] — printing a [`Config`] prints nothing of them, and no error
 //! below ever repeats their values.
@@ -25,6 +25,7 @@ use scorsese_providers::credentials::{Environment, Secret};
 use crate::assistant::DEFAULT_TURN_CAP_MICROS;
 use crate::credits::dollars;
 use crate::http::google::Google;
+use crate::jobs::elevenlabs::ElevenLabs;
 use crate::payments::Payments;
 use crate::renders::Quota;
 use crate::storage::Storage;
@@ -104,6 +105,8 @@ pub struct Config {
     pub bind: SocketAddr,
     /// The most one assistant turn may cost, in micro-dollars.
     pub assistant_turn_cap: i64,
+    /// What the operator's ElevenLabs plan allows: calls at once, voices kept.
+    pub elevenlabs: ElevenLabs,
     /// Sign in with Google, when [`GOOGLE_CLIENT_ID`], [`GOOGLE_CLIENT_SECRET`]
     /// and [`PUBLIC_ORIGIN`] are all set. `None` serves everything else and
     /// answers a sign-in with "not configured" — a development stack without
@@ -191,6 +194,16 @@ pub enum ConfigError {
         value: String,
     },
 
+    /// A count of something the vendor allows is not a whole number above
+    /// zero (`jobs::elevenlabs`).
+    #[error("{variable} must be a whole number above zero, and {value:?} is not")]
+    Count {
+        /// The variable's name.
+        variable: &'static str,
+        /// What it held.
+        value: String,
+    },
+
     /// The per-turn cap is not an amount of dollars above zero.
     #[error(
         "{ASSISTANT_TURN_CAP} must be dollars above zero like {}, and {value:?} is not",
@@ -256,6 +269,7 @@ impl Config {
             None => DEFAULT_TURN_CAP_MICROS,
         };
 
+        let elevenlabs = ElevenLabs::from_environment(environment)?;
         let google = Google::from_environment(environment)?;
         let payments = Payments::from_environment(environment)?;
 
@@ -266,6 +280,7 @@ impl Config {
             render_quota,
             bind,
             assistant_turn_cap,
+            elevenlabs,
             google,
             payments,
         })

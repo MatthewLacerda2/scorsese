@@ -16,6 +16,7 @@ use scorsese_providers::video::{self, Progress, ProviderError, Ready, Ticket, Vi
 use scorsese_render::testing::generate;
 use scorsese_server::generations::{Image, Speech, Studio, Timing, Vendors, Video};
 use scorsese_server::http::AppState;
+use scorsese_server::jobs::elevenlabs::ElevenLabs;
 use scorsese_server::jobs::{self, kinds};
 use sqlx::postgres::PgPool;
 use tokio::sync::watch;
@@ -123,6 +124,15 @@ pub(super) async fn serve(
     pool: &PgPool,
     mock: &Mock,
 ) -> (SocketAddr, AppState, watch::Sender<bool>) {
+    serve_on(pool, mock, ElevenLabs::default()).await
+}
+
+/// [`serve`], on an ElevenLabs plan that allows what `plan` says.
+pub(super) async fn serve_on(
+    pool: &PgPool,
+    mock: &Mock,
+    plan: ElevenLabs,
+) -> (SocketAddr, AppState, watch::Sender<bool>) {
     let files = common::files("mcp-paid");
     let (address, state) = common::serve_with(pool.clone(), files.clone()).await;
     let timing = Timing {
@@ -131,7 +141,7 @@ pub(super) async fn serve(
         batch_every: Duration::from_millis(20),
         batch_patience: Duration::from_secs(20),
     };
-    let registry = kinds::with_vendors(&files, Arc::new(mock.clone()), timing);
+    let registry = kinds::with_vendors(&files, Arc::new(mock.clone()), timing, plan);
     let (stop, stopping) = watch::channel(false);
     let worker = tokio::spawn(jobs::work(
         state.pool.clone(),

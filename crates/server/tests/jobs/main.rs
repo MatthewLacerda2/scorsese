@@ -5,6 +5,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod budget;
 mod claim;
 mod live;
 mod recover;
@@ -24,12 +25,14 @@ use tokio::task::JoinHandle;
 const ECHO: Kind = Kind {
     name: "echo",
     limit: 2,
+    budget: None,
 };
 
 /// A second kind, to show a claim keeps to the kinds it is asked for.
 const OTHER: Kind = Kind {
     name: "other",
     limit: 1,
+    budget: None,
 };
 
 /// A new account for `email`.

@@ -13,11 +13,12 @@ use scorsese_providers::voices::design::{Brief, Candidate};
 use scorsese_render::Tools;
 use serde_json::{Value, json};
 
+use super::owners;
 use super::store::{self, Design, Sample};
 use super::{DesignPayload, KeepPayload, sample_hash, samples};
 use crate::credits::designs::candidates;
 use crate::credits::generations::{self, Answer, Generation, Paid};
-use crate::db::{self, Says};
+use crate::db::{self, Says, UserId};
 use crate::generations::{Vendors, paying, refusal};
 use crate::jobs::{Context, Handler, Job, Outcome, blocking};
 use crate::library::{Item, Kind, Library, Made, Unkept};
@@ -217,13 +218,22 @@ fn result(design: &Design, items: &[Item]) -> Value {
 }
 
 /// The handler for [`crate::jobs::kinds::VOICE_KEEP`]: a candidate made a
-/// voice, and recorded. Spends nothing.
-pub fn keep_handler(vendors: Arc<dyn Vendors>) -> impl Handler {
+/// voice, and recorded. Spends nothing — and is refused, before the vendor
+/// is asked, once the user or the account has no voice slot left
+/// ([`owners::no_slot`]), of the `voice_slots` the operator's plan has.
+pub fn keep_handler(vendors: Arc<dyn Vendors>, voice_slots: usize) -> impl Handler {
     move |job: Job, context: Context| {
         let vendors = Arc::clone(&vendors);
         async move {
             match serde_json::from_value(job.payload.clone()) {
-                Ok(payload) => keep(&context, &payload, vendors.as_ref()).await,
+                Ok(payload) => {
+                    let keeping = Keeping {
+                        context: &context,
+                        user: job.user,
+                        voice_slots,
+                    };
+                    keep(&keeping, &payload, vendors.as_ref()).await
+                }
                 Err(error) => {
                     Outcome::Failed(format!("the job does not describe a voice: {error}"))
                 }
@@ -232,18 +242,32 @@ pub fn keep_handler(vendors: Arc<dyn Vendors>) -> impl Handler {
     }
 }
 
-async fn keep(context: &Context, payload: &KeepPayload, vendors: &dyn Vendors) -> Outcome {
-    match kept(context, payload, vendors).await {
+/// Who a keep job is keeping a voice for, and how many the account holds.
+struct Keeping<'a> {
+    context: &'a Context,
+    user: UserId,
+    voice_slots: usize,
+}
+
+async fn keep(keeping: &Keeping<'_>, payload: &KeepPayload, vendors: &dyn Vendors) -> Outcome {
+    match kept(keeping, payload, vendors).await {
         Ok(done) => Outcome::Done(done),
         Err(why) => Outcome::Failed(why),
     }
 }
 
 async fn kept(
-    context: &Context,
+    keeping: &Keeping<'_>,
     payload: &KeepPayload,
     vendors: &dyn Vendors,
 ) -> Result<Value, String> {
+    let context = keeping.context;
+    let slots = owners::slots(context.pool(), keeping.user)
+        .await
+        .map_err(database)?;
+    if let Some(why) = owners::no_slot(slots, keeping.voice_slots) {
+        return Err(why);
+    }
     let mut tx = context.scoped().await.map_err(database)?;
     let design = store::get(&mut tx, payload.design)
         .await

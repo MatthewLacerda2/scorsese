@@ -25,7 +25,12 @@ fn read_in(voice: &str) -> serde_json::Value {
 }
 
 /// `user` designs a voice, pays for it and keeps its first candidate.
-async fn design_and_keep(address: SocketAddr, state: &AppState, user: UserId, who: &str) {
+pub(super) async fn design_and_keep(
+    address: SocketAddr,
+    state: &AppState,
+    user: UserId,
+    who: &str,
+) {
     let brief = json!({
         "prompt": "A warm, unhurried radio voice, for late-night stories.",
         "text": "Every city has a night editor, and every night editor has a story about \
