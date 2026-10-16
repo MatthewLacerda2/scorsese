@@ -180,6 +180,20 @@ a rule missing from either config or without both kinds of fixture, so a new
 rule is a `.grit` file, two config lines and its fixtures. The real lint
 leaves `lint/fixtures/` out, since its `flags` files fail on purpose.
 
+**Every rule runs over every fixture**, since `rules.jsonc` loads them all,
+and the test fails on a diagnostic from any rule but the one under test. So a
+fixture is written in the house style for everything except the rule it is
+about: no literal words in JSX (`{label}` from a `declare const`), no colour,
+no server path, components for controls. A new rule's first job is to run
+over the fixtures already there, and fix them, not itself, when it is right
+(2026-10-16: `literalUiText` flagged `serverUrlOutsideApi`'s link text, and
+`shadcnControls` two other rules' `<button>`s).
+
+**Two branches adding a rule collide** on `biome.jsonc`'s `plugins`,
+`rules.jsonc` and the table above: keep both sides, and check the
+`includes` arrays still close, since a hand-merge of two entries can drop a
+`]` (it did, once, and Biome refused the whole config).
+
 **An exception is inline, with its reason.** Biome refuses a suppression
 without one. A file-wide rule like `oneComponentPerFile` takes it once, at the
 top of the file:
