@@ -33,6 +33,7 @@ use std::path::Path;
 use std::str::FromStr;
 
 use scorsese_core::Asset;
+use scorsese_core::frame::even;
 
 use crate::settings::Resolution;
 
@@ -94,12 +95,12 @@ impl Quality {
 
     /// The raster a preview of a film delivered at `full` is drawn at.
     ///
-    /// Each side divided and kept even, which is what the encoder a preview
+    /// Each side divided and rounded to the nearest even number
+    /// ([`scorsese_core::frame::even`]), which is what the encoder a preview
     /// video goes through requires — so a 1080-tall film at a quarter is
-    /// 270 tall, and an odd quotient rounds down a pixel rather than being
-    /// refused.
+    /// 270 tall, and an odd quotient moves a pixel rather than being refused.
     pub fn raster(self, full: Resolution) -> Resolution {
-        let side = |pixels: u32| ((pixels / self.divisor()) & !1).max(2);
+        let side = |pixels: u32| even(f64::from(pixels) / f64::from(self.divisor()));
         Resolution::new(side(full.width()), side(full.height()))
             .expect("an even side of at least two pixels is a legal raster")
     }
@@ -185,7 +186,8 @@ mod tests {
         let portrait = Resolution::new(1080, 1920).expect("a legal raster");
         assert_eq!(Quality::Quarter.raster(portrait).to_string(), "270x480");
         let odd = Resolution::new(1284, 722).expect("a legal raster");
-        assert_eq!(Quality::Quarter.raster(odd).to_string(), "320x180");
+        // 321 is between two even sides, and rounds up as `even` does.
+        assert_eq!(Quality::Quarter.raster(odd).to_string(), "322x180");
     }
 
     #[test]

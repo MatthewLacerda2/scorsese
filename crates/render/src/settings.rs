@@ -24,7 +24,7 @@ use scorsese_core::Fps;
 use crate::audio::LoudnessTarget;
 use crate::format::OutputFormat;
 
-pub use scorsese_compositor::{Resolution, ResolutionError};
+pub use scorsese_compositor::{Budget, Resolution, ResolutionError, Sizing, SizingError};
 
 /// A target video bitrate, in bits per second.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

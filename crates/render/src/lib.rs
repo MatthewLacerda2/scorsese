@@ -246,7 +246,7 @@ pub mod picture {
 pub use ask::{AskError, RenderAsk, Spelled};
 pub use audio::{LoudnessTarget, LoudnessTargetError};
 pub use cancel::Cancel;
-pub use checkup::Checkup;
+pub use checkup::{Checkup, Reframed, reframe};
 pub use contact::{ContactError, Look, Sheet};
 pub use describe::{
     Animated, AtError, Commentary, Cue, CueError, Description, Moment, Playing, Shown, Stretch,
@@ -263,8 +263,8 @@ pub use properties::{ANIMATABLE, Unknown, unknown_in};
 pub use report::{Note, RenderReport, StandIn, Told};
 pub use run::Renderer;
 pub use settings::{
-    Bands, Bitrate, BitrateError, RenderSettings, Resolution, ResolutionError, SampleRate,
-    SampleRateError,
+    Bands, Bitrate, BitrateError, Budget, RenderSettings, Resolution, ResolutionError, SampleRate,
+    SampleRateError, Sizing, SizingError,
 };
 pub use slug::{Absent, wording};
 pub use symbol::{UnknownIcon, unknown_icons};

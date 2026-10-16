@@ -5,6 +5,7 @@
 //! is taller than it is wide) are decided somewhere they can be checked without
 //! decoding anything.
 
+use scorsese_core::frame::even;
 use scorsese_core::{Precision, clock};
 
 /// The most frames one sheet may hold.
@@ -167,17 +168,12 @@ pub(super) fn cell(width: u32, height: u32) -> (u32, u32) {
         (width, height)
     } else {
         let scale = f64::from(CELL_LONGEST_SIDE) / f64::from(longest);
-        (
-            (f64::from(width) * scale).round() as u32,
-            (f64::from(height) * scale).round() as u32,
-        )
+        return (
+            even(f64::from(width) * scale),
+            even(f64::from(height) * scale),
+        );
     };
-    (even(width), even(height))
-}
-
-/// The nearest even number that is at least two.
-fn even(side: u32) -> u32 {
-    (side.max(2) / 2) * 2
+    (even(f64::from(width)), even(f64::from(height)))
 }
 
 /// A moment as a person reads a timecode: `0:07`, `2:30`, `1:04:09`.

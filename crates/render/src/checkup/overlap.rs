@@ -32,7 +32,7 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use scorsese_compositor::Resolution;
+use scorsese_compositor::{Budget, Resolution};
 use scorsese_core::{AssetKind, Fps, Frames, Project, TrackKind};
 
 use crate::layout::{Layout, Placement, Region};
@@ -138,17 +138,16 @@ fn with_alpha(project: &Project) -> HashSet<&str> {
         .collect()
 }
 
-/// The frame every rectangle here is worked out against.
+/// The frame every rectangle here is worked out against: the project's own
+/// shape at its delivery size (#1278).
 ///
-/// A project carries no resolution — that is chosen per render — so a question
-/// about where a layer lands has to be asked against some frame, and 16:9 at
-/// 1080p is what the rest of the tool defaults to. It decides two things: what a
-/// `fit` picture letterboxes into, and how wide a block of text wraps. Neither
-/// is sensitive enough to a raster for a different one to change what this
-/// reports, and an overlap that only exists at one delivery size is not one this
-/// check is for.
-pub(super) fn reference() -> Resolution {
-    Resolution::new(1920, 1080).expect("1920x1080 is a legal raster")
+/// The shape matters — it decides what a `fit` picture letterboxes into and
+/// how wide a block of text wraps, and a vertical edit measured against a
+/// landscape frame reported a different layout from the one it renders. The
+/// size does not: nothing here is sensitive enough to a raster for another of
+/// the same shape to change what this reports.
+pub(super) fn reference(project: &Project) -> Resolution {
+    Resolution::of_project(project, Budget::Delivery)
 }
 
 /// Every pair of layers that spends long enough drawn over each other to be
@@ -183,7 +182,7 @@ pub(super) fn collisions(project: &Project, project_dir: &Path) -> Vec<String> {
         // answer worth complaining about twice: whatever made it unanswerable —
         // a font that will not open, media that has gone — is already a finding
         // of its own in the same report.
-        let Ok(layout) = Layout::at(project, project_dir, reference(), segment.start) else {
+        let Ok(layout) = Layout::at(project, project_dir, reference(project), segment.start) else {
             continue;
         };
         let layers: Vec<&Placement> = layout
