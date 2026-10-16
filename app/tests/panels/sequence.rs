@@ -44,10 +44,12 @@ fn sequenced(label: &str) -> Fixture {
 fn a_sequence_unfolded_in_the_files_panel() {
     let project = sequenced("sequence");
     let mut harness = window(Some(project.path().to_path_buf()));
-    harness.run();
+    // The tiles outgrow the column and its scroll bar fades in, which takes
+    // more frames than `run` will wait for.
+    harness.run_steps(12);
     harness.get_by_label("⏵").click();
     // Off the panel, so the pointer does not sit over the arrow in the picture.
     harness.hover_at(egui::pos2(700.0, 780.0));
-    harness.run();
+    harness.run_steps(12);
     harness.snapshot(Part::Side, "a_sequence_unfolded_in_the_files_panel");
 }

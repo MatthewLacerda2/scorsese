@@ -122,6 +122,9 @@ pub(crate) const ON_HUE: Color32 = Color32::WHITE;
 /// theme lightens the window and never the matte.
 pub(crate) const MATTE: Color32 = Color32::BLACK;
 
+/// The tint that leaves a picture as it is: white, which multiplies by one.
+pub(crate) const UNTINTED: Color32 = Color32::WHITE;
+
 /// The palette in force in `ctx`: whichever theme egui has resolved, which is
 /// the person's explicit choice or else the system's (see `super::choice`).
 pub(crate) fn of(ctx: &egui::Context) -> &'static Palette {

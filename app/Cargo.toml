@@ -78,9 +78,10 @@ scorsese-providers = { path = "../crates/providers" }
 # The light/dark choice is a one-key JSON file beside settings.json
 # (src/theme/choice.rs); already in the tree through core and providers.
 serde_json = "1.0.151"
+# The files panel reads back the thumbnails `scorsese-render` writes (PNG, the
+# one format it is asked for) to hand egui as textures. Decoder only: no other
+# format, no encoder, no threads. The tests also use it to crop snapshots.
+image = { version = "0.25.6", default-features = false, features = ["png"] }
 
 [dev-dependencies]
 egui_kittest = { version = "0.35.0", features = ["wgpu", "snapshot"] }
-# To crop a snapshot to the panel it is named for (#755): already in the tree
-# through `egui_kittest`, which hands back an `image::RgbaImage`.
-image = { version = "0.25.6", default-features = false }
