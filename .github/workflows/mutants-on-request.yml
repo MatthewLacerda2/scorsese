@@ -84,7 +84,9 @@ jobs:
           save-if: false
 
       - name: Install cargo-mutants
-        uses: taiki-e/install-action@cargo-mutants
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
 
       # Is there a surface left to mutate at all? #363 and #365 excluded it
       # down to six mutants with nothing noticing; `mutation-surface.py` holds
@@ -200,12 +202,16 @@ jobs:
           save-if: ${{ matrix.shard == 0 && github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-mutants
-        uses: taiki-e/install-action@cargo-mutants
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
 
       # `.cargo/mutants.toml` runs each mutant's tests through nextest, so
       # they run offline (#1302); prebuilt, as in `ci.yml`.
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.146
 
       - name: The plan
         uses: actions/download-artifact@v8

@@ -29,8 +29,9 @@ cd "${CLAUDE_PROJECT_DIR:-$(dirname "$0")/../..}" || exit 0
 # The versions CI and the brief pin. cargo-deny must be 0.19 or newer: older
 # releases cannot parse the advisory database's CVSS 4.0 entries. cargo-mutants
 # is the version `.github/workflows/mutation-sweep.yml` runs.
-# `.github/scripts/tests/test_tool_pins.py` holds DENY and TERRAFORM to the
-# versions the workflows install (#1370).
+# `.github/scripts/tests/test_tool_pins.py` holds NEXTEST, DENY, MUTANTS and
+# TERRAFORM to the versions the workflows install (#1370, #1226): bump a
+# workflow's `tool:` with its line here.
 NEXTEST=0.9.146
 DENY=0.20.2
 MUTANTS=27.1.0

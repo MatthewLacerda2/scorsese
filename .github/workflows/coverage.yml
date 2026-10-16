@@ -113,7 +113,9 @@ jobs:
       # refuses the network (#1302), and `crates/providers/tests/offline`
       # fails without it.
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.146
 
       # `rust-toolchain.toml` pins rustfmt and clippy only. llvm-tools is asked
       # for here rather than added there so the pin stays the set every job

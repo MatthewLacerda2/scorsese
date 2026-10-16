@@ -241,7 +241,9 @@ jobs:
           save-if: false
 
       - name: Install cargo-mutants
-        uses: taiki-e/install-action@cargo-mutants
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
 
       # Is there a surface left to mutate at all? The whole surface and not
       # this crate's share of it, because the floor in `.cargo/mutants.toml` is
@@ -337,12 +339,16 @@ jobs:
           save-if: ${{ matrix.shard == 0 && github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-mutants
-        uses: taiki-e/install-action@cargo-mutants
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
 
       # `.cargo/mutants.toml` runs each mutant's tests through nextest, so
       # they run offline (#1302); prebuilt, as in `ci.yml`.
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.146
 
       # No warm-up build, for the reason spelled out at the same place in
       # `mutants-on-request.yml`: the copy each mutant is built in has no

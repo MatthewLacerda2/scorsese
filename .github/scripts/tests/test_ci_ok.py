@@ -25,6 +25,10 @@ _spec = importlib.util.spec_from_file_location("ci_ok", ROOT / ".github" / "scri
 ci_ok = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ci_ok)
 
+# Jobs that run for a Markdown-only change too: `scripts` costs seconds, and
+# its consistency tests read pages (#1226).
+EVERY_CHANGE = ("scripts",)
+
 DRAFT = "github.event_name != 'pull_request' || github.event.pull_request.draft == false"
 
 
@@ -90,7 +94,10 @@ class Workflow(unittest.TestCase):
                 continue
             with self.subTest(job=name):
                 self.assertEqual(needs(block), {"changes"})
-                self.assertIn(f"if: ({DRAFT}) && needs.changes.outputs.code == 'true'", block)
+                if name in EVERY_CHANGE:
+                    self.assertIn(f"if: {DRAFT}\n", block)
+                else:
+                    self.assertIn(f"if: ({DRAFT}) && needs.changes.outputs.code == 'true'", block)
 
     def test_changes_asks_the_list_and_stays_silent_on_drafts(self):
         changes = self.jobs["changes"]
