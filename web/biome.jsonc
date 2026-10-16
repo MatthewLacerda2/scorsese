@@ -36,6 +36,7 @@
         "!**/src/components/ui/**",
         "!**/*.test.ts",
         "!**/*.test.tsx"
+      ]
     },
     {
       "path": "./lint/serverUrlOutsideApi.grit",
