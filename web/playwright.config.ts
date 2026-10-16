@@ -1,8 +1,10 @@
 // The end-to-end flows (#898): a few things a person does in the web app,
 // driven in headless Chromium against the real `scorsese-server` and a real
 // Postgres, so a front end and a server that disagree are caught. The
-// assistant is the one thing faked, in the browser (`tests/e2e/assistant.spec.ts`):
-// nothing here can spend money, and CI has no provider keys anyway.
+// assistant is the one thing faked, in the browser (`tests/e2e/fakeAssistant.ts`):
+// nothing here can spend money, and CI has no provider keys anyway. The flows
+// that run a turn run once per language (`tests/e2e/assistant.spec.ts`, #1429);
+// the rest run in English.
 //
 // Run through `make web-e2e`, which builds the server and brings a Postgres;
 // by hand it needs, in the environment:
