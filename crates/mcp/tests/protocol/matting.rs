@@ -56,7 +56,10 @@ fn a_matte_the_document_would_refuse_writes_nothing() {
         (json!({ "clip": "m1" }), "audio track"),
         (json!({ "clip": "c1" }), "masked by itself"),
         (json!({ "clip": "nowhere" }), "does not exist"),
-        (json!({ "luma": true }), "not `luma`"),
+        (
+            json!({ "luma": true }),
+            "`matte.luma` is not an argument here",
+        ),
         (json!({ "invert": true }), "needs a `clip`"),
         (json!(true), "or `false`"),
     ] {
