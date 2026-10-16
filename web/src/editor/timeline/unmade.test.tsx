@@ -3,7 +3,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { renderToString } from "react-dom/server";
-import type { DocumentAsset, ProjectDocument } from "@/api";
+import { type DocumentAsset, type ProjectDocument, SCHEMA_VERSION } from "@/api";
 import { Lane } from "./Lane";
 import { isMade } from "./made";
 
@@ -21,7 +21,7 @@ function lane(asset: DocumentAsset): string {
     clips: [{ id: "c1", asset: asset.id, start: 0, duration: 30 }],
   };
   const document: ProjectDocument = {
-    schema_version: 1,
+    schema_version: SCHEMA_VERSION,
     name: "p",
     timeline_fps: { num: 30, den: 1 },
     assets: [asset],

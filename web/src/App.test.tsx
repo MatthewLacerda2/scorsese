@@ -9,7 +9,7 @@
 import { expect, test } from "bun:test";
 import { MemoryRouter } from "react-router";
 import { App } from "@/App";
-import type { Account, Balance, EditorProject } from "@/api";
+import { type Account, type Balance, type EditorProject, SCHEMA_VERSION } from "@/api";
 import { createQueryClient, ME } from "@/app/queryClient";
 import { ThemeControl } from "@/app/ThemeControl";
 import { prerenderHtml } from "@/test/prerender";
@@ -97,7 +97,7 @@ test("the editor draws the stored document: its tracks, clips and assets", async
     platform: null,
     style: null,
     document: {
-      schema_version: 51,
+      schema_version: SCHEMA_VERSION,
       name: "teaser",
       timeline_fps: { num: 30, den: 1 },
       assets: [{ id: "title", kind: "text", text: "HELLO" }],

@@ -11,7 +11,8 @@
 //! - [`ignored`] — what you push is what CI builds: no code file `.gitignore`
 //!   would leave out of a commit.
 //! - [`schema`] — a Rust test document at this build's version interpolates
-//!   `SCHEMA_VERSION` rather than writing the number.
+//!   `SCHEMA_VERSION` rather than writing the number; a web one imports the
+//!   web's copy, which is held to the Rust one.
 //! - [`shebang`] — a tracked script with a shebang is executable, and an
 //!   executable text file has a shebang (#1347).
 //!
@@ -74,6 +75,12 @@ pub fn check_tree(root: &Path) -> io::Result<Vec<Finding>> {
         .iter()
         .find(|(file, _)| file.path == Path::new(schema::DEFINED_IN))
         .and_then(|(_, text)| schema::defined_version(text));
+    let web = texts
+        .iter()
+        .find(|(file, _)| file.path == Path::new(schema::WEB_DEFINED_IN));
+    if let (Some(current), Some((_, text))) = (current, web) {
+        findings.extend(schema::check_web_definition(text, current));
+    }
     for (file, text) in &texts {
         if let Some(current) = current {
             findings.extend(schema::check(&file.path, text, current));
