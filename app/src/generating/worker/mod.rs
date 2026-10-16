@@ -14,10 +14,10 @@
 //! The pattern is [`Probing`](crate::project::probing::Probing)'s: a channel, a
 //! copy to the worker, and a poll from the repaint loop that never blocks.
 //!
-//! # Three passes, one ceiling, one total
+//! # Four passes, one ceiling, one total
 //!
-//! [`shots`] is Veo, [`stills`] Gemini and [`lines`] ElevenLabs, run in that
-//! order with the ceiling threaded from each into the next — a limit each pass
+//! [`shots`] is Veo, [`stills`] Gemini, [`lines`] ElevenLabs and [`tracks`]
+//! ElevenLabs Music (#1264), run in that order with the ceiling threaded from each into the next — a limit each pass
 //! checked on its own would be a limit worth twice what somebody set. Each
 //! resolves its own key, and only when it has work: a project of nothing but
 //! narration must not be stopped for want of a Veo key, and the other way
@@ -27,6 +27,7 @@
 mod lines;
 mod shots;
 mod stills;
+mod tracks;
 
 use std::path::Path;
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
@@ -34,10 +35,9 @@ use std::sync::mpsc::{Receiver, TryRecvError, channel};
 use scorsese_core::placing::{self, Shortened};
 use scorsese_core::{AssetId, Project, Reprobe, probe_assets};
 use scorsese_providers::credentials::{Budget, Settings};
+use scorsese_providers::passes::Done;
 use scorsese_providers::prices::{dollars, from_cents};
 use scorsese_providers::spending;
-use scorsese_providers::video::Run;
-use scorsese_providers::{image, speech};
 use scorsese_render::Ffprobe;
 
 /// What one background pass did.
@@ -107,22 +107,14 @@ fn run(pass: Pass, mut project: Project, root: &Path) -> Report {
     };
     let budget = Budget::from_settings(&settings, spending::so_far(&project, root).total());
 
-    let mut made = Run {
-        outcomes: Vec::new(),
-        spent_cents: 0,
-    };
-    let mut drawn = Vec::new();
-    let mut spoken = Vec::new();
-    let stop = passes(
-        &mut project,
-        root,
-        pass,
-        budget,
-        &mut made,
-        &mut drawn,
-        &mut spoken,
-    )
-    .err();
+    let mut done = Done::default();
+    let stop = passes(&mut project, root, pass, budget, &mut done).err();
+    let Done {
+        shots: made,
+        stills: drawn,
+        lines: spoken,
+        tracks: composed,
+    } = done;
     // A pass that could not start, with nothing done before it, is the
     // reason alone. One that stopped after making something says what it
     // made first: the reason alone reads as nothing having happened (#1153).
@@ -130,15 +122,17 @@ fn run(pass: Pass, mut project: Project, root: &Path) -> Report {
         && made.outcomes.is_empty()
         && drawn.is_empty()
         && spoken.is_empty()
+        && composed.is_empty()
     {
         return stopped(&project, root, said.clone());
     }
-    let committed = made.spent_cents + stills::spent(&drawn);
+    let committed = made.spent_cents + stills::spent(&drawn) + lines::spent(&spoken);
 
     // Before the save, so what was measured is in the document the window
     // reloads rather than in a copy this thread is about to drop.
     let landed: Vec<AssetId> = shots::arrived(&made.outcomes)
         .chain(lines::arrived(&spoken))
+        .chain(tracks::arrived(&composed))
         .cloned()
         .collect();
     let shortened = if !landed.is_empty() || stills::arrived(&drawn) {
@@ -152,9 +146,10 @@ fn run(pass: Pass, mut project: Project, root: &Path) -> Report {
     let mut parts = shots::said(&made.outcomes);
     parts.extend(stills::said(&drawn));
     parts.extend(lines::said(&spoken));
+    parts.extend(tracks::said(&composed));
     parts.extend(shortened.iter().map(Shortened::says));
     let in_flight = made.in_flight();
-    let mut said = sentence(parts, committed + lines::spent(&spoken), pass);
+    let mut said = sentence(parts, committed + tracks::spent(&composed), pass);
     if let Some(stop) = &stop {
         said = format!("{said} · {stop}");
     }
@@ -167,22 +162,41 @@ fn run(pass: Pass, mut project: Project, root: &Path) -> Report {
     }
 }
 
-/// Every pass, in order, each into its own slot as it goes — so one that
-/// stops leaves the earlier ones' work, and its own as far as it got, for the
-/// report. A pass that stops ends the run, the ceiling threaded through.
+/// Every pass, in order, each into its own slot of `done` as it goes — so one
+/// that stops leaves the earlier ones' work, and its own as far as it got, for
+/// the report. A pass that stops ends the run, the ceiling threaded through.
 fn passes(
     project: &mut Project,
     root: &Path,
     pass: Pass,
     budget: Budget,
-    made: &mut Run,
-    drawn: &mut Vec<(AssetId, image::Outcome)>,
-    spoken: &mut Vec<(AssetId, speech::Outcome)>,
+    done: &mut Done,
 ) -> Result<(), String> {
-    shots::pass(project, root, pass, budget, made)?;
-    stills::pass(project, root, pass, budget.spend(made.spent_cents), drawn)?;
-    let committed = made.spent_cents + stills::spent(drawn);
-    lines::pass(project, root, pass, budget.spend(committed), spoken)
+    shots::pass(project, root, pass, budget, &mut done.shots)?;
+    let committed = done.shots.spent_cents;
+    stills::pass(
+        project,
+        root,
+        pass,
+        budget.spend(committed),
+        &mut done.stills,
+    )?;
+    let committed = committed + stills::spent(&done.stills);
+    lines::pass(
+        project,
+        root,
+        pass,
+        budget.spend(committed),
+        &mut done.lines,
+    )?;
+    let committed = committed + lines::spent(&done.lines);
+    tracks::pass(
+        project,
+        root,
+        pass,
+        budget.spend(committed),
+        &mut done.tracks,
+    )
 }
 
 /// Measures whatever has just landed, for both vendors at once.
@@ -237,7 +251,7 @@ fn sentence(mut parts: Vec<String>, spent: u64, pass: Pass) -> String {
     if parts.is_empty() {
         return match pass {
             Pass::Submit => {
-                String::from("nothing to generate — every shot and every line is already made")
+                String::from("nothing to generate — every shot, line and track is already made")
             }
             Pass::Sweep => String::from("nothing in flight"),
         };
