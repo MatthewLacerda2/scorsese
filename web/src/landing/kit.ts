@@ -1,11 +1,12 @@
-// scorsese's motion kit (#812), the very file a page's video is drawn with,
+// scorsese's motion kit (#812), the very script a page's video is drawn with,
 // loaded here rather than copied so the two never drift. It is a classic
 // script that sets `window.kit`; importing it for its side effect runs it once.
+// It is joined from its pieces as a page's is (src/build/kit.ts).
 //
 // Only the helpers that are pure functions of the time they are handed are
 // used on the web: `kit.frame` is tied to a page's capture clock and `kit.exit`
 // to its `scorsese.duration`, neither of which a browser tab has.
-import "../../../crates/render/src/page/shipped/kit.js";
+import "virtual:motion-kit";
 
 /** An easing: progress 0–1 in, eased progress out. */
 type Ease = (p: number) => number;

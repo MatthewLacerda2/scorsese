@@ -4,7 +4,7 @@
 !web/
 !deploy/nginx.conf
 !crates/compositor/fonts/
-!crates/render/src/page/shipped/kit.js
+!crates/render/src/page/shipped/kit/
 web/node_modules/
 web/dist/
 # The landing page's projects: their renders are in web/src/landing/media/

@@ -1,5 +1,6 @@
 # `bun test`'s settings: the DOM the interaction tests need (src/test/dom.ts),
+# the motion kit the landing page imports (src/test/kit.ts),
 # and only `src/` searched — `tests/e2e/` is Playwright's, run by its own runner.
 [test]
 root = "./src"
-preload = ["./src/test/dom.ts"]
+preload = ["./src/test/dom.ts", "./src/test/kit.ts"]
