@@ -54,3 +54,33 @@ test("each language reads its own words", () => {
   expect(messagesFor("pt-BR").common.logOut).toBe("Sair");
   expect(messagesFor("es").common.logOut).toBe("Cerrar sesión");
 });
+
+/** Every list message's path in `node`, nested objects walked. */
+function lists(node: unknown, prefix = ""): string[] {
+  if (Array.isArray(node)) return [prefix];
+  if (typeof node !== "object" || node === null) return [];
+  return Object.entries(node).flatMap(([key, value]) =>
+    lists(value, prefix ? `${prefix}.${key}` : key),
+  );
+}
+
+/** The value at a dotted `path` in `node`. */
+function at(node: unknown, path: string): unknown {
+  return path.split(".").reduce((value, key) => (value as Record<string, unknown>)[key], node);
+}
+
+test("a list message is still a list in every language", () => {
+  // `withFallback` once walked arrays as objects, so `chat.turn.busy` reached
+  // pt-BR and es as `{0: …}` and the busy line's `.includes` blanked the page.
+  const paths = lists(en);
+  expect(paths).toContain("chat.turn.busy");
+  for (const { language } of LANGUAGES) {
+    for (const path of paths) {
+      expect({ language, path, list: Array.isArray(at(messagesFor(language), path)) }).toEqual({
+        language,
+        path,
+        list: true,
+      });
+    }
+  }
+});

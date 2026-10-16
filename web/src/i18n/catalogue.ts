@@ -25,6 +25,10 @@ export const CATALOGUES: Record<Language, Messages> = { en, "pt-BR": ptBR, es };
  */
 export function withFallback<T>(chosen: T, fallback: T): T {
   if (typeof fallback !== "object" || fallback === null) return chosen ?? fallback;
+  // A list is one message, taken whole: walked as an object it would come
+  // back as `{0: …, 1: …}`, and every `.includes`/`.map` on it would throw —
+  // which blanked the editor in Portuguese and Spanish whenever a turn ran.
+  if (Array.isArray(fallback)) return Array.isArray(chosen) ? chosen : fallback;
   const merged: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(fallback)) {
     const own = (chosen as Record<string, unknown> | undefined)?.[key];
