@@ -886,6 +886,15 @@ timeout_multiplier = 5.0
 # A real infinite loop still stops at 30 seconds.
 minimum_test_timeout = 30.0
 
+# nextest, not cargo-mutants' default of `cargo test`, so every baseline and
+# every mutant runs with the network refused (#1302). `.config/nextest.toml`'s
+# `offline` setup script is what refuses it, and only nextest runs that script:
+# under `cargo test`, `crates/providers/tests/offline` fails by design, which
+# would fail the baseline of every run that reaches `scorsese-providers`, and
+# any mutant test that reached for a vendor would get the network. The copy
+# each mutant builds in keeps `.config/`, so the script comes with it.
+test_tool = "nextest"
+
 # Tests from the mutated package only, not the whole workspace. This is the
 # decision that makes the cost bearable: a mutant in `crates/core` runs core's
 # tests in ~0.2s instead of rebuilding every crate behind it and rendering the

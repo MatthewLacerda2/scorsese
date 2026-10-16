@@ -339,6 +339,11 @@ jobs:
       - name: Install cargo-mutants
         uses: taiki-e/install-action@cargo-mutants
 
+      # `.cargo/mutants.toml` runs each mutant's tests through nextest, so
+      # they run offline (#1302); prebuilt, as in `ci.yml`.
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
       # No warm-up build, for the reason spelled out at the same place in
       # `mutants-on-request.yml`: the copy each mutant is built in has no
       # `target/` in it, so a build here compiles into a directory the sweep

@@ -1,3 +1,5 @@
+experimental = ["setup-scripts"]
+
 # How the snapshots are scheduled, and why the runner is told rather than the
 # Makefile.
 #
@@ -38,3 +40,12 @@ max-threads = 1
 [[profile.default.overrides]]
 filter = 'binary_id(scorsese-app::panels)'
 test-group = 'wgpu-device'
+
+# The network refused, as for the main workspace (#1302): the root's
+# `.config/nextest.toml` has why, and the script is that workspace's.
+[scripts.setup.offline]
+command = { command-line = "../.config/offline", relative-to = "workspace-root" }
+
+[[profile.default.scripts]]
+filter = 'all()'
+setup = 'offline'

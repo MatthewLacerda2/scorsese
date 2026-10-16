@@ -108,6 +108,13 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 
+      # `llvm-cov nextest` rather than plain `llvm-cov`, which is `cargo
+      # test`: only nextest runs `.config/nextest.toml`'s setup script that
+      # refuses the network (#1302), and `crates/providers/tests/offline`
+      # fails without it.
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
       # `rust-toolchain.toml` pins rustfmt and clippy only. llvm-tools is asked
       # for here rather than added there so the pin stays the set every job
       # needs, and only this one pays to download it.
@@ -116,7 +123,7 @@ jobs:
 
       - name: Measure
         run: >
-          cargo llvm-cov --workspace --locked
+          cargo llvm-cov nextest --workspace --locked
           --exclude-from-report scorsese-golden
           --json --output-path coverage.json
 

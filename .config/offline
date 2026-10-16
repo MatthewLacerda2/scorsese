@@ -1,0 +1,13 @@
+#!/bin/sh
+# nextest's `offline` setup script (#1302): every test process gets outbound
+# HTTP sent to a port where nothing listens, and loopback direct.
+# `.config/nextest.toml` has why; nextest reads what this appends to
+# $NEXTEST_ENV into each test's environment, and into nothing else.
+set -eu
+dead=http://127.0.0.1:9
+loopback=localhost,127.0.0.1,::1
+for name in ALL_PROXY all_proxy HTTPS_PROXY https_proxy HTTP_PROXY http_proxy; do
+  echo "$name=$dead" >> "$NEXTEST_ENV"
+done
+echo "NO_PROXY=$loopback" >> "$NEXTEST_ENV"
+echo "no_proxy=$loopback" >> "$NEXTEST_ENV"

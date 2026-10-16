@@ -1,3 +1,5 @@
+experimental = ["setup-scripts"]
+
 # The workspace suite's time limit (#1134). `app/` has its own file, for its
 # own workspace.
 #
@@ -10,3 +12,34 @@
 # that needs more is one to split rather than a limit to raise.
 [profile.default]
 slow-timeout = { period = "60s", terminate-after = 3 }
+
+# Every test runs with the network refused (#1302). CLAUDE.md: no real provider
+# calls in tests, ever. A fake behind a trait keeps a test from *meaning* to
+# call a vendor; this is what stops one that does anyway — a key in the
+# tester's shell or `.env`, a fake forgotten — before the request leaves the
+# machine. The CLI harness seals its child runs the same way
+# (`crates/cli/tests/common`); this covers the in-process tests too.
+#
+# How: every proxy variable points at the discard port on this machine, where
+# nothing listens, so a request is refused at once. The HTTP client reads them
+# by default (`ureq`'s `Proxy::try_from_env`, for every agent
+# `providers::api::http` builds), and so does Chromium. `NO_PROXY` keeps
+# loopback direct, for the fake servers and pages a test serves itself.
+#
+# Why a setup script rather than the variables on `make test` or in
+# `.cargo/config.toml`: cargo reads `HTTPS_PROXY` too, so set around the
+# command it would stop a cold build fetching crates, and `[env]` would reach
+# `cargo run` and block a real generation. A setup script runs after the build
+# and its variables reach test processes and nothing else.
+# `crates/providers/tests/offline` holds both halves, and fails by name if a
+# runner ever stops applying this.
+#
+# Setup scripts are still behind nextest's `experimental` switch (0.9.146,
+# 2026-10-16) — the only way to give the variables to tests and not to cargo.
+# The table names are the ones nextest settled on ahead of stabilising.
+[scripts.setup.offline]
+command = { command-line = ".config/offline", relative-to = "workspace-root" }
+
+[[profile.default.scripts]]
+filter = 'all()'
+setup = 'offline'

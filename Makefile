@@ -662,9 +662,10 @@ coverage: ## Which pub items no test reaches. A signal: no threshold, blocks not
 		echo "          Install it with: cargo install --locked cargo-llvm-cov" >&2; \
 		echo "          It also needs: rustup component add llvm-tools-preview" >&2; \
 		exit 1; }
+	@$(NEXTEST_CHECK)
 	@$(PYTHON_CHECK)
 	@mkdir -p target
-	tools/with-chrome tools/with-postgres cargo llvm-cov --workspace --locked --exclude-from-report scorsese-golden \
+	tools/with-chrome tools/with-postgres cargo llvm-cov nextest --workspace --locked --exclude-from-report scorsese-golden \
 		--json --output-path target/coverage.json
 	$(PYTHON) .github/scripts/coverage-summary.py target/coverage.json
 
@@ -721,6 +722,7 @@ mutants: ## Which changes to the code no test would notice. A signal: blocks not
 		echo "mutants: cargo-mutants is not installed." >&2; \
 		echo "         Install it with: cargo install --locked cargo-mutants" >&2; \
 		exit 1; }
+	@$(NEXTEST_CHECK)
 	@git rev-parse --verify --quiet origin/main >/dev/null || { \
 		echo "mutants: origin/main is not in this clone -- there is no diff to scope to." >&2; \
 		echo "         Fetch it with: git fetch origin main" >&2; \

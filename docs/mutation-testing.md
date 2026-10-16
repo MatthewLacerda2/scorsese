@@ -102,11 +102,14 @@ branch's diff — so the cost tracks the question rather than the codebase.
 
 Code outside it reports nothing, however it is asked about. A branch that adds
 mechanism there runs it by hand, one `-f` per file, with `--no-config` so the
-globs above neither add to nor filter it:
+globs above neither add to nor filter it. `--no-config` drops the config's
+`test_tool` too, so `--test-tool nextest` puts it back: only nextest runs the
+setup script that keeps tests offline (#1302).
 
 ```sh
 # a server module whose tests live in its own file: lib tests only, no Postgres
-cargo mutants --no-config -f crates/server/src/http/disposition.rs \
+cargo mutants --no-config --test-tool nextest \
+  -f crates/server/src/http/disposition.rs \
   --test-package scorsese-server --jobs 2 -- --lib
 ```
 
