@@ -20,7 +20,16 @@ async fn a_session_lasts_until_logout(pool: PgPool) {
 
     let out = request(address, "POST", "/api/logout", &[cookie.as_str()], None).await;
     assert_eq!(out.status, 204);
-    assert!(out.header("set-cookie").unwrap().contains("Max-Age=0"));
+    // The session and its hint (#1246) both go.
+    let cleared = out.headers_named("set-cookie");
+    for name in ["scorsese_session=;", "scorsese_signed_in=;"] {
+        assert!(
+            cleared
+                .iter()
+                .any(|c| c.starts_with(name) && c.contains("Max-Age=0")),
+            "{name} {cleared:?}"
+        );
+    }
     let after = request(address, "GET", "/api/me", &[cookie.as_str()], None).await;
     assert_eq!(after.status, 401);
 }

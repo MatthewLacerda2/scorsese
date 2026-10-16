@@ -3,7 +3,8 @@
 // The session itself is an HttpOnly cookie the page cannot read (docs/web.md,
 // *Accounts*), so "am I logged in?" is asked of the server: `GET /api/me`,
 // cached under `["me"]`. `null` there means logged out — set by a `401` from
-// any request (app/queryClient.ts) as well as by logging out here.
+// any request (app/queryClient.ts) as well as by logging out here. A `401`
+// here also drops the readable hint that a session exists (./hint.ts).
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate, Outlet, useLocation } from "react-router";
@@ -11,12 +12,16 @@ import { type Account, ApiError, api } from "@/api";
 import { ME } from "@/app/queryClient";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n/I18nProvider";
+import { forgetSignedInHint } from "@/session/hint";
 
 async function currentAccount(): Promise<Account | null> {
   try {
     return await api.account.me();
   } catch (error) {
-    if (error instanceof ApiError && error.status === 401) return null;
+    if (error instanceof ApiError && error.status === 401) {
+      forgetSignedInHint();
+      return null;
+    }
     throw error;
   }
 }

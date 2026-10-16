@@ -11,8 +11,8 @@ export function account(): { email: string; session: string } {
 }
 
 /**
- * Signs in: the session cookie as the server sets it (docs/web.md,
- * *Accounts*), then `/login`, which a signed-in visitor leaves for the
+ * Signs in: the session cookie and its hint as the server sets them
+ * (docs/web.md, *Accounts*), then `/login`, which a signed-in visitor leaves for the
  * projects list.
  */
 export async function logIn(page: Page) {
@@ -24,6 +24,16 @@ export async function logIn(page: Page) {
       domain: "127.0.0.1",
       path: "/api",
       httpOnly: true,
+      secure: true,
+      sameSite: "Strict",
+    },
+    // The readable hint the server sets beside it (#1246), so `/` waits on the
+    // session rather than drawing the landing page first.
+    {
+      name: "scorsese_signed_in",
+      value: "1",
+      domain: "127.0.0.1",
+      path: "/",
       secure: true,
       sameSite: "Strict",
     },

@@ -30,25 +30,29 @@ import {
   SpendingPage,
   TermsPage,
 } from "@/app/pages";
+import { signedInHint } from "@/session/hint";
 import { RequireSession, useAccount } from "@/session/session";
 import { Shell } from "./Shell";
 
 /**
  * `/`: the projects for a signed-in visitor, the landing page for anyone else.
  *
- * The landing page is drawn without waiting for the session (#1238): the
- * anonymous visitor is the common case, and the only one whose first load has
- * to be fast. So the landing chunk and the session check go out together, and
- * a signed-in visitor is sent on to `/projects` the moment the check answers.
- * Until the chunk arrives the fallback is the landing page's own dark ground,
- * so a session that answers first (usual: one small JSON beside a chunk of
- * code) moves on before anything of the landing page has been drawn.
+ * Which one is decided before any request, by the hint the server sets beside
+ * the session (#1246, `session/hint.ts`). Without it — the anonymous visitor,
+ * the common case and the one whose first load has to be fast — the landing
+ * page is drawn at once, its chunk and the session check going out together
+ * (#1238). With it, the page waits on the session behind the landing page's
+ * dark ground, so a signed-in visitor never sees the landing page flash nor
+ * starts its film, and is sent on to `/projects`. A stale hint only costs that
+ * wait, and is dropped when the session answers as nobody.
  */
 function Home() {
   const account = useAccount();
+  const ground = <div className="min-h-svh bg-[#07070a]" />;
   if (account.data) return <Navigate to="/projects" replace />;
+  if (account.isPending && signedInHint()) return ground;
   return (
-    <Suspense fallback={<div className="min-h-svh bg-[#07070a]" />}>
+    <Suspense fallback={ground}>
       <LandingPage />
     </Suspense>
   );

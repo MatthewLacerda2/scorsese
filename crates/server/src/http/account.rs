@@ -5,7 +5,7 @@ use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::http::header::SET_COOKIE;
-use axum::response::IntoResponse;
+use axum::response::{AppendHeaders, IntoResponse};
 
 use super::AppState;
 use super::auth::{self, Member, Via};
@@ -13,7 +13,7 @@ use super::error::ApiError;
 use crate::accounts::{Account, sessions, users};
 
 /// `POST /api/logout`: end this browser's session, and tell it to forget the
-/// cookie.
+/// cookie and its hint.
 ///
 /// With an API token there is no session to end, and the answer is the same
 /// `204` — logging out is idempotent, and a token is revoked by name instead.
@@ -24,7 +24,12 @@ pub async fn logout(
     if let Via::Session(cookie) = &member.via {
         sessions::close(&state.pool, member.user, cookie).await?;
     }
-    Ok((StatusCode::NO_CONTENT, [(SET_COOKIE, auth::clear_cookie())]))
+    let [session, hint] = auth::clear_cookies();
+    Ok((
+        StatusCode::NO_CONTENT,
+        // Appended: a plain array of headers keeps only the last of a name.
+        AppendHeaders([(SET_COOKIE, session), (SET_COOKIE, hint)]),
+    ))
 }
 
 /// `GET /api/me`: who this request is logged in as.

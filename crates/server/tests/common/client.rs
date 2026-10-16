@@ -27,6 +27,16 @@ impl Response {
         })
     }
 
+    /// Every header named `name`'s value, case-insensitively — `Set-Cookie`
+    /// comes once per cookie.
+    pub(crate) fn headers_named(&self, name: &str) -> Vec<&str> {
+        let named = self.headers.iter().filter_map(|line| {
+            let (key, value) = line.split_once(':')?;
+            key.eq_ignore_ascii_case(name).then(|| value.trim())
+        });
+        named.collect()
+    }
+
     /// The body as JSON.
     pub(crate) fn json(&self) -> serde_json::Value {
         serde_json::from_str(&self.body).expect("the body is JSON")
