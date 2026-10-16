@@ -34,6 +34,7 @@ export function TileView(props: ViewProps) {
       className={`group relative rounded-lg p-0.5 ${kindColor(asset.kind)}`}
       data-asset={asset.id}
     >
+      {/* biome-ignore lint/plugin/shadcnControls: a draggable tile whose whole face is the handle; a Button's fixed height and padding would fight the picture */}
       <button
         type="button"
         draggable

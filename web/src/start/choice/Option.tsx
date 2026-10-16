@@ -3,6 +3,7 @@
 
 import { cn } from "cn";
 import type { ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 
 /** A card that is checked when chosen. */
 export function Option({
@@ -15,18 +16,18 @@ export function Option({
   children: ReactNode;
 }) {
   return (
-    // biome-ignore lint/a11y/useSemanticElements: a card with a picture in it, not a bare radio input.
-    <button
+    <Button
       type="button"
+      variant="outline"
       role="radio"
       aria-checked={checked}
       onClick={onPick}
       className={cn(
-        "flex flex-col items-start gap-1 rounded-lg border p-2 text-left text-sm transition-colors hover:bg-muted/50",
+        "h-auto flex-col items-start gap-1 whitespace-normal p-2 text-left font-normal",
         checked && "border-primary ring-2 ring-primary/30",
       )}
     >
       {children}
-    </button>
+    </Button>
   );
 }

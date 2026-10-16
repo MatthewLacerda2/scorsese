@@ -121,11 +121,12 @@ function Tile({
     <div
       className={`relative overflow-hidden rounded-md ring-2 ${selected ? "ring-info" : "ring-transparent"}`}
     >
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={onLook}
         aria-label={t.chat.picker.enlarge}
-        className="block w-full"
+        className="block h-auto w-full rounded-none p-0"
       >
         <img
           src={candidate.preview_url}
@@ -133,7 +134,7 @@ function Tile({
           loading="lazy"
           className="aspect-video w-full bg-muted object-cover"
         />
-      </button>
+      </Button>
       {/* Badges sit on the picture, not on the theme: black and white are fixed. */}
       {long && (
         <span className="absolute bottom-1 left-1 rounded bg-screen/70 px-1 text-[10px] text-on-screen">
@@ -145,15 +146,16 @@ function Tile({
           {nameOf(candidate.source)}
         </span>
       )}
-      <button
+      <Button
         type="button"
+        size="icon-xs"
         onClick={onChoose}
         aria-pressed={selected}
         aria-label={selected ? t.chat.picker.selected : t.chat.picker.select}
-        className={`absolute top-1 right-1 flex size-6 items-center justify-center rounded-full border-2 border-on-screen shadow ${selected ? "bg-info text-info-foreground" : "bg-screen/30"}`}
+        className={`absolute top-1 right-1 rounded-full border-2 border-on-screen shadow ${selected ? "bg-info text-info-foreground hover:bg-info" : "bg-screen/30 hover:bg-screen/30"}`}
       >
         {selected && <CheckIcon className="size-4" />}
-      </button>
+      </Button>
     </div>
   );
 }

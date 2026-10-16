@@ -10,6 +10,7 @@
 // Its brightness becomes its alpha.
 
 import { useRef } from "react";
+import { Button } from "@/components/ui/button";
 import { useLanguage, useT } from "@/i18n/I18nProvider";
 import { Carousel } from "@/landing/Carousel";
 import mark from "@/landing/media/mark.png";
@@ -40,9 +41,13 @@ export function Hero({ onSignIn }: { onSignIn: () => void }) {
             {t.landing.hero.lead}
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-4" data-rise="0.8">
-            <button type="button" onClick={onSignIn} className="cta px-7 py-3 text-base">
+            <Button
+              type="button"
+              onClick={onSignIn}
+              className="h-auto cta px-7 py-3 text-base hover:bg-(--gold) hover:text-(--ink)"
+            >
               {t.landing.signIn}
-            </button>
+            </Button>
             <a href="#how" className="dim px-2 py-3 text-base underline-offset-4 hover:underline">
               {t.landing.hero.scroll} ↓
             </a>

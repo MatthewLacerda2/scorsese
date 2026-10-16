@@ -1,6 +1,7 @@
 // The landing page's last way in: one line and the sign-in button, a slide
 // like the rest (`HowItWorks.tsx` says how they move).
 
+import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n/I18nProvider";
 
 export function Closing({ onSignIn }: { onSignIn: () => void }) {
@@ -14,9 +15,13 @@ export function Closing({ onSignIn }: { onSignIn: () => void }) {
         {t.closing.body}
       </p>
       <div className="mt-10" data-rise="0.3">
-        <button type="button" onClick={onSignIn} className="cta px-8 py-3.5 text-base">
+        <Button
+          type="button"
+          onClick={onSignIn}
+          className="h-auto cta px-8 py-3.5 text-base hover:bg-(--gold) hover:text-(--ink)"
+        >
           {t.signIn}
-        </button>
+        </Button>
       </div>
     </section>
   );

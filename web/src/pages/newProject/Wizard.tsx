@@ -53,19 +53,21 @@ export function Wizard({ initial = EMPTY }: { initial?: Draft }) {
       <ol className="flex flex-wrap gap-2 text-sm">
         {STEPS.map((name, index) => (
           <li key={name}>
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               aria-current={index === step ? "step" : undefined}
               onClick={() => setStep(index)}
               className={cn(
-                "rounded-full border px-3 py-1",
+                "h-auto rounded-full px-3 py-1",
                 index === step
                   ? "border-primary bg-primary/10 font-medium"
-                  : "text-muted-foreground",
+                  : "font-normal text-muted-foreground",
               )}
             >
               {index + 1}. {t.steps[name]}
-            </button>
+            </Button>
           </li>
         ))}
       </ol>

@@ -148,6 +148,7 @@ export function Lane(props: Props) {
         const made = isMade(asset);
         const body = made ? `text-on-screen ${kindColor(asset?.kind)}` : "bg-muted text-foreground";
         return (
+          // biome-ignore lint/plugin/shadcnControls: a clip dragged and positioned absolutely on the timeline; a Button's base styles would fight its geometry
           <button
             type="button"
             key={clip.id}
