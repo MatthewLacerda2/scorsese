@@ -33,8 +33,8 @@ impl Tool for Reframe {
     }
 
     fn description(&self) -> &'static str {
-        "Change the shape of the project's frame (its aspect), e.g. from 16:9 to \
-         9:16 to deliver a landscape cut upright. Every default follows the \
+        "Change the shape of the project's frame, its aspect — from 16:9 to 9:16, \
+         say, to deliver a landscape cut upright. Every default follows the \
          shape: render's size, still's, and the frame project_describe and \
          project_check measure against. Never refused. Positions, sizes, text \
          and shapes are fractions of the frame and follow on their own; footage \

@@ -2798,7 +2798,7 @@ compositing-suite line.
 
 ```json project
 {
-  "schema_version": 51,
+  "schema_version": 52,
   "name": "wipe",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [
