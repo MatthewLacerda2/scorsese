@@ -61,6 +61,9 @@
 //! counts what a project's recipes are made of — never for synthesising, which
 //! is `scorsese-providers`' job. A `zimmer` import that makes sound does not
 //! belong here.
+//! `tools/lint` holds it (`make size`, its `boundary` rules): every
+//! `scorsese_zimmer::` path here starts with `level` or `survey`, and nobody
+//! but [`tools`] spawns ffmpeg.
 //!
 //! [`audio`] is the one thing here that processes rather than moves bytes, and
 //! it sits in this crate because there is no `scorsese-mixer` to put it in. Its

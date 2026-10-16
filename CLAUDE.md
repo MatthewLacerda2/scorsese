@@ -221,8 +221,8 @@ side effect of a feature PR.
   ducks under narration (`core::dip`, behind `scorsese duck` and the
   `duck_music` tool).
 - **`core` and `cli` never touch a display.** No window, no GPU surface, no
-  GUI toolkit — that invariant is stated in their `lib.rs` docs and enforced
-  in review. The GUI is a client of the same library logic the CLI and MCP
+  GUI toolkit — that invariant is stated in their `lib.rs` docs and held by
+  `make size`: no display crate may reach the root workspace's `Cargo.lock`. The GUI is a client of the same library logic the CLI and MCP
   server use.
 - **The GUI is `egui`, in Rust, and deliberately thin.** One language and one
   toolchain, and a compositor frame reaches the screen as a texture rather
@@ -275,8 +275,11 @@ capture image) ; `tools/` (what the gates and the session hook run: `lint`, the
 size gate; `chromium`, the one pinned build pages are captured with;
 `with-chrome` and `with-postgres`, which hand a test run a browser or a
 throwaway database; `icons`, run by hand to re-vendor Lucide). Each `lib.rs`
-doc states what its crate must never depend on — those boundaries are enforced
-in review.
+doc states what its crate must never depend on — those boundaries are held by
+checks (#1224): `make size` (`tools/lint`'s `boundary` rules) for the edges
+between crates, who holds the HTTP and Postgres clients, and the I/O, ffmpeg
+and zimmer-reading fences; clippy's `disallowed-methods` for where the
+environment is read; `crates/mcp/tests/neutral.rs` for tools naming a client.
 
 **`zimmer` is ours** (the joke told twice: Scorsese directs, Zimmer scores),
 and **[rusty](https://github.com/MatthewLacerda2/rusty)**, the owner's game

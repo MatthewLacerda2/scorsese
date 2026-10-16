@@ -30,6 +30,8 @@
 //! spawn a process. No GUI, no ffmpeg, no provider calls — it reads and
 //! writes the project document and reasons about it. Everything else depends
 //! on it.
+//! `tools/lint` holds the process and network half (`make size`, its `boundary`
+//! rules), and that nothing of ours lies beneath it.
 //!
 //! The format itself is documented in `docs/project-format.md`.
 //!

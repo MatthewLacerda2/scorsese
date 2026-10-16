@@ -36,6 +36,8 @@
 //! crate in the workspace holding an HTTP client: every call scorsese makes to
 //! a vendor is made from here, through [`api`], and nothing else has a reason
 //! to reach a network.
+//! `tools/lint` holds it (`make size`, its `boundary` rules): only this crate
+//! may depend on an HTTP client, and inside it only `api::http` names one.
 //!
 //! ## What this publishes
 //!

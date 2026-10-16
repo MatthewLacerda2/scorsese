@@ -29,6 +29,9 @@
 //! heard of a project, an asset or a `ProjectPath`, and a song that names its
 //! instruments by reference resolves them through a caller-supplied
 //! [`PatchResolver`] rather than by opening anything itself.
+//! `tools/lint` holds it (`make size`, its `boundary` rules): no `std::fs`,
+//! `std::net`, `std::process`, `std::env` or printing under `src/`, and no
+//! crate of ours in `Cargo.toml`.
 //!
 //! That boundary is what makes the determinism claim checkable: every output
 //! is a pure function of the documents handed in.
