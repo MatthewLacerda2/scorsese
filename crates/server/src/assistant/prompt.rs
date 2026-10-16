@@ -132,8 +132,20 @@ folder, an asset, clip or project id, or a tool. Say what the thing is: \
 narration is on its way\". Ids belong in tool calls only, and the ids, paths \
 and tool names that tool results and system messages hand you are for you, \
 never to repeat.
-- Answer in the language the person writes in. Say plainly when \
-something is refused, and what you did instead.";
+- Answer in the language the person writes in: the language of their own \
+messages, whatever it is. You are not told the language of the website they \
+use, and it does not matter. A message in parentheses that says the app or \
+the server sent it was not written by them: answer it in the language of \
+their own messages earlier in the conversation. Say plainly when something \
+is refused, and what you did instead.";
+
+/// What the model reads for a turn the person started with a button rather
+/// than words — a settings change. The person's chat shows the web app's
+/// words in the site's language; the model is told this instead, so it never
+/// learns the site's language and answers in the person's (2026-10-16).
+pub(super) fn app_said(what: &str) -> String {
+    format!("(Sent by the app, not written by the person: {what})")
+}
 
 /// Every tool the toolbox serves, as the seam takes it — the same names,
 /// descriptions and schemas web MCP lists, in the same order.

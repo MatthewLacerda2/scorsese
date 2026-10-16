@@ -29,7 +29,8 @@ pub struct Retargeted {
 }
 
 /// Make `user`'s `project` one for `now`, and when that changes anything, start
-/// a turn telling the assistant — with `words` as the person's message.
+/// a turn telling the assistant — with `words` as what the person's chat shows
+/// for it, never what the model reads (`Opening::told`).
 pub async fn retarget(
     state: &AppState,
     user: UserId,
@@ -55,6 +56,9 @@ pub async fn retarget(
         notes: vec![prompt::retargeted(&before, &now)],
         effort: None,
         woken: false,
+        told: Some(prompt::app_said(
+            "they changed what this video is made for in its settings.",
+        )),
     };
     Ok(match start(state, user, project, opening).await {
         Ok(turn) => Retargeted {

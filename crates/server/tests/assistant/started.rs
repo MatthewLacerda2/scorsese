@@ -126,6 +126,12 @@ async fn a_change_of_style_is_a_turn_with_a_note_and_the_script_is_left_alone(po
     let detail = finished(address, &who, turn).await;
     assert_eq!(detail["turn"]["prompt"], "Mudei o estilo.");
     let sent = script.messages(0).join("\n");
+    // The person sees the site's words; the model never does (it answers in
+    // the person's own language, not the site's).
+    assert!(
+        !sent.contains("Mudei o estilo.") && sent.contains("Sent by the app"),
+        "{sent}"
+    );
     assert!(
         sent.contains("the style from Tipografia em movimento to Lista / Top N"),
         "{sent}"
