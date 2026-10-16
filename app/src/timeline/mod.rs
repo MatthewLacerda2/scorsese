@@ -393,7 +393,7 @@ fn heading(painter: &egui::Painter, gutter: Rect, area: Rect) {
         egui::pos2(gutter.left() + 10.0, area.top() + ruler::HEIGHT / 2.0),
         egui::Align2::LEFT_CENTER,
         "TIMELINE",
-        egui::FontId::proportional(10.0),
+        egui::FontId::proportional(marks::CORNER_TITLE_SIZE),
         palette::of(painter.ctx()).muted_foreground,
     );
 }

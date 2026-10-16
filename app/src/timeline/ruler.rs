@@ -9,7 +9,7 @@
 //! to sit under a clip and still be there behind it — which is what lets you
 //! see that two cuts on different tracks land on the same beat.
 
-use egui::{Align2, FontId, Painter, Rect, Shape, Stroke, pos2};
+use egui::{Align2, Painter, Rect, Shape, Stroke, pos2};
 use scorsese_core::{Fps, Frames};
 
 use super::view::{View, timecode};
@@ -63,7 +63,7 @@ pub(super) fn draw(painter: &Painter, rect: Rect, view: View, fps: Fps) {
     );
 
     let step = step_seconds(view, fps);
-    let font = FontId::monospace(9.5);
+    let font = marks::figure_font();
     for Tick { frame, x, labelled } in ticks(rect, view, fps, step, SUBDIVISIONS) {
         let (from, colour) = if labelled {
             (9.0, colours.ring)
@@ -177,7 +177,7 @@ pub(super) fn playhead(painter: &Painter, area: Rect, x: f32) {
     let top = area.top() + 3.0;
     painter.line_segment(
         [pos2(x, top), pos2(x, area.bottom())],
-        Stroke::new(1.0, palette::PLAYHEAD),
+        Stroke::new(1.0, palette::of(painter.ctx()).playhead),
     );
     painter.add(Shape::convex_polygon(
         vec![
@@ -187,7 +187,7 @@ pub(super) fn playhead(painter: &Painter, area: Rect, x: f32) {
             pos2(x, top + 17.0),
             pos2(x - 5.0, top + 11.0),
         ],
-        palette::PLAYHEAD,
+        palette::of(painter.ctx()).playhead,
         Stroke::NONE,
     ));
 }

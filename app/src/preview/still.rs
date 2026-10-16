@@ -21,7 +21,7 @@ use scorsese_render::preview::{self, Proxies};
 use scorsese_render::{Note, Quality, RenderSettings, Renderer, Tools};
 
 use crate::project::Open;
-use crate::theme::{ROUND_MD, palette};
+use crate::theme::{ROUND_MD, marks, palette};
 
 /// The frame on screen, and what stopped there being one.
 #[derive(Default)]
@@ -195,7 +195,7 @@ impl Still {
                 area.center(),
                 Align2::CENTER_CENTER,
                 self.problem.as_deref().unwrap_or("nothing to show here"),
-                FontId::proportional(13.0),
+                FontId::proportional(marks::NOTICE_SIZE),
                 colours.ring,
             );
             return;

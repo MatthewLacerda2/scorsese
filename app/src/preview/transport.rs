@@ -106,7 +106,7 @@ fn scrubber(ui: &mut Ui, at: Frames, last: Frames) -> Option<Frames> {
     // this bar and the line down the timeline are one position with two views,
     // and drawing them in two colours would be the window disagreeing with
     // itself about which mark to follow.
-    painter.circle_filled(knob, KNOB, palette::PLAYHEAD);
+    painter.circle_filled(knob, KNOB, palette::of(ui.ctx()).playhead);
 
     // A bar squeezed to nothing has no fraction to read off it, and dividing by
     // its width would put the playhead at a `NaN`.

@@ -43,8 +43,12 @@
 
 pub(crate) mod choice;
 mod fonts;
+#[cfg(test)]
+mod literals;
 pub(crate) mod marks;
 pub(crate) mod palette;
+#[cfg(test)]
+mod web_tokens;
 
 use egui::{Color32, CornerRadius, FontFamily, FontId, Margin, Stroke, TextStyle, Theme, Visuals};
 

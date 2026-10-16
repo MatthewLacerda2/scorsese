@@ -231,6 +231,13 @@ side effect of a feature PR.
   scrub, select, nudge, trim, change a plain value. Anything with structure to
   it is a sentence to an assistant over MCP, not a menu. A GUI rich enough to
   do the editing would be a second, weaker way to do everything.
+- **The app follows the web app's visuals** (the maintainer, 2026-10-12), minus
+  the chatbot, which the app never gets. Its look (colours, and type and
+  spacing where they translate) mirrors the web front-end's theme: the web is
+  where a visual decision is made, and the app follows. The web-only parts (the
+  assistant, accounts, the library) are not mirrored. Two tests hold it: the
+  app's palette is compared with `web/src/index.css`'s tokens, and no panel
+  spells a literal colour or font size outside `app/src/theme/`.
 - **Ship it simple, then iterate from use.** The GUI is the one part of this
   project whose requirements cannot be reasoned out in advance — so the bar for
   a first version is *the user can start editing with it*, not *it is right*.

@@ -17,9 +17,8 @@
 //! over `background` — opaque, and identical wherever a panel puts them.
 //!
 //! A handful of roles have no shadcn token, because the web never needed them
-//! or draws them with Tailwind's own palette: the playhead (`red-500`, as the
-//! web's timeline draws it), a warning (`amber`, the stop that reads on each
-//! ground), the black matte a picture sits on (the web's `bg-black` preview),
+//! or draws them with Tailwind's own palette: the black matte a picture sits on
+//! (the web's `bg-black` preview),
 //! and the three states of a control. Those are said where they are declared.
 //!
 //! ## What colour means
@@ -66,8 +65,12 @@ pub(crate) struct Palette {
     /// token — a browser barely draws a pressed state — so one step on from
     /// `hover` along the same neutral ramp.
     pub(crate) pressed: Color32,
-    /// Something that wants attention and is not wrong. Tailwind `amber`.
+    /// Something that wants attention and is not wrong: the web's `--warning`.
     pub(crate) warning: Color32,
+    /// The timeline's "now" line and the transport's knob: the web's
+    /// `--playhead`, its own token so it is never mistaken for a clip, a rule
+    /// or a refusal.
+    pub(crate) playhead: Color32,
 }
 
 /// Dark: `.dark` in `web/src/index.css`.
@@ -85,7 +88,8 @@ pub(crate) const DARK: Palette = Palette {
     field: grey(0x15),   // `dark:bg-input/30`: 4.5% white over background
     hover: grey(0x1C),   // `dark:hover:bg-input/50`: 7.5% white
     pressed: grey(0x26), // oklch(0.269 0 0), the web's muted
-    warning: Color32::from_rgb(0xFF, 0xB9, 0x00), // amber-400, oklch(82.8% 0.189 84.429)
+    warning: Color32::from_rgb(0xFF, 0xB9, 0x00), // oklch(0.828 0.189 84.429)
+    playhead: Color32::from_rgb(0xFF, 0x64, 0x67), // oklch(0.704 0.191 22.216)
 };
 
 /// Light: `:root` in `web/src/index.css`.
@@ -103,13 +107,13 @@ pub(crate) const LIGHT: Palette = Palette {
     field: grey(0xFF),                                // `bg-background`
     hover: grey(0xF5),                                // `hover:bg-muted`, oklch(0.97 0 0)
     pressed: grey(0xE5),                              // oklch(0.922 0 0), the web's border
-    warning: Color32::from_rgb(0xE1, 0x71, 0x00),     // amber-600, oklch(66.6% 0.179 58.318)
+    warning: Color32::from_rgb(0xFE, 0x9A, 0x00),     // oklch(0.769 0.188 70.08)
+    playhead: Color32::from_rgb(0xFB, 0x2C, 0x36),    // oklch(0.637 0.237 25.331)
 };
 
-/// The playhead, in both themes: Tailwind `red-500`, `oklch(63.7% 0.237
-/// 25.331)`, the web timeline's `bg-red-500`. Its own colour so it is never
-/// mistaken for a clip, a rule or a refusal.
-pub(crate) const PLAYHEAD: Color32 = Color32::from_rgb(0xFB, 0x2C, 0x36);
+/// Text laid on a solid block of a clip's hue, in both themes: white, as the
+/// web sets it.
+pub(crate) const ON_HUE: Color32 = Color32::WHITE;
 
 /// What a picture sits on, in both themes: black, as the web's preview is.
 ///
