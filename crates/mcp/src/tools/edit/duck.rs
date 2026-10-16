@@ -112,13 +112,10 @@ impl Tool for Duck {
         if let Some(seconds) = arguments.min_gap_seconds {
             dip = dip.with_min_gap_seconds(seconds, fps);
         }
-        let ranges = arguments.ranges.iter().flatten().map(|&[from, to]| {
-            if from.is_finite() && to > from {
-                Ok(grid.frames(from)..grid.frames(to))
-            } else {
-                Err(format!("range [{from}, {to}] does not run forward in time"))
-            }
-        });
+        let ranges =
+            arguments.ranges.iter().flatten().map(|&[from, to]| {
+                Under::seconds(grid, from, to).map_err(|error| error.to_string())
+            });
         let under = Under {
             music: TrackId::new(music),
             narration: ids(arguments.under.as_ref(), TrackId::new),

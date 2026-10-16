@@ -33,8 +33,13 @@ fn a_timed_line_becomes_captions_that_a_rerun_replaces() {
     let beside = Words::beside(&ProjectPath::new("generated/vo.mp3"));
     std::fs::write(beside.resolve(&dir), timed.to_json()).unwrap();
 
-    for _ in 0..2 {
-        let (text, failed) = said(&call("caption_narration", json!({ "project": dir })));
+    // The second run names the rim's colour, as `scorsese caption --stroke`
+    // can (#1288).
+    for asked in [
+        json!({ "project": dir }),
+        json!({ "project": dir, "stroke": "#ff0000" }),
+    ] {
+        let (text, failed) = said(&call("caption_narration", asked));
         assert!(!failed, "{text}");
         assert!(
             text.starts_with("2 caption(s) from 1 line(s) on track `captions`"),
@@ -62,5 +67,6 @@ fn a_timed_line_becomes_captions_that_a_rerun_replaces() {
         .unwrap();
     assert_eq!(first["text"], "Stop.");
     assert_eq!(first["style"]["font"], "montserrat");
+    assert_eq!(first["style"]["stroke"], "#ff0000");
     std::fs::remove_dir_all(dir).ok();
 }

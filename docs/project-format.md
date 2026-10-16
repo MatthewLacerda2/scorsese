@@ -3163,7 +3163,9 @@ points exactly where they were before the knobs existed:
 default. A pause shorter than the two ramps, which only `--min-gap` can keep,
 shares itself between them in proportion, so the level touches `--between` once
 on its way back down. A ramp of zero seconds is drawn over one frame. An id that
-is not in the project is refused and nothing is written.
+is not in the project is refused and nothing is written, and so is a range with
+an end below zero or that ends before it starts — `duck_music`'s `ranges` the
+same way.
 
 ### What the compositor animates today
 

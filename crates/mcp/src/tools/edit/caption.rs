@@ -1,8 +1,11 @@
 //! The narration's words as on-screen captions.
 
+use std::fmt::Display;
+use std::str::FromStr;
+
 use schemars::JsonSchema;
 use scorsese_core::captions::{Captioned, Captioning, Chunking, caption};
-use scorsese_core::{FontChoice, Rgba, TrackId};
+use scorsese_core::{FontChoice, TrackId};
 use scorsese_render::picture::caption as look;
 use serde::Deserialize;
 use serde_json::Value;
@@ -87,41 +90,32 @@ impl Tool for CaptionNarration {
 /// The run the arguments ask for, defaults filled in.
 fn asked(arguments: &Arguments, fps: f64) -> Result<Captioning, String> {
     let track = args::given(arguments.track.as_deref()).unwrap_or("captions");
-    let mut asked = look::captioning(TrackId::new(track), fps);
-    let style = &mut asked.style;
-    if let Some(font) = args::given(arguments.font.as_deref()) {
-        style.font = FontChoice::from(font.to_owned());
-        // A file is whatever weight it is, and says so itself; naming one
-        // beside a static file is refused.
-        if style.font.file().is_some() {
-            style.weight = None;
-        }
-    }
-    style.weight = arguments.weight.or(style.weight);
-    style.size = arguments.size.unwrap_or(style.size);
-    if let Some(color) = args::given(arguments.color.as_deref()) {
-        style.color = colour(color, "color")?;
-    }
-    match args::given(arguments.stroke.as_deref()) {
-        Some("none") => style.stroke = None,
-        Some(stroke) => style.stroke = Some(colour(stroke, "stroke")?),
-        None => {}
-    }
-    asked.narration = arguments
-        .narration
-        .iter()
-        .flatten()
-        .map(|id| TrackId::new(id.as_str()))
-        .collect();
-    if let Some(max) = arguments.max_chars {
-        asked.chunking.max_chars = max as usize;
-    }
-    asked.lift = arguments.lift.unwrap_or(asked.lift);
-    Ok(asked)
+    let choices = look::Choices {
+        narration: arguments
+            .narration
+            .iter()
+            .flatten()
+            .map(|id| TrackId::new(id.as_str()))
+            .collect(),
+        max_chars: arguments.max_chars.map(|max| max as usize),
+        font: args::given(arguments.font.as_deref()).map(|font| FontChoice::from(font.to_owned())),
+        weight: arguments.weight,
+        size: arguments.size,
+        color: parsed("color", arguments.color.as_deref())?,
+        stroke: parsed("stroke", arguments.stroke.as_deref())?,
+        lift: arguments.lift,
+    };
+    Ok(choices.captioning(TrackId::new(track), fps))
 }
 
-fn colour(text: &str, key: &str) -> Result<Rgba, String> {
-    text.parse()
+/// `text` read as a `T`, when it was given at all.
+fn parsed<T: FromStr>(key: &str, text: Option<&str>) -> Result<Option<T>, String>
+where
+    T::Err: Display,
+{
+    args::given(text)
+        .map(str::parse)
+        .transpose()
         .map_err(|problem| format!("`{key}`: {problem}"))
 }
 

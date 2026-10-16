@@ -3,7 +3,9 @@
 use std::path::Path;
 
 use anyhow::Result;
-use scorsese_core::{ClipId, Dip, Ducked, PropertyPath, TrackId, Under, duck_track};
+use scorsese_core::{
+    ClipId, Dip, DuckRangeError, Ducked, PropertyPath, TrackId, Under, duck_track,
+};
 use scorsese_render::audio::path::VOLUME;
 
 /// What `scorsese duck` takes: the music, and how the dip is shaped before it
@@ -51,7 +53,9 @@ pub(crate) struct Options {
     range: Vec<(f64, f64)>,
 }
 
-/// `FROM:TO` in seconds, both ends required and in order.
+/// `FROM:TO` in seconds, both ends required and in order — the order and
+/// the range of each end checked by [`DuckRangeError::check`], as `duck_music`
+/// checks them.
 fn seconds_range(text: &str) -> Result<(f64, f64), String> {
     let (from, to) = text
         .split_once(':')
@@ -59,14 +63,10 @@ fn seconds_range(text: &str) -> Result<(f64, f64), String> {
     let end = |part: &str| {
         part.trim()
             .parse::<f64>()
-            .ok()
-            .filter(|seconds| seconds.is_finite() && *seconds >= 0.0)
-            .ok_or_else(|| format!("`{part}` in `{text}` is not a time in seconds"))
+            .map_err(|_| format!("`{part}` in `{text}` is not a time in seconds"))
     };
     let (from, to) = (end(from)?, end(to)?);
-    if to <= from {
-        return Err(format!("`{text}` ends before it starts"));
-    }
+    DuckRangeError::check(from, to).map_err(|error| error.to_string())?;
     Ok((from, to))
 }
 
@@ -94,8 +94,8 @@ pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
         ranges: options
             .range
             .iter()
-            .map(|(from, to)| grid.frames(*from)..grid.frames(*to))
-            .collect(),
+            .map(|&(from, to)| Under::seconds(grid, from, to))
+            .collect::<Result<_, _>>()?,
     };
 
     // The property is named here rather than in `scorsese-core`, which defines

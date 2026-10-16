@@ -14,7 +14,10 @@ use crate::timeline::Track;
 use crate::validate::ValidationErrors;
 
 mod lanes;
+mod vacant;
 mod walk;
+
+use vacant::vacant;
 
 /// The schema version this build reads and writes.
 ///
@@ -53,6 +56,10 @@ pub const PAGES_DIR: &str = "pages";
 
 /// Rebuildable scratch. Gitignored, and safe to delete at any time.
 pub const CACHE_DIR: &str = "cache";
+
+/// Every folder [`Project::create`] lays out beside [`PROJECT_FILE_NAME`], in
+/// the order a reply lists them.
+pub const PROJECT_DIRS: [&str; 5] = [ASSETS_DIR, GENERATED_DIR, RECIPES_DIR, PAGES_DIR, CACHE_DIR];
 
 /// A whole project: the assets it knows about and where they sit in time.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -129,8 +136,9 @@ impl Project {
     }
 
     /// Creates a `*.scor/` directory: the sub-directories and a
-    /// `project.json` for an empty project on the given grid. Refuses to
-    /// overwrite one that is already there.
+    /// `project.json` for an empty project on the given grid. Refuses a
+    /// directory that already holds anything, a project or not, before a
+    /// single file is written.
     ///
     /// **The name is optional, and the fallback lives here** rather than in
     /// whichever client asked. `teaser.scor` holding a project called `teaser`
@@ -142,13 +150,8 @@ impl Project {
         name: Option<&str>,
         timeline_fps: Fps,
     ) -> Result<Self, SaveError> {
-        let file = project_dir.join(PROJECT_FILE_NAME);
-        if file.exists() {
-            return Err(SaveError::AlreadyAProject {
-                path: project_dir.to_path_buf(),
-            });
-        }
-        for directory in [ASSETS_DIR, GENERATED_DIR, RECIPES_DIR, PAGES_DIR, CACHE_DIR] {
+        vacant(project_dir)?;
+        for directory in PROJECT_DIRS {
             let path = project_dir.join(directory);
             fs::create_dir_all(&path).map_err(|source| SaveError::Io { path, source })?;
         }
@@ -387,9 +390,21 @@ pub enum SaveError {
     },
     /// Creating a project where one already lives. Refused rather than
     /// overwritten — clobbering an edit is not undoable.
-    #[error("{} is already a scorsese project", path.display())]
+    #[error("{} is already a scorsese project; nothing was changed", path.display())]
     AlreadyAProject {
         /// The directory that already holds a `project.json`.
+        path: PathBuf,
+    },
+    /// Creating a project in a directory that already holds something else.
+    /// Refused rather than laid over: half the directory would be someone
+    /// else's, with nothing to say which half.
+    #[error(
+        "{} is not empty, so nothing was written. A project directory is laid out \
+         from scratch — name one that does not exist yet.",
+        path.display()
+    )]
+    NotEmpty {
+        /// The directory that holds something already.
         path: PathBuf,
     },
     /// Somebody else saved this project since it was read, so publishing would

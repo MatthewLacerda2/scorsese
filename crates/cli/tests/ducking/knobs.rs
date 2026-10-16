@@ -51,6 +51,12 @@ fn a_backwards_range_and_an_unknown_clip_fail_and_say_why() {
     assert!(run.failed);
     run.says("ends before it starts");
 
+    // A negative end is refused as `duck_music` refuses it (#1288), not
+    // clamped to the start of the timeline.
+    let run = run_in(&dir, &["duck", "--music", "music", "--range=-3:2"]);
+    assert!(run.failed);
+    run.says("-3 in the range -3 to 2 is not a time in seconds");
+
     let run = run_in(&dir, &["duck", "--music", "music", "--clip", "nope"]);
     assert!(run.failed);
     run.says("`nope`");

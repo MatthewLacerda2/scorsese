@@ -106,6 +106,20 @@ fn a_directory_that_exists_but_holds_no_project_is_filled_in() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+/// Someone else's folder is not a project directory: `project_new` refuses
+/// it, and so does this (#1288), before a single folder is made.
+#[test]
+fn a_directory_that_already_holds_something_is_refused_untouched() {
+    let dir = scratch::dir("occupied");
+    std::fs::write(dir.join("holiday.mp4"), b"not a project").expect("put something in it");
+    let run = new_at(&dir, &[]);
+
+    assert!(run.failed, "a full folder must refuse:\n{}", run.output);
+    run.says("not empty");
+    assert!(!holds(&dir, PROJECT_FILE_NAME) && !holds(&dir, ASSETS_DIR));
+    std::fs::remove_dir_all(&dir).ok();
+}
+
 #[test]
 fn a_platform_and_a_style_start_the_project_with_a_brief() {
     let dir = scratch("started");

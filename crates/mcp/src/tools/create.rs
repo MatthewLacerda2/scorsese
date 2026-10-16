@@ -7,13 +7,9 @@
 //! sub-directories, and a `project.json` for an empty timeline on a chosen
 //! grid.
 
-use std::path::Path;
-
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use scorsese_core::style::{Platform, Start};
-use scorsese_core::{
-    ASSETS_DIR, CACHE_DIR, Fps, GENERATED_DIR, PAGES_DIR, PROJECT_FILE_NAME, Project, RECIPES_DIR,
-};
+use scorsese_core::{Fps, PROJECT_DIRS, PROJECT_FILE_NAME, Project};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -94,19 +90,18 @@ impl Tool for New {
         let fps = fps(arguments.fps.as_ref())?;
         let start = start(arguments.platform.as_deref(), arguments.style.as_deref())?;
 
-        vacant(dir)?;
         let mut project = Project::create(dir, arguments.name.as_deref(), fps)
-            .map_err(|error| format!("creating a project in {}: {error}", dir.display()))?;
+            .map_err(|error| error.to_string())?;
         let script = start
             .write(dir, &mut project)
             .map_err(|error| format!("the project was made, but its brief: {error}"))?;
 
         let mut reply = format!(
-            "Created project \"{}\" at {} fps in {}\n  {PROJECT_FILE_NAME}, \
-             {ASSETS_DIR}/, {GENERATED_DIR}/, {RECIPES_DIR}/, {PAGES_DIR}/, {CACHE_DIR}/",
+            "Created project \"{}\" at {} fps in {}\n  {PROJECT_FILE_NAME}, {}/",
             project.name,
             project.timeline_fps,
-            dir.display()
+            dir.display(),
+            PROJECT_DIRS.join("/, ")
         );
         if let Some(script) = script {
             reply.push_str(&format!(
@@ -143,31 +138,4 @@ fn fps(asked: Option<&Value>) -> Result<Fps, String> {
     };
     text.parse()
         .map_err(|error| format!("`fps` is not a framerate: {error}"))
-}
-
-/// Refuses a directory with anything already in it, before a single file is
-/// written.
-///
-/// A project laid over what was already there is worse than an error: half the
-/// directory is someone else's and there is nothing to say which half. The
-/// ordinary case — a path that does not exist yet — reads as nothing in the
-/// way, and `Project::create` makes it.
-fn vacant(dir: &Path) -> Result<(), String> {
-    let Ok(mut entries) = std::fs::read_dir(dir) else {
-        return Ok(());
-    };
-    if entries.next().is_none() {
-        return Ok(());
-    }
-    if dir.join(PROJECT_FILE_NAME).exists() {
-        return Err(format!(
-            "{} is already a scorsese project; nothing was changed",
-            dir.display()
-        ));
-    }
-    Err(format!(
-        "{} is not empty, so nothing was written. A project directory is laid out \
-         from scratch — name one that does not exist yet.",
-        dir.display()
-    ))
 }
