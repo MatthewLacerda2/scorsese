@@ -2260,6 +2260,26 @@ no per-edit endpoints (`http/projects.rs`): what a project says changes through
 library file into a project is web MCP's `import` (*Web MCP*), and the editor's
 (#545) by the same path.
 
+### When a page crashes
+
+A piece of a page that throws while drawing is contained (#1428): the editor's
+chat, preview, timeline, inspector and library sidebar each sit in an error
+boundary of their own, so the one that threw shows a line saying it failed and
+a reload button in its own place while the rest keeps working; a boundary
+around the whole app (#1426) is the last net. Every crash a boundary catches,
+and every error or rejected promise nothing caught, is posted to the server
+once, so a page that breaks for its users leaves a trace: on 2026-10-16 the
+editor went black in Portuguese and Spanish for twelve days with every request
+answering `200`.
+
+| route | who | what |
+| --- | --- | --- |
+| `POST /api/client-errors` | anyone | `{message, stack?, component_stack?, path?, language?, build?}` → `204`; the server writes one `scorsese-server: client error: …` line to its log, each field quoted and escaped, and keeps no table. At most 20 reports a minute from one address (the access record's, *Accounts*) or `429`; a body over 16 KB is `413`; the body is never sent back |
+
+The browser trims a stack to its first lines and sends nothing about who is
+signed in: the path, the language and the build are what tell one crash from
+another.
+
 ## The editor
 
 `/projects/{id}/edit` (#545), laid out as the desktop app is: a sidebar on the
