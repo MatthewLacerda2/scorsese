@@ -31,6 +31,11 @@ key**, not masked and not truncated: a masked key is still four characters of a
 credential in a terminal that scrolls into a log, and the question anybody
 actually has is *did it find one, and from where*.
 
+One resolver reads both, `scorsese_providers::credentials`, and clippy holds
+that: reading the environment anywhere else (`std::env::var` and its siblings)
+fails the build unless the site says why with
+`#[expect(clippy::disallowed_methods, reason = "…")]` (#1224).
+
 The order is that way round because an exported variable is somebody being
 deliberate right now, and a settings file is what they decided once. What it
 prevents is two sources of truth — a key saved in the window that `scorsese

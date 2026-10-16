@@ -26,18 +26,27 @@ fn repo_root() -> PathBuf {
 /// Every `key = value` pair in `file`, keyed by `section.key`.
 ///
 /// Enough TOML for two hand-written manifests and no more: comments and blank
-/// lines are dropped, `[header]` opens a section, and a value keeps whatever
+/// lines are dropped, `[header]` opens a section, a value left open (an array
+/// over several lines) runs on until it closes, and a value keeps whatever
 /// quoting it was written with so `"warn"` cannot silently equal `warn`.
 fn settings(file: &Path) -> BTreeMap<String, String> {
     let text =
         std::fs::read_to_string(file).unwrap_or_else(|e| panic!("reading {}: {e}", file.display()));
     let mut section = String::new();
     let mut found = BTreeMap::new();
-    for line in text.lines() {
-        let line = line.trim();
+    let mut lines = text.lines().map(str::trim);
+    while let Some(line) = lines.next() {
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
+        let mut line = line.to_string();
+        while line.matches('[').count() > line.matches(']').count() && line.contains('=') {
+            let Some(next) = lines.next() else { break };
+            if !next.starts_with('#') {
+                line.push_str(next);
+            }
+        }
+        let line = line.as_str();
         if let Some(header) = line.strip_prefix('[').and_then(|l| l.strip_suffix(']')) {
             section = header.to_string();
             continue;
@@ -150,4 +159,25 @@ fn the_app_builds_with_the_same_dev_profile_as_the_workspace() {
         "the [profile.*] tables at the repo root and in app have drifted. app is \
          its own workspace and inherits neither: change both, or neither."
     );
+}
+
+#[test]
+fn the_environment_is_read_only_where_a_reason_says_so() {
+    // CLAUDE.md: secrets resolve through one resolver. clippy bans the reads
+    // and each legitimate site says why with `#[expect]`, so dropping a ban
+    // here also fails clippy: every `#[expect]` it leaves is unfulfilled.
+    let banned = settings(&repo_root().join("clippy.toml"))
+        .remove("disallowed-methods")
+        .expect("clippy.toml bans reading the environment");
+    for method in [
+        "std::env::var",
+        "std::env::var_os",
+        "std::env::vars",
+        "std::env::vars_os",
+    ] {
+        assert!(
+            banned.contains(&format!("path = \"{method}\"")),
+            "clippy.toml no longer bans `{method}`: {banned}"
+        );
+    }
 }

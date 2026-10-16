@@ -135,6 +135,10 @@ pub(crate) fn folder() -> Option<PathBuf> {
 }
 
 /// The platform's directory for per-user configuration.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "HOME and the platform's config folder name where the settings file is; they are not secrets"
+)]
 fn config_root() -> Option<PathBuf> {
     let var = |name: &str| std::env::var_os(name).filter(|value| !value.is_empty());
     let home = || var("HOME").map(PathBuf::from);

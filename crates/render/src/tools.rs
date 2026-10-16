@@ -114,6 +114,10 @@ impl Tools {
     }
 }
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "SCORSESE_FFMPEG and SCORSESE_FFPROBE name a bundled build's binaries, not secrets"
+)]
 fn binary_from_env(variable: &str, fallback: &str) -> PathBuf {
     std::env::var_os(variable).map_or_else(|| PathBuf::from(fallback), PathBuf::from)
 }

@@ -27,6 +27,10 @@ impl Environment {
     /// **The process environment wins.** A `.env` is a convenience for a
     /// checkout, and an exported variable is somebody being deliberate right
     /// now — so the file fills gaps and never overrides.
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "the one resolver: every key is read here (docs/credentials.md)"
+    )]
     pub fn discover(from: &Path) -> Self {
         let mut environment = Self {
             vars: std::env::vars().collect(),

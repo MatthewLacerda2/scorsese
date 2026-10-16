@@ -19,6 +19,10 @@ use scorsese_providers::api::http::{Caller, HttpError};
 const DEAD_PROXY: &str = "http://127.0.0.1:9";
 
 #[test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the proxy nextest's offline script sets is what this test checks, not a secret"
+)]
 fn a_request_for_the_internet_is_refused_before_it_leaves() {
     for name in ["ALL_PROXY", "HTTPS_PROXY", "HTTP_PROXY"] {
         assert_eq!(
@@ -42,6 +46,10 @@ fn a_request_for_the_internet_is_refused_before_it_leaves() {
 }
 
 #[test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the loopback list nextest's offline script sets is what this test checks, not a secret"
+)]
 fn every_name_for_loopback_goes_direct() {
     for list in ["NO_PROXY", "no_proxy"] {
         let hosts = std::env::var(list).unwrap_or_default();

@@ -71,6 +71,10 @@ fn differences(recorded: &Value, written: &Value) -> String {
 }
 
 #[test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "RECORD_FORMAT is a test's recording switch, not a secret"
+)]
 fn the_format_is_the_one_recorded_for_this_schema_version() {
     let written = written();
     if std::env::var_os("RECORD_FORMAT").is_some() {

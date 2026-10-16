@@ -15,6 +15,8 @@
 //! builder is the one place ffmpeg is invoked), and never calls a provider
 //! except through `scorsese-providers`. Nothing in the workspace depends on
 //! this crate.
+//! `tools/lint` holds the Postgres half (`make size`, its `boundary` rules):
+//! only this crate may depend on a Postgres client.
 //!
 //! ## axum and sqlx
 //!

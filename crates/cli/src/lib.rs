@@ -16,6 +16,8 @@
 //! over `scorsese-core`, `scorsese-render`, and `scorsese-providers`. Logic
 //! that another caller (the MCP server, the GUI) would want lives in those
 //! crates, not here.
+//! `tools/lint` holds it (`make size`, its `boundary` rules): no display crate
+//! may reach the root workspace's `Cargo.lock`.
 //!
 //! ## What this publishes
 //!

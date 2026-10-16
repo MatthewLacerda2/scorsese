@@ -149,6 +149,10 @@ impl Chrome {
     }
 
     /// Uses this binary, after asking it its version.
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "SCORSESE_CHROME_NO_SANDBOX is a machine's choice about Chromium, not a secret"
+    )]
     pub fn at(binary: impl Into<PathBuf>) -> Result<Self, ChromeError> {
         let binary = binary.into();
         let output = Command::new(&binary)

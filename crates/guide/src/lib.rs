@@ -50,6 +50,9 @@
 //! (and the server, through `mcp`). A test that holds another crate's text to
 //! a guide — a style's prompt naming a section — lives in a crate that
 //! depends on both, never here.
+//! `tools/lint` holds it (`make size`, its `boundary` rules): no dependency in
+//! `Cargo.toml`, and no `std::fs`, `std::net`, `std::process` or `std::env`
+//! under `src/`.
 
 mod lessons;
 mod outline;

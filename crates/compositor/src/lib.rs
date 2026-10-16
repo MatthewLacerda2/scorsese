@@ -151,6 +151,8 @@
 //! `include_bytes!` rather than read at runtime, which is what keeps that
 //! true; a project's own font arrives as bytes somebody else opened, and the
 //! icon catalogue is compiled in the same way for the same reason.
+//! `tools/lint` holds it (`make size`, its `boundary` rules): no `std::fs`,
+//! `std::process` or `std::net` here, and core the only crate of ours beneath.
 //!
 //! ## What this publishes
 //!

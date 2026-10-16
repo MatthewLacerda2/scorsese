@@ -136,6 +136,10 @@ impl Pages {
 /// The browser this server's captures are kept under: the one
 /// [`CHROME_ENV`] names, which the image bakes in for both containers. Never
 /// looked for anywhere else, and never downloaded.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "SCORSESE_CHROME names the capture worker's browser, not a secret"
+)]
 fn browser() -> Result<Chrome, String> {
     let named = std::env::var_os(CHROME_ENV).ok_or_else(|| {
         format!(
