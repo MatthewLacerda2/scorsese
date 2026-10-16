@@ -24,6 +24,19 @@
       "path": "./lint/literalUiText.grit",
       // A test's JSX is a harness nobody but the test reads; src/test/ is the tests' own.
       "includes": ["**/*.tsx", "!**/*.test.tsx", "!**/src/test/**"]
+    },
+    {
+      "path": "./lint/colorsFromTokens.grit",
+      // components/ui is shadcn's, re-added with `shadcn add` rather than
+      // hand-shaped, and its variants speak the same tokens already. The
+      // tests are fixtures of their own: a colour in one is an input.
+      "includes": [
+        "**/*.ts",
+        "**/*.tsx",
+        "!**/src/components/ui/**",
+        "!**/*.test.ts",
+        "!**/*.test.tsx"
+      ]
     }
   ],
   "formatter": {

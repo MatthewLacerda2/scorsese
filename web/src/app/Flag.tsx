@@ -6,6 +6,7 @@
 // stars and motto, the United States' fifty stars, Spain's arms are dropped.
 // Nothing is fetched: the web app's pages are served by us alone.
 
+// biome-ignore-all lint/plugin/colorsFromTokens: a flag's colours are the country's, fixed in SVG attributes, and no theme turns them
 import type { ReactNode } from "react";
 import type { Language } from "@/i18n/language";
 

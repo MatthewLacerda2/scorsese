@@ -5,6 +5,16 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* The landing page's ink, paper and gold (`landing/landing.css` names them for
+   its own rules), static so they are variables everywhere, `/terms` and the
+   sign-in dialog included, and Tailwind classes (`bg-ink`, `text-paper`). */
+@theme {
+  --color-ink: #07070a;
+  --color-ink-raised: #0e0d12;
+  --color-paper: #f4efe6;
+  --color-gold: #f2b134;
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: "Geist Variable", sans-serif;
@@ -46,6 +56,23 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+  --color-kind-video: var(--kind-video);
+  --color-kind-generated-video: var(--kind-generated-video);
+  --color-kind-image: var(--kind-image);
+  --color-kind-generated-image: var(--kind-generated-image);
+  --color-kind-image-sequence: var(--kind-image-sequence);
+  --color-kind-audio: var(--kind-audio);
+  --color-kind-generated-audio: var(--kind-generated-audio);
+  --color-kind-synth-audio: var(--kind-synth-audio);
+  --color-kind-text: var(--kind-text);
+  --color-kind-html: var(--kind-html);
+  --color-kind-color: var(--kind-color);
+  --color-kind-shape: var(--kind-shape);
+  --color-kind-icon: var(--kind-icon);
+  --color-kind-group: var(--kind-group);
+  --color-kind-other: var(--kind-other);
+  --color-screen: var(--screen);
+  --color-on-screen: var(--on-screen);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -99,6 +126,27 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* An asset kind's colour (`editor/assets/kinds.ts`): its identity on the
+     tile, the clip and the inspector, so the same in light and dark. */
+  --kind-video: oklch(68.5% 0.169 237.323);
+  --kind-generated-video: oklch(74.6% 0.16 232.661);
+  --kind-image: oklch(70.4% 0.14 182.503);
+  --kind-generated-image: oklch(77.7% 0.152 181.912);
+  --kind-image-sequence: oklch(60% 0.118 184.704);
+  --kind-audio: oklch(69.6% 0.17 162.48);
+  --kind-generated-audio: oklch(76.8% 0.233 130.85);
+  --kind-synth-audio: oklch(62.7% 0.194 149.214);
+  --kind-text: oklch(76.9% 0.188 70.08);
+  --kind-html: oklch(70.5% 0.213 47.604);
+  --kind-color: oklch(66.7% 0.295 322.15);
+  --kind-shape: oklch(60.6% 0.25 292.717);
+  --kind-icon: oklch(58.5% 0.233 277.117);
+  --kind-group: oklch(62.7% 0.265 303.9);
+  --kind-other: oklch(55.2% 0.016 285.938);
+  /* What is drawn over a picture or a video, which is not the theme's to turn:
+     the player's black and the white of what is written on it. */
+  --screen: oklch(0 0 0);
+  --on-screen: oklch(1 0 0);
 }
 
 .dark {

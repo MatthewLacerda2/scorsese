@@ -136,12 +136,12 @@ function Tile({
       </button>
       {/* Badges sit on the picture, not on the theme: black and white are fixed. */}
       {long && (
-        <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1 text-[10px] text-white">
+        <span className="absolute bottom-1 left-1 rounded bg-screen/70 px-1 text-[10px] text-on-screen">
           {long}
         </span>
       )}
       {candidate.kind === "lottie" && (
-        <span className="absolute top-1 left-1 rounded bg-black/70 px-1 text-[10px] text-white">
+        <span className="absolute top-1 left-1 rounded bg-screen/70 px-1 text-[10px] text-on-screen">
           {nameOf(candidate.source)}
         </span>
       )}
@@ -150,7 +150,7 @@ function Tile({
         onClick={onChoose}
         aria-pressed={selected}
         aria-label={selected ? t.chat.picker.selected : t.chat.picker.select}
-        className={`absolute top-1 right-1 flex size-6 items-center justify-center rounded-full border-2 border-white shadow ${selected ? "bg-info text-info-foreground" : "bg-black/30"}`}
+        className={`absolute top-1 right-1 flex size-6 items-center justify-center rounded-full border-2 border-on-screen shadow ${selected ? "bg-info text-info-foreground" : "bg-screen/30"}`}
       >
         {selected && <CheckIcon className="size-4" />}
       </button>
@@ -182,7 +182,7 @@ function Enlarged({
           loop
           playsInline
           controls
-          className="max-h-[55vh] w-full rounded-md bg-black object-contain"
+          className="max-h-[55vh] w-full rounded-md bg-screen object-contain"
         />
       ) : (
         <img

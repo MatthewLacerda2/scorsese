@@ -16,10 +16,12 @@ export function position(cost: number, models: ModelChoice[]): number {
   return clamp((cost - cheapest) / (dearest - cheapest), 0, 1);
 }
 
-/** Green at the cheapest, through amber, to red at the dearest. A middling
- * lightness reads against both themes' backgrounds. */
+/** Green at the cheapest, through amber, to red at the dearest: the theme's
+ * own success, warning and destructive, so the bar follows light and dark. */
 export function colour(at: number): string {
-  return `hsl(${Math.round(120 * (1 - at))} 70% 45%)`;
+  const [from, to, share] =
+    at < 0.5 ? ["success", "warning", at * 2] : ["warning", "destructive", at * 2 - 1];
+  return `color-mix(in oklch, var(--${to}) ${Math.round(share * 100)}%, var(--${from}))`;
 }
 
 /** The bar in words, for a screen reader. */

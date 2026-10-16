@@ -48,7 +48,7 @@ import { Shell } from "./Shell";
  */
 function Home() {
   const account = useAccount();
-  const ground = <div className="min-h-svh bg-[#07070a]" />;
+  const ground = <div className="min-h-svh bg-ink" />;
   if (account.data) return <Navigate to="/projects" replace />;
   if (account.isPending && signedInHint()) return ground;
   return (
@@ -73,7 +73,7 @@ export function AppRoutes() {
       <Route
         path="/terms"
         element={
-          <Suspense fallback={<div className="min-h-svh bg-[#07070a]" />}>
+          <Suspense fallback={<div className="min-h-svh bg-ink" />}>
             <TermsPage />
           </Suspense>
         }
@@ -81,7 +81,7 @@ export function AppRoutes() {
       <Route
         path="/privacy"
         element={
-          <Suspense fallback={<div className="min-h-svh bg-[#07070a]" />}>
+          <Suspense fallback={<div className="min-h-svh bg-ink" />}>
             <PrivacyPage />
           </Suspense>
         }

@@ -36,7 +36,7 @@ export function LibraryModal({ projectId, edit }: Props) {
         </Button>
       </DialogTrigger>
       <DialogContent
-        overlayClassName="bg-black/30 backdrop-blur-md"
+        overlayClassName="bg-screen/30 backdrop-blur-md"
         className="flex max-h-[85vh] flex-col overflow-y-auto sm:max-w-5xl"
       >
         <DialogHeader>

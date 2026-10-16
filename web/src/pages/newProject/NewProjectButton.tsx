@@ -33,7 +33,7 @@ export function NewProjectButton() {
         </Button>
       </DialogTrigger>
       <DialogContent
-        overlayClassName="bg-black/30 backdrop-blur-md"
+        overlayClassName="bg-screen/30 backdrop-blur-md"
         className="flex max-h-[85vh] flex-col overflow-y-auto sm:max-w-4xl"
       >
         <DialogHeader>

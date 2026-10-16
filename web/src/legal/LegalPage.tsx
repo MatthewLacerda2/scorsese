@@ -32,11 +32,11 @@ export function LegalPage({ document: doc }: { document: LegalDocument }) {
   return (
     <div className="landing">
       <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16">
-        <Link to="/" className="display text-xl text-[#f4efe6]">
+        <Link to="/" className="display text-xl text-paper">
           scorsese
         </Link>
         {language !== "pt-BR" && (
-          <p className="dim mt-8 rounded-lg border border-[#f4efe6]/15 p-4 text-sm">
+          <p className="dim mt-8 rounded-lg border border-paper/15 p-4 text-sm">
             {t.landing.legal.portugueseOnly}
           </p>
         )}

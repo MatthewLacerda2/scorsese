@@ -1,26 +1,27 @@
 // An asset kind's name and colour, the same in the assets panel, on the
 // timeline's clips and in the inspector — three panels, one code, as the
 // desktop app does it. The names are the catalogue's (`assets.kinds`).
-// The hues are fixed, not theme tokens: a kind's colour is its identity, as a
-// chart series' is, and stays the same in light and dark.
+// The hues are the `--kind-*` tokens in index.css, fixed rather than themed: a
+// kind's colour is its identity, as a chart series' is, and stays the same in
+// light and dark.
 
 import type { Messages } from "@/i18n/catalogue";
 
 const COLORS: Record<string, string> = {
-  video: "bg-sky-500",
-  generated_video: "bg-sky-400",
-  image: "bg-teal-500",
-  generated_image: "bg-teal-400",
-  image_sequence: "bg-teal-600",
-  audio: "bg-emerald-500",
-  generated_audio: "bg-lime-500",
-  synth_audio: "bg-green-600",
-  text: "bg-amber-500",
-  html: "bg-orange-500",
-  color: "bg-fuchsia-500",
-  shape: "bg-violet-500",
-  icon: "bg-indigo-500",
-  group: "bg-purple-500",
+  video: "bg-kind-video",
+  generated_video: "bg-kind-generated-video",
+  image: "bg-kind-image",
+  generated_image: "bg-kind-generated-image",
+  image_sequence: "bg-kind-image-sequence",
+  audio: "bg-kind-audio",
+  generated_audio: "bg-kind-generated-audio",
+  synth_audio: "bg-kind-synth-audio",
+  text: "bg-kind-text",
+  html: "bg-kind-html",
+  color: "bg-kind-color",
+  shape: "bg-kind-shape",
+  icon: "bg-kind-icon",
+  group: "bg-kind-group",
 };
 
 /**
@@ -31,7 +32,7 @@ export function kindName(kind: string, names: Messages["assets"]["kinds"]): stri
   return (names as Record<string, string>)[kind] ?? kind;
 }
 
-/** A Tailwind background class for the kind; grey for one this build does not know. */
+/** A theme background class for the kind; grey for one this build does not know. */
 export function kindColor(kind: string | undefined): string {
-  return (kind && COLORS[kind]) || "bg-zinc-500";
+  return (kind && COLORS[kind]) || "bg-kind-other";
 }
