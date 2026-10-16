@@ -7,6 +7,7 @@ export const buying = {
   add: "Add credits",
   description:
     "You pay in reais and your credits are in dollars. Stripe takes the payment; scorsese never sees your card.",
+  accepted: "Pix or Visa/Mastercard credit card.",
   amount: "Amount in reais",
   // "R$ 50,00 → $10.02 in credits"
   preview: (reais: string, dollars: string) => `${reais} → ${dollars} in credits`,

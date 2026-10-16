@@ -78,6 +78,7 @@ export function AddCreditsDialog({
         <DialogHeader>
           <DialogTitle>{t.buying.add}</DialogTitle>
           <DialogDescription>{t.buying.description}</DialogDescription>
+          <p className="text-muted-foreground text-sm">{t.buying.accepted}</p>
         </DialogHeader>
         <form onSubmit={submit} className="flex flex-col gap-3">
           <Label htmlFor="add-credits-amount">{t.buying.amount}</Label>
