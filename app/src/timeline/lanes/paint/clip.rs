@@ -66,7 +66,7 @@ pub(in crate::timeline::lanes) fn draw(paint: &Paint<'_>, rect: Rect, lane: Rect
     // White on a solid block, as the web sets it; the theme's own text on a
     // tinted one, which is nearly the lane.
     let ink = if made {
-        Color32::WHITE
+        palette::ON_HUE
     } else {
         colours.foreground
     };
