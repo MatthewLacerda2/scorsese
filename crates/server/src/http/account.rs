@@ -5,7 +5,7 @@ use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::http::header::SET_COOKIE;
-use axum::response::IntoResponse;
+use axum::response::{AppendHeaders, IntoResponse};
 
 use super::AppState;
 use super::auth::{self, Member, Via};
@@ -27,7 +27,8 @@ pub async fn logout(
     let [session, hint] = auth::clear_cookies();
     Ok((
         StatusCode::NO_CONTENT,
-        [(SET_COOKIE, session), (SET_COOKIE, hint)],
+        // Appended: a plain array of headers keeps only the last of a name.
+        AppendHeaders([(SET_COOKIE, session), (SET_COOKIE, hint)]),
     ))
 }
 

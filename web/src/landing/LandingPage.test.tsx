@@ -44,7 +44,9 @@ function heldSession(): (account: Account | null) => void {
     () =>
       new Promise((resolve) => {
         answer = (account) =>
-          resolve(account ? Response.json(account) : Response.json({ error: "no" }, { status: 401 }));
+          resolve(
+            account ? Response.json(account) : Response.json({ error: "no" }, { status: 401 }),
+          );
       }),
   );
   return (account) => answer(account);
