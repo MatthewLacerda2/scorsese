@@ -1,6 +1,7 @@
 //! The two voice listings, and the lookup of a single voice.
 //!
-//! Three endpoints, and they are not interchangeable. `/voices` is the small
+//! Three endpoints, and they are not interchangeable (a fourth call,
+//! [`Voices::in_library`], is the Library searched for one id). `/voices` is the small
 //! built-in set an account already has; `/shared-voices` is the Voice Library,
 //! which is thousands of voices other people published and is the only one of
 //! the two worth filtering. `/voices/{id}` answers about exactly one, and is
@@ -153,6 +154,29 @@ impl Voices {
     pub fn one(&self, voice_id: &str) -> Result<Voice, HttpError> {
         self.caller
             .get(&format!("{BASE}/voices/{}", encoded(voice_id)))
+    }
+
+    /// The Voice Library searched for one id.
+    ///
+    /// The other half of [`Voices::one`], which only reaches voices the
+    /// account holds: a Library voice it has not saved yet answers `400
+    /// voice_not_found` there (#1424), though a line spoken in it works on any
+    /// paid plan and saves it as a side effect (#1262).
+    ///
+    /// **There is no id filter to ask with.** ElevenLabs' reference for `GET
+    /// /v1/shared-voices` (read 2026-10-16, both the page and `openapi.json`)
+    /// lists `page_size`, `category`, `gender`, `age`, `accent`, `language`,
+    /// `locale`, `search`, `use_cases`, `descriptives`, `featured`,
+    /// `min_notice_period_days`, `include_custom_rates`,
+    /// `include_live_moderated`, `reader_app_enabled`, `owner_id`, `sort` and
+    /// `page` — so the id goes in `search`, the one free-text filter, and the
+    /// caller keeps only a voice whose `voice_id` is exactly it. A loose match
+    /// can then never answer *yes* about some other voice.
+    pub fn in_library(&self, voice_id: &str) -> Result<Listing, HttpError> {
+        self.caller.get(&format!(
+            "{BASE}/shared-voices?search={}&page_size={MAX_PAGE_SIZE}",
+            encoded(voice_id)
+        ))
     }
 }
 

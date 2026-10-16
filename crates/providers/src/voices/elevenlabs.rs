@@ -21,9 +21,10 @@
 //! used* on a lookup, and no reading of the body could tell those apart.
 
 use crate::api::elevenlabs::voices::{self, Filters, Listing, Voices};
+use crate::api::http::HttpError;
 use crate::credentials::Secret;
 
-use super::catalogue::{Availability, Catalogue, More, Page, Voice};
+use super::catalogue::{Availability, Catalogue, More, Page, Unusable, Voice};
 use super::error::VoiceError;
 use super::refusal::{NO_VOICE, failure, plan_limited, refused, unusable};
 
@@ -74,20 +75,56 @@ impl Catalogue for ElevenLabsVoices {
     }
 
     fn one(&self, voice_id: &str) -> Result<Availability, VoiceError> {
-        match self.voices.one(voice_id) {
-            Ok(found) => Ok(Availability::Available(voice(&found))),
-            // A withdrawn voice and one this account may not use are both
-            // answers about the voice — the first is the case with a date on
-            // it. Everything else — a timeout, a 500, a key with no scope — is
-            // a failure to *ask*, and says nothing about the voice. Turning one
-            // of those into "unusable" is how a bad afternoon on the network
-            // would look like a voice being withdrawn.
-            Err(error) => match refused(voice_id, &error).as_ref().and_then(unusable) {
-                Some(why) => Ok(Availability::Unusable(why)),
-                None => Err(failure(NAME, error)),
-            },
-        }
+        availability(voice_id, self.voices.one(voice_id), || {
+            self.voices.in_library(voice_id)
+        })
     }
+}
+
+/// Whether `voice_id` can be used, from what the account lookup answered and,
+/// only when that found nothing, what the Voice Library does.
+///
+/// The two calls are arguments rather than made here so that the decision —
+/// three answers out of two endpoints — is tested on the vendor's own shapes
+/// without a network.
+///
+/// **The account lookup first, and the Library only after a *not found*.**
+/// `GET /v1/voices/{id}` reaches only the voices an account holds, so a Library
+/// voice it has not saved answers `voice_not_found` there (#1424) — and is
+/// usable all the same. Only when neither has it is the voice gone.
+///
+/// A withdrawn voice and one this account may not use are both answers about
+/// the voice. Everything else — a timeout, a 500, a key with no scope — is a
+/// failure to *ask*, and says nothing about the voice: turning one of those
+/// into "unusable" is how a bad afternoon on the network would look like a
+/// voice being withdrawn. The same holds for the Library search.
+fn availability(
+    voice_id: &str,
+    held: Result<voices::Voice, HttpError>,
+    library: impl FnOnce() -> Result<Listing, HttpError>,
+) -> Result<Availability, VoiceError> {
+    let why = match held {
+        Ok(found) => return Ok(Availability::Available(voice(&found))),
+        Err(error) => match refused(voice_id, &error).as_ref().and_then(unusable) {
+            Some(why) => why,
+            None => return Err(failure(NAME, error)),
+        },
+    };
+    if why != Unusable::Gone {
+        return Ok(Availability::Unusable(why));
+    }
+    let listing = library().map_err(|error| failure(NAME, error))?;
+    // The search is free text, so only an exact id counts as an answer.
+    Ok(
+        match listing
+            .voices
+            .iter()
+            .find(|found| found.voice_id == voice_id)
+        {
+            Some(found) => Availability::InLibrary(voice(found)),
+            None => Availability::Unusable(Unusable::Gone),
+        },
+    )
 }
 
 /// A vendor listing as scorsese carries one, whether it was cut short included.
@@ -164,6 +201,86 @@ fn voice(found: &voices::Voice) -> Voice {
 mod tests {
     use super::super::run::{Answer, Freshness};
     use super::*;
+
+    /// What `GET /v1/voices/{id}` answered on 2026-10-16 for a Library voice
+    /// the account had not saved (#1424).
+    const NOT_HELD: &str = concat!(
+        r#"{"detail":{"type":"not_found","code":"voice_not_found","#,
+        r#""message":"A voice with ID 'x' was not found."}}"#
+    );
+
+    /// A refusal as the transport hands one over.
+    fn answered(status: u16, body: &str) -> HttpError {
+        HttpError::Refused {
+            url: String::from("https://api.elevenlabs.io/v1/voices/x"),
+            status,
+            body: String::from(body),
+        }
+    }
+
+    /// The Library search answering with these voices.
+    fn searched(ids: &[&str]) -> Result<Listing, HttpError> {
+        Ok(Listing {
+            voices: ids
+                .iter()
+                .map(|id| voices::Voice {
+                    voice_id: (*id).to_owned(),
+                    name: format!("voice {id}"),
+                    ..voices::Voice::default()
+                })
+                .collect(),
+            ..Listing::default()
+        })
+    }
+
+    /// In the account: the Library is never asked.
+    #[test]
+    fn a_voice_the_account_holds_is_available_without_a_search() {
+        let held = searched(&["x"]).unwrap().voices.remove(0);
+        let answer = availability("x", Ok(held), || panic!("the Library was searched"));
+        assert!(matches!(answer, Ok(Availability::Available(found)) if found.id == "x"));
+    }
+
+    /// In the Library only: the case #1424 found answered as an error.
+    #[test]
+    fn a_library_voice_not_yet_saved_is_usable() {
+        let answer = availability("x", Err(answered(400, NOT_HELD)), || searched(&["y", "x"]));
+        assert!(matches!(answer, Ok(Availability::InLibrary(found)) if found.id == "x"));
+    }
+
+    /// Nowhere — and a search that matched only *other* voices is nowhere too,
+    /// since `search` is free text.
+    #[test]
+    fn a_voice_neither_has_is_gone() {
+        for library in [searched(&[]), searched(&["xy", "y"])] {
+            let answer = availability("x", Err(answered(400, NOT_HELD)), || library);
+            assert_eq!(answer.unwrap(), Availability::Unusable(Unusable::Gone));
+        }
+    }
+
+    /// A search that never got an answer says nothing about the voice.
+    #[test]
+    fn a_library_that_could_not_be_asked_is_a_failure_not_a_verdict() {
+        let answer = availability("x", Err(answered(404, "{}")), || {
+            Err(HttpError::Unreachable {
+                url: String::from("https://api.elevenlabs.io/v1/shared-voices"),
+                message: String::from("no route to host"),
+            })
+        });
+        assert!(matches!(answer, Err(VoiceError::Provider(_))), "{answer:?}");
+    }
+
+    /// A plan limit is already an answer, and searching on would hide it.
+    #[test]
+    fn a_plan_limit_is_answered_without_a_search() {
+        let answer = availability("x", Err(answered(402, "{}")), || {
+            panic!("the Library was searched")
+        });
+        assert!(matches!(
+            answer,
+            Ok(Availability::Unusable(Unusable::NotOnThisPlan { .. }))
+        ));
+    }
 
     /// The built-in listing, as the vendor sent it.
     const PREMADE: &str = include_str!("../../fixtures/elevenlabs/premade.json");

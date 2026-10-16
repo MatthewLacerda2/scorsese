@@ -1742,10 +1742,22 @@ do not use custom voice slots").
 
 The one key it does not work on is a free one. A free key lists the Library
 like any other — 3,386 Portuguese voices on 2026-08-17 — and is refused when a
-line is sent in one of them. `check` answers that ahead of time: on a free plan
-it says this account may not use the voice and points at the built-in voices,
-which generate the same way. No subscription tier is detected to produce that
-message — it is only ever what the vendor answered when asked.
+line is sent in one of them. `check` says so ahead of time: a Library voice the
+account has not saved yet is answered as one, usable on any paid plan and not
+on a free one, and saved to the account the first time it narrates. ElevenLabs'
+own lookup of one voice only reaches the voices an account holds, so `check`
+searches the Library for an id it does not find there, and reports a voice gone
+only when neither has it (#1424). No subscription tier is detected to produce
+any of this — it is only ever what the vendor answered when asked.
+
+```
+voices  { "project": "teaser.scor", "check": "DYpTnojhyMHD94FH6bmF" }
+        → "DYpTnojhyMHD94FH6bmF  Andre W - Calm  (pt, male, …)
+
+           A Voice Library voice at ElevenLabs, not yet saved to the account.
+           Any paid plan can generate with it (a free plan cannot), and it is
+           saved to the account the first time it narrates."
+```
 
 **Ask about one id with `check`, and believe the answer.** A voice that can no
 longer be generated with is reported as such, with the reason: it has gone, or

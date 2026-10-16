@@ -68,6 +68,6 @@ pub use cache::{REFRESH_AFTER_DAYS, cache_dir};
 pub use catalogue::{Availability, Catalogue, More, Page, Unusable, Voice};
 pub use elevenlabs::ElevenLabsVoices;
 pub use error::VoiceError;
-pub use run::{Answer, Freshness, builtin, cached, library, require};
+pub use run::{Answer, Freshness, builtin, cached, check, library, require};
 
 pub use crate::api::elevenlabs::voices::{DEFAULT_PAGE_SIZE, Filters, MAX_PAGE_SIZE};

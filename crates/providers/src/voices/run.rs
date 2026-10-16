@@ -223,13 +223,47 @@ pub fn cached(root: &Path) -> Vec<Voice> {
 /// never do is return some other voice.
 pub fn require(catalogue: &dyn Catalogue, voice_id: &str) -> Result<Voice, VoiceError> {
     match catalogue.one(voice_id)? {
-        Availability::Available(voice) => Ok(voice),
+        Availability::Available(voice) | Availability::InLibrary(voice) => Ok(voice),
         Availability::Unusable(why) => Err(VoiceError::Unusable {
             voice_id: voice_id.to_owned(),
             provider: catalogue.name(),
             why,
         }),
     }
+}
+
+/// What `voices --check` answers about `voice_id`, in the words both the CLI
+/// and the MCP tool print.
+///
+/// A voice that cannot be used is still a refusal, as [`require`] makes it; a
+/// usable one is the voice and a sentence saying *where* it is usable from,
+/// because a Voice Library voice the account has not saved yet (#1424) is
+/// usable on a paid plan and not on a free one, and an answer that left that
+/// out would be wrong for somebody either way.
+pub fn check(catalogue: &dyn Catalogue, voice_id: &str) -> Result<String, VoiceError> {
+    let provider = catalogue.name();
+    let (voice, standing) = match catalogue.one(voice_id)? {
+        Availability::Available(voice) => (
+            voice,
+            format!("Still a voice at {provider}, and can be generated with."),
+        ),
+        Availability::InLibrary(voice) => (
+            voice,
+            format!(
+                "A Voice Library voice at {provider}, not yet saved to the account. Any paid \
+                 plan can generate with it (a free plan cannot), and it is saved to the account \
+                 the first time it narrates."
+            ),
+        ),
+        Availability::Unusable(why) => {
+            return Err(VoiceError::Unusable {
+                voice_id: voice_id.to_owned(),
+                provider,
+                why,
+            });
+        }
+    };
+    Ok(format!("{}\n\n{standing}", voice.says()))
 }
 
 /// The cache-or-fetch decision, which is the same for both listings.
