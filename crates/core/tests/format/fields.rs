@@ -9,9 +9,9 @@ use std::collections::BTreeSet;
 
 use scorsese_core::{
     Anchor, Asset, Attach, ChromaKey, Clip, Counter, Crop, Follow, Fps, Glow, Grade, Group, Icon,
-    ImageRequest, ImageSequence, Keyframe, KeyframeTrack, Linear, Matte, MediaMetadata, Origin,
-    Point, Project, Radial, Reveal, Shadow, Shape, SpeechRequest, TextStyle, Track, Vhs,
-    VideoRequest,
+    ImageRequest, ImageSequence, Keyframe, KeyframeTrack, Linear, Matte, MediaMetadata,
+    MusicRequest, Origin, Point, Project, Radial, Reveal, Shadow, Shape, SpeechRequest, TextStyle,
+    Track, Vhs, VideoRequest,
 };
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
@@ -60,6 +60,7 @@ fn every_field_of_every_struct_is_written() {
         Icon => &format!("{asset}/icon"), Group => &format!("{asset}/group"),
         ImageSequence => &format!("{asset}/sequence"), VideoRequest => &format!("{asset}/video"),
         SpeechRequest => &format!("{asset}/speech"), ImageRequest => &format!("{asset}/image"),
+        MusicRequest => &format!("{asset}/music"),
         Linear => &format!("{asset}/color/linear"), Point => &format!("{arrow}/from"),
         Attach => &format!("{arrow}/to/attach"), Radial => "/variants/Fill/2/radial");
     held!(w, Clip => clip, Crop => &format!("{clip}/crop"), Anchor => &format!("{clip}/anchor"),

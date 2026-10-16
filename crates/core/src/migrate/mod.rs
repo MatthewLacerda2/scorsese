@@ -143,6 +143,10 @@ pub(crate) const STEPS: &[Step] = &[
         from: 52,
         apply: stock::stock_sources_arrive,
     },
+    Step {
+        from: 53,
+        apply: music_arrives,
+    },
 ];
 
 /// v33 → v34: the `group` asset kind (#586).
@@ -305,6 +309,16 @@ fn natural_speech_arrives(_: &mut Value) -> Result<(), String> {
 /// asks Veo for what v49 asked — no seed. A shot's brief fingerprint gains a
 /// line only when a seed is set, so no shot already generated is quoted again.
 fn shot_seeds_arrive(_: &mut Value) -> Result<(), String> {
+    Ok(())
+}
+
+/// v52 → v53: a generated track, the `music` block on `generated_audio`
+/// (#1264).
+///
+/// Nothing to rewrite, for [`groups_arrive`]'s reason: one optional block
+/// arrived, absent in every v52 document, and a `generated_audio` asset
+/// without it is a line of narration exactly as it was at v52.
+fn music_arrives(_: &mut Value) -> Result<(), String> {
     Ok(())
 }
 

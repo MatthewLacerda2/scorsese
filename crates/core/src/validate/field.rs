@@ -103,6 +103,12 @@ pub enum AssetField {
     /// `generated_audio`, on the same reasoning read the other way: a voice on
     /// a Veo shot would be handed to nobody, and nothing would say so.
     Speech,
+    /// The rest of a generated track's brief: its length, and whether it may
+    /// sing (#1264).
+    ///
+    /// The other block `generated_audio` takes, refused everywhere else on
+    /// the request blocks' reasoning.
+    Music,
     /// The rest of a generated still's brief: model, size, aspect and the
     /// pictures it is drawn from.
     ///
@@ -150,6 +156,7 @@ impl AssetField {
             Self::Sequence => "sequence",
             Self::Video => "video",
             Self::Speech => "speech",
+            Self::Music => "music",
             Self::Image => "image",
             Self::Operation => "operation",
             Self::QueuedAt => "queued_at",

@@ -4,8 +4,8 @@
 use crate::asset::{AssetId, AssetKind, SourceProblem};
 use crate::path::{PathProblem, ProjectPath};
 use crate::validate::error::{
-    FillProblem, IconProblem, ImageProblem, SequenceProblem, ShapeProblem, SpeechProblem,
-    TextProblem, VideoProblem,
+    FillProblem, IconProblem, ImageProblem, MusicProblem, SequenceProblem, ShapeProblem,
+    SpeechProblem, TextProblem, VideoProblem,
 };
 use crate::validate::field::AssetField;
 
@@ -189,6 +189,12 @@ pub enum AssetProblem {
     /// See [`SpeechProblem`].
     #[error(transparent)]
     Speech(#[from] SpeechProblem),
+
+    /// Something wrong with what a generated track is asking for — two
+    /// blocks on one asset, or a length the vendor will not compose. See
+    /// [`MusicProblem`].
+    #[error(transparent)]
+    Music(#[from] MusicProblem),
 
     /// Something wrong with how a text asset reveals itself or writes its
     /// figure. Split for [`ShapeProblem`]'s reason; see [`TextProblem`].

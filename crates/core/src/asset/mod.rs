@@ -6,6 +6,7 @@
 
 pub(crate) mod image;
 pub(crate) mod kind;
+pub(crate) mod music;
 mod references;
 pub(crate) mod sequence;
 mod source;
@@ -31,6 +32,7 @@ pub use image::{
 };
 pub(crate) use kind::is_page_path;
 pub use kind::{AssetKind, GenerationState};
+pub use music::{AudioBlock, MAX_MUSIC_SECONDS, MIN_MUSIC_SECONDS, MusicRequest};
 pub use sequence::{ImageSequence, SEQUENCE_FORMATS};
 pub use source::{Source, SourceProblem, StockLibrary};
 pub use speech::{LanguageIgnored, MAX_CHARACTERS, SpeechModel, SpeechRequest};
@@ -191,6 +193,16 @@ pub struct Asset {
     /// `kind`, which is the thing `deny_unknown_fields` exists to stop.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub speech: Option<SpeechRequest>,
+    /// The rest of the brief for a generated track: its length, and whether
+    /// it may sing (#1264).
+    ///
+    /// The other block a `generated_audio` asset can carry, and never beside
+    /// `speech`: which one it carries is what the asset is — see
+    /// [`Asset::audio_block`]. Held to the request blocks' rules otherwise:
+    /// hashed with the prompt, refused on every other kind, absent fields
+    /// meaning their defaults. See [`MusicRequest`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub music: Option<MusicRequest>,
     /// The rest of a generated still's brief: model, size, aspect and the
     /// pictures it is drawn from.
     ///
@@ -303,6 +315,7 @@ impl Asset {
             note: None,
             video: None,
             speech: None,
+            music: None,
             image: None,
             created_at: None,
             queued_at: None,
@@ -418,6 +431,24 @@ impl Asset {
     /// it would be safe to invent.
     pub fn speech_request(&self) -> SpeechRequest {
         self.speech.clone().unwrap_or_default()
+    }
+
+    /// Which block this asset is realised from, or `None` when it is not
+    /// `generated_audio`.
+    ///
+    /// A `music` block makes it a track; anything else — a `speech` block or
+    /// none — a line, which is what every such asset was before music
+    /// arrived. Validation refuses both blocks on one asset, so the answer is
+    /// never a guess between them.
+    pub fn audio_block(&self) -> Option<AudioBlock> {
+        if self.kind != AssetKind::GeneratedAudio {
+            return None;
+        }
+        Some(if self.music.is_some() {
+            AudioBlock::Music
+        } else {
+            AudioBlock::Speech
+        })
     }
 
     /// How much of this asset there is, in frames of `fps` — the ceiling a

@@ -38,6 +38,7 @@ carries forward) up to this one.
 | v50 → v51 | Nano Banana 2.1 is the only image model (#1308): `image.model` leaves the format, and with it `0.5K` (Flash's alone) and `style_images` (Pro's alone) | one rewrite of every still's `image` block: `model` is dropped, whatever it named; `"resolution": "0.5K"` becomes `"1K"`; `style_images` is dropped; objects past the tenth move to `character_images` while it has room for four and the rest are dropped, and characters past the fourth are dropped (Lite took fourteen objects, Pro five characters). A still already drawn keeps its `state` and its file, and nothing is redrawn or billed again: a 2.1 still's brief fingerprint does not move, and one drawn with `flash`, `lite` or `pro` — whose fingerprint does, its model line now reading 2.1 — is recognised by the fingerprint that model gave it (`scorsese_providers::image`'s retired briefs) for as long as its brief is unchanged. The one exception is a `pro` still that named a style or a fifth character: it lost a picture, so its brief is not the one it was drawn from, and the next `generate` quotes it and draws it again with 2.1 |
 | v51 → v52 | the project carries its frame's shape, `aspect` (#1278) | every document gains an `aspect`: the shape of the first clip, in time, on the lowest video track whose picture has a known shape (a probed size, or the `aspect` a generated shot or still asked for), else `"16:9"`. The web server, which remembers the platform a project was started for, frames such a project in its platform's shape instead |
 | v52 → v53 | an imported file's stock `source` (#1237) | nothing: one optional block was added to `video` and `image` assets, absent in every v52 document and absent meaning a file the user brought. A `pixabay-<id>` file name is not read back into a `source`: the author and page were never stored, and half a record would read as the whole of one |
+| v53 → v54 | a generated track: the `music` block on `generated_audio` (#1264) | nothing: one optional block was added, absent in every v53 document, and a `generated_audio` asset without it is a line of narration exactly as it was — it passes through and only its version moves |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -217,6 +218,7 @@ re-importing or regenerating a file is one edit in one place.
 | `video` | optional, `generated_video` only | The rest of the brief: `model`, `resolution`, `seconds`, `aspect`, `first_image`, `last_image`, `reference_images`, `seed` — see below |
 | `image` | optional, `generated_image` only | The rest of the brief: `resolution`, `aspect`, `thinking`, `reference_images`, `character_images` — see below |
 | `speech` | optional, `generated_audio` only | The rest of the brief: `model`, `voice_id`, `language`, `seed` — see below |
+| `music` | optional, `generated_audio` only, never beside `speech` | Makes the asset a generated track rather than a line: `seconds`, `instrumental` — see below |
 | `created_at` | optional | When the asset joined the table, as UTC RFC 3339 (`2026-08-04T14:20:00Z`) |
 | `queued_at` | optional, generated kinds | When a provider took the request. Not the same fact as `created_at` |
 | `operation` | optional, `generated_video`, `generated_image` | The provider's name for work in flight, while `queued`: a shot's Veo operation, or the batch a still waits in |
@@ -615,6 +617,48 @@ own work after a line is regenerated or moved — and why a hand edit to one is
 kept by renaming it. Pages read the same timings as `scorsese.words`
 ([pages.md](pages.md), `guide pages`), and `project_describe` names the word being said at an
 instant.
+
+### What a generated track asks for
+
+A `generated_audio` asset with a `music` block is a **track of music**
+rather than a line: its `prompt` describes the music — genre, mood,
+instruments, tempo — and ElevenLabs Music composes it (`POST /v1/music`,
+`music_v2_5`). Without the block, the asset is a line of narration, as every
+`generated_audio` asset was before v53, so `speech` and `music` are never on
+one asset: which block it carries is what it is.
+
+```json asset
+{ "id": "bed", "kind": "generated_audio", "state": "sketch",
+  "prompt": "Calm lo-fi hip hop, soft piano and vinyl crackle, 80 bpm",
+  "music": { "seconds": 40 } }
+```
+
+Like `speech`, every field is hashed into the brief along with the prompt, so
+editing one makes the asset `stale` and the next `generate` composes a new
+track beside the old one.
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `seconds` | *none* | How long the track is, 3 to 600 whole seconds. Needed before it is generated: the price is per minute |
+| `instrumental` | `true` | No singing, guaranteed. Set `false` for a song, with its lyrics described in the prompt |
+
+**`instrumental` is on by default, where the vendor's own default is off**: a
+generated track in an edit is almost always a bed under narration or a
+montage, and words sung under a voice fight it.
+
+A track costs **15¢ a minute** of what is asked for, whatever its prompt
+(`guide prices`, *Music*), and the vendor licenses it for commercial use on
+its Starter plan and above. It is a file like any other audio: a clip shows
+it, crops it to the cut and fades it, and `duck_music` dips it under the
+narration. A `synth_audio` recipe (below) costs nothing, and is the first
+choice for a score; a generated track is for the music a recipe cannot make —
+a genre, real instruments, a song.
+
+| Refused | Because |
+| --- | --- |
+| `music` beside `speech` | the asset is a line or a track, never both |
+| `seconds` under 3 or over 600 | the vendor composes between three seconds and ten minutes in one request |
+| `music` on any kind but `generated_audio` | nothing else would be composed from it |
 
 ### Synthesised audio
 

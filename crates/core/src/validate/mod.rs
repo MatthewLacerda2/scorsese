@@ -25,6 +25,7 @@ mod group;
 mod icon;
 mod image;
 mod matte;
+mod music;
 mod prompt;
 mod report;
 mod sequence;
@@ -37,8 +38,8 @@ mod video;
 
 pub use error::{
     AssetProblem, FillProblem, FollowProblem, GroupProblem, IconProblem, ImageProblem,
-    MatteProblem, SequenceProblem, ShapeProblem, SpeechProblem, TextProblem, TimelineProblem,
-    ValidationError, VideoProblem,
+    MatteProblem, MusicProblem, SequenceProblem, ShapeProblem, SpeechProblem, TextProblem,
+    TimelineProblem, ValidationError, VideoProblem,
 };
 pub use field::AssetField;
 pub use prompt::LongPrompt;
