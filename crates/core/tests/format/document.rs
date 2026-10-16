@@ -11,8 +11,8 @@ use scorsese_core::{
     Aspect, Asset, AssetId, AssetKind, Baseline, ClipSeconds, Counter, Fill, FontChoice, Fps,
     Frames, GenerationState, Group, Icon, ImageAspect, ImageRequest, ImageResolution,
     ImageSequence, ImageThinking, Locale, MediaMetadata, Project, ProjectPath, Ratio, Reveal,
-    RevealUnit, Rgba, SCHEMA_VERSION, Shape, SpeechModel, SpeechRequest, StockLibrary, TextAlign,
-    TextStyle, Timestamp, Track, TrackId, TrackKind, VideoModel, VideoRequest, VideoResolution,
+    RevealUnit, Rgba, SCHEMA_VERSION, Shape, SpeechModel, SpeechRequest, TextAlign, TextStyle,
+    Timestamp, Track, TrackId, TrackKind, VideoModel, VideoRequest, VideoResolution,
 };
 
 use super::clip::clip;
