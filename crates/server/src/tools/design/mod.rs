@@ -11,8 +11,8 @@
 //! with no token. The confirming call need not repeat the brief: the token's
 //! own call is where it is read from, which is how a yes given in the
 //! assistant's confirmation box (`assistant::quote`, which sends only the
-//! token) designs what was quoted. `keep` and `list` spend nothing and take no
-//! token, as locally.
+//! token) designs what was quoted. `keep`, `list` and `forget` spend nothing
+//! and take no token, as locally.
 
 mod keep;
 
@@ -47,7 +47,8 @@ three samples land in your library, where they can be played, and a design you a
 is answered from there for nothing, with no token. A design ElevenLabs refuses costs nothing. \
 Pass keep with a candidate id and name to turn one of them into a real voice_id a narration \
 can name — free, no token, also a job whose result is the voice_id. Pass list to read back \
-every voice you have designed. A kept voice lives in scorsese's ElevenLabs account, not in a \
+every voice you have designed, and forget with one of their voice_ids to delete it and free \
+its slot — free, no token, a job. A kept voice lives in scorsese's ElevenLabs account, not in a \
 project, so it is yours in every project, and the description and seed that made it are kept \
 with it. Voice cloning from someone's recorded speech is not offered here in any form.";
 
@@ -115,15 +116,27 @@ pub(crate) fn schema() -> Value {
                 "type": "boolean",
                 "description": "Read back every voice you have designed and kept, with the \
                                 description and seed that made each. Spends nothing."
+            },
+            "forget": {
+                "type": "string",
+                "description": "The voice_id of a voice you keep, exactly as list shows it. \
+                                Deletes that voice from scorsese's ElevenLabs account, which \
+                                gives back one of the few voices you may keep at once. Free, \
+                                no token, a job. Cannot be undone at the vendor, but the \
+                                design with its description and seed stays, so the same \
+                                candidate can be kept again."
             }
         }
     })
 }
 
-/// Design, keep or list.
+/// Design, keep, forget or list.
 pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply, String> {
     if arguments.get("list").and_then(Value::as_bool) == Some(true) {
         return keep::list(caller).await;
+    }
+    if let Some(voice) = text(arguments, "forget") {
+        return keep::forget(caller, &voice).await;
     }
     if let Some(chosen) = text(arguments, "keep") {
         let name = text(arguments, "name").ok_or(

@@ -20,6 +20,9 @@
 //! vendor, which is a real effect and so is reported rather than deduplicated —
 //! two voices from one candidate is somebody's decision, not an accident this
 //! layer should quietly undo.
+//!
+//! **What undoes a keep.** [`forget`] deletes a kept voice at the vendor and
+//! marks it so in the ledger (#1381); the design behind it stays.
 
 use std::path::Path;
 
@@ -148,7 +151,46 @@ pub fn keep(
         design: session.digest,
         estimated_cost_cents: session.estimated_cost_cents,
         created_at: Timestamp::now(),
+        forgotten: false,
     };
     ledger::append(root, &designed)?;
     Ok(Kept { voice, designed })
+}
+
+/// What every surface says after [`forget`], so the command line and the MCP
+/// tool cannot drift into telling it differently.
+pub const FORGOTTEN: &str = "That voice is gone from the ElevenLabs account, and the voice slot \
+     it took is free. A line already generated with it is a file in the project and still \
+     plays; a line not yet generated that names it will be refused, so give it another voice. \
+     The design and the description and seed that made the voice stay in the project: keeping \
+     the same candidate again brings it back while ElevenLabs still holds the candidate, and \
+     designing the same description again with the same seed comes nearest after that.";
+
+/// Deletes the voice `voice_id`, kept from one of this project's designs,
+/// from the account, and marks it forgotten in the ledger (#1381).
+///
+/// **The one verb that frees a voice slot.** An account holds a fixed number
+/// of designed voices, so one nobody narrates with any more is worth giving
+/// back. Spends nothing, and loses nothing that was paid for: the design and
+/// its samples stay in `generated/` and the ledger keeps the description and
+/// the seed, so keeping the same candidate again brings it back while the
+/// vendor still holds the candidate, and designing the same brief again comes
+/// nearest after.
+///
+/// The id has to be one this project keeps — a destructive call is never a
+/// guess at which voice was meant, and never reaches a voice somebody else
+/// made in the same account.
+pub fn forget(root: &Path, studio: &dyn Studio, voice_id: &str) -> Result<Designed, DesignError> {
+    let entry = ledger::read(root)
+        .into_iter()
+        .find(|entry| entry.voice_id == voice_id && entry.kept())
+        .ok_or_else(|| DesignError::NotKept {
+            voice_id: voice_id.to_owned(),
+        })?;
+    studio.forget(voice_id)?;
+    ledger::forget(root, voice_id)?;
+    Ok(Designed {
+        forgotten: true,
+        ..entry
+    })
 }

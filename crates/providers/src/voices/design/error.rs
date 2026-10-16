@@ -107,6 +107,19 @@ pub enum DesignError {
         chosen: String,
     },
 
+    /// A voice to forget that this project does not keep (#1381).
+    ///
+    /// Refused before the vendor is asked: deleting is not undoable, so the id
+    /// has to be one this project's ledger names, not a guess at one.
+    #[error(
+        "{voice_id} is not a voice this project designed and still keeps, so nothing was \
+         deleted. List the voices it keeps, and forget one by the id the list shows."
+    )]
+    NotKept {
+        /// The id that was asked for.
+        voice_id: String,
+    },
+
     /// The vendor answered a design with nothing to listen to.
     ///
     /// Named rather than reported as an empty success, because an empty success

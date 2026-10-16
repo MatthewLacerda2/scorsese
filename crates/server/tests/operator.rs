@@ -6,6 +6,7 @@ mod walk;
 
 use clap::CommandFactory;
 use scorsese_server::accounts::{sessions, tokens, users};
+use scorsese_server::generations::Keys;
 use scorsese_server::operator::{self, Cli, TokenCommand, UserCommand};
 use scorsese_server::storage::Storage;
 use scorsese_server::{AccountError, ServerError};
@@ -33,7 +34,7 @@ fn after<'a>(output: &'a str, label: &str) -> &'a str {
 async fn an_account_is_created_linked_listed_and_given_a_session(pool: PgPool) {
     let root = files();
     let email = || "ana@example.com".to_owned();
-    let run = |command| operator::user(&pool, &root, command);
+    let run = |command| operator::user(&pool, &root, &Keys, command);
     let created = run(UserCommand::Create { email: email() }).await.unwrap();
     assert!(
         created.contains("linked when they sign in with Google"),
@@ -70,14 +71,16 @@ async fn deleting_needs_yes(pool: PgPool) {
         email: "ana@example.com".to_owned(),
         yes,
     };
-    let refused = operator::user(&pool, &root, delete(false))
+    let refused = operator::user(&pool, &root, &Keys, delete(false))
         .await
         .unwrap_err();
     assert!(matches!(refused, ServerError::Unconfirmed(_)), "{refused}");
     assert!(refused.to_string().contains("--yes"), "{refused}");
     assert_eq!(users::list(&pool).await.unwrap().len(), 1);
 
-    operator::user(&pool, &root, delete(true)).await.unwrap();
+    operator::user(&pool, &root, &Keys, delete(true))
+        .await
+        .unwrap();
     assert!(users::list(&pool).await.unwrap().is_empty());
 }
 

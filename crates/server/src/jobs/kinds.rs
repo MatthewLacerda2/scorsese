@@ -87,6 +87,14 @@ pub const VOICE_KEEP: Kind = Kind {
     budget: Some(ELEVENLABS),
 };
 
+/// A kept voice deleted at the vendor (#1381). Free, one call — one at a
+/// time, like [`VOICE_KEEP`], so the slot count is changed by one job at once.
+pub const VOICE_FORGET: Kind = Kind {
+    name: "voice_forget",
+    limit: 1,
+    budget: Some(ELEVENLABS),
+};
+
 /// A **preview** render (#542): the cut, small, for the editor to play. Its
 /// own kind so previews queue behind each other and never take a slot a
 /// finished render is waiting for — one at a time, because a preview is
@@ -156,7 +164,8 @@ pub const PATIENT: [Kind; 1] = [BATCH_STILL];
 /// [`THUMBNAIL`] (#535), [`RENDER`] (#541), [`VEO_SHOT`] and [`SPOKEN_LINE`]
 /// (#539, `crate::generations`), [`STILL_IMAGE`] (#461), [`BATCH_STILL`]
 /// (#947), [`PREVIEW`] and [`PROXY`] (#542),
-/// [`VOICE_DESIGN`] and [`VOICE_KEEP`] (#572, `crate::designs`) have theirs.
+/// [`VOICE_DESIGN`] and [`VOICE_KEEP`] (#572, `crate::designs`) and
+/// [`VOICE_FORGET`] (#1381) have theirs.
 /// A kind nothing registers is never claimed, so a job of that kind waits
 /// rather than failing.
 ///
@@ -238,6 +247,7 @@ pub fn with_vendors(
             VOICE_KEEP,
             designs::keep_handler(Arc::clone(&vendors), elevenlabs.voice_slots),
         )
+        .register(VOICE_FORGET, designs::forget::handler(Arc::clone(&vendors)))
         .register(
             SPOKEN_LINE,
             generations::line_handler(files.storage.clone(), files.tools.clone(), vendors),

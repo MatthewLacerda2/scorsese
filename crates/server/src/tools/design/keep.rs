@@ -1,11 +1,13 @@
 //! What `voice_design` answers without spending: a design the user already
-//! has, keeping one of its candidates, and the voices they designed.
+//! has, keeping one of its candidates, forgetting a kept voice, and the
+//! voices they designed.
 
 use scorsese_mcp::Reply;
 
 use super::super::{Caller, database};
 use crate::credits::dollars;
 use crate::db;
+use crate::designs::forget::ForgetPayload;
 use crate::designs::{self, KeepPayload};
 use crate::jobs::{kinds, store as jobs};
 
@@ -97,6 +99,40 @@ pub(super) async fn keep(caller: &Caller<'_>, chosen: &str, name: &str) -> Resul
          not in any project, so it is yours in every project; the description and seed that \
          made it are kept with it, and voice_design with list shows them.",
         job.id, job.id
+    )
+    .into())
+}
+
+/// Forget the caller's kept voice `voice`: queued, free (#1381). Refused
+/// here, before a job, unless it is one of theirs — a deletion names its
+/// voice exactly, never a guess.
+pub(super) async fn forget(caller: &Caller<'_>, voice: &str) -> Result<Reply, String> {
+    let toolbox = caller.toolbox;
+    let mut tx = db::scoped(&toolbox.pool, caller.user)
+        .await
+        .map_err(database)?;
+    let kept = designs::designed(&mut tx).await.map_err(database)?;
+    let Some(kept) = kept.into_iter().find(|kept| kept.voice_id == voice) else {
+        return Err(format!(
+            "{voice} is not a voice you keep, so nothing was deleted; voice_design with list \
+             shows the ones you do, by the voice_id to pass"
+        ));
+    };
+    let payload = ForgetPayload {
+        voice_id: voice.to_owned(),
+    };
+    let payload = serde_json::to_value(&payload).map_err(database)?;
+    let job = jobs::enqueue(&mut tx, kinds::VOICE_FORGET, &payload)
+        .await
+        .map_err(database)?;
+    tx.commit().await.map_err(database)?;
+    toolbox.queue.announce(caller.user, &job);
+    Ok(format!(
+        "Forgetting {voice} (\"{}\") as job {} — free. Call jobs with job: {}; once it is done \
+         the voice is gone from scorsese's ElevenLabs account and its slot is yours again. A \
+         line already generated with it still plays; one not yet generated needs another \
+         voice. The design stays, so keeping the same candidate again can bring it back.",
+        kept.name, job.id, job.id
     )
     .into())
 }

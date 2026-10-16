@@ -309,6 +309,15 @@ impl Caller {
         self.json(url, sent)
     }
 
+    /// DELETEs `url`, reading nothing of the reply but whether it was taken.
+    ///
+    /// A vendor answers a delete with a line of JSON saying `ok`, and the
+    /// status already says that: nothing in the body is worth a type.
+    pub fn delete(&self, url: &str) -> Result<(), HttpError> {
+        let sent = self.signed(self.agent().delete(url)).call();
+        self.bytes(url, sent, JSON_LIMIT).map(drop)
+    }
+
     /// GETs `url` and reads the reply as bytes — for the media itself.
     ///
     /// Bounded rather than read to whatever arrives: a reply claiming to be

@@ -38,6 +38,9 @@ pub(super) struct Mock {
     pub(super) drawn: Arc<AtomicUsize>,
     pub(super) designed: Arc<AtomicUsize>,
     pub(super) kept: Arc<AtomicUsize>,
+    pub(super) forgotten: Arc<AtomicUsize>,
+    /// Why ElevenLabs will not delete a voice, instead of deleting it.
+    pub(super) refuse_forget: Option<String>,
 }
 
 impl Mock {

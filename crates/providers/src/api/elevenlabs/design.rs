@@ -12,6 +12,10 @@
 //!   it into a real voice with a `voice_id`, usable exactly like any voice from
 //!   a listing. It costs nothing: the generation was already paid for above.
 //!
+//! And a third, the undoing of the second: **`DELETE /v1/voices/{voice_id}`**
+//! removes a kept voice from the account, freeing the custom voice slot it
+//! took (#1381).
+//!
 //! **The two candidates nobody picks need no cleanup.** They were never
 //! persisted as voices, so there is nothing to delete and no tidying pass to
 //! forget. What the create call *does* accept is
@@ -31,7 +35,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::{BASE, KEY_HEADER};
-use crate::api::http::{Caller, HttpError};
+use crate::api::http::{Caller, HttpError, encoded};
 use crate::credentials::Secret;
 
 /// How long the description of a voice may be, in characters.
@@ -178,5 +182,17 @@ impl Design {
     /// with an `scp -r`, which is why the caller writes down what made it.
     pub fn create(&self, request: &CreateRequest) -> Result<CreatedVoice, HttpError> {
         self.caller.post(&format!("{BASE}/text-to-voice"), request)
+    }
+
+    /// **`DELETE /v1/voices/{voice_id}`**: removes a voice from the account,
+    /// which frees the custom voice slot [`Design::create`] took (#1381).
+    ///
+    /// Here rather than on [`Voices`](super::voices::Voices) because it undoes
+    /// what this client made, and that one only reads. A `404` arrives as
+    /// [`HttpError::Refused`] like any other: whether *no such voice* counts
+    /// as already done is the caller's call.
+    pub fn delete(&self, voice_id: &str) -> Result<(), HttpError> {
+        self.caller
+            .delete(&format!("{BASE}/voices/{}", encoded(voice_id)))
     }
 }

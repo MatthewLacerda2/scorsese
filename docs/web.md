@@ -906,11 +906,12 @@ room. Music, sound and cloning join that budget when they arrive.
 | `batch_still` | 64 | a Gemini still in a half-price batch (#947): one order, then asking once a minute for up to a day — many at once, so a slot held for a day never makes the next person's still wait a day to be ordered |
 | `voice_design` | the ElevenLabs budget | an ElevenLabs voice design (#572): seconds, mostly network |
 | `voice_keep` | 1, within the ElevenLabs budget | a designed candidate kept as a voice (#572): one free call, one at a time so the voice-slot count it checks first is never raced |
+| `voice_forget` | 1, within the ElevenLabs budget | a kept voice deleted at ElevenLabs, then its row (#1381): one free call, freeing the voice slot it took |
 
 **Every kind has a handler** — `thumbnail` and `proxy` (#535, #542, *Library*),
 `render` and `preview` (#541, #542, *Renders*), `veo_shot`, `still_image`,
-`batch_still` and `spoken_line` (#539, #461, #947, *Web MCP*, below), `voice_design` and `voice_keep`
-(#572, *Designing a voice*, below). A paid generation pays through credits (*Credits*,
+`batch_still` and `spoken_line` (#539, #461, #947, *Web MCP*, below), `voice_design`, `voice_keep`
+and `voice_forget` (#572, #1381, *Designing a voice*, below). A paid generation pays through credits (*Credits*,
 below: a failed one is free) and keeps what it made in the library. Each
 registers its handler in `jobs::kinds::registry()`; a kind nothing registers
 waits rather than failing. The worker, the claim, recovery and
@@ -1794,13 +1795,25 @@ homes that outlive a call (`crate::designs`):
   needs. A `voice_keep` job checks before it asks the vendor: a user keeps at
   most three, so the first few cannot take every slot, and nobody keeps one
   once the account is full. Either is refused in plain words, free, pointing
-  at the voices the user has and at Library voices.
+  at the voices the user has, at `forget`, and at Library voices.
+- **A kept voice is forgotten at the vendor, not only in the count** (#1381).
+  `forget` with one of the user's own voice ids queues a `voice_forget` job:
+  `DELETE /v1/voices/{voice_id}` at ElevenLabs, then the row
+  (`designs::forget`). The vendor goes first, so a failure in between leaves
+  a row over-counting until the next try — which the vendor answers with a
+  404, read as already forgotten — rather than a voice taking a slot nothing
+  counts. The design stays, so the candidate can be kept again. Deleting an
+  account (`user delete --yes`) forgets each of its voices before the rows go
+  by cascade; one the vendor will not delete does not stop the deletion, and
+  the command's output names it, with the vendor's reason, for the operator to
+  delete in the ElevenLabs dashboard.
 
-Both verbs are jobs. A design is paid, and a job interrupted after the
+Every verb that reaches the vendor is a job. A design is paid, and a job interrupted after the
 reservation is run again and settles it, where a call cut off mid-way would
 leave the money held; keeping is free, but it reaches the same vendor, so the
 vendor stays behind one seam (`generations::Vendors::studio`) a test replaces.
-`keep` and `list` take no token. Voice cloning is not offered, as locally.
+`keep`, `forget` and `list` take no token. Voice cloning is not offered, as
+locally.
 
 **Every call is recorded** in `tool_calls` — tool, arguments, project, how it
 ended and its words (not its pictures), with `client` `external` for web MCP,

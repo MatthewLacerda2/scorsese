@@ -99,7 +99,8 @@ pub async fn slots(pool: &PgPool, user: UserId) -> Result<Slots, sqlx::Error> {
 /// user has their share, or the account is full. `None` when there is room.
 pub fn no_slot(slots: Slots, of: usize) -> Option<String> {
     let account = i64::try_from(of).unwrap_or(i64::MAX);
-    let instead = "Narrate with a voice you already keep (voice_design with list), or choose \
+    let instead = "Narrate with a voice you already keep (voice_design with list), forget one \
+                   you no longer need (voice_design with forget) to free its slot, or choose \
                    one from voices: a built-in or Voice Library voice takes no slot. Nothing \
                    was created or charged.";
     if slots.mine >= KEPT_PER_USER {
@@ -135,6 +136,7 @@ mod tests {
         let why = no_slot(taken(KEPT_PER_USER, KEPT_PER_USER), 10).unwrap();
         assert!(why.contains("already keep 3"), "{why}");
         assert!(why.contains("Nothing was created"), "{why}");
+        assert!(why.contains("voice_design with forget"), "{why}");
     }
 
     #[test]

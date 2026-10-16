@@ -4,11 +4,12 @@
 //! leaves something behind **outside** the project directory. Both facts shape
 //! everything it prints.
 //!
-//! Three things it can be asked, and they are one verb because they are one
-//! subject at three moments: design three candidates, keep the one that was
-//! chosen, and read back what this project has designed. Only the first spends
-//! anything; keeping was paid for when the candidate was designed, and reading
-//! the ledger touches no network at all.
+//! Four things it can be asked, and they are one verb because they are one
+//! subject at four moments: design three candidates, keep the one that was
+//! chosen, read back what this project has designed, and forget a kept voice
+//! (#1381). Only the first spends anything; keeping was paid for when the
+//! candidate was designed, forgetting frees a voice slot, and reading the
+//! ledger touches no network at all.
 //!
 //! What this command deliberately does **not** do is play the samples. The
 //! audition is a window's job — three files and a pair of ears — and this
@@ -20,7 +21,8 @@ use anyhow::{Context, Result};
 use scorsese_providers::credentials::{Budget, Provider, resolve};
 use scorsese_providers::prices::dollars;
 use scorsese_providers::voices::design::{
-    Brief, Designing, ElevenLabsStudio, Kept, LEDGER_FILE, design, designed, estimate, keep,
+    Brief, Designing, ElevenLabsStudio, FORGOTTEN, Kept, LEDGER_FILE, design, designed, estimate,
+    forget, keep,
 };
 
 /// What was asked for on the command line.
@@ -41,6 +43,8 @@ pub(crate) struct Options {
     pub(crate) name: Option<String>,
     /// Read back what this project has already designed.
     pub(crate) list: bool,
+    /// Delete this kept voice from the account.
+    pub(crate) forget: Option<String>,
 }
 
 /// Designs a voice, keeps one, or reads the ledger.
@@ -54,6 +58,9 @@ pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
     if options.list {
         ledger(project_dir);
         return Ok(());
+    }
+    if let Some(voice) = &options.forget {
+        return forgot(project_dir, voice);
     }
     if let Some(chosen) = &options.keep {
         return kept(project_dir, chosen, options.name.as_deref());
@@ -126,6 +133,16 @@ fn kept(project_dir: &Path, chosen: &str, name: Option<&str>) -> Result<()> {
              next time if a voice is one you would want back."
         );
     }
+    Ok(())
+}
+
+/// Deletes one kept voice from the account, and says what is left.
+fn forgot(project_dir: &Path, voice: &str) -> Result<()> {
+    let key = resolve(Provider::ElevenLabs)?;
+    let forgotten = forget(project_dir, &ElevenLabsStudio::new(&key.secret), voice)?;
+    println!("{}", forgotten.says());
+    println!();
+    println!("{FORGOTTEN}");
     Ok(())
 }
 
