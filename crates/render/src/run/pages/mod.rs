@@ -22,27 +22,35 @@
 //! window's preview, which captures in the background instead of making a
 //! scrub wait minutes for a page (#776).
 //!
+//! **Distinct pages are captured at once** (#1095), sharing one budget of
+//! browsers ([`together`]): a dozen short pages draw side by side instead of
+//! one after another, and produce the same frames either way.
+//!
 //! **Capturing is a phase of the render's own** ([`crate::Phase::Capturing`], #1055),
 //! counted in page frames drawn of those the cache does not already hold: on
 //! a page-heavy edit it is most of the render, and a render that said it was
 //! still preparing all that while read as one that had hung. An edit whose
 //! pages are all in `cache/` never enters it.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicU64;
 
-use scorsese_core::words::Words;
-use scorsese_core::{AssetKind, Clip, ClipId, Fps, Project};
+use scorsese_core::{AssetKind, ClipId, Fps};
 
 use crate::cancel::Cancel;
-use crate::page::{self, Chrome, Request, Span, Wanted};
+use crate::page::{self, Chrome, Request, Wanted};
 use crate::plan::{Plan, Shot};
 use crate::progress::Progress;
 use crate::report::Note;
 use crate::settings::RenderSettings;
 use crate::tools::Tools;
+
+mod request;
+mod together;
+
+use request::request_for;
 
 /// Which browser a render's pages are captured with, and whether they are
 /// captured at all or only read from `cache/`.
@@ -62,11 +70,12 @@ pub(super) struct Browser<'c> {
 const SPARE: u64 = 2;
 
 /// Each page clip's captured frames, by clip — held until the render is over,
-/// when the cache is tidied ([`page::Holding`]).
+/// when the cache is tidied ([`page::Holding`]), one holding for each thread
+/// that captured them ([`together`]).
 #[derive(Debug, Default)]
 pub(super) struct Pages {
     captured: HashMap<ClipId, (PathBuf, f64)>,
-    holding: page::Holding,
+    holdings: Vec<page::Holding>,
     /// Whether an absent capture is one on its way, for the card to say so.
     underway: bool,
 }
@@ -98,7 +107,8 @@ impl Pages {
     /// Captures every page `plan` shows, with the browser given or — when none
     /// was — whichever one [`Chrome::discover`] finds. Unless the browser is
     /// not `capturing`: then only what is already captured is used, and no
-    /// browser is looked for at all. Frames drawn are counted on `progress`,
+    /// browser is looked for at all. Distinct pages are captured at once
+    /// ([`together`]). Frames drawn are counted on `progress`,
     /// and a tripped `cancel` stops the capture under way before its next
     /// frame and every one after it before it starts (#1088).
     pub(super) fn capture(
@@ -162,20 +172,40 @@ impl Pages {
             }
             _ => &uncounted,
         };
-        for (shot, Wanted { request, frames }) in wanted {
-            let captured = chrome.clone().and_then(|chrome| {
-                let holding = &mut pages.holding;
-                if capturing {
-                    let drawing = (page::browsers(), drawn, cancel);
-                    let follows = (project_root, &[][..]);
-                    return holding
-                        .capture_frames(chrome, tools, follows, &request, frames, drawing)
-                        .map_err(|e| e.to_string());
-                }
-                holding
-                    .cached_frames(project_root, &request, chrome.version(), frames)
-                    .ok_or_else(|| "not captured yet".to_owned())
-            });
+        let outcomes: Vec<together::Outcome> = match &chrome {
+            Ok(chrome) if capturing => {
+                let asked: Vec<_> = wanted
+                    .iter()
+                    .map(|(_, one)| (one.request.clone(), one.frames.clone()))
+                    .collect();
+                let how = together::Capturing {
+                    chrome,
+                    tools,
+                    project_root,
+                    drawn,
+                    cancel,
+                };
+                let browsers = page::Browsers::new(page::browsers());
+                let (outcomes, holdings) = together::capture(&how, &asked, &browsers);
+                pages.holdings = holdings;
+                outcomes
+            }
+            _ => {
+                let mut holding = page::Holding::default();
+                let outcomes = wanted
+                    .iter()
+                    .map(|(_, Wanted { request, frames })| {
+                        let chrome = chrome.clone()?;
+                        holding
+                            .cached_frames(project_root, request, chrome.version(), frames.clone())
+                            .ok_or_else(|| "not captured yet".to_owned())
+                    })
+                    .collect();
+                pages.holdings.push(holding);
+                outcomes
+            }
+        };
+        for ((shot, Wanted { request, .. }), captured) in wanted.into_iter().zip(outcomes) {
             match captured {
                 Ok(captured) => {
                     for warning in captured.warnings {
@@ -306,82 +336,4 @@ fn pages_in<'s, 'a>(shot: &'s Shot<'a>, into: &mut Vec<&'s Shot<'a>>) {
     if let Some(matte) = &shot.matte {
         pages_in(&matte.shot, into);
     }
-}
-
-/// What a page clip asks to be captured as: the render's raster and rate, the
-/// page's clock run from zero to where it is at the clip's last frame —
-/// `source_in` plus the clip's length at its speed (#789) — and where the clips
-/// beside it sit on that clock, and the words they say ([`beside`]). The
-/// capture is then played like footage, from `source_in`, at `speed`, by the
-/// ordinary decode.
-pub(super) fn request_for(
-    shot: &Shot<'_>,
-    settings: &RenderSettings,
-    plan: &Plan<'_>,
-    project_root: &Path,
-) -> Option<Request> {
-    let clip = shot.clip;
-    let timeline_fps = plan.timeline_fps();
-    let duration = timeline_fps.seconds(clip.source_in)
-        + timeline_fps.seconds(clip.duration) * clip.speed.get();
-    let (clips, words) = beside(shot, plan.project(), timeline_fps, project_root);
-    Some(Request {
-        page: shot.asset.path.as_ref()?.as_str().to_owned(),
-        resolution: settings.resolution,
-        fps: settings.fps,
-        duration,
-        clips,
-        words,
-    })
-}
-
-/// Where every clip on the timeline a page clip sits on is, by id, in seconds
-/// of the page's own clock (#810): timeline time `t` is page time `source_in +
-/// (t − start) × speed`. The page clip itself is among them. Beside them, when
-/// each word of every timed narration among them is said (#811), by `<clip
-/// id>/<word>` on the same clock — a line with no timings names no words.
-///
-/// The timeline its clip sits on is the project's for a page on its tracks,
-/// and a group's own for one of its members — whose clock is the group's, the
-/// same wherever the group is placed, so a page in a group times itself to the
-/// clips beside it there and is captured once however often the group is used.
-fn beside(
-    shot: &Shot<'_>,
-    project: &Project,
-    fps: Fps,
-    project_root: &Path,
-) -> (BTreeMap<String, Span>, BTreeMap<String, Span>) {
-    let page = shot.clip;
-    let beside: Vec<&Clip> = project
-        .stacks()
-        .find(|(_, tracks)| tracks.iter().any(|track| &track.id == shot.track))
-        .map(|(_, tracks)| tracks.iter().flat_map(|track| &track.clips).collect())
-        .unwrap_or_default();
-    let opens = fps.seconds(page.source_in);
-    let speed = page.speed.get();
-    let starts = fps.seconds(page.start);
-    let at = |seconds: f64| opens + (seconds - starts) * speed;
-    let span = |start: f64, end: f64| Span {
-        start: at(start),
-        end: at(end),
-    };
-    let mut clips = BTreeMap::new();
-    let mut words = BTreeMap::new();
-    for clip in beside {
-        let start = fps.seconds(clip.start);
-        clips.insert(
-            clip.id.to_string(),
-            span(start, start + fps.seconds(clip.duration)),
-        );
-        let said = project
-            .asset(&clip.asset)
-            .and_then(|asset| Words::of(asset, project_root));
-        for word in said.iter().flat_map(|said| said.placed(clip, fps)) {
-            words.insert(
-                format!("{}/{}", clip.id, word.name),
-                span(word.start, word.end),
-            );
-        }
-    }
-    (clips, words)
 }

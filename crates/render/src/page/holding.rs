@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicU64;
 
 use super::browser::Chrome;
+use super::budget::Browsers;
 use super::request::Request;
 use super::{Captured, PageError, cache, cached_frames, capture, piece, pieces, told, within};
 use crate::cancel::Cancel;
@@ -47,7 +48,8 @@ impl Holding {
 
     /// [`super::capture_frames`], held for this run, and tidied after only
     /// once it is over: the project's root and the folders its links may
-    /// lead under go together, and so do how many browsers draw at once, the
+    /// lead under go together, and so do the browsers it may draw with —
+    /// leased from a budget the captures drawing beside it share (#1095) — the
     /// count each frame drawn is added to (#1055) and the cancel that stops it
     /// before its next frame (#1088).
     ///
@@ -61,7 +63,7 @@ impl Holding {
         (project_root, follow): (&Path, &[PathBuf]),
         request: &Request,
         frames: Range<u64>,
-        (browsers, drawn, cancel): (usize, &AtomicU64, &Cancel),
+        (browsers, drawn, cancel): (&Browsers, &AtomicU64, &Cancel),
     ) -> Result<Captured, PageError> {
         let wanted = within(request, frames);
         if let Some(captured) =
@@ -69,11 +71,15 @@ impl Holding {
         {
             return Ok(captured);
         }
-        // Before a browser is started: launching one is a second or so, per clip.
+        let piece = piece(request, wanted.clone());
+        // Only a capture that draws waits for browsers: as many as its length
+        // is worth, or fewer when the others drawing beside it hold the rest.
+        let lease = browsers.take(pieces::split(request, piece.clone(), browsers.most()).len());
+        // Before a browser is started — launching one is a second or so, per
+        // clip — and after the wait, which a cancel may have come during.
         if cancel.is_cancelled() {
             return Err(PageError::Cancelled);
         }
-        let piece = piece(request, wanted.clone());
         let slot = cache::slot(project_root, request, chrome.version());
         std::fs::create_dir_all(&slot)?;
         let fonts = cache::fonts(project_root)?;
@@ -91,7 +97,7 @@ impl Holding {
             follow,
             fonts: &fonts,
         };
-        let pieces = pieces::split(request, piece.clone(), browsers);
+        let pieces = pieces::split(request, piece.clone(), lease.count());
         let placed = pieces::capture_in(
             chrome,
             tools,
