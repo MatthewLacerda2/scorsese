@@ -8,7 +8,8 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import { type Messages, messagesFor } from "@/i18n/catalogue";
 import { en } from "@/i18n/en";
-import { browserStorage, initialLanguage, type Language, saveLanguage } from "@/i18n/language";
+import { initialLanguage, type Language, saveLanguage } from "@/i18n/language";
+import { browserStorage } from "@/lib/storage";
 
 interface I18n {
   language: Language;

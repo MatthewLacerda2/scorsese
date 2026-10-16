@@ -4,16 +4,11 @@
 // chosen".
 
 import { expect, test } from "bun:test";
-import {
-  browserLanguage,
-  LANGUAGE_KEY,
-  resolveLanguage,
-  saveLanguage,
-  storedLanguage,
-} from "@/i18n/language";
+import { browserLanguage, resolveLanguage, saveLanguage, storedLanguage } from "@/i18n/language";
+import { KEYS } from "@/lib/storage";
 
 const storage = (value: string | null) => ({
-  getItem: (key: string) => (key === LANGUAGE_KEY ? value : null),
+  getItem: (key: string) => (key === KEYS.language ? value : null),
 });
 const throwing = {
   getItem: (): string | null => {

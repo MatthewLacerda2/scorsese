@@ -3,6 +3,7 @@
 // sizes drawn — the first fitted to the second (`sizes.ts`).
 
 import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { browserStorage } from "@/lib/storage";
 import {
   DEFAULTS,
   fit,
@@ -18,15 +19,6 @@ import {
 export function remPx(): number {
   if (typeof document === "undefined") return 16;
   return Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-}
-
-/** `localStorage`, or `undefined` where even reading the property throws. */
-function browserStorage(): Storage | undefined {
-  try {
-    return typeof window === "undefined" ? undefined : window.localStorage;
-  } catch {
-    return undefined;
-  }
 }
 
 export function usePanels() {

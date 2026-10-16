@@ -13,6 +13,12 @@
       // components/ui is shadcn's, which ships compound modules (Card, CardHeader…)
       // on purpose, and is re-added with `shadcn add` rather than hand-shaped.
       "includes": ["**/*.tsx", "!**/src/components/ui/**"]
+    },
+    {
+      "path": "./lint/noRawStorage.grit",
+      // lib/storage.ts is the one module that touches storage; test/ is the test
+      // setup, which clears it between tests.
+      "includes": ["**/src/**", "!**/src/lib/storage.ts", "!**/src/test/**"]
     }
   ],
   "formatter": {

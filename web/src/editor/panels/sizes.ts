@@ -11,9 +11,10 @@
 // panels want, the preview keeps it, on any screen.
 //
 // Sizes are a person's screen, not part of the edit, so they are kept per
-// browser in `localStorage`, read and written inside try/catch as the frame
-// shape is (`../shape.ts`), and never in the project.
+// browser through `lib/storage.ts`, as the frame shape is (`../shape.ts`), and
+// never in the project.
 
+import { type Codec, KEYS, read, write } from "@/lib/storage";
 import { clamp } from "@/lib/utils";
 export type Panel = "assets" | "chat" | "timeline";
 
@@ -90,13 +91,11 @@ function giveBack(panels: Panel[], sizes: Sizes, allowance: number) {
       share === 1 ? least(panel) : sizes[panel] - (sizes[panel] - least(panel)) * share;
 }
 
-/** The `localStorage` key: one for the browser, since a screen is not a project. */
-export const SIZES_KEY = "scorsese.panels";
-
-/** The sizes last left in this browser; the defaults for any it does not have. */
-export function savedSizes(storage: Pick<Storage, "getItem"> | undefined): Sizes {
-  try {
-    const saved: unknown = JSON.parse(storage?.getItem(SIZES_KEY) ?? "null");
+/** Stored as JSON, one for the browser, since a screen is not a project. */
+const CODEC: Codec<Sizes> = {
+  fallback: DEFAULTS,
+  parse: (raw) => {
+    const saved: unknown = JSON.parse(raw);
     const sizes = { ...DEFAULTS };
     if (saved && typeof saved === "object")
       for (const panel of Object.keys(DEFAULTS) as Panel[]) {
@@ -104,15 +103,15 @@ export function savedSizes(storage: Pick<Storage, "getItem"> | undefined): Sizes
         if (typeof size === "number" && Number.isFinite(size)) sizes[panel] = size;
       }
     return fit(sizes, null);
-  } catch {
-    return { ...DEFAULTS };
-  }
+  },
+  format: JSON.stringify,
+};
+
+/** The sizes last left in this browser; the defaults for any it does not have. */
+export function savedSizes(storage: Pick<Storage, "getItem"> | undefined): Sizes {
+  return { ...read(storage, KEYS.panels, CODEC) };
 }
 
 export function saveSizes(storage: Pick<Storage, "setItem"> | undefined, sizes: Sizes) {
-  try {
-    storage?.setItem(SIZES_KEY, JSON.stringify(sizes));
-  } catch {
-    // A private window: the sizes last as long as the page does.
-  }
+  write(storage, KEYS.panels, CODEC, sizes);
 }

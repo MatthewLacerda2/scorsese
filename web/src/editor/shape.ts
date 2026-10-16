@@ -4,6 +4,8 @@
 // browser, and offers delivery sizes in it. The first is what the preview is
 // a fraction of (`preview/quality.ts`).
 
+import { browserStorage, KEYS, oneOf, read, write } from "@/lib/storage";
+
 export type Shape = "landscape" | "portrait" | "square";
 
 export const SHAPES: Record<Shape, { label: string; deliver: [string, ...string[]] }> = {
@@ -12,22 +14,13 @@ export const SHAPES: Record<Shape, { label: string; deliver: [string, ...string[
   square: { label: "1:1", deliver: ["1080x1080", "720x720"] },
 };
 
-const key = (project: number) => `scorsese.shape.${project}`;
+const CODEC = oneOf<Shape>(Object.keys(SHAPES) as Shape[], "landscape");
 
 /** The shape last chosen for `project` in this browser; landscape otherwise. */
 export function savedShape(project: number): Shape {
-  try {
-    const saved = localStorage.getItem(key(project));
-    return saved && saved in SHAPES ? (saved as Shape) : "landscape";
-  } catch {
-    return "landscape";
-  }
+  return read(browserStorage(), KEYS.shape(project), CODEC);
 }
 
 export function saveShape(project: number, shape: Shape) {
-  try {
-    localStorage.setItem(key(project), shape);
-  } catch {
-    // A private window: the choice lasts as long as the page does.
-  }
+  write(browserStorage(), KEYS.shape(project), CODEC, shape);
 }

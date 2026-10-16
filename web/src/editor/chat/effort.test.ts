@@ -2,7 +2,8 @@
 // Thorough (#769).
 
 import { expect, test } from "bun:test";
-import { DEFAULT_EFFORT, effortKey, saveEffort, storedEffort } from "./effort";
+import { KEYS } from "@/lib/storage";
+import { DEFAULT_EFFORT, saveEffort, storedEffort } from "./effort";
 
 function memory(): Storage {
   const held = new Map<string, string>();
@@ -27,7 +28,7 @@ test("a choice is remembered for its own project only", () => {
 
 test("a stored value that is not a level, or a storage that throws, is Thorough", () => {
   const storage = memory();
-  storage.setItem(effortKey(7), "max");
+  storage.setItem(KEYS.effort(7), "max");
   expect(storedEffort(storage, 7)).toBe("high");
   const broken = {
     getItem: () => {

@@ -1,0 +1,25 @@
+// Browser storage only through `src/lib/storage.ts` (#1212).
+//
+// That module names every key the web app keeps, so a user's browser holds one
+// list and two choices cannot collide, and it catches the storage that throws
+// in a private window, so no caller can forget to. Any other reach for
+// `localStorage` or `sessionStorage` is reported: the bare global, a property
+// of `window` or `globalThis` (dotted or bracketed), and a destructured one.
+// Biome's own `noRestrictedGlobals` sees only the bare global, which is why
+// this is a plugin (checked against Biome 2.5.15). web/README.md, *House
+// rules*, has the rest.
+language js
+
+pattern storage_name() { r"^localStorage$|^sessionStorage$" }
+
+or {
+  JsReferenceIdentifier() as $name where { $name <: storage_name() },
+  JsStaticMemberExpression(member=$name) where { $name <: storage_name() },
+  JsComputedMemberExpression(member=$name) where {
+    $name <: r"^.localStorage.$|^.sessionStorage.$"
+  },
+  JsObjectBindingPatternProperty(member=$name) where { $name <: storage_name() },
+  JsObjectBindingPatternShorthandProperty(identifier=$name) where { $name <: storage_name() }
+} where {
+  register_diagnostic(span=$name, message="noRawStorage: browser storage goes through src/lib/storage.ts, which names every key and catches a storage that throws. Declare the key in KEYS and use read/write (web/README.md, House rules).")
+}

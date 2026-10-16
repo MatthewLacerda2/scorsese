@@ -6,8 +6,9 @@
 import { describe, expect, test } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { browserStorage, KEYS } from "@/lib/storage";
 import { Handle } from "./Handle";
-import { DEFAULTS, LEAST, MOST, SIZES_KEY } from "./sizes";
+import { DEFAULTS, LEAST, MOST } from "./sizes";
 import { usePanels } from "./usePanels";
 
 /** The editor's grid in miniature: the chat's edge, the assets panel's, and the timeline's (#943). */
@@ -102,7 +103,7 @@ describe("a panel handle", () => {
   test("a size is kept in this browser and read back when the editor reopens", () => {
     const first = render(<Panels />);
     drag("assets", -48);
-    expect(JSON.parse(window.localStorage.getItem(SIZES_KEY) ?? "{}").assets).toBe(
+    expect(JSON.parse(browserStorage()?.getItem(KEYS.panels) ?? "{}").assets).toBe(
       DEFAULTS.assets + 3,
     );
     first.unmount();

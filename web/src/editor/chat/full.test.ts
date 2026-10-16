@@ -2,7 +2,8 @@
 // fails — opens the editor (#1027).
 
 import { expect, test } from "bun:test";
-import { fullKey, saveFull, storedFull } from "./full";
+import { KEYS } from "@/lib/storage";
+import { saveFull, storedFull } from "./full";
 
 function memory(): Storage {
   const held = new Map<string, string>();
@@ -28,7 +29,7 @@ test("the mode is remembered for its own project only, both ways", () => {
 
 test("a stored value that is not the mode, or a storage that throws, is the editor", () => {
   const storage = memory();
-  storage.setItem(fullKey(7), "yes");
+  storage.setItem(KEYS.chatFull(7), "yes");
   expect(storedFull(storage, 7)).toBe(false);
   const broken = {
     getItem: () => {

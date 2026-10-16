@@ -4,28 +4,21 @@
 // the first; one who scrubs and nudges, in the second.
 //
 // Remembered per project in this browser, the way the effort level is
-// (`effort.ts`): `localStorage` can throw, so every access is caught, and a
-// failure — or nothing stored — reads as the editor, which is how a project
-// opens until the user turns full mode on.
+// (`effort.ts`), through `lib/storage.ts`: a storage that throws — or nothing
+// stored — reads as the editor, which is how a project opens until the user
+// turns full mode on.
 
 import { useState } from "react";
-import { browserStorage } from "@/i18n/language";
+import { browserStorage, type Codec, KEYS, read, write } from "@/lib/storage";
 
-/** The `localStorage` key for `project`'s mode. */
-export function fullKey(project: number): string {
-  return `scorsese-chat-full-${project}`;
-}
+const CODEC: Codec<boolean> = { fallback: false, parse: (raw) => raw === "true" };
 
 /** Whether `project` was last left in full mode. */
 export function storedFull(
   storage: Pick<Storage, "getItem"> | undefined,
   project: number,
 ): boolean {
-  try {
-    return storage?.getItem(fullKey(project)) === "true";
-  } catch {
-    return false;
-  }
+  return read(storage, KEYS.chatFull(project), CODEC);
 }
 
 /** Remember `project`'s mode. A storage that refuses only means it is not remembered. */
@@ -34,11 +27,7 @@ export function saveFull(
   project: number,
   full: boolean,
 ): void {
-  try {
-    storage?.setItem(fullKey(project), String(full));
-  } catch {
-    // Private window or storage disabled: the mode lasts this page only.
-  }
+  write(storage, KEYS.chatFull(project), CODEC, full);
 }
 
 /** `project`'s mode as React state, remembered in this browser as it changes. */
