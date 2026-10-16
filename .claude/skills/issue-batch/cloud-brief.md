@@ -150,7 +150,8 @@ survivors after you (#651) — and never a reason to stay draft.
 - **Outside it** — `crates/server`, the pipe-holding rest of
   `crates/render/src/run`, `app/` (#760 has why) — that reports nothing. A
   server module whose tests sit in its own file needs no Postgres: `cargo
-  mutants --no-config -f <file> --test-package scorsese-server -- --lib`, one
+  mutants --no-config --test-tool nextest -f <file> --test-package
+  scorsese-server -- --lib` (nextest keeps it offline, #1302), one
   `-f` per file — but each mutant rebuilds the server (5-10 min here, #760), so
   count first and run only a short file. One tested from `crates/server/tests`
   also pays the Postgres suite (~3 min) per mutant: skip it and name the tests

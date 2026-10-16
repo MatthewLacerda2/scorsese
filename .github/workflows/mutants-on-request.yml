@@ -202,6 +202,11 @@ jobs:
       - name: Install cargo-mutants
         uses: taiki-e/install-action@cargo-mutants
 
+      # `.cargo/mutants.toml` runs each mutant's tests through nextest, so
+      # they run offline (#1302); prebuilt, as in `ci.yml`.
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
       - name: The plan
         uses: actions/download-artifact@v8
         with:
