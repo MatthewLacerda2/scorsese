@@ -247,7 +247,7 @@ fn sentence(mut parts: Vec<String>, spent: u64, pass: Pass) -> String {
         // deciding to spend more, and no provider tells us what was billed.
         parts.push(format!(
             "about {} spent, by our calculation",
-            dollars(spent)
+            dollars(from_cents(spent), 2)
         ));
     }
     parts.join(" · ")
