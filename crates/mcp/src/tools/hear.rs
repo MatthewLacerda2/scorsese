@@ -33,6 +33,7 @@
 use std::path::Path;
 
 use schemars::JsonSchema;
+use scorsese_render::audio::reference::{self, Reference};
 use scorsese_render::audio::{Waveform, measure, waveform};
 use scorsese_render::{Tools, say};
 use serde::Deserialize;
@@ -64,6 +65,13 @@ struct Arguments {
     /// usually the answer, and the rows grow with the file's length.
     #[serde(default)]
     sections: bool,
+    /// Hold the file's body against a reference record's measured ranges —
+    /// crest, low/mid/high share, width and how it opens — one row each,
+    /// saying how many sections fall outside and which way. One of
+    /// billie-jean, fuego-drops, fuego-breaks, techno-syndrome, bfg-division,
+    /// brutal-doom; guide references says which suits which cue. A floor to
+    /// clear, never a target.
+    like: Option<String>,
 }
 
 impl args::Arguments for Arguments {
@@ -89,7 +97,8 @@ impl Tool for Hear {
          it is. Give `against` to compare two files field by field — the form \
          that answers \"did my change land?\", since an absolute level is hard \
          to judge and a difference is not — and `sections` for one row of \
-         levels per section. It does NOT answer whether the voice, the language \
+         levels per section, and `like` to hold it against a reference \
+         record's measured ranges. It does NOT answer whether the voice, the language \
          or the pronunciation are right — those need hearing, and nothing here \
          can tell you about them. Works on any audio the project can reach and \
          on a rendered video too, since ffmpeg does the decoding."
@@ -112,6 +121,7 @@ impl Tool for Hear {
         let dir = arguments.project.dir();
         let file = args::path(dir, &arguments.file, "file")?;
         let other = args::under(dir, arguments.against.as_deref(), "against")?;
+        let like = arguments.like.as_deref().map(reference::find).transpose()?;
 
         // Discovered per call rather than held, as the other ffmpeg tools do: a
         // server that found ffmpeg at startup would keep insisting it was there
@@ -130,6 +140,7 @@ impl Tool for Hear {
             &file,
             other.as_deref(),
             arguments.sections,
+            like,
         )?);
         Ok(vec![Part::picture(text, &bytes)].into())
     }
@@ -147,11 +158,19 @@ fn levels(
     file: &Path,
     other: Option<&Path>,
     sections: bool,
+    like: Option<&Reference>,
 ) -> Result<String, String> {
     let profile = measure(tools, file).map_err(|error| format!("{error}"))?;
     let mut text = format!("\nlevels  {}", say::summary(&profile));
     if sections {
         for row in say::sections(&profile) {
+            text.push_str(&format!("\n  {row}"));
+        }
+    }
+    if let Some(reference) = like {
+        let mut rows = say::likeness(&profile, reference).into_iter();
+        text.push_str(&format!("\n\n{}", rows.next().unwrap_or_default()));
+        for row in rows {
             text.push_str(&format!("\n  {row}"));
         }
     }
@@ -195,4 +214,30 @@ pub(crate) fn said(wave: &Waveform) -> String {
          whether the voice, the language or the pronunciation are right.",
     );
     text
+}
+
+#[cfg(test)]
+mod tests {
+    use scorsese_render::audio::reference::REFERENCES;
+
+    use super::Hear;
+    use crate::tools::Tool;
+    use crate::tools::synth::Bake;
+
+    /// `like` names its choices in prose, so a reference added in code and
+    /// not here would be one no client is told it can ask for.
+    #[test]
+    fn every_like_argument_names_every_reference() {
+        for tool in [&Hear as &dyn Tool, &Bake] {
+            let said = tool.schema()["properties"]["like"]["description"].to_string();
+            for reference in REFERENCES {
+                assert!(
+                    said.contains(reference.id),
+                    "{}: {}",
+                    tool.name(),
+                    reference.id
+                );
+            }
+        }
+    }
 }

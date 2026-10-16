@@ -7,6 +7,8 @@ use scorsese_core::AssetId;
 use scorsese_providers::synth::{
     self, Baked, Bakes, Drum, Excerpt, Partial, Span, Starter, Window, kit,
 };
+use scorsese_render::audio::Profile;
+use scorsese_render::audio::reference::Reference;
 use scorsese_render::say;
 
 /// What `synth bake` was asked for beyond "everything that is not on disk".
@@ -161,7 +163,12 @@ pub(crate) fn export(
 /// With no id this covers every one of them, and it is deliberately safe to
 /// re-run: an asset whose recipe has not changed is a cache hit that renders
 /// nothing.
-pub(crate) fn bake(project_dir: &Path, only: Option<&str>, less: &Less) -> Result<()> {
+pub(crate) fn bake(
+    project_dir: &Path,
+    only: Option<&str>,
+    less: &Less,
+    like: Option<&Reference>,
+) -> Result<()> {
     if let Some(excerpt) = less.excerpt() {
         // An excerpt is a question about one piece of music: which eight bars,
         // which track. Applying it across every recipe in the project would be
@@ -182,7 +189,7 @@ pub(crate) fn bake(project_dir: &Path, only: Option<&str>, less: &Less) -> Resul
             less.out.as_deref(),
         )
         .with_context(|| format!("baking part of `{id}`"))?;
-        report_partial(&id, &excerpt, &partial);
+        report_partial(&id, &excerpt, &partial, like);
         return Ok(());
     }
     let mut project = super::open(project_dir)?;
@@ -197,7 +204,7 @@ pub(crate) fn bake(project_dir: &Path, only: Option<&str>, less: &Less) -> Resul
         return Ok(());
     }
     super::save(&project, project_dir)?;
-    report(&baked);
+    report(&baked, like);
     Ok(())
 }
 
@@ -247,7 +254,7 @@ pub(crate) fn survey(project_dir: &Path) -> Result<()> {
 }
 
 /// What each bake did, and one line saying how much of it was free.
-fn report(baked: &Bakes) {
+fn report(baked: &Bakes, like: Option<&Reference>) {
     for (id, outcome) in &baked.baked {
         match outcome {
             Baked::Rendered {
@@ -277,6 +284,9 @@ fn report(baked: &Bakes) {
                 for row in say::grid(tracks) {
                     println!("    {row}");
                 }
+                if let Some(reference) = like {
+                    likeness(profile, reference, "  ");
+                }
             }
             Baked::Cached { path, sections } => {
                 println!("{id} — already baked");
@@ -294,7 +304,7 @@ fn report(baked: &Bakes) {
 
 /// What a partial bake did, and the one line that says it is not the file the
 /// project will use.
-fn report_partial(id: &AssetId, excerpt: &Excerpt, partial: &Partial) {
+fn report_partial(id: &AssetId, excerpt: &Excerpt, partial: &Partial, like: Option<&Reference>) {
     // Named in the headline, because a level is a different finding over eight
     // bars than over the whole piece and this line is the only place a reader
     // is told which they are looking at.
@@ -310,7 +320,19 @@ fn report_partial(id: &AssetId, excerpt: &Excerpt, partial: &Partial) {
     {
         println!("    {row}");
     }
+    if let Some(reference) = like {
+        likeness(&partial.profile, reference, "  ");
+    }
     // Said every time rather than once in the help, because the whole risk
     // this feature carries is somebody reaching for this file as the bake.
     println!("  not cached, and not the asset's bake — `scorsese synth bake {id}` makes that");
+}
+
+/// The rows holding a measurement against a reference record, the first one
+/// at `indent` and the rest under it.
+pub(super) fn likeness(profile: &Profile, reference: &Reference, indent: &str) {
+    for (at, row) in say::likeness(profile, reference).iter().enumerate() {
+        let under = if at == 0 { "" } else { "  " };
+        println!("{indent}{under}{row}");
+    }
 }

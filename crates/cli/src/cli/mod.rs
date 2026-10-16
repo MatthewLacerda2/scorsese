@@ -15,6 +15,7 @@ pub(crate) use args::{AssetsAction, KindArg, NewArgs, SequenceAction, StockActio
 use clap::{Parser, Subcommand};
 use scorsese_core::Fps;
 use scorsese_core::style::Platform;
+use scorsese_render::audio::reference::{self, Reference};
 use scorsese_render::contact;
 use scorsese_render::{
     AudioCodec, Bitrate, Container, Cue, FrameRange, LoudnessTarget, Resolution, SampleRate,
@@ -673,6 +674,14 @@ pub(crate) enum Command {
         /// than an absolute number.
         #[arg(long)]
         against: Option<PathBuf>,
+        /// Hold the body against a reference record's measured ranges —
+        /// crest, low/mid/high share, width and how it opens — one row each,
+        /// saying how many sections fall outside and which way. One of
+        /// `billie-jean`, `fuego-drops`, `fuego-breaks`, `techno-syndrome`,
+        /// `bfg-division`, `brutal-doom`; `scorsese guide references` says
+        /// which suits which cue. A floor to clear, never a target.
+        #[arg(long, value_name = "RECORD", value_parser = reference::find)]
+        like: Option<&'static Reference>,
     },
     /// List the media pool and the state of everything in it.
     Assets {

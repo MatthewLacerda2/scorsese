@@ -16,6 +16,7 @@ mod compare;
 mod delivery;
 mod grid;
 mod layers;
+mod like;
 mod survey;
 mod table;
 
@@ -27,6 +28,7 @@ pub use compare::comparison;
 pub use delivery::{delivery, written};
 pub use grid::grid;
 pub use layers::layers;
+pub use like::likeness;
 pub use survey::survey;
 pub use table::{arrangement, headline, sections, summary};
 

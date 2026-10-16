@@ -5,7 +5,7 @@ Five commercial recordings that a zimmer score is supposed to end up sounding
 anti-reference: scorsese's own earlier attempt at one of them. Read it
 **before** writing a song recipe, to pick the reference for the cue and know
 what its mix looks like, and **after** a bake, to read the bake report against
-it.
+it (`like` does that reading, see [below](#reading-a-bake-against-one)).
 
 **The numbers are a floor to clear, never a definition of success.** They say
 how loud, how squeezed, where the energy sits and how wide. They say nothing
@@ -69,10 +69,41 @@ and `duck_music`, not the bake. That makes the reachable body means:
 | reference | crest to aim for | mean that comes with it |
 | --- | --- | --- |
 | Billie Jean | ~15.5 | ~−16.5 |
-| Fuego drop | ~10 | ~−11 |
+| Fuego, drops | ~10 | ~−11 |
 | Techno Syndrome | ~9 | ~−10 |
 | BFG Division | ~12.5 | ~−13.5 |
 | Brutal Doom | ~12 | ~−13 |
+
+How far each record's first 8 seconds sit under its body, from the shapes
+below (the first window's mean against the middle of its body-mean range;
+negative is an opening louder than the body):
+
+| reference | first 8 s | under its body by |
+| --- | --- | --- |
+| Billie Jean | −16.2 | ~2 |
+| Fuego, drops | −27 | ~18 |
+| Fuego, breaks | −27 | ~10 |
+| Techno Syndrome | −12.6 | ~6 |
+| BFG Division | −11 | ~−1.5, louder than the body |
+| Brutal Doom | −15.6 | ~3.5 |
+
+### Reading a bake against one
+
+The bake report does the comparison itself. Give `synth_bake` (or `hear`)
+`like` with a reference's id, and the CLI's `scorsese synth bake` and
+`scorsese level` `--like`: `billie-jean`, `fuego-drops`, `fuego-breaks`,
+`techno-syndrome`, `bfg-division` or `brutal-doom`. Under the report come rows
+for the bake's **body** (its sections after the first and before the last, as a
+record's body is its windows after the intro and before the fade): crest, low,
+mid and high share, and width, each with the bake's spread across the body, the
+record's spread from the tables above, and how many body sections fall outside
+it and which way. The mean row has no verdict and says the mean a bake reaches
+at the aimed crest instead. An `opening` row puts the first section against
+the body and calls it out when it sits more than 1 dB further under its body
+than the record's opening does (the anti-reference's opening failure below),
+or 6 dB louder than a record that builds. Those rows come from the tables on
+this page, and a test holds the two to each other. Like everything here, they
+are a floor, never a gate.
 
 ### What the shapes say
 
