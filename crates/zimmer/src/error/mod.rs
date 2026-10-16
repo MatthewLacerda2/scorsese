@@ -177,6 +177,24 @@ pub enum SynthError {
         key: String,
     },
 
+    /// A `delay` timed in `beats` where there is no tempo to count them by: a
+    /// patch's chain, which plays one note and has never heard of a song.
+    MisplacedBeats {
+        /// Which chain it was written on — always `patch` today.
+        place: &'static str,
+        /// The beats it asked for.
+        beats: f32,
+    },
+
+    /// A `delay` that writes both `time` and `beats`: two spacings for one
+    /// line, and no way to tell which was meant.
+    DelayTwoTimes {
+        /// The seconds it asked for.
+        time: f32,
+        /// The beats it also asked for.
+        beats: f32,
+    },
+
     /// An LFO running backwards is not a shape the modulators can follow.
     NegativeLfoRate {
         /// The rate as written.
@@ -568,6 +586,19 @@ pub enum SynthError {
         /// document.
         field: &'static str,
         /// The amount as written.
+        amount: f32,
+    },
+
+    /// A track's own feel that is not one: a `swing` outside the song's range,
+    /// a `humanize` amount below zero, or a `push` that is not a number of
+    /// seconds — each refused for what the song's own field is refused for.
+    BadTrackFeel {
+        /// The track that wrote it.
+        track: String,
+        /// The field, as it is spelled in the document (`swing`, `push`,
+        /// `humanize.timing`…).
+        field: &'static str,
+        /// The value as written.
         amount: f32,
     },
 

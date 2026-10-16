@@ -15,7 +15,7 @@
 //! come off the tail, and [`crate::song::excerpt`]'s guard comes off the
 //! lookahead.
 
-use super::{chorus, delay, reverb};
+use super::{Spacing, Tempo, chorus, delay, reverb};
 use crate::patch::Fx;
 use crate::stereo::Stereo;
 
@@ -70,7 +70,10 @@ pub(crate) fn lookahead_seconds(chain: &[Fx]) -> f32 {
 /// [`chorus`] does ask, and asks for very little: it has no feedback path, so
 /// its tail is exactly the deepest its delay line is ever read from — a
 /// fortieth of a second rather than a decay to be estimated.
-pub(crate) fn tail_seconds(chain: &[Fx]) -> f32 {
+///
+/// A delay timed in beats is measured at the longest beat `tempo` plays, and a
+/// reverb's pre-delay is added to its room: both move the ring-out later.
+pub(crate) fn tail_seconds(chain: &[Fx], tempo: &dyn Tempo) -> f32 {
     let total: f32 = chain
         .iter()
         .map(|fx| match fx {
@@ -79,11 +82,20 @@ pub(crate) fn tail_seconds(chain: &[Fx]) -> f32 {
             // differs — so the tail is the same length either way.
             Fx::Delay {
                 time,
+                beats,
                 feedback,
                 mix,
                 ..
-            } if *mix > 0.0 => delay::tail_seconds(*time, *feedback),
-            Fx::Reverb { size, mix, .. } if *mix > 0.0 => reverb::tail_seconds(*size),
+            } if *mix > 0.0 => {
+                let spacing = Spacing::new(*time, *beats, tempo);
+                delay::tail_seconds(spacing.longest(), *feedback)
+            }
+            Fx::Reverb {
+                size,
+                mix,
+                predelay,
+                ..
+            } if *mix > 0.0 => reverb::tail_seconds(*size) + reverb::predelay_seconds(*predelay),
             Fx::Chorus { depth, mix, .. } if *mix > 0.0 => chorus::tail_seconds(*depth),
             _ => 0.0,
         })
@@ -96,8 +108,8 @@ pub(crate) fn tail_seconds(chain: &[Fx]) -> f32 {
 /// Called on a buffer [`tail_seconds`] grew, after the chain ran: the end of
 /// that buffer is where a ring-out was cut. A chain with no tail leaves the
 /// buffer alone, since its end is the signal's own.
-pub(crate) fn close_tail(buf: &mut Stereo, chain: &[Fx], rate: f32) {
-    if tail_seconds(chain) <= 0.0 {
+pub(crate) fn close_tail(buf: &mut Stereo, chain: &[Fx], rate: f32, tempo: &dyn Tempo) {
+    if tail_seconds(chain, tempo) <= 0.0 {
         return;
     }
     let frames = buf.frames();
@@ -112,12 +124,14 @@ pub(crate) fn close_tail(buf: &mut Stereo, chain: &[Fx], rate: f32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fx::NoTempo;
 
     #[test]
     fn the_tail_covers_every_wet_effect_but_stays_bounded() {
         let wet = [
             Fx::Delay {
                 time: 0.25,
+                beats: None,
                 feedback: 0.5,
                 mix: 0.5,
                 ping_pong: false,
@@ -126,21 +140,23 @@ mod tests {
                 size: 1.0,
                 damp: 0.5,
                 mix: 0.5,
+                predelay: 0.0,
             },
         ];
-        assert!(tail_seconds(&wet[..1]) > 0.0);
-        assert!(tail_seconds(&wet) > tail_seconds(&wet[..1]));
-        assert!(tail_seconds(&wet) <= MAX_TAIL);
+        assert!(tail_seconds(&wet[..1], &NoTempo) > 0.0);
+        assert!(tail_seconds(&wet, &NoTempo) > tail_seconds(&wet[..1], &NoTempo));
+        assert!(tail_seconds(&wet, &NoTempo) <= MAX_TAIL);
         let long = vec![
             Fx::Reverb {
                 size: 1.0,
                 damp: 0.5,
                 mix: 1.0,
+                predelay: 0.0,
             };
             8
         ];
         assert_eq!(
-            tail_seconds(&long),
+            tail_seconds(&long, &NoTempo),
             MAX_TAIL,
             "capped, however long the chain"
         );
@@ -151,6 +167,7 @@ mod tests {
         let dry = [
             Fx::Delay {
                 time: 1.0,
+                beats: None,
                 feedback: 0.9,
                 mix: 0.0,
                 ping_pong: false,
@@ -159,6 +176,7 @@ mod tests {
                 size: 1.0,
                 damp: 0.5,
                 mix: 0.0,
+                predelay: 0.0,
             },
             Fx::Chorus {
                 rate: 0.5,
@@ -167,7 +185,7 @@ mod tests {
                 mix: 0.0,
             },
         ];
-        assert_eq!(tail_seconds(&dry), 0.0);
+        assert_eq!(tail_seconds(&dry, &NoTempo), 0.0);
     }
 
     /// A chorus asks for the length of its own deepest read and nothing more:
@@ -184,16 +202,20 @@ mod tests {
                 mix,
             }]
         };
-        let shallow = tail_seconds(&ensemble(0.0, 1.0));
-        let deep = tail_seconds(&ensemble(1.0, 1.0));
+        let shallow = tail_seconds(&ensemble(0.0, 1.0), &NoTempo);
+        let deep = tail_seconds(&ensemble(1.0, 1.0), &NoTempo);
         assert!(shallow > 0.0, "a wet chorus does ring on: {shallow}");
         assert!(deep > shallow, "and further when it sweeps further");
         assert!(deep < 0.03, "but it is not a room: {deep}");
-        let room = tail_seconds(&[Fx::Reverb {
-            size: 0.5,
-            damp: 0.5,
-            mix: 1.0,
-        }]);
+        let room = tail_seconds(
+            &[Fx::Reverb {
+                size: 0.5,
+                damp: 0.5,
+                mix: 1.0,
+                predelay: 0.0,
+            }],
+            &NoTempo,
+        );
         assert!(deep < room / 10.0, "{deep} against a small room's {room}");
     }
 
@@ -203,17 +225,18 @@ mod tests {
             size: 0.5,
             damp: 0.5,
             mix: 1.0,
+            predelay: 0.0,
         }];
         let mut rung = Stereo::centred(vec![0.5; 4410]);
-        close_tail(&mut rung, &room, 44_100.0);
+        close_tail(&mut rung, &room, 44_100.0, &NoTempo);
         assert_eq!(rung.l[4409], 0.0, "the last sample is silence");
         assert_eq!(rung.l[3000], 0.5, "and only the last 10 ms moved");
         assert!(rung.l[4000] < 0.5 && rung.l[4000] > 0.0);
         let mut dry = Stereo::centred(vec![0.5; 4410]);
-        close_tail(&mut dry, &[], 44_100.0);
+        close_tail(&mut dry, &[], 44_100.0, &NoTempo);
         assert_eq!(dry, Stereo::centred(vec![0.5; 4410]));
         let mut short = Stereo::centred(vec![0.5; 3]);
-        close_tail(&mut short, &room, 44_100.0);
+        close_tail(&mut short, &room, 44_100.0, &NoTempo);
         assert_eq!(
             short.l[2], 0.0,
             "a buffer shorter than the fade fades whole"
@@ -240,7 +263,8 @@ mod tests {
             lookahead_seconds(&[Fx::Reverb {
                 size: 1.0,
                 damp: 0.5,
-                mix: 1.0
+                mix: 1.0,
+                predelay: 0.0,
             }]),
             0.0,
             "a room only ever repeats what it has already heard"

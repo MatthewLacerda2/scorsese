@@ -120,6 +120,12 @@ fn fully_sent(send: &f32) -> bool {
     *send == 1.0
 }
 
+/// Whether a track plays on the beat — the test that keeps `"push": 0.0` out
+/// of every saved document, for the reason [`no_swing`] gives.
+fn on_the_beat(push: &f32) -> bool {
+    *push == 0.0
+}
+
 /// A complete piece of music, renderable to one stereo buffer.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -163,13 +169,15 @@ pub struct Song {
     /// How far the off-beat eighths sit behind the grid: `0.0` is straight,
     /// `0.33` is roughly the triplet feel, `0.5` is dotted. A property of the
     /// *performance*, so it is song-level — a rhythm section that swings while
-    /// the lead does not is a specific effect, not a default. Onsets only: a
-    /// note's `dur` is what the document says it is.
+    /// the lead does not is a specific effect, which a track writes as its own
+    /// [`Track::swing`]. Onsets only: a note's `dur` is what the document says
+    /// it is.
     #[serde(default, skip_serializing_if = "no_swing")]
     pub swing: f32,
     /// How far the player strays from the written page in timing and
     /// velocity. Absent means a machine plays the part, which is what every
-    /// song did before the field existed.
+    /// song did before the field existed. A track's own
+    /// [`Track::humanize`] takes its place for that track.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub humanize: Option<Humanize>,
     /// Effects on the finished mix, applied to the sum of every track — and
@@ -263,6 +271,22 @@ pub struct Track {
     /// has how, and why this is a send rather than a second room.
     #[serde(default = "one", skip_serializing_if = "fully_sent")]
     pub send: f32,
+    /// Seconds this part sits off everyone else's beat: positive lays it back,
+    /// negative pushes it ahead. A snare laid back by `0.015` or a hi-hat
+    /// pushed by `-0.008` is the feel a record has, where every part landing
+    /// on the same sample is the feel a sequencer has. Seconds, like
+    /// `humanize.timing`, because where a player sits does not scale with the
+    /// tempo. Absent is on the beat.
+    #[serde(default, skip_serializing_if = "on_the_beat")]
+    pub push: f32,
+    /// This part's own [`Song::swing`], in its place: a shuffled hi-hat over a
+    /// straight kick. Absent plays the song's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swing: Option<f32>,
+    /// This part's own [`Song::humanize`], in its place and whole — a tight
+    /// kick under loose keys. Absent plays the song's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub humanize: Option<Humanize>,
 }
 
 /// A track's instrument: the patch inline, or a reference for the caller to

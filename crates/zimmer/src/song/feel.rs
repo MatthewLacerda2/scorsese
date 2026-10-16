@@ -22,6 +22,15 @@
 //! recipe, so a global change in where notes are placed would leave the cache
 //! serving stale audio under unchanged hashes.
 //!
+//! **The song's, unless a track says otherwise.** Swing and humanise are
+//! written once for the piece, and a track may write either again for itself
+//! — a shuffled hat over a straight kick, a tight kick under loose keys. A
+//! third field is a track's only: `push`, the seconds a part sits off
+//! everyone else's beat. It is a decision like swing, not an error like
+//! humanise — a snare laid back the same amount every time is where a
+//! record's groove lives — and it lands last, after the player's scatter.
+//! [`Played`] resolves the three per track.
+//!
 //! **Seeded, never random.** Humanisation draws from the same seeded integer
 //! hash everything stochastic here draws from, at the same `(track, ordinal)`
 //! coordinates the note's own render seed comes from — no `rand`, no wall
@@ -30,6 +39,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::{Song, Track};
 use crate::hash::unit2;
 
 /// The channel of the per-note hash an onset nudge is drawn on.
@@ -166,6 +176,34 @@ impl Humanize {
     }
 }
 
+/// How one track is played: the song's swing and humanise unless the track
+/// writes its own, and where it sits against the beat.
+///
+/// A track's own field **replaces** the song's rather than adding to it — a
+/// tight kick under loose keys is a kick with less scatter, which a sum could
+/// not write — and a track that writes neither plays exactly what it did
+/// before the fields existed.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct Played {
+    /// Where its off-beat eighths sit, as [`swung`] reads it.
+    pub(crate) swing: f32,
+    /// How far its player strays.
+    pub(crate) humanize: Humanize,
+    /// Seconds it sits off the beat, positive late.
+    pub(crate) push: f32,
+}
+
+impl Played {
+    /// How `track` of `song` is played.
+    pub(crate) fn of(song: &Song, track: &Track) -> Self {
+        Self {
+            swing: track.swing.unwrap_or(song.swing),
+            humanize: track.humanize.unwrap_or_else(|| song.humanize()),
+            push: track.push,
+        }
+    }
+}
+
 /// A deterministic draw in `-1.0..1.0` for one note on one channel.
 ///
 /// The coordinates are exactly the ones the note's render seed is derived from
@@ -196,9 +234,10 @@ fn symmetric(channel: u64, track: usize, ordinal: u64, song_seed: u64) -> f32 {
 ///
 /// It is still *eighth-note* swing: the grid being warped is the eighth, and
 /// finer subdivisions ride along with it rather than being stranded against a
-/// beat that moved without them. Sixteenth-note swing and per-track swing are
-/// the obvious extensions and are deliberately not here — one number that does
-/// the common thing is worth more than a taxonomy nobody reaches for.
+/// beat that moved without them. Sixteenth-note swing is the obvious extension
+/// and is deliberately not here — one number that does the common thing is
+/// worth more than a taxonomy nobody reaches for. A track may swing by its own
+/// number ([`Played`]); it is still this one warp.
 ///
 /// Measured **within the pattern**, from `start`, so a pattern swings the same
 /// wherever in the arrangement it is played — a pattern is a block of music,

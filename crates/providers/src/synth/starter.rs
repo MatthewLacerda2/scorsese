@@ -115,6 +115,7 @@ fn pluck() -> Patch {
             size: 0.45,
             damp: 0.5,
             mix: 0.18,
+            predelay: 0.0,
         }],
     }
 }
@@ -141,6 +142,9 @@ fn four_bars() -> Song {
             pan: 0.0,
             fx: vec![],
             send: 1.0,
+            push: 0.0,
+            swing: None,
+            humanize: None,
         }],
         patterns,
         arrangement: vec!["a".into(), "b".into(), "a".into(), "b".into()],

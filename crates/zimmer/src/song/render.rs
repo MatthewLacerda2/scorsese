@@ -81,7 +81,7 @@ use super::articulation::Stroke;
 use super::automate::{self, Automation};
 use super::clock::Clock;
 use super::excerpt::{Excerpt, Scope};
-use super::feel::swung;
+use super::feel::{Played, swung};
 use super::glide::{Slides, Trail};
 use super::mix::Mix;
 use super::shape::{limit, plan, shape};
@@ -272,9 +272,10 @@ pub(crate) fn mix_song(
     let mut mix = Mix::new(song, arrangement_end, &clock, &scope);
     let mut cursor_beats = 0.0f32;
     let mut ordinal: u64 = 0;
-    // Resolved once: an absent `humanize` is one that scatters nothing, so the
-    // note loop has a single path rather than a branch per note.
-    let feel = song.humanize();
+    // Resolved once per track: an absent `humanize` is one that scatters
+    // nothing, and a track that says nothing of its feel plays the song's, so
+    // the note loop has a single path rather than a branch per note.
+    let played: Vec<Played> = song.tracks.iter().map(|it| Played::of(song, it)).collect();
 
     // Repeats are a longer arrangement, not a copied buffer: tiling rendered
     // audio would overlap each pass's ring-out onto the next pass's downbeat,
@@ -304,6 +305,11 @@ pub(crate) fn mix_song(
                 // A silenced track still consumes its ordinal, so muting one for
                 // eight bars does not re-roll the noise of every note after it.
                 let track = track_index[note.track.as_str()];
+                let Played {
+                    swing,
+                    humanize: feel,
+                    push,
+                } = played[track];
                 let place = ordinal;
                 let seed = note_seed(song.seed, track, place);
                 ordinal += 1;
@@ -337,7 +343,7 @@ pub(crate) fn mix_song(
                 // since a curve read at a displaced onset would put a ghost's
                 // earliness and the player's jitter on the build as well as on the
                 // note.
-                let beat_at = cursor_beats + swung(note.start, song.swing);
+                let beat_at = cursor_beats + swung(note.start, swing);
                 // The gate, not the written `dur`: staccato and ghost shorten how
                 // long the note is held and leave the rhythm on the page exactly
                 // as it reads. Measured from where it is played, because a beat
@@ -373,17 +379,19 @@ pub(crate) fn mix_song(
                     glide,
                     seed,
                 };
-                // Swing first, then the mark, then humanise: swing is where the
-                // beat *is*, an articulation is where the player meant to put the
-                // note against it (a ghost sits a hair ahead), and humanise is how
-                // well he hit what he meant. The last two are seconds added to the
-                // same number, so the order is what they mean rather than what the
-                // arithmetic needs. Clamped at zero rather than wrapped — a note
+                // Swing first, then the mark, then humanise, then the track's
+                // push: swing is where the beat *is*, an articulation is where
+                // the player meant to put the note against it (a ghost sits a
+                // hair ahead), humanise is how well they hit what they meant, and
+                // the push is where this part sits against everyone else's beat.
+                // The last three are seconds added to the same number, so the
+                // order is what they mean rather than what the arithmetic needs. Clamped at zero rather than wrapped — a note
                 // nudged early on the very first beat has nowhere to go, and a
                 // negative sample index is not a time.
                 let onset = clock.seconds(beat_at)
                     + stroke.onset_seconds
-                    + feel.onset_seconds(track, place, song.seed);
+                    + feel.onset_seconds(track, place, song.seed)
+                    + push;
                 let at = (onset * RATE).round().max(0.0) as usize;
                 // Worked out before the note is synthesised rather than after,
                 // because a note landing past what a window can hear is the one

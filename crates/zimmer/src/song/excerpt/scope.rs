@@ -134,6 +134,9 @@ mod tests {
             pan: 0.0,
             fx: Vec::new(),
             send: 1.0,
+            push: 0.0,
+            swing: None,
+            humanize: None,
         };
         Song {
             bpm: 120.0,

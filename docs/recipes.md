@@ -263,8 +263,8 @@ where 1.0 dips to silence.
 
 | `fx` | Fields | What it does |
 | --- | --- | --- |
-| `delay` | `time` in seconds, `feedback` 0..=0.95, `mix` 0..=1, `ping_pong` | feedback echo — a slapback, a corridor; `ping_pong: true` walks the repeats **side to side** |
-| `reverb` | `size` 0..=1, `damp` 0..=1, `mix` 0..=1 | a room the sound is in — the widest thing in a mix |
+| `delay` | `time` in seconds **or** `beats` (a track's or the song's chain only), `feedback` 0..=0.95, `mix` 0..=1, `ping_pong` | feedback echo — a slapback, a corridor; `ping_pong: true` walks the repeats **side to side** |
+| `reverb` | `size` 0..=1, `damp` 0..=1, `mix` 0..=1, `predelay` in seconds | a room the sound is in — the widest thing in a mix |
 | `saturate` | `drive`, `mix` 0..=1 | soft clip: warmth, weight, glue |
 | `eq` | `bands`: up to 8 of `{ kind, freq, gain_db, q }` | takes a region away, or adds one |
 | `compress` | `threshold` dBFS, `ratio`, `attack`/`release` in seconds, `makeup` dB, `mix` 0..=1, `sidechain` | takes the loud moments down — glue, and ducking |
@@ -274,6 +274,7 @@ where 1.0 dips to silence.
 exception is `eq`'s band count, below. What each is held to:
 
 - `delay`: `feedback` at most **0.95**, so the echoes always die away.
+- `reverb`: `predelay` 0..=0.5 s.
 - `compress`: `threshold` −60..=0 dBFS, `ratio` 1..=20, `attack` and `release`
   0.0005..=2 s, `makeup` ±24 dB.
 - `eq`: `gain_db` ±24, `q` 0.1..=30, `freq` 10 Hz up to just under Nyquist.
@@ -315,11 +316,36 @@ on changes. It is width, so it belongs in the conversation
 [Where a part sits](#where-a-part-sits) is about — and read the warning there
 before writing it fully wet.
 
+**A delay in a song can be counted in beats.** `"beats": 0.75` is a dotted
+eighth, `0.5` an eighth, `1` a quarter — written in place of `time`, never
+beside it. It is read off the tempo the song is **actually rendered at**, so
+it stays on the grid after a `stretch` fit or an anchor has moved the tempo,
+and under a [tempo map](#a-tempo-that-moves) it follows the map: after a jump
+to half speed, half a beat is twice as long. A `time` in seconds does none of
+that, which is why a stretched song's echoes drift off its beat. A patch has
+no tempo, so `beats` belongs on a track's chain or the song's, and is refused
+on a patch's.
+
+```json fields
+  "fx": [
+    { "fx": "delay", "beats": 0.75, "feedback": 0.35, "mix": 0.25 },
+    { "fx": "reverb", "size": 0.8, "damp": 0.4, "mix": 0.25, "predelay": 0.03 }
+  ]
+```
+
 There is deliberately no second `time` for the right channel. A few
 milliseconds' offset between the sides is a Haas spread rather than an echo —
 a different effect wearing this one's name — and it is a number that is much
 easier to set wrong than a flag is; a recipe that genuinely wants two delays in
 two places can write two of them on two tracks and pan those.
+
+A `reverb`'s room answers on the very sample a sound arrives, so its tail
+lands on the transient and smears it: a snare loses its crack in a big room,
+and a lead its attack. **`predelay`** holds the room back that many seconds —
+the gap a large hall has before its first wall answers — so the dry hit is
+heard alone first. `0.02`–`0.06` is the usual range; absent is none, the room
+as it always was. Seconds rather than beats on purpose: the gap is how a room
+is heard, not a part of the rhythm.
 
 `saturate` is the only stage anywhere in synthesis that adds frequencies the
 source did not have, which is what "warm" and "analog" are made of; everything
@@ -1493,7 +1519,7 @@ rather than the eighth being picked out and moved, so finer subdivisions ride
 along with it and two notes never swap places. Onsets only — a note's `dur` is
 what the document says it is. It is a property of the performance, so it is
 song-level: a rhythm section that swings while the lead does not is a specific
-effect, not a default.
+effect, which a track writes for itself (below).
 
 **`humanize`** scatters each note by a bounded amount, on three axes:
 
@@ -1518,6 +1544,38 @@ keyed per note in *arrangement* order. So the piece stays byte-identical across
 runs, `seed` re-rolls the whole performance at once, and a pattern played twice
 is played differently the second time — which is the point. A repeat nudged
 identically both times is still a photocopy, just a crooked one.
+
+**One part against the others.** A record's groove is mostly *where each part
+lands against the beat*, and a single song-wide feel cannot write it. A track
+can write three fields of its own:
+
+```json fields
+  "swing": 0.1,
+  "humanize": { "timing": 0.02, "velocity": 0.1, "timbre": 0.1 },
+  "tracks": [
+    { "name": "t", "push": 0.015, "swing": 0.3,
+      "humanize": { "timing": 0.004, "velocity": 0.02, "timbre": 0.0 },
+      "patch": {
+        "source": { "kind": "noise" },
+        "amp": { "a": 0.001, "d": 0.05, "s": 0.0, "r": 0.02 }
+      } }
+  ]
+```
+
+- **`push`** — seconds this part sits off everyone else's beat: positive lays
+  it back (a snare at `0.015`), negative pushes it ahead (hats at `-0.008`).
+  The same amount every note, so it is a decision like `swing`, not an error
+  like `humanize`, and it lands last, after the player's scatter. Seconds, like
+  `humanize.timing`, because where a player sits does not scale with tempo.
+- **`swing`** — this part's own swing, in place of the song's: a shuffled hat
+  over a straight kick, or `0` to hold one part straight in a swung song.
+- **`humanize`** — this part's own scatter, **whole**, in place of the song's:
+  a tight kick under loose keys is a kick with less scatter, so a field the
+  track leaves out is zero rather than the song's. Write all three: like the
+  song's, a track's `humanize` is saved back with every field in it.
+
+Absent, each is the song's (and `push` is none), so a song that writes none of
+them plays exactly what it always did.
 
 The voices themselves start somewhere in their cycle rather than at zero, drawn
 from that same chain, so two hits of one patch are not the same waveform and a
@@ -2002,7 +2060,7 @@ writes ♩=154 rather than "a bit faster".
 **Everything keyed in beats follows it**, because there is one clock and every
 beat goes through it: where each note lands and how long it is held (half a
 beat inside a ritardando lasts longer than half a beat before it), `swing`,
-`automation` curves, the section rows of a [bake report](#how-a-bake-came-out),
+a `delay` counted in `beats`, `automation` curves, the section rows of a [bake report](#how-a-bake-came-out),
 and `--beats` windows. `humanize` timing stays in seconds, as it always was —
 a player's sloppiness does not scale with the tempo.
 
@@ -2248,6 +2306,7 @@ than music is written — under half a millisecond in an ordinary ritardando.
 **What is not written, and is said:** the sounds (patches, effects, gain, pan,
 automation, fades — the file is the score, and every track opens on the DAW's
 default instrument), `humanize` (a scatter drawn per render; a DAW has its own),
+a track's `push` (a DAW's track delay does it),
 `fit` (the file is the piece as composed, once), glides (a slide is a pitch
 bend), microtonal pitches (written on the nearer key), notes at velocity zero,
 and a key signature for a mode other than major or minor. Each gets a
@@ -2932,7 +2991,10 @@ names it by track, pattern and beat), an arrangement naming a pattern that does 
 anywhere else), a layered entry with no layers, a note on a
 track that does not exist, a `tracks` filter naming one that does not either, a
 `vel_scale` below zero, a `swing` outside `0..1` (at 1 the off-beat lands on
-the next beat, which reorders the music), and a negative `humanize` amount.
+the next beat, which reorders the music), and a negative `humanize` amount —
+each the same on a track that writes its own, along with a `push` that is not
+a number of seconds; a `delay` that writes both `time` and `beats`, and one
+counted in `beats` on a patch, which has no tempo to count them by.
 
 The three notations that stand for several notes are refused for a **second
 reason**, and it is why those checks exist at all: none of what follows would

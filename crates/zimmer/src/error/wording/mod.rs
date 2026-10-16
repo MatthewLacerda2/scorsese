@@ -9,7 +9,8 @@
 //! safe: a variant added next door and left without words here does not
 //! compile, and the error names it.
 //!
-//! **One small group is worded in [`length`]**: the refusals of `fit`,
+//! **Two small groups are worded apart**: where notes and echoes land against
+//! the beat in [`timing`], and **one more in [`length`]**: the refusals of `fit`,
 //! `fade`, `tail` and `anchors`, split off when this file reached the size
 //! gate, and the two about how long a single note lasts, which joined them
 //! for the same reason. The
@@ -20,6 +21,7 @@
 //! right beside it, rather than a whole group of thirty being moved.
 
 mod length;
+mod timing;
 
 use std::fmt;
 
@@ -281,14 +283,13 @@ impl SynthError {
                 f,
                 "song: `tempo[{index}]` is at beat {beat}, not after the change before it at beat {previous} — tempo changes must ascend"
             ),
-            Self::BadSwing { swing, .. } => write!(
-                f,
-                "song: `swing` must be at least 0 and below 1 (0 is straight, 0.33 swings), got {swing}"
-            ),
-            Self::BadHumanize { field, amount, .. } => write!(
-                f,
-                "song: `humanize.{field}` must be zero or more, got {amount}"
-            ),
+            // Where notes and echoes land against the beat — swing, humanise,
+            // a track's own feel and a delay in beats — in `timing`.
+            Self::BadSwing { .. }
+            | Self::BadHumanize { .. }
+            | Self::BadTrackFeel { .. }
+            | Self::MisplacedBeats { .. }
+            | Self::DelayTwoTimes { .. } => self.say_timing(f),
             Self::UnknownAutomationTrack { track, param, .. } => write!(
                 f,
                 "song: automation of `{param}` names `{track}`, which is not a track here"

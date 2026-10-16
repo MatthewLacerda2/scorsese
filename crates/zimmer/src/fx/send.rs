@@ -31,40 +31,56 @@
 //! does. The mixer still takes the plain path then, because it is half the
 //! work; that it would agree is what makes a send of `1.0` mean "as before".
 
-use super::{NoKeys, apply_one, compress, delay, reverb};
+use super::{NoKeys, Spacing, Tempo, apply_one, compress, delay, reverb};
 use crate::patch::Fx;
 use crate::stereo::Stereo;
 
-/// Runs `chain` over `buf`, with its rooms hearing `sent` instead of `buf`.
+/// Runs `chain` over `buf`, with its rooms hearing `sent` instead of `buf`,
+/// and its delays timed in beats reading them off `tempo`.
 ///
 /// `sent` is carried through the chain too, and comes out as the sent share of
 /// the result; the caller wants `buf`. The two should be the same length — the
 /// rooms hear silence past the end of a shorter `sent`.
-pub(crate) fn apply_chain_sent(buf: &mut Stereo, sent: &mut Stereo, chain: &[Fx], rate: f32) {
+pub(crate) fn apply_chain_sent(
+    buf: &mut Stereo,
+    sent: &mut Stereo,
+    chain: &[Fx],
+    rate: f32,
+    tempo: &dyn Tempo,
+) {
     for fx in chain {
         match fx {
-            Fx::Reverb { size, damp, mix } => {
-                reverb::apply_sent(buf, sent, *size, *damp, *mix, rate);
-                reverb::apply(sent, *size, *damp, *mix, rate);
+            Fx::Reverb {
+                size,
+                damp,
+                mix,
+                predelay,
+            } => {
+                reverb::apply_sent(buf, sent, *size, *damp, *predelay, *mix, rate);
+                reverb::apply(sent, *size, *damp, *predelay, *mix, rate);
             }
             Fx::Delay {
                 time,
+                beats,
                 feedback,
                 mix,
                 ping_pong: true,
             } => {
-                delay::ping_pong_sent(buf, sent, *time, *feedback, *mix, rate);
-                delay::ping_pong(sent, *time, *feedback, *mix, rate);
+                let spacing = Spacing::new(*time, *beats, tempo);
+                delay::ping_pong_sent(buf, sent, spacing, *feedback, *mix, rate);
+                delay::ping_pong(sent, spacing, *feedback, *mix, rate);
             }
             Fx::Delay {
                 time,
+                beats,
                 feedback,
                 mix,
                 ping_pong: false,
             } => {
-                delay::apply_sent(&mut buf.l, &sent.l, *time, *feedback, *mix, rate);
-                delay::apply_sent(&mut buf.r, &sent.r, *time, *feedback, *mix, rate);
-                sent.each(|channel| delay::apply(channel, *time, *feedback, *mix, rate));
+                let spacing = Spacing::new(*time, *beats, tempo);
+                delay::apply_sent(&mut buf.l, &sent.l, spacing, *feedback, *mix, rate);
+                delay::apply_sent(&mut buf.r, &sent.r, spacing, *feedback, *mix, rate);
+                sent.each(|channel| delay::apply(channel, spacing, *feedback, *mix, rate));
             }
             Fx::Compress {
                 threshold,
@@ -84,8 +100,8 @@ pub(crate) fn apply_chain_sent(buf: &mut Stereo, sent: &mut Stereo, chain: &[Fx]
                 compressor.apply(sent, Some(&level), rate);
             }
             other => {
-                apply_one(buf, other, rate, &NoKeys);
-                apply_one(sent, other, rate, &NoKeys);
+                apply_one(buf, other, rate, &NoKeys, tempo);
+                apply_one(sent, other, rate, &NoKeys, tempo);
             }
         }
     }
@@ -95,7 +111,7 @@ pub(crate) fn apply_chain_sent(buf: &mut Stereo, sent: &mut Stereo, chain: &[Fx]
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fx::apply_chain;
+    use crate::fx::{NoTempo, apply_chain};
 
     const RATE: f32 = 44_100.0;
 
@@ -120,6 +136,7 @@ mod tests {
                 size: 0.6,
                 damp: 0.4,
                 mix: 0.3,
+                predelay: 0.0,
             },
             Fx::Compress {
                 threshold: -12.0,
@@ -132,12 +149,14 @@ mod tests {
             },
             Fx::Delay {
                 time: 0.05,
+                beats: None,
                 feedback: 0.3,
                 mix: 0.2,
                 ping_pong: false,
             },
             Fx::Delay {
                 time: 0.07,
+                beats: None,
                 feedback: 0.3,
                 mix: 0.2,
                 ping_pong: true,
@@ -152,7 +171,7 @@ mod tests {
         apply_chain(&mut plain, &everything(), RATE);
         let mut mixed = burst();
         let mut sent = burst();
-        apply_chain_sent(&mut mixed, &mut sent, &everything(), RATE);
+        apply_chain_sent(&mut mixed, &mut sent, &everything(), RATE, &NoTempo);
         assert_eq!(mixed, plain);
     }
 
@@ -164,10 +183,11 @@ mod tests {
             size: 0.7,
             damp: 0.5,
             mix: 0.25,
+            predelay: 0.0,
         }];
         let mut mixed = burst();
         let mut sent = Stereo::silence(mixed.frames());
-        apply_chain_sent(&mut mixed, &mut sent, &room, RATE);
+        apply_chain_sent(&mut mixed, &mut sent, &room, RATE, &NoTempo);
         let dry = burst();
         for (out, input) in mixed.l.iter().zip(&dry.l) {
             assert_eq!(*out, input * 0.75);
@@ -180,6 +200,7 @@ mod tests {
     fn the_tail_scales_with_what_was_sent() {
         let echo = [Fx::Delay {
             time: 0.05,
+            beats: None,
             feedback: 0.0,
             mix: 0.5,
             ping_pong: false,
@@ -187,7 +208,7 @@ mod tests {
         let mut mixed = burst();
         let mut sent = burst();
         sent.each(|channel| channel.iter_mut().for_each(|s| *s *= 0.5));
-        apply_chain_sent(&mut mixed, &mut sent, &echo, RATE);
+        apply_chain_sent(&mut mixed, &mut sent, &echo, RATE, &NoTempo);
         let at = 2205 + 10;
         assert_eq!(mixed.l[at], burst().l[10] * 0.5 * 0.5, "the repeat");
         assert_eq!(mixed.l[10], burst().l[10] * 0.5, "the dry side, whole");
@@ -208,7 +229,7 @@ mod tests {
         }];
         let mut mixed = Stereo::centred(vec![0.9; 4410]);
         let mut sent = Stereo::centred(vec![0.09; 4410]);
-        apply_chain_sent(&mut mixed, &mut sent, &squeeze, RATE);
+        apply_chain_sent(&mut mixed, &mut sent, &squeeze, RATE, &NoTempo);
         let ratio = sent.l[2205] / mixed.l[2205];
         assert!((ratio - 0.1).abs() < 1e-5, "the share held: {ratio}");
     }

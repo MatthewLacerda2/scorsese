@@ -11,6 +11,7 @@ fn delayed(ping_pong: bool) -> Patch {
     Patch {
         fx: vec![Fx::Delay {
             time: 0.08,
+            beats: None,
             feedback: 0.45,
             mix: 0.6,
             ping_pong,
@@ -73,6 +74,7 @@ fn a_chain_that_omits_it_parses_as_the_per_channel_delay() {
         chain,
         vec![Fx::Delay {
             time: 0.25,
+            beats: None,
             feedback: 0.35,
             mix: 0.2,
             ping_pong: false,

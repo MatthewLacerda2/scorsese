@@ -23,5 +23,6 @@ mod stereo;
 mod stopping;
 mod strict;
 mod tempo;
+mod timed;
 mod transforms;
 mod voicing;

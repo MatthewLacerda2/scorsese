@@ -38,6 +38,9 @@ fn duet() -> Song {
         pan: 0.0,
         fx: vec![],
         send: 1.0,
+        push: 0.0,
+        swing: None,
+        humanize: None,
     };
     let mut patterns = BTreeMap::new();
     patterns.insert(

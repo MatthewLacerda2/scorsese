@@ -57,6 +57,9 @@ pub(super) fn song(score: Score) -> Result<Imported, MidiError> {
             pan: 0.0,
             fx: vec![],
             send: 1.0,
+            push: 0.0,
+            swing: None,
+            humanize: None,
         })
         .collect();
 
