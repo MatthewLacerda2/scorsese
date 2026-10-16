@@ -35,7 +35,7 @@ function Media({ file }: { file: Opened }) {
       return <img src={src} alt={file.name} className="max-h-[75vh] w-full object-contain" />;
     case "video":
       // biome-ignore lint/a11y/useMediaCaption: a user's own footage has no caption track to offer.
-      return <video src={src} controls autoPlay className="max-h-[75vh] w-full bg-black" />;
+      return <video src={src} controls autoPlay className="max-h-[75vh] w-full bg-screen" />;
     case "audio":
       // biome-ignore lint/a11y/useMediaCaption: a user's own recording has no caption track to offer.
       return <audio src={src} controls autoPlay className="w-full" />;

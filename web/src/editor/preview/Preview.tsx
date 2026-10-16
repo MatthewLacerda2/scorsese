@@ -103,7 +103,7 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
     <div className="flex h-full min-h-0 flex-col gap-2 p-3">
       <div className="flex min-h-0 flex-1 items-center justify-center">
         <div
-          className="relative max-h-full max-w-full overflow-hidden rounded-md bg-black"
+          className="relative max-h-full max-w-full overflow-hidden rounded-md bg-screen"
           style={{ aspectRatio: `${width} / ${height}`, height: "100%" }}
         >
           {ready ? (

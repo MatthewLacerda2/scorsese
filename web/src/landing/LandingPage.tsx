@@ -68,8 +68,7 @@ export function LandingPage({ signIn = false }: { signIn?: boolean }) {
             <Closing onSignIn={openSignIn} />
             <Footer>
               <p className="mb-4">
-                <span className="display text-base text-[#f4efe6]">scorsese</span> ·{" "}
-                {t.landing.footer}
+                <span className="display text-base text-paper">scorsese</span> · {t.landing.footer}
               </p>
             </Footer>
           </div>

@@ -19,8 +19,9 @@ group("the cost bar", () => {
   });
 
   test("is green at the cheapest and red at the dearest", () => {
-    expect(colour(0)).toBe("hsl(120 70% 45%)");
-    expect(colour(1)).toBe("hsl(0 70% 45%)");
+    expect(colour(0)).toBe("color-mix(in oklch, var(--warning) 0%, var(--success))");
+    expect(colour(0.5)).toBe("color-mix(in oklch, var(--destructive) 0%, var(--warning))");
+    expect(colour(1)).toBe("color-mix(in oklch, var(--destructive) 100%, var(--warning))");
   });
 
   test("says in words where each model sits", () => {

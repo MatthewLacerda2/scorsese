@@ -94,7 +94,7 @@ export function Showcase() {
       </p>
       <div
         ref={frame}
-        className="screen relative mx-auto mt-8 aspect-video w-[min(100%,128svh,64rem)] overflow-hidden bg-black"
+        className="screen relative mx-auto mt-8 aspect-video w-[min(100%,128svh,64rem)] overflow-hidden bg-screen"
         data-rise="0.15"
       >
         <video
@@ -113,12 +113,12 @@ export function Showcase() {
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
         />
-        <div className="absolute right-3 bottom-3 flex items-center gap-2 rounded-full bg-black/55 p-1.5 text-[#f4efe6] sm:pr-4 backdrop-blur">
+        <div className="absolute right-3 bottom-3 flex items-center gap-2 rounded-full bg-screen/55 p-1.5 text-paper sm:pr-4 backdrop-blur">
           <button
             type="button"
             onClick={playPause}
             aria-label={playing ? t.pause : t.play}
-            className="grid size-9 place-items-center rounded-full hover:bg-white/10"
+            className="grid size-9 place-items-center rounded-full hover:bg-on-screen/10"
           >
             {playing ? <Pause className="size-5" /> : <Play className="size-5" />}
           </button>
@@ -126,7 +126,7 @@ export function Showcase() {
             type="button"
             onClick={toggle}
             aria-label={muted ? t.soundOn : t.soundOff}
-            className="grid size-9 place-items-center rounded-full hover:bg-white/10"
+            className="grid size-9 place-items-center rounded-full hover:bg-on-screen/10"
           >
             {muted ? <VolumeX className="size-5" /> : <Volume2 className="size-5" />}
           </button>

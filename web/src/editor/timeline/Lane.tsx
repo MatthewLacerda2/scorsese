@@ -146,7 +146,7 @@ export function Lane(props: Props) {
         // A made clip is a solid block of its kind's hue; one nobody has made
         // yet is tinted and hatched with it, as the desktop app draws it.
         const made = isMade(asset);
-        const body = made ? `text-white ${kindColor(asset?.kind)}` : "bg-muted text-foreground";
+        const body = made ? `text-on-screen ${kindColor(asset?.kind)}` : "bg-muted text-foreground";
         return (
           <button
             type="button"
@@ -174,11 +174,11 @@ export function Lane(props: Props) {
               {asset?.text ?? clip.asset}
             </span>
             <span
-              className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize bg-black/20"
+              className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize bg-screen/20"
               aria-hidden
             />
             <span
-              className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize bg-black/20"
+              className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize bg-screen/20"
               aria-hidden
             />
           </button>

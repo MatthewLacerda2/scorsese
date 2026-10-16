@@ -51,8 +51,8 @@ export function SignInDialog({ open, onOpenChange }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="dark gap-6 bg-[#0e0d12] p-8 text-[#f4efe6] ring-[#f4efe6]/10 sm:max-w-md"
-        overlayClassName="bg-black/60 supports-backdrop-filter:backdrop-blur-sm"
+        className="dark gap-6 bg-ink-raised p-8 text-paper ring-paper/10 sm:max-w-md"
+        overlayClassName="bg-screen/60 supports-backdrop-filter:backdrop-blur-sm"
       >
         <DialogHeader className="gap-2">
           <img src="/icon.png" alt="" width={48} height={48} className="mb-2 size-12 rounded-xl" />
@@ -69,10 +69,7 @@ export function SignInDialog({ open, onOpenChange }: Props) {
           )}
           <a
             href={googleSignIn(params.get("next"))}
-            className={cn(
-              buttonVariants(),
-              "h-11 rounded-full bg-[#f2b134] text-[#07070a] hover:bg-[#f2b134]/90",
-            )}
+            className={cn(buttonVariants(), "h-11 rounded-full bg-gold text-ink hover:bg-gold/90")}
           >
             {t.common.login.google}
           </a>

@@ -1,0 +1,40 @@
+// A colour comes from a theme token, never a literal (#1210).
+//
+// A colour written inline does not follow the theme (light and dark,
+// `src/lib/theme.ts`), and the next agent copies it. Colours are defined once,
+// as variables in `src/index.css`, exposed to Tailwind there as `--color-*`
+// and used through classes (`bg-primary`, `text-paper`, `bg-kind-video`).
+// This reports, in any string, JSX attribute string or template text:
+//
+//   - a hex colour (`#fff`, `#07070a`, `bg-[#f2b134]`);
+//   - a colour function (`rgb(`, `rgba(`, `hsl(`, `hsla(`, `oklch(`, `oklab(`,
+//     `lab(`, `lch(`, `hwb(`, `color(`), also computed ones;
+//   - a Tailwind palette class (`bg-sky-500`, `text-zinc-400`, `ring-white`,
+//     `from-black`), which the theme has no token for.
+//
+// Holes, by construction: four-digit hex (`#rgba`), which reads as a ticket
+// number; and the rule reads quoted text, so a colour assembled
+// from pieces at run time (`"#" + hex`) or a CSS named colour inside a value
+// (`black` in a mask) is not seen. A class built from a variable is seen only
+// where its literal parts show the palette name. `src/index.css` and
+// `src/components/ui/` (shadcn's, re-added by `shadcn add`) are out of scope
+// in biome.jsonc. web/README.md, *House rules*, has the rest.
+language js
+
+// Grit matches a regex against a node's whole text, hence the `.*` ends.
+pattern literal_colour() {
+  or {
+    // `#abc`, `#aabbcc`, `#aabbccdd`, not glued to a word (`&#x`, `a#b`); the four-digit `#abcd` is left, as `#1210` is a ticket.
+    r"(?s).*(?:^|[^\w&])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?:\z|[^\w-]).*",
+    r"(?s).*\b(?:rgba?|hsla?|oklch|oklab|lab|lch|hwb|color)\(.*",
+    r"(?s).*(?:^|[\s:'\"`!\[])-?(?:bg|text|border|border-[xytblrse]|ring|ring-offset|outline|fill|stroke|from|via|to|divide|shadow|inset-shadow|drop-shadow|accent|caret|decoration|placeholder)-(?:(?:(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]{2,3})|white|black)(?:\z|[^\w-]).*"
+  }
+}
+
+or {
+  JsStringLiteralExpression() as $s where { $s <: literal_colour() },
+  JsxString() as $s where { $s <: literal_colour() },
+  JsTemplateChunkElement() as $s where { $s <: literal_colour() }
+} where {
+  register_diagnostic(span=$s, message="colorsFromTokens: a colour comes from a theme token (src/index.css), not a literal. Use a class that names one (bg-primary, text-paper, bg-kind-video); a new colour is a token there first.")
+}

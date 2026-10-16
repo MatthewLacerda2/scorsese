@@ -17,9 +17,9 @@
 }
 
 .landing {
-  --ink: #07070a;
-  --paper: #f4efe6;
-  --gold: #f2b134;
+  --ink: var(--color-ink);
+  --paper: var(--color-paper);
+  --gold: var(--color-gold);
   --ember: #e4572e;
   --dim: rgb(244 239 230 / 0.62);
   color-scheme: dark;

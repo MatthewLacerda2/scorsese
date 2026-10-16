@@ -96,7 +96,7 @@ describe("an asset tile", () => {
   test("of a video shows its thumbnail, edged in its kind's colour", () => {
     const html = grid([shot]);
     expect(html).toContain('src="/api/library/7/thumbnail"');
-    expect(html).toContain("bg-sky-500");
+    expect(html).toContain("bg-kind-video");
     expect(html).not.toContain("repeating-linear-gradient");
   });
 
