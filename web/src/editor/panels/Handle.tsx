@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { remPx } from "./usePanels";
 
 /** Which way the panel grows as its edge is dragged. */
-export type Grows = "right" | "left" | "up";
+type Grows = "right" | "left" | "up";
 
 interface Props {
   grows: Grows;

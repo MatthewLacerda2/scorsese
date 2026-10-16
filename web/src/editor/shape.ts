@@ -7,10 +7,10 @@
 import type { ProjectDocument } from "@/api/document";
 
 /** The shapes the editor offers: the ones a person with an idea reaches for. */
-export const ASPECTS = ["16:9", "9:16", "1:1", "4:5"] as const;
+const ASPECTS = ["16:9", "9:16", "1:1", "4:5"] as const;
 
 /** What a document that names no shape is: `scorsese_core::Ratio::WIDE`. */
-export const WIDE = "16:9";
+const WIDE = "16:9";
 
 /** The project's shape, `across:down`. */
 export function aspectOf(document: Pick<ProjectDocument, "aspect">): string {

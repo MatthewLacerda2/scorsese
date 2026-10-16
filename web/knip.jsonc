@@ -20,10 +20,6 @@
     // shadcn ships whole families (DialogClose, TableFooter…) and is re-added
     // with `shadcn add`, so an unused member of one is not dead code. An
     // unused *file* there still is, and is reported.
-    "src/components/ui/**": ["exports", "types"],
-    // #1403 is editing src/editor/ in the same wave as this gate, and may be
-    // what uses an export flagged there today; #1414 removes this line once it
-    // has landed and the folder is cleaned.
-    "src/editor/**": ["exports", "types"]
+    "src/components/ui/**": ["exports", "types"]
   }
 }

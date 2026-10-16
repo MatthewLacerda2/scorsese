@@ -17,7 +17,7 @@ import type { JobView, ServerEvent } from "@/api/events";
 import type { Messages } from "@/i18n/catalogue";
 
 /** Where a tool the assistant called is. */
-export type ToolState = "running" | "answered" | "refused";
+type ToolState = "running" | "answered" | "refused";
 
 /** One line between a prompt and its answer: a tool the assistant called. */
 export type Line = { kind: "tool"; tool: string; state: ToolState; said: string | null };

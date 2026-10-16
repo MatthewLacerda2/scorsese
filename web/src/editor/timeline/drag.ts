@@ -44,7 +44,7 @@ const TIMELESS = new Set(["image", "generated_image", "html", "text", "color", "
 
 /** How long a placement that says nothing gives a timeless asset — `core`'s
  * `placing::HOLD_SECONDS`, which the server applies, not this. */
-export const HOLD_SECONDS = 5;
+const HOLD_SECONDS = 5;
 
 /** How close, in pixels, an edge has to come to something to snap onto it. */
 export const SNAP_PX = 8;
@@ -54,7 +54,7 @@ export function extentOf(clip: Clip): Extent {
 }
 
 /** An asset's own length on the grid, when something measured it. */
-export function lengthOf(asset: DocumentAsset | undefined, fps: Fps): number | null {
+function lengthOf(asset: DocumentAsset | undefined, fps: Fps): number | null {
   const seconds = asset?.media?.duration_seconds;
   return seconds && seconds > 0 ? toFrames(seconds, fps) : null;
 }
@@ -94,7 +94,7 @@ export function propose(clip: Clip, handle: Handle, delta: number, limits: Limit
 }
 
 /** The edges of a extent that snap, for the handle being dragged. */
-export function edges(extent: Extent, handle: Handle): number[] {
+function edges(extent: Extent, handle: Handle): number[] {
   const end = extent.start + extent.duration;
   if (handle === "left") return [extent.start];
   if (handle === "right") return [end];
@@ -117,7 +117,7 @@ export function targets(document: ProjectDocument, playhead: number, moving?: st
 
 /** How far to shift so the nearest of `from` lands on a target within
  * `reach` frames; `null` when nothing is that close. */
-export function snap(at: number[], from: number[], reach: number): number | null {
+function snap(at: number[], from: number[], reach: number): number | null {
   let best: number | null = null;
   for (const edge of from) {
     for (const target of at) {

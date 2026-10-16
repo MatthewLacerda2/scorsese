@@ -14,7 +14,7 @@ interface Props {
 }
 
 /** A value as a field shows it: two decimals at most, no trailing zeros. */
-export function tidy(value: number): string {
+function tidy(value: number): string {
   return String(Math.round(value * 100) / 100);
 }
 

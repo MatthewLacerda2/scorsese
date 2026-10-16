@@ -16,7 +16,7 @@ import { formatNumber } from "@/lib/format";
 import type { EditOutcome } from "../project";
 import { toSeconds } from "../timeline/time";
 
-export function useTemplates() {
+function useTemplates() {
   return useQuery({ queryKey: queryKeys.templates, queryFn: api.templates.list });
 }
 
