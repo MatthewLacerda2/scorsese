@@ -10,7 +10,8 @@ import { MemoryRouter } from "react-router";
 import { createQueryClient } from "@/app/queryClient";
 import { UploadsProvider } from "@/files/uploads";
 import { MENU } from "@/start/fixture";
-import { bodyOf, EMPTY, onPlatform, toggled, Wizard } from "./NewProjectDialog";
+import { bodyOf, EMPTY, onPlatform, toggled } from "./draft";
+import { Wizard } from "./Wizard";
 
 function wizard() {
   const client = createQueryClient();

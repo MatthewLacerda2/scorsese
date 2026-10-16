@@ -30,10 +30,13 @@ export function lazyPage<M, K extends keyof M>(load: () => Promise<M>, name: K):
 }
 
 export const LandingPage = lazyPage(() => import("@/landing/LandingPage"), "LandingPage");
-export const LoginPage = lazyPage(() => import("@/landing/LandingPage"), "LoginPage");
+export const LoginPage = lazyPage(() => import("@/landing/LoginPage"), "LoginPage");
 export const ProjectsPage = lazyPage(() => import("@/pages/ProjectsPage"), "ProjectsPage");
-export const LibraryPage = lazyPage(() => import("@/pages/FilesPages"), "LibraryPage");
-export const ProjectFilesPage = lazyPage(() => import("@/pages/FilesPages"), "ProjectFilesPage");
+export const LibraryPage = lazyPage(() => import("@/pages/LibraryPage"), "LibraryPage");
+export const ProjectFilesPage = lazyPage(
+  () => import("@/pages/ProjectFilesPage"),
+  "ProjectFilesPage",
+);
 export const SpendingPage = lazyPage(() => import("@/pages/SpendingPage"), "SpendingPage");
 export const EditorPage = lazyPage(() => import("@/editor/EditorPage"), "EditorPage");
 export const CreditsReturnPage = lazyPage(

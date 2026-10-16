@@ -6,7 +6,7 @@
 
 import { Fragment } from "react";
 import type { DocumentAsset, ProjectDocument } from "@/api";
-import { Thumbnail } from "@/files/FileTile";
+import { Thumbnail } from "@/files/Thumbnail";
 import { useT } from "@/i18n/I18nProvider";
 import type { EditOutcome } from "../project";
 import { assetRemoval, confirmThen, showing } from "../removing";

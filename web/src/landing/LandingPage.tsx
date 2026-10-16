@@ -11,11 +11,14 @@ import "@/landing/landing.css";
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router";
 import { useT } from "@/i18n/I18nProvider";
-import { Header, Hero } from "@/landing/Hero";
-import { Closing, HowItWorks, WhatItHandles } from "@/landing/Sections";
+import { Header } from "@/landing/Header";
+import { Hero } from "@/landing/Hero";
 import { Showcase } from "@/landing/Showcase";
 import { SignInDialog } from "@/landing/SignInDialog";
 import { Slides } from "@/landing/Slides";
+import { Closing } from "@/landing/sections/Closing";
+import { HowItWorks } from "@/landing/sections/HowItWorks";
+import { WhatItHandles } from "@/landing/sections/WhatItHandles";
 import { Footer } from "@/legal/Footer";
 import { safeNext, useAccount } from "@/session/session";
 
@@ -75,9 +78,4 @@ export function LandingPage({ signIn = false }: { signIn?: boolean }) {
       <SignInDialog open={open} onOpenChange={onOpenChange} />
     </div>
   );
-}
-
-/** `/login`: the landing page with the popup open. */
-export function LoginPage() {
-  return <LandingPage signIn />;
 }

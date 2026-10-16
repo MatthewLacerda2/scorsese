@@ -6,8 +6,8 @@ import { expect, test } from "bun:test";
 import { renderToString } from "react-dom/server";
 import type { DocumentAsset } from "@/api";
 import { en } from "@/i18n/en";
-import { TileView } from "./AssetTile";
 import { look } from "./look";
+import { TileView } from "./TileView";
 
 function words(asset: DocumentAsset): string {
   const props = { asset, stills: 0, open: false, onFold: () => {}, pending: false };

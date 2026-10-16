@@ -22,7 +22,9 @@ import {
 import { QueryError } from "@/components/ui/query-error";
 import { useT } from "@/i18n/I18nProvider";
 import { keptStyle, nameOf, shapeOf } from "@/start/menu";
-import { PlatformPicker, StylePicker, useStyleMenu } from "@/start/Pickers";
+import { PlatformPicker } from "@/start/PlatformPicker";
+import { StylePicker } from "@/start/StylePicker";
+import { useStyleMenu } from "@/start/useStyleMenu";
 import { useEditorProject } from "./project";
 import type { Shape } from "./shape";
 

@@ -1,7 +1,6 @@
 // The top of the landing page: the pitch, scorsese's name and mark beside it,
 // and under them a strip of films made with scorsese (`Carousel`). The header
-// above it carries only the language and the way in, since the name is
-// already the largest thing on the page. The mark is the app's 512px icon
+// above it (`Header.tsx`) carries only the language and the way in. The mark is the app's 512px icon
 // (app/assets/icon.png) as a white silhouette with no background, made once:
 //
 //   ffmpeg -i app/assets/icon.png -filter_complex "[0]format=gray[a];
@@ -11,23 +10,10 @@
 // Its brightness becomes its alpha.
 
 import { useRef } from "react";
-import { LanguageControl } from "@/app/LanguageControl";
 import { useLanguage, useT } from "@/i18n/I18nProvider";
 import { Carousel } from "@/landing/Carousel";
 import mark from "@/landing/media/mark.png";
 import { useEntrance } from "@/landing/motion";
-
-export function Header({ onSignIn }: { onSignIn: () => void }) {
-  const t = useT();
-  return (
-    <header className="dark fixed inset-x-0 top-0 z-20 mx-auto flex max-w-6xl items-center justify-end gap-2 px-4 py-5 sm:gap-3 sm:px-6">
-      <LanguageControl className="border-[#f4efe6]/15 bg-transparent" />
-      <button type="button" onClick={onSignIn} className="ghost px-4 py-1.5 text-sm">
-        {t.landing.signIn}
-      </button>
-    </header>
-  );
-}
 
 export function Hero({ onSignIn }: { onSignIn: () => void }) {
   const t = useT();

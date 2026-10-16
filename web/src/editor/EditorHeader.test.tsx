@@ -11,7 +11,8 @@ import { createQueryClient } from "@/app/queryClient";
 import { CATALOGUES } from "@/i18n/catalogue";
 import { I18nProvider } from "@/i18n/I18nProvider";
 import { LANGUAGES } from "@/i18n/language";
-import { EditorActions, type EditorActionsProps, EditorHeader } from "./EditorHeader";
+import { EditorActions, type EditorActionsProps } from "./EditorActions";
+import { EditorHeader } from "./EditorHeader";
 
 const props: EditorActionsProps = {
   projectId: 4,

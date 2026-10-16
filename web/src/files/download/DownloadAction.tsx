@@ -1,8 +1,8 @@
-// Saving a library file to the user's own disk (#711): a link to the file with
-// `?download=1`, which the server answers as an attachment named for the file
-// with its real extension. A plain link, not a fetch, so the browser streams a
-// gigabyte straight to disk and shows its own progress, as a render's
-// download does. Every kind downloads the same way.
+// Saving a library file to the user's own disk (#711), from a tile's corner:
+// a link to the file with `?download=1`, which the server answers as an
+// attachment named for the file with its real extension. A plain link, not a
+// fetch, so the browser streams a gigabyte straight to disk and shows its own
+// progress, as a render's download does. Every kind downloads the same way.
 
 import { DownloadIcon } from "lucide-react";
 import { api } from "@/api";
@@ -33,18 +33,6 @@ export function DownloadAction({ file }: Props) {
         onDoubleClick={(event) => event.stopPropagation()}
       >
         <DownloadIcon />
-      </a>
-    </Button>
-  );
-}
-
-/** The labelled button in a file's details. */
-export function DownloadButton({ file }: Props) {
-  const t = useT();
-  return (
-    <Button asChild variant="secondary">
-      <a href={api.library.downloadUrl(file.id)} download>
-        <DownloadIcon /> {t.files.download.button}
       </a>
     </Button>
   );

@@ -12,7 +12,7 @@ import type { LibraryTile } from "@/api";
 import { createQueryClient } from "@/app/queryClient";
 import { UploadsProvider } from "@/files/uploads";
 import type { EditOutcome } from "../project";
-import { Picker } from "./LibraryModal";
+import { LibraryPicker } from "./LibraryPicker";
 
 const tile = (id: number, name: string, kind: LibraryTile["kind"]): LibraryTile => ({
   id,
@@ -40,7 +40,7 @@ test("the picker offers the library, greying what cannot be added", () => {
     <QueryClientProvider client={client}>
       <MemoryRouter>
         <UploadsProvider>
-          <Picker projectId={4} edit={edit} />
+          <LibraryPicker projectId={4} edit={edit} />
         </UploadsProvider>
       </MemoryRouter>
     </QueryClientProvider>,

@@ -108,7 +108,7 @@ they become needs, the catalogues port across as they are.
 | step | command | what it checks |
 | --- | --- | --- |
 | install | `bun install --frozen-lockfile` | `bun.lock` matches `package.json` — the packages checked are the ones committed |
-| lint | `bun run lint` (`biome ci`) | lint rules **and** formatting; `bun run format` fixes what it can. `noShadow` is an error: an inner name never hides an outer one (a local `t` over `useT()`'s, #1209) |
+| lint | `bun run lint` (`biome ci`) | lint rules, the house rules below, **and** formatting; `bun run format` fixes what it can. `noShadow` is an error: an inner name never hides an outer one (a local `t` over `useT()`'s, #1209) |
 | typecheck | `bun run typecheck` (`tsc --noEmit`) | TypeScript in strict mode, the end-to-end flows included |
 | test | `bun test` | every `*.test.ts(x)` under `src/`, in a DOM (`src/test/dom.ts`) |
 | build | `bun run build` | the bundle the deploy ships actually builds, and its entry chunk is within budget (`src/build/budget.ts`) |
@@ -141,6 +141,39 @@ size gate (`make size`) holds `.ts`/`.tsx` to the same caps as Rust: 300 lines
 of code for source, 150 for a `*.test.ts(x)` file or anything under `tests/`;
 `tools/lint/src/classify.rs` says why.
 
+## House rules
+
+Conventions of this codebase that Biome's built-in set does not have, each
+enforced rather than written down (CLAUDE.md, *A convention a machine can
+check is a gate*). They run inside `biome ci`, so `bun run lint`, `make web`
+and CI's `web` job report them like any other lint.
+
+| rule | what it holds |
+| --- | --- |
+| `oneComponentPerFile` | a `.tsx` file exports **at most one React component** (#1207) — a PascalCase function, class or const, a default export, or a name in an `export { … }` list. Helpers only the file uses stay in it, unexported; anything else gets its own file, and a family of them a subfolder. An agent looking for a component then finds it by its file's name. `src/components/ui/` is exempt: shadcn ships compound modules (`Card`, `CardHeader`…) on purpose |
+
+**How one is made.** A rule is a [GritQL plugin](https://biomejs.dev/linter/plugins/)
+in `lint/<rule>.grit` whose message starts with `<rule>:`, listed under
+`plugins` in `biome.jsonc` (with any folder it does not apply to, and why,
+beside it) and in `lint/fixtures/rules.jsonc`. Its fixtures are
+`lint/fixtures/<rule>/`: a `flags*.tsx` whose every line ending in
+`// flagged` must be reported, and no other line, and a `passes*.tsx` that
+must not be. `src/lint/houseRules.test.ts` runs Biome over them and fails on
+a rule missing from either config or without both kinds of fixture, so a new
+rule is a `.grit` file, two config lines and its fixtures. The real lint
+leaves `lint/fixtures/` out, since its `flags` files fail on purpose.
+
+**An exception is inline, with its reason.** Biome refuses a suppression
+without one. A file-wide rule like `oneComponentPerFile` takes it once, at the
+top of the file:
+
+    // biome-ignore-all lint/plugin/oneComponentPerFile: <why this file is the exception>
+
+A line-level rule takes `// biome-ignore lint/plugin/<rule>: <why>` above the
+line. A folder that a rule does not fit at all goes in that rule's `includes`
+in `biome.jsonc`, with the reason in a comment beside it — never a list of
+excused files.
+
 ## Which test, where
 
 Three kinds, cheapest first; a new test goes in the first one that can see
@@ -166,6 +199,15 @@ what it is about.
   and it is both the linter and the formatter — the `cargo fmt --check` +
   `clippy` pair in one command. ESLint's plugin ecosystem is larger, but its
   main draw for React (the hooks rules) is covered by Biome's recommended set.
+- **House rules as Biome plugins, not a checker of our own.** A GritQL plugin
+  runs inside `biome ci`, which the gate already runs, so a rule costs no new
+  tool, no new step and no second parser. It reports a diagnostic, takes
+  Biome's own inline suppressions with their mandatory reason, and is scoped
+  to folders by its `includes` (checked against Biome 2.5.15 when the first
+  rule was made, #1207). A checker of our own would have needed a TypeScript
+  parser: the installed TypeScript 7 exports only `typescript/unstable/*`, not
+  a compiler API to build on. The config is `biome.jsonc` so that an
+  exemption's reason can sit beside it.
 - **`bun test`, not Vitest.** Bun is already the runtime, and its runner reads
   the same `tsconfig.json` paths, so there is nothing to configure. Logic is
   tested as plain functions, and pages render through `react-dom/static`'s

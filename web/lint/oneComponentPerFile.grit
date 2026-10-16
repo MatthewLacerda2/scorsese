@@ -1,0 +1,48 @@
+// At most one exported React component per `.tsx` file (#1207).
+//
+// An agent looking for a component should find it by its file's name, and a
+// file exporting several is a subfolder waiting to happen. Helpers only this
+// file uses stay in it, unexported. web/README.md, *House rules*, has the rest.
+//
+// A component is an exported name in PascalCase: a function, a class, a const
+// (an arrow, `memo(…)`, `Context.Provider`), a default export, or a name in an
+// `export { … }` list. SCREAMING_CASE constants and type-only exports are not.
+// Every exported component in an offending file is reported, so the whole
+// choice is in front of whoever splits it.
+language js
+
+pattern component_name($name) {
+  $name where { $name <: r"^[A-Z][A-Za-z0-9]*$", $name <: not r"^[A-Z0-9_]+$" }
+}
+
+// An `export { … }` entry that is a value, not `type X` or inside `export type { … }`.
+pattern value_specifier() {
+  $spec where {
+    $spec <: not r"^type\s[\s\S]*",
+    $spec <: not within JsExportNamedClause() as $clause where { $clause <: r"^type\s[\s\S]*" }
+  }
+}
+
+pattern exported_component($name) {
+  or {
+    JsExport(export_clause=or {
+      JsFunctionDeclaration(id=component_name($name)),
+      JsClassDeclaration(id=component_name($name)),
+      JsVariableDeclarationClause(declaration=JsVariableDeclaration(declarators=contains JsVariableDeclarator(id=component_name($name)))),
+      JsExportDefaultDeclarationClause(declaration=or {
+        JsFunctionExportDefaultDeclaration(id=component_name($name)),
+        JsClassExportDefaultDeclaration(id=component_name($name))
+      })
+    }),
+    and { JsExportNamedShorthandSpecifier(name=component_name($name)),
+    value_specifier() },
+    and { JsExportNamedSpecifier(exported_name=component_name($name)),
+    value_specifier() }
+  }
+}
+
+exported_component($name) where {
+  $name <: within JsModule() as $module,
+  $module <: contains exported_component(name=$other) where { $other <: not $name },
+  register_diagnostic(span=$name, message="oneComponentPerFile: this file exports more than one React component. Give each its own file, or stop exporting a helper only this file uses (web/README.md, House rules).")
+}
