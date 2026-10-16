@@ -102,7 +102,7 @@ export interface DocumentAsset {
  * `scorsese_core::SCHEMA_VERSION`, held equal to it by `make size`'s
  * `schema-literal` rule. A test document writes this, never the number.
  */
-export const SCHEMA_VERSION = 53;
+export const SCHEMA_VERSION = 54;
 
 /** `scorsese_core::Project`, as far as the editor reads it. */
 export interface ProjectDocument {

@@ -1,4 +1,4 @@
-# `project.json` — schema v53
+# `project.json` — schema v54
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -47,7 +47,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 53,
+  "schema_version": 54,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "aspect": "16:9",
@@ -624,7 +624,7 @@ A `generated_audio` asset with a `music` block is a **track of music**
 rather than a line: its `prompt` describes the music — genre, mood,
 instruments, tempo — and ElevenLabs Music composes it (`POST /v1/music`,
 `music_v2_5`). Without the block, the asset is a line of narration, as every
-`generated_audio` asset was before v53, so `speech` and `music` are never on
+`generated_audio` asset was before v54, so `speech` and `music` are never on
 one asset: which block it carries is what it is.
 
 ```json asset
@@ -2859,7 +2859,7 @@ compositing-suite line.
 
 ```json project
 {
-  "schema_version": 53,
+  "schema_version": 54,
   "name": "wipe",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

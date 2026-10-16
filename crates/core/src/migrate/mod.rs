@@ -312,12 +312,12 @@ fn shot_seeds_arrive(_: &mut Value) -> Result<(), String> {
     Ok(())
 }
 
-/// v52 → v53: a generated track, the `music` block on `generated_audio`
+/// v53 → v54: a generated track, the `music` block on `generated_audio`
 /// (#1264).
 ///
 /// Nothing to rewrite, for [`groups_arrive`]'s reason: one optional block
-/// arrived, absent in every v52 document, and a `generated_audio` asset
-/// without it is a line of narration exactly as it was at v52.
+/// arrived, absent in every v53 document, and a `generated_audio` asset
+/// without it is a line of narration exactly as it was at v53.
 fn music_arrives(_: &mut Value) -> Result<(), String> {
     Ok(())
 }
