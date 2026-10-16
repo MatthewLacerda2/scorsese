@@ -14,12 +14,12 @@ pub use keep::{Kept, keep};
 
 use std::io::Write;
 
-use crate::api::http::{self, HttpError};
+use crate::api::http;
 use crate::api::lottiefiles::{Animation, LottieFiles};
 
 use super::PAGE_SIZE;
 use super::candidate::{Candidate, Medium, Rendition};
-use super::library::{Library, Page, Query, StockError};
+use super::library::{Library, Page, Query, StockError, failed};
 
 /// What this library is called wherever a message names it.
 const NAME: &str = "LottieFiles";
@@ -34,17 +34,6 @@ impl LottieLibrary {
     /// One that asks anonymously.
     pub fn new() -> Self {
         Self::default()
-    }
-}
-
-/// A transport error as the refusal it means.
-fn failure(error: &HttpError) -> StockError {
-    match error {
-        HttpError::Refused { status: 429, .. } => StockError::RateLimited { library: NAME },
-        other => StockError::Provider {
-            library: NAME,
-            said: other.to_string(),
-        },
     }
 }
 
@@ -63,7 +52,7 @@ impl Library for LottieLibrary {
         let found = self
             .api
             .search(&words, page.saturating_mul(PAGE_SIZE))
-            .map_err(|error| failure(&error))?;
+            .map_err(|error| failed(NAME, &error, None))?;
         let skip = usize::try_from((page - 1) * PAGE_SIZE).unwrap_or(usize::MAX);
         Ok(Page {
             candidates: found
@@ -80,13 +69,16 @@ impl Library for LottieLibrary {
         if medium != Medium::Lottie {
             return Ok(None);
         }
-        let found = self.api.one(id).map_err(|error| failure(&error))?;
+        let found = self
+            .api
+            .one(id)
+            .map_err(|error| failed(NAME, &error, None))?;
         Ok(found.as_ref().and_then(candidate))
     }
 
     fn download(&self, url: &str, limit: u64, to: &mut dyn Write) -> Result<u64, StockError> {
         // LottieFiles' CDN is public: nothing is signed.
-        http::stream_to(url, limit, to, &mut |_, _| {}).map_err(|error| failure(&error))
+        http::stream_to(url, limit, to, &mut |_, _| {}).map_err(|error| failed(NAME, &error, None))
     }
 }
 

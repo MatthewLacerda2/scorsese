@@ -259,10 +259,8 @@ impl ClaudeError {
     /// refused for what it said.
     pub fn retryable(&self) -> bool {
         match self {
-            Self::Http(HttpError::Unreachable { .. }) | Self::Stream(StreamError::Io(_)) => true,
-            Self::Http(HttpError::Refused { status, .. }) => {
-                matches!(status, 408 | 409 | 429 | 500..=504 | 529)
-            }
+            Self::Http(error) => error.retryable(),
+            Self::Stream(StreamError::Io(_)) => true,
             Self::Api { kind, .. } => {
                 matches!(
                     kind.as_str(),
@@ -270,7 +268,7 @@ impl ClaudeError {
                 )
             }
             Self::Cut => true,
-            Self::Http(_) | Self::Stream(_) | Self::Arguments(_) => false,
+            Self::Stream(_) | Self::Arguments(_) => false,
         }
     }
 }

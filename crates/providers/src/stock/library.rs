@@ -3,7 +3,8 @@
 use std::io::Write;
 use std::path::PathBuf;
 
-use crate::credentials::CredentialError;
+use crate::api::http::HttpError;
+use crate::credentials::{CredentialError, Secret};
 
 use super::candidate::{Candidate, Medium, Orientation};
 
@@ -185,4 +186,17 @@ pub enum StockError {
         /// The id.
         id: u64,
     },
+}
+
+/// A transport error from `library` as the refusal it means, the way every
+/// library reads one: a 429 as [`StockError::RateLimited`], anything else in
+/// the words [`HttpError::explained`] gives it, `key` scrubbed out.
+pub(super) fn failed(library: &'static str, error: &HttpError, key: Option<&Secret>) -> StockError {
+    if error.rate_limited() {
+        return StockError::RateLimited { library };
+    }
+    StockError::Provider {
+        library,
+        said: error.explained(key),
+    }
 }

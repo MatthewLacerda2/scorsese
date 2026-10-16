@@ -19,6 +19,8 @@
 //! that no test ever makes a real provider call, and this is the seam that
 //! makes it true by construction rather than by anyone remembering.
 
+use crate::api::http::HttpError;
+
 use super::Brief;
 
 /// The provider's name for work in flight.
@@ -75,6 +77,13 @@ impl ProviderError {
             message: message.to_string(),
             lost: false,
         }
+    }
+
+    /// A call to `provider` that failed in the transport, in the words every
+    /// vendor's failure is put in ([`HttpError::explained`]): a 429 as a
+    /// sentence rather than the vendor's page of JSON.
+    pub fn http(provider: impl Into<String>, error: &HttpError) -> Self {
+        Self::new(provider, error.explained(None))
     }
 
     /// A ticket `provider` will never answer for, saying `message`.

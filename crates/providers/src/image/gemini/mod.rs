@@ -41,7 +41,7 @@ impl ImageProvider for GeminiProvider {
         let reply = self
             .gemini
             .create(&create(brief))
-            .map_err(|error| ProviderError::new("Gemini", error))?;
+            .map_err(|error| ProviderError::http("Gemini", &error))?;
         let Some(encoded) = reply.image() else {
             // Answered, and drew nothing: almost always a refusal, and the
             // words are why.
@@ -71,7 +71,7 @@ impl ImageProvider for GeminiProvider {
         let job = self
             .gemini
             .batch(&batch::create(briefs))
-            .map_err(|error| ProviderError::new("Gemini", error))?;
+            .map_err(|error| ProviderError::http("Gemini", &error))?;
         if job.name.is_empty() {
             return Err(ProviderError::new("Gemini", "the batch came back unnamed"));
         }
@@ -82,7 +82,7 @@ impl ImageProvider for GeminiProvider {
         let job = self
             .gemini
             .batch_status(operation)
-            .map_err(|error| ProviderError::new("Gemini", error))?;
+            .map_err(|error| ProviderError::http("Gemini", &error))?;
         Ok(batch::read(&job))
     }
 }
@@ -131,7 +131,22 @@ mod tests {
     use scorsese_core::{AssetId, ImageRequest};
 
     use super::{Brief, create};
+    use crate::api::http::{AT_ITS_LIMIT, HttpError};
+    use crate::image::ProviderError;
     use crate::video::Still;
+
+    /// Gemini shares Veo's Google quota, so its 429 is worded as Veo's is
+    /// rather than handed to the agent as Google's page of JSON (#1290).
+    #[test]
+    fn a_429_reads_as_the_sentence_not_the_json() {
+        let refused = HttpError::Refused {
+            url: String::from("https://generativelanguage.googleapis.com/v1beta/interactions"),
+            status: 429,
+            body: String::from(r#"{"error":{"code":429,"status":"RESOURCE_EXHAUSTED"}}"#),
+        };
+        let error = ProviderError::http("Gemini", &refused);
+        assert_eq!(error.to_string(), format!("Gemini: {AT_ITS_LIMIT}"));
+    }
 
     /// Left out, Google matches the first reference picture's shape or draws a
     /// square, so a brief that names neither still sends both, resolved —
