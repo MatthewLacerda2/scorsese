@@ -4,6 +4,7 @@
 
 import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
+import { ErrorBoundary } from "@/app/ErrorBoundary";
 import { createQueryClient } from "@/app/queryClient";
 import { AppRoutes } from "@/app/routes";
 import { I18nProvider } from "@/i18n/I18nProvider";
@@ -22,7 +23,9 @@ export function App({ router, queryClient, language }: Props) {
   const [client] = useState(() => queryClient ?? createQueryClient());
   return (
     <I18nProvider initial={language}>
-      <QueryClientProvider client={client}>{router(<AppRoutes />)}</QueryClientProvider>
+      <ErrorBoundary>
+        <QueryClientProvider client={client}>{router(<AppRoutes />)}</QueryClientProvider>
+      </ErrorBoundary>
     </I18nProvider>
   );
 }
