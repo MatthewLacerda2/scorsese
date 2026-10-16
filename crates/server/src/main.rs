@@ -12,6 +12,7 @@ use std::process::ExitCode;
 use clap::Parser;
 use scorsese_providers::credentials::Environment;
 use scorsese_server::captures::worker::{Isolation, Worker};
+use scorsese_server::generations::Keys;
 use scorsese_server::operator::{self, Cli, Command};
 use scorsese_server::{Config, ServerError};
 
@@ -59,7 +60,7 @@ async fn perform(config: Config, command: Command) -> Result<(), ServerError> {
         }
         Command::User(command) => {
             let pool = scorsese_server::open_database(&config).await?;
-            operator::user(&pool, &config.files(), command).await?
+            operator::user(&pool, &config.files(), &Keys, command).await?
         }
         Command::Token(command) => {
             let pool = scorsese_server::open_database(&config).await?;

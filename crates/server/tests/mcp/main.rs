@@ -11,6 +11,7 @@ mod described;
 mod designing;
 mod drawing;
 mod editing;
+mod forgetting;
 mod importing;
 mod narrating;
 mod offering;

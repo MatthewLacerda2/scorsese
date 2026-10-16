@@ -67,6 +67,14 @@ pub trait Studio {
         passed_over: &[String],
     ) -> Result<super::super::Voice, DesignError>;
 
+    /// Deletes the kept voice `voice_id` from the account, freeing the voice
+    /// slot it took (#1381).
+    ///
+    /// A voice the account no longer has is already forgotten, and answers
+    /// `Ok`: forgetting twice — a retry after the record of it failed to
+    /// change — must not be an error somebody has to read.
+    fn forget(&self, voice_id: &str) -> Result<(), DesignError>;
+
     /// What this studio is called, for a message somebody reads.
     fn name(&self) -> &'static str;
 }

@@ -102,7 +102,17 @@ impl Studio for ElevenLabsStudio {
             preview: None,
         })
     }
+
+    fn forget(&self, voice_id: &str) -> Result<(), DesignError> {
+        match self.design.delete(voice_id) {
+            Err(error) if error.status() == Some(NOT_FOUND) => Ok(()),
+            answer => answer.map_err(refusal),
+        }
+    }
 }
+
+/// What the vendor answers a delete of a voice it does not have with.
+const NOT_FOUND: u16 = 404;
 
 /// One candidate, decoded.
 fn candidate(sample: &PreviewSample) -> Result<Candidate, DesignError> {

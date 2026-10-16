@@ -128,12 +128,12 @@ pub(crate) enum Command {
     VoiceDesign {
         /// What the voice should be like, in a sentence: age, accent, pace,
         /// warmth. 20 to 1000 characters, and not the name of a real person.
-        #[arg(long, conflicts_with_all = ["keep", "list"])]
+        #[arg(long, conflicts_with_all = ["keep", "list", "forget"])]
         prompt: Option<String>,
         /// What the three candidates read aloud. 100 to 1000 characters, and
         /// the only thing this is billed for — a longer passage is a better
         /// audition and a dearer one.
-        #[arg(long, value_name = "TEXT", conflicts_with_all = ["keep", "list"])]
+        #[arg(long, value_name = "TEXT", conflicts_with_all = ["keep", "list", "forget"])]
         text: Option<String>,
         /// Ask for the same candidates again as far as the vendor manages it.
         /// Best-effort, and worth passing for a voice you might want back.
@@ -157,8 +157,14 @@ pub(crate) enum Command {
         name: Option<String>,
         /// List the voices this project has designed, with the description and
         /// seed that made each one. Touches no network.
-        #[arg(long, conflicts_with_all = ["prompt", "keep"])]
+        #[arg(long, conflicts_with_all = ["prompt", "keep", "forget"])]
         list: bool,
+        /// Delete this kept voice from your ElevenLabs account, by the
+        /// voice_id --list shows, freeing the voice slot it takes. Spends
+        /// nothing; the design and its description and seed stay in the
+        /// project, so the candidate can be kept again.
+        #[arg(long, value_name = "VOICE_ID", conflicts_with_all = ["keep"])]
+        forget: Option<String>,
     },
     /// Check every hand-written provider client against the real API: the
     /// smallest real call to Veo, ElevenLabs and Claude that exercises what

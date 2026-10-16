@@ -34,8 +34,8 @@
 //! every word of its `speech` blocks and none of these voices.
 //!
 //! **It is append-only and merge-friendly.** One entry per design, never
-//! rewritten, so two sessions designing voices produce a file that merges by
-//! hand in seconds. A growing array inside `project.json` would put that churn
+//! removed — a forgotten voice is only marked so (#1381) — so two sessions
+//! designing voices produce a file that merges by hand in seconds. A growing array inside `project.json` would put that churn
 //! in the middle of the document a person is editing.
 //!
 //! It is deliberately **not** under `cache/`: cache is gitignored and
@@ -90,6 +90,15 @@ pub struct Designed {
     /// When it was created, as a person reads a date.
     #[serde(default)]
     pub created_at: Option<Timestamp>,
+    /// Whether it was deleted from the account again (#1381), freeing the
+    /// voice slot it took. Left out of the file while the voice is kept.
+    ///
+    /// Marked rather than removed: the entry is still what the design cost,
+    /// which a spending ceiling counts ([`spent`]), and still the description
+    /// and the seed — keeping the same candidate again is how a forgotten
+    /// voice comes back.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub forgotten: bool,
 }
 
 impl Designed {
@@ -102,10 +111,17 @@ impl Designed {
         let seed = self
             .seed
             .map_or_else(|| String::from("no seed"), |seed| format!("seed {seed}"));
+        let forgotten = if self.forgotten { ", forgotten" } else { "" };
         format!(
-            "{}  {}  ({seed})\n    {}",
+            "{}  {}  ({seed}{forgotten})\n    {}",
             self.voice_id, self.name, self.prompt
         )
+    }
+
+    /// Whether the voice is still in the account, as far as this project
+    /// knows.
+    pub fn kept(&self) -> bool {
+        !self.forgotten
     }
 }
 
@@ -167,7 +183,26 @@ pub fn spent(root: &Path) -> u64 {
 pub(super) fn append(root: &Path, designed: &Designed) -> Result<(), DesignError> {
     let mut entries = read(root);
     entries.push(designed.clone());
-    let text = serde_json::to_string_pretty(&entries).map_err(|error| DesignError::Write {
+    write(root, &entries)
+}
+
+/// Marks the kept voice `voice_id` forgotten — `false`, and nothing written,
+/// when no entry keeps it.
+pub(super) fn forget(root: &Path, voice_id: &str) -> Result<bool, DesignError> {
+    let mut entries = read(root);
+    let Some(entry) = entries
+        .iter_mut()
+        .find(|entry| entry.voice_id == voice_id && entry.kept())
+    else {
+        return Ok(false);
+    };
+    entry.forgotten = true;
+    write(root, &entries).map(|()| true)
+}
+
+/// The ledger, as `entries`.
+fn write(root: &Path, entries: &[Designed]) -> Result<(), DesignError> {
+    let text = serde_json::to_string_pretty(entries).map_err(|error| DesignError::Write {
         doing: String::from("describing the designed voice"),
         source: std::io::Error::other(error.to_string()),
     })?;

@@ -29,6 +29,8 @@ pub(crate) struct Fake {
     pub(crate) designs: RefCell<usize>,
     /// Every candidate that was kept, in order.
     pub(crate) kept: RefCell<Vec<Keeping>>,
+    /// Every voice deleted from the account, in order.
+    pub(crate) forgotten: RefCell<Vec<String>>,
 }
 
 impl Fake {
@@ -51,6 +53,7 @@ impl Fake {
             unreachable: false,
             designs: RefCell::new(0),
             kept: RefCell::new(Vec::new()),
+            forgotten: RefCell::new(Vec::new()),
         }
     }
 
@@ -99,5 +102,15 @@ impl Studio for Fake {
             description: None,
             preview: None,
         })
+    }
+
+    fn forget(&self, voice_id: &str) -> Result<(), DesignError> {
+        if self.unreachable {
+            return Err(DesignError::Voice(VoiceError::Provider(
+                ProviderError::new("fake", "no route to host"),
+            )));
+        }
+        self.forgotten.borrow_mut().push(voice_id.to_owned());
+        Ok(())
     }
 }

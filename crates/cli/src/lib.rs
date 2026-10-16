@@ -123,6 +123,7 @@ fn dispatch(cli: Cli) -> Result<()> {
             keep,
             name,
             list,
+            forget,
         } => commands::design::run(
             &directory,
             &commands::design::Options {
@@ -134,6 +135,7 @@ fn dispatch(cli: Cli) -> Result<()> {
                 keep,
                 name,
                 list,
+                forget,
             },
         ),
         Command::CheckProviders {

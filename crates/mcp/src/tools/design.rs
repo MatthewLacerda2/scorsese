@@ -10,8 +10,8 @@
 //! first call answers with says it again, for free.
 //!
 //! **Quote first, like every paid tool.** A design call without `confirm`
-//! quotes and sends nothing; see [`confirm`](super::confirm). `keep` and `list`
-//! spend nothing and take no token.
+//! quotes and sends nothing; see [`confirm`](super::confirm). `keep`, `list`
+//! and `forget` (#1381) spend nothing and take no token.
 //!
 //! **It leaves something behind that the project cannot carry.** A kept voice
 //! lives in somebody's ElevenLabs account, so the id travels with the project
@@ -26,8 +26,8 @@
 use schemars::JsonSchema;
 use scorsese_providers::credentials::{Budget, Provider, resolve};
 use scorsese_providers::voices::design::{
-    Brief, DesignError, Designing, ElevenLabsStudio, Kept, LEDGER_FILE, PASSAGE, PROMPT, design,
-    designed, keep, quote,
+    Brief, DesignError, Designing, ElevenLabsStudio, FORGOTTEN, Kept, LEDGER_FILE, PASSAGE, PROMPT,
+    design, designed, forget, keep, quote,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -80,6 +80,13 @@ struct Arguments {
     /// and seed that made each one. Touches no network and spends nothing.
     #[serde(default)]
     list: bool,
+    /// The voice_id of a voice this project keeps, exactly as list shows it.
+    /// Deletes that voice from the user's ElevenLabs account, freeing the
+    /// voice slot it takes — an account holds only so many designed voices.
+    /// Spends nothing and takes no token. Cannot be undone at the vendor, but
+    /// the design and the description and seed that made the voice stay in
+    /// the project, so keeping the same candidate again can bring it back.
+    forget: Option<String>,
 }
 
 impl args::Arguments for Arguments {}
@@ -101,7 +108,9 @@ impl Tool for VoiceDesign {
          three candidates to choose between — not three charges. A design already \
          paid for is answered from disk with no token. Pass keep with a candidate id \
          and name to turn one of them into a real voice_id, which costs nothing more \
-         and takes no token. Pass list to read back what this project has designed. \
+         and takes no token. Pass list to read back what this project has designed, \
+         and forget with a voice_id from that list to delete a kept voice from the \
+         account and free the voice slot it takes — free, no token. \
          What keep creates lives in the user's ElevenLabs account rather than in the \
          project, so the description and the seed are recorded in \
          designed-voices.json — a voice that is later deleted, or a project opened \
@@ -127,6 +136,11 @@ impl Tool for VoiceDesign {
 
         if arguments.list {
             return Ok(ledger(dir).into());
+        }
+        if let Some(voice) = args::given(arguments.forget.as_deref()) {
+            let studio = ElevenLabsStudio::new(&studio_key()?);
+            let forgotten = forget(dir, &studio, voice).map_err(say)?;
+            return Ok(format!("{}\n\n{FORGOTTEN}", forgotten.says()).into());
         }
         if let Some(chosen) = args::given(arguments.keep.as_deref()) {
             let name = args::given(arguments.name.as_deref()).ok_or_else(|| {

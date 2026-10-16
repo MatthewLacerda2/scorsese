@@ -26,8 +26,11 @@
 //! - **A kept voice is its maker's alone** ([`owners`], #687): every user's
 //!   voices sit in the same vendor account, so `generate` and `voices`
 //!   refuse a voice another user's ledger names.
+//! - **A kept voice can be forgotten** ([`forget`], #1381): deleted at the
+//!   vendor, then its row, so the account's voice slots are given back — by
+//!   the user, or for them when their account is deleted.
 //!
-//! ## Both verbs are jobs
+//! ## Every verb that reaches the vendor is a job
 //!
 //! A design is paid for, and runs the way every paid generation runs here
 //! (`crate::generations`): reserved in the transaction that enqueues it, then
@@ -40,6 +43,7 @@
 //! the same vendor, so it is a job too — one way to reach a vendor, one seam
 //! ([`Vendors::studio`](crate::generations::Vendors::studio)) a test replaces.
 
+pub mod forget;
 mod job;
 pub mod owners;
 mod store;

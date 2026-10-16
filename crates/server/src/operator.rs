@@ -29,6 +29,8 @@ use sqlx::postgres::PgPool;
 use crate::ServerError;
 use crate::accounts::{sessions, tokens, users};
 pub use crate::credits::command::CreditCommand;
+use crate::designs::forget;
+use crate::generations::Vendors;
 use crate::http::auth::SESSION_COOKIE;
 use crate::jobs::store;
 use crate::storage::Storage;
@@ -114,7 +116,8 @@ pub enum UserCommand {
         /// The account's email.
         email: String,
     },
-    /// Delete an account with all its data and files. Cannot be undone.
+    /// Delete an account with all its data and files, and the voices it
+    /// designed and kept from the ElevenLabs account. Cannot be undone.
     Delete {
         /// The account's email.
         email: String,
@@ -139,10 +142,12 @@ pub enum TokenCommand {
     },
 }
 
-/// Carry out a `user` command. Returns what to print.
+/// Carry out a `user` command, reaching the vendors (for the voices an
+/// account deletion forgets, #1381) through `vendors`. Returns what to print.
 pub async fn user(
     pool: &PgPool,
     storage: &Storage,
+    vendors: &dyn Vendors,
     command: UserCommand,
 ) -> Result<String, ServerError> {
     Ok(match command {
@@ -181,8 +186,21 @@ pub async fn user(
             )));
         }
         UserCommand::Delete { email, yes: true } => {
+            let left = forget::everything(pool, users::find(pool, &email).await?, vendors)
+                .await
+                .map_err(ServerError::Database)?;
             let user = users::delete(pool, storage, &email).await?;
-            format!("deleted account {} ({email}) and its files", user.get())
+            let mut said = format!("deleted account {} ({email}) and its files", user.get());
+            if !left.is_empty() {
+                said.push_str(
+                    "\nthese designed voices could not be deleted at ElevenLabs and still take \
+                     voice slots there; delete them in its dashboard:",
+                );
+                for line in left {
+                    said.push_str(&format!("\n  {line}"));
+                }
+            }
+            said
         }
         UserCommand::List => {
             let accounts = users::list(pool).await?;

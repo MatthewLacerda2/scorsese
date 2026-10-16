@@ -1802,8 +1802,8 @@ right here, because the obvious guess is wrong: three samples come back and the
 *preview text* is billed once. The first call quotes it without a key and
 without sending anything, and a second call with the same `prompt` and `text`
 and `confirm` set to the token designs — exactly as `generate` does. A design
-already on disk needs no token, and neither do `keep` and `list`, which spend
-nothing. `guidance` says how literally the candidates follow the description —
+already on disk needs no token, and neither do `keep`, `list` and `forget`,
+which spend nothing. `guidance` says how literally the candidates follow the description —
 higher is more literal and less varied; left out, the vendor chooses.
 
 **Voice design spend is its own line item.** It counts against the same
@@ -1845,6 +1845,24 @@ elsewhere is not what that document describes. `list` reads it back.
 ```
 voice_design  { "project": "teaser.scor", "list": true }
 ```
+
+**Forget a voice nobody narrates with any more** (#1381). An ElevenLabs account
+holds only so many designed voices — 10 on Starter — and only deleting one
+gives its slot back:
+
+```
+voice_design  { "project": "teaser.scor", "forget": "aB3dE…" }
+```
+
+It takes a `voice_id` exactly as `list` shows it, and only one this project
+keeps: deleting cannot be undone at the vendor, so it is never a guess at which
+voice was meant. It spends nothing and takes no token. The entry in
+`designed-voices.json` is marked forgotten rather than removed — it is still
+what the design cost, which the spending ceiling counts, and still the
+description and the seed — and the design's samples stay in `generated/`, so
+keeping the same candidate again can bring the voice back. A line already
+generated with it is a file in the project and still plays. `scorsese
+voice-design --forget <VOICE_ID>` does the same from the command line.
 
 **Voice cloning is not here, in any form.** No user-supplied audio, no
 likeness, no consent surface. That is a decision rather than an omission, and
