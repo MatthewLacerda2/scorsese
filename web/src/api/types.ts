@@ -74,7 +74,7 @@ export interface StoredProject extends ProjectSummary {
 }
 
 /** The kinds a library file can be — `library::Kind`. */
-export const FILE_KINDS = ["video", "image", "audio"] as const;
+export const FILE_KINDS = ["video", "image", "audio", "html"] as const;
 export type FileKind = (typeof FILE_KINDS)[number];
 
 /** `http::library::Tile` — a file in a list: enough to draw a tile. */

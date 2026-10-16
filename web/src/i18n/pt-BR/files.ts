@@ -4,7 +4,8 @@
 import type { Messages } from "@/i18n/catalogue";
 
 export const files: Messages["files"] = {
-  kinds: { video: "Vídeo", image: "Imagem", audio: "Áudio" },
+  kinds: { video: "Vídeo", image: "Imagem", audio: "Áudio", html: "Página" },
+  viewer: { loading: "Carregando…", failed: "Não foi possível ler a página." },
   sorts: {
     newest: "Mais recentes",
     oldest: "Mais antigos",
