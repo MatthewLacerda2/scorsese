@@ -14,12 +14,16 @@
 //!   `SCHEMA_VERSION` rather than writing the number.
 //! - [`shebang`] — a tracked script with a shebang is executable, and an
 //!   executable text file has a shebang (#1347).
+//! - [`boundary`] — the decided architecture's boundaries: which crate may
+//!   depend on which, who holds the HTTP and Postgres clients, a headless
+//!   root workspace, and the words a crate's source may not write (#1224).
 //!
 //! **Exceptions are inline, with a written reason** ([`allow`]): a comment
 //! `lint: allow(<rule>) <why>` on the line a rule flags or in the comments
 //! directly above it. Never a list in a config file nobody reads.
 
 pub mod allow;
+pub mod boundary;
 pub mod crate_docs;
 pub mod ignored;
 pub mod markers;
@@ -70,6 +74,7 @@ pub fn check_tree(root: &Path) -> io::Result<Vec<Finding>> {
     let paths: Vec<&Path> = files.iter().map(|file| file.path.as_path()).collect();
     findings.extend(ignored::check(root, &paths));
     findings.extend(shebang::check(root));
+    findings.extend(boundary::check_root(root)?);
     let current = texts
         .iter()
         .find(|(file, _)| file.path == Path::new(schema::DEFINED_IN))
@@ -81,6 +86,7 @@ pub fn check_tree(root: &Path) -> io::Result<Vec<Finding>> {
         findings.extend(markers::check(&file.path, text));
         findings.extend(skips::check(&file.path, text));
         findings.extend(crate_docs::check(&file.path, text));
+        findings.extend(boundary::fences::check(&file.path, text));
     }
     findings.sort_by(|a, b| (&a.path, a.line).cmp(&(&b.path, b.line)));
     Ok(findings)
