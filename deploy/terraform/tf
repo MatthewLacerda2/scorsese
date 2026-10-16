@@ -9,29 +9,47 @@
 #
 # `make infra-plan` and `make infra-apply` call it for all four. It reads what it
 # needs from the env file (DEPLOY_ENV, default deploy/.env beside this folder)
-# without sourcing it, and keeps each state at
-# $SCORSESE_DATA/terraform/<name>.tfstate, outside the checkout, so applying
-# from a worktree that is then removed loses nothing.
+# without sourcing it.
+#
+# Every state lives in one versioned Google Cloud Storage bucket, which the
+# google configuration makes (google/state.tf), under a prefix of its own:
+# cloudflare, github, google, stripe-test, stripe-live. So every configuration
+# needs the maintainer's `gcloud` login, whatever vendor it manages, and a
+# worktree or even a machine can be thrown away without losing one.
 #
 #   cloudflare  CLOUDFLARE_API_TOKEN, CLOUDFLARE_TUNNEL_TOKEN (which names the
 #               account and the tunnel) and SCORSESE_SECURITY_FORWARD_TO.
-#   google      the maintainer's own `gcloud` login: a short-lived access
-#               token, so no key file exists anywhere.
+#   google      the `gcloud` login alone: a short-lived access token, so no key
+#               file exists anywhere.
 #   stripe      STRIPE_SECRET_KEY and SCORSESE_PUBLIC_ORIGIN. Test and live
 #               mode are separate at Stripe, with separate endpoints, so the
 #               state is stripe-test or stripe-live by the key's mode.
 #               `tf stripe secret` writes the endpoint's signing secret into
 #               the env file as STRIPE_WEBHOOK_SECRET, printing nothing.
 #   github      the maintainer's own `gh` login, through `gh auth token`, so
-#               no key exists anywhere either. Only SCORSESE_DATA, for the
-#               state, comes from the env file.
+#               no key exists anywhere either.
+#
+# The states began as files in $SCORSESE_DATA/terraform/<state>.tfstate, and
+# moved into the bucket once, in this order (docs/web.md, "Moving the state
+# into the bucket"):
+#
+#   tf google bootstrap apply   # the google state still on disk; makes the bucket
+#   tf google migrate           # then each configuration's file moves in
+#   tf cloudflare migrate
+#   tf github migrate
+#   tf stripe migrate           # both stripe-test and stripe-live, no key needed
+#
+# `migrate` keeps the file it moved as <state>.tfstate.migrated, and every
+# other command refuses while a <state>.tfstate is still on disk, so nothing
+# is ever applied against an empty state by mistake.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
+bucket=scorseseestudio-tfstate # google/state.tf's state_bucket
 root=${1:-}
 case "$root" in
   cloudflare | google | stripe | github) shift ;;
-  *) echo "usage: tf cloudflare|google|stripe|github <terraform command…>" >&2; exit 2 ;;
+  *) echo "usage: tf cloudflare|google|stripe|github <terraform command…|migrate|bootstrap …>" >&2; exit 2 ;;
 esac
 
 env_file=${DEPLOY_ENV:-$here/../.env}
@@ -47,18 +65,74 @@ need() {
   printf '%s' "$v"
 }
 
+command -v gcloud >/dev/null 2>&1 || {
+  echo "tf: gcloud is not installed, and every Terraform state is in Google Cloud Storage" >&2; exit 1; }
+GOOGLE_OAUTH_ACCESS_TOKEN=$(gcloud auth print-access-token 2>/dev/null) || {
+  echo "tf: gcloud is not logged in, and every Terraform state is in Google Cloud Storage -- run 'gcloud auth login'" >&2
+  exit 1; }
+export GOOGLE_OAUTH_ACCESS_TOKEN
+
+# Where the states were before the bucket: SCORSESE_DATA, if it is set. A
+# machine that never held them has nothing to migrate or to guard against.
+data=$(value SCORSESE_DATA)
+old_states=${data:+$data/terraform}
+old_state() {
+  [ -n "$old_states" ] || { echo "tf: SCORSESE_DATA is blank in $env_file, so there is no old state" >&2; exit 1; }
+  printf '%s' "$old_states/$1.tfstate"
+}
+
+tf() { terraform -chdir="$here/$root" "$@"; }
+
+# Point the configuration at the bucket, under one state's prefix.
+init_bucket() {
+  tf init -input=false -reconfigure \
+    -backend-config="bucket=$bucket" -backend-config="prefix=$1" >/dev/null
+}
+
+# Point it at an old state file instead, through an override file that lives
+# no longer than this script: the one way to reach a `local` state once the
+# configuration says `gcs`. Terraform records the choice in .terraform/, which
+# is what lets `init -migrate-state` find the state it moves.
+override="$here/$root/tf_local_override.tf"
+trap 'rm -f "$override"' EXIT
+init_local() {
+  printf 'terraform {\n  backend "local" {}\n}\n' >"$override"
+  tf init -input=false -reconfigure -backend-config="path=$1" >/dev/null
+}
+
+lineage() { sed -n 's/^ *"lineage": *"\([^"]*\)".*/\1/p' | head -n 1; }
+
+if [ "${1:-}" = migrate ]; then
+  gcloud storage buckets describe "gs://$bucket" >/dev/null 2>&1 || {
+    echo "tf: gs://$bucket does not exist yet -- 'tf google bootstrap apply' makes it" >&2; exit 1; }
+  case "$root" in
+    stripe) states="stripe-test stripe-live" ;;
+    *) states=$root ;;
+  esac
+  for state in $states; do
+    file=$(old_state "$state")
+    [ -f "$file" ] || { echo "tf: no $file, so nothing of $state's to migrate" >&2; continue; }
+    cp -p "$file" "$file.migrated"
+    init_local "$file"
+    rm -f "$override"
+    # Terraform asks before it copies; answer yes.
+    tf init -migrate-state -backend-config="bucket=$bucket" -backend-config="prefix=$state"
+    [ "$(tf state pull | lineage)" = "$(lineage <"$file.migrated")" ] || {
+      echo "tf: gs://$bucket/$state does not hold the state $file did; $file is left where it was" >&2
+      exit 1; }
+    rm -f "$file"
+    echo "tf: $state is in gs://$bucket/$state; the old file is $file.migrated --" \
+      "delete it once 'make infra-plan' shows no changes" >&2
+  done
+  exit 0
+fi
+
 case "$root" in
   cloudflare)
     CLOUDFLARE_API_TOKEN=$(need CLOUDFLARE_API_TOKEN)
     TF_VAR_tunnel_token=$(need CLOUDFLARE_TUNNEL_TOKEN)
     TF_VAR_security_forward_to=$(need SCORSESE_SECURITY_FORWARD_TO)
     export CLOUDFLARE_API_TOKEN TF_VAR_tunnel_token TF_VAR_security_forward_to
-    ;;
-  google)
-    command -v gcloud >/dev/null 2>&1 || { echo "tf: gcloud is not installed" >&2; exit 1; }
-    GOOGLE_OAUTH_ACCESS_TOKEN=$(gcloud auth print-access-token) || {
-      echo "tf: gcloud is not logged in -- run 'gcloud auth login'" >&2; exit 1; }
-    export GOOGLE_OAUTH_ACCESS_TOKEN
     ;;
   github)
     command -v gh >/dev/null 2>&1 || { echo "tf: gh is not installed" >&2; exit 1; }
@@ -77,16 +151,35 @@ case "$root" in
     esac
     ;;
 esac
+state=${state:-$root}
 
-state_dir="$(need SCORSESE_DATA)/terraform"
-mkdir -p "$state_dir"
-terraform -chdir="$here/$root" init -input=false -reconfigure \
-  -backend-config="path=$state_dir/${state:-$root}.tfstate" >/dev/null
+# The google configuration makes the bucket, so its first apply runs against
+# its old file. Once its state is in the bucket, that file is stale.
+if [ "${1:-}" = bootstrap ]; then
+  shift
+  [ "$root" = google ] || { echo "tf: only google is bootstrapped; the others 'migrate'" >&2; exit 2; }
+  if gcloud storage objects describe "gs://$bucket/google/default.tfstate" >/dev/null 2>&1; then
+    echo "tf: google's state is in gs://$bucket already; run 'tf google $*' without bootstrap" >&2
+    exit 1
+  fi
+  file=$(old_state google)
+  [ -f "$file" ] || { echo "tf: no $file to bootstrap from" >&2; exit 1; }
+  init_local "$file"
+  tf "$@" # the override stays until this script exits
+  exit
+fi
+
+if [ -n "$old_states" ] && [ -f "$old_states/$state.tfstate" ]; then
+  echo "tf: $state's state is still in $old_states/$state.tfstate, not the bucket --" \
+    "move it first (docs/web.md, \"Moving the state into the bucket\")" >&2
+  exit 1
+fi
+init_bucket "$state"
 
 if [ "$root" = stripe ] && [ "${1:-}" = secret ]; then
   # The secret reaches the file through the environment, never an argument
   # (which `ps` shows) or the terminal; `cat >` keeps the file's permissions.
-  secret=$(terraform -chdir="$here/$root" output -raw webhook_secret 2>/dev/null) || secret=
+  secret=$(tf output -raw webhook_secret 2>/dev/null) || secret=
   case "$secret" in
     whsec_*) ;;
     *) echo "tf: no signing secret in the $state state -- Stripe returns it only when" \
