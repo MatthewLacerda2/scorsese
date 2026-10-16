@@ -112,6 +112,10 @@ mod tests {
     /// Compared as JSON values, not bytes: the web gate formats the file its
     /// own way, and only what it says has to match.
     #[test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "UPDATE_STYLE_MENU is a test's rewrite switch, not a secret"
+    )]
     fn the_web_apps_copy_of_the_menu_is_the_menu() {
         let served = serde_json::to_value(current()).expect("the menu serialises");
         let path = copy();

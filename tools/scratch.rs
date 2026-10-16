@@ -27,6 +27,10 @@ use std::sync::atomic::{AtomicU32, Ordering};
 struct Made(Vec<PathBuf>);
 
 impl Drop for Made {
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "SCORSESE_KEEP_SCRATCH keeps a test's folders to look at, not a secret"
+    )]
     fn drop(&mut self) {
         let keep = std::env::var_os("SCORSESE_KEEP_SCRATCH").is_some();
         for path in &self.0 {

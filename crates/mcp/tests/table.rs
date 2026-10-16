@@ -42,6 +42,10 @@ fn rows() -> Vec<Vec<String>> {
 }
 
 #[test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "UPDATE_MCP_TABLE is a test's rewrite switch, not a secret"
+)]
 fn the_page_carries_exactly_what_the_registry_says() {
     let path = page();
     let on_disk = std::fs::read_to_string(&path).expect("docs/mcp.md is in the repo");

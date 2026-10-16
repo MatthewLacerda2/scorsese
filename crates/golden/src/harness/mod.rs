@@ -33,6 +33,10 @@ pub enum Mode {
 
 impl Mode {
     /// `UPDATE_GOLDENS=1` blesses; unset, empty, or `0` checks.
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "UPDATE_GOLDENS is the re-blessing switch, not a secret (docs/golden-renders.md)"
+    )]
     pub fn from_env() -> Self {
         match std::env::var(UPDATE_VARIABLE) {
             Ok(value) if !value.is_empty() && value != "0" => Self::Bless,

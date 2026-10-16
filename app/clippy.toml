@@ -8,3 +8,17 @@
 # which is right: a helper fails a long way from the test that called it, so the
 # message is the only thing telling you which one.
 allow-unwrap-in-tests = true
+
+# Secrets resolve in one order, through one resolver (CLAUDE.md;
+# docs/credentials.md): `scorsese_providers::credentials` reads the environment
+# for every key, so a key read anywhere else would skip the settings file a
+# shipped build keeps, and the spending ceiling beside it. Every other read of
+# the environment — where ffmpeg or Chromium is, a test's `UPDATE_…` switch —
+# is one a reader should see the reason for, so each carries
+# `#[expect(clippy::disallowed_methods, reason = "…")]` at the site (#1224).
+disallowed-methods = [
+    { path = "std::env::var", reason = "read a key through scorsese_providers::credentials; anything else says why with #[expect(clippy::disallowed_methods, reason = ...)]" },
+    { path = "std::env::var_os", reason = "read a key through scorsese_providers::credentials; anything else says why with #[expect(clippy::disallowed_methods, reason = ...)]" },
+    { path = "std::env::vars", reason = "read a key through scorsese_providers::credentials; anything else says why with #[expect(clippy::disallowed_methods, reason = ...)]" },
+    { path = "std::env::vars_os", reason = "read a key through scorsese_providers::credentials; anything else says why with #[expect(clippy::disallowed_methods, reason = ...)]" },
+]

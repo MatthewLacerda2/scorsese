@@ -25,6 +25,10 @@ pub(crate) struct Found {
 }
 
 /// The browser, by the order above.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "SCORSESE_CHROME names a machine's own browser, not a secret"
+)]
 pub(crate) fn find() -> Result<Found, ChromeError> {
     find_in(
         std::env::var_os(CHROME_ENV),

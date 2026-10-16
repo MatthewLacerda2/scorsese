@@ -47,6 +47,10 @@ fn regenerated(page: &str, region: &str, names: &[&str]) -> Option<String> {
 }
 
 #[test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "UPDATE_WEB_TOOLS is a test's rewrite switch, not a secret"
+)]
 fn the_page_lists_exactly_the_tools_served_as_they_are() {
     let path = page();
     let on_disk = std::fs::read_to_string(&path).expect("docs/web.md is in the repo");
