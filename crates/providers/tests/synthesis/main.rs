@@ -6,8 +6,11 @@
 mod common;
 
 mod anchoring;
+mod caching;
 mod fitting;
 mod instruments;
 mod lengthening;
+mod midi;
 mod safety;
 mod stopping;
+mod tuning;

@@ -108,3 +108,12 @@ fn translation_is_deterministic_so_the_cache_survives_the_second_turn() {
     let again = replay(Model::ClaudeSonnet55, &[on(Model::ClaudeOpus55)]).unwrap();
     assert_eq!(texts(&first), texts(&again));
 }
+
+/// The vendor's id is stored beside every charged call, so it is pinned: a
+/// rename here would split one vendor's history in two.
+#[test]
+fn every_model_is_served_by_anthropic_under_that_name() {
+    for model in Model::ALL {
+        assert_eq!(model.vendor().id(), "anthropic");
+    }
+}

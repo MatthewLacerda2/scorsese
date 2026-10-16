@@ -164,8 +164,8 @@ mod tests {
             panic!("a `patch` recipe is a one-shot")
         };
         let opts = one_shot.opts();
-        assert_eq!(opts.duration, default_duration());
-        assert_eq!(opts.velocity, default_velocity());
+        assert_eq!(opts.duration, 0.5, "half a second of gate");
+        assert_eq!(opts.velocity, 1.0, "struck at full force");
         assert_eq!(opts.seed, 0);
     }
 

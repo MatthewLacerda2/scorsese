@@ -409,18 +409,12 @@ pub(super) fn write(path: &Path, wav: &[u8]) -> Result<(), SynthesisError> {
 
 /// Points the asset at what is now on disk, and says what is in it.
 ///
-/// **What asserts this lives in `crates/cli`**, and that is deliberate rather
-/// than an omission. Every line here is a fact written onto an asset from a
-/// file that was just produced, so the only way to check one is to bake for
-/// real and read the project back — which is what `cli/tests/synth/metadata.rs`
-/// does, down to the duration, the channel count and the rate. Restating that
-/// here would need a project, a recipe and a bake inside a unit test, to
-/// arrive at a weaker version of a test that already exists.
-///
-/// It shows up in the mutation report as a module where nothing at all is
-/// caught, because the signal runs each package's own tests and this one's
-/// assertions are next door. That is the shape the report itself names, and
-/// this is its written reason.
+/// Every line here is a fact written onto an asset from a file that was just
+/// produced, so the only way to check one is to bake for real and read the
+/// project back: `cli/tests/synth/metadata.rs` does, down to the duration, and
+/// so does `tests/synthesis/caching.rs` here, because the mutation signal runs
+/// only this package's own tests and a gap it cannot see is one it reports
+/// (#341).
 fn record(project: &mut Project, id: &AssetId, baked: &Baked, project_root: &Path) {
     let Some(asset) = project.assets.iter_mut().find(|asset| &asset.id == id) else {
         return;

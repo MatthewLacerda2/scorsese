@@ -72,9 +72,9 @@ impl ToMidi {
 /// The project is read and never written: an export is a view of the recipe,
 /// not a new asset, and nothing in the project points at it.
 ///
-/// **What asserts this lives in `crates/cli`**, as `super::super::partial`'s
-/// does and for the same reason: every claim here is about a file on disk,
-/// and the conversion itself is tested where it lives, in `scorsese-zimmer`.
+/// The conversion itself is tested where it lives, in `scorsese-zimmer`; the
+/// file on disk and the report are `tests/synthesis/midi.rs`'s, and the
+/// command line's own tests check the same from the outside.
 pub fn export_midi(
     project: &Project,
     project_root: &Path,
