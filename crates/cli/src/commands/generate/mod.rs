@@ -18,20 +18,18 @@
 //! and somebody has said go ahead — see [`confirm`](super::confirm). The ceiling is checked
 //! further down still, inside the pass, where no flag reaches it.
 
-mod lines;
 mod measure;
-mod shots;
-mod stills;
+mod report;
 
 use std::path::Path;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use scorsese_core::{AssetId, Project};
+use scorsese_core::Project;
 use scorsese_providers::credentials::Budget;
 use scorsese_providers::image::Order;
+use scorsese_providers::passes::{self, Halt, Keyed};
 use scorsese_providers::prices::dollars;
-use scorsese_providers::video::{Outcome, Run, Stopped};
 use scorsese_providers::{image, speech, video};
 
 use super::confirm;
@@ -71,154 +69,48 @@ pub(crate) fn run(project_dir: &Path, asked: &Asked) -> Result<()> {
     }
 
     let budget = Budget::for_project(&project, project_dir).context("nothing was sent")?;
+    let passes_asked = passes::Asked {
+        budget,
+        patience: asked.patience,
+        order,
+    };
 
     // The document is saved whatever happens, and that is not tidiness: a
     // ticket written before a failure is the only record that money was spent,
     // and losing it means paying again for work already in flight.
-    let (done, outcome) = match order {
-        Order::Now => passes(&mut project, project_dir, budget, asked.patience),
-        Order::Batch => batched(&mut project, project_dir, budget),
-    };
+    let (done, outcome) = passes::run(&mut project, project_dir, &passes_asked, &Keyed);
     project
         .save(project_dir)
         .with_context(|| format!("saving {}", project_dir.display()))?;
     // What landed is measured even when the run stopped after it: a line
     // that came back shorter than its clip leaves a project nothing can open
     // until its clip is fitted (#1114).
-    let landed = landed(&done.shots.outcomes, &done.lines);
-    let measured = if !landed.is_empty() || done.drew() {
-        measure::measure(&mut project, project_dir, &landed)
+    let measured = if done.unmeasured() {
+        measure::measure(&mut project, project_dir, &done)
     } else {
         Ok(Vec::new())
     };
     // A run that stopped after spending says what it spent before it says
     // why it stopped: the error alone reads as nothing having happened (#1057).
     if !done.is_empty() || outcome.is_ok() {
-        report(&done, project_dir);
+        report::run(&done, project_dir);
     }
     if let Ok(shortened) = &measured {
-        measure::report(shortened);
+        report::shortened(shortened);
     }
-    outcome?;
+    outcome.map_err(halted)?;
     measured.map(drop)
 }
 
-/// What became of this run's narration.
-type Spoken = [(AssetId, speech::Outcome)];
-
-/// What arrived on disk with a length nothing has measured yet.
-///
-/// A cache hit is not one of them: its file was already there, and whatever ran
-/// when it first landed has had every chance to look at it.
-fn landed(shots: &[(AssetId, Outcome)], lines: &Spoken) -> Vec<AssetId> {
-    let shot = shots
-        .iter()
-        .filter(|(_, outcome)| matches!(outcome, Outcome::Generated { .. }))
-        .map(|(id, _)| id);
-    let line = lines
-        .iter()
-        .filter(|(_, outcome)| matches!(outcome, speech::Outcome::Generated { .. }))
-        .map(|(id, _)| id);
-    shot.chain(line).cloned().collect()
-}
-
-/// What every pass did.
-struct Done {
-    /// The shots, and what they committed.
-    shots: Run,
-    /// The stills.
-    stills: Vec<(AssetId, image::Outcome)>,
-    /// The narration.
-    lines: Vec<(AssetId, speech::Outcome)>,
-}
-
-impl Done {
-    /// Whether no pass did anything at all.
-    fn is_empty(&self) -> bool {
-        self.shots.outcomes.is_empty() && self.stills.is_empty() && self.lines.is_empty()
+/// Why a run ended early, as the error the terminal prints — a missing key
+/// or a vendor's failure keeps its own chain of causes.
+fn halted(halt: Halt) -> anyhow::Error {
+    match halt {
+        Halt::Key { error, .. } => error.into(),
+        Halt::Stopped(says) => anyhow::anyhow!(says),
+        Halt::Shots(error) => error.into(),
+        Halt::Stills(error) => error.into(),
     }
-
-    /// Whether a still landed on disk that nothing has measured yet.
-    fn drew(&self) -> bool {
-        self.stills.iter().any(|(_, outcome)| outcome.landed())
-    }
-
-    /// What the stills spent.
-    fn stills_spent(&self) -> u64 {
-        self.stills.iter().map(|(_, o)| o.spent_cents()).sum()
-    }
-}
-
-/// Every pass, each run only if it has something to do.
-///
-/// Returns what happened even when something failed, because the caller has to
-/// save the project either way — a shot queued before an error is a shot that
-/// has been paid for, and its ticket is the only record of it.
-fn passes(
-    project: &mut Project,
-    project_dir: &Path,
-    budget: Budget,
-    patience: Duration,
-) -> (Done, Result<()>) {
-    let mut done = Done {
-        shots: Run {
-            outcomes: Vec::new(),
-            spent_cents: 0,
-        },
-        stills: Vec::new(),
-        lines: Vec::new(),
-    };
-
-    if video::pending(project, project_dir) {
-        match shots::pass(project, project_dir, budget, patience) {
-            Ok(run) => done.shots = run,
-            // A run that stopped part-way carries the shots it sent, and says
-            // in words how many went and how many did not.
-            Err(error) => {
-                if let Some(stopped) = error.downcast_ref::<Stopped>() {
-                    done.shots = stopped.run.clone();
-                    let says = stopped.says();
-                    return (done, Err(anyhow::anyhow!(says)));
-                }
-                return (done, Err(error));
-            }
-        }
-    }
-    // The ceiling carries across: what one pass committed is already spent as
-    // far as the next is concerned.
-    if image::pending(project, project_dir) {
-        let budget = budget.spend(done.shots.spent_cents);
-        // A pass that stops part-way fills its slot with what it made first.
-        if let Err(error) = stills::pass(project, project_dir, budget, &mut done.stills) {
-            return (done, Err(error));
-        }
-    }
-    if speech::pending(project, project_dir) {
-        let budget = budget.spend(done.shots.spent_cents + done.stills_spent());
-        if let Err(error) = lines::pass(project, project_dir, budget, &mut done.lines) {
-            return (done, Err(error));
-        }
-    }
-    (done, Ok(()))
-}
-
-/// The stills, ordered as a batch — the one pass a batch run makes. Its quote
-/// was refused had a shot or a line been waiting to be sent.
-fn batched(project: &mut Project, project_dir: &Path, budget: Budget) -> (Done, Result<()>) {
-    let mut done = Done {
-        shots: Run {
-            outcomes: Vec::new(),
-            spent_cents: 0,
-        },
-        stills: Vec::new(),
-        lines: Vec::new(),
-    };
-    if image::pending(project, project_dir)
-        && let Err(error) = stills::order(project, project_dir, budget, &mut done.stills)
-    {
-        return (done, Err(error));
-    }
-    (done, Ok(()))
 }
 
 /// Whether this run may go ahead: the quote, and then the question.
@@ -262,37 +154,28 @@ fn pending(project: &Project, root: &Path) -> bool {
 pub(crate) fn sweep(project_dir: &Path) -> Result<()> {
     let mut project = super::open(project_dir)?;
 
-    let outcome = shots::sweep(&mut project, project_dir);
-    let drawn = match &outcome {
-        Ok(_) => stills::sweep(&mut project, project_dir),
-        Err(_) => Ok(Vec::new()),
-    };
+    let (done, outcome) = passes::collect(&mut project, project_dir, &Keyed);
     project
         .save(project_dir)
         .with_context(|| format!("saving {}", project_dir.display()))?;
-    let collected = outcome?;
-    let drawn = drawn?;
-    if collected.is_empty() && drawn.is_empty() {
+    outcome.map_err(halted)?;
+    if done.is_empty() {
         println!("Nothing is in flight.");
         return Ok(());
     }
     // A shot collected here is a shot nothing has looked at, exactly as if the
     // run that submitted it had waited for it — and so is a still from its
     // batch.
-    let landed = landed(&collected, &[]);
-    let shortened = if !landed.is_empty() || drawn.iter().any(|(_, outcome)| outcome.landed()) {
-        measure::measure(&mut project, project_dir, &landed)?
+    let shortened = if done.unmeasured() {
+        measure::measure(&mut project, project_dir, &done)?
     } else {
         Vec::new()
     };
     // A sweep spends nothing by construction, so its total is zero and saying
     // so is honest rather than a gap.
-    shots::report(&Run {
-        outcomes: collected,
-        spent_cents: 0,
-    });
-    stills::report(&drawn);
-    measure::report(&shortened);
+    report::shots(&done.shots);
+    report::stills(&done.stills);
+    report::shortened(&shortened);
     println!();
     println!(
         "About {} spent on this run — nothing, because a sweep only collects.",
@@ -337,24 +220,4 @@ fn quote(project: &Project, root: &Path, order: Order) -> Result<()> {
         );
     }
     Ok(())
-}
-
-/// Every brief's line, then the one total that spans every provider.
-fn report(done: &Done, project_dir: &Path) {
-    if done.is_empty() {
-        println!("No generated assets in this project.");
-        return;
-    }
-    shots::report(&done.shots);
-    stills::report(&done.stills);
-    lines::report(&done.lines, project_dir);
-
-    let spent = done.shots.spent_cents
-        + done.stills_spent()
-        + done.lines.iter().map(|(_, o)| o.spent_cents()).sum::<u64>();
-    println!();
-    println!(
-        "About {} spent on this run — our calculation, never a bill.",
-        dollars(spent)
-    );
 }

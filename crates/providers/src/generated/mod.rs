@@ -13,6 +13,7 @@
 //! from [`record`] too, since it is the one moment every provider passes
 //! through with the file, its bytes and its figure in hand.
 
+pub mod passes;
 mod prompted;
 mod stopped;
 

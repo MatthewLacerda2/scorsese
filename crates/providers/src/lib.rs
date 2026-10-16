@@ -175,7 +175,7 @@ pub mod synth;
 pub mod video;
 pub mod voices;
 
-pub use generated::Stopped;
+pub use generated::{Stopped, passes};
 // Test scratch folders, removed when each test ends (#1132).
 #[cfg(test)]
 #[path = "../../../tools/scratch.rs"]

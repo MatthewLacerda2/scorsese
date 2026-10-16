@@ -3,7 +3,11 @@
 use std::path::PathBuf;
 
 use scorsese_core::testing::StubProbe;
-use scorsese_core::{AssetId, MediaMetadata, PROJECT_FILE_NAME, Project, SCHEMA_VERSION};
+use scorsese_core::{
+    AssetId, MediaMetadata, PROJECT_FILE_NAME, Project, ProjectPath, SCHEMA_VERSION,
+};
+use scorsese_providers::passes::Done;
+use scorsese_providers::speech::Outcome;
 
 use super::fitted;
 
@@ -13,6 +17,20 @@ fn one_second() -> StubProbe {
         duration_seconds: Some(1.0),
         ..MediaMetadata::default()
     })
+}
+
+/// A run that spoke `vo` and nothing else.
+fn spoke_vo() -> Done {
+    let mut done = Done::default();
+    done.lines.push((
+        AssetId::new("vo"),
+        Outcome::Generated {
+            path: ProjectPath::new("generated/vo.mp3"),
+            bytes: 9,
+            estimated_cost_cents: 1,
+        },
+    ));
+    done
 }
 
 /// A project whose narration has just landed: three seconds laid out for it,
@@ -41,7 +59,7 @@ fn a_line_shorter_than_its_clip_shortens_the_clip_and_the_project_still_opens() 
     let mut project = Project::load(&dir).expect("open before the probe");
 
     let shortened =
-        fitted(&mut project, &dir, &one_second(), &[AssetId::new("vo")]).expect("measure and save");
+        fitted(&mut project, &dir, &one_second(), &spoke_vo()).expect("measure and save");
 
     assert_eq!(shortened.len(), 1, "{shortened:?}");
     assert!(
@@ -61,7 +79,8 @@ fn an_asset_this_run_did_not_bring_back_is_left_alone() {
     let dir = just_spoken("generate-fit-other");
     let mut project = Project::load(&dir).expect("open before the probe");
 
-    let shortened = fitted(&mut project, &dir, &one_second(), &[]).expect("measure and save");
+    let shortened =
+        fitted(&mut project, &dir, &one_second(), &Done::default()).expect("measure and save");
 
     assert!(shortened.is_empty(), "{shortened:?}");
 }
