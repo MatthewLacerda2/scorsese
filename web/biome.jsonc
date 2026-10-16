@@ -19,6 +19,11 @@
       // lib/storage.ts is the one module that touches storage; test/ is the test
       // setup, which clears it between tests.
       "includes": ["**/src/**", "!**/src/lib/storage.ts", "!**/src/test/**"]
+    },
+    {
+      "path": "./lint/literalUiText.grit",
+      // A test's JSX is a harness nobody but the test reads; src/test/ is the tests' own.
+      "includes": ["**/*.tsx", "!**/*.test.tsx", "!**/src/test/**"]
     }
   ],
   "formatter": {

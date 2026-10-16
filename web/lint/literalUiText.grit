@@ -1,0 +1,63 @@
+// Words a user reads or hears come from the i18n catalogue, never a literal in
+// JSX (#1211). The web app speaks English, pt-BR and Spanish; `tsc` catches a
+// catalogue missing a key, but a sentence typed straight into a component
+// compiles, passes its tests and stays English whatever the user picked.
+// web/README.md, *Strings and languages* and *House rules*, has the rest.
+//
+// Flagged: JSX text between tags; a string literal or a template literal's
+// static part in a JSX child `{…}`, including the branches of `?:`, `??`, `||`
+// and `&&`; and the same in the attributes that carry text: `alt`, `title`,
+// `placeholder`, `label` and the text `aria-*` ones, on elements and
+// components alike.
+// Passed: text with no word in it (`—`, `·`, `%`, `3`), a single letter,
+// all-caps acronyms (`MP4`, `OK`) and the product name `scorsese` alone.
+// Not descended into: calls (`t.x(…)`, `cn("…")`), comparisons, member keys,
+// functions, objects, arrays, nested JSX (whose own text is checked as JSX)
+// and a template's `${…}`.
+// The hole: a literal outside JSX — a default in a hook, `const label =
+// name || "Untitled"` — is not seen. Review catches those.
+language js
+
+// Two letters in a row with a lowercase among them: a word, not a symbol, a
+// number, a single letter or an acronym.
+pattern words() {
+  $text where {
+    $text <: r"(?s).*(?:\p{L}\p{Ll}|\p{Ll}\p{L}).*",
+    $text <: not r"(?s)\W*scorsese\W*"
+  }
+}
+
+predicate report($text) {
+  register_diagnostic(span=$text, message="literalUiText: words a user reads come from the i18n catalogue (src/i18n/, read with useT()), not a literal in JSX. If this is not language, say why in a biome-ignore (web/README.md, House rules).")
+}
+
+// The literals an expression shows as text: every one reachable without
+// passing through something that computes with it instead.
+pattern spoken() {
+  contains bubble or {
+    JsStringLiteralExpression(),
+    JsxString(),
+    JsTemplateChunkElement()
+  } as $text where { $text <: words(), report($text) } until or {
+    JsCallExpression(),
+    JsNewExpression(),
+    JsBinaryExpression(),
+    JsInExpression(),
+    JsInstanceofExpression(),
+    JsComputedMemberExpression(),
+    JsxTagExpression(),
+    JsArrowFunctionExpression(),
+    JsFunctionExpression(),
+    JsObjectExpression(),
+    JsArrayExpression(),
+    JsTemplateElement()
+  }
+}
+
+or {
+  JsxText() as $text where { $text <: words(), report($text) },
+  JsxExpressionChild() as $child where { $child <: spoken() },
+  JsxAttribute(name=r"alt|title|placeholder|label|aria-(?:label|description|placeholder|roledescription|valuetext)", initializer=JsxAttributeInitializerClause(value=$value)) where {
+    $value <: spoken()
+  }
+}
