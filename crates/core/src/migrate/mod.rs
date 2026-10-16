@@ -25,6 +25,7 @@
 mod frame;
 mod speech;
 mod stills;
+mod stock;
 
 use std::path::{Path, PathBuf};
 
@@ -137,6 +138,10 @@ pub(crate) const STEPS: &[Step] = &[
     Step {
         from: 51,
         apply: frame::frames_arrive,
+    },
+    Step {
+        from: 52,
+        apply: stock::stock_sources_arrive,
     },
 ];
 

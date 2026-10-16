@@ -56,6 +56,13 @@ export const files = {
       spoken_line: "Generated speech",
       voice_design: "Voice design sample",
     },
+    provider: "Provider",
+    providers: {
+      veo_shot: "Veo, by Google",
+      still_image: "Gemini, by Google",
+      spoken_line: "ElevenLabs",
+      voice_design: "ElevenLabs",
+    },
     model: "Model",
     made: "Made",
     cost: "Cost",
@@ -69,6 +76,13 @@ export const files = {
     references: "References",
     seed: "Seed",
     voice: "Voice",
+  },
+  source: {
+    libraries: { pixabay: "Pixabay" },
+    title: (library: string) => `From ${library}`,
+    author: "By",
+    licence: "Licence",
+    page: (library: string) => `See it on ${library}`,
   },
   uploads: {
     title: "Uploads",

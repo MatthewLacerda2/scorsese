@@ -4,7 +4,7 @@
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
-use scorsese_core::{Imported, ProbeMedia, Project, import_path};
+use scorsese_core::{Imported, ProbeMedia, Project, Source, StockLibrary, import_path};
 
 use super::candidate::{Candidate, Medium, Rendition};
 use super::library::{Library, StockError};
@@ -147,6 +147,10 @@ pub struct Fetched {
     pub fills: bool,
     /// The asset it is now — or already was, when the pool held its bytes.
     pub imported: Imported,
+    /// Whether its `source` was written: on every new asset, and on one the
+    /// pool already held that did not yet say where it came from. Either way
+    /// the project changed.
+    pub recorded: bool,
 }
 
 /// Imports each of `choices` into `project` at `root` as an ordinary
@@ -157,8 +161,9 @@ pub struct Fetched {
 /// the answers come back in the order asked. The project is changed in
 /// memory only — saving it is the caller's, once, after all of them.
 ///
-/// The file lands as `assets/pixabay-<id>.<ext>`, so where it came from is
-/// in its name and nowhere in the format.
+/// The file lands as `assets/pixabay-<id>.<ext>`, and the asset records where
+/// it came from in its `source` (#1237): the library, the id, the author, the
+/// page and the licence, from the result already in hand.
 pub fn import(
     project: &mut Project,
     root: &Path,
@@ -217,12 +222,47 @@ fn one(
             path: path.clone(),
             source: std::io::Error::other("the download imported as nothing"),
         })?;
+    let recorded = record(project, &imported, &candidate);
     Ok(Fetched {
         fills: rendition.covers(width, height),
         candidate,
         rendition,
         imported,
+        recorded,
     })
+}
+
+/// The name of the licence a Pixabay file comes under, as Pixabay calls it.
+pub const LICENCE_NAME: &str = "Pixabay Content License";
+
+/// Where `candidate` came from, as the asset's `source` records it.
+///
+/// Pixabay's, like the `pixabay-<id>` file name [`import`] writes: footage and
+/// photos come from one library today, and Pexels (#1234) generalises both
+/// when it arrives.
+pub fn source_of(candidate: &Candidate) -> Source {
+    let known = |text: &str| (!text.trim().is_empty()).then(|| text.to_owned());
+    Source {
+        library: StockLibrary::Pixabay,
+        id: candidate.id.to_string(),
+        author: known(&candidate.author),
+        page_url: known(&candidate.page_url),
+        licence: Some(LICENCE_NAME.to_owned()),
+    }
+}
+
+/// Writes `candidate`'s origin onto the asset `imported` names, unless it
+/// already says one — a file the pool held keeps the origin it was given
+/// first. Whether anything was written.
+fn record(project: &mut Project, imported: &Imported, candidate: &Candidate) -> bool {
+    let Some(asset) = project.assets.iter_mut().find(|one| one.id == imported.id) else {
+        return false;
+    };
+    if asset.source.is_some() {
+        return false;
+    }
+    asset.source = Some(source_of(candidate));
+    true
 }
 
 /// The extension of the file `url` names, lower case — or the medium's usual

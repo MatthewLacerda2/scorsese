@@ -99,6 +99,13 @@
           "stroke": "#0b1020",
           "stroke_width": 3.5
         },
+        "source": {
+          "author": "someone",
+          "id": "39009",
+          "library": "pixabay",
+          "licence": "Pixabay Content License",
+          "page_url": "https://pixabay.com/videos/id-39009/"
+        },
         "speech": {
           "language": "pt",
           "model": "expressive",
@@ -145,7 +152,7 @@
       }
     ],
     "name": "Every field",
-    "schema_version": 52,
+    "schema_version": 53,
     "script": "script.md",
     "timeline_fps": {
       "den": 1,
@@ -465,6 +472,9 @@
       "expressive",
       "standard",
       "fast"
+    ],
+    "StockLibrary": [
+      "pixabay"
     ],
     "TextAlign": [
       "left",

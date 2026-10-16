@@ -34,7 +34,8 @@ impl Tool for Assets {
          how many clips use it. One no clip shows says what names it instead \
          (a shot, a sequence, a page), which is what keeps it from asset_remove's \
          collection; a page or a synth_audio asset ends with the file it is written in \
-         (its page, its recipe). An image sequence is one line with its count of \
+         (its page, its recipe); a stock import ends with where it came from \
+         (library, id, author, licence, page). An image sequence is one line with its count of \
          stills; only a still needing attention or also used by a clip is named, \
          indented under it. Says which generated assets are still sketches \
          nobody has realised, and which files the document points at and cannot \
@@ -98,8 +99,9 @@ fn listed(project: &Project, listed: &Listed<'_>) -> Vec<String> {
     lines
 }
 
-/// One asset: id, kind and health in the document's words, what uses it, and
-/// for a page or a recipe-backed sound the file its content is written in.
+/// One asset: id, kind and health in the document's words, what uses it, for
+/// a page or a recipe-backed sound the file its content is written in, and for
+/// a stock import where it came from.
 fn line(project: &Project, row: &AssetStatus) -> String {
     let mut line = format!(
         "{}\t{}\t{}\t{} clip(s)",
@@ -116,6 +118,9 @@ fn line(project: &Project, row: &AssetStatus) -> String {
     };
     if let Some(path) = written {
         line.push_str(&format!("\t{path}"));
+    }
+    if let Some(source) = asset.and_then(|asset| asset.source.as_ref()) {
+        line.push_str(&format!("\tfrom {}", source.says()));
     }
     line
 }

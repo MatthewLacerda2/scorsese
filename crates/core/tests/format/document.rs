@@ -109,6 +109,7 @@ fn asset() -> Asset {
         queued_at: Some(stamp()),
         operation: Some("operations/1".to_owned()),
         estimated_cost_cents: Some(120),
+        source: Some(super::stock::source()),
     }
 }
 

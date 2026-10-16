@@ -30,8 +30,9 @@
 //! that fills the render's frame — by measured size, never by the vendor's
 //! name for it — and hands the file to `scorsese_core::import_path`, so it is
 //! a `video` or `image` asset like a file somebody dropped in: probed, hashed,
-//! copied into `assets/`. No new asset kind and no format change; where it
-//! came from is in the file name, `pixabay-<id>`.
+//! copied into `assets/`. No new asset kind; where it came from is in the file
+//! name, `pixabay-<id>`, and in the asset's `source` block (#1237) — library,
+//! id, author, page and licence — so it travels with the project.
 //!
 //! **Every surface says an import the same way.** [`Imports`] and
 //! [`Animations`] word what came in, from where, by whom and under which
@@ -63,7 +64,9 @@ mod search;
 
 pub use cache::{FRESH_FOR, cache_dir, find_cached};
 pub use candidate::{Candidate, Medium, Orientation, Rendition, named_in};
-pub use fetch::{Choice, Fetched, footage, import, labelled_previews, previews};
+pub use fetch::{
+    Choice, Fetched, LICENCE_NAME, footage, import, labelled_previews, previews, source_of,
+};
 pub use library::{Library, Page, Query, StockError};
 pub use lottie::{Kept, LottieLibrary, keep};
 pub use pixabay::PixabayLibrary;

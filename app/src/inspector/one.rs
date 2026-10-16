@@ -121,7 +121,8 @@ impl Inspector {
     }
 }
 
-/// What this clip is: the asset it shows, what that asset is, and where it sits.
+/// What this clip is: the asset it shows, what that asset is, where a stock
+/// file came from, and where it sits.
 fn identity(ui: &mut Ui, selected: &Selected) {
     ui.add_space(4.0);
     ui.horizontal(|ui| {
@@ -135,6 +136,9 @@ fn identity(ui: &mut Ui, selected: &Selected) {
         ui.label(RichText::new(selected.asset.as_str()).strong());
     });
     ui.label(RichText::new(describe(selected)).small().weak());
+    if let Some(source) = &selected.source {
+        ui.label(RichText::new(format!("from {source}")).small().weak());
+    }
     ui.label(
         RichText::new(format!("on track {}", selected.track))
             .small()

@@ -51,6 +51,7 @@ mod generated;
 mod kind;
 pub mod locate;
 pub mod proxy;
+mod source;
 mod store;
 pub mod thumbnail;
 pub mod upload;

@@ -134,6 +134,21 @@ export interface GenerationRecord {
   seed?: number | null;
 }
 
+/** The stock libraries a file can come from — `scorsese_core::StockLibrary`. */
+type StockLibrary = "pixabay";
+
+/**
+ * Where a stock file came from (#1237) — `scorsese_core::Source`: the library,
+ * its id there and, where known, who published it, its page and its licence.
+ */
+export interface StockSource {
+  library: StockLibrary;
+  id: string;
+  author?: string;
+  page_url?: string;
+  licence?: string;
+}
+
 /** `http::library::Details` — everything known about one file. */
 export interface LibraryItem {
   id: number;
@@ -152,6 +167,8 @@ export interface LibraryItem {
   /** The templates that use it (#546), which keep it from being deleted too. */
   templates: ProjectRef[];
   generation: GenerationRecord | null;
+  /** For a stock file, where it came from; `null` for an upload or a generation. */
+  source: StockSource | null;
 }
 
 /** `http::credits::Balance` — `GET /api/credits`. */

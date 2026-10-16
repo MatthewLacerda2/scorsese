@@ -3,11 +3,12 @@
 
 use scorsese_core::{
     ImageAspect, ImageResolution, ImageThinking, Locale, OriginX, OriginY, RevealUnit, Side,
-    SpeechModel, TextAlign, TrackKind, VideoModel, VideoResolution,
+    SpeechModel, StockLibrary, TextAlign, TrackKind, VideoModel, VideoResolution,
 };
 use serde_json::Value;
 
 pub(crate) fn more(put: &mut impl FnMut(&str, Value) -> Option<Value>) {
+    put("StockLibrary", every!(StockLibrary::Pixabay));
     put(
         "ImageAspect",
         every!(

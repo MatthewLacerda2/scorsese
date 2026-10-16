@@ -1403,7 +1403,7 @@ local project keeps them, so a render's pages get `scorsese.words` and
 | route | who | what |
 | --- | --- | --- |
 | `GET /api/library` | a member | their files, newest first: `id`, `name`, `kind`, `size_bytes`, `thumbnail`; `?kind=`, `?search=`, `?sha256=` and `?project=` (the files that project uses) narrow it |
-| `GET /api/library/{id}` | a member | everything known, `used_by` (projects), `templates`, `generation` (or `null`) |
+| `GET /api/library/{id}` | a member | everything known, `used_by` (projects), `templates`, `generation` (or `null`), `source` — where a stock file came from (or `null`, #1237) |
 | `PATCH /api/library/{id}` | a member | `{name?, description?}`; an empty description removes it |
 | `DELETE /api/library/{id}` | a member | `204`; `409` with `projects` and `templates` when one uses it |
 | `GET /api/library/{id}/file` | a member | the file, whole or in the range asked for; `?download=1` adds `Content-Disposition: attachment` with its name and real extension (#711) |

@@ -1,6 +1,6 @@
 // A file's details panel: what it is, where it is used, what the assistant
 // reads about it, and — for a generated file — how it was made and what it
-// cost. Rename, describe, download and delete happen here; a delete a project
+// cost, or for a stock file where it came from. Rename, describe, download and delete happen here; a delete a project
 // blocks is refused by the server with the projects' names, shown as links.
 
 import { useState } from "react";
@@ -24,6 +24,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { DownloadButton } from "./download/DownloadButton";
 import { EditableText } from "./EditableText";
 import { GenerationRecord } from "./GenerationRecord";
+import { StockSourceCard } from "./StockSourceCard";
 import type { Opened } from "./Viewer";
 
 interface Props {
@@ -143,6 +144,7 @@ function Details({
       </section>
 
       {item.generation && <GenerationRecord record={item.generation} />}
+      {item.source && <StockSourceCard source={item.source} />}
 
       <section className="flex flex-col gap-2">
         <Button variant="destructive" onClick={() => setConfirming(true)}>

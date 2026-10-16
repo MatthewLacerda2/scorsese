@@ -137,6 +137,17 @@ fn check_bookkeeping(asset: &Asset, errors: &mut Vec<AssetProblem>) {
     if asset.estimated_cost_cents.is_some() && !kind.is_prompted() {
         errors.push(stray(asset, AssetField::Cost));
     }
+    if let Some(source) = &asset.source {
+        if !matches!(kind, AssetKind::Video | AssetKind::Image) {
+            errors.push(stray(asset, AssetField::Source));
+        }
+        if let Some(problem) = source.problem() {
+            errors.push(AssetProblem::BadSource {
+                asset: asset.id.clone(),
+                problem,
+            });
+        }
+    }
 }
 
 /// What the inline kinds carry instead of a file.

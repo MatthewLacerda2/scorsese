@@ -1,8 +1,9 @@
-// How a generated file was made, and what it cost (#537): the brief, the
-// model and its settings, when, and the charge — so a user who pays per
-// generation can check it without asking the operator. The estimate is
-// scorsese's own figure from its price table (docs/prices.md); the charge is
-// what the ledger took, cost plus 10%.
+// How a generated file was made, and what it cost (#537): the brief, who made
+// it (the provider, named from the kind, #1237), the model and its settings,
+// when, and the charge — so a user who pays per generation can check it
+// without asking the operator. The estimate is scorsese's own figure from its
+// price table (docs/prices.md); the charge is what the ledger took, cost plus
+// 10%.
 
 import type { GenerationRecord as Record } from "@/api";
 import type { Messages } from "@/i18n/catalogue";
@@ -22,6 +23,8 @@ export function GenerationRecord({ record }: { record: Record }) {
         {record.kind === "spoken_line" ? record.text : record.prompt}
       </p>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+        <dt className="text-muted-foreground">{words.provider}</dt>
+        <dd>{words.providers[record.kind]}</dd>
         <dt className="text-muted-foreground">{words.model}</dt>
         <dd>{record.model}</dd>
         {settings(record, words, language).map(([name, value]) => (

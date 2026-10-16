@@ -7,6 +7,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::header::CONTENT_DISPOSITION;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
+use scorsese_core::Source;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -64,6 +65,9 @@ pub struct Details {
     /// For a generated file, the record of what made it and what it cost
     /// ([`Library::generation`](crate::library::Library::generation)).
     pub generation: Option<Value>,
+    /// For a stock file, where it came from: library, id, author, page and
+    /// licence (#1237). `None` for an upload or a generation.
+    pub source: Option<Source>,
 }
 
 /// `GET /api/library/{id}`: one file's details.
@@ -75,12 +79,14 @@ pub async fn details(
     let item = state.library.get(member.user, id).await?;
     let (used_by, templates) = state.library.used_by(member.user, id).await?;
     let generation = state.library.generation(member.user, id).await?;
+    let source = state.library.source(member.user, id).await?;
     Ok(Json(Details {
         generated: item.brief_hash.is_some(),
         item,
         used_by,
         templates,
         generation,
+        source,
     }))
 }
 

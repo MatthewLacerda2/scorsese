@@ -18,6 +18,7 @@ mod variants;
 mod clip;
 mod document;
 mod fields;
+mod stock;
 mod units;
 
 use std::collections::BTreeSet;

@@ -5,7 +5,9 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use scorsese_core::bytes::format_bytes;
 use scorsese_core::pool::{Paid, named_by_pages, remove_assets, unused_assets};
-use scorsese_core::{Asset, AssetId, AssetStatus, HashCheck, Listed, asset_status, listing};
+use scorsese_core::{
+    Asset, AssetId, AssetStatus, HashCheck, Listed, Project, asset_status, listing,
+};
 
 /// Prints one line per asset: what it is, how many clips lean on it, and
 /// whether the file behind it is still there and still the one that was
@@ -27,7 +29,7 @@ pub(crate) fn list(project_dir: &Path, verify: bool) -> Result<()> {
         return Ok(());
     }
     for listed in listing(&project, &rows) {
-        print_listed(&listed);
+        print_listed(&project, &listed);
     }
 
     let needing = rows
@@ -117,12 +119,18 @@ pub(crate) fn gc(project_dir: &Path, delete: bool, include_paid: bool) -> Result
 /// 401. The stills that *are* named under it are the ones worth a look — one
 /// needing attention, or one a clip also shows on its own — so a missing
 /// photo still surfaces here, where a broken pool is looked for.
-fn print_listed(listed: &Listed<'_>) {
+///
+/// A stock import says where it came from on the line under it (#1237).
+fn print_listed(project: &Project, listed: &Listed<'_>) {
     let mut line = format_row(listed.row);
     if !listed.stills.is_empty() {
         line.push_str(&format!(" — {}", stills(listed.stills.len())));
     }
     println!("{line}");
+    let asset = project.asset(&listed.row.id);
+    if let Some(source) = asset.and_then(|asset| asset.source.as_ref()) {
+        println!("  from {}", source.says());
+    }
     for still in &listed.stills {
         if still.health.needs_attention() {
             println!("  └ {}", format_row(still));

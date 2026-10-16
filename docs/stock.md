@@ -52,8 +52,13 @@ generated only where it must be, often for the price of its narration.
    frame without being enlarged is downloaded, by its measured size — Pixabay's
    rendition names do not say a size. It becomes an ordinary `video` or `image`
    asset at `assets/pixabay-<id>.<ext>`, probed and hashed like any import: no
-   new asset kind and no format change, and where it came from is in its name.
-   From there it is footage like any other — trim, crop, speed, grade.
+   new asset kind. Where it came from is kept on the asset, in its `source`
+   block (#1237): the library, its id, the author, the page and the licence —
+   so it travels with the project. `scorsese assets` and `project_assets` print
+   it under the asset, the desktop app's inspector shows it, and the web
+   library's details panel shows a *From Pixabay* card. A file imported before
+   v53, or brought by the user, has none. From there it is footage like any
+   other — trim, crop, speed, grade.
 
 Both are free and need only `PIXABAY_API_KEY` (`docs/credentials.md`); neither
 quotes.
