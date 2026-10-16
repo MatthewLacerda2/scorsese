@@ -13,7 +13,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render } from "@testing-library/react";
 import { Glob } from "bun";
 import type { ReactNode } from "react";
-import type { Conversation, QuestionView, TurnView } from "@/api/chat";
+import type { Conversation, ModelChoice, QuestionView, TurnView } from "@/api/chat";
 import { setFetch } from "@/api/client";
 import { createQueryClient } from "@/app/queryClient";
 import { I18nProvider } from "@/i18n/I18nProvider";
@@ -84,7 +84,7 @@ const turns = [
   turn(2, { state: "asking", questions: [question] }),
   turn(3),
 ];
-const models = [
+const models: ModelChoice[] = [
   { id: "m", label: "M", vendor: "anthropic", unavailable: null, cache_seconds: 300, cost: null },
 ];
 const conversation: Conversation = { project: PROJECT, session: 1, turns, model: "m", models };
