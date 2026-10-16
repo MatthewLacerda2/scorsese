@@ -21,6 +21,7 @@ mod recipes;
 mod settling;
 mod shooting;
 mod shortening;
+mod slots;
 mod stopping;
 mod studio;
 mod transport;

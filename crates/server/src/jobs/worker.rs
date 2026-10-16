@@ -12,7 +12,9 @@ use tokio::sync::{Notify, watch};
 use tokio::task::{Id, JoinSet};
 
 use super::stop::Running;
-use super::{Context, Job, JobView, Outcome, ProgressView, Registry, progress, store};
+use super::{
+    Budget, Context, Job, JobView, Kind, Outcome, ProgressView, Registry, progress, store,
+};
 use crate::db::UserId;
 use crate::events::{Event, Events};
 
@@ -109,8 +111,8 @@ pub async fn work(pool: PgPool, registry: Registry, queue: Queue, stop: watch::R
     // and the lock with it.
     let Some(_lock) = started else { return };
 
-    let mut running: HashMap<&'static str, usize> = HashMap::new();
-    let mut kinds_of: HashMap<Id, &'static str> = HashMap::new();
+    let mut running = Slots::default();
+    let mut kinds_of: HashMap<Id, Kind> = HashMap::new();
     let mut tasks = JoinSet::new();
     loop {
         claim_what_fits(
@@ -130,8 +132,8 @@ pub async fn work(pool: PgPool, registry: Registry, queue: Queue, stop: watch::R
                     Ok((id, ())) => id,
                     Err(error) => error.id(),
                 };
-                if let Some(count) = kinds_of.remove(&id).and_then(|kind| running.get_mut(kind)) {
-                    *count -= 1;
+                if let Some(kind) = kinds_of.remove(&id) {
+                    running.ended(kind);
                 }
             }
             () = tokio::time::sleep(LOOK_EVERY) => {}
@@ -175,14 +177,14 @@ async fn claim_what_fits(
     pool: &PgPool,
     registry: &Registry,
     queue: &Queue,
-    running: &mut HashMap<&'static str, usize>,
-    kinds_of: &mut HashMap<Id, &'static str>,
+    running: &mut Slots,
+    kinds_of: &mut HashMap<Id, Kind>,
     tasks: &mut JoinSet<()>,
 ) {
     loop {
         let open: Vec<&str> = registry
             .kinds()
-            .filter(|kind| running.get(kind.name).copied().unwrap_or(0) < kind.limit)
+            .filter(|kind| running.has_room(registry, *kind))
             .map(|kind| kind.name)
             .collect();
         if open.is_empty() {
@@ -200,9 +202,46 @@ async fn claim_what_fits(
             return; // claimed only among registered kinds, so never
         };
         queue.tell(job.user, view);
-        *running.entry(kind.name).or_default() += 1;
+        running.started(kind);
         let handle = tasks.spawn(run(pool.clone(), handler, job, queue.clone()));
-        kinds_of.insert(handle.id(), kind.name);
+        kinds_of.insert(handle.id(), kind);
+    }
+}
+
+/// How many jobs run now, of each kind and on each budget.
+#[derive(Default)]
+struct Slots {
+    kinds: HashMap<&'static str, usize>,
+    budgets: HashMap<Budget, usize>,
+}
+
+impl Slots {
+    /// Whether one more `kind` fits under its own limit and its budget's.
+    fn has_room(&self, registry: &Registry, kind: Kind) -> bool {
+        let of_kind = self.kinds.get(kind.name).copied().unwrap_or(0);
+        let on_budget = |budget| self.budgets.get(&budget).copied().unwrap_or(0);
+        of_kind < kind.limit
+            && kind
+                .budget
+                .is_none_or(|budget| on_budget(budget) < registry.size(budget))
+    }
+
+    /// A job of `kind` started.
+    fn started(&mut self, kind: Kind) {
+        *self.kinds.entry(kind.name).or_default() += 1;
+        if let Some(budget) = kind.budget {
+            *self.budgets.entry(budget).or_default() += 1;
+        }
+    }
+
+    /// A job of `kind` ended.
+    fn ended(&mut self, kind: Kind) {
+        if let Some(count) = self.kinds.get_mut(kind.name) {
+            *count -= 1;
+        }
+        if let Some(count) = kind.budget.and_then(|budget| self.budgets.get_mut(&budget)) {
+            *count -= 1;
+        }
     }
 }
 

@@ -9,7 +9,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use super::{Kind, Registry};
+use super::elevenlabs::ElevenLabs;
+use super::{Budget, Kind, Registry};
 use crate::Files;
 use crate::designs;
 use crate::generations::{self, Keys, Timing, Vendors};
@@ -21,6 +22,7 @@ use crate::renders::job as render;
 pub const RENDER: Kind = Kind {
     name: "render",
     limit: 2,
+    budget: None,
 };
 
 /// A Veo shot: submit, keep the ticket, poll (#537). Minutes of waiting and
@@ -28,18 +30,33 @@ pub const RENDER: Kind = Kind {
 pub const VEO_SHOT: Kind = Kind {
     name: "veo_shot",
     limit: 4,
+    budget: None,
 };
+
+/// Every call to ElevenLabs, whatever it is for (#1261): the vendor counts
+/// concurrent requests per account, all endpoints together, and answers the
+/// one over the plan's limit with a `429`. Sized by
+/// [`CONCURRENCY`](super::elevenlabs::CONCURRENCY), since it moves with
+/// the plan.
+pub const ELEVENLABS: Budget = Budget { name: "elevenlabs" };
+
+/// How many of an [`ELEVENLABS`] kind run at once, of its own: no limit. The
+/// budget is what binds, so a kind does not cap below a plan that allows
+/// more.
+const VENDOR_BOUND: usize = usize::MAX;
 
 /// An ElevenLabs line (#537). Seconds, and mostly network.
 pub const SPOKEN_LINE: Kind = Kind {
     name: "spoken_line",
-    limit: 4,
+    limit: VENDOR_BOUND,
+    budget: Some(ELEVENLABS),
 };
 
 /// A Gemini still (#461). Seconds, mostly network, like a line.
 pub const STILL_IMAGE: Kind = Kind {
     name: "still_image",
     limit: 4,
+    budget: None,
 };
 
 /// A Gemini still ordered in a half-price batch (#947): one call to order,
@@ -50,19 +67,24 @@ pub const STILL_IMAGE: Kind = Kind {
 pub const BATCH_STILL: Kind = Kind {
     name: "batch_still",
     limit: 64,
+    budget: None,
 };
 
 /// A voice design (#572): one ElevenLabs call, three samples back. Seconds,
 /// mostly network.
 pub const VOICE_DESIGN: Kind = Kind {
     name: "voice_design",
-    limit: 4,
+    limit: VENDOR_BOUND,
+    budget: Some(ELEVENLABS),
 };
 
-/// A designed candidate kept as a voice (#572). Free, one call.
+/// A designed candidate kept as a voice (#572). Free, one call — and one at a
+/// time, so the count of the account's voice slots it checks first
+/// (`designs::owners::slots`) cannot be raced by another keep.
 pub const VOICE_KEEP: Kind = Kind {
     name: "voice_keep",
-    limit: 4,
+    limit: 1,
+    budget: Some(ELEVENLABS),
 };
 
 /// A **preview** render (#542): the cut, small, for the editor to play. Its
@@ -72,18 +94,21 @@ pub const VOICE_KEEP: Kind = Kind {
 pub const PREVIEW: Kind = Kind {
     name: "preview",
     limit: 1,
+    budget: None,
 };
 
 /// A library item's thumbnail (#535): one decoded frame, quick.
 pub const THUMBNAIL: Kind = Kind {
     name: "thumbnail",
     limit: 2,
+    budget: None,
 };
 
 /// A preview proxy (#542): a whole transcode, as heavy as a render.
 pub const PROXY: Kind = Kind {
     name: "proxy",
     limit: 1,
+    budget: None,
 };
 
 /// The kinds whose owner may stop them (#660): the two that take the
@@ -134,14 +159,23 @@ pub const PATIENT: [Kind; 1] = [BATCH_STILL];
 /// [`VOICE_DESIGN`] and [`VOICE_KEEP`] (#572, `crate::designs`) have theirs.
 /// A kind nothing registers is never claimed, so a job of that kind waits
 /// rather than failing.
-pub fn registry(files: &Files) -> Registry {
-    with_vendors(files, Arc::new(Keys), Timing::default())
+///
+/// The ElevenLabs kinds share [`ELEVENLABS`], sized as `elevenlabs` says, and
+/// a kept voice is refused once the account's voice slots are spoken for.
+pub fn registry(files: &Files, elevenlabs: ElevenLabs) -> Registry {
+    with_vendors(files, Arc::new(Keys), Timing::default(), elevenlabs)
 }
 
 /// [`registry`], with the paid generations reaching `vendors` and waiting as
 /// `timing` says — for a test, whose vendors never spend a cent.
-pub fn with_vendors(files: &Files, vendors: Arc<dyn Vendors>, timing: Timing) -> Registry {
+pub fn with_vendors(
+    files: &Files,
+    vendors: Arc<dyn Vendors>,
+    timing: Timing,
+    elevenlabs: ElevenLabs,
+) -> Registry {
     Registry::new()
+        .budget(ELEVENLABS, elevenlabs.concurrency)
         .register(
             THUMBNAIL,
             thumbnail::handler(files.storage.clone(), files.tools.clone()),
@@ -200,7 +234,10 @@ pub fn with_vendors(files: &Files, vendors: Arc<dyn Vendors>, timing: Timing) ->
                 Arc::clone(&vendors),
             ),
         )
-        .register(VOICE_KEEP, designs::keep_handler(Arc::clone(&vendors)))
+        .register(
+            VOICE_KEEP,
+            designs::keep_handler(Arc::clone(&vendors), elevenlabs.voice_slots),
+        )
         .register(
             SPOKEN_LINE,
             generations::line_handler(files.storage.clone(), files.tools.clone(), vendors),

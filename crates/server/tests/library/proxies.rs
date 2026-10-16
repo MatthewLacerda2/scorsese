@@ -34,7 +34,7 @@ fn wide(directory: &std::path::Path) -> Vec<u8> {
 async fn a_heavy_video_gets_a_proxy_on_arrival_and_loses_it_with_the_item(pool: PgPool) {
     let files = common::files("proxy-arrival");
     let storage = files.storage.clone();
-    let registry = kinds::registry(&files);
+    let registry = kinds::registry(&files, Default::default());
     let bytes = wide(&common::scratch::dir("proxy-arrival-media"));
     let (address, state) = common::serve_with(pool.clone(), files).await;
     let (_stop, stopping) = watch::channel(false);

@@ -227,7 +227,7 @@ pub async fn run(
         tools,
         renders,
     };
-    let registry = jobs::kinds::registry(&files);
+    let registry = jobs::kinds::registry(&files, config.elevenlabs);
     let assistant = assistant::Assistant::new(config.assistant_turn_cap);
     match &config.google {
         Some(google) => eprintln!(
