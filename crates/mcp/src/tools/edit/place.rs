@@ -36,10 +36,13 @@ struct Arguments {
     start_seconds: f64,
     /// How long the clip runs on the timeline, in seconds. Leave it out for the
     /// rest of the source — everything from the in-point to the end of the
-    /// measured media — which is what `put this shot in` means. An asset with
-    /// no measured length (a title, a still, a colour, a brief nobody has
-    /// generated, or a file nobody has probed) has no rest to take, so there it
-    /// is required.
+    /// measured media (one pass of an image sequence, the whole of a group) —
+    /// which is what `put this shot in` means. An asset with no length by
+    /// nature (image, generated_image, text, color, shape, icon, html) runs 5
+    /// seconds when it is left out. One whose length nobody has measured yet (a
+    /// video or audio file nobody has probed, a generated_video,
+    /// generated_audio or synth_audio not made yet) is refused without it,
+    /// rather than guessed.
     duration_seconds: Option<f64>,
     /// How far into the source the clip opens, in seconds. Default 0, the head
     /// of the media. This is a time in the SOURCE, not on the timeline, and it
@@ -73,7 +76,8 @@ impl Tool for PlaceClip {
          that arithmetic is the one mistake that reaches the finished video \
          silently, because a window half a second off validates perfectly and is \
          only ever caught by watching. Leave `duration_seconds` out to run the \
-         whole of the source from wherever you opened it. Nothing is written at \
+         whole of the source from wherever you opened it — or 5 seconds of a \
+         still, a title, a colour or a page, which have no length of their own. Nothing is written at \
          all unless the result is a document that still loads — a clip landing on \
          one already there, or a window reaching past the end of the media, is \
          refused with the reason and the project is left exactly as it was. \

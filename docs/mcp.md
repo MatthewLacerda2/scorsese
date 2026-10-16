@@ -711,10 +711,15 @@ render time.
 
 **Leave `duration_seconds` out and the clip runs the rest of the source.** "Put
 this shot in" is a whole request on its own and the answer is written down
-already — the asset's measured length, less wherever the clip opens. An asset
-with no measured length has no rest to take: a title, a still, a colour, a brief
-nobody has generated, and a file nobody has probed. There the duration is
-required, and the refusal says so rather than guessing a length.
+already — the asset's measured length, less wherever the clip opens; for an
+`image_sequence` one pass through its stills, for a `group` up to its last
+member. An asset with **no length by nature** — `image`, `generated_image`,
+`text`, `color`, `shape`, `icon`, `html` — runs **5 seconds**, what an editor
+gives a still and what a drop in the desktop app or the web editor gives it too.
+An asset whose length **nobody has measured yet** — a `video` or `audio` file
+nobody has probed, a `generated_video`, `generated_audio` or `synth_audio` not
+made yet — is refused without a duration, because a guessed length there is a
+clip that is wrong: probe or generate it, or say how long.
 
 **Overlapping sound effects spill onto the next lane.** Clips on one track may
 not overlap, and sound design is exactly that: a pop per card, a whoosh per cut.

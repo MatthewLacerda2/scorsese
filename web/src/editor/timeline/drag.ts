@@ -39,8 +39,12 @@ const TIMED = new Set([
   "synth_audio",
 ]);
 
-/** A clip placed on nothing measured runs this long: a title, a still. */
-export const UNMEASURED_SECONDS = 5;
+/** The kinds with no length by nature — `core`'s `AssetKind::is_timeless`. */
+const TIMELESS = new Set(["image", "generated_image", "html", "text", "color", "shape", "icon"]);
+
+/** How long a placement that says nothing gives a timeless asset — `core`'s
+ * `placing::HOLD_SECONDS`, which the server applies, not this. */
+export const HOLD_SECONDS = 5;
 
 /** How close, in pixels, an edge has to come to something to snap onto it. */
 export const SNAP_PX = 8;
@@ -177,33 +181,51 @@ export function toolCall(
   return args && { tool: "clip_move", args };
 }
 
-/** How long a dropped asset runs: its own measured length, or five seconds. */
-export function dropLength(asset: DocumentAsset | undefined, fps: Fps): number {
-  return lengthOf(asset, fps) ?? toFrames(UNMEASURED_SECONDS, fps);
+/** How long a dropped asset runs, for snapping — `core`'s
+ * `placing::unsaid_duration`, which the server applies to the `place_clip` a
+ * drop sends: measured media whole, a sequence's one pass, a group to its last
+ * member, a timeless asset `HOLD_SECONDS`. `null` for a length nobody has
+ * measured: the server refuses that drop, and its refusal says why. */
+export function dropLength(asset: DocumentAsset | undefined, fps: Fps): number | null {
+  if (!asset) return null;
+  let length: number | null;
+  if (asset.kind === "image_sequence") {
+    const sequence = asset.sequence;
+    length = sequence ? sequence.stills.length * (sequence.hold ?? 1) : null;
+  } else if (asset.kind === "group") {
+    const ends = (asset.group?.tracks ?? []).flatMap((track) =>
+      track.clips.map((clip) => clip.start + clip.duration),
+    );
+    length = ends.length > 0 ? Math.max(...ends) : null;
+  } else {
+    length = lengthOf(asset, fps);
+  }
+  if (length !== null) return length > 0 ? length : null;
+  return TIMELESS.has(asset.kind) ? toFrames(HOLD_SECONDS, fps) : null;
 }
 
-/** Where an asset dropped at frame `pointed` lands, snapped by either edge. */
-export function dropStart(pointed: number, length: number, at: number[], reach: number): number {
-  const shift = snap(at, [pointed, pointed + length], reach);
+/** Where an asset dropped at frame `pointed` lands, snapped by either edge —
+ * by its head alone when it has no length to give. */
+export function dropStart(
+  pointed: number,
+  length: number | null,
+  at: number[],
+  reach: number,
+): number {
+  const shift = snap(at, length === null ? [pointed] : [pointed, pointed + length], reach);
   return Math.max(0, pointed + (shift ?? 0));
 }
 
-/** `place_clip`'s arguments for `asset` landing on `track` at `start`. A
- * measured asset runs the rest of its source; anything else gets a length. */
+/** `place_clip`'s arguments for `assetId` landing on `track` at `start`. No
+ * duration: how long a placed clip runs is the server's rule (`dropLength`),
+ * so a drop and an assistant's call cannot disagree. */
 export function placeArguments(
-  asset: DocumentAsset | undefined,
   assetId: string,
   track: string,
   start: number,
   fps: Fps,
 ): Record<string, unknown> {
-  const args: Record<string, unknown> = {
-    asset: assetId,
-    track,
-    start_seconds: toSeconds(start, fps),
-  };
-  if (lengthOf(asset, fps) === null) args.duration_seconds = UNMEASURED_SECONDS;
-  return args;
+  return { asset: assetId, track, start_seconds: toSeconds(start, fps) };
 }
 
 /** Whether `kind` goes on a video track (picture) or an audio one (sound) —

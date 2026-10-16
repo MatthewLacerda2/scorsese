@@ -1,6 +1,7 @@
 //! Writing a new clip onto a track.
 
-use crate::asset::{Asset, AssetId};
+use super::unsaid_duration;
+use crate::asset::AssetId;
 use crate::project::Project;
 use crate::time::{Fps, Frames};
 use crate::timeline::{Clip, ClipId, TrackId};
@@ -24,9 +25,10 @@ pub struct Placement {
     /// from [`Placement::source_in`] to the end of the measured media.
     ///
     /// Optional because "put this shot in" is a whole request on its own, and
-    /// the answer is written down already: the asset's own length. An asset
-    /// nobody has measured has no answer, and [`PlaceError::NoLength`] says so
-    /// rather than guessing one.
+    /// the answer is written down already: the asset's own length, or
+    /// [`HOLD_SECONDS`](super::HOLD_SECONDS) for one with no length by nature —
+    /// [`unsaid_duration`] has the rule. An asset nobody has measured has no
+    /// answer, and [`PlaceError::NoLength`] says so rather than guessing one.
     pub duration: Option<Frames>,
     /// Where in the source it opens, in **timeline** frames — see
     /// [`Clip::source_in`], which is the field this becomes.
@@ -63,12 +65,14 @@ pub enum PlaceError {
         /// The id that was asked for.
         id: ClipId,
     },
-    /// A duration was left out for an asset with no measured length. A still,
-    /// a title, a colour and a brief nobody has generated have no length of
-    /// their own; a file nobody has probed has one and it is not written down.
+    /// A duration was left out for an asset whose length nobody has measured:
+    /// a file nobody has probed, or a shot or a sound nobody has generated. It
+    /// has a length and it is not written down, so none is guessed. (A still, a
+    /// title or a colour has no length by nature, and gets
+    /// [`HOLD_SECONDS`](super::HOLD_SECONDS) instead.)
     #[error(
-        "`{asset}` has no measured length, so how long the clip runs has to be said — \
-         probe the asset, or give a duration"
+        "`{asset}` has a length nobody has measured yet, so how long the clip runs has to \
+         be said — probe or generate the asset, or give a duration"
     )]
     NoLength {
         /// The asset with nothing to measure against.
@@ -129,7 +133,7 @@ pub fn place(project: &mut Project, placement: &Placement) -> Result<Clip, Place
         })?;
     let duration = match placement.duration {
         Some(duration) => duration,
-        None => remaining(asset, project.timeline_fps, placement.source_in)?,
+        None => unsaid_duration(asset, project.timeline_fps, placement.source_in)?,
     };
     if duration == Frames::ZERO {
         return Err(PlaceError::Empty);
@@ -152,23 +156,6 @@ pub fn place(project: &mut Project, placement: &Placement) -> Result<Clip, Place
     proposed.validate()?;
     *project = proposed;
     Ok(clip)
-}
-
-/// How much source is left from `source_in` — what an omitted duration means.
-pub(super) fn remaining(asset: &Asset, fps: Fps, source_in: Frames) -> Result<Frames, PlaceError> {
-    let Some(length) = asset.length(fps) else {
-        return Err(PlaceError::NoLength {
-            asset: asset.id.clone(),
-        });
-    };
-    match length.get().checked_sub(source_in.get()) {
-        Some(left) if left > 0 => Ok(Frames(left)),
-        _ => Err(PlaceError::PastTheEnd {
-            asset: asset.id.clone(),
-            source_in,
-            length,
-        }),
-    }
 }
 
 /// The id the new clip gets: the one asked for, if it is free, or one derived

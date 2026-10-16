@@ -4,6 +4,7 @@
 import { describe, expect, test } from "bun:test";
 import { type Clip, type DocumentAsset, type ProjectDocument, SCHEMA_VERSION } from "@/api";
 import {
+  dropLength,
   dropStart,
   limitsOf,
   placeArguments,
@@ -133,14 +134,24 @@ describe("the tool call", () => {
     expect(toolCall(clip(), "v1", "v1", still, THIRTY)).toBeNull();
   });
 
-  test("a drop runs a measured asset to its end, and gives anything else five seconds", () => {
-    expect(placeArguments(footage, "a", "v1", 60, THIRTY)).toEqual({
+  test("a drop leaves the length to the server, and snaps by what it will be", () => {
+    expect(placeArguments("a", "v1", 60, THIRTY)).toEqual({
       asset: "a",
       track: "v1",
       start_seconds: 2,
     });
     const title: DocumentAsset = { id: "t", kind: "text" };
-    expect(placeArguments(title, "t", "v1", 0, THIRTY).duration_seconds).toBe(5);
+    const unprobed: DocumentAsset = { id: "u", kind: "video" };
+    const spin: DocumentAsset = {
+      id: "s",
+      kind: "image_sequence",
+      sequence: { stills: ["a", "b", "c"], hold: 2 },
+    };
+    expect(dropLength(footage, THIRTY)).toBe(300);
+    expect(dropLength(title, THIRTY)).toBe(150);
+    expect(dropLength(spin, THIRTY)).toBe(6);
+    expect(dropLength(unprobed, THIRTY)).toBeNull();
+    expect(dropStart(98, null, [0, 100], 4)).toBe(100);
     expect(dropStart(98, 150, [0, 100], 4)).toBe(100);
     expect(dropStart(3, 150, [0], 4)).toBe(0);
   });

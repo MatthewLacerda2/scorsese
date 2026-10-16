@@ -186,6 +186,28 @@ impl AssetKind {
         matches!(self, Self::Image | Self::GeneratedImage)
     }
 
+    /// True when this kind has no length by nature: how long it is on screen
+    /// is the clip's business, never the asset's — a still (imported or
+    /// generated), a title, a colour, a shape, an icon and a page.
+    ///
+    /// Not the same as having no *measured* length. A file nobody has probed
+    /// and a shot nobody has generated have a length that is not written down
+    /// yet; these have none to write. It is what lets a placement with no
+    /// duration give one of these
+    /// [`HOLD_SECONDS`](crate::placing::HOLD_SECONDS) and refuse the others.
+    pub fn is_timeless(self) -> bool {
+        matches!(
+            self,
+            Self::Image
+                | Self::GeneratedImage
+                | Self::Html
+                | Self::Text
+                | Self::Color
+                | Self::Shape
+                | Self::Icon
+        )
+    }
+
     /// True when this kind produces sound, and so belongs on an audio track.
     pub fn is_audible(self) -> bool {
         matches!(self, Self::Audio | Self::GeneratedAudio | Self::SynthAudio)
