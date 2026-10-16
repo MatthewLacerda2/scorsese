@@ -321,7 +321,7 @@ fn chip(ui: &mut Ui, kind: AssetKind) {
 /// The short right-hand note: what is worth knowing at a glance.
 fn note(project: &Project, status: &AssetStatus, warning: egui::Color32) -> RichText {
     let text = match &status.health {
-        AssetHealth::Awaiting(state) => format!("not made · {state:?}").to_lowercase(),
+        AssetHealth::Awaiting(state) => format!("not made · {state}"),
         AssetHealth::Missing => "file missing".to_owned(),
         AssetHealth::HashMismatch { .. } => "changed on disk".to_owned(),
         AssetHealth::Unreadable(_) => "unreadable".to_owned(),
@@ -357,11 +357,44 @@ fn recipe_of(project: &Project, status: &AssetStatus) -> String {
 }
 
 /// How many clips use this asset — including none, which is what `assets gc`
-/// would collect.
+/// would collect, unless something else names it (a shot a still starts from,
+/// a picture a page uses): then it says what, the way `scorsese assets` does
+/// (#1166), rather than implying the asset is unused.
 fn used_by(status: &AssetStatus) -> String {
     match status.clip_count {
-        0 => "used by no clip".to_owned(),
+        0 => match &status.named_by {
+            Some(named) => format!("used by no clip, {named}"),
+            None => "used by no clip".to_owned(),
+        },
         1 => "used by 1 clip".to_owned(),
         many => format!("used by {many} clips"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use scorsese_core::NamedBy;
+
+    fn status(clip_count: usize, named_by: Option<NamedBy>) -> AssetStatus {
+        AssetStatus {
+            id: AssetId::new("still"),
+            kind: AssetKind::Image,
+            health: AssetHealth::Ok,
+            clip_count,
+            named_by,
+            sequence: None,
+        }
+    }
+
+    #[test]
+    fn an_asset_a_page_names_is_not_said_to_be_unused() {
+        let named = Some(NamedBy::Page(AssetId::new("card")));
+        assert_eq!(
+            used_by(&status(0, named)),
+            "used by no clip, named by page `card`"
+        );
+        assert_eq!(used_by(&status(0, None)), "used by no clip");
+        assert_eq!(used_by(&status(2, None)), "used by 2 clips");
     }
 }
