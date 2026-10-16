@@ -87,6 +87,7 @@ pub(crate) mod chroma;
 pub(crate) mod color;
 pub mod dip;
 pub(crate) mod fill;
+pub mod frame;
 pub(crate) mod grade;
 pub(crate) mod group;
 pub mod grouping;
@@ -153,6 +154,7 @@ pub use matte::Matte;
 pub use note::{Annotated, Noted};
 // The function itself is deliberately left behind the module — see
 // [`pacing`] for why `scorsese_core::scale` would be the wrong name.
+pub use frame::{Ratio, RatioError};
 pub use pacing::{PaceError, Paced};
 pub use path::{PathProblem, ProjectPath};
 // The functions stay behind the module, for [`pacing`]'s reason: a bare

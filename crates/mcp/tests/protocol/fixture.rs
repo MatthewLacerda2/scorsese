@@ -43,7 +43,8 @@ pub(crate) fn project(label: &str) -> PathBuf {
     // Made the way `scorsese new` makes one, then given this document, because
     // a hand-written fixture that skips a directory is testing a project shape
     // nothing produces.
-    Project::create(&dir, None, Fps::THIRTY).expect("create the project");
+    Project::create(&dir, None, Fps::THIRTY, scorsese_core::Ratio::WIDE)
+        .expect("create the project");
     std::fs::write(dir.join("project.json"), &*DOCUMENT).expect("write project.json");
     // The bed's recipe really exists: a synth asset pointing at a recipe that
     // is not there is a broken project, not a starting point.
