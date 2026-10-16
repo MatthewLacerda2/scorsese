@@ -31,3 +31,7 @@ UNREACHABLE, NOT_REACHED, UNFINISHED = "unreachable", "not reached", "unfinished
 # but something is unfinished: run the queue again. Not 1, which says read a
 # hand-back; not 3, which says GitHub stopped answering.
 UNFINISHED_STATUS = 4
+
+# The exit status when another queue holds this repository's lock (#1346):
+# nothing was attempted, and the answer is to let that one finish.
+LOCKED_STATUS = 5

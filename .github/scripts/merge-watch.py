@@ -56,6 +56,27 @@ so it does not count against anybody. Semantic breaks that merge cleanly — a
 renamed function, a duplicate migration number — are invisible here and are
 caught elsewhere (CI, and the queue's own numbering check).
 
+**But no pull request waits forever** (#1345). Fewest-conflicts-first has no
+bound on its own: a pull request with one conflict loses every pick to one
+with none, and on 2026-10-15 #1292 sat in line about three hours that way,
+never tried and so never handed back, while four others that conflicted
+pairwise with it waited four to five. So the watch counts, per pull request,
+the picks it was in line for and another was taken ([`count_passes`]); at
+[`AGED_PASSES`] it is **overdue** and goes ahead of everything but Dependabot,
+whatever its conflicts. Taking it either merges it or hands it back with the
+conflict named, and both beat silence. The count is of passes, not minutes: a
+watch with nothing else in line takes the one it has, so time in line without
+being overtaken is not waiting on the order. Being taken starts the count
+over.
+
+**A pull request that conflicts with `main` is handed back at once, not kept
+in line** ([`against_main`], [`behind`]). Its turn could only end in that
+hand-back, so it is better had now, with the files named, than after a wait.
+The watch asks git (`merge-tree` of its head against `origin/main`, fetched
+each poll, remembered per pair of heads) and GitHub (`mergeable:
+CONFLICTING`); either is enough. Dependabot is left out: its turn asks it to
+rebase itself.
+
 It **fails open**: a pair `merge-tree` cannot answer about — an object that
 would not fetch, an old git — counts as no conflict, so the worst case is
 today's order. Ordering is an optimisation and never stops the queue. When the
@@ -186,6 +207,11 @@ CAP_MINUTES = 115
 # being waited on, and a pull request labelled a minute late costs a minute.
 IDLE_SECONDS = 60
 
+# How many picks a pull request may be passed over for before it is overdue
+# and goes first, whatever its conflicts (#1345). With a CI run of about ten
+# minutes a pick, three is about half an hour behind others.
+AGED_PASSES = 3
+
 # What every line meant for the orchestrator starts with, and nothing else
 # does: the watch's output filtered on it is one event per line.
 EVENT = "watch:"
@@ -254,21 +280,30 @@ def conflict_counts(
     }
 
 
+def overdue(number: int, passed: dict[int, int] | None) -> bool:
+    """Whether this pull request has been passed over [`AGED_PASSES`] times."""
+    return (passed or {}).get(number, 0) >= AGED_PASSES
+
+
 def ordered(
     pulls: list[dict],
     issues: dict[int, list[str]],
     clashes: set[frozenset[int]] = frozenset(),
+    passed: dict[int, int] | None = None,
 ) -> list[dict]:
-    """Dependabot last, then fewest conflicts, then highest priority, then oldest.
+    """Dependabot last, then the overdue, then fewest conflicts, then highest
+    priority, then oldest.
 
     `clashes` holds the pairs of pull requests that conflict with each other,
-    counted only among those in `pulls`. `createdAt` is ISO 8601, so it sorts.
+    counted only among those in `pulls`; `passed` is [`count_passes`]'s tally.
+    `createdAt` is ISO 8601, so it sorts.
     """
     counts = conflict_counts([pull.get("number") for pull in pulls], clashes)
     return sorted(
         pulls,
         key=lambda pull: (
             is_bot(pull),
+            not overdue(pull.get("number"), passed),
             counts.get(pull.get("number"), 0),
             rank(labels_of(pull, issues)),
             pull.get("createdAt", ""),
@@ -282,10 +317,26 @@ def pick(
     dropped: dict[int, str],
     issues: dict[int, list[str]],
     clashes: set[frozenset[int]] = frozenset(),
+    passed: dict[int, int] | None = None,
 ) -> dict | None:
     """The pull request to take next, or `None` when none may be taken."""
     ready = [pull for pull in pulls if eligible(pull, dropped)]
-    return ordered(ready, issues, clashes)[0] if ready else None
+    return ordered(ready, issues, clashes, passed)[0] if ready else None
+
+
+def count_passes(
+    tally: dict[int, int], pulls: list[dict], dropped: dict[int, str], chosen: int
+) -> dict[int, int]:
+    """Count one pass for every pull request in line that was not `chosen`.
+
+    The one taken starts over (#1345): it is being tried, and a new head after
+    a hand-back is a new wait. Dependabot is not counted; it goes last anyway.
+    """
+    tally.pop(chosen, None)
+    for pull in contenders(pulls, dropped):
+        if pull["number"] != chosen:
+            tally[pull["number"]] = tally.get(pull["number"], 0) + 1
+    return tally
 
 
 def reordered(
@@ -293,19 +344,25 @@ def reordered(
     dropped: dict[int, str],
     issues: dict[int, list[str]],
     clashes: set[frozenset[int]],
+    passed: dict[int, int] | None = None,
 ) -> str | None:
-    """One line when the conflict count put somebody ahead of label order, else `None`."""
-    chosen = pick(pulls, dropped, issues, clashes)
+    """One line when conflicts or aging put somebody ahead of label order, else `None`."""
+    chosen = pick(pulls, dropped, issues, clashes, passed)
     by_label = pick(pulls, dropped, issues)
     if chosen is None or by_label is None or chosen is by_label:
         return None
+    first, other = chosen["number"], by_label["number"]
+    lead = f"#{first} goes before #{other}, which labels alone would take: #{first}"
+    if overdue(first, passed):
+        return (
+            f"{lead} has been passed over {passed[first]} times, and"
+            f" {AGED_PASSES} is as long as one waits."
+        )
     ready = [pull["number"] for pull in pulls if eligible(pull, dropped)]
     counts = conflict_counts(ready, clashes)
-    first, passed = chosen["number"], by_label["number"]
     return (
-        f"#{first} goes before #{passed}, which labels alone would take: #{first}"
-        f" conflicts with {counts[first]} other(s) in line, #{passed} with"
-        f" {counts[passed]}."
+        f"{lead} conflicts with {counts[first]} other(s) in line, #{other} with"
+        f" {counts[other]}."
     )
 
 
@@ -364,6 +421,77 @@ def clashing(
     }
 
 
+def conflict_paths(status: int, output: str) -> list[str] | None:
+    """The paths `git merge-tree --write-tree --name-only` reported in conflict.
+
+    `None` when it reported none, or could not answer — read by
+    [`conflicted`], so failing open the same way. The paths follow the tree id,
+    one a line, up to the blank line before git's messages.
+    """
+    if not conflicted(status, output):
+        return None
+    lines = output.split("\n")[1:]
+    paths = lines[: lines.index("")] if "" in lines else lines
+    return sorted(set(paths))
+
+
+def against_main(
+    pulls: list[dict], root: str, known: dict[frozenset[str], list[str] | None]
+) -> dict[int, list[str]]:
+    """The pull requests whose heads conflict with `origin/main`, and the paths.
+
+    `origin/main` is fetched once a call; each (head, main) pair is asked of
+    git once a watch, in `known`. Fails open as [`clashing`] does: a fetch or
+    a `merge-tree` that does not answer is no conflict.
+    """
+    _git(root, "fetch", "--quiet", "origin", "main")
+    status, out = _git(root, "rev-parse", "--verify", "--quiet", "origin/main^{commit}")
+    main = out.strip()
+    if status != 0 or not main:
+        return {}
+    heads = {pull["number"]: pull.get("headRefOid", "") for pull in pulls}
+    missing = [
+        sha for sha in sorted(set(heads.values()))
+        if sha and frozenset((sha, main)) not in known
+        and _git(root, "cat-file", "-e", f"{sha}^{{commit}}")[0] != 0
+    ]
+    if missing:
+        _git(root, "fetch", "--quiet", "origin", *missing)
+    found = {}
+    for number, head in heads.items():
+        if not head:
+            continue
+        key = frozenset((head, main))
+        if key not in known:
+            merged = _git(root, "merge-tree", "--write-tree", "--name-only", main, head)
+            known[key] = conflict_paths(*merged)
+        if known[key]:
+            found[number] = known[key]
+    return found
+
+
+def behind(
+    pulls: list[dict], dropped: dict[int, str], paths: dict[int, list[str]]
+) -> list[tuple[int, str]]:
+    """Each pull request in line that conflicts with `main`, and why, to hand back.
+
+    `paths` is [`against_main`]'s answer; GitHub's own `mergeable:
+    CONFLICTING` is enough without it. Dependabot is left out, as in
+    [`contenders`]: its turn asks it to rebase itself.
+    """
+    out = []
+    for pull in contenders(pulls, dropped):
+        number = pull["number"]
+        if paths.get(number):
+            where = f"in {', '.join(f'`{p}`' for p in paths[number])}"
+        elif pull.get("mergeable") == "CONFLICTING":
+            where = "(GitHub says so)"
+        else:
+            continue
+        out.append((number, f"it conflicts with `main` {where}; rebase it and push."))
+    return out
+
+
 def in_line(pulls: list[dict], dropped: dict[int, str]) -> list[int]:
     """What the watch would still have taken — reported as unfinished at its end."""
     return sorted(pull["number"] for pull in pulls if eligible(pull, dropped))
@@ -395,7 +523,8 @@ def waiting(label: str = QUEUE_LABEL) -> list[dict]:
         "--limit",
         "100",
         "--json",
-        "number,isDraft,headRefOid,baseRefName,createdAt,author,labels,closingIssuesReferences",
+        "number,isDraft,headRefOid,baseRefName,createdAt,author,labels,closingIssuesReferences,"
+        "mergeable",
     )
 
 

@@ -135,6 +135,7 @@ class Loop(unittest.TestCase):
         with mock.patch.object(queue.mergeable, "gh", side_effect=gh), \
             mock.patch.object(queue, "take", side_effect=take), \
             mock.patch.object(watch, "clashing", return_value=set()), \
+            mock.patch.object(watch, "against_main", return_value={}), \
             mock.patch.object(queue.time, "monotonic", side_effect=lambda: clock[0]), \
             mock.patch.object(queue.time, "sleep", side_effect=lambda s: clock.__setitem__(0, clock[0] + s)), \
             mock.patch("builtins.print", side_effect=lambda *a, **k: printed.append(" ".join(map(str, a)))):
@@ -150,6 +151,7 @@ class Loop(unittest.TestCase):
     def test_main_ends_on_the_resume_line(self):
         printed = []
         with mock.patch.object(queue.mergeable, "gh", return_value={"nameWithOwner": "o/r"}), \
+            mock.patch.object(queue.lock, "acquire"), \
             mock.patch.object(queue, "run_watch", return_value=[(4, queue.UNFINISHED, "still in line.")]), \
             mock.patch("builtins.print", side_effect=lambda *a, **k: printed.append(" ".join(map(str, a)))):
             status = queue.main(["--watch"])
