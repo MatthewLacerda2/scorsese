@@ -19,7 +19,7 @@ export const QUALITIES: Record<Quality, { divisor: number }> = {
   quarter: { divisor: 4 },
 };
 
-export const DEFAULT_QUALITY: Quality = "half";
+const DEFAULT_QUALITY: Quality = "half";
 
 /**
  * The raster a preview of a film delivered at `deliver` (`WIDTHxHEIGHT`) is

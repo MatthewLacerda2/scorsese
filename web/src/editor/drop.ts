@@ -36,7 +36,7 @@ function addedTrack(before: EditorProject, after: EditorProject | undefined | nu
 /** Whether `track` can take what was dragged: picture on a video lane, sound
  * on an audio one. `null` — below the last lane, or an empty timeline — takes
  * nothing, so the drop makes a lane. */
-export function takes(track: Track | null, kind: string): track is Track {
+function takes(track: Track | null, kind: string): track is Track {
   return track !== null && track.kind === laneFor(kind);
 }
 

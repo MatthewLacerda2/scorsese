@@ -5,7 +5,7 @@
 import type { QuoteAnswer, QuoteView } from "@/api/chat";
 
 /** How much of a description shows before the expander. */
-export const PREVIEW_CHARS = 160;
+const PREVIEW_CHARS = 160;
 
 /** `text` as shown collapsed: whole when short, else cut at a word with an ellipsis. */
 export function preview(text: string, limit = PREVIEW_CHARS): { shown: string; clipped: boolean } {

@@ -7,7 +7,7 @@
 import type { Clip } from "@/api";
 
 export const POSITION_X = "transform.position.x";
-export const POSITION_Y = "transform.position.y";
+const POSITION_Y = "transform.position.y";
 export const ROTATION = "transform.rotation";
 export const SCALE_X = "transform.scale.x";
 export const SCALE_Y = "transform.scale.y";
@@ -19,7 +19,7 @@ export type Held =
   | { kind: "animated" };
 
 /** What `path` reads across `clip`, `rest` when nothing sets it. */
-export function held(clip: Clip, path: string, rest: number): Held {
+function held(clip: Clip, path: string, rest: number): Held {
   const tracks = (clip.keyframes ?? []).filter((track) => track.property === path);
   if (tracks.length === 0) return { kind: "value", value: rest };
   const only = tracks.length === 1 ? tracks[0]?.keyframes : undefined;

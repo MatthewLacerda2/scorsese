@@ -41,7 +41,7 @@ interface Props {
 }
 
 /** Where the cut ends: the last picture, since picture decides a render's length. */
-export function cutLength(document: ProjectDocument): number {
+function cutLength(document: ProjectDocument): number {
   const tracks = document.tracks ?? [];
   const ends = (kind?: string) =>
     tracks

@@ -46,7 +46,7 @@ export interface EditOutcome {
 }
 
 /** The server's words for a failed edit, in the terms a user acts on. */
-export function refusal(error: unknown, t: Messages["editor"]["refusal"]): string {
+function refusal(error: unknown, t: Messages["editor"]["refusal"]): string {
   return describeError(error, { 409: t.conflict }, t.failed);
 }
 

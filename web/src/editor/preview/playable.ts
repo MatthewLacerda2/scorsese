@@ -23,7 +23,7 @@ import { folded } from "../JobProgressBar";
 import type { Quality } from "./quality";
 
 /** Where the preview video is, for the revision on screen. */
-export type Playable =
+type Playable =
   | { state: "none" }
   | { state: "preparing"; job: JobView }
   | { state: "ready"; render: RenderView }
