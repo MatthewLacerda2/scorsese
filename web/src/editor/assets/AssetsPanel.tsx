@@ -16,11 +16,12 @@
 // or a sentence to the assistant.
 
 import { useState } from "react";
-import type { ProjectDocument } from "@/api";
+import type { DocumentAsset, ProjectDocument } from "@/api";
 import { useT } from "@/i18n/I18nProvider";
 import type { EditOutcome } from "../project";
 import { TemplatesSection } from "../templates/TemplatesSection";
 import { AssetGrid } from "./AssetGrid";
+import { AssetSheet } from "./AssetSheet";
 import { LibraryModal } from "./LibraryModal";
 
 interface Props {
@@ -33,6 +34,7 @@ interface Props {
 export function AssetsPanel({ projectId, document, edit, playhead }: Props) {
   const t = useT();
   const assets = document.assets ?? [];
+  const [opened, setOpened] = useState<DocumentAsset | null>(null);
   const [unfolded, setUnfolded] = useState<ReadonlySet<string>>(new Set());
   const fold = (id: string) =>
     setUnfolded((was) => {
@@ -47,14 +49,18 @@ export function AssetsPanel({ projectId, document, edit, playhead }: Props) {
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
         <section className="flex flex-col gap-1">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t.assets.heading}
-          </h2>
           {assets.length === 0 && <p className="text-xs text-muted-foreground">{t.assets.empty}</p>}
-          <AssetGrid document={document} edit={edit} unfolded={unfolded} onFold={fold} />
+          <AssetGrid
+            document={document}
+            edit={edit}
+            unfolded={unfolded}
+            onFold={fold}
+            onOpen={setOpened}
+          />
         </section>
         <TemplatesSection edit={edit} playhead={playhead} fps={document.timeline_fps} />
       </div>
+      <AssetSheet asset={opened} onClose={() => setOpened(null)} />
     </div>
   );
 }

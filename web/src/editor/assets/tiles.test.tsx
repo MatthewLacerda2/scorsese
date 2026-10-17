@@ -6,21 +6,17 @@
 
 import { describe, expect, test } from "bun:test";
 import { QueryClientProvider } from "@tanstack/react-query";
-import type { DragEvent, ReactElement, ReactNode } from "react";
 import { renderToString } from "react-dom/server";
-import type { DocumentAsset, EditorProject, ProjectDocument, ToolAnswer } from "@/api";
+import type { DocumentAsset, ProjectDocument } from "@/api";
 import { SCHEMA_VERSION } from "@/api";
 import { createQueryClient } from "@/app/queryClient";
 import { en } from "@/i18n/en";
-import { dropOnto } from "../drop";
 import type { Edit, EditOutcome } from "../project";
 import { assetRemoval, confirmThen } from "../removing";
 import { AssetGrid } from "./AssetGrid";
-import { dropped } from "./dragged";
+import { handler, shot, tile } from "./handlers";
 import { look } from "./look";
-import { TileView } from "./TileView";
 
-const shot: DocumentAsset = { id: "beach", kind: "video", sha256: "aa", path: "assets/aa.mp4" };
 const sketch: DocumentAsset = { id: "dusk", kind: "generated_video", state: "sketch", prompt: "a" };
 const still = (id: string): DocumentAsset => ({ id, kind: "image", sha256: id, path: `${id}.png` });
 const sequence: DocumentAsset = {
@@ -61,35 +57,10 @@ function grid(assets: DocumentAsset[], unfolded: string[] = []): string {
         edit={edit}
         unfolded={new Set(unfolded)}
         onFold={() => {}}
+        onOpen={() => {}}
       />
     </QueryClientProvider>,
   );
-}
-
-/** Every element in a tree, depth first — to find a handler and call it. */
-function* elements(node: ReactNode): Generator<ReactElement<Record<string, unknown>>> {
-  if (Array.isArray(node)) for (const child of node) yield* elements(child);
-  else if (node && typeof node === "object" && "props" in node) {
-    const element = node as ReactElement<Record<string, unknown>>;
-    yield element;
-    yield* elements(element.props.children as ReactNode);
-  }
-}
-
-/** The handler `key` of the first element `match` picks — failing loudly when none does. */
-function handler<F>(
-  view: ReactNode,
-  match: (props: Record<string, unknown>) => boolean,
-  key: string,
-) {
-  const found = [...elements(view)].find((element) => match(element.props));
-  if (!found) throw new Error(`no element has ${key}`);
-  return found.props[key] as F;
-}
-
-function tile(asset: DocumentAsset, onRemove = () => {}) {
-  const props = { asset, stills: 0, open: false, onFold: () => {}, pending: false };
-  return TileView({ ...props, onRemove, shown: look(asset), src: undefined, words: en.assets });
 }
 
 describe("an asset tile", () => {
@@ -132,36 +103,5 @@ describe("an asset tile", () => {
     const view = tile(shot, () => confirmThen(removal, run, () => true));
     handler<() => void>(view, (props) => props["aria-label"] === "Remove beach", "onClick")();
     expect(sent.map((sentEdit) => sentEdit.tool)).toEqual(["asset_remove"]);
-  });
-
-  test("dragged onto the timeline still places a clip", async () => {
-    const data = new Map<string, string>();
-    const transfer = {
-      setData: (k: string, v: string) => data.set(k, v),
-      getData: (k: string) => data.get(k) ?? "",
-    };
-    const event = { dataTransfer: transfer } as unknown as DragEvent;
-    handler<(event: DragEvent) => void>(
-      tile(shot),
-      (props) => props.draggable === true,
-      "onDragStart",
-    )(event);
-    const carried = dropped(event);
-    expect(carried).toEqual({ from: "project", asset: "beach", kind: "video" });
-
-    const calls: string[] = [];
-    const before = { revision: 1, document: document([shot]) } as unknown as EditorProject;
-    const run = async (call: Edit): Promise<ToolAnswer | null> => {
-      calls.push(call.tool);
-      const doc = structuredClone(before.document);
-      doc.tracks = [{ id: "v1", kind: "video", clips: [] }];
-      if (call.tool === "place_clip")
-        doc.tracks[0]?.clips.push({ id: "c1", asset: "beach", start: 0, duration: 30 });
-      return { said: [], project: { ...before, document: doc } };
-    };
-    expect(await dropOnto(run, before, carried as NonNullable<typeof carried>, null, 0, 0, 0)).toBe(
-      "c1",
-    );
-    expect(calls).toEqual(["track_new", "place_clip"]);
   });
 });

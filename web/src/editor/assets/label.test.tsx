@@ -10,7 +10,14 @@ import { look } from "./look";
 import { TileView } from "./TileView";
 
 function words(asset: DocumentAsset): string {
-  const props = { asset, stills: 0, open: false, onFold: () => {}, pending: false };
+  const props = {
+    asset,
+    stills: 0,
+    open: false,
+    onFold: () => {},
+    onOpen: () => {},
+    pending: false,
+  };
   const view = { ...props, onRemove: () => {}, shown: look(asset), src: undefined };
   return renderToString(<TileView {...view} words={en.assets} />);
 }

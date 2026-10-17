@@ -3,7 +3,6 @@
 // user's own and stay as written.
 
 export const assets = {
-  heading: "Assets",
   empty: "Nothing yet. Add files from your library, then drag them onto a track.",
   alsoAlone: "also used on its own",
   fold: (id: string) => `Fold ${id}'s photos away`,
