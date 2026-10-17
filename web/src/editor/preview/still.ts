@@ -22,6 +22,12 @@ const SETTLE_MS = 200;
 export type Still = { png: string } | { none: string };
 
 /**
+ * What is cached for a frame: a refusal is kept as a mark and put in words
+ * when it is shown, so a cached one follows a change of language.
+ */
+type Drawn = Still | { refused: true };
+
+/**
  * The frame to draw for a playhead at `frame` on a timeline `length` frames
  * long: a playhead resting at the end (or past it) shows the last frame, as
  * every editor does, and the key then matches the frame really drawn (#1276).
@@ -46,7 +52,8 @@ export function useStill(
     placeholderData: keepPreviousData,
     // A frame of a revision never changes.
     staleTime: Infinity,
-    queryFn: async (): Promise<Still> => {
+    select: (drawn: Drawn): Still => ("refused" in drawn ? { none: failed } : drawn),
+    queryFn: async (): Promise<Drawn> => {
       try {
         // A bare whole number is a frame on the timeline, to the `still` tool.
         const answer = await api.editor.tool(id, "still", { at: String(at), resolution: raster });
@@ -57,7 +64,7 @@ export function useStill(
       } catch (error) {
         if (error instanceof ApiError && error.status === 422) {
           console.error("preview: the still was refused", error.message);
-          return { none: failed };
+          return { refused: true };
         }
         throw error;
       }

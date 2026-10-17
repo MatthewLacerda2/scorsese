@@ -22,7 +22,7 @@
 //! comes back is [`Outcome::Cancelled`], saying how far it got. A preview
 //! that ended any other way after the project moved past its revision is
 //! `cancelled` too: nobody is waiting for it, so it is never shown as failed
-//! (#1439). Only a real failure is logged.
+//! (#1439) — though why it ended is still logged, as every failure is.
 //!
 //! **Progress.** Its [`Context::progress`] goes to the renderer beside the
 //! cancel, and the worker tells the owner how far it has got (#698).
@@ -85,22 +85,22 @@ pub fn handler(cache: RenderCache, tools: Tools, storage: Storage) -> impl Handl
             // Whatever stopped it, its owner asked it to stop first — or it
             // was a preview of a revision the project has since moved past,
             // which nobody is waiting for: either way not a failure (#1439).
-            if context.cancel().is_cancelled() || outrun(&job, &context).await {
+            if context.cancel().is_cancelled() {
+                return Outcome::Cancelled(why);
+            }
+            if preview::outrun(&job, &context).await {
+                // Still logged: ffmpeg dying while its owner kept editing is
+                // a failure the screen never shows, and only here is it seen.
+                eprintln!(
+                    "scorsese-server: superseded preview {} ended: {why}",
+                    job.id
+                );
                 return Outcome::Cancelled(why);
             }
             eprintln!("scorsese-server: render job {} failed: {why}", job.id);
             Outcome::Failed(why)
         }
     }
-}
-
-/// Whether `job` is a preview the project has moved on from.
-async fn outrun(job: &Job, context: &Context) -> bool {
-    let Ok(payload) = serde_json::from_value::<Payload>(job.payload.clone()) else {
-        return false;
-    };
-    matches!(payload.settings.quality(), Ok(Some(_)))
-        && preview::superseded(context, job.user, &payload).await
 }
 
 async fn render(

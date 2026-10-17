@@ -29,18 +29,38 @@ use scorsese_render::{Preview, Proxies, Quality};
 use super::job::Payload;
 use super::{RenderCache, Settings, key};
 use crate::db::{Tx, UserId};
-use crate::jobs::Context;
+use crate::jobs::{Context, Job};
 use crate::library::proxy;
-use crate::projects;
+use crate::projects::{self, ProjectError};
 use crate::storage::Storage;
 
 /// Whether the project has moved on from the document this preview was asked
 /// for — or is gone, which is the same answer: nobody is waiting for it.
 pub(super) async fn superseded(context: &Context, user: UserId, payload: &Payload) -> bool {
-    match projects::open(context.pool(), user, payload.project).await {
-        Ok(stored) => key(&stored.document, &payload.settings).ok() != Some(payload.key.clone()),
-        Err(_) => true,
-    }
+    moved_on(context, user, payload).await.unwrap_or(true)
+}
+
+/// Whether the stored project no longer hashes to the preview's key, or why
+/// it could not be read. A render that failed asks this rather than
+/// [`superseded`]: a database hiccup must not turn a real failure into a
+/// cancel (#1439).
+async fn moved_on(
+    context: &Context,
+    user: UserId,
+    payload: &Payload,
+) -> Result<bool, ProjectError> {
+    let stored = projects::open(context.pool(), user, payload.project).await?;
+    Ok(key(&stored.document, &payload.settings).ok() != Some(payload.key.clone()))
+}
+
+/// Whether `job` is a preview the project has moved on from. A project that
+/// cannot be read says no: the failure stands rather than hiding as a cancel.
+pub(super) async fn outrun(job: &Job, context: &Context) -> bool {
+    let Ok(payload) = serde_json::from_value::<Payload>(job.payload.clone()) else {
+        return false;
+    };
+    matches!(payload.settings.quality(), Ok(Some(_)))
+        && matches!(moved_on(context, job.user, &payload).await, Ok(true))
 }
 
 /// The preview to render `project` as at `quality`: its proxies, where the
