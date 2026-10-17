@@ -5,10 +5,11 @@
 // arithmetic rather than by clicking.
 //
 // What is stored and what is live differ on purpose. The server keeps a turn's
-// prompt, final answer, state and cost; the words as they stream and the tool
-// lines exist only on the event stream. The model's thinking is on neither
-// (#767): a working turn shows a status word instead (`status.ts`). So a re-read after a
-// `resync` replaces every turn but keeps the live lines already seen for it.
+// prompt, final answer, state and cost; the words as they stream exist only on
+// the event stream. The model's thinking is on neither (#767): a working turn
+// shows a status word instead (`status.ts`). Tool calls are never shown (#1437;
+// the server keeps every one), so none is folded in here. A re-read after a
+// `resync` replaces every turn but keeps the words already seen for it.
 
 import type { Conversation, QuestionView, TurnState, TurnView } from "@/api/chat";
 import { ApiError } from "@/api/client";
@@ -16,18 +17,11 @@ import { describeError } from "@/api/describe";
 import type { JobView, ServerEvent } from "@/api/events";
 import type { Messages } from "@/i18n/catalogue";
 
-/** Where a tool the assistant called is. */
-type ToolState = "running" | "answered" | "refused";
-
-/** One line between a prompt and its answer: a tool the assistant called. */
-export type Line = { kind: "tool"; tool: string; state: ToolState; said: string | null };
-
 /** A turn as the panel shows it. */
 export interface Entry {
   turn: TurnView;
   /** The words streamed so far (`chat_text`), before the answer is stored. */
   streamed: string;
-  lines: Line[];
   /** The balance after the turn's last charge, when an event said it. */
   balanceAfter: number | null;
 }
@@ -39,6 +33,12 @@ export interface Transcript {
   entries: Entry[];
   /** Generation jobs seen since the panel opened, newest last. */
   jobs: JobView[];
+  /**
+   * The user chose "new conversation": the panel is empty until the next
+   * message, which the server opens a new session for. `session` stays the
+   * old one so a re-read of it is recognised and ignored.
+   */
+  fresh: boolean;
 }
 
 /** The kinds of job that are the assistant's generations, shown in the panel. */
@@ -51,11 +51,12 @@ const GENERATIONS = new Set([
 ]);
 
 export function empty(project: number): Transcript {
-  return { project, session: null, entries: [], jobs: [] };
+  return { project, session: null, entries: [], jobs: [], fresh: false };
 }
 
 /** The stored conversation, keeping what `previous` saw live of each turn. */
 export function fromConversation(conversation: Conversation, previous: Transcript): Transcript {
+  if (previous.fresh && conversation.session === previous.session) return previous;
   const seen = new Map(previous.entries.map((entry) => [entry.turn.id, entry]));
   return {
     ...previous,
@@ -63,7 +64,7 @@ export function fromConversation(conversation: Conversation, previous: Transcrip
     session: conversation.session,
     entries: conversation.turns.map((turn) => {
       const known = seen.get(turn.id);
-      return known ? { ...known, turn } : { turn, streamed: "", lines: [], balanceAfter: null };
+      return known ? { ...known, turn } : { turn, streamed: "", balanceAfter: null };
     }),
   };
 }
@@ -83,12 +84,17 @@ export function upsert(transcript: Transcript, turn: TurnView, balance?: number)
       balanceAfter: balanceAfter(entry),
     }));
   }
-  const fresh: Entry = { turn, streamed: "", lines: [], balanceAfter: balance ?? null };
+  const fresh: Entry = { turn, streamed: "", balanceAfter: balance ?? null };
   if (transcript.session !== null && turn.session > transcript.session) {
-    return { ...transcript, session: turn.session, entries: [fresh] };
+    return { ...transcript, session: turn.session, entries: [fresh], fresh: false };
   }
   if (transcript.session !== null && turn.session < transcript.session) return transcript;
-  return { ...transcript, session: turn.session, entries: [...transcript.entries, fresh] };
+  return {
+    ...transcript,
+    session: turn.session,
+    entries: [...transcript.entries, fresh],
+    fresh: false,
+  };
 }
 
 /** The transcript with `event` folded in; unchanged by anything not its own. */
@@ -100,11 +106,6 @@ export function apply(transcript: Transcript, event: ServerEvent): Transcript {
       return change(transcript, event.turn, (entry) => ({
         ...entry,
         streamed: entry.streamed + event.text,
-      }));
-    case "chat_tool":
-      return change(transcript, event.turn, (entry) => ({
-        ...entry,
-        lines: toolLine(entry.lines, event.tool, event.state, event.said),
       }));
     case "chat_quote":
       return change(transcript, event.turn, (entry) => ({
@@ -123,18 +124,6 @@ export function apply(transcript: Transcript, event: ServerEvent): Transcript {
     default:
       return transcript;
   }
-}
-
-/** A tool's answer lands on the line that said it was running; a new call is a new line. */
-function toolLine(lines: Line[], tool: string, state: ToolState, said: string | null): Line[] {
-  const line: Line = { kind: "tool", tool, state, said };
-  if (state !== "running") {
-    const at = lines.findLastIndex(
-      (known) => known.kind === "tool" && known.tool === tool && known.state === "running",
-    );
-    if (at >= 0) return lines.map((known, index) => (index === at ? line : known));
-  }
-  return [...lines, line];
 }
 
 function change(transcript: Transcript, turn: number, edit: (entry: Entry) => Entry): Transcript {
@@ -190,15 +179,14 @@ export function ending(state: TurnState, t: Messages["chat"]): string | null {
   }
 }
 
-/** A generation job's state, in the panel's words. */
-export function jobState(job: JobView, t: Messages["chat"]): string {
-  switch (job.state) {
-    case "failed":
-    case "stuck":
-      return t.jobState[job.state](job.error);
-    default:
-      return t.jobState[job.state];
-  }
+/** Whether any generation the conversation ordered is still waiting or running. */
+export function generating(transcript: Transcript): boolean {
+  return transcript.jobs.some((job) => job.state === "waiting" || job.state === "running");
+}
+
+/** The panel emptied for a new conversation; the old one stays saved on the server. */
+export function restart(transcript: Transcript): Transcript {
+  return { ...transcript, entries: [], jobs: [], fresh: true };
 }
 
 /** A refused request, as the panel shows it: a lead line and the server's own words. */

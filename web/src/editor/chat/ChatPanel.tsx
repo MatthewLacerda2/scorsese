@@ -25,22 +25,28 @@ import { useT } from "@/i18n/I18nProvider";
 import { browserStorage } from "@/lib/storage";
 import { EffortPicker } from "./EffortPicker";
 import { type Effort, saveEffort, storedEffort } from "./effort";
+import { Generating } from "./Generating";
 import { ModelPicker } from "./ModelPicker";
+import { NewConversation } from "./NewConversation";
 import { Turn } from "./Turn";
 import {
   apply,
   asking,
   empty,
   fromConversation,
-  jobState,
+  generating,
   type Problem,
   problem,
+  restart,
   running,
   upsert,
 } from "./transcript";
 
 /** Full mode's column: wide enough to read, never lines across the whole screen. */
 const COLUMN = "mx-auto w-full max-w-3xl";
+
+/** How far from the bottom still counts as "at the bottom", in pixels. */
+const NEAR_BOTTOM = 24;
 
 export function ChatPanel({
   projectId,
@@ -80,9 +86,15 @@ export function ChatPanel({
   const current = running(transcript);
   const paused = asking(transcript);
   const scroller = useRef<HTMLDivElement>(null);
+  // Follow new text only while the reader is at the bottom; scrolled up, leave them be (#1437).
+  const atBottom = useRef(true);
+  const watch = () => {
+    const box = scroller.current;
+    if (box) atBottom.current = box.scrollHeight - box.scrollTop - box.clientHeight <= NEAR_BOTTOM;
+  };
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll whenever the transcript grows
   useEffect(() => {
-    scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
+    if (atBottom.current) scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
   }, [transcript]);
 
   return (
@@ -113,7 +125,11 @@ export function ChatPanel({
           </Button>
         </div>
       </div>
-      <div ref={scroller} className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3">
+      <div
+        ref={scroller}
+        onScroll={watch}
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3"
+      >
         <div className={`flex flex-col gap-4 ${full ? COLUMN : ""}`}>
           {conversation.isPending && (
             <p className="text-sm text-muted-foreground">{t.chat.loading}</p>
@@ -124,16 +140,7 @@ export function ChatPanel({
               <Turn key={entry.turn.id} entry={entry} />
             ))}
           </ol>
-          {transcript.jobs.length > 0 && (
-            <ul className="flex flex-col gap-0.5 border-t pt-2 text-xs text-muted-foreground">
-              {transcript.jobs.map((job) => (
-                <li key={job.id}>
-                  {(t.chat.jobs as Record<string, string>)[job.kind] ?? job.kind} #{job.id}:{" "}
-                  {jobState(job, t.chat)}
-                </li>
-              ))}
-            </ul>
-          )}
+          {generating(transcript) && <Generating />}
         </div>
       </div>
       <Composer
@@ -141,6 +148,9 @@ export function ChatPanel({
         column={full ? COLUMN : ""}
         runningTurn={current?.id ?? null}
         askingTurn={paused?.id ?? null}
+        fresh={transcript.fresh}
+        onFresh={() => setTranscript(restart)}
+        showFresh={transcript.entries.length > 0}
         onStarted={(turn) => setTranscript((previous) => upsert(previous, turn))}
       />
     </div>
@@ -148,7 +158,7 @@ export function ChatPanel({
 }
 
 /**
- * The box a message is written in, with Send, Stop and "new conversation".
+ * The box a message is written in, with Send, Stop and "new conversation" (#1437).
  * While a turn waits on a question, a message sent here is its answer, and
  * Stop sets the question aside.
  */
@@ -157,6 +167,9 @@ function Composer({
   column,
   runningTurn,
   askingTurn,
+  fresh,
+  onFresh,
+  showFresh,
   onStarted,
 }: {
   projectId: number;
@@ -164,11 +177,15 @@ function Composer({
   column: string;
   runningTurn: number | null;
   askingTurn: number | null;
+  /** The next message opens a new conversation. */
+  fresh: boolean;
+  onFresh: () => void;
+  /** There is a conversation to leave. */
+  showFresh: boolean;
   onStarted: (turn: Awaited<ReturnType<typeof chatApi.send>>) => void;
 }) {
   const t = useT();
   const [prompt, setPrompt] = useState("");
-  const [fresh, setFresh] = useState(false);
   const [effort, setEffort] = useState(() => storedEffort(browserStorage(), projectId));
   const choose = (level: Effort) => {
     setEffort(level);
@@ -180,7 +197,6 @@ function Composer({
     onMutate: () => setRefused(null),
     onSuccess: (turn) => {
       setPrompt("");
-      setFresh(false);
       onStarted(turn);
     },
     onError: (error) => setRefused(problem(error, t.chat)),
@@ -221,14 +237,7 @@ function Composer({
           className="max-h-40 min-h-16 resize-none"
         />
         <div className="flex items-center gap-2">
-          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <input
-              type="checkbox"
-              checked={fresh}
-              onChange={(event) => setFresh(event.target.checked)}
-            />
-            {t.chat.composer.fresh}
-          </label>
+          {showFresh && !fresh && runningTurn === null && <NewConversation onStart={onFresh} />}
           <div className="ml-auto flex gap-2">
             <EffortPicker effort={effort} onChange={choose} />
             {stoppable !== null && (

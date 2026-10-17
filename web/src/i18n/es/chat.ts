@@ -5,22 +5,8 @@ import type { Messages } from "@/i18n/catalogue";
 
 export const chat: Messages["chat"] = {
   loading: "Cargando…",
-  jobs: {
-    veo_shot: "Toma de video",
-    still_image: "Imagen",
-    spoken_line: "Locución",
-    music_track: "Pista de música",
-    voice_design: "Diseño de voz",
-  },
-  jobState: {
-    waiting: "en cola",
-    running: "generando",
-    done: "listo",
-    failed: (error) => (error ? `falló: ${error}` : "falló"),
-    stuck: (error) =>
-      error ? `atascado esperando al proveedor: ${error}` : "atascado esperando al proveedor",
-    cancelled: "cancelado",
-  },
+  /** The one line shown while any generation is running; the dots animate. */
+  generating: "Generando",
   ending: {
     refused: "El asistente rechazó esta petición.",
     capped:
@@ -43,6 +29,9 @@ export const chat: Messages["chat"] = {
     answerPlaceholder:
       "Responde la pregunta del asistente: elige una opción de arriba o escribe tu propia respuesta aquí",
     fresh: "Nueva conversación",
+    freshTitle: "¿Empezar una nueva conversación? Esta queda guardada.",
+    freshStart: "Empezar",
+    freshCancel: "Cancelar",
     stop: "Detener",
     send: "Enviar",
   },

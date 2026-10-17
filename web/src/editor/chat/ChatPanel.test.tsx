@@ -98,3 +98,39 @@ test("a draft outlives the switch, both ways", async () => {
   await userEvent.click(screen.getByRole("button", { name: t.full.leave }));
   expect((box as HTMLTextAreaElement).value).toBe("cut the intro");
 });
+
+test("New conversation asks first, just above the button, and Start empties the chat", async () => {
+  setFetch(async (_input, init) => {
+    if (init?.method === "POST") return new Response("{}", { status: 500 });
+    return new Response(
+      JSON.stringify({
+        ...conversation(6),
+        session: 1,
+        turns: [
+          {
+            id: 1,
+            session: 1,
+            project: 6,
+            prompt: "cut the intro",
+            state: "answered",
+            answer: "Done.",
+            charged_micros: 0,
+            quote: null,
+            quote_answer: null,
+            questions: [],
+          },
+        ],
+      }),
+    );
+  });
+  open(6);
+  expect(await screen.findByText("cut the intro")).toBeDefined();
+  await userEvent.click(screen.getByRole("button", { name: t.composer.fresh }));
+  expect(screen.getByText(t.composer.freshTitle)).toBeDefined();
+  await userEvent.click(screen.getByRole("button", { name: t.composer.freshCancel }));
+  expect(screen.queryByText(t.composer.freshTitle)).toBeNull();
+  expect(screen.getByText("cut the intro")).toBeDefined();
+  await userEvent.click(screen.getByRole("button", { name: t.composer.fresh }));
+  await userEvent.click(screen.getByRole("button", { name: t.composer.freshStart }));
+  expect(screen.queryByText("cut the intro")).toBeNull();
+});

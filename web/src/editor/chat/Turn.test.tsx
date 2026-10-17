@@ -1,4 +1,4 @@
-// A turn shows the assistant's words and tools, never its thinking: a working
+// A turn shows the assistant's words, never its tools (#1437) nor its thinking: a working
 // turn shows one of its language's status words instead, and a finished one
 // shows neither (#767).
 
@@ -34,6 +34,13 @@ function entry(state: TurnView["state"], answer: string | null): Entry {
   const note = { type: "chat_progress", turn: 1, text: "Weighing the cut privately" };
   shown = apply(shown, note as unknown as ServerEvent);
   shown = apply(shown, { type: "chat_text", turn: 1, text: "Cutting **now**" });
+  shown = apply(shown, {
+    type: "chat_tool",
+    turn: 1,
+    tool: "place_clip",
+    state: "answered",
+    said: "c1 placed",
+  });
   shown = upsert(shown, turnView(state, answer));
   const [first] = shown.entries;
   if (!first) throw new Error("no turn");
@@ -53,6 +60,7 @@ test.each(["en", "pt-BR", "es"] as Language[])(
   (language) => {
     const page = html(language, entry("running", null));
     expect(page).not.toContain("Weighing the cut");
+    expect(page).not.toContain("place_clip");
     expect(page).toContain("<strong>now</strong>");
     const words = CATALOGUES[language].chat.turn.busy;
     expect(words.some((word) => page.includes(word))).toBe(true);

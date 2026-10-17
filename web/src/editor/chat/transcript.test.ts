@@ -8,8 +8,7 @@ import {
   apply,
   awaitingQuote,
   empty,
-  fromConversation,
-  jobState,
+  generating,
   problem,
   running,
   upsert,
@@ -51,7 +50,7 @@ function first(transcript: Transcript): Entry {
 }
 
 describe("a running turn", () => {
-  test("streams its words and tools as they arrive, and never a thinking note", () => {
+  test("streams its words as they arrive, and never a thinking note or a tool call", () => {
     let shown = apply(started, { type: "chat_text", turn: 1, text: "Cutting " });
     shown = apply(shown, { type: "chat_text", turn: 1, text: "the intro." });
     // What a server from before #767 still sends while a deploy rolls over.
@@ -72,10 +71,9 @@ describe("a running turn", () => {
       said: "c1 now…",
     });
     const entry = first(shown);
+    // The server still announces its tool calls; the panel shows none of them (#1437).
     expect(words(entry)).toBe("Cutting the intro.");
-    expect(entry.lines).toEqual([
-      { kind: "tool", tool: "clip_move", state: "answered", said: "c1 now…" },
-    ]);
+    expect(Object.keys(entry).sort()).toEqual(["balanceAfter", "streamed", "turn"]);
     expect(running(shown)?.id).toBe(1);
   });
 
@@ -125,34 +123,12 @@ describe("what is not this panel's", () => {
     });
     let shown = apply(started, { type: "job", ...job(5, "thumbnail", "done") });
     shown = apply(shown, { type: "job", ...job(6, "veo_shot", "waiting") });
+    expect(generating(shown)).toBe(true);
     shown = apply(shown, { type: "job", ...job(6, "veo_shot", "running") });
-    expect(shown.jobs.map((seen) => [seen.id, jobState(seen, en.chat)])).toEqual([
-      [6, "generating"],
-    ]);
-  });
-});
-
-describe("conversations", () => {
-  test("a re-read keeps what was seen live of each turn", () => {
-    const live = apply(started, { type: "chat_text", turn: 1, text: "Cutting" });
-    const reread = fromConversation(
-      {
-        project: 7,
-        session: 1,
-        turns: [turn(1, { state: "answered" })],
-        model: "claude-sonnet-5-5",
-        models: [],
-      },
-      live,
-    );
-    expect(first(reread).streamed).toBe("Cutting");
-    expect(first(reread).turn.state).toBe("answered");
-  });
-
-  test("a turn of a newer conversation starts the panel over", () => {
-    const fresh = upsert(started, turn(2, { session: 2 }));
-    expect(fresh.entries.map((entry) => entry.turn.id)).toEqual([2]);
-    expect(upsert(fresh, turn(3, { session: 1 }))).toBe(fresh);
+    expect(shown.jobs.map((seen) => [seen.id, seen.state])).toEqual([[6, "running"]]);
+    expect(generating(shown)).toBe(true);
+    shown = apply(shown, { type: "job", ...job(6, "veo_shot", "done") });
+    expect(generating(shown)).toBe(false);
   });
 });
 
