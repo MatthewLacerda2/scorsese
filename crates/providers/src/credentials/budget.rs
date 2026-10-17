@@ -63,9 +63,10 @@ impl Budget {
     }
 
     /// The budget this machine's settings set for `project`, against all it
-    /// has spent so far: the assets **and** the designed-voice ledger
-    /// ([`crate::spending::so_far`]), because a ceiling that counted only one
-    /// of them would be wrong by however much the other holds.
+    /// has spent so far: every generation sent, superseded takes included,
+    /// **and** the designed-voice ledger ([`crate::spending::so_far`]),
+    /// because a ceiling that counted only one of them would be wrong by
+    /// however much the other holds.
     ///
     /// A settings file that is there and unreadable is an error, never the
     /// defaults: read as the defaults, it would be a run with no ceiling at

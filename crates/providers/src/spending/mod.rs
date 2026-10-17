@@ -27,7 +27,7 @@
 //!
 //! # A retry is spent too
 //!
-//! Generation spending is read off the [`ledger`] of every brief sent, not off
+//! Generation spending is read off the ledger of every brief sent ([`GENERATIONS_FILE`], [`history`]), not off
 //! the assets: an asset carries what its *current* take cost, and a shot bought
 //! twice would be counted once. The takes no asset points at any more are
 //! still in the total, and the report names them on their own line
@@ -49,7 +49,7 @@ pub(crate) use ledger::{refused, sent};
 pub struct Spending {
     /// What generating the assets is estimated to have cost — every shot,
     /// still, line and track sent, superseded takes included. Read off the
-    /// [`ledger`] beside `project.json`, written the moment each was sent.
+    /// ledger beside `project.json` ([`history`]), written as each was sent.
     pub generation_cents: u64,
     /// What designing voices is estimated to have cost. Read off the ledger
     /// beside `project.json`, because a designed voice is not an asset and

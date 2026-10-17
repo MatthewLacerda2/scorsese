@@ -106,7 +106,7 @@ fn load(root: &Path) -> Result<Option<Vec<Sent>>, WriteError> {
 ///
 /// An unreadable file reads as no file, the way `designed-voices.json` does:
 /// failing to *read* would put an error path on every quote. Writing is where
-/// it is refused ([`sent`]), so a damaged ledger is never overwritten.
+/// it is refused, so a damaged ledger is never overwritten.
 pub fn history(project: &Project, root: &Path) -> Vec<Sent> {
     match load(root) {
         Ok(Some(lines)) if !lines.is_empty() => lines,

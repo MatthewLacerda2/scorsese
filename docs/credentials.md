@@ -159,7 +159,9 @@ much it went over — enough to decide with, rather than a wall.
 chose is not a limit, and inventing one would refuse the first honest run
 somebody made.
 
-Money is counted in whole US cents throughout. A project's total is a sum of
-what each generated asset recorded it cost, so it is correct by construction and
-stays correct when a shot is deleted — a running tally kept somewhere else would
-not.
+Money is counted in whole US cents throughout. A project's total is read from
+`generations.json` beside `project.json` — one line per brief sent, written the
+moment it was sent — plus the voices designed in `designed-voices.json`. Every
+take counts, a superseded one included: a shot bought twice is charged twice
+against the ceiling, because it was paid for twice ([prices.md](prices.md),
+*Every take is counted*).
