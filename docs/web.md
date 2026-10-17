@@ -2392,10 +2392,17 @@ lines on the shorter side first (`Ratio::delivery`); that dialog asks for a
 finished render, follows it through the queue and lists the project's kept
 renders to download.
 
-**The chat panel** is *Assistant turns* on screen: each turn's prompt, its
-progress lines and tool calls as they stream, its answer, what it cost and the
-balance after it, the quote confirmation box, Stop while it runs, and the
-generation jobs it queued (queued → generating → ready). Without the project's
+**The chat panel** is *Assistant turns* on screen: each turn's prompt, a status
+word while it works, its answer, its question cards and pickers, the quote
+confirmation box, what it cost and the balance after it, and Stop while it runs
+(#1437). **Tool calls are not shown**, not collapsed and not behind a click: a
+tool name is implementation, and the user never deals with it. Every call is
+still stored in `tool_calls`. Generations show as one "Generating…" line while
+any the conversation ordered is waiting or running. The chat follows new text
+only while the reader is at the bottom. "New conversation" is a button with a
+confirmation just above it; Start empties the chat at once and the next message
+is sent with `fresh: true`, which opens a new `chat_sessions` row. The old
+conversation stays in the database. Without the project's
 model's key (`ANTHROPIC_API_KEY`) the server's `503` "not configured" is shown as a note, and nothing else changes.
 
 ## Templates

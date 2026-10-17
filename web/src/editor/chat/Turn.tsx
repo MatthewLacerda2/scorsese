@@ -1,10 +1,9 @@
 // One turn in the chat panel: what the user asked, what the assistant did on
-// the way (the tools it called — never its thinking, #767), what it said
-// (Markdown, `Reply.tsx`), and what the turn cost. The cost is on every turn, not in a settings page, because the
+// the way (a status word while it works; never its tools, #1437, nor its
+// thinking, #767), what it said (Markdown, `Reply.tsx`), and what the turn cost. The cost is on every turn, not in a settings page, because the
 // assistant spends the user's credits and a person should see each figure as
 // it happens (docs/web.md, *Money*).
 
-import { CheckIcon, WrenchIcon, XIcon } from "lucide-react";
 import { useT } from "@/i18n/I18nProvider";
 import { formatDollars } from "@/lib/money";
 import { Busy } from "./Busy";
@@ -13,7 +12,7 @@ import { isPicker } from "./picker";
 import { QuestionCard } from "./QuestionCard";
 import { QuoteBox } from "./QuoteBox";
 import { Reply } from "./Reply";
-import { awaitingQuote, type Entry, ending, type Line, waitingQuestion, words } from "./transcript";
+import { awaitingQuote, type Entry, ending, waitingQuestion, words } from "./transcript";
 
 export function Turn({ entry }: { entry: Entry }) {
   const t = useT();
@@ -26,15 +25,6 @@ export function Turn({ entry }: { entry: Entry }) {
       <p className="ml-6 self-end whitespace-pre-wrap rounded-lg bg-muted px-3 py-2 text-sm">
         {turn.prompt}
       </p>
-      {entry.lines.length > 0 && (
-        <ul className="flex flex-col gap-0.5 text-xs text-muted-foreground">
-          {entry.lines.map((line, index) => (
-            // Lines only ever append, and one is never moved, so its place is its identity.
-            // biome-ignore lint/suspicious/noArrayIndexKey: see above
-            <LineRow key={index} line={line} />
-          ))}
-        </ul>
-      )}
       {said && <Reply text={said} />}
       {turn.state === "running" && <Busy />}
       {(turn.questions ?? []).map((question, index) => {
@@ -60,21 +50,6 @@ export function Turn({ entry }: { entry: Entry }) {
           {entry.balanceAfter !== null && t.chat.turn.left(formatDollars(entry.balanceAfter))}
         </p>
       )}
-    </li>
-  );
-}
-
-function LineRow({ line }: { line: Line }) {
-  const Icon = { running: WrenchIcon, answered: CheckIcon, refused: XIcon }[line.state];
-  return (
-    <li className="flex items-start gap-1.5">
-      <Icon
-        className={`mt-0.5 size-3 shrink-0 ${line.state === "refused" ? "text-destructive" : ""}`}
-      />
-      <span className="min-w-0">
-        <span className="font-mono">{line.tool}</span>
-        {line.said && <span className="line-clamp-2"> — {line.said}</span>}
-      </span>
     </li>
   );
 }

@@ -4,22 +4,8 @@
 
 export const chat = {
   loading: "Loading…",
-  jobs: {
-    veo_shot: "Video shot",
-    still_image: "Still",
-    spoken_line: "Spoken line",
-    music_track: "Music track",
-    voice_design: "Voice design",
-  },
-  jobState: {
-    waiting: "queued",
-    running: "generating",
-    done: "ready",
-    failed: (error: string | null) => (error ? `failed: ${error}` : "failed"),
-    stuck: (error: string | null) =>
-      error ? `stuck waiting on the provider: ${error}` : "stuck waiting on the provider",
-    cancelled: "cancelled",
-  },
+  /** The one line shown while any generation is running; the dots animate. */
+  generating: "Generating",
   ending: {
     refused: "The assistant declined this one.",
     capped: "Stopped: this turn reached what one turn may spend, or your credit ran out.",
@@ -42,6 +28,9 @@ export const chat = {
     answerPlaceholder:
       "Answer the assistant's question — pick an option above, or write your own answer here",
     fresh: "New conversation",
+    freshTitle: "Start a new conversation? This one stays saved.",
+    freshStart: "Start",
+    freshCancel: "Cancel",
     stop: "Stop",
     send: "Send",
   },
