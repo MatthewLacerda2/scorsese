@@ -47,3 +47,20 @@ fn one_track_on_each_of_two_properties_is_two_lanes_not_a_duplicate() {
         .push(track("transform.scale.x"));
     assert_eq!(p.validate(), Ok(()));
 }
+
+/// What writing a property by hand takes over (`set_volume`, `clip_animate`):
+/// whatever track a non-stacking property had, signed or not, and on `volume`
+/// only the hand's own — a duck stays.
+#[test]
+fn the_hands_lane_is_every_track_on_a_property_but_a_signed_volume() {
+    let (opacity, volume) = (PropertyPath::new("opacity"), PropertyPath::new("volume"));
+    assert!(track("opacity").is_lane_of(&opacity));
+    assert!(
+        track("opacity")
+            .generated_by("dissolve")
+            .is_lane_of(&opacity)
+    );
+    assert!(track("volume").is_lane_of(&volume));
+    assert!(!track("volume").generated_by("duck").is_lane_of(&volume));
+    assert!(!track("blur").is_lane_of(&opacity));
+}
