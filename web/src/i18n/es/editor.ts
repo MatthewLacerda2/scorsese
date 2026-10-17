@@ -99,6 +99,8 @@ export const editor: Messages["editor"] = {
     forward: "Un cuadro adelante",
     end: "Ir al final",
     scrub: "Recorrer",
+    maximize: "Pantalla completa",
+    minimize: "Salir de pantalla completa",
     quality: "Calidad de la vista previa",
     qualities: {
       full: { label: "Completa", says: "calidad completa: la imagen del propio renderizado" },

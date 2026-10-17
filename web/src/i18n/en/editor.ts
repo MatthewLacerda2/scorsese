@@ -102,6 +102,8 @@ export const editor = {
     forward: "One frame forward",
     end: "To the end",
     scrub: "Scrub",
+    maximize: "Full screen",
+    minimize: "Leave full screen",
     quality: "Preview quality",
     qualities: {
       full: { label: "Full", says: "full quality: the render's own picture" },

@@ -11,6 +11,8 @@
 // Real-time compositing in the browser is not attempted.
 
 import {
+  MaximizeIcon,
+  MinimizeIcon,
   PauseIcon,
   PlayIcon,
   SkipBackIcon,
@@ -60,6 +62,8 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
   const ready = playable.state === "ready";
   const still = useStill(projectId, revision, playhead, total, raster, !ready && total > 0);
   const video = useRef<HTMLVideoElement>(null);
+  const stage = useRef<HTMLDivElement>(null);
+  const [maximized, setMaximized] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [wanted, setWanted] = useState(false);
   const [width, height] = raster.split("x").map(Number);
@@ -79,6 +83,17 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
     const at = toSeconds(playhead, fps);
     if (Math.abs(element.currentTime - at) > 0.5 / (fps.num / fps.den)) element.currentTime = at;
   }, [playhead, playing, fps]);
+
+  // Esc leaves fullscreen without going through the button.
+  useEffect(() => {
+    const sync = () => setMaximized(globalThis.document.fullscreenElement === stage.current);
+    globalThis.document.addEventListener("fullscreenchange", sync);
+    return () => globalThis.document.removeEventListener("fullscreenchange", sync);
+  }, []);
+  const maximize = () => {
+    if (globalThis.document.fullscreenElement) return void globalThis.document.exitFullscreen();
+    void stage.current?.requestFullscreen();
+  };
 
   const seek = (frame: number) => onSeek(clamp(frame, 0, total));
   const toggle = () => {
@@ -102,7 +117,10 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 p-3">
-      <div className="flex min-h-0 flex-1 items-center justify-center">
+      <div
+        ref={stage}
+        className="group relative flex min-h-0 flex-1 items-center justify-center bg-background"
+      >
         <div
           className="relative max-h-full max-w-full overflow-hidden rounded-md bg-screen"
           style={{ aspectRatio: `${width} / ${height}`, height: "100%" }}
@@ -128,6 +146,17 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
             )
           )}
         </div>
+        {/* Shown on hover for a pointer, always on touch. */}
+        <Button
+          size="icon"
+          variant="secondary"
+          aria-label={maximized ? t.minimize : t.maximize}
+          title={maximized ? t.minimize : t.maximize}
+          className="absolute right-2 bottom-2 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100"
+          onClick={maximize}
+        >
+          {maximized ? <MinimizeIcon /> : <MaximizeIcon />}
+        </Button>
       </div>
       {said && <p className="text-center text-xs text-muted-foreground">{said}</p>}
       {playable.state === "preparing" && (
