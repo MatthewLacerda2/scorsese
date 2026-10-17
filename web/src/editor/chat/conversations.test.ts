@@ -2,6 +2,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { TurnView } from "@/api/chat";
+import type { Entry, Transcript } from "./transcript";
 import { apply, empty, fromConversation, restart, upsert } from "./transcript";
 
 function turn(id: number, fields: Partial<TurnView> = {}): TurnView {
@@ -17,6 +18,12 @@ function turn(id: number, fields: Partial<TurnView> = {}): TurnView {
 }
 
 const started = upsert(empty(7), turn(1));
+
+function first(transcript: Transcript): Entry {
+  const [entry] = transcript.entries;
+  if (!entry) throw new Error("the transcript has no turn");
+  return entry;
+}
 
 describe("conversations", () => {
   test("a new conversation empties the panel and a re-read of the old one cannot refill it", () => {
