@@ -46,6 +46,15 @@ ignore = [
     # is cheaper than two policies. If it ever disappears from the *app* run
     # too, the entry has done its job and should be deleted.
     { id = "RUSTSEC-2026-0192", reason = "unmaintained, reached only through winit's own tree; no upgrade exists and the fix is not ours to make" },
+    # `zvariant`, `zvariant_derive` and `zbus_names` were declared unmaintained on 2026-10-17
+    # (z-galaxy/zbus#2043). They reach only the app, through its screen-reader
+    # support: `eframe → egui-winit → accesskit_winit → accesskit_unix → zbus`.
+    # The same reasoning as `ttf-parser` above: not exploitable, not ours to
+    # replace, and worth re-reading whenever `eframe` is bumped. The workspace
+    # run prints `advisory-not-detected` for each, as it does for that one.
+    { id = "RUSTSEC-2026-0370", reason = "zvariant unmaintained, reached only through eframe's accessibility tree; the fix is accesskit's to make" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive unmaintained, reached only through eframe's accessibility tree; the fix is accesskit's to make" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names unmaintained, reached only through eframe's accessibility tree; the fix is accesskit's to make" },
 ]
 
 [bans]
