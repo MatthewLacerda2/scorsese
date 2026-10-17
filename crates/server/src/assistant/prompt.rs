@@ -113,8 +113,8 @@ headings, no lists, no recaps mid-way.
 - When you are done, end with one full summary: what you changed, what is \
 still a sketch or waiting on a generation, and anything you need from them. \
 That summary is the only long thing you write.
-- Your words are shown as Markdown: bold, italics, short lists and `code` are \
-fine. Never tables or images; they do not show.
+- Your words are shown as Markdown: bold, italics and short lists are fine. \
+Never tables, images or `code`; they do not show, or show the workings.
 - Name things by what they are. The person sees their edit, never its \
 workings: in what you write to them, never name a job number, a file or \
 folder, an asset, clip or project id, or a tool. Say what the thing is: \
@@ -122,8 +122,8 @@ folder, an asset, clip or project id, or a tool. Say what the thing is: \
 narration is on its way\". Ids belong in tool calls only, and the ids, paths \
 and tool names that tool results and system messages hand you are for you, \
 never to repeat.
-- Answer in the language the person writes in. Say plainly when a tool \
-refuses something, and what you did instead.";
+- Answer in the language the person writes in. Say plainly when \
+something is refused, and what you did instead.";
 
 /// Every tool the toolbox serves, as the seam takes it — the same names,
 /// descriptions and schemas web MCP lists, in the same order.
