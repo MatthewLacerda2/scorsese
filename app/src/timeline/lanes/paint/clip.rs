@@ -158,7 +158,8 @@ fn ramp(painter: &Painter, rect: Rect, lane: Rect, clip: &Clip, ink: Color32) {
         // where they belong rather than squeezing the whole shape into whatever
         // sliver is on screen.
         let along = ((x - rect.left()) / rect.width()).clamp(0.0, 1.0);
-        f64::from(gain.at(f64::from(along) * clip.duration.get() as f64))
+        let frame = (f64::from(along) * clip.duration.get() as f64).floor();
+        f64::from(gain.at(frame))
     };
 
     // Only the part of it anybody can see. Sampling the whole block would be

@@ -48,7 +48,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 54,
+  "schema_version": 55,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "aspect": "16:9",
@@ -2860,7 +2860,7 @@ compositing-suite line.
 
 ```json project
 {
-  "schema_version": 54,
+  "schema_version": 55,
   "name": "wipe",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [
