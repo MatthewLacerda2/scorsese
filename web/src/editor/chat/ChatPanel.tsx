@@ -237,7 +237,7 @@ function Composer({
           className="max-h-40 min-h-16 resize-none"
         />
         <div className="flex items-center gap-2">
-          {showFresh && !fresh && <NewConversation onStart={onFresh} />}
+          {showFresh && !fresh && runningTurn === null && <NewConversation onStart={onFresh} />}
           <div className="ml-auto flex gap-2">
             <EffortPicker effort={effort} onChange={choose} />
             {stoppable !== null && (

@@ -20,11 +20,14 @@ export function Generating() {
       role="status"
       className="flex items-center gap-1.5 border-t pt-2 text-xs text-muted-foreground"
     >
-      <LoaderIcon className="size-3 animate-spin" />
+      <LoaderIcon aria-hidden className="size-3 animate-spin" />
       <span>
         {word}
-        {/* Reserve the full width so the line does not twitch as the dots come and go. */}
-        <span className="inline-block w-[1.2em] text-left">{".".repeat(dots)}</span>
+        {/* Reserve the full width so the line does not twitch as the dots come and go;
+            hidden from screen readers, which would read the line again at every dot. */}
+        <span aria-hidden className="inline-block w-[1.2em] text-left">
+          {".".repeat(dots)}
+        </span>
       </span>
     </p>
   );
