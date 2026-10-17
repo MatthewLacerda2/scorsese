@@ -100,8 +100,9 @@
 //! property name a volume keyframe spells ([`audio::path::VOLUME`]);
 //! [`mod@frames`] pulls pictures back out of a finished file
 //! ([`frames::extract`], [`frames::stills`], [`frames::read_png`],
-//! [`frames::write_png`]) and makes a small picture of a source for a list to
-//! show ([`frames::thumbnail`]); and [`mod@say`] turns a measurement into rows a
+//! [`frames::write_png`]), makes a small picture of a source for a list to
+//! show ([`frames::thumbnail`]) and a picture small enough to send a model
+//! ([`frames::for_a_model`]); and [`mod@say`] turns a measurement into rows a
 //! person reads ([`say::summary`], [`say::sections`], [`say::layers`],
 //! [`say::survey`], [`say::comparison`], [`say::grid`]) — and what a render says about the
 //! file it delivered ([`say::written`], [`say::report`]), so every surface

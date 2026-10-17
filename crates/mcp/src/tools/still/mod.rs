@@ -44,7 +44,7 @@ use serde_json::Value;
 use crate::tools::args::{self, ProjectDir, Required};
 use crate::tools::inspect::load;
 use crate::tools::scratch::Scratch;
-use crate::tools::{Costs, Part, Reply, Tool};
+use crate::tools::{Costs, PICTURES_PER_REPLY, Part, Reply, Tool};
 
 pub use ahead::{Ahead, PagesAhead, still_with_pages_ahead};
 
@@ -64,7 +64,8 @@ struct Arguments {
     /// like 285. A bare decimal is refused — say which unit you mean. Give a
     /// list, e.g. ["0s", "9.1s", "400"], to look at several at once: one
     /// sentence and one picture comes back per instant, in the order asked.
-    #[schemars(schema_with = "at_schema")]
+    /// At most 10 instants per call; split a longer list across calls.
+    #[schemars(schema_with = "still_at_schema")]
     at: Value,
     /// The shape to look in, e.g. "9:16" for a vertical edit or "1:1" for a
     /// square one: a preview of the default's pixels in that shape (720x1280
@@ -125,7 +126,7 @@ impl Tool for Still {
          pixels a render would deliver, since it is the render pipeline with \
          the encoder taken out. One sentence and one picture comes back per \
          instant, in the order asked, so checking every section of a cut is \
-         one call rather than one per section. Pictures come back preview-sized \
+         one call rather than one per section — up to 10 instants a call. Pictures come back preview-sized \
          in the project's own shape (its aspect; project_reframe changes it); \
          pass resolution: \"9:16\" to look in another — never the delivery \
          size, which costs more and shows the same layout. Needs ffmpeg, but encodes \
@@ -160,6 +161,14 @@ impl Tool for Still {
         let dir = arguments.project.dir();
         let project = load(dir)?;
         let instants = instants(&arguments.at, project.timeline_fps)?;
+        if instants.len() > PICTURES_PER_REPLY {
+            return Err(format!(
+                "at: {} instants were asked for, and one call shows at most \
+                 {PICTURES_PER_REPLY}. Split the list across calls, or pass sheet: true \
+                 for up to 5 as one picture.",
+                instants.len()
+            ));
+        }
         // A sheet is one picture however many instants are in it, so it is one
         // file as far as `out` is concerned.
         let files = if arguments.sheet { 1 } else { instants.len() };
@@ -294,6 +303,14 @@ pub(super) fn at_schema(_: &mut SchemaGenerator) -> Schema {
         "type": ["string", "array"],
         "items": { "type": "string" }
     })
+}
+
+/// [`at_schema`], capped at [`PICTURES_PER_REPLY`] instants: `still`'s own,
+/// since `project_describe` answers in words and takes any number.
+fn still_at_schema(generator: &mut SchemaGenerator) -> Schema {
+    let mut schema = at_schema(generator);
+    schema.insert("maxItems".into(), PICTURES_PER_REPLY.into());
+    schema
 }
 
 /// Which timeline frames the `at` argument names, in the order it named them.

@@ -10,10 +10,11 @@
 
 use scorsese_mcp::Reply;
 use scorsese_providers::chat::{Call, Message, Part, ResultPart};
+use scorsese_render::Tools;
 
-use super::described;
 use super::store::QuoteView;
 use super::store::turns::hold_quote;
+use super::{described, pictures};
 use crate::db::{self, UserId};
 use crate::events::Event;
 use crate::http::AppState;
@@ -82,10 +83,18 @@ pub(super) async fn run(state: &AppState, user: UserId, turn: i64, call: &Call) 
     let words: Vec<&str> = parts.iter().map(|part| part.text.as_str()).collect();
     let said: String = words.join("\n").chars().take(SAID).collect();
     tell(if is_error { "refused" } else { "answered" }, Some(said));
+    let ffmpeg = state.tools.ffmpeg().clone();
+    let content = tokio::task::spawn_blocking(move || blocks(&ffmpeg, parts))
+        .await
+        .unwrap_or_else(|_| {
+            vec![ResultPart::Text {
+                text: "(the answer could not be read back)".into(),
+            }]
+        });
     let part = Part::Result {
         call: call.id.clone(),
         name: call.name.clone(),
-        content: blocks(parts),
+        content,
         is_error,
     };
     (part, quoted)
@@ -127,14 +136,17 @@ fn held_by(block: &ResultPart) -> bool {
 
 /// A reply's parts as a tool result's: words, then the picture they are
 /// about. Claude refuses an empty text block, so empty words are dropped.
-fn blocks(parts: Vec<scorsese_mcp::Part>) -> Vec<ResultPart> {
+///
+/// Each picture is sent, and so stored and replayed with every later turn,
+/// as a JPEG no longer than the model reads ([`pictures`]).
+fn blocks(ffmpeg: &Tools, parts: Vec<scorsese_mcp::Part>) -> Vec<ResultPart> {
     let mut blocks = Vec::new();
     for part in parts {
         if !part.text.trim().is_empty() {
             blocks.push(ResultPart::Text { text: part.text });
         }
         if let Some(png) = part.image {
-            blocks.push(ResultPart::Png { data: png });
+            blocks.push(pictures::shrunk(ffmpeg, &png));
         }
     }
     if blocks.is_empty() {

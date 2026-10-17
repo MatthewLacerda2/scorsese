@@ -10,6 +10,7 @@ mod animating;
 mod authoring;
 mod briefing;
 mod cancelling;
+mod capping;
 mod captioning;
 mod changing;
 mod cloning;

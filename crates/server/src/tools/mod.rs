@@ -142,6 +142,12 @@ impl Toolbox {
         self
     }
 
+    /// The ffmpeg these tools run, for whatever sits between a tool's
+    /// answer and its reader (the assistant shrinks pictures with it).
+    pub fn ffmpeg(&self) -> &Tools {
+        &self.tools
+    }
+
     /// Every tool a user is offered, as `tools/list` shows it — name,
     /// description and input schema.
     pub fn listing(&self) -> Vec<Value> {

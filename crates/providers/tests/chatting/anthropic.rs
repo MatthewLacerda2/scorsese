@@ -89,7 +89,8 @@ fn a_turn_from_before_the_record_is_read_back_into_one() {
                         ResultPart::Text {
                             text: "a frame".into()
                         },
-                        ResultPart::Png {
+                        ResultPart::Image {
+                            media_type: "image/png".into(),
                             data: "UE5H".into()
                         },
                     ],

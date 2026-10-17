@@ -115,7 +115,9 @@ fn blocks(parts: &[Part]) -> Result<Vec<Block>, serde_json::Error> {
                             ResultPart::Text { text } => {
                                 content::ResultPart::Text { text: text.clone() }
                             }
-                            ResultPart::Png { data } => content::ResultPart::png(data.clone()),
+                            ResultPart::Image { media_type, data } => {
+                                content::ResultPart::image(media_type.clone(), data.clone())
+                            }
                         })
                         .collect(),
                     is_error: *is_error,
@@ -189,9 +191,15 @@ fn part(block: &Value, names: &mut HashMap<String, String>) -> Option<Part> {
                     "text" => Some(ResultPart::Text {
                         text: text(piece, "text"),
                     }),
-                    "image" => Some(ResultPart::Png {
-                        data: text(piece.get("source")?, "data"),
-                    }),
+                    "image" => {
+                        let source = piece.get("source")?;
+                        Some(ResultPart::Image {
+                            media_type: Some(text(source, "media_type"))
+                                .filter(|kind| !kind.is_empty())
+                                .unwrap_or_else(|| "image/png".to_owned()),
+                            data: text(source, "data"),
+                        })
+                    }
                     _ => None,
                 })
                 .collect();

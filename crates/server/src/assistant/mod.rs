@@ -130,6 +130,7 @@ mod calls;
 mod cost;
 mod described;
 mod model;
+mod pictures;
 mod prompt;
 mod quote;
 mod relay;

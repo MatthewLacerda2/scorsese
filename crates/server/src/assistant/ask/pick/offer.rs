@@ -93,7 +93,7 @@ fn shown(record: &[Message]) -> HashSet<Choice> {
         .flatten();
     let words = results.filter_map(|result| match result {
         ResultPart::Text { text } => Some(text),
-        ResultPart::Png { .. } => None,
+        ResultPart::Image { .. } => None,
     });
     words.flat_map(|text| named_in(text)).collect()
 }

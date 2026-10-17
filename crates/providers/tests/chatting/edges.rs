@@ -46,3 +46,24 @@ fn an_effort_reaches_the_wire_as_the_name_it_reads_back_from() {
     assert_eq!(Effort::from_name("xhigh"), None);
     assert_eq!(Effort::from_name("High"), None);
 }
+
+#[test]
+fn a_picture_stored_as_png_before_it_named_its_type_still_reads_and_a_jpeg_names_its_own() {
+    use scorsese_providers::chat::ResultPart;
+    let old: ResultPart = serde_json::from_str(r#"{"type": "png", "data": "UE5H"}"#).unwrap();
+    let png = ResultPart::Image {
+        media_type: "image/png".into(),
+        data: "UE5H".into(),
+    };
+    assert_eq!(old, png, "a row written before #1435");
+    let jpeg = ResultPart::Image {
+        media_type: "image/jpeg".into(),
+        data: "/9j/".into(),
+    };
+    let stored = serde_json::to_value(&jpeg).unwrap();
+    assert_eq!(
+        stored,
+        serde_json::json!({"type": "image", "media_type": "image/jpeg", "data": "/9j/"})
+    );
+    assert_eq!(serde_json::from_value::<ResultPart>(stored).unwrap(), jpeg);
+}
