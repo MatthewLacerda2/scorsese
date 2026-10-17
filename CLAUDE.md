@@ -43,6 +43,11 @@ fonts, its audio controls (volume as plain linear ramps between points), and
 speed changes on video and audio clips. Worth ignoring: anything that exists
 because a professional demanded it.
 
+**Lovable is the reference for the assistant** (the maintainer, 2026-10-17): it
+says little and gets things right first time, from one big prompt planned
+elsewhere. So the web assistant works from the whole plan, asks for everything
+at once, and writes a line where it would have written a paragraph.
+
 This is a scope rule, so it cuts both ways. It is a reason to *refuse* an
 elaborate feature, and equally a reason to *build* an obvious one well.
 
