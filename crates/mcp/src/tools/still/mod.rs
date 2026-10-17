@@ -23,13 +23,21 @@
 //! and labelled the way `look` tiles a file ([`sheet`], #814): five small cells
 //! cost less than one full frame, and the change between them is visible
 //! because they sit side by side.
+//!
+//! On the web app its pages are captured by somebody else first ([`ahead`],
+//! #1434), and it draws them without ever starting a browser.
 
+mod ahead;
 mod raster;
 mod sheet;
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use schemars::{JsonSchema, Schema, SchemaGenerator};
-use scorsese_core::{Fps, Frames};
-use scorsese_render::{Budget, Cue, RenderSettings, Renderer, Told, Tools, grid};
+use scorsese_core::{Fps, Frames, Project};
+use scorsese_render::page::{Wanted, reasoned};
+use scorsese_render::{Budget, Cue, Note, RenderSettings, Renderer, Told, Tools, grid};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -38,8 +46,15 @@ use crate::tools::inspect::load;
 use crate::tools::scratch::Scratch;
 use crate::tools::{Costs, Part, Reply, Tool};
 
+pub use ahead::{Ahead, PagesAhead, still_with_pages_ahead};
+
 /// Frames, composited and handed back as pictures.
-pub(crate) struct Still;
+#[derive(Default)]
+pub(crate) struct Still {
+    /// Who captures the pages on screen before they are drawn, when not this
+    /// process ([`ahead`]).
+    ahead: Option<Arc<dyn PagesAhead>>,
+}
 
 /// What `still` takes.
 #[derive(Deserialize, JsonSchema)]
@@ -167,6 +182,17 @@ impl Tool for Still {
         // for rather than the nearest one at some other rate.
         let settings = RenderSettings::new(resolution, project.timeline_fps);
         let renderer = Renderer::new(&tools, settings);
+        let (renderer, failed) = match &self.ahead {
+            Some(pages) => captured_ahead(pages.as_ref(), renderer, &project, dir, &instants)?,
+            None => (renderer, HashMap::new()),
+        };
+        let told_why = |notes: Vec<Note>| {
+            if self.ahead.is_some() {
+                reasoned(&notes, &project, &failed)
+            } else {
+                notes
+            }
+        };
 
         let ruled = arguments.grid;
         if arguments.sheet {
@@ -180,6 +206,7 @@ impl Tool for Still {
                 shaped: &shaped,
                 ruled,
                 kept: kept.as_ref().map(|(given, path)| (*given, path.as_path())),
+                told_why: &told_why,
             });
         }
 
@@ -211,13 +238,47 @@ impl Tool for Still {
             }
             // Under the frame it was noticed drawing, and once a call: a page
             // on screen at several instants is one page with one problem.
-            for note in told.unsaid(notes) {
+            for note in told.unsaid(told_why(notes)) {
                 said.push_str(&format!("\nnote: {note}"));
             }
             parts.push(Part::picture(said, &bytes));
         }
         Ok(parts.into())
     }
+}
+
+/// `renderer`, made one that never starts a browser, once `pages` has
+/// captured what `instants` show; and why each page it could not capture was
+/// not, by its path.
+fn captured_ahead<'a>(
+    pages: &dyn PagesAhead,
+    renderer: Renderer<'a>,
+    project: &Project,
+    dir: &std::path::Path,
+    instants: &[Frames],
+) -> Result<(Renderer<'a>, HashMap<String, String>), String> {
+    let mut wanted: Vec<Wanted> = Vec::new();
+    for at in instants {
+        let asked = renderer
+            .still_captures(project, dir, *at)
+            .map_err(|error| format!("compositing frame {}: {error}", at.get()))?;
+        for one in asked {
+            if !wanted.contains(&one) {
+                wanted.push(one);
+            }
+        }
+    }
+    let renderer = renderer.without_capturing();
+    if wanted.is_empty() {
+        return Ok((renderer, HashMap::new()));
+    }
+    let ahead = pages.capture(dir, &wanted);
+    let renderer = renderer.capture_underway(ahead.underway);
+    let renderer = match ahead.chrome {
+        Some(chrome) => renderer.with_chrome(chrome),
+        None => renderer,
+    };
+    Ok((renderer, ahead.failed))
 }
 
 /// What the `at` argument is, for the refusal when it says nothing usable.

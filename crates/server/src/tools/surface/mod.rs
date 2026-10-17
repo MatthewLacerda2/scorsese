@@ -135,7 +135,7 @@ pub(super) fn find(name: &str) -> Option<Entry> {
     if let Some(own) = Own::named(name) {
         return Some(Entry::Own(own));
     }
-    let tool = registered(name, None)?;
+    let tool = registered(name, None, None)?;
     match serve(name)? {
         Serve::Replaced => None,
         serve => Some(Entry::Shared(tool, serve)),

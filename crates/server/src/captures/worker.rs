@@ -109,23 +109,27 @@ impl Worker {
         }
     }
 
-    /// The oldest job waiting for an answer, if one is.
+    /// The oldest job waiting for an answer, if one is: a render's
+    /// (`job-<n>`) or a still's (`still-<call>`, #1434), in the order they
+    /// were asked.
     pub fn next(&self) -> Option<PathBuf> {
         let waiting = std::fs::read_dir(self.spool.jobs())
             .ok()?
             .filter_map(|entry| {
                 let path = entry.ok()?.path();
-                let number: i64 = path
-                    .file_name()?
-                    .to_str()?
-                    .strip_prefix("job-")?
+                let name = path.file_name()?.to_str()?;
+                let number: i64 = name
+                    .strip_prefix("job-")
+                    .or_else(|| name.strip_prefix("still-"))?
                     .parse()
                     .ok()?;
-                let ready = path.join(ASK).is_file() && !path.join(ANSWER).exists();
-                ready.then_some((number, path))
+                let ask = path.join(ASK);
+                let ready = ask.is_file() && !path.join(ANSWER).exists();
+                let asked = std::fs::metadata(&ask).and_then(|meta| meta.modified());
+                ready.then_some(((asked.ok()?, number), path))
             });
         waiting
-            .min_by_key(|(number, _)| *number)
+            .min_by_key(|(order, _)| *order)
             .map(|(_, path)| path)
     }
 

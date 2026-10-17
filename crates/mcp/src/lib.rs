@@ -144,4 +144,7 @@ mod scratch;
 pub use renderer::fetch_on_first_use;
 pub use session::serve;
 pub use table::{BEGIN, END, regenerated, tool_table};
-pub use tools::{Context, Costs, Part, Reply, Stock, Tool, registry, stocked_from};
+pub use tools::{
+    Ahead, Context, Costs, PagesAhead, Part, Reply, Stock, Tool, registry, still_with_pages_ahead,
+    stocked_from,
+};

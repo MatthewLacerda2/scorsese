@@ -37,6 +37,7 @@ mod synth;
 mod vectorize;
 mod voices;
 
+pub use still::{Ahead, PagesAhead, still_with_pages_ahead};
 pub use stock::{Stock, stocked_from};
 
 use base64::Engine;
@@ -374,7 +375,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         // Beside the tool that starts what it follows: a render runs in the
         // background, and this is how anyone learns how it went.
         Box::new(jobs::Jobs),
-        Box::new(still::Still),
+        Box::new(still::Still::default()),
         Box::new(look::Look),
         Box::new(hear::Hear),
     ]

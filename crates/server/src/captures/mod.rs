@@ -59,6 +59,7 @@
 pub mod dispatch;
 pub mod launch;
 pub mod one;
+pub mod still;
 pub mod worker;
 
 use std::collections::BTreeMap;
@@ -123,6 +124,12 @@ impl Spool {
             .join(PAGES)
             .join(user.get().to_string())
             .join(project.to_string())
+    }
+
+    /// The folder of the still asked for by tool call `call` (#1434): beside
+    /// the render jobs', and answered in the same queue.
+    pub fn still(&self, call: i64) -> PathBuf {
+        self.root.join(JOBS).join(format!("still-{call}"))
     }
 
     /// Where the jobs' folders are.
