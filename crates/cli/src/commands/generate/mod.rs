@@ -204,8 +204,11 @@ fn quote(project: &Project, root: &Path, order: Order) -> Result<()> {
         Order::Now => scorsese_providers::quote::generation(project, root)?,
         Order::Batch => scorsese_providers::quote::batch(project, root)?,
     };
-    for item in &quote.items {
+    for item in quote.shown() {
         println!("{:<24} {}", item.subject, item.says);
+    }
+    if quote.made() > 0 {
+        println!("{} more already made — nothing to pay.", quote.made());
     }
     println!();
     println!(

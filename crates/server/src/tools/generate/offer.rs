@@ -74,6 +74,8 @@ pub(super) fn foreign(project: &Project, root: &Path, quote: &mut Quote) {
                  collect it where it was ordered (scorsese generate --collect) and bring the \
                  project back; nothing more to pay here",
             );
+            // Not on its way from here: what to do about it is still said.
+            item.made = false;
         }
     }
 }

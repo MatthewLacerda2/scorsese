@@ -1660,6 +1660,11 @@ say yes, and short enough that a yes cannot drift into a different
 conversation. A token nobody issued is refused because it is not in the store,
 so one cannot be made up.
 
+**A quote lists what costs money.** A brief already generated, or a shot
+already paid for and in flight, is not a line of its own: the quote counts
+them in one line (*3 more already made — nothing to pay for them*) and lists
+the rest — what would be paid for, and what would not be sent and why (#1436).
+
 **A call with nothing to pay for needs no token.** `generate` over a project
 that is already generated, or `collect`, which only picks up what is in flight,
 goes straight through — there is nothing to agree to. So does a voice design

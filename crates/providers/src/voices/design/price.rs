@@ -121,6 +121,7 @@ pub fn quote(root: &Path, brief: &Brief) -> Result<Quote, UnpricedSpeech> {
             subject: String::from("design"),
             says: String::from("already designed — the three samples are on disk, nothing to pay"),
             charge: None,
+            made: true,
         }
     } else {
         let estimate = estimate(&brief.passage)?;
@@ -131,6 +132,7 @@ pub fn quote(root: &Path, brief: &Brief) -> Result<Quote, UnpricedSpeech> {
                 brief: digest,
                 cents: estimate.cents,
             }),
+            made: false,
         }
     };
     Ok(Quote {

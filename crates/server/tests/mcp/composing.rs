@@ -65,7 +65,9 @@ async fn a_track_is_quoted_composed_and_charged(pool: PgPool) {
     // The same track in another of ana's projects is already hers.
     let other = super::stored(&pool, ana, scored()).await;
     let (quote, _) = call(address, &who, "generate", json!({ "project": other })).await;
-    assert!(quote.contains("bed: already composed"), "{quote}");
+    // Made already, so never listed — one line says so (#1436).
+    assert!(!quote.contains("bed:"), "{quote}");
+    assert!(quote.contains("1 already made"), "{quote}");
     assert_eq!(
         mock.composed.load(Ordering::SeqCst),
         1,

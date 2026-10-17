@@ -175,6 +175,7 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
                 brief: digest.clone(),
                 cents: estimate.cents,
             }),
+            made: false,
         }],
     };
     let charged = credits(quote.cents());

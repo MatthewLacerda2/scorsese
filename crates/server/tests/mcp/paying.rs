@@ -83,8 +83,11 @@ async fn a_quote_spends_nothing_and_a_yes_reserves_and_queues(pool: PgPool) {
 
     // Being made already: a second yes cannot pay for it again.
     let (again, _) = call(address, &who, "generate", json!({ "project": id })).await;
-    assert!(again.contains("already on its way as job"), "{again}");
-    assert!(again.contains("Nothing to pay for"), "{again}");
+    assert!(!again.contains("vo:"), "never listed: {again}");
+    assert!(
+        again.contains("Nothing to pay for — 1 already made or on its way"),
+        "{again}"
+    );
 }
 
 #[sqlx::test]

@@ -53,8 +53,11 @@ async fn a_spoken_line_lands_in_the_library_and_the_project(pool: PgPool) {
     // The same line in another of ana's projects is already hers.
     let other = super::stored(&pool, ana, narrated()).await;
     let (quote, _) = call(address, &who, "generate", json!({ "project": other })).await;
-    assert!(quote.contains("vo: already spoken"), "{quote}");
-    assert!(quote.contains("Nothing to pay for"), "{quote}");
+    assert!(!quote.contains("vo:"), "never listed: {quote}");
+    assert!(
+        quote.contains("Nothing to pay for — 1 already made"),
+        "{quote}"
+    );
     let adopted = document(&pool, ana, other).await.document;
     assert_eq!(adopted.assets[0].path, line.path, "brought in, free");
     assert_eq!(mock.spoken(), 1, "and never spoken twice");
