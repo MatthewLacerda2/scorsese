@@ -42,10 +42,11 @@ fn editing_a_brief_moves_the_digest() {
     std::fs::remove_dir_all(dir).ok();
 }
 
-/// A brief whose output is already in `generated/` is listed, so the quote
-/// explains itself, and charged nothing, because the run would send nothing.
+/// A brief whose output is already in `generated/` is charged nothing,
+/// because the run would send nothing — and is marked made, so no surface
+/// shows it beside what costs money (#1436).
 #[test]
-fn a_brief_already_on_disk_is_listed_and_not_charged() {
+fn a_brief_already_on_disk_is_made_and_not_charged() {
     let (dir, project) = sketched("quote-cached");
     let shot = project.asset(&AssetId::new("shot")).expect("the shot");
     let output = Brief::of(&project, &dir, shot).expect("brief").output();
@@ -55,7 +56,10 @@ fn a_brief_already_on_disk_is_listed_and_not_charged() {
     let item = &quote.items[0];
     assert!(item.charge.is_none(), "{item:?}");
     assert!(item.says.contains("already generated"), "{}", item.says);
+    assert!(item.made, "{item:?}");
     assert_eq!(quote.cents(), 1, "only the line is left to pay for");
+    let shown: Vec<&str> = quote.shown().map(|item| item.subject.as_str()).collect();
+    assert_eq!((shown, quote.made()), (vec!["vo"], 1));
     std::fs::remove_dir_all(dir).ok();
 }
 
@@ -95,5 +99,6 @@ fn a_shot_prompt_past_veos_limit_would_not_be_sent() {
         "{}",
         item.says
     );
+    assert!(!item.made, "why it is held back is still shown");
     std::fs::remove_dir_all(dir).ok();
 }

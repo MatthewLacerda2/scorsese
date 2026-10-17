@@ -92,6 +92,13 @@ pub struct Item {
     /// What it would be charged, when it would be charged at all. Absent for a
     /// brief already paid for, one still in flight, or one not ready to send.
     pub charge: Option<Charge>,
+    /// Already made, or already paid for and on its way: the call sends
+    /// nothing for it and asks nothing about it. A surface leaves it out of
+    /// what it shows ([`Quote::shown`]) and at most counts it ([`Quote::made`]),
+    /// so a quote lists what costs money and never asks a yes for what does
+    /// not (#1436). A brief not ready to send is not made: why it is held back
+    /// is still said.
+    pub made: bool,
 }
 
 /// A brief that would be paid for.
@@ -126,6 +133,17 @@ impl Quote {
     /// about.
     pub fn is_free(&self) -> bool {
         self.charges().next().is_none()
+    }
+
+    /// Every item a surface shows: all but the [`made`](Item::made) ones, in
+    /// document order.
+    pub fn shown(&self) -> impl Iterator<Item = &Item> {
+        self.items.iter().filter(|item| !item.made)
+    }
+
+    /// How many items are already made or on their way, and left unshown.
+    pub fn made(&self) -> usize {
+        self.items.iter().filter(|item| item.made).count()
     }
 
     /// The fingerprint a token is bound to.
@@ -174,6 +192,7 @@ mod tests {
                 brief: brief.to_owned(),
                 cents,
             }),
+            made: false,
         };
         let quote = Quote {
             spend: Spend::Generation,

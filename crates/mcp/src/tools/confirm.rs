@@ -88,13 +88,18 @@ pub(crate) fn gate(
     Ok(Some(lines.join("\n").into()))
 }
 
-/// The quote as lines: one per item, then the total.
+/// The quote as lines: one per item that costs or is held back, a count of
+/// what is already made (#1436), then the total.
 pub(crate) fn said(quote: &Quote) -> Vec<String> {
     let mut lines: Vec<String> = quote
-        .items
-        .iter()
+        .shown()
         .map(|item| format!("{}: {}", item.subject, item.says))
         .collect();
+    match quote.made() {
+        0 => {}
+        1 => lines.push(String::from("1 more already made — nothing to pay for it.")),
+        n => lines.push(format!("{n} more already made — nothing to pay for them.")),
+    }
     lines.push(format!(
         "About {} in all — our arithmetic over published rates, never a bill.",
         dollars(from_cents(quote.cents()), 2)

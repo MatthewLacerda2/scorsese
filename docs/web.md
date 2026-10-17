@@ -1740,7 +1740,10 @@ under one set of rules, and `scorsese-mcp` still never learns about users
 **Paying: quote, credits, a job, the library.** `generate` quotes with
 `scorsese_providers::quote::generation` over the laid-out project — so a brief
 the user already generated, in this project or another of theirs, is priced at
-nothing, and so is one whose job is still on its way. A call without `confirm`
+nothing, and so is one whose job is still on its way. Those are left out of
+the quote's lines, so the confirmation box and the model's reply list only
+what costs money; a call with nothing to pay holds no token, shows no box, and
+says so in one line with how many were already made (#1436). A call without `confirm`
 answers with the quote, what it takes from the balance (*Credits*, *Pricing*) and a
 token, kept in the `quotes` table under the providers' rules (#538: bound to
 what was quoted, once, fifteen minutes). A call with the token reserves every

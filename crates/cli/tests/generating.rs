@@ -162,8 +162,8 @@ fn a_stale_shot_with_its_old_file_present_is_still_sent() {
 }
 
 /// The quote prices what THIS run would send. A brief whose output is already
-/// in generated/ is listed at nothing — it used to be priced like a sketch,
-/// quoting money the run could never spend.
+/// in generated/ costs nothing — it used to be priced like a sketch, quoting
+/// money the run could never spend — and is counted, not listed (#1436).
 #[test]
 fn the_quote_charges_nothing_for_a_brief_already_generated() {
     let dir = sketched("generate-quote-cached");
@@ -172,7 +172,7 @@ fn the_quote_charges_nothing_for_a_brief_already_generated() {
 
     let run = run_in_env(&dir, &["generate", "--dry-run"], &at(&home)).ok();
 
-    run.says("already generated");
+    run.says("1 more already made");
     run.says("$0.00 for the whole run");
 }
 

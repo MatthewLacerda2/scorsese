@@ -156,23 +156,27 @@ fn of_kind(project: &Project, kind: AssetKind) -> impl Iterator<Item = &Asset> {
 
 /// One shot, as the run would treat it.
 fn shot(project: &Project, root: &Path, asset: &Asset) -> Result<Item, Unquotable> {
-    let free = |says: String| Item {
+    let free = |says: String, made: bool| Item {
         subject: asset.id.to_string(),
         says,
         charge: None,
+        made,
     };
     Ok(match video::plan(project, root, asset) {
-        video::Plan::Realized(path) => free(format!("already generated — {path} — nothing to pay")),
-        video::Plan::InFlight => free(String::from(
-            "still generating — already paid for, collected free",
-        )),
-        video::Plan::Unready(why) => free(format!("would not be sent — {why}")),
+        video::Plan::Realized(path) => {
+            free(format!("already generated — {path} — nothing to pay"), true)
+        }
+        video::Plan::InFlight => free(
+            String::from("still generating — already paid for, collected free"),
+            true,
+        ),
+        video::Plan::Unready(why) => free(format!("would not be sent — {why}"), false),
         video::Plan::Submit => {
             // `plan` gathered this brief a moment ago to decide on Submit, so
             // gathering it again answers the same way.
             let brief = match video::Brief::of(project, root, asset) {
                 Ok(brief) => brief,
-                Err(why) => return Ok(free(format!("would not be sent — {why}"))),
+                Err(why) => return Ok(free(format!("would not be sent — {why}"), false)),
             };
             let priced = prices::estimate(&brief.request)?;
             Item {
@@ -188,6 +192,7 @@ fn shot(project: &Project, root: &Path, asset: &Asset) -> Result<Item, Unquotabl
                     brief: brief.digest(),
                     cents: priced.cents,
                 }),
+                made: false,
             }
         }
     })
@@ -197,21 +202,25 @@ fn shot(project: &Project, root: &Path, asset: &Asset) -> Result<Item, Unquotabl
 /// its size, plus the input it is sent with — see [`prices::image`] for what
 /// that counts and what it does not — halved in a batch.
 fn still(project: &Project, root: &Path, asset: &Asset, order: Order) -> Result<Item, Unquotable> {
-    let free = |says: String| Item {
+    let free = |says: String, made: bool| Item {
         subject: asset.id.to_string(),
         says,
         charge: None,
+        made,
     };
     Ok(match image::plan(project, root, asset) {
-        image::Plan::Realized(path) => free(format!("already drawn — {path} — nothing to pay")),
-        image::Plan::Unready(why) => free(format!("not yet — {why}")),
-        image::Plan::InFlight => free(String::from(
-            "waiting in its batch — already paid for, collected free",
-        )),
+        image::Plan::Realized(path) => {
+            free(format!("already drawn — {path} — nothing to pay"), true)
+        }
+        image::Plan::Unready(why) => free(format!("not yet — {why}"), false),
+        image::Plan::InFlight => free(
+            String::from("waiting in its batch — already paid for, collected free"),
+            true,
+        ),
         image::Plan::Submit => {
             let brief = match image::Brief::of(project, root, asset) {
                 Ok(brief) => brief,
-                Err(why) => return Ok(free(format!("not yet — {why}"))),
+                Err(why) => return Ok(free(format!("not yet — {why}"), false)),
             };
             let price = match order {
                 Order::Now => prices::image,
@@ -243,6 +252,7 @@ fn still(project: &Project, root: &Path, asset: &Asset, order: Order) -> Result<
                     brief: brief.digest(),
                     cents: priced.cents,
                 }),
+                made: false,
             }
         }
     })
@@ -254,18 +264,21 @@ fn still(project: &Project, root: &Path, asset: &Asset, order: Order) -> Result<
 /// an estimate, since the rate is a page somebody copied and library-voice
 /// multipliers are deliberately ignored.
 fn line(root: &Path, asset: &Asset) -> Result<Item, Unquotable> {
-    let free = |says: String| Item {
+    let free = |says: String, made: bool| Item {
         subject: asset.id.to_string(),
         says,
         charge: None,
+        made,
     };
     Ok(match speech::plan(root, asset) {
-        speech::Plan::Realized(path) => free(format!("already spoken — {path} — nothing to pay")),
-        speech::Plan::Unready(why) => free(format!("not yet — {why}")),
+        speech::Plan::Realized(path) => {
+            free(format!("already spoken — {path} — nothing to pay"), true)
+        }
+        speech::Plan::Unready(why) => free(format!("not yet — {why}"), false),
         speech::Plan::Submit => {
             let brief = match speech::Brief::of(asset) {
                 Ok(brief) => brief,
-                Err(why) => return Ok(free(format!("not yet — {why}"))),
+                Err(why) => return Ok(free(format!("not yet — {why}"), false)),
             };
             let priced = prices::speech(brief.request.model, brief.characters())?;
             Item {
@@ -280,6 +293,7 @@ fn line(root: &Path, asset: &Asset) -> Result<Item, Unquotable> {
                     brief: brief.digest(),
                     cents: priced.cents,
                 }),
+                made: false,
             }
         }
     })
@@ -289,14 +303,17 @@ fn line(root: &Path, asset: &Asset) -> Result<Item, Unquotable> {
 /// minute of what it asks for, so exact before anything is sent, and still an
 /// estimate — the rate is a page somebody copied.
 fn track(root: &Path, asset: &Asset) -> Item {
-    let free = |says: String| Item {
+    let free = |says: String, made: bool| Item {
         subject: asset.id.to_string(),
         says,
         charge: None,
+        made,
     };
     match music::plan(root, asset) {
-        music::Plan::Realized(path) => free(format!("already composed — {path} — nothing to pay")),
-        music::Plan::Unready(why) => free(format!("not yet — {why}")),
+        music::Plan::Realized(path) => {
+            free(format!("already composed — {path} — nothing to pay"), true)
+        }
+        music::Plan::Unready(why) => free(format!("not yet — {why}"), false),
         music::Plan::Submit => match music::Brief::of(asset) {
             Ok(brief) => {
                 let priced = prices::music(brief.seconds);
@@ -311,9 +328,10 @@ fn track(root: &Path, asset: &Asset) -> Item {
                         brief: brief.digest(),
                         cents: priced.cents,
                     }),
+                    made: false,
                 }
             }
-            Err(why) => free(format!("not yet — {why}")),
+            Err(why) => free(format!("not yet — {why}"), false),
         },
     }
 }

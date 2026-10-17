@@ -168,7 +168,12 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
     }
     lines.extend(shortened.iter().cloned());
     if quote.is_free() {
-        lines.push("Nothing to pay for, so nothing was sent.".to_owned());
+        lines.push(match quote.made() {
+            0 => "Nothing to pay for, so nothing was sent.".to_owned(),
+            made => format!(
+                "Nothing to pay for — {made} already made or on its way — so nothing was sent."
+            ),
+        });
         return Ok(lines.join("\n").into());
     }
     let now = Timestamp::unix_now().ok_or("the server's clock is before 1970")?;
@@ -275,18 +280,23 @@ async fn on_its_way(caller: &Caller<'_>, quote: &mut Quote) -> Result<(), String
                 subject: item.subject.clone(),
                 says: format!("already on its way as job {job} — paid for, nothing more to pay"),
                 charge: None,
+                made: true,
             };
         }
     }
     Ok(())
 }
 
-/// The quote as lines: one per item, then the total, at the providers' rates
-/// and as it comes out of the user's credits.
+/// The quote as lines: one per item that costs or is held back, then the
+/// total, at the providers' rates and as it comes out of the user's credits.
+///
+/// What is already made or on its way is left out (#1436): those lines are
+/// what the confirmation box lists and what the model reads back, and a box
+/// that asks a yes for things that cost nothing is the one complaint this
+/// answers. The asset itself shows that it is made.
 fn said(quote: &Quote, project: &Project) -> Vec<String> {
     let mut lines: Vec<String> = quote
-        .items
-        .iter()
+        .shown()
         .map(|item| format!("{}: {}", item.subject, item.says))
         .collect();
     if quote.items.is_empty() {
