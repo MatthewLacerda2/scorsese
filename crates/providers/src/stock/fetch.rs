@@ -238,8 +238,7 @@ pub const LICENCE_NAME: &str = "Pixabay Content License";
 /// Where `candidate` came from, as the asset's `source` records it.
 ///
 /// Pixabay's, like the `pixabay-<id>` file name [`import`] writes: footage and
-/// photos come from one library today, and Pexels (#1234) generalises both
-/// when it arrives.
+/// photos both come from Pixabay.
 pub fn source_of(candidate: &Candidate) -> Source {
     let known = |text: &str| (!text.trim().is_empty()).then(|| text.to_owned());
     Source {
