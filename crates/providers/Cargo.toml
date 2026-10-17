@@ -25,7 +25,7 @@ ureq = { version = "3.3.0", default-features = false, features = ["json", "rustl
 # flate2 — named here only to choose its pure-Rust backend (miniz_oxide), which
 # zip leaves to its user and the lockfile already carries for `png`.
 flate2 = { version = "1.1.10", default-features = false, features = ["rust_backend"] }
-zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2"] }
+zip = { version = "9.0.5", default-features = false, features = ["deflate-flate2"] }
 
 [dev-dependencies]
 # `StubProbe`, for the stock imports that never run ffprobe (#1279).
