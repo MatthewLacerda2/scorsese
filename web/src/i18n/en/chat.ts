@@ -96,6 +96,7 @@ export const chat = {
     answered: {
       confirmed: (cost: string) => `Approved — ${cost}`,
       declined: (cost: string) => `Declined — ${cost}`,
+      changed: (cost: string) => `Change asked — ${cost}`,
       withdrawn: (cost: string) => `Not answered — ${cost}`,
     },
     less: "less",

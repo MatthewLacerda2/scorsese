@@ -6,7 +6,6 @@ import { en } from "@/i18n/en";
 import type { Entry, Transcript } from "./transcript";
 import {
   apply,
-  awaitingQuote,
   empty,
   generating,
   problem,
@@ -33,6 +32,7 @@ function turn(id: number, fields: Partial<TurnView> = {}): TurnView {
     charged_micros: 0,
     quote: null,
     quote_answer: null,
+    quote_replies: [],
     questions: [],
     started_at: 0,
     finished_at: null,
@@ -86,18 +86,10 @@ describe("a running turn", () => {
     expect(running(shown)).toBeNull();
   });
 
-  test("shows a quote's box until it is answered", () => {
-    const quote = {
-      tool: "generate",
-      items: [],
-      lines: ["one shot: $1.20"],
-      micros: 1_320_000,
-      expires_at: 9,
-    };
+  test("puts a quote it was sent on its turn, unanswered", () => {
+    const quote = { tool: "generate", lines: [], micros: 1, expires_at: 9 };
     const shown = apply(started, { type: "chat_quote", turn: 1, quote });
-    expect(awaitingQuote(first(shown).turn)).toBe(true);
-    const answered = upsert(shown, turn(1, { quote, quote_answer: "confirmed" }));
-    expect(awaitingQuote(first(answered).turn)).toBe(false);
+    expect([first(shown).turn.quote, first(shown).turn.quote_answer]).toEqual([quote, null]);
   });
 });
 

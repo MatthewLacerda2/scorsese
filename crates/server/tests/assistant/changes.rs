@@ -81,6 +81,9 @@ async fn change_on(pool: &PgPool, model: &str) -> Vec<String> {
         "Yellow it is; here is the new quote."
     );
     assert_eq!(first["turn"]["quote_answer"], "declined");
+    let reply = &first["turn"]["quote_replies"][0];
+    assert_eq!(reply["answer"], "changed", "a change reads as one: {first}");
+    assert_eq!(reply["words"], "make the cape yellow instead");
     assert_eq!(jobs(pool).await, 0, "a change spends nothing");
     let again = answer(address, &who, &detail, json!({ "confirm": true })).await;
     assert_eq!(again.status, 400, "the quote is gone: {}", again.body);

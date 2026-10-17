@@ -5,6 +5,20 @@
 //! to the model as a typed `model_calls` row (#707) and is never read back. Every query runs scoped to the user it is
 //! for, so row-level security is the owner filter.
 
+/// The `SET` clauses that withdraw a turn's quote, if it holds one: its
+/// token forgotten, its answer `withdrawn`, and that answer added to its
+/// [`QuoteReply`]s. A turn holding none keeps what it had. A literal, so a
+/// statement built with it stays one static string.
+macro_rules! withdrawing {
+    () => {
+        "quote_token = NULL,
+         quote_answer = CASE WHEN quote_token IS NULL THEN quote_answer ELSE 'withdrawn' END,
+         quote_replies = quote_replies || CASE WHEN quote_token IS NULL THEN '[]'::jsonb
+             ELSE jsonb_build_array(jsonb_build_object('answer', 'withdrawn',
+                 'micros', (quote ->> 'micros')::bigint, 'words', NULL)) END"
+    };
+}
+
 pub(super) mod asking;
 mod calls;
 pub(super) mod turns;
@@ -55,8 +69,13 @@ pub struct TurnView {
     /// `null`.
     pub quote: Option<Value>,
     /// How the user answered it: `confirmed`, `declined`, `withdrawn` (they
-    /// wrote something else instead), or `null` while it waits.
+    /// wrote something else instead, stopped the turn or started a new
+    /// conversation), or `null` while it waits.
     pub quote_answer: Option<String>,
+    /// Every answer the turn's quotes were given, in order — each a
+    /// [`QuoteReply`]: a turn can quote, hear a change asked for, and quote
+    /// again (#1440).
+    pub quote_replies: Value,
     /// Every question it asked the user, in order — each a [`QuestionView`];
     /// the last one waits for its answer while the turn is `asking`.
     pub questions: Value,
@@ -95,6 +114,20 @@ pub struct QuoteView {
     /// answer becomes (#1440). `null` on a quote held before then.
     #[serde(default)]
     pub call: Option<String>,
+}
+
+/// One answer a quote was given, as the chat panel's line for it shows it
+/// (#1440).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QuoteReply {
+    /// `confirmed`, `declined`, `changed` (a change asked for instead, #709)
+    /// or `withdrawn` (left unanswered).
+    pub answer: String,
+    /// What the quote would have taken, in micro-dollars.
+    pub micros: i64,
+    /// The person's own words: the change they asked for, or the message they
+    /// wrote instead. `null` for a yes, a no, a Stop or a new conversation.
+    pub words: Option<String>,
 }
 
 /// A question the assistant asked the user mid-turn (#710), as the chat
@@ -251,7 +284,7 @@ macro_rules! turns_where {
             "SELECT t.id, t.session_id AS session, s.project_id AS project, t.prompt,
                     t.state, t.answer, t.stop_reason, t.model, t.calls, t.input_tokens,
                     t.output_tokens, t.cache_write_tokens, t.cache_read_tokens,
-                    t.charged_micros, t.quote, t.quote_answer, t.questions,
+                    t.charged_micros, t.quote, t.quote_answer, t.quote_replies, t.questions,
                     extract(epoch FROM t.started_at)::bigint AS started_at,
                     extract(epoch FROM t.finished_at)::bigint AS finished_at
              FROM chat_turns t JOIN chat_sessions s ON s.id = t.session_id WHERE ",
@@ -330,9 +363,12 @@ pub async fn detail(pool: &PgPool, user: UserId, id: i64) -> Result<TurnDetail, 
 pub async fn recover(pool: &PgPool) -> Result<u64, sqlx::Error> {
     let mut tx = db::privileged(pool).await?;
     let done = sqlx::query(
-        "UPDATE chat_turns SET state = 'interrupted', finished_at = now(),
-                answer = coalesce(answer, 'The server restarted while this was being worked on.')
-         WHERE state = 'running'",
+        concat!(
+            "UPDATE chat_turns SET state = 'interrupted', finished_at = now(),
+                answer = coalesce(answer, 'The server restarted while this was being worked on.'), ",
+            withdrawing!(),
+            " WHERE state = 'running'"
+        ),
     )
     .execute(&mut *tx)
     .await?;

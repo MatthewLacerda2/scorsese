@@ -65,13 +65,15 @@ pub enum Answer {
 }
 
 impl Answer {
-    /// How the turn records it.
-    fn recorded(&self) -> &'static str {
+    /// How the turn records it: as its quote's answer, and as the reply the
+    /// panel shows, with the person's words.
+    fn recorded(&self) -> (&'static str, (&'static str, Option<&str>)) {
         match self {
-            Self::Confirm { .. } => "confirmed",
+            Self::Confirm { .. } => ("confirmed", ("confirmed", None)),
+            Self::Decline => ("declined", ("declined", None)),
             // A change spends nothing, and the result carries the rest.
-            Self::Decline | Self::Change(_) => "declined",
-            Self::Instead(_) => "withdrawn",
+            Self::Change(text) => ("declined", ("changed", Some(text.trim()))),
+            Self::Instead(text) => ("withdrawn", ("withdrawn", Some(text.as_str()))),
         }
     }
 }
@@ -109,7 +111,8 @@ pub async fn answer(
     // No credit check: a no costs nothing, a yes is checked by the paid tool,
     // and the resumed turn stops at once on an empty balance.
     let mut running = resuming(state, &mut tx, user, id, &paused).await?;
-    let view = asking::answered(&mut tx, id, answer.recorded()).await?;
+    let (recorded, reply) = answer.recorded();
+    let view = asking::answered(&mut tx, id, recorded, reply).await?;
     tx.commit().await?;
     state.events.send(
         user,

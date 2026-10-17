@@ -24,6 +24,7 @@ function turnView(state: TurnView["state"], answer: string | null): TurnView {
     charged_micros: 0,
     quote: null,
     quote_answer: null,
+    quote_replies: [],
     questions: [],
   };
 }
@@ -86,10 +87,27 @@ test("an answered quote collapses into one line, its box gone (#1440)", () => {
     ...turnView("answered", "On its way."),
     quote,
     quote_answer: "confirmed",
+    quote_replies: [{ answer: "confirmed", micros: 600_000, words: null }],
   };
   const [shown] = upsert(empty(7), answered).entries;
   if (!shown) throw new Error("no turn");
   const page = html("en", shown);
   expect(page).toContain("Approved — $0.60");
   expect(page).not.toContain(CATALOGUES.en.chat.quote.confirm);
+});
+
+test("a change asked for reads as one, in the person's own words (#1440)", () => {
+  const quote: QuoteView = { tool: "generate", lines: [], micros: 600_000, expires_at: 0 };
+  const changed: TurnView = {
+    ...turnView("answered", "Yellow it is."),
+    quote,
+    quote_answer: "declined",
+    quote_replies: [{ answer: "changed", micros: 600_000, words: "make the cape yellow" }],
+  };
+  const [shown] = upsert(empty(7), changed).entries;
+  if (!shown) throw new Error("no turn");
+  const page = html("en", shown);
+  expect(page).toContain("Change asked — $0.60");
+  expect(page).toContain("make the cape yellow");
+  expect(page).not.toContain("Declined");
 });

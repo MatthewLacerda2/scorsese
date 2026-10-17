@@ -20,6 +20,11 @@ async fn a_message_written_instead_withdraws_the_quote_and_resumes_with_it(pool:
     let log = finished(address, &who, first).await;
     assert_eq!(log["turn"]["answer"], "A shorter line, then.");
     assert_eq!(log["turn"]["quote_answer"], "withdrawn");
+    let reply = &log["turn"]["quote_replies"][0];
+    assert_eq!(
+        reply["words"], "make the line shorter first",
+        "their words stay: {log}"
+    );
     let told = script.messages(1).last().unwrap().clone();
     assert!(told.contains("did not answer the quote"), "{told}");
     assert!(told.contains("make the line shorter first"), "{told}");

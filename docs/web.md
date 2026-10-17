@@ -1976,9 +1976,13 @@ change to the quoted items — so the model rewrites those briefs (`asset_set`)
 and quotes again, and the new quote needs its own yes. Writing a new message
 instead withdraws it too, and the result carries the message. The model is
 told to put every paid item of the plan in one call, so the person approves
-once. The transcript shows an answered quote as one line. A quote held on a
-turn that already ended (before #1440) cannot be answered; a new message
-withdraws it too. A quote is answered once. The box shows each quoted item with what it
+once. A turn that ends any other way while it holds a quote (a Stop heard
+mid-call, a failure) withdraws it, so no box is left that nothing can answer,
+and the browser shows the box's buttons only while the turn is `asking`. Every
+answer is kept in the turn's `quote_replies` — `{answer, micros, words}`, with
+`answer` one of `confirmed`, `declined`, `changed` or `withdrawn` and `words`
+the person's own on a change or a message written instead — and the
+transcript shows each as one line, their words under it. A quote is answered once. The box shows each quoted item with what it
 would send — the prompt, the line, the voice's description — read from the
 project's brief (or the call's `prompt`) when the quote is held
 (`assistant::described`).
@@ -2095,8 +2099,9 @@ its `answer`, the model, token totals, `charged_micros`, and `quote`
 expires_at}` — `brief` is `prompt`, `line` or `voice`; `lines` is the total and
 any line no item claims; a quote held before #709 has no `items` and every
 line in `lines`) with `quote_answer` (`null` while the box
-should show, then `confirmed`, `declined` — a change asked for included — or
-`withdrawn`), and `questions`, every question it asked in order as
+should show on an `asking` turn, then `confirmed`, `declined` — a change asked
+for included — or `withdrawn`) and `quote_replies`, every answer its quotes
+were given (`{answer, micros, words}`, above), and `questions`, every question it asked in order as
 `{question, options, answer}`, `answer` `null` while it waits. A picker's
 (#901) also carries `candidates` — each `{key, source, kind, id, preview_url,
 look_url, width, height, seconds, author, page_url, tags}`, `key` being

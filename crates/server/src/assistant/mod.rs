@@ -151,8 +151,8 @@ pub use quote::{Answer, Answered, answer as answer_quote};
 pub use retarget::{Retargeted, retarget};
 pub use start::{Opening, start};
 pub use store::{
-    BriefKind, CandidateView, Conversation, QuestionView, QuoteItem, QuoteView, ToolCallView,
-    TurnDetail, TurnView,
+    BriefKind, CandidateView, Conversation, QuestionView, QuoteItem, QuoteReply, QuoteView,
+    ToolCallView, TurnDetail, TurnView,
 };
 pub use store::{conversation, detail, recover};
 

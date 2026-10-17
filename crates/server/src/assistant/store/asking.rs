@@ -143,19 +143,27 @@ pub(in crate::assistant) async fn resumed(
 }
 
 /// Set turn `turn` running again, its quote answered `answer` (`confirmed`,
-/// `declined` or `withdrawn`) and its token forgotten. The answer reaches the
-/// model as the result of the call that quoted, which the running turn keeps.
+/// `declined` or `withdrawn`) and its token forgotten, with `reply` — the
+/// [`QuoteReply`](super::QuoteReply) the panel shows, and the person's
+/// `words` if any — added to its replies. The answer reaches the model as the
+/// result of the call that quoted, which the running turn keeps.
 pub(in crate::assistant) async fn answered(
     tx: &mut Tx,
     turn: i64,
     answer: &str,
+    (reply, words): (&str, Option<&str>),
 ) -> Result<TurnView, AssistantError> {
     let done = sqlx::query(
-        "UPDATE chat_turns SET state = 'running', quote_token = NULL, quote_answer = $2
+        "UPDATE chat_turns SET state = 'running', quote_token = NULL, quote_answer = $2,
+                quote_replies = quote_replies || jsonb_build_array(jsonb_build_object(
+                    'answer', $3::text, 'micros', (quote ->> 'micros')::bigint,
+                    'words', $4::text))
          WHERE id = $1 AND state = 'asking'",
     )
     .bind(turn)
     .bind(answer)
+    .bind(reply)
+    .bind(words)
     .execute(&mut **tx)
     .await;
     match done {
@@ -178,40 +186,53 @@ pub(in crate::assistant) async fn set_aside(
     turn: i64,
 ) -> Result<Option<(TurnView, Option<String>)>, AssistantError> {
     let held: Option<Option<String>> = sqlx::query_scalar(
-        "WITH held AS (
-             SELECT id, quote_token FROM chat_turns WHERE id = $1 AND state = 'asking' FOR UPDATE)
-         UPDATE chat_turns t SET state = 'stopped', answer = $2, finished_at = now(),
-                quote_token = NULL,
-                quote_answer = CASE WHEN held.quote_token IS NULL THEN t.quote_answer
-                                    ELSE 'withdrawn' END
-         FROM held WHERE t.id = held.id
-         RETURNING held.quote_token",
+        "SELECT quote_token FROM chat_turns WHERE id = $1 AND state = 'asking' FOR UPDATE",
     )
     .bind(turn)
-    .bind(SET_ASIDE)
     .fetch_optional(&mut **tx)
     .await?;
     let Some(token) = held else {
         return Ok(None);
     };
+    sqlx::query(concat!(
+        "UPDATE chat_turns SET state = 'stopped', answer = $2, finished_at = now(), ",
+        withdrawing!(),
+        " WHERE id = $1"
+    ))
+    .bind(turn)
+    .bind(SET_ASIDE)
+    .execute(&mut **tx)
+    .await?;
     let view = view(tx, turn).await?.ok_or(AssistantError::NotFound)?;
     Ok(Some((view, token)))
 }
 
-/// End every turn paused on a question in `project`'s conversations as
-/// `stopped`: a new conversation leaves the old one's question behind.
+/// End every turn paused on a question or a quote in `project`'s
+/// conversations as `stopped`: a new conversation leaves the old one's
+/// question or quote behind. The tokens of the quotes they held, now the
+/// caller's to withdraw once this commits.
 pub(in crate::assistant) async fn set_aside_in(
     tx: &mut Tx,
     project: i64,
-) -> Result<(), sqlx::Error> {
-    sqlx::query(
-        "UPDATE chat_turns SET state = 'stopped', answer = $2, finished_at = now()
-         WHERE state = 'asking'
-           AND session_id IN (SELECT id FROM chat_sessions WHERE project_id = $1)",
+) -> Result<Vec<String>, sqlx::Error> {
+    let held: Vec<String> = sqlx::query_scalar(
+        "SELECT quote_token FROM chat_turns
+         WHERE state = 'asking' AND quote_token IS NOT NULL
+           AND session_id IN (SELECT id FROM chat_sessions WHERE project_id = $1)
+         FOR UPDATE",
     )
+    .bind(project)
+    .fetch_all(&mut **tx)
+    .await?;
+    sqlx::query(concat!(
+        "UPDATE chat_turns SET state = 'stopped', answer = $2, finished_at = now(), ",
+        withdrawing!(),
+        " WHERE state = 'asking'
+            AND session_id IN (SELECT id FROM chat_sessions WHERE project_id = $1)"
+    ))
     .bind(project)
     .bind(SET_ASIDE)
     .execute(&mut **tx)
     .await?;
-    Ok(())
+    Ok(held)
 }

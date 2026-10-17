@@ -3,6 +3,7 @@
 //! as the quoting call's result (#1440).
 
 mod answers;
+mod aside;
 mod instead;
 
 use std::net::SocketAddr;

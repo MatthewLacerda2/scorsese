@@ -62,9 +62,11 @@ pub async fn start(
     if balance <= 0 {
         return Err(AssistantError::NoCredit(dollars(balance)));
     }
-    if opening.fresh {
-        asking::set_aside_in(&mut tx, project).await?;
-    }
+    let left = if opening.fresh {
+        asking::set_aside_in(&mut tx, project).await?
+    } else {
+        Vec::new()
+    };
     let (session, new) = turns::session(&mut tx, project, opening.fresh).await?;
     let mut notes = Vec::new();
     if new {
@@ -106,6 +108,12 @@ pub async fn start(
     };
     let view = turns::begin(&mut tx, session, &beginning).await?;
     tx.commit().await?;
+    // The old conversation's quote, set aside above, is spent by nobody now.
+    for token in left {
+        if let Err(error) = state.tools.withdraw_quote(user, &token).await {
+            eprintln!("scorsese-server: assistant: withdrawing a quote: {error}");
+        }
+    }
 
     state.events.send(
         user,
@@ -145,7 +153,7 @@ async fn settle_quote(
 ) -> Result<Option<String>, AssistantError> {
     if let Some(token) = &last.token {
         state.tools.withdraw_quote(user, token).await?;
-        turns::answer_quote(tx, last.id, "withdrawn").await?;
+        turns::withdraw_quote(tx, last.id).await?;
         return Ok(Some(
             "The person did not answer the quote you showed them; it is withdrawn and nothing \
              was spent. Their new message follows."

@@ -154,11 +154,6 @@ export function waitingQuestion(turn: TurnView): QuestionView | null {
   return last && last.answer === null && last.picked === undefined ? last : null;
 }
 
-/** True while a turn's quote waits for the user's yes or no. */
-export function awaitingQuote(turn: TurnView): boolean {
-  return turn.quote !== null && turn.quote_answer === null;
-}
-
 /** What the assistant said: its stored answer once it ended, the stream until then. */
 export function words(entry: Entry): string {
   if (entry.turn.state !== "running" && entry.turn.answer) return entry.turn.answer;

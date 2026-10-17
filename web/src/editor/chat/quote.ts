@@ -1,8 +1,9 @@
 // What the quote box needs worked out before it draws (#709): a long prompt is
 // shown collapsed, only a change with words in it can be sent, and a half-price
-// batch offered beside the price for now (#947) is a second yes.
+// batch offered beside the price for now (#947) is a second yes, and the box
+// shows only while its turn is paused on it (#1440).
 
-import type { QuoteAnswer, QuoteView } from "@/api/chat";
+import type { QuoteAnswer, QuoteView, TurnView } from "@/api/chat";
 
 /** How much of a description shows before the expander. */
 const PREVIEW_CHARS = 160;
@@ -29,4 +30,12 @@ export function changeAnswer(text: string): QuoteAnswer | null {
 export function offer(quote: QuoteView): { now: number; batch: number } | null {
   const batch = quote.batch_micros;
   return batch ? { now: quote.micros, batch } : null;
+}
+
+/**
+ * True while a turn's quote waits for the user's yes or no: only a paused turn's box can
+ * be answered, so a turn that ended any other way shows none (#1440).
+ */
+export function awaitingQuote(turn: TurnView): boolean {
+  return turn.state === "asking" && turn.quote !== null && turn.quote_answer === null;
 }

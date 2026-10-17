@@ -95,6 +95,7 @@ export const chat: Messages["chat"] = {
     answered: {
       confirmed: (cost) => `Aprovado — ${cost}`,
       declined: (cost) => `Recusado — ${cost}`,
+      changed: (cost) => `Mudança pedida — ${cost}`,
       withdrawn: (cost) => `Sem resposta — ${cost}`,
     },
     less: "menos",
