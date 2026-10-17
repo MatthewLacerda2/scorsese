@@ -10,7 +10,8 @@ export const chat = {
     refused: "The assistant declined this one.",
     capped: "Stopped: this turn reached what one turn may spend, or your credit ran out.",
     stopped: "Stopped, as you asked.",
-    failed: "This turn failed.",
+    failed:
+      "This turn failed. If it keeps failing, start a new conversation: it carries on with the project as it is.",
     interrupted: "The server restarted while this turn ran.",
   },
   problem: {

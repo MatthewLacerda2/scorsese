@@ -11,7 +11,8 @@ export const chat: Messages["chat"] = {
     refused: "O assistente recusou este pedido.",
     capped: "Parado: este turno chegou ao limite de gastos de um turno, ou seus créditos acabaram.",
     stopped: "Parado, como você pediu.",
-    failed: "Este turno falhou.",
+    failed:
+      "Este turno falhou. Se continuar falhando, comece uma conversa nova: ela continua com o projeto como está.",
     interrupted: "O servidor reiniciou enquanto este turno rodava.",
   },
   problem: {

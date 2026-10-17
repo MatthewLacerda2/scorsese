@@ -176,6 +176,20 @@ impl ChatError {
             Self::Claude(error) => error.retryable(),
         }
     }
+
+    /// Whether the vendor refused the request for its size: the
+    /// conversation has outgrown what one request may carry, and sending it
+    /// again, or with one more message, is refused the same way (#1435).
+    pub fn too_large(&self) -> bool {
+        match self {
+            Self::Claude(ClaudeError::Http(crate::api::http::HttpError::Refused {
+                status,
+                ..
+            })) => *status == 413,
+            Self::Claude(ClaudeError::Api { kind, .. }) => kind == "request_too_large",
+            Self::Claude(_) => false,
+        }
+    }
 }
 
 /// The client for `vendor`, spending `key`.

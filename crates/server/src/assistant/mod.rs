@@ -129,6 +129,7 @@ mod ask;
 mod calls;
 mod cost;
 mod described;
+mod failure;
 mod model;
 mod pictures;
 mod prompt;
