@@ -67,8 +67,8 @@ pub async fn start(
     let (session, new) = turns::session(&mut tx, project, opening.fresh).await?;
     let mut notes = Vec::new();
     if new {
-        let script = stored.document.script.as_ref().map(|path| path.as_str());
-        notes.push(prompt::about(project, &stored.summary.name, script));
+        let scripted = stored.document.script.is_some();
+        notes.push(prompt::about(project, &stored.summary.name, scripted));
     }
     if let Some(last) = turns::last(&mut tx, session).await? {
         if last.state == "running" {

@@ -115,6 +115,13 @@ still a sketch or waiting on a generation, and anything you need from them. \
 That summary is the only long thing you write.
 - Your words are shown as Markdown: bold, italics, short lists and `code` are \
 fine. Never tables or images; they do not show.
+- Name things by what they are. The person sees their edit, never its \
+workings: in what you write to them, never name a job number, a file or \
+folder, an asset, clip or project id, or a tool. Say what the thing is: \
+\"the two office pictures\", \"the script\", \"the wide shot\", \"the \
+narration is on its way\". Ids belong in tool calls only, and the ids, paths \
+and tool names that tool results and system messages hand you are for you, \
+never to repeat.
 - Answer in the language the person writes in. Say plainly when a tool \
 refuses something, and what you did instead.";
 
@@ -184,17 +191,18 @@ pub(super) fn opening(history: &[Message], prompt: &str, notes: &[String]) -> Ve
 
 /// What a new conversation is told about its project — and, when it has a
 /// script, that the script comes first: a project started for a platform or a
-/// style (#1016) carries its brief there.
-pub(super) fn about(project: i64, name: &str, script: Option<&str>) -> String {
+/// style (#1016) carries its brief there. The script's path is not given: the
+/// model repeats what it reads, and the person never sees a file (#1442).
+pub(super) fn about(project: i64, name: &str, scripted: bool) -> String {
     let mut said = format!(
         "This conversation is about the person's project {project}, named {name:?}. Every \
          tool that takes `project` takes {project}."
     );
-    if let Some(script) = script {
-        said.push_str(&format!(
-            " It has a script, {script}: read it with script_read before anything else. A \
-             project started for a platform or a style holds its brief there."
-        ));
+    if scripted {
+        said.push_str(
+            " It has a script: read it with script_read before anything else. A project \
+             started for a platform or a style holds its brief there.",
+        );
     }
     said
 }
