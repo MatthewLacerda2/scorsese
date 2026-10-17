@@ -4,16 +4,19 @@ use std::time::Duration;
 
 use crate::credentials::Provider;
 
-/// One model the hosted assistant can run on (#705). Exactly these two: what
-/// a user picks between in the chat panel, and what [`crate::prices::chat`]
-/// has a row for. Gemini was offered too until the maintainer cut it on
-/// 2026-10-12 as not good enough at the job (#1220).
+/// One model the hosted assistant can run on (#705). Exactly these three:
+/// what a user picks between in the chat panel, and what
+/// [`crate::prices::chat`] has a row for. Gemini was offered too until the
+/// maintainer cut it on 2026-10-12 as not good enough at the job (#1220).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Model {
-    /// Claude Opus 5.5 — the strongest, and the dearest.
+    /// Claude Fable 5.1 — the strongest, and the dearest (#1444).
+    ClaudeFable51,
+    /// Claude Opus 5.5 — the default (the maintainer, 2026-10-17, #1444: its
+    /// cost is worth what it does).
     ClaudeOpus55,
-    /// Claude Sonnet 5.5 — the default (the maintainer, 2026-10-07: the
-    /// balance of quality and price).
+    /// Claude Sonnet 5.5 — the cheapest; the default from 2026-10-07 until
+    /// #1444.
     ClaudeSonnet55,
 }
 
@@ -29,14 +32,19 @@ pub enum Vendor {
 
 impl Model {
     /// Every model offered, in the order the picker lists them.
-    pub const ALL: [Self; 2] = [Self::ClaudeSonnet55, Self::ClaudeOpus55];
+    pub const ALL: [Self; 3] = [
+        Self::ClaudeSonnet55,
+        Self::ClaudeOpus55,
+        Self::ClaudeFable51,
+    ];
 
     /// What a project runs on until its owner picks otherwise.
-    pub const DEFAULT: Self = Self::ClaudeSonnet55;
+    pub const DEFAULT: Self = Self::ClaudeOpus55;
 
     /// The id the vendor's API answers to, and what the server stores.
     pub const fn id(self) -> &'static str {
         match self {
+            Self::ClaudeFable51 => "claude-fable-5-1",
             Self::ClaudeOpus55 => "claude-opus-5-5",
             Self::ClaudeSonnet55 => "claude-sonnet-5-5",
         }
@@ -50,6 +58,7 @@ impl Model {
     /// Its name, as a person reads it.
     pub const fn label(self) -> &'static str {
         match self {
+            Self::ClaudeFable51 => "Claude Fable 5.1",
             Self::ClaudeOpus55 => "Claude Opus 5.5",
             Self::ClaudeSonnet55 => "Claude Sonnet 5.5",
         }
@@ -69,7 +78,7 @@ impl Model {
     /// Who serves it.
     pub const fn vendor(self) -> Vendor {
         match self {
-            Self::ClaudeOpus55 | Self::ClaudeSonnet55 => Vendor::Anthropic,
+            Self::ClaudeFable51 | Self::ClaudeOpus55 | Self::ClaudeSonnet55 => Vendor::Anthropic,
         }
     }
 }

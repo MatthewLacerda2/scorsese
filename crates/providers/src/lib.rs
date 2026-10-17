@@ -104,8 +104,8 @@
 //! is a trait, because a project directory and a server's tables are two
 //! stores with one set of rules.
 //!
-//! [`chat`], the hosted web app's assistant models (#540, #705) — Claude Opus
-//! and Sonnet 5.5 ([`chat::claude`]), behind one vendor-neutral seam, reached like
+//! [`chat`], the hosted web app's assistant models (#540, #705) — Claude
+//! Fable 5.1, Opus 5.5 and Sonnet 5.5 ([`chat::claude`]), behind one vendor-neutral seam, reached like
 //! the other vendors, by plain HTTP through [`api`], with their keys from the same resolver. They generate no
 //! media and have no brief: they are here because they are paid providers, and
 //! this crate is the one that holds an HTTP client and spends with a vendor's

@@ -67,6 +67,12 @@ mod tests {
     }
 
     #[test]
+    fn fable_is_the_dearest_and_puts_opus_between_it_and_sonnet() {
+        // $2.80, $5.60 and $14.00 per blended million (#1444).
+        assert_eq!(relative(&Model::ALL, rate), [Some(20), Some(40), Some(100)]);
+    }
+
+    #[test]
     fn a_changed_rate_moves_a_bar() {
         let models = [Model::ClaudeSonnet55, Model::ClaudeOpus55];
         // Sonnet half as dear again: $4.20 against Opus's $5.60.

@@ -1,7 +1,7 @@
 //! Claude, as the hosted web app's assistant calls it (#540).
 //!
-//! Claude Opus 5.5 and Sonnet 5.5 are two of the models a project's assistant
-//! can run on ([`crate::chat::Model`], #705); the assistant reaches them
+//! Claude Fable 5.1, Opus 5.5 and Sonnet 5.5 are the models a project's
+//! assistant can run on ([`crate::chat::Model`], #705); the assistant reaches them
 //! through the vendor-neutral seam in [`crate::chat`], whose Anthropic side
 //! ([`crate::chat::anthropic`]) is built on this. What this module owns is
 //! everything about *calling* it that is not the wire ([`crate::api::anthropic`])
@@ -41,6 +41,29 @@
 //! while its reasoning stays hidden. What a caller does with them is its own
 //! business: the web app's assistant drops them (#767).
 //!
+//! ## Claude Fable 5.1
+//!
+//! Fable 5.1 (#1444) takes the same request, and its migration notes (read
+//! 2026-10-17) name nothing here that needs changing:
+//!
+//! - **Thinking is always on**, and `disabled` is a 400. The request always
+//!   sends `adaptive`.
+//! - **Forced `tool_choice`** (`any`, `tool`) is a 400. The request never
+//!   sends `tool_choice`, so it is `auto`.
+//! - **Its thinking blocks are bound to it, and to the history before them.**
+//!   On a switch to another model the API drops the blocks that model cannot
+//!   read, unbilled, and the request succeeds; an edited earlier turn would
+//!   make them a 400, which the append-only history ([`Message::raw`]) rules
+//!   out.
+//! - **Its safety classifiers can end a turn** with `stop_reason: "refusal"`,
+//!   which is [`Stop::Refusal`], a turn that ended without an answer.
+//!   `fallbacks: "default"` is **not** sent: its only permitted targets are
+//!   Claude Opus 4.8 and Opus 5, which have no row in
+//!   [`crate::prices::chat`], so a reply they wrote could not be charged.
+//! - **It requires 30-day data retention**: an organisation on zero data
+//!   retention gets a 400 on the first call. That is the operator's account
+//!   setting, not this code's.
+//!
 //! [`Message::raw`]: crate::api::anthropic::request::Message::raw
 
 mod assemble;
@@ -63,8 +86,10 @@ use crate::api::http::HttpError;
 use crate::credentials::Secret;
 use crate::prices::chat::Usage;
 
-/// The model the live provider check ([`crate::live`]) calls: the dearer of
-/// the two Claude models the assistant offers.
+/// The model the live provider check ([`crate::live`]) calls: Claude Opus
+/// 5.5, the assistant's default. Fable 5.1 speaks the same request (adaptive
+/// thinking, no forced `tool_choice`) at two and a half times the price, so
+/// the check does not pay for it too.
 pub const MODEL: &str = crate::chat::Model::ClaudeOpus55.id();
 
 /// The most one reply may be, thinking included. Streamed replies can be

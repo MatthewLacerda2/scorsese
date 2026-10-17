@@ -1,6 +1,6 @@
-//! The model a project's assistant runs on (#705): Claude Sonnet 5.5 for a new
-//! project, changeable at any time, each turn charged at its own model's
-//! rates — and a conversation that comes along across a change.
+//! The model a project's assistant runs on (#705): Claude Opus 5.5 for a new
+//! project (#1444), changeable at any time, each turn charged at its own
+//! model's rates — and a conversation that comes along across a change.
 
 use scorsese_server::assistant::Assistant;
 use serde_json::{Value, json};
@@ -12,6 +12,10 @@ use super::{Script, answers, calls, common, exchange, member, new_project, scrip
 /// What one scripted call is charged on Sonnet 5.5: 1 000 × $2/M + 500 ×
 /// $10/M = 7 000 µ$, times 1.8 — half of Opus's [`CHARGED`].
 const SONNET_CHARGED: i64 = 12_600;
+
+/// The same on Fable 5.1: 1 000 × $10/M + 500 × $50/M = 35 000 µ$, times
+/// 1.8 — two and a half times Opus's.
+const FABLE_CHARGED: i64 = 63_000;
 
 async fn choose(
     address: std::net::SocketAddr,
@@ -25,8 +29,9 @@ async fn choose(
 }
 
 #[sqlx::test]
-async fn a_new_project_starts_on_sonnet_and_opus_charges_its_own_rates(pool: PgPool) {
-    let script = Script::new(vec![answers("Nothing yet."), answers("Still nothing.")]);
+async fn a_new_project_starts_on_opus_and_each_model_charges_its_own_rates(pool: PgPool) {
+    let replies = ["Nothing yet.", "Still nothing.", "Nothing at all."];
+    let script = Script::new(replies.into_iter().map(answers).collect());
     let (address, _) = scripted(&pool, &script).await;
     let (ana, who) = member(&pool, "ana@example.com", 10).await;
     let id = new_project(&pool, ana, json!([])).await;
@@ -35,32 +40,39 @@ async fn a_new_project_starts_on_sonnet_and_opus_charges_its_own_rates(pool: PgP
     let before = common::request(address, "GET", &chat, &[&who], None)
         .await
         .json();
-    assert_eq!(before["model"], "claude-sonnet-5-5", "{before}");
+    assert_eq!(before["model"], "claude-opus-5-5", "{before}");
     let offered: Vec<(&Value, &Value, &Value)> = before["models"]
         .as_array()
         .unwrap()
         .iter()
         .map(|m| (&m["id"], &m["vendor"], &m["cost"]))
         .collect();
-    // The bar's length: Opus is the dearest, Sonnet half of it (#706).
+    // The bar's length (#706): Fable is the dearest, Opus two fifths of it,
+    // Sonnet one fifth — so Opus sits in the middle of the bar's colours.
     assert_eq!(
         offered,
         [
-            (&json!("claude-sonnet-5-5"), &json!("anthropic"), &json!(50)),
-            (&json!("claude-opus-5-5"), &json!("anthropic"), &json!(100)),
+            (&json!("claude-sonnet-5-5"), &json!("anthropic"), &json!(20)),
+            (&json!("claude-opus-5-5"), &json!("anthropic"), &json!(40)),
+            (&json!("claude-fable-5-1"), &json!("anthropic"), &json!(100)),
         ]
     );
     assert_eq!(before["models"][0]["cache_seconds"], 3_600);
     assert_eq!(before["models"][0]["unavailable"], Value::Null);
 
-    let on_sonnet = exchange(address, &who, id, "what is in it?").await;
-    assert_eq!(on_sonnet["turn"]["model"], "claude-sonnet-5-5");
-    assert_eq!(on_sonnet["turn"]["charged_micros"], SONNET_CHARGED);
-    let chose = choose(address, &who, id, "claude-opus-5-5").await;
-    assert_eq!(chose.status, 200, "{}", chose.body);
-    let on_opus = exchange(address, &who, id, "and now?").await;
+    let on_opus = exchange(address, &who, id, "what is in it?").await;
     assert_eq!(on_opus["turn"]["model"], "claude-opus-5-5");
     assert_eq!(on_opus["turn"]["charged_micros"], CHARGED, "{on_opus}");
+    for (model, charged) in [
+        ("claude-sonnet-5-5", SONNET_CHARGED),
+        ("claude-fable-5-1", FABLE_CHARGED),
+    ] {
+        let chose = choose(address, &who, id, model).await;
+        assert_eq!(chose.status, 200, "{}", chose.body);
+        let on = exchange(address, &who, id, "and now?").await;
+        assert_eq!(on["turn"]["model"], model);
+        assert_eq!(on["turn"]["charged_micros"], charged, "{on}");
+    }
 }
 
 /// Sonnet and Opus share a wire but not each other's thinking: a switch

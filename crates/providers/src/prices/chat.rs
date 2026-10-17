@@ -76,14 +76,32 @@ const fn usd(dollars: u64, millionths: u64) -> u64 {
 /// Every model the assistant offers, at the standard tier (not batch, not
 /// fast, not priority), global routing.
 ///
-/// - **Cache reads are 0.05× input on both**, not the usual 0.1×: $0.20 on
-///   Opus 5.5 and **$0.10** on Sonnet 5.5. Anthropic's pricing page, read
-///   2026-10-14: *"On Claude Opus 5.5 and Claude Sonnet 5.5, a cache hit costs
-///   5% of the standard input price ($0.20 USD per million tokens on Claude
-///   Opus 5.5, $0.10 USD on Claude Sonnet 5.5)"*. Until that day Sonnet's row
-///   said $0.20, the usual 0.1×, and charged its cache reads double.
+/// - **Cache reads are 0.05× input on Opus and Sonnet**, not the usual 0.1×:
+///   $0.20 on Opus 5.5 and **$0.10** on Sonnet 5.5. Anthropic's pricing page,
+///   read 2026-10-14: *"On Claude Opus 5.5 and Claude Sonnet 5.5, a cache hit
+///   costs 5% of the standard input price ($0.20 USD per million tokens on
+///   Claude Opus 5.5, $0.10 USD on Claude Sonnet 5.5)"*. Until that day
+///   Sonnet's row said $0.20, the usual 0.1×, and charged its cache reads
+///   double.
+/// - **And 0.025× on Fable 5.1**, $0.25 against its $10 input. The same page,
+///   read 2026-10-17: *"On Claude Fable 5.1 and Claude Mythos 5.1, a cache
+///   hit costs 2.5% of the standard input price ($0.25 USD per million
+///   tokens)"*; its row reads $10 input, $12.50 and $20 for the five-minute
+///   and one-hour writes, $0.25 for cache hits and $50 output.
 /// - Writes are the usual 1.25× (five minutes) and 2× (one hour).
 pub const RATES: &[Row] = &[
+    Row {
+        model: Model::ClaudeFable51,
+        from: None,
+        rate: Rate {
+            input: usd(10, 0),
+            output: usd(50, 0),
+            cache_write_5m: usd(12, 500_000),
+            cache_write_1h: usd(20, 0),
+            cache_read: usd(0, 250_000),
+            checked: Checked::on(2026, 10, 17),
+        },
+    },
     Row {
         model: Model::ClaudeOpus55,
         from: None,
