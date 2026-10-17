@@ -36,6 +36,7 @@ fn a_shot_bought_twice_is_counted_twice_and_named_a_superseded_take() {
 
     let spent = so_far(&project, &dir);
     assert_eq!(spent.generation_cents, 2 * one, "both takes were paid for");
+    assert_eq!(spent.total(), 2 * one, "and the ceiling counts both");
     assert_eq!(spent.superseded.takes, 1);
     assert_eq!(spent.superseded.cents, one);
     assert_eq!(
@@ -47,6 +48,18 @@ fn a_shot_bought_twice_is_counted_twice_and_named_a_superseded_take() {
     );
     let says = spent.says();
     assert!(says.contains("\n1 superseded take, $"), "{says}");
+
+    project.assets.retain(|asset| asset.id != id);
+    let removed = so_far(&project, &dir);
+    assert_eq!(
+        removed.total(),
+        2 * one,
+        "removing the shot refunds nothing"
+    );
+    assert_eq!(
+        (removed.superseded.takes, removed.superseded.cents),
+        (2, 2 * one)
+    );
     std::fs::remove_dir_all(&dir).ok();
 }
 

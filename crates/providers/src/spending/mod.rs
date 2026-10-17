@@ -134,22 +134,24 @@ fn superseded(project: &Project, sent: &[Sent]) -> Superseded {
     let mut waited: Vec<&AssetId> = Vec::new();
     let mut superseded = Superseded::default();
     for line in sent.iter().rev().filter(|line| !line.refused) {
-        let Some(asset) = project.asset(&line.asset) else {
-            superseded.takes += 1;
-            superseded.cents += line.estimated_cost_cents;
-            continue;
-        };
-        let first = !shown.contains(&&asset.id) && !waited.contains(&&asset.id);
-        let current = asset
-            .path
-            .as_ref()
-            .and_then(|path| ledger::take(&asset.id, path))
-            .is_some_and(|take| take == line.brief);
-        if current && !shown.contains(&&asset.id) {
-            shown.push(&asset.id);
-        } else if first && asset.operation.is_some() {
-            waited.push(&asset.id);
-        } else {
+        let kept = project.asset(&line.asset).is_some_and(|asset| {
+            let first = !shown.contains(&&asset.id) && !waited.contains(&&asset.id);
+            let current = asset
+                .path
+                .as_ref()
+                .and_then(|path| ledger::take(&asset.id, path))
+                .is_some_and(|take| take == line.brief);
+            if current && !shown.contains(&&asset.id) {
+                shown.push(&asset.id);
+                true
+            } else if first && asset.operation.is_some() {
+                waited.push(&asset.id);
+                true
+            } else {
+                false
+            }
+        });
+        if !kept {
             superseded.takes += 1;
             superseded.cents += line.estimated_cost_cents;
         }
