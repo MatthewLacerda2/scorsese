@@ -123,7 +123,7 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
         if assistant.stop_requested(turn.turn) {
             return Ok(End::Over("stopped", "Stopped, as you asked.".into()));
         }
-        if spent >= assistant.cap_micros() {
+        if spent >= assistant.cap_micros(turn.model) {
             return Ok(End::Over(
                 "capped",
                 format!(

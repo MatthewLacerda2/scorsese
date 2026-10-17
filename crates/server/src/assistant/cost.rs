@@ -1,5 +1,6 @@
-//! How dear each model is beside the others, as the picker's bar shows it
-//! (#706): a share of the dearest, never a price.
+//! How dear each model is beside the others: as the picker's bar shows it
+//! (#706), a share of the dearest, never a price; and as the per-turn cap
+//! scales (#1461), a multiple of Sonnet 5.5's.
 //!
 //! A turn is charged for input and output separately, and the two need not
 //! scale together across models (they did not while Gemini was offered:
@@ -25,6 +26,25 @@ fn blended(rate: Rate) -> u64 {
     rate.input
         .saturating_mul(INPUT_PER_OUTPUT)
         .saturating_add(rate.output)
+}
+
+/// What one turn on `model` may cost, in micro-dollars, when it may cost
+/// `baseline` on Sonnet 5.5: `baseline` times `model`'s blend over Sonnet's,
+/// rounded to the nearest, so a turn may do the same work on any model
+/// (#1461). `baseline` itself when either has no price.
+pub(super) fn cap(baseline: i64, model: Model, rate: impl Fn(Model) -> Option<Rate>) -> i64 {
+    let (Some(blend), Some(sonnet)) = (
+        rate(model).map(blended),
+        rate(Model::ClaudeSonnet55).map(blended),
+    ) else {
+        return baseline;
+    };
+    if sonnet == 0 {
+        return baseline;
+    }
+    let scaled =
+        (i128::from(baseline) * i128::from(blend) + i128::from(sonnet) / 2) / i128::from(sonnet);
+    i64::try_from(scaled).unwrap_or(i64::MAX)
 }
 
 /// Each of `models`' blended cost as a percentage of the dearest one's,
@@ -85,6 +105,38 @@ mod tests {
             Some(found)
         };
         assert_eq!(relative(&models, dearer), [Some(75), Some(100)]);
+    }
+
+    #[test]
+    fn the_cap_holds_a_turns_work_constant_across_the_three_models() {
+        // $3.50 on Sonnet; Opus blends 2× Sonnet and Fable 5× (#1461).
+        let caps = Model::ALL.map(|model| cap(3_500_000, model, rate));
+        let at = |model| caps[Model::ALL.iter().position(|&m| m == model).unwrap()];
+        assert_eq!(at(Model::ClaudeSonnet55), 3_500_000);
+        assert_eq!(at(Model::ClaudeOpus55), 7_000_000);
+        assert_eq!(at(Model::ClaudeFable51), 17_500_000);
+    }
+
+    #[test]
+    fn the_cap_rounds_to_the_nearest_and_falls_back_to_the_baseline_unpriced() {
+        // Sonnet half as dear again puts Opus at 4/3 of it: 1 µ$ → 1, 2 → 3.
+        let dearer = |model| {
+            let mut found = rate(model)?;
+            if model == Model::ClaudeSonnet55 {
+                found.input = found.input * 3 / 2;
+                found.output = found.output * 3 / 2;
+            }
+            Some(found)
+        };
+        assert_eq!(cap(1, Model::ClaudeOpus55, dearer), 1);
+        assert_eq!(cap(2, Model::ClaudeOpus55, dearer), 3);
+        let no_sonnet = |model| {
+            (model != Model::ClaudeSonnet55)
+                .then(|| rate(model))
+                .flatten()
+        };
+        assert_eq!(cap(3_500_000, Model::ClaudeFable51, no_sonnet), 3_500_000);
+        assert_eq!(cap(3_500_000, Model::ClaudeFable51, |_| None), 3_500_000);
     }
 
     #[test]
