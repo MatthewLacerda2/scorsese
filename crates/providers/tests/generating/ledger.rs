@@ -131,3 +131,37 @@ fn a_ledger_that_does_not_read_is_never_written_over() {
     assert_eq!(text, "{ not a ledger");
     std::fs::remove_dir_all(&dir).ok();
 }
+
+#[test]
+fn a_ticket_lost_after_it_was_sent_is_a_superseded_take() {
+    let (dir, mut project, _) = sketched("lost", "a train through the desert");
+    let answers = vec![Answer::Lost, Answer::Waiting, Answer::Ready(b"V".to_vec())];
+    let provider = Mock::answering("shot", answers);
+    let run = |project: &mut _| generate(project, &dir, &provider, Budget::unlimited(0));
+    let sent = run(&mut project).expect("submitted")[0].1.spent_cents();
+    let superseded = |project: &_| {
+        let spent = so_far(project, &dir);
+        (
+            spent.total(),
+            spent.superseded.takes,
+            spent.superseded.cents,
+        )
+    };
+
+    run(&mut project).expect("the ticket is lost");
+    assert_eq!(superseded(&project), (sent, 1, sent), "sent, and gone");
+    run(&mut project).expect("the same brief, submitted again");
+    run(&mut project).expect("waiting");
+    assert_eq!(
+        superseded(&project),
+        (2 * sent, 1, sent),
+        "the new one is in flight"
+    );
+    run(&mut project).expect("collected");
+    assert_eq!(
+        superseded(&project),
+        (2 * sent, 1, sent),
+        "one take shown, one lost"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
