@@ -93,7 +93,7 @@ pub(crate) fn run(project_dir: &Path, asked: &Asked) -> Result<()> {
     // A run that stopped after spending says what it spent before it says
     // why it stopped: the error alone reads as nothing having happened (#1057).
     if !done.is_empty() || outcome.is_ok() {
-        report::run(&done, project_dir);
+        report::run(&done, &project, project_dir);
     }
     if let Ok(shortened) = &measured {
         report::shortened(shortened);

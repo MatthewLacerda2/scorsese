@@ -19,6 +19,7 @@ use scorsese_core::{AssetId, GenerationState, Project, Timestamp};
 use crate::api::gemini::batch::INLINE_LIMIT;
 use crate::credentials::Budget;
 use crate::prices;
+use crate::spending;
 
 use super::run::{Stills, unready};
 use super::stopped::stopped;
@@ -105,6 +106,13 @@ fn order(
                 for brief in job {
                     queue(project, &brief.id, &operation);
                     let estimated_cost_cents = half(brief)?;
+                    spending::sent(
+                        project,
+                        root,
+                        &brief.id,
+                        &brief.digest(),
+                        estimated_cost_cents,
+                    )?;
                     done.push((
                         brief.id.clone(),
                         Outcome::Ordered {

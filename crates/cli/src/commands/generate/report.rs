@@ -1,18 +1,19 @@
 //! What a `scorsese generate` prints: one line per brief, then the one total
 //! that spans every provider — a per-pass total would invite two of them being
-//! read as one.
+//! read as one — then what the whole project has spent, retries included.
 
 use std::path::Path;
 
-use scorsese_core::AssetId;
 use scorsese_core::placing::Shortened;
+use scorsese_core::{AssetId, Project};
 use scorsese_providers::image;
 use scorsese_providers::passes::Done;
 use scorsese_providers::prices::{dollars, from_cents};
+use scorsese_providers::spending;
 use scorsese_providers::video::Run;
 
-/// Every brief's line, then the total.
-pub(super) fn run(done: &Done, project_dir: &Path) {
+/// Every brief's line, then the run's total and the project's.
+pub(super) fn run(done: &Done, project: &Project, project_dir: &Path) {
     if done.is_empty() {
         println!("No generated assets in this project.");
         return;
@@ -30,6 +31,7 @@ pub(super) fn run(done: &Done, project_dir: &Path) {
         "About {} spent on this run — our calculation, never a bill.",
         dollars(from_cents(done.spent_cents()), 2)
     );
+    println!("{}", spending::so_far(project, project_dir).says());
 }
 
 /// One line per shot, and how to pick up what is still going.

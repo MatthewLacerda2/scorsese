@@ -7,7 +7,7 @@ use scorsese_core::{Asset, AssetId, AssetKind, GenerationState, Project, Project
 
 use crate::credentials::Budget;
 use crate::generated::{self, Plan, Prompted, write};
-use crate::prices;
+use crate::{prices, spending};
 
 use super::{
     Brief, GenerationError, Outcome, Progress, Run, Stopped, Ticket, VideoProvider, submitted,
@@ -228,6 +228,8 @@ fn submit(
     // edited meanwhile — and a `generated/` that takes no sidecar takes no
     // video either, which is reported then.
     let _ = submitted::remember(root, id, &ticket.0, &brief.digest());
+    // Paid for from here on, whether or not the video ever arrives (#1059).
+    spending::sent(project, root, id, &brief.digest(), estimate.cents)?;
     Ok(Outcome::Queued {
         operation: ticket.0,
         estimated_cost_cents: estimate.cents,
@@ -259,8 +261,10 @@ fn waiting(
         Progress::Waiting => Ok(still_waiting(project, root, id, &ticket)),
         // A rejected brief is a brief to edit and try again, and an asset
         // still claiming to be queued would be polled for ever.
+        // Not charged for, either (#1109), so it stops counting.
         Progress::Failed(message) => {
             release(project, root, id);
+            spending::refused(root, id)?;
             Ok(Outcome::Failed { message })
         }
         Progress::Ready(ready) => {

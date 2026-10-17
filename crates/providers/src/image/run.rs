@@ -12,6 +12,7 @@ use scorsese_core::{Asset, AssetId, AssetKind, Project, ProjectPath};
 use crate::credentials::Budget;
 use crate::generated::{self, Plan, Prompted, record, write};
 use crate::prices::{self, ImageEstimate, UnpricedImage};
+use crate::spending;
 
 use super::stopped::stopped;
 use super::{Brief, ImageError, ImageProvider, Incomplete, Outcome, Stopped, collect};
@@ -182,6 +183,7 @@ fn one(
         }
     };
     write(&output.resolve(root), &bytes)?;
+    spending::sent(project, root, id, &brief.digest(), cents)?;
     record(project, id, &output, &bytes, Some(cents));
     Ok(Outcome::Generated {
         path: output,

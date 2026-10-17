@@ -28,6 +28,7 @@ use scorsese_core::words::Words;
 use crate::credentials::Budget;
 use crate::generated::{self, Prompted, write};
 use crate::prices;
+use crate::spending;
 
 use super::{Brief, Incomplete, Outcome, SpeechError, SpeechProvider, Spoken, Stopped};
 
@@ -228,6 +229,7 @@ fn one(
         write(&beside, words.to_json().as_bytes())?;
     }
     write(&output.resolve(root), &bytes)?;
+    spending::sent(project, root, id, &brief.digest(), estimate.cents)?;
     record(project, id, &output, &bytes, &brief)?;
     Ok(Outcome::Generated {
         path: output,
