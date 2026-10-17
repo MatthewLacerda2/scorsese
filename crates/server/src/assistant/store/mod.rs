@@ -29,7 +29,8 @@ pub struct TurnView {
     pub project: i64,
     /// What the user wrote.
     pub prompt: String,
-    /// `running`, `asking` (paused on a question to the user, #710),
+    /// `running`, `asking` (paused on a question to the user, #710, or on a
+    /// quote, #1440),
     /// `answered`, `refused`, `capped`, `stopped`, `failed` or `interrupted`.
     pub state: String,
     /// The assistant's final answer, or why there is none.
@@ -90,6 +91,10 @@ pub struct QuoteView {
     /// nothing was offered.
     #[serde(default)]
     pub batch_micros: Option<i64>,
+    /// The id of the model's call that quoted it, whose result the person's
+    /// answer becomes (#1440). `null` on a quote held before then.
+    #[serde(default)]
+    pub call: Option<String>,
 }
 
 /// A question the assistant asked the user mid-turn (#710), as the chat

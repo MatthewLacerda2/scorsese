@@ -1,17 +1,18 @@
 //! One turn, run to its end: call the model, charge the call, run the tools
 //! it asks for, send their results back — until it answers, asks the user a
-//! question ([`super::ask`]), or something says stop.
+//! question ([`super::ask`]), shows them a quote (#1440), or something says
+//! stop.
 //!
 //! Runs as a task of its own, started by [`super::start`] after the turn's
-//! row is committed — or by [`super::ask::answer`], resuming a turn that
-//! asked; whoever asked has already been answered with the turn, and follows
-//! it on the event stream.
+//! row is committed — or by [`super::ask::answer`] or [`super::quote`],
+//! resuming a turn that asked; whoever asked has already been answered with
+//! the turn, and follows it on the event stream.
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use scorsese_providers::chat::{
-    self, Chat, ChatError, Effort, Message, Model, Reply, Request, Stop,
+    self, Chat, ChatError, Effort, Message, Model, Part, Reply, Request, Stop,
 };
 use serde_json::value::RawValue;
 
@@ -57,10 +58,18 @@ pub(super) struct Running {
     /// What it had cost before then: nothing for a new turn, the calls made
     /// before its question for a resumed one. The per-turn cap covers both.
     pub(super) spent: i64,
-    /// What a resumed turn says first: the user's answer to its question
-    /// (#710), as the result of the call that asked. Kept as the turn's next
-    /// message before the model is called again.
-    pub(super) answer: Option<Message>,
+    /// What a resumed turn says first: the user's answer, as the result of
+    /// the call that asked.
+    pub(super) answer: Option<Resumed>,
+}
+
+/// The user's answer a paused turn resumes with.
+pub(super) enum Resumed {
+    /// To a question (#710): kept as the turn's next message.
+    Next(Message),
+    /// To a quote (#1440): the result of the call that quoted, put in place
+    /// of the one held in the turn's last message ([`calls::settle`]).
+    Settle(Part),
 }
 
 /// How a turn ended: its state, and what to tell the user — or that it is
@@ -70,6 +79,8 @@ enum End {
     Over(&'static str, String),
     /// Paused until the user answers.
     Asking(QuestionView),
+    /// Paused until the user answers the quote the turn holds.
+    Quoting,
 }
 
 /// Run `turn` to its end, and record and announce how it ended.
@@ -105,6 +116,7 @@ async fn settle(
             turns::finish(&state.pool, turn.user, turn.turn, ended, words).await
         }
         End::Asking(question) => asking::pause(&state.pool, turn.user, turn.turn, question).await,
+        End::Quoting => asking::hold(&state.pool, turn.user, turn.turn).await,
     }
 }
 
@@ -113,9 +125,13 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
     let assistant = &state.assistant;
     let mut tools = prompt::tools(&state.tools);
     tools.extend(ask::functions());
-    if let Some(answer) = turn.answer.take() {
-        let native = chat::freeze(turn.model, &answer).map_err(|e| e.to_string())?;
-        keep(state, turn, native, answer).await?;
+    match turn.answer.take() {
+        Some(Resumed::Next(answer)) => {
+            let native = chat::freeze(turn.model, &answer).map_err(|e| e.to_string())?;
+            keep(state, turn, native, answer).await?;
+        }
+        Some(Resumed::Settle(answer)) => settle_held(state, turn, answer).await?,
+        None => {}
     }
     let (mut spent, mut balance) = (turn.spent, turn.balance);
     let mut revision = calls::revision(state, turn.user, turn.project).await;
@@ -175,6 +191,7 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
             Stop::ToolUse => {
                 keep(state, turn, reply.native.clone(), reply.message.clone()).await?;
                 let asked = reply.calls();
+                let mut quoted = false;
                 let results = match ask::asked(state, turn.user, &turn.record, &asked).await {
                     Asked::Pause(question) => {
                         // A Stop asked for during the call wins over pausing.
@@ -190,7 +207,10 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
                             results.push(if ask::is_ours(&call.name) {
                                 ask::refused(&call)
                             } else {
-                                calls::run(state, turn.user, turn.turn, &call).await
+                                let (result, held) =
+                                    calls::run(state, turn.user, turn.turn, &call).await;
+                                quoted |= held;
+                                result
                             });
                         }
                         results
@@ -207,6 +227,13 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
                 let results = Message::User { content: results };
                 let native = chat::freeze(turn.model, &results).map_err(|e| e.to_string())?;
                 keep(state, turn, native, results).await?;
+                if quoted {
+                    // As with a question, a Stop asked for meanwhile wins.
+                    if assistant.stop_requested(turn.turn) {
+                        return Ok(End::Over("stopped", "Stopped, as you asked.".into()));
+                    }
+                    return Ok(End::Quoting);
+                }
             }
             Stop::Refusal { explanation, .. } => {
                 let why = explanation.as_deref().unwrap_or("no reason was given");
@@ -291,6 +318,18 @@ async fn keep(
         );
         "The conversation could not be saved.".to_owned()
     })
+}
+
+/// Put the user's answer to the quote in place of the result held for it in
+/// the turn's last message, and keep it — the model reads it next.
+async fn settle_held(state: &AppState, turn: &mut Running, answer: Part) -> Result<(), String> {
+    let mut results = turn.record.pop().ok_or("The turn has no messages.")?;
+    if !calls::settle(&mut results, answer) {
+        return Err("The quote's call could not be found in the turn.".into());
+    }
+    let native = chat::freeze(turn.model, &results).map_err(|e| e.to_string())?;
+    turn.messages.pop();
+    keep(state, turn, native, results).await
 }
 
 /// Tell the browser what the turn has cost so far, and the balance.

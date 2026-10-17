@@ -1,6 +1,7 @@
 // One turn in the chat panel: what the user asked, what the assistant did on
 // the way (a status word while it works; never its tools, #1437, nor its
-// thinking, #767), what it said (Markdown, `Reply.tsx`), and what the turn cost. The cost is on every turn, not in a settings page, because the
+// thinking, #767), what it said (Markdown, `Reply.tsx`), an answered quote as
+// one line (#1440), and what the turn cost. The cost is on every turn, not in a settings page, because the
 // assistant spends the user's credits and a person should see each figure as
 // it happens (docs/web.md, *Money*).
 
@@ -42,6 +43,11 @@ export function Turn({ entry }: { entry: Entry }) {
       })}
       {ended && <p className="text-xs text-destructive">{ended}</p>}
       {awaitingQuote(turn) && turn.quote && <QuoteBox turn={turn.id} quote={turn.quote} />}
+      {turn.quote && turn.quote_answer && (
+        <p className="text-xs text-muted-foreground">
+          {t.chat.quote.answered[turn.quote_answer](formatDollars(turn.quote.micros))}
+        </p>
+      )}
       {turn.state !== "running" && (
         <p className="text-xs text-muted-foreground">
           {turn.state === "asking"

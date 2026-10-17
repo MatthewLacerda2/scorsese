@@ -92,6 +92,12 @@ export const chat = {
     changePlaceholder: "Or say what to change — e.g. make the cape yellow instead of red",
     change: "Ask for a change",
     brief: { prompt: "Prompt", line: "Line", voice: "Voice" },
+    /** An answered quote, as the one line it collapses into. */
+    answered: {
+      confirmed: (cost: string) => `Approved — ${cost}`,
+      declined: (cost: string) => `Declined — ${cost}`,
+      withdrawn: (cost: string) => `Not answered — ${cost}`,
+    },
     less: "less",
     more: "more",
   },

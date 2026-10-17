@@ -252,24 +252,30 @@ pub(in crate::assistant) async fn charge(
 }
 
 /// Hold a quote on turn `turn` for the user to answer: its token, and what
-/// the box shows.
+/// the box shows. The token of a quote it held unanswered before, which this
+/// one takes the place of.
 pub(in crate::assistant) async fn hold_quote(
     pool: &PgPool,
     user: UserId,
     turn: i64,
     token: &str,
     quote: &QuoteView,
-) -> Result<(), sqlx::Error> {
+) -> Result<Option<String>, sqlx::Error> {
     let mut tx = db::scoped(pool, user).await?;
-    sqlx::query(
-        "UPDATE chat_turns SET quote_token = $2, quote = $3, quote_answer = NULL WHERE id = $1",
+    let earlier: Option<String> = sqlx::query_scalar(
+        "WITH old AS (SELECT id, quote_token FROM chat_turns WHERE id = $1 FOR UPDATE)
+         UPDATE chat_turns t SET quote_token = $2, quote = $3, quote_answer = NULL
+         FROM old WHERE t.id = old.id
+         RETURNING old.quote_token",
     )
     .bind(turn)
     .bind(token)
     .bind(sqlx::types::Json(quote))
-    .execute(&mut *tx)
-    .await?;
-    tx.commit().await
+    .fetch_optional(&mut *tx)
+    .await?
+    .flatten();
+    tx.commit().await?;
+    Ok(earlier)
 }
 
 /// End turn `turn` in `state`, with its answer; the turn as it ended, and the

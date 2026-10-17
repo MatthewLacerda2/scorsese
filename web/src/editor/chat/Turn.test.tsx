@@ -1,6 +1,6 @@
 // A turn shows the assistant's words, never its tools (#1437) nor its thinking: a working
 // turn shows one of its language's status words instead, and a finished one
-// shows neither (#767).
+// shows neither (#767). An answered quote is one line (#1440).
 
 import { expect, test } from "bun:test";
 import { renderToString } from "react-dom/server";
@@ -72,4 +72,14 @@ test("a finished turn shows neither its thinking nor a status word", () => {
   expect(page).not.toContain("Weighing the cut");
   expect(page).toContain("<em>intro</em>");
   expect(CATALOGUES.en.chat.turn.busy.some((word) => page.includes(word))).toBe(false);
+});
+
+test("an answered quote collapses into one line, its box gone (#1440)", () => {
+  const quote = { tool: "generate", items: [], lines: ["Total: $0.60"], micros: 600_000 };
+  const answered = { ...turnView("answered", "On its way."), quote, quote_answer: "confirmed" };
+  const [shown] = upsert(empty(7), answered as TurnView).entries;
+  if (!shown) throw new Error("no turn");
+  const page = html("en", shown);
+  expect(page).toContain("Approved — $0.60");
+  expect(page).not.toContain(CATALOGUES.en.chat.quote.confirm);
 });

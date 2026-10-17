@@ -6,7 +6,7 @@ use super::store::TurnView;
 use super::store::asking;
 use super::store::turns::{self, Beginning, Last};
 use super::turn::{self, Running};
-use super::{AssistantError, DEFAULT_EFFORT, ask, model, prompt};
+use super::{AssistantError, DEFAULT_EFFORT, ask, model, prompt, quote};
 use crate::credits::{dollars, ledger};
 use crate::db::{self, UserId};
 use crate::events::Event;
@@ -32,8 +32,9 @@ pub struct Opening {
 /// running there. The turn as it began; the rest arrives on the event stream.
 ///
 /// When the conversation's last turn is paused on a question (#710), the
-/// words are its answer instead, and that turn resumes ([`ask::answer`]); a
-/// new conversation sets the question aside.
+/// words are its answer instead, and that turn resumes ([`ask::answer`]); on
+/// a quote (#1440), they withdraw it and the turn resumes with them
+/// ([`quote::answer`]). A new conversation sets either aside.
 pub async fn start(
     state: &AppState,
     user: UserId,
@@ -76,6 +77,11 @@ pub async fn start(
         }
         if last.state == "asking" {
             drop(tx);
+            if last.token.is_some() {
+                let instead = quote::Answer::Instead(prompt);
+                let answered = quote::answer(state, user, last.id, instead).await?;
+                return answered.turn.ok_or(AssistantError::NotFound);
+            }
             return ask::answer(state, user, last.id, ask::Answering::words(&prompt)).await;
         }
         notes.extend(settle_quote(state, user, &mut tx, &last).await?);
@@ -127,9 +133,10 @@ pub async fn start(
     Ok(view)
 }
 
-/// What the model is told about the last turn's quote: a no, or a quote
-/// nobody answered — which a new message withdraws, since its token must not
-/// outlive the box it was shown in.
+/// What the model is told about the last turn's quote, when that turn ended
+/// without its answer: one held before quotes paused their turn (#1440), which
+/// a new message withdraws, since its token must not outlive the box it was
+/// shown in — or one withdrawn when the turn was stopped while it waited.
 async fn settle_quote(
     state: &AppState,
     user: UserId,
@@ -145,10 +152,12 @@ async fn settle_quote(
                 .into(),
         ));
     }
-    Ok(match last.answer.as_deref() {
-        Some("declined") => {
-            Some("The person declined the quote you showed them; nothing was spent.".into())
-        }
+    Ok(match (last.state.as_str(), last.answer.as_deref()) {
+        ("stopped", Some("withdrawn")) => Some(
+            "The person stopped the turn instead of answering the quote you showed them; it is \
+             withdrawn and nothing was spent."
+                .into(),
+        ),
         _ => None,
     })
 }

@@ -130,7 +130,7 @@ pub struct QuoteAnswer {
     /// `true` spends; `false` withdraws the quote.
     pub confirm: bool,
     /// With `confirm: false`, the change the user wants to what was quoted
-    /// (#709): nothing is spent, and a turn starts with these words.
+    /// (#709): nothing is spent, and the turn carries on with these words.
     #[serde(default)]
     pub change: Option<String>,
     /// With `confirm: true`, spend the half-price batch the quote offered
@@ -139,9 +139,9 @@ pub struct QuoteAnswer {
     pub batch: bool,
 }
 
-/// `POST /api/chat/turns/{id}/quote`: the user's answer to the quote held on
-/// a turn. A yes spends and starts a turn to carry on; a change starts one
-/// that rewrites the briefs and quotes again.
+/// `POST /api/chat/turns/{id}/quote`: the user's answer to the quote a turn
+/// is paused on, which resumes that turn with it (#1440). A yes spends; a
+/// change has the assistant rewrite the briefs and quote again.
 pub async fn quote(
     State(state): State<AppState>,
     member: Member,

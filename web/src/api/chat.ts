@@ -172,7 +172,7 @@ export interface Answered {
   /** What the paid call said, after a yes. */
   spent: string | null;
   refused: boolean;
-  /** The turn carrying on after a yes or a change. */
+  /** The turn the quote paused, carrying on with the answer (#1440). */
   turn: TurnView | null;
   note: string | null;
 }

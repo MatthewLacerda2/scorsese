@@ -1964,16 +1964,21 @@ and spends only when called again with the quote's token (*Web MCP*). The
 model never sees a token: when a call issues a quote, the token's line is cut
 from what the model reads, the quote is held on the turn and sent to the
 browser as `chat_quote`, and any call naming `confirm` is refused without
-running. The user's answer is `POST /api/chat/turns/{id}/quote`: yes makes the
-paid call itself — recorded in `tool_calls` as client `user` — and starts a
-turn that tells the model, as a `system` message, what it spent; no withdraws
-the token and the next turn is told. **A change** (#709, `{confirm: false,
-change}`) is a no and a message in one call, so there is no half-state: the
-token is withdrawn, nothing is spent, and a turn starts with the user's words
-as their message and a server note saying they ask for a change to the quoted
-items — so the model rewrites those briefs (`asset_set`) and quotes again, and
-the new quote needs its own yes. Writing a new message instead withdraws it
-too. A quote is answered once. The box shows each quoted item with what it
+running. A quote **pauses the turn** (#1440) in `asking`, as a question does
+(below), so nothing is charged while it waits and Stop or a new conversation
+sets it aside. The user's answer is `POST /api/chat/turns/{id}/quote`, and it
+resumes **the same turn**, as the result of the call that quoted: yes makes
+the paid call itself — recorded in `tool_calls` as client `user` — and the
+result is what it answered; no withdraws the token and the result says so.
+**A change** (#709, `{confirm: false, change}`) is a no with words: the token
+is withdrawn, nothing is spent, and the result carries the user's words as a
+change to the quoted items — so the model rewrites those briefs (`asset_set`)
+and quotes again, and the new quote needs its own yes. Writing a new message
+instead withdraws it too, and the result carries the message. The model is
+told to put every paid item of the plan in one call, so the person approves
+once. The transcript shows an answered quote as one line. A quote held on a
+turn that already ended (before #1440) cannot be answered; a new message
+withdraws it too. A quote is answered once. The box shows each quoted item with what it
 would send — the prompt, the line, the voice's description — read from the
 project's brief (or the call's `prompt`) when the quote is held
 (`assistant::described`).
@@ -2079,7 +2084,7 @@ fixed until measured usage (#707) says otherwise.
 | `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?, effort?}` → `202` with the turn; `effort` is `low`, `medium` or `high` (absent: `high`), `400` for anything else; `402` no credit, `409` a turn is running, `503` not configured |
 | `GET /api/chat/turns/{id}` | a member | `{turn, tools}`: the turn and the log of every tool call it made, in order |
 | `POST /api/chat/turns/{id}/stop` | a member | `202`; the turn stops before its next step — at once, its question set aside, when it is `asking`. `409` if it is neither |
-| `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false, change?}` → `{spent, refused, turn, note}`; `turn` is the one carrying on after a yes or a change; `change` with `confirm: true` is `400`, and so is any answer while a question waits |
+| `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false, change?}` → `{spent, refused, turn, note}`; `turn` is the one the quote paused, carrying on with the answer as the quoting call's result (#1440); `change` with `confirm: true` is `400`, and so is any answer on a turn not paused on a quote |
 | `POST /api/chat/turns/{id}/answer` | a member | `{answer}` — or, for a picker, `{picked: [key…], answer?}` (`[]` is none of them) — → `202` with the same turn, running again (what was picked is imported before the model hears of it); `400` when no question waits on it, when `picked` answers a question in words, or when it names a candidate the picker did not offer; `402`/`503` as for a new message |
 
 A turn (`TurnView`) carries its state — `running` (or `asking`, paused on a

@@ -5,10 +5,11 @@
 //! is only what sits between a model and a paid tool (the module doc of
 //! [`super`] argues it): a call naming `confirm` is refused without running,
 //! and a quote a call issues is taken out of what the model reads and held for
-//! the user instead.
+//! the user instead — which pauses the turn until they answer (#1440), their
+//! answer becoming that call's result ([`settle`]).
 
 use scorsese_mcp::Reply;
-use scorsese_providers::chat::{Call, Part, ResultPart};
+use scorsese_providers::chat::{Call, Message, Part, ResultPart};
 
 use super::described;
 use super::store::QuoteView;
@@ -26,9 +27,20 @@ const SAID: usize = 300;
 const NOT_YOURS: &str = "Refused: `confirm` is the person's to give, never yours. Call the \
 tool without confirm; they are shown the quote and answer it themselves.";
 
+/// What a quoting call's result says while the person is asked; their answer
+/// takes its place before the model reads it ([`settle`]).
+const HELD: &str = "This quote is in front of the person as a confirmation box, and the turn \
+waits for their answer. Nothing has been spent.";
+
+/// What a quote another quote in the same reply took the place of says.
+const SUPERSEDED: &str = "Not shown: a later call in the same reply quoted too, and only one \
+quote waits for an answer at a time. This one was withdrawn and nothing was spent; put every \
+paid item in one call.";
+
 /// Run `call`, made in turn `turn`, for `user`: its result, as the record
-/// keeps it.
-pub(super) async fn run(state: &AppState, user: UserId, turn: i64, call: &Call) -> Part {
+/// keeps it, and whether it held a quote for the person — which pauses the
+/// turn.
+pub(super) async fn run(state: &AppState, user: UserId, turn: i64, call: &Call) -> (Part, bool) {
     let tell = |state_: &'static str, said: Option<String>| {
         state.events.send(
             user,
@@ -42,6 +54,7 @@ pub(super) async fn run(state: &AppState, user: UserId, turn: i64, call: &Call) 
     };
     tell("running", None);
     let client = Client::Assistant { turn };
+    let mut quoted = false;
     let outcome = if call.input.get("confirm").is_some() {
         let why = NOT_YOURS.to_owned();
         state
@@ -54,7 +67,11 @@ pub(super) async fn run(state: &AppState, user: UserId, turn: i64, call: &Call) 
             .recorded(user, client, &call.name, &call.input)
             .await;
         match (id, outcome) {
-            (Some(id), Ok(reply)) => Ok(held(state, user, turn, (id, call), reply).await),
+            (Some(id), Ok(reply)) => {
+                let (reply, held) = held(state, user, turn, (id, call), reply).await;
+                quoted = held;
+                Ok(reply)
+            }
             (_, outcome) => outcome,
         }
     };
@@ -65,12 +82,47 @@ pub(super) async fn run(state: &AppState, user: UserId, turn: i64, call: &Call) 
     let words: Vec<&str> = parts.iter().map(|part| part.text.as_str()).collect();
     let said: String = words.join("\n").chars().take(SAID).collect();
     tell(if is_error { "refused" } else { "answered" }, Some(said));
-    Part::Result {
+    let part = Part::Result {
         call: call.id.clone(),
         name: call.name.clone(),
         content: blocks(parts),
         is_error,
+    };
+    (part, quoted)
+}
+
+/// Put `answer` — the result the person's answer to a quote makes — in place
+/// of its call's held result in `results`, the paused turn's last message,
+/// and withdraw any other quote held in the same reply. The model has not
+/// read that message yet, so nothing it has seen is edited. Whether the call
+/// was found.
+pub(super) fn settle(results: &mut Message, answer: Part) -> bool {
+    let (Message::User { content }, Part::Result { call: answered, .. }) = (&mut *results, &answer)
+    else {
+        return false;
+    };
+    let answered = answered.clone();
+    let mut answer = Some(answer);
+    for part in content.iter_mut() {
+        let Part::Result { call, content, .. } = part else {
+            continue;
+        };
+        if *call == answered {
+            if let Some(answer) = answer.take() {
+                *part = answer;
+            }
+        } else if content.iter().any(|block| held_by(block)) {
+            *content = vec![ResultPart::Text {
+                text: SUPERSEDED.to_owned(),
+            }];
+        }
     }
+    answer.is_none()
+}
+
+/// Whether `block` is a result held for the person's answer.
+fn held_by(block: &ResultPart) -> bool {
+    matches!(block, ResultPart::Text { text } if text.ends_with(HELD))
 }
 
 /// A reply's parts as a tool result's: words, then the picture they are
@@ -93,26 +145,25 @@ fn blocks(parts: Vec<scorsese_mcp::Part>) -> Vec<ResultPart> {
     blocks
 }
 
-/// `reply` as the model may read it: when the call issued a quote, the quote
-/// is held on the turn and shown to the user, and the line carrying its token
-/// is cut from the words.
+/// `reply` as the model may read it, and whether it held a quote: when the
+/// call issued one, the quote is held on the turn and shown to the user, and
+/// the line carrying its token is cut from the words.
 async fn held(
     state: &AppState,
     user: UserId,
     turn: i64,
     call: (i64, &Call),
     reply: Reply,
-) -> Reply {
+) -> (Reply, bool) {
     let (row, call) = call;
     let pending = match state.tools.pending_quote(user, row).await {
         Ok(Some(pending)) => pending,
-        Ok(None) => return reply,
+        Ok(None) => return (reply, false),
         Err(error) => {
             // Unknowable whether a quote was issued, so nothing of the reply
             // may reach the model: it could carry a token.
             eprintln!("scorsese-server: assistant: reading a quote: {error}");
-            return "A quote could not be held for the person; nothing was spent. Try again."
-                .into();
+            return (UNHELD.into(), false);
         }
     };
     let lines: Vec<String> = reply
@@ -131,22 +182,29 @@ async fn held(
         expires_at: pending.expires_at,
         batched: call.input.get("batch").and_then(serde_json::Value::as_bool) == Some(true),
         batch_micros: pending.batch_micros,
+        call: Some(call.id.clone()),
     };
-    if let Err(error) = hold_quote(&state.pool, user, turn, &pending.token, &quote).await {
-        eprintln!("scorsese-server: assistant: holding a quote: {error}");
-        return "A quote could not be held for the person; nothing was spent. Try again.".into();
+    match hold_quote(&state.pool, user, turn, &pending.token, &quote).await {
+        // A second quote in one reply takes the first one's place.
+        Ok(Some(earlier)) => {
+            if let Err(error) = state.tools.withdraw_quote(user, &earlier).await {
+                eprintln!("scorsese-server: assistant: withdrawing a quote: {error}");
+            }
+        }
+        Ok(None) => {}
+        Err(error) => {
+            eprintln!("scorsese-server: assistant: holding a quote: {error}");
+            return (UNHELD.into(), false);
+        }
     }
     state.events.send(user, Event::ChatQuote { turn, quote });
     let mut words = lines;
-    words.push(
-        "This quote is now in front of the person as a confirmation box; you do not have its \
-         token and cannot confirm it. Nothing has been spent. End your turn now: say in one line \
-         what it covers and what it costs, and wait — their answer, a yes, a no or a change \
-         they want, arrives with a system message in the next turn."
-            .to_owned(),
-    );
-    words.join("\n").into()
+    words.push(HELD.to_owned());
+    (words.join("\n").into(), true)
 }
+
+/// What the model reads when a quote could not be held.
+const UNHELD: &str = "A quote could not be held for the person; nothing was spent. Try again.";
 
 /// `project`'s revision now, if it is `user`'s.
 pub(super) async fn revision(state: &AppState, user: UserId, project: i64) -> Option<i64> {
@@ -161,4 +219,43 @@ pub(super) async fn revision(state: &AppState, user: UserId, project: i64) -> Op
         Ok::<_, sqlx::Error>(revision)
     };
     read.await.ok().flatten()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn result(call: &str, text: &str) -> Part {
+        Part::Result {
+            call: call.into(),
+            name: "generate".into(),
+            content: vec![ResultPart::Text { text: text.into() }],
+            is_error: false,
+        }
+    }
+
+    #[test]
+    fn the_answer_takes_its_calls_place_and_a_quote_it_replaced_is_withdrawn() {
+        let held = format!("vo: $0.60\n{HELD}");
+        let looked = result("look", "The timeline is 30 seconds.");
+        let mut results = Message::User {
+            content: vec![
+                result("first", &held),
+                looked.clone(),
+                result("second", &held),
+            ],
+        };
+        let answer = result("second", "The person confirmed the quote: queued as job 4.");
+        assert!(settle(&mut results, answer.clone()));
+        assert_eq!(
+            results,
+            Message::User {
+                content: vec![result("first", SUPERSEDED), looked, answer]
+            }
+        );
+        assert!(
+            !settle(&mut results, result("elsewhere", "?")),
+            "no such call"
+        );
+    }
 }
