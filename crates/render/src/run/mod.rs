@@ -398,8 +398,7 @@ impl<'a> Renderer<'a> {
             Ok(())
         };
         if let Err(stopped) = drawn() {
-            encoder.abandon();
-            return Err(stopped);
+            return Err(encoder.stopped(stopped));
         }
         self.progress.enter(Phase::Finishing);
         encoder.finish()?;

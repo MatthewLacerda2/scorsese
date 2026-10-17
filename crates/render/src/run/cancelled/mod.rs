@@ -11,6 +11,7 @@
 
 mod page;
 mod sound;
+mod sweep;
 
 use std::path::PathBuf;
 
