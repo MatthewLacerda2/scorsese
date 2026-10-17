@@ -2042,7 +2042,7 @@ rest of the server runs as it did.
 
 **The chat panel** has the model dropdown. Picking another model while the
 conversation's cache may still be warm — its last answer less than the cache
-lifetime of the model being left ago (`cache_seconds`, an hour on both models:
+lifetime of the model being left ago (`cache_seconds`, an hour on every model:
 Claude's longest entry), or a turn still running — first asks: *switching
 models causes a cache miss on the next prompt*, Switch or Cancel. An empty
 conversation, or one whose last answer is older than that, switches at once.
