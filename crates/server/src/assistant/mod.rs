@@ -14,9 +14,9 @@
 //!
 //! ## Which model
 //!
-//! A project names its model (`projects.assistant_model`): one of the two
-//! `scorsese_providers::chat::Model` offers — Claude Sonnet 5.5 by default,
-//! or Claude Opus 5.5 — and its owner changes it whenever they like, mid-conversation too (`model`). Every
+//! A project names its model (`projects.assistant_model`): one of the three
+//! `scorsese_providers::chat::Model` offers — Claude Opus 5.5 by default
+//! (#1444), Claude Sonnet 5.5 or Claude Fable 5.1 — and its owner changes it whenever they like, mid-conversation too (`model`). Every
 //! turn runs on the model its project names when it starts, and is charged at
 //! that model's rates. This module talks to `scorsese_providers::chat` and
 //! never to a vendor: what differs between them is behind that seam. Gemini

@@ -134,8 +134,8 @@ new build, before it serves anything.
 
 ## The assistant
 
-A model of the project's choosing — Claude Sonnet 5.5 by default, or Claude
-Opus 5.5 (#705; Gemini 3.8 Flash and 3.5 Flash Lite were offered until #1220
+A model of the project's choosing — Claude Opus 5.5 by default (#1444), or
+Claude Sonnet 5.5 or Fable 5.1 (#705; Gemini 3.8 Flash and 3.5 Flash Lite were offered until #1220
 cut them as not good enough at the job) — running server-side
 with scorsese's tool registry (#540). The same tools are served over web MCP
 (#539), so a user can connect their own client instead. One tool set, two ways
@@ -1905,10 +1905,13 @@ thinking still happens and is still billed as output: hiding it saves the user
 reading, not credits.
 
 **Which model** (#705). A project names one (`projects.assistant_model`):
-Claude Sonnet 5.5 (`Model::DEFAULT`, migration `0022`; migration `0031` moved
-every project still on a Gemini model there when #1220 cut them, and set aside
-any question a Gemini turn was waiting on) for every project until its owner
-picks another, in the chat panel's dropdown (`PUT /api/projects/{id}/chat/model`). It is a routing flag:
+Claude Opus 5.5 (`Model::DEFAULT`, migration `0037`, #1444) for every new
+project until its owner picks another; a project made before that day keeps
+the model it was on, Claude Sonnet 5.5 for most (the default from migration
+`0022`; migration `0031` moved every project still on a Gemini model there when
+#1220 cut them, and set aside any question a Gemini turn was waiting on). The
+picker offers Sonnet 5.5, Opus 5.5 and Fable 5.1, cheapest first. A project's
+model is chosen in the chat panel's dropdown (`PUT /api/projects/{id}/chat/model`). It is a routing flag:
 every turn runs on the model its project names when the turn starts, is charged
 at that model's rates, and records the model it ran on. It can be changed at
 any time, mid-conversation included, and changing it rewrites nothing. A model

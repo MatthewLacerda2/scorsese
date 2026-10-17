@@ -30,6 +30,8 @@ fn the_table_says_what_the_vendors_pages_say() {
     assert_eq!(figures(rate(Model::ClaudeOpus55)), opus);
     let sonnet = (2_000_000, 10_000_000, 2_500_000, 4_000_000, 100_000);
     assert_eq!(figures(rate(Model::ClaudeSonnet55)), sonnet);
+    let fable = (10_000_000, 50_000_000, 12_500_000, 20_000_000, 250_000);
+    assert_eq!(figures(rate(Model::ClaudeFable51)), fable);
 }
 
 /// A rate that costs `input` per million, and nothing else.

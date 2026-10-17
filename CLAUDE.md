@@ -253,7 +253,8 @@ side effect of a feature PR.
   a browser, a phone or curl is calling. Claude is who we develop and test
   against, not a dependency. Nothing in the server may assume otherwise.
 - **The web app's built-in assistant runs on the model each project picks**
-  (#705): Claude Sonnet 5.5 by default, from a dropdown in the chat panel.
+  (#705): Claude Opus 5.5 by default (#1444), or Sonnet 5.5 or Fable 5.1,
+  from a dropdown in the chat panel.
   Choosing models for **our own client** is a product decision; the **tool
   surface** it calls still assumes nothing about who is calling.
   `crates/server/CLAUDE.md` has the rest.

@@ -4,7 +4,10 @@
 // the server cannot reach is still listed, marked, with the server's own
 // reason under the picker when it is the one chosen — never hidden. Each model
 // carries a green-to-red bar for how dear it is beside the others (#706), in a
-// badge that says "Cost" beside it so the bar is never a mystery (#1220).
+// badge that says "Cost" beside it so the bar is never a mystery (#1220) — in
+// the open list only: the closed picker names the model and nothing else
+// (#1444), so its text is written out rather than left to `SelectValue`, which
+// would mirror the chosen item's whole contents, bar included.
 
 import { useState } from "react";
 import { chatApi, type ModelChoice, type TurnView } from "@/api/chat";
@@ -58,7 +61,7 @@ export function ModelPicker({ projectId, model, models, turns }: Props) {
     <div className="flex flex-col gap-1">
       <Select value={model} onValueChange={picked} disabled={choose.isPending}>
         <SelectTrigger size="sm" className="max-w-full" aria-label={t.chat.model.label}>
-          <SelectValue />
+          <SelectValue>{current?.label ?? model}</SelectValue>
         </SelectTrigger>
         <SelectContent>
           {models.map((choice) => (

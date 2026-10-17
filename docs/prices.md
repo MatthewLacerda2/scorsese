@@ -279,12 +279,13 @@ figure is known before anything is sent, rounded **up** to the cent. A
 ## The assistant
 
 The hosted web app's assistant (#540) runs on the model each project chooses
-(#705) — Claude Sonnet 5.5 or Opus 5.5 since #1220 cut Gemini from the
-picker — priced per **million tokens**, each kind at its own rate —
+(#705) — Claude Sonnet 5.5, Opus 5.5 (the default) or Fable 5.1 (#1444),
+since #1220 cut Gemini from the picker — priced per **million tokens**, each kind at its own rate —
 `prices::chat`:
 
 | model | input | output | cache write, 5 min | cache write, 1 h | cache read | checked |
 | --- | --- | --- | --- | --- | --- | --- |
+| `claude-fable-5-1` | $10 | $50 | $12.50 | $20 | $0.25 | 2026-10-17 |
 | `claude-opus-5-5` | $4 | $20 | $5 | $8 | $0.20 | 2026-10-14 |
 | `claude-sonnet-5-5` | $2 | $10 | $2.50 | $4 | $0.10 | 2026-10-14 |
 
@@ -294,10 +295,12 @@ Standard tier and global routing only — fast mode, the batch discount,
 Priority and US-only inference are rows scorsese never pays, so they are not
 here. Things that look like typos and are not:
 
-- **Cache reads are 0.05× input on both models**, not the usual 0.1×: $0.20 on
-  Opus and $0.10 on Sonnet (Anthropic's page, 2026-10-14). Until that day the
-  table had Sonnet at the usual 0.1×, $0.20, and charged its cache reads
-  double.
+- **Cache reads are 0.05× input on Opus and Sonnet**, not the usual 0.1×:
+  $0.20 on Opus and $0.10 on Sonnet (Anthropic's page, 2026-10-14). Until that
+  day the table had Sonnet at the usual 0.1×, $0.20, and charged its cache
+  reads double.
+- **And 0.025× on Fable 5.1**: $0.25 against $10 input (Anthropic's page,
+  2026-10-17: *"a cache hit costs 2.5% of the standard input price"*).
 - **A row may carry the day it takes effect** (#718), and
   `prices::chat::rate` is asked for a model *on a date* — the latest row not
   after it. No row is dated today (the one that was, Gemini 3.8 Flash's
@@ -321,7 +324,8 @@ rate, never as full input (the maintainer, 2026-10-03).
 assistant turn resends the whole conversation, so the server caches it
 (`docs/web.md`, *Assistant turns*): on Claude the tools and system prompt for
 an hour, shared by every user, the conversation's tail for five minutes. A
-cache read is a twentieth of input on both models, which is why a long
+cache read is a twentieth of input on Opus and Sonnet and a fortieth on
+Fable, which is why a long
 turn is cheap per call, why anything that edits earlier messages would be
 expensive, and why the first turn after a change of model costs more. The
 operator's per-turn cap bounds the rest.

@@ -37,8 +37,9 @@ pub struct Request {
     pub messages: Vec<Box<RawValue>>,
 }
 
-/// `thinking`: always adaptive on Claude Opus 5.5 — it cannot be switched
-/// off, and effort is the control — with `display` choosing what comes back.
+/// `thinking`: always adaptive on every model the assistant offers — it
+/// cannot be switched off (Claude Fable 5.1 answers `disabled` with a 400),
+/// and effort is the control — with `display` choosing what comes back.
 #[derive(Debug, Clone, Copy, Serialize)]
 pub struct Thinking {
     /// `adaptive`.
