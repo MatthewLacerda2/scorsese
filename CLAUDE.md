@@ -61,7 +61,8 @@ it, and Claude explains it only if asked. The one thing always put to the user
 is **money**: the quote-and-ask before a generation stays.
 
 **Stock before generation; narration freely** (the maintainer, 2026-10-13).
-Prefer stock content from Pixabay and Pexels (#1234) over AI-generated content.
+Prefer stock content from Pixabay over AI-generated content (Pexels, #1234, is
+fully designed but closed until Pexels issues API keys again).
 Use content generation when the content needs to be custom-made. Do not be shy
 about using ElevenLabs, it's inexpensive, just don't generate without
 justification: generate when the content is deemed necessary.
