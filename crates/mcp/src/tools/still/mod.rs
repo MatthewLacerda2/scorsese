@@ -64,7 +64,7 @@ struct Arguments {
     /// like 285. A bare decimal is refused — say which unit you mean. Give a
     /// list, e.g. ["0s", "9.1s", "400"], to look at several at once: one
     /// sentence and one picture comes back per instant, in the order asked.
-    /// At most 10 instants per call; split a longer list across calls.
+    #[doc = concat!(" At most ", pictures_per_reply!(), " instants per call; split a longer list across calls.")]
     #[schemars(schema_with = "still_at_schema")]
     at: Value,
     /// The shape to look in, e.g. "9:16" for a vertical edit or "1:1" for a
@@ -121,12 +121,16 @@ impl Tool for Still {
     }
 
     fn description(&self) -> &'static str {
-        "Look at the edit. Composites the timeline at one instant, or at a \
+        concat!(
+            "Look at the edit. Composites the timeline at one instant, or at a \
          whole list of them, and returns the pictures themselves — the same \
          pixels a render would deliver, since it is the render pipeline with \
          the encoder taken out. One sentence and one picture comes back per \
          instant, in the order asked, so checking every section of a cut is \
-         one call rather than one per section — up to 10 instants a call. Pictures come back preview-sized \
+         one call rather than one per section — up to ",
+            pictures_per_reply!(),
+            " instants a call. \
+         Pictures come back preview-sized \
          in the project's own shape (its aspect; project_reframe changes it); \
          pass resolution: \"9:16\" to look in another — never the delivery \
          size, which costs more and shows the same layout. Needs ffmpeg, but encodes \
@@ -142,6 +146,7 @@ impl Tool for Still {
          get up to 5 instants back as one labelled contact sheet instead of \
          one picture each — cheaper, and the frames can be compared side by \
          side."
+        )
     }
 
     fn writes(&self) -> bool {

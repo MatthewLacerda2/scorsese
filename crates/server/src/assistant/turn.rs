@@ -259,10 +259,11 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
                 ));
             }
             Stop::Other(reason) => {
-                return Ok(End::Over(
-                    "failed",
-                    format!("The reply stopped early ({reason})."),
-                ));
+                eprintln!(
+                    "scorsese-server: assistant: turn {}: stopped: {reason}",
+                    turn.turn
+                );
+                return Ok(End::Over("failed", super::failure::stopped(reason)));
             }
         }
     }

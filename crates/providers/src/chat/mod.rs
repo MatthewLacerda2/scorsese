@@ -178,18 +178,38 @@ impl ChatError {
     }
 
     /// Whether the vendor refused the request for its size: the
-    /// conversation has outgrown what one request may carry, and sending it
+    /// conversation has outgrown what one request may carry, in bytes (413)
+    /// or in tokens (a 400 saying "prompt is too long"), and sending it
     /// again, or with one more message, is refused the same way (#1435).
     pub fn too_large(&self) -> bool {
         match self {
             Self::Claude(ClaudeError::Http(crate::api::http::HttpError::Refused {
                 status,
+                body,
                 ..
-            })) => *status == 413,
-            Self::Claude(ClaudeError::Api { kind, .. }) => kind == "request_too_large",
+            })) => *status == 413 || (*status == 400 && prompt_too_long(body)),
+            Self::Claude(ClaudeError::Api { kind, message }) => {
+                kind == "request_too_large"
+                    || (kind == "invalid_request_error"
+                        && message.starts_with("prompt is too long"))
+            }
             Self::Claude(_) => false,
         }
     }
+}
+
+/// Whether an Anthropic error body is the refusal of a prompt over the
+/// model's context window: `{"error": {"type": "invalid_request_error",
+/// "message": "prompt is too long: N tokens > M maximum"}}`.
+fn prompt_too_long(body: &str) -> bool {
+    let Ok(body) = serde_json::from_str::<Value>(body) else {
+        return false;
+    };
+    let error = &body["error"];
+    error["type"] == "invalid_request_error"
+        && error["message"]
+            .as_str()
+            .is_some_and(|message| message.starts_with("prompt is too long"))
 }
 
 /// The client for `vendor`, spending `key`.

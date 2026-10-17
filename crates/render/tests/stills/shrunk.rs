@@ -74,3 +74,43 @@ fn a_small_or_tall_picture_keeps_its_size() {
 fn bytes_that_are_not_a_picture_are_refused() {
     assert!(for_a_model(&tools(), b"not a picture").is_err());
 }
+
+#[test]
+fn transparency_is_laid_over_white_and_what_is_opaque_keeps_its_colour() {
+    let tools = tools();
+    let dir = scratch::dir("shrunk-alpha");
+    let png = dir.join("lottie.png");
+    let clear_with_a_blue_square = "color=c=red@0.0:s=64x64,format=rgba[clear];\
+         color=c=blue:s=32x32,format=rgba[square];[clear][square]overlay=16:16";
+    let source = [
+        "-f",
+        "lavfi",
+        "-i",
+        clear_with_a_blue_square,
+        "-frames:v",
+        "1",
+    ];
+    generate(&tools, &png, &source);
+    let (jpeg, _) = shrunk(&png);
+    let out = dir.join("lottie.jpg");
+    std::fs::write(&out, jpeg).expect("the jpeg is written");
+    let pixel = |x: u32, y: u32| {
+        let decoded = tools
+            .ffmpeg()
+            .args(["-nostdin", "-v", "error", "-i"])
+            .arg(&out)
+            .args(["-vf", &format!("crop=2:2:{x}:{y}")])
+            .args(["-f", "rawvideo", "-pix_fmt", "rgb24", "-"])
+            .output()
+            .expect("ffmpeg runs");
+        decoded.stdout[..3].to_vec()
+    };
+    let corner = pixel(0, 0);
+    assert!(
+        corner.iter().all(|&c| c > 240),
+        "white, not black: {corner:?}"
+    );
+    let middle = pixel(32, 32);
+    assert!(middle[2] > 200 && middle[0] < 60, "still blue: {middle:?}");
+    std::fs::remove_dir_all(dir).ok();
+}

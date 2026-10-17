@@ -33,16 +33,22 @@ const IN_MEMORY: &str = "(a picture being shrunk for the model)";
 pub const JPEG: &str = "image/jpeg";
 
 /// `picture` (any still image ffmpeg reads — a PNG, in practice) as a JPEG
-/// whose long edge is at most [`MODEL_EDGE`]. Never enlarged; the aspect is
-/// kept.
+/// whose long edge is at most [`MODEL_EDGE`], transparency flattened onto
+/// white. Never enlarged; the aspect is kept.
 pub fn for_a_model(tools: &Tools, picture: &[u8]) -> Result<Vec<u8>, FrameError> {
     let file = Path::new(IN_MEMORY);
     let io = |source| FrameError::Io {
         file: file.to_path_buf(),
         source,
     };
+    // JPEG has no alpha, and dropping it shows whatever colour a transparent
+    // pixel happens to hold, black as often as not: a transparent Lottie
+    // preview went dark. So the picture is laid over white first, where a
+    // light page or a dark glyph stays readable.
     let fit = format!(
-        "scale='min({MODEL_EDGE},iw)':'min({MODEL_EDGE},ih)':force_original_aspect_ratio=decrease"
+        "scale='min({MODEL_EDGE},iw)':'min({MODEL_EDGE},ih)':force_original_aspect_ratio=decrease,\
+         format=rgba,split[picture][under];[under]drawbox=c=white@1:t=fill[white];\
+         [white][picture]overlay"
     );
     let mut child = tools
         .ffmpeg()

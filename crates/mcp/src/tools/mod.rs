@@ -13,6 +13,15 @@
 //! or run two conversations against one project without a server-side notion
 //! of "the open project" going stale behind its back.
 
+/// [`PICTURES_PER_REPLY`] as a literal, for a description `concat!` writes:
+/// a tool's description is a `&'static str`, so the number is spelled once,
+/// here, rather than once in the code and again in the words.
+macro_rules! pictures_per_reply {
+    () => {
+        10
+    };
+}
+
 mod args;
 mod authoring;
 mod clone;
@@ -57,7 +66,7 @@ const PNG: &str = "image/png";
 /// vendor soon refuses for its size; to see more, a client makes another call.
 /// `still` is the one tool that could exceed it, and refuses a list past it;
 /// `look`, `hear` and `stock_search` answer with one picture each.
-pub(crate) const PICTURES_PER_REPLY: usize = 10;
+pub(crate) const PICTURES_PER_REPLY: usize = pictures_per_reply!();
 
 /// One thing an answer is about: what to say, and the picture it names when
 /// there is one.
