@@ -3,8 +3,8 @@
 // the chat as its sidebar. A user who prompts the video into existence lives in
 // the first; one who scrubs and nudges, in the second.
 //
-// Remembered per project in this browser, the way the effort level is
-// (`effort.ts`), through `lib/storage.ts`: a storage that throws — or nothing
+// Remembered per project in this browser, through `lib/storage.ts`: a storage
+// that throws — or nothing
 // stored — reads as the editor, which is how a project opens until the user
 // turns full mode on.
 

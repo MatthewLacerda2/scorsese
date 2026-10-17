@@ -152,6 +152,8 @@ export interface Conversation {
   model: string;
   /** Every model the picker offers, in order. */
   models: ModelChoice[];
+  /** How hard the project's next turn thinks (#1443): `low`, `medium`, `high` or `xhigh`. */
+  effort: string;
 }
 
 /** `assistant::ToolCallView` — one tool call a turn made. */
@@ -191,13 +193,18 @@ export interface Answered {
 
 export const chatApi = {
   conversation: (projectId: number) => request<Conversation>("GET", `/projects/${projectId}/chat`),
-  /** `202` with the turn; `402` no credit, `409` one is running, `503` not configured. */
-  /** `effort` is how hard the model thinks on it (#769); the server's default is `high`. */
-  send: (projectId: number, prompt: string, fresh = false, effort?: "low" | "medium" | "high") =>
-    request<TurnView>("POST", `/projects/${projectId}/chat`, { prompt, fresh, effort }),
+  /**
+   * `202` with the turn, at the project's effort; `402` no credit, `409` one is
+   * running, `503` not configured.
+   */
+  send: (projectId: number, prompt: string, fresh = false) =>
+    request<TurnView>("POST", `/projects/${projectId}/chat`, { prompt, fresh }),
   /** The project's assistant runs on `model` from its next turn; `400` for one not offered. */
   chooseModel: (projectId: number, model: string) =>
     request<ModelChoice>("PUT", `/projects/${projectId}/chat/model`, { model }),
+  /** The project's assistant runs at `effort` from its next turn; `400` for one not offered. */
+  chooseEffort: (projectId: number, effort: string) =>
+    request<{ effort: string }>("PUT", `/projects/${projectId}/chat/effort`, { effort }),
   turn: (turnId: number) => request<TurnDetail>("GET", `/chat/turns/${turnId}`),
   stop: (turnId: number) => request<{ stopping: number }>("POST", `/chat/turns/${turnId}/stop`),
   /** Spend it, withdraw it, or withdraw it asking for `change` — one call, nothing spent. */

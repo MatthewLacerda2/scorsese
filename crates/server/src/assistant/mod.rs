@@ -98,19 +98,25 @@
 //! that crosses either line has already been made and is charged; one call's
 //! cost is bounded by `max_tokens`.
 //!
-//! ## Effort: the user's, per message, `high` unless they say
+//! ## Effort: the project's, `high` unless chosen
 //!
 //! Effort trades a model's quality for credits within the model the user
 //! chose. #717 fixed it at `high` on the grounds that the model is where that
 //! trade is made; but one project gets both "nudge the title" and "build the
-//! whole cut", and paying `high` for a nudge is wasted credit (#769). So each
-//! message carries its own (`Opening::effort`), which the web app offers in
-//! plain words — Quick, Balanced, Thorough — and never as "effort". Absent, it
-//! is [`DEFAULT_EFFORT`], `high`: editing a video is long, many-step tool work,
-//! which is where Anthropic's guidance puts it. Every turn records its effort, and a turn that resumes —
-//! after a question (#710) or a quote's answer — keeps the one it started
-//! with. `xhigh` or `max` are for gains somebody has measured, which nobody has
+//! whole cut", and paying `high` for a nudge is wasted credit (#769). So a
+//! project keeps a level beside its model (`projects.assistant_effort`,
+//! `effort`, #1443), which the chat panel offers beside the model picker as
+//! low, medium, high or extra (`xhigh` on the wire). A new project's is
+//! `high`: editing a video is long, many-step tool work, which is where
+//! Anthropic's guidance puts it. Every turn records its effort, and a turn
+//! that resumes — after a question (#710) or a quote's answer — keeps the one
+//! it started with. `max` is for gains somebody has measured, which nobody has
 //! yet (#567).
+//!
+//! A change of level costs no cache: the request's top-level effort never
+//! moves, and a turn at another level opens with an effort change in the
+//! conversation (`scorsese_providers::chat`, *Effort is part of the
+//! conversation*).
 //!
 //! ## Thinking is hidden
 //!
@@ -129,6 +135,7 @@ mod ask;
 mod calls;
 mod cost;
 mod described;
+mod effort;
 mod failure;
 mod model;
 mod pictures;
@@ -143,11 +150,12 @@ mod turn;
 
 use std::sync::Arc;
 
-use scorsese_providers::chat::{self, Chat, Effort, Model};
+use scorsese_providers::chat::{self, Chat, Model};
 use scorsese_providers::credentials::resolve;
 use scorsese_providers::prices;
 
 pub use ask::{Answering, answer as answer_question, set_aside};
+pub use effort::choose_effort;
 pub use model::{Choice, choose};
 pub use quote::{Answer, Answered, answer as answer_quote};
 pub use retarget::{Retargeted, retarget};
@@ -171,10 +179,6 @@ pub use store::{conversation, detail, recover};
 /// turn 16 cents under the old $2.00. $3.50 lets a turn spend about what
 /// $2.00 did at ×1.1, $1.94 of cost against $1.82.
 pub const DEFAULT_TURN_CAP_MICROS: i64 = 3_500_000;
-
-/// The effort a message is answered at when it names none; the module doc
-/// argues it.
-pub const DEFAULT_EFFORT: Effort = Effort::High;
 
 /// The server's assistant: how it reaches each model, what a turn may cost,
 /// and which turns have been asked to stop. Cheap to clone.

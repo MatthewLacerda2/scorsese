@@ -131,10 +131,7 @@ fn native(request: &Request, message: &Message) -> Box<RawValue> {
             },
         });
     }
-    let message = Wire {
-        role: Role::Assistant,
-        content: MessageContent::Blocks(blocks),
-    };
+    let message = Wire::new(Role::Assistant, MessageContent::Blocks(blocks));
     message.raw().expect("the test setup holds")
 }
 

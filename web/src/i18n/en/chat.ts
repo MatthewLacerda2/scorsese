@@ -55,12 +55,14 @@ export const chat = {
     left: (balance: string) => ` · ${balance} left`,
   },
   effort: {
-    label: "How carefully the assistant works on this message",
-    name: { low: "Quick", medium: "Balanced", high: "Thorough" },
+    label: "How hard the assistant thinks",
+    name: { low: "Low", medium: "Medium", high: "High", xhigh: "Extra" },
     hint: {
       low: "For small tweaks, like making the title bigger or moving the music. Cheapest.",
       medium: "For ordinary requests.",
-      high: "For building or reworking an edit. Takes longest and costs the most.",
+      high: "For building or reworking an edit. Takes longer and costs more.",
+      xhigh:
+        "For the biggest jobs, like a whole video from one long brief. Takes longest and costs the most.",
     },
   },
   model: {

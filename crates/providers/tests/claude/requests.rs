@@ -25,10 +25,7 @@ fn tool() -> Tool {
 
 #[test]
 fn the_prefix_is_cached_for_an_hour_and_the_tail_automatically() {
-    let first = Message {
-        role: Role::User,
-        content: MessageContent::Text("hello".into()),
-    };
+    let first = Message::new(Role::User, MessageContent::Text("hello".into()));
     let request = claude::request(
         &settings(),
         "You edit videos.",
@@ -71,10 +68,10 @@ fn the_prefix_is_cached_for_an_hour_and_the_tail_automatically() {
 #[test]
 fn a_reply_is_sent_back_exactly_as_it_arrived() {
     let reply = replay("tool_use.sse").0.unwrap();
-    let frozen = Message {
-        role: Role::Assistant,
-        content: MessageContent::Blocks(reply.content.clone()),
-    }
+    let frozen = Message::new(
+        Role::Assistant,
+        MessageContent::Blocks(reply.content.clone()),
+    )
     .raw()
     .unwrap();
     let text = frozen.get();
@@ -111,13 +108,10 @@ fn a_tool_result_carries_words_and_pictures_and_says_when_it_refused() {
         is_error: true,
     };
     let message: Value = serde_json::from_str(
-        Message {
-            role: Role::User,
-            content: MessageContent::Blocks(vec![answered, refused]),
-        }
-        .raw()
-        .unwrap()
-        .get(),
+        Message::new(Role::User, MessageContent::Blocks(vec![answered, refused]))
+            .raw()
+            .unwrap()
+            .get(),
     )
     .unwrap();
     assert_eq!(
@@ -134,12 +128,20 @@ fn a_tool_result_carries_words_and_pictures_and_says_when_it_refused() {
 
 #[test]
 fn an_operators_note_is_a_system_message_of_plain_text() {
-    let note = Message {
-        role: Role::System,
-        content: MessageContent::Text("The project is 12.".into()),
-    };
+    let note = Message::new(
+        Role::System,
+        MessageContent::Text("The project is 12.".into()),
+    );
     assert_eq!(
         note.raw().unwrap().get(),
         r#"{"role":"system","content":"The project is 12."}"#
+    );
+}
+
+#[test]
+fn an_effort_change_is_an_empty_system_message_with_its_level() {
+    assert_eq!(
+        Message::effort(Effort::Xhigh).raw().unwrap().get(),
+        r#"{"role":"system","content":[],"output_config":{"effort":"xhigh"}}"#
     );
 }

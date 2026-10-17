@@ -1,7 +1,6 @@
-//! The seam's edges: what is worth retrying, the models offered, and how an
-//! effort reaches the wire.
+//! The seam's edges: what is worth retrying, and the models offered.
 
-use scorsese_providers::chat::{ChatError, ClaudeError, Effort, Model, Request, anthropic};
+use scorsese_providers::chat::{ChatError, ClaudeError, Model};
 
 #[test]
 fn only_a_busy_or_broken_vendor_is_worth_asking_again() {
@@ -50,25 +49,6 @@ fn exactly_sonnet_opus_then_fable_are_offered_and_keep_their_cache_an_hour() {
         assert_eq!(model.cache_lifetime().as_secs(), 3_600);
     }
     assert_eq!(Model::from_id("gemini-3.8-flash"), None, "cut in #1220");
-}
-
-#[test]
-fn an_effort_reaches_the_wire_as_the_name_it_reads_back_from() {
-    for effort in [Effort::Low, Effort::Medium, Effort::High] {
-        let name = effort.as_str();
-        assert_eq!(Effort::from_name(name), Some(effort));
-        let request = Request {
-            model: Model::ClaudeOpus55,
-            effort,
-            system: "s".into(),
-            tools: vec![],
-            messages: vec![],
-        };
-        let body = serde_json::to_value(anthropic::laid_out(&request)).unwrap();
-        assert_eq!(body["output_config"]["effort"], name, "{body}");
-    }
-    assert_eq!(Effort::from_name("xhigh"), None);
-    assert_eq!(Effort::from_name("High"), None);
 }
 
 #[test]

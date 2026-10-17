@@ -33,6 +33,7 @@ describe("conversations", () => {
       turns: [turn(1, { state: "answered" })],
       model: "m",
       models: [],
+      effort: "high",
     };
     const old = fromConversation(conversation, empty(7));
     const cleared = restart(old);
@@ -53,6 +54,7 @@ describe("conversations", () => {
         turns: [turn(1, { state: "answered" })],
         model: "claude-sonnet-5-5",
         models: [],
+        effort: "high",
       },
       live,
     );

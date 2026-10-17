@@ -23,8 +23,6 @@ export const KEYS = {
   panels: "scorsese.panels",
   /** Preview quality, one for the browser (`editor/preview/quality.ts`). */
   previewQuality: "scorsese.preview-quality",
-  /** A project's assistant effort (`editor/chat/effort.ts`). */
-  effort: (project: number) => `scorsese-effort-${project}`,
   /** Whether a project's chat fills the page (`editor/chat/full.ts`). */
   chatFull: (project: number) => `scorsese-chat-full-${project}`,
 } as const;

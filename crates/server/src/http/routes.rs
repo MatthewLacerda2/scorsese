@@ -111,6 +111,7 @@ pub fn table() -> Vec<Route> {
         Route::new(M::GET, "/projects/{id}/chat", chat::conversation),
         Route::new(M::POST, "/projects/{id}/chat", chat::send),
         Route::new(M::PUT, "/projects/{id}/chat/model", chat::choose_model),
+        Route::new(M::PUT, "/projects/{id}/chat/effort", chat::choose_effort),
         Route::new(M::GET, "/chat/turns/{id}", chat::turn),
         Route::new(M::POST, "/chat/turns/{id}/stop", chat::stop),
         Route::new(M::POST, "/chat/turns/{id}/quote", chat::quote),

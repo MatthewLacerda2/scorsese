@@ -28,6 +28,7 @@ use serde_json::Value;
 use sqlx::postgres::PgPool;
 
 use super::AssistantError;
+use super::effort;
 use super::model::{self, Choice};
 use crate::db::{self, Tx, UserId};
 use crate::http::AppState;
@@ -228,7 +229,7 @@ pub enum BriefKind {
 }
 
 /// A project's current conversation: its newest session's turns, oldest
-/// first, and the model the next one runs on.
+/// first, and the model and effort the next one runs on.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Conversation {
     /// The project.
@@ -242,6 +243,9 @@ pub struct Conversation {
     pub model: String,
     /// Every model the picker offers.
     pub models: Vec<Choice>,
+    /// The level the project runs at (#1443): `low`, `medium`, `high` or
+    /// `xhigh`.
+    pub effort: &'static str,
 }
 
 /// One tool call a turn made, as the log records it.
@@ -321,6 +325,7 @@ pub async fn conversation(
 ) -> Result<Conversation, AssistantError> {
     let mut tx = db::scoped(&state.pool, user).await?;
     let chosen = model::of(&mut tx, project).await?;
+    let effort = effort::of(&mut tx, project).await?;
     let session = turns::newest_session(&mut tx, project).await?;
     let turns = match session {
         Some(session) => {
@@ -338,6 +343,7 @@ pub async fn conversation(
         turns,
         model: chosen.id().to_owned(),
         models: model::choices(&state.assistant),
+        effort: effort.as_str(),
     })
 }
 

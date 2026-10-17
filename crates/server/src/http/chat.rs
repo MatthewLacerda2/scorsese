@@ -6,7 +6,6 @@
 use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use scorsese_providers::chat::Effort;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -27,35 +26,22 @@ pub struct Send {
     /// newest one.
     #[serde(default)]
     pub fresh: bool,
-    /// How hard the assistant thinks on it (#769): `low`, `medium` or `high`,
-    /// which the web app calls Quick, Balanced and Thorough. Absent is `high`.
-    #[serde(default)]
-    pub effort: Option<String>,
 }
 
-/// `POST /api/projects/{id}/chat`: a turn starts, `202` with it. `400` for an
-/// effort that is not one of the three, `503` when the assistant is not
-/// configured, `402` when the balance is empty, `409` while another turn of
-/// the conversation runs.
+/// `POST /api/projects/{id}/chat`: a turn starts, `202` with it, at the
+/// project's effort. `503` when the assistant is not configured, `402` when
+/// the balance is empty, `409` while another turn of the conversation runs.
 pub async fn send(
     State(state): State<AppState>,
     member: Member,
     Path(project): Path<i64>,
     Json(send): Json<Send>,
 ) -> Result<(StatusCode, Json<TurnView>), ApiError> {
-    let effort = match send.effort.as_deref() {
-        None => None,
-        Some(name) => Some(Effort::from_name(name).ok_or_else(|| {
-            AssistantError::Invalid(format!(
-                "effort {name:?} is not one of \"low\", \"medium\" or \"high\""
-            ))
-        })?),
-    };
     let opening = Opening {
         prompt: send.prompt,
         fresh: send.fresh,
         notes: Vec::new(),
-        effort,
+        effort: None,
     };
     let turn = assistant::start(&state, member.user, project, opening).await?;
     Ok((StatusCode::ACCEPTED, Json(turn)))
@@ -91,6 +77,27 @@ pub async fn choose_model(
     Ok(Json(
         assistant::choose(&state, member.user, project, &choice.model).await?,
     ))
+}
+
+/// `PUT /api/projects/{id}/chat/effort`'s body.
+#[derive(Debug, Deserialize)]
+pub struct EffortChoice {
+    /// The level the project's assistant runs at from now on: `low`,
+    /// `medium`, `high` or `xhigh`.
+    pub effort: String,
+}
+
+/// `PUT /api/projects/{id}/chat/effort`: the project's assistant runs at
+/// another level from its next turn (#1443). `{effort}` as stored; `400` for
+/// a level the assistant does not offer.
+pub async fn choose_effort(
+    State(state): State<AppState>,
+    member: Member,
+    Path(project): Path<i64>,
+    Json(choice): Json<EffortChoice>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let effort = assistant::choose_effort(&state, member.user, project, &choice.effort).await?;
+    Ok(Json(json!({ "effort": effort.as_str() })))
 }
 
 /// `GET /api/chat/turns/{id}`: one turn, and the log of its tool calls.

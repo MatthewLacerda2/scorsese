@@ -2060,11 +2060,17 @@ together for an hour — identical for every user, so one write serves the whole
 server — and the API's automatic breakpoint caches the conversation's tail for
 five minutes. Nothing about a user or the time goes in the prefix.
 
-**Effort is the user's, per message** (#769) — Claude's `effort` — chosen beside Send as **Quick** (`low`), **Balanced**
-(`medium`) or **Thorough** (`high`, the default), and remembered per project
-in the browser. A message without one is `high`; every turn records its
-effort, and one that resumes after a question or a quote's answer keeps the
-effort it began with (`crates/server/src/assistant/mod.rs`, *Effort*). A refusal by a
+**Effort is the project's** (#769, #1443) — Claude's `effort` — chosen in the
+chat panel's top bar beside the model as **low**, **medium**, **high** (a new
+project's) or **extra** (`xhigh` on the wire), and kept on the project
+(`projects.assistant_effort`) like its model. Every turn records its effort,
+and one that resumes after a question or a quote's answer keeps the effort it
+began with. A change costs no cache: the request's top-level effort is always
+`high`, and a turn at another level opens with an effort change in the
+conversation itself — Anthropic's per-message effort, an empty `system`
+message carrying `output_config.effort` (beta
+`mid-conversation-output-config-2026-07-01`), which leaves the history before
+it untouched (`crates/server/src/assistant/mod.rs`, *Effort*). A refusal by a
 vendor's safety filters ends the turn as `refused`, charged for what the call
 used; it is not retried on another model, because the user chose the model.
 
@@ -2089,9 +2095,10 @@ fixed until measured usage (#707) says otherwise.
 
 | route | who | what |
 | --- | --- | --- |
-| `GET /api/projects/{id}/chat` | a member | `{project, session, turns, model, models}`: the newest conversation's turns, oldest first; the project's model; every model offered as `{id, label, vendor, unavailable, cache_seconds, cost}` |
+| `GET /api/projects/{id}/chat` | a member | `{project, session, turns, model, models, effort}`: the newest conversation's turns, oldest first; the project's model; every model offered as `{id, label, vendor, unavailable, cache_seconds, cost}`; the project's effort |
 | `PUT /api/projects/{id}/chat/model` | a member | `{model}` → the model as listed; from the next turn the project runs on it. `400` for a model not offered |
-| `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?, effort?}` → `202` with the turn; `effort` is `low`, `medium` or `high` (absent: `high`), `400` for anything else; `402` no credit, `409` a turn is running, `503` not configured |
+| `PUT /api/projects/{id}/chat/effort` | a member | `{effort}` → `{effort}`; from the next turn the project runs at it. `low`, `medium`, `high` or `xhigh`; `400` for anything else |
+| `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?}` → `202` with the turn, at the project's effort; `402` no credit, `409` a turn is running, `503` not configured |
 | `GET /api/chat/turns/{id}` | a member | `{turn, tools}`: the turn and the log of every tool call it made, in order |
 | `POST /api/chat/turns/{id}/stop` | a member | `202`; the turn stops before its next step — at once, its question set aside, when it is `asking`. `409` if it is neither |
 | `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false, change?}` → `{spent, refused, turn, note}`; `turn` is the one the quote paused, carrying on with the answer as the quoting call's result (#1440); `change` with `confirm: true` is `400`, and so is any answer on a turn not paused on a quote |

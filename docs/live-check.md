@@ -55,7 +55,7 @@ make live-check ARGS="--include-veo --record /tmp/live"
 | ElevenLabs | `GET /v1/voices?category=premade` (also picks the voice to speak with) | free |
 | | text-to-speech of `Checking.` on the `fast` model, with its timestamps | $0.01 |
 | | Voice Design from a 100-character passage — three candidates, **none kept** | $0.01 |
-| Anthropic | two streamed calls to `claude-opus-5-5` at `low` effort: ask for a tool call; then send the reply back unchanged, with the tool's result and a mid-conversation `system` message | at most $0.15 |
+| Anthropic | two streamed calls to `claude-opus-5-5` at `low` effort: ask for a tool call; then send the reply back unchanged, with an effort change, the tool's result and a mid-conversation `system` message | at most $0.15 |
 | Pixabay | `GET /api/videos/?q=sunrise` — hits, each with a usable rendition | free |
 | LottieFiles | `searchPublicAnimations("rocket", first: 3)`, anonymously — each result with an id, a `jsonUrl` and an `imageUrl`; `metadata`'s width, height, frame rate and duration carried by at least one | free, no key |
 

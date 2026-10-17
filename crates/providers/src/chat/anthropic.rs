@@ -27,11 +27,7 @@ impl Chat for Anthropic {
 pub fn laid_out(request: &Request) -> wire::Request {
     let settings = Settings {
         model: request.model.id().to_owned(),
-        effort: match request.effort {
-            Effort::Low => wire::Effort::Low,
-            Effort::Medium => wire::Effort::Medium,
-            Effort::High => wire::Effort::High,
-        },
+        effort: wired(Effort::BASELINE),
         max_tokens: MAX_TOKENS,
     };
     let tools = request
@@ -46,13 +42,41 @@ pub fn laid_out(request: &Request) -> wire::Request {
     claude::request(&settings, &request.system, tools, request.messages.clone())
 }
 
+/// `effort` as the wire spells it.
+const fn wired(effort: Effort) -> wire::Effort {
+    match effort {
+        Effort::Low => wire::Effort::Low,
+        Effort::Medium => wire::Effort::Medium,
+        Effort::High => wire::Effort::High,
+        Effort::Xhigh => wire::Effort::Xhigh,
+    }
+}
+
+/// The level in effect at the end of `messages`, as frozen: the last effort
+/// change among them, or [`Effort::BASELINE`] — what [`laid_out`] sends as the
+/// top-level setting — before any.
+pub fn effort_of(messages: &[Box<RawValue>]) -> Effort {
+    messages
+        .iter()
+        .rev()
+        .find_map(|raw| change_in(&serde_json::from_str(raw.get()).ok()?))
+        .unwrap_or(Effort::BASELINE)
+}
+
+/// The level a stored message changes the effort to, when it is an effort
+/// change.
+fn change_in(message: &Value) -> Option<Effort> {
+    let name = message.get("output_config")?.get("effort")?.as_str()?;
+    Effort::from_name(name)
+}
+
 /// A whole Claude reply as the seam hands it on: thinking stays in the bytes
 /// and out of the neutral message.
 pub fn reply_of(response: Response) -> Result<Reply, claude::ClaudeError> {
-    let native = wire::Message {
-        role: Role::Assistant,
-        content: MessageContent::Blocks(response.content.clone()),
-    }
+    let native = wire::Message::new(
+        Role::Assistant,
+        MessageContent::Blocks(response.content.clone()),
+    )
     .raw()
     .map_err(|error| claude::ClaudeError::Arguments(error.to_string()))?;
     let content = response
@@ -81,13 +105,14 @@ pub fn reply_of(response: Response) -> Result<Reply, claude::ClaudeError> {
 /// `message` as Anthropic's blocks, frozen.
 pub fn freeze(message: &Message) -> Result<Box<RawValue>, serde_json::Error> {
     let (role, content) = match message {
+        Message::Effort { effort } => return wire::Message::effort(wired(*effort)).raw(),
         Message::System { text } => (Role::System, MessageContent::Text(text.clone())),
         Message::User { content } => (Role::User, MessageContent::Blocks(blocks(content)?)),
         Message::Assistant { content } => {
             (Role::Assistant, MessageContent::Blocks(blocks(content)?))
         }
     };
-    wire::Message { role, content }.raw()
+    wire::Message::new(role, content).raw()
 }
 
 /// Neutral parts as content blocks.
@@ -138,6 +163,9 @@ pub fn read(messages: &[Box<RawValue>], names: &mut HashMap<String, String>) -> 
         .iter()
         .filter_map(|raw| serde_json::from_str::<Value>(raw.get()).ok())
         .map(|message| {
+            if let Some(effort) = change_in(&message) {
+                return Message::Effort { effort };
+            }
             let role = message.get("role").and_then(Value::as_str).unwrap_or("");
             let content = message.get("content").cloned().unwrap_or(Value::Null);
             if let Value::String(text) = &content {

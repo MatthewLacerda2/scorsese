@@ -3,9 +3,9 @@
 // message. The stored conversation is read once and on every `resync`; what a
 // running turn does in between arrives on the event stream and is folded in by
 // `transcript.ts`, which is where the logic lives and is tested. Above it, the
-// model the project's assistant runs on (`ModelPicker.tsx`, #705); beside
-// Send, how hard it thinks on the next message (`EffortPicker.tsx`, #769).
-// Beside the model, "Full" (#1027): the editor gives the chat the whole page,
+// model the project's assistant runs on (`ModelPicker.tsx`, #705) and, beside
+// it, how hard it thinks (`EffortPicker.tsx`, #1443), both kept on the project.
+// Beside them, "Full" (#1027): the editor gives the chat the whole page,
 // and this panel draws its column at a readable width. It is the same mounted
 // panel in both modes, so a draft, a running turn or an open picker outlives
 // the switch.
@@ -22,9 +22,8 @@ import { Button } from "@/components/ui/button";
 import { QueryError } from "@/components/ui/query-error";
 import { Textarea } from "@/components/ui/textarea";
 import { useT } from "@/i18n/I18nProvider";
-import { browserStorage } from "@/lib/storage";
 import { EffortPicker } from "./EffortPicker";
-import { type Effort, saveEffort, storedEffort } from "./effort";
+import { effortOf } from "./effort";
 import { Generating } from "./Generating";
 import { ModelPicker } from "./ModelPicker";
 import { NewConversation } from "./NewConversation";
@@ -111,6 +110,9 @@ export function ChatPanel({
               />
             )}
           </div>
+          {conversation.data && (
+            <EffortPicker projectId={projectId} effort={effortOf(conversation.data.effort)} />
+          )}
           {/* Beside the picker in a narrow sidebar, the icon alone; named either way. */}
           <Button
             size={full ? "sm" : "icon-sm"}
@@ -186,14 +188,9 @@ function Composer({
 }) {
   const t = useT();
   const [prompt, setPrompt] = useState("");
-  const [effort, setEffort] = useState(() => storedEffort(browserStorage(), projectId));
-  const choose = (level: Effort) => {
-    setEffort(level);
-    saveEffort(browserStorage(), projectId, level);
-  };
   const [refused, setRefused] = useState<Problem | null>(null);
   const send = useMutation({
-    mutationFn: () => chatApi.send(projectId, prompt.trim(), fresh, effort),
+    mutationFn: () => chatApi.send(projectId, prompt.trim(), fresh),
     onMutate: () => setRefused(null),
     onSuccess: (turn) => {
       setPrompt("");
@@ -239,7 +236,6 @@ function Composer({
         <div className="flex items-center gap-2">
           {showFresh && !fresh && runningTurn === null && <NewConversation onStart={onFresh} />}
           <div className="ml-auto flex gap-2">
-            <EffortPicker effort={effort} onChange={choose} />
             {stoppable !== null && (
               <Button
                 size="sm"

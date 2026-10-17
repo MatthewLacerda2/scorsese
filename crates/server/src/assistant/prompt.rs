@@ -12,7 +12,7 @@
 //! on writes it in its own wire (`scorsese_providers::chat::freeze`).
 
 use scorsese_core::style::{Platform, Start};
-use scorsese_providers::chat::{Message, Part, ResultPart, Tool};
+use scorsese_providers::chat::{Effort, Message, Part, ResultPart, Tool};
 use serde_json::Value;
 
 use crate::tools::Toolbox;
@@ -149,15 +149,21 @@ fn text(tool: &Value, field: &str) -> String {
 }
 
 /// A turn's first messages: the user's words — after a result for every tool
-/// call the conversation left unanswered — and, when there is anything the
-/// server has to say, one note saying it.
+/// call the conversation left unanswered, and an effort change when `effort`
+/// is not the level in effect (#1443) — and, when there is anything the server
+/// has to say, one note saying it.
 ///
 /// A conversation whose last turn ended before the model replied (refused,
 /// stopped, a failure, a restart) ends on the user's side; every vendor wants
 /// the sides to alternate, and Claude wants a `system` message followed by
 /// the model's, so such a turn is closed first by a one-line reply saying so.
 /// That line is part of this turn's messages from then on, like any other.
-pub(super) fn opening(history: &[Message], prompt: &str, notes: &[String]) -> Vec<Message> {
+pub(super) fn opening(
+    history: &[Message],
+    prompt: &str,
+    notes: &[String],
+    effort: Effort,
+) -> Vec<Message> {
     let mut messages = Vec::new();
     let last = history.last();
     if last.is_some_and(|last| !matches!(last, Message::Assistant { .. })) {
@@ -181,6 +187,9 @@ pub(super) fn opening(history: &[Message], prompt: &str, notes: &[String]) -> Ve
     content.push(Part::Text {
         text: prompt.to_owned(),
     });
+    // Before the words, so it sets the level of the reply to them; not after
+    // the note, which must be the last message or followed by the reply.
+    messages.extend(effort.change(history));
     messages.push(Message::User { content });
     if !notes.is_empty() {
         messages.push(Message::System {

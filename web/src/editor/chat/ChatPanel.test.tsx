@@ -25,6 +25,7 @@ const conversation = (project: number): Conversation => ({
   models: [
     { id: "m", label: "M", vendor: "anthropic", unavailable: null, cache_seconds: 300, cost: null },
   ],
+  effort: "high",
 });
 
 let previous: Parameters<typeof setFetch>[0];
