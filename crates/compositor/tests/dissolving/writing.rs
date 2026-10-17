@@ -47,3 +47,26 @@ fn running_it_twice_leaves_one_dissolve() {
         "one dissolve track, not two"
     );
 }
+
+/// A clip carries one opacity track (#1099), so a hand-written fade already on
+/// the incoming shot is replaced — it never played under a dissolve, since the
+/// compositor drew the later track — and the result still loads.
+#[test]
+fn a_dissolve_takes_over_a_hand_written_fade() {
+    use scorsese_core::{Easing, Keyframe, KeyframeTrack, PropertyPath};
+    let mut project = cut();
+    let fade = KeyframeTrack::new(
+        PropertyPath::new(scorsese_compositor::path::OPACITY),
+        vec![Keyframe {
+            t: Frames(0),
+            value: 0.5,
+            easing: Easing::Linear,
+        }],
+    );
+    project.tracks[0].clips[1].keyframes.push(fade);
+    let (a, b) = (ClipId::new("a"), ClipId::new("b"));
+    dissolve(&mut project, &a, &b, Frames(10)).expect("two shots that meet");
+
+    assert_eq!(opacity(&project, "b"), [(0, 0.0), (10, 1.0)]);
+    assert_eq!(clip(&project, "b").keyframes.len(), 1);
+}

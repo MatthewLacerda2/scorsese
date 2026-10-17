@@ -203,10 +203,25 @@ fn check_overlaps(track: &Track, errors: &mut Vec<TimelineProblem>) {
     }
 }
 
-/// Keyframe tracks are checked for shape only — that the property path parses
-/// and the times ascend. Whether the property *exists* is deliberately not
-/// checked here: core defines property types, never property values.
+/// Keyframe tracks are checked for shape only — that the property path parses,
+/// the times ascend, and a property that does not stack has one track. Whether
+/// the property *exists* is deliberately not checked here: core defines
+/// property types, never property values.
 fn check_keyframes(clip: &Clip, errors: &mut Vec<TimelineProblem>) {
+    let mut animated = HashSet::new();
+    let mut reported = HashSet::new();
+    for track in &clip.keyframes {
+        // Once per property, however many extra tracks it has.
+        if !animated.insert(&track.property)
+            && !track.property.stacks()
+            && reported.insert(&track.property)
+        {
+            errors.push(TimelineProblem::DuplicateKeyframeTrack {
+                clip: clip.id.clone(),
+                property: track.property.clone(),
+            });
+        }
+    }
     for track in &clip.keyframes {
         let property = || track.property.clone();
         let clip_id = || clip.id.clone();

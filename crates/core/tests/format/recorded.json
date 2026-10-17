@@ -156,7 +156,7 @@
       }
     ],
     "name": "Every field",
-    "schema_version": 54,
+    "schema_version": 55,
     "script": "script.md",
     "timeline_fps": {
       "den": 1,

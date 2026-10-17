@@ -6,10 +6,13 @@
 //! property the build publishes as animatable, any easing the format has, in
 //! seconds rather than frames, without rewriting the whole document.
 //!
-//! **It takes the property's lane over**, as `set_volume` does and for the same
-//! reason: a renderer resolves a path by finding *the* track for it, so a
-//! second track on one property is one that silently never plays. Every other
-//! property's track is left exactly as it was.
+//! **It takes the property's lane over**, as `set_volume` does: a clip carries
+//! one track per property, which validation holds, so the track that was there
+//! goes, whoever wrote it. The one exception is a property whose tracks
+//! multiply, `volume` (#1099): there only the hand-written track is replaced,
+//! and a dip `duck_music` signed stays under it
+//! ([`KeyframeTrack::is_lane_of`]). Every other property's track is left
+//! exactly as it was.
 //!
 //! **What it writes is unsigned.** A signature (`by`) is how a generator finds
 //! its own earlier output to redo it, and the points here are the caller's
@@ -77,7 +80,8 @@ impl Tool for ClipAnimate {
          any path in the animatable table. \
          It replaces that one property's keyframes on the clip, whoever wrote them, \
          and leaves every other property's alone; `keyframes: []` removes the \
-         property's animation. The table is in `guide project-format`, and a pair \
+         property's animation. On `volume` it replaces only the hand-written \
+         keyframes: a dip duck_music wrote stays and multiplies with them. The table is in `guide project-format`, and a pair \
          stem such as `transform.scale` writes both its `.x` and `.y` with the same \
          keyframes. clip_set's position, \
          rotation and scale flatten what this wrote, and this replaces what they \
@@ -150,7 +154,7 @@ fn animate(
     let (replaced, kept): (Vec<_>, Vec<_>) = clip
         .keyframes
         .drain(..)
-        .partition(|track| paths.contains(&track.property));
+        .partition(|track| paths.iter().any(|path| track.is_lane_of(path)));
     clip.keyframes = kept;
     if !points.is_empty() {
         let keyframes: Vec<_> = points.iter().map(|point| point.keyframe()).collect();

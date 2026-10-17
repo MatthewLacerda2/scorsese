@@ -23,6 +23,7 @@
 //! v38" a statement about one version rather than about a range.
 
 mod frame;
+mod lanes;
 mod speech;
 mod stills;
 mod stock;
@@ -146,6 +147,10 @@ pub(crate) const STEPS: &[Step] = &[
     Step {
         from: 53,
         apply: music_arrives,
+    },
+    Step {
+        from: 54,
+        apply: lanes::one_track_per_property,
     },
 ];
 

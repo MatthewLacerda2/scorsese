@@ -1,4 +1,4 @@
-# `project.json` — schema v54
+# `project.json` — schema v55
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -39,6 +39,7 @@ carries forward) up to this one.
 | v51 → v52 | the project carries its frame's shape, `aspect` (#1278) | every document gains an `aspect`: the shape of the first clip, in time, on the lowest video track whose picture has a known shape (a probed size, or the `aspect` a generated shot or still asked for), else `"16:9"`. The web server, which remembers the platform a project was started for, frames such a project in its platform's shape instead |
 | v52 → v53 | an imported file's stock `source` (#1237) | nothing: one optional block was added to `video` and `image` assets, absent in every v52 document and absent meaning a file the user brought. A `pixabay-<id>` file name is not read back into a `source`: the author and page were never stored, and half a record would read as the whole of one |
 | v53 → v54 | a generated track: the `music` block on `generated_audio` (#1264) | nothing: one optional block was added, absent in every v53 document, and a `generated_audio` asset without it is a line of narration exactly as it was — it passes through and only its version moves |
+| v54 → v55 | one keyframe track per property, except `volume`, whose tracks multiply (#1099) | each clip keeps only the **last** track on a property other than `volume` — the one the compositor drew — so nothing changes on screen; every `volume` track stays, and a fade with a duck now plays both |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -3194,14 +3195,21 @@ arrives exactly on its keyframes.
 
 ### Two tracks on one property
 
-**Only one keyframe track per property per clip is honoured**, and a second one
-is not refused: it passes validation and is silently ignored. Which one wins
-differs today. For a picture property (`opacity`, `transform.*`, `grade.*` and
-the rest) the **later** track in the list wins. For `volume` the **first** one
-does, so a `duck` track written after a hand-made fade is never heard. Write one
-track per property. Whether two `volume` tracks should multiply, and whether a
-second track should be refused, is an open decision (#1099), and this section
-changes when it is made.
+**One keyframe track per property per clip, except `volume`.** A second track
+on any other property — `opacity`, `transform.*`, `grade.*` and the rest — is
+refused by validation, whoever wrote either: a picture property resolves to
+one value, so a second track could only be the one that plays or the one that
+never does.
+
+**Every `volume` track multiplies** (#1099). A hand-made fade and the dip
+`duck` signs are two multipliers on one clip and both are heard, in any order:
+a fade at `0.5` under a duck at `0.25` plays at `0.125`. Each track is read on
+its own and clamped at silence before the product, so two lines below zero are
+still silence. That is what lets ducking, a level and a fade sit on one music
+clip at once.
+
+A v54 document with two tracks on one picture property is migrated to the
+last of them, the one the compositor drew (the v54 → v55 step, at the top of this page).
 
 ### Tracks a tool wrote
 
@@ -3226,9 +3234,8 @@ It buys exactly one thing. A tool that generates keyframes may replace tracks
 it signed, and must never touch a track that is unsigned or signed by somebody
 else. So re-running auto-ducking redoes the ducking and leaves your fades
 alone — without it, a generator can only clobber everything or refuse to run
-twice, and both make the edit-and-listen loop unusable. (Alone is not the same
-as heard: with a hand-made `volume` fade first in the list, the duck beside it
-is ignored — see *Two tracks on one property*.)
+twice, and both make the edit-and-listen loop unusable. And alone is heard:
+the duck and your fade multiply (*Two tracks on one property*).
 
 Nothing else reads it. It reaches no renderer, and changes no pixel and no
 sample. A `by` that is present but blank is an error: it claims a tool wrote
@@ -3478,9 +3485,9 @@ What it checks, each in more detail in its own section:
 - **Keyframes** (*Keyframes*), on the timeline and inside every group alike: a
   well-formed property path, a track that is not empty, times strictly
   ascending, finite values, a `cubic_bezier` whose `x1` and `x2` lie in
-  `0..=1`, and a `by` that is not blank. It does **not** check that the path
-  names a real property, or that a property has only one track (*Two tracks on
-  one property*).
+  `0..=1`, a `by` that is not blank, and one track per property bar `volume`
+  (*Two tracks on one property*). It does **not** check that the path names a
+  real property.
 
 Note what is *not* on that list. A time that is negative, fractional, or
 infinite cannot be represented as a frame count, so it fails the parse with

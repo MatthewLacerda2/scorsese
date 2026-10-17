@@ -56,31 +56,6 @@ fn setting_a_level_writes_one_keyframe_and_says_what_the_clip_plays_at() {
     std::fs::remove_dir_all(dir).ok();
 }
 
-/// The one interaction worth pinning: a level takes the volume lane over, so a
-/// dip that was there is gone — and the reply has to say so rather than let it
-/// be discovered on playback.
-#[test]
-fn muting_a_ducked_clip_replaces_the_dip_and_names_what_went() {
-    let dir = project("volume-ducked");
-    let (text, failed) = said(&call(
-        "duck_music",
-        json!({ "project": dir, "music": "music" }),
-    ));
-    assert!(!failed, "{text}");
-
-    let (text, failed) = said(&call(
-        "set_volume",
-        json!({ "project": dir, "clip": "m1", "level": 0.0 }),
-    ));
-    assert!(!failed, "{text}");
-    assert!(text.contains("muted"), "got {text}");
-    assert!(text.contains("`duck` wrote"), "got {text}");
-    assert!(text.contains("duck_music"), "got {text}");
-    let on_disk = document(&dir);
-    assert!(!on_disk.contains(r#""by": "duck""#), "got {on_disk}");
-    std::fs::remove_dir_all(dir).ok();
-}
-
 /// A fade that finishes after the clip does is a fade nobody hears the end of,
 /// so it is refused whole rather than quietly shortened.
 #[test]

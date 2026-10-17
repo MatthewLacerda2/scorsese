@@ -13,6 +13,7 @@
 
 mod gain;
 mod mix;
+mod stacked;
 
 use scorsese_core::{Easing, Frames, Keyframe, KeyframeTrack, PropertyPath};
 use scorsese_render::audio::path;
