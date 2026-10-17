@@ -4,7 +4,7 @@
 
 import { expect, test } from "bun:test";
 import { renderToString } from "react-dom/server";
-import type { TurnView } from "@/api/chat";
+import type { QuoteView, TurnView } from "@/api/chat";
 import type { ServerEvent } from "@/api/events";
 import { CATALOGUES } from "@/i18n/catalogue";
 import { I18nProvider } from "@/i18n/I18nProvider";
@@ -75,9 +75,19 @@ test("a finished turn shows neither its thinking nor a status word", () => {
 });
 
 test("an answered quote collapses into one line, its box gone (#1440)", () => {
-  const quote = { tool: "generate", items: [], lines: ["Total: $0.60"], micros: 600_000 };
-  const answered = { ...turnView("answered", "On its way."), quote, quote_answer: "confirmed" };
-  const [shown] = upsert(empty(7), answered as TurnView).entries;
+  const quote: QuoteView = {
+    tool: "generate",
+    items: [],
+    lines: ["Total: $0.60"],
+    micros: 600_000,
+    expires_at: 0,
+  };
+  const answered: TurnView = {
+    ...turnView("answered", "On its way."),
+    quote,
+    quote_answer: "confirmed",
+  };
+  const [shown] = upsert(empty(7), answered).entries;
   if (!shown) throw new Error("no turn");
   const page = html("en", shown);
   expect(page).toContain("Approved — $0.60");

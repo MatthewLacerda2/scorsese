@@ -111,7 +111,7 @@ pub(super) fn settle(results: &mut Message, answer: Part) -> bool {
             if let Some(answer) = answer.take() {
                 *part = answer;
             }
-        } else if content.iter().any(|block| held_by(block)) {
+        } else if content.iter().any(held_by) {
             *content = vec![ResultPart::Text {
                 text: SUPERSEDED.to_owned(),
             }];
