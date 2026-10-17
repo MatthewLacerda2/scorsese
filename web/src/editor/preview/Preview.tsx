@@ -84,7 +84,8 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
     if (Math.abs(element.currentTime - at) > 0.5 / (fps.num / fps.den)) element.currentTime = at;
   }, [playhead, playing, fps]);
 
-  // Esc leaves fullscreen without going through the button.
+  // Full screen takes the picture and its transport together, so a cut can be
+  // played there; Esc leaves it without going through the button.
   useEffect(() => {
     const sync = () => setMaximized(globalThis.document.fullscreenElement === stage.current);
     globalThis.document.addEventListener("fullscreenchange", sync);
@@ -116,11 +117,8 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
             : null;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2 p-3">
-      <div
-        ref={stage}
-        className="group relative flex min-h-0 flex-1 items-center justify-center bg-background"
-      >
+    <div ref={stage} className="flex h-full min-h-0 flex-col gap-2 bg-background p-3">
+      <div className="group relative flex min-h-0 flex-1 items-center justify-center">
         <div
           className="relative max-h-full max-w-full overflow-hidden rounded-md bg-screen"
           style={{ aspectRatio: `${width} / ${height}`, height: "100%" }}

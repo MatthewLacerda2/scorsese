@@ -1,5 +1,5 @@
 // The preview's maximize button (#1447): there for a pointer on hover, for
-// touch always,. Drawn alone through
+// touch always. Drawn alone through
 // `react-dom/server`; that fullscreen itself engages is the browser's.
 
 import { expect, test } from "bun:test";
