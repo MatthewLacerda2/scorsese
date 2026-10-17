@@ -101,6 +101,9 @@ async fn a_still_with_no_worker_says_so_and_never_starts_a_browser(pool: PgPool)
     let started = Instant::now();
     let said = still_of_the_page(address, &token, id).await;
 
+    // With nobody to capture it, a page drawn anyway was drawn by a browser
+    // in this process: what the server did before #1434, wherever the
+    // sandbox could start (here, `SCORSESE_CHROME_NO_SANDBOX`).
     assert!(said.contains("could not be captured"), "{said}");
     assert!(said.contains("not running on this server"), "{said}");
     assert!(!said.contains("sandbox"), "{said}");

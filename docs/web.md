@@ -1573,6 +1573,18 @@ page cache, so a second render of an unchanged page reuses them and one user's
 captures are never another's. The render then draws pages only from there and
 never starts a browser itself.
 
+**A still asks the same way** (#1434). `still` on the web, and the editor's
+frame preview through it, draws without a browser too: before drawing, the
+server works out which frames of which pages the asked instants show, reads
+whatever the project's page cache already holds, and asks for the rest as
+`captures/jobs/still-<call>/`, a copy of the laid-out project. The launcher
+answers jobs and stills in the order they were asked. A still waits as long as
+the launcher would give those captures (60 s plus a second a frame); one still
+queued behind a render's pages after that is drawn with the page as *being
+captured*, and the capture finishes into the cache for the next look. A
+launcher that is not running is said at once, since nobody waits on a still
+for 30 s to learn it.
+
 **The walls, and what a page that hits one gets.** A request to the internet,
 a path out of the project, a WebSocket or WebRTC connection: refused, and the
 render's notes say so. A page that stops answering is stopped by the capture's
