@@ -1957,6 +1957,23 @@ reads it all at the full input rate, and on Claude writes the cache afresh.
 That is accepted; the panel says so before switching (*The chat panel*
 below).
 
+**A long conversation compacts itself** (#1438). A new turn whose
+conversation was past 150,000 tokens when the model was last called — that
+call's input, cache reads and cache writes, from `model_calls` — first asks
+the turn's own model, with the tools still declared, to summarise everything
+so far, and its last sentence forbids a tool call. The turn then opens from
+the user's message and a server note carrying the summary, and replays
+nothing older: no earlier turn, no earlier thinking block. That turn is marked
+`chat_turns.compacted`, and every later turn's history starts at it. The
+older turns stay stored as they were sent. Nobody sees it happen: the
+summarising call is a call of the turn's like any other, with its
+`model_calls` row and its charge. A turn resumed from a question or a quote
+never compacts, and a summary that fails leaves the turn on the whole
+conversation. It keeps a long conversation under the request's size and the
+model's context, and cheaper: after it each call re-reads a summary, not
+hundreds of thousands of tokens, and a conversation picked up after its cache
+expired is not re-read uncached (`crates/server/src/assistant/compact.rs`).
+
 What the server vouches for — which project this is, that the user confirmed a
 quote — is a server note: a mid-conversation `system` message, which no user
 text or tool output can forge.
