@@ -21,7 +21,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use scorsese_providers::chat::{self, Effort, Message, Model, Reply, Request, Stop};
+use scorsese_providers::chat::{self, Effort, Message, Model, Part, Reply, Request, Stop};
 use serde_json::value::RawValue;
 
 use super::store::compaction;
@@ -123,7 +123,8 @@ async fn summarised(
     let summary = summary(state, turn, request).await?;
     let mut notes = compacting.notes;
     notes.insert(1, note(&summary));
-    let record = prompt::opening(&[], &turn.prompt, &notes, turn.effort);
+    let words = opened_with(&turn.record).ok_or("the turn opened without words")?;
+    let record = prompt::opening(&[], words, &notes, turn.effort);
     let messages = record
         .iter()
         .map(|message| chat::freeze(turn.model, message))
@@ -136,6 +137,19 @@ async fn summarised(
     turn.messages = messages;
     turn.record = record;
     Ok(())
+}
+
+/// The words a turn's `record` opened with: its user message's last text,
+/// after any results it carried. Not `Running::prompt`, which for a woken
+/// turn is the transcript's marker, never sent as the person's words (#1489).
+fn opened_with(record: &[Message]) -> Option<&str> {
+    record.iter().find_map(|message| match message {
+        Message::User { content } => content.iter().rev().find_map(|part| match part {
+            Part::Text { text } => Some(text.as_str()),
+            _ => None,
+        }),
+        _ => None,
+    })
 }
 
 /// Ask for the summary, charging each reply to the turn: its text, once the
