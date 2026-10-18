@@ -1,11 +1,12 @@
 //! What a renderer says about the pages it shows: the captures rendering a
-//! project would need ([`Renderer::page_requests`], [`Renderer::page_captures`])
-//! and whether those captures are being made elsewhere right now
-//! ([`Renderer::capture_underway`], #1202).
+//! project would need ([`Renderer::page_requests`], [`Renderer::page_captures`]),
+//! the ones a still would ([`Renderer::still_captures`]), and whether those
+//! captures are being made elsewhere right now ([`Renderer::capture_underway`],
+//! #1202).
 
 use std::path::Path;
 
-use scorsese_core::Project;
+use scorsese_core::{Frames, Project};
 
 use super::pages::{requests, wanted};
 use crate::Renderer;
@@ -39,6 +40,25 @@ impl Renderer<'_> {
         project_root: &Path,
     ) -> Result<Vec<page::Wanted>, RenderError> {
         let plan = Plan::build(project, self.settings.fps, FrameRange::ALL)?;
+        Ok(wanted(&self.settings, &plan, project_root))
+    }
+
+    /// The captures [`Renderer::still`] at `at` would read: each page on
+    /// screen then, with only the frames around that instant (#809) — what a
+    /// caller capturing ahead of a still that does not capture hands its
+    /// capturer, so the still finds them in `cache/` (#1434).
+    pub fn still_captures(
+        &self,
+        project: &Project,
+        project_root: &Path,
+        at: Frames,
+    ) -> Result<Vec<page::Wanted>, RenderError> {
+        let plan = Plan::drawing(
+            project,
+            self.settings.fps,
+            FrameRange::just(at),
+            self.settings.bands,
+        )?;
         Ok(wanted(&self.settings, &plan, project_root))
     }
 

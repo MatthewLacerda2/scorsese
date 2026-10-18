@@ -1,4 +1,5 @@
 //! The server's side of the spool: a render job asks for its pages and waits.
+//! A still asks the same way ([`super::still`]), through the helpers here.
 //!
 //! The job has laid its project out in its spool folder ([`Pages::folder`]).
 //! This points that folder's `cache/` at the project's page cache, writes the
@@ -8,12 +9,12 @@
 //! ([`scorsese_render::Renderer::without_capturing`]).
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use scorsese_core::{CACHE_DIR, Project};
+use scorsese_core::CACHE_DIR;
+use scorsese_render::Cancel;
 use scorsese_render::page::{CHROME_ENV, Chrome, Wanted};
-use scorsese_render::{Cancel, Note};
 
 use super::{ANSWER, ASK, Answer, Ask, Asked, PROJECT, Spool, now, publish, read};
 
@@ -23,6 +24,10 @@ const SILENCE: Duration = Duration::from_secs(30);
 
 /// How often the server looks for the answer.
 const TICK: Duration = Duration::from_millis(250);
+
+/// Why no page was captured when the worker is not there to capture them.
+pub(super) const NOT_RUNNING: &str =
+    "the page renderer is not running on this server; the pages are drawn once it is";
 
 /// One render job's pages: which job's folder, and where its project keeps
 /// its captures ([`Spool::pages`]).
@@ -66,7 +71,7 @@ impl Pages {
             Ok(chrome) => chrome,
             Err(why) => return Ok(none_captured(requests, &why, None)),
         };
-        if let Err(error) = self.share_cache() {
+        if let Err(error) = share_cache(&self.folder(), &self.cache) {
             let why = format!("the page cache could not be prepared: {error}");
             return Ok(none_captured(requests, &why, Some(chrome)));
         }
@@ -77,11 +82,11 @@ impl Pages {
             let why = format!("the page renderer could not be asked: {error}");
             return Ok(none_captured(requests, &why, Some(chrome)));
         }
-        let answer = self.wait(cancel)?;
-        let Some(answer) = answer else {
-            let why = "the page renderer is not running on this server; the pages are \
-                       drawn once it is";
-            return Ok(none_captured(requests, why, Some(chrome)));
+        let answer = match wait(&self.spool, &self.job_folder(), cancel, None)? {
+            Waited::Answered(answer) => answer,
+            Waited::Quiet | Waited::Late => {
+                return Ok(none_captured(requests, NOT_RUNNING, Some(chrome)));
+            }
         };
         let failed = requests
             .iter()
@@ -93,44 +98,62 @@ impl Pages {
             failed,
         })
     }
+}
 
-    /// Replaces the laid-out `cache/` with a link to the project's page cache,
-    /// so captures outlive the job.
-    fn share_cache(&self) -> std::io::Result<()> {
-        let kept = &self.cache;
-        std::fs::create_dir_all(kept)?;
-        let cache = self.folder().join(CACHE_DIR);
-        if cache.is_dir() && !cache.is_symlink() {
-            std::fs::remove_dir(&cache)?;
+/// Replaces the `cache/` of the project laid out at `folder` with a link to
+/// the project's page cache `kept`, so captures outlive the job.
+pub(super) fn share_cache(folder: &Path, kept: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(kept)?;
+    let cache = folder.join(CACHE_DIR);
+    if cache.is_dir() && !cache.is_symlink() {
+        std::fs::remove_dir(&cache)?;
+    }
+    std::os::unix::fs::symlink(std::path::absolute(kept)?, &cache)
+}
+
+/// How waiting for the worker's answer ended, short of a cancel.
+pub(super) enum Waited {
+    /// It answered.
+    Answered(Answer),
+    /// It went quiet first: it is not running.
+    Quiet,
+    /// It was still at it when the caller's patience ran out.
+    Late,
+}
+
+/// Waits for the answer to the job at `job`, for at most `patience` when one
+/// is given; `Err` once `cancel` is tripped.
+pub(super) fn wait(
+    spool: &Spool,
+    job: &Path,
+    cancel: &Cancel,
+    patience: Option<Duration>,
+) -> Result<Waited, String> {
+    let answer = job.join(ANSWER);
+    let started = Instant::now();
+    loop {
+        if let Some(answer) = read::<Answer>(&answer) {
+            return Ok(Waited::Answered(answer));
         }
-        std::os::unix::fs::symlink(std::path::absolute(kept)?, &cache)
-    }
-
-    /// The answer, `None` if the worker went quiet first, or `Err` once the
-    /// job is cancelled.
-    fn wait(&self, cancel: &Cancel) -> Result<Option<Answer>, String> {
-        let answer = self.job_folder().join(ANSWER);
-        let started = Instant::now();
-        loop {
-            if let Some(answer) = read::<Answer>(&answer) {
-                return Ok(Some(answer));
-            }
-            if cancel.is_cancelled() {
-                return Err("stopped while its pages were being captured".to_owned());
-            }
-            if started.elapsed() > SILENCE && !self.worker_alive() {
-                return Ok(None);
-            }
-            std::thread::sleep(TICK);
+        if cancel.is_cancelled() {
+            return Err("stopped while its pages were being captured".to_owned());
         }
+        if started.elapsed() > SILENCE && !worker_alive(spool) {
+            return Ok(Waited::Quiet);
+        }
+        if patience.is_some_and(|patience| started.elapsed() > patience) {
+            return Ok(Waited::Late);
+        }
+        std::thread::sleep(TICK);
     }
+}
 
-    fn worker_alive(&self) -> bool {
-        let last: Option<u64> = std::fs::read_to_string(self.spool.alive())
-            .ok()
-            .and_then(|text| text.trim().parse().ok());
-        last.is_some_and(|last| now().saturating_sub(last) <= SILENCE.as_secs())
-    }
+/// Whether the worker has looked at the spool lately.
+pub(super) fn worker_alive(spool: &Spool) -> bool {
+    let last: Option<u64> = std::fs::read_to_string(spool.alive())
+        .ok()
+        .and_then(|text| text.trim().parse().ok());
+    last.is_some_and(|last| now().saturating_sub(last) <= SILENCE.as_secs())
 }
 
 /// The browser this server's captures are kept under: the one
@@ -140,7 +163,7 @@ impl Pages {
     clippy::disallowed_methods,
     reason = "SCORSESE_CHROME names the capture worker's browser, not a secret"
 )]
-fn browser() -> Result<Chrome, String> {
+pub(super) fn browser() -> Result<Chrome, String> {
     let named = std::env::var_os(CHROME_ENV).ok_or_else(|| {
         format!(
             "this server has no page renderer ({CHROME_ENV} is not set), so pages are not drawn"
@@ -156,82 +179,5 @@ fn none_captured(requests: &[Wanted], why: &str, chrome: Option<Chrome>) -> Capt
             .iter()
             .map(|wanted| (wanted.request.page.clone(), why.to_owned()))
             .collect(),
-    }
-}
-
-/// What a render noted, as its owner is told it: every note once, with a page
-/// that showed its card saying why the worker did not capture it rather than
-/// the renderer's "not captured yet".
-pub fn told(notes: &[Note], project: &Project, failed: &HashMap<String, String>) -> Vec<Note> {
-    let mut told: Vec<Note> = Vec::new();
-    for note in notes {
-        let note = match note {
-            Note::PageNotCaptured { clip, asset, .. } => {
-                let page = project
-                    .assets
-                    .iter()
-                    .find(|a| a.id.as_str() == asset)
-                    .and_then(|a| a.path.as_ref());
-                match page.and_then(|path| failed.get(path.as_str())) {
-                    Some(why) => Note::PageNotCaptured {
-                        clip: clip.clone(),
-                        asset: asset.clone(),
-                        reason: why.clone(),
-                    },
-                    None => note.clone(),
-                }
-            }
-            other => other.clone(),
-        };
-        if !told.contains(&note) {
-            told.push(note);
-        }
-    }
-    told
-}
-
-#[cfg(test)]
-mod tests {
-    use scorsese_core::{Asset, AssetId, AssetKind, ProjectPath};
-
-    use super::*;
-
-    #[test]
-    fn a_page_left_as_its_card_says_why_the_worker_did_not_capture_it() {
-        let mut project = Project::new("p", scorsese_core::Fps::THIRTY);
-        project.assets.push(Asset::imported(
-            AssetId::new("title"),
-            AssetKind::Html,
-            ProjectPath::new("pages/title.html"),
-        ));
-        let card = |reason: &str| Note::PageNotCaptured {
-            clip: "c1".into(),
-            asset: "title".into(),
-            reason: reason.into(),
-        };
-        let warned = Note::PageWarning {
-            asset: "title".into(),
-            warning: "it asked for the internet".into(),
-        };
-        let failed = HashMap::from([("pages/title.html".to_owned(), "stopped".to_owned())]);
-        let notes = [card("not captured yet"), warned.clone(), warned.clone()];
-
-        let told = told(&notes, &project, &failed);
-
-        assert_eq!(told, [card("stopped"), warned]);
-        let none = told_with_nothing_failed(&project);
-        assert!(
-            none[0].to_string().ends_with("not captured yet"),
-            "{none:?}"
-        );
-    }
-
-    fn told_with_nothing_failed(project: &Project) -> Vec<Note> {
-        let card = Note::PageNotCaptured {
-            clip: "c1".into(),
-            asset: "title".into(),
-            reason: "not captured yet".into(),
-        };
-        told(&[card], project, &HashMap::new())
     }
 }

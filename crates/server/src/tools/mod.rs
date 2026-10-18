@@ -84,7 +84,9 @@ pub use folder::{Folder, lay_out};
 pub use log::Client;
 pub use quotes::Pending;
 
-use scorsese_mcp::{Reply, Stock, Tool};
+use std::sync::Arc;
+
+use scorsese_mcp::{Ahead, PagesAhead, Reply, Stock, Tool};
 use scorsese_render::{Cancel, Tools};
 use serde_json::Value;
 use sqlx::postgres::PgPool;
@@ -362,11 +364,37 @@ fn database(error: impl std::fmt::Display) -> String {
 }
 
 /// The registry's tools, by name — the stock ones answering from `stock`
-/// when it is given.
-fn registered(name: &str, stock: Option<&Stock>) -> Option<Box<dyn Tool>> {
+/// when it is given, and `still` drawing the pages `pages` captured. Never
+/// the registry's own `still`, which would start a browser in this container
+/// (#1434): without `pages`, a still draws every page as its card.
+fn registered(
+    name: &str,
+    stock: Option<&Stock>,
+    pages: Option<Arc<dyn PagesAhead>>,
+) -> Option<Box<dyn Tool>> {
+    if name == "still" {
+        let pages = pages.unwrap_or_else(|| Arc::new(Uncaptured));
+        return Some(scorsese_mcp::still_with_pages_ahead(pages));
+    }
     let stocked = stock.map(scorsese_mcp::stocked_from).unwrap_or_default();
     stocked
         .into_iter()
         .chain(scorsese_mcp::registry())
         .find(|tool| tool.name() == name)
+}
+
+/// Pages nobody captures, for a `still` listed rather than run.
+struct Uncaptured;
+
+impl PagesAhead for Uncaptured {
+    fn capture(&self, _: &std::path::Path, wanted: &[scorsese_render::page::Wanted]) -> Ahead {
+        let why = "pages are captured only for a still run on a project";
+        Ahead {
+            failed: wanted
+                .iter()
+                .map(|one| (one.request.page.clone(), why.to_owned()))
+                .collect(),
+            ..Ahead::default()
+        }
+    }
 }

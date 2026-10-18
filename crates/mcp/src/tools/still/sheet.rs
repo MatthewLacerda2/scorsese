@@ -7,7 +7,7 @@
 use std::path::Path;
 
 use scorsese_core::{Frames, Project};
-use scorsese_render::{Renderer, Resolution, Tools, contact};
+use scorsese_render::{Note, Renderer, Resolution, Tools, contact};
 
 use crate::tools::scratch::Scratch;
 use crate::tools::{Part, Reply};
@@ -27,6 +27,8 @@ pub(super) struct Asked<'a> {
     pub(super) ruled: bool,
     /// The caller's `out`, as given and as resolved.
     pub(super) kept: Option<(&'a str, &'a Path)>,
+    /// The notes, with why a page captured elsewhere was not ([`super::ahead`]).
+    pub(super) told_why: &'a dyn Fn(Vec<Note>) -> Vec<Note>,
 }
 
 /// Composites the instants, tiles them and answers with the one picture.
@@ -72,7 +74,7 @@ pub(super) fn reply(asked: Asked<'_>) -> Result<Reply, String> {
     // Once a call: the sheet lists each note under the first instant that
     // noticed it.
     for (at, notes) in drawn.notes {
-        for note in notes {
+        for note in (asked.told_why)(notes) {
             said.push_str(&format!("\nnote at frame {}: {note}", at.get()));
         }
     }

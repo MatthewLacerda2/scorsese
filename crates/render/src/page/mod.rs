@@ -44,6 +44,7 @@ mod holding;
 mod humaaans;
 mod icons;
 mod layout;
+mod missed;
 mod origin;
 mod pieces;
 mod request;
@@ -61,10 +62,14 @@ pub use browser::{CHROME_ENV, Chrome, ChromeError, NO_SANDBOX, NO_SANDBOX_ENV};
 pub use budget::Browsers;
 pub use cdp::CdpError;
 pub use holding::Holding;
+pub use missed::reasoned;
 pub use origin::SHIPPED_ORIGIN;
 pub use request::Request;
 pub use supply::{Supply, supply};
 pub use told::Span;
+
+/// The folder under a project's `cache/` its page captures are kept in.
+pub const CACHE_PAGES: &str = cache::PAGES;
 
 pub(crate) use find::find;
 

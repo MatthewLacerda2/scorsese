@@ -22,12 +22,15 @@
 //! happened to put a copy for a moment — meaningless to a client, and a
 //! detail of the server nobody outside it needs.
 
+use std::sync::Arc;
+
 use scorsese_core::{PROJECT_FILE_NAME, Project, ProjectPath};
-use scorsese_mcp::{Part, Reply, Tool};
+use scorsese_mcp::{PagesAhead, Part, Reply, Tool};
 use serde_json::Value;
 
 use super::surface::Serve;
 use super::{Caller, Refusal, bakes, database, fetched, folder, lay_out, project_id, voiced};
+use crate::captures::still::StillPages;
 use crate::jobs::blocking;
 use crate::projects::{self, ProjectError, files};
 
@@ -47,6 +50,10 @@ pub(super) async fn run(
         voiced::checked(caller, arguments).await?;
     }
     let toolbox = caller.toolbox;
+    let pages = match tool.name() {
+        "still" => Some(StillPages::of(&toolbox.renders, caller.user, id, caller.call).await),
+        _ => None,
+    };
     let attempts = if caller.at.is_some() { 1 } else { ATTEMPTS };
     for _ in 0..attempts {
         if caller.cancel.is_cancelled() {
@@ -81,10 +88,11 @@ pub(super) async fn run(
         let (name, cancel) = (tool.name(), caller.cancel.clone());
         let stock = toolbox.stock.clone();
         let (opened_with, laid) = (stored.document.clone(), kept.clone());
+        let pages = pages.clone().map(|pages| pages as Arc<dyn PagesAhead>);
         let (outcome, after, gathered) =
             blocking("the tool crashed on the server; that is a bug", move || {
-                let tool =
-                    super::registered(name, stock.as_ref()).ok_or("the tool went missing")?;
+                let tool = super::registered(name, stock.as_ref(), pages)
+                    .ok_or("the tool went missing")?;
                 let outcome = tool.call_cancellable(&local, &cancel);
                 let after = std::fs::read_to_string(root.join(PROJECT_FILE_NAME))
                     .ok()

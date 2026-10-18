@@ -60,7 +60,7 @@ pub(crate) use pieces::files;
 pub(crate) use shelves::shelf;
 
 /// The folder under `cache/` captures are kept in.
-const PAGES: &str = "pages";
+pub(crate) const PAGES: &str = "pages";
 /// The captured frames, in a slot.
 pub(crate) const FRAMES: &str = "frames.mkv";
 /// What the capture loaded and warned about, in a slot.

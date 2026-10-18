@@ -52,13 +52,18 @@
 //! capture's own patience stops a page that never answers; this stops one that
 //! answers slowly forever.
 //!
+//! A still of a page asks the same way, as a job of its own beside the
+//! renders' ([`still`], #1434): before #1434 it started a browser in this
+//! container, which only the missing sandbox kept from working.
+//!
 //! Nothing here edits anything: the job lays the project out and renders it,
 //! and each capture calls [`scorsese_render::page::capture_frames`] on what it is asked:
-//! only the frames a render shows, in one browser (#890).
+//! only the frames a render or a still shows, in one browser (#890).
 
 pub mod dispatch;
 pub mod launch;
 pub mod one;
+pub mod still;
 pub mod worker;
 
 use std::collections::BTreeMap;
@@ -123,6 +128,12 @@ impl Spool {
             .join(PAGES)
             .join(user.get().to_string())
             .join(project.to_string())
+    }
+
+    /// The folder of the still asked for by tool call `call` (#1434): beside
+    /// the render jobs', and answered in the same queue.
+    pub fn still(&self, call: i64) -> PathBuf {
+        self.root.join(JOBS).join(format!("still-{call}"))
     }
 
     /// Where the jobs' folders are.
