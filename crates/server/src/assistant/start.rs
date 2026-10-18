@@ -120,7 +120,14 @@ pub async fn start(
     let written = |error: serde_json::Error| AssistantError::Internal(error.to_string());
     let history = chat::replay(model, &kept).map_err(written)?;
     let said: Vec<Message> = kept.iter().flat_map(|turn| turn.record.clone()).collect();
-    let record = prompt::opening(&said, &prompt, &notes, effort);
+    // A woken turn's user message is the server's, never the person's words:
+    // the marker is for the transcript and the ledger.
+    let words = if opening.woken {
+        prompt::WOKEN
+    } else {
+        &prompt
+    };
+    let record = prompt::opening(&said, words, &notes, effort);
     // Past its size, the turn opens from a summary instead (#1438).
     let compacting = if compact::due(&mut tx, session).await? {
         Some(compact::prepare(model, &history, &said, &about, &notes, effort).map_err(written)?)

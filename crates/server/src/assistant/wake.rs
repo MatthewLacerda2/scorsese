@@ -25,8 +25,15 @@
 //! [`Opening::woken`](super::Opening)), on the conversation's model and the
 //! project's effort: charged for its tokens, paused by a quote
 //! like any other, and never spending on its own. The model is told what
-//! landed in a server note; the transcript shows the turn's prompt, a line
-//! such as "Continued after the stills landed", in place of a bubble.
+//! landed in a server note, after a user message the server writes in words
+//! never to be taken for the person's (`prompt::WOKEN`); the turn's stored
+//! prompt, a line such as "Continued after the stills landed", is only for
+//! the ledger, and the chat shows its own line in place of a bubble.
+//!
+//! **The person first.** A message and a woken start can race for the same
+//! note: the message waits on the rows a woken start holds, a woken start
+//! skips the rows a message holds, and only the start that clears `awaiting`
+//! tells it.
 //!
 //! **Missed nudges.** The bus drops events for a reader that falls behind, and
 //! a restart loses the ones in flight, so the waker also sweeps every awaiting

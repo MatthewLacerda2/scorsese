@@ -126,18 +126,25 @@ async fn the_last_job_landing_wakes_the_conversation_with_what_landed(pool: PgPo
     assert_eq!(turns(&pool).await, 1, "one job is still on its way");
 
     script.replace(vec![answers("The intro is narrated; the outro failed.")]);
+    // Changed after the order: the woken turn runs at the project's level.
+    sqlx::query("UPDATE projects SET assistant_effort = 'medium'")
+        .execute(&pool)
+        .await
+        .unwrap();
     land(&pool, &state, ana, queued[1], "failed").await;
     let woken = nth_turn(&pool, address, &who, 2).await;
     let turn = &woken["turn"];
     assert_eq!(turn["woken"], true, "{woken}");
     assert_eq!(turn["prompt"], "Continued after the lines landed");
     assert_eq!(turn["state"], "answered");
-    let told = script
-        .messages(script.requests().len() - 1)
-        .last()
-        .unwrap()
-        .clone();
+    let sent = script.messages(script.requests().len() - 1);
+    let told = sent.last().unwrap().clone();
     assert!(told.contains("The person has not written"), "{told}");
+    assert!(
+        sent.iter()
+            .all(|message| !message.contains("Continued after")),
+        "the transcript's line is never sent as the person's words: {sent:?}"
+    );
     assert!(told.contains("line `vo`: made"), "{told}");
     assert!(told.contains("line `outro`: failed"), "{told}");
     assert!(told.contains("the voice is gone"), "{told}");
@@ -149,7 +156,11 @@ async fn the_last_job_landing_wakes_the_conversation_with_what_landed(pool: PgPo
         .fetch_all(&pool)
         .await
         .unwrap();
-    assert_eq!(effort[0], effort[1], "the effort of the turn that ordered");
+    assert_eq!(
+        effort,
+        ["high", "medium"],
+        "the project's level, not the order's"
+    );
 
     settle().await;
     assert_eq!(turns(&pool).await, 2, "woken once");

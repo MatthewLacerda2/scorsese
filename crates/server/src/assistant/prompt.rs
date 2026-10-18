@@ -211,6 +211,12 @@ pub(super) fn opening(
     messages
 }
 
+/// The user message of a turn the server started when work landed (#1441):
+/// every turn opens with one, and the person wrote nothing, so the server
+/// says so in words the model cannot take for theirs. Its note follows.
+pub(super) const WOKEN: &str =
+    "(The person has not written. This message is the server's: it started this turn.)";
+
 /// What a new conversation is told about its project — and, when it has a
 /// script, that the script comes first: a project started for a platform or a
 /// style (#1016) carries its brief there. The script's path is not given: the
