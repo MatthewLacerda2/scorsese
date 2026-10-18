@@ -29,7 +29,7 @@ use scorsese_mcp::{PagesAhead, Part, Reply, Tool};
 use serde_json::Value;
 
 use super::surface::Serve;
-use super::{Caller, Refusal, bakes, database, fetched, folder, lay_out, project_id, voiced};
+use super::{Caller, Refusal, bakes, database, fetched, folder, lay_out, log, project_id, voiced};
 use crate::captures::still::StillPages;
 use crate::jobs::blocking;
 use crate::projects::{self, ProjectError, files};
@@ -138,7 +138,10 @@ pub(super) async fn run(
         )
         .await
         {
-            Ok(_) => return outcome,
+            Ok(revision) => {
+                log::saved(&toolbox.pool, caller.user, caller.call, revision).await;
+                return outcome;
+            }
             Err(ProjectError::Conflict { .. }) if caller.at.is_some() => {
                 return Err(Refusal::Moved);
             }

@@ -22,8 +22,8 @@ use scorsese_providers::chat::{Part, ResultPart};
 use serde::Serialize;
 use serde_json::json;
 
-use super::ask::resuming;
-use super::store::{QuoteView, TurnView, asking, view};
+use super::ask::{noted, resuming};
+use super::store::{QuoteView, TurnView, asking, hands, view};
 use super::turn::{self, Resumed};
 use super::{AssistantError, wake};
 use crate::credits::ledger;
@@ -111,6 +111,7 @@ pub async fn answer(
     // No credit check: a no costs nothing, a yes is checked by the paid tool,
     // and the resumed turn stops at once on an empty balance.
     let mut running = resuming(state, &mut tx, user, id, &paused).await?;
+    let told = hands::told_resuming(&mut tx, paused.project, id).await?;
     let (recorded, reply) = answer.recorded();
     let view = asking::answered(&mut tx, id, recorded, reply).await?;
     tx.commit().await?;
@@ -163,12 +164,13 @@ pub async fn answer(
     {
         eprintln!("scorsese-server: assistant: turn {id} awaiting its jobs: {error}");
     }
-    running.answer = Some(Resumed::Settle(Part::Result {
+    let result = Part::Result {
         call,
         name: quote.tool.clone(),
         content: vec![ResultPart::Text { text: result }],
         is_error: refused,
-    }));
+    };
+    running.answer = Some(Resumed::Settle(noted(result, told)));
     tokio::spawn(turn::run(state.clone(), running));
     Ok(Answered {
         spent,

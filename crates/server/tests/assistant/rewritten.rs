@@ -1,6 +1,8 @@
 //! A script the person rewrote by hand, from the editor's Script button
 //! (#1445), is news to the assistant: the next turn is told once, so it reads
-//! the script again instead of working from what it remembers.
+//! the script again instead of working from what it remembers — a turn paused
+//! on a question as it resumes, too, and never for a write that changed
+//! nothing (#1488).
 
 use std::net::SocketAddr;
 
@@ -10,7 +12,7 @@ use scorsese_server::projects;
 use serde_json::json;
 use sqlx::postgres::PgPool;
 
-use super::{Script, answers, common, exchange, member, project, scripted};
+use super::{Script, answers, calls, common, exchange, finished, member, project, scripted};
 
 /// The words the note carries.
 const NOTE: &str = "edited the script themselves";
@@ -85,4 +87,46 @@ async fn the_next_turn_is_told_once_that_the_person_rewrote_the_script(pool: PgP
         1,
         "told once: the earlier note is history, and no new one is added"
     );
+}
+
+/// Ana's cookie and her bearer, and a new project of hers.
+async fn ana(pool: &PgPool) -> (UserId, String, String, i64) {
+    let (ana, who) = member(pool, "ana@example.com", 10).await;
+    let cookie = sessions::open(pool, ana).await.expect("a session opens");
+    let id = project(pool, ana, json!([])).await;
+    (ana, who, format!("Cookie: scorsese_session={cookie}"), id)
+}
+
+#[sqlx::test]
+async fn a_write_that_changed_nothing_is_not_news(pool: PgPool) {
+    let script = Script::new(vec![answers("Here is a plan."), answers("Read it.")]);
+    let (address, _) = scripted(&pool, &script).await;
+    let (ana, who, cookie, id) = ana(&pool).await;
+    rewrite(address, &pool, ana, &cookie, id, "A door opens.").await;
+    exchange(address, &who, id, "plan a short film").await;
+
+    rewrite(address, &pool, ana, &cookie, id, "A door opens.").await;
+    exchange(address, &who, id, "go on").await;
+    assert_eq!(notes_in(&script, 1), 0, "the same text, written back");
+}
+
+#[sqlx::test]
+async fn a_turn_paused_on_a_question_is_told_as_it_resumes(pool: PgPool) {
+    let question = json!({ "question": "Loop it or fade it?", "options": ["loop", "fade"] });
+    let script = Script::new(vec![calls("ask_user", question), answers("Faded.")]);
+    let (address, _) = scripted(&pool, &script).await;
+    let (ana, who, cookie, id) = ana(&pool).await;
+    let paused = exchange(address, &who, id, "add the music").await;
+    assert_eq!(paused["turn"]["state"], "asking", "{paused}");
+
+    rewrite(address, &pool, ana, &cookie, id, "# Scene one").await;
+    let typed = super::send(address, &who, id, "fade it").await;
+    assert_eq!(typed.status, 202, "{}", typed.body);
+    let turn = typed.json()["id"].as_i64().expect("an id");
+    finished(address, &who, turn).await;
+    assert_eq!(notes_in(&script, 1), 1, "the resumed turn is told");
+
+    script.replace(vec![answers("Done.")]);
+    exchange(address, &who, id, "and the titles").await;
+    assert_eq!(notes_in(&script, 2), 1, "told once, not again a turn late");
 }

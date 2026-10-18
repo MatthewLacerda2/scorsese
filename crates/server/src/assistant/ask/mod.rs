@@ -39,7 +39,7 @@ mod resume;
 
 pub use answer::set_aside;
 pub use answer::{Answering, answer};
-pub(super) use resume::resuming;
+pub(super) use resume::{noted, resuming};
 
 use scorsese_providers::chat::{Call, Message, Part, ResultPart, Tool};
 use serde_json::{Value, json};
