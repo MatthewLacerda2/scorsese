@@ -54,6 +54,7 @@ pub async fn retarget(
         fresh: false,
         notes: vec![prompt::retargeted(&before, &now)],
         effort: None,
+        woken: false,
     };
     Ok(match start(state, user, project, opening).await {
         Ok(turn) => Retargeted {

@@ -145,6 +145,8 @@ pub(in crate::assistant) struct Beginning<'a> {
     pub(in crate::assistant) model: Model,
     /// How hard it thinks.
     pub(in crate::assistant) effort: Effort,
+    /// Started by the server when work landed (#1441), not by a message.
+    pub(in crate::assistant) woken: bool,
     /// Its first messages, as the model is sent them.
     pub(in crate::assistant) native: &'a [Box<RawValue>],
     /// The same, neutral.
@@ -159,8 +161,9 @@ pub(in crate::assistant) async fn begin(
     turn: &Beginning<'_>,
 ) -> Result<TurnView, AssistantError> {
     let inserted = sqlx::query_scalar(
-        "INSERT INTO chat_turns (user_id, session_id, prompt, messages, record, model, effort)
-         VALUES (member_id(), $1, $2, $3, $4, $5, $6) RETURNING id",
+        "INSERT INTO chat_turns
+             (user_id, session_id, prompt, messages, record, model, effort, woken)
+         VALUES (member_id(), $1, $2, $3, $4, $5, $6, $7) RETURNING id",
     )
     .bind(session)
     .bind(turn.prompt)
@@ -168,6 +171,7 @@ pub(in crate::assistant) async fn begin(
     .bind(recorded(turn.record))
     .bind(turn.model.id())
     .bind(turn.effort.as_str())
+    .bind(turn.woken)
     .fetch_one(&mut **tx)
     .await;
     let id: i64 = match inserted {

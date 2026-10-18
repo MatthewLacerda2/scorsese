@@ -33,12 +33,25 @@ macro_rules! view {
 /// and the owner's browser; without that the worker still finds it on its
 /// next look, a second or so later.
 pub async fn enqueue(tx: &mut Tx, kind: Kind, payload: &Value) -> Result<JobView, sqlx::Error> {
+    enqueue_by(tx, kind, payload, None).await
+}
+
+/// [`enqueue`], naming the tool call that queued it — how a turn finds the
+/// jobs its quote's yes ordered, to wake when they land (#1441).
+pub async fn enqueue_by(
+    tx: &mut Tx,
+    kind: Kind,
+    payload: &Value,
+    call: Option<i64>,
+) -> Result<JobView, sqlx::Error> {
     sqlx::query_as(concat!(
-        "INSERT INTO jobs (user_id, kind, payload) VALUES (member_id(), $1, $2) RETURNING ",
+        "INSERT INTO jobs (user_id, kind, payload, tool_call_id)
+         VALUES (member_id(), $1, $2, $3) RETURNING ",
         view!()
     ))
     .bind(kind.name)
     .bind(payload)
+    .bind(call)
     .fetch_one(&mut **tx)
     .await
 }

@@ -154,6 +154,7 @@ mod start;
 mod stopping;
 mod store;
 mod turn;
+mod wake;
 
 use std::sync::Arc;
 
@@ -172,6 +173,7 @@ pub use store::{
     ToolCallView, TurnDetail, TurnView,
 };
 pub use store::{conversation, detail, recover};
+pub use wake::watch;
 
 /// What a turn on Sonnet 5.5 is not allowed to cost by default, in
 /// micro-dollars: $3.50. The server's one statement of it:

@@ -118,7 +118,7 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
     let mut tx = db::scoped(&caller.toolbox.pool, caller.user)
         .await
         .map_err(database)?;
-    let job = jobs::enqueue(&mut tx, kinds::VOICE_KEEP, &payload)
+    let job = jobs::enqueue_by(&mut tx, kinds::VOICE_KEEP, &payload, Some(caller.call))
         .await
         .map_err(database)?;
     tx.commit().await.map_err(database)?;

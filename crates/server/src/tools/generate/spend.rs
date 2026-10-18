@@ -161,7 +161,7 @@ pub(super) async fn spend(
             What::Still { batch: false, .. } => kinds::STILL_IMAGE,
             What::Still { batch: true, .. } => kinds::BATCH_STILL,
         };
-        let job = jobs::enqueue(&mut tx, kind, &payload)
+        let job = jobs::enqueue_by(&mut tx, kind, &payload, Some(caller.call))
             .await
             .map_err(database)?;
         let request = request(one, project, caller.call, job.id);

@@ -22,10 +22,10 @@ use scorsese_providers::chat::{Part, ResultPart};
 use serde::Serialize;
 use serde_json::json;
 
-use super::AssistantError;
 use super::ask::resuming;
 use super::store::{QuoteView, TurnView, asking, view};
 use super::turn::{self, Resumed};
+use super::{AssistantError, wake};
 use crate::credits::ledger;
 use crate::db::{self, UserId};
 use crate::events::Event;
@@ -152,9 +152,16 @@ pub async fn answer(
             (None, false, result)
         }
     };
-    // A yes has just spent: the turn goes on from the balance it left.
+    // A yes has just spent: the turn goes on from the balance it left, and
+    // waits on what it ordered (#1441).
     if let Ok(now) = balance(state, user).await {
         running.balance = now;
+    }
+    if spent.is_some()
+        && !refused
+        && let Err(error) = awaiting(state, user, id).await
+    {
+        eprintln!("scorsese-server: assistant: turn {id} awaiting its jobs: {error}");
     }
     running.answer = Some(Resumed::Settle(Part::Result {
         call,
@@ -177,6 +184,13 @@ async fn balance(state: &AppState, user: UserId) -> Result<i64, sqlx::Error> {
     let balance = ledger::balance(&mut tx).await?;
     tx.commit().await?;
     Ok(balance)
+}
+
+/// Mark `user`'s turn `id` as awaiting the jobs its yes ordered.
+async fn awaiting(state: &AppState, user: UserId, id: i64) -> Result<(), sqlx::Error> {
+    let mut tx = db::scoped(&state.pool, user).await?;
+    wake::ordered(&mut tx, id).await?;
+    tx.commit().await
 }
 
 /// Withdraw `token`, saying so if it fails: it lapses on its own anyway.
