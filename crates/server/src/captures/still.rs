@@ -14,12 +14,12 @@
 //!   `still-<call>` ([`Spool::still`]), and asked exactly as a render job asks
 //!   ([`dispatch`]): the same launcher, the same container, the same walls.
 //! - It waits as long as the launcher would give the capture itself
-//!   ([`super::deadline`]), but never past [`PATIENCE`]: the call is somebody
+//!   ([`super::deadline`]), but never past 90 s: the call is somebody
 //!   waiting behind nginx, which gives up at 300 s (#1469). One capture runs
 //!   at a time, so a still may wait behind a render's pages; past that
 //!   patience it is drawn with the page as "being captured" (`underway`,
 //!   #1202), and the job is left for the launcher to finish into the cache,
-//!   where the next still finds it — for at most [`LATER`].
+//!   where the next still finds it — for at most an hour.
 //! - A call stopped while it waits stops waiting (#1469), and its job is left
 //!   to finish the same way: somebody who stopped a look usually looks again.
 
