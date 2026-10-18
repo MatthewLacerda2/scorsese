@@ -14,6 +14,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
+use scorsese_render::Cancel;
 use scorsese_render::page::{Chrome, Wanted};
 
 /// Whoever captures a still's pages before it is drawn, so the still itself
@@ -22,7 +23,37 @@ pub trait PagesAhead: Send + Sync {
     /// Captures `wanted` for the project laid out at `project_root`, into its
     /// `cache/`, where the still then reads them. Never fails: a page it could
     /// not capture is named in [`Ahead::failed`], and shows its slug card.
-    fn capture(&self, project_root: &Path, wanted: &[Wanted]) -> Ahead;
+    /// Stops waiting once `cancel`, the call's, is tripped.
+    fn capture(&self, project_root: &Path, wanted: &[Wanted], cancel: &Cancel) -> Ahead;
+}
+
+/// `wanted` with the stretches of one page that overlap or touch made one, in
+/// the order each page was first wanted (#1469). Each stretch is a capture of
+/// its own wherever it is captured — on the web a container — so five cells
+/// of a sheet a second apart on one page are one capture, not five. Stretches
+/// apart are left apart: the frames between them would be drawn for nothing.
+pub(super) fn merged(wanted: Vec<Wanted>) -> Vec<Wanted> {
+    let mut sorted: Vec<(usize, Wanted)> = wanted.into_iter().enumerate().collect();
+    // Stable, so the first of each page keeps its place among the pages.
+    sorted.sort_by_key(|(_, one)| one.frames.start);
+    let mut kept: Vec<(usize, Wanted)> = Vec::new();
+    for (order, one) in sorted {
+        let joins = kept.iter_mut().find(|(_, held)| {
+            held.request == one.request
+                && one.frames.start <= held.frames.end
+                && held.frames.start <= one.frames.end
+        });
+        match joins {
+            Some((first, held)) => {
+                held.frames =
+                    held.frames.start.min(one.frames.start)..held.frames.end.max(one.frames.end);
+                *first = (*first).min(order);
+            }
+            None => kept.push((order, one)),
+        }
+    }
+    kept.sort_by_key(|(order, _)| *order);
+    kept.into_iter().map(|(_, one)| one).collect()
 }
 
 /// What came of capturing ahead.
@@ -62,7 +93,7 @@ mod tests {
     struct Refusing(Mutex<Vec<Wanted>>);
 
     impl PagesAhead for Refusing {
-        fn capture(&self, _: &Path, wanted: &[Wanted]) -> Ahead {
+        fn capture(&self, _: &Path, wanted: &[Wanted], _: &Cancel) -> Ahead {
             self.0.lock().unwrap().extend_from_slice(wanted);
             let failed = wanted
                 .iter()
@@ -103,13 +134,52 @@ mod tests {
         let reply = still.call(&at).expect("a still");
 
         let asked = pages.0.lock().unwrap();
-        // The frames around each instant, and no more (#809).
+        // The frames around each instant, and no more (#809), the two
+        // overlapping stretches asked as one (#1469).
         let stretches: Vec<_> = asked.iter().map(|one| one.frames.clone()).collect();
-        assert_eq!(stretches, [13..18, 16..21], "{asked:?}");
+        assert_eq!(stretches, vec![13..21_u64], "{asked:?}");
         assert!(asked.iter().all(|one| one.request.page == "pages/p.html"));
         let said = &reply.parts[0].text;
         assert!(said.contains("the launcher said no"), "{said}");
         assert!(!dir.join("cache/pages").exists(), "nothing captured here");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn of(page: &str, frames: std::ops::Range<u64>) -> Wanted {
+        let request = scorsese_render::page::Request {
+            page: page.to_owned(),
+            resolution: scorsese_render::Resolution::new(64, 36).unwrap(),
+            fps: Fps::THIRTY,
+            duration: 10.0,
+            clips: std::collections::BTreeMap::new(),
+            words: std::collections::BTreeMap::new(),
+        };
+        Wanted::new(request, frames)
+    }
+
+    #[test]
+    fn a_pages_overlapping_and_touching_stretches_are_one_capture() {
+        let wanted = vec![
+            of("b.html", 40..45),
+            of("a.html", 13..18),
+            of("b.html", 30..41),
+            of("a.html", 18..23),
+            of("a.html", 16..21),
+        ];
+
+        let merged = merged(wanted);
+
+        assert_eq!(merged, [of("b.html", 30..45), of("a.html", 13..23)]);
+    }
+
+    #[test]
+    fn stretches_apart_or_of_other_pages_stay_apart() {
+        let wanted = vec![
+            of("a.html", 13..18),
+            of("a.html", 100..105),
+            of("b.html", 14..19),
+        ];
+
+        assert_eq!(merged(wanted.clone()), wanted);
     }
 }

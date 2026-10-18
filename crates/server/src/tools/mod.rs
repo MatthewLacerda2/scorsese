@@ -393,7 +393,12 @@ fn registered(
 struct Uncaptured;
 
 impl PagesAhead for Uncaptured {
-    fn capture(&self, _: &std::path::Path, wanted: &[scorsese_render::page::Wanted]) -> Ahead {
+    fn capture(
+        &self,
+        _: &std::path::Path,
+        wanted: &[scorsese_render::page::Wanted],
+        _: &scorsese_render::Cancel,
+    ) -> Ahead {
         let why = "pages are captured only for a still run on a project";
         Ahead {
             failed: wanted
