@@ -9,9 +9,10 @@
 //! line kept the old line's length and its clips were fitted to it.
 //!
 //! What is recorded is what was **worked out**, never what was billed (see
-//! [`prices`](crate::prices)). A per-generation ledger (#1059) would be written
-//! from [`record`] too, since it is the one moment every provider passes
-//! through with the file, its bytes and its figure in hand.
+//! [`prices`](crate::prices)). What was *spent* is not recorded here: a cache
+//! hit and a collected shot pass through [`record`] and spend nothing, so each
+//! run writes its line in [`crate::spending`]'s ledger at the moment it sends a
+//! brief instead (#1059).
 
 pub mod passes;
 mod prompted;

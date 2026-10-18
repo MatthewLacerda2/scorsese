@@ -1543,8 +1543,16 @@ generate  { "project": "teaser.scor" }
 generate  { "project": "teaser.scor", "confirm": "quote-9c1e…" }
           → "hero: queued — models/veo-3.1-fast…/operations/…
              …
-             About $1.23 spent on this run — our calculation, never a bill."
+             About $1.23 spent on this run — our calculation, never a bill.
+             About $6.48 spent on this project so far — our calculation, never a bill.
+             1 superseded take, $0.40"
 ```
+
+The last lines are the whole project's spending — the figure the `budget_cents`
+ceiling is checked against — and every take bought counts in it, including one
+replaced by a retry, which gets its own line. It is read from
+`generations.json` beside `project.json`, one line per brief sent
+([prices.md](prices.md), *Every take is counted*).
 
 **Each item is quoted on its own line and never averaged.** Eight seconds of
 video is ninety-six cents and a sentence of narration is one — sixty to a

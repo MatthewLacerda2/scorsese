@@ -313,6 +313,10 @@ fn budget(ui: &mut Ui, quote: &Quote, settings: &mut Settings) {
             .small(),
         ),
     };
+    // A retry is money too, and named as one rather than folded silently in.
+    if let Some(line) = quote.superseded.says() {
+        ui.label(RichText::new(format!("{line} included")).weak().small());
+    }
     if quote.over_budget() {
         ui.label(
             RichText::new("This run would cross the ceiling.")

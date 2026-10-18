@@ -172,7 +172,7 @@ impl Tool for Generate {
         };
 
         let shortened = measure(&mut project, dir, &done)?;
-        let mut reply = said::run(&done, dir);
+        let mut reply = said::run(&done, &project, dir);
         for one in shortened.iter().map(Shortened::says).chain(stopped) {
             reply.push('\n');
             reply.push_str(&one);

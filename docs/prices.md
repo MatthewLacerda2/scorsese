@@ -375,6 +375,27 @@ person who already paid.
 Wherever a total is printed, it says the same thing. The estimate is right when
 the table is right, and the table is a page somebody copied.
 
+### Every take is counted
+
+An asset's `estimated_cost_cents` is what **its current file** cost. A shot that
+came back wrong and was bought again carries the second take's figure; the first
+take is still in `generated/` and was still paid for. So a project's spending is
+not summed over its assets: each run writes one line into **`generations.json`**,
+beside `project.json`, the moment it sends a brief — a shot submitted, a still
+drawn or ordered in a batch, a line spoken, a track composed — with the asset,
+the brief's hash, the estimate and the date. The `budget_cents` ceiling and every
+printed project total read that file, and the takes no asset shows any more are
+named on a line of their own ("1 superseded take, $0.40"), so a retry reads as a
+retry. A shot Veo turns down after it was sent is marked `refused` there and not
+counted: Google does not charge for it.
+
+It is a sidecar, like `designed-voices.json`, so it is no format change, and it
+is not under `cache/`: deleting it forgets money that was spent. A project from
+before the file existed begins it with its assets' current figures (`seeded`
+lines): **history before the ledger is the current takes only.** The hosted web
+app does not use it — its spending is the credit ledger in Postgres
+([web.md](web.md)).
+
 ## Checking the clients, not the prices
 
 This page keeps the *rates* honest. Whether the vendors still answer in the

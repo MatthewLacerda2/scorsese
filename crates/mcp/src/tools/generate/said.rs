@@ -1,13 +1,16 @@
 //! What a `generate` run reads as: one line per brief, then the one total that
-//! spans every provider.
+//! spans every provider, then what the whole project has spent, retries
+//! included.
 
 use std::path::Path;
 
+use scorsese_core::Project;
 use scorsese_providers::passes::Done;
 use scorsese_providers::prices::{dollars, from_cents};
+use scorsese_providers::spending;
 
 /// The run, in lines.
-pub(super) fn run(done: &Done, dir: &Path) -> String {
+pub(super) fn run(done: &Done, project: &Project, dir: &Path) -> String {
     if done.is_empty() {
         return String::from(
             "Nothing to generate: every prompted brief in this project is already generated \
@@ -38,5 +41,6 @@ pub(super) fn run(done: &Done, dir: &Path) -> String {
         "About {} spent on this run — our calculation, never a bill.",
         dollars(from_cents(done.spent_cents()), 2)
     ));
+    lines.push(spending::so_far(project, dir).says());
     lines.join("\n")
 }

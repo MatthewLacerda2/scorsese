@@ -33,15 +33,18 @@ use scorsese_core::{AssetKind, Project};
 use scorsese_providers::credentials::{Budget, Settings};
 use scorsese_providers::prices::{dollars, from_cents};
 use scorsese_providers::quote::{self, Item, Unquotable};
-use scorsese_providers::spending;
+use scorsese_providers::spending::{self, Superseded};
 
 /// What a run would cost, and what room there is for it.
 #[derive(Clone)]
 pub(crate) struct Quote {
     /// The library's quote, or why it cannot price this project.
     priced: Result<quote::Quote, Unquotable>,
-    /// What the project and its voice ledger already say has been spent.
+    /// What the project's ledgers already say has been spent — generations,
+    /// superseded takes included, and designed voices.
     pub(crate) spent_cents: u64,
+    /// The takes in that figure no asset shows any more.
+    pub(crate) superseded: Superseded,
     /// The ceiling, when somebody set one. Set again on every frame from the
     /// window's settings, since the dialog's own field changes it.
     pub(crate) ceiling_cents: Option<u64>,
@@ -58,9 +61,11 @@ impl Quote {
     /// references came to pass on a runner with no settings file and fail on the
     /// machine they were written on.
     pub(crate) fn of(project: &Project, root: &Path, settings: &Settings) -> Self {
+        let spent = spending::so_far(project, root);
         Self {
             priced: quote::generation(project, root),
-            spent_cents: spending::so_far(project, root).total(),
+            spent_cents: spent.total(),
+            superseded: spent.superseded,
             ceiling_cents: settings.budget_cents,
         }
     }

@@ -19,6 +19,7 @@ use scorsese_core::{AssetId, GenerationState, Project, Timestamp};
 use crate::api::gemini::batch::INLINE_LIMIT;
 use crate::credentials::Budget;
 use crate::prices;
+use crate::spending;
 
 use super::run::{Stills, unready};
 use super::stopped::stopped;
@@ -99,12 +100,18 @@ fn order(
             .map(|brief| half(brief))
             .sum::<Result<u64, _>>()?;
         budget.spend(spent).check(cents)?;
+        spending::readable(root)?;
         match provider.order(&job) {
             Ok(operation) => {
                 spent += cents;
+                // Every ticket first, then every line in one write: a ledger
+                // that fails part-way must leave no paid still without its
+                // ticket, to be bought again next run.
+                let mut takes = Vec::with_capacity(job.len());
                 for brief in job {
                     queue(project, &brief.id, &operation);
                     let estimated_cost_cents = half(brief)?;
+                    takes.push((brief.id.clone(), brief.digest(), estimated_cost_cents));
                     done.push((
                         brief.id.clone(),
                         Outcome::Ordered {
@@ -113,6 +120,7 @@ fn order(
                         },
                     ));
                 }
+                spending::sent_all(project, root, &takes)?;
             }
             Err(error) => {
                 for brief in job {

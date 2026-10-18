@@ -8,6 +8,7 @@ use scorsese_core::{Asset, AssetId, AssetKind, AudioBlock, Project, ProjectPath}
 use crate::credentials::Budget;
 use crate::generated::{self, Prompted, write};
 use crate::prices;
+use crate::spending;
 
 use super::{Brief, Incomplete, MusicError, MusicProvider, Outcome, Plan, Stopped};
 
@@ -140,6 +141,7 @@ fn one(
     }
     let cents = quote(brief.seconds);
     budget.check(cents)?;
+    spending::readable(root)?;
     let bytes = match provider.compose(&brief) {
         Ok(bytes) => bytes,
         Err(error) => {
@@ -150,6 +152,7 @@ fn one(
     };
     let output = brief.output();
     write(&output.resolve(root), &bytes)?;
+    spending::sent(project, root, id, &brief.digest(), cents)?;
     generated::record(project, id, &output, &bytes, Some(cents));
     Ok(Outcome::Generated {
         path: output,

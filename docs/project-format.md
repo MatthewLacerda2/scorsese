@@ -223,7 +223,7 @@ re-importing or regenerating a file is one edit in one place.
 | `created_at` | optional | When the asset joined the table, as UTC RFC 3339 (`2026-08-04T14:20:00Z`) |
 | `queued_at` | optional, generated kinds | When a provider took the request. Not the same fact as `created_at` |
 | `operation` | optional, `generated_video`, `generated_image` | The provider's name for work in flight, while `queued`: a shot's Veo operation, or the batch a still waits in |
-| `estimated_cost_cents` | optional, prompted kinds | What realising it was *calculated* to cost, in US cents — our arithmetic, never a bill. See [prices.md](prices.md) (`guide prices`) |
+| `estimated_cost_cents` | optional, prompted kinds | What realising its **current file** was *calculated* to cost, in US cents — our arithmetic, never a bill. What the project has spent, superseded takes included, is `generations.json` beside `project.json`. See [prices.md](prices.md) (`guide prices`) |
 | `source` | optional, `video` and `image` only | Where a stock import came from: `library` (`pixabay`), its `id` there, and where known its `author`, `page_url` (an `http(s)` address) and `licence` — see below |
 
 ```json asset
