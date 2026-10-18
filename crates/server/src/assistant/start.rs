@@ -101,7 +101,7 @@ pub async fn start(
     let record = prompt::opening(&said, &prompt, &notes, effort);
     // Past its size, the turn opens from a summary instead (#1438).
     let compacting = if compact::due(&mut tx, session).await? {
-        Some(compact::prepare(model, &history, &said, &about, &notes).map_err(written)?)
+        Some(compact::prepare(model, &history, &said, &about, &notes, effort).map_err(written)?)
     } else {
         None
     };

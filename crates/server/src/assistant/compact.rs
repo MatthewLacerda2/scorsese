@@ -21,7 +21,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use scorsese_providers::chat::{self, Message, Model, Reply, Request, Stop};
+use scorsese_providers::chat::{self, Effort, Message, Model, Reply, Request, Stop};
 use serde_json::value::RawValue;
 
 use super::store::compaction;
@@ -77,9 +77,10 @@ pub(super) fn prepare(
     said: &[Message],
     about: &str,
     notes: &[String],
+    effort: Effort,
 ) -> Result<Compacting, serde_json::Error> {
     let mut request = history.to_vec();
-    for message in prompt::opening(said, INSTRUCTION, &[]) {
+    for message in prompt::opening(said, INSTRUCTION, &[], effort) {
         request.push(chat::freeze(model, &message)?);
     }
     let rest = notes.iter().filter(|note| note.as_str() != about).cloned();
@@ -115,7 +116,6 @@ async fn summarised(
     tools.extend(ask::functions());
     let request = Request {
         model: turn.model,
-        effort: turn.effort,
         system: prompt::SYSTEM.to_owned(),
         tools,
         messages: compacting.request,
@@ -123,7 +123,7 @@ async fn summarised(
     let summary = summary(state, turn, request).await?;
     let mut notes = compacting.notes;
     notes.insert(1, note(&summary));
-    let record = prompt::opening(&[], &turn.prompt, &notes);
+    let record = prompt::opening(&[], &turn.prompt, &notes, turn.effort);
     let messages = record
         .iter()
         .map(|message| chat::freeze(turn.model, message))
