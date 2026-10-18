@@ -183,10 +183,19 @@ MatthewLacerda2/rusty#547; the rules carried over, the numbers did not):
   Compose behind a Cloudflare Tunnel), the cores are shared with other people:
   their renders and generations queue on it, and a heavy build competes with a
   paying user's render. Leave it headroom.
-- **A warm `target/` is the fast path.** Cross-machine compilation caches
-  (`sccache` and the like) buy cold-build speed by turning off cargo's
-  incremental compilation, which is the wrong trade on a machine that is
-  always warm.
+- **A warm `target/` is the fast path; `sccache` only shortens a cold one.**
+  It does not turn incremental compilation off. It caches the third-party
+  dependency compiles and passes the workspace crates through. Measured on
+  2026-10-17 (`cargo nextest run --workspace --no-run`, `CARGO_BUILD_JOBS=4`):
+  - a cold worktree took 11m17s without it and 11m20s with an empty cache;
+  - with a warm cache it took 8m57s (270 of 270 cacheable compiles hit);
+  - the edit loop after touching `crates/core` was unchanged (6m52s / 6m25s,
+    8 crates rebuilt incrementally both times);
+  - the cache is ~170 MB.
+
+  So it saves about two minutes per new worktree on one machine, costs
+  nothing, and does nothing for cloud coders, which don't share the cache.
+  Rusty uses it the same way (MatthewLacerda2/rusty#492); #1475 ports its `make setup`.
 - **When disk is what binds** (a laptop: 26 GB free on 2026-09-30, and a
   worktree's `target/` 8–14 GB, most of it `debug/incremental`), a
   git-excluded `.cargo/config.toml` in each worktree with `debug =
