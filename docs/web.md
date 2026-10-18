@@ -1504,6 +1504,17 @@ things differ, all in `renders::preview`:
   the next preview of the project is asked for (#660), and ends `cancelled`.
   So edits faster than renders cost a frame of an old render at most, and the
   editor asks again for the revision it is on.
+- **Pieces** (#1448). With a `range`, the ask is for one piece of a cut played
+  in pieces, and the answer carries `audible`: whether the cut has anything
+  to hear, said before the first piece is made because the player's buffer is
+  declared with or without sound. A piece renders as H.264 with PCM sound
+  (avi) and is remuxed (`scorsese_render::preview::fragment`) into a
+  fragmented MP4 — the picture copied with its first frame at zero, the sound
+  made FLAC, which has no encoder priming, so joins are seamless; a stretch
+  with nothing to hear carries silence when the cut has sound elsewhere. Any
+  preview of a newer document stops a running one of an older, whatever its
+  range. On a 60-second 1080p cut the first frame came 2.6 s after play,
+  against 26.8 s for the whole preview.
 - **One kept per shape.** A finished preview replaces the project's earlier
   previews at the same settings, which are of documents it has moved past —
   except a file somebody has open. They are left out of the project's list of
@@ -1512,7 +1523,7 @@ things differ, all in `renders::preview`:
 
 | route | who | what |
 | --- | --- | --- |
-| `POST /api/projects/{id}/previews` | a member | `{resolution?, quality?}` → as `POST …/renders`; `400` for a quality or size that is not one |
+| `POST /api/projects/{id}/previews` | a member | `{resolution?, quality?, range?}` → as `POST …/renders`, with `audible` beside for a piece (a `range`); `400` for a quality, size or range that is not one |
 
 ## Page captures
 
@@ -2380,12 +2391,21 @@ in the browser is not attempted.
   chosen quality (*Renders*, previews), from proxies of heavy videos, and the
   browser plays it in an ordinary `<video>`. **Scrubbing is seeking** in that
   video.
-- **After an edit, the preview is re-rendered** — by itself, once the revision
-  has rested for a second, with no press. Sketch and stale generated assets
-  render as slug cards, which is free and keeps it fast. An unchanged cut
-  answers at once from the cache; a preview of a revision the project has
-  already moved past retires when its turn comes (*Renders*), so a burst of
-  edits costs one render, not one per edit. The moment the revision moves the
+- **The preview is made only when play is pressed** (#1448): nothing renders
+  after an edit by itself, so the shared machine's cores are not spent on cuts
+  nobody watches. A cut of thirty seconds or less is rendered **whole**; a
+  longer one plays **in pieces**, the way a video site plays a video — five
+  seconds at a time from the playhead forward, each playable as it lands,
+  about ten seconds kept loaded ahead (more when pieces are slow to make), and
+  "Generating preview" said while less than that is. Pieces are fed to Media
+  Source Extensions (*Renders*, previews); one is asked for at a time, and one
+  nobody wants any more — the playhead moved away, the player paused half a
+  minute — is cancelled. Play pressed while an edit is in flight (a turn
+  running, or a hand-edit on its way) plays nothing and says *Can't preview
+  yet — changes are being made*. Sketch and stale generated assets render as
+  slug cards, which is free and keeps it fast. An unchanged cut answers at
+  once from the cache; a preview of a revision the project has already moved
+  past retires when its turn comes (*Renders*). The moment the revision moves the
   old video is dropped, and until the new one is ready the frame under the
   playhead is the `still` tool's — the render's own compositor, asked for once
   the playhead rests for a fifth of a second, at the same raster, cached per
@@ -2401,10 +2421,10 @@ in the browser is not attempted.
   device and the person's patience, not about the edit. Half is the default.
 - **This is the v1 default, chosen to be simple**, and it will be tuned from how
   real users behave: how often they edit between looks, how long a preview
-  takes on the shared machine, whether a quarter is ever chosen. The settle
-  time, the default quality and the rule that re-renders without a press are
-  the three knobs, and none of them is a decision worth defending against
-  evidence.
+  takes on the shared machine, whether a quarter is ever chosen. The piece
+  length, the ten seconds ahead, the thirty-second line and the default
+  quality are the knobs, and none of them is a decision worth defending
+  against evidence.
 
 The frame's **shape** is the project's own, the document's `aspect` (#1278):
 a project started for a platform opens in its shape, and nobody chooses

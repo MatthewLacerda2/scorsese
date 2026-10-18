@@ -76,8 +76,7 @@ export function usePieces(
     clearTimeout(rest.current);
     if (!player.current) {
       const server = {
-        ask: (stream: "picture" | "sound", range?: string) =>
-          api.renders.preview(id, { resolution: deliver, quality, stream, range }),
+        ask: (range: string) => api.renders.preview(id, { resolution: deliver, quality, range }),
         bytes: api.renders.bytes,
         cancel: (job: number) =>
           void api.jobs.cancel(job).catch((error) => console.error("preview: cancel", error)),

@@ -17,18 +17,20 @@
 //! - **Proxies.** A reduced quality reads each heavy video's proxy where one is
 //!   made, and queues the making of any that are missing
 //!   ([`crate::library::proxy`]).
-//! - **Silence said up front.** A preview played in pieces (#1448) asks for
-//!   the timeline's sound beside its picture, and a cut with nothing to hear
-//!   answers that at once ([`silent`]) rather than queueing a render that
-//!   could only fail.
+//! - **Pieces.** A preview played in pieces (#1448) is a render over a
+//!   range, remuxed for the browser. Every piece of a cut with anything to
+//!   hear carries sound, silence where its stretch has none ([`sound`]),
+//!   because the browser's buffer takes the same tracks in every piece; and
+//!   whether it has any is said before the first is made ([`silent`]).
 //! - **One kept per shape.** A new preview replaces the project's earlier ones
 //!   at the same settings: they are of documents the project has moved past.
 //!   A file somebody has open is spared, exactly as eviction spares it.
 
 use std::path::Path;
 
-use scorsese_core::Project;
-use scorsese_render::{FrameRange, Plan, Preview, Proxies, Quality};
+use scorsese_core::{Fps, Project};
+use scorsese_render::preview::Sound;
+use scorsese_render::{FrameRange, Plan, Preview, Proxies, Quality, RenderReport, SampleRate};
 
 use super::job::Payload;
 use super::{RenderCache, Settings, key};
@@ -73,6 +75,21 @@ pub(super) async fn outrun(job: &Job, context: &Context) -> bool {
 pub(crate) fn silent(project: &Project) -> bool {
     Plan::build_sound(project, project.timeline_fps, FrameRange::ALL)
         .map_or(true, |plan| plan.audio().is_empty())
+}
+
+/// The sound a piece carries, given whether its cut has any (`audible`) and
+/// what its render reported: the render's mix, or silence as long as its
+/// picture at the render's `rate` and `fps`.
+pub(super) fn sound(audible: bool, report: &RenderReport, (rate, fps): (SampleRate, Fps)) -> Sound {
+    match (audible, report.seconds_of_audio) {
+        (false, _) => Sound::Absent,
+        (true, Some(_)) => Sound::Mixed,
+        (true, None) => {
+            let samples = u128::from(report.frames) * u128::from(rate.hz()) * u128::from(fps.den())
+                / u128::from(fps.num()).max(1);
+            Sound::Silent(rate, u64::try_from(samples).unwrap_or(u64::MAX))
+        }
+    }
 }
 
 /// The preview to render `project` as at `quality`: its proxies, where the

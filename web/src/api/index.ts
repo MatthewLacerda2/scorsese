@@ -180,15 +180,11 @@ export const api = {
     /**
      * The editor's preview video (#542): the cut at a preview quality of the
      * delivery size, answered as a render is — made, or on its way. With a
-     * `stream`, one stream of it played in pieces (#1448): a `picture` piece
-     * over `range`, or the whole `sound`, which a cut with nothing to hear
-     * answers with `silent` and neither.
+     * `range`, one piece of it played in pieces (#1448), answered with
+     * `audible` beside: whether every piece of the cut carries sound.
      */
-    preview: (
-      id: number,
-      ask: { resolution: string; quality: string; stream?: "picture" | "sound"; range?: string },
-    ) =>
-      request<{ render: RenderView | null; job: JobView | null; silent?: boolean }>(
+    preview: (id: number, ask: { resolution: string; quality: string; range?: string }) =>
+      request<{ render: RenderView | null; job: JobView | null; audible?: boolean }>(
         "POST",
         `/projects/${id}/previews`,
         ask,

@@ -13,7 +13,6 @@ use axum::http::header::CONTENT_DISPOSITION;
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::Response;
 use futures_util::StreamExt;
-use scorsese_render::preview::Stream;
 use scorsese_render::{Budget, Resolution};
 use serde_json::{Value, json};
 
@@ -62,9 +61,10 @@ async fn frame_size(
 /// the same shape as a render — at the project's own frame, like a render,
 /// when no size is asked for.
 ///
-/// Or one stream of it played in pieces (#1448): a picture piece over a
-/// range, or the whole timeline's sound — which a cut with nothing to hear
-/// answers at once, `200` with `silent: true` and neither a render nor a job.
+/// Or one piece of it played in pieces (#1448), when a range is asked for —
+/// answered with `audible` beside, whether the cut has anything to hear and
+/// so whether every piece of it carries sound, which the player must know
+/// before the first piece lands.
 pub async fn preview(
     State(state): State<AppState>,
     member: Member,
@@ -75,13 +75,13 @@ pub async fn preview(
         ask.resolution = frame_size(&state, &member, id).await?;
     }
     let settings = Settings::from_preview(&ask).map_err(ApiError::BadRequest)?;
-    if settings.stream().map_err(ApiError::BadRequest)? == Some(Stream::Sound)
-        && renders::silent(&projects::open(&state.pool, member.user, id).await?.document)
-    {
-        let silent = json!({ "render": null, "job": null, "silent": true });
-        return Ok((StatusCode::OK, Json(silent)));
+    let piece = settings.piece();
+    let (status, Json(mut answered)) = answer(&state, &member, id, settings).await?;
+    if piece {
+        let stored = projects::open(&state.pool, member.user, id).await?;
+        answered["audible"] = json!(!renders::silent(&stored.document));
     }
-    answer(&state, &member, id, settings).await
+    Ok((status, Json(answered)))
 }
 
 /// Kept (`200`) or on its way (`202`): one answer for both routes.

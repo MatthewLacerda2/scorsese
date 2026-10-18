@@ -5,7 +5,6 @@
 //! and hashed into its key, so `{}` and `{"container": "mp4"}` are one render.
 
 use scorsese_core::{Project, Ratio, hash_bytes};
-use scorsese_render::preview::Stream;
 use scorsese_render::{
     Bands, FrameRange, LoudnessTarget, OutputFormat, Quality, RenderAsk, RenderSettings,
     Resolution, Spelled,
@@ -84,12 +83,6 @@ pub struct Settings {
     /// render's key is what it was before previews existed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
-    /// Which stream of a preview played in pieces this is (#1448) —
-    /// `picture` or `sound`, fragmented for the browser to append — or `None`
-    /// for a preview played whole and for every finished render. Left out of
-    /// the stored form when absent, so every key made before pieces is kept.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stream: Option<String>,
     /// Whether an ungenerated narration line draws its slug band. Left out of
     /// the stored form when it does, the default — so every render asked for
     /// before the choice existed keeps its key, and is not rendered again.
@@ -125,14 +118,9 @@ pub struct PreviewAsk {
     /// `full`, `half` or `quarter`; defaults to half.
     #[serde(default)]
     pub quality: Option<String>,
-    /// `picture` or `sound` for one stream of a preview played in pieces
-    /// (#1448), fragmented for Media Source Extensions; left out, the cut is
-    /// one ordinary file played whole.
-    #[serde(default)]
-    pub stream: Option<String>,
-    /// The frames a `picture` piece covers, as a render's range is written:
-    /// `150:300`, or `300:` to the end. Only a picture piece takes one; the
-    /// sound is always the whole timeline's, so pieces never join mid-sound.
+    /// The frames of one **piece** of a preview played in pieces (#1448), as
+    /// a render's range is written: `150:300`, or `300:` to the end. Left
+    /// out, the cut is one ordinary file played whole.
     #[serde(default)]
     pub range: Option<String>,
 }
@@ -164,7 +152,6 @@ impl Settings {
             fps: ask.fps.map(|fps| fps.to_string()),
             range: range.map(|range| range.to_string()),
             preview: None,
-            stream: None,
             narration_bands: ask.bands == Bands::Drawn,
             loudness: ask.loudness.map(LoudnessTarget::lufs),
         })
@@ -172,45 +159,30 @@ impl Settings {
 
     /// What a preview request means: an mp4 at the quality's fraction of the
     /// delivery size, marked as a preview so it is keyed, queued and listed
-    /// apart from finished renders. One stream of a preview played in pieces
-    /// is marked with it too: a picture piece over its range, or the whole
-    /// timeline's sound as m4a — at full quality whatever was asked, since a
-    /// quality draws pixels and the sound has none, so changing the quality
-    /// keeps the sound already made.
+    /// apart from finished renders.
+    ///
+    /// A **piece** (a range asked for, #1448) is rendered as H.264 with plain
+    /// PCM sound — avi, the one allowed container that carries both — and
+    /// remuxed by the job into the fragmented MP4 with FLAC sound a browser
+    /// appends ([`scorsese_render::preview::fragment`]): PCM so the sound
+    /// reaches FLAC with nothing lost and no encoder priming at its head.
     pub fn from_preview(ask: &PreviewAsk) -> Result<Self, String> {
         let quality = match &ask.quality {
             Some(name) => name.parse::<Quality>().map_err(|e| e.to_string())?,
             None => Quality::default(),
         };
-        let stream = ask
-            .stream
-            .as_deref()
-            .map(str::parse::<Stream>)
-            .transpose()
-            .map_err(|e| format!("stream: {e}"))?;
-        if ask.range.is_some() && stream != Some(Stream::Picture) {
-            return Err("range: only a picture piece (stream: picture) takes a range".to_owned());
-        }
-        if stream == Some(Stream::Sound) {
-            return Ok(Self {
-                preview: Some(Quality::Full.name().to_owned()),
-                stream: Some(Stream::Sound.name().to_owned()),
-                ..Self::from_ask(&Ask {
-                    container: Some("m4a".to_owned()),
-                    ..Ask::default()
-                })?
-            });
-        }
         let full = match &ask.resolution {
             Some(text) => text
                 .parse::<Resolution>()
                 .map_err(|e| format!("resolution: {e}"))?,
             None => Resolution::HD,
         };
+        let piece = ask.range.is_some();
         Ok(Self {
             preview: Some(quality.name().to_owned()),
-            stream: stream.map(|stream| stream.name().to_owned()),
             ..Self::from_ask(&Ask {
+                container: piece.then(|| "avi".to_owned()),
+                video_codec: piece.then(|| "h264".to_owned()),
                 resolution: Some(quality.raster(full).to_string()),
                 range: ask.range.clone(),
                 ..Ask::default()
@@ -218,12 +190,10 @@ impl Settings {
         })
     }
 
-    /// Which stream of a preview played in pieces this is, or `None`.
-    pub fn stream(&self) -> Result<Option<Stream>, String> {
-        self.stream
-            .as_deref()
-            .map(|name| name.parse::<Stream>().map_err(|e| e.to_string()))
-            .transpose()
+    /// Whether this is one piece of a preview played in pieces: a preview
+    /// over a range, kept as a fragmented MP4 rather than as rendered.
+    pub fn piece(&self) -> bool {
+        self.preview.is_some() && self.range.is_some()
     }
 
     /// The quality this preview is drawn at, or `None` for a finished render.
@@ -260,14 +230,15 @@ impl Settings {
         self.range.as_deref().map_or(Ok(FrameRange::ALL), frames)
     }
 
-    /// The delivered file's extension: the container's name (`docs/output-formats.md`).
+    /// The delivered file's extension: the container's name
+    /// (`docs/output-formats.md`), or `mp4` for a piece, which is remuxed.
     pub fn extension(&self) -> &str {
-        &self.container
+        if self.piece() { "mp4" } else { &self.container }
     }
 
     /// The delivered file's `Content-Type`.
     pub fn content_type(&self) -> &'static str {
-        match self.container.as_str() {
+        match self.extension() {
             "mp4" => "video/mp4",
             "mkv" => "video/x-matroska",
             "avi" => "video/x-msvideo",

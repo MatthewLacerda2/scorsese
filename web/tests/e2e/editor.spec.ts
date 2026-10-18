@@ -33,10 +33,10 @@ test("an uploaded file reaches the library, the assets, the timeline and the pre
   const clip = page.getByRole("button", { name: /still/ }).and(page.locator("[data-made]"));
   await expect(clip).toBeVisible();
 
-  // The server draws the frame under the playhead: a still, or the preview
-  // video once it is ready — either way a picture with pixels in it, not a
-  // broken image the right size.
-  const frame = page.getByAltText("The frame under the playhead").or(page.locator("video"));
+  // The server draws the frame under the playhead: a still until play is
+  // pressed (#1448), then the video — either way a picture with pixels in
+  // it, not a broken image the right size. The video waits hidden till then.
+  const frame = page.getByAltText("The frame under the playhead").or(page.locator("video:visible"));
   const pixels = () =>
     frame.evaluate((shown) =>
       shown instanceof HTMLImageElement

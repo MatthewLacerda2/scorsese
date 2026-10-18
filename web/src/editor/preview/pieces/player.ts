@@ -1,15 +1,15 @@
 // A preview played in pieces (#1448), the way a video site plays a video:
-// a few seconds of picture at a time from the playhead forward, each
-// playable the moment it lands, beside the whole timeline's sound.
+// a few seconds at a time from the playhead forward, each playable the
+// moment it lands.
 //
 // **Media Source Extensions, not a playlist.** The server renders each
-// piece as a fragmented MP4 of its one stream (`scorsese_render::preview::
-// fragment`), and this appends them to a `MediaSource` the video element
-// plays: picture pieces to one buffer, each placed at its own time on the
-// timeline, and the sound — one file, mixed once, so no join can click — to
-// another. A growing HLS playlist would have needed a playlist route, a
-// segment naming scheme and, outside Safari, a player library, for the same
-// fragmented files; MSE needs none of that.
+// piece as a fragmented MP4 — picture, and FLAC sound whenever the cut has
+// any (`scorsese_render::preview::fragment`) — and this appends them to one
+// buffer of a `MediaSource` the video element plays, each placed at its own
+// time on the timeline. FLAC has no encoder priming, so the sound runs on
+// across every join without a click. A growing HLS playlist would have
+// needed a playlist route, a segment naming scheme and, outside Safari, a
+// player library, for the same fragmented files; MSE needs none of that.
 //
 // One piece is asked for at a time, the next one missing from the playhead
 // forward (`plan.ts`): previews render one at a time on the server, so asking
@@ -22,23 +22,24 @@ import type { JobView } from "@/api/events";
 import { toFrames, toSeconds } from "../../timeline/time";
 import { aheadFor, nextPiece, type Piece, pieceLength, stillLoaded } from "./plan";
 
-/** What asking for one stream answers: made, on its way, or — for the sound — none to hear. */
+/** What asking for a piece answers: made or on its way, and whether the cut has sound. */
 export interface Asked {
   render: RenderView | null;
   job: JobView | null;
-  silent?: boolean;
+  /** Whether every piece of this cut carries sound — known before the first is made. */
+  audible?: boolean;
 }
 
-/** How the player reaches the server: `ask` for a stream, fetch its `bytes`, `cancel` a job. */
+/** How the player reaches the server: `ask` for a piece, fetch its `bytes`, `cancel` a job. */
 export interface Server {
-  ask: (stream: "picture" | "sound", range?: string) => Promise<Asked>;
+  ask: (range: string) => Promise<Asked>;
   bytes: (render: RenderView) => Promise<ArrayBuffer>;
   cancel: (job: number) => void;
 }
 
-/** The codecs every piece is in: H.264 picture, AAC sound. A browser checks the family, not the level. */
-const PICTURE = 'video/mp4; codecs="avc1.640028"';
-const SOUND = 'audio/mp4; codecs="mp4a.40.2"';
+/** The codecs a piece is in: H.264 picture, and FLAC sound when the cut has any. A browser checks the family, not the level. */
+const WITH_SOUND = 'video/mp4; codecs="avc1.640028,flac"';
+const PICTURE_ONLY = 'video/mp4; codecs="avc1.640028"';
 
 /** How often a piece on its way is asked about, in case no event arrives. */
 const POLL_MS = 2000;
@@ -48,7 +49,11 @@ const ATTEMPTS = 3;
 
 /** Whether this browser can play a preview in pieces at all. */
 export function canPlayPieces(): boolean {
-  return typeof MediaSource !== "undefined" && MediaSource.isTypeSupported(PICTURE);
+  return (
+    typeof MediaSource !== "undefined" &&
+    MediaSource.isTypeSupported(PICTURE_ONLY) &&
+    MediaSource.isTypeSupported(WITH_SOUND)
+  );
 }
 
 /** The buffered stretches of `element`, as `[start, end]` seconds. */
@@ -63,7 +68,8 @@ class Dropped extends Error {}
 export class PiecePlayer {
   private readonly source = new MediaSource();
   readonly url = URL.createObjectURL(this.source);
-  private picture: SourceBuffer | null = null;
+  private buffer: SourceBuffer | null = null;
+  private audible: boolean | null = null;
   private readonly opened: Promise<void>;
   private had = new Set<number>();
   private asking: { piece: Piece; job: number | null; dropped: boolean } | null = null;
@@ -128,19 +134,19 @@ export class PiecePlayer {
     URL.revokeObjectURL(this.url);
   }
 
-  /** The sound first — the buffers are made once it is known whether there is any. */
   private async open() {
     await new Promise((opened) =>
       this.source.addEventListener("sourceopen", opened, { once: true }),
     );
-    const sound = await this.fetched(
-      () => this.server.ask("sound"),
-      () => this.gone,
-    );
-    if (this.gone) return;
-    this.picture = this.source.addSourceBuffer(PICTURE);
-    if (sound !== "silent") await this.append(this.source.addSourceBuffer(SOUND), sound, 0);
-    this.source.duration = toSeconds(this.total, this.fps);
+  }
+
+  /** The one buffer, made on the first piece, once the server has said whether the cut has sound. */
+  private bufferFor(audible: boolean): SourceBuffer {
+    if (!this.buffer) {
+      this.buffer = this.source.addSourceBuffer(audible ? WITH_SOUND : PICTURE_ONLY);
+      this.source.duration = toSeconds(this.total, this.fps);
+    }
+    return this.buffer;
   }
 
   /** The next piece wanted from the playhead, counting only what is still loaded. */
@@ -157,7 +163,7 @@ export class PiecePlayer {
     const asking = { piece, job: null as number | null, dropped: false };
     this.asking = asking;
     const began = performance.now();
-    const ask = () => this.server.ask("picture", piece.range);
+    const ask = () => this.server.ask(piece.range);
     void this.fetched(
       ask,
       () => asking.dropped || this.gone,
@@ -165,8 +171,8 @@ export class PiecePlayer {
     )
       .then(async (bytes) => {
         await this.opened;
-        if (asking.dropped || this.gone || !this.picture || bytes === "silent") return;
-        await this.append(this.picture, bytes, toSeconds(piece.start, this.fps));
+        if (asking.dropped || this.gone || this.audible === null) return;
+        await this.append(this.bufferFor(this.audible), bytes, toSeconds(piece.start, this.fps));
         this.had.add(piece.index);
         this.lastTook = (performance.now() - began) / 1000;
       })
@@ -191,19 +197,19 @@ export class PiecePlayer {
   }
 
   /**
-   * The bytes of one stream, once the server has made them — asking again as
-   * its job moves — or `silent`. Throws `Dropped` once `dropped()` says so.
+   * The bytes of one piece, once the server has made them — asking again as
+   * its job moves. Throws `Dropped` once `dropped()` says so.
    */
   private async fetched(
     ask: () => Promise<Asked>,
     dropped: () => boolean,
     onJob: (job: number) => void = () => {},
-  ): Promise<ArrayBuffer | "silent"> {
+  ): Promise<ArrayBuffer> {
     const jobs = new Set<number>();
     for (;;) {
       const asked = await ask();
       if (dropped()) throw new Dropped();
-      if (asked.silent) return "silent";
+      if (asked.audible !== undefined) this.audible ??= asked.audible;
       if (asked.render) return this.server.bytes(asked.render);
       if (!asked.job) throw new Error("preview piece: no render and no job");
       jobs.add(asked.job.id);
