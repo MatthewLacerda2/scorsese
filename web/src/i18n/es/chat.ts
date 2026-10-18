@@ -37,7 +37,10 @@ export const chat: Messages["chat"] = {
     save: "Guardar",
     cancel: "Cancelar",
     moved:
-      "El asistente cambió el guion mientras editabas, así que el tuyo no se guardó. Aquí está como quedó.",
+      "El asistente cambió el guion mientras editabas, así que el tuyo no se guardó. Aquí está como quedó, con tu versión debajo para copiar.",
+    yours: "Tu versión, sin guardar",
+    changed:
+      "El asistente acaba de cambiar el guion. Guardar no lo sobrescribe: tu versión queda a su lado para copiar.",
     conflict: "El proyecto está cambiando ahora mismo; intenta guardar de nuevo en un momento.",
     close: "Cerrar",
     failed: "No se pudo guardar el guion.",

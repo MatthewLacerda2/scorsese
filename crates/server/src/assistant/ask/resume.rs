@@ -1,9 +1,10 @@
 //! What resuming a paused turn needs, read under the lock its answer holds:
 //! shared by the answer to a question and the answer to a quote (#1440).
 
-use scorsese_providers::chat::{self, Effort, Model};
+use scorsese_providers::chat::{self, Effort, Model, Part, ResultPart};
 
 use crate::assistant::AssistantError;
+use crate::assistant::prompt::SCRIPT_REWRITTEN;
 use crate::assistant::store::asking::Paused;
 use crate::assistant::store::turns::history;
 use crate::assistant::turn::Running;
@@ -52,4 +53,29 @@ pub(in crate::assistant) async fn resuming(
         answer: None,
         compacting: None,
     })
+}
+
+/// The result a paused turn resumes with, carrying the note that the person
+/// rewrote the script while it waited when `told` (#1488): the turn may have
+/// read it before it paused.
+pub(in crate::assistant) fn noted(result: Part, told: bool) -> Part {
+    match result {
+        Part::Result {
+            call,
+            name,
+            mut content,
+            is_error,
+        } if told => {
+            content.push(ResultPart::Text {
+                text: SCRIPT_REWRITTEN.to_owned(),
+            });
+            Part::Result {
+                call,
+                name,
+                content,
+                is_error,
+            }
+        }
+        other => other,
+    }
 }

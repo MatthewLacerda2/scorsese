@@ -5,10 +5,10 @@
 
 use scorsese_providers::chat::Message;
 
-use super::resume::resuming;
+use super::resume::{noted, resuming};
 use super::{answered, is_ours, pick};
 use crate::assistant::AssistantError;
-use crate::assistant::store::{QuestionView, TurnView, asking, view};
+use crate::assistant::store::{QuestionView, TurnView, asking, hands, view};
 use crate::assistant::turn::{self, Resumed};
 use crate::credits::{dollars, ledger};
 use crate::db::{self, UserId};
@@ -98,6 +98,7 @@ pub async fn answer(
         picked: keys,
         ..question.clone()
     };
+    let told = hands::told_resuming(&mut tx, paused.project, id).await?;
     let view = asking::resumed(&mut tx, id, &settled).await?;
     tx.commit().await?;
 
@@ -121,7 +122,7 @@ pub async fn answer(
             answered(&call, words.as_deref().unwrap_or_default())
         };
         running.answer = Some(Resumed::Next(Message::User {
-            content: vec![result],
+            content: vec![noted(result, told)],
         }));
         turn::run(state, running).await;
     });

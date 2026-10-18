@@ -237,9 +237,10 @@ pub(super) fn about(project: i64, name: &str, scripted: bool) -> String {
 }
 
 /// What the next turn is told when the person rewrote the script by hand
-/// from the editor's Script button (#1445) since the last one began.
-pub(super) const SCRIPT_REWRITTEN: &str = "The person edited the script themselves since your \
-     last turn. Read it again with script_read before relying on what you remember of it; \
+/// from the editor's Script button (#1445) since the last one began — or a
+/// paused turn, as it resumes, when they rewrote it while it waited (#1488).
+pub(in crate::assistant) const SCRIPT_REWRITTEN: &str = "The person edited the script \
+     themselves since you last heard from them. Read it again with script_read before relying on what you remember of it; \
      their version is the one to build from.";
 
 /// What the model is told when the person changes what the project is made

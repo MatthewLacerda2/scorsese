@@ -141,3 +141,21 @@ pub(super) async fn end(pool: &PgPool, user: UserId, id: i64, outcome: Result<&R
         eprintln!("scorsese-server: could not record how tool call {id} ended: {error}");
     }
 }
+
+/// Record that call `id` saved the project as `revision` (#1488): what tells
+/// an edit that changed something from one that left it as it was. Like
+/// [`end`], a failure to record is logged and swallowed.
+pub(super) async fn saved(pool: &PgPool, user: UserId, id: i64, revision: i64) {
+    let written = async {
+        let mut tx = db::scoped(pool, user).await?;
+        sqlx::query("UPDATE tool_calls SET saved_revision = $2 WHERE id = $1")
+            .bind(id)
+            .bind(revision)
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await
+    };
+    if let Err(error) = written.await {
+        eprintln!("scorsese-server: could not record what tool call {id} saved: {error}");
+    }
+}
