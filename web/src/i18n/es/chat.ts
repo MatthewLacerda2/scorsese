@@ -12,7 +12,8 @@ export const chat: Messages["chat"] = {
     capped:
       "Detenido: este turno llegó a lo máximo que puede gastar un turno, o se acabó tu saldo.",
     stopped: "Detenido, como pediste.",
-    failed: "Este turno falló.",
+    failed:
+      "Este turno falló. Si sigue fallando, empieza una conversación nueva: continúa con el proyecto tal como está.",
     interrupted: "El servidor se reinició mientras este turno se ejecutaba.",
   },
   problem: {

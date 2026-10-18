@@ -177,7 +177,7 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
         };
         let (reply, latency) = ask(state, turn, request).await.map_err(|error| {
             eprintln!("scorsese-server: assistant: turn {}: {error}", turn.turn);
-            format!("The assistant could not be reached: {error}")
+            super::failure::unreached(&error)
         })?;
         let charge = Charge {
             turn: turn.turn,
@@ -259,10 +259,11 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
                 ));
             }
             Stop::Other(reason) => {
-                return Ok(End::Over(
-                    "failed",
-                    format!("The reply stopped early ({reason})."),
-                ));
+                eprintln!(
+                    "scorsese-server: assistant: turn {}: stopped: {reason}",
+                    turn.turn
+                );
+                return Ok(End::Over("failed", super::failure::stopped(reason)));
             }
         }
     }

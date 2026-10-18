@@ -29,7 +29,8 @@ fn on(model: Model) -> Kept {
                 name: "icons".into(),
                 content: vec![
                     ResultPart::Text { text: "two".into() },
-                    ResultPart::Png {
+                    ResultPart::Image {
+                        media_type: "image/png".into(),
                         data: "UE5H".into(),
                     },
                 ],

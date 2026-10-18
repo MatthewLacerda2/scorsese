@@ -80,11 +80,21 @@ pub enum ResultPart {
         /// The words.
         text: String,
     },
-    /// A PNG, base64-encoded.
-    Png {
+    /// A picture, base64-encoded. Stored as `png` before #1435, when every
+    /// picture was one; such a row still reads, as the PNG it is.
+    #[serde(alias = "png")]
+    Image {
+        /// What the bytes are, e.g. `image/jpeg`.
+        #[serde(default = "png")]
+        media_type: String,
         /// The bytes, base64.
         data: String,
     },
+}
+
+/// The media type of a picture stored before it named one.
+fn png() -> String {
+    "image/png".to_owned()
 }
 
 /// A tool call out of a reply, for running it.

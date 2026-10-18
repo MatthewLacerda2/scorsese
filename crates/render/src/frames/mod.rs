@@ -14,6 +14,7 @@
 //! diff — which is what makes the golden harness a caller of this rather than
 //! the owner of it.
 
+mod shrunk;
 mod stills;
 mod thumbnail;
 
@@ -26,6 +27,7 @@ use scorsese_compositor::{Frame, PIXEL_FORMAT};
 use crate::settings::Resolution;
 use crate::tools::Tools;
 
+pub use shrunk::{JPEG, MODEL_EDGE, for_a_model};
 pub use stills::{Still, stills};
 pub use thumbnail::{THUMBNAIL_SIZE, Thumbnail, thumbnail};
 

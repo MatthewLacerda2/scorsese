@@ -99,7 +99,7 @@ fn a_tool_result_carries_words_and_pictures_and_says_when_it_refused() {
             ResultPart::Text {
                 text: "frame at 2s".into(),
             },
-            ResultPart::png("iVBORw0KGgo="),
+            ResultPart::image("image/jpeg", "/9j/4AAQ"),
         ],
         is_error: false,
     };
@@ -125,8 +125,8 @@ fn a_tool_result_carries_words_and_pictures_and_says_when_it_refused() {
         json!({"role": "user", "content": [
             {"type": "tool_result", "tool_use_id": "toolu_1", "content": [
                 {"type": "text", "text": "frame at 2s"},
-                {"type": "image", "source": {"type": "base64", "media_type": "image/png",
-                                             "data": "iVBORw0KGgo="}}]},
+                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                             "data": "/9j/4AAQ"}}]},
             {"type": "tool_result", "tool_use_id": "toolu_2", "is_error": true,
              "content": [{"type": "text", "text": "no such clip"}]}]})
     );

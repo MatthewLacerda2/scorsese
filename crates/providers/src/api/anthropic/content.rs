@@ -90,12 +90,12 @@ pub enum Base64 {
 }
 
 impl ResultPart {
-    /// A PNG, already base64-encoded.
-    pub fn png(data: impl Into<String>) -> Self {
+    /// A picture of `media_type` (e.g. `image/jpeg`), already base64-encoded.
+    pub fn image(media_type: impl Into<String>, data: impl Into<String>) -> Self {
         Self::Image {
             source: ImageSource {
                 kind: Base64::Base64,
-                media_type: "image/png".to_owned(),
+                media_type: media_type.into(),
                 data: data.into(),
             },
         }

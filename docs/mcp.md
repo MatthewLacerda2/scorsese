@@ -1287,6 +1287,16 @@ this server sends, so what looking costs is what decides how often anything gets
 verified, and an assistant that checks one section of six and reports on all six
 is wrong without erroring.
 
+**At most ten pictures a reply** (#1435), so a list of more than ten instants
+is refused with a sentence saying to split it, and the schema says so
+(`maxItems`). Every picture stays in a conversation's history and is sent again
+with each later turn, and the web assistant's conversation once reached the
+vendor's request-size limit that way. `look`, `hear` and `stock_search` answer
+with one picture each. The web's built-in assistant is sent each picture as a
+JPEG no longer than 1568 pixels on its long edge, the size the model reads
+anyway; a local client gets the PNG, and a `still` kept with `out` is always
+the PNG.
+
 **`sheet: true` answers the list with one picture** — a contact sheet, the
 shape `look` gives a video file, by the same tiling:
 
