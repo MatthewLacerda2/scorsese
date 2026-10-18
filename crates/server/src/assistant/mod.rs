@@ -137,11 +137,11 @@ mod quote;
 mod relay;
 mod retarget;
 mod start;
+mod stopping;
 mod store;
 mod turn;
 
-use std::collections::HashSet;
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::Arc;
 
 use scorsese_providers::chat::{self, Chat, Effort, Model};
 use scorsese_providers::credentials::resolve;
@@ -182,7 +182,7 @@ pub const DEFAULT_EFFORT: Effort = Effort::High;
 pub struct Assistant {
     connect: Connect,
     baseline_micros: i64,
-    stopping: Arc<Mutex<HashSet<i64>>>,
+    stopping: stopping::Stopping,
 }
 
 /// Where a model's client comes from.
@@ -237,7 +237,7 @@ impl Assistant {
         Self {
             connect: Connect::Environment,
             baseline_micros,
-            stopping: Arc::default(),
+            stopping: stopping::Stopping::default(),
         }
     }
 
@@ -263,9 +263,10 @@ impl Assistant {
         })
     }
 
-    /// Ask turn `turn` to stop before its next step.
+    /// Ask turn `turn` to stop before its next step, and stop the tool call
+    /// it is running (#1469).
     pub fn stop(&self, turn: i64) {
-        self.stopping().insert(turn);
+        self.stopping.ask(turn);
     }
 
     /// The client a turn on `model` talks to, or why there is none — in the
@@ -306,10 +307,6 @@ impl Assistant {
 
     /// Whether `turn` was asked to stop; forgets the ask.
     fn stop_requested(&self, turn: i64) -> bool {
-        self.stopping().remove(&turn)
-    }
-
-    fn stopping(&self) -> std::sync::MutexGuard<'_, HashSet<i64>> {
-        self.stopping.lock().unwrap_or_else(PoisonError::into_inner)
+        self.stopping.requested(turn)
     }
 }

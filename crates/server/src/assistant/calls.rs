@@ -63,10 +63,13 @@ pub(super) async fn run(state: &AppState, user: UserId, turn: i64, call: &Call) 
             .refuse(user, client, &call.name, &call.input, why)
             .await
     } else {
+        // A Stop asked for while it runs stops it too (#1469).
+        let calling = state.assistant.stopping.calling(turn);
         let (id, outcome) = state
             .tools
-            .recorded(user, client, &call.name, &call.input)
+            .recorded(user, client, &call.name, &call.input, &calling.cancel)
             .await;
+        drop(calling);
         match (id, outcome) {
             (Some(id), Ok(reply)) => {
                 let (reply, held) = held(state, user, turn, (id, call), reply).await;
