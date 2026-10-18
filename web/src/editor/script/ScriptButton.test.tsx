@@ -42,6 +42,7 @@ beforeAll(() => {
     return Response.json(project());
   });
   globalThis.EventSource = class {
+    onmessage?: (message: { data: string }) => void;
     constructor() {
       stream = this;
     }
