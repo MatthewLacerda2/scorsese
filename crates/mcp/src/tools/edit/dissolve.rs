@@ -1,8 +1,9 @@
 //! Dissolving one shot into the next.
 
 use schemars::JsonSchema;
-use scorsese_core::{ClipId, Frames};
+use scorsese_core::{ClipId, Frames, Project};
 use scorsese_render::dissolve;
+use scorsese_render::picture::path::OPACITY;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -45,7 +46,9 @@ impl Tool for Dissolve {
          editable afterwards. Two clips on one track may not overlap and a \
          crossover needs them to, so the incoming clip is MOVED to a track above \
          and pulled back over the outgoing one; the reply says what that \
-         rearranged. The clips must currently meet at a cut and each must be at \
+         rearranged. Each clip carries one opacity track, so a fade already on \
+         either is replaced by the dissolve's, and the reply names it. The \
+         clips must currently meet at a cut and each must be at \
          least as long as the crossover, or nothing is changed at all."
     }
 
@@ -65,6 +68,7 @@ impl Tool for Dissolve {
 
         let seconds = arguments.seconds.unwrap_or(0.5);
         let duration = Frames::span(seconds, project.timeline_fps.as_f64());
+        let faded = [from, to].map(|clip| (clip, opacity_points(&project, clip)));
         let placed = dissolve(&mut project, &ClipId::new(from), &ClipId::new(to), duration)
             .map_err(|error| format!("{error} — nothing was changed"))?;
         save(&project, dir)?;
@@ -73,11 +77,42 @@ impl Tool for Dissolve {
         Ok(format!(
             "`{from}` dissolves into `{to}` over {} frames — ordinary opacity \
              keyframes, editable and deletable. `{to}` moved to track `{}`{made} \
-             and now starts {} frames earlier.",
+             and now starts {} frames earlier.{}",
             duration.get(),
             placed.track,
-            placed.pulled_back
+            placed.pulled_back,
+            replaced(&faded)
         )
         .into())
     }
+}
+
+/// How many opacity points `clip` carried before the dissolve took its
+/// opacity over — zero when it was not animating opacity at all.
+fn opacity_points(project: &Project, clip: &str) -> usize {
+    project.clip(&ClipId::new(clip)).map_or(0, |found| {
+        found
+            .keyframes
+            .iter()
+            .filter(|track| track.property.as_str() == OPACITY)
+            .map(|track| track.keyframes.len())
+            .sum()
+    })
+}
+
+/// The opacity the dissolve displaced, said because it is gone: a clip carries
+/// one opacity track (#1099), so a fade written on it before is replaced.
+fn replaced(faded: &[(&str, usize)]) -> String {
+    let each: Vec<String> = faded
+        .iter()
+        .filter(|(_, points)| *points > 0)
+        .map(|(clip, points)| format!("`{clip}` ({points} point(s))"))
+        .collect();
+    if each.is_empty() {
+        return String::new();
+    }
+    format!(
+        " It replaced the opacity keyframes already on {}.",
+        each.join(" and ")
+    )
 }

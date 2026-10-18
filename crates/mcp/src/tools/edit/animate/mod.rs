@@ -78,10 +78,12 @@ impl Tool for ClipAnimate {
          seconds from the clip's start and with easing by name. Opacity, position, \
          scale, a shape drawing itself on, a caption revealing, a glow pulsing: \
          any path in the animatable table. \
-         It replaces that one property's keyframes on the clip, whoever wrote them, \
-         and leaves every other property's alone; `keyframes: []` removes the \
-         property's animation. On `volume` it replaces only the hand-written \
-         keyframes: a dip duck_music wrote stays and multiplies with them. The table is in `guide project-format`, and a pair \
+         A clip carries one track per property, so this replaces that property's \
+         keyframes on the clip, whoever wrote them, and leaves every other \
+         property's alone; `keyframes: []` removes the property's animation. \
+         `volume` is the one exception, because its tracks multiply: there it \
+         replaces only the hand-written keyframes, and a dip duck_music wrote \
+         stays and multiplies with them. The table is in `guide project-format`, and a pair \
          stem such as `transform.scale` writes both its `.x` and `.y` with the same \
          keyframes. clip_set's position, \
          rotation and scale flatten what this wrote, and this replaces what they \

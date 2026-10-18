@@ -17,6 +17,7 @@ mod composing;
 mod counting;
 mod dashing;
 mod delivering;
+mod dissolving;
 mod drumming;
 mod ducked;
 mod ducking;

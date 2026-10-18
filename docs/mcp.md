@@ -967,7 +967,10 @@ incoming clip to a track above.** Two clips on one track may not overlap, and a
 crossover needs them to, so the shot arriving is pulled back over the outgoing
 one and put on a later track — later meaning drawn on top. The reply says which
 track and how far it moved, because that is an edit you did not ask for in so
-many words.
+many words. It also **replaces any opacity keyframes already on either clip**:
+a clip carries one opacity track (#1099), and the dissolve's ramp is that
+track now, so a fade written on either clip before is gone. The reply names
+each clip whose fade it replaced, and how many points went.
 
 It refuses, changing nothing at all, when the two clips do not currently meet
 at a cut, when either is shorter than the crossover, or when the crossover
