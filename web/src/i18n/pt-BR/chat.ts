@@ -36,7 +36,10 @@ export const chat: Messages["chat"] = {
     save: "Salvar",
     cancel: "Cancelar",
     moved:
-      "O assistente mudou o roteiro enquanto você editava, então o seu não foi salvo. Aqui está como ele está agora.",
+      "O assistente mudou o roteiro enquanto você editava, então o seu não foi salvo. Aqui está como ele está agora, com a sua versão abaixo para copiar.",
+    yours: "Sua versão, não salva",
+    changed:
+      "O assistente acabou de mudar o roteiro. Salvar não escreve por cima: a sua versão fica ao lado para copiar.",
     conflict: "O projeto está mudando agora; tente salvar de novo daqui a pouco.",
     close: "Fechar",
     failed: "Não foi possível salvar o roteiro.",

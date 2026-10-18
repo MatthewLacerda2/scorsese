@@ -37,7 +37,10 @@ export const chat = {
     save: "Save",
     cancel: "Cancel",
     moved:
-      "The assistant changed the script while you were editing, so yours was not saved. Here it is as it is now.",
+      "The assistant changed the script while you were editing, so yours was not saved. Here it is as it is now, with your version below to copy from.",
+    yours: "Your version, not saved",
+    changed:
+      "The assistant has just changed the script. Saving won't write over it: your version is kept beside it to copy from.",
     conflict: "The project is changing right now; try saving again in a moment.",
     close: "Close",
     failed: "The script could not be saved.",
