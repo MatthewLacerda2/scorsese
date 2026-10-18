@@ -15,10 +15,12 @@ mod framed;
 mod job;
 mod loudness;
 mod outrun;
+mod pieces;
 mod previews;
 mod progress;
 mod request;
 mod settings;
+mod streams;
 mod superseded;
 
 use std::net::SocketAddr;

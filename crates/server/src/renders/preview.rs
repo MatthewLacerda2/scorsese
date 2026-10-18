@@ -17,6 +17,10 @@
 //! - **Proxies.** A reduced quality reads each heavy video's proxy where one is
 //!   made, and queues the making of any that are missing
 //!   ([`crate::library::proxy`]).
+//! - **Silence said up front.** A preview played in pieces (#1448) asks for
+//!   the timeline's sound beside its picture, and a cut with nothing to hear
+//!   answers that at once ([`silent`]) rather than queueing a render that
+//!   could only fail.
 //! - **One kept per shape.** A new preview replaces the project's earlier ones
 //!   at the same settings: they are of documents the project has moved past.
 //!   A file somebody has open is spared, exactly as eviction spares it.
@@ -24,7 +28,7 @@
 use std::path::Path;
 
 use scorsese_core::Project;
-use scorsese_render::{Preview, Proxies, Quality};
+use scorsese_render::{FrameRange, Plan, Preview, Proxies, Quality};
 
 use super::job::Payload;
 use super::{RenderCache, Settings, key};
@@ -61,6 +65,14 @@ pub(super) async fn outrun(job: &Job, context: &Context) -> bool {
     };
     matches!(payload.settings.quality(), Ok(Some(_)))
         && matches!(moved_on(context, job.user, &payload).await, Ok(true))
+}
+
+/// Whether `project` has nothing to hear: no clip on it puts sound into the
+/// mix, read from what its assets table recorded, exactly as a render plans
+/// its mix.
+pub(crate) fn silent(project: &Project) -> bool {
+    Plan::build_sound(project, project.timeline_fps, FrameRange::ALL)
+        .map_or(true, |plan| plan.audio().is_empty())
 }
 
 /// The preview to render `project` as at `quality`: its proxies, where the

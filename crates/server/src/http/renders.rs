@@ -13,6 +13,7 @@ use axum::http::header::CONTENT_DISPOSITION;
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::Response;
 use futures_util::StreamExt;
+use scorsese_render::preview::Stream;
 use scorsese_render::{Budget, Resolution};
 use serde_json::{Value, json};
 
@@ -22,7 +23,7 @@ use super::error::ApiError;
 use super::ranges;
 use crate::projects;
 use crate::renders::request::{self, AskError, Asked};
-use crate::renders::{Ask, PreviewAsk, RenderView, Settings, store};
+use crate::renders::{self, Ask, PreviewAsk, RenderView, Settings, store};
 
 /// `POST /api/projects/{id}/renders`: the render of the project as it is now,
 /// in the shape asked for — kept (`200`) or on its way (`202`).
@@ -60,6 +61,10 @@ async fn frame_size(
 /// project as it is now (#542) — a render at a preview quality, answered in
 /// the same shape as a render — at the project's own frame, like a render,
 /// when no size is asked for.
+///
+/// Or one stream of it played in pieces (#1448): a picture piece over a
+/// range, or the whole timeline's sound — which a cut with nothing to hear
+/// answers at once, `200` with `silent: true` and neither a render nor a job.
 pub async fn preview(
     State(state): State<AppState>,
     member: Member,
@@ -70,6 +75,12 @@ pub async fn preview(
         ask.resolution = frame_size(&state, &member, id).await?;
     }
     let settings = Settings::from_preview(&ask).map_err(ApiError::BadRequest)?;
+    if settings.stream().map_err(ApiError::BadRequest)? == Some(Stream::Sound)
+        && renders::silent(&projects::open(&state.pool, member.user, id).await?.document)
+    {
+        let silent = json!({ "render": null, "job": null, "silent": true });
+        return Ok((StatusCode::OK, Json(silent)));
+    }
     answer(&state, &member, id, settings).await
 }
 
