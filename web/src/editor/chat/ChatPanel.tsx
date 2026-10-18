@@ -52,11 +52,14 @@ export function ChatPanel({
   projectId,
   full,
   onFull,
+  onBusy,
 }: {
   projectId: number;
   /** Whether the chat has the whole page. */
   full: boolean;
   onFull: (full: boolean) => void;
+  /** Told whether a turn is running — the assistant may be changing the project (#1448). */
+  onBusy?: (busy: boolean) => void;
 }) {
   const t = useT();
   const queryClient = useQueryClient();
@@ -84,6 +87,8 @@ export function ChatPanel({
   });
 
   const current = running(transcript);
+  const busy = current !== null;
+  useEffect(() => onBusy?.(busy), [busy, onBusy]);
   const paused = asking(transcript);
   const scroller = useRef<HTMLDivElement>(null);
   // Follow new text only while the reader is at the bottom; scrolled up, leave them be (#1437).

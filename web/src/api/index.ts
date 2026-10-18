@@ -171,12 +171,24 @@ export const api = {
         settings,
       ),
     list: (id: number) => request<RenderView[]>("GET", `/projects/${id}/renders`),
+    /** A render's file, whole, in memory — a preview piece for the player to append (#1448). */
+    bytes: async (render: RenderView): Promise<ArrayBuffer> => {
+      const response = await fetch(render.file);
+      if (!response.ok) throw new Error(`render ${render.id}: ${response.status}`);
+      return response.arrayBuffer();
+    },
     /**
      * The editor's preview video (#542): the cut at a preview quality of the
-     * delivery size, answered as a render is — made, or on its way.
+     * delivery size, answered as a render is — made, or on its way. With a
+     * `stream`, one stream of it played in pieces (#1448): a `picture` piece
+     * over `range`, or the whole `sound`, which a cut with nothing to hear
+     * answers with `silent` and neither.
      */
-    preview: (id: number, ask: { resolution: string; quality: string }) =>
-      request<{ render: RenderView | null; job: JobView | null }>(
+    preview: (
+      id: number,
+      ask: { resolution: string; quality: string; stream?: "picture" | "sound"; range?: string },
+    ) =>
+      request<{ render: RenderView | null; job: JobView | null; silent?: boolean }>(
         "POST",
         `/projects/${id}/previews`,
         ask,
