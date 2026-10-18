@@ -4,7 +4,8 @@
 // running turn does in between arrives on the event stream and is folded in by
 // `transcript.ts`, which is where the logic lives and is tested. Above it, the
 // model the project's assistant runs on (`ModelPicker.tsx`, #705) and, beside
-// it, how hard it thinks (`EffortPicker.tsx`, #1443), both kept on the project.
+// it, how hard it thinks (`EffortPicker.tsx`, #1443), both kept on the project,
+// then the project's script, read and edited in a modal (`ScriptButton.tsx`, #1445).
 // Beside them, "Full" (#1027): the editor gives the chat the whole page,
 // and this panel draws its column at a readable width. It is the same mounted
 // panel in both modes, so a draft, a running turn or an open picker outlives
@@ -21,6 +22,7 @@ import { queryKeys } from "@/app/queryKeys";
 import { Button } from "@/components/ui/button";
 import { QueryError } from "@/components/ui/query-error";
 import { Textarea } from "@/components/ui/textarea";
+import { ScriptButton } from "@/editor/script/ScriptButton";
 import { useT } from "@/i18n/I18nProvider";
 import { EffortPicker } from "./EffortPicker";
 import { effortOf } from "./effort";
@@ -113,6 +115,7 @@ export function ChatPanel({
           {conversation.data && (
             <EffortPicker projectId={projectId} effort={effortOf(conversation.data.effort)} />
           )}
+          <ScriptButton projectId={projectId} labelled={full} />
           {/* Beside the picker in a narrow sidebar, the icon alone; named either way. */}
           <Button
             size={full ? "sm" : "icon-sm"}

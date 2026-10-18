@@ -24,6 +24,24 @@ export const chat = {
     enter: "Full",
     leave: "Back to the editor",
   },
+  /** The Script button beside the pickers, and its modal (#1445). */
+  script: {
+    open: "Script",
+    hint: "The script the assistant builds your video from",
+    title: "Script",
+    description:
+      "What the assistant builds the video from. Change anything: it reads your version next time.",
+    empty: "No script yet — the assistant writes one when you start a video.",
+    edit: "Edit",
+    write: "Write one",
+    save: "Save",
+    cancel: "Cancel",
+    moved:
+      "The assistant changed the script while you were editing, so yours was not saved. Here it is as it is now.",
+    conflict: "The project is changing right now; try saving again in a moment.",
+    close: "Close",
+    failed: "The script could not be saved.",
+  },
   composer: {
     placeholder: "Ask the assistant… (Enter sends, Shift+Enter for a new line)",
     answerPlaceholder:

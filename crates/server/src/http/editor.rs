@@ -9,7 +9,8 @@
 //! `asset_remove` with the clips that go named (#396),
 //! the preview's frame is `still`, and a selection saved as a template or a
 //! template put in at the playhead is `template_save` or `template_insert`
-//! (#546) — run by
+//! (#546), and the script read or rewritten from the Script button is
+//! `script_read` or `script_write` (#1445) — run by
 //! [`Toolbox::edit`](crate::tools::Toolbox::edit), on the same code the
 //! assistant and web MCP reach, and recorded in `tool_calls` as client
 //! `editor`. So no edit is written twice, once in Rust and again in
@@ -27,7 +28,9 @@
 //! project that has moved on since — the assistant was working, another tab
 //! saved — is `409`: nothing is written, the page reads the project again and
 //! the user sees what is there now. The same rule the projects API keeps
-//! (#534). Adding a library file, looking at a frame and saving a template
+//! (#534) — and a script rewritten by hand names it too, so a script the
+//! assistant wrote meanwhile is never overwritten unseen. Adding a library
+//! file, looking at a frame, reading the script and saving a template
 //! change nothing a drag was computed on, and inserting one is worked out on
 //! the project as the server finds it — where each track lands is `core`'s
 //! rule, not something the user drew — so those take no revision.
@@ -61,11 +64,19 @@ pub const EDITS: &[&str] = &[
     "clip_remove",
     "sequence",
     "project_reframe",
+    "script_write",
 ];
 
 /// The tools that do not: bringing a library file into the assets table,
-/// looking at a frame, saving clips as a template and inserting one.
-pub const UNPINNED: &[&str] = &["import", "still", "template_save", "template_insert"];
+/// looking at a frame, saving clips as a template and inserting one, and
+/// reading the script.
+pub const UNPINNED: &[&str] = &[
+    "import",
+    "still",
+    "template_save",
+    "template_insert",
+    "script_read",
+];
 
 /// `POST /api/projects/{id}/tools/{name}`'s body.
 #[derive(Debug, Deserialize)]

@@ -3,8 +3,8 @@
 use scorsese_providers::chat::{self, Effort, Message};
 
 use super::store::TurnView;
-use super::store::asking;
 use super::store::turns::{self, Beginning, Last};
+use super::store::{asking, hands};
 use super::turn::{self, Running};
 use super::{AssistantError, ask, compact, effort, model, prompt, quote, wake};
 use crate::credits::{dollars, ledger};
@@ -102,6 +102,9 @@ pub async fn start(
             return ask::answer(state, user, last.id, ask::Answering::words(&prompt)).await;
         }
         notes.extend(settle_quote(state, user, &mut tx, &last).await?);
+        if hands::rewrote_script(&mut tx, project, last.id).await? {
+            notes.push(prompt::SCRIPT_REWRITTEN.into());
+        }
     }
     match wake::told(&mut tx, session, opening.woken).await? {
         Some((note, marker)) => {
