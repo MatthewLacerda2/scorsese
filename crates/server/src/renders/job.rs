@@ -24,6 +24,12 @@
 //! `cancelled` too: nobody is waiting for it, so it is never shown as failed
 //! (#1439) — though why it ended is still logged, as every failure is.
 //!
+//! **Pieces** (#1448). A preview played in pieces asks for one stream at a
+//! time — a few seconds of picture, or the whole timeline's sound — and the
+//! render is made exactly as any other, then that stream alone is copied out
+//! of it into a fragmented MP4 ([`scorsese_render::preview::fragment`]),
+//! which is the file kept.
+//!
 //! **Progress.** Its [`Context::progress`] goes to the renderer beside the
 //! cancel, and the worker tells the owner how far it has got (#698).
 //!
@@ -42,12 +48,14 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use scorsese_core::Project;
+use scorsese_render::preview::{Stream, fragment};
 use scorsese_render::{
     Cancel, FrameRange, Preview, Progress, RenderError, RenderSettings, Renderer, Tools,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+use super::scratch::Scratch;
 use super::{RenderCache, RenderView, Settings, evict, preview, store};
 use crate::captures::dispatch::Pages;
 use crate::db::{self, Says, UserId};
@@ -159,6 +167,7 @@ async fn render(
         settings,
         range,
         preview: previewing,
+        stream: payload.settings.stream()?,
         cancel: context.cancel().clone(),
         progress: context.progress().clone(),
     };
@@ -245,6 +254,9 @@ struct Drawn {
     /// The frames asked for: the whole timeline unless a range was (#1070).
     range: FrameRange,
     preview: Option<Preview>,
+    /// The one stream a preview played in pieces keeps (#1448), copied out
+    /// of the render into a file the browser appends; `None` keeps the file.
+    stream: Option<Stream>,
     cancel: Cancel,
     progress: Progress,
 }
@@ -317,9 +329,16 @@ fn produce(
             None => (renderer, captured.failed),
         }
     };
+    let rendered = match drawn.stream {
+        Some(_) => out.with_file_name("whole.mp4"),
+        None => out.to_owned(),
+    };
     let report = renderer
-        .render(project, laid.root(), drawn.range, out)
+        .render(project, laid.root(), drawn.range, &rendered)
         .map_err(rendering)?;
+    if let Some(stream) = drawn.stream {
+        fragment(tools, &rendered, stream, out, &drawn.cancel).map_err(rendering)?;
+    }
     Ok(super::said::said(report, project, laid.root(), &failed))
 }
 
@@ -371,22 +390,5 @@ fn gone_or(error: sqlx::Error) -> String {
         "the project was deleted before its render finished".to_owned()
     } else {
         database(error)
-    }
-}
-
-/// A job's scratch folder: emptied when the job starts — a recovered job
-/// begins again from nothing — and removed when it ends, however it ends.
-struct Scratch(PathBuf);
-
-impl Scratch {
-    fn new(path: PathBuf) -> Self {
-        let _ = std::fs::remove_dir_all(&path);
-        Self(path)
-    }
-}
-
-impl Drop for Scratch {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
     }
 }

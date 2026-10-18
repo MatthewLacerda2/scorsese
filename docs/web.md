@@ -1501,7 +1501,9 @@ things differ, all in `renders::preview`:
   project still hashes to its key; if the project has moved on it finishes at
   once, `{"superseded": true}`, having rendered nothing — a waiting job retires
   itself, with no race with the claim. One already *running* is stopped when
-  the next preview of the project is asked for (#660), and ends `cancelled`.
+  the next preview of a newer revision of the project is asked for (#660),
+  whatever its shape or range — a piece of the same revision waits its turn
+  instead (#1448) — and ends `cancelled`.
   So edits faster than renders cost a frame of an old render at most, and the
   editor asks again for the revision it is on.
 - **One kept per shape.** A finished preview replaces the project's earlier
@@ -1509,10 +1511,19 @@ things differ, all in `renders::preview`:
   except a file somebody has open. They are left out of the project's list of
   renders, since nobody downloads one, and otherwise live by the render cache's
   quota and 48-hour rule like any render.
+- **One stream at a time, for a cut played in pieces** (#1448, *The editor*).
+  `stream: "picture"` with a `range` is that stretch of picture alone;
+  `stream: "sound"` is the whole timeline's sound alone, at full quality
+  whatever is asked, since the sound has no pixels — so changing the quality
+  keeps it. Each is rendered as any render, then that stream is copied out
+  into a fragmented MP4 a browser appends, which is the file kept. A `sound`
+  ask of a cut with nothing to hear answers `200 {"silent": true}` with
+  neither a render nor a job. Without a `stream`, the stored settings are what
+  they were before pieces, so no earlier preview's key moved.
 
 | route | who | what |
 | --- | --- | --- |
-| `POST /api/projects/{id}/previews` | a member | `{resolution?, quality?}` → as `POST …/renders`; `400` for a quality or size that is not one |
+| `POST /api/projects/{id}/previews` | a member | `{resolution?, quality?, stream?, range?}` → as `POST …/renders`, or `200 {silent: true}` for the sound of a cut with nothing to hear; `400` for a quality, size or stream that is not one, or a `range` without `stream: "picture"` |
 
 ## Page captures
 
@@ -2380,17 +2391,37 @@ in the browser is not attempted.
   chosen quality (*Renders*, previews), from proxies of heavy videos, and the
   browser plays it in an ordinary `<video>`. **Scrubbing is seeking** in that
   video.
-- **After an edit, the preview is re-rendered** — by itself, once the revision
-  has rested for a second, with no press. Sketch and stale generated assets
-  render as slug cards, which is free and keeps it fast. An unchanged cut
-  answers at once from the cache; a preview of a revision the project has
-  already moved past retires when its turn comes (*Renders*), so a burst of
-  edits costs one render, not one per edit. The moment the revision moves the
-  old video is dropped, and until the new one is ready the frame under the
+- **The preview is made only when play is pressed** (#1448, the maintainer,
+  2026-10-17) — never after an edit by itself, so a shared machine's CPU is not
+  spent on cuts nobody watches. Sketch and stale generated assets render as
+  slug cards, which is free and keeps it fast. An unchanged cut answers at
+  once from the cache; a preview of a revision the project has already moved
+  past retires when its turn comes, and a running one is stopped by any
+  preview of a newer revision (*Renders*). The moment the revision moves the
+  loaded video is dropped, and until play is pressed again the frame under the
   playhead is the `still` tool's — the render's own compositor, asked for once
   the playhead rests for a fifth of a second, at the same raster, cached per
-  (revision, frame). The page follows the job on the event stream and asks
+  (revision, frame). The page follows each job on the event stream and asks
   again every few seconds too, because the quick tunnel carries no events.
+- **A cut of thirty seconds or less is played whole**: one mp4, as a render
+  is. **A longer one plays in pieces, the way a video site plays a video**: the
+  page asks for the whole timeline's sound once (`stream: "sound"`, mixed
+  whole so no join can click; a cut with nothing to hear answers `silent`
+  without a job) and five-second picture pieces on a fixed frame grid from the
+  playhead forward (`stream: "picture"`, `range: "150:300"`), one at a time,
+  keeping about ten seconds loaded ahead — further when pieces are slow to
+  make, up to thirty. Each is a fragmented MP4 of its one stream, copied out
+  of an ordinary ranged render (`scorsese_render::preview::fragment`), and
+  the page appends them to Media Source Extensions; playback starts as soon
+  as the first piece lands, and *Generating preview* shows while less than
+  ten seconds is loaded. A piece is keyed by revision, quality and range like
+  any render, so seeking back is free. A piece nobody wants any more — the
+  playhead moved, the player sat paused half a minute — is cancelled, and
+  never shown as a failure (#1439). A browser without MSE gets the cut whole.
+- **Play pressed while an edit is in flight** — the assistant's turn running,
+  or a hand-edit on its way — plays nothing and says *Can't preview yet —
+  changes are being made* in the destructive colour. The page knows by itself;
+  the server is not asked.
 - **Preview quality** — Full, 1/2, 1/4 — is a fraction of the delivery size of
   the project's shape (1920x1080 for 16:9, 1080x1920 for 9:16), chosen beside the transport and said
   under it, and it means the same as the desktop app's control: one
@@ -2401,10 +2432,10 @@ in the browser is not attempted.
   device and the person's patience, not about the edit. Half is the default.
 - **This is the v1 default, chosen to be simple**, and it will be tuned from how
   real users behave: how often they edit between looks, how long a preview
-  takes on the shared machine, whether a quarter is ever chosen. The settle
-  time, the default quality and the rule that re-renders without a press are
-  the three knobs, and none of them is a decision worth defending against
-  evidence.
+  takes on the shared machine, whether a quarter is ever chosen. The piece
+  length, the seconds kept ahead, the thirty-second line and the default
+  quality are the knobs, and none of them is a decision worth defending
+  against evidence.
 
 The frame's **shape** is the project's own, the document's `aspect` (#1278):
 a project started for a platform opens in its shape, and nobody chooses

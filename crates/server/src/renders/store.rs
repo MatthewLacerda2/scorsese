@@ -80,23 +80,21 @@ pub async fn pending(
     .await
 }
 
-/// The previews running for `project` at `settings` under any key but `key`:
-/// pictures of documents the project has moved past, which a new preview at
-/// `key` makes worthless (#660).
+/// The previews running for `project` of any document but `document`:
+/// pictures of documents the project has moved past, which a new preview of
+/// `document` makes worthless (#660) — whatever their shape, so a piece of an
+/// earlier revision stops as surely as a whole preview of one (#1448).
 pub async fn outrun(
     tx: &mut Tx,
     project: i64,
-    settings: &Settings,
-    key: &str,
+    document: &serde_json::Value,
 ) -> Result<Vec<i64>, sqlx::Error> {
     sqlx::query_scalar(
-        "SELECT id FROM jobs WHERE kind = $4 AND state = 'running'
-           AND payload ->> 'project' = $1::text AND payload ->> 'key' <> $2
-           AND payload -> 'settings' = $3",
+        "SELECT id FROM jobs WHERE kind = $3 AND state = 'running'
+           AND payload ->> 'project' = $1::text AND payload -> 'document' <> $2",
     )
     .bind(project)
-    .bind(key)
-    .bind(sqlx::types::Json(settings))
+    .bind(sqlx::types::Json(document))
     .bind(kinds::PREVIEW.name)
     .fetch_all(&mut **tx)
     .await
