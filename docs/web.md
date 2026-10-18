@@ -1577,13 +1577,19 @@ never starts a browser itself.
 frame preview through it, draws without a browser too: before drawing, the
 server works out which frames of which pages the asked instants show, reads
 whatever the project's page cache already holds, and asks for the rest as
-`captures/jobs/still-<call>/`, a copy of the laid-out project. The launcher
-answers jobs and stills in the order they were asked. A still waits as long as
-the launcher would give those captures (60 s plus a second a frame); one still
-queued behind a render's pages after that is drawn with the page as *being
-captured*, and the capture finishes into the cache for the next look. A
-launcher that is not running is said at once, since nobody waits on a still
-for 30 s to learn it.
+`captures/jobs/still-<call>/`, a copy of the laid-out project, with one
+capture per page for the missing stretches of it that overlap or touch (a
+five-cell sheet of one page is one launch, not five; what the cache holds is
+taken out first, so it never widens a stretch). The launcher answers jobs and stills in
+the order they were asked. A still waits as long as the launcher would give
+those captures (60 s plus a second a frame) but never more than 90 s, well
+inside nginx's 300 s; one still queued behind a render's pages after that is
+drawn with the page as *being captured*, and the capture finishes into the
+cache for the next look — left to the launcher for at most an hour. A still
+stopped (the assistant's Stop, or web MCP's `notifications/cancelled`) stops
+waiting at once, its capture left to finish the same way; one stopped before
+it asked copies and launches nothing. A launcher that is not running is said at once, since nobody
+waits on a still for 30 s to learn it.
 
 **The walls, and what a page that hits one gets.** A request to the internet,
 a path out of the project, a WebSocket or WebRTC connection: refused, and the

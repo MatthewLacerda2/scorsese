@@ -46,7 +46,7 @@ mod synth;
 mod vectorize;
 mod voices;
 
-pub use still::{Ahead, PagesAhead, still_with_pages_ahead};
+pub use still::{Ahead, PagesAhead, merged_stretches, still_with_pages_ahead};
 pub use stock::{Stock, stocked_from};
 
 use base64::Engine;
@@ -267,7 +267,8 @@ pub trait Tool: Send + Sync {
     /// request (`notifications/cancelled`).
     ///
     /// Only a tool that runs long enough to be worth stopping overrides this —
-    /// `render` (#647) and `synth_bake` (#661). Every other one finishes in
+    /// `render` (#647), `synth_bake` (#661), and `still` waiting on pages
+    /// captured ahead (#1469). Every other one finishes in
     /// the time it takes to notice, so it runs to the end and its answer is
     /// simply not sent.
     fn call_cancellable(&self, arguments: &Value, cancel: &Cancel) -> Result<Reply, String> {

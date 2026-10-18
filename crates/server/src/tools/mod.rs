@@ -173,7 +173,9 @@ impl Toolbox {
         name: &str,
         arguments: &Value,
     ) -> Result<Reply, String> {
-        self.recorded(user, client, name, arguments).await.1
+        self.recorded(user, client, name, arguments, &Cancel::new())
+            .await
+            .1
     }
 
     /// [`Toolbox::call`], stopped when `cancel` is tripped — web MCP's answer
@@ -195,17 +197,19 @@ impl Toolbox {
         outcome.map_err(|refusal| refusal.to_string())
     }
 
-    /// [`Toolbox::call`], and the call's row in `tool_calls` — `None` for a
-    /// tool that does not exist, which is refused before anything is written.
+    /// [`Toolbox::call_cancellable`], and the call's row in `tool_calls` —
+    /// `None` for a tool that does not exist, which is refused before anything
+    /// is written.
     pub async fn recorded(
         &self,
         user: UserId,
         client: Client,
         name: &str,
         arguments: &Value,
+        cancel: &Cancel,
     ) -> (Option<i64>, Result<Reply, String>) {
         let (id, outcome) = self
-            .run(user, client, name, arguments, None, Cancel::new())
+            .run(user, client, name, arguments, None, cancel.clone())
             .await;
         (id, outcome.map_err(|refusal| refusal.to_string()))
     }
@@ -393,7 +397,12 @@ fn registered(
 struct Uncaptured;
 
 impl PagesAhead for Uncaptured {
-    fn capture(&self, _: &std::path::Path, wanted: &[scorsese_render::page::Wanted]) -> Ahead {
+    fn capture(
+        &self,
+        _: &std::path::Path,
+        wanted: &[scorsese_render::page::Wanted],
+        _: &scorsese_render::Cancel,
+    ) -> Ahead {
         let why = "pages are captured only for a still run on a project";
         Ahead {
             failed: wanted

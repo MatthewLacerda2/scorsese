@@ -37,7 +37,7 @@ use std::sync::Arc;
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use scorsese_core::{Fps, Frames, Project};
 use scorsese_render::page::{Wanted, reasoned};
-use scorsese_render::{Budget, Cue, Note, RenderSettings, Renderer, Told, Tools, grid};
+use scorsese_render::{Budget, Cancel, Cue, Note, RenderSettings, Renderer, Told, Tools, grid};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -46,7 +46,7 @@ use crate::tools::inspect::load;
 use crate::tools::scratch::Scratch;
 use crate::tools::{Costs, PICTURES_PER_REPLY, Part, Reply, Tool};
 
-pub use ahead::{Ahead, PagesAhead, still_with_pages_ahead};
+pub use ahead::{Ahead, PagesAhead, merged_stretches, still_with_pages_ahead};
 
 /// Frames, composited and handed back as pictures.
 #[derive(Default)]
@@ -162,6 +162,13 @@ impl Tool for Still {
     }
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
+        self.call_cancellable(arguments, &Cancel::new())
+    }
+
+    /// Cancellable for the wait on pages captured ahead (#1469), which can be
+    /// a minute and a half; drawing the frames themselves takes no longer
+    /// than noticing.
+    fn call_cancellable(&self, arguments: &Value, cancel: &Cancel) -> Result<Reply, String> {
         let arguments: Arguments = args::parse(arguments)?;
         let dir = arguments.project.dir();
         let project = load(dir)?;
@@ -197,7 +204,10 @@ impl Tool for Still {
         let settings = RenderSettings::new(resolution, project.timeline_fps);
         let renderer = Renderer::new(&tools, settings);
         let (renderer, failed) = match &self.ahead {
-            Some(pages) => captured_ahead(pages.as_ref(), renderer, &project, dir, &instants)?,
+            Some(pages) => {
+                let asked = (pages.as_ref(), cancel);
+                captured_ahead(asked, renderer, &project, dir, &instants)?
+            }
             None => (renderer, HashMap::new()),
         };
         let told_why = |notes: Vec<Note>| {
@@ -263,9 +273,9 @@ impl Tool for Still {
 
 /// `renderer`, made one that never starts a browser, once `pages` has
 /// captured what `instants` show; and why each page it could not capture was
-/// not, by its path.
+/// not, by its path. `Err` once `cancel` is tripped.
 fn captured_ahead<'a>(
-    pages: &dyn PagesAhead,
+    (pages, cancel): (&dyn PagesAhead, &Cancel),
     renderer: Renderer<'a>,
     project: &Project,
     dir: &std::path::Path,
@@ -286,7 +296,10 @@ fn captured_ahead<'a>(
     if wanted.is_empty() {
         return Ok((renderer, HashMap::new()));
     }
-    let ahead = pages.capture(dir, &wanted);
+    let ahead = pages.capture(dir, &wanted, cancel);
+    if cancel.is_cancelled() {
+        return Err("stopped while its pages were being captured".to_owned());
+    }
     let renderer = renderer.capture_underway(ahead.underway);
     let renderer = match ahead.chrome {
         Some(chrome) => renderer.with_chrome(chrome),

@@ -22,6 +22,7 @@ mod resume;
 mod retired;
 mod script;
 mod started;
+mod stopping;
 mod turns;
 
 use std::net::SocketAddr;

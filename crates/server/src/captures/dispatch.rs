@@ -84,7 +84,7 @@ impl Pages {
         }
         let answer = match wait(&self.spool, &self.job_folder(), cancel, None)? {
             Waited::Answered(answer) => answer,
-            Waited::Quiet | Waited::Late => {
+            Waited::Quiet | Waited::Gone | Waited::Late => {
                 return Ok(none_captured(requests, NOT_RUNNING, Some(chrome)));
             }
         };
@@ -117,6 +117,8 @@ pub(super) enum Waited {
     Answered(Answer),
     /// It went quiet first: it is not running.
     Quiet,
+    /// The job's folder went, so no answer is coming (#1469).
+    Gone,
     /// It was still at it when the caller's patience ran out.
     Late,
 }
@@ -137,6 +139,9 @@ pub(super) fn wait(
         }
         if cancel.is_cancelled() {
             return Err("stopped while its pages were being captured".to_owned());
+        }
+        if !job.is_dir() {
+            return Ok(Waited::Gone);
         }
         if started.elapsed() > SILENCE && !worker_alive(spool) {
             return Ok(Waited::Quiet);
@@ -179,5 +184,50 @@ fn none_captured(requests: &[Wanted], why: &str, chrome: Option<Chrome>) -> Capt
             .iter()
             .map(|wanted| (wanted.request.page.clone(), why.to_owned()))
             .collect(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A spool whose worker said it was there a moment ago, and a job in it.
+    fn asked(label: &str) -> (Spool, PathBuf) {
+        let spool = Spool::new(crate::scratch::dir(label));
+        let job = spool.still(1);
+        std::fs::create_dir_all(&job).unwrap();
+        std::fs::write(spool.alive(), now().to_string()).unwrap();
+        (spool, job)
+    }
+
+    #[test]
+    fn a_job_whose_folder_went_is_never_waited_on() {
+        let (spool, job) = asked("dispatch-gone");
+        std::fs::remove_dir_all(&job).unwrap();
+
+        let waited = wait(&spool, &job, &Cancel::new(), None);
+
+        assert!(matches!(waited, Ok(Waited::Gone)));
+    }
+
+    #[test]
+    fn a_stopped_call_stops_waiting() {
+        let (spool, job) = asked("dispatch-stopped");
+        let cancel = Cancel::new();
+        cancel.cancel();
+
+        let waited = wait(&spool, &job, &cancel, None);
+
+        assert!(waited.is_err());
+    }
+
+    #[test]
+    fn past_its_patience_a_job_still_at_it_is_late() {
+        let (spool, job) = asked("dispatch-late");
+
+        let waited = wait(&spool, &job, &Cancel::new(), Some(Duration::ZERO));
+
+        assert!(matches!(waited, Ok(Waited::Late)));
+        assert!(job.is_dir(), "left to the launcher");
     }
 }
