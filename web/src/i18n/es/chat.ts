@@ -30,7 +30,7 @@ export const chat: Messages["chat"] = {
     hint: "El guion a partir del cual el asistente monta tu video",
     title: "Guion",
     description:
-      "Es a partir de él que el asistente monta el video. Cambia lo que quieras: leerá tu versión la próxima vez.",
+      "El asistente monta el video a partir de él. Cambia lo que quieras: leerá tu versión la próxima vez.",
     empty: "Todavía no hay guion — el asistente escribe uno cuando empiezas un video.",
     edit: "Editar",
     write: "Escribir uno",
