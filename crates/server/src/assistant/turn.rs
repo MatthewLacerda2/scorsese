@@ -17,6 +17,7 @@ use scorsese_providers::chat::{
 use serde_json::value::RawValue;
 
 use super::ask::{self, Asked};
+use super::compact::{self, Compacting};
 use super::relay::Relay;
 use super::store::asking;
 use super::store::turns::{self, Charge};
@@ -61,6 +62,9 @@ pub(super) struct Running {
     /// What a resumed turn says first: the user's answer, as the result of
     /// the call that asked.
     pub(super) answer: Option<Resumed>,
+    /// The compaction a new turn makes before its first call (#1438); never
+    /// one for a turn that resumes.
+    pub(super) compacting: Option<Compacting>,
 }
 
 /// The user's answer a paused turn resumes with.
@@ -85,6 +89,7 @@ enum End {
 
 /// Run `turn` to its end, and record and announce how it ended.
 pub(super) async fn run(state: AppState, mut turn: Running) {
+    compact::compact(&state, &mut turn).await;
     let end = match drive(&state, &mut turn).await {
         Ok(end) => end,
         Err(failure) => End::Over("failed", failure),

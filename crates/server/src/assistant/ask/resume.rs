@@ -50,5 +50,6 @@ pub(in crate::assistant) async fn resuming(
         balance,
         spent: paused.spent,
         answer: None,
+        compacting: None,
     })
 }

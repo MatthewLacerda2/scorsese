@@ -133,6 +133,7 @@
 
 mod ask;
 mod calls;
+mod compact;
 mod cost;
 mod described;
 mod effort;
