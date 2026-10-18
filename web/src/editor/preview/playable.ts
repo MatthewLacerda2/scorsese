@@ -3,12 +3,14 @@
 // from proxies of heavy videos, and the browser plays it in an ordinary video
 // element, where scrubbing is seeking. The browser does no compositing.
 //
-// **Re-rendered after every edit, without a press.** Once the revision has
-// been still for a moment the preview of it is asked for; a preview is keyed
-// by the document and its settings, so an unchanged cut answers at once with
-// the file already made. Edits faster than renders are the server's to
-// absorb: a queued preview of a revision the project has moved past retires
-// when its turn comes, and the newest one replaces the older ones.
+// **Made only when play is pressed** (#1448). Nothing is rendered after an
+// edit by itself: a shared machine's CPU is not spent on cuts nobody watches.
+// A preview is keyed by the document and its settings, so pressing play on an
+// unchanged cut answers at once with the file already made. A queued preview
+// of a revision the project has moved past retires when its turn comes.
+//
+// This is the cut played **whole**, for one of thirty seconds or less; a
+// longer one plays in pieces from the playhead (`pieces/`).
 //
 // Tied to a revision: a render of revision 7 says nothing about revision 8,
 // so the moment the project moves the video is dropped and the preview falls
@@ -35,9 +37,6 @@ type Playable =
 /** How often a render on its way is asked about, in case no event arrives. */
 const POLL_MS = 4000;
 
-/** How long the revision rests before its preview is asked for. */
-const SETTLE_MS = 1000;
-
 interface Held {
   revision: number;
   playable: Playable;
@@ -52,16 +51,9 @@ export function waiting(job: JobView, t: Messages["editor"]["preview"]): string 
 
 /**
  * The preview video of project `id` at `revision`, delivered at `deliver` and
- * drawn at `quality`. Asked for by itself once the revision rests, when
- * `wanted` (there is something on the timeline); `ask` asks now.
+ * drawn at `quality`: asked for by `ask`, when play is pressed.
  */
-export function usePlayable(
-  id: number,
-  revision: number,
-  deliver: string,
-  quality: Quality,
-  wanted: boolean,
-) {
+export function usePlayable(id: number, revision: number, deliver: string, quality: Quality) {
   const [held, setHeld] = useState<Held>({ revision, playable: { state: "none" } });
   const playable: Playable = held.revision === revision ? held.playable : { state: "none" };
 
@@ -81,13 +73,6 @@ export function usePlayable(
       setHeld({ revision: at, playable: { state: "failed", why: null } });
     }
   }, [id, revision, deliver, quality]);
-
-  // A new revision, shape or quality: once it has rested, its preview.
-  useEffect(() => {
-    if (!wanted) return;
-    const timer = setTimeout(() => void ask(), SETTLE_MS);
-    return () => clearTimeout(timer);
-  }, [wanted, ask]);
 
   useServerEvents((event) => {
     if (playable.state !== "preparing" || !("id" in event) || event.id !== playable.job.id) return;

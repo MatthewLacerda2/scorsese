@@ -60,6 +60,8 @@ function Editor({ project }: { project: EditorProject }) {
   const [picked, setPicked] = useState<string[]>([]);
   const [reframed, setReframed] = useState<string | null>(null);
   const [full, setFull] = useFull(id);
+  // A turn running may be changing the project: the preview says it can't play yet.
+  const [assistantBusy, setAssistantBusy] = useState(false);
   const panels = usePanels();
   const drop = useDrop(id, edit, playhead, (clip) => setPicked([clip]));
   const deselect = useCallback(() => setPicked([]), []);
@@ -147,6 +149,7 @@ function Editor({ project }: { project: EditorProject }) {
             <ChatPanel
               projectId={id}
               full={full}
+              onBusy={setAssistantBusy}
               onFull={(next) => {
                 // A clip selected out of sight is not one the Delete key may take.
                 if (next) deselect();
@@ -173,6 +176,7 @@ function Editor({ project }: { project: EditorProject }) {
                 playhead={playhead}
                 onSeek={setPlayhead}
                 deliver={deliveries(aspect)[0]}
+                changing={edit.pending || assistantBusy}
               />
             </section>
             <Handle

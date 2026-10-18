@@ -1,36 +1,34 @@
 // The preview: the frame under the playhead while editing, and the cut
-// playing when asked to — with the transport under it (start, a frame back,
-// play/pause, a frame forward, end, and a scrub bar).
+// playing when asked to — with the transport under it (`Transport.tsx`).
 //
-// **Two pictures, one rule: the server draws both.** Until the preview video
-// of this revision is ready, the frame under the playhead is a still from the
-// `still` tool; then it is the video (`playable.ts`, #542's doctrine), where
-// scrubbing is seeking. Both are drawn at the chosen preview quality
-// (`quality.ts`), which the row under the picture offers, its hover text
-// saying what each one means.
-// Real-time compositing in the browser is not attempted.
+// **Two pictures, one rule: the server draws both.** Until there is video of
+// this revision under the playhead, the frame there is a still from the
+// `still` tool; then it is the video, where scrubbing is seeking. Both are
+// drawn at the chosen preview quality (`quality.ts`). Real-time compositing
+// in the browser is not attempted.
+//
+// **The video is made only when play is pressed** (#1448): a cut of thirty
+// seconds or less whole (`playable.ts`), a longer one in pieces from the
+// playhead, about ten seconds ahead (`pieces/`). Pressed while an edit is in
+// flight — the assistant at work, or a hand-edit on its way — it plays
+// nothing and says why: a preview of a revision that is moving would be
+// dropped the moment it landed.
 
-import {
-  MaximizeIcon,
-  MinimizeIcon,
-  PauseIcon,
-  PlayIcon,
-  SkipBackIcon,
-  SkipForwardIcon,
-  StepBackIcon,
-  StepForwardIcon,
-} from "lucide-react";
+import { MaximizeIcon, MinimizeIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ProjectDocument } from "@/api";
 import { Button } from "@/components/ui/button";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { useT } from "@/i18n/I18nProvider";
 import { clamp } from "@/lib/utils";
 import { JobProgressBar } from "../JobProgressBar";
-import { clock, toFrames, toSeconds } from "../timeline/time";
+import { toFrames, toSeconds } from "../timeline/time";
+import { playedWhole } from "./pieces/plan";
+import { canPlayPieces } from "./pieces/player";
+import { usePieces } from "./pieces/usePieces";
 import { usePlayable, waiting } from "./playable";
-import { previewRaster, QUALITIES, type Quality, savedQuality, saveQuality } from "./quality";
+import { previewRaster, type Quality, savedQuality, saveQuality } from "./quality";
 import { useStill } from "./still";
+import { Transport } from "./Transport";
 
 interface Props {
   projectId: number;
@@ -40,6 +38,8 @@ interface Props {
   onSeek: (frame: number) => void;
   /** The size the film is delivered at, `WIDTHxHEIGHT`: what the preview is a fraction of. */
   deliver: string;
+  /** An edit is in flight — the assistant's or a hand-edit — so play says it can't yet. */
+  changing?: boolean;
 }
 
 /** Where the cut ends: the last picture, since picture decides a render's length. */
@@ -52,23 +52,32 @@ function cutLength(document: ProjectDocument): number {
   return Math.max(0, ...(ends("video").length ? ends("video") : ends()));
 }
 
-export function Preview({ projectId, revision, document, playhead, onSeek, deliver }: Props) {
+export function Preview(props: Props) {
+  const { projectId, revision, document, playhead, onSeek, deliver, changing = false } = props;
   const t = useT().editor.preview;
   const fps = document.timeline_fps;
   const total = cutLength(document);
   const [quality, setQuality] = useState<Quality>(savedQuality);
   const raster = previewRaster(deliver, quality);
-  const { playable, ask } = usePlayable(projectId, revision, deliver, quality, total > 0);
-  const ready = playable.state === "ready";
-  const still = useStill(projectId, revision, playhead, total, raster, !ready && total > 0);
   const video = useRef<HTMLVideoElement>(null);
+  const whole = playedWhole(total, fps) || !canPlayPieces();
+  const { playable, ask } = usePlayable(projectId, revision, deliver, quality);
+  const pieces = usePieces(video, projectId, revision, deliver, quality, total, fps);
+  const showing = whole ? playable.state === "ready" : pieces.view.covered;
+  const still = useStill(projectId, revision, playhead, total, raster, !showing && total > 0);
   const stage = useRef<HTMLDivElement>(null);
   const [maximized, setMaximized] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [wanted, setWanted] = useState(false);
+  const [refused, setRefused] = useState(false);
   const [width, height] = raster.split("x").map(Number);
+  const ready = whole && playable.state === "ready";
 
-  // Play was pressed before the render was there: start it once it is.
+  // The edit landed: play may be pressed again.
+  useEffect(() => {
+    if (!changing) setRefused(false);
+  }, [changing]);
+  // Play was pressed before the whole cut was there: start it once it is.
   useEffect(() => {
     const element = video.current;
     if (!ready || !wanted || !element) return;
@@ -76,12 +85,14 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
     element.currentTime = toSeconds(playhead, fps);
     void element.play();
   }, [ready, wanted, playhead, fps]);
-  // Scrubbing a loaded video is seeking it.
+  // Scrubbing loaded video is seeking it; in pieces, it moves what is loaded.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only a moved playhead seeks
   useEffect(() => {
     const element = video.current;
     if (!element || playing) return;
     const at = toSeconds(playhead, fps);
     if (Math.abs(element.currentTime - at) > 0.5 / (fps.num / fps.den)) element.currentTime = at;
+    if (!whole) pieces.seek(playhead);
   }, [playhead, playing, fps]);
 
   // Full screen takes the picture and its transport together, so a cut can be
@@ -99,17 +110,19 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
   const seek = (frame: number) => onSeek(clamp(frame, 0, total));
   const toggle = () => {
     if (playing) return video.current?.pause();
+    if (changing) return setRefused(true);
+    if (!whole) return pieces.play(playhead);
     if (ready) return void video.current?.play();
     setWanted(true);
     void ask();
   };
-  const said =
-    playable.state === "preparing"
+  const failed = whole ? playable.state === "failed" : pieces.view.failed;
+  const said = failed
+    ? t.failed
+    : whole && playable.state === "preparing"
       ? waiting(playable.job, t)
-      : playable.state === "failed"
-        ? playable.why
-          ? t.failedWhy(playable.why)
-          : t.failed
+      : !whole && pieces.view.started && pieces.view.short
+        ? t.generating
         : still.data && "none" in still.data
           ? still.data.none
           : total === 0
@@ -123,25 +136,27 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
           className="relative max-h-full max-w-full overflow-hidden rounded-md bg-screen"
           style={{ aspectRatio: `${width} / ${height}`, height: "100%" }}
         >
-          {ready ? (
-            // biome-ignore lint/a11y/useMediaCaption: a preview of the user's own cut has no captions to offer
-            <video
-              ref={video}
-              src={playable.render.file}
-              className="size-full object-contain"
-              preload="auto"
-              onPlay={() => setPlaying(true)}
-              onPause={() => setPlaying(false)}
-              onEnded={() => setPlaying(false)}
-              onTimeUpdate={(event) => {
-                if (playing) onSeek(toFrames(event.currentTarget.currentTime, fps));
-              }}
-            />
-          ) : (
-            still.data &&
-            "png" in still.data && (
-              <img src={still.data.png} alt={t.frame} className="size-full object-contain" />
-            )
+          {/* biome-ignore lint/a11y/useMediaCaption: a preview of the user's own cut has no captions to offer */}
+          <video
+            ref={video}
+            src={ready ? playable.render.file : undefined}
+            className={showing ? "size-full object-contain" : "hidden"}
+            preload="auto"
+            onPlay={() => setPlaying(true)}
+            onPause={() => {
+              setPlaying(false);
+              if (!whole) pieces.paused();
+            }}
+            onEnded={() => setPlaying(false)}
+            onProgress={() => !whole && pieces.look()}
+            onSeeked={() => !whole && pieces.look()}
+            onTimeUpdate={(event) => {
+              if (!whole) pieces.tick();
+              if (playing) onSeek(toFrames(event.currentTarget.currentTime, fps));
+            }}
+          />
+          {!showing && still.data && "png" in still.data && (
+            <img src={still.data.png} alt={t.frame} className="size-full object-contain" />
           )}
         </div>
         {/* Shown on hover for a pointer, always on touch. */}
@@ -156,70 +171,29 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
           {maximized ? <MinimizeIcon /> : <MaximizeIcon />}
         </Button>
       </div>
-      {said && <p className="text-center text-xs text-muted-foreground">{said}</p>}
-      {playable.state === "preparing" && (
+      {refused ? (
+        <p className="text-center text-xs text-destructive">{t.changing}</p>
+      ) : (
+        said && <p className="text-center text-xs text-muted-foreground">{said}</p>
+      )}
+      {whole && playable.state === "preparing" && (
         <div className="mx-auto w-full max-w-xs">
           <JobProgressBar job={playable.job} />
         </div>
       )}
-      <div className="flex items-center gap-1">
-        <Button size="icon" variant="ghost" aria-label={t.start} onClick={() => seek(0)}>
-          <SkipBackIcon />
-        </Button>
-        <Button size="icon" variant="ghost" aria-label={t.back} onClick={() => seek(playhead - 1)}>
-          <StepBackIcon />
-        </Button>
-        <Button
-          size="icon"
-          aria-label={playing ? t.pause : t.play}
-          onClick={toggle}
-          disabled={total === 0}
-        >
-          {playing ? <PauseIcon /> : <PlayIcon />}
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          aria-label={t.forward}
-          onClick={() => seek(playhead + 1)}
-        >
-          <StepForwardIcon />
-        </Button>
-        <Button size="icon" variant="ghost" aria-label={t.end} onClick={() => seek(total)}>
-          <SkipForwardIcon />
-        </Button>
-        <input
-          type="range"
-          aria-label={t.scrub}
-          className="mx-2 flex-1"
-          min={0}
-          max={Math.max(1, total)}
-          value={Math.min(playhead, Math.max(1, total))}
-          onChange={(event) => seek(Number(event.target.value))}
-        />
-        {/* One line however narrow the panel (#1006). */}
-        <span className="shrink-0 whitespace-nowrap font-mono text-xs tabular-nums">
-          {clock(playhead, fps)} / {clock(total, fps)}
-        </span>
-        <NativeSelect
-          aria-label={t.quality}
-          title={t.qualities[quality].says}
-          size="sm"
-          className="text-xs"
-          value={quality}
-          onChange={(event) => {
-            const next = event.target.value as Quality;
-            setQuality(next);
-            saveQuality(next);
-          }}
-        >
-          {(Object.keys(QUALITIES) as Quality[]).map((choice) => (
-            <NativeSelectOption key={choice} value={choice}>
-              {t.qualities[choice].label}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-      </div>
+      <Transport
+        playhead={playhead}
+        total={total}
+        fps={fps}
+        playing={playing}
+        quality={quality}
+        onSeek={seek}
+        onToggle={toggle}
+        onQuality={(next) => {
+          setQuality(next);
+          saveQuality(next);
+        }}
+      />
     </div>
   );
 }
