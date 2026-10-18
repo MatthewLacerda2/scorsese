@@ -58,8 +58,9 @@ pub const BIND: &str = "SCORSESE_BIND";
 /// #705 made the model each project's choice ([`ConfigError::Model`]).
 pub const RETIRED_MODEL: &str = "SCORSESE_ASSISTANT_MODEL";
 
-/// The most one assistant turn may cost a user, in dollars, e.g. `2.50`.
-/// Defaults to [`DEFAULT_TURN_CAP_MICROS`].
+/// The most one assistant turn on Sonnet 5.5 may cost a user, in dollars,
+/// e.g. `2.50`; every other model's cap scales from it with its rates
+/// (`Assistant::cap_micros`, #1461). Defaults to [`DEFAULT_TURN_CAP_MICROS`].
 pub const ASSISTANT_TURN_CAP: &str = "SCORSESE_ASSISTANT_TURN_CAP";
 
 /// The Google OAuth client's id, `….apps.googleusercontent.com` (#952).

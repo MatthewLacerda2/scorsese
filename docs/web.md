@@ -176,7 +176,7 @@ provider keys use, and is documented in `.env.example`:
 | `GEMINI_API_KEY`, `ELEVENLABS_API_KEY` | The provider keys paid generations are made with (*Web MCP*), read by the one resolver `docs/credentials.md` describes; Optional: without one, a generation needing it fails, free. |
 | `ANTHROPIC_API_KEY` | The key the assistant's Claude models answer with (*Assistant turns*), by the same resolver. Optional: without it a turn on a Claude model is refused with "`ANTHROPIC_API_KEY` is not set", and nothing else changes. |
 | `PIXABAY_API_KEY` | The key `stock_search` and `stock_import` look Pixabay up with, by the same resolver, shared by every user (*Web MCP*). Optional: without it a Pixabay search fails with the variable's name; LottieFiles needs no key. |
-| `SCORSESE_ASSISTANT_TURN_CAP` | The most one assistant turn may cost a user, in dollars: `2.50`. Defaults to `3.50`. |
+| `SCORSESE_ASSISTANT_TURN_CAP` | The most one assistant turn on Sonnet 5.5 may cost a user, in dollars: `2.50`. Defaults to `3.50`. Every other model's cap scales from it with its rates (*Assistant turns*, *Money*): at `3.50`, about `7.00` on Opus 5.5 and `17.50` on Fable 5.1. |
 | `SCORSESE_ELEVENLABS_CONCURRENCY` | How many ElevenLabs calls may be in flight at once, every kind of job together (*The job queue*): the plan's concurrent requests. Defaults to `3`, Starter's; Free allows `2`. A whole number above zero, or the server will not start. |
 | `SCORSESE_ELEVENLABS_VOICE_SLOTS` | How many designed voices the ElevenLabs account holds, every user's together (*Designing a voice*). Defaults to `10`, Starter's. A whole number above zero, or the server will not start. |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | The Google OAuth client people sign in with (*Accounts*). Optional, with the next one: without all three, Google sign-in is off, the server says so in its log, and everything else is served. The secret is never printed. |
@@ -2032,7 +2032,11 @@ one row. Not reserved for, since the cost exists only once counted: a turn is
 **refused up front (`402`) at a balance of zero or less**, and stops between
 calls once the balance runs out or the turn reaches the operator's cap
 (`SCORSESE_ASSISTANT_TURN_CAP`, default $3.50: the cap is on what the user
-is charged, so it rose with the multiplier, #1247). The call that crosses either
+is charged, so it rose with the multiplier, #1247). That figure is Sonnet
+5.5's; every other model's cap is it times the model's blended rate over
+Sonnet's, nine input tokens to one output as the picker's bar weighs them
+(#1461) — about $7 on Opus 5.5 and $17.50 on Fable 5.1 — so one turn may do
+the same amount of work whichever model runs it. The call that crosses either
 line was already made and is charged; one call is bounded by `max_tokens`.
 
 **Caching** is where the money is, since every call resends the conversation.

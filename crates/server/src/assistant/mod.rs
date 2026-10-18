@@ -90,7 +90,9 @@
 //! (`credits::ledger::charge_assistant`). Not reserved for: the cost exists
 //! only once counted. So a turn is **refused up front at a balance of zero or
 //! less**, and stops between calls once the balance runs out or the turn has
-//! cost the operator's **per-turn cap** ([`Assistant::cap_micros`]). The call
+//! cost the operator's **per-turn cap** ([`Assistant::cap_micros`]). The cap
+//! is set for Sonnet 5.5 and scales with the turn's model's blended rate
+//! (`cost`, #1461), so a turn may do the same work on any model. The call
 //! that crosses either line has already been made and is charged; one call's
 //! cost is bounded by `max_tokens`.
 //!
@@ -139,6 +141,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use scorsese_providers::chat::{self, Chat, Effort, Model};
 use scorsese_providers::credentials::resolve;
+use scorsese_providers::prices;
 
 pub use ask::{Answering, answer as answer_question, set_aside};
 pub use model::{Choice, choose};
@@ -151,9 +154,12 @@ pub use store::{
 };
 pub use store::{conversation, detail, recover};
 
-/// What a turn is not allowed to cost by default, in micro-dollars: $3.50.
-/// The server's one statement of it: [`crate::config::ASSISTANT_TURN_CAP`]
-/// falls back to it, and that variable's error names it in dollars.
+/// What a turn on Sonnet 5.5 is not allowed to cost by default, in
+/// micro-dollars: $3.50. The server's one statement of it:
+/// [`crate::config::ASSISTANT_TURN_CAP`] falls back to it, and that
+/// variable's error names it in dollars. Every other model's cap is this
+/// times its blended rate over Sonnet's ([`Assistant::cap_micros`], #1461):
+/// about $7 on Opus 5.5, $17.50 on Fable 5.1.
 ///
 /// What a user is charged, so it moved with the multipliers (#1247): six
 /// turns on the hosted server (2026-10-13) averaged $0.74 (Gemini 3.8 Flash)
@@ -171,7 +177,7 @@ pub const DEFAULT_EFFORT: Effort = Effort::High;
 #[derive(Clone)]
 pub struct Assistant {
     connect: Connect,
-    cap_micros: i64,
+    baseline_micros: i64,
     stopping: Arc<Mutex<HashSet<i64>>>,
 }
 
@@ -220,12 +226,13 @@ impl Default for Assistant {
 }
 
 impl Assistant {
-    /// The real assistant: each model through its vendor's API, a turn capped
-    /// at `cap_micros`.
-    pub fn new(cap_micros: i64) -> Self {
+    /// The real assistant: each model through its vendor's API, a turn on
+    /// Sonnet 5.5 capped at `baseline_micros` and one on any other model at
+    /// that scaled to its rates.
+    pub fn new(baseline_micros: i64) -> Self {
         Self {
             connect: Connect::Environment,
-            cap_micros,
+            baseline_micros,
             stopping: Arc::default(),
         }
     }
@@ -242,9 +249,14 @@ impl Assistant {
         self
     }
 
-    /// The most one turn may cost, in micro-dollars.
-    pub fn cap_micros(&self) -> i64 {
-        self.cap_micros
+    /// The most one turn on `model` may cost, in micro-dollars, at today's
+    /// rates (#718): the Sonnet 5.5 baseline times `model`'s blended rate over
+    /// Sonnet's (`cost`, #1461).
+    pub fn cap_micros(&self, model: Model) -> i64 {
+        let today = prices::Checked::today();
+        cost::cap(self.baseline_micros, model, |model| {
+            prices::chat::rate(model, today)
+        })
     }
 
     /// Ask turn `turn` to stop before its next step.
