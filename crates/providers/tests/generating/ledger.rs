@@ -87,13 +87,13 @@ fn a_project_older_than_the_ledger_begins_it_with_its_current_takes() {
     let asset = project.asset_mut(&id).expect("the asset");
     asset.path = Some(ProjectPath::new("generated/shot-0123abcd.mp4"));
     asset.estimated_cost_cents = Some(40);
+    // A ledger with no lines in it is no ledger: emptied by hand, or never begun.
+    std::fs::write(dir.join(GENERATIONS_FILE), "[]").expect("write");
 
     let before = so_far(&project, &dir);
     assert_eq!((before.generation_cents, before.superseded.takes), (40, 0));
-    assert!(
-        !dir.join(GENERATIONS_FILE).exists(),
-        "reading writes nothing"
-    );
+    let file = std::fs::read_to_string(dir.join(GENERATIONS_FILE)).expect("read");
+    assert_eq!(file, "[]", "reading writes nothing");
 
     let provider = Mock::answering("shot", vec![Answer::Ready(b"NEW".to_vec())]);
     let done = generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a run");
