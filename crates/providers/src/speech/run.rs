@@ -210,6 +210,7 @@ fn one(
 
     let estimate = prices::speech(brief.request.model, brief.characters())?;
     budget.check(estimate.cents)?;
+    spending::readable(root)?;
 
     let Spoken {
         audio: bytes,

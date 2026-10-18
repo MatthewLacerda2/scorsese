@@ -214,6 +214,7 @@ fn submit(
 ) -> Result<Outcome, GenerationError> {
     let estimate = prices::estimate(&brief.request)?;
     budget.check(estimate.cents)?;
+    spending::readable(root)?;
 
     let ticket = provider.submit(brief)?;
     let Some(asset) = project.asset_mut(id) else {

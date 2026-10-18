@@ -9,6 +9,7 @@ mod common;
 
 mod batch;
 mod cache;
+mod ledger;
 mod lifecycle;
 mod mock;
 mod pricing;

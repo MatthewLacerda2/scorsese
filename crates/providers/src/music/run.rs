@@ -141,6 +141,7 @@ fn one(
     }
     let cents = quote(brief.seconds);
     budget.check(cents)?;
+    spending::readable(root)?;
     let bytes = match provider.compose(&brief) {
         Ok(bytes) => bytes,
         Err(error) => {

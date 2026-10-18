@@ -5,6 +5,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod ledger;
 mod passes;
 
 use std::cell::Cell;

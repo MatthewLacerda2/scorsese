@@ -42,7 +42,7 @@ use scorsese_core::{AssetId, Project};
 use crate::voices::design;
 
 pub use ledger::{GENERATIONS_FILE, Sent, history};
-pub(crate) use ledger::{refused, sent};
+pub(crate) use ledger::{readable, refused, sent, sent_all};
 
 /// What a project has spent, by the kind of thing it was spent on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

@@ -173,6 +173,7 @@ fn one(
 
     let cents = estimate(&brief)?.cents;
     budget.check(cents)?;
+    spending::readable(root)?;
 
     let bytes = match provider.draw(&brief) {
         Ok(bytes) => bytes,

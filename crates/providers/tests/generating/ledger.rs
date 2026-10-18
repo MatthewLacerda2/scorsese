@@ -127,6 +127,11 @@ fn a_ledger_that_does_not_read_is_never_written_over() {
         stopped.is_err(),
         "the run stops rather than lose the history"
     );
+    assert_eq!(
+        provider.submissions(),
+        0,
+        "and stops before it pays, not after"
+    );
     let text = std::fs::read_to_string(dir.join(GENERATIONS_FILE)).expect("read");
     assert_eq!(text, "{ not a ledger");
     std::fs::remove_dir_all(&dir).ok();

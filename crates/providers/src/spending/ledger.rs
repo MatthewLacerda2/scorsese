@@ -105,13 +105,21 @@ fn load(root: &Path) -> Result<Option<Vec<Sent>>, WriteError> {
 /// ledger yet, its assets' figures as the lines it would begin with.
 ///
 /// An unreadable file reads as no file, the way `designed-voices.json` does:
-/// failing to *read* would put an error path on every quote. Writing is where
-/// it is refused, so a damaged ledger is never overwritten.
+/// failing to *read* would put an error path on every quote. Sending is where
+/// it is refused, before anything is paid for, and so is
+/// writing, so a damaged ledger is never overwritten.
 pub fn history(project: &Project, root: &Path) -> Vec<Sent> {
     match load(root) {
         Ok(Some(lines)) if !lines.is_empty() => lines,
         _ => seed(project),
     }
+}
+
+/// Refuses a ledger that is there and does not read — called before a brief
+/// is sent, so a run never pays first and then stops on a line it cannot
+/// write, leaving a file the next run takes for cached and never counts.
+pub(crate) fn readable(root: &Path) -> Result<(), WriteError> {
+    load(root).map(drop)
 }
 
 /// Writes down that `brief` was sent for `id`, at `cents` — seeding the ledger
@@ -129,18 +137,29 @@ pub(crate) fn sent(
     brief: &str,
     cents: u64,
 ) -> Result<(), WriteError> {
+    sent_all(project, root, &[(id.clone(), brief.to_owned(), cents)])
+}
+
+/// [`sent`] for every `(asset, brief, cents)` at once, in one write — a batch
+/// job, whose tickets are all on their assets before any line is written.
+pub(crate) fn sent_all(
+    project: &Project,
+    root: &Path,
+    takes: &[(AssetId, String, u64)],
+) -> Result<(), WriteError> {
     let mut lines = match load(root)? {
         Some(lines) if !lines.is_empty() => lines,
         _ => seed(project),
     };
-    lines.push(Sent {
+    let sent_at = Timestamp::now();
+    lines.extend(takes.iter().map(|(id, brief, cents)| Sent {
         asset: id.clone(),
-        brief: brief.to_owned(),
-        estimated_cost_cents: cents,
-        sent_at: Timestamp::now(),
+        brief: brief.clone(),
+        estimated_cost_cents: *cents,
+        sent_at: sent_at.clone(),
         seeded: false,
         refused: false,
-    });
+    }));
     write(root, &lines)
 }
 
