@@ -27,6 +27,7 @@
 //! pixel for pixel, which is what makes it worth having next to the fast ones.
 
 mod proxy;
+mod stream;
 
 use std::fmt;
 use std::path::Path;
@@ -38,6 +39,7 @@ use scorsese_core::frame::even;
 use crate::settings::Resolution;
 
 pub use proxy::{PROXY_SHORT_SIDE, Proxies, ProxyError, file_name, folder, make, worth_making};
+pub use stream::{Stream, StreamError, fragment};
 
 /// How much of the delivery raster a preview draws.
 ///

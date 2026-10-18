@@ -9,6 +9,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod pieces;
 mod proxies;
 
 use std::path::Path;
