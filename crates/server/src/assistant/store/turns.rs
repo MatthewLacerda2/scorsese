@@ -93,7 +93,8 @@ pub(in crate::assistant) async fn withdraw_quote(
 }
 
 /// Every earlier turn of `session`, in order, as it was kept: the
-/// conversation a new turn continues.
+/// conversation a new turn continues. It begins at the latest turn that
+/// compacted it (#1438), whose first messages summarise everything before.
 ///
 /// A turn from before #705 has no record — its messages are Anthropic's
 /// alone — and is read back into one here; `names` carries each call's tool
@@ -103,7 +104,11 @@ pub(in crate::assistant) async fn history(
     session: i64,
 ) -> Result<Vec<Kept>, AssistantError> {
     let rows: Vec<(String, String, Option<String>)> = sqlx::query_as(
-        "SELECT model, messages, record FROM chat_turns WHERE session_id = $1 ORDER BY id",
+        "SELECT model, messages, record FROM chat_turns
+         WHERE session_id = $1
+           AND id >= (SELECT coalesce(max(id), 0) FROM chat_turns
+                      WHERE session_id = $1 AND compacted)
+         ORDER BY id",
     )
     .bind(session)
     .fetch_all(&mut **tx)
@@ -205,6 +210,9 @@ pub(in crate::assistant) struct Charge<'a> {
     pub(in crate::assistant) model: Model,
     /// How long it took to answer.
     pub(in crate::assistant) latency: Duration,
+    /// Whether it summarised the conversation (#1438) rather than carried on
+    /// the edit.
+    pub(in crate::assistant) summary: bool,
 }
 
 /// Charge one call's reply, record it in `model_calls` and add it to the

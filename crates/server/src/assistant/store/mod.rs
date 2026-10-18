@@ -21,6 +21,7 @@ macro_rules! withdrawing {
 
 pub(super) mod asking;
 mod calls;
+pub(super) mod compaction;
 pub(super) mod turns;
 
 use serde::{Deserialize, Serialize};

@@ -1,7 +1,7 @@
 //! A model that answers from a script and remembers what it was sent — in
 //! the wire of whichever model the request names.
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -9,7 +9,7 @@ use std::time::Duration;
 use scorsese_providers::api::anthropic::content::Block;
 use scorsese_providers::api::anthropic::request::{Message as Wire, MessageContent, Role};
 use scorsese_providers::chat::{
-    self, Chat, ChatError, Message, Part, Reply, Request, Stop, Streamed, Usage,
+    self, Chat, ChatError, ClaudeError, Message, Part, Reply, Request, Stop, Streamed, Usage,
 };
 use serde_json::Value;
 use serde_json::value::RawValue;
@@ -35,6 +35,9 @@ pub(crate) struct Script {
     replies: Mutex<VecDeque<Reply>>,
     sent: Mutex<Vec<Request>>,
     delay: Duration,
+    /// Calls that fail instead, by their place among the requests: whether
+    /// with a failure worth retrying.
+    fails: Mutex<HashMap<usize, bool>>,
 }
 
 impl Script {
@@ -49,12 +52,21 @@ impl Script {
             replies: Mutex::new(replies.into()),
             sent: Mutex::default(),
             delay,
+            fails: Mutex::default(),
         })
     }
 
     /// Answer with `replies` from now on, in place of what was left.
     pub(crate) fn replace(&self, replies: Vec<Reply>) {
         *self.replies.lock().expect("the test setup holds") = replies.into();
+    }
+
+    /// Fail request `n` (from 0) instead of answering it: with a dropped
+    /// connection when `retryable`, else with a refusal. Its reply waits for
+    /// the next request.
+    pub(crate) fn fail(&self, n: usize, retryable: bool) {
+        let mut fails = self.fails.lock().expect("the test setup holds");
+        fails.insert(n, retryable);
     }
 
     /// Every request received, in order.
@@ -87,11 +99,22 @@ impl Chat for Script {
         request: &Request,
         on: &mut dyn FnMut(Streamed<'_>),
     ) -> Result<Reply, ChatError> {
-        self.sent
-            .lock()
-            .expect("the test setup holds")
-            .push(request.clone());
+        let n = {
+            let mut sent = self.sent.lock().expect("the test setup holds");
+            sent.push(request.clone());
+            sent.len() - 1
+        };
         std::thread::sleep(self.delay);
+        if let Some(retryable) = self.fails.lock().expect("the test setup holds").get(&n) {
+            return Err(ChatError::Claude(if *retryable {
+                ClaudeError::Cut
+            } else {
+                ClaudeError::Api {
+                    kind: "invalid_request_error".into(),
+                    message: "refused".into(),
+                }
+            }));
+        }
         let reply = self
             .replies
             .lock()

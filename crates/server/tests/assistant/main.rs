@@ -12,6 +12,7 @@ mod common;
 mod asking;
 mod batching;
 mod changes;
+mod compaction;
 mod effort;
 mod models;
 mod money;

@@ -42,7 +42,13 @@
 //! re-serialised: on Claude a thinking block is valid only while everything
 //! before it is byte-for-byte unchanged, and an unchanged prefix is also what
 //! the prompt cache reads. A change of model costs one uncached
-//! turn, and the web app says so before it switches. Facts the server vouches
+//! turn, and the web app says so before it switches.
+//!
+//! Except that a long conversation compacts itself (#1438, `compact`): a new
+//! turn that finds it past 150K tokens opens from a summary the model wrote
+//! of everything before, and the history starts at that turn
+//! (`chat_turns.compacted`). Nothing is edited even then: the older turns stay
+//! stored as they were sent, and only where the history begins moves. Facts the server vouches
 //! for — which project this is, that the user confirmed a quote — arrive as
 //! server notes (a mid-conversation `system` message), which neither the user nor a tool's output can forge.
 //!
@@ -133,6 +139,7 @@
 
 mod ask;
 mod calls;
+mod compact;
 mod cost;
 mod described;
 mod effort;

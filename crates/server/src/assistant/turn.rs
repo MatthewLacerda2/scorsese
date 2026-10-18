@@ -17,6 +17,7 @@ use scorsese_providers::chat::{
 use serde_json::value::RawValue;
 
 use super::ask::{self, Asked};
+use super::compact::{self, Compacting};
 use super::relay::Relay;
 use super::store::asking;
 use super::store::turns::{self, Charge};
@@ -28,7 +29,7 @@ use crate::events::Event;
 use crate::http::AppState;
 
 /// How long to wait before sending a failed call again, each time.
-const RETRY_AFTER: [Duration; 2] = [Duration::from_secs(2), Duration::from_secs(8)];
+pub(super) const RETRY_AFTER: [Duration; 2] = [Duration::from_secs(2), Duration::from_secs(8)];
 
 /// Everything a running turn needs.
 pub(super) struct Running {
@@ -61,6 +62,9 @@ pub(super) struct Running {
     /// What a resumed turn says first: the user's answer, as the result of
     /// the call that asked.
     pub(super) answer: Option<Resumed>,
+    /// The compaction a new turn makes before its first call (#1438); never
+    /// one for a turn that resumes.
+    pub(super) compacting: Option<Compacting>,
 }
 
 /// The user's answer a paused turn resumes with.
@@ -85,6 +89,7 @@ enum End {
 
 /// Run `turn` to its end, and record and announce how it ended.
 pub(super) async fn run(state: AppState, mut turn: Running) {
+    compact::compact(&state, &mut turn).await;
     let end = match drive(&state, &mut turn).await {
         Ok(end) => end,
         Err(failure) => End::Over("failed", failure),
@@ -187,6 +192,7 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
             prompt: &turn.prompt,
             model: turn.model,
             latency,
+            summary: false,
         };
         let (charged, now) = turns::charge(&state.pool, turn.user, &charge, &reply)
             .await

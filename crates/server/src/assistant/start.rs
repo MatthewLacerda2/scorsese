@@ -6,7 +6,7 @@ use super::store::TurnView;
 use super::store::asking;
 use super::store::turns::{self, Beginning, Last};
 use super::turn::{self, Running};
-use super::{AssistantError, ask, effort, model, prompt, quote};
+use super::{AssistantError, ask, compact, effort, model, prompt, quote};
 use crate::credits::{dollars, ledger};
 use crate::db::{self, UserId};
 use crate::events::Event;
@@ -72,10 +72,11 @@ pub async fn start(
         Vec::new()
     };
     let (session, new) = turns::session(&mut tx, project, opening.fresh).await?;
+    let scripted = stored.document.script.is_some();
+    let about = prompt::about(project, &stored.summary.name, scripted);
     let mut notes = Vec::new();
     if new {
-        let scripted = stored.document.script.is_some();
-        notes.push(prompt::about(project, &stored.summary.name, scripted));
+        notes.push(about.clone());
     }
     if let Some(last) = turns::last(&mut tx, session).await? {
         if last.state == "running" {
@@ -98,6 +99,12 @@ pub async fn start(
     let history = chat::replay(model, &kept).map_err(written)?;
     let said: Vec<Message> = kept.iter().flat_map(|turn| turn.record.clone()).collect();
     let record = prompt::opening(&said, &prompt, &notes, effort);
+    // Past its size, the turn opens from a summary instead (#1438).
+    let compacting = if compact::due(&mut tx, session).await? {
+        Some(compact::prepare(model, &history, &said, &about, &notes, effort).map_err(written)?)
+    } else {
+        None
+    };
     let first = record
         .iter()
         .map(|message| chat::freeze(model, message))
@@ -140,6 +147,7 @@ pub async fn start(
         balance,
         spent: 0,
         answer: None,
+        compacting,
     };
     tokio::spawn(turn::run(state.clone(), running));
     Ok(view)
