@@ -44,7 +44,10 @@ rather than in a list a crash can lose. A hand-back (conflict, red, no run)
 skips that branch until its head changes and the rest carry on, so read its
 summary rather than assuming everything landed. It never resolves a conflict:
 a hand-back naming paths goes back to the branch's author. `make queue PRS="a
-b c"` still takes a fixed list, for a one-off.
+b c"` still takes a fixed list, for a one-off. Use it for every wave when the
+batch is scoped and another session's PRs already carry `queue`: the watch
+takes every labelled PR, and on 2026-10-17 a scoped batch merged in waves of
+fixed lists while #1427 sat labelled from another session (#1434–#1448).
 
 ## How many agents at once
 
@@ -334,6 +337,20 @@ and its own Monitor, and each one woke it, so the background wait worked there.
 Idle with a background task still running, and the log's last turn saying what
 it waits for, is waiting; idle with nothing pending is the stall, and the fix
 is a fresh routine briefed to finish the pushed branch.
+
+**The usage limit stops every coder at once.** The cloud coders run on the
+account the orchestrator does. On 2026-10-18 at 01:50 UTC all five in flight
+logged `rate_limit: rejected (five_hour)` mid-work and went idle. One had
+pushed nothing, because its first commit was refused by the size gate. When
+the limit resets:
+- read each run's log tail (`get_run_log`) and what each branch pushed;
+- post a new `Brief` saying "continue PR #N from its pushed head" (or "start
+  fresh; nothing was pushed", with what the first attempt learned);
+- re-fire the same routine with `RemoteTrigger run`, which starts a new
+  session on the routine's prompt.
+
+What a session had not pushed is gone, which is one more reason the brief
+says push early.
 
 **The container's disk is finite too**, and **what it costs** is a cold build of
 the whole dependency tree, with no local compile cache to help — so choose it on
