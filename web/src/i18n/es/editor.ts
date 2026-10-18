@@ -88,7 +88,7 @@ export const editor: Messages["editor"] = {
     queued: "Vista previa en cola…",
     rendering: "Renderizando la vista previa…",
     ready: "Vista previa lista",
-    failed: "No se pudo renderizar la vista previa.",
+    failed: "No se pudo hacer la vista previa; inténtalo de nuevo.",
     failedWhy: (why: string) => `No se pudo renderizar la vista previa: ${why}`,
     empty: "Todavía no hay nada en la línea de tiempo.",
     frame: "El cuadro bajo el cabezal",

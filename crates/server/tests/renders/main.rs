@@ -14,6 +14,7 @@ mod evict;
 mod framed;
 mod job;
 mod loudness;
+mod outrun;
 mod previews;
 mod progress;
 mod request;

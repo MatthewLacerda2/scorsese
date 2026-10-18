@@ -7,14 +7,25 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ApiError, api } from "@/api";
 import { queryKeys } from "@/app/queryKeys";
+import { useT } from "@/i18n/I18nProvider";
 import { useSettled } from "@/lib/useSettled";
 import { clamp } from "@/lib/utils";
 
 /** How long the playhead has to rest before its frame is asked for. */
 const SETTLE_MS = 200;
 
-/** The picture, or the tool's reason there is none (an empty timeline, say). */
+/**
+ * The picture, or why there is none: what the tool said when it drew nothing
+ * (an empty timeline, say), or the editor's own words when it refused — its
+ * refusal is a sentence for the assistant, never put under the picture (#1439).
+ */
 export type Still = { png: string } | { none: string };
+
+/**
+ * What is cached for a frame: a refusal is kept as a mark and put in words
+ * when it is shown, so a cached one follows a change of language.
+ */
+type Drawn = Still | { refused: true };
 
 /**
  * The frame to draw for a playhead at `frame` on a timeline `length` frames
@@ -34,13 +45,15 @@ export function useStill(
   enabled: boolean,
 ) {
   const at = clampFrame(useSettled(frame, SETTLE_MS), length);
+  const failed = useT().editor.preview.failed;
   return useQuery({
     queryKey: queryKeys.still(id, revision, at, raster),
     enabled,
     placeholderData: keepPreviousData,
     // A frame of a revision never changes.
     staleTime: Infinity,
-    queryFn: async (): Promise<Still> => {
+    select: (drawn: Drawn): Still => ("refused" in drawn ? { none: failed } : drawn),
+    queryFn: async (): Promise<Drawn> => {
       try {
         // A bare whole number is a frame on the timeline, to the `still` tool.
         const answer = await api.editor.tool(id, "still", { at: String(at), resolution: raster });
@@ -49,7 +62,10 @@ export function useStill(
           ? { png: `data:image/png;base64,${image}` }
           : { none: answer.said[0]?.text ?? "" };
       } catch (error) {
-        if (error instanceof ApiError && error.status === 422) return { none: error.message };
+        if (error instanceof ApiError && error.status === 422) {
+          console.error("preview: the still was refused", error.message);
+          return { refused: true };
+        }
         throw error;
       }
     },

@@ -19,7 +19,10 @@
 //! **Stopping.** The job's [`Context::cancel`] goes to the renderer, so a
 //! cancel from its owner (#660) stops it within a frame, its ffmpeg children
 //! reaped and its unfinished file removed — `scorsese_render::Cancel`. What
-//! comes back is [`Outcome::Cancelled`], saying how far it got.
+//! comes back is [`Outcome::Cancelled`], saying how far it got. A preview
+//! that ended any other way after the project moved past its revision is
+//! `cancelled` too: nobody is waiting for it, so it is never shown as failed
+//! (#1439) — though why it ended is still logged, as every failure is.
 //!
 //! **Progress.** Its [`Context::progress`] goes to the renderer beside the
 //! cancel, and the worker tells the owner how far it has got (#698).
@@ -75,12 +78,27 @@ pub fn handler(cache: RenderCache, tools: Tools, storage: Storage) -> impl Handl
     move |job: Job, context: Context| {
         let (cache, tools, storage) = (cache.clone(), tools.clone(), storage.clone());
         async move {
-            match render(&cache, &tools, &storage, &job, &context).await {
-                Ok(done) => Outcome::Done(done),
-                // Whatever stopped it, its owner asked it to stop first.
-                Err(why) if context.cancel().is_cancelled() => Outcome::Cancelled(why),
-                Err(why) => Outcome::Failed(why),
+            let why = match render(&cache, &tools, &storage, &job, &context).await {
+                Ok(done) => return Outcome::Done(done),
+                Err(why) => why,
+            };
+            // Whatever stopped it, its owner asked it to stop first — or it
+            // was a preview of a revision the project has since moved past,
+            // which nobody is waiting for: either way not a failure (#1439).
+            if context.cancel().is_cancelled() {
+                return Outcome::Cancelled(why);
             }
+            if preview::outrun(&job, &context).await {
+                // Still logged: ffmpeg dying while its owner kept editing is
+                // a failure the screen never shows, and only here is it seen.
+                eprintln!(
+                    "scorsese-server: superseded preview {} ended: {why}",
+                    job.id
+                );
+                return Outcome::Cancelled(why);
+            }
+            eprintln!("scorsese-server: render job {} failed: {why}", job.id);
+            Outcome::Failed(why)
         }
     }
 }

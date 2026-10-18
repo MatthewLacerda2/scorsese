@@ -162,6 +162,38 @@ impl Encoder {
         child.stop(GRACE);
         drop(partial);
     }
+
+    /// Gives up on the file because the render stopped with `why`, and hands
+    /// back the reason to give: `why` itself, unless it is a write to ffmpeg
+    /// that met a closed pipe — the symptom of an ffmpeg that died, whose own
+    /// account of its exit is the reason ([`super::Process::gone`], #1439).
+    /// The half-written file is removed either way.
+    pub(crate) fn stopped(self, why: RenderError) -> RenderError {
+        if !matches!(
+            why,
+            RenderError::Pipe {
+                stage: Stage::Encode,
+                ..
+            }
+        ) {
+            self.abandon();
+            return why;
+        }
+        let Self {
+            stdin,
+            child,
+            partial,
+        } = self;
+        drop(stdin);
+        let why = child.gone(
+            GRACE,
+            Stage::Encode,
+            &partial.out().display().to_string(),
+            why,
+        );
+        drop(partial);
+        why
+    }
 }
 
 /// Encodes a finished mix on its own, into `out`, exactly as a render would

@@ -88,7 +88,7 @@ export const editor: Messages["editor"] = {
     queued: "Prévia na fila…",
     rendering: "Renderizando a prévia…",
     ready: "Prévia pronta",
-    failed: "Não deu para renderizar a prévia.",
+    failed: "Não deu para fazer a prévia; tente de novo.",
     failedWhy: (why: string) => `Não deu para renderizar a prévia: ${why}`,
     empty: "Nada na linha do tempo ainda.",
     frame: "O quadro sob a agulha",

@@ -43,7 +43,7 @@ pub(super) async fn finished(pool: &PgPool, user: UserId, id: i64) -> JobView {
             .await
             .expect("the job reads")
             .expect("the job is theirs");
-        if matches!(job.state, State::Done | State::Failed) {
+        if matches!(job.state, State::Done | State::Failed | State::Cancelled) {
             return job;
         }
         tokio::time::sleep(Duration::from_millis(50)).await;

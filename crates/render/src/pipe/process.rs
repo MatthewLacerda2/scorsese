@@ -1,7 +1,7 @@
 //! The ffmpeg children a render spawns, and what they say on the way.
 
 use std::io::Read;
-use std::process::Child;
+use std::process::{Child, ExitStatus};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
@@ -56,16 +56,58 @@ impl Process {
         let status = child
             .wait()
             .map_err(|source| RenderError::Pipe { stage, source })?;
+        if status.success() {
+            return Ok(());
+        }
+        Err(self.account(status, stage, subject))
+    }
+
+    /// Why it went, once a pipe to it broke: given `grace` to finish exiting
+    /// (killed if it has not), its own account of the failure — what it said
+    /// on stderr, or how it exited (a `SIGKILL` from the kernel's OOM killer
+    /// says only that). `broke`, the pipe's error, when it exited cleanly or
+    /// had to be killed, since then it has nothing to add.
+    ///
+    /// A closed pipe is the symptom, never the reason, and a render that
+    /// reported only "Broken pipe" left nobody able to say why ffmpeg died
+    /// (#1439).
+    pub(crate) fn gone(
+        mut self,
+        grace: Duration,
+        stage: Stage,
+        subject: &str,
+        broke: RenderError,
+    ) -> RenderError {
+        let mut child = self.child.take().expect("a process is only reaped once");
+        let deadline = Instant::now() + grace;
+        let status = loop {
+            match child.try_wait() {
+                Ok(Some(status)) => break Some(status),
+                Ok(None) if Instant::now() < deadline => std::thread::sleep(POLL),
+                _ => break None,
+            }
+        };
+        match status {
+            Some(status) if !status.success() => self.account(status, stage, subject),
+            Some(_) => broke,
+            None => {
+                let _ = child.kill();
+                let _ = child.wait();
+                broke
+            }
+        }
+    }
+
+    /// What an exit that failed says: the end of its stderr, or the status.
+    /// Waits for the reading thread, which ends with the process.
+    fn account(&mut self, status: ExitStatus, stage: Stage, subject: &str) -> RenderError {
         let said = self
             .said
             .take()
             .and_then(|said| said.join().ok())
             .unwrap_or_default();
-        if status.success() {
-            return Ok(());
-        }
         let message = said.message();
-        Err(RenderError::Ffmpeg {
+        RenderError::Ffmpeg {
             stage,
             subject: subject.to_owned(),
             message: if message.is_empty() {
@@ -73,7 +115,7 @@ impl Process {
             } else {
                 message
             },
-        })
+        }
     }
 
     /// [`Process::finish`], unless `cancel` is tripped first: then it is
@@ -269,6 +311,63 @@ mod tests {
             panic!("a non-zero exit is an error: {finished:?}");
         };
         assert!(message.len() <= KEPT + 8, "kept {} bytes", message.len());
+    }
+
+    /// A child that dies while it is being fed: a write meets a closed pipe,
+    /// and [`Process::gone`] hands back what the child said rather than the
+    /// pipe's error (#1439).
+    #[cfg(unix)]
+    fn fed_until_it_breaks(script: &str) -> RenderError {
+        use std::io::Write;
+        use std::process::{Command, Stdio};
+
+        let mut child = Command::new("/bin/sh")
+            .args(["-c", script])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("a shell");
+        let mut stdin = child.stdin.take().expect("piped");
+        let process = Process::new(child);
+        let chunk = [0_u8; 4096];
+        let broke = loop {
+            if let Err(source) = stdin.write_all(&chunk) {
+                break RenderError::Pipe {
+                    stage: Stage::Encode,
+                    source,
+                };
+            }
+        };
+        drop(stdin);
+        process.gone(Duration::from_secs(5), Stage::Encode, "out.mp4", broke)
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_broken_pipe_is_answered_with_what_the_child_said() {
+        let why = fed_until_it_breaks("echo 'Error initializing output stream' >&2; exit 1");
+        let RenderError::Ffmpeg { message, .. } = &why else {
+            panic!("the child's account, not the pipe's: {why:?}");
+        };
+        assert_eq!(message, "Error initializing output stream");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_child_killed_by_a_signal_says_which() {
+        let why = fed_until_it_breaks("kill -KILL $$");
+        let RenderError::Ffmpeg { message, .. } = &why else {
+            panic!("the child's account, not the pipe's: {why:?}");
+        };
+        assert!(message.contains("SIGKILL"), "{message}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_child_that_exited_cleanly_leaves_the_pipe_error() {
+        let why = fed_until_it_breaks("exec 0<&-; exit 0");
+        assert!(matches!(why, RenderError::Pipe { .. }), "{why:?}");
     }
 
     #[test]
