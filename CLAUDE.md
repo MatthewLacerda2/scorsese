@@ -398,7 +398,8 @@ in a cloud session; `issue-batch` has what that premise shapes.
   `make gates` runs every gate CI blocks on and `make help` lists them; the
   app, web and web-e2e gates report **skipped** when a branch touches nothing
   they check, and skipped is never green. `make setup`, once per clone, installs the
-  pre-commit hook (formatting and the size gate). **CI is a different
+  pre-commit hook (formatting and the size gate) and, when sccache is installed,
+  the worktrees' shared compile cache. **CI is a different
   computer** — cold, no GPU, often a different ffmpeg — so local green is never
   CI green, and nothing GPU-dependent is ever a merge gate.
 - **Gates vs. signals — block on correctness, inform on quality.** Build, test,

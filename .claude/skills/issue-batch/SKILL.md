@@ -160,6 +160,12 @@ its own `target/`; an override makes worktrees overwrite each other's artifacts
 and produces a false green. `make gates` refuses one that points outside the
 worktree.
 
+What worktrees may share is sccache's compile cache, which is keyed by a hash
+of each compile's inputs rather than by package, so nothing one worktree does
+overwrites another's. `make setup` turns it on for every worktree under
+`.claude/worktrees/` when `sccache` is installed (`cargo install --locked
+sccache`, then `make setup` again), and writes nothing when it is not (#1475).
+
 **Cores and memory bound the builds, and the machine decides the numbers.** The
 operator works on more than one machine, so no limit is written down here as a
 figure — measure the one you are on. The method (measured on rusty,
