@@ -161,8 +161,9 @@ fn ledger(project_dir: &Path) {
     }
     println!();
     println!(
-        "{} designed here, about {} spent designing them — our arithmetic over the \
-         published rate, never a bill, and counted apart from what the shots cost.",
+        "{} designed here, about {} spent designing voices, kept or not — our \
+         arithmetic over the published rate, never a bill, and counted apart from what \
+         the shots cost.",
         entries.len(),
         dollars(
             from_cents(scorsese_providers::voices::design::spent(project_dir)),

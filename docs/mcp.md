@@ -1851,7 +1851,8 @@ which spend nothing. `guidance` says how literally the candidates follow the des
 higher is more literal and less varied; left out, the vendor chooses.
 
 **Voice design spend is its own line item.** It counts against the same
-spending ceiling — it is real money at the same vendor — but it is never added
+spending ceiling from the moment the candidates come back, whether or not one
+is kept — it is real money at the same vendor — but it is never added
 to what the shots cost. A generation total that moved while nobody was
 generating would be a counter nobody could trust, and *"voice design"* beside
 the number is the whole fix.

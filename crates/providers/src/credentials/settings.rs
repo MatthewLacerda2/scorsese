@@ -35,7 +35,8 @@ pub struct Settings {
     /// The Pixabay key, for searching free stock footage and photos.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pixabay_api_key: Option<String>,
-    /// The most one run may spend, in US cents.
+    /// The most a project may have spent, in US cents — every take sent, this
+    /// run's included, and every voice designed ([`super::Budget`]).
     ///
     /// Absent means no ceiling, which is the state a fresh install is in — a
     /// limit nobody chose is not a limit, and inventing one would refuse the

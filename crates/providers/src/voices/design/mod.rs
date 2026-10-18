@@ -22,7 +22,8 @@
 //! And the spending is **its own line item**. A total that folded a designed
 //! voice into what narration cost would move while nobody was generating
 //! narration, and a counter that does that is a counter nobody trusts. It is
-//! still real money, so a ceiling counts it — see [`spent`].
+//! still real money, so a ceiling counts it the moment the candidates come
+//! back, whether or not one is kept — see [`spent`].
 //!
 //! # What it creates is outside the project, and that breaks a promise
 //!

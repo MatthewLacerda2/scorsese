@@ -51,9 +51,10 @@ pub struct Spending {
     /// still, line and track sent, superseded takes included. Read off the
     /// ledger beside `project.json` ([`history`]), written as each was sent.
     pub generation_cents: u64,
-    /// What designing voices is estimated to have cost. Read off the ledger
-    /// beside `project.json`, because a designed voice is not an asset and
-    /// never will be — it lives in an account somewhere else.
+    /// What designing voices is estimated to have cost — every design paid
+    /// for, once each, whether or not a voice was kept ([`design::spent`]).
+    /// Not on the assets, because a designed voice is not an asset and never
+    /// will be — it lives in an account somewhere else.
     pub design_cents: u64,
     /// The part of [`generation_cents`](Self::generation_cents) no asset
     /// shows any more.

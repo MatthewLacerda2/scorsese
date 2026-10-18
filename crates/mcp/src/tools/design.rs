@@ -248,8 +248,9 @@ fn ledger(dir: &std::path::Path) -> String {
         .map(scorsese_providers::voices::design::Designed::says)
         .collect();
     lines.push(format!(
-        "\n{} designed here, about {} spent designing them — our arithmetic over the \
-         published rate, never a bill, and counted apart from what the shots cost.",
+        "\n{} designed here, about {} spent designing voices, kept or not — our \
+         arithmetic over the published rate, never a bill, and counted apart from what \
+         the shots cost.",
         entries.len(),
         scorsese_providers::prices::dollars(
             scorsese_providers::prices::from_cents(scorsese_providers::voices::design::spent(dir)),

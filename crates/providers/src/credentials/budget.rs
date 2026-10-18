@@ -1,4 +1,10 @@
-//! The ceiling on what one run may spend.
+//! The ceiling on what a project may have spent.
+//!
+//! **A project's ceiling, not a run's** (#1107): a run may go ahead only while
+//! everything the project has spent — every take sent, this run's included,
+//! and every voice designed — stays at or under it. A run's own cost is never
+//! checked on its own, so ten runs of a dollar each against a five-dollar
+//! ceiling stop at the fifth.
 
 /// What a project is allowed to spend, and what it has spent already.
 ///
