@@ -46,11 +46,16 @@ async fn ordered(
     let body = json!({ "confirm": true });
     let yes = super::common::request(address, "POST", &path, &[&who], Some(&body)).await;
     assert_eq!(yes.status, 200, "{}", yes.body);
-    finished(address, &who, detail["turn"]["id"].as_i64().unwrap()).await;
+    finished(
+        address,
+        &who,
+        detail["turn"]["id"].as_i64().expect("the test setup holds"),
+    )
+    .await;
     let queued: Vec<i64> = sqlx::query_scalar("SELECT id FROM jobs ORDER BY id")
         .fetch_all(pool)
         .await
-        .unwrap();
+        .expect("the test setup holds");
     assert_eq!(queued.len(), 2, "one job a line");
     (address, ana, who, state, queued)
 }
@@ -75,8 +80,11 @@ async fn land(pool: &PgPool, state: &AppState, user: UserId, job: i64, outcome: 
     .bind(outcome)
     .execute(pool)
     .await
-    .unwrap();
-    let view = jobs::get(&state.pool, user, job).await.unwrap().unwrap();
+    .expect("the test setup holds");
+    let view = jobs::get(&state.pool, user, job)
+        .await
+        .expect("the test setup holds")
+        .expect("the test setup holds");
     state.events.send(user, Event::Job(view));
 }
 
@@ -85,7 +93,7 @@ async fn turns(pool: &PgPool) -> i64 {
     sqlx::query_scalar("SELECT count(*) FROM chat_turns")
         .fetch_one(pool)
         .await
-        .unwrap()
+        .expect("the test setup holds")
 }
 
 /// The newest turn once there are `n`, finished: its detail.
@@ -95,7 +103,7 @@ async fn nth_turn(pool: &PgPool, address: SocketAddr, who: &str, n: i64) -> Valu
             let id: i64 = sqlx::query_scalar("SELECT max(id) FROM chat_turns")
                 .fetch_one(pool)
                 .await
-                .unwrap();
+                .expect("the test setup holds");
             return finished(address, who, id).await;
         }
         tokio::time::sleep(Duration::from_millis(25)).await;

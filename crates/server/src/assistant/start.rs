@@ -42,7 +42,7 @@ pub struct Opening {
 /// ([`quote::answer`]). A new conversation sets either aside.
 ///
 /// Work the conversation ordered that has landed since is told in a note
-/// ([`wake::told`]); a woken turn is refused when there is none.
+/// (`wake::told`); a woken turn is refused when there is none.
 pub async fn start(
     state: &AppState,
     user: UserId,
