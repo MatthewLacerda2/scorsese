@@ -1,10 +1,10 @@
 // A turn shows the assistant's words, never its tools (#1437) nor its thinking: a working
 // turn shows one of its language's status words instead, and a finished one
-// shows neither (#767).
+// shows neither (#767). An answered quote is one line (#1440).
 
 import { expect, test } from "bun:test";
 import { renderToString } from "react-dom/server";
-import type { TurnView } from "@/api/chat";
+import type { QuoteView, TurnView } from "@/api/chat";
 import type { ServerEvent } from "@/api/events";
 import { CATALOGUES } from "@/i18n/catalogue";
 import { I18nProvider } from "@/i18n/I18nProvider";
@@ -24,6 +24,7 @@ function turnView(state: TurnView["state"], answer: string | null): TurnView {
     charged_micros: 0,
     quote: null,
     quote_answer: null,
+    quote_replies: [],
     questions: [],
   };
 }
@@ -72,4 +73,41 @@ test("a finished turn shows neither its thinking nor a status word", () => {
   expect(page).not.toContain("Weighing the cut");
   expect(page).toContain("<em>intro</em>");
   expect(CATALOGUES.en.chat.turn.busy.some((word) => page.includes(word))).toBe(false);
+});
+
+test("an answered quote collapses into one line, its box gone (#1440)", () => {
+  const quote: QuoteView = {
+    tool: "generate",
+    items: [],
+    lines: ["Total: $0.60"],
+    micros: 600_000,
+    expires_at: 0,
+  };
+  const answered: TurnView = {
+    ...turnView("answered", "On its way."),
+    quote,
+    quote_answer: "confirmed",
+    quote_replies: [{ answer: "confirmed", micros: 600_000, words: null }],
+  };
+  const [shown] = upsert(empty(7), answered).entries;
+  if (!shown) throw new Error("no turn");
+  const page = html("en", shown);
+  expect(page).toContain("Approved — $0.60");
+  expect(page).not.toContain(CATALOGUES.en.chat.quote.confirm);
+});
+
+test("a change asked for reads as one, in the person's own words (#1440)", () => {
+  const quote: QuoteView = { tool: "generate", lines: [], micros: 600_000, expires_at: 0 };
+  const changed: TurnView = {
+    ...turnView("answered", "Yellow it is."),
+    quote,
+    quote_answer: "declined",
+    quote_replies: [{ answer: "changed", micros: 600_000, words: "make the cape yellow" }],
+  };
+  const [shown] = upsert(empty(7), changed).entries;
+  if (!shown) throw new Error("no turn");
+  const page = html("en", shown);
+  expect(page).toContain("Change asked — $0.60");
+  expect(page).toContain("make the cape yellow");
+  expect(page).not.toContain("Declined");
 });

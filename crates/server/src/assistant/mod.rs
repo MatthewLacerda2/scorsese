@@ -54,11 +54,13 @@
 //! call issues a quote, the token is cut out of the reply the model reads, the
 //! quote is held on the turn and shown to the user as a confirmation box
 //! (`chat_quote`), and a call that names `confirm` is refused outright. The
-//! user's yes (`POST /api/chat/turns/{id}/quote`, `quote`) is what spends —
-//! the server makes that call itself, recorded as the user's — and a new turn
-//! then tells the model, as a system message, what the spend did. A no, a
-//! change the user asks for instead (#709: a turn begins with their words and
-//! a note that they are about the quoted items), or a new message instead of
+//! quote **pauses the turn** (#1440), as a question does (*A question
+//! mid-edit* below), and the user's answer (`POST /api/chat/turns/{id}/quote`,
+//! `quote`) resumes it as the result of the call that quoted. A yes is what
+//! spends — the server makes that call itself, recorded as the user's — and
+//! the result is what the spend answered, so the model carries on in the same
+//! turn. A no, a change the user asks for instead (#709: the result carries
+//! their words as a change to the quoted items), or a new message instead of
 //! an answer, withdraws the token. The box shows each item's description
 //! beside its price (`described`), so a yes is never to money alone.
 //!
@@ -149,8 +151,8 @@ pub use quote::{Answer, Answered, answer as answer_quote};
 pub use retarget::{Retargeted, retarget};
 pub use start::{Opening, start};
 pub use store::{
-    BriefKind, CandidateView, Conversation, QuestionView, QuoteItem, QuoteView, ToolCallView,
-    TurnDetail, TurnView,
+    BriefKind, CandidateView, Conversation, QuestionView, QuoteItem, QuoteReply, QuoteView,
+    ToolCallView, TurnDetail, TurnView,
 };
 pub use store::{conversation, detail, recover};
 

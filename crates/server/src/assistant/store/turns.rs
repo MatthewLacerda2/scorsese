@@ -76,17 +76,19 @@ pub(in crate::assistant) async fn last(
     }))
 }
 
-/// Record how the user answered turn `turn`'s quote, and forget its token.
-pub(in crate::assistant) async fn answer_quote(
+/// Record turn `turn`'s quote as withdrawn unanswered, and forget its token.
+pub(in crate::assistant) async fn withdraw_quote(
     tx: &mut Tx,
     turn: i64,
-    answer: &str,
 ) -> Result<(), sqlx::Error> {
-    sqlx::query("UPDATE chat_turns SET quote_answer = $2, quote_token = NULL WHERE id = $1")
-        .bind(turn)
-        .bind(answer)
-        .execute(&mut **tx)
-        .await?;
+    sqlx::query(concat!(
+        "UPDATE chat_turns SET ",
+        withdrawing!(),
+        " WHERE id = $1"
+    ))
+    .bind(turn)
+    .execute(&mut **tx)
+    .await?;
     Ok(())
 }
 
@@ -252,46 +254,64 @@ pub(in crate::assistant) async fn charge(
 }
 
 /// Hold a quote on turn `turn` for the user to answer: its token, and what
-/// the box shows.
+/// the box shows. The token of a quote it held unanswered before, which this
+/// one takes the place of.
 pub(in crate::assistant) async fn hold_quote(
     pool: &PgPool,
     user: UserId,
     turn: i64,
     token: &str,
     quote: &QuoteView,
-) -> Result<(), sqlx::Error> {
+) -> Result<Option<String>, sqlx::Error> {
     let mut tx = db::scoped(pool, user).await?;
-    sqlx::query(
-        "UPDATE chat_turns SET quote_token = $2, quote = $3, quote_answer = NULL WHERE id = $1",
+    let earlier: Option<String> = sqlx::query_scalar(
+        "WITH old AS (SELECT id, quote_token FROM chat_turns WHERE id = $1 FOR UPDATE)
+         UPDATE chat_turns t SET quote_token = $2, quote = $3, quote_answer = NULL
+         FROM old WHERE t.id = old.id
+         RETURNING old.quote_token",
     )
     .bind(turn)
     .bind(token)
     .bind(sqlx::types::Json(quote))
-    .execute(&mut *tx)
-    .await?;
-    tx.commit().await
+    .fetch_optional(&mut *tx)
+    .await?
+    .flatten();
+    tx.commit().await?;
+    Ok(earlier)
 }
 
-/// End turn `turn` in `state`, with its answer; the turn as it ended, and the
-/// balance.
+/// End turn `turn` in `state`, with its answer; the turn as it ended, the
+/// balance, and the token of any quote it still held — withdrawn here, since
+/// only a paused turn's box can be answered, and now the caller's to withdraw
+/// from the paid tool (#1440).
 pub(in crate::assistant) async fn finish(
     pool: &PgPool,
     user: UserId,
     turn: i64,
     state: &str,
     answer: &str,
-) -> Result<(TurnView, i64), AssistantError> {
+) -> Result<(TurnView, i64, Option<String>), AssistantError> {
     let mut tx = db::scoped(pool, user).await?;
-    sqlx::query("UPDATE chat_turns SET state = $2, answer = $3, finished_at = now() WHERE id = $1")
-        .bind(turn)
-        .bind(state)
-        .bind(answer)
-        .execute(&mut *tx)
-        .await?;
+    let held: Option<String> =
+        sqlx::query_scalar("SELECT quote_token FROM chat_turns WHERE id = $1 FOR UPDATE")
+            .bind(turn)
+            .fetch_optional(&mut *tx)
+            .await?
+            .flatten();
+    sqlx::query(concat!(
+        "UPDATE chat_turns SET state = $2, answer = $3, finished_at = now(), ",
+        withdrawing!(),
+        " WHERE id = $1"
+    ))
+    .bind(turn)
+    .bind(state)
+    .bind(answer)
+    .execute(&mut *tx)
+    .await?;
     let view = view(&mut tx, turn).await?.ok_or(AssistantError::NotFound)?;
     let balance = ledger::balance(&mut tx).await?;
     tx.commit().await?;
-    Ok((view, balance))
+    Ok((view, balance, held))
 }
 
 /// The neutral record as the JSON array stored.

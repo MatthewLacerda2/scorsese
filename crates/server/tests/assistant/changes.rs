@@ -1,6 +1,7 @@
 //! A quote's box shows what each item would send, and a change asked for in
-//! it spends nothing: it starts the next turn with the user's words, framed
-//! by the server as about the quoted items — on every model (#709).
+//! it spends nothing: the paused turn carries on with the user's words as the
+//! quoting call's result, framed by the server as about the quoted items
+//! (#709, #1440).
 
 use std::net::SocketAddr;
 
@@ -41,10 +42,7 @@ async fn change_on(pool: &PgPool, model: &str) -> Vec<String> {
     let (address, _) = scripted(pool, &script).await;
     let (ana, who) = member(pool, "ana@example.com", 10).await;
     let id = on_model(pool, ana, briefed(), model).await;
-    script.replace(vec![
-        calls("generate", json!({ "project": id })),
-        answers("The shot and the line cost about a dollar; answer in the box."),
-    ]);
+    script.replace(vec![calls("generate", json!({ "project": id }))]);
     let detail = exchange(address, &who, id, "make it").await;
     let items = &detail["turn"]["quote"]["items"];
     assert_eq!(items[0]["subject"], "hero", "{detail}");
@@ -69,11 +67,7 @@ async fn change_on(pool: &PgPool, model: &str) -> Vec<String> {
     assert_eq!(changed.status, 200, "{}", changed.body);
     let changed = changed.json();
     assert!(changed["spent"].is_null(), "{changed}");
-    let next = changed["turn"]["id"]
-        .as_i64()
-        .expect("the exchange went as scripted");
-    let next = finished(address, &who, next).await;
-    assert_eq!(next["turn"]["prompt"], "make the cape yellow instead");
+    assert_eq!(changed["turn"]["id"], detail["turn"]["id"], "the same turn");
     let first = finished(
         address,
         &who,
@@ -82,7 +76,14 @@ async fn change_on(pool: &PgPool, model: &str) -> Vec<String> {
             .expect("the exchange went as scripted"),
     )
     .await;
+    assert_eq!(
+        first["turn"]["answer"],
+        "Yellow it is; here is the new quote."
+    );
     assert_eq!(first["turn"]["quote_answer"], "declined");
+    let reply = &first["turn"]["quote_replies"][0];
+    assert_eq!(reply["answer"], "changed", "a change reads as one: {first}");
+    assert_eq!(reply["words"], "make the cape yellow instead");
     assert_eq!(jobs(pool).await, 0, "a change spends nothing");
     let again = answer(address, &who, &detail, json!({ "confirm": true })).await;
     assert_eq!(again.status, 400, "the quote is gone: {}", again.body);
@@ -105,11 +106,11 @@ fn told_alike(sent: &[String]) {
 }
 
 #[sqlx::test]
-async fn a_change_on_claude_is_the_users_message_and_a_server_note(pool: PgPool) {
+async fn a_change_on_claude_is_the_quoting_calls_result(pool: PgPool) {
     let sent = change_on(&pool, "claude-opus-5-5").await;
     told_alike(&sent);
     let last = sent.last().unwrap();
-    assert!(last.contains(r#""role":"system""#), "{last}");
+    assert!(last.contains("tool_result"), "{last}");
 }
 
 #[sqlx::test]
@@ -118,17 +119,14 @@ async fn an_empty_change_or_a_yes_with_one_answers_nothing(pool: PgPool) {
     let (address, _) = scripted(&pool, &script).await;
     let (ana, who) = member(&pool, "ana@example.com", 10).await;
     let id = project(&pool, ana, briefed()).await;
-    script.replace(vec![
-        calls("generate", json!({ "project": id })),
-        answers("Quoted."),
-    ]);
+    script.replace(vec![calls("generate", json!({ "project": id }))]);
     let detail = exchange(address, &who, id, "make it").await;
     let blank = json!({ "confirm": false, "change": "  " });
     assert_eq!(answer(address, &who, &detail, blank).await.status, 400);
     let both = json!({ "confirm": true, "change": "yellow" });
     assert_eq!(answer(address, &who, &detail, both).await.status, 400);
     assert_eq!(jobs(&pool).await, 0);
-    // Still waiting: a plain message withdraws it, as before.
+    // Still waiting: a plain message withdraws it and is its answer.
     script.replace(vec![answers("Understood.")]);
     assert_eq!(send(address, &who, id, "never mind").await.status, 202);
 }

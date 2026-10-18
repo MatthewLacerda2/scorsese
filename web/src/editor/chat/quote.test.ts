@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { QuoteView } from "@/api/chat";
-import { changeAnswer, offer, preview } from "./quote";
+import type { QuoteView, TurnView } from "@/api/chat";
+import { awaitingQuote, changeAnswer, offer, preview } from "./quote";
 
 describe("preview", () => {
   test("keeps a short description whole", () => {
@@ -41,5 +41,24 @@ describe("offer", () => {
   test("offers one price otherwise, including on a quote held before batches", () => {
     expect(offer(quote)).toBeNull();
     expect(offer({ ...quote, batch_micros: null })).toBeNull();
+  });
+});
+
+describe("awaitingQuote", () => {
+  const quote: QuoteView = { tool: "generate", lines: [], micros: 1, expires_at: 9 };
+  const turn = (fields: Partial<TurnView>) =>
+    ({ state: "asking", quote, quote_answer: null, ...fields }) as TurnView;
+
+  test("is true while the turn is paused on an unanswered quote", () => {
+    expect(awaitingQuote(turn({}))).toBe(true);
+  });
+
+  test("is false once answered, and while the turn still runs", () => {
+    expect(awaitingQuote(turn({ quote_answer: "confirmed" }))).toBe(false);
+    expect(awaitingQuote(turn({ state: "running" }))).toBe(false);
+  });
+
+  test("is false on a turn that ended holding one: no dead box (#1440)", () => {
+    expect(awaitingQuote(turn({ state: "stopped" }))).toBe(false);
   });
 });

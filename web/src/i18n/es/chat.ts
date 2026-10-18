@@ -93,6 +93,12 @@ export const chat: Messages["chat"] = {
     changePlaceholder: "O di qué cambiar; p. ej., haz la capa amarilla en vez de roja",
     change: "Pedir un cambio",
     brief: { prompt: "Prompt", line: "Locución", voice: "Voz" },
+    answered: {
+      confirmed: (cost) => `Aprobado — ${cost}`,
+      declined: (cost) => `Rechazado — ${cost}`,
+      changed: (cost) => `Cambio pedido — ${cost}`,
+      withdrawn: (cost) => `Sin respuesta — ${cost}`,
+    },
     less: "menos",
     more: "más",
   },

@@ -47,6 +47,16 @@ export interface QuoteView {
   batch_micros?: number | null;
 }
 
+/** `assistant::QuoteReply` — one answer a quote was given (#1440). */
+export interface QuoteReply {
+  /** `changed` is a change asked for instead (#709); `withdrawn`, left unanswered. */
+  answer: "confirmed" | "declined" | "changed" | "withdrawn";
+  /** What the quote would have taken, in micro-dollars. */
+  micros: number;
+  /** The person's own words: the change asked for, or the message written instead. */
+  words: string | null;
+}
+
 /**
  * `assistant::QuestionView` — a question the assistant asked mid-turn (#710),
  * or a picker (#901): the same question with stock candidates to pick from.
@@ -106,8 +116,10 @@ export interface TurnView {
   /** What it has cost so far, in micro-dollars. */
   charged_micros: number;
   quote: QuoteView | null;
-  /** `null` while the confirmation box should show. */
+  /** How the latest quote was answered; `null` while it waits. */
   quote_answer: "confirmed" | "declined" | "withdrawn" | null;
+  /** Every answer its quotes were given, in order: one line each once answered (#1440). */
+  quote_replies: QuoteReply[];
   /** Every question it asked, in order; the last waits while the turn is `asking`. */
   questions: QuestionView[];
   started_at: number;
@@ -172,7 +184,7 @@ export interface Answered {
   /** What the paid call said, after a yes. */
   spent: string | null;
   refused: boolean;
-  /** The turn carrying on after a yes or a change. */
+  /** The turn the quote paused, carrying on with the answer (#1440). */
   turn: TurnView | null;
   note: string | null;
 }

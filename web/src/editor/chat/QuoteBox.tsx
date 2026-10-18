@@ -3,13 +3,13 @@
 // beside its price (#709), and takes one of three answers, all
 // `POST /api/chat/turns/{id}/quote`:
 //
-// - Confirm spends and starts the turn that carries on — money moves only on
+// - Confirm spends, and the turn the quote paused carries on — money moves only on
 //   this click. When stills are offered as a half-price batch beside the price
 //   for now (#947), there are two of these, side by side: now, or within 24
 //   hours at half. Neither is the default; the person picks.
 // - Decline withdraws the quote.
-// - Ask for a change withdraws it too, spending nothing, and starts a turn with
-//   the words typed, which the assistant takes as a change to these items: it
+// - Ask for a change withdraws it too, spending nothing, and the turn carries on
+//   with the words typed, which the assistant takes as a change to these items: it
 //   rewrites the briefs and quotes again, and that quote gets its own box.
 //
 // The model never sees the quote's token on any of the three.

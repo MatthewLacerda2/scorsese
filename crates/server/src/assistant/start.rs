@@ -6,7 +6,7 @@ use super::store::TurnView;
 use super::store::asking;
 use super::store::turns::{self, Beginning, Last};
 use super::turn::{self, Running};
-use super::{AssistantError, DEFAULT_EFFORT, ask, model, prompt};
+use super::{AssistantError, DEFAULT_EFFORT, ask, model, prompt, quote};
 use crate::credits::{dollars, ledger};
 use crate::db::{self, UserId};
 use crate::events::Event;
@@ -32,8 +32,9 @@ pub struct Opening {
 /// running there. The turn as it began; the rest arrives on the event stream.
 ///
 /// When the conversation's last turn is paused on a question (#710), the
-/// words are its answer instead, and that turn resumes ([`ask::answer`]); a
-/// new conversation sets the question aside.
+/// words are its answer instead, and that turn resumes ([`ask::answer`]); on
+/// a quote (#1440), they withdraw it and the turn resumes with them
+/// ([`quote::answer`]). A new conversation sets either aside.
 pub async fn start(
     state: &AppState,
     user: UserId,
@@ -61,9 +62,11 @@ pub async fn start(
     if balance <= 0 {
         return Err(AssistantError::NoCredit(dollars(balance)));
     }
-    if opening.fresh {
-        asking::set_aside_in(&mut tx, project).await?;
-    }
+    let left = if opening.fresh {
+        asking::set_aside_in(&mut tx, project).await?
+    } else {
+        Vec::new()
+    };
     let (session, new) = turns::session(&mut tx, project, opening.fresh).await?;
     let mut notes = Vec::new();
     if new {
@@ -76,6 +79,11 @@ pub async fn start(
         }
         if last.state == "asking" {
             drop(tx);
+            if last.token.is_some() {
+                let instead = quote::Answer::Instead(prompt);
+                let answered = quote::answer(state, user, last.id, instead).await?;
+                return answered.turn.ok_or(AssistantError::NotFound);
+            }
             return ask::answer(state, user, last.id, ask::Answering::words(&prompt)).await;
         }
         notes.extend(settle_quote(state, user, &mut tx, &last).await?);
@@ -100,6 +108,12 @@ pub async fn start(
     };
     let view = turns::begin(&mut tx, session, &beginning).await?;
     tx.commit().await?;
+    // The old conversation's quote, set aside above, is spent by nobody now.
+    for token in left {
+        if let Err(error) = state.tools.withdraw_quote(user, &token).await {
+            eprintln!("scorsese-server: assistant: withdrawing a quote: {error}");
+        }
+    }
 
     state.events.send(
         user,
@@ -127,9 +141,10 @@ pub async fn start(
     Ok(view)
 }
 
-/// What the model is told about the last turn's quote: a no, or a quote
-/// nobody answered — which a new message withdraws, since its token must not
-/// outlive the box it was shown in.
+/// What the model is told about the last turn's quote, when that turn ended
+/// without its answer: one held before quotes paused their turn (#1440), which
+/// a new message withdraws, since its token must not outlive the box it was
+/// shown in — or one withdrawn when the turn was stopped while it waited.
 async fn settle_quote(
     state: &AppState,
     user: UserId,
@@ -138,17 +153,19 @@ async fn settle_quote(
 ) -> Result<Option<String>, AssistantError> {
     if let Some(token) = &last.token {
         state.tools.withdraw_quote(user, token).await?;
-        turns::answer_quote(tx, last.id, "withdrawn").await?;
+        turns::withdraw_quote(tx, last.id).await?;
         return Ok(Some(
             "The person did not answer the quote you showed them; it is withdrawn and nothing \
              was spent. Their new message follows."
                 .into(),
         ));
     }
-    Ok(match last.answer.as_deref() {
-        Some("declined") => {
-            Some("The person declined the quote you showed them; nothing was spent.".into())
-        }
+    Ok(match (last.state.as_str(), last.answer.as_deref()) {
+        ("stopped", Some("withdrawn")) => Some(
+            "The person stopped the turn instead of answering the quote you showed them; it is \
+             withdrawn and nothing was spent."
+                .into(),
+        ),
         _ => None,
     })
 }

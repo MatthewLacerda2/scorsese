@@ -23,6 +23,7 @@ function turn(fields: Partial<TurnView>): TurnView {
     charged_micros: 2_888,
     quote: null,
     quote_answer: null,
+    quote_replies: [],
     questions: [asked],
     started_at: 0,
     finished_at: null,
