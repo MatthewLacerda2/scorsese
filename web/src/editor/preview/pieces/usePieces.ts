@@ -9,7 +9,7 @@ import { useServerEvents } from "@/app/events";
 import { toSeconds } from "../../timeline/time";
 import type { Quality } from "../quality";
 import { secondsAhead, short } from "./plan";
-import { PiecePlayer } from "./player";
+import { PiecePlayer, stretches } from "./player";
 
 /** How long the player may sit paused before what it is making is cancelled. */
 const REST_MS = 30_000;
@@ -26,12 +26,6 @@ export interface PiecesView {
 }
 
 const NONE: PiecesView = { started: false, covered: false, short: false, failed: false };
-
-/** The buffered stretches of `element`, as `[start, end]` seconds. */
-function stretches(element: HTMLVideoElement): [number, number][] {
-  const { buffered } = element;
-  return Array.from({ length: buffered.length }, (_, at) => [buffered.start(at), buffered.end(at)]);
-}
 
 export function usePieces(
   video: RefObject<HTMLVideoElement | null>,
