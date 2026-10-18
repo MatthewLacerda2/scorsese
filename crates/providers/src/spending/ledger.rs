@@ -153,7 +153,7 @@ pub(crate) fn refused(root: &Path, id: &AssetId) -> Result<(), WriteError> {
     let Some(line) = lines
         .iter_mut()
         .rev()
-        .find(|line| &line.asset == id && !line.seeded && !line.refused)
+        .find(|line| &line.asset == id && !line.seeded)
     else {
         return Ok(());
     };

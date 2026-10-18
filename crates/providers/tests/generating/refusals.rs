@@ -60,6 +60,33 @@ fn a_refused_shot_is_not_recorded_as_spent() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+/// The refusal is marked on the refused shot's own line, never on a shot sent
+/// after it.
+#[test]
+fn a_refusal_marks_its_own_shot_and_no_other() {
+    let (dir, mut project) = crate::common::project("own-line");
+    for id in ["a", "b"] {
+        project.assets.push(scorsese_core::Asset::sketch(
+            scorsese_core::AssetId::new(id),
+            scorsese_core::AssetKind::GeneratedVideo,
+            "a shot",
+        ));
+    }
+    let provider = Mock::answering("a", vec![Answer::Failed(String::from("blocked"))])
+        .and("b", vec![Answer::Waiting]);
+
+    generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("both sent");
+    generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a refused");
+
+    let lines = scorsese_providers::spending::history(&project, &dir);
+    let refused: Vec<_> = lines
+        .iter()
+        .map(|line| (line.asset.as_str(), line.refused))
+        .collect();
+    assert_eq!(refused, [("a", true), ("b", false)]);
+    std::fs::remove_dir_all(&dir).ok();
+}
+
 /// The failure that actually happens at three in the morning: several shots,
 /// one of them refused. The others must be finished and said to be.
 #[test]
