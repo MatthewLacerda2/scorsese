@@ -2,6 +2,7 @@
 //! carries on by itself (#1441) — once the last of it has ended, and not when
 //! the person wrote meanwhile.
 
+mod compacted;
 mod meanwhile;
 
 use std::net::SocketAddr;

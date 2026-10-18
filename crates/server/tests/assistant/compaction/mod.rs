@@ -27,7 +27,7 @@ fn words(message: &Value) -> String {
 }
 
 /// Whether request `n` asked for a summary.
-fn summarising(script: &Script, n: usize) -> bool {
+pub(super) fn summarising(script: &Script, n: usize) -> bool {
     script
         .messages(n)
         .concat()
