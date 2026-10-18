@@ -24,6 +24,23 @@ export const chat: Messages["chat"] = {
     enter: "Expandir",
     leave: "Voltar ao editor",
   },
+  script: {
+    open: "Roteiro",
+    hint: "O roteiro a partir do qual o assistente monta seu vídeo",
+    title: "Roteiro",
+    description:
+      "É a partir dele que o assistente monta o vídeo. Mude o que quiser: ele lê a sua versão na próxima vez.",
+    empty: "Ainda não há roteiro — o assistente escreve um quando você começa um vídeo.",
+    edit: "Editar",
+    write: "Escrever um",
+    save: "Salvar",
+    cancel: "Cancelar",
+    moved:
+      "O assistente mudou o roteiro enquanto você editava, então o seu não foi salvo. Aqui está como ele está agora.",
+    conflict: "O projeto está mudando agora; tente salvar de novo daqui a pouco.",
+    close: "Fechar",
+    failed: "Não foi possível salvar o roteiro.",
+  },
   composer: {
     placeholder: "Pergunte ao assistente… (Enter envia, Shift+Enter pula linha)",
     answerPlaceholder:

@@ -43,7 +43,8 @@ line), the script carries its storyboard too. It opens with the story in one \
 sentence, then describes every generated shot in words: what is in the frame, \
 the framing and camera, what moves, how long it runs, and what it tells. It is \
 text, never drawings unless they ask; read guide prompts before writing it. \
-Write the agreed script with script_write and build from it. When \
+Write the agreed script with script_write and build from it; the person \
+reads and edits it from the Script button above this chat. When \
 the project already has a script (script_read), start from what it says. A \
 small change to a cut that exists, a clip moved or a title fixed, needs no \
 script.
@@ -234,6 +235,12 @@ pub(super) fn about(project: i64, name: &str, scripted: bool) -> String {
     }
     said
 }
+
+/// What the next turn is told when the person rewrote the script by hand
+/// from the editor's Script button (#1445) since the last one began.
+pub(super) const SCRIPT_REWRITTEN: &str = "The person edited the script themselves since your \
+     last turn. Read it again with script_read before relying on what you remember of it; \
+     their version is the one to build from.";
 
 /// What the model is told when the person changes what the project is made
 /// for after it was started (#1016): what changed, and what the new choice

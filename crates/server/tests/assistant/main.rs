@@ -21,6 +21,7 @@ mod quotes;
 mod recorded;
 mod resume;
 mod retired;
+mod rewritten;
 mod script;
 mod started;
 mod stopping;

@@ -6,6 +6,7 @@
 mod common;
 
 mod clips;
+mod script;
 
 use std::net::SocketAddr;
 

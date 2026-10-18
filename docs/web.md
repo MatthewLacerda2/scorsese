@@ -2377,14 +2377,28 @@ which runs the toolbox web MCP and the assistant run, recorded as client
 it. Anything with structure to it — a title, a dissolve, a ramp — is a sentence
 to the assistant, not a menu (`CLAUDE.md`, *The GUI is thin*).
 
+**The script is shown, and can be edited** (#1445). A Script button in the
+chat panel's top bar, beside the model and effort pickers, opens the project's
+script in a modal: rendered as Markdown, plain text on Edit, with Save and
+Cancel, and a one-line empty state when there is none. It reads and writes
+through `script_read` and `script_write` on the same route, the write naming
+the revision the script was read at. When the project moved on meanwhile, the
+page reads the script again: unchanged (the assistant was busy on the
+timeline), the save goes through on the new revision; changed, nothing is
+written and the modal shows the script as it is now. A saved edit is news to
+the assistant: the next turn gets a server note that the person changed the
+script (`assistant::store::hands`, from the editor's `script_write` rows in
+`tool_calls` since the last turn began), so it reads it again.
+
 | route | who | what |
 | --- | --- | --- |
 | `POST /api/projects/{id}/tools/{name}` | a member, **by session** | `{arguments, revision?}` → `{said, project}`: the tool's words and pictures, and the project as it is now (`null` after a `still`) |
 
 - **An allowlist**, not the whole surface: `track_new`, `track_remove`,
   `asset_remove`, `place_clip`, `clip_set`, `clip_move`,
-  `clip_remove`, `sequence` (the edits, `http::editor::EDITS`) and `import`,
-  `still`, `template_save`, `template_insert`. Anything else is
+  `clip_remove`, `sequence`, `project_reframe`, `script_write` (the edits,
+  `http::editor::EDITS`) and `import`, `still`, `template_save`,
+  `template_insert`, `script_read`. Anything else is
   `404` — a page has no business writing a whole document or spending money.
   An API token is `403`; a program uses web MCP.
 - **An edit names the revision it was worked out on**, and a project at any

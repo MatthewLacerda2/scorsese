@@ -25,6 +25,23 @@ export const chat: Messages["chat"] = {
     enter: "Expandir",
     leave: "Volver al editor",
   },
+  script: {
+    open: "Guion",
+    hint: "El guion a partir del cual el asistente monta tu video",
+    title: "Guion",
+    description:
+      "El asistente monta el video a partir de él. Cambia lo que quieras: leerá tu versión la próxima vez.",
+    empty: "Todavía no hay guion — el asistente escribe uno cuando empiezas un video.",
+    edit: "Editar",
+    write: "Escribir uno",
+    save: "Guardar",
+    cancel: "Cancelar",
+    moved:
+      "El asistente cambió el guion mientras editabas, así que el tuyo no se guardó. Aquí está como quedó.",
+    conflict: "El proyecto está cambiando ahora mismo; intenta guardar de nuevo en un momento.",
+    close: "Cerrar",
+    failed: "No se pudo guardar el guion.",
+  },
   composer: {
     placeholder: "Pregúntale al asistente… (Enter envía, Shift+Enter para una nueva línea)",
     answerPlaceholder:

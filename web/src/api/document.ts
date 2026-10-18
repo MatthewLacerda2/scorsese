@@ -111,6 +111,8 @@ export interface ProjectDocument {
   timeline_fps: Fps;
   /** The frame's shape, `across:down` (`"9:16"`); absent reads as `"16:9"`. */
   aspect?: string;
+  /** Where its script is kept, project-relative; absent when it has none (#1445). */
+  script?: string;
   assets?: DocumentAsset[];
   tracks?: Track[];
 }

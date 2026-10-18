@@ -38,7 +38,8 @@ export * from "./types";
  * delete, removing a lane or an asset with the clips that go named — #396 — and
  * a new frame shape, #1278),
  * bringing a library file in, looking at a frame, and saving the selection as a
- * template or putting one in (#546).
+ * template or putting one in (#546), and reading and rewriting the script from
+ * the Script button (#1445).
  */
 export type EditorTool =
   | "track_new"
@@ -53,7 +54,9 @@ export type EditorTool =
   | "import"
   | "still"
   | "template_save"
-  | "template_insert";
+  | "template_insert"
+  | "script_read"
+  | "script_write";
 
 /** What `GET /api/library` narrows by; every field optional. */
 export interface LibraryFilter {

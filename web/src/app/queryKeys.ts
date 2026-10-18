@@ -15,6 +15,8 @@ export const queryKeys = {
   /** The project the editor works on. */
   editor: (id: number) => ["projects", "editor", id] as const,
   renders: (id: number) => ["projects", "renders", id] as const,
+  /** The project's script, and the revision it was read at (#1445). */
+  script: (id: number) => ["projects", "script", id] as const,
   /** A frame of one revision of a project, rendered at a raster. */
   still: (id: number, revision: number, frame: number, raster: string) =>
     ["projects", "still", id, revision, frame, raster] as const,
