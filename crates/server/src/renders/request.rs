@@ -72,8 +72,10 @@ pub async fn ask(
         // Asked again while it runs — the preview's poll: say how far it is.
         return Ok(Asked::Queued(queue.progressed(job)));
     }
+    let document =
+        serde_json::to_value(&stored.document).map_err(|e| AskError::Invalid(e.to_string()))?;
     let outrun = if settings.preview.is_some() {
-        store::outrun(&mut tx, id, &settings, &key).await?
+        store::outrun(&mut tx, id, &document).await?
     } else {
         Vec::new()
     };
@@ -81,8 +83,7 @@ pub async fn ask(
         project: id,
         key,
         settings,
-        document: serde_json::to_value(&stored.document)
-            .map_err(|e| AskError::Invalid(e.to_string()))?,
+        document,
     };
     let payload = serde_json::to_value(&payload).map_err(|e| AskError::Invalid(e.to_string()))?;
     let job = jobs::enqueue(&mut tx, kind, &payload).await?;
