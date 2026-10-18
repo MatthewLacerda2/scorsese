@@ -163,7 +163,7 @@ pub fn read(root: &Path) -> Vec<Designed> {
 ///
 /// A project with no design line yet is read the way it was before them: each
 /// record in `generated/voice-design/`, and each kept voice whose record has
-/// gone, once per digest ([`before_the_ledger`]).
+/// gone, once per digest.
 ///
 /// [`design`]: super::design
 pub fn spent(root: &Path) -> u64 {
