@@ -24,6 +24,21 @@
 //! lines inside that one, because that file's name and every surface that
 //! lists it say *designed voices*, and a shot is not one.
 //!
+//! # Designs are lines here too (#1486)
+//!
+//! A voice design is paid for the moment its candidates come back, whether or
+//! not a voice is kept, so it writes its own line here then ([`designed`]) and
+//! design spending is read from those lines ([`designs`]). Not from the
+//! design's record in `generated/`: that record is overwritten when the same
+//! design is paid for again after its samples went, and `generated/` can be
+//! deleted or left behind by a copy, while this file sits beside
+//! `project.json`. A design line names the design's digest instead of an
+//! asset, because a designed voice is not an asset.
+//!
+//! A project whose ledger holds no design line yet is read the old way — each
+//! record in `generated/voice-design/`, merged with the kept voices — and the
+//! first design paid writes those down, marked `seeded`, before its own.
+//!
 //! # Projects older than the ledger
 //!
 //! A project with no lines here is read as one line per asset that carries a
@@ -79,6 +94,49 @@ impl Sent {
     }
 }
 
+/// One voice design that was paid for: three candidates, billed once.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+struct Design {
+    /// The digest of the design's brief — its directory under
+    /// `generated/voice-design/`.
+    design: String,
+    /// What we worked out it cost. **Our arithmetic, never a bill.**
+    estimated_cost_cents: u64,
+    /// When it was paid for. Absent on a seeded line.
+    #[serde(default)]
+    sent_at: Option<Timestamp>,
+    /// Copied from the design records when design lines began, rather than
+    /// written when the design was paid for.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    seeded: bool,
+}
+
+/// A line of the file: a generation, or a design. Told apart by their fields —
+/// a generation names an `asset`, a design a `design` — so the lines written
+/// before designs were here read unchanged.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+enum Line {
+    Sent(Sent),
+    Design(Design),
+}
+
+impl Line {
+    fn sent(&self) -> Option<&Sent> {
+        match self {
+            Self::Sent(sent) => Some(sent),
+            Self::Design(_) => None,
+        }
+    }
+
+    fn design(&self) -> Option<&Design> {
+        match self {
+            Self::Design(design) => Some(design),
+            Self::Sent(_) => None,
+        }
+    }
+}
+
 /// Where the ledger lives, inside `root`.
 fn file(root: &Path) -> PathBuf {
     root.join(GENERATIONS_FILE)
@@ -86,7 +144,7 @@ fn file(root: &Path) -> PathBuf {
 
 /// The lines on disk, oldest first: `Ok(None)` when there is no file, an error
 /// when there is one that does not read.
-fn load(root: &Path) -> Result<Option<Vec<Sent>>, WriteError> {
+fn load(root: &Path) -> Result<Option<Vec<Line>>, WriteError> {
     let path = file(root);
     let text = match std::fs::read_to_string(&path) {
         Ok(text) => text,
@@ -109,10 +167,58 @@ fn load(root: &Path) -> Result<Option<Vec<Sent>>, WriteError> {
 /// it is refused, before anything is paid for, and so is
 /// writing, so a damaged ledger is never overwritten.
 pub fn history(project: &Project, root: &Path) -> Vec<Sent> {
-    match load(root) {
-        Ok(Some(lines)) if !lines.is_empty() => lines,
-        _ => seed(project),
+    let sent: Vec<Sent> = load(root)
+        .ok()
+        .flatten()
+        .unwrap_or_default()
+        .iter()
+        .filter_map(Line::sent)
+        .cloned()
+        .collect();
+    if sent.is_empty() { seed(project) } else { sent }
+}
+
+/// What every design line says was spent designing voices — `None` while the
+/// ledger holds none, so the caller reads the projects older than them the old
+/// way. Each line is one payment: a design paid for twice counts twice.
+pub(crate) fn designs(root: &Path) -> Option<u64> {
+    let lines = load(root).ok().flatten()?;
+    let mut designs = lines.iter().filter_map(Line::design).peekable();
+    designs.peek()?;
+    Some(designs.map(|design| design.estimated_cost_cents).sum())
+}
+
+/// Writes down that the design `digest` was paid for, at `cents` — seeding the
+/// design lines from `before` (`(digest, cents)` for every design paid before
+/// they began) when this is the first.
+///
+/// Called once the samples and their record are on disk, so a ledger that
+/// cannot be written stops the run without losing what was paid for;
+/// [`readable`] is asked before the vendor is.
+pub(crate) fn designed(
+    root: &Path,
+    digest: &str,
+    cents: u64,
+    before: &[(String, u64)],
+) -> Result<(), WriteError> {
+    let mut lines = load(root)?.unwrap_or_default();
+    if !lines.iter().any(|line| line.design().is_some()) {
+        lines.extend(before.iter().map(|(design, cents)| {
+            Line::Design(Design {
+                design: design.clone(),
+                estimated_cost_cents: *cents,
+                sent_at: None,
+                seeded: true,
+            })
+        }));
     }
+    lines.push(Line::Design(Design {
+        design: digest.to_owned(),
+        estimated_cost_cents: cents,
+        sent_at: Timestamp::now(),
+        seeded: false,
+    }));
+    write(root, &lines)
 }
 
 /// Refuses a ledger that is there and does not read — called before a brief
@@ -147,18 +253,20 @@ pub(crate) fn sent_all(
     root: &Path,
     takes: &[(AssetId, String, u64)],
 ) -> Result<(), WriteError> {
-    let mut lines = match load(root)? {
-        Some(lines) if !lines.is_empty() => lines,
-        _ => seed(project),
-    };
+    let mut lines = load(root)?.unwrap_or_default();
+    if !lines.iter().any(|line| line.sent().is_some()) {
+        lines.extend(seed(project).into_iter().map(Line::Sent));
+    }
     let sent_at = Timestamp::now();
-    lines.extend(takes.iter().map(|(id, brief, cents)| Sent {
-        asset: id.clone(),
-        brief: brief.clone(),
-        estimated_cost_cents: *cents,
-        sent_at: sent_at.clone(),
-        seeded: false,
-        refused: false,
+    lines.extend(takes.iter().map(|(id, brief, cents)| {
+        Line::Sent(Sent {
+            asset: id.clone(),
+            brief: brief.clone(),
+            estimated_cost_cents: *cents,
+            sent_at: sent_at.clone(),
+            seeded: false,
+            refused: false,
+        })
     }));
     write(root, &lines)
 }
@@ -172,6 +280,10 @@ pub(crate) fn refused(root: &Path, id: &AssetId) -> Result<(), WriteError> {
     let Some(line) = lines
         .iter_mut()
         .rev()
+        .filter_map(|line| match line {
+            Line::Sent(sent) => Some(sent),
+            Line::Design(_) => None,
+        })
         .find(|line| &line.asset == id && !line.seeded)
     else {
         return Ok(());
@@ -181,7 +293,7 @@ pub(crate) fn refused(root: &Path, id: &AssetId) -> Result<(), WriteError> {
 }
 
 /// The ledger, as `lines`.
-fn write(root: &Path, lines: &[Sent]) -> Result<(), WriteError> {
+fn write(root: &Path, lines: &[Line]) -> Result<(), WriteError> {
     let path = file(root);
     let text = serde_json::to_string_pretty(lines).map_err(|error| WriteError {
         path: path.clone(),

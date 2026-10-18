@@ -130,7 +130,10 @@ pub(super) fn read(root: &Path, digest: &str) -> Option<Session> {
 }
 
 /// What every design this project paid for cost, by digest — read off each
-/// record in `generated/voice-design/`, kept or not (#1107).
+/// record in `generated/voice-design/`, kept or not (#1107). Read only for a
+/// project whose `generations.json` holds no design line yet, and to seed it
+/// (#1486): a record is overwritten when its design is paid for again, so it
+/// cannot be the count.
 ///
 /// Unlike [`read`], a record whose samples have gone still counts: deleting
 /// the samples does not refund the call that made them.
