@@ -27,6 +27,29 @@ When the user says the video is done, or when you have rendered and delivered
 the video or audio and consider it finished. Don't wait to be asked — offer
 the review in the same message as the delivery.
 
+## When the video was made on the web
+
+The web app's built-in assistant edits there. It has no skills and files
+nothing, so this review happens afterwards, in a Claude Code session, when the
+maintainer asks for it. It works the same way with two differences:
+
+- **The material is the record.** The material is the conversation the
+  server kept, not notes taken while editing:
+  - `chat_sessions` and `chat_turns` hold each prompt, answer, quote and
+    question, with tokens and charges;
+  - `tool_calls` holds every call with its arguments and reply;
+  - the generation tables hold what was paid for.
+
+  Read them from the web app's Postgres (docs/web.md), with the
+  maintainer's own notes beside them. Their words in a prompt are as much a
+  finding as a failed call.
+- **A fifth kind: the assistant's behaviour.** For example: it chose an
+  approach the person didn't want, asked for a yes that cost nothing, or
+  named job numbers. The fix lands in its system prompt
+  (`crates/server/src/assistant/prompt.rs`), a tool description or the
+  web's chat panel, never in this skill. It is weighed and filed like a
+  missing tool, unless it is plainly a bug.
+
 ## What to look for
 
 Start from the scratch list, then go back over the session for what it missed:
