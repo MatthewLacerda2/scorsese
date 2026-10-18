@@ -46,7 +46,7 @@ mod synth;
 mod vectorize;
 mod voices;
 
-pub use still::{Ahead, PagesAhead, still_with_pages_ahead};
+pub use still::{Ahead, PagesAhead, merged_stretches, still_with_pages_ahead};
 pub use stock::{Stock, stocked_from};
 
 use base64::Engine;

@@ -24,6 +24,11 @@ pub trait PagesAhead: Send + Sync {
     /// `cache/`, where the still then reads them. Never fails: a page it could
     /// not capture is named in [`Ahead::failed`], and shows its slug card.
     /// Stops waiting once `cancel`, the call's, is tripped.
+    ///
+    /// `wanted` is the stretch around each instant, one per page on screen,
+    /// as asked: what is already captured is the implementation's to know, so
+    /// it takes that out first and then joins what is left
+    /// ([`merged_stretches`]).
     fn capture(&self, project_root: &Path, wanted: &[Wanted], cancel: &Cancel) -> Ahead;
 }
 
@@ -32,7 +37,7 @@ pub trait PagesAhead: Send + Sync {
 /// its own wherever it is captured — on the web a container — so five cells
 /// of a sheet a second apart on one page are one capture, not five. Stretches
 /// apart are left apart: the frames between them would be drawn for nothing.
-pub(super) fn merged(wanted: Vec<Wanted>) -> Vec<Wanted> {
+pub fn merged_stretches(wanted: Vec<Wanted>) -> Vec<Wanted> {
     let mut sorted: Vec<(usize, Wanted)> = wanted.into_iter().enumerate().collect();
     // Stable, so the first of each page keeps its place among the pages.
     sorted.sort_by_key(|(_, one)| one.frames.start);
@@ -134,14 +139,31 @@ mod tests {
         let reply = still.call(&at).expect("a still");
 
         let asked = pages.0.lock().unwrap();
-        // The frames around each instant, and no more (#809), the two
-        // overlapping stretches asked as one (#1469).
+        // The frames around each instant, and no more (#809), as asked:
+        // joining them is for whoever knows what is already captured (#1469).
         let stretches: Vec<_> = asked.iter().map(|one| one.frames.clone()).collect();
-        assert_eq!(stretches, vec![13..21_u64], "{asked:?}");
+        assert_eq!(stretches, vec![13..18_u64, 16..21], "{asked:?}");
         assert!(asked.iter().all(|one| one.request.page == "pages/p.html"));
         let said = &reply.parts[0].text;
         assert!(said.contains("the launcher said no"), "{said}");
         assert!(!dir.join("cache/pages").exists(), "nothing captured here");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_still_stopped_while_its_pages_are_captured_is_refused() {
+        let dir = crate::scratch::fresh("scorsese-mcp-ahead-stopped", "");
+        let _ = std::fs::remove_dir_all(&dir);
+        showing_a_page(&dir);
+        let still = still_with_pages_ahead(Arc::new(Refusing::default()));
+        let at = json!({ "project": dir, "at": "0.5s", "resolution": "64x36" });
+        let stopped = Cancel::new();
+        stopped.cancel();
+
+        let refused = still.call_cancellable(&at, &stopped);
+
+        let said = refused.err().expect("refused once stopped");
+        assert!(said.contains("stopped"), "{said}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -167,7 +189,7 @@ mod tests {
             of("a.html", 16..21),
         ];
 
-        let merged = merged(wanted);
+        let merged = merged_stretches(wanted);
 
         assert_eq!(merged, [of("b.html", 30..45), of("a.html", 13..23)]);
     }
@@ -180,6 +202,6 @@ mod tests {
             of("b.html", 14..19),
         ];
 
-        assert_eq!(merged(wanted.clone()), wanted);
+        assert_eq!(merged_stretches(wanted.clone()), wanted);
     }
 }

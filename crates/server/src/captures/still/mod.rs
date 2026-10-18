@@ -29,7 +29,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use scorsese_core::CACHE_DIR;
-use scorsese_mcp::{Ahead, PagesAhead};
+use scorsese_mcp::{Ahead, PagesAhead, merged_stretches};
 use scorsese_render::Cancel;
 use scorsese_render::page::{self, Wanted};
 
@@ -48,6 +48,9 @@ const PATIENCE: Duration = Duration::from_secs(90);
 /// render's whole capture — but a job never answered (a launcher wedged, a
 /// folder gone) must not hold the page cache's pin forever.
 const LATER: Duration = Duration::from_secs(60 * 60);
+
+/// Why a page is a card when the call was stopped before it was asked for.
+const STOPPED: &str = "the look was stopped before it was captured";
 
 /// Why a page is a card while the launcher is still at it.
 const UNDERWAY: &str = "it is being captured now, behind the other captures this server is \
@@ -75,13 +78,17 @@ impl PagesAhead for StillPages {
             let why = format!("the page cache could not be prepared: {error}");
             return failed(Some(chrome), wanted, &why);
         }
-        let missing: Vec<&Wanted> = wanted
+        // What the cache holds is taken out before the rest is joined, so an
+        // instant already captured never widens the stretch asked of the next.
+        let missing: Vec<Wanted> = wanted
             .iter()
             .filter(|one| {
                 let frames = one.frames.clone();
                 page::cached_frames(project_root, &one.request, chrome.version(), frames).is_none()
             })
+            .cloned()
             .collect();
+        let missing = merged_stretches(missing);
         if missing.is_empty() {
             return Ahead {
                 chrome: Some(chrome),
@@ -93,14 +100,16 @@ impl PagesAhead for StillPages {
         if !dispatch::worker_alive(&self.spool) {
             return failed(Some(chrome), wanted, NOT_RUNNING);
         }
+        // Stopped already: nothing is copied and nothing is launched.
+        if cancel.is_cancelled() {
+            return failed(Some(chrome), &missing, STOPPED);
+        }
         let job = self.spool.still(self.call);
         if let Err(why) = self.ask(project_root, &job, &missing) {
             let _ = std::fs::remove_dir_all(&job);
             return failed(Some(chrome), wanted, &why);
         }
-        let frames: u64 = missing.iter().map(|one| one.frames.end).sum();
-        let patience = deadline(frames).min(PATIENCE);
-        let waited = dispatch::wait(&self.spool, &job, cancel, Some(patience));
+        let waited = dispatch::wait(&self.spool, &job, cancel, Some(patience(&missing)));
         match waited {
             Ok(Waited::Answered(answer)) => {
                 let _ = std::fs::remove_dir_all(&job);
@@ -117,13 +126,13 @@ impl PagesAhead for StillPages {
             }
             Ok(Waited::Late) => {
                 self.finish_later(job);
-                let mut ahead = failed(Some(chrome), missing.iter().copied(), UNDERWAY);
+                let mut ahead = failed(Some(chrome), &missing, UNDERWAY);
                 ahead.underway = true;
                 ahead
             }
             Err(why) => {
                 self.finish_later(job);
-                failed(Some(chrome), missing.iter().copied(), &why)
+                failed(Some(chrome), &missing, &why)
             }
             Ok(Waited::Quiet | Waited::Gone) => {
                 let _ = std::fs::remove_dir_all(&job);
@@ -148,14 +157,14 @@ impl StillPages {
 
     /// Lays the project at `project_root` out as the job at `job`, its cache
     /// the project's, and asks for `missing`.
-    fn ask(&self, project_root: &Path, job: &Path, missing: &[&Wanted]) -> Result<(), String> {
+    fn ask(&self, project_root: &Path, job: &Path, missing: &[Wanted]) -> Result<(), String> {
         let _ = std::fs::remove_dir_all(job);
         let folder = job.join(PROJECT);
         copy_project(project_root, &folder)
             .and_then(|()| dispatch::share_cache(&folder, &self.cache))
             .map_err(|error| format!("the page cache could not be prepared: {error}"))?;
         let ask = Ask {
-            requests: missing.iter().map(|one| Asked::from(*one)).collect(),
+            requests: missing.iter().map(Asked::from).collect(),
         };
         publish(&job.join(ASK), &ask)
             .map_err(|error| format!("the page renderer could not be asked: {error}"))
@@ -171,6 +180,13 @@ impl StillPages {
             drop(pin);
         });
     }
+}
+
+/// How long a still waits for `missing`: as long as the launcher gives the
+/// capture itself, but never past [`PATIENCE`].
+fn patience(missing: &[Wanted]) -> Duration {
+    let frames: u64 = missing.iter().map(|one| one.frames.end).sum();
+    deadline(frames).min(PATIENCE)
 }
 
 /// Every page in `wanted` failed, for `why`.
@@ -227,3 +243,6 @@ fn copy_project(from: &Path, to: &Path) -> std::io::Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

@@ -46,7 +46,7 @@ use crate::tools::inspect::load;
 use crate::tools::scratch::Scratch;
 use crate::tools::{Costs, PICTURES_PER_REPLY, Part, Reply, Tool};
 
-pub use ahead::{Ahead, PagesAhead, still_with_pages_ahead};
+pub use ahead::{Ahead, PagesAhead, merged_stretches, still_with_pages_ahead};
 
 /// Frames, composited and handed back as pictures.
 #[derive(Default)]
@@ -296,7 +296,7 @@ fn captured_ahead<'a>(
     if wanted.is_empty() {
         return Ok((renderer, HashMap::new()));
     }
-    let ahead = pages.capture(dir, &ahead::merged(wanted), cancel);
+    let ahead = pages.capture(dir, &wanted, cancel);
     if cancel.is_cancelled() {
         return Err("stopped while its pages were being captured".to_owned());
     }
