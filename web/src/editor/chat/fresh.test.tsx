@@ -33,6 +33,7 @@ const turn = (project: number, state: TurnState): TurnView => ({
   quote: null,
   quote_answer: null,
   questions: [],
+  quote_replies: [],
   started_at: 0,
   finished_at: state === "running" ? null : 1,
 });

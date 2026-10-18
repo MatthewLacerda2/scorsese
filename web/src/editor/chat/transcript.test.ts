@@ -4,15 +4,7 @@ import { ApiError } from "@/api/client";
 import type { JobView, ServerEvent } from "@/api/events";
 import { en } from "@/i18n/en";
 import type { Entry, Transcript } from "./transcript";
-import {
-  apply,
-  empty,
-  generating,
-  problem,
-  running,
-  upsert,
-  words,
-} from "./transcript";
+import { apply, empty, generating, problem, running, upsert, words } from "./transcript";
 
 function turn(id: number, fields: Partial<TurnView> = {}): TurnView {
   return {

@@ -78,4 +78,3 @@ function QuoteLine({ reply }: { reply: QuoteReply }) {
     </>
   );
 }
-
