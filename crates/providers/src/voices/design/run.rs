@@ -9,8 +9,9 @@
 //! was designed — which is why it is a separate verb and not a flag.
 //!
 //! **What gets written down, and when.** The samples and their record are
-//! written the instant they arrive, before anything can go wrong with them; the
-//! ledger entry is written the instant the voice exists. Both are fatal if they
+//! written the instant they arrive, before anything can go wrong with them, and
+//! then the line in `generations.json` that says the design was paid for
+//! (#1486); the designed-voices entry is written the instant the voice exists. Each is fatal if it
 //! fail, because both are the record of money already spent — and the failure
 //! mode of being relaxed about it is paying twice for the same three samples,
 //! or holding a voice id whose description nobody can recover.
@@ -29,6 +30,7 @@ use std::path::Path;
 use scorsese_core::Timestamp;
 
 use crate::credentials::Budget;
+use crate::spending;
 
 use super::super::Voice;
 use super::brief::Brief;
@@ -90,14 +92,21 @@ pub fn design(
     }
 
     budget.check(estimate.cents)?;
+    // A ledger that will not take the line is refused before paying, not after.
+    spending::readable(root)?;
+    // Read before this design's record is written, or the seed would count it
+    // beside its own line.
+    let before = ledger::before_the_ledger(root);
     let candidates = studio.candidates(brief)?;
     if candidates.is_empty() {
         return Err(DesignError::NoCandidates {
             provider: studio.name(),
         });
     }
+    let session = session::write(root, brief, &candidates, estimate)?;
+    spending::designed(root, &session.digest, estimate.cents, &before)?;
     Ok(Designing {
-        session: session::write(root, brief, &candidates, estimate)?,
+        session,
         estimate,
         already_paid: false,
     })

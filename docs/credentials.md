@@ -164,9 +164,8 @@ chose is not a limit, and inventing one would refuse the first honest run
 somebody made.
 
 Money is counted in whole US cents throughout. A project's total is read from
-`generations.json` beside `project.json` — one line per brief sent, written the
-moment it was sent — plus every voice design paid for, once per design, read
-from the records under `generated/voice-design/` and `designed-voices.json`. Every
+`generations.json` beside `project.json` — one line per brief sent and one per
+voice design paid for, each written the moment it was paid for. Every
 take counts, a superseded one included: a shot bought twice is charged twice
 against the ceiling, because it was paid for twice ([prices.md](prices.md),
 *Every take is counted*).

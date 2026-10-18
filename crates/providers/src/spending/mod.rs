@@ -42,7 +42,7 @@ use scorsese_core::{AssetId, Project};
 use crate::voices::design;
 
 pub use ledger::{GENERATIONS_FILE, Sent, history};
-pub(crate) use ledger::{readable, refused, sent, sent_all};
+pub(crate) use ledger::{designed, designs, readable, refused, sent, sent_all};
 
 /// What a project has spent, by the kind of thing it was spent on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -52,7 +52,8 @@ pub struct Spending {
     /// ledger beside `project.json` ([`history`]), written as each was sent.
     pub generation_cents: u64,
     /// What designing voices is estimated to have cost — every design paid
-    /// for, once each, whether or not a voice was kept ([`design::spent`]).
+    /// for, whether or not a voice was kept, and twice when it was paid for
+    /// twice ([`design::spent`]).
     /// Not on the assets, because a designed voice is not an asset and never
     /// will be — it lives in an account somewhere else.
     pub design_cents: u64,
@@ -110,9 +111,9 @@ impl Superseded {
 
 /// What this project has spent so far.
 ///
-/// The two ledgers, read together — generations and designed voices, the two
-/// places money leaves a trace — and a caller that reads only one of them
-/// builds a ceiling that is wrong by however much the other holds.
+/// Generations and voice designs, read together off the one ledger beside
+/// `project.json` — and a caller that reads only one of them builds a ceiling
+/// that is wrong by however much the other holds.
 pub fn so_far(project: &Project, root: &Path) -> Spending {
     let sent = history(project, root);
     Spending {

@@ -155,27 +155,38 @@ pub fn read(root: &Path) -> Vec<Designed> {
 /// with three candidates and is billed once, so somebody who kept two of them
 /// spent what one design costs — see [`Designed::design`].
 ///
-/// And counted **whether or not a voice was kept** (#1107): [`design`] pays
-/// the moment the candidates come back, and its record in
-/// `generated/voice-design/` says so. A kept voice whose record has since
-/// gone still counts, from its line here.
+/// And counted **whether or not a voice was kept, once per payment** (#1107,
+/// #1486): [`design`] writes a line into `generations.json` the moment the
+/// candidates come back, and this reads those lines — so a design paid for
+/// again after its samples went counts twice, and deleting `generated/`
+/// refunds nothing.
+///
+/// A project with no design line yet is read the way it was before them: each
+/// record in `generated/voice-design/`, and each kept voice whose record has
+/// gone, once per digest.
 ///
 /// [`design`]: super::design
 pub fn spent(root: &Path) -> u64 {
+    crate::spending::designs(root)
+        .unwrap_or_else(|| before_the_ledger(root).iter().map(|(_, cents)| cents).sum())
+}
+
+/// `(digest, cents)` for every design this project paid for that the records
+/// on disk still show — each record in `generated/voice-design/`, merged by
+/// digest with the kept voices here. What the first design line seeds the
+/// ledger with.
+pub(super) fn before_the_ledger(root: &Path) -> Vec<(String, u64)> {
     let mut designs = super::session::paid(root);
     for designed in read(root) {
         designs.push((designed.design, designed.estimated_cost_cents));
     }
-    let mut counted: Vec<String> = Vec::new();
-    let mut total = 0;
+    let mut counted: Vec<(String, u64)> = Vec::new();
     for (digest, cents) in designs {
-        if counted.contains(&digest) {
-            continue;
+        if !counted.iter().any(|(seen, _)| *seen == digest) {
+            counted.push((digest, cents));
         }
-        total += cents;
-        counted.push(digest);
     }
-    total
+    counted
 }
 
 /// Adds a voice to the ledger, creating the file if this is the project's

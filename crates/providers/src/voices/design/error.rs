@@ -148,3 +148,12 @@ pub enum DesignError {
         source: std::io::Error,
     },
 }
+
+impl From<crate::generated::WriteError> for DesignError {
+    fn from(error: crate::generated::WriteError) -> Self {
+        Self::Write {
+            doing: format!("writing {}", error.path.display()),
+            source: error.source,
+        }
+    }
+}
