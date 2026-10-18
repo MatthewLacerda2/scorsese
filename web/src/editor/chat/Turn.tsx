@@ -1,4 +1,5 @@
-// One turn in the chat panel: what the user asked, what the assistant did on
+// One turn in the chat panel: what the user asked (or, for a turn the server
+// started once the work it ordered landed, one line saying so, #1441), what the assistant did on
 // the way (a status word while it works; never its tools, #1437, nor its
 // thinking, #767), what it said (Markdown, `Reply.tsx`), each answered quote as
 // one line with the person's words under it (#1440), and what the turn cost. The cost is on every turn, not in a settings page, because the
@@ -25,9 +26,13 @@ export function Turn({ entry }: { entry: Entry }) {
   const waiting = waitingQuestion(turn);
   return (
     <li className="flex flex-col gap-2">
-      <p className="ml-6 self-end whitespace-pre-wrap rounded-lg bg-muted px-3 py-2 text-sm">
-        {turn.prompt}
-      </p>
+      {turn.woken ? (
+        <p className="text-xs text-muted-foreground">{t.chat.turn.woken}</p>
+      ) : (
+        <p className="ml-6 self-end whitespace-pre-wrap rounded-lg bg-muted px-3 py-2 text-sm">
+          {turn.prompt}
+        </p>
+      )}
       {said && <Reply text={said} />}
       {turn.state === "running" && <Busy />}
       {(turn.questions ?? []).map((question, index) => {

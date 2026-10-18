@@ -24,6 +24,7 @@ function turn(fields: Partial<TurnView>): TurnView {
     quote: null,
     quote_answer: null,
     quote_replies: [],
+    woken: false,
     questions: [asked],
     started_at: 0,
     finished_at: null,

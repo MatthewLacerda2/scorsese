@@ -103,6 +103,8 @@ export interface TurnView {
   session: number;
   project: number;
   prompt: string;
+  /** Started by the server when the work the conversation ordered landed (#1441), not by a message: shown as a line, never a prompt bubble. */
+  woken: boolean;
   state: TurnState;
   /** The final answer, or why there is none. */
   answer: string | null;
