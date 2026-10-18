@@ -3,6 +3,7 @@
 
 mod collecting;
 mod ordering;
+mod spent;
 
 use scorsese_core::AssetId;
 use scorsese_providers::image::Brief;

@@ -128,3 +128,23 @@ fn a_candidate_from_another_project_is_not_found() {
         "{error}"
     );
 }
+
+/// A kept voice still counts from its ledger line when the design's record in
+/// `generated/` has gone — and counts once beside it while it is there.
+#[test]
+fn a_kept_voice_counts_once_with_or_without_its_design_record() {
+    let dir = root("design-kept-record");
+    let studio = Fake::offering(&["a", "b", "c"]);
+    let designing = design(
+        &dir,
+        &studio,
+        &brief("a narrator", None),
+        Budget::unlimited(0),
+    )
+    .expect("the design");
+    keep(&dir, &studio, "b", "Narrator").expect("keeping one");
+    assert_eq!(spent(&dir), designing.estimate.cents);
+
+    std::fs::remove_dir_all(dir.join("generated")).expect("removing the design");
+    assert_eq!(spent(&dir), designing.estimate.cents);
+}

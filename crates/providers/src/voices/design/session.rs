@@ -129,6 +129,26 @@ pub(super) fn read(root: &Path, digest: &str) -> Option<Session> {
         .then_some(session)
 }
 
+/// What every design this project paid for cost, by digest — read off each
+/// record in `generated/voice-design/`, kept or not (#1107).
+///
+/// Unlike [`read`], a record whose samples have gone still counts: deleting
+/// the samples does not refund the call that made them.
+pub(super) fn paid(root: &Path) -> Vec<(String, u64)> {
+    let Ok(designs) = std::fs::read_dir(root.join(GENERATED_DIR).join(DESIGN_DIR)) else {
+        return Vec::new();
+    };
+    let mut paid: Vec<(String, u64)> = designs
+        .flatten()
+        .filter_map(|entry| std::fs::read_to_string(entry.path().join("design.json")).ok())
+        .filter_map(|text| serde_json::from_str::<Session>(&text).ok())
+        .map(|session| (session.digest, session.estimated_cost_cents))
+        .collect();
+    // Directory order is the filesystem's; a figure should not depend on it.
+    paid.sort();
+    paid
+}
+
 /// The design in this project that offered `generated_voice_id`.
 ///
 /// A scan rather than an index, because there are as many of these as somebody

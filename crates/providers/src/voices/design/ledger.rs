@@ -154,15 +154,26 @@ pub fn read(root: &Path) -> Vec<Designed> {
 /// Counted **once per design**, not once per voice. One design call answers
 /// with three candidates and is billed once, so somebody who kept two of them
 /// spent what one design costs — see [`Designed::design`].
+///
+/// And counted **whether or not a voice was kept** (#1107): [`design`] pays
+/// the moment the candidates come back, and its record in
+/// `generated/voice-design/` says so. A kept voice whose record has since
+/// gone still counts, from its line here.
+///
+/// [`design`]: super::design
 pub fn spent(root: &Path) -> u64 {
+    let mut designs = super::session::paid(root);
+    for designed in read(root) {
+        designs.push((designed.design, designed.estimated_cost_cents));
+    }
     let mut counted: Vec<String> = Vec::new();
     let mut total = 0;
-    for designed in read(root) {
-        if counted.contains(&designed.design) {
+    for (digest, cents) in designs {
+        if counted.contains(&digest) {
             continue;
         }
-        total += designed.estimated_cost_cents;
-        counted.push(designed.design);
+        total += cents;
+        counted.push(digest);
     }
     total
 }

@@ -145,3 +145,45 @@ fn a_plan_refusal_points_at_the_voices_that_still_work() {
     assert!(said.contains("free plan"), "{said}");
     assert!(said.contains("`scorsese voices` (`voices`)"), "{said}");
 }
+
+/// A design is paid for when its candidates come back, not when one is kept
+/// (#1107): ten designs nobody kept are ten designs' worth of money, and a
+/// ceiling that read only the kept voices would see none of it.
+#[test]
+fn a_design_nobody_kept_is_still_spent() {
+    let dir = root("design-unkept");
+    let studio = Fake::offering(&["a", "b", "c"]);
+    let first = design(
+        &dir,
+        &studio,
+        &brief("a narrator", Some(1)),
+        Budget::unlimited(0),
+    )
+    .expect("the first design");
+    let second = design(
+        &dir,
+        &studio,
+        &brief("a narrator", Some(2)),
+        Budget::unlimited(0),
+    )
+    .expect("the second design");
+
+    assert_eq!(
+        spent(&dir),
+        first.estimate.cents + second.estimate.cents,
+        "every design counts, kept or not"
+    );
+
+    // Listening again, or deleting the samples, refunds nothing.
+    design(
+        &dir,
+        &studio,
+        &brief("a narrator", Some(1)),
+        Budget::unlimited(0),
+    )
+    .expect("the same design again");
+    for sample in &first.session.candidates {
+        std::fs::remove_file(sample.path.resolve(&dir)).expect("removing a sample");
+    }
+    assert_eq!(spent(&dir), first.estimate.cents + second.estimate.cents);
+}
