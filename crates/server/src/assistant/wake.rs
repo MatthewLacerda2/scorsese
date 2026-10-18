@@ -18,7 +18,8 @@
 //! out (one at a time; its end is the next look), and one the person stopped
 //! is left alone. If the person wrote after the spend, their turn is the last
 //! one, so nothing starts: the next message they send carries the note
-//! instead ([`told`], called by `start` for every turn).
+//! instead ([`told`], called by `start` for every turn). A conversation a new
+//! one set aside is never woken.
 //!
 //! **What it is.** An ordinary turn ([`super::start`] with
 //! [`Opening::woken`](super::Opening)), on the conversation's model and the
@@ -283,6 +284,16 @@ async fn due(
     turn: i64,
 ) -> Result<Option<(i64, String)>, sqlx::Error> {
     let mut tx = db::scoped(&state.pool, user).await?;
+    // A conversation a newer one set aside is never woken: it stops waiting.
+    sqlx::query(
+        "UPDATE chat_turns t SET awaiting = false FROM chat_sessions s
+         WHERE t.awaiting AND s.id = t.session_id
+           AND t.session_id = (SELECT session_id FROM chat_turns WHERE id = $1)
+           AND s.id <> (SELECT max(id) FROM chat_sessions WHERE project_id = s.project_id)",
+    )
+    .bind(turn)
+    .execute(&mut *tx)
+    .await?;
     let last: Option<(i64, i64, String, bool, String)> = sqlx::query_as(
         "SELECT t.id, s.project_id, t.state, t.awaiting, t.effort
          FROM chat_turns t JOIN chat_sessions s ON s.id = t.session_id
@@ -294,9 +305,11 @@ async fn due(
     .fetch_optional(&mut *tx)
     .await?;
     let Some((last, project, ended, awaiting, effort)) = last else {
+        tx.commit().await?;
         return Ok(None);
     };
     if !awaiting || !is_over(&ended) || ended == "stopped" {
+        tx.commit().await?;
         return Ok(None);
     }
     let pending: bool = sqlx::query_scalar(concat!(
