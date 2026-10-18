@@ -13,7 +13,10 @@ fn request(model: Model, messages: &[Message]) -> Request {
         model,
         system: "s".into(),
         tools: vec![],
-        messages: messages.iter().map(|m| freeze(model, m).unwrap()).collect(),
+        messages: messages
+            .iter()
+            .map(|m| freeze(model, m).expect("a message freezes"))
+            .collect(),
     }
 }
 
@@ -30,9 +33,9 @@ fn four_levels_read_back_from_the_names_they_are_sent_as() {
 
 #[test]
 fn the_top_level_setting_is_the_baseline_whatever_the_turn_runs_at() {
-    let low = Effort::Low.change(&[]).unwrap();
+    let low = Effort::Low.change(&[]).expect("low is not the baseline");
     let request = request(Model::ClaudeOpus55, &[low, Message::user("nudge it")]);
-    let body = serde_json::to_value(anthropic::laid_out(&request)).unwrap();
+    let body = serde_json::to_value(anthropic::laid_out(&request)).expect("a request serialises");
     assert_eq!(body["output_config"], json!({"effort": "high"}));
     assert_eq!(
         body["messages"][0],
@@ -45,7 +48,7 @@ fn the_top_level_setting_is_the_baseline_whatever_the_turn_runs_at() {
 fn a_turn_opens_with_a_change_only_when_its_level_is_not_the_one_in_effect() {
     assert_eq!(Effort::BASELINE, Effort::High);
     assert_eq!(Effort::High.change(&[]), None, "the baseline needs none");
-    let low = Effort::Low.change(&[]).unwrap();
+    let low = Effort::Low.change(&[]).expect("low is not the baseline");
     let history = [low.clone(), Message::user("a"), Message::assistant("b")];
     assert_eq!(Effort::in_effect(&history), Effort::Low);
     assert_eq!(Effort::Low.change(&history), None, "still in effect");
@@ -66,20 +69,20 @@ fn a_change_survives_the_record_and_a_change_of_model() {
         effort: Effort::Xhigh,
     };
     assert_eq!(
-        serde_json::to_value(&change).unwrap(),
+        serde_json::to_value(&change).expect("a message serialises"),
         json!({"role": "effort", "effort": "xhigh"})
     );
-    let frozen = freeze(Model::ClaudeOpus55, &change).unwrap();
+    let frozen = freeze(Model::ClaudeOpus55, &change).expect("a change freezes");
     assert_eq!(
-        anthropic::read(&[frozen.clone()], &mut HashMap::new()),
-        [change.clone()]
+        anthropic::read(std::slice::from_ref(&frozen), &mut HashMap::new()),
+        std::slice::from_ref(&change)
     );
     let kept = Kept {
         model: Model::ClaudeOpus55.id().to_owned(),
         native: vec![frozen.clone()],
         record: vec![change],
     };
-    let replayed = replay(Model::ClaudeFable51, &[kept]).unwrap();
+    let replayed = replay(Model::ClaudeFable51, &[kept]).expect("a history replays");
     assert_eq!(
         replayed[0].get(),
         frozen.get(),
