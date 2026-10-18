@@ -23,7 +23,7 @@
 //!
 //! **What it is.** An ordinary turn ([`super::start`] with
 //! [`Opening::woken`](super::Opening)), on the conversation's model and the
-//! effort of the turn that ordered: charged for its tokens, paused by a quote
+//! project's effort: charged for its tokens, paused by a quote
 //! like any other, and never spending on its own. The model is told what
 //! landed in a server note; the transcript shows the turn's prompt, a line
 //! such as "Continued after the stills landed", in place of a bubble.
@@ -34,7 +34,6 @@
 //! cross-user read here, and only to learn whose conversations to look at.
 
 use futures_util::StreamExt;
-use scorsese_providers::chat::Effort;
 use serde_json::Value;
 use tokio::sync::watch as signal;
 
@@ -108,9 +107,15 @@ pub(super) async fn told(
     session: i64,
     woken: bool,
 ) -> Result<Option<(String, String)>, sqlx::Error> {
-    let turns: Vec<i64> = sqlx::query_scalar(
-        "SELECT t.id FROM chat_turns t WHERE t.session_id = $1 AND t.awaiting ORDER BY t.id",
-    )
+    // The person's message is preferred: it waits for a woken start that holds
+    // these rows, while a woken start skips the rows a message holds and so
+    // finds nothing to tell.
+    let turns: Vec<i64> = sqlx::query_scalar(if woken {
+        "SELECT id FROM chat_turns WHERE session_id = $1 AND awaiting ORDER BY id
+         FOR UPDATE SKIP LOCKED"
+    } else {
+        "SELECT id FROM chat_turns WHERE session_id = $1 AND awaiting ORDER BY id FOR UPDATE"
+    })
     .bind(session)
     .fetch_all(&mut **tx)
     .await?;
@@ -124,15 +129,19 @@ pub(super) async fn told(
             continue;
         }
         let newest = jobs.iter().map(|job| job.id).max().unwrap_or(0);
-        sqlx::query(
+        // `awaiting` again: a start that waited on the lock above finds the
+        // turn told already, and tells nothing twice.
+        let told = sqlx::query(
             "UPDATE chat_turns SET awaiting = false, told_job = greatest(told_job, $2)
-             WHERE id = $1",
+             WHERE id = $1 AND awaiting",
         )
         .bind(turn)
         .bind(newest)
         .execute(&mut **tx)
         .await?;
-        landed.extend(jobs);
+        if told.rows_affected() == 1 {
+            landed.extend(jobs);
+        }
     }
     if landed.is_empty() {
         return Ok(None);
@@ -257,10 +266,10 @@ async fn landed(state: &AppState, user: UserId, job: i64) {
 /// continuation there if its last turn's work has all landed.
 async fn check(state: &AppState, user: UserId, turn: i64) {
     match due(state, user, turn).await {
-        Ok(Some((project, effort))) => {
+        Ok(Some(project)) => {
+            // `effort: None`: the project's level, as for a message.
             let opening = Opening {
                 woken: true,
-                effort: Effort::from_name(&effort),
                 ..Opening::default()
             };
             match super::start(state, user, project, opening).await {
@@ -276,13 +285,9 @@ async fn check(state: &AppState, user: UserId, turn: i64) {
     }
 }
 
-/// Whether turn `turn`'s conversation is due a continuation: its project and
-/// the effort of the turn that ordered, if so.
-async fn due(
-    state: &AppState,
-    user: UserId,
-    turn: i64,
-) -> Result<Option<(i64, String)>, sqlx::Error> {
+/// Whether turn `turn`'s conversation is due a continuation: its project,
+/// if so.
+async fn due(state: &AppState, user: UserId, turn: i64) -> Result<Option<i64>, sqlx::Error> {
     let mut tx = db::scoped(&state.pool, user).await?;
     // A conversation a newer one set aside is never woken: it stops waiting.
     sqlx::query(
@@ -294,8 +299,8 @@ async fn due(
     .bind(turn)
     .execute(&mut *tx)
     .await?;
-    let last: Option<(i64, i64, String, bool, String)> = sqlx::query_as(
-        "SELECT t.id, s.project_id, t.state, t.awaiting, t.effort
+    let last: Option<(i64, i64, String, bool)> = sqlx::query_as(
+        "SELECT t.id, s.project_id, t.state, t.awaiting
          FROM chat_turns t JOIN chat_sessions s ON s.id = t.session_id
          WHERE t.session_id = (SELECT session_id FROM chat_turns WHERE id = $1)
            AND s.id = (SELECT max(id) FROM chat_sessions WHERE project_id = s.project_id)
@@ -304,7 +309,7 @@ async fn due(
     .bind(turn)
     .fetch_optional(&mut *tx)
     .await?;
-    let Some((last, project, ended, awaiting, effort)) = last else {
+    let Some((last, project, ended, awaiting)) = last else {
         tx.commit().await?;
         return Ok(None);
     };
@@ -321,7 +326,7 @@ async fn due(
     .fetch_one(&mut *tx)
     .await?;
     tx.commit().await?;
-    Ok((!pending).then_some((project, effort)))
+    Ok((!pending).then_some(project))
 }
 
 /// Look at every conversation with a turn awaiting work, whoever's.

@@ -80,8 +80,10 @@ leave to use.
 - A generation takes minutes, and lands in the project on its own when it \
 finishes. Once one is queued, say what is on its way and end the turn: when \
 the last of it lands, you are woken with a note saying what landed, and carry \
-on from there. Never call jobs to wait it out; check one only when the \
-person asks after it.
+on from there. Never call jobs again and again to wait it out. Check a job \
+only when the person asks after it or a later step in this turn needs what it \
+made; for that step, jobs with its job id and wait: true waits for it, a \
+minute at most per call.
 - Stock first. Any shot or still a library could have (a sunrise, a city \
 at night, hands on a keyboard) comes from stock_search: it is free. Generate \
 one only when it must be custom-made (their product, their character, a \

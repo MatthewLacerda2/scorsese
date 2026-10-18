@@ -95,3 +95,34 @@ async fn a_conversation_a_new_one_set_aside_is_not_woken(pool: PgPool) {
         .unwrap();
     assert_eq!(awaiting, 0, "and stops waiting");
 }
+
+#[sqlx::test]
+async fn work_landing_while_the_turn_runs_wakes_once_it_ends(pool: PgPool) {
+    let script = Script::new(vec![]);
+    let (address, ana, who, state, queued) = ordered(&pool, &script).await;
+    sqlx::query("UPDATE chat_turns SET state = 'running'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    waking(&state);
+    for job in &queued {
+        land(&pool, &state, ana, *job, "done").await;
+    }
+    settle().await;
+    assert_eq!(turns(&pool).await, 1, "the turn is still running");
+
+    script.replace(vec![answers("Both lines are in.")]);
+    let id: i64 = sqlx::query_scalar("UPDATE chat_turns SET state = 'answered' RETURNING id")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let ended = scorsese_server::assistant::detail(&pool, ana, id).await;
+    let turn = ended.expect("the test setup holds").turn;
+    let event = scorsese_server::events::Event::ChatTurn {
+        turn,
+        balance_micros: 0,
+    };
+    state.events.send(ana, event);
+    let woken = nth_turn(&pool, address, &who, 2).await;
+    assert_eq!(woken["turn"]["woken"], true, "{woken}");
+}
