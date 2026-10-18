@@ -234,7 +234,7 @@ PYTHON_CHECK = command -v $(PYTHON) >/dev/null 2>&1 || { \
 # directories called `app/` and `web/`, so without it make sees the target as
 # already built and `make app` prints "up to date" without running a thing. A
 # check that silently does nothing is worse than no check.
-.PHONY: help setup gates pre-commit target-dir inventory $(GATES) app-gates web-gates web-e2e-run release format-fix mcp-table style-menu landing-og coverage mutants mutants-remote mutants-status mergeable queue live-check infra-plan infra-apply
+.PHONY: help setup compile-cache gates pre-commit target-dir inventory $(GATES) app-gates web-gates web-e2e-run release format-fix mcp-table style-menu landing-og coverage mutants mutants-remote mutants-status mergeable queue live-check infra-plan infra-apply
 
 ##@ Everyday
 
@@ -245,7 +245,7 @@ help: ## Print this list
 		$(MAKEFILE_LIST)
 	@echo
 
-setup: ## Once per clone: the committed git hooks, and the tools a gate needs
+setup: ## Once per clone: the committed git hooks, the tools a gate needs, and the compile cache if sccache is installed
 	git config core.hooksPath .githooks
 	@echo "hooks: core.hooksPath -> .githooks; 'make pre-commit' now runs before each commit."
 	@echo "hooks: to commit anyway on a work-in-progress commit, use 'git commit --no-verify'."
@@ -257,6 +257,42 @@ setup: ## Once per clone: the committed git hooks, and the tools a gate needs
 		|| { echo "tools: cargo-nextest is missing -- both test gates run through it."; \
 		     echo "tools: get it prebuilt from https://get.nexte.st/, or with"; \
 		     echo "tools: 'cargo install --locked cargo-nextest'."; }
+	@$(MAKE) --no-print-directory compile-cache
+
+# The worktrees' compile cache (#1475, ported from MatthewLacerda2/rusty#492).
+# sccache stores each dependency compile under a hash of its inputs, so a fresh
+# worktree reuses what an earlier one built instead of cold-compiling every
+# third-party crate: measured on 2026-10-17, a cold `cargo nextest run
+# --workspace --no-run` went from 11m17s to 8m57s on a warm ~170 MB cache. The
+# workspace crates compile incrementally, which sccache passes through
+# uncached, so the edit loop is unchanged. This is not a shared target
+# directory (`target-dir` below): a hit is the same output by construction,
+# and nothing one worktree does can overwrite another's.
+#
+# The config goes in `.claude/worktrees/` of the main clone — git-excluded by
+# `.gitignore`'s `.claude/*`, and read by cargo in every worktree beneath it,
+# since cargo reads config from parent directories — so it reaches the
+# worktrees and nothing else: not the main checkout, not the user's other
+# projects, not CI or a cloud session, which have no sccache. A machine without
+# sccache gets nothing written. The path is absolute because cargo did not find
+# a bare `sccache` named in a config file. Delete the file to turn it off.
+CACHE_CONFIG = $(shell dirname "$$(git rev-parse --path-format=absolute --git-common-dir)")/.claude/worktrees/.cargo/config.toml
+CACHE_SIZE = 2G
+
+compile-cache: ## Switch the worktrees' compile cache on (needs sccache); rerun after installing it
+	@sccache="$$(command -v sccache)"; \
+	if [ -z "$$sccache" ]; then \
+		echo "compile-cache: off, sccache is not installed ('cargo install --locked sccache', then 'make setup')"; \
+		exit 0; \
+	fi; \
+	mkdir -p "$(dir $(CACHE_CONFIG))" && \
+	printf '%s\n' \
+		'# Written by `make setup` (#1475): the worktrees share a compile cache.' \
+		'# Delete this file to turn it off; the Makefile'"'"'s `compile-cache` explains it.' \
+		'[build]' "rustc-wrapper = \"$$sccache\"" '' \
+		'[env]' '# Read when the sccache server starts; it evicts the oldest entries past this.' \
+		'SCCACHE_CACHE_SIZE = "$(CACHE_SIZE)"' > "$(CACHE_CONFIG)" && \
+	echo "compile-cache: on for every worktree ($(CACHE_CONFIG), cap $(CACHE_SIZE))"
 
 pre-commit: format size ## The fast half: what the pre-commit hook runs
 	@echo "pre-commit: ok"
