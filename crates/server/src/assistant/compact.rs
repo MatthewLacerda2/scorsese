@@ -14,7 +14,9 @@
 //! conversation's tools still declared (so it reads the cached prefix), its
 //! `model_calls` row, charged to the turn. Nobody is shown it, and a turn
 //! resumed from a pause never compacts: only [`super::start`] prepares one.
-//! When it fails, the turn runs on the whole conversation, as it did before.
+//! A summary is only one the model finished (`Stop::EndTurn`): a call that
+//! stops on a tool, or fails past its retries, leaves the turn running on the
+//! whole conversation, as it did before, and says so only in the log.
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -24,7 +26,7 @@ use serde_json::value::RawValue;
 
 use super::store::compaction;
 use super::store::turns::{self, Charge};
-use super::turn::Running;
+use super::turn::{RETRY_AFTER, Running};
 use super::{ask, prompt};
 use crate::db::Tx;
 use crate::http::AppState;
@@ -52,7 +54,8 @@ pub(super) struct Compacting {
     /// The summarising call's messages: the whole conversation, then
     /// [`INSTRUCTION`].
     request: Vec<Box<RawValue>>,
-    /// The server's notes the turn opened with, said again after the summary.
+    /// The server's notes the compacted turn opens with: the project's,
+    /// then the turn's own.
     notes: Vec<String>,
 }
 
@@ -64,20 +67,26 @@ pub(super) async fn due(tx: &mut Tx, session: i64) -> Result<bool, sqlx::Error> 
 }
 
 /// The compaction of a conversation whose turns were `history` on `model` and
-/// said `said`, for a turn opening with `notes`.
+/// said `said`, for a turn opening with `notes`. `about` is the server's note
+/// on the project ([`prompt::about`]), said again after the summary whether
+/// or not the turn carried it: which project this is stays the server's word,
+/// never only the summary's.
 pub(super) fn prepare(
     model: Model,
     history: &[Box<RawValue>],
     said: &[Message],
+    about: &str,
     notes: &[String],
 ) -> Result<Compacting, serde_json::Error> {
     let mut request = history.to_vec();
     for message in prompt::opening(said, INSTRUCTION, &[]) {
         request.push(chat::freeze(model, &message)?);
     }
+    let rest = notes.iter().filter(|note| note.as_str() != about).cloned();
+    let kept: Vec<String> = std::iter::once(about.to_owned()).chain(rest).collect();
     Ok(Compacting {
         request,
-        notes: notes.to_vec(),
+        notes: kept,
     })
 }
 
@@ -111,25 +120,9 @@ async fn summarised(
         tools,
         messages: compacting.request,
     };
-    let (reply, latency) = call(turn, request).await?;
-    let charge = Charge {
-        turn: turn.turn,
-        project: turn.project,
-        prompt: &turn.prompt,
-        model: turn.model,
-        latency,
-    };
-    let (charged, balance) = turns::charge(&state.pool, turn.user, &charge, &reply)
-        .await
-        .map_err(|error| error.to_string())?;
-    turn.spent += charged;
-    turn.balance = balance;
-    let summary = reply.text();
-    if !matches!(reply.stop, Stop::EndTurn | Stop::ToolUse) || summary.trim().is_empty() {
-        return Err(format!("no summary came back ({})", reply.stop.as_str()));
-    }
-    let mut notes = vec![note(&summary)];
-    notes.extend(compacting.notes);
+    let summary = summary(state, turn, request).await?;
+    let mut notes = compacting.notes;
+    notes.insert(1, note(&summary));
     let record = prompt::opening(&[], &turn.prompt, &notes);
     let messages = record
         .iter()
@@ -145,24 +138,73 @@ async fn summarised(
     Ok(())
 }
 
+/// Ask for the summary, charging each reply to the turn: its text, once the
+/// model has finished one. A reply that stopped anywhere else (on a tool,
+/// at its length) is not a summary, and is asked for once more.
+async fn summary(state: &AppState, turn: &mut Running, request: Request) -> Result<String, String> {
+    let request = Arc::new(request);
+    let mut stopped = String::new();
+    for _ in 0..2 {
+        let (reply, latency) = call(turn, &request).await?;
+        let charge = Charge {
+            turn: turn.turn,
+            project: turn.project,
+            prompt: &turn.prompt,
+            model: turn.model,
+            latency,
+            summary: true,
+        };
+        let (charged, balance) = turns::charge(&state.pool, turn.user, &charge, &reply)
+            .await
+            .map_err(|error| error.to_string())?;
+        turn.spent += charged;
+        turn.balance = balance;
+        let text = reply.text();
+        if matches!(reply.stop, Stop::EndTurn) && !text.trim().is_empty() {
+            return Ok(text);
+        }
+        stopped = reply.stop.as_str().to_owned();
+    }
+    Err(format!("no summary came back (it stopped on {stopped})"))
+}
+
 /// The server's note carrying `summary`: what the model reads in place of
-/// the conversation before the person's message.
+/// the conversation before the person's message. The summary is the model's
+/// own account, and the note says so: the server vouches only for what its
+/// other notes say.
 fn note(summary: &str) -> String {
     format!(
         "This conversation ran long, so everything before the person's message above was \
-         replaced by this summary, which you wrote; nothing older is shown. A picture you \
-         saw before can be looked at again with still.\n\n{summary}"
+         replaced by a summary you wrote of it; nothing older is shown. It is your own \
+         account, not something the server checked. A picture you saw before can be looked \
+         at again with still. Your summary:\n\n{summary}"
     )
 }
 
-/// Send the summarising `request`, streaming nothing to the browser: the
-/// reply, and how long it took.
-async fn call(turn: &Running, request: Request) -> Result<(Reply, Duration), String> {
-    let chat = Arc::clone(&turn.chat);
-    let sent = Instant::now();
-    let reply = tokio::task::spawn_blocking(move || chat.reply(&request, &mut |_| {}))
-        .await
-        .map_err(|error| error.to_string())?
-        .map_err(|error| error.to_string())?;
-    Ok((reply, sent.elapsed()))
+/// Send the summarising `request`, streaming nothing to the browser and
+/// retrying a failure worth retrying as a turn's own calls do: the reply,
+/// and how long the attempt that answered took.
+async fn call(turn: &Running, request: &Arc<Request>) -> Result<(Reply, Duration), String> {
+    let mut waits = RETRY_AFTER.iter();
+    loop {
+        let (chat, request_) = (Arc::clone(&turn.chat), Arc::clone(request));
+        let sent = Instant::now();
+        let reply = tokio::task::spawn_blocking(move || chat.reply(&request_, &mut |_| {}))
+            .await
+            .map_err(|error| error.to_string())?;
+        match (reply, waits.next()) {
+            (Err(error), Some(wait)) if error.retryable() => {
+                eprintln!(
+                    "scorsese-server: assistant: turn {}: summarising: {error}; retrying",
+                    turn.turn
+                );
+                tokio::time::sleep(*wait).await;
+            }
+            (reply, _) => {
+                return reply
+                    .map(|reply| (reply, sent.elapsed()))
+                    .map_err(|error| error.to_string());
+            }
+        }
+    }
 }

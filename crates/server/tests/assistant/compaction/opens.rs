@@ -1,27 +1,13 @@
-//! A conversation past 150K tokens compacts at the start of its next turn
-//! (#1438): one summary and the new prompt, nothing older replayed — and a
-//! smaller one, or a turn resuming from a pause, is left as it was.
+//! Past the threshold, the next turn opens from one summary and the
+//! server's project note, nothing older replayed; at it, or resuming from a
+//! pause, the conversation is left as it was.
 
-use scorsese_providers::chat::Reply;
-use serde_json::{Value, json};
+use serde_json::json;
 use sqlx::postgres::PgPool;
 
-use super::script::CHARGED;
-use super::{Script, answers, calls, exchange, finished, member, project, scripted, send};
-
-/// `reply`, reported as having read `size` tokens in all.
-fn sized(mut reply: Reply, size: u64) -> Reply {
-    reply.usage.cache_read = size - reply.usage.input;
-    reply
-}
-
-/// The words of a request's message, whichever side wrote it.
-fn words(message: &Value) -> String {
-    match &message["content"] {
-        Value::String(text) => text.clone(),
-        content => content.to_string(),
-    }
-}
+use super::super::script::CHARGED;
+use super::super::{answers, calls, exchange, finished, member, project, scripted, send};
+use super::{Script, sized, words};
 
 #[sqlx::test]
 async fn past_the_threshold_the_next_turn_opens_from_one_summary(pool: PgPool) {
@@ -60,9 +46,16 @@ async fn past_the_threshold_the_next_turn_opens_from_one_summary(pool: PgPool) {
     assert_eq!(opened.len(), 2, "{opened:?}");
     assert_eq!(opened[0]["content"][0]["text"], "add the narration");
     assert_eq!(opened[1]["role"], "system");
+    let notes = words(&opened[1]);
+    assert!(notes.contains("SUMMARY: an intro"), "{opened:?}");
+    // Which project this is stays the server's word, ahead of the summary,
+    // which is framed as the model's own.
+    let about = format!("about the person's project {id}");
+    let (vouched, summary) = (notes.find(&about), notes.find("a summary you wrote"));
+    assert!(vouched.unwrap() < summary.unwrap(), "{notes}");
     assert!(
-        words(&opened[1]).contains("SUMMARY: an intro"),
-        "{opened:?}"
+        notes.contains("not something the server checked"),
+        "{notes}"
     );
 
     // The next turn's history starts at the summary, byte for byte.

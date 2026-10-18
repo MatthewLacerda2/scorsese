@@ -72,10 +72,11 @@ pub async fn start(
         Vec::new()
     };
     let (session, new) = turns::session(&mut tx, project, opening.fresh).await?;
+    let scripted = stored.document.script.is_some();
+    let about = prompt::about(project, &stored.summary.name, scripted);
     let mut notes = Vec::new();
     if new {
-        let scripted = stored.document.script.is_some();
-        notes.push(prompt::about(project, &stored.summary.name, scripted));
+        notes.push(about.clone());
     }
     if let Some(last) = turns::last(&mut tx, session).await? {
         if last.state == "running" {
@@ -100,7 +101,7 @@ pub async fn start(
     let record = prompt::opening(&said, &prompt, &notes, effort);
     // Past its size, the turn opens from a summary instead (#1438).
     let compacting = if compact::due(&mut tx, session).await? {
-        Some(compact::prepare(model, &history, &said, &notes).map_err(written)?)
+        Some(compact::prepare(model, &history, &said, &about, &notes).map_err(written)?)
     } else {
         None
     };

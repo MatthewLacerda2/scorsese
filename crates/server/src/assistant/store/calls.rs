@@ -24,9 +24,9 @@ pub(super) async fn record(
         "INSERT INTO model_calls
              (user_id, turn_id, position, model, vendor, input_tokens, output_tokens,
               cache_write_5m_tokens, cache_write_1h_tokens, cache_read_tokens,
-              latency_ms, stop_reason, cost_micros, credit_entry_id)
+              latency_ms, stop_reason, cost_micros, credit_entry_id, summary)
          VALUES (member_id(), $1, (SELECT count(*) + 1 FROM model_calls WHERE turn_id = $1)::int,
-                 $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+                 $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
     )
     .bind(charge.turn)
     .bind(charge.model.id())
@@ -40,6 +40,7 @@ pub(super) async fn record(
     .bind(reply.stop.as_str())
     .bind(charged.cost)
     .bind(charged.entry)
+    .bind(charge.summary)
     .execute(&mut **tx)
     .await?;
     Ok(())

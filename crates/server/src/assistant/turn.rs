@@ -29,7 +29,7 @@ use crate::events::Event;
 use crate::http::AppState;
 
 /// How long to wait before sending a failed call again, each time.
-const RETRY_AFTER: [Duration; 2] = [Duration::from_secs(2), Duration::from_secs(8)];
+pub(super) const RETRY_AFTER: [Duration; 2] = [Duration::from_secs(2), Duration::from_secs(8)];
 
 /// Everything a running turn needs.
 pub(super) struct Running {
@@ -192,6 +192,7 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
             prompt: &turn.prompt,
             model: turn.model,
             latency,
+            summary: false,
         };
         let (charged, now) = turns::charge(&state.pool, turn.user, &charge, &reply)
             .await

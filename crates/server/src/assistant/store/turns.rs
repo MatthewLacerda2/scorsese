@@ -210,6 +210,9 @@ pub(in crate::assistant) struct Charge<'a> {
     pub(in crate::assistant) model: Model,
     /// How long it took to answer.
     pub(in crate::assistant) latency: Duration,
+    /// Whether it summarised the conversation (#1438) rather than carried on
+    /// the edit.
+    pub(in crate::assistant) summary: bool,
 }
 
 /// Charge one call's reply, record it in `model_calls` and add it to the

@@ -11,7 +11,9 @@ use crate::db::{self, Tx, UserId};
 /// How many tokens the latest call to the model in `session` was sent: what
 /// it read at full price, from the cache and into it. Every call in a turn
 /// re-reads the whole conversation, so the last one's input is its size,
-/// counted once. `None` before any call.
+/// counted once. Only calls since the conversation last compacted count, and
+/// never a summarising one, which read the old conversation whole. `None`
+/// before any such call.
 pub(in crate::assistant) async fn size(
     tx: &mut Tx,
     session: i64,
@@ -20,7 +22,9 @@ pub(in crate::assistant) async fn size(
         "SELECT c.input_tokens + c.cache_read_tokens
                 + c.cache_write_5m_tokens + c.cache_write_1h_tokens
          FROM model_calls c JOIN chat_turns t ON t.id = c.turn_id
-         WHERE t.session_id = $1
+         WHERE t.session_id = $1 AND NOT c.summary
+           AND t.id >= (SELECT coalesce(max(id), 0) FROM chat_turns
+                        WHERE session_id = $1 AND compacted)
          ORDER BY c.id DESC LIMIT 1",
     )
     .bind(session)
