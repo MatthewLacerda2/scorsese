@@ -18,7 +18,9 @@ export type Held =
   | { kind: "stretched"; wide: number; tall: number }
   | { kind: "animated" };
 
-/** What `path` reads across `clip`, `rest` when nothing sets it. */
+/** What `path` reads across `clip`, `rest` when nothing sets it. Two tracks
+ * on one of these properties no longer validate (v55, #1099); a document that
+ * carries them anyway reads as animated, never as a guess. */
 function held(clip: Clip, path: string, rest: number): Held {
   const tracks = (clip.keyframes ?? []).filter((track) => track.property === path);
   if (tracks.length === 0) return { kind: "value", value: rest };

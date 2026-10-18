@@ -92,8 +92,9 @@ pub(super) fn shown_as_value(clip: &Clip, track: &KeyframeTrack) -> bool {
 }
 
 /// What `path` reads across `clip`: its resting value when nothing sets it,
-/// the one point when a single held keyframe does, and animated otherwise —
-/// including two tracks on one property, which is not a value anybody can name.
+/// the one point when a single held keyframe does, and animated otherwise.
+/// Two tracks on one of these properties no longer validate (v55, #1099); a
+/// document that carries them anyway reads as animated, never as a guess.
 fn held(clip: &Clip, path: &str, rest: f64) -> Held {
     let mut tracks = clip
         .keyframes

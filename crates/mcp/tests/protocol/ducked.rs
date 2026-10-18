@@ -37,6 +37,7 @@ fn muting_a_ducked_clip_keeps_the_dip_beside_the_level() {
     ));
     assert!(!failed, "{text}");
     assert!(text.contains("muted"), "got {text}");
+    assert!(text.contains("signed `duck`"), "the dip is named: {text}");
     assert!(
         !text.contains("replaced"),
         "nothing hand-written was there: {text}"
@@ -50,6 +51,10 @@ fn muting_a_ducked_clip_keeps_the_dip_beside_the_level() {
     ));
     assert!(!failed, "{text}");
     assert!(text.contains("hand-written volume"), "got {text}");
+    assert!(
+        text.contains("own level is 0.5") && text.contains("multiplies"),
+        "0.5 is not what a ducked clip plays at: {text}"
+    );
     assert_eq!(volume_authors(&dir), [Some("duck".to_owned()), None]);
     std::fs::remove_dir_all(dir).ok();
 }
