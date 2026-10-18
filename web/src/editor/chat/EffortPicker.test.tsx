@@ -56,4 +56,25 @@ describe.each(LANGUAGES.map(({ language }) => language))("%s", (language) => {
     });
     view.unmount();
   });
+
+  test("a pick shows at once, before the server answers", async () => {
+    const client = createQueryClient();
+    client.setQueryData(["chat", 3], { turns: [], effort: "high" });
+    const answered = setFetch(() => new Promise<Response>(() => {}));
+    const view = render(
+      <QueryClientProvider client={client}>
+        <I18nProvider initial={language}>
+          <EffortPicker projectId={3} effort="high" />
+        </I18nProvider>
+      </QueryClientProvider>,
+    );
+    const t = CATALOGUES[language].chat.effort;
+    fireEvent.keyDown(screen.getByRole("combobox", { name: t.label }), { key: "Enter" });
+    fireEvent.click(screen.getAllByRole("option")[0] as HTMLElement);
+    await waitFor(() =>
+      expect(client.getQueryData<{ effort: string }>(["chat", 3])?.effort).toBe("low"),
+    );
+    setFetch(answered);
+    view.unmount();
+  });
 });

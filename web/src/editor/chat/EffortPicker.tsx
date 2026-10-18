@@ -1,9 +1,12 @@
 // Low, medium, high or extra, beside the model picker (#1443): how hard the
 // assistant thinks, kept on the project on the server, with one line of hover
 // text each saying what it is for. A change takes effect from the next
-// message and costs no cache (`effort.ts` has the rest).
+// message and costs no cache (`effort.ts` has the rest). A pick shows at once:
+// it is written into the cached conversation before the server answers, and
+// put back if the server refuses it.
 
-import { chatApi } from "@/api/chat";
+import { useQueryClient } from "@tanstack/react-query";
+import { type Conversation, chatApi } from "@/api/chat";
 import { queryKeys } from "@/app/queryKeys";
 import { useInvalidatingMutation } from "@/app/useInvalidatingMutation";
 import {
@@ -19,8 +22,18 @@ import { problem } from "./transcript";
 
 export function EffortPicker({ projectId, effort }: { projectId: number; effort: Effort }) {
   const t = useT();
-  const choose = useInvalidatingMutation([queryKeys.conversation(projectId)], {
+  const queryClient = useQueryClient();
+  const key = queryKeys.conversation(projectId);
+  const set = (level: string) =>
+    queryClient.setQueryData<Conversation>(key, (held) => held && { ...held, effort: level });
+  const choose = useInvalidatingMutation([key], {
     mutationFn: (next: Effort) => chatApi.chooseEffort(projectId, next),
+    onMutate: async (next: Effort) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      set(next);
+      return { before: effort };
+    },
+    onError: (_error, _next, context) => context && set(context.before),
   });
   const shown = choose.isPending && choose.variables ? choose.variables : effort;
   const refused = choose.error ? problem(choose.error, t.chat) : null;

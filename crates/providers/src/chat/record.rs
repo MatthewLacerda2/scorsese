@@ -37,8 +37,9 @@ pub enum Message {
         /// The words.
         text: String,
     },
-    /// The server, mid-conversation: the model runs at `effort` from the next
-    /// user message on (#1443). Says nothing; [`super::Effort::change`] writes it.
+    /// The server, mid-conversation: the model runs at `effort` from the reply
+    /// to the user message just before it on (#1443). Says nothing;
+    /// [`super::Effort::change`] writes it.
     Effort {
         /// The level.
         effort: super::Effort,

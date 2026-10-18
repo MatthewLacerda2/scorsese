@@ -148,9 +148,9 @@ fn text(tool: &Value, field: &str) -> String {
         .to_owned()
 }
 
-/// A turn's first messages: the user's words — after a result for every tool
-/// call the conversation left unanswered, and an effort change when `effort`
-/// is not the level in effect (#1443) — and, when there is anything the server
+/// A turn's first messages: the user's words, after a result for every tool
+/// call the conversation left unanswered; an effort change when `effort` is
+/// not the level in effect (#1443); and, when there is anything the server
 /// has to say, one note saying it.
 ///
 /// A conversation whose last turn ended before the model replied (refused,
@@ -187,10 +187,14 @@ pub(super) fn opening(
     content.push(Part::Text {
         text: prompt.to_owned(),
     });
-    // Before the words, so it sets the level of the reply to them; not after
-    // the note, which must be the last message or followed by the reply.
-    messages.extend(effort.change(history));
+    // Directly after the words, which sets the level of the reply to them
+    // (Anthropic's *Effort* page, read 2026-10-18: "Placed directly after a
+    // `user` turn with new input, it sets the level for Claude's reply to
+    // that turn"). Never before them: when they carry the results of a turn
+    // stopped mid-call, that would split a `tool_use` from its `tool_result`.
+    // Before the note, which must be followed by the reply.
     messages.push(Message::User { content });
+    messages.extend(effort.change(history));
     if !notes.is_empty() {
         messages.push(Message::System {
             text: notes.join("\n\n"),
@@ -273,5 +277,59 @@ fn changed(what: &str, before: Option<&str>, now: Option<&str>) -> String {
         (None, Some(now)) => format!("the {what} set to {now}"),
         (Some(before), None) => format!("the {what} {before} cleared"),
         (None, None) => format!("the {what} unchanged"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    /// The kind of each message, in order.
+    fn kinds(messages: &[Message]) -> Vec<&'static str> {
+        messages
+            .iter()
+            .map(|message| match message {
+                Message::User { .. } => "user",
+                Message::Assistant { .. } => "assistant",
+                Message::System { .. } => "system",
+                Message::Effort { .. } => "effort",
+            })
+            .collect()
+    }
+
+    #[test]
+    fn an_effort_change_follows_the_words_it_sets_the_reply_to() {
+        let history = [Message::assistant("Done.")];
+        let notes = ["The person said yes.".to_owned()];
+        let opened = opening(&history, "now the outro", &notes, Effort::Low);
+        assert_eq!(kinds(&opened), ["user", "effort", "system"]);
+        let unchanged = opening(&history, "now the outro", &[], Effort::BASELINE);
+        assert_eq!(kinds(&unchanged), ["user"], "no change, no message");
+    }
+
+    #[test]
+    fn an_effort_change_never_splits_a_call_from_its_result() {
+        // A turn stopped mid-call: its last message calls a tool nobody ran.
+        let stopped = Message::Assistant {
+            content: vec![Part::Call {
+                id: "toolu_1".into(),
+                name: "still".into(),
+                input: json!({}),
+            }],
+        };
+        let opened = opening(&[stopped], "carry on", &[], Effort::Xhigh);
+        assert_eq!(kinds(&opened), ["user", "effort"]);
+        assert!(matches!(
+            opened[0].parts().first(),
+            Some(Part::Result { call, .. }) if call == "toolu_1"
+        ));
+        assert_eq!(
+            opened[1],
+            Message::Effort {
+                effort: Effort::Xhigh
+            }
+        );
     }
 }

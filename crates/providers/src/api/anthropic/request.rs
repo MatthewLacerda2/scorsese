@@ -197,7 +197,7 @@ pub struct Message {
     /// What it says.
     pub content: MessageContent,
     /// On an operator's message with no content, the effort the model runs at
-    /// from the next user turn with new input on ([`Message::effort`]).
+    /// from then on ([`Message::effort`] says from where).
     /// Absent everywhere else, so every other message freezes to the bytes it
     /// always has.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -225,8 +225,9 @@ impl Message {
     }
 
     /// An effort change: a `system` message with empty content and
-    /// `output_config.effort`, which moves the effort from the next user turn
-    /// with new input on, until a later one moves it again — without the
+    /// `output_config.effort`, which moves the effort from the reply to the
+    /// user turn with new input it directly follows (else from the next such
+    /// turn) on, until a later one moves it again — without the
     /// cache miss a change of the top-level `output_config` costs. Needs the
     /// `mid-conversation-output-config-2026-07-01` beta ([`super::BETAS`]),
     /// and is exempt from the placement rules of a `system` message with
