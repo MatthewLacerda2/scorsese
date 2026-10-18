@@ -20,7 +20,7 @@
 import type { Fps, RenderView } from "@/api";
 import type { JobView } from "@/api/events";
 import { toFrames, toSeconds } from "../../timeline/time";
-import { aheadFor, nextPiece, type Piece, pieceLength } from "./plan";
+import { aheadFor, nextPiece, type Piece, pieceLength, stillLoaded } from "./plan";
 
 /** What asking for one stream answers: made, on its way, or — for the sound — none to hear. */
 export interface Asked {
@@ -51,6 +51,12 @@ export function canPlayPieces(): boolean {
   return typeof MediaSource !== "undefined" && MediaSource.isTypeSupported(PICTURE);
 }
 
+/** The buffered stretches of `element`, as `[start, end]` seconds. */
+export function stretches(element: HTMLVideoElement): [number, number][] {
+  const { buffered } = element;
+  return Array.from({ length: buffered.length }, (_, at) => [buffered.start(at), buffered.end(at)]);
+}
+
 /** Thrown inside a piece's ask once nobody wants it. */
 class Dropped extends Error {}
 
@@ -59,7 +65,7 @@ export class PiecePlayer {
   readonly url = URL.createObjectURL(this.source);
   private picture: SourceBuffer | null = null;
   private readonly opened: Promise<void>;
-  private readonly had = new Set<number>();
+  private had = new Set<number>();
   private asking: { piece: Piece; job: number | null; dropped: boolean } | null = null;
   private readonly waiting = new Map<number, (state: string) => void>();
   private appending: Promise<void> = Promise.resolve();
@@ -90,7 +96,7 @@ export class PiecePlayer {
   seek(frame: number) {
     this.at = frame;
     const asking = this.asking;
-    const wanted = nextPiece(frame, this.total, this.fps, this.had, this.ahead());
+    const wanted = this.next();
     if (asking && wanted && wanted.index !== asking.piece.index) this.drop(asking);
     this.pump();
   }
@@ -137,14 +143,16 @@ export class PiecePlayer {
     this.source.duration = toSeconds(this.total, this.fps);
   }
 
-  private ahead() {
-    return aheadFor(this.lastTook);
+  /** The next piece wanted from the playhead, counting only what is still loaded. */
+  private next() {
+    this.had = stillLoaded(this.had, stretches(this.element), this.total, this.fps);
+    return nextPiece(this.at, this.total, this.fps, this.had, aheadFor(this.lastTook));
   }
 
   /** Ask for the next piece wanted, if none is on its way. */
   private pump() {
     if (this.asking || this.idle || this.gone || this.failed) return;
-    const piece = nextPiece(this.at, this.total, this.fps, this.had, this.ahead());
+    const piece = this.next();
     if (!piece) return this.finishIfWhole();
     const asking = { piece, job: null as number | null, dropped: false };
     this.asking = asking;

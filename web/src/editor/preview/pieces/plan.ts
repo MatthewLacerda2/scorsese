@@ -92,6 +92,29 @@ export function secondsAhead(loaded: readonly (readonly [number, number])[], at:
 }
 
 /**
+ * The pieces of `had` still loaded whole, given the loaded stretches as
+ * `[start, end]` seconds. A browser drops buffered media it judges far from
+ * the playhead when memory runs short, and a piece it dropped is asked for
+ * again rather than left as a gap the player stalls on for good.
+ */
+export function stillLoaded(
+  had: ReadonlySet<number>,
+  loaded: readonly (readonly [number, number])[],
+  total: number,
+  fps: Fps,
+): Set<number> {
+  const length = pieceLength(fps);
+  const kept = new Set<number>();
+  for (const index of had) {
+    const piece = pieceOf(index, length, total);
+    const from = toSeconds(piece.start, fps);
+    const span = toSeconds(piece.end, fps) - from;
+    if (secondsAhead(loaded, from) >= span - JOIN_SECONDS) kept.add(index);
+  }
+  return kept;
+}
+
+/**
  * Whether the player is short of picture: less than `AHEAD_SECONDS` loaded
  * past `at` seconds, where the cut (`totalSeconds` long) has that much left.
  */

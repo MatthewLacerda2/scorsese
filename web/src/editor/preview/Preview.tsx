@@ -148,6 +148,8 @@ export function Preview(props: Props) {
               if (!whole) pieces.paused();
             }}
             onEnded={() => setPlaying(false)}
+            // An edit unloads it mid-play, and an unloaded element says no pause.
+            onEmptied={() => setPlaying(false)}
             onProgress={() => !whole && pieces.look()}
             onSeeked={() => !whole && pieces.look()}
             onTimeUpdate={(event) => {
