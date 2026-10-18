@@ -52,6 +52,7 @@ export const chat: Messages["chat"] = {
     ],
     costSoFar: (cost) => `Até agora este turno custou ${cost}; nada mais enquanto espera`,
     cost: (cost) => `Este turno custou ${cost}`,
+    woken: "Continuou quando suas gerações ficaram prontas",
     left: (balance) => ` · restam ${balance}`,
   },
   effort: {

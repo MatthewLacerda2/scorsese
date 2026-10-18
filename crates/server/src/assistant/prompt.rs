@@ -78,10 +78,12 @@ permission: before calling it, ask them in those words, and set consent only \
 on their yes. Never clone a voice from a recording they did not make or have \
 leave to use.
 - A generation takes minutes, and lands in the project on its own when it \
-finishes. Once one is queued, say what is on its way and end the turn; never \
-call jobs again and again to wait it out. Check a job only when the person \
-asks after it or a later step needs what it made; for that step, jobs with its \
-job id and wait: true waits for it, a minute at most per call.
+finishes. Once one is queued, say what is on its way and end the turn: when \
+the last of it lands, you are woken with a note saying what landed, and carry \
+on from there. Never call jobs again and again to wait it out. Check a job \
+only when the person asks after it or a later step in this turn needs what it \
+made; for that step, jobs with its job id and wait: true waits for it, a \
+minute at most per call.
 - Stock first. Any shot or still a library could have (a sunrise, a city \
 at night, hands on a keyboard) comes from stock_search: it is free. Generate \
 one only when it must be custom-made (their product, their character, a \
@@ -208,6 +210,12 @@ pub(super) fn opening(
     }
     messages
 }
+
+/// The user message of a turn the server started when work landed (#1441):
+/// every turn opens with one, and the person wrote nothing, so the server
+/// says so in words the model cannot take for theirs. Its note follows.
+pub(super) const WOKEN: &str =
+    "(The person has not written. This message is the server's: it started this turn.)";
 
 /// What a new conversation is told about its project — and, when it has a
 /// script, that the script comes first: a project started for a platform or a

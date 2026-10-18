@@ -52,6 +52,7 @@ export const chat = {
     ],
     costSoFar: (cost: string) => `So far this turn has cost ${cost}; nothing more while it waits`,
     cost: (cost: string) => `This turn cost ${cost}`,
+    woken: "Carried on once your generations landed",
     left: (balance: string) => ` · ${balance} left`,
   },
   effort: {

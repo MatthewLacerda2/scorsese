@@ -25,6 +25,7 @@ function turnView(state: TurnView["state"], answer: string | null): TurnView {
     quote: null,
     quote_answer: null,
     quote_replies: [],
+    woken: false,
     questions: [],
   };
 }

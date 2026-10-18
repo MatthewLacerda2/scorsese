@@ -2015,6 +2015,27 @@ would send — the prompt, the line, the voice's description — read from the
 project's brief (or the call's `prompt`) when the quote is held
 (`assistant::described`).
 
+**When the work lands, the assistant carries on** (#1441). Every job a yes
+queues names that call (`jobs.tool_call_id`), and the yes marks its turn
+`awaiting`. The server's waker (`assistant::wake`) listens to the event bus:
+when the last of a turn's jobs ends — done, failed, cancelled or stuck — and
+that turn is still the conversation's last and ended by itself (not stopped,
+not running or asking, which it waits out), it starts a **woken** turn: an
+ordinary turn on the conversation's model and the project's effort, charged
+for its tokens and paused by a quote like any other, whose server note says
+what landed, by asset, and how. The user message before that note is a line
+the server writes, saying the person has not written: the model never sees
+the transcript's marker as the person's words. Its stored `prompt` (for the
+ledger) is a line such as "Continued after the stills landed", and the chat
+shows the turn (`woken: true`) as one line in the person's language instead of
+a bubble. If the person wrote after the spend, nothing starts: their next
+message carries the note instead, and when a message and a woken start race,
+the message wins the note (row locks: the woken start skips, the message
+waits). A turn's
+`told_job` keeps it to one note per job. The waker also sweeps every
+`awaiting` conversation when it starts and whenever it falls behind the bus,
+so a nudge lost to a restart is not a conversation left asleep.
+
 **A question mid-edit** (#710). Beside the registry's tools the loop declares
 one function of its own, `ask_user` — `{question, options}`, two to four
 options — for a choice only the person can make, halfway through a turn whose

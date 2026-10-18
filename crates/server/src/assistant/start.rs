@@ -6,7 +6,7 @@ use super::store::TurnView;
 use super::store::asking;
 use super::store::turns::{self, Beginning, Last};
 use super::turn::{self, Running};
-use super::{AssistantError, ask, compact, effort, model, prompt, quote};
+use super::{AssistantError, ask, compact, effort, model, prompt, quote, wake};
 use crate::credits::{dollars, ledger};
 use crate::db::{self, UserId};
 use crate::events::Event;
@@ -26,6 +26,10 @@ pub struct Opening {
     /// How hard the model thinks on it (#769); `None` is the project's level
     /// (#1443).
     pub effort: Option<Effort>,
+    /// Started by the server because the work the conversation ordered
+    /// landed (#1441), not by a message: `prompt` is ignored, and the turn
+    /// shows a line saying what landed instead.
+    pub woken: bool,
 }
 
 /// Start a turn in `user`'s conversation about `project`: refused when the
@@ -36,14 +40,17 @@ pub struct Opening {
 /// words are its answer instead, and that turn resumes ([`ask::answer`]); on
 /// a quote (#1440), they withdraw it and the turn resumes with them
 /// ([`quote::answer`]). A new conversation sets either aside.
+///
+/// Work the conversation ordered that has landed since is told in a note
+/// (`wake::told`); a woken turn is refused when there is none.
 pub async fn start(
     state: &AppState,
     user: UserId,
     project: i64,
     mut opening: Opening,
 ) -> Result<TurnView, AssistantError> {
-    let prompt = opening.prompt.trim().to_owned();
-    if prompt.is_empty() {
+    let mut prompt = opening.prompt.trim().to_owned();
+    if prompt.is_empty() && !opening.woken {
         return Err(AssistantError::Invalid(
             "say what you would like done".into(),
         ));
@@ -83,6 +90,9 @@ pub async fn start(
             return Err(AssistantError::Busy);
         }
         if last.state == "asking" {
+            if opening.woken {
+                return Err(AssistantError::Busy);
+            }
             drop(tx);
             if last.token.is_some() {
                 let instead = quote::Answer::Instead(prompt);
@@ -93,12 +103,31 @@ pub async fn start(
         }
         notes.extend(settle_quote(state, user, &mut tx, &last).await?);
     }
+    match wake::told(&mut tx, session, opening.woken).await? {
+        Some((note, marker)) => {
+            notes.push(note);
+            if opening.woken {
+                prompt = marker;
+            }
+        }
+        None if opening.woken => {
+            return Err(AssistantError::Invalid("no work has landed".into()));
+        }
+        None => {}
+    }
     notes.append(&mut opening.notes);
     let kept = turns::history(&mut tx, session).await?;
     let written = |error: serde_json::Error| AssistantError::Internal(error.to_string());
     let history = chat::replay(model, &kept).map_err(written)?;
     let said: Vec<Message> = kept.iter().flat_map(|turn| turn.record.clone()).collect();
-    let record = prompt::opening(&said, &prompt, &notes, effort);
+    // A woken turn's user message is the server's, never the person's words:
+    // the marker is for the transcript and the ledger.
+    let words = if opening.woken {
+        prompt::WOKEN
+    } else {
+        &prompt
+    };
+    let record = prompt::opening(&said, words, &notes, effort);
     // Past its size, the turn opens from a summary instead (#1438).
     let compacting = if compact::due(&mut tx, session).await? {
         Some(compact::prepare(model, &history, &said, &about, &notes, effort).map_err(written)?)
@@ -114,6 +143,7 @@ pub async fn start(
         prompt: &prompt,
         model,
         effort,
+        woken: opening.woken,
         native: &first,
         record: &record,
     };

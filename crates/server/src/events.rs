@@ -153,4 +153,24 @@ impl Events {
             }
         })
     }
+
+    /// Everything sent to anyone, with whom it was for, until the bus closes:
+    /// the server's own listeners' (the assistant's waker, #1441), never a
+    /// browser's. `None` when this reader fell behind and missed some: it
+    /// re-reads whatever it watches from the database.
+    pub fn every(&self) -> impl Stream<Item = Option<(UserId, Event)>> + Send + use<> {
+        let state = (self.sender.subscribe(), self.closing.subscribe());
+        futures_util::stream::unfold(state, move |(mut events, mut closing)| async move {
+            let received = tokio::select! {
+                _ = closing.wait_for(|closed| *closed) => return None,
+                received = events.recv() => received,
+            };
+            let heard = match received {
+                Ok((to, event)) => Some((to, (*event).clone())),
+                Err(broadcast::error::RecvError::Lagged(_)) => None,
+                Err(broadcast::error::RecvError::Closed) => return None,
+            };
+            Some((heard, (events, closing)))
+        })
+    }
 }

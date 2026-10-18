@@ -25,6 +25,7 @@ mod script;
 mod started;
 mod stopping;
 mod turns;
+mod woken;
 
 use std::net::SocketAddr;
 use std::sync::Arc;

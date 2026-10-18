@@ -88,7 +88,7 @@ pub(super) async fn keep(caller: &Caller<'_>, chosen: &str, name: &str) -> Resul
         name: name.to_owned(),
     };
     let payload = serde_json::to_value(&payload).map_err(database)?;
-    let job = jobs::enqueue(&mut tx, kinds::VOICE_KEEP, &payload)
+    let job = jobs::enqueue_by(&mut tx, kinds::VOICE_KEEP, &payload, Some(caller.call))
         .await
         .map_err(database)?;
     tx.commit().await.map_err(database)?;

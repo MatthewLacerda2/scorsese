@@ -43,8 +43,12 @@ pub struct TurnView {
     pub session: i64,
     /// The project that conversation is about.
     pub project: i64,
-    /// What the user wrote.
+    /// What the user wrote — or, on a turn the server started when work
+    /// landed, the line the transcript shows in place of a message.
     pub prompt: String,
+    /// Started by the server because the work the conversation ordered
+    /// landed (#1441), not by a message: shown without a prompt bubble.
+    pub woken: bool,
     /// `running`, `asking` (paused on a question to the user, #710, or on a
     /// quote, #1440),
     /// `answered`, `refused`, `capped`, `stopped`, `failed` or `interrupted`.
@@ -287,7 +291,7 @@ macro_rules! turns_where {
     ($tail:literal) => {
         concat!(
             "SELECT t.id, t.session_id AS session, s.project_id AS project, t.prompt,
-                    t.state, t.answer, t.stop_reason, t.model, t.calls, t.input_tokens,
+                    t.woken, t.state, t.answer, t.stop_reason, t.model, t.calls, t.input_tokens,
                     t.output_tokens, t.cache_write_tokens, t.cache_read_tokens,
                     t.charged_micros, t.quote, t.quote_answer, t.quote_replies, t.questions,
                     extract(epoch FROM t.started_at)::bigint AS started_at,

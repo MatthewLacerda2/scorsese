@@ -213,7 +213,7 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
         guidance: brief.guidance,
     };
     let payload = serde_json::to_value(&payload).map_err(database)?;
-    let job = jobs::enqueue(&mut tx, kinds::VOICE_DESIGN, &payload)
+    let job = jobs::enqueue_by(&mut tx, kinds::VOICE_DESIGN, &payload, Some(caller.call))
         .await
         .map_err(database)?;
     let request = Request::Design(Design {

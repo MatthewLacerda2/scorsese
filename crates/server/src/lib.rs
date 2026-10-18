@@ -302,7 +302,8 @@ pub struct Services {
 /// the code answering it either. Requests are then answered from
 /// [`db::member_pool`], whose connections can read nothing outside a scoped
 /// transaction — per-user isolation, `db::scope`. The job worker
-/// ([`jobs::work`]), the dollar's rate kept fresh ([`payments::refresh`],
+/// ([`jobs::work`]), the assistant's waker ([`assistant::watch`], #1441), the
+/// dollar's rate kept fresh ([`payments::refresh`],
 /// where Stripe is configured) and the render cache's weekly sweep
 /// ([`renders::evict::run`]) run beside them on the same pool. The render
 /// cache's scratch folder is emptied first, while
@@ -350,6 +351,7 @@ pub async fn start(
         .payments
         .map(|payments| tokio::spawn(payments::refresh(payments, stopping.clone())));
     let sweep = tokio::spawn(renders::evict::run(pool.clone(), cache, stopping.clone()));
+    let waker = tokio::spawn(assistant::watch(state.clone(), stopping.clone()));
     let worker = tokio::spawn(jobs::work(pool, registry, state.jobs.clone(), stopping));
     let events = state.events.clone();
     let served = http::serve(listener, http::router(state), async move {
@@ -365,6 +367,9 @@ pub async fn start(
     }
     if let Err(error) = worker.await {
         eprintln!("scorsese-server: the job worker failed: {error}");
+    }
+    if let Err(error) = waker.await {
+        eprintln!("scorsese-server: the assistant's waker failed: {error}");
     }
     if let Err(error) = sweep.await {
         eprintln!("scorsese-server: the render sweep failed: {error}");

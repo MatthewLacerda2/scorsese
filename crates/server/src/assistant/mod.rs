@@ -70,6 +70,14 @@
 //! an answer, withdraws the token. The box shows each item's description
 //! beside its price (`described`), so a yes is never to money alone.
 //!
+//! ## When the work lands, it carries on
+//!
+//! A generation takes minutes. When the last of the jobs a turn's yes ordered
+//! has ended, the server starts the next turn itself (#1441, `wake`), with a
+//! note saying what landed — unless the person wrote meanwhile, whose next
+//! message carries the note instead. It is an ordinary turn: charged for its
+//! tokens, paused by a quote, never spending on its own.
+//!
 //! ## A question mid-edit
 //!
 //! Beside the tools, the loop declares one function of its own to the model,
@@ -154,6 +162,7 @@ mod start;
 mod stopping;
 mod store;
 mod turn;
+mod wake;
 
 use std::sync::Arc;
 
@@ -172,6 +181,7 @@ pub use store::{
     ToolCallView, TurnDetail, TurnView,
 };
 pub use store::{conversation, detail, recover};
+pub use wake::watch;
 
 /// What a turn on Sonnet 5.5 is not allowed to cost by default, in
 /// micro-dollars: $3.50. The server's one statement of it:
