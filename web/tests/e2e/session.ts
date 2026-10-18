@@ -3,6 +3,7 @@
 // would have set (#952).
 
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { expect, type Page } from "@playwright/test";
 import { accountFile } from "./setup";
 
@@ -55,4 +56,32 @@ export async function newProject(page: Page, name: string) {
   await expect(page).toHaveURL(/\/projects\/\d+\/edit$/);
   // The assets sidebar's Library button: the panel lost its heading (#1446).
   await expect(page.getByRole("button", { name: "Library" })).toBeVisible();
+}
+
+const STILL = fileURLToPath(new URL("./still.png", import.meta.url));
+
+/**
+ * Uploads `still.png` through the editor's library modal, as a person would
+ * mid-edit, picks it into the project and drags it onto the empty timeline,
+ * where it is a clip on a new lane.
+ */
+export async function placeStill(page: Page) {
+  await page.getByRole("button", { name: "Library" }).click();
+  const modal = page.getByRole("dialog");
+  await modal.locator('input[type="file"]').setInputFiles(STILL);
+  const file = modal.getByTitle("still.png", { exact: true });
+  await expect(file).toBeVisible();
+
+  // Picked, it is one of the project's assets; the modal stays for another
+  // pick until it is closed.
+  await file.click();
+  await expect(modal.getByText("in this project")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(modal).toBeHidden();
+  const tile = page.getByTitle("Drag onto a track to place it");
+  await expect(tile).toBeVisible();
+
+  await tile.dragTo(page.getByText("Drag something here from the right."));
+  const clip = page.getByRole("button", { name: /still/ }).and(page.locator("[data-made]"));
+  await expect(clip).toBeVisible();
 }
