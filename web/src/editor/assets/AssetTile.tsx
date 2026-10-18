@@ -25,6 +25,8 @@ export interface TileProps {
   stills: number;
   open: boolean;
   onFold: () => void;
+  /** A click on the tile: show the asset in the side panel. A drag places it instead. */
+  onOpen: () => void;
   pending: boolean;
   onRemove: () => void;
 }

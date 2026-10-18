@@ -20,9 +20,10 @@ interface Props {
   /** The sequences whose stills are showing. */
   unfolded: ReadonlySet<string>;
   onFold: (id: string) => void;
+  onOpen: (asset: DocumentAsset) => void;
 }
 
-export function AssetGrid({ document, edit, unfolded, onFold }: Props) {
+export function AssetGrid({ document, edit, unfolded, onFold, onOpen }: Props) {
   const t = useT();
   return (
     <div className="grid grid-cols-2 gap-2">
@@ -34,6 +35,7 @@ export function AssetGrid({ document, edit, unfolded, onFold }: Props) {
             stills={stills.length}
             open={unfolded.has(asset.id)}
             onFold={() => onFold(asset.id)}
+            onOpen={() => onOpen(asset)}
             pending={edit.pending}
             onRemove={() =>
               confirmThen(assetRemoval(document, asset.id, t.editor.removal), edit.run)

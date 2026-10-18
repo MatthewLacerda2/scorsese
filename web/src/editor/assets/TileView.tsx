@@ -31,13 +31,14 @@ export function TileView(props: ViewProps) {
   const label = stills > 0 ? t.photos(name, stills) : name;
   return (
     <div
-      className={`group relative rounded-lg p-0.5 ${kindColor(asset.kind)}`}
+      className={`group relative rounded-lg p-px ${kindColor(asset.kind)}`}
       data-asset={asset.id}
     >
       {/* biome-ignore lint/plugin/shadcnControls: a draggable tile whose whole face is the handle; a Button's fixed height and padding would fight the picture */}
       <button
         type="button"
         draggable
+        onClick={props.onOpen}
         onDragStart={(event) =>
           carry(event, { from: "project", asset: asset.id, kind: asset.kind })
         }
@@ -46,13 +47,13 @@ export function TileView(props: ViewProps) {
       >
         <Picture shown={props.shown} src={props.src} state={asset.state} kind={asset.kind} />
         <span
-          className={`w-full truncate px-1.5 pt-1 text-xs font-medium ${state ? "" : "pb-1"}`}
+          className={`w-full truncate px-0.75 pt-0.5 text-xs font-medium ${state ? "" : "pb-0.5"}`}
           title={label}
         >
           {label}
         </span>
         {state && (
-          <span className="w-full truncate px-1.5 pb-1 text-[11px] text-muted-foreground">
+          <span className="w-full truncate px-0.75 pb-0.5 text-[11px] text-muted-foreground">
             {state}
           </span>
         )}

@@ -4,7 +4,6 @@
 import type { Messages } from "@/i18n/catalogue";
 
 export const assets: Messages["assets"] = {
-  heading: "Recursos",
   empty: "Nada ainda. Adicione arquivos da sua biblioteca e arraste-os para uma faixa.",
   alsoAlone: "também usada sozinha",
   fold: (id) => `Recolher as fotos de ${id}`,

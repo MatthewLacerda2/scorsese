@@ -53,5 +53,6 @@ export async function newProject(page: Page, name: string) {
   await modal.getByLabel("Project's name").fill(name);
   await modal.getByRole("button", { name: "Create" }).click();
   await expect(page).toHaveURL(/\/projects\/\d+\/edit$/);
-  await expect(page.getByRole("heading", { name: "Assets" })).toBeVisible();
+  // The assets sidebar's Library button: the panel lost its heading (#1446).
+  await expect(page.getByRole("button", { name: "Library" })).toBeVisible();
 }
