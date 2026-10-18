@@ -20,16 +20,18 @@
 //! there is nothing to recognise later. A level is a decision about the clip,
 //! not a pattern to be recomputed when its neighbours move.
 //!
-//! ## One property, one lane
+//! ## The hand's lane
 //!
-//! Setting a level **takes the property over**: every track already animating
-//! it on that clip is replaced, and [`Levelled::replaced`] hands them back so a
-//! caller can say what went. That is deliberate, and the alternative is worse —
-//! two tracks on one property is a document where the second one silently never
-//! plays, since each renderer resolves a path by finding *the* track for it.
+//! Setting a level **takes the hand-written lane over**: every unsigned track
+//! already animating the property on that clip is replaced, and
+//! [`Levelled::replaced`] hands them back so a caller can say what went.
 //!
-//! So a level set over a ducked clip removes the dip, and the caller is
-//! expected to say so rather than let it be discovered on playback.
+//! A tool's signed track stays where the property stacks
+//! ([`PropertyPath::stacks`]) — `volume`'s tracks multiply (#1099), so a level
+//! set over a ducked clip plays under the duck rather than deleting it, and
+//! re-ducking redoes the duck without touching the level. Where the property
+//! does not stack, a clip carries one track for it, so the level replaces
+//! whichever track that was, signed or not.
 
 use crate::keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
 use crate::project::Project;
@@ -114,7 +116,8 @@ fn finite(value: f64) -> Result<(), LevelError> {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Levelled {
     /// The tracks that animated this property before, in the order they sat in
-    /// the document. Empty when the clip was not animating it at all.
+    /// the document. Empty when the clip was not animating it at all, and never
+    /// a tool's track on a property that stacks — that one stays.
     ///
     /// Handed back rather than counted, because *who wrote them* is the part a
     /// caller has to pass on: a dip signed by ducking is somebody else's work
@@ -188,13 +191,13 @@ pub fn set(
     Ok(levelled)
 }
 
-/// Puts the one track for `property` on the clip, and returns the ones it
-/// displaced.
+/// Puts the hand-written track for `property` on the clip, and returns the
+/// ones it displaced.
 fn take_over(clip: &mut Clip, property: &PropertyPath, level: Level) -> Vec<KeyframeTrack> {
     let (replaced, kept): (Vec<_>, Vec<_>) = clip
         .keyframes
         .drain(..)
-        .partition(|track| &track.property == property);
+        .partition(|track| track.is_lane_of(property));
     clip.keyframes = kept;
     clip.keyframes
         .push(KeyframeTrack::new(property.clone(), level.keyframes()));

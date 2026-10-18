@@ -99,15 +99,17 @@ fn a_tool_can_withdraw_entirely() {
 fn a_blank_signature_is_refused() {
     let mut p = project();
     let clip = &mut p.tracks[1].clips[0];
+    // Its own property: `c-logo` already animates opacity, and one property
+    // takes one track.
     clip.keyframes.push(KeyframeTrack {
         by: Some("   ".to_owned()),
-        ..ramp("opacity")
+        ..ramp("blur")
     });
     assert_only_problem(
         &p,
         E::BlankKeyframeAuthor {
             clip: clip_id("c-logo"),
-            property: PropertyPath::new("opacity"),
+            property: PropertyPath::new("blur"),
         },
     );
 }

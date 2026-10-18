@@ -51,6 +51,24 @@ impl PropertyPath {
     pub fn is_well_formed(&self) -> bool {
         !self.0.is_empty() && !self.segments().any(str::is_empty)
     }
+
+    /// The paths a clip may animate with more than one track, because their
+    /// tracks **multiply**: a hand-written fade and the dip ducking signs play
+    /// together, each a multiplier on the other (#1099).
+    ///
+    /// Every other path takes one track per clip, which validation holds — so
+    /// how many tracks a property may have is a statement about the document,
+    /// and it lives here rather than with the renderer. It names a path and
+    /// nothing more: what `volume` *does* stays the mixer's
+    /// (`scorsese_render::audio::path::VOLUME`, held to this list by a test
+    /// there).
+    pub const STACKING: &[&str] = &["volume"];
+
+    /// True when this path's tracks multiply, so a clip may carry several —
+    /// see [`PropertyPath::STACKING`].
+    pub fn stacks(&self) -> bool {
+        Self::STACKING.contains(&self.as_str())
+    }
 }
 
 impl std::fmt::Display for PropertyPath {
@@ -128,6 +146,16 @@ impl KeyframeTrack {
             by: Some(tool.into()),
             ..self
         }
+    }
+
+    /// True when writing `property` by hand replaces this track: it animates
+    /// that property, and either nobody signed it or the property does not
+    /// stack, so the clip has room for one track on it and this is the one.
+    ///
+    /// What `set_volume` and `clip_animate` take over (#1099) — a duck stays
+    /// under a hand-written fade, and an opacity track goes whoever wrote it.
+    pub fn is_lane_of(&self, property: &PropertyPath) -> bool {
+        &self.property == property && (self.by.is_none() || !property.stacks())
     }
 
     /// True when `tool` wrote this track, and so may replace it.

@@ -56,10 +56,10 @@ impl Tool for SetVolume {
     fn description(&self) -> &'static str {
         "Set how loud one clip plays — a level, a mute, or a fade between two \
          points — by writing the ordinary volume keyframes you would place by \
-         hand, which stay editable afterwards. One clip animates volume from \
-         one track, so this takes that lane over: keyframes already on the \
-         clip's volume are replaced, including a dip `duck_music` wrote, and \
-         the reply names what went. A fade must finish inside the clip, or \
+         hand, which stay editable afterwards. It replaces the clip's own \
+         hand-written volume keyframes, and the reply names what went; a dip \
+         `duck_music` wrote stays, and multiplies with this level, so a \
+         ducked clip stays ducked. A fade must finish inside the clip, or \
          nothing is changed at all."
     }
 
@@ -175,7 +175,8 @@ fn said(value: f64) -> String {
     }
 }
 
-/// What the new track displaced, and what to do about it.
+/// What the new track displaced: only ever the clip's own hand-written volume,
+/// since a dip `duck_music` signed stays and multiplies with the new level.
 fn replaced(report: &Levelled) -> String {
     if report.replaced.is_empty() {
         return String::new();
@@ -183,25 +184,10 @@ fn replaced(report: &Levelled) -> String {
     let each: Vec<String> = report
         .replaced
         .iter()
-        .map(|track| {
-            let points = track.keyframes.len();
-            match &track.by {
-                Some(tool) => format!("one `{tool}` wrote, of {points} point(s)"),
-                None => format!("one written by hand, of {points} point(s)"),
-            }
-        })
+        .map(|track| format!("{} point(s)", track.keyframes.len()))
         .collect();
-    let ducked = report
-        .replaced
-        .iter()
-        .any(|track| track.is_generated_by(scorsese_core::dip::TOOL));
-    let again = if ducked {
-        " Run `duck_music` again to put the dip back."
-    } else {
-        ""
-    };
     format!(
-        " It replaced the volume keyframes that were on the clip — {}.{again}",
+        " It replaced the hand-written volume keyframes that were on the clip ({}).",
         each.join(", ")
     )
 }

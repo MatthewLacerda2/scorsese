@@ -159,6 +159,24 @@ pub enum TimelineProblem {
         color: Rgba,
     },
 
+    /// Two tracks on one property that does not stack (#1099).
+    ///
+    /// Each renderer resolves such a property to one value, so the second
+    /// track is either the one that plays or the one that never does, and
+    /// nothing in the document says which. Only a property in
+    /// [`PropertyPath::STACKING`](crate::keyframe::PropertyPath::STACKING) —
+    /// `volume`, whose tracks multiply — may carry more than one.
+    #[error(
+        "clip `{clip}` animates `{property}` with more than one track, and only one plays — \
+         keep one, or fold the points into it"
+    )]
+    DuplicateKeyframeTrack {
+        /// The clip carrying them.
+        clip: ClipId,
+        /// The property animated twice.
+        property: PropertyPath,
+    },
+
     /// A keyframe track claiming a tool wrote it, and naming no tool.
     ///
     /// Worse than being unsigned: nothing can recognise it, so no tool will

@@ -37,32 +37,42 @@ pub(crate) const UNITY: f32 = 1.0;
 
 /// A clip's volume over time, ready to be asked about any instant.
 ///
-/// Holds the track rather than a value because gain is evaluated per sample,
-/// and looking the property up once per clip beats looking it up 48,000 times a
-/// second.
+/// **Every `volume` track multiplies** (#1099): a hand-written fade and the dip
+/// `duck_music` signs are two multipliers on one clip, and both are heard — a
+/// fade to half under a duck to a quarter plays at an eighth. Gain is
+/// multiplicative, so this is the composition an editor expects, and it is
+/// why `volume` is the one path validation lets a clip animate twice
+/// ([`PropertyPath::STACKING`](scorsese_core::PropertyPath::STACKING)).
+///
+/// Holds the clip's tracks rather than a value because gain is evaluated per
+/// sample. A clip carries a handful of tracks, so picking out the volume ones
+/// at each instant costs nothing beside the multiply.
 #[derive(Debug, Clone, Copy)]
 pub struct Gain<'a> {
-    track: Option<&'a KeyframeTrack>,
+    tracks: &'a [KeyframeTrack],
 }
 
 impl<'a> Gain<'a> {
-    /// Finds the volume track among a clip's keyframes, if it has one.
+    /// The volume of a clip with these keyframes, whichever of them animate it.
     pub fn of(tracks: &'a [KeyframeTrack]) -> Self {
-        Self {
-            track: tracks
-                .iter()
-                .find(|track| track.property.as_str() == path::VOLUME),
-        }
+        Self { tracks }
+    }
+
+    /// The tracks that animate volume.
+    fn volume(&self) -> impl Iterator<Item = &'a KeyframeTrack> {
+        self.tracks
+            .iter()
+            .filter(|track| track.property.as_str() == path::VOLUME)
     }
 
     /// True when this clip plays at its recorded level throughout, which lets
     /// the mixer add samples without multiplying them.
     pub fn is_unity(&self) -> bool {
-        self.track.is_none()
+        self.volume().next().is_none()
     }
 
     /// The multiplier at `t` frames into the clip, where `t` may fall between
-    /// two frames.
+    /// two frames: the product of every volume track's own.
     ///
     /// **Interpolated across the frame grid, not stepped onto it.** Keyframes
     /// are control points and the value travels continuously between them, so a
@@ -70,22 +80,24 @@ impl<'a> Gain<'a> {
     /// sample to its nearest whole frame would turn a smooth ramp into 30 steps
     /// a second — inaudible as pitch, audible as a zipper.
     ///
-    /// Negative values are clamped away: a multiplier below zero is a phase
-    /// inversion, which is not what anyone means by dragging a volume line
-    /// below the floor.
+    /// Negative values are clamped away, track by track: a multiplier below
+    /// zero is a phase inversion, which is not what anyone means by dragging a
+    /// volume line below the floor — and two of them must not multiply back
+    /// into a gain.
     pub fn at(&self, t: f64) -> f32 {
-        let Some(track) = self.track else {
-            return UNITY;
-        };
         let whole = t.max(0.0).floor();
         let fraction = (t - whole).clamp(0.0, 1.0);
         let frame = Frames(whole as u64);
-        let (from, to) = (track.value_at(frame), track.value_at(frame + Frames(1)));
-        match (from, to) {
-            (Some(from), Some(to)) => ((from + (to - from) * fraction) as f32).max(0.0),
-            // An empty track animates nothing, so the clip keeps its own level
-            // rather than being silenced by a property nobody set.
-            _ => UNITY,
-        }
+        self.volume()
+            .map(|track| {
+                match (track.value_at(frame), track.value_at(frame + Frames(1))) {
+                    (Some(from), Some(to)) => ((from + (to - from) * fraction) as f32).max(0.0),
+                    // An empty track animates nothing, so the clip keeps its
+                    // own level rather than being silenced by a property
+                    // nobody set.
+                    _ => UNITY,
+                }
+            })
+            .product()
     }
 }

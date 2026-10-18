@@ -18,7 +18,8 @@
 //!    `volume · 4 points`.
 
 use egui::{Align2, Color32, Painter, Rect, Stroke, StrokeKind, pos2, vec2};
-use scorsese_core::{Asset, Clip, Frames};
+use scorsese_core::{Asset, Clip};
+use scorsese_render::audio::Gain;
 
 use super::Paint;
 use crate::theme::palette::{self, Palette};
@@ -125,21 +126,19 @@ fn body(painter: &Painter, rect: Rect, hue: Color32, made: bool, chosen: bool, c
 ///
 /// Sampled at the pixel rather than drawn from the control points, because the
 /// easing between two keyframes is not a straight line and the whole reason to
-/// draw this is to see the *shape* of a fade. `KeyframeTrack::value_at` is the
-/// same evaluator the mixer uses, so the curve on screen is the curve you hear.
+/// draw this is to see the *shape* of a fade. What is sampled is the
+/// mixer's own [`Gain`], so the curve on screen is the curve you hear — every
+/// volume track on the clip multiplied, a hand-written fade and a duck alike.
 ///
 /// Volume only, and volume is the honest limit of what a lane this tall can
 /// carry: an opacity ramp and a position ramp on one clip would be three lines
 /// crossing in thirty pixels. What animates a clip is the inspector's list; what
 /// a lane draws is the one property somebody balances by eye.
 fn ramp(painter: &Painter, rect: Rect, lane: Rect, clip: &Clip, ink: Color32) {
-    let Some(track) = clip
-        .keyframes
-        .iter()
-        .find(|track| track.property.as_str() == "volume")
-    else {
+    let gain = Gain::of(&clip.keyframes);
+    if gain.is_unity() {
         return;
-    };
+    }
     if rect.width() < READABLE {
         return;
     }
@@ -159,8 +158,8 @@ fn ramp(painter: &Painter, rect: Rect, lane: Rect, clip: &Clip, ink: Color32) {
         // where they belong rather than squeezing the whole shape into whatever
         // sliver is on screen.
         let along = ((x - rect.left()) / rect.width()).clamp(0.0, 1.0);
-        let frame = Frames((f64::from(along) * clip.duration.get() as f64) as u64);
-        track.value_at(frame).unwrap_or(1.0)
+        let frame = (f64::from(along) * clip.duration.get() as f64).floor();
+        f64::from(gain.at(frame))
     };
 
     // Only the part of it anybody can see. Sampling the whole block would be

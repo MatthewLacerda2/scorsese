@@ -37,9 +37,9 @@
 //!
 //! Three things keep that from being a surprise. It **refuses** when the clips
 //! do not meet, because a dissolve with no crossover has no defined shape. The
-//! tracks it writes are **signed** [`TOOL`], so running it again replaces its
-//! own work and leaves a hand-authored fade alone — the guarantee ducking
-//! already gives. And the incoming clip goes **above** the outgoing one, which
+//! tracks it writes are **signed** [`TOOL`], so a reader can tell its ramps
+//! from a hand's; each takes its clip's opacity over, since a clip carries one
+//! opacity track (#1099), so running it again replaces its own work. And the incoming clip goes **above** the outgoing one, which
 //! is what makes it the thing that arrives.
 
 mod place;
@@ -113,10 +113,14 @@ fn ramp(
             at(total, 0.0),
         ],
     };
-    let track = KeyframeTrack::new(PropertyPath::new(path::OPACITY), keyframes).generated_by(TOOL);
-    // Replaces only this tool's own tracks, so a second run leaves one
-    // dissolve and a hand-written fade beside it survives untouched.
-    clip.replace_generated(TOOL, vec![track]);
+    let opacity = PropertyPath::new(path::OPACITY);
+    let track = KeyframeTrack::new(opacity.clone(), keyframes).generated_by(TOOL);
+    // Takes the opacity lane over, whoever wrote it: a clip carries one
+    // opacity track (#1099), and the dissolve is the fade asked for last. A
+    // hand-written fade beside it never played anyway — the compositor drew
+    // the later track, and the dissolve was always written later.
+    clip.keyframes.retain(|track| track.property != opacity);
+    clip.keyframes.push(track);
     Ok(())
 }
 

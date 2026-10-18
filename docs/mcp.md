@@ -855,7 +855,9 @@ clip's end, are refused.
 
 It **takes that property's lane over** and nothing else: whatever track animated
 the property before is replaced, whoever wrote it, and the reply names it;
-every other property's track is left exactly as it was. `"keyframes": []`
+every other property's track is left exactly as it was. On `volume`, whose
+tracks multiply, only the hand-written track is replaced, so a dip `duck_music`
+signed stays under the new fade (#1099). `"keyframes": []`
 removes the property's animation. What it writes is **unsigned** — a signature
 is how a generator such as `duck_music` finds its own work to redo, and points
 somebody chose are not a pattern to be recomputed. `clip_set`'s position,
@@ -983,14 +985,13 @@ set_volume  { "project": "teaser.scor", "clip": "m1", "level": 0.0,
               "from_level": 0.4, "at_seconds": 18.0, "seconds": 2.0 }
 ```
 
-**A clip animates volume from one track, so `set_volume` takes that lane over.**
-Whatever was animating the clip's volume is replaced — a fade you wrote by hand,
-or a dip `duck_music` signed — and the reply names each one it displaced, how
-many points it had, and who wrote it. Two tracks on one property would be a
-document where the second silently never plays, which is a worse answer than
-saying what went. When the dip was among them the reply says to run `duck_music`
-again if it is still wanted; `duck_music` itself is unchanged, and still replaces
-only what it signed.
+**`set_volume` takes the hand-written volume over, and leaves a duck alone.**
+Volume keyframes you wrote by hand (with `set_volume`, `clip_animate` or the
+document) are replaced, and the reply says how many points went. A dip
+`duck_music` signed stays: every volume track on a clip multiplies (#1099), so
+a level of `0.5` on a ducked clip plays the dip at half its height, and muting
+it is silence under the dip too. `duck_music` itself is unchanged, and still
+replaces only what it signed.
 
 It refuses, changing nothing at all, a negative level (volume is a multiplier,
 so below zero inverts the phase rather than muting), a fade missing one of its
