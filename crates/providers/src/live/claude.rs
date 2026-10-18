@@ -8,15 +8,19 @@
 //!   hand-written;
 //! - **the `thinking-display-updates-2026-08-18` beta** — sent on every call,
 //!   and the source of the web app's progress lines;
-//! - **mid-conversation `role: "system"` messages** on `claude-opus-5-5`.
+//! - **mid-conversation `role: "system"` messages** on `claude-opus-5-5`;
+//! - **the effort change** (#1443): an empty `system` message carrying
+//!   `output_config.effort`, behind the
+//!   `mid-conversation-output-config-2026-07-01` beta.
 //!
 //! So this is two streamed calls through the product's own request builder
 //! ([`crate::chat::claude::request`]) at `low` effort. The first asks for a call to
 //! a one-argument tool; a `200` proves the beta header is accepted, and the
 //! reply's events are the tool-use stream the fixtures imitate. The second
 //! sends that reply back unchanged — thinking blocks and signatures included —
-//! with the tool's result and then an operator note as a `system` message,
-//! which is exactly how the server's assistant appends facts mid-turn. A
+//! with an effort change, the tool's result and then an operator note as a
+//! `system` message, which is exactly how the server's assistant changes
+//! effort and appends facts mid-turn. A
 //! `400` there names what the API would not take.
 
 use serde_json::{Value, json};
@@ -73,8 +77,9 @@ pub fn cost() -> u64 {
 /// The calls, as a quote lists them.
 pub(super) fn calls() -> Vec<String> {
     vec![format!(
-        "two streamed calls to {MODEL} at low effort — a tool call, then its result with a \
-         mid-conversation system message — at most {}, billed by the tokens used",
+        "two streamed calls to {MODEL} at low effort — a tool call, then its result with an \
+         effort change and a mid-conversation system message — at most {}, billed by the \
+         tokens used",
         dollars(from_cents(cost()), 2)
     )]
 }
@@ -105,6 +110,11 @@ pub(super) fn check(key: &Secret, tap: &Tap) -> (Vec<Step>, u64) {
         let messages = vec![
             ask,
             frozen(Role::Assistant, MessageContent::Blocks(content)),
+            // An effort change (#1443) after the model's reply, as a turn opens
+            // with one. Its beta is in every request's header.
+            Message::effort(Effort::Medium)
+                .raw()
+                .expect("a message is plain data and serialises"),
             frozen(
                 Role::User,
                 MessageContent::Blocks(vec![Block::ToolResult {
@@ -129,7 +139,7 @@ pub(super) fn check(key: &Secret, tap: &Tap) -> (Vec<Step>, u64) {
 
 /// A message as the JSON text it is sent as.
 fn frozen(role: Role, content: MessageContent) -> Box<serde_json::value::RawValue> {
-    Message { role, content }
+    Message::new(role, content)
         .raw()
         .expect("a message is plain data and serialises")
 }

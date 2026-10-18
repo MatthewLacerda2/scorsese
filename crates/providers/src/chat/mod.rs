@@ -44,6 +44,19 @@
 //! even between two Claude models, since [`replay`] compares by model rather
 //! than by vendor. The first turn on the new model reads its whole history
 //! uncached. That costs more once, and the web app warns before it.
+//!
+//! # Effort is part of the conversation
+//!
+//! How hard the model thinks can change between any two turns too (#1443),
+//! and a change of the request's top-level effort misses the cache on every
+//! message. So the top-level setting is always [`Effort::BASELINE`], and a
+//! turn at another level opens with an effort change ([`Effort::change`]),
+//! a [`Message::Effort`] kept in its record and its bytes like any other
+//! message: the history before it is untouched, so it still reads from the
+//! cache, and replaying it changes nothing. Every model offered takes it
+//! (Anthropic's *Effort* page, read 2026-10-17, lists Fable 5.1, Opus 5.5 and
+//! Sonnet 5.5, with adaptive thinking, which is all the assistant sends); a
+//! model added without it would need the top-level setting instead.
 
 pub mod anthropic;
 pub mod claude;
@@ -52,6 +65,7 @@ pub mod record;
 
 use std::sync::Arc;
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_json::value::RawValue;
 
@@ -62,8 +76,10 @@ pub use record::{Call, Message, Part, ResultPart};
 
 use crate::credentials::Secret;
 
-/// How hard a model thinks — Claude's `effort`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// How hard a model thinks — Claude's `effort`. `max` is left out: it is for
+/// gains somebody has measured, and nobody has (#567, #1443).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Effort {
     /// The least thinking every model offered accepts.
     Low,
@@ -71,24 +87,55 @@ pub enum Effort {
     Medium,
     /// More thinking: long, many-step tool work.
     High,
+    /// More than `high`: long-horizon work. The web app calls it "extra".
+    Xhigh,
 }
 
 impl Effort {
+    /// Every level, least thinking first.
+    pub const ALL: [Self; 4] = [Self::Low, Self::Medium, Self::High, Self::Xhigh];
+
+    /// What every conversation's top-level setting holds, on every request:
+    /// a level a turn asks for that is not the one in effect is an effort
+    /// change in the conversation itself ([`Self::change`]), never a different
+    /// top-level value, which would miss the cache on every message.
+    pub const BASELINE: Self = Self::High;
+
     /// As the API spells it, and as a turn records it.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Low => "low",
             Self::Medium => "medium",
             Self::High => "high",
+            Self::Xhigh => "xhigh",
         }
     }
 
     /// The level `name` spells, as [`Self::as_str`] writes it; `None` for
     /// anything else.
     pub fn from_name(name: &str) -> Option<Self> {
-        [Self::Low, Self::Medium, Self::High]
-            .into_iter()
-            .find(|effort| effort.as_str() == name)
+        Self::ALL.into_iter().find(|effort| effort.as_str() == name)
+    }
+
+    /// The level in effect at the end of `history`: its last effort change,
+    /// or [`Self::BASELINE`] before any.
+    pub fn in_effect(history: &[Message]) -> Self {
+        history
+            .iter()
+            .rev()
+            .find_map(|message| match message {
+                Message::Effort { effort } => Some(*effort),
+                _ => None,
+            })
+            .unwrap_or(Self::BASELINE)
+    }
+
+    /// What a turn at this level opens with after `history`: an effort change
+    /// when the level in effect is another, nothing when it is this one. It
+    /// stays in the turn's messages from then on, like any other, so the
+    /// history stays append-only and every later request repeats it.
+    pub fn change(self, history: &[Message]) -> Option<Message> {
+        (Self::in_effect(history) != self).then_some(Message::Effort { effort: self })
     }
 }
 
@@ -103,13 +150,13 @@ pub struct Tool {
     pub schema: Value,
 }
 
-/// One call to a model.
+/// One call to a model. How hard it thinks is not a field: it is the
+/// conversation's own, written into `messages` as effort changes
+/// ([`Effort::change`]), and [`Request::effort`] reads it back.
 #[derive(Debug, Clone)]
 pub struct Request {
     /// Which model.
     pub model: Model,
-    /// How hard it thinks.
-    pub effort: Effort,
     /// The instructions. Constant across users and turns: it leads every
     /// vendor's cached prefix.
     pub system: String,
@@ -118,6 +165,16 @@ pub struct Request {
     /// The conversation so far, each message frozen in **this model's**
     /// wire ([`replay`], [`freeze`]).
     pub messages: Vec<Box<RawValue>>,
+}
+
+impl Request {
+    /// The level the reply runs at: the last effort change in `messages`, or
+    /// [`Effort::BASELINE`] before any.
+    pub fn effort(&self) -> Effort {
+        match self.model.vendor() {
+            Vendor::Anthropic => anthropic::effort_of(&self.messages),
+        }
+    }
 }
 
 /// One whole reply.

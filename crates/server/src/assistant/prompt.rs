@@ -12,7 +12,7 @@
 //! on writes it in its own wire (`scorsese_providers::chat::freeze`).
 
 use scorsese_core::style::{Platform, Start};
-use scorsese_providers::chat::{Message, Part, ResultPart, Tool};
+use scorsese_providers::chat::{Effort, Message, Part, ResultPart, Tool};
 use serde_json::Value;
 
 use crate::tools::Toolbox;
@@ -148,16 +148,22 @@ fn text(tool: &Value, field: &str) -> String {
         .to_owned()
 }
 
-/// A turn's first messages: the user's words — after a result for every tool
-/// call the conversation left unanswered — and, when there is anything the
-/// server has to say, one note saying it.
+/// A turn's first messages: the user's words, after a result for every tool
+/// call the conversation left unanswered; an effort change when `effort` is
+/// not the level in effect (#1443); and, when there is anything the server
+/// has to say, one note saying it.
 ///
 /// A conversation whose last turn ended before the model replied (refused,
 /// stopped, a failure, a restart) ends on the user's side; every vendor wants
 /// the sides to alternate, and Claude wants a `system` message followed by
 /// the model's, so such a turn is closed first by a one-line reply saying so.
 /// That line is part of this turn's messages from then on, like any other.
-pub(super) fn opening(history: &[Message], prompt: &str, notes: &[String]) -> Vec<Message> {
+pub(super) fn opening(
+    history: &[Message],
+    prompt: &str,
+    notes: &[String],
+    effort: Effort,
+) -> Vec<Message> {
     let mut messages = Vec::new();
     let last = history.last();
     if last.is_some_and(|last| !matches!(last, Message::Assistant { .. })) {
@@ -181,7 +187,14 @@ pub(super) fn opening(history: &[Message], prompt: &str, notes: &[String]) -> Ve
     content.push(Part::Text {
         text: prompt.to_owned(),
     });
+    // Directly after the words, which sets the level of the reply to them
+    // (Anthropic's *Effort* page, read 2026-10-18: "Placed directly after a
+    // `user` turn with new input, it sets the level for Claude's reply to
+    // that turn"). Never before them: when they carry the results of a turn
+    // stopped mid-call, that would split a `tool_use` from its `tool_result`.
+    // Before the note, which must be followed by the reply.
     messages.push(Message::User { content });
+    messages.extend(effort.change(history));
     if !notes.is_empty() {
         messages.push(Message::System {
             text: notes.join("\n\n"),
@@ -264,5 +277,59 @@ fn changed(what: &str, before: Option<&str>, now: Option<&str>) -> String {
         (None, Some(now)) => format!("the {what} set to {now}"),
         (Some(before), None) => format!("the {what} {before} cleared"),
         (None, None) => format!("the {what} unchanged"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    /// The kind of each message, in order.
+    fn kinds(messages: &[Message]) -> Vec<&'static str> {
+        messages
+            .iter()
+            .map(|message| match message {
+                Message::User { .. } => "user",
+                Message::Assistant { .. } => "assistant",
+                Message::System { .. } => "system",
+                Message::Effort { .. } => "effort",
+            })
+            .collect()
+    }
+
+    #[test]
+    fn an_effort_change_follows_the_words_it_sets_the_reply_to() {
+        let history = [Message::assistant("Done.")];
+        let notes = ["The person said yes.".to_owned()];
+        let opened = opening(&history, "now the outro", &notes, Effort::Low);
+        assert_eq!(kinds(&opened), ["user", "effort", "system"]);
+        let unchanged = opening(&history, "now the outro", &[], Effort::BASELINE);
+        assert_eq!(kinds(&unchanged), ["user"], "no change, no message");
+    }
+
+    #[test]
+    fn an_effort_change_never_splits_a_call_from_its_result() {
+        // A turn stopped mid-call: its last message calls a tool nobody ran.
+        let stopped = Message::Assistant {
+            content: vec![Part::Call {
+                id: "toolu_1".into(),
+                name: "still".into(),
+                input: json!({}),
+            }],
+        };
+        let opened = opening(&[stopped], "carry on", &[], Effort::Xhigh);
+        assert_eq!(kinds(&opened), ["user", "effort"]);
+        assert!(matches!(
+            opened[0].parts().first(),
+            Some(Part::Result { call, .. }) if call == "toolu_1"
+        ));
+        assert_eq!(
+            opened[1],
+            Message::Effort {
+                effort: Effort::Xhigh
+            }
+        );
     }
 }

@@ -1,7 +1,14 @@
-// Quick, Balanced or Thorough, beside Send (#769): how hard the assistant
-// thinks on the next message, in plain words, with one line of hover text
-// each saying what it is for (`effort.ts` has the rest).
+// Low, medium, high or extra, beside the model picker (#1443): how hard the
+// assistant thinks, kept on the project on the server, with one line of hover
+// text each saying what it is for. A change takes effect from the next
+// message and costs no cache (`effort.ts` has the rest). A pick shows at once:
+// it is written into the cached conversation before the server answers, and
+// put back if the server refuses it.
 
+import { useQueryClient } from "@tanstack/react-query";
+import { type Conversation, chatApi } from "@/api/chat";
+import { queryKeys } from "@/app/queryKeys";
+import { useInvalidatingMutation } from "@/app/useInvalidatingMutation";
 import {
   Select,
   SelectContent,
@@ -11,27 +18,44 @@ import {
 } from "@/components/ui/select";
 import { useT } from "@/i18n/I18nProvider";
 import { EFFORTS, type Effort } from "./effort";
+import { problem } from "./transcript";
 
-export function EffortPicker({
-  effort,
-  onChange,
-}: {
-  effort: Effort;
-  onChange: (effort: Effort) => void;
-}) {
-  const t = useT().chat.effort;
+export function EffortPicker({ projectId, effort }: { projectId: number; effort: Effort }) {
+  const t = useT();
+  const queryClient = useQueryClient();
+  const key = queryKeys.conversation(projectId);
+  const set = (level: string) =>
+    queryClient.setQueryData<Conversation>(key, (held) => held && { ...held, effort: level });
+  const choose = useInvalidatingMutation([key], {
+    mutationFn: (next: Effort) => chatApi.chooseEffort(projectId, next),
+    onMutate: async (next: Effort) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      set(next);
+      return { before: effort };
+    },
+    onError: (_error, _next, context) => context && set(context.before),
+  });
+  const shown = choose.isPending && choose.variables ? choose.variables : effort;
+  const refused = choose.error ? problem(choose.error, t.chat) : null;
   return (
-    <Select value={effort} onValueChange={(value) => onChange(value as Effort)}>
-      <SelectTrigger size="sm" aria-label={t.label} title={t.hint[effort]}>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {EFFORTS.map((level) => (
-          <SelectItem key={level} value={level} title={t.hint[level]}>
-            {t.name[level]}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <div className="flex shrink-0 flex-col gap-1">
+      <Select
+        value={shown}
+        onValueChange={(value) => value !== effort && choose.mutate(value as Effort)}
+        disabled={choose.isPending}
+      >
+        <SelectTrigger size="sm" aria-label={t.chat.effort.label} title={t.chat.effort.hint[shown]}>
+          <SelectValue>{t.chat.effort.name[shown]}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {EFFORTS.map((level) => (
+            <SelectItem key={level} value={level} title={t.chat.effort.hint[level]}>
+              {t.chat.effort.name[level]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {refused && <p className="text-xs text-destructive">{refused.detail}</p>}
+    </div>
   );
 }

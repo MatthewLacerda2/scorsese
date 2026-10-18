@@ -3,9 +3,10 @@
 //! Every turn is kept twice (#705): once as the exact bytes the model it ran
 //! on was sent — the vendor's wire, which is what its prompt cache and, on
 //! Claude, its thinking blocks are valid against — and once as a [`Message`]
-//! here, which says only what was said: words, tool calls, tool results and
-//! the server's notes. A turn on another model is built from this record, so
-//! a project can change model mid-conversation and the history comes along.
+//! here, which says only what was said: words, tool calls, tool results, the
+//! server's notes and its effort changes. A turn on another model is built
+//! from this record, so a project can change model mid-conversation and the
+//! history comes along.
 //!
 //! What does not come along is what only one vendor understands: Claude's
 //! thinking blocks and signatures. Those live in the exact bytes, and a turn
@@ -35,6 +36,13 @@ pub enum Message {
     System {
         /// The words.
         text: String,
+    },
+    /// The server, mid-conversation: the model runs at `effort` from the reply
+    /// to the user message just before it on (#1443). Says nothing;
+    /// [`super::Effort::change`] writes it.
+    Effort {
+        /// The level.
+        effort: super::Effort,
     },
 }
 
@@ -127,7 +135,7 @@ impl Message {
     pub fn parts(&self) -> &[Part] {
         match self {
             Self::User { content } | Self::Assistant { content } => content,
-            Self::System { .. } => &[],
+            Self::System { .. } | Self::Effort { .. } => &[],
         }
     }
 

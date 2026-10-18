@@ -36,7 +36,6 @@ test("the keys keep the names browsers already hold", () => {
   expect(KEYS.theme).toBe("scorsese-theme");
   expect(KEYS.panels).toBe("scorsese.panels");
   expect(KEYS.previewQuality).toBe("scorsese.preview-quality");
-  expect(KEYS.effort(3)).toBe("scorsese-effort-3");
   expect(KEYS.chatFull(3)).toBe("scorsese-chat-full-3");
 });
 

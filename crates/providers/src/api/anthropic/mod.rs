@@ -45,7 +45,12 @@ const VERSION: &str = "2023-06-01";
 /// "updates"` legal: on Claude Opus 5.5 the notes the model writes between
 /// tool calls come back as `thinking` blocks, empty unless asked for this way,
 /// and those notes are the assistant's progress lines.
-pub const BETAS: &str = "thinking-display-updates-2026-08-18";
+///
+/// `mid-conversation-output-config-2026-07-01` is what makes an effort change
+/// inside `messages` legal ([`request::Message::effort`]): without it the API
+/// answers `messages.N.output_config: Extra inputs are not permitted`.
+pub const BETAS: &str =
+    "thinking-display-updates-2026-08-18,mid-conversation-output-config-2026-07-01";
 
 /// A caller that can reach the Messages API with one key.
 #[derive(Debug, Clone)]

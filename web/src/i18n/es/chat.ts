@@ -56,12 +56,14 @@ export const chat: Messages["chat"] = {
     left: (balance) => ` · quedan ${balance}`,
   },
   effort: {
-    label: "Con cuánto cuidado trabaja el asistente en este mensaje",
-    name: { low: "Rápido", medium: "Equilibrado", high: "A fondo" },
+    label: "Cuánto piensa el asistente",
+    name: { low: "Bajo", medium: "Medio", high: "Alto", xhigh: "Extra" },
     hint: {
       low: "Para retoques pequeños, como agrandar el título o mover la música. Lo más barato.",
       medium: "Para pedidos de todos los días.",
       high: "Para montar o rehacer una edición. Tarda más y cuesta más.",
+      xhigh:
+        "Para los trabajos más grandes, como un video entero a partir de un brief largo. Lo más lento y lo más caro.",
     },
   },
   model: {

@@ -170,11 +170,13 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
         messages.extend(turn.messages.iter().cloned());
         let request = Request {
             model: turn.model,
-            effort: turn.effort,
             system: prompt::SYSTEM.to_owned(),
             tools: tools.clone(),
             messages,
         };
+        // The level is the conversation's own (`Effort::change`): what the
+        // turn recorded, or its messages are not what the start wrote.
+        debug_assert_eq!(request.effort(), turn.effort, "turn {}", turn.turn);
         let (reply, latency) = ask(state, turn, request).await.map_err(|error| {
             eprintln!("scorsese-server: assistant: turn {}: {error}", turn.turn);
             super::failure::unreached(&error)

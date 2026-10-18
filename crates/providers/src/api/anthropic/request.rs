@@ -83,7 +83,7 @@ pub enum Effort {
     Medium,
     /// More thinking than the default.
     High,
-    /// More than `high`.
+    /// More than `high`: long-horizon work.
     Xhigh,
     /// Uncapped.
     Max,
@@ -196,6 +196,12 @@ pub struct Message {
     pub role: Role,
     /// What it says.
     pub content: MessageContent,
+    /// On an operator's message with no content, the effort the model runs at
+    /// from then on ([`Message::effort`] says from where).
+    /// Absent everywhere else, so every other message freezes to the bytes it
+    /// always has.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_config: Option<OutputConfig>,
 }
 
 /// A message's content: blocks, or — for an operator's note — plain text.
@@ -209,6 +215,34 @@ pub enum MessageContent {
 }
 
 impl Message {
+    /// A message with no `output_config`: every message but an effort change.
+    pub const fn new(role: Role, content: MessageContent) -> Self {
+        Self {
+            role,
+            content,
+            output_config: None,
+        }
+    }
+
+    /// An effort change: a `system` message with empty content and
+    /// `output_config.effort`, which moves the effort from the reply to the
+    /// user turn with new input it directly follows (else from the next such
+    /// turn) on, until a later one moves it again — without the
+    /// cache miss a change of the top-level `output_config` costs. Needs the
+    /// `mid-conversation-output-config-2026-07-01` beta ([`super::BETAS`]),
+    /// and is exempt from the placement rules of a `system` message with
+    /// words. Anthropic's *Effort* page (read 2026-10-17): "Add a
+    /// `role: "system"` message with empty `content` and the new level in
+    /// `output_config.effort`. [...] Everything before that message is
+    /// unchanged, so the cached prefix still matches."
+    pub const fn effort(effort: Effort) -> Self {
+        Self {
+            role: Role::System,
+            content: MessageContent::Blocks(Vec::new()),
+            output_config: Some(OutputConfig { effort }),
+        }
+    }
+
     /// This message as the JSON text it will be sent as, once and for good.
     ///
     /// A conversation is replayed on every call, and on Claude Opus 5.5 a

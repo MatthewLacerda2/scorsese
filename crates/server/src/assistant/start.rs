@@ -6,7 +6,7 @@ use super::store::TurnView;
 use super::store::asking;
 use super::store::turns::{self, Beginning, Last};
 use super::turn::{self, Running};
-use super::{AssistantError, DEFAULT_EFFORT, ask, model, prompt, quote};
+use super::{AssistantError, ask, effort, model, prompt, quote};
 use crate::credits::{dollars, ledger};
 use crate::db::{self, UserId};
 use crate::events::Event;
@@ -23,7 +23,8 @@ pub struct Opening {
     /// What the server has to tell the model besides — said as a `system`
     /// message, which only the server can write.
     pub notes: Vec<String>,
-    /// How hard the model thinks on it (#769); `None` is [`DEFAULT_EFFORT`].
+    /// How hard the model thinks on it (#769); `None` is the project's level
+    /// (#1443).
     pub effort: Option<Effort>,
 }
 
@@ -42,7 +43,6 @@ pub async fn start(
     mut opening: Opening,
 ) -> Result<TurnView, AssistantError> {
     let prompt = opening.prompt.trim().to_owned();
-    let effort = opening.effort.unwrap_or(DEFAULT_EFFORT);
     if prompt.is_empty() {
         return Err(AssistantError::Invalid(
             "say what you would like done".into(),
@@ -57,6 +57,10 @@ pub async fn start(
 
     let mut tx = db::scoped(&state.pool, user).await?;
     let model = model::of(&mut tx, project).await?;
+    let effort = match opening.effort {
+        Some(effort) => effort,
+        None => effort::of(&mut tx, project).await?,
+    };
     let client = state.assistant.chat(model)?;
     let balance = ledger::balance(&mut tx).await?;
     if balance <= 0 {
@@ -93,7 +97,7 @@ pub async fn start(
     let written = |error: serde_json::Error| AssistantError::Internal(error.to_string());
     let history = chat::replay(model, &kept).map_err(written)?;
     let said: Vec<Message> = kept.iter().flat_map(|turn| turn.record.clone()).collect();
-    let record = prompt::opening(&said, &prompt, &notes);
+    let record = prompt::opening(&said, &prompt, &notes, effort);
     let first = record
         .iter()
         .map(|message| chat::freeze(model, message))
