@@ -6,11 +6,9 @@
 //! The worker runs the real browser (`SCORSESE_CHROME`) through the real
 //! binary's `capture-one`, its sandbox off as `tests/captures` has it.
 
-use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use scorsese_server::captures::Spool;
-use scorsese_server::captures::worker::{Isolation, Worker};
 use serde_json::{Value, json};
 use sqlx::postgres::PgPool;
 
@@ -37,29 +35,6 @@ async fn serving(pool: &PgPool, label: &str) -> (std::net::SocketAddr, Spool) {
     (common::serve_with(pool.clone(), files).await.0, spool)
 }
 
-/// A worker answering `spool` for the rest of the test, once it has said so.
-fn answering(spool: &Spool) {
-    let worker = Worker {
-        spool: spool.clone(),
-        isolation: Isolation::Process {
-            program: PathBuf::from(env!("CARGO_BIN_EXE_scorsese-server")),
-            sandbox: false,
-            library: None,
-        },
-        deadline: scorsese_server::captures::deadline,
-    };
-    std::thread::spawn(move || worker.run());
-    let alive = spool.root().join("worker.alive");
-    let started = Instant::now();
-    while !alive.is_file() {
-        assert!(
-            started.elapsed() < Duration::from_secs(10),
-            "the worker beats"
-        );
-        std::thread::sleep(Duration::from_millis(20));
-    }
-}
-
 /// `user`'s still of the page at half a second, after writing it.
 async fn still_of_the_page(address: std::net::SocketAddr, token: &str, id: i64) -> String {
     let page = "<body style='margin:0;background:#0f0'></body>";
@@ -75,7 +50,7 @@ async fn still_of_the_page(address: std::net::SocketAddr, token: &str, id: i64) 
 #[sqlx::test]
 async fn a_still_of_a_page_is_captured_by_the_worker_and_shows_the_page(pool: PgPool) {
     let (address, spool) = serving(&pool, "still-captured").await;
-    answering(&spool);
+    common::capturing::answering(&spool);
     let (ana, token) = member(&pool, "ana@example.com").await;
     let id = super::stored(&pool, ana, showing_a_page()).await;
 

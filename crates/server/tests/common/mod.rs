@@ -11,6 +11,7 @@ use scorsese_server::{Files, http};
 use sqlx::postgres::PgPool;
 use tokio::net::TcpListener;
 
+pub(crate) mod capturing;
 mod client;
 #[path = "../../../../tools/scratch.rs"]
 pub(crate) mod scratch;

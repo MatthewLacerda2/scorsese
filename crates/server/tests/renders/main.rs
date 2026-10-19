@@ -15,6 +15,7 @@ mod framed;
 mod job;
 mod loudness;
 mod outrun;
+mod pages;
 mod previews;
 mod progress;
 mod request;

@@ -133,6 +133,9 @@ async fn render(
     }
 
     let work = Scratch::new(cache.work(job.id));
+    // Made here, not by the layout: a project showing a page is laid out in
+    // the capture spool, and the render is still written in this folder.
+    std::fs::create_dir_all(&work.0).map_err(|error| error.to_string())?;
     let out = work
         .0
         .join(format!("render.{}", payload.settings.extension()));
