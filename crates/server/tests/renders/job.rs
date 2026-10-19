@@ -16,7 +16,7 @@ use super::{call, card, common, member, stored};
 
 /// A worker running only the render handler, on `files`, until the sender
 /// is dropped or says stop.
-async fn worker(pool: &PgPool, files: &Files) -> watch::Sender<bool> {
+pub(super) async fn worker(pool: &PgPool, files: &Files) -> watch::Sender<bool> {
     let members = common::members(pool).await;
     let handler = job::handler(
         files.renders.clone(),
