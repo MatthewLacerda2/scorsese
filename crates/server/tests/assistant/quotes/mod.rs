@@ -15,7 +15,7 @@ use sqlx::postgres::PgPool;
 use super::{Script, answers, calls, common, exchange, member, project, scripted};
 
 /// One line ready to speak: a quote with a price.
-fn narrated() -> Value {
+pub(super) fn narrated() -> Value {
     json!([{ "id": "vo", "kind": "generated_audio", "state": "sketch",
              "prompt": "Every city has a night editor.", "speech": { "voice_id": "voice-one" } }])
 }

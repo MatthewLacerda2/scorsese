@@ -244,6 +244,8 @@ export interface History {
 /** `projects::Stored` with its document typed as the editor reads it. */
 export interface EditorProject extends ProjectSummary {
   document: ProjectDocument;
+  /** When the script last changed, in microseconds, or `null` without one (#1493). */
+  script_changed_at: number | null;
 }
 
 /** One part of a tool's answer: its words, and a PNG in base64 when it drew one. */

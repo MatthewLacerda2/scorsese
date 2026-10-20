@@ -71,7 +71,10 @@ mod store;
 pub use files::ProjectFiles;
 pub use start::{begin, retarget};
 pub use startup::migrate_stored;
-pub use store::{create, delete, edit, list, open, open_with_files, save, save_with_files};
+pub use store::{
+    create, delete, edit, list, open, open_with_files, open_with_script_stamp, save,
+    save_with_files,
+};
 
 use scorsese_core::migrate::MigrateError;
 use scorsese_core::style::Platform;

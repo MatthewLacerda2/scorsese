@@ -1,8 +1,8 @@
 //! A script the person rewrote by hand, from the editor's Script button
 //! (#1445), is news to the assistant: the next turn is told once, so it reads
 //! the script again instead of working from what it remembers — a turn paused
-//! on a question as it resumes, too, and never for a write that changed
-//! nothing (#1488).
+//! on a question or a quote as it resumes, too, and never for a write that
+//! changed nothing (#1488, #1493).
 
 use std::net::SocketAddr;
 
@@ -89,12 +89,17 @@ async fn the_next_turn_is_told_once_that_the_person_rewrote_the_script(pool: PgP
     );
 }
 
-/// Ana's cookie and her bearer, and a new project of hers.
-async fn ana(pool: &PgPool) -> (UserId, String, String, i64) {
+/// Ana's cookie and her bearer, and a new project of hers holding `assets`.
+async fn ana_with(pool: &PgPool, assets: serde_json::Value) -> (UserId, String, String, i64) {
     let (ana, who) = member(pool, "ana@example.com", 10).await;
     let cookie = sessions::open(pool, ana).await.expect("a session opens");
-    let id = project(pool, ana, json!([])).await;
+    let id = project(pool, ana, assets).await;
     (ana, who, format!("Cookie: scorsese_session={cookie}"), id)
+}
+
+/// Ana, with an empty project.
+async fn ana(pool: &PgPool) -> (UserId, String, String, i64) {
+    ana_with(pool, json!([])).await
 }
 
 #[sqlx::test]
@@ -123,6 +128,30 @@ async fn a_turn_paused_on_a_question_is_told_as_it_resumes(pool: PgPool) {
     let typed = super::send(address, &who, id, "fade it").await;
     assert_eq!(typed.status, 202, "{}", typed.body);
     let turn = typed.json()["id"].as_i64().expect("an id");
+    finished(address, &who, turn).await;
+    assert_eq!(notes_in(&script, 1), 1, "the resumed turn is told");
+
+    script.replace(vec![answers("Done.")]);
+    exchange(address, &who, id, "and the titles").await;
+    assert_eq!(notes_in(&script, 2), 1, "told once, not again a turn late");
+}
+
+#[sqlx::test]
+async fn a_turn_paused_on_a_quote_is_told_as_it_resumes(pool: PgPool) {
+    let script = Script::new(vec![]);
+    let (address, _) = scripted(&pool, &script).await;
+    let (ana, who, cookie, id) = ana_with(&pool, super::quotes::narrated()).await;
+    script.replace(vec![calls("generate", json!({ "project": id }))]);
+    let paused = exchange(address, &who, id, "narrate it").await;
+    assert_eq!(paused["turn"]["state"], "asking", "{paused}");
+
+    rewrite(address, &pool, ana, &cookie, id, "# Scene one").await;
+    script.replace(vec![answers("Nothing was made.")]);
+    let path = format!("/api/chat/turns/{}/quote", paused["turn"]["id"]);
+    let body = json!({ "confirm": false });
+    let declined = common::request(address, "POST", &path, &[who.as_str()], Some(&body)).await;
+    assert_eq!(declined.status, 200, "{}", declined.body);
+    let turn = paused["turn"]["id"].as_i64().expect("an id");
     finished(address, &who, turn).await;
     assert_eq!(notes_in(&script, 1), 1, "the resumed turn is told");
 

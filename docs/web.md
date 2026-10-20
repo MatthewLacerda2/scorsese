@@ -1059,7 +1059,7 @@ updating. Local folders go through the same steps with `scorsese migrate`.
 | --- | --- | --- |
 | `GET /api/projects` | a member | their projects, newest write first, without documents |
 | `POST /api/projects` | a member | `{name, fps?, platform?, style?, assets?}` → a new project, `201`: with the starting brief in `script.md` when a platform or style is chosen, and the library files in `assets` imported; `400` for a platform, style or file the server refuses, and nothing is kept |
-| `GET /api/projects/{id}` | a member | the project, its `document` and `revision` |
+| `GET /api/projects/{id}` | a member | the project, its `document` and `revision`, and `script_changed_at`: when its script last changed, in microseconds, or `null` (#1493) |
 | `PUT /api/projects/{id}` | a member | `{revision, document}` → `{revision}`; `409` if it moved on, `400` for a document this build does not read |
 | `PATCH /api/projects/{id}` | a member | `{name}` → `{revision}` |
 | `DELETE /api/projects/{id}` | a member | `204`; `404` for an id that is not theirs |
