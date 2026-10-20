@@ -1,6 +1,6 @@
 //! A project's platform or style changed after it was started (#1016).
 //!
-//! Handed to the assistant the way a confirmed quote is: the server records
+//! Handed to the assistant in a turn of its own: the server records
 //! the new choice and starts a turn whose note says what changed, with what
 //! the new choice asks for — the same words a project started for it carries
 //! in its brief. The assistant updates the script; the server never rewrites
@@ -29,7 +29,10 @@ pub struct Retargeted {
 }
 
 /// Make `user`'s `project` one for `now`, and when that changes anything, start
-/// a turn telling the assistant — with `words` as the person's message.
+/// a turn telling the assistant — with `words` as what the person's chat shows
+/// for it, not what the model reads (`Opening::told`) — except when the
+/// conversation is paused on a question or a quote, which takes them as the
+/// person's answer (#1505).
 pub async fn retarget(
     state: &AppState,
     user: UserId,
@@ -55,6 +58,9 @@ pub async fn retarget(
         notes: vec![prompt::retargeted(&before, &now)],
         effort: None,
         woken: false,
+        told: Some(prompt::app_said(
+            "they changed what this video is made for in its settings.",
+        )),
     };
     Ok(match start(state, user, project, opening).await {
         Ok(turn) => Retargeted {
