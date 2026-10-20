@@ -103,6 +103,12 @@ _spec = importlib.util.spec_from_file_location(
 reblessed = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(reblessed)
 
+_spec = importlib.util.spec_from_file_location(
+    "reviewed", Path(__file__).resolve().parent / "reviewed.py"
+)
+reviewed = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(reviewed)
+
 # The workflow that gates a merge. A run of anything else — a scheduled job, a
 # future workflow — is not the one being asked about, and counting it would be
 # the same mistake in a new costume.
@@ -341,7 +347,10 @@ def judge(
     pointing at a pull request or a closed issue, refuses whatever CI says
     (#1221). So does `pull["reblessed"]`, when present, [`reblessed.evidence`]:
     a modified reference the description does not explain, or a Chromium pin
-    move that leaves a `page_*` reference as it was (#1217).
+    move that leaves a `page_*` reference as it was (#1217). So does
+    `pull["reviewed"]`, when present, [`reviewed.evidence`]: a change to money,
+    stored data, security, concurrency, the render pipeline or the gates with
+    no `Independent review` comment at its level (#1498).
 
     Stated over the set rather than over a chosen run — see the module doc, and
     #245 for what picking one by list position did.
@@ -360,6 +369,7 @@ def judge(
     refused = refused or reblessed.refusal(
         pull.get("reblessed") or {}, pull.get("body") or ""
     )
+    refused = refused or reviewed.refusal(pull.get("reviewed") or {}, pull)
     if refused:
         return False, refused
 
@@ -469,11 +479,14 @@ def answer(number: str) -> int:
         # Read only once CI has passed: the description's protocol (#1229).
         # `closingIssuesReferences`: what the PR closes, judged before any run
         # (#1221).
-        "headRefName,body,closingIssuesReferences",
+        "headRefName,body,closingIssuesReferences,"
+        # Who opened it: Dependabot needs no independent review (#1498).
+        "author",
     )
     sha = pull["headRefOid"]
     pull["closes"] = closing.closed_by(gh, repo, pull)
     pull["reblessed"] = reblessed.evidence(gh, repo, pull)
+    pull["reviewed"] = reviewed.evidence(gh, repo, pull, pull["reblessed"]["files"])
 
     listed = gh("api", f"repos/{repo}/actions/runs?head_sha={sha}&per_page=100")
     runs = runs_for(listed.get("workflow_runs", []), sha)

@@ -254,11 +254,15 @@ def take(
         return number, HANDED_BACK, "it is a draft; mark it ready first."
     # Before the push too: rebasing and waiting out CI for a branch that may not
     # close what it closes, or re-blesses a reference it does not explain,
-    # would be ten minutes spent on a refusal (#1221, #1217).
-    refused = mergeable.closing.refusal(
-        mergeable.closing.closed_by(mergeable.gh, repo, pull)
-    ) or mergeable.reblessed.refusal(
-        mergeable.reblessed.evidence(mergeable.gh, repo, pull), pull.get("body") or ""
+    # would be ten minutes spent on a refusal (#1221, #1217), and so would one
+    # that needs an independent review it has not had (#1498).
+    changed = mergeable.reblessed.evidence(mergeable.gh, repo, pull)
+    refused = (
+        mergeable.closing.refusal(mergeable.closing.closed_by(mergeable.gh, repo, pull))
+        or mergeable.reblessed.refusal(changed, pull.get("body") or "")
+        or mergeable.reviewed.refusal(
+            mergeable.reviewed.evidence(mergeable.gh, repo, pull, changed.get("files") or []), pull
+        )
     )
     if refused:
         talk.say(f"#{number}: {refused[0]}", *refused[1:])

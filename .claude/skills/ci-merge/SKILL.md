@@ -147,7 +147,8 @@ same five steps (#690):
 - **`queue` is the go-ahead, and readiness is not.** A cloud coder readies its
   own pull request before anybody has read the diff, so *ready* only says the
   coder thinks it is finished. Whoever reviews it — the orchestrator, after
-  reading the description and the diff — adds the label. An approving review
+  reading the description and the diff, and seeing a risky change through
+  `independent-review` — adds the label. An approving review
   was the alternative and is not available: these pull requests are opened
   under the owner's account, and GitHub refuses an author's own approval.
   Removing the label pulls a branch back out before its turn.
@@ -305,8 +306,18 @@ added one needs nothing) must name it under a `Re-blessed` heading or line with
 a reason on that line, and one that moves `tools/chromium/pin` must change
 every `page_*` fixture's references. `docs/golden-renders.md`, *Re-blessing*,
 has the words that satisfy it. The check proves a reason was written, never
-that it is sound; reading it is still the reviewer's. Nothing about the label
-is Claude's to change: `planning` is the one rule the user cannot override.
+that it is sound; reading it is still the reviewer's.
+
+**And a risky change nobody else has read** (#1498), asked at the same point:
+a pull request changing a path `.github/scripts/reviewed.py` lists (money,
+stored data, security, concurrency, the render pipeline, the gates) needs a
+comment whose first line is `Independent review` and a level at least the
+area's, or a `No independent review: <why>` line in its description. The
+`independent-review` skill is how the comment comes to exist; run it before
+the `queue` label, since a hand-back is only retaken after a push.
+
+Nothing about the `planning`
+label is Claude's to change: it is the one rule the user cannot override.
 `make checks` lists any open issue carrying **both** stage labels, for the user
 to say which stays.
 
