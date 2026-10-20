@@ -95,6 +95,8 @@ fn a_picture_of_no_picked_shape_is_landscape() {
     assert_eq!(migrated(&showing(photo(735, 478))), Ratio::WIDE);
     // A photograph's 3:2 says what camera took it, not what the edit is for.
     assert_eq!(migrated(&showing(photo(3000, 2000))), Ratio::WIDE);
+    // 1000x1180 is 5.9% off 4:5, just past a twentieth.
+    assert_eq!(migrated(&showing(photo(1000, 1180))), Ratio::WIDE);
     let asked = json!({ "id": "picture", "kind": "generated_image", "prompt": "a cup",
                         "state": "sketch", "image": { "aspect": "2:3" } });
     assert_eq!(migrated(&showing(asked)), Ratio::WIDE);
@@ -102,10 +104,17 @@ fn a_picture_of_no_picked_shape_is_landscape() {
 
 #[test]
 fn a_picture_near_a_picked_shape_takes_it() {
-    // 1080x1350 is 4:5 exactly; 1000x1240 is within a twentieth of it.
+    // 1080x1350 is 4:5 exactly; 1000x1280 is 2.3% off it, past the 1% a
+    // size snaps by, and within a twentieth.
     let portrait = Ratio::new(4, 5).expect("4:5");
     assert_eq!(migrated(&showing(photo(1080, 1350))), portrait);
-    assert_eq!(migrated(&showing(photo(1000, 1240))), portrait);
+    assert_eq!(migrated(&showing(photo(1000, 1280))), portrait);
+    // 1000x1300 is within a twentieth of 4:5 (3.8%) and of 3:4 (2.6%): the
+    // nearer wins, whatever order the shapes are listed in.
+    assert_eq!(
+        migrated(&showing(photo(1000, 1300))),
+        Ratio::new(3, 4).expect("3:4")
+    );
     assert_eq!(
         migrated(&showing(photo(1440, 1080))),
         Ratio::new(4, 3).expect("4:3")
