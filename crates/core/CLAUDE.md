@@ -10,11 +10,8 @@ holds what only matters here.
 server, the GUI, the web app and every project already stored — the contract
 *now*, not across time.
 
-This used to read *there is no backwards compatibility*, and said the day
-somebody had a project they could not afford to lose was the day to revisit it
-— and that it was the user's call. The user made it on 2026-09-25: other
-people's projects now live in Postgres (#534), and a bump that makes them
-unloadable breaks paying users. So:
+Other people's projects live in Postgres (#534), so a bump that made them
+unloadable would break paying users (the user, 2026-09-25). So:
 
 - **Every `schema_version` bump carries a migration** from the previous
   version to the new one, in the same pull request, written here as a step
@@ -43,7 +40,7 @@ unloadable breaks paying users. So:
   that changes nothing stored still gets a step, one that returns `Ok(())`.
   `every_version_since_the_oldest_has_exactly_one_step` fails the build
   otherwise.
-- Its test goes in `migrate/versions.rs` (or beside the step, when it has a
+- Its test goes in `migrate/versions/` (or beside the step, when it has a
   folder of its own).
 - `OLDEST_MIGRATABLE` (33) is the floor: older documents are refused as
   `MigrateError::TooOld`. It moves back never, and forward only if the user

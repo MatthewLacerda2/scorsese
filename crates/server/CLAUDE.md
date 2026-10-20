@@ -6,22 +6,15 @@ matters here.
 
 ## The built-in assistant runs on the model each project picks
 
-Decided in #705 (2026-10-03), and the list as of #1444 (2026-10-17): Claude
-Opus 5.5 by default, Claude Sonnet 5.5 or Claude Fable 5.1, from a dropdown in
-the chat panel, changeable mid-conversation. This
-reverses #540's *Claude Opus 5.5, never downgraded* (2026-09-25): choice lets
-a user trade quality for credits. #705 offered Gemini 3.8 Flash and 3.5 Flash
-Lite too, and made Flash the default on cost; the maintainer moved the default
-to Sonnet on 2026-10-07 as the balance of quality and price, and on
-2026-10-12 cut Gemini from the assistant altogether as not good enough at the
-job (#1220; migration `0031` moved the projects still on it to Sonnet). On
-2026-10-17 the maintainer added Fable 5.1 and moved the default to Opus, whose
-cost they find worth what it does (#1444, migration `0037`); existing projects
-kept theirs.
-Gemini still makes images and Veo video. Each turn is charged at its own
-model's rates; the conversation is kept in a vendor-neutral record so it
-survives a switch (`crates/providers/src/chat`). The local MCP server and the
-desktop app get no picker: there, the user's own client *is* the model.
+Claude Opus 5.5 by default, or Claude Sonnet 5.5 or Claude Fable 5.1, from a
+dropdown in the chat panel, changeable mid-conversation (#705; the list and the
+default as of #1444). The choice lets a user trade quality for credits; Gemini
+was offered too until the maintainer cut it as not good enough at the job
+(#1220). `Model` in `crates/providers/src/chat/model.rs` is the list. Gemini
+still makes images and Veo video. Each turn is charged at its own model's
+rates, and the conversation is kept in a vendor-neutral record so it survives
+a switch (`crates/providers/src/chat`). The local MCP server and the desktop
+app get no picker: there, the user's own client *is* the model.
 
 None of this contradicts *MCP is a protocol, not a Claude feature*: choosing
 models for **our own client** is a product decision, while the **tool surface**
