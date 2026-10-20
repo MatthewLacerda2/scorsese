@@ -370,6 +370,10 @@ request:
    2026-09-30 an agent's `unreachable!` inside a `Display` impl was caught here,
    not by CI). Check the decisions against the issue, and note any human-only
    checks (a window, speakers, taste) as a checklist; don't hold for them.
+   If it changes money, stored data, security, concurrency, render or the
+   gates, run **`independent-review`** now: the reviewer is dispatched in the
+   background, its findings are answered on the branch, and its comment is
+   posted before the label (`make queue` hands it back otherwise).
 2. **Label it `queue`**, with `make queue WATCH=1` running in the background
    for rebase → push → wait → merge; don't hand-roll that loop. **It is the
    orchestrator's one background watch** (#819): run `make queue WATCH=1

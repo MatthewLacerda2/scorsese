@@ -152,8 +152,8 @@ shape.
 - Crate boundaries live in each crate's `lib.rs` module doc — read them before
   adding a dependency between crates.
 
-**Skills carry the working protocols** — `issue-batch` and `ci-merge`, and
-`post-edit-feedback` once a video is delivered — so this file holds each rule in
+**Skills carry the working protocols** — `issue-batch`, `ci-merge` and
+`independent-review`, and `post-edit-feedback` once a video is delivered — so this file holds each rule in
 a line and the skill holds how to keep it. Invoke them rather than rebuild a
 procedure from memory, name them when briefing a subagent, and fix a
 disagreement between a skill and this file in the change that finds it.
@@ -402,6 +402,12 @@ in a cloud session; `issue-batch` has what that premise shapes.
   the worktrees' shared compile cache. **CI is a different
   computer** — cold, no GPU, often a different ffmpeg — so local green is never
   CI green, and nothing GPU-dependent is ever a merge gate.
+- **A risky change gets a reviewer that did not write it** (the maintainer,
+  2026-10-19, #1498). A pull request touching money, stored data, security,
+  concurrency, the render pipeline or the gates is read by a fresh agent
+  running `code-review` before it is queued, and the coder answers what it
+  finds; `make mergeable` hands one back without the record.
+  `independent-review` has when, at what level, and how.
 - **Gates vs. signals — block on correctness, inform on quality.** Build, test,
   `clippy -D warnings`, the golden renders and the size gate are **hard
   gates**. Coverage, mutation testing and perf tracking are **signals**: opt-in,
