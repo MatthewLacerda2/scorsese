@@ -33,7 +33,9 @@ pub struct Opening {
     /// What the model reads in place of `prompt`, when `prompt` is words the
     /// web app wrote on the person's behalf rather than theirs. The person
     /// still sees `prompt`, in the site's language; the model must not, or it
-    /// would answer in the site's language instead of the person's.
+    /// would answer in the site's language instead of the person's. A turn
+    /// that answers a pause (a question or a quote) still hands the pause
+    /// `prompt`, not this (#1505).
     pub told: Option<String>,
 }
 

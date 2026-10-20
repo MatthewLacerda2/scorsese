@@ -95,15 +95,17 @@ pub struct Retarget {
     pub style: Option<String>,
     /// The words the person's chat shows for the turn that carries the change,
     /// in the site's language — the web app writes them. A plain default when
-    /// omitted. The model never reads them: it is told the change in the app's
-    /// own words, so it answers in the person's language, not the site's.
+    /// omitted. The model does not read them: it is told the change in the
+    /// app's own words, so it answers in the person's language, not the site's.
+    /// The one gap is a conversation paused on a question or a quote, which
+    /// still takes them as the person's answer (#1505).
     #[serde(default)]
     pub message: Option<String>,
 }
 
 /// `PUT /api/projects/{id}/start`: change the platform or the style a project
 /// is made for (#1016). The choice is kept and, when it changed, the assistant
-/// is told in a turn of its own, the way a confirmed quote is: it updates the
+/// is told in a turn of its own: it updates the
 /// script, which the server never rewrites. `400` for a choice the library
 /// refuses; `404` for a project that is not theirs.
 pub async fn retarget(

@@ -1076,7 +1076,7 @@ assistant reads and from then on edits like any other text. The **columns**
 what the editor shows as chosen, and the size a render or preview that asks for
 none is delivered at. Neither enters the document; a platform is a render
 preset and a style a prompt. Changing either later (`PUT …/start`) rewrites no
-script: like a confirmed quote, it starts a turn whose server note says what
+script: it starts a turn whose server note says what
 changed, with the new choice's brief, and the assistant updates the script.
 Every conversation is told when its project has a script, and the system
 prompt puts the script first for every project: scenes proposed, nothing

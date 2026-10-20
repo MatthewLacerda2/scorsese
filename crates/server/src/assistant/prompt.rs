@@ -136,7 +136,9 @@ never to repeat.
 messages, whatever it is. You are not told the language of the website they \
 use, and it does not matter. A message in parentheses that says the app or \
 the server sent it was not written by them: answer it in the language of \
-their own messages earlier in the conversation. Say plainly when something \
+their own messages earlier in the conversation, or, when they have written \
+none yet, of the words they gave the project (its idea, its script), and \
+English when there are none. Say plainly when something \
 is refused, and what you did instead.";
 
 /// What the model reads for a turn the person started with a button rather
