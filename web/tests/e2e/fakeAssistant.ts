@@ -17,7 +17,7 @@ import type { Answered, QuoteView, TurnView } from "@/api/chat";
 const SESSION = 1;
 
 export interface FakeAssistant {
-  /** Ends `turn`, answered with `answer` (and, with `quote`, waiting on it). */
+  /** Ends `turn`, answered with `answer` (and, with `quote`, paused on it until it is answered). */
   finish(turn: TurnView, answer: string, quote?: QuoteView): void;
   /** The turn the last request started. */
   latest(): TurnView;
@@ -70,13 +70,15 @@ export async function fakeAssistant(page: Page): Promise<FakeAssistant> {
   await page.route(/\/api\/chat\/turns\/(\d+)\/quote$/, (route, request) => {
     const quoted = turns.find((turn) => request.url().includes(`/turns/${turn.id}/`));
     if (!quoted) return route.fulfill({ status: 404, json: { error: "no such turn" } });
-    keep({ ...quoted, quote_answer: "confirmed" });
-    const answered: Answered = {
-      spent: null,
-      refused: false,
-      turn: begin(quoted.project, quoted.prompt),
-      note: null,
-    };
+    // The quote paused this turn; the answer resumes the same one (#1440).
+    const resumed = keep({
+      ...quoted,
+      state: "running",
+      quote_answer: "confirmed",
+      quote_replies: [{ answer: "confirmed", micros: quoted.quote?.micros ?? 0, words: null }],
+      finished_at: null,
+    });
+    const answered: Answered = { spent: null, refused: false, turn: resumed, note: null };
     return route.fulfill({ json: answered });
   });
 
@@ -84,10 +86,10 @@ export async function fakeAssistant(page: Page): Promise<FakeAssistant> {
     finish(turn, answer, quote) {
       keep({
         ...turn,
-        state: "answered",
+        state: quote ? "asking" : "answered",
         answer,
         quote: quote ?? null,
-        finished_at: now(),
+        finished_at: quote ? null : now(),
       });
     },
     latest() {
@@ -123,6 +125,8 @@ function running(id: number, project: number, prompt: string): TurnView {
     charged_micros: 0,
     quote: null,
     quote_answer: null,
+    quote_replies: [],
+    woken: false,
     questions: [],
     started_at: now(),
     finished_at: null,

@@ -21,7 +21,9 @@ import { LANGUAGES } from "@/i18n/language";
 import { Busy } from "./Busy";
 import { ChatPanel } from "./ChatPanel";
 import { EffortPicker } from "./EffortPicker";
+import { Generating } from "./Generating";
 import { ModelPicker } from "./ModelPicker";
+import { NewConversation } from "./NewConversation";
 import { PickerCard } from "./PickerCard";
 import { PickerModal } from "./PickerModal";
 import { QuestionCard } from "./QuestionCard";
@@ -48,6 +50,8 @@ const turn = (id: number, change: Partial<TurnView> = {}): TurnView => ({
   charged_micros: 1_200,
   quote: null,
   quote_answer: null,
+  quote_replies: [],
+  woken: false,
   questions: [],
   started_at: 1,
   finished_at: null,
@@ -87,7 +91,14 @@ const turns = [
 const models: ModelChoice[] = [
   { id: "m", label: "M", vendor: "anthropic", unavailable: null, cache_seconds: 300, cost: null },
 ];
-const conversation: Conversation = { project: PROJECT, session: 1, turns, model: "m", models };
+const conversation: Conversation = {
+  project: PROJECT,
+  session: 1,
+  turns,
+  model: "m",
+  models,
+  effort: "medium",
+};
 const entry = (of: TurnView) => ({ turn: of, streamed: "", lines: [], balanceAfter: null });
 const ignore = () => {};
 
@@ -95,8 +106,10 @@ const ignore = () => {};
 const MOUNTS: Record<string, () => ReactNode> = {
   Busy: () => <Busy />,
   ChatPanel: () => <ChatPanel projectId={PROJECT} full={false} onFull={ignore} />,
-  EffortPicker: () => <EffortPicker effort="medium" onChange={ignore} />,
+  EffortPicker: () => <EffortPicker projectId={PROJECT} effort="medium" />,
+  Generating: () => <Generating />,
   ModelPicker: () => <ModelPicker projectId={PROJECT} model="m" models={models} turns={turns} />,
+  NewConversation: () => <NewConversation onStart={ignore} />,
   PickerCard: () => <PickerCard turn={2} question={picker} waiting />,
   PickerModal: () => <PickerModal turn={2} question={picker} open onOpenChange={ignore} />,
   QuestionCard: () => <QuestionCard turn={2} question={question} waiting />,

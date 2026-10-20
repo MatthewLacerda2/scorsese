@@ -82,7 +82,8 @@ async function runsThenAnswers(page: Page, t: Messages, assistant: FakeAssistant
 
 /** The editor, not an empty root or a page-wide error. */
 async function editorShown(page: Page, t: Messages) {
-  await expect(page.getByRole("heading", { name: t.assets.heading })).toBeVisible();
+  // The editor's title is the page's one top-level heading; panels add lower ones.
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page.getByPlaceholder(t.chat.composer.placeholder)).toBeVisible();
 }
 
