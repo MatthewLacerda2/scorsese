@@ -49,7 +49,9 @@ TRIGGERS = (
         "crates/server/src/assistant/quote.rs", "crates/server/src/http/credits.rs",
         "crates/server/src/http/payments.rs", "crates/cli/src/commands/generate/*",
         "crates/cli/src/commands/confirm.rs", "crates/mcp/src/tools/generate/*",
-        "crates/mcp/src/tools/confirm.rs", "deploy/terraform/stripe/*",
+        "crates/mcp/src/tools/confirm.rs", "crates/server/src/tools/generate/*",
+        "crates/server/src/tools/quotes.rs", "crates/providers/src/api/stripe/*",
+        "crates/providers/src/fx/*", "app/src/generating/*", "deploy/terraform/stripe/*",
     )),
     ("stored data", "high", (
         "crates/core/src/migrate/*", "crates/core/src/write.rs",
@@ -59,7 +61,8 @@ TRIGGERS = (
         "deploy/backup/*",
     )),
     ("security", "high", (
-        "crates/server/src/accounts/*", "crates/server/src/http/auth.rs",
+        "crates/server/src/accounts/*", "crates/server/src/db/*",
+        "crates/server/src/http/auth.rs",
         "crates/server/src/http/tokens.rs", "crates/server/src/http/google/*",
         "crates/server/src/designs/owners.rs", "crates/server/src/captures/*",
         "crates/providers/src/credentials/*", "crates/providers/src/sign_in/*",
@@ -91,7 +94,8 @@ TRIGGERS = (
     )),
     ("the gates", "medium", (
         ".github/workflows/*", ".github/scripts/*", "Makefile", "tools/lint/*",
-        "tools/with-chrome/*", "tools/with-postgres/*", "tools/ci-postgres/*",
+        "tools/with-chrome", "tools/with-postgres", "tools/ci-postgres",
+        "crates/golden/src/*",
         ".githooks/*", ".config/*", ".cargo/*", "clippy.toml", "deny.toml",
     )),
 )
@@ -111,6 +115,15 @@ REASON_WORDS = 3
 def counts(path: str) -> bool:
     """Whether a changed path can trigger at all: not Markdown, not a test."""
     return not path.endswith(".md") and not TEST.search(path)
+
+
+def paths_of(files: list[dict]) -> list[str]:
+    """Every path these changed files touch: a rename's old path as well, so
+    moving a file out of a trigger folder still counts as changing it."""
+    paths = []
+    for item in files:
+        paths += [item.get("filename", ""), item.get("previous_filename") or ""]
+    return [path for path in paths if path]
 
 
 def hit(paths: list[str]) -> list[tuple[str, str, str]]:
@@ -160,7 +173,7 @@ def refusal(facts: dict, pull: dict) -> list[str]:
     """
     if not facts or exempt(pull) or excused(pull.get("body") or ""):
         return []
-    found = hit([item.get("filename", "") for item in facts.get("files") or []])
+    found = hit(paths_of(facts.get("files") or []))
     level = needed(found)
     if level is None:
         return []
@@ -187,7 +200,7 @@ def evidence(gh, repo: str, pull: dict, files: list[dict]) -> dict:
     excuses the pull request, so most pull requests cost no extra call.
     """
     facts = {"files": files, "comments": []}
-    paths = [item.get("filename", "") for item in files]
+    paths = paths_of(files)
     if exempt(pull) or excused(pull.get("body") or "") or not hit(paths):
         return facts
     page = 1

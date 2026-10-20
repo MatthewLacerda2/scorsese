@@ -7,11 +7,14 @@ answer from `pull["reviewed"]`, so all of it is tested by import.
 
 from __future__ import annotations
 
+import fnmatch
 import importlib.util
+import subprocess
 import unittest
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[2] / "mergeable.py"
+ROOT = Path(__file__).resolve().parents[4]
 _spec = importlib.util.spec_from_file_location("mergeable", SCRIPT)
 mergeable = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(mergeable)
@@ -67,6 +70,19 @@ class Triggers(unittest.TestCase):
         lines = verdict(pull(changed(".github/workflows/ci.yml")))
         self.assertIn("the gates", lines[0])
         self.assertIn("`medium`", lines[0])
+
+
+    def test_a_rename_out_of_a_trigger_folder_still_counts(self):
+        moved = [{"filename": "crates/providers/src/x.rs", "status": "renamed",
+                  "previous_filename": MONEY}]
+        self.assertIn("money", verdict(pull(moved))[0])
+
+    def test_every_pattern_matches_a_tracked_path(self):
+        tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True,
+                                 text=True, check=True).stdout.splitlines()
+        dead = [p for _, _, patterns in reviewed.TRIGGERS for p in patterns
+                if not any(fnmatch.fnmatchcase(path, p) for path in tracked)]
+        self.assertEqual(dead, [], "a trigger nothing matches gates nothing")
 
 
 class Recorded(unittest.TestCase):

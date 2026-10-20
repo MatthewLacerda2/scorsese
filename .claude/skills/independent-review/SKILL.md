@@ -31,14 +31,17 @@ and test files never trigger; Dependabot is exempt. The record behind each:
 
 | Area | Level | What it covers | Bugs it would have caught |
 |---|---|---|---|
-| money | `high` | rates, quotes, the spending ceiling, credits, Stripe, generate passes, what a generation records | #237, #1058, #1059, #1104, #1107, #1275, #1436, #1486 |
+| money | `high` | rates, quotes, the spending ceiling, credits, Stripe, currency, every generate path (CLI, MCP, the web's tools, the desktop app's dialog), what a generation records | #237, #1058, #1059, #1104, #1107, #1275, #1436, #1486 |
 | stored data | `high` | `project.json` migrations, the writer, Postgres migrations, the library, `assets gc`, import, backups | #170, #825, #1054, #1100, #1114, #1430 |
-| security | `high` | accounts, auth, tokens, credentials, the capture sandbox, deploy and Terraform | #687, #839, #857, #1381 |
+| security | `high` | accounts, auth, the database's per-user scope, tokens, credentials, the capture sandbox, deploy and Terraform | #687, #839, #857, #1381 |
 | concurrency | `medium` | the job queue, the assistant's turn loop (wake, compaction, quotes, stopping), MCP sessions, cancel, Veo polling | #647, #660, #1063, #1088, #1106, #1469, #1488, #1489, #1493 |
 | render | `medium` | the render run, pipes, frames, plan, page capture, audio, preview, time and timeline | #1084, #1089, #1092, #1098, #1439 |
-| the gates | `medium` | workflows, `.github/scripts`, the Makefile, `tools/lint`, hooks, test config | #245, #362, #363, #365, #1131 |
+| the gates | `medium` | workflows, `.github/scripts`, the Makefile, `tools/lint`, the golden-render gate, hooks, test config | #245, #362, #363, #365, #1131 |
 
-The highest level any changed path asks for is the one the review runs at.
+The highest level any changed path asks for is the one the review runs at,
+and a rename counts its old path too. One gap is deliberate: the root
+`Cargo.toml` holds the lint policy but changes with every dependency, so a
+change to `[workspace.lints]` is the orchestrator's call, like a refactor.
 **Not by path, and the orchestrator's call: a refactor or a move** (no path
 says *refactor*) takes `medium` even where nothing above triggers.
 
