@@ -113,7 +113,7 @@ impl ProjectFiles {
 
 /// `path` as one key: `.` and empty segments dropped, so `./script.md` and
 /// `script.md` are one file — or `None` for a path no kept file can have.
-fn normal(path: &str) -> Option<String> {
+pub(super) fn normal(path: &str) -> Option<String> {
     ProjectPath::new(path).check().ok()?;
     let segments: Vec<&str> = path
         .split('/')

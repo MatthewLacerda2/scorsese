@@ -2386,11 +2386,14 @@ the revision the script was read at. When the project moved on meanwhile, the
 page reads the script again: unchanged (the assistant was busy on the
 timeline), the save goes through on the new revision; changed, nothing is
 written and the modal shows the script as it is now, with the person's own
-version beneath it, read-only, to copy from (#1488). An open modal reads the
-script again on the project's revision event, and says so above an edit in
+version beneath it, read-only, to copy from (#1488). On the project's
+revision event an open modal opens the project again and reads the script
+only when its file changed (`script_changed_at`, #1493) — every
+`script_read` is a row in the record — and says so above an edit in
 progress. A saved edit is news to the assistant: the next turn gets a server
 note that the person changed the script (`assistant::store::hands`, from the
-editor's `script_write` rows in `tool_calls` since the last turn began), so it
+editor's `script_write` rows in `tool_calls` finished since the last turn
+began), so it
 reads it again. Only a write that saved a revision counts
 (`tool_calls.saved_revision`; one that wrote the same text back changed
 nothing), and a turn paused on a question or a quote is told as it resumes,

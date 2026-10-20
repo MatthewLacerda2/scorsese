@@ -5,18 +5,20 @@
 use crate::db::Tx;
 
 /// The editor's script rewrites on `$1` that turn `$2` has not been told of:
-/// since the turn began, or, once it was told as it resumed, since the newest
-/// rewrite it was told of (#1493). The bound is the rewrite itself, never a
-/// clock, so a write that lands while the telling commits is neither told
-/// twice nor missed.
+/// finished since the turn began, or, once it was told as it resumed, since
+/// the newest rewrite it was told of (#1493). Ordered by `finished_at`, which
+/// `tools::log::end` sets in the same write as the outcome that makes a row
+/// count, so a save still running as a turn opens is told on the next one;
+/// and bounded by the rewrite itself rather than a clock, so one landing
+/// while the telling commits is not told twice.
 macro_rules! untold {
     () => {
         "FROM tool_calls c, chat_turns t
          WHERE t.id = $2 AND c.project_id = $1 AND c.client = 'editor'
            AND c.tool = 'script_write' AND c.outcome = 'answered'
            AND c.saved_revision IS NOT NULL
-           AND CASE WHEN t.script_told_at IS NULL THEN c.started_at >= t.started_at
-                    ELSE c.started_at > t.script_told_at END"
+           AND CASE WHEN t.script_told_at IS NULL THEN c.finished_at >= t.started_at
+                    ELSE c.finished_at > t.script_told_at END"
     };
 }
 
@@ -50,7 +52,7 @@ pub(in crate::assistant) async fn told_resuming(
 ) -> Result<bool, sqlx::Error> {
     let told = sqlx::query(concat!(
         "UPDATE chat_turns u SET script_told_at = n.newest
-         FROM (SELECT max(c.started_at) AS newest ",
+         FROM (SELECT max(c.finished_at) AS newest ",
         untold!(),
         ") n WHERE u.id = $2 AND n.newest IS NOT NULL"
     ))

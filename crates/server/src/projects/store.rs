@@ -113,14 +113,16 @@ pub async fn open_with_script_stamp(
 ) -> Result<(Stored, Option<i64>), ProjectError> {
     let mut tx = db::scoped(pool, user).await?;
     let stored = read(&mut tx, id, false).await?;
-    let stamp = match &stored.document.script {
+    // Kept files are keyed by their normal path, so `./script.md` finds `script.md`.
+    let script = stored.document.script.as_ref();
+    let stamp = match script.and_then(|path| files::normal(path.as_str())) {
         Some(path) => {
             sqlx::query_scalar(
                 "SELECT (extract(epoch FROM updated_at) * 1000000)::bigint
              FROM project_files WHERE project_id = $1 AND path = $2",
             )
             .bind(id)
-            .bind(path.as_str())
+            .bind(path)
             .fetch_optional(&mut *tx)
             .await?
         }
