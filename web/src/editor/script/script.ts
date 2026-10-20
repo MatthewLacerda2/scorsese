@@ -9,6 +9,11 @@
 // from — the assistant was busy on the timeline, not the script — the save
 // goes through on the new revision; if the assistant rewrote it, nothing is
 // written and the modal shows the script as it is now.
+//
+// **A re-read reads only what moved** (#1493). Every `script_read` is a row in
+// the project's record, and an open modal re-reads on each revision while the
+// assistant edits the timeline. So a re-read opens the project first — no
+// tool, no row — and reads the script only when its file changed since.
 
 import { ApiError, api } from "@/api";
 
@@ -16,18 +21,24 @@ import { ApiError, api } from "@/api";
 export interface ScriptRead {
   text: string | null;
   revision: number;
+  /** Which file, changed when, the text was read from; `null` when not known. */
+  stamp: string | null;
 }
 
 /** How a save came out: kept, or refused because the assistant rewrote it first. */
 export type Saved = { state: "saved"; script: ScriptRead } | { state: "moved"; script: ScriptRead };
 
-/** Read project `id`'s script as it is now. */
-export async function readScript(id: number): Promise<ScriptRead> {
+/** Read project `id`'s script as it is now; `known`, a read of it before, is kept when the script did not change. */
+export async function readScript(id: number, known?: ScriptRead): Promise<ScriptRead> {
   const project = await api.editor.open(id);
-  if (!project.document.script) return { text: null, revision: project.revision };
+  const { script } = project.document;
+  if (!script) return { text: null, revision: project.revision, stamp: null };
+  const changed = project.script_changed_at ?? null;
+  const stamp = changed === null ? null : `${script}@${changed}`;
+  if (stamp !== null && known?.stamp === stamp) return { ...known, revision: project.revision };
   const answer = await api.editor.tool(id, "script_read", {});
   const text = answer.said.map((part) => part.text).join("\n");
-  return { text, revision: answer.project?.revision ?? project.revision };
+  return { text, revision: answer.project?.revision ?? project.revision, stamp };
 }
 
 /** Write `text` as project `id`'s script, over `base` — what the person started from. */
@@ -44,5 +55,5 @@ export async function saveScript(id: number, base: ScriptRead, text: string): Pr
 
 async function write(id: number, text: string, revision: number): Promise<ScriptRead> {
   const answer = await api.editor.tool(id, "script_write", { text }, revision);
-  return { text, revision: answer.project?.revision ?? revision + 1 };
+  return { text, revision: answer.project?.revision ?? revision + 1, stamp: null };
 }

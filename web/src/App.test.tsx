@@ -92,6 +92,7 @@ test("the editor draws the stored document: its tracks, clips and assets", async
     id: 4,
     name: "teaser",
     revision: 9,
+    script_changed_at: null,
     created_at: 0,
     updated_at: 0,
     platform: null,

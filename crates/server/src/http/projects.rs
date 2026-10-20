@@ -12,7 +12,7 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use scorsese_core::style::{Platform, Start};
 use scorsese_core::{Fps, Project};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use super::AppState;
@@ -131,14 +131,31 @@ fn started(platform: Option<&str>, style: Option<&str>) -> Result<Start, ApiErro
     Start::new(platform, style).map_err(|error| ApiError::BadRequest(error.to_string()))
 }
 
-/// `GET /api/projects/{id}`: the project, its document, and the revision a
-/// save of that document has to name.
+/// `GET /api/projects/{id}`'s answer.
+#[derive(Debug, Serialize)]
+pub struct Opened {
+    /// The project and its document.
+    #[serde(flatten)]
+    pub stored: Stored,
+    /// When its script last changed, in microseconds since the Unix epoch, or
+    /// `null` without one: the editor's Script modal re-reads the script only
+    /// when this moved (#1493).
+    pub script_changed_at: Option<i64>,
+}
+
+/// `GET /api/projects/{id}`: the project, its document, the revision a save
+/// of that document has to name, and when its script last changed.
 pub async fn open(
     State(state): State<AppState>,
     member: Member,
     Path(id): Path<i64>,
-) -> Result<Json<Stored>, ApiError> {
-    Ok(Json(projects::open(&state.pool, member.user, id).await?))
+) -> Result<Json<Opened>, ApiError> {
+    let (stored, script_changed_at) =
+        projects::open_with_script_stamp(&state.pool, member.user, id).await?;
+    Ok(Json(Opened {
+        stored,
+        script_changed_at,
+    }))
 }
 
 /// `PUT /api/projects/{id}`'s body.

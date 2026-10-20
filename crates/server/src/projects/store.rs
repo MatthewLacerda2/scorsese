@@ -101,6 +101,37 @@ pub async fn open(pool: &PgPool, user: UserId, id: i64) -> Result<Stored, Projec
     Ok(stored)
 }
 
+/// [`open`], and when the file its document names as the script last changed,
+/// in microseconds since the Unix epoch — `None` without one. A kept file's
+/// stamp moves only when its text does (`files::write`), so the editor's Script
+/// modal can tell that a new revision left the script alone without reading
+/// it, a read that would add a row to the project's record (#1493).
+pub async fn open_with_script_stamp(
+    pool: &PgPool,
+    user: UserId,
+    id: i64,
+) -> Result<(Stored, Option<i64>), ProjectError> {
+    let mut tx = db::scoped(pool, user).await?;
+    let stored = read(&mut tx, id, false).await?;
+    // Kept files are keyed by their normal path, so `./script.md` finds `script.md`.
+    let script = stored.document.script.as_ref();
+    let stamp = match script.and_then(|path| files::normal(path.as_str())) {
+        Some(path) => {
+            sqlx::query_scalar(
+                "SELECT (extract(epoch FROM updated_at) * 1000000)::bigint
+             FROM project_files WHERE project_id = $1 AND path = $2",
+            )
+            .bind(id)
+            .bind(path)
+            .fetch_optional(&mut *tx)
+            .await?
+        }
+        None => None,
+    };
+    tx.commit().await?;
+    Ok((stored, stamp))
+}
+
 /// [`open`], and the project's kept files ([`files`]) — what laying it out as
 /// a folder for a tool needs.
 pub async fn open_with_files(

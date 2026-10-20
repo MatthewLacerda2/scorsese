@@ -1059,7 +1059,7 @@ updating. Local folders go through the same steps with `scorsese migrate`.
 | --- | --- | --- |
 | `GET /api/projects` | a member | their projects, newest write first, without documents |
 | `POST /api/projects` | a member | `{name, fps?, platform?, style?, assets?}` → a new project, `201`: with the starting brief in `script.md` when a platform or style is chosen, and the library files in `assets` imported; `400` for a platform, style or file the server refuses, and nothing is kept |
-| `GET /api/projects/{id}` | a member | the project, its `document` and `revision` |
+| `GET /api/projects/{id}` | a member | the project, its `document` and `revision`, and `script_changed_at`: when its script last changed, in microseconds, or `null` (#1493) |
 | `PUT /api/projects/{id}` | a member | `{revision, document}` → `{revision}`; `409` if it moved on, `400` for a document this build does not read |
 | `PATCH /api/projects/{id}` | a member | `{name}` → `{revision}` |
 | `DELETE /api/projects/{id}` | a member | `204`; `404` for an id that is not theirs |
@@ -2386,11 +2386,14 @@ the revision the script was read at. When the project moved on meanwhile, the
 page reads the script again: unchanged (the assistant was busy on the
 timeline), the save goes through on the new revision; changed, nothing is
 written and the modal shows the script as it is now, with the person's own
-version beneath it, read-only, to copy from (#1488). An open modal reads the
-script again on the project's revision event, and says so above an edit in
+version beneath it, read-only, to copy from (#1488). On the project's
+revision event an open modal opens the project again and reads the script
+only when its file changed (`script_changed_at`, #1493) — every
+`script_read` is a row in the record — and says so above an edit in
 progress. A saved edit is news to the assistant: the next turn gets a server
 note that the person changed the script (`assistant::store::hands`, from the
-editor's `script_write` rows in `tool_calls` since the last turn began), so it
+editor's `script_write` rows in `tool_calls` finished since the last turn
+began), so it
 reads it again. Only a write that saved a revision counts
 (`tool_calls.saved_revision`; one that wrote the same text back changed
 nothing), and a turn paused on a question or a quote is told as it resumes,

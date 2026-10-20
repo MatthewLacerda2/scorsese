@@ -67,7 +67,11 @@ function ScriptBody({ projectId, onClose }: { projectId: number; onClose: () => 
   const t = chat.script;
   const queryClient = useQueryClient();
   const key = queryKeys.script(projectId);
-  const script = useQuery({ queryKey: key, queryFn: () => readScript(projectId), staleTime: 0 });
+  const script = useQuery({
+    queryKey: key,
+    queryFn: () => readScript(projectId, queryClient.getQueryData<ScriptRead>(key)),
+    staleTime: 0,
+  });
   // The script an edit started from travels with it, so a re-read underneath
   // never turns someone else's rewrite into the base of this save.
   const [editing, setEditing] = useState<{ base: ScriptRead; text: string } | null>(null);
