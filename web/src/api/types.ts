@@ -322,3 +322,15 @@ export interface RenderView {
   last_used_at: number;
   file: string;
 }
+
+/** `http::client_errors::Report`: what the page says threw (#1428). */
+export interface ClientError {
+  message: string;
+  stack?: string;
+  component_stack?: string;
+  /** The page's path when it threw. */
+  path?: string;
+  language?: string;
+  /** Which build of the web app was running. */
+  build?: string;
+}

@@ -13,12 +13,16 @@
 // one a call to the server's tools; anything with structure to it is a sentence to the assistant. What
 // the page draws is always the server's document — after an edit from its
 // answer, after the assistant's from the `project` event.
+//
+// Each panel has an error boundary of its own (#1428): one that throws says so
+// in its place, and the others keep working.
 
 import { useQueryClient } from "@tanstack/react-query";
 import { XIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useParams } from "react-router";
 import type { EditorProject } from "@/api";
+import { ErrorBoundary } from "@/app/ErrorBoundary";
 import { useServerEvents } from "@/app/events";
 import { queryKeys } from "@/app/queryKeys";
 import { Button } from "@/components/ui/button";
@@ -134,25 +138,29 @@ function Editor({ project }: { project: EditorProject }) {
         <aside className="col-start-1 row-span-3 row-start-1 flex min-h-0 flex-col">
           {chosen && !full && (
             <div className="max-h-[55%] shrink-0 overflow-y-auto border-b">
-              <Inspector
-                clip={chosen.clip}
-                track={chosen.track}
-                asset={document.assets?.find((asset) => asset.id === chosen.clip.asset)}
-                fps={document.timeline_fps}
-                onChange={(tool, args) => void edit.run({ tool, args, edit: true })}
-              />
+              <ErrorBoundary place="panel">
+                <Inspector
+                  clip={chosen.clip}
+                  track={chosen.track}
+                  asset={document.assets?.find((asset) => asset.id === chosen.clip.asset)}
+                  fps={document.timeline_fps}
+                  onChange={(tool, args) => void edit.run({ tool, args, edit: true })}
+                />
+              </ErrorBoundary>
             </div>
           )}
           <div className="min-h-0 flex-1">
-            <ChatPanel
-              projectId={id}
-              full={full}
-              onFull={(next) => {
-                // A clip selected out of sight is not one the Delete key may take.
-                if (next) deselect();
-                setFull(next);
-              }}
-            />
+            <ErrorBoundary place="panel">
+              <ChatPanel
+                projectId={id}
+                full={full}
+                onFull={(next) => {
+                  // A clip selected out of sight is not one the Delete key may take.
+                  if (next) deselect();
+                  setFull(next);
+                }}
+              />
+            </ErrorBoundary>
           </div>
         </aside>
         {!full && (
@@ -166,14 +174,16 @@ function Editor({ project }: { project: EditorProject }) {
               onReset={() => panels.reset("chat")}
             />
             <section className="col-start-3 row-start-1 min-h-0">
-              <Preview
-                projectId={id}
-                revision={revision}
-                document={document}
-                playhead={playhead}
-                onSeek={setPlayhead}
-                deliver={deliveries(aspect)[0]}
-              />
+              <ErrorBoundary place="panel">
+                <Preview
+                  projectId={id}
+                  revision={revision}
+                  document={document}
+                  playhead={playhead}
+                  onSeek={setPlayhead}
+                  deliver={deliveries(aspect)[0]}
+                />
+              </ErrorBoundary>
             </section>
             <Handle
               grows="left"
@@ -184,7 +194,9 @@ function Editor({ project }: { project: EditorProject }) {
               onReset={() => panels.reset("assets")}
             />
             <aside className="col-start-5 row-start-1 min-h-0">
-              <AssetsPanel projectId={id} document={document} edit={edit} playhead={playhead} />
+              <ErrorBoundary place="panel">
+                <AssetsPanel projectId={id} document={document} edit={edit} playhead={playhead} />
+              </ErrorBoundary>
             </aside>
             <Handle
               grows="up"
@@ -195,21 +207,23 @@ function Editor({ project }: { project: EditorProject }) {
               onReset={() => panels.reset("timeline")}
             />
             <section className="col-span-3 col-start-3 row-start-3 min-h-0">
-              <Timeline
-                document={document}
-                playhead={playhead}
-                onSeek={setPlayhead}
-                selected={selected}
-                onSelect={(clip, adding) => setPicked((now) => choose(now, clip, adding))}
-                onDeselect={deselect}
-                onRelease={({ tool, args }) => edit.run({ tool, args, edit: true })}
-                onDrop={(dragged, track, pointed, reach) =>
-                  void drop(dragged, track, pointed, reach)
-                }
-                onRemoveTrack={(track) =>
-                  confirmThen(trackRemoval(track, t.editor.removal), edit.run)
-                }
-              />
+              <ErrorBoundary place="panel">
+                <Timeline
+                  document={document}
+                  playhead={playhead}
+                  onSeek={setPlayhead}
+                  selected={selected}
+                  onSelect={(clip, adding) => setPicked((now) => choose(now, clip, adding))}
+                  onDeselect={deselect}
+                  onRelease={({ tool, args }) => edit.run({ tool, args, edit: true })}
+                  onDrop={(dragged, track, pointed, reach) =>
+                    void drop(dragged, track, pointed, reach)
+                  }
+                  onRemoveTrack={(track) =>
+                    confirmThen(trackRemoval(track, t.editor.removal), edit.run)
+                  }
+                />
+              </ErrorBoundary>
             </section>
           </>
         )}

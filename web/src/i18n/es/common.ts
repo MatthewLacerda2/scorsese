@@ -41,7 +41,11 @@ export const common: Messages["common"] = {
       failed: "Algo salió mal al iniciar sesión. Inténtalo de nuevo.",
     },
   },
-  crashed: { text: "Algo salió mal en esta página.", reload: "Recargar" },
+  crashed: {
+    text: "Algo salió mal en esta página.",
+    part: "Esta parte falló.",
+    reload: "Recargar",
+  },
   unreachable: (error: string) => `No se pudo conectar con el servidor: ${error}`,
   notFound: { text: "Aquí no hay nada.", link: "Ir a tus proyectos" },
 };

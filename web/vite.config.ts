@@ -26,8 +26,13 @@ import { motionKit } from "./src/build/kit.ts";
 // `SCORSESE_API=http://localhost:9000 bun run dev`.
 const api = process.env.SCORSESE_API ?? "http://localhost:8080";
 
+// Which build a crash report came from (#1428, src/app/crashes.ts): the UTC
+// minute it was built, unless `SCORSESE_BUILD` names it.
+const build = process.env.SCORSESE_BUILD ?? new Date().toISOString().slice(0, 16);
+
 export default defineConfig({
   plugins: [react(), tailwindcss(), entryBudget(), motionKit()],
+  define: { "import.meta.env.VITE_BUILD": JSON.stringify(build) },
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },

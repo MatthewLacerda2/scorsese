@@ -56,15 +56,14 @@
 //!
 //! ## How often: a limit per user
 //!
-//! [`Limits`]: at most so many tool calls a minute per user, the rest `429`
-//! with `Retry-After`. Not a price control — spending already needs a quote
-//! and a yes, and a balance — but a runaway client's loop must not fill the
-//! render queue or the log for everybody on a shared machine. In memory: it
-//! describes this process's last minute, which a restart may forget.
+//! [`Limits`](super::limits::Limits) keyed by user: at most so many tool
+//! calls a minute each, the rest `429` with `Retry-After`. Not a price control
+//! — spending already needs a quote and a yes, and a balance — but a runaway
+//! client's loop must not fill the render queue or the log for everybody on a
+//! shared machine.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, PoisonError};
-use std::time::{Duration, Instant};
 
 use axum::Json;
 use axum::body::Bytes;
@@ -264,51 +263,6 @@ impl Drop for Flight {
         self.cancel.cancel();
     }
 }
-
-/// How many tool calls each user has made in the current minute.
-#[derive(Debug, Clone)]
-pub struct Limits {
-    per_minute: u32,
-    windows: Arc<Mutex<HashMap<UserId, (Instant, u32)>>>,
-}
-
-impl Default for Limits {
-    fn default() -> Self {
-        Self::new(CALLS_PER_MINUTE)
-    }
-}
-
-impl Limits {
-    /// At most `per_minute` tool calls a minute for each user.
-    pub fn new(per_minute: u32) -> Self {
-        Self {
-            per_minute,
-            windows: Arc::default(),
-        }
-    }
-
-    /// Count `calls` more for `user`, or say how long until they may.
-    pub(crate) fn take(&self, user: UserId, calls: usize) -> Result<(), Duration> {
-        if calls == 0 {
-            return Ok(());
-        }
-        let calls = u32::try_from(calls).unwrap_or(u32::MAX);
-        let now = Instant::now();
-        let mut windows = self.windows.lock().unwrap_or_else(PoisonError::into_inner);
-        let window = windows.entry(user).or_insert((now, 0));
-        if now.duration_since(window.0) >= MINUTE {
-            *window = (now, 0);
-        }
-        if window.1.saturating_add(calls) > self.per_minute {
-            return Err(MINUTE.saturating_sub(now.duration_since(window.0)));
-        }
-        window.1 += calls;
-        Ok(())
-    }
-}
-
-/// The window a limit counts over.
-const MINUTE: Duration = Duration::from_secs(60);
 
 #[cfg(test)]
 mod tests {
