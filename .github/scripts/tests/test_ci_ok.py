@@ -26,8 +26,9 @@ ci_ok = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ci_ok)
 
 # Jobs that run for a Markdown-only change too: `scripts` costs seconds, and
-# its consistency tests read pages (#1226).
-EVERY_CHANGE = ("scripts",)
+# its consistency tests read pages (#1226); `size` holds `CLAUDE.md` and the
+# skills, which are Markdown.
+EVERY_CHANGE = ("scripts", "size")
 
 DRAFT = "github.event_name != 'pull_request' || github.event.pull_request.draft == false"
 

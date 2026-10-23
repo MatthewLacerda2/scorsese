@@ -90,7 +90,7 @@ pub const FENCES: &[Fence] = &[
     Fence {
         rule: "ffmpeg",
         says: "ffmpeg and ffprobe are spawned only by render's command builder \
-               (CLAUDE.md; `scorsese_render::tools::Tools`)",
+               (`scorsese_render::tools::Tools`)",
         inside: "",
         except: &["crates/render/src/tools.rs"],
         words: &["Command::new(\"ffmpeg\"", "Command::new(\"ffprobe\""],

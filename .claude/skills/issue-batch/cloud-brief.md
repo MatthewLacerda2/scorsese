@@ -95,9 +95,9 @@ not name (`docs/golden-renders.md`, *Re-blessing*).
 
 ## The mutation signal
 
-Worth a run before readying when the branch adds mechanism, since nothing
-reports survivors after you, and never a reason to stay draft. Check the mutant
-count before running.
+A branch that adds mechanism asks for a run before it is readied (`ci-merge`),
+since nothing reports survivors after you; a run that fails to report is never
+a reason to stay draft. Check the mutant count before running.
 
 - **Inside `.cargo/mutants.toml`'s surface**: `python3
   .github/scripts/mutants/scope.py resolve '<your globs>' --out

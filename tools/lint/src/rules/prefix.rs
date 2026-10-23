@@ -1,4 +1,4 @@
-//! Group by subfolder, not filename prefix (CLAUDE.md, *Size gate*).
+//! Group by subfolder, not filename prefix.
 //!
 //! Three or more sibling code files whose names start with the same word —
 //! `mutants-merge.py`, `mutants-scope.py`, `mutants-summary.py` — are a

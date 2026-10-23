@@ -862,7 +862,7 @@ exclude_re = [
 # differ in threads — 8 here against a public repo's four-core hosted runner —
 # and agree at around 16 GB of RAM, so the constraint that binds is the one
 # they share. What the runner does not carry is everything else on a desktop:
-# an editor, a browser, the agent session itself, and per CLAUDE.md as many
+# an editor, a browser, the agent session itself, and per `issue-batch` as many
 # sibling worktrees compiling as the machine can stand. Local headroom is
 # smaller than CI's and never larger, so the local number does not go above
 # CI's; `MUTANTS_JOBS` in the `Makefile` exists for the afternoon it should go

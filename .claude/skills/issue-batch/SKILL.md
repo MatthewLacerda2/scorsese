@@ -228,11 +228,11 @@ all of this from `cloud-brief.md`.
 
 ## Model
 
-For writing a branch, the area decides (`CLAUDE.md`, *Agent velocity*): Sonnet
-for front-end-only work or the desktop app alone, Opus for back-end, DevOps and
-networking; a mix takes Opus or is split. For everything else, judgement work
-takes the strongest model and mechanical work (a rebase, moving code) a cheaper
-one; when unsure, err upward.
+For writing a branch (`CLAUDE.md`, *Which model writes a branch*): Sonnet for
+what is purely front-end (the web app, or the desktop app's egui) and for
+mechanical work (removing a feature no longer used, a translation, moving code,
+a rebase); Opus for the rest, and for a mix. For work that is not a branch,
+judgement takes the strongest model; when unsure, err upward.
 
 ## When a branch stops
 
@@ -271,6 +271,11 @@ compiling:
 3. `make release`, then `cargo build --release --manifest-path app/Cargo.toml`,
    one after the other, launching nothing. A connected MCP client keeps the old
    server until it reconnects: say so.
+
+Nothing deploys on merge. The web app is updated by hand from `main`, once, at
+the end of a batch, when the operator asks (`docs/web.md`, *Updating*). The
+desktop app, CLI and MCP server are built from source; a `v*` tag makes
+`release.yml` build the CLI and MCP server, which is welcome, never required.
 
 ## Reporting back
 

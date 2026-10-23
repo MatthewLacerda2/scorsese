@@ -17,11 +17,14 @@
 //! - [`boundary`] — the decided architecture's boundaries: which crate may
 //!   depend on which, who holds the HTTP and Postgres clients, a headless
 //!   root workspace, and the words a crate's source may not write (#1224).
+//! - [`agent_docs`] — every `CLAUDE.md` and skill within its line cap, a
+//!   skill's frontmatter loadable, and no history cited in either.
 //!
 //! **Exceptions are inline, with a written reason** ([`allow`]): a comment
 //! `lint: allow(<rule>) <why>` on the line a rule flags or in the comments
 //! directly above it. Never a list in a config file nobody reads.
 
+pub mod agent_docs;
 pub mod allow;
 pub mod boundary;
 pub mod crate_docs;
@@ -75,6 +78,7 @@ pub fn check_tree(root: &Path) -> io::Result<Vec<Finding>> {
     findings.extend(ignored::check(root, &paths));
     findings.extend(shebang::check(root));
     findings.extend(boundary::check_root(root)?);
+    findings.extend(agent_docs::check(root));
     let current = texts
         .iter()
         .find(|(file, _)| file.path == Path::new(schema::DEFINED_IN))

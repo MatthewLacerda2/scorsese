@@ -3,7 +3,7 @@
 //! Shared by every binary's help test — `scorsese`'s beside this file, and
 //! `scorsese-server`'s, which includes it by path from
 //! `crates/server/tests/operator.rs` — so "every command and flag has help
-//! text" (CLAUDE.md) means one walk for every command line the repo ships.
+//! text" means one walk for every command line the repo ships.
 //! By path rather than through a crate, because a crate only tests share
 //! would put a dependency edge between `cli` and `server` for one function.
 

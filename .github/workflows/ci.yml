@@ -47,7 +47,7 @@ name: CI
 # marked ready with no further push never gets a run at all — merging with no
 # checks rather than with green ones. Both halves are needed together.
 #
-# The other half of this lives in CLAUDE.md: the gates run locally before a
+# The other half of this lives in the `ci-merge` skill: the gates run locally before a
 # pull request is marked ready, so `make gates` rather than GitHub is the first
 # thing to compile the code. Deliberately not before every push — checkpoint
 # commits stay cheap, which is what break-testing depends on.
@@ -555,7 +555,7 @@ jobs:
 
   # The size gate: source files ≤ 300 lines of code, test files ≤ 150 — blank
   # and comment lines do not count, for the reasons in `scan::code_lines`.
-  # CLAUDE.md lists it among the hard gates, and before this job nothing
+  # It is a hard gate, and before this job nothing
   # checked it — a limit that held by habit for as long as someone was
   # watching. Its own job because it needs neither ffmpeg nor a build of the
   # workspace, so it answers in seconds instead of waiting behind the heavy
@@ -569,10 +569,12 @@ jobs:
   size:
     name: size gate
     runs-on: ubuntu-24.04
-    # Drafts assert nothing, so there is nothing to check, and a change
-    # `changes` calls Markdown-only has nothing of this job's. See the top.
+    # Drafts assert nothing, so there is nothing to check. A Markdown-only
+    # change runs it too: the lint holds every `CLAUDE.md` and skill to its
+    # caps and frontmatter, and those are Markdown. It builds only the lint,
+    # which has no dependencies, so it costs about a minute.
     needs: changes
-    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.changes.outputs.code == 'true'
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v7
 

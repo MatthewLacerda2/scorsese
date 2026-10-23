@@ -9,7 +9,7 @@ an agent reads the answer in the terminal, not by scrolling a log (#651).
 Why remote at all, when `make mutants` exists: mutation compiles every mutant
 from scratch, two at a time, for as long as the scope takes. On the
 operator's machine that competes with sibling worktrees' builds and with the
-web app's users (CLAUDE.md, *How we work*); on a runner it costs nothing local.
+web app's users (`issue-batch`, *Local worktrees and builds*); on a runner it costs nothing local.
 `make mutants` stays for whoever wants it here.
 
 Three rules, each one a way the old per-pull-request signal or `make

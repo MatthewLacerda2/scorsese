@@ -1,7 +1,7 @@
 //! The tree's lint: the size gate, and the conventions a machine can hold.
 //!
 //! **The size gate**: source files ≤ 300 lines of code, test files ≤ 150.
-//! CLAUDE.md lists this among the hard gates, next to `clippy -D warnings` and
+//! It is a hard gate, next to `clippy -D warnings` and
 //! the golden renders. Small files are what let an agent hold a module in
 //! context and change it confidently, which is what makes unattended work
 //! possible at all — so the limits are checked rather than remembered.
@@ -24,7 +24,8 @@
 //! **The conventions** ([`rules`], #1229): written rules a check can hold, so
 //! they are held by one — group by subfolder, nothing temporary, tests never
 //! skip, crate docs name their modules, no code `.gitignore` swallows, a
-//! script with a shebang is executable. Each takes exceptions inline, with a
+//! script with a shebang is executable, and what an agent loads (`CLAUDE.md`,
+//! skills) stays within its cap and cites no history. Each takes exceptions inline, with a
 //! written reason.
 
 pub mod classify;

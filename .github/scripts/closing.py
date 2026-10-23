@@ -30,7 +30,7 @@ import re
 STAGES = ("planning", "human")
 
 # GitHub's closing keywords, then `#N` in this repository. GitHub matches them
-# anywhere in a description, quoted or negated alike (`CLAUDE.md`, *Flow*), so
+# anywhere in a description, quoted or negated alike, so
 # this does too: a PR meaning to leave an issue open writes `refs #N`.
 KEYWORD = re.compile(
     r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+#(\d+)\b", re.IGNORECASE

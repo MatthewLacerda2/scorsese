@@ -348,7 +348,7 @@ format: ## [gate] cargo fmt --check, workspace and tools/lint
 # `pre-commit`, so putting it through nextest would mean a clone that has not
 # installed the runner yet cannot commit at all — and there is nothing to win:
 # six small test files, nothing for a scheduler to overlap.
-size: ## [gate] Source <= 300 lines of code, tests <= 150; and the conventions tools/lint holds (prefix groups, markers, skips, crate docs, schema literals, script modes, crate boundaries)
+size: ## [gate] Source <= 300 lines of code, tests <= 150; and the conventions tools/lint holds (prefix groups, markers, skips, crate docs, schema literals, script modes, crate boundaries, CLAUDE.md and skill caps)
 	@out=$$(cargo test $(LINT) --locked --quiet 2>&1) \
 		|| { printf '%s\n' "$$out" >&2; exit 1; }
 	cargo run $(LINT) --locked --quiet
@@ -926,7 +926,7 @@ landing-og: ## Re-render the landing page's link-preview still from web/landing/
 # a branch that touches no rendering code, a test that does not exist on this
 # branch — costs an hour and announces itself. The false *green* does not: it
 # says the gates passed on code that was never compiled, which is precisely the
-# claim CLAUDE.md says a **ready** pull request makes. CI is unaffected, being
+# claim a **ready** pull request makes (`ci-merge`). CI is unaffected, being
 # a cold clean machine per branch, so the corrupted signal is the local one an
 # agent is told to trust.
 #

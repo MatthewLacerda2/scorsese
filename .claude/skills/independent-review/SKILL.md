@@ -19,9 +19,6 @@ The review itself is Claude Code's `code-review` skill, which moves with every
 new model, so this skill says only when to run it, how to dispatch it without
 bias, and what to do with what it finds. It never restates how to review.
 
-Taken from prototipo-atem's skill of the same name (the maintainer,
-2026-10-19, #1498), and shaped by where this repository's bugs have come from.
-
 ## When
 
 **The gate decides, by path** (`.github/scripts/reviewed.py`, `TRIGGERS`):
@@ -29,14 +26,14 @@ Taken from prototipo-atem's skill of the same name (the maintainer,
 these without an `Independent review` comment at the level shown. Markdown
 and test files never trigger; Dependabot is exempt. The record behind each:
 
-| Area | Level | What it covers | Bugs it would have caught |
-|---|---|---|---|
-| money | `high` | rates, quotes, the spending ceiling, credits, Stripe, currency, every generate path (CLI, MCP, the web's tools, the desktop app's dialog), what a generation records | #237, #1058, #1059, #1104, #1107, #1275, #1436, #1486 |
-| stored data | `high` | `project.json` migrations, the writer, Postgres migrations, the library, `assets gc`, import, backups | #170, #825, #1054, #1100, #1114, #1430 |
-| security | `high` | accounts, auth, the database's per-user scope, tokens, credentials, the capture sandbox, deploy and Terraform | #687, #839, #857, #1381 |
-| concurrency | `medium` | the job queue, the assistant's turn loop (wake, compaction, quotes, stopping), MCP sessions, cancel, Veo polling | #647, #660, #1063, #1088, #1106, #1469, #1488, #1489, #1493 |
-| render | `medium` | the render run, pipes, frames, plan, page capture, audio, preview, time and timeline | #1084, #1089, #1092, #1098, #1439 |
-| the gates | `medium` | workflows, `.github/scripts`, the Makefile, `tools/lint`, the golden-render gate, hooks, test config | #245, #362, #363, #365, #1131 |
+| Area | Level | What it covers |
+|---|---|---|
+| money | `high` | rates, quotes, the spending ceiling, credits, Stripe, currency, every generate path (CLI, MCP, the web's tools, the desktop app's dialog), what a generation records |
+| stored data | `high` | `project.json` migrations, the writer, Postgres migrations, the library, `assets gc`, import, backups |
+| security | `high` | accounts, auth, the database's per-user scope, tokens, credentials, the capture sandbox, deploy and Terraform |
+| concurrency | `medium` | the job queue, the assistant's turn loop (wake, compaction, quotes, stopping), MCP sessions, cancel, Veo polling |
+| render | `medium` | the render run, pipes, frames, plan, page capture, audio, preview, time and timeline |
+| the gates | `medium` | workflows, `.github/scripts`, the Makefile, `tools/lint`, the golden-render gate, hooks, test config |
 
 The highest level any changed path asks for is the one the review runs at,
 and a rename counts its old path too. One gap is deliberate: the root
@@ -45,9 +42,8 @@ change to `[workspace.lints]` is the orchestrator's call, like a refactor.
 **Not by path, and the orchestrator's call: a refactor or a move** (no path
 says *refactor*) takes `medium` even where nothing above triggers.
 
-What does not get one: Sonnet's `minor` pull requests (front-end visuals, the
-egui app — they touch none of these paths, and the record shows them needing
-review least), Markdown-only changes, a mechanical rebase, and the assistant's
+What does not get one: `minor` pull requests that touch none of these paths,
+Markdown-only changes, a mechanical rebase, and the assistant's
 prompt and wording, which are taste.
 
 **A trigger can misfire** — a doc comment in `prices/`, a renamed import. Then
@@ -153,7 +149,7 @@ Paste every list whose area the pull request hits, and the last one always.
   everything; triggers and path filters still firing; `make gates` and CI
   running the same thing; skipped never read as green.
 - **Every pull request** — the CLI, MCP and the web still accept, refuse and
-  say the same thing (#1288, #1289); every description it touches (a tool's,
+  say the same thing; every description it touches (a tool's,
   a flag's, a doc's) is still true.
 
 ## Answering the findings

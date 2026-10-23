@@ -329,7 +329,7 @@ mutation step and cargo-mutants' own baseline build unchanged, warmed or cold,
 for about three minutes a run — and took it out.
 
 **When to run it:** once the implementation is written and its tests pass, and
-before the pull request is marked ready, which is where CLAUDE.md puts it. That
+before the pull request is marked ready, which is where CLAUDE.md and `ci-merge` put it. That
 is when a survivor is cheapest to answer — the code is still in hand and the
 missing assertion is a two-minute edit — and it is the *only* time: no pull
 request run reports one afterwards, and the queue merges without looking.
