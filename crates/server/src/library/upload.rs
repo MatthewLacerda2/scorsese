@@ -114,11 +114,7 @@ impl Library {
         if let Some(cap) = kind.max_text_bytes()
             && announced.length > cap as i64
         {
-            return Err(LibraryError::Rejected(format!(
-                "a {} can be at most {}",
-                kind.label(),
-                format_bytes(cap as u64)
-            )));
+            return Err(super::admit::too_large(kind, cap));
         }
         if !(1..=MAX_UPLOAD_BYTES).contains(&announced.length) {
             return Err(LibraryError::Invalid(format!(

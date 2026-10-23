@@ -76,7 +76,7 @@ async fn a_document_that_is_not_utf8_or_over_1_mb_is_refused(pool: PgPool) {
     let refused = announce(address, &ana, "long.md", &large).await;
     assert_eq!(refused.status, 422, "{}", refused.body);
     assert!(
-        refused.body.contains("a document can be at most 1.0 MB"),
+        refused.body.contains("a document can be at most 1.0 MB\""),
         "{}",
         refused.body
     );
@@ -108,7 +108,7 @@ async fn a_document_reaches_its_owners_assistant_alone(pool: PgPool) {
         .await
         .unwrap();
     assert!(
-        listed.contains(&format!("{script} — script.md (text)")),
+        listed.contains(&format!("{script} — script.md (text, 63 B)")),
         "{listed}"
     );
     let read = call(&state, ana, "library_read", json!({ "item": script }))

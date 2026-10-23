@@ -1688,7 +1688,7 @@ the web — or be left off it — without a reason written down.
 | `still` | without `out`: nothing is kept on the server's disk; the picture is in the reply |
 | `project_list`, `project_new` | the server's own: a project is a row, named by an id the client asks for |
 | `library`, `import` | the server's own: files come from the user's library by id (`core`'s `reference_asset`, the document half of an import), never from a path on the server — so an image sequence's stills come in one library file each, and `sequence` makes them one |
-| `library_read` | the server's own, with no local counterpart: a text document of the library (kind `text`, a `.txt` or `.md`) by id, as its text — locally the client reads any file on its disk itself (#1510) |
+| `library_read` | the server's own, with no local counterpart: a text document of the library (kind `text`, a `.txt` or `.md`) by id, as its text, at most 48,000 characters a call with `from` for the next — locally the client reads any file on its disk itself (#1510) |
 | `render`, `jobs` | the server's own: a render is a job (*Renders*), downloaded from `/api/renders/{id}/file` with the same token; `jobs` says where any job is, and with `cancel` stops a render — locally a client stops one by cancelling the `render` call, which here has already answered |
 | `generate` | the server's own: paid from credits, made by the queue — below |
 | `voice_design` | the server's own: paid from credits, made by the queue, the samples kept in the library and the voices in the user's own record — *Designing a voice*, below |

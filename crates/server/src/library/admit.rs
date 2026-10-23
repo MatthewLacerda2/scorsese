@@ -190,12 +190,7 @@ fn text(file: &Path, kind: Kind) -> Result<MediaMetadata, LibraryError> {
     if let Some(cap) = kind.max_text_bytes()
         && bytes.len() > cap
     {
-        return Err(LibraryError::Rejected(format!(
-            "{} can be at most {}; this one is {}",
-            article(kind),
-            format_bytes(cap as u64),
-            format_bytes(bytes.len() as u64)
-        )));
+        return Err(too_large(kind, cap));
     }
     if std::str::from_utf8(&bytes).is_err() {
         return Err(LibraryError::Rejected(format!(
@@ -205,6 +200,18 @@ fn text(file: &Path, kind: Kind) -> Result<MediaMetadata, LibraryError> {
         )));
     }
     Ok(MediaMetadata::default())
+}
+
+/// Why a page or a document over `cap` bytes is refused, in the same words
+/// whether its announcement or its bytes showed it. A page's cap is binary
+/// (a project file's), so it is said in MiB, exactly.
+pub(super) fn too_large(kind: Kind, cap: usize) -> LibraryError {
+    let said = if cap.is_multiple_of(1 << 20) {
+        format!("{} MiB", cap >> 20)
+    } else {
+        format_bytes(cap as u64)
+    };
+    LibraryError::Rejected(format!("{} can be at most {said}", article(kind)))
 }
 
 /// "a video", "an image", "a sound", "a web page", "a document".

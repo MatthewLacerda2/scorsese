@@ -12,6 +12,7 @@
 //! file copied rather than referred to ([`super::pages`]). A document is the
 //! one never imported: it is for reading ([`super::document`]), not placing.
 
+use scorsese_core::bytes::format_bytes;
 use scorsese_core::pool::{Reference, reference_asset};
 use scorsese_core::{AssetKind, Project};
 use scorsese_mcp::Reply;
@@ -118,6 +119,9 @@ fn line(item: &Item) -> String {
     }
     if let (Some(width), Some(height)) = (item.media.width, item.media.height) {
         facts.push(format!("{width}x{height}"));
+    }
+    if item.kind == Kind::Text {
+        facts.push(format_bytes(item.size_bytes.unsigned_abs()));
     }
     if item.brief_hash.is_some() {
         facts.push("generated".to_owned());
