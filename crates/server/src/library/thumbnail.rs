@@ -9,9 +9,9 @@
 //! rebuildable rather than merely described as such.
 //!
 //! What a thumbnail shows: a video's frame one second in (or halfway through a
-//! shorter one), a picture scaled down, a sound's waveform. A page has none
-//! ([`LibraryError::NoThumbnail`]): it is text, and drawing one would mean
-//! capturing it.
+//! shorter one), a picture scaled down, a sound's waveform. A page or a
+//! document has none ([`LibraryError::NoThumbnail`]): it is text, and drawing
+//! one would mean capturing it.
 
 use std::path::{Path, PathBuf};
 
@@ -31,7 +31,8 @@ pub fn path(storage: &Storage, user: UserId, sha256: &str, kind: Kind) -> Option
     Some(storage.thumbnail(user, sha256, extension))
 }
 
-/// How a file of `kind` is drawn, given how long it lasts — `None` for a page.
+/// How a file of `kind` is drawn, given how long it lasts — `None` for a page
+/// or a document.
 fn drawing(kind: Kind, duration: Option<f64>) -> Option<Thumbnail> {
     Some(match kind {
         Kind::Video => Thumbnail::Frame {
@@ -39,7 +40,7 @@ fn drawing(kind: Kind, duration: Option<f64>) -> Option<Thumbnail> {
         },
         Kind::Image => Thumbnail::Picture,
         Kind::Audio => Thumbnail::Waveform,
-        Kind::Html => return None,
+        Kind::Html | Kind::Text => return None,
     })
 }
 

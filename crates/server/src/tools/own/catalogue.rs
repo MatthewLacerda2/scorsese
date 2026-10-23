@@ -9,7 +9,8 @@
 //! (`projects::media::library_path`) through `scorsese_core::pool::
 //! reference_asset`, the document half of an import, with the same id rules
 //! and the same answer for a file the project already has. A page is the one
-//! file copied rather than referred to ([`super::pages`]).
+//! file copied rather than referred to ([`super::pages`]). A document is the
+//! one never imported: it is for reading ([`super::document`]), not placing.
 
 use scorsese_core::pool::{Reference, reference_asset};
 use scorsese_core::{AssetKind, Project};
@@ -30,9 +31,12 @@ pub(super) const LIBRARY: &str = "library";
 
 /// What the listing does.
 pub(super) const LIBRARY_SAYS: &str = "List the files in your library — every video, picture, \
-sound and web page you uploaded or generated — with the id import takes, newest first. Each line is the id, the name, the kind, what probing found (length, size) and the \
+sound and web page you uploaded or generated, and the text documents (kind text) you uploaded — \
+with the id import takes, newest first. Each line is the id, the name, the kind, what probing found (length, size) and the \
 description, when it has one: read the descriptions to choose a file. Narrow it by kind, by a \
-word in the name, or to the files one project already uses. A generated file says so.";
+word in the name, or to the files one project already uses. A generated file says so. A \
+document is a script, shot list or briefing the person wrote: read it with library_read; it \
+is never imported.";
 
 /// `library`'s arguments.
 pub(super) fn library_schema() -> Value {
@@ -41,7 +45,7 @@ pub(super) fn library_schema() -> Value {
         "properties": {
             "kind": {
                 "type": "string",
-                "enum": ["video", "image", "audio", "html"],
+                "enum": ["video", "image", "audio", "html", "text"],
                 "description": "Only files of this kind."
             },
             "search": {
@@ -150,6 +154,7 @@ pub(super) async fn import(caller: &Caller<'_>, arguments: &Value) -> Result<Rep
                 other => said(other),
             })?;
         let page = match item.kind {
+            Kind::Text => return Err(unimportable(&item)),
             Kind::Html => {
                 let file =
                     library
@@ -206,7 +211,7 @@ fn bring(
                 .assets
                 .iter()
                 .any(|asset| asset.sha256.as_deref() == Some(item.sha256.as_str()));
-            let kind = item.kind.asset_kind();
+            let kind = item.kind.asset_kind().ok_or_else(|| unimportable(item))?;
             (reference_asset(document, reference(item, kind)), !known)
         }
     };
@@ -219,6 +224,15 @@ fn bring(
         "{} “{}” → asset `{asset}` ({how})",
         item.id, item.name
     ))
+}
+
+/// Why a document is not imported: it is read, never placed.
+fn unimportable(item: &Item) -> String {
+    format!(
+        "{} “{}” is a document, which is never imported into a project: read it with \
+         library_read",
+        item.id, item.name
+    )
 }
 
 /// A library item as the asset of `kind` a project refers to it by.

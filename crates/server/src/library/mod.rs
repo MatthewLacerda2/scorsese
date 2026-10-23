@@ -58,7 +58,7 @@ pub mod upload;
 
 pub use admit::Arrival;
 pub use generated::{Made, Unkept};
-pub use kind::Kind;
+pub use kind::{Kind, MAX_DOCUMENT_BYTES};
 pub use store::{Change, Filter};
 pub use upload::{Announced, Appended, MAX_UPLOAD_BYTES, Progress};
 
@@ -179,11 +179,15 @@ pub enum LibraryError {
     },
 
     /// Not a kind of file scorsese edits, by its name.
-    #[error("scorsese cannot use {0:?}: it takes video, pictures, sound and web pages")]
+    #[error(
+        "scorsese cannot use {0:?}: it takes video, pictures, sound, web pages and \
+         text documents (.txt, .md)"
+    )]
     Unsupported(String),
 
-    /// The item is of a kind that is never drawn as a thumbnail: a page.
-    #[error("a web page has no thumbnail")]
+    /// The item is of a kind that is never drawn as a thumbnail: a page or a
+    /// document.
+    #[error("a web page or a document has no thumbnail")]
     NoThumbnail,
 
     /// The file is not what it said it was — a hash that differs from the one

@@ -4,8 +4,8 @@
 import type { Messages } from "@/i18n/catalogue";
 
 export const files: Messages["files"] = {
-  kinds: { video: "Vídeo", image: "Imagem", audio: "Áudio", html: "Página" },
-  viewer: { loading: "Carregando…", failed: "Não foi possível ler a página." },
+  kinds: { video: "Vídeo", image: "Imagem", audio: "Áudio", html: "Página", text: "Documento" },
+  viewer: { loading: "Carregando…", failed: "Não foi possível ler o arquivo." },
   sorts: {
     newest: "Mais recentes",
     oldest: "Mais antigos",
@@ -21,7 +21,7 @@ export const files: Messages["files"] = {
     upload: "Enviar",
     noMatch: "Nenhum arquivo encontrado.",
     emptyLibrary:
-      "Sua biblioteca está vazia. Envie vídeos, imagens e sons — ou arraste para cá — e use em qualquer projeto.",
+      "Sua biblioteca está vazia. Envie vídeos, imagens e sons — ou arraste para cá — e use em qualquer projeto, e roteiros ou notas em .txt ou .md para o assistente ler.",
     emptyProject: "Este projeto ainda não usa nenhum arquivo da sua biblioteca.",
     add: (name: string) => `Adicionar ${name}`,
   },

@@ -6,12 +6,16 @@ import type { LibraryTile } from "@/api";
 import type { Messages } from "@/i18n/catalogue";
 import type { Edit } from "../project";
 
-/** Why a library file cannot be picked into this project, or `null` when it can. */
+/**
+ * Why a library file cannot be picked into this project, or `null` when it can.
+ * A document is never an asset: the assistant reads it (`library_read`).
+ */
 export function refusal(
   tile: LibraryTile,
   added: ReadonlySet<number>,
   t: Messages["assets"]["library"],
 ): string | null {
+  if (tile.kind === "text") return t.document;
   return added.has(tile.id) ? t.inProject : null;
 }
 

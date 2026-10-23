@@ -110,7 +110,7 @@ async fn what_arrives_is_checked_rather_than_trusted(pool: PgPool) {
 
     let untus = send(address, "POST", "/api/uploads", &[&ana], &[]).await;
     assert_eq!(untus.status, 412);
-    let notes = announce(address, &ana, "notes.txt", b"hello").await;
+    let notes = announce(address, &ana, "notes.pdf", b"hello").await;
     assert_eq!(notes.status, 415, "{}", notes.body);
 
     // The cap is decimal, said the way every size is said (#1287).

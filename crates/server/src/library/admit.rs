@@ -4,15 +4,17 @@
 //! between them: the bytes are hashed by the server, probed and held to their
 //! kind by `scorsese_core::pool` exactly as `scorsese import` holds a file,
 //! moved to where the hash says, recorded, and given a thumbnail job — all
-//! before anyone can see the item. A page is not media: it is held to being
-//! text a project can keep among its pages instead, and drawn no thumbnail.
+//! before anyone can see the item. A page and a document are not media: each
+//! is held to being text of at most its kind's size instead
+//! ([`Kind::max_text_bytes`]), and drawn no thumbnail.
 
 use std::io;
 use std::path::{Path, PathBuf};
 
+use scorsese_core::bytes::format_bytes;
 use scorsese_core::pool::{hash_file, measure};
 use scorsese_core::words::Words;
-use scorsese_core::{ImportError, MediaMetadata};
+use scorsese_core::{AssetKind, ImportError, MediaMetadata};
 use scorsese_render::{Ffprobe, Tools};
 use serde_json::json;
 
@@ -20,7 +22,6 @@ use super::store::{self, ItemRow, item_columns};
 use super::{Item, Kind, Library, LibraryError};
 use crate::db::{self, UserId};
 use crate::jobs::{kinds, store as jobs};
-use crate::projects::files::MAX_FILE_BYTES;
 
 /// A file on this machine that is to become a library item.
 #[derive(Debug, Clone)]
@@ -143,10 +144,9 @@ impl Library {
 fn read(tools: &Tools, file: &Path, kind: Kind) -> Result<Measured, LibraryError> {
     let sha256 = hash_file(file)?;
     let size = file.metadata()?.len();
-    let media = if kind.is_media() {
-        probe(tools, file, kind)?
-    } else {
-        page(file)?
+    let media = match kind.asset_kind() {
+        Some(asset) if kind.is_media() => probe(tools, file, kind, asset)?,
+        _ => text(file, kind)?,
     };
     let media = serde_json::to_string(&media)
         .map_err(|error| LibraryError::Invalid(format!("the probed media: {error}")))?;
@@ -158,8 +158,13 @@ fn read(tools: &Tools, file: &Path, kind: Kind) -> Result<Measured, LibraryError
 }
 
 /// What ffprobe finds in `file`, held to `kind` as `scorsese import` holds it.
-fn probe(tools: &Tools, file: &Path, kind: Kind) -> Result<MediaMetadata, LibraryError> {
-    measure(file, kind.asset_kind(), &Ffprobe::new(tools.clone())).map_err(|error| match error {
+fn probe(
+    tools: &Tools,
+    file: &Path,
+    kind: Kind,
+    asset: AssetKind,
+) -> Result<MediaMetadata, LibraryError> {
+    measure(file, asset, &Ffprobe::new(tools.clone())).map_err(|error| match error {
         ImportError::KindMismatch { found, .. } => LibraryError::Rejected(format!(
             "this was sent as {} but has {found}",
             article(kind)
@@ -177,32 +182,39 @@ fn probe(tools: &Tools, file: &Path, kind: Kind) -> Result<MediaMetadata, Librar
     })
 }
 
-/// Hold a page to what a project keeps among its pages: text, and no more
-/// than one kept file may hold. Never probed, so it measures nothing.
-fn page(file: &Path) -> Result<MediaMetadata, LibraryError> {
+/// Hold a page or a document to being text (UTF-8) of at most its kind's
+/// size — a page to what a project keeps among its pages. Never probed, so
+/// it measures nothing.
+fn text(file: &Path, kind: Kind) -> Result<MediaMetadata, LibraryError> {
     let bytes = std::fs::read(file)?;
-    if bytes.len() > MAX_FILE_BYTES {
+    if let Some(cap) = kind.max_text_bytes()
+        && bytes.len() > cap
+    {
         return Err(LibraryError::Rejected(format!(
-            "a web page can be at most {} KiB; this one is {} KiB",
-            MAX_FILE_BYTES >> 10,
-            bytes.len() >> 10
+            "{} can be at most {}; this one is {}",
+            article(kind),
+            format_bytes(cap as u64),
+            format_bytes(bytes.len() as u64)
         )));
     }
     if std::str::from_utf8(&bytes).is_err() {
-        return Err(LibraryError::Rejected(
-            "this is not a web page: a page is text (UTF-8), and this file is not".to_owned(),
-        ));
+        return Err(LibraryError::Rejected(format!(
+            "this is not {}: it has to be text (UTF-8), and this file is not; \
+             save it as UTF-8 and upload it again",
+            article(kind)
+        )));
     }
     Ok(MediaMetadata::default())
 }
 
-/// "a video", "an image", "a sound", "a page".
+/// "a video", "an image", "a sound", "a web page", "a document".
 fn article(kind: Kind) -> &'static str {
     match kind {
         Kind::Video => "a video",
         Kind::Image => "an image",
         Kind::Audio => "a sound",
-        Kind::Html => "a page",
+        Kind::Html => "a web page",
+        Kind::Text => "a document",
     }
 }
 

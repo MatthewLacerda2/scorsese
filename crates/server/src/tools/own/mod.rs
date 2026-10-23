@@ -7,6 +7,7 @@
 //! (`tests/tools/described.rs`).
 
 mod catalogue;
+mod document;
 mod pages;
 mod projects;
 mod queue;
@@ -29,6 +30,8 @@ pub(crate) enum Own {
     Library,
     /// Library files into a project.
     Import,
+    /// A document of the caller's library, read as text.
+    LibraryRead,
     /// A render, made by the queue.
     Render,
     /// Where the caller's jobs are.
@@ -51,11 +54,12 @@ pub(crate) enum Own {
 
 impl Own {
     /// Every one of them.
-    pub(crate) const ALL: [Self; 13] = [
+    pub(crate) const ALL: [Self; 14] = [
         Self::ProjectList,
         Self::ProjectNew,
         Self::Library,
         Self::Import,
+        Self::LibraryRead,
         Self::Render,
         Self::Jobs,
         Self::Generate,
@@ -84,7 +88,7 @@ impl Own {
     pub(crate) fn replacing(name: &str) -> &'static [Self] {
         match name {
             "project_new" => &[Self::ProjectList, Self::ProjectNew],
-            "import" => &[Self::Library, Self::Import],
+            "import" => &[Self::Library, Self::Import, Self::LibraryRead],
             "generate" => &[Self::Generate],
             "voice_design" => &[Self::VoiceDesign],
             "voice_clone" => &[Self::VoiceClone],
@@ -100,6 +104,7 @@ impl Own {
             Self::ProjectNew => projects::NEW,
             Self::Library => catalogue::LIBRARY,
             Self::Import => catalogue::IMPORT,
+            Self::LibraryRead => document::NAME,
             Self::Render => queue::RENDER,
             Self::Jobs => queue::JOBS,
             Self::Generate => super::generate::NAME,
@@ -119,6 +124,7 @@ impl Own {
             Self::ProjectNew => projects::NEW_SAYS,
             Self::Library => catalogue::LIBRARY_SAYS,
             Self::Import => catalogue::IMPORT_SAYS,
+            Self::LibraryRead => document::SAYS,
             Self::Render => queue::RENDER_SAYS,
             Self::Jobs => queue::JOBS_SAYS,
             Self::Generate => super::generate::DESCRIPTION,
@@ -138,6 +144,7 @@ impl Own {
             Self::ProjectNew => projects::new_schema(),
             Self::Library => catalogue::library_schema(),
             Self::Import => catalogue::import_schema(),
+            Self::LibraryRead => document::schema(),
             Self::Render => queue::render_schema(),
             Self::Jobs => queue::jobs_schema(),
             Self::Generate => super::generate::schema(),
@@ -170,6 +177,7 @@ impl Own {
             Self::ProjectNew => projects::new(caller, arguments).await,
             Self::Library => catalogue::library(caller, arguments).await,
             Self::Import => catalogue::import(caller, arguments).await,
+            Self::LibraryRead => document::read(caller, arguments).await,
             Self::Render => queue::render(caller, arguments).await,
             Self::Jobs => queue::jobs(caller, arguments).await,
             Self::Generate => super::generate::call(caller, arguments).await,

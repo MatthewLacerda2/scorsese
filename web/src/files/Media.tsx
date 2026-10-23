@@ -1,5 +1,5 @@
 // The file itself — the picture, or the video or sound playing, or a page's
-// source — shared by the library's viewer and the editor's asset panel.
+// source or a document's text — shared by the library's viewer and the editor's asset panel.
 
 import { useEffect, useState } from "react";
 import { api } from "@/api";
@@ -18,12 +18,16 @@ export function Media({ file }: { file: Opened }) {
       // biome-ignore lint/a11y/useMediaCaption: a user's own recording has no caption track to offer.
       return <audio src={src} controls autoPlay className="w-full" />;
     case "html":
-      return <PageSource id={file.id} />;
+    case "text":
+      return <TextSource id={file.id} />;
   }
 }
 
-/** A page is shown as its source, read-only: it is served as `text/plain` and never run here. */
-function PageSource({ id }: { id: number }) {
+/**
+ * A page is shown as its source and a document as written, read-only: both are
+ * served as `text/plain`, so a page is never run here.
+ */
+function TextSource({ id }: { id: number }) {
   const t = useT();
   const [text, setText] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);

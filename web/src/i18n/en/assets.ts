@@ -19,6 +19,7 @@ export const assets = {
       "Pick a file to add it to this project's assets, then drag it from there onto a track. " +
       "New files can be uploaded here, or dropped on this window.",
     inProject: "in this project",
+    document: "for the assistant to read",
   },
   kinds: {
     video: "video",

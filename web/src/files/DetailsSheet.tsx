@@ -95,7 +95,9 @@ function Details({
 
       <div className="grid grid-cols-2 gap-2">
         <Button variant="secondary" onClick={() => onOpen(item)}>
-          {item.kind === "image" || item.kind === "html" ? words.view : words.play}
+          {item.kind === "image" || item.kind === "html" || item.kind === "text"
+            ? words.view
+            : words.play}
         </Button>
         <DownloadButton file={item} />
       </div>
