@@ -162,19 +162,51 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # The `.deb` files every apt call in this job downloads, kept between
+      # runs (#1515): the runner's Ubuntu mirror once took six minutes over
+      # ffmpeg and five over the browser's libraries, and cut a green job at
+      # its limit. `tools/ci-apt` has why and how. Keyed on the runner image,
+      # whose packages are the ones apt starts from, and on the files that name
+      # what this job installs besides the lists below; a new image restores
+      # the last one's archives, and apt fetches only what moved. Saved by
+      # `main` only, at the end of the job, like the Rust cache.
+      #
+      # A package added to a list in this file is fetched from the mirror on
+      # every run until the image next moves (about weekly): the key leaves
+      # this file out so that an unrelated edit to it saves no new copy.
+      - name: Apt
+        id: apt
+        run: tools/ci-apt ~/.cache/apt
+
+      - name: Apt cache
+        id: apt-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/apt/*.deb
+          key: apt-${{ github.job }}-${{ steps.apt.outputs.image }}-${{ hashFiles('tools/ci-apt', 'tools/ci-postgres', 'web/bun.lock') }}
+          restore-keys: |
+            apt-${{ github.job }}-${{ steps.apt.outputs.image }}-
+            apt-${{ github.job }}-
+
       # The server's database tests fail without a Postgres rather than skip,
       # so the job starts one. Not a service container: an image pulled
       # anonymously from the shared runners hit Docker Hub's limit (#986) and
       # then ECR Public's (#1260), and the job died before checkout with
       # nothing wrong in the code. `tools/ci-postgres` has the rest, including
       # the major version it keeps in step with `tools/with-postgres`.
+      #
+      # Five minutes, here and on every step that installs packages: about
+      # fifteen seconds is normal, and a mirror that stalls should fail the
+      # step that waited on it rather than spend the job's thirty.
       - name: Postgres
+        timeout-minutes: 5
         run: tools/ci-postgres
 
       # Printed, not only installed. A run that compares pixels should say in
       # its own log which decoder produced them, so a future disagreement can
       # be dated rather than reconstructed.
       - name: Install ffmpeg
+        timeout-minutes: 5
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends ffmpeg
@@ -270,14 +302,21 @@ jobs:
         with:
           bun-version-file: web/package.json
 
+      # The install is a step of its own so that it can carry the installs'
+      # time limit: `--with-deps` runs apt, through the archives above.
+      - name: Install the end-to-end browser
+        working-directory: web
+        timeout-minutes: 5
+        run: |
+          bun install --frozen-lockfile
+          bunx playwright install --with-deps --only-shell chromium
+
       - name: Web end-to-end
         working-directory: web
         env:
           SCORSESE_SERVER: ${{ github.workspace }}/target/debug/scorsese-server
         run: |
           test -x "$SCORSESE_SERVER" || { echo "the test step built no $SCORSESE_SERVER"; exit 1; }
-          bun install --frozen-lockfile
-          bunx playwright install --with-deps --only-shell chromium
           bunx playwright test
 
       # A failed flow's trace (every step, request and DOM; `npx playwright
@@ -330,6 +369,20 @@ jobs:
           path: target/tmp/golden-failures/
           if-no-files-found: ignore
 
+      # What a run added to the archives, for the next one (see *Apt cache*).
+      # `autoclean` first drops the versions the mirror no longer serves, so a
+      # chain of images restoring one another's archives does not grow them.
+      - name: Prune apt archives
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.apt-cache.outputs.cache-hit != 'true' }}
+        run: sudo apt-get autoclean
+
+      - name: Save apt archives
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.apt-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/apt/*.deb
+          key: ${{ steps.apt-cache.outputs.cache-primary-key }}
+
   app:
     name: desktop app
     runs-on: ubuntu-24.04
@@ -339,6 +392,21 @@ jobs:
     if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v7
+
+      # The archives this job's packages come from, as in `check` (#1515).
+      - name: Apt
+        id: apt
+        run: tools/ci-apt ~/.cache/apt
+
+      - name: Apt cache
+        id: apt-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/apt/*.deb
+          key: apt-${{ github.job }}-${{ steps.apt.outputs.image }}-${{ hashFiles('tools/ci-apt') }}
+          restore-keys: |
+            apt-${{ github.job }}-${{ steps.apt.outputs.image }}-
+            apt-${{ github.job }}-
 
       # egui reaches a window through the platform's own graphics and windowing
       # libraries, which a bare runner does not have. Nothing here opens a
@@ -358,6 +426,7 @@ jobs:
       # and does not need one — the preview falls back to the wall clock and
       # plays the picture silently — but it does need the headers to link.
       - name: Install the graphics, windowing and sound libraries
+        timeout-minutes: 5
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -413,6 +482,20 @@ jobs:
 
       - name: Doctests
         run: cargo test --doc --manifest-path app/Cargo.toml --locked
+
+      # What a run added to the archives, for the next one (see *Apt cache*).
+      # `autoclean` first drops the versions the mirror no longer serves, so a
+      # chain of images restoring one another's archives does not grow them.
+      - name: Prune apt archives
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.apt-cache.outputs.cache-hit != 'true' }}
+        run: sudo apt-get autoclean
+
+      - name: Save apt archives
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.apt-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/apt/*.deb
+          key: ${{ steps.apt-cache.outputs.cache-primary-key }}
 
   # The React front-end (#531): `make web`'s commands, in its order. Its own
   # job because it shares nothing with the Rust ones — no toolchain, no cache —

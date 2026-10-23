@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Point every apt call in a CI job at an archive directory the job caches.
+#
+#   tools/ci-apt ~/.cache/apt     # then apt-get as usual; prints `image=` to $GITHUB_OUTPUT
+#
+# On 2026-10-23 the runner's Ubuntu mirror served at 78-174 kB/s: ffmpeg's
+# 62.8 MB took six minutes, the end-to-end step's browser libraries five more,
+# and a green job was cut at its 30-minute limit with nothing wrong in the
+# code (#1515). Like the registry limits `tools/ci-postgres` works around, it
+# is a third party's speed the job can stop depending on. So the `.deb` files
+# apt downloads are kept between runs: this sets apt's archive directory to
+# one `actions/cache` restores before the first install and `main` saves at
+# the end of the job, and apt then fetches only what it does not already hold.
+#
+# A configuration file rather than `-o Dir::Cache::Archives=` on each call,
+# because not every call is ours: `tools/ci-postgres` runs apt, and
+# `playwright install --with-deps` runs its own `apt-get install` under sudo.
+# What each line is for:
+#
+# - Keep-Downloaded-Packages: `apt` (not `apt-get`) deletes what it installed
+#   by default; nothing here may.
+# - Sandbox::User root: the directory is under the runner's home, which apt's
+#   `_apt` download user cannot enter. apt would fall back to root anyway, with
+#   a notice on every call.
+# - Retries and Timeout: a mirror that drops or stalls a connection is retried
+#   instead of failing the install. A mirror that is merely slow is the step's
+#   own `timeout-minutes`, which fails it by name.
+#
+# The `image=` output is the runner image, ImageOS and ImageVersion, which are
+# the machine's environment and not the workflow's `env` context, so a cache
+# key cannot name them directly. A new image is a new set of package versions.
+#
+# For a CI runner only: it writes to /etc/apt with sudo.
+
+set -euo pipefail
+
+dir=${1:?usage: tools/ci-apt <archive directory>}
+case $dir in
+    /*) ;;
+    *) echo "tools/ci-apt: $dir is not absolute; apt runs from another directory" >&2; exit 2 ;;
+esac
+
+mkdir -p "$dir/partial"
+sudo tee /etc/apt/apt.conf.d/90scorsese-ci >/dev/null <<EOF
+Dir::Cache::Archives "$dir/";
+APT::Keep-Downloaded-Packages "true";
+Binary::apt::APT::Keep-Downloaded-Packages "true";
+APT::Sandbox::User "root";
+Acquire::Retries "3";
+Acquire::http::Timeout "30";
+Acquire::https::Timeout "30";
+EOF
+
+if [ -n "${GITHUB_OUTPUT:-}" ]; then
+    echo "image=${ImageOS:-unknown}-${ImageVersion:-unknown}" >>"$GITHUB_OUTPUT"
+fi
