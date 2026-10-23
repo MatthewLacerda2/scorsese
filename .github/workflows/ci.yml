@@ -171,9 +171,12 @@ jobs:
       # the last one's archives, and apt fetches only what moved. Saved by
       # `main` only, at the end of the job, like the Rust cache.
       #
-      # A package added to a list in this file is fetched from the mirror on
-      # every run until the image next moves (about weekly): the key leaves
-      # this file out so that an unrelated edit to it saves no new copy.
+      # What the key leaves out is fetched from the mirror on every run until
+      # the image next moves (about weekly): a package added to a list in this
+      # file, a new Playwright's libraries, and an update the archive ships
+      # mid-image (an exact hit saves nothing). Keying on this file or on
+      # `web/bun.lock` would save another ~100 MB copy for every unrelated
+      # edit, into the 10 GB the Rust caches need.
       - name: Apt
         id: apt
         run: tools/ci-apt ~/.cache/apt
@@ -183,7 +186,7 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: ~/.cache/apt/*.deb
-          key: apt-${{ github.job }}-${{ steps.apt.outputs.image }}-${{ hashFiles('tools/ci-apt', 'tools/ci-postgres', 'web/bun.lock') }}
+          key: apt-${{ github.job }}-${{ steps.apt.outputs.image }}-${{ hashFiles('tools/ci-apt', 'tools/ci-postgres') }}
           restore-keys: |
             apt-${{ github.job }}-${{ steps.apt.outputs.image }}-
             apt-${{ github.job }}-
@@ -199,6 +202,7 @@ jobs:
       # fifteen seconds is normal, and a mirror that stalls should fail the
       # step that waited on it rather than spend the job's thirty.
       - name: Postgres
+        id: postgres
         timeout-minutes: 5
         run: tools/ci-postgres
 
@@ -206,6 +210,7 @@ jobs:
       # its own log which decoder produced them, so a future disagreement can
       # be dated rather than reconstructed.
       - name: Install ffmpeg
+        id: ffmpeg
         timeout-minutes: 5
         run: |
           sudo apt-get update
@@ -305,6 +310,7 @@ jobs:
       # The install is a step of its own so that it can carry the installs'
       # time limit: `--with-deps` runs apt, through the archives above.
       - name: Install the end-to-end browser
+        id: browser
         working-directory: web
         timeout-minutes: 5
         run: |
@@ -372,12 +378,15 @@ jobs:
       # What a run added to the archives, for the next one (see *Apt cache*).
       # `autoclean` first drops the versions the mirror no longer serves, so a
       # chain of images restoring one another's archives does not grow them.
+      # Only after every install succeeded: one a stalled mirror cut short
+      # would save a partial set under the key, and every later run's exact
+      # hit would then save nothing until the image moved.
       - name: Prune apt archives
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.apt-cache.outputs.cache-hit != 'true' }}
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.apt-cache.outputs.cache-hit != 'true' && steps.postgres.outcome == 'success' && steps.ffmpeg.outcome == 'success' && steps.browser.outcome == 'success' }}
         run: sudo apt-get autoclean
 
       - name: Save apt archives
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.apt-cache.outputs.cache-hit != 'true' }}
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.apt-cache.outputs.cache-hit != 'true' && steps.postgres.outcome == 'success' && steps.ffmpeg.outcome == 'success' && steps.browser.outcome == 'success' }}
         uses: actions/cache/save@v6
         with:
           path: ~/.cache/apt/*.deb
@@ -426,6 +435,7 @@ jobs:
       # and does not need one — the preview falls back to the wall clock and
       # plays the picture silently — but it does need the headers to link.
       - name: Install the graphics, windowing and sound libraries
+        id: libraries
         timeout-minutes: 5
         run: |
           sudo apt-get update
@@ -486,12 +496,15 @@ jobs:
       # What a run added to the archives, for the next one (see *Apt cache*).
       # `autoclean` first drops the versions the mirror no longer serves, so a
       # chain of images restoring one another's archives does not grow them.
+      # Only after every install succeeded: one a stalled mirror cut short
+      # would save a partial set under the key, and every later run's exact
+      # hit would then save nothing until the image moved.
       - name: Prune apt archives
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.apt-cache.outputs.cache-hit != 'true' }}
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.apt-cache.outputs.cache-hit != 'true' && steps.libraries.outcome == 'success' }}
         run: sudo apt-get autoclean
 
       - name: Save apt archives
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.apt-cache.outputs.cache-hit != 'true' }}
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.apt-cache.outputs.cache-hit != 'true' && steps.libraries.outcome == 'success' }}
         uses: actions/cache/save@v6
         with:
           path: ~/.cache/apt/*.deb
