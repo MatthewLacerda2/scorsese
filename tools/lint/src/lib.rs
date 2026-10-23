@@ -24,7 +24,8 @@
 //! **The conventions** ([`rules`], #1229): written rules a check can hold, so
 //! they are held by one — group by subfolder, nothing temporary, tests never
 //! skip, crate docs name their modules, no code `.gitignore` swallows, a
-//! script with a shebang is executable. Each takes exceptions inline, with a
+//! script with a shebang is executable, and what an agent loads (`CLAUDE.md`,
+//! skills) stays within its cap and cites no history. Each takes exceptions inline, with a
 //! written reason.
 
 pub mod classify;

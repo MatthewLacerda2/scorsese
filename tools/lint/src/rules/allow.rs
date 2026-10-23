@@ -26,12 +26,13 @@ pub fn grants(line: &str, rule: &str) -> bool {
 
 /// Whether a trimmed line is a comment in any language the lint reads: `//`
 /// and `/* */` for Rust and TypeScript, `#` for Python (but not a Rust `#[`
-/// or `#!` attribute).
+/// or `#!` attribute), `<!--` for Markdown.
 pub fn is_comment(line: &str) -> bool {
     let line = line.trim_start();
     line.starts_with("//")
         || line.starts_with("/*")
         || line.starts_with('*')
+        || line.starts_with("<!--")
         || (line.starts_with('#') && !line.starts_with("#[") && !line.starts_with("#!"))
 }
 

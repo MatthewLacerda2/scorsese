@@ -20,7 +20,7 @@ contract.
 
 **`zimmer` has a second consumer: [rusty](https://github.com/MatthewLacerda2/rusty)**,
 the owner's game engine, which depends on it as a git dependency pinned to a
-commit (rusty#413) instead of keeping its own copy. Three things follow. Its
+commit instead of keeping its own copy. Three things follow. Its
 **public API is rusty's contract** — renaming, removing or narrowing anything
 `pub` still lands, but breaks rusty the next time it moves its pin, so the pull
 request that does it says so. **`SYNTH_VERSION` governs rusty's bakes too** —
@@ -35,8 +35,7 @@ them. None of this makes it a vendor here; everything above still holds.
 the same commit, for the same reason a format change requires a
 `schema_version` bump: breaking loudly is the point. A bake in `generated/`
 is addressed by a hash of the recipe's bytes **and** that number (plus each
-patch file a song names, #672, and what it read from the project, #1000 — the
-address is `providers`' `synth/address.rs`), so bumping it is
+patch file a song names and what it read from the project; the address is `providers`' `synth/address.rs`), so bumping it is
 what makes every affected file miss the cache and be re-rendered — and not
 bumping it leaves every project on disk holding audio its own recipe no
 longer describes, silently. The number is declared rather than derived
@@ -46,7 +45,7 @@ own doc in `src/lib.rs` carries the argument and a table of the versions. So: to
 filter, an envelope or an effect and the samples move — bump it. Touch only
 prose, a name or a document type — leave it alone.
 
-**Three checks hold this** (#1216). `tests/fingerprint` bakes a small probe
+**Three checks hold this**. `tests/fingerprint` bakes a small probe
 corpus and compares its length, level and band shares, with tolerance, to a
 table recorded at the current version: measures that move under an unchanged
 version fail with "bump `SYNTH_VERSION`", and a bumped version asks for the
@@ -72,5 +71,5 @@ field that writes its default into every document invalidates every cached
 bake without changing a sample. Give it `skip_serializing_if`, the way
 `fx.rs`'s `not_ping_pong` and `song`'s `no_swing` do. A round trip that adds a
 key fails `tests/defaults.rs` (and the docs' worked recipes, in `providers`);
-the fields that predate the rule are named in `tests/common/written.rs`, and
-#1363 asks whether to retire them. A new field never joins that list.
+the fields that predate the rule are named in `tests/common/written.rs`. A new
+field never joins that list.

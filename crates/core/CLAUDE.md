@@ -10,8 +10,8 @@ holds what only matters here.
 server, the GUI, the web app and every project already stored — the contract
 *now*, not across time.
 
-Other people's projects live in Postgres (#534), so a bump that made them
-unloadable would break paying users (the user, 2026-09-25). So:
+Other people's projects live in Postgres, so a bump that made them unloadable
+would break paying users. So:
 
 - **Every `schema_version` bump carries a migration** from the previous
   version to the new one, in the same pull request, written here as a step

@@ -63,7 +63,7 @@ fn rules(root: &Path) -> bool {
     };
     if findings.is_empty() {
         println!(
-            "conventions: prefix groups, markers, skipped tests, crate docs, ignored code, schema literals, script modes, crate boundaries -- all held"
+            "conventions: prefix groups, markers, skipped tests, crate docs, ignored code, schema literals, script modes, crate boundaries, agent docs -- all held"
         );
         return true;
     }
@@ -72,7 +72,7 @@ fn rules(root: &Path) -> bool {
         eprintln!("  {finding}");
     }
     eprintln!(
-        "Fix each, or excuse it inline: `lint: allow(<rule>) <why>` on or just above the line."
+        "Fix each, or excuse it inline: `lint: allow(<rule>) <why>` on or just above the line (in Markdown, inside `<!-- -->`)."
     );
     false
 }
