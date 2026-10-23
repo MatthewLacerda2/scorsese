@@ -14,10 +14,11 @@ class DryRun(unittest.TestCase):
         host = Scripted(GIT + [APPLIED, IDLE, (["--format json"], Result(0, PS))])
         code, out, err = update(host, "--dry-run")
         self.assertEqual(code, 0, err)
-        for n in range(1, 9):
+        for n in range(1, 10):
             self.assertIn(f"\n== {n}. ", out)
         self.assertIn("bbbb A fix", out)
         self.assertIn("would run: CARGO_BUILD_JOBS=4 docker compose", out)
+        self.assertIn("taking the checkout's HEAD, aaaa, as what the stack runs", out)
         self.assertIn("SQL migrations it would apply: 43 new thing", out)
         self.assertIn("200  http://127.0.0.1:8088/api/health", out)
         self.assertIn("200  https://example.org/", out)
@@ -32,7 +33,7 @@ class DryRun(unittest.TestCase):
 
 
 class RealRun(unittest.TestCase):
-    def test_waits_then_dumps_builds_purges_and_says_what_changed(self):
+    def test_builds_waits_dumps_restarts_purges_and_says_what_changed(self):
         busy = Result(0, "turn\tassistant\trunning\t1\n")
         dumped = Result(0, "backup: database dumped to /data/backups/db/s-1.dump\n")
         logs = Result(0, "server-1 | migrated 2 stored projects to this build's format\n")
@@ -43,7 +44,8 @@ class RealRun(unittest.TestCase):
         code, out, err = update(host, "--wait")
         self.assertEqual(code, 0, err)
         order = [next(i for i, c in enumerate(host.ran) if step in c)
-                 for step in ("pull", "sleep", "backup backup", "up --detach", "purge-landing")]
+                 for step in ("pull", ".env build", "sleep", "backup backup", "up --detach",
+                              "purge-landing")]
         self.assertEqual(order, sorted(order))
         self.assertIn("SQL migrations applied: 43 new thing", out)
         self.assertIn("stored projects migrated: 2, templates: 0", out)

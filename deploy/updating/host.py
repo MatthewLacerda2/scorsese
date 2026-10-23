@@ -83,6 +83,21 @@ class Host:
     def sleep(self, seconds: float) -> None:
         time.sleep(seconds)
 
+    def read(self, path: Path) -> Optional[str]:
+        """A file's text, or None when it cannot be read."""
+        try:
+            return path.read_text(encoding="utf-8")
+        except OSError:
+            return None
+
+    def write(self, path: Path, text: str) -> Optional[str]:
+        """Write a file; why it could not be written, or None."""
+        try:
+            path.write_text(text, encoding="utf-8")
+        except OSError as error:
+            return str(error)
+        return None
+
 
 def read_env(path: Path) -> dict:
     """`deploy/.env`'s values, read the way `purge-landing` reads them.

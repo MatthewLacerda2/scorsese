@@ -27,8 +27,9 @@ PS = '{"Service":"server","State":"running","Health":"healthy"}\n' \
 class Scripted(Host):
     """Answers by the first rule whose snippets all appear in the command."""
 
-    def __init__(self, rules, real_git=False):
+    def __init__(self, rules, real_git=False, files=None, fail=()):
         self.rules, self.real_git, self.ran = rules, real_git, []
+        self.files, self.fail = dict(files or {}), fail
 
     def run(self, args, cwd=None):
         self.ran.append(" ".join(args))
@@ -43,8 +44,16 @@ class Scripted(Host):
         return Result(0)
 
     def stream(self, args, cwd=None, env=None):
-        self.ran.append(" ".join(args))
-        return 0
+        """Streamed commands succeed, except those holding a snippet in `fail`."""
+        line = " ".join(args)
+        self.ran.append(line)
+        return 1 if any(word in line for word in self.fail) else 0
+
+    def read(self, path):
+        return self.files.get(str(path))
+
+    def write(self, path, text):
+        self.files[str(path)] = text
 
     def get(self, url):
         return "200"
@@ -83,3 +92,5 @@ GIT = [(["--abbrev-ref"], Result(0, "main\n")), (["origin/main"], Result(0, "bbb
        (["ls-tree"], Result(0, "0001_accounts.sql\n0043_new_thing.sql\nREADME.md\n"))]
 APPLIED = (["_sqlx_migrations"], Result(0, "1\taccounts\n"))
 IDLE = (["chat_turns"], Result(0, ""))
+RECORD = "/srv/scor/deployed-commit"
+DUMPED = Result(0, "backup: database dumped to /data/backups/db/s-1.dump\n")

@@ -543,25 +543,39 @@ From anywhere in the checkout, on `main`:
 
     deploy/update                # --dry-run to see what it would do first
 
-It runs the whole update and stops, saying why, at the first thing wrong:
+It runs the whole update and stops, saying why, at the first thing wrong. It
+first names the commit the stack runs, which is the way back, then:
 
 1. **Refuses** unless the checkout is on `main` with nothing uncommitted, and
    `git pull --ff-only` succeeds.
-2. **Refuses while work is running** — a job waiting or running, an assistant
-   turn running — and lists it; `--wait` waits for it to finish instead.
-3. **Takes a dump** (`docker compose exec backup backup`) and names it.
-4. **Builds and starts** (`docker compose up --detach --build`), with
-   `CARGO_BUILD_JOBS` from the shell or else half the cores, since users'
-   renders share them.
-5. **Waits for every service to be healthy**, ten minutes by default
+2. **Builds** (`docker compose build`) while the running stack keeps serving,
+   with `CARGO_BUILD_JOBS` from the shell or else half the cores, since users'
+   renders share them. A failed build stops here, the stack untouched.
+3. **Refuses while work is running** — a job waiting or running, an assistant
+   turn running — and lists it; `--wait` waits for it to finish instead. This
+   comes after the build, which takes most of the time, so nothing started
+   during it is cut off by the restart.
+4. **Takes a dump** (`docker compose exec backup backup`) and names it. If the
+   dump is written but the copy off the machine fails, it says so and stops
+   until the backup works.
+5. **Restarts** on the new build (`docker compose up --detach`).
+6. **Waits for every service to be healthy**, ten minutes by default
    (`--timeout`); past that it prints the server's last lines and stops.
-6. **Purges Cloudflare's copy of the landing page** (`./purge-landing`).
-7. **Checks** that `/` and `/api/health` answer 200 on the local address and
+7. **Purges Cloudflare's copy of the landing page** (`./purge-landing`).
+8. **Checks** that `/` and `/api/health` answer 200 on the local address and
    on `SCORSESE_PUBLIC_ORIGIN`.
-8. **Says what changed**: the commits, the SQL migrations applied, how many
+9. **Says what changed**: the commits, the SQL migrations applied, how many
    stored projects and templates the server migrated, and the dump to restore.
 
-Step 6 matters: Cloudflare keeps the landing page's HTML at its edge
+**What is running** is kept in `$SCORSESE_DATA/deployed-commit`, written after
+an update that passed every step. The commit range, and the way back every
+failure names, start from it rather than from the checkout, which a refused
+run may already have pulled ahead; with no such file, the checkout's HEAD
+before the pull stands in and the script says so. Every failure after the
+pull says where the checkout and the stack each are, and, once the stack has
+been restarted, the commit and the dump to go back to.
+
+Step 7 matters: Cloudflare keeps the landing page's HTML at its edge
 (`deploy/terraform/cloudflare/cache.tf`), and that copy names the previous
 build's fingerprinted files, which the new `web` image no longer has. Until it
 is dropped, or expires within the hour, a first visit draws a blank page.
@@ -574,9 +588,10 @@ check, so a healthy server is the proof they ran. Its steps live in
 Compose recreates only the containers whose image or settings changed. The new
 server runs its migrations before serving, and they only go forward, so **the
 way back from a bad update is the dump taken first**, which the script names
-at the end: check out the commit it names too, `docker compose up --detach
---build` by hand (`deploy/update` deploys only `main`), and restore the dump
-(*Restoring*, below). BuildKit's cache for the Rust build
+once taken and in every failure after the restart: check out the commit it
+names too, `docker compose up --detach --build` by hand (`deploy/update`
+deploys only `main`), restore the dump (*Restoring*, below), and write that
+commit into `$SCORSESE_DATA/deployed-commit` so the next update starts from it. BuildKit's cache for the Rust build
 grows over time; `docker buildx du` shows it.
 
 **If `SCORSESE_DATA` has moved** since the last `up`, Compose asks whether to
