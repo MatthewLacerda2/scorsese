@@ -94,7 +94,7 @@ TRIGGERS = (
     )),
     ("the gates", "medium", (
         ".github/workflows/*", ".github/scripts/*", "Makefile", "tools/lint/*",
-        "tools/with-chrome", "tools/with-postgres", "tools/ci-postgres",
+        "tools/with-chrome", "tools/with-postgres", "tools/ci-postgres", "tools/ci-apt",
         "crates/golden/src/*",
         ".githooks/*", ".config/*", ".cargo/*", "clippy.toml", "deny.toml",
     )),
