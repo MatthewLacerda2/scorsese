@@ -1,6 +1,6 @@
 //! The headless workspace never touches a display.
 //!
-//! `CLAUDE.md`: `core` and `cli` never touch a display, and the desktop app is
+//! `core` and `cli` never touch a display (their crate docs say so), and the desktop app is
 //! its own workspace (`app/`) so a graphics stack never reaches the root one.
 //! The root `Cargo.lock` is the whole of the root workspace's tree, direct and
 //! transitive, so a GUI toolkit, a GPU surface, a window, a sound device or a
@@ -47,7 +47,7 @@ pub fn check(text: &str) -> Vec<Finding> {
             rule: RULE,
             message: format!(
                 "`{package}` ({display}) is in the root workspace's tree, which never touches a \
-                 display (CLAUDE.md, *Architecture*): a window belongs in `app/`, its own workspace"
+                 display: a window belongs in `app/`, its own workspace"
             ),
         })
         .collect()

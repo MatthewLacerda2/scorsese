@@ -12,8 +12,10 @@
 //!   ([`history`]): they state the rule, and the issue that made it keeps why.
 //!
 //! All lines count, blank ones included. Only tracked files are read: what git
-//! does not commit is not loaded by anyone else. An exception is an HTML
-//! comment, `<!-- lint: allow(<rule>) <why> -->`, on the line or just above.
+//! does not commit is not loaded by anyone else. An exception is a one-line
+//! HTML comment, `<!-- lint: allow(<rule>) <why> -->`: for a line, on it or
+//! in the run of such comments directly above it; for a whole-file cap,
+//! anywhere in the file ([`allowed`]).
 
 pub mod history;
 pub mod skill;
@@ -111,9 +113,33 @@ pub fn check_doc(path: &Path, text: &str) -> Vec<Finding> {
     findings
 }
 
-/// Whether a whole-file rule is excused: an allow for it anywhere in the file.
+/// Whether a whole-file rule is excused: an allow comment for it anywhere.
 fn excused(text: &str, rule: &str) -> bool {
-    text.lines().any(|line| super::allow::grants(line, rule))
+    text.lines().any(|line| is_allow_comment(line, rule))
+}
+
+/// Whether `line` is a one-line HTML comment granting an allow for `rule`.
+fn is_allow_comment(line: &str, rule: &str) -> bool {
+    let line = line.trim();
+    line.starts_with("<!--") && line.ends_with("-->") && super::allow::grants(line, rule)
+}
+
+/// Whether line `index` of `lines` is excused from `rule`: an allow comment
+/// ends it, or one is in the unbroken run of HTML comments directly above.
+pub fn allowed(lines: &[&str], index: usize, rule: &str) -> bool {
+    let on_line = lines.get(index).is_some_and(|line| {
+        line.find("<!--")
+            .is_some_and(|at| is_allow_comment(&line[at..], rule))
+    });
+    on_line
+        || lines[..index.min(lines.len())]
+            .iter()
+            .rev()
+            .take_while(|line| {
+                let line = line.trim();
+                line.starts_with("<!--") && line.ends_with("-->")
+            })
+            .any(|line| is_allow_comment(line, rule))
 }
 
 /// Every finding for every tracked agent doc under `root`, and a skill folder

@@ -217,7 +217,8 @@ so its public API is rusty's contract (`crates/zimmer/CLAUDE.md`).
   cloud coders (`issue-batch`); gates, CI, the mutation signal and merging
   (`ci-merge`); a reviewer for a risky change (`independent-review`).
 - **Gates vs. signals: block on correctness, inform on quality.** Signals
-  (coverage, mutation, perf) never hold a merge.
+  (coverage, mutation, perf) never hold a merge. A branch that adds mechanism
+  asks for a mutation run before it is readied.
 - **A convention a machine can check is a gate, not a sentence.** Finding what
   can be enforced is Claude's job: a new convention ships with its check, and a
   written one a check could hold gets it on Claude's own say-so. A check has

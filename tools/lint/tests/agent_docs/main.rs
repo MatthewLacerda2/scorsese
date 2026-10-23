@@ -2,6 +2,7 @@
 //! frontmatter to what Claude loads, and both to citing no history.
 
 mod caps;
+mod frontmatter;
 mod history;
 mod skill;
 mod tree;

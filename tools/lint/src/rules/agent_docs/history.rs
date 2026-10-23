@@ -10,12 +10,13 @@
 //! - a date, `2026-10-23`.
 //!
 //! A colour such as `#33ccff` is not a reference: its digits run into letters.
-//! An HTML entity (`&#123;`) is not either.
+//! An HTML entity (`&#123;`) is not either. A colour of digits only
+//! (`#000000`) cannot be told from one, and takes an allow.
 
 use std::path::Path;
 
 use super::super::Finding;
-use super::super::allow::allowed;
+use super::allowed;
 
 /// The rule's name, as an `allow` names it.
 pub const RULE: &str = "history";

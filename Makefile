@@ -926,7 +926,7 @@ landing-og: ## Re-render the landing page's link-preview still from web/landing/
 # a branch that touches no rendering code, a test that does not exist on this
 # branch — costs an hour and announces itself. The false *green* does not: it
 # says the gates passed on code that was never compiled, which is precisely the
-# claim CLAUDE.md says a **ready** pull request makes. CI is unaffected, being
+# claim a **ready** pull request makes (`ci-merge`). CI is unaffected, being
 # a cold clean machine per branch, so the corrupted signal is the local one an
 # agent is told to trust.
 #

@@ -63,6 +63,19 @@ fn an_html_comment_allow_above_with_a_reason_excuses_the_line() {
 }
 
 #[test]
+fn a_colour_of_digits_only_is_found_and_takes_an_allow() {
+    assert!(cites("color: #000000").is_some());
+}
+
+#[test]
+fn an_allow_inside_a_list_item_excuses_no_other_item() {
+    let text = format!("* <!-- lint: allow({RULE}) a quoted changelog -->\n* fixed in #12\n");
+    let found = check_doc(Path::new("CLAUDE.md"), &text);
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].line, Some(2));
+}
+
+#[test]
 fn other_markdown_may_cite_history() {
     assert!(check_doc(Path::new("docs/web.md"), "Since #12, on 2026-01-02.\n").is_empty());
 }

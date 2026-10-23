@@ -15,32 +15,58 @@ pub const NAME_LIMIT: usize = 64;
 /// The longest a skill's description may be, in characters.
 pub const DESCRIPTION_LIMIT: usize = 1024;
 
-/// The value of top-level `key` in a frontmatter block: one line, quoted or
-/// not, or a `>` / `|` block scalar's indented lines joined by spaces.
+/// The value of top-level `key` in a frontmatter block, its text joined by
+/// spaces: a plain scalar with any indented lines that continue it (the text
+/// may start on the next line), a quoted one, or a `>` / `|` block scalar
+/// with any chomping or indentation indicator, blank lines included. A plain
+/// scalar's ` #` comment is not part of it.
 pub fn field(block: &[&str], key: &str) -> Option<String> {
     let index = block.iter().position(|line| {
         line.strip_prefix(key)
             .is_some_and(|rest| rest.starts_with(':'))
     })?;
-    let value = block[index][key.len() + 1..].trim();
-    if matches!(value, ">" | "|" | ">-" | "|-") {
-        let lines: Vec<&str> = block[index + 1..]
-            .iter()
-            .take_while(|line| line.starts_with([' ', '\t']))
-            .map(|line| line.trim())
-            .collect();
-        return Some(lines.join(" "));
-    }
-    let unquoted = ['"', '\'']
+    let first = block[index][key.len() + 1..].trim();
+    let rest: Vec<&str> = block[index + 1..]
         .iter()
-        .find_map(|quote| value.strip_prefix(*quote)?.strip_suffix(*quote))
-        .unwrap_or(value);
-    Some(unquoted.to_string())
+        .take_while(|line| line.trim().is_empty() || line.starts_with([' ', '\t']))
+        .map(|line| line.trim())
+        .filter(|line| !line.is_empty())
+        .collect();
+    if is_block_indicator(first) {
+        return Some(rest.join(" "));
+    }
+    let quoted = ['"', '\'']
+        .iter()
+        .find_map(|quote| first.strip_prefix(*quote)?.strip_suffix(*quote));
+    if let Some(quoted) = quoted {
+        return Some(quoted.to_string());
+    }
+    let plain = first
+        .split_once(" #")
+        .map_or(first, |(value, _)| value)
+        .trim();
+    Some(
+        std::iter::once(plain)
+            .chain(rest)
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>()
+            .join(" "),
+    )
+}
+
+/// Whether a value opens a block scalar: `>` or `|`, then at most a chomping
+/// indicator (`+`, `-`) and an indentation digit, in either order.
+fn is_block_indicator(value: &str) -> bool {
+    let mut chars = value.chars();
+    matches!(chars.next(), Some('>' | '|'))
+        && chars.as_str().len() <= 2
+        && chars.all(|c| matches!(c, '+' | '-') || c.is_ascii_digit())
 }
 
 /// The lines between the opening `---` and the closing one, if the text
 /// opens with a frontmatter block.
 pub fn block(text: &str) -> Option<Vec<&str>> {
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
     let mut lines = text.lines();
     if lines.next()?.trim_end() != "---" {
         return None;

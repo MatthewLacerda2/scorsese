@@ -1,7 +1,7 @@
 //! The tree's lint: the size gate, and the conventions a machine can hold.
 //!
 //! **The size gate**: source files ≤ 300 lines of code, test files ≤ 150.
-//! CLAUDE.md lists this among the hard gates, next to `clippy -D warnings` and
+//! It is a hard gate, next to `clippy -D warnings` and
 //! the golden renders. Small files are what let an agent hold a module in
 //! context and change it confidently, which is what makes unattended work
 //! possible at all — so the limits are checked rather than remembered.

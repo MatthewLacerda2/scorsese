@@ -26,8 +26,8 @@ same tree. "The base delta touched no crate the branch compiled" is not that:
 if `main` gained a change to `core` and the branch changed `compositor`, the
 combination has never been compiled, and a changed signature meeting a new
 caller is exactly the failure serialization exists to catch. Believing
-otherwise is speculative merging, which #492 puts out of scope and CLAUDE.md
-rules out by name.
+otherwise is speculative merging, which #492 puts out of scope and the
+`ci-merge` skill rules out by name.
 
 So the sound rule is tree identity over everything the gates read, and it was
 measured against the batch that motivated the issue — the sixteen pull requests

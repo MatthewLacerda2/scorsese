@@ -71,6 +71,18 @@ fn a_whole_file_allow_with_a_reason_excuses_the_cap() {
 }
 
 #[test]
+fn an_allow_written_in_prose_is_not_one() {
+    let prose = format!(
+        "Excuse a cap with `lint: allow({CLAUDE_MD}) <why>` in a comment.\n{}",
+        lines(CLAUDE_MD_LIMIT)
+    );
+    assert_eq!(
+        rules(&check_doc(Path::new("CLAUDE.md"), &prose)),
+        [CLAUDE_MD]
+    );
+}
+
+#[test]
 fn other_markdown_is_not_read() {
     assert!(check_doc(Path::new("docs/web.md"), &lines(5000)).is_empty());
 }
