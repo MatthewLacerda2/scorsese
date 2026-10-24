@@ -31,14 +31,19 @@ tried locally but **can never be a merge gate**.
 
 ## Before marking a pull request ready
 
-`make gates` must be green. It runs every gate CI blocks on; `make help` lists
-them. `make setup`, once per clone, installs the pre-commit hook (formatting and
+`make gates` must be green. It runs every gate CI blocks on but `regression
+test`, which builds the base and runs in CI alone (`docs/testing.md`); `make
+help` lists them. `make setup`, once per clone, installs the pre-commit hook (formatting and
 the lint) and the worktrees' shared compile cache.
 
 The web, web-e2e and app gates are the only conditional ones: each reports
 **skipped** (web-e2e says *not run*) when the branch touches nothing it
 checks — `web/` for web, `web/` or `crates/` bar `crates/golden` for web-e2e,
 `app/` for app. Skipped is the honest answer; never read it as green.
+
+**Every test was written first and seen failing** (`docs/testing.md`): a test
+that never failed has not been shown to test anything. A bug's first commit is
+its reproducing test.
 
 **A gate this machine cannot run is named, not claimed.** `test` needs docker
 (or `SCORSESE_TEST_DATABASE_URL`) for the server's Postgres, `deploy` needs

@@ -21,6 +21,9 @@ Read `CLAUDE.md`, your issue(s), your brief and the `ci-merge` skill. A later
 a blocker written only in prose is invisible to the orchestrator. If one is
 open, stand down: no branch, a comment saying which should go first, and stop.
 
+**Test first** (`docs/testing.md`): write the test and watch it fail, then the
+code. For a bug, the branch's first commit is the test that reproduces it.
+
 ## Ready means finished, and then the branch is not yours
 
 - Never wait on CI: it runs once you mark the pull request ready, and the merge

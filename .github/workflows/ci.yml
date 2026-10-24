@@ -715,6 +715,149 @@ jobs:
       - name: Both workspaces
         run: make deny
 
+  # A bug fix carries a test that fails without it (#1508, docs/testing.md).
+  # `regression.py plan` reads the description's closing keywords and asks
+  # GitHub which of those issues are labelled `bug`: none, or a `No regression
+  # test on base: <why>` line, and every step after it skips. Otherwise
+  # `regression.py run` lays the pull request's changed test files over the
+  # base (`HEAD^1` of GitHub's merge commit) and needs one of the targets they
+  # name to fail there. Both halves of the decision live in the script, with
+  # their tests; this job only gives it what the base's tests need, the same
+  # machine `check` gives the head's: Postgres, ffmpeg, the pinned Chromium,
+  # bun, nextest, and `app`'s libraries when a target is the app's. `main`
+  # never owes one, so it never installs and never saves a cache: the apt
+  # archives and the Rust cache are restored from `check`'s (and `app`'s).
+  regression:
+    name: regression test
+    runs-on: ubuntu-24.04
+    # Drafts assert nothing, so there is nothing to check, and a change
+    # `changes` calls Markdown-only has no test to run. See the top.
+    needs: changes
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.changes.outputs.code == 'true'
+    # One build of the base's crates (dependencies come from the cache) and
+    # only the targets the pull request's tests name.
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    env:
+      DATABASE_URL: postgres://scorsese:scorsese@localhost:5432/scorsese
+      # The description is read over REST, not from the event, so a re-run
+      # after adding the exception line sees it.
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      REPO: ${{ github.repository }}
+      GITHUB_TOKEN: ${{ github.token }}
+      BASE: HEAD^1
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      - name: Does this pull request owe a regression test?
+        id: plan
+        run: python3 .github/scripts/regression.py plan
+
+      - name: Apt
+        id: apt
+        if: steps.plan.outputs.run == 'true'
+        run: tools/ci-apt ~/.cache/apt
+
+      - name: Apt cache
+        id: apt-cache
+        if: steps.plan.outputs.run == 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/apt/*.deb
+          key: apt-${{ github.job }}-${{ steps.apt.outputs.image }}-${{ hashFiles('tools/ci-apt', 'tools/ci-postgres') }}
+          restore-keys: |
+            apt-check-${{ steps.apt.outputs.image }}-
+            apt-check-
+
+      # `app`'s archives too, read-only, when a target is the app's.
+      - name: Apt cache of the app
+        if: steps.plan.outputs.app == 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/apt/*.deb
+          key: apt-app-${{ steps.apt.outputs.image }}-${{ hashFiles('tools/ci-apt') }}
+          restore-keys: |
+            apt-app-${{ steps.apt.outputs.image }}-
+            apt-app-
+
+      - name: Postgres
+        id: postgres
+        if: steps.plan.outputs.run == 'true'
+        timeout-minutes: 5
+        run: tools/ci-postgres
+
+      - name: Install ffmpeg
+        id: ffmpeg
+        if: steps.plan.outputs.run == 'true'
+        timeout-minutes: 5
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffmpeg -version | head -1
+
+      # `app`'s job has why each of these.
+      - name: Install the app's graphics, windowing and sound libraries
+        id: libraries
+        if: steps.plan.outputs.app == 'true'
+        timeout-minutes: 5
+        run: |
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-3-dev libxkbcommon-dev libwayland-dev \
+            mesa-vulkan-drivers libvulkan1 \
+            libasound2-dev
+
+      - name: Chromium cache
+        if: steps.plan.outputs.run == 'true'
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/scorsese/chromium
+          key: chromium-${{ hashFiles('tools/chromium/pin') }}
+
+      # `check` has why CI opts out of Chromium's sandbox.
+      - name: Install Chromium
+        if: steps.plan.outputs.run == 'true'
+        run: |
+          echo "SCORSESE_CHROME=$(tools/chromium/fetch)" >> "$GITHUB_ENV"
+          echo "SCORSESE_CHROME_NO_SANDBOX=1" >> "$GITHUB_ENV"
+
+      # `check`'s cache by name, which `main` saves: this job never does.
+      - name: Rust cache
+        if: steps.plan.outputs.run == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: check
+          save-if: false
+
+      # Cargo targets run under nextest, as `check` runs them.
+      - name: Install cargo-nextest
+        if: steps.plan.outputs.run == 'true'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.146
+
+      - uses: oven-sh/setup-bun@v2
+        if: steps.plan.outputs.run == 'true'
+        with:
+          bun-version-file: web/package.json
+
+      - name: Run the changed tests on the base
+        if: steps.plan.outputs.run == 'true'
+        run: python3 .github/scripts/regression.py run
+
+      # Never true (see above); here because every job that installs saves
+      # its archives from `main` (`test_apt_cache.py`).
+      - name: Save apt archives
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.apt-cache.outputs.cache-hit != 'true' && steps.postgres.outcome == 'success' && steps.ffmpeg.outcome == 'success' && steps.libraries.outcome == 'success' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/apt/*.deb
+          key: ${{ steps.apt-cache.outputs.cache-primary-key }}
+
   # The one check the `main` ruleset requires (#1351, #1352): its `name:` is
   # the context string the ruleset names, so renaming it unguards `main`.
   # `needs:` lists every other job, and a job added to this file is gated only
@@ -726,7 +869,7 @@ jobs:
   ok:
     name: CI ok
     runs-on: ubuntu-24.04
-    needs: [changes, check, app, web, size, scripts, deploy, deny]
+    needs: [changes, check, app, web, size, scripts, deploy, deny, regression]
     if: always() && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     timeout-minutes: 5
     steps:
