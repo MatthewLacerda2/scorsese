@@ -22,7 +22,6 @@ READ = f"""      - name: Apt
 """
 
 
-
 class ReadOnly(unittest.TestCase):
     def test_a_job_that_restores_checks_archives_passes(self):
         self.assertEqual(problems(job(READ, INSTALL), saves=False), [])
