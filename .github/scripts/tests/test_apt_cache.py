@@ -26,7 +26,8 @@ WORKFLOWS = ROOT / ".github" / "workflows"
 
 ARCHIVES = "path: ~/.cache/apt/*.deb"
 KEY = "key: apt-${{ github.job }}-${{ steps.apt.outputs.image }}-"
-CHECK_KEY = "key: apt-check-${{ steps.apt.outputs.image }}-"
+CHECK_KEY = "key: apt-check-${{ steps.apt.outputs.image }}-${{ hashFiles('tools/ci-apt', 'tools/ci-postgres') }}"
+CHECK_FALLBACK = "restore-keys: |\n            apt-check-${{ steps.apt.outputs.image }}-\n"
 MAIN_ONLY = "!cancelled() && github.ref == 'refs/heads/main' && steps.apt-cache.outputs.cache-hit != 'true'"
 SAVE_KEY = "key: ${{ steps.apt-cache.outputs.cache-primary-key }}"
 INSTALLS = re.compile(r"\bapt(-get)?\s+(-\S+\s+)*install\b|tools/ci-postgres$|--with-deps|install-deps", re.M)
@@ -77,7 +78,9 @@ def problems(block: str, saves: bool = True) -> list[str]:
         restore = index(lambda s: "actions/cache/restore@" in s and ARCHIVES in s and KEY in s and "id: apt-cache\n" in s)
         save = index(lambda s: "actions/cache/save@" in s and ARCHIVES in s and MAIN_ONLY in s and SAVE_KEY in s)
     else:
-        restore = index(lambda s: "actions/cache/restore@" in s and ARCHIVES in s and CHECK_KEY in s)
+        restore = index(
+            lambda s: "actions/cache/restore@" in s and ARCHIVES in s and f"{CHECK_KEY}\n" in s and CHECK_FALLBACK.rstrip() in s
+        )
         save = None
     if setup is None or setup > first:
         found.append("`tools/ci-apt` does not run before the first install")
@@ -162,7 +165,7 @@ class Shape(unittest.TestCase):
 class Workflow(unittest.TestCase):
     def test_every_job_that_installs_is_cached(self):
         cached = []
-        for path in sorted(WORKFLOWS.glob("*.yml")):
+        for path in sorted([*WORKFLOWS.glob("*.yml"), *WORKFLOWS.glob("*.yaml")]):
             text = path.read_text(encoding="utf-8")
             if "\njobs:\n" not in text:
                 continue
@@ -174,6 +177,10 @@ class Workflow(unittest.TestCase):
                     self.assertEqual(problems(block, saves=path.name == "ci.yml"), [])
         for name in ("ci/check", "ci/app", "coverage/coverage", "mutants-on-request/shard", "mutation-sweep/shard"):
             self.assertIn(name, cached)
+
+    def test_the_read_only_key_is_the_one_check_saves_under(self):
+        check = jobs((WORKFLOWS / "ci.yml").read_text(encoding="utf-8"))["check"]
+        self.assertIn(CHECK_KEY.replace("apt-check-", "apt-${{ github.job }}-") + "\n", check)
 
     def test_the_script_points_apt_at_the_archives_and_retries(self):
         script = (ROOT / "tools" / "ci-apt").read_text(encoding="utf-8")

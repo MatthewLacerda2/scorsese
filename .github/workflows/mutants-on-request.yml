@@ -176,7 +176,9 @@ jobs:
     env:
       # The most the mutation step may take, measured from the job's start and
       # not the step's (#601): a shard whose setup was slow gets less, not
-      # overtime, and ends by uploading what it measured.
+      # overtime, and ends by uploading what it measured. An install the
+      # mirror stalls past its own five minutes fails the shard instead, and
+      # the report names it as missing.
       BUDGET_SECONDS: 6000
       # Must equal `timeout-minutes` above, in seconds.
       JOB_LIMIT_SECONDS: 7200

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import unittest
 
-from test_apt_cache import ARCHIVES, CHECK_KEY, INSTALL, RESTORE, SAVE, job, problems
+from test_apt_cache import ARCHIVES, CHECK_FALLBACK, CHECK_KEY, INSTALL, RESTORE, SAVE, job, problems
 
 READ = f"""      - name: Apt
         id: apt
@@ -18,8 +18,8 @@ READ = f"""      - name: Apt
       - uses: actions/cache/restore@v6
         with:
           {ARCHIVES}
-          {CHECK_KEY}x
-"""
+          {CHECK_KEY}
+          {CHECK_FALLBACK}"""
 
 
 class ReadOnly(unittest.TestCase):
@@ -39,6 +39,12 @@ class ReadOnly(unittest.TestCase):
     def test_a_signal_job_restoring_its_own_key_is_flagged(self):
         got = problems(job(RESTORE, INSTALL), saves=False)
         self.assertEqual(got, ["the archives are not restored between `tools/ci-apt` and the first install"])
+
+    def test_a_restore_that_cannot_hit_is_flagged(self):
+        restore = "the archives are not restored between `tools/ci-apt` and the first install"
+        for wrong in (READ.replace("'tools/ci-postgres'", "'other'"), READ.replace(CHECK_FALLBACK, "\n")):
+            with self.subTest(wrong=wrong):
+                self.assertEqual(problems(job(wrong, INSTALL), saves=False), [restore])
 
     def test_a_signal_job_that_saves_is_flagged(self):
         got = problems(job(READ, INSTALL, SAVE), saves=False)
