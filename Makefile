@@ -412,13 +412,15 @@ test: ## [gate] The whole suite, golden renders and database included (needs ffm
 	@$(PIXEL_GATE_RUNS) || echo "test: $(PIXEL_GATE_SKIPPED)"
 
 # The Python under .github/scripts: the renderers of the coverage and mutation
-# signals, and the merge path (`make queue`, `make mergeable`). A signal that
+# signals, and the merge path (`make queue`, `make mergeable`); and
+# `deploy/update`'s steps (deploy/updating), whose refusals and dry run are
+# proven here without Docker. A signal that
 # dies rendering its own report reads as the tool being broken — which is how a
 # branch adding only tests used to be reported — and a queue that misjudges a
 # run merges what nothing compiled. They are a gate and not a signal because
 # what is checked here is ordinary correctness, and because they cost a
 # fraction of a second: stdlib `unittest`, no dependency to install.
-scripts: ## [gate] The scripts under .github/scripts: signal renderers and the merge path (needs Python 3.11+; PYTHON=python3.12 picks one)
+scripts: ## [gate] The scripts under .github/scripts and deploy/update: signal renderers, the merge path, the web app's update (needs Python 3.11+; PYTHON=python3.12 picks one)
 	@$(PYTHON_CHECK)
 	$(PYTHON) -m unittest discover --start-directory .github/scripts/tests --quiet
 

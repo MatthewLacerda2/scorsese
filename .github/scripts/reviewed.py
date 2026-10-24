@@ -69,6 +69,7 @@ TRIGGERS = (
         "deploy/capture/*", "deploy/nginx.conf", "deploy/compose*.yaml",
         "deploy/*.Dockerfile", "deploy/terraform/cloudflare/*",
         "deploy/terraform/google/*", "deploy/terraform/github/*",
+        "deploy/update", "deploy/updating/*",
     )),
     ("concurrency", "medium", (
         # The assistant's turn loop, not what it is told: its prompt and how it

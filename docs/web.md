@@ -539,23 +539,80 @@ nothing, because every merge goes through `make queue`, which rebases first.
 
 ### Updating
 
-From the checkout, on `main`:
+From anywhere in the checkout, on `main`:
 
-    git pull
-    cd deploy
-    docker compose exec backup backup          # a dump from just before
-    CARGO_BUILD_JOBS=4 docker compose up --detach --build
-    ./purge-landing                            # Cloudflare's copy of `/`
+    deploy/update                # --dry-run to see what it would do first
 
-The last step matters: Cloudflare keeps the landing page's HTML at its edge
+It runs the whole update and stops, saying why, at the first thing wrong. It
+first names the commit the stack runs, which is the way back, then:
+
+1. **Refuses** unless the checkout is on `main` with nothing uncommitted, and
+   `git pull --ff-only` succeeds.
+2. **Builds** (`docker compose build`) while the running stack keeps serving,
+   with `CARGO_BUILD_JOBS` from the shell or else half the cores, since users'
+   renders share them. A failed build stops here, before anything is stopped
+   or dumped. The new images are built under the commit's tag
+   (`scorsese-server:<commit>`, through `SCORSESE_IMAGE_TAG`), so `latest`,
+   which the running stack and every page capture start from, stays the old
+   build until the restart.
+3. **Refuses while work is running** — a job waiting or running, an assistant
+   turn running — and lists it; `--wait` waits for it to finish instead, for
+   two hours at most (`--wait-timeout`). This comes after the build, which
+   takes most of the time, so nothing started during it is cut off by the
+   restart.
+4. **Takes a dump** (`docker compose exec backup backup`) and names it, giving
+   up after 30 minutes. If the dump is written but the rest of the backup
+   fails, it says so and stops until the backup works. Work that started
+   during the backup is caught by a second look: it refuses, keeping the
+   dump, or under `--wait` waits again and takes a fresh one.
+5. **Restarts** on the new build: moves `latest` to each new image, drops the
+   commit's tag, then `docker compose up --detach`. A server that never turns
+   healthy fails here, with its last lines and the way back.
+6. **Waits for every service to be healthy**, ten minutes by default
+   (`--timeout`); past that it prints the server's last lines and stops.
+7. **Purges Cloudflare's copy of the landing page** (`./purge-landing`), or
+   says it skipped it when `CLOUDFLARE_API_TOKEN` or `SCORSESE_PUBLIC_ORIGIN`
+   is not set.
+8. **Checks** that `/` and `/api/health` answer 200 on the local address and
+   on `SCORSESE_PUBLIC_ORIGIN`.
+9. **Says what changed**: the commits, the SQL migrations applied, how many
+   stored projects and templates the server migrated, and the dump to restore.
+
+**What is running** is read off the running server's image, which carries the
+commit it was built from as its `org.opencontainers.image.revision` label
+(the script passes it to the build). The commit range, and the way back every
+failure names, start from it, never from the checkout, which a refused run
+may already have pulled ahead. An image built before the script existed, or
+by hand, has no label: the script then refuses until it is told the commit
+with `--from <commit>`. Every failure after the pull, an interruption
+(Ctrl-C, `SIGTERM`, `SIGHUP`) included, says where the checkout, the images
+and the running containers each are, and, once the stack has been restarted,
+the commit and the dump to go back to.
+
+**Known limits.** After a restart whose later step failed (health, the purge,
+the checks), the stack runs the new build, so the next run names *that* commit
+as the way back; the last good one is the one the failed run printed. The
+dump's 30 minutes bound the whole `backup` script, the off-machine copy and
+the library sync included, not only `pg_dump`.
+
+Step 7 matters: Cloudflare keeps the landing page's HTML at its edge
 (`deploy/terraform/cloudflare/cache.tf`), and that copy names the previous
 build's fingerprinted files, which the new `web` image no longer has. Until it
 is dropped, or expires within the hour, a first visit draws a blank page.
 
+The script runs no migrations: the server applies its SQL migrations and
+migrates every stored project and template before it answers its health
+check, so a healthy server is the proof they ran. Its steps live in
+`deploy/updating/`, tested without Docker by `make scripts`.
+
 Compose recreates only the containers whose image or settings changed. The new
 server runs its migrations before serving, and they only go forward, so **the
-way back from a bad update is the dump taken first**: check out the previous
-commit, rebuild, and restore that dump. BuildKit's cache for the Rust build
+way back from a bad update is the dump taken first**, which the script names
+once taken and in every failure after the restart: check out the commit it
+names too, `SCORSESE_REVISION=$(git rev-parse HEAD) docker compose up
+--detach --build` by hand (`deploy/update` deploys only `main`; the variable
+labels the image, so the next update knows what runs), and restore the dump
+(*Restoring*, below). BuildKit's cache for the Rust build
 grows over time; `docker buildx du` shows it.
 
 **If `SCORSESE_DATA` has moved** since the last `up`, Compose asks whether to
