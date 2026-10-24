@@ -8,10 +8,10 @@ passes on the head. CI's `regression` job asks this script, in two steps:
     python3 .github/scripts/regression.py plan   # does this pull request owe one?
     python3 .github/scripts/regression.py run    # lay its tests over the base, run them
 
-`plan` reads the description (`BODY`) for closing keywords, the way `make
-mergeable` does (`closing.referenced`), and asks GitHub over REST which of
-those issues are labelled `bug`. None, or an exception on a line of its own,
-and nothing is owed:
+`plan` reads the description (`PR_NUMBER`'s, over REST, so a re-run sees an
+edit) for closing keywords, the way `make mergeable` does
+(`closing.referenced`), and asks GitHub which of those issues are labelled
+`bug`. None, or an exception on a line of its own, and nothing is owed:
 
     No regression test on base: the bug was a real window's stutter.
 
@@ -22,17 +22,21 @@ the render layer's tests, and the targets those name. No target is a refusal.
 
 `run` makes a worktree of the base (`HEAD^1`: CI checks out GitHub's merge
 commit, whose first parent is the base's tip), copies every changed test file
-over it from the head (deleting the ones the head deleted), and runs each
-target. One target **failing** passes the check. A target that does not
-compile or import on the base does not count — a test calling the API the fix
-added would otherwise pass anything — and neither does one that passes.
+and every changed file under a `fixtures` directory over it from the head
+(deleting the ones the head deleted), and runs each target. One
+target **failing** passes the check. A target that does not compile or import
+on the base, or whose every failure is a name the base lacks (Python's
+`AttributeError`, `NameError`, `ImportError`; bun's `… is not a function`),
+does not count — a test calling the API the fix added would otherwise pass
+anything — and neither does one that passes. A target past `TIMEOUT` (or
+nextest's slow-timeout) has failed.
 
 A target is the smallest thing each runner runs by name: a Cargo integration
 test target, one Python test file, one `bun test` file. So an unchanged test in
 the same target failing on the base would count too; `main` is green, so one
 failing there is one the laid-over files broke.
 
-Pure but for [`run_target`], [`lay_over`], [`labelled`] and `main`.
+Pure but for [`run_target`], [`lay_over`], [`labelled`], [`write_output`] and `main`.
 """
 
 from __future__ import annotations
@@ -89,6 +93,13 @@ def is_test(path: str) -> bool:
         or (name.startswith("test_") and name.endswith(".py"))
         or path.startswith(GOLDEN[0])
     )
+
+
+def laid(path: str) -> bool:
+    """What is copied over the base: every test file, and every file under a
+    `fixtures` directory anywhere, which a test opens as data (a vendor's
+    reply, a golden's project) but which names no target."""
+    return is_test(path) or "fixtures" in PurePosixPath(path).parts[:-1]
 
 
 def target(path: str, exists: Callable[[str], bool]) -> Target | None:
@@ -165,15 +176,27 @@ HOW = (
     "Write the test that reproduces the bug first, in a test file (a `tests`"
     " directory, `*.test.ts`, `test_*.py`) — docs/testing.md — or say why none"
     " can on a line of the description: `No regression test on base: <why>`."
+    " A Playwright flow names no target: a web fix proved only by one adds a"
+    " `bun test` too, or takes the exception. After editing the description,"
+    " re-running this job is enough."
 )
 
 
 # One Python test file, run from the base worktree in a fresh interpreter so
-# nothing of the head's scripts is imported: exit 2 when it does not import (or
-# holds no test), 1 when a test fails, 0 when every one passes.
+# nothing of the head's scripts is imported. Exit 0 when every test passes, 1
+# when one fails, 2 when it does not import, holds no test, or fails only on a
+# name the base lacks (`MISSING`): a test reaching the fix's new API through a
+# module it loaded at run time fails that way, not at import.
 UNITTEST = """
 import sys, unittest
 from pathlib import Path
+MISSING = (AttributeError, NameError, ImportError)
+class Result(unittest.TextTestResult):
+    kinds = []
+    def addError(self, test, err):
+        self.kinds.append(err[0]); super().addError(test, err)
+    def addFailure(self, test, err):
+        self.kinds.append(err[0]); super().addFailure(test, err)
 file = Path(sys.argv[1]).resolve()
 top = file.parent
 while (top / "__init__.py").exists():
@@ -183,10 +206,38 @@ suite = loader.discover(str(file.parent), pattern=file.name, top_level_dir=str(t
 if loader.errors or not suite.countTestCases():
     print("\\n".join(loader.errors))
     sys.exit(2)
-sys.exit(0 if unittest.TextTestRunner(verbosity=1).run(suite).wasSuccessful() else 1)
+unittest.TextTestRunner(verbosity=2, resultclass=Result).run(suite)
+if not Result.kinds:
+    sys.exit(0)
+sys.exit(2 if all(issubclass(k, MISSING) for k in Result.kinds) else 1)
 """
 
 EXITS = {PASSED: 0, FAILED: 1, BROKEN: 2}
+# Each runner's per-target limit, nextest's own (`.config/nextest.toml`): a
+# hung test is a failing one.
+TIMEOUT = 180
+# A bun failure that is a name the base lacks, as `MISSING` is for Python.
+BUN_MISSING = re.compile(r"^(TypeError: (\S+ is not a function|undefined is not)|ReferenceError: \S+ is not defined)")
+BUN_ERROR = re.compile(r"^(?:\w*Error|error): .*$", re.M)
+
+
+def bun_outcome(code: int, out: str) -> str:
+    """A `bun test` run's outcome: failed when a `(fail)` test fails on
+    anything but a missing name, broken when none ran or each failed that way."""
+    if code == 0:
+        return PASSED
+    chunks = re.split(r"^\(fail\) .*$", out, flags=re.M)[:-1]
+    if not chunks:
+        return BROKEN
+    # Each failing test's error is the last one printed above its `(fail)`.
+    heads = [(BUN_ERROR.findall(chunk) or [""])[-1] for chunk in chunks]
+    return BROKEN if all(BUN_MISSING.match(head) for head in heads) else FAILED
+
+
+def nextest_outcome(code: int) -> str:
+    """A `cargo nextest run` of a built target: 100 is a test failing or
+    killed at its slow-timeout; anything else but 0 ran nothing it could judge."""
+    return {0: PASSED, 100: FAILED}.get(code, BROKEN)
 
 
 def run_target(t: Target, base: Path, env: dict) -> str:
@@ -194,48 +245,48 @@ def run_target(t: Target, base: Path, env: dict) -> str:
 
     Cargo builds into the head checkout's target directory, which CI's Rust
     cache warmed, so the base costs the workspace's own crates, not its
-    dependencies."""
+    dependencies. It runs under nextest, so the base's `.config/nextest.toml`
+    (the `offline` setup script, the per-test timeout) applies."""
     if t.runner == "cargo":
         head = Path(env.get("REGRESSION_HEAD", base))
         env = {**env, "CARGO_TARGET_DIR": str(head / workspace(t.where, base) / "target")}
 
-    def call(*argv: str, cwd: Path = base) -> subprocess.CompletedProcess:
+    def call(*argv: str, cwd: Path = base, limit: int | None = None) -> subprocess.CompletedProcess | None:
         print(f"$ {' '.join(argv)}", flush=True)
-        return subprocess.run(argv, cwd=cwd, env=env, text=True, stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT)
+        try:
+            done = subprocess.run(argv, cwd=cwd, env=env, text=True, stdout=subprocess.PIPE,
+                                  stderr=subprocess.STDOUT, timeout=limit)
+        except subprocess.TimeoutExpired:
+            print(f"timed out after {limit}s")
+            return None
+        print(done.stdout)
+        return done
 
     if t.runner == "cargo":
         manifest = ["--manifest-path", f"{t.where}/Cargo.toml", "--locked", "--test", t.name]
-        build = call("cargo", "test", *manifest, "--no-run")
-        print(build.stdout)
-        if build.returncode:
+        if call("cargo", "nextest", "run", *manifest, "--no-run").returncode:
             return BROKEN
-        ran = call("cargo", "test", *manifest)
-        print(ran.stdout)
-        return PASSED if ran.returncode == 0 else FAILED
+        return nextest_outcome(call("cargo", "nextest", "run", *manifest).returncode)
     if t.runner == "unittest":
-        ran = call(sys.executable, "-c", UNITTEST, t.name)
-        print(ran.stdout)
-        return {code: o for o, code in EXITS.items()}.get(ran.returncode, BROKEN)
+        ran = call(sys.executable, "-c", UNITTEST, t.name, limit=TIMEOUT)
+        return FAILED if ran is None else {code: o for o, code in EXITS.items()}.get(ran.returncode, BROKEN)
     if not (base / t.where / "node_modules").exists():
-        print(call("bun", "install", "--frozen-lockfile", cwd=base / t.where).stdout)
-    ran = call("bun", "test", f"./{t.name}", cwd=base / t.where)
-    print(ran.stdout)
-    if ran.returncode == 0:
-        return PASSED
-    return FAILED if re.search(r"^\(fail\) ", ran.stdout, re.MULTILINE) else BROKEN
+        call("bun", "install", "--frozen-lockfile", cwd=base / t.where)
+    ran = call("bun", "test", f"./{t.name}", cwd=base / t.where, limit=TIMEOUT)
+    return FAILED if ran is None else bun_outcome(ran.returncode, ran.stdout)
 
 
 def workspace(package: str, root: Path) -> str:
-    """The Cargo workspace a package builds in: the outermost directory above
-    it whose `Cargo.toml` declares one (`.`, `app`, `tools/lint`)."""
-    parts, found = PurePosixPath(package).parts, package
+    """The Cargo workspace a package builds in: the innermost directory at or
+    above it whose `Cargo.toml` declares one (`.`, `app`, `tools/lint`), each
+    with its own `target/`."""
+    parts = PurePosixPath(package).parts
     for cut in range(len(parts), -1, -1):
         where = "/".join(parts[:cut]) or "."
         manifest = root / where / "Cargo.toml"
         if manifest.is_file() and "[workspace]" in manifest.read_text(encoding="utf-8"):
-            found = where
-    return found
+            return where
+    return package
 
 
 def git(*argv: str, cwd: Path | None = None) -> str:
@@ -262,7 +313,7 @@ def lay_over(head: Path, worktree: Path, paths: list[str]) -> None:
 
 def on_base(head: Path, base: str, found: list[Target], env: dict) -> dict[Target, str]:
     """Each target's outcome on the base with the head's test files laid over."""
-    paths = [p for p in changed(head, base) if is_test(p)]
+    paths = [p for p in changed(head, base) if laid(p)]
     with tempfile.TemporaryDirectory(prefix="regression-") as scratch:
         worktree = Path(scratch) / "base"
         git("worktree", "add", "--quiet", "--detach", str(worktree), base, cwd=head)
@@ -283,15 +334,22 @@ def labelled(repo: str, token: str) -> Callable:
     return gh
 
 
+def description(gh: Callable, repo: str, number: str) -> str:
+    """The pull request's description as it stands now, not as the event that
+    started the run carried it: a re-run after an edit reads the edit."""
+    return gh("api", f"repos/{repo}/issues/{number}").get("body") or ""
+
+
 def main(argv: list[str]) -> int:
     step = argv[0] if argv else ""
     head, base = Path.cwd(), os.environ.get("BASE", "HEAD^1")
-    body = os.environ.get("BODY", "")
     if os.environ.get("GITHUB_EVENT_NAME") != "pull_request":
         print("not a pull request: nothing is owed.")
-        return write_output(False)
-    fixed = bugs(closing.closed_by(labelled(os.environ["REPO"], os.environ["GITHUB_TOKEN"]),
-                                   os.environ["REPO"], {"body": body}))
+        return write_output(False, [])
+    repo = os.environ["REPO"]
+    gh = labelled(repo, os.environ["GITHUB_TOKEN"])
+    body = description(gh, repo, os.environ["PR_NUMBER"])
+    fixed = bugs(closing.closed_by(gh, repo, {"body": body}))
     reason = excused(body)
     found = targets(changed(head, base), lambda p: (head / p).exists())
     if step == "plan":
@@ -301,9 +359,9 @@ def main(argv: list[str]) -> int:
             return 1
         if not fixed or reason:
             print(f"excused: {reason}" if fixed else "it closes no `bug` issue: nothing is owed.")
-            return write_output(False)
+            return write_output(False, [])
         print("closes", fixed, "; runs on the base:", *map(str, found), sep="\n  ")
-        return write_output(True)
+        return write_output(True, found)
     if step == "run":
         env = {**os.environ, "REGRESSION_HEAD": str(head)}
         refused = verdict(fixed, on_base(head, base, found, env))
@@ -313,10 +371,13 @@ def main(argv: list[str]) -> int:
     return 2
 
 
-def write_output(run: bool) -> int:
+def write_output(run: bool, found: list[Target]) -> int:
+    """`run`, whether the job goes on, and `app`, whether a target is the
+    desktop app's, whose libraries only then are installed."""
+    app = any(t.runner == "cargo" and workspace(t.where, Path.cwd()) == "app" for t in found)
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
-            out.write(f"run={'true' if run else 'false'}\n")
+            out.write(f"run={'true' if run else 'false'}\napp={'true' if app else 'false'}\n")
     return 0
 
 

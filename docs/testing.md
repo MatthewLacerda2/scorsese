@@ -55,18 +55,33 @@ module doc the detail.
 - **What it runs.** The test files the pull request changed, as the size gate
   classifies tests (`tools/lint/src/classify.rs`), plus the golden fixtures
   under `crates/golden/fixtures/`, are copied over a checkout of the base, and
-  each target they name runs there: a Cargo integration-test target, one Python
-  test file, one `bun test` file. A helper module or a fixture under `tests/`
-  is laid over too, but names no target alone.
-- **What passes.** One target failing on the base. A target that does not
-  build or import there does not count: a test calling the API the fix added
-  would otherwise pass any fix.
+  each target they name runs there: a Cargo integration-test target (under
+  nextest, with its per-test timeout), one Python test file, one `bun test`
+  file. A helper module, or any changed file under a `fixtures` directory, is
+  laid over too, but names no target alone.
+- **What passes.** One target failing on the base; a target past its time
+  limit has failed. A target that does not build or import there does not
+  count, and neither does one whose every failure is a name the base lacks
+  (Python's `AttributeError`, `NameError`, `ImportError`; bun's `… is not a
+  function`): a test calling the API the fix added would otherwise pass any
+  fix.
+- **A Playwright flow names no target.** A web fix proved only by one adds a
+  `bun test` too, or takes the exception.
 - **The exception.** A bug no test can see (taste, a real window, real
   speakers), or a test that cannot exist without the fix's new API, is written
   on a line of the description, with the reason:
 
       No regression test on base: the stutter shows only in a real window.
 
+  The job reads the description when it runs, so re-running it after adding
+  the line is enough.
+
 A target is the unit, not a single test: an unchanged test in the same target
 failing on the base also passes the check. `main` is green, so one failing
 there is one the laid-over files broke.
+
+**Known limit: a new API reached as data.** A test that calls a new CLI
+subcommand, MCP tool or HTTP route by its name gets the base's own refusal
+(an unknown command, a 404), which reads as a failure, not as a missing name.
+Such a test passes the check whether or not it sees the bug, so it is the
+reviewer's to read.

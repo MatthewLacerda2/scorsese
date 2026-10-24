@@ -42,17 +42,20 @@ def git(root: Path, *argv: str) -> None:
                    check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def repo(case: unittest.TestCase, test: str) -> Path:
-    """A repository whose `HEAD^1` is the bug and whose `HEAD` fixes it with `test`."""
+def repo(case: unittest.TestCase, test: str, base: dict | None = None, head: dict | None = None) -> Path:
+    """A repository whose `HEAD^1` is the bug and whose `HEAD` fixes it with
+    `test`, each end with any other files given as `{path: text}`."""
     root = Path(tempfile.mkdtemp(prefix="regression-test-"))
     case.addCleanup(shutil.rmtree, root, True)
     git(root, "init", "-q")
-    (root / "calc.py").write_text(BUGGY)
+    for path, text in {"calc.py": BUGGY, **(base or {})}.items():
+        (root / path).parent.mkdir(parents=True, exist_ok=True)
+        (root / path).write_text(text)
     git(root, "add", ".")
     git(root, "commit", "-qm", "base")
-    (root / "calc.py").write_text(FIXED)
-    (root / "tests").mkdir()
-    (root / TEST).write_text(test)
+    for path, text in {"calc.py": FIXED, TEST: test, **(head or {})}.items():
+        (root / path).parent.mkdir(parents=True, exist_ok=True)
+        (root / path).write_text(text)
     git(root, "add", ".")
     git(root, "commit", "-qm", "fix")
     return root
@@ -63,14 +66,17 @@ def quietly(call, *args):
         return call(*args)
 
 
-class OnBase(unittest.TestCase):
-    TARGET = Target("unittest", "", TEST)
+def outcome(case: unittest.TestCase, test: str, base: dict | None = None, head: dict | None = None) -> str:
+    """`test`'s outcome on the base, laid over it with the head's other files."""
+    root, target = repo(case, test, base, head), Target("unittest", "", TEST)
+    found = regression.targets(regression.changed(root, "HEAD^1"), lambda p: (root / p).exists())
+    case.assertEqual(found, [target])
+    return quietly(regression.on_base, root, "HEAD^1", found, dict(os.environ))[target]
 
+
+class OnBase(unittest.TestCase):
     def outcome(self, test: str) -> str:
-        root = repo(self, test)
-        found = regression.targets(regression.changed(root, "HEAD^1"), lambda p: (root / p).exists())
-        self.assertEqual(found, [self.TARGET])
-        return quietly(regression.on_base, root, "HEAD^1", found, dict(os.environ))[self.TARGET]
+        return outcome(self, test)
 
     def test_a_test_that_catches_the_bug_fails_on_the_base(self) -> None:
         self.assertEqual(self.outcome(CATCHES), FAILED)
@@ -84,18 +90,19 @@ class OnBase(unittest.TestCase):
 
 class Main(unittest.TestCase):
     def main(self, root: Path, step: str, body: str, labels: tuple[str, ...]) -> tuple[int, str]:
-        env = {"GITHUB_EVENT_NAME": "pull_request", "BODY": body, "REPO": "o/r",
+        env = {"GITHUB_EVENT_NAME": "pull_request", "PR_NUMBER": "9", "REPO": "o/r",
                "GITHUB_TOKEN": "x", "BASE": "HEAD^1", "GITHUB_OUTPUT": str(root / "out")}
-        answer = {7: {"state": "open", "labels": [{"name": n} for n in labels]}}
+        issues = {"repos/o/r/issues/9": {"body": body, "pull_request": {}},
+                  "repos/o/r/issues/7": {"state": "open", "labels": [{"name": n} for n in labels]}}
         with mock.patch.dict(os.environ, env), mock.patch.object(Path, "cwd", return_value=root), \
-                mock.patch.object(regression.closing, "closed_by", return_value=answer):
+                mock.patch.object(regression, "labelled", return_value=lambda _api, path: issues[path]):
             status = quietly(regression.main, [step])
         out = root / "out"
         return status, out.read_text() if out.exists() else ""
 
     def test_a_bug_fix_whose_test_fails_on_the_base_passes(self) -> None:
         root = repo(self, CATCHES)
-        self.assertEqual(self.main(root, "plan", "Closes #7", ("bug",)), (0, "run=true\n"))
+        self.assertEqual(self.main(root, "plan", "Closes #7", ("bug",)), (0, "run=true\napp=false\n"))
         self.assertEqual(self.main(root, "run", "Closes #7", ("bug",))[0], 0)
 
     def test_a_bug_fix_whose_test_passes_on_the_base_is_refused(self) -> None:
@@ -103,10 +110,10 @@ class Main(unittest.TestCase):
 
     def test_the_written_exception_owes_nothing(self) -> None:
         body = "Closes #7\nNo regression test on base: only real speakers show the click.\n"
-        self.assertEqual(self.main(repo(self, MISSES), "plan", body, ("bug",)), (0, "run=false\n"))
+        self.assertEqual(self.main(repo(self, MISSES), "plan", body, ("bug",)), (0, "run=false\napp=false\n"))
 
     def test_a_fix_that_is_not_a_bug_owes_nothing(self) -> None:
-        self.assertEqual(self.main(repo(self, MISSES), "plan", "Closes #7", ("feature",)), (0, "run=false\n"))
+        self.assertEqual(self.main(repo(self, MISSES), "plan", "Closes #7", ("feature",)), (0, "run=false\napp=false\n"))
 
     def test_a_bug_fix_changing_no_test_is_refused_at_plan(self) -> None:
         root = repo(self, CATCHES)
