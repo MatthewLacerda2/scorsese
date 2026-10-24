@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
-"""Every CI job that installs packages takes them from its cached archives (#1515).
+"""Every workflow job that installs packages takes them from cached archives (#1515, #1517).
 
 The runner's Ubuntu mirror once served at 78 kB/s and cut a green job at its
-time limit. `tools/ci-apt` points apt at an archive directory the job caches,
-and this holds each job of `ci.yml` that installs anything to that path: the
-archives set up and restored before the first install, a time limit on every
-install, and a save from `main` only after the last one, and only when every
-install succeeded: a partial set saved under the key would be an exact hit for
-every later run, which then saves nothing until the image moves. An install
-step added above the restore, or a job that installs with no cache, fails here.
+time limit. `tools/ci-apt` points apt at an archive directory a job caches,
+and this holds each job of every workflow that installs anything to that path:
+the archives set up and restored before the first install, and a time limit on
+every install. A job of `ci.yml` owns its archives and also saves them from
+`main`, only after the last install and only when every install succeeded: a
+partial set saved under the key would be an exact hit for every later run,
+which then saves nothing until the image moves. A job of any other workflow
+installs a subset of `check`'s packages, so it restores `check`'s archives and
+never saves: a save would spend the cache space the Rust caches need. An
+install step added above the restore, or a job that installs with no cache,
+fails here.
 """
 
 from __future__ import annotations
@@ -16,10 +20,14 @@ from __future__ import annotations
 import re
 import unittest
 
-from test_ci_ok import ROOT, WORKFLOW, jobs
+from test_ci_ok import ROOT, jobs
+
+WORKFLOWS = ROOT / ".github" / "workflows"
 
 ARCHIVES = "path: ~/.cache/apt/*.deb"
 KEY = "key: apt-${{ github.job }}-${{ steps.apt.outputs.image }}-"
+CHECK_KEY = "key: apt-check-${{ steps.apt.outputs.image }}-${{ hashFiles('tools/ci-apt', 'tools/ci-postgres') }}"
+CHECK_FALLBACK = "restore-keys: |\n            apt-check-${{ steps.apt.outputs.image }}-\n"
 MAIN_ONLY = "!cancelled() && github.ref == 'refs/heads/main' && steps.apt-cache.outputs.cache-hit != 'true'"
 SAVE_KEY = "key: ${{ steps.apt-cache.outputs.cache-primary-key }}"
 INSTALLS = re.compile(r"\bapt(-get)?\s+(-\S+\s+)*install\b|tools/ci-postgres$|--with-deps|install-deps", re.M)
@@ -50,8 +58,11 @@ def ident(step: str) -> str | None:
     return match.group(1) if match else None
 
 
-def problems(block: str) -> list[str]:
-    """What a job's steps get wrong about the cached path; nothing if it installs nothing."""
+def problems(block: str, saves: bool = True) -> list[str]:
+    """What a job's steps get wrong about the cached path; nothing if it installs nothing.
+
+    `saves` is whether the job owns its archives (`ci.yml`) or only reads `check`'s.
+    """
     every = steps(block)
     at = [i for i, step in enumerate(every) if installs(step)]
     if not at:
@@ -63,19 +74,27 @@ def problems(block: str) -> list[str]:
 
     found = []
     setup = index(lambda s: "run: tools/ci-apt ~/.cache/apt" in s and "id: apt\n" in s)
-    restore = index(lambda s: "actions/cache/restore@" in s and ARCHIVES in s and KEY in s and "id: apt-cache\n" in s)
-    save = index(lambda s: "actions/cache/save@" in s and ARCHIVES in s and MAIN_ONLY in s and SAVE_KEY in s)
+    if saves:
+        restore = index(lambda s: "actions/cache/restore@" in s and ARCHIVES in s and KEY in s and "id: apt-cache\n" in s)
+        save = index(lambda s: "actions/cache/save@" in s and ARCHIVES in s and MAIN_ONLY in s and SAVE_KEY in s)
+    else:
+        restore = index(
+            lambda s: "actions/cache/restore@" in s and ARCHIVES in s and f"{CHECK_KEY}\n" in s and CHECK_FALLBACK.rstrip() in s
+        )
+        save = None
     if setup is None or setup > first:
         found.append("`tools/ci-apt` does not run before the first install")
     if restore is None or restore > first or (setup is not None and restore < setup):
         found.append("the archives are not restored between `tools/ci-apt` and the first install")
-    if save is None or save < last:
+    if saves and (save is None or save < last):
         found.append("the archives are not saved from `main` after the last install")
+    if not saves and any("actions/cache/save@" in s and ARCHIVES in s for s in every):
+        found.append("the archives are saved outside `ci.yml`; restore `check`'s read-only")
     for i in at:
         name = every[i].splitlines()[0].strip()
         if "timeout-minutes:" not in every[i]:
             found.append(f"no time limit on: {name}")
-        if save is not None and f"steps.{ident(every[i])}.outcome == 'success'" not in every[save]:
+        if saves and save is not None and f"steps.{ident(every[i])}.outcome == 'success'" not in every[save]:
             found.append(f"the save does not wait on: {name}")
     return found
 
@@ -145,13 +164,23 @@ class Shape(unittest.TestCase):
 
 class Workflow(unittest.TestCase):
     def test_every_job_that_installs_is_cached(self):
-        found = jobs(WORKFLOW)
-        cached = [name for name, block in found.items() if steps(block) and any(map(installs, steps(block)))]
-        self.assertIn("check", cached)
-        self.assertIn("app", cached)
-        for name in cached:
-            with self.subTest(job=name):
-                self.assertEqual(problems(found[name]), [])
+        cached = []
+        for path in sorted([*WORKFLOWS.glob("*.yml"), *WORKFLOWS.glob("*.yaml")]):
+            text = path.read_text(encoding="utf-8")
+            if "\njobs:\n" not in text:
+                continue
+            for name, block in jobs(text).items():
+                if not any(map(installs, steps(block))):
+                    continue
+                cached.append(f"{path.stem}/{name}")
+                with self.subTest(job=f"{path.name}: {name}"):
+                    self.assertEqual(problems(block, saves=path.name == "ci.yml"), [])
+        for name in ("ci/check", "ci/app", "coverage/coverage", "mutants-on-request/shard", "mutation-sweep/shard"):
+            self.assertIn(name, cached)
+
+    def test_the_read_only_key_is_the_one_check_saves_under(self):
+        check = jobs((WORKFLOWS / "ci.yml").read_text(encoding="utf-8"))["check"]
+        self.assertIn(CHECK_KEY.replace("apt-check-", "apt-${{ github.job }}-") + "\n", check)
 
     def test_the_script_points_apt_at_the_archives_and_retries(self):
         script = (ROOT / "tools" / "ci-apt").read_text(encoding="utf-8")
