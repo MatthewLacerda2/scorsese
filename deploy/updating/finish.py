@@ -20,8 +20,10 @@ class Finish:
 
     def purge(self) -> None:
         self.step(7, "drop Cloudflare's copy of the landing page")
-        if not self.env.get("CLOUDFLARE_API_TOKEN"):
-            self.say("no CLOUDFLARE_API_TOKEN in the settings, so no Cloudflare cache to purge")
+        missing = [name for name in ("CLOUDFLARE_API_TOKEN", "SCORSESE_PUBLIC_ORIGIN")
+                   if not self.env.get(name)]
+        if missing:
+            self.say(f"no {' or '.join(missing)} in the settings, so no Cloudflare cache to purge")
             return
         script = str(self.deploy / "purge-landing")
         if self.opts.dry_run:

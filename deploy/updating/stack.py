@@ -34,6 +34,13 @@ APPLIED_MIGRATIONS = (
 # The label the server image carries its commit in (deploy/server.Dockerfile).
 REVISION = "org.opencontainers.image.revision"
 
+# The images the stack builds, each tagged `${TAG:-latest}` in compose.yaml. The
+# build writes them under the new commit's tag, and the restart moves `latest`
+# to them, so until then whatever starts one by name (page captures start
+# `scorsese-server`) gets the build the stack runs.
+BUILT = ("scorsese-server", "scorsese-capture-launcher", "scorsese-web", "scorsese-backup")
+TAG = "SCORSESE_IMAGE_TAG"
+
 Compose = Callable[[Sequence[str]], Result]
 
 
@@ -102,12 +109,14 @@ def declared(entries: Sequence[dict], names: Sequence[str]) -> List[dict]:
     return [entry for entry in entries if entry.get("Service") in names]
 
 
-def not_ready(entries: Sequence[dict]) -> List[str]:
+def not_ready(entries: Sequence[dict], names: Sequence[str] = ()) -> List[str]:
     """Each service not yet up, with what it is instead: `server (starting)`.
 
     Up is running and, where it has a healthcheck, healthy; a tunnel has none.
+    A service in `names` with no container at all is `(no container)`.
     """
-    waiting = []
+    waiting = [f"{name} (no container)" for name in names
+               if not any(entry.get("Service") == name for entry in entries)]
     for entry in entries:
         name = entry.get("Service") or entry.get("Name") or "?"
         state = (entry.get("State") or "").lower()

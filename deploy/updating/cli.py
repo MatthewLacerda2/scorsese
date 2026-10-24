@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import signal
 import sys
 import traceback
 from pathlib import Path
@@ -22,34 +23,9 @@ from typing import List, Optional, Sequence
 from . import stack
 from .finish import Finish
 from .host import Host, Refusal, Result, read_env
+from .options import parse
 
 DEPLOY = Path(__file__).resolve().parent.parent
-
-
-def parse(argv: Sequence[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        prog="deploy/update",
-        description="Update the web app from main: pull, build, dump, restart, wait for health, "
-        "purge Cloudflare's landing page, check, and say what changed (docs/web.md, Updating).",
-    )
-    parser.add_argument("--dry-run", action="store_true",
-                        help="check everything and print the steps, changing nothing: "
-                        "fetches instead of pulling, and builds, dumps and purges nothing")
-    parser.add_argument("--wait", action="store_true",
-                        help="while jobs or assistant turns are running, wait for them to "
-                        "finish instead of refusing")
-    parser.add_argument("--wait-timeout", type=int, default=7200, metavar="SECONDS",
-                        help="under --wait, how long to wait for running work before "
-                        "giving up (default 7200, two hours)")
-    parser.add_argument("--timeout", type=int, default=600, metavar="SECONDS",
-                        help="how long the services have to become healthy after the "
-                        "restart (default 600)")
-    parser.add_argument("--from", dest="running", metavar="COMMIT",
-                        help="the commit the stack runs, when its server image does not "
-                        "say (one built before deploy/update labelled its images)")
-    parser.add_argument("--env-file", type=Path, metavar="PATH",
-                        help="the stack's settings (default: DEPLOY_ENV, else deploy/.env)")
-    return parser.parse_args(list(argv))
 
 
 class Update(Finish):
@@ -64,7 +40,7 @@ class Update(Finish):
         self.root = deploy.parent
         self.env_file = (opts.env_file or Path(host.env("DEPLOY_ENV") or deploy / ".env")).resolve()
         self.before = self.after = self.dump_path = ""
-        # How far the run got: "pulled", "building", "built", "restarted".
+        # How far the run got: "pulled", "building", "built", "retagging", "restarted".
         self.stage = ""
 
     def say(self, line: str = "") -> None:
@@ -100,6 +76,8 @@ class Update(Finish):
             self.summary(applied, started)
         except Refusal as refusal:
             raise Refusal(f"{refusal}\n{self.where()}") from None
+        except KeyboardInterrupt:
+            raise Refusal(f"interrupted\n{self.where()}") from None
         except Exception:
             traceback.print_exc()
             raise Refusal(f"something unexpected went wrong (the traceback is above)\n"
@@ -116,9 +94,11 @@ class Update(Finish):
                     f"rebuild, and restore {self.dump_path} (docs/web.md, Restoring)")
         images = {
             "pulled": "the images are as they were",
-            "building": "some images may already be rebuilt from it",
-            "built": "the images are rebuilt from it (page captures already run the new "
-                     "server image)",
+            "building": f"some images may already be built from it as `:{self.tag()}`, "
+                        "with `latest` left as it was",
+            "built": f"its images are built as `:{self.tag()}`, with `latest` left as it was",
+            "retagging": "its images are built and some may already be `latest` (page "
+                         "captures may run the new server image)",
         }[self.stage]
         return (f"the checkout is at {after} and {images}, while the running containers "
                 f"are still {before}'s{dump}")
@@ -198,9 +178,14 @@ class Update(Finish):
         """`CARGO_BUILD_JOBS` from the shell, else half the cores: users' renders share them."""
         return self.host.env("CARGO_BUILD_JOBS") or str(max(1, self.host.cores() // 2))
 
+    def tag(self) -> str:
+        """The tag the new images are built under until the restart: the commit's."""
+        return self.after[:12]
+
     def build(self) -> None:
         self.step(2, "build, while the running stack keeps serving")
-        env = {"CARGO_BUILD_JOBS": self.build_jobs(), "SCORSESE_REVISION": self.after}
+        env = {"CARGO_BUILD_JOBS": self.build_jobs(), "SCORSESE_REVISION": self.after,
+               stack.TAG: self.tag()}
         args = self.compose_args(["build"])
         if self.opts.dry_run:
             self.say("would run: " + " ".join(f"{k}={v}" for k, v in env.items()) + " "
@@ -210,8 +195,8 @@ class Update(Finish):
         if self.host.stream(args, cwd=self.deploy, env=env) != 0:
             raise Refusal("the build failed (above), before anything was stopped or dumped")
         self.stage = "built"
-        self.say("built: the running containers are still the old ones, but page captures "
-                 "started from now on run the new server image")
+        self.say(f"built as `:{self.tag()}`; the running stack and its `latest` images are "
+                 "untouched until the restart")
 
     def drain_and_dump(self) -> dict:
         """Wait out running work and take the dump, again if work started during it."""
@@ -289,14 +274,27 @@ class Update(Finish):
         args = self.compose_args(["up", "--detach"])
         started = datetime.datetime.fromtimestamp(self.host.now(), datetime.timezone.utc)
         if self.opts.dry_run:
-            self.say("would run: " + " ".join(args))
+            self.say(f"would move `latest` to each `:{self.tag()}` image, then run: "
+                     + " ".join(args))
         else:
+            self.retag()
             self.stage = "restarted"
             if self.host.stream(args, cwd=self.deploy) != 0:
                 self.server_logs()
                 raise Refusal("starting the new build failed; Compose's output and the "
                               "server's last lines are above")
         return started.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def retag(self) -> None:
+        """Move `latest` to the new images, and drop the commit's tag beside it."""
+        self.stage = "retagging"
+        for image in stack.BUILT:
+            new = f"{image}:{self.tag()}"
+            for args in (["docker", "tag", new, f"{image}:latest"], ["docker", "image", "rm", new]):
+                done = self.host.run(args)
+                if not done.ok:
+                    raise Refusal(f"`{' '.join(args)}` failed, so the stack was not restarted:\n"
+                                  + (done.err or done.out).strip())
 
     def server_logs(self) -> None:
         self.say(self.compose(["logs", "server", "--tail", "50", "--no-color"]).out)
@@ -309,8 +307,9 @@ class Update(Finish):
             raise Refusal(f"`docker compose config --services` failed:\n{names.err.strip()}")
         while True:
             ps = self.compose(["ps", "--all", "--format", "json"])
-            entries = stack.declared(stack.services(ps.out), names.out.split()) if ps.ok else []
-            waiting = stack.not_ready(entries) if entries else ["no service is up"]
+            declared = names.out.split()
+            entries = stack.declared(stack.services(ps.out), declared) if ps.ok else []
+            waiting = stack.not_ready(entries, declared) if entries else ["no service is up"]
             if not waiting:
                 self.say("healthy: " + ", ".join(sorted(e.get("Service", "?") for e in entries)))
                 return
@@ -324,11 +323,25 @@ class Update(Finish):
             self.host.sleep(self.HEALTH_POLL)
 
 
+def interrupt(signum: int, frame: object) -> None:
+    """SIGTERM and SIGHUP stop a run the way Ctrl-C does, so it still says where things stand."""
+    raise KeyboardInterrupt
+
+
 def main(argv: Sequence[str], host: Optional[Host] = None, deploy: Path = DEPLOY) -> int:
     opts = parse(argv)
+    caught = (signal.SIGTERM, signal.SIGHUP)
+    previous = [signal.signal(signum, interrupt) for signum in caught]
     try:
         Update(opts, host or Host(), deploy).run()
     except Refusal as refusal:
         print(f"\nupdate: {refusal}", file=sys.stderr)
         return 1
+    except KeyboardInterrupt:
+        print("\nupdate: interrupted before the build, so the images and the running stack "
+              "are as they were (the checkout may already be pulled)", file=sys.stderr)
+        return 1
+    finally:
+        for signum, handler in zip(caught, previous):
+            signal.signal(signum, handler)
     return 0

@@ -83,7 +83,11 @@ services:
         - CARGO_BUILD_JOBS
         # The commit, as the image's revision label; `deploy/update` sets it.
         - SCORSESE_REVISION
-    image: scorsese-server
+    # Every image built here is `latest` unless SCORSESE_IMAGE_TAG says
+    # otherwise: `deploy/update` builds under the commit's tag and moves
+    # `latest` only at the restart, because page captures start
+    # `scorsese-server` by name (crates/server/src/captures/launch).
+    image: scorsese-server:${SCORSESE_IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -166,7 +170,7 @@ services:
       target: launcher
       args:
         - CARGO_BUILD_JOBS
-    image: scorsese-capture-launcher
+    image: scorsese-capture-launcher:${SCORSESE_IMAGE_TAG:-latest}
     # Healthy, because the server makes the spool before it answers, and the
     # spool is mounted when this starts (`capture-spool` at the bottom); and
     # the server's build makes the image every capture runs, which the
@@ -232,7 +236,7 @@ services:
     build:
       context: ..
       dockerfile: deploy/web.Dockerfile
-    image: scorsese-web
+    image: scorsese-web:${SCORSESE_IMAGE_TAG:-latest}
     restart: unless-stopped
     # Ordering only. nginx re-resolves `server` as it goes (nginx.conf), so the
     # static site comes up and stays up while the server restarts; `/api`
@@ -280,7 +284,7 @@ services:
   backup:
     build:
       context: backup
-    image: scorsese-backup
+    image: scorsese-backup:${SCORSESE_IMAGE_TAG:-latest}
     restart: unless-stopped
     # PID 1 that forwards SIGTERM, so `docker compose stop` does not wait out
     # the backup loop's sleep.

@@ -28,7 +28,7 @@ class Order(unittest.TestCase):
         code, _, err = update(host)
         self.assertEqual(code, 1)
         self.assertIn("the build failed", err)
-        self.assertIn("checkout is at aaaa and some images may already be rebuilt", err)
+        self.assertIn("checkout is at aaaa and some images may already be built from it as `:aaaa`", err)
         self.assertNotIn("untouched", err)
         self.assertNotIn("nothing was changed", err)
         self.assertFalse([c for c in host.ran if "chat_turns" in c or "backup" in c or " up " in c])
@@ -40,7 +40,7 @@ class Before(unittest.TestCase):
         code, out, err = update(host)
         self.assertEqual(code, 1)
         self.assertIn("the stack runs dddd: if this update goes wrong", out)
-        self.assertIn("checkout is at aaaa and the images are rebuilt from it", err)
+        self.assertIn("checkout is at aaaa and its images are built as `:aaaa`", err)
         self.assertIn("running containers are still dddd's", err)
         self.assertIn("SCORSESE_REVISION=aaaa", " ".join(f"{k}={v}" for k, v in host.envs[0].items()))
 

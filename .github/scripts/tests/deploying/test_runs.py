@@ -17,7 +17,7 @@ class DryRun(unittest.TestCase):
         for n in range(1, 10):
             self.assertIn(f"\n== {n}. ", out)
         self.assertIn("bbbb A fix", out)
-        self.assertIn("would run: CARGO_BUILD_JOBS=4 SCORSESE_REVISION=bbbb docker compose", out)
+        self.assertIn("would run: CARGO_BUILD_JOBS=4 SCORSESE_REVISION=bbbb SCORSESE_IMAGE_TAG=bbbb docker compose", out)
         self.assertIn("the stack runs dddd", out)
         self.assertIn("SQL migrations it would apply: 43 new thing", out)
         self.assertIn("200  http://127.0.0.1:8088/api/health", out)

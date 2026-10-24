@@ -5,7 +5,7 @@
   run are proven without Docker (`.github/scripts/tests/deploying/`).
 - `stack` asks the running stack questions and reads its answers: what work is
   running, which services are healthy, which migrations are applied.
-- `cli` is the steps in order, and the flags; `finish` the last three of them.
+- `cli` is the steps in order; `finish` the last three of them; `options` the flags.
 
 Python 3.9 or later, stdlib only: it runs on the machine that hosts the web
 app, not in a gate's container.

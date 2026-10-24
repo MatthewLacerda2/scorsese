@@ -551,9 +551,10 @@ first names the commit the stack runs, which is the way back, then:
 2. **Builds** (`docker compose build`) while the running stack keeps serving,
    with `CARGO_BUILD_JOBS` from the shell or else half the cores, since users'
    renders share them. A failed build stops here, before anything is stopped
-   or dumped. The build retags the images, so from here on page captures,
-   which start the server image by its tag, already run the new build while
-   the running containers are still the old ones.
+   or dumped. The new images are built under the commit's tag
+   (`scorsese-server:<commit>`, through `SCORSESE_IMAGE_TAG`), so `latest`,
+   which the running stack and every page capture start from, stays the old
+   build until the restart.
 3. **Refuses while work is running** — a job waiting or running, an assistant
    turn running — and lists it; `--wait` waits for it to finish instead, for
    two hours at most (`--wait-timeout`). This comes after the build, which
@@ -564,11 +565,14 @@ first names the commit the stack runs, which is the way back, then:
    fails, it says so and stops until the backup works. Work that started
    during the backup is caught by a second look: it refuses, keeping the
    dump, or under `--wait` waits again and takes a fresh one.
-5. **Restarts** on the new build (`docker compose up --detach`); a server that
-   never turns healthy fails here, with its last lines and the way back.
+5. **Restarts** on the new build: moves `latest` to each new image, drops the
+   commit's tag, then `docker compose up --detach`. A server that never turns
+   healthy fails here, with its last lines and the way back.
 6. **Waits for every service to be healthy**, ten minutes by default
    (`--timeout`); past that it prints the server's last lines and stops.
-7. **Purges Cloudflare's copy of the landing page** (`./purge-landing`).
+7. **Purges Cloudflare's copy of the landing page** (`./purge-landing`), or
+   says it skipped it when `CLOUDFLARE_API_TOKEN` or `SCORSESE_PUBLIC_ORIGIN`
+   is not set.
 8. **Checks** that `/` and `/api/health` answer 200 on the local address and
    on `SCORSESE_PUBLIC_ORIGIN`.
 9. **Says what changed**: the commits, the SQL migrations applied, how many
@@ -580,9 +584,16 @@ commit it was built from as its `org.opencontainers.image.revision` label
 failure names, start from it, never from the checkout, which a refused run
 may already have pulled ahead. An image built before the script existed, or
 by hand, has no label: the script then refuses until it is told the commit
-with `--from <commit>`. Every failure after the pull says where the checkout,
-the images and the running containers each are, and, once the stack has been
-restarted, the commit and the dump to go back to.
+with `--from <commit>`. Every failure after the pull, an interruption
+(Ctrl-C, `SIGTERM`, `SIGHUP`) included, says where the checkout, the images
+and the running containers each are, and, once the stack has been restarted,
+the commit and the dump to go back to.
+
+**Known limits.** After a restart whose later step failed (health, the purge,
+the checks), the stack runs the new build, so the next run names *that* commit
+as the way back; the last good one is the one the failed run printed. The
+dump's 30 minutes bound the whole `backup` script, the off-machine copy and
+the library sync included, not only `pg_dump`.
 
 Step 7 matters: Cloudflare keeps the landing page's HTML at its edge
 (`deploy/terraform/cloudflare/cache.tf`), and that copy names the previous
