@@ -221,9 +221,11 @@ the Actions one, which only ever proposes majors: read it, and label it if fine.
 
 Point it at `CLAUDE.md`, then the issue. Name the base commit and what landed
 that it must respect, and the siblings with the files they edit. Tell it to
-invoke `ci-merge`, check the issue's blockers itself, never merge, take a heavy
-build only when a slot is free and with half the cores, and put its issue
-number in every scratch filename (the scratchpad is shared). A cloud coder gets
+invoke `ci-merge`, write each test first and watch it fail (a bug's first
+commit reproduces it, `docs/testing.md`), check the issue's blockers itself,
+never merge, take a heavy build only when a slot is free and with half the
+cores, and put its issue number in every scratch filename (the scratchpad is
+shared). A cloud coder gets
 all of this from `cloud-brief.md`.
 
 ## Model

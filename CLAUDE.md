@@ -83,6 +83,7 @@ offline, with no opt-out.
 - **docs/prompts.md**: what providers do with words; before writing a prompt.
 - **docs/prices.md**: the rate tables; before quoting a cost.
 - **docs/golden-renders.md**: the pixel gate; before changing a render.
+- **docs/testing.md**: which test for which layer; before writing one.
 - **docs/output-formats.md**: the containers and codecs a render delivers.
 - **docs/credentials.md**: provider keys and the spending ceiling.
 - **docs/mcp.md**: the MCP tools and pointing a client at them.

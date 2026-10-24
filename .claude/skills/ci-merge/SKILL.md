@@ -40,6 +40,10 @@ The web, web-e2e and app gates are the only conditional ones: each reports
 checks — `web/` for web, `web/` or `crates/` bar `crates/golden` for web-e2e,
 `app/` for app. Skipped is the honest answer; never read it as green.
 
+**Every test was written first and seen failing** (`docs/testing.md`): a test
+that never failed has not been shown to test anything. A bug's first commit is
+its reproducing test.
+
 **A gate this machine cannot run is named, not claimed.** `test` needs docker
 (or `SCORSESE_TEST_DATABASE_URL`) for the server's Postgres, `deploy` needs
 docker, `app` needs the ALSA headers. Run the rest, and say in the pull request
