@@ -3,8 +3,8 @@
 // what the server says (a refusal, a duplicate's sentence) stay as they come.
 
 export const files = {
-  kinds: { video: "Video", image: "Image", audio: "Audio", html: "Page" },
-  viewer: { loading: "Loading…", failed: "The page could not be read." },
+  kinds: { video: "Video", image: "Image", audio: "Audio", html: "Page", text: "Document" },
+  viewer: { loading: "Loading…", failed: "The file could not be read." },
   sorts: {
     newest: "Newest first",
     oldest: "Oldest first",
@@ -20,7 +20,7 @@ export const files = {
     upload: "Upload",
     noMatch: "No files match.",
     emptyLibrary:
-      "Your library is empty. Upload videos, pictures and sounds — or drop them here — to use in any project.",
+      "Your library is empty. Upload videos, pictures and sounds — or drop them here — to use in any project, and scripts or notes as .txt or .md for the assistant to read.",
     emptyProject: "This project uses no files from your library yet.",
     add: (name: string) => `Add ${name}`,
   },

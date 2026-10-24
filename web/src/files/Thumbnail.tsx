@@ -2,7 +2,13 @@
 // arrives and answers 404 until then, so a missing one shows the kind's icon
 // and is asked for again a little later.
 
-import { FileAudioIcon, FileCodeIcon, FileImageIcon, FileVideoIcon } from "lucide-react";
+import {
+  FileAudioIcon,
+  FileCodeIcon,
+  FileImageIcon,
+  FileTextIcon,
+  FileVideoIcon,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import type { FileKind } from "@/api";
 
@@ -11,6 +17,7 @@ const KIND_ICON = {
   image: FileImageIcon,
   audio: FileAudioIcon,
   html: FileCodeIcon,
+  text: FileTextIcon,
 };
 
 /** How often, and how many times, a thumbnail still being drawn is re-asked. */
@@ -18,7 +25,7 @@ const RETRY_MS = 4000;
 const RETRIES = 8;
 
 /** Kinds the server never draws a picture of: it answers `404 {"pending": false}` at once. */
-const NO_PICTURE: readonly FileKind[] = ["html"];
+const NO_PICTURE: readonly FileKind[] = ["html", "text"];
 
 export function Thumbnail({ src, kind }: { src: string; kind: FileKind }) {
   const [attempt, setAttempt] = useState(0);

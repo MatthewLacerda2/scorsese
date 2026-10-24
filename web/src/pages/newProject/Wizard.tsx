@@ -20,7 +20,8 @@ import { bodyOf, type Draft, EMPTY, onPlatform, STEPS, toggled } from "./draft";
 
 /** The steps — mounted only while the modal is open, so a new one starts blank. */
 export function Wizard({ initial = EMPTY }: { initial?: Draft }) {
-  const t = useT().start;
+  const words = useT();
+  const t = words.start;
   const navigate = useNavigate();
   const menu = useStyleMenu();
   const [step, setStep] = useState(0);
@@ -97,7 +98,8 @@ export function Wizard({ initial = EMPTY }: { initial?: Draft }) {
           <FileBrowser
             picking={{
               pick: (tile) => setDraft((was) => toggled(was, tile.id)),
-              refuse: () => null,
+              // A document is read by the assistant, never brought in as an asset.
+              refuse: (tile) => (tile.kind === "text" ? words.assets.library.document : null),
               chosen: (tile) => draft.assets.includes(tile.id),
             }}
           />

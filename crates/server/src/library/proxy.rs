@@ -36,7 +36,9 @@ use crate::storage::Storage;
 
 /// Whether `item` gets a proxy: a video larger than one, known to be opaque.
 pub(super) fn worth_one(item: &Item) -> bool {
-    preview::worth_making(item.kind.asset_kind(), &item.media)
+    item.kind
+        .asset_kind()
+        .is_some_and(|kind| preview::worth_making(kind, &item.media))
 }
 
 /// The handler for [`kinds::PROXY`]: make the proxy of the item in the payload.

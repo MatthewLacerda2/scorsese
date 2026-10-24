@@ -209,8 +209,9 @@ function UploadButton() {
         multiple
         hidden
         // A hint for the picker; the server holds files to exactly the
-        // extensions `scorsese import` takes, and says so when it refuses one.
-        accept="video/*,image/*,audio/*,.html"
+        // extensions `scorsese import` takes, and the documents the assistant
+        // reads, and says so when it refuses one.
+        accept="video/*,image/*,audio/*,.html,.txt,.md"
         onChange={(event) => {
           const picked = Array.from(event.target.files ?? []);
           event.target.value = "";

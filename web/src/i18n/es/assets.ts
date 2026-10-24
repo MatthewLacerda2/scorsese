@@ -21,6 +21,7 @@ export const assets: Messages["assets"] = {
       "Elige un archivo para añadirlo a los recursos de este proyecto y luego arrástralo desde " +
       "ahí a una pista. Puedes subir archivos nuevos aquí o soltarlos en esta ventana.",
     inProject: "ya está en el proyecto",
+    document: "para que lo lea el asistente",
   },
   kinds: {
     video: "video",

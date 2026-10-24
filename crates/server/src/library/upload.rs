@@ -34,7 +34,6 @@ use scorsese_core::bytes::format_bytes;
 
 use super::{Arrival, Item, Kind, Library, LibraryError, store};
 use crate::db::{self, UserId};
-use crate::projects::files::MAX_FILE_BYTES;
 
 /// The largest file an upload may announce: 20 GB, a long screen recording
 /// with room to spare. Decimal, as every size scorsese prints is (#1287).
@@ -110,13 +109,12 @@ impl Library {
                 "an upload names its SHA-256, as 64 hex digits".to_owned(),
             ));
         }
-        // A page is kept in a project as text, so it is held to that size
-        // before a byte is sent rather than after (`super::admit`).
-        if !kind.is_media() && announced.length > MAX_FILE_BYTES as i64 {
-            return Err(LibraryError::Rejected(format!(
-                "a web page can be at most {} KiB",
-                MAX_FILE_BYTES >> 10
-            )));
+        // A page or a document is held to its kind's size before a byte is
+        // sent rather than after (`super::admit`).
+        if let Some(cap) = kind.max_text_bytes()
+            && announced.length > cap as i64
+        {
+            return Err(super::admit::too_large(kind, cap));
         }
         if !(1..=MAX_UPLOAD_BYTES).contains(&announced.length) {
             return Err(LibraryError::Invalid(format!(
