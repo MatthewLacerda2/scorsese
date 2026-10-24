@@ -410,7 +410,7 @@ lives*, below).
 
 | File | What it holds |
 | --- | --- |
-| `cloudflare/zone.tf` | the zone, looked up by `domain`; DNSSEC on |
+| `cloudflare/zone.tf` | the zone, looked up by `domain`; DNSSEC on; HTTPS only (every `http://` request a 301, and HSTS for six months, not preloaded) |
 | `cloudflare/tunnel.tf` | the tunnel's ingress (the apex and `www` to `http://web:80`, anything else 404), their proxied CNAMEs, and the `www` → apex 301 |
 | `cloudflare/email.tf` | Email Routing's records, the `security@` and `contato@` forwards (one verified destination, `SCORSESE_SECURITY_FORWARD_TO`), and DMARC `p=reject` (the domain never sends mail) |
 | `google/project.tf` | the `scorseseestudio` Google Cloud project (deletion-protected), the billing account it is charged to, and the APIs enabled on it |
