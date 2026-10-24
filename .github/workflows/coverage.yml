@@ -86,12 +86,33 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # `check`'s apt archives, read and never written (#1517): what this job
+      # installs is a subset of that job's, and a save of its own would spend
+      # the 10 GB the Rust caches need. Not keyed on this job, which never
+      # saves, so it restores whatever `check` last saved on `main`.
+      - name: Apt
+        id: apt
+        run: tools/ci-apt ~/.cache/apt
+
+      - name: Apt cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/apt/*.deb
+          key: apt-check-${{ steps.apt.outputs.image }}-${{ hashFiles('tools/ci-apt', 'tools/ci-postgres') }}
+          restore-keys: |
+            apt-check-${{ steps.apt.outputs.image }}-
+            apt-check-
+
       # The same tests as `ci.yml`'s `check`, so the same database, started
       # the same way (#1260).
       - name: Postgres
+        id: postgres
+        timeout-minutes: 5
         run: tools/ci-postgres
 
       - name: Install ffmpeg
+        id: ffmpeg
+        timeout-minutes: 5
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
 
       # Its own cache key: instrumented builds carry different RUSTFLAGS and

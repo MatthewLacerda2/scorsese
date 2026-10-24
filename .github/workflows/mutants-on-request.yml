@@ -188,9 +188,28 @@ jobs:
 
       - uses: actions/checkout@v7
 
+      # `check`'s apt archives, read and never written (#1517): what this job
+      # installs is a subset of that job's, and a save of its own would spend
+      # the 10 GB the Rust caches need. Not keyed on this job, which never
+      # saves, so it restores whatever `check` last saved on `main`.
+      - name: Apt
+        id: apt
+        run: tools/ci-apt ~/.cache/apt
+
+      - name: Apt cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/apt/*.deb
+          key: apt-check-${{ steps.apt.outputs.image }}-${{ hashFiles('tools/ci-apt', 'tools/ci-postgres') }}
+          restore-keys: |
+            apt-check-${{ steps.apt.outputs.image }}-
+            apt-check-
+
       # Mutants in `crates/render/src/plan/` and `src/audio/` run that crate's
       # tests, which decode real fixture media.
       - name: Install ffmpeg
+        id: ffmpeg
+        timeout-minutes: 5
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
 
       - name: Rust cache
