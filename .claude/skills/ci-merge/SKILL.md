@@ -31,8 +31,9 @@ tried locally but **can never be a merge gate**.
 
 ## Before marking a pull request ready
 
-`make gates` must be green. It runs every gate CI blocks on; `make help` lists
-them. `make setup`, once per clone, installs the pre-commit hook (formatting and
+`make gates` must be green. It runs every gate CI blocks on but `regression
+test`, which builds the base and runs in CI alone (`docs/testing.md`); `make
+help` lists them. `make setup`, once per clone, installs the pre-commit hook (formatting and
 the lint) and the worktrees' shared compile cache.
 
 The web, web-e2e and app gates are the only conditional ones: each reports

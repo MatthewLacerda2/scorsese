@@ -20,6 +20,9 @@ FIXTURE = "fixtures/want.txt"
 READS = BODY + "        want = (Path(__file__).resolve().parents[1] / 'fixtures/want.txt').read_text()\n" \
     "        self.assertEqual(calc.double(5), int(want))\n"
 SLEEPS = BODY + "        import time; time.sleep(30)\n"
+NONE_CRASH = BODY + "        self.assertIsNone(None.real)\n"
+SUBTEST = BODY + "        for x in (5,):\n            with self.subTest(x=x):\n" \
+    "                self.assertEqual(calc.double(x), 10)\n"
 
 
 class Names(unittest.TestCase):
@@ -28,6 +31,12 @@ class Names(unittest.TestCase):
 
     def test_a_new_function_reached_at_run_time_is_broken_on_the_base(self) -> None:
         self.assertEqual(self.outcome(LATE_API), BROKEN)
+
+    def test_an_attribute_missing_on_an_object_is_the_bug_so_it_fails(self) -> None:
+        self.assertEqual(self.outcome(NONE_CRASH), FAILED)
+
+    def test_a_failing_subtest_fails(self) -> None:
+        self.assertEqual(self.outcome(SUBTEST), FAILED)
 
     def test_a_missing_name_beside_a_real_failure_still_fails(self) -> None:
         self.assertEqual(self.outcome(LATE_AND_WRONG), FAILED)

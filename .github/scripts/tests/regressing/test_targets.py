@@ -97,7 +97,7 @@ class Verdict(unittest.TestCase):
         lines = regression.verdict([4], {self.CORE: PASSED, self.API: BROKEN})
         self.assertIn("nothing shows #4 fixed", lines[0])
         self.assertIn("`crates/core` test target `time` passes on the base", lines[1])
-        self.assertIn("`api` does not build or import on the base", lines[2])
+        self.assertIn("`api` cannot be judged on the base", lines[2])
         self.assertIn("No regression test on base", lines[-1])
 
 

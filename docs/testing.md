@@ -56,15 +56,18 @@ module doc the detail.
   classifies tests (`tools/lint/src/classify.rs`), plus the golden fixtures
   under `crates/golden/fixtures/`, are copied over a checkout of the base, and
   each target they name runs there: a Cargo integration-test target (under
-  nextest, with its per-test timeout), one Python test file, one `bun test`
-  file. A helper module, or any changed file under a `fixtures` directory, is
+  nextest, with the workspace's per-test timeout where it has a nextest
+  config, and a limit on its build and its run either way), one Python test
+  file, one `bun test` file, each with a time limit. Output streams to the
+  log as it comes, so a hang shows where it hung. A helper module, or any changed file under a `fixtures` directory, is
   laid over too, but names no target alone.
 - **What passes.** One target failing on the base; a target past its time
   limit has failed. A target that does not build or import there does not
   count, and neither does one whose every failure is a name the base lacks
-  (Python's `AttributeError`, `NameError`, `ImportError`; bun's `… is not a
-  function`): a test calling the API the fix added would otherwise pass any
-  fix.
+  (Python's `ImportError`, or an `AttributeError` on a module; bun's
+  `ReferenceError`): a test calling a function the fix added would otherwise
+  pass any fix. An `AttributeError` on an object or a `TypeError` is what a
+  real bug throws too, so it counts as failing.
 - **A Playwright flow names no target.** A web fix proved only by one adds a
   `bun test` too, or takes the exception.
 - **The exception.** A bug no test can see (taste, a real window, real
@@ -84,4 +87,10 @@ there is one the laid-over files broke.
 subcommand, MCP tool or HTTP route by its name gets the base's own refusal
 (an unknown command, a 404), which reads as a failure, not as a missing name.
 Such a test passes the check whether or not it sees the bug, so it is the
-reviewer's to read.
+reviewer's to read. The same holds for a new parameter or arity on an existing
+function (Python's `TypeError: unexpected keyword argument`), and for a new
+export a `bun` test reaches through a namespace import (`m.newFn()`, a
+`TypeError` on the base).
+
+**CI alone runs it.** It builds the base, which `make gates` does not, so a
+branch green under `make gates` can still be refused here.

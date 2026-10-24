@@ -223,11 +223,11 @@ so its public API is rusty's contract (`crates/zimmer/CLAUDE.md`).
 - **A convention a machine can check is a gate, not a sentence.** Finding what
   can be enforced is Claude's job: a new convention ships with its check, and a
   written one a check could hold gets it on Claude's own say-so. A check has
-  tests (a case it must flag, one it must pass), runs in `make gates` and CI,
-  takes exceptions inline with a written reason, and says in its failure what
-  is wrong and what to do. **What a check enforces is not repeated in prose**:
-  the check speaks when something is wrong, which is when an agent needs to
-  hear it.
+  tests (a case it must flag, one it must pass), runs in `make gates` and CI
+  (one that must build the base runs in CI alone), takes exceptions inline
+  with a written reason, and says in its failure what is wrong and what to do.
+  **What a check enforces is not repeated in prose**: the check speaks when
+  something is wrong, which is when an agent needs to hear it.
 - **Working unattended, decisions are written down, never waited on**: a
   judgement call an issue left open takes the default the issue, this file or
   Filmora 9 (for taste) points to, and the choice and its reason go on the

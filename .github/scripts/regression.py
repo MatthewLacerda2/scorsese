@@ -167,11 +167,12 @@ def verdict(fixed: list[int], results: dict[Target, str]) -> list[str]:
         return []
     numbers = ", ".join(f"#{n}" for n in fixed)
     lines = [f"no changed test fails on the base, so nothing shows {numbers} fixed."]
-    lines += [f"{t} {'passes on the base' if o == PASSED else 'does not build or import on the base'}."
-              for t, o in sorted(results.items())]
+    lines += [f"{t} {'passes on the base' if o == PASSED else JUDGED}." for t, o in sorted(results.items())]
     return lines + [HOW]
 
 
+JUDGED = ("cannot be judged on the base: it does not build or import there, or fails"
+          " only on a name the fix adds")
 HOW = (
     "Write the test that reproduces the bug first, in a test file (a `tests`"
     " directory, `*.test.ts`, `test_*.py`) — docs/testing.md — or say why none"
@@ -184,19 +185,28 @@ HOW = (
 
 # One Python test file, run from the base worktree in a fresh interpreter so
 # nothing of the head's scripts is imported. Exit 0 when every test passes, 1
-# when one fails, 2 when it does not import, holds no test, or fails only on a
-# name the base lacks (`MISSING`): a test reaching the fix's new API through a
-# module it loaded at run time fails that way, not at import.
+# when one fails (a subtest included), 2 when it does not import, holds no
+# test, or fails only on a name the base lacks: an `ImportError`, or a
+# module's missing attribute, which is how a test reaching the fix's new API
+# through a module it loaded fails. An `AttributeError` on an object (`None`
+# has no attribute) is the bug itself, so it fails.
 UNITTEST = """
 import sys, unittest
 from pathlib import Path
-MISSING = (AttributeError, NameError, ImportError)
 class Result(unittest.TextTestResult):
-    kinds = []
+    missing = []
+    def note(self, err):
+        kind, value = err[0], err[1]
+        Result.missing.append(issubclass(kind, ImportError)
+                              or (issubclass(kind, AttributeError) and str(value).startswith("module ")))
     def addError(self, test, err):
-        self.kinds.append(err[0]); super().addError(test, err)
+        self.note(err); super().addError(test, err)
     def addFailure(self, test, err):
-        self.kinds.append(err[0]); super().addFailure(test, err)
+        self.note(err); super().addFailure(test, err)
+    def addSubTest(self, test, subtest, err):
+        if err is not None:
+            self.note(err)
+        super().addSubTest(test, subtest, err)
 file = Path(sys.argv[1]).resolve()
 top = file.parent
 while (top / "__init__.py").exists():
@@ -206,18 +216,24 @@ suite = loader.discover(str(file.parent), pattern=file.name, top_level_dir=str(t
 if loader.errors or not suite.countTestCases():
     print("\\n".join(loader.errors))
     sys.exit(2)
-unittest.TextTestRunner(verbosity=2, resultclass=Result).run(suite)
-if not Result.kinds:
-    sys.exit(0)
-sys.exit(2 if all(issubclass(k, MISSING) for k in Result.kinds) else 1)
+result = unittest.TextTestRunner(verbosity=2, resultclass=Result).run(suite)
+if not Result.missing:
+    sys.exit(0 if result.wasSuccessful() else 1)
+sys.exit(2 if all(Result.missing) else 1)
 """
 
 EXITS = {PASSED: 0, FAILED: 1, BROKEN: 2}
 # Each runner's per-target limit, nextest's own (`.config/nextest.toml`): a
-# hung test is a failing one.
+# hung test is a failing one. A Cargo target gets its build's limit and its
+# run's, since `tools/lint` has no nextest config to stop a hung test.
 TIMEOUT = 180
-# A bun failure that is a name the base lacks, as `MISSING` is for Python.
-BUN_MISSING = re.compile(r"^(TypeError: (\S+ is not a function|undefined is not)|ReferenceError: \S+ is not defined)")
+CARGO_BUILD_TIMEOUT = 1800
+CARGO_RUN_TIMEOUT = 900
+# A bun failure that is a name the base lacks: an undeclared one. A
+# `TypeError` (`… is not a function`, `undefined is not an object`) is also
+# what a real bug throws, so it fails; a new export reached through a
+# namespace import (`m.newFn()`) is a known limit (docs/testing.md).
+BUN_MISSING = re.compile(r"^ReferenceError: \S+ is not defined")
 BUN_ERROR = re.compile(r"^(?:\w*Error|error): .*$", re.M)
 
 
@@ -251,28 +267,34 @@ def run_target(t: Target, base: Path, env: dict) -> str:
         head = Path(env.get("REGRESSION_HEAD", base))
         env = {**env, "CARGO_TARGET_DIR": str(head / workspace(t.where, base) / "target")}
 
-    def call(*argv: str, cwd: Path = base, limit: int | None = None) -> subprocess.CompletedProcess | None:
+    def call(*argv: str, cwd: Path = base, limit: int, capture: bool = False) -> subprocess.CompletedProcess | None:
+        """Run `argv`, its output streamed to the log as it comes unless it
+        is `capture`d to be read, so a hang shows where it hung."""
         print(f"$ {' '.join(argv)}", flush=True)
+        out = subprocess.PIPE if capture else None
         try:
-            done = subprocess.run(argv, cwd=cwd, env=env, text=True, stdout=subprocess.PIPE,
+            done = subprocess.run(argv, cwd=cwd, env=env, text=True, stdout=out,
                                   stderr=subprocess.STDOUT, timeout=limit)
         except subprocess.TimeoutExpired:
-            print(f"timed out after {limit}s")
+            print(f"timed out after {limit}s", flush=True)
             return None
-        print(done.stdout)
+        if capture:
+            print(done.stdout, flush=True)
         return done
 
     if t.runner == "cargo":
         manifest = ["--manifest-path", f"{t.where}/Cargo.toml", "--locked", "--test", t.name]
-        if call("cargo", "nextest", "run", *manifest, "--no-run").returncode:
+        built = call("cargo", "nextest", "run", *manifest, "--no-run", limit=CARGO_BUILD_TIMEOUT)
+        if built is None or built.returncode:
             return BROKEN
-        return nextest_outcome(call("cargo", "nextest", "run", *manifest).returncode)
+        ran = call("cargo", "nextest", "run", *manifest, limit=CARGO_RUN_TIMEOUT)
+        return FAILED if ran is None else nextest_outcome(ran.returncode)
     if t.runner == "unittest":
         ran = call(sys.executable, "-c", UNITTEST, t.name, limit=TIMEOUT)
         return FAILED if ran is None else {code: o for o, code in EXITS.items()}.get(ran.returncode, BROKEN)
     if not (base / t.where / "node_modules").exists():
-        call("bun", "install", "--frozen-lockfile", cwd=base / t.where)
-    ran = call("bun", "test", f"./{t.name}", cwd=base / t.where, limit=TIMEOUT)
+        call("bun", "install", "--frozen-lockfile", cwd=base / t.where, limit=CARGO_RUN_TIMEOUT)
+    ran = call("bun", "test", f"./{t.name}", cwd=base / t.where, limit=TIMEOUT, capture=True)
     return FAILED if ran is None else bun_outcome(ran.returncode, ran.stdout)
 
 

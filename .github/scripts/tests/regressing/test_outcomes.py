@@ -39,8 +39,13 @@ class Runners(unittest.TestCase):
         self.assertEqual(regression.bun_outcome(1, WRONG + SUMMARY), FAILED)
         self.assertEqual(regression.bun_outcome(1, MISSING + WRONG + SUMMARY), FAILED)
 
-    def test_bun_failing_only_on_missing_names_is_broken(self) -> None:
-        self.assertEqual(regression.bun_outcome(1, MISSING + UNDEFINED + UNDECLARED + SUMMARY), BROKEN)
+    def test_bun_failing_only_on_undeclared_names_is_broken(self) -> None:
+        self.assertEqual(regression.bun_outcome(1, UNDECLARED + UNDECLARED + SUMMARY), BROKEN)
+
+    def test_bun_type_errors_are_what_a_bug_throws_so_they_fail(self) -> None:
+        for out in (MISSING, UNDEFINED, MISSING + UNDECLARED):
+            with self.subTest(out=out):
+                self.assertEqual(regression.bun_outcome(1, out + SUMMARY), FAILED)
 
     def test_bun_with_no_failing_test_is_broken_and_a_clean_run_passes(self) -> None:
         self.assertEqual(regression.bun_outcome(1, "SyntaxError: Export named 'x' not found\n"), BROKEN)
