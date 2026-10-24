@@ -31,6 +31,9 @@ APPLIED_MIGRATIONS = (
     "SELECT version, description FROM _sqlx_migrations WHERE success ORDER BY version"
 )
 
+# The label the server image carries its commit in (deploy/server.Dockerfile).
+REVISION = "org.opencontainers.image.revision"
+
 Compose = Callable[[Sequence[str]], Result]
 
 
@@ -88,6 +91,15 @@ def services(ps_json: str) -> List[dict]:
     if text.startswith("["):
         return json.loads(text)
     return [json.loads(line) for line in text.splitlines() if line.strip()]
+
+
+def declared(entries: Sequence[dict], names: Sequence[str]) -> List[dict]:
+    """The entries of services the compose file declares, without orphans.
+
+    `ps --all` lists a container left from a service since removed; filtering by
+    `config --services` needs no flag a Compose version might lack.
+    """
+    return [entry for entry in entries if entry.get("Service") in names]
 
 
 def not_ready(entries: Sequence[dict]) -> List[str]:

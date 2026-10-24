@@ -74,4 +74,9 @@ COPY --from=build /usr/local/bin/scorsese-server /usr/local/bin/scorsese-server
 # maintainer's; this is the fallback for anyone running the image bare.
 USER nobody
 EXPOSE 8080
+# The commit this image was built from, which `deploy/update` reads off the
+# running server to name what the stack runs and the way back. Last, so a new
+# commit costs no cached layer.
+ARG SCORSESE_REVISION
+LABEL org.opencontainers.image.revision=$SCORSESE_REVISION
 CMD ["scorsese-server"]

@@ -81,6 +81,8 @@ services:
         # Unset means cargo's default (every core). The machine this runs on
         # also runs `make gates`; set it in the shell to leave room.
         - CARGO_BUILD_JOBS
+        # The commit, as the image's revision label; `deploy/update` sets it.
+        - SCORSESE_REVISION
     image: scorsese-server
     restart: unless-stopped
     depends_on:

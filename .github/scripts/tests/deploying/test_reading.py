@@ -6,9 +6,12 @@ from __future__ import annotations
 
 import contextlib
 import io
+import tempfile
 import unittest
+from pathlib import Path
 
 from .scripted import PS, cli, stack
+from updating.host import read_env  # noqa: E402
 
 
 class Reading(unittest.TestCase):
@@ -26,6 +29,12 @@ class Reading(unittest.TestCase):
         self.assertEqual(stack.stored_migrations(""), (0, 0))
         out = "backup: database dumped to /data/backups/db/scorsese-20261023T1200Z.dump\n"
         self.assertEqual(stack.dump_name(out), "/data/backups/db/scorsese-20261023T1200Z.dump")
+
+    def test_settings_are_read_by_purge_landings_rule(self):
+        path = Path(tempfile.mkdtemp()) / ".env"
+        path.write_text(" A=indented\nexport B=exported\n#C=commented\nD=\"'both'\"\n"
+                        "E=first\nE=last\n")
+        self.assertEqual(read_env(path), {"D": "both", "E": "last"})
 
     def test_flags(self):
         opts = cli.parse(["--wait", "--timeout", "30"])

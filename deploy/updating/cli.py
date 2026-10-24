@@ -4,9 +4,10 @@ The build comes first and the restart last: `docker compose build` takes the
 whole cargo build while the old stack keeps serving, so the running-work check
 and the dump are taken just before `up` recreates anything, not twenty minutes
 earlier. A step that fails stops the run with a sentence saying what happened
-and what is running, and nothing after it runs. The server migrates before it
-serves, so this never runs migrations; it waits for the health that proves
-they ran.
+and where the checkout, the images and the running stack each are, and nothing
+after it runs. What the stack runs is read off the running server's image,
+never the checkout. The server migrates before it serves, so this never runs
+migrations; it waits for the health that proves they ran.
 """
 
 from __future__ import annotations
@@ -14,17 +15,15 @@ from __future__ import annotations
 import argparse
 import datetime
 import sys
+import traceback
 from pathlib import Path
 from typing import List, Optional, Sequence
 
 from . import stack
+from .finish import Finish
 from .host import Host, Refusal, Result, read_env
 
 DEPLOY = Path(__file__).resolve().parent.parent
-MIGRATIONS = "crates/server/migrations"
-# Under SCORSESE_DATA: the commit the stack was last updated to, so a run after
-# a refused one still knows what is running, whatever the checkout says.
-DEPLOYED = "deployed-commit"
 
 
 def parse(argv: Sequence[str]) -> argparse.Namespace:
@@ -39,26 +38,34 @@ def parse(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--wait", action="store_true",
                         help="while jobs or assistant turns are running, wait for them to "
                         "finish instead of refusing")
+    parser.add_argument("--wait-timeout", type=int, default=7200, metavar="SECONDS",
+                        help="under --wait, how long to wait for running work before "
+                        "giving up (default 7200, two hours)")
     parser.add_argument("--timeout", type=int, default=600, metavar="SECONDS",
                         help="how long the services have to become healthy after the "
                         "restart (default 600)")
+    parser.add_argument("--from", dest="running", metavar="COMMIT",
+                        help="the commit the stack runs, when its server image does not "
+                        "say (one built before deploy/update labelled its images)")
     parser.add_argument("--env-file", type=Path, metavar="PATH",
                         help="the stack's settings (default: DEPLOY_ENV, else deploy/.env)")
     return parser.parse_args(list(argv))
 
 
-class Update:
+class Update(Finish):
     """One run: the options, the machine, and what it learns on the way."""
 
     POLL = 30  # seconds between looks at the running work, under --wait
     HEALTH_POLL = 5
+    DUMP_TIMEOUT = 1800  # a pg_dump once hung for seven hours
 
     def __init__(self, opts: argparse.Namespace, host: Host, deploy: Path = DEPLOY):
         self.opts, self.host, self.deploy = opts, host, deploy
         self.root = deploy.parent
         self.env_file = (opts.env_file or Path(host.env("DEPLOY_ENV") or deploy / ".env")).resolve()
         self.before = self.after = self.dump_path = ""
-        self.restarted = False
+        # How far the run got: "pulled", "building", "built", "restarted".
+        self.stage = ""
 
     def say(self, line: str = "") -> None:
         print(line, flush=True)
@@ -69,41 +76,52 @@ class Update:
     def git(self, *args: str) -> Result:
         return self.host.run(["git", *args], cwd=self.root)
 
-    def compose(self, args: Sequence[str]) -> Result:
-        return self.host.run(self.compose_args(args), cwd=self.deploy)
+    def compose(self, args: Sequence[str], timeout: Optional[float] = None) -> Result:
+        return self.host.run(self.compose_args(args), cwd=self.deploy, timeout=timeout)
 
     def compose_args(self, args: Sequence[str]) -> List[str]:
         return ["docker", "compose", "--env-file", str(self.env_file), *args]
 
     def run(self) -> None:
         self.preconditions()
-        self.before = self.deployed()
+        self.before = self.running()
         self.say(f"the stack runs {self.before[:12]}: if this update goes wrong, "
                  "that is the commit to go back to")
         self.after = self.pull()
+        self.stage = "pulled"
         try:
+            self.changes()
             self.build()
-            self.drain()
-            applied = stack.applied_migrations(self.compose)
-            self.dump()
+            applied = self.drain_and_dump()
             started = self.start()
             self.healthy()
             self.purge()
             self.check()
+            self.summary(applied, started)
         except Refusal as refusal:
             raise Refusal(f"{refusal}\n{self.where()}") from None
-        self.summary(applied, started)
+        except Exception:
+            traceback.print_exc()
+            raise Refusal(f"something unexpected went wrong (the traceback is above)\n"
+                          f"{self.where()}") from None
 
     def where(self) -> str:
-        """What is running after a failure past the pull, and the way back once there is one."""
+        """Where things stand after a failure past the pull, and the way back once there is one."""
         if self.opts.dry_run:
             return "(dry run: nothing was pulled, built or restarted)"
+        after, before = self.after[:12], self.before[:12]
         dump = f"; the dump {self.dump_path} was taken" if self.dump_path else ""
-        if not self.restarted:
-            return (f"the checkout is at {self.after[:12]}, while the stack still runs "
-                    f"{self.before[:12]}, untouched{dump}")
-        return (f"the stack was restarted on {self.after[:12]}; the way back: check out "
-                f"{self.before[:12]}, rebuild, and restore {self.dump_path} (docs/web.md, Restoring)")
+        if self.stage == "restarted":
+            return (f"the stack was restarted on {after}; the way back: check out {before}, "
+                    f"rebuild, and restore {self.dump_path} (docs/web.md, Restoring)")
+        images = {
+            "pulled": "the images are as they were",
+            "building": "some images may already be rebuilt from it",
+            "built": "the images are rebuilt from it (page captures already run the new "
+                     "server image)",
+        }[self.stage]
+        return (f"the checkout is at {after} and {images}, while the running containers "
+                f"are still {before}'s{dump}")
 
     def preconditions(self) -> None:
         if not self.env_file.is_file():
@@ -121,20 +139,33 @@ class Update:
             raise Refusal("the checkout has changes git has not committed, so the build would "
                           "not be what main says; commit, stash or remove them first:\n" + dirty)
 
-    def record(self) -> Optional[Path]:
-        data = self.env.get("SCORSESE_DATA", "")
-        return Path(data) / DEPLOYED if data else None
+    def running(self) -> str:
+        """The commit the stack runs: its server image's label, else `--from`."""
+        commit, said = self.opts.running, "--from"
+        if not commit:
+            commit, said = self.label(), "the running server image's label"
+        known = self.git("rev-parse", "--verify", "--quiet", f"{commit}^{{commit}}")
+        if not known.ok:
+            raise Refusal(f"{commit}, from {said}, is not a commit this checkout has; "
+                          "pass --from with the commit the stack was built from")
+        return known.out.strip()
 
-    def deployed(self) -> str:
-        """The commit the stack runs: the last update's record, else the checkout's HEAD."""
-        record = self.record()
-        written = (self.host.read(record) or "").strip() if record else ""
-        if written:
-            return written
-        head = self.git("rev-parse", "HEAD").out.strip()
-        self.say(f"no record of the deployed commit at {record or '$SCORSESE_DATA/' + DEPLOYED}, "
-                 f"so taking the checkout's HEAD, {head[:12]}, as what the stack runs")
-        return head
+    def label(self) -> str:
+        """The commit the running server's image was built from, as its label says."""
+        container = self.compose(["ps", "--quiet", "server"])
+        if not container.ok or not container.out.strip():
+            raise Refusal("no server container is running, so nothing says which commit the "
+                          "stack runs; pass --from with the commit it was built from")
+        image = self.host.run(["docker", "inspect", "--format", "{{.Image}}",
+                               container.out.split()[0]])
+        label = self.host.run(["docker", "image", "inspect", "--format",
+                               f'{{{{index .Config.Labels "{stack.REVISION}"}}}}',
+                               image.out.strip()]) if image.ok else image
+        commit = label.out.strip() if label.ok else ""
+        if commit in ("", "<no value>"):
+            raise Refusal("the running server image does not say which commit it was built "
+                          "from (it predates deploy/update), so pass --from with that commit")
+        return commit
 
     def pull(self) -> str:
         self.step(1, "pull main")
@@ -153,9 +184,15 @@ class Update:
                 raise Refusal("`git pull --ff-only origin main` failed, so nothing was changed:\n"
                               + (pulled.err or pulled.out).strip())
             after = self.git("rev-parse", "HEAD").out.strip()
-        log = self.git("log", "--oneline", f"{self.before}..{after}").out.strip()
-        self.say(log or f"already at {after[:12]}: rebuilding what is there")
         return after
+
+    def changes(self) -> None:
+        """The commits this update deploys, listed under the pull."""
+        log = self.git("log", "--oneline", f"{self.before}..{self.after}")
+        if not log.ok:
+            raise Refusal(f"`git log {self.before[:12]}..{self.after[:12]}` failed, so what "
+                          f"this update deploys is unknown:\n{log.err.strip()}")
+        self.say(log.out.strip() or f"already at {self.after[:12]}: rebuilding what is there")
 
     def build_jobs(self) -> str:
         """`CARGO_BUILD_JOBS` from the shell, else half the cores: users' renders share them."""
@@ -163,29 +200,58 @@ class Update:
 
     def build(self) -> None:
         self.step(2, "build, while the running stack keeps serving")
-        jobs = self.build_jobs()
+        env = {"CARGO_BUILD_JOBS": self.build_jobs(), "SCORSESE_REVISION": self.after}
         args = self.compose_args(["build"])
         if self.opts.dry_run:
-            self.say(f"would run: CARGO_BUILD_JOBS={jobs} " + " ".join(args))
-        elif self.host.stream(args, cwd=self.deploy, env={"CARGO_BUILD_JOBS": jobs}) != 0:
+            self.say("would run: " + " ".join(f"{k}={v}" for k, v in env.items()) + " "
+                     + " ".join(args))
+            return
+        self.stage = "building"
+        if self.host.stream(args, cwd=self.deploy, env=env) != 0:
             raise Refusal("the build failed (above), before anything was stopped or dumped")
+        self.stage = "built"
+        self.say("built: the running containers are still the old ones, but page captures "
+                 "started from now on run the new server image")
 
-    def drain(self) -> None:
+    def drain_and_dump(self) -> dict:
+        """Wait out running work and take the dump, again if work started during it."""
+        deadline = self.host.now() + self.opts.wait_timeout
+        while True:
+            self.drain(deadline)
+            applied = stack.applied_migrations(self.compose)
+            self.dump()
+            busy = "" if self.opts.dry_run else self.busy()
+            if not busy:
+                return applied
+            if not self.opts.wait:
+                raise Refusal("work started while the dump was taken, and a restart would cut "
+                              "it off; run again once it finishes, or with --wait to wait for "
+                              f"it:\n{busy}")
+            self.say(f"work started while the dump was taken, so waiting again and taking a "
+                     f"fresh dump:\n{busy}")
+
+    def busy(self) -> str:
+        """The running work, one indented line each, or nothing."""
+        return "\n".join(f"  {line}" for line in stack.running_work(self.compose))
+
+    def drain(self, deadline: float) -> None:
         self.step(3, "no render, job or assistant turn running")
         while True:
-            busy = stack.running_work(self.compose)
+            busy = self.busy()
             if not busy:
                 self.say("nothing running")
                 return
-            listing = "\n".join(f"  {line}" for line in busy)
             if self.opts.dry_run:
                 self.say(f"running now, so a real run would "
-                         f"{'wait' if self.opts.wait else 'refuse'}:\n{listing}")
+                         f"{'wait' if self.opts.wait else 'refuse'}:\n{busy}")
                 return
             if not self.opts.wait:
                 raise Refusal("work is running, and a restart would cut it off; run again once "
-                              f"it finishes, or with --wait to wait for it:\n{listing}")
-            self.say(f"waiting {self.POLL}s for:\n{listing}")
+                              f"it finishes, or with --wait to wait for it:\n{busy}")
+            if self.host.now() >= deadline:
+                raise Refusal(f"work was still running after waiting {self.opts.wait_timeout}s "
+                              f"(--wait-timeout), so the update stops:\n{busy}")
+            self.say(f"waiting {self.POLL}s for:\n{busy}")
             self.host.sleep(self.POLL)
 
     def dump(self) -> None:
@@ -194,19 +260,23 @@ class Update:
         if self.opts.dry_run:
             self.say("would run: " + " ".join(self.compose_args(args)))
             return
-        done = self.compose(args)
+        done = self.compose(args, timeout=self.DUMP_TIMEOUT)
         self.say(done.out.rstrip())
         name = stack.dump_name(done.out)
         if name:
             self.dump_path = self.on_host(name)
         why = (done.err or done.out).strip()
+        if done.timed_out:
+            raise Refusal(f"the backup had not finished after {self.DUMP_TIMEOUT // 60} minutes, "
+                          "so the update stops; it may still be running in the `backup` "
+                          f"container (`docker compose top backup`):\n{why}")
         if not name:
             raise Refusal(f"the backup failed before the dump was written, so there would be "
                           f"no way back:\n{why}")
         if not done.ok:
-            raise Refusal(f"the dump was written to {self.dump_path}, but copying it off the "
-                          "machine failed, so the update stops until the backup works "
-                          f"(docs/web.md, Backups):\n{why}")
+            raise Refusal(f"the dump was written to {self.dump_path}, but the backup script "
+                          "failed after it (its output is above), so the update stops until "
+                          f"the backup works (docs/web.md, Backups):\n{why}")
         self.say(f"dump: {self.dump_path}; with {self.before[:12]}, the way back")
 
     def on_host(self, path: str) -> str:
@@ -221,17 +291,25 @@ class Update:
         if self.opts.dry_run:
             self.say("would run: " + " ".join(args))
         else:
-            self.restarted = True
+            self.stage = "restarted"
             if self.host.stream(args, cwd=self.deploy) != 0:
-                raise Refusal("starting the new build failed (above)")
+                self.server_logs()
+                raise Refusal("starting the new build failed; Compose's output and the "
+                              "server's last lines are above")
         return started.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def server_logs(self) -> None:
+        self.say(self.compose(["logs", "server", "--tail", "50", "--no-color"]).out)
 
     def healthy(self) -> None:
         self.step(6, "every service healthy")
         deadline = self.host.now() + self.opts.timeout
+        names = self.compose(["config", "--services"])
+        if not names.ok:
+            raise Refusal(f"`docker compose config --services` failed:\n{names.err.strip()}")
         while True:
             ps = self.compose(["ps", "--all", "--format", "json"])
-            entries = stack.services(ps.out) if ps.ok else []
+            entries = stack.declared(stack.services(ps.out), names.out.split()) if ps.ok else []
             waiting = stack.not_ready(entries) if entries else ["no service is up"]
             if not waiting:
                 self.say("healthy: " + ", ".join(sorted(e.get("Service", "?") for e in entries)))
@@ -240,68 +318,10 @@ class Update:
                 self.say("not healthy now: " + ", ".join(waiting))
                 return
             if self.host.now() >= deadline:
-                self.say(self.compose(["logs", "server", "--tail", "50", "--no-color"]).out)
+                self.server_logs()
                 raise Refusal(f"not healthy after {self.opts.timeout}s: {', '.join(waiting)}; "
                               "the server's last lines are above, and Cloudflare was not purged")
             self.host.sleep(self.HEALTH_POLL)
-
-    def purge(self) -> None:
-        self.step(7, "drop Cloudflare's copy of the landing page")
-        if not self.env.get("CLOUDFLARE_API_TOKEN"):
-            self.say("no CLOUDFLARE_API_TOKEN in the settings, so no Cloudflare cache to purge")
-            return
-        script = str(self.deploy / "purge-landing")
-        if self.opts.dry_run:
-            self.say(f"would run: {script}")
-        elif self.host.stream([script], cwd=self.deploy, env={"DEPLOY_ENV": str(self.env_file)}):
-            raise Refusal("purging Cloudflare's landing page failed (above): until it expires, "
-                          "within the hour, a first visit draws a blank page")
-
-    def addresses(self) -> List[str]:
-        bind = self.env.get("SCORSESE_WEB_BIND") or "127.0.0.1"
-        bind = "127.0.0.1" if bind in ("0.0.0.0", "::") else bind
-        bases = [f"http://{bind}:{self.env.get('SCORSESE_WEB_PORT') or '8088'}"]
-        if self.env.get("SCORSESE_PUBLIC_ORIGIN"):
-            bases.append(self.env["SCORSESE_PUBLIC_ORIGIN"].rstrip("/"))
-        return [base + path for base in bases for path in ("/", "/api/health")]
-
-    def check(self) -> None:
-        self.step(8, "the local and public addresses answer")
-        wrong = []
-        for url in self.addresses():
-            answer = self.host.get(url)
-            self.say(f"{answer}  {url}")
-            if answer != "200":
-                wrong.append(url)
-        if wrong and not self.opts.dry_run:
-            raise Refusal("updated, but these do not answer 200: " + ", ".join(wrong))
-
-    def summary(self, applied: dict, started: str) -> None:
-        self.step(9, "what changed")
-        before, after = self.before, self.after
-        count = self.git("rev-list", "--count", f"{before}..{after}").out.strip() or "0"
-        self.say(f"commits: {before[:12]}..{after[:12]} ({count})")
-        if self.opts.dry_run:
-            listed = self.git("ls-tree", "--name-only", f"{after}:{MIGRATIONS}").out.split()
-            new = stack.migration_files(listed)
-            label = "SQL migrations it would apply"
-        else:
-            new = stack.applied_migrations(self.compose)
-            label = "SQL migrations applied"
-        fresh = [f"{v} {new[v]}" for v in sorted(new, key=int) if v not in applied]
-        self.say(f"{label}: {', '.join(fresh) if fresh else 'none'}")
-        if self.opts.dry_run:
-            return
-        log = self.compose(["logs", "server", "--since", started, "--no-color"]).out
-        projects, templates = stack.stored_migrations(log)
-        self.say(f"stored projects migrated: {projects}, templates: {templates}")
-        self.say(f"the way back: check out {before[:12]}, rebuild, and restore "
-                 f"{self.dump_path} (docs/web.md, Restoring)")
-        record = self.record()
-        failed = self.host.write(record, after + "\n") if record else "SCORSESE_DATA is not set"
-        if failed:
-            self.say(f"could not record {after[:12]} as deployed ({failed}); the next run "
-                     "will take the checkout's HEAD as what is running")
 
 
 def main(argv: Sequence[str], host: Optional[Host] = None, deploy: Path = DEPLOY) -> int:

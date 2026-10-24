@@ -27,12 +27,13 @@ PS = '{"Service":"server","State":"running","Health":"healthy"}\n' \
 class Scripted(Host):
     """Answers by the first rule whose snippets all appear in the command."""
 
-    def __init__(self, rules, real_git=False, files=None, fail=()):
-        self.rules, self.real_git, self.ran = rules, real_git, []
-        self.files, self.fail = dict(files or {}), fail
+    def __init__(self, rules, real_git=False, fail=()):
+        self.rules, self.real_git, self.ran, self.fail = rules, real_git, [], fail
+        self.envs, self.timeouts = [], {}
 
-    def run(self, args, cwd=None):
+    def run(self, args, cwd=None, timeout=None):
         self.ran.append(" ".join(args))
+        self.timeouts[" ".join(args)] = timeout
         if self.real_git and args[0] == "git":
             return super().run(args, cwd)
         line = " ".join(args)
@@ -47,13 +48,8 @@ class Scripted(Host):
         """Streamed commands succeed, except those holding a snippet in `fail`."""
         line = " ".join(args)
         self.ran.append(line)
+        self.envs.append(dict(env or {}))
         return 1 if any(word in line for word in self.fail) else 0
-
-    def read(self, path):
-        return self.files.get(str(path))
-
-    def write(self, path, text):
-        self.files[str(path)] = text
 
     def get(self, url):
         return "200"
@@ -86,11 +82,16 @@ def update(host, *argv, env=ENV, deploy=None):
     return code, out.getvalue(), err.getvalue()
 
 
-GIT = [(["--abbrev-ref"], Result(0, "main\n")), (["origin/main"], Result(0, "bbbb\n")),
+# The stack runs dddd, as its server image's label says, and declares two services.
+RUNNING = [(["ps", "--quiet", "server"], Result(0, "c0ffee\n")),
+           (["{{.Image}}"], Result(0, "sha256:01d\n")),
+           (["image", "inspect"], Result(0, "dddd\n")), (["--verify"], Result(0, "dddd\n")),
+           (["config", "--services"], Result(0, "server\ntunnel\n"))]
+GIT = RUNNING + [(["--abbrev-ref"], Result(0, "main\n")), (["origin/main"], Result(0, "bbbb\n")),
        (["rev-parse", "HEAD"], Result(0, "aaaa\n")), (["--oneline"], Result(0, "bbbb A fix\n")),
        (["--count"], Result(0, "1\n")),
        (["ls-tree"], Result(0, "0001_accounts.sql\n0043_new_thing.sql\nREADME.md\n"))]
 APPLIED = (["_sqlx_migrations"], Result(0, "1\taccounts\n"))
 IDLE = (["chat_turns"], Result(0, ""))
-RECORD = "/srv/scor/deployed-commit"
+BUSY = Result(0, "turn\tassistant\trunning\t1\n")
 DUMPED = Result(0, "backup: database dumped to /data/backups/db/s-1.dump\n")

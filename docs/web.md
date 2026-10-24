@@ -550,15 +550,22 @@ first names the commit the stack runs, which is the way back, then:
    `git pull --ff-only` succeeds.
 2. **Builds** (`docker compose build`) while the running stack keeps serving,
    with `CARGO_BUILD_JOBS` from the shell or else half the cores, since users'
-   renders share them. A failed build stops here, the stack untouched.
+   renders share them. A failed build stops here, before anything is stopped
+   or dumped. The build retags the images, so from here on page captures,
+   which start the server image by its tag, already run the new build while
+   the running containers are still the old ones.
 3. **Refuses while work is running** — a job waiting or running, an assistant
-   turn running — and lists it; `--wait` waits for it to finish instead. This
-   comes after the build, which takes most of the time, so nothing started
-   during it is cut off by the restart.
-4. **Takes a dump** (`docker compose exec backup backup`) and names it. If the
-   dump is written but the copy off the machine fails, it says so and stops
-   until the backup works.
-5. **Restarts** on the new build (`docker compose up --detach`).
+   turn running — and lists it; `--wait` waits for it to finish instead, for
+   two hours at most (`--wait-timeout`). This comes after the build, which
+   takes most of the time, so nothing started during it is cut off by the
+   restart.
+4. **Takes a dump** (`docker compose exec backup backup`) and names it, giving
+   up after 30 minutes. If the dump is written but the rest of the backup
+   fails, it says so and stops until the backup works. Work that started
+   during the backup is caught by a second look: it refuses, keeping the
+   dump, or under `--wait` waits again and takes a fresh one.
+5. **Restarts** on the new build (`docker compose up --detach`); a server that
+   never turns healthy fails here, with its last lines and the way back.
 6. **Waits for every service to be healthy**, ten minutes by default
    (`--timeout`); past that it prints the server's last lines and stops.
 7. **Purges Cloudflare's copy of the landing page** (`./purge-landing`).
@@ -567,13 +574,15 @@ first names the commit the stack runs, which is the way back, then:
 9. **Says what changed**: the commits, the SQL migrations applied, how many
    stored projects and templates the server migrated, and the dump to restore.
 
-**What is running** is kept in `$SCORSESE_DATA/deployed-commit`, written after
-an update that passed every step. The commit range, and the way back every
-failure names, start from it rather than from the checkout, which a refused
-run may already have pulled ahead; with no such file, the checkout's HEAD
-before the pull stands in and the script says so. Every failure after the
-pull says where the checkout and the stack each are, and, once the stack has
-been restarted, the commit and the dump to go back to.
+**What is running** is read off the running server's image, which carries the
+commit it was built from as its `org.opencontainers.image.revision` label
+(the script passes it to the build). The commit range, and the way back every
+failure names, start from it, never from the checkout, which a refused run
+may already have pulled ahead. An image built before the script existed, or
+by hand, has no label: the script then refuses until it is told the commit
+with `--from <commit>`. Every failure after the pull says where the checkout,
+the images and the running containers each are, and, once the stack has been
+restarted, the commit and the dump to go back to.
 
 Step 7 matters: Cloudflare keeps the landing page's HTML at its edge
 (`deploy/terraform/cloudflare/cache.tf`), and that copy names the previous
@@ -589,9 +598,10 @@ Compose recreates only the containers whose image or settings changed. The new
 server runs its migrations before serving, and they only go forward, so **the
 way back from a bad update is the dump taken first**, which the script names
 once taken and in every failure after the restart: check out the commit it
-names too, `docker compose up --detach --build` by hand (`deploy/update`
-deploys only `main`), restore the dump (*Restoring*, below), and write that
-commit into `$SCORSESE_DATA/deployed-commit` so the next update starts from it. BuildKit's cache for the Rust build
+names too, `SCORSESE_REVISION=$(git rev-parse HEAD) docker compose up
+--detach --build` by hand (`deploy/update` deploys only `main`; the variable
+labels the image, so the next update knows what runs), and restore the dump
+(*Restoring*, below). BuildKit's cache for the Rust build
 grows over time; `docker buildx du` shows it.
 
 **If `SCORSESE_DATA` has moved** since the last `up`, Compose asks whether to

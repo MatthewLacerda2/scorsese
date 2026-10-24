@@ -275,7 +275,8 @@ compiling:
    server until it reconnects: say so.
 
 Nothing deploys on merge. The web app is updated by hand from `main`, once, at
-the end of a batch, when the operator asks (`docs/web.md`, *Updating*). The
+the end of a batch, when the operator asks, with `deploy/update` (`docs/web.md`,
+*Updating*). The
 desktop app, CLI and MCP server are built from source; a `v*` tag makes
 `release.yml` build the CLI and MCP server, which is welcome, never required.
 

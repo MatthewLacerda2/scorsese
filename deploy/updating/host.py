@@ -28,6 +28,7 @@ class Result:
     code: int
     out: str = ""
     err: str = ""
+    timed_out: bool = False
 
     @property
     def ok(self) -> bool:
@@ -37,12 +38,17 @@ class Result:
 class Host:
     """The real machine."""
 
-    def run(self, args: Sequence[str], cwd: Optional[Path] = None) -> Result:
-        """Run a command and keep what it printed."""
+    def run(
+        self, args: Sequence[str], cwd: Optional[Path] = None, timeout: Optional[float] = None
+    ) -> Result:
+        """Run a command and keep what it printed; past `timeout` seconds it is killed."""
         try:
-            done = subprocess.run(list(args), cwd=cwd, capture_output=True, text=True)
+            done = subprocess.run(list(args), cwd=cwd, capture_output=True, text=True,
+                                  timeout=timeout)
         except FileNotFoundError:
             return Result(127, "", f"{args[0]} is not installed")
+        except subprocess.TimeoutExpired as expired:
+            return Result(124, _text(expired.stdout), _text(expired.stderr), timed_out=True)
         return Result(done.returncode, done.stdout, done.stderr)
 
     def stream(
@@ -83,35 +89,28 @@ class Host:
     def sleep(self, seconds: float) -> None:
         time.sleep(seconds)
 
-    def read(self, path: Path) -> Optional[str]:
-        """A file's text, or None when it cannot be read."""
-        try:
-            return path.read_text(encoding="utf-8")
-        except OSError:
-            return None
 
-    def write(self, path: Path, text: str) -> Optional[str]:
-        """Write a file; why it could not be written, or None."""
-        try:
-            path.write_text(text, encoding="utf-8")
-        except OSError as error:
-            return str(error)
-        return None
+def _text(output) -> str:
+    """What a killed command had printed, which Python hands back as bytes."""
+    return output.decode(errors="replace") if isinstance(output, bytes) else (output or "")
 
 
 def read_env(path: Path) -> dict:
-    """`deploy/.env`'s values, read the way `purge-landing` reads them.
+    """`deploy/.env`'s values, by `purge-landing`'s rule, so both agree on a value.
 
-    The last assignment wins and one pair of surrounding quotes is dropped;
-    there is no interpolation, which `.env.example` never uses.
+    A value is what follows `NAME=` at the very start of a line: no spaces
+    around the name, no `export`, and a commented-out line is no value. The
+    last assignment wins; a pair of double quotes around the value is dropped,
+    then a pair of single ones. There is no interpolation, which `.env.example`
+    never uses.
     """
     values = {}
     for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
+        name, eq, value = line.partition("=")
+        if not eq or not name.isidentifier():
             continue
-        name, value = line.split("=", 1)
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
-            value = value[1:-1]
-        values[name.strip()] = value
+        for quote in "\"'":
+            if len(value) >= 2 and value[0] == value[-1] == quote:
+                value = value[1:-1]
+        values[name] = value
     return values

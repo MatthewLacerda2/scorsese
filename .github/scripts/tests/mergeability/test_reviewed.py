@@ -71,6 +71,9 @@ class Triggers(unittest.TestCase):
         self.assertIn("the gates", lines[0])
         self.assertIn("`medium`", lines[0])
 
+    def test_the_web_app_update_triggers_security(self):
+        for path in ("deploy/update", "deploy/updating/cli.py"):
+            self.assertIn("security", verdict(pull(changed(path)))[0], path)
 
     def test_a_rename_out_of_a_trigger_folder_still_counts(self):
         moved = [{"filename": "crates/providers/src/x.rs", "status": "renamed",
