@@ -13,7 +13,7 @@ function account(): { email: string; session: string } {
 /**
  * Signs in: the session cookie and its hint as the server sets them
  * (docs/web.md, *Accounts*), then `/login`, which a signed-in visitor leaves for the
- * projects list.
+ * home.
  */
 export async function logIn(page: Page) {
   await page.context().addCookies([
@@ -39,20 +39,24 @@ export async function logIn(page: Page) {
     },
   ]);
   await page.goto("/login");
-  await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Main menu" })).toBeVisible();
 }
 
 /**
- * Logs in and creates a project named `name` through the new-project modal
- * (#1016) — the name alone, every other step skipped — and waits for its editor.
+ * Logs in and makes a project named `name` — through the API from the page, as
+ * the home's prompt box does, but without a prompt to send — and waits for its editor.
  */
 export async function newProject(page: Page, name: string) {
   await logIn(page);
-  await page.getByRole("button", { name: "Create" }).click();
-  const modal = page.getByRole("dialog");
-  await modal.getByLabel("Project's name").fill(name);
-  await modal.getByRole("button", { name: "Create" }).click();
-  await expect(page).toHaveURL(/\/projects\/\d+\/edit$/);
+  const id = await page.evaluate(async (projectName) => {
+    const response = await fetch("/api/projects", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: projectName }),
+    });
+    return (await response.json()).id as number;
+  }, name);
+  await page.goto(`/projects/${id}/edit`);
   // The assets sidebar's Library button: the panel lost its heading (#1446).
   await expect(page.getByRole("button", { name: "Library" })).toBeVisible();
 }

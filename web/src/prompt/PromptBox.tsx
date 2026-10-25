@@ -14,10 +14,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { useT } from "@/i18n/I18nProvider";
 import { useTypewriter } from "@/prompt/useTypewriter";
 
-export function PromptBox({ onSubmit }: { onSubmit: (text: string) => string | undefined | void }) {
+export function PromptBox({
+  onSubmit,
+  autoFocus,
+}: {
+  /** What sending does: a sentence to show, or a promise of the work, which may fail with one. */
+  onSubmit: (text: string) => string | undefined | void | Promise<unknown>;
+  autoFocus?: boolean;
+}) {
   const t = useT().prompt;
   const [text, setText] = useState("");
   const [problem, setProblem] = useState<string>();
+  const [busy, setBusy] = useState(false);
   // The placeholder types itself while the box is empty; the label names it.
   const typed = useTypewriter(t.examples, text === "");
   // The box rests at a height that holds any example (two lines), and only what is
@@ -33,8 +41,13 @@ export function PromptBox({ onSubmit }: { onSubmit: (text: string) => string | u
 
   const send = () => {
     const prompt = text.trim();
-    if (!prompt) return;
-    setProblem(onSubmit(prompt) || undefined);
+    if (!prompt || busy) return;
+    const result = onSubmit(prompt);
+    if (result instanceof Promise) {
+      setProblem(undefined);
+      setBusy(true);
+      result.catch((failure: Error) => setProblem(failure.message)).finally(() => setBusy(false));
+    } else setProblem(typeof result === "string" ? result : undefined);
   };
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
@@ -51,6 +64,8 @@ export function PromptBox({ onSubmit }: { onSubmit: (text: string) => string | u
           onChange={(event) => setText(event.target.value)}
           onKeyDown={onKeyDown}
           placeholder={typed}
+          // biome-ignore lint/a11y/noAutofocus: the box is the whole point of the screen it is on.
+          autoFocus={autoFocus}
           aria-label={t.label}
           rows={2}
           className="max-h-60 min-h-24 field-sizing-fixed resize-none rounded-3xl border-0 bg-transparent px-5 py-4 pr-16 text-base shadow-none focus-visible:ring-0 md:text-base dark:bg-transparent"
@@ -59,7 +74,7 @@ export function PromptBox({ onSubmit }: { onSubmit: (text: string) => string | u
           type="button"
           size="icon-lg"
           onClick={send}
-          disabled={!text.trim()}
+          disabled={!text.trim() || busy}
           aria-label={t.send}
           className="absolute right-3 bottom-3 rounded-full"
         >

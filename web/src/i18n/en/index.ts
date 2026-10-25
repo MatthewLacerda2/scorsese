@@ -8,6 +8,7 @@ import { chat } from "@/i18n/en/chat";
 import { common } from "@/i18n/en/common";
 import { editor } from "@/i18n/en/editor";
 import { files } from "@/i18n/en/files";
+import { home } from "@/i18n/en/home";
 import { inspector } from "@/i18n/en/inspector";
 import { landing } from "@/i18n/en/landing";
 import { menu } from "@/i18n/en/menu";
@@ -30,4 +31,5 @@ export const en = {
   buying,
   prompt,
   pricing,
+  home,
 };

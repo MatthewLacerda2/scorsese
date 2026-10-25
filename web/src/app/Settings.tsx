@@ -16,14 +16,21 @@ import {
 } from "@/components/ui/dialog";
 import { useT } from "@/i18n/I18nProvider";
 
-export function SettingsButton() {
+/** The gear in the header; `labelled` makes it a full-width row that says "Settings", for a sidebar. */
+export function SettingsButton({ labelled = false }: { labelled?: boolean }) {
   const t = useT();
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={t.common.settings.open}>
-          <SettingsIcon />
-        </Button>
+        {labelled ? (
+          <Button variant="ghost" className="w-full justify-start">
+            <SettingsIcon /> {t.common.settings.open}
+          </Button>
+        ) : (
+          <Button variant="ghost" size="icon" aria-label={t.common.settings.open}>
+            <SettingsIcon />
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

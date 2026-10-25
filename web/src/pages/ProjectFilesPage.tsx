@@ -22,7 +22,7 @@ export function ProjectFilesPage() {
     return (
       <p className="text-muted-foreground">
         {project.error?.message ?? words.noSuchProject}{" "}
-        <Link to="/projects" className="underline">
+        <Link to="/" className="underline">
           {words.back}
         </Link>
       </p>
@@ -32,10 +32,10 @@ export function ProjectFilesPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <Link
-          to="/projects"
+          to="/"
           className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeftIcon className="size-4" /> {t.common.nav.projects}
+          <ArrowLeftIcon className="size-4" /> {t.common.nav.home}
         </Link>
         <h1 className="font-heading text-2xl font-semibold">{project.data?.name ?? "…"}</h1>
         <Link to={`/projects/${id}/edit`} className="text-sm underline">
