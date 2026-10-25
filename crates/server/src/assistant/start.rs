@@ -24,7 +24,7 @@ pub struct Opening {
     /// message, which only the server can write.
     pub notes: Vec<String>,
     /// Library ids of the files attached to the message (#1534): imported
-    /// once the turn may start, and named to the model ([`attached`]).
+    /// once the turn may start, and named to the model (`attached`).
     pub attachments: Vec<i64>,
     /// How hard the model thinks on it (#769); `None` is the project's level
     /// (#1443).
