@@ -47,6 +47,9 @@ mod tests {
         let gone = [system(&format!("about the project\n\n{NO_VEO}"))];
         assert_eq!(note(&gone, false), None);
         assert_eq!(note(&gone, true), Some(VEO_BACK));
+        // Any other note since says nothing about Veo.
+        let since = [gone[0].clone(), system("the person edited the script")];
+        assert_eq!(note(&since, false), None);
         let back = [gone[0].clone(), system(VEO_BACK)];
         assert_eq!(note(&back, true), None);
         assert_eq!(note(&back, false), Some(NO_VEO));
