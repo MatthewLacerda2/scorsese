@@ -3,13 +3,14 @@
 // in, the free one goes home and a buy one opens Add credits with its amount.
 
 import "@/landing/landing.css";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import { AddCreditsProvider, useAddCredits } from "@/app/addCredits";
 import { useT } from "@/i18n/I18nProvider";
 import { Header } from "@/landing/Header";
 import { SignInDialog } from "@/landing/SignInDialog";
 import { Footer } from "@/legal/Footer";
+import { useMeta } from "@/lib/useMeta";
 import { Costs } from "@/pricing/Costs";
 import { Faq } from "@/pricing/Faq";
 import { PlanCards } from "@/pricing/PlanCards";
@@ -23,13 +24,7 @@ function Content() {
   const [signIn, setSignIn] = useState(false);
   const signedIn = Boolean(account.data);
 
-  useEffect(() => {
-    const before = document.title;
-    document.title = t.meta.title;
-    return () => {
-      document.title = before;
-    };
-  }, [t.meta.title]);
+  useMeta(t.meta.title, t.meta.description);
 
   return (
     <div className="landing">
