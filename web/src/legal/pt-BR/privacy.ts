@@ -110,7 +110,7 @@ export const PRIVACY_PT: LegalDocument = {
       heading: "Onde ficam e por quanto tempo",
       blocks: [
         "Os seus dados ficam no nosso servidor, no Brasil, e numa cópia de segurança, refeita periodicamente e mantida por 30 dias.",
-        "Eles ficam guardados enquanto a sua conta existir. Quando a conta é encerrada, tudo é apagado do servidor, e as cópias de segurança que ainda tiverem os seus dados expiram em até 30 dias. Os registros de pagamento continuam na Stripe e na nossa contabilidade pelo prazo que a lei fiscal exige, e os registros de acesso continuam guardados, como determina o Marco Civil.",
+        "Eles ficam guardados enquanto a sua conta existir. Quando a conta é encerrada, tudo é apagado do servidor, e as cópias de segurança que ainda tiverem os seus dados expiram em até 30 dias. Os registros de pagamento continuam na Stripe e na nossa contabilidade pelo prazo que a lei fiscal exige, e os registros de acesso continuam guardados, como determina o Marco Civil. Os registros do servidor não são apagados um a um: continuam até que o rodízio os apague.",
       ],
     },
     {

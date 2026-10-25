@@ -92,7 +92,7 @@ export const PRIVACY_EN: LegalDocument = {
       heading: "Where it is kept and for how long",
       blocks: [
         "Your data is kept on our server, in Brazil, and in a backup that is redone periodically and kept for 30 days.",
-        "It is kept as long as your account exists. When the account is closed, everything is deleted from the server, and backups that still hold your data expire within 30 days. Payment records remain at Stripe and in our accounting for as long as tax law requires, and the access logs remain kept, as the Marco Civil requires.",
+        "It is kept as long as your account exists. When the account is closed, everything is deleted from the server, and backups that still hold your data expire within 30 days. Payment records remain at Stripe and in our accounting for as long as tax law requires, and the access logs remain kept, as the Marco Civil requires. The server logs are not deleted one by one: they remain until their rotation deletes them.",
       ],
     },
     {

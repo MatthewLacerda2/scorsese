@@ -4,7 +4,8 @@
 Every service in `deploy/compose.yaml` logs to journald under the tag
 `scorsese-<service>` (#1526): Docker's default `json-file` belongs to the
 container, so each deploy, which recreates `server` and `web`, wiped the
-history. And `web`'s healthcheck asks nginx for a path whose `location` turns
+history. A service that must log elsewhere says so inside its block, with
+why: `# journald: exempt <why>`. And `web`'s healthcheck asks nginx for a path whose `location` turns
 the access log off, so a line every 30 seconds does not drown the visitors.
 """
 
@@ -19,7 +20,9 @@ COMPOSE = ROOT / "deploy/compose.yaml"
 NGINX = ROOT / "deploy/nginx.conf"
 
 SERVICE = re.compile(r"^  ([a-z][a-z0-9-]*):\s*$")
-SECTION = re.compile(r"^\S")
+# A top-level key ends `services:`; a comment in column 0 does not.
+SECTION = re.compile(r"^[^\s#]")
+EXEMPT = re.compile(r"^\s*# journald: exempt \S")
 
 
 def services(compose: str) -> dict[str, str]:
@@ -46,9 +49,14 @@ def services(compose: str) -> dict[str, str]:
 def logging_problems(compose: str) -> list[str]:
     """One line per service that would not log to journald under its tag."""
     problems = []
+    found = services(compose)
+    if not found:
+        problems.append("compose.yaml has no services under `services:` that this check can read")
     if not re.search(r"^x-journald: &journald\n  driver: journald$", compose, re.MULTILINE):
         problems.append("compose.yaml has no `x-journald: &journald` anchor with `driver: journald`")
-    for name, block in services(compose).items():
+    for name, block in found.items():
+        if any(EXEMPT.match(line) for line in block.splitlines()):
+            continue
         logging = re.search(r"^    logging:\n((?:      .*\n?)+)", block + "\n", re.MULTILINE)
         if not logging:
             problems.append(f"service `{name}` has no `logging:`: add `<<: *journald` and its tag")
@@ -56,6 +64,8 @@ def logging_problems(compose: str) -> list[str]:
         body = logging.group(1)
         if "<<: *journald" not in body:
             problems.append(f"service `{name}`'s logging does not merge `*journald`")
+        if re.search(r"^      driver:", body, re.MULTILINE):
+            problems.append(f"service `{name}`'s logging sets its own `driver:` over `*journald`")
         if not re.search(rf"^        tag: scorsese-{re.escape(name)}$", body, re.MULTILINE):
             problems.append(f"service `{name}`'s logging is not tagged `scorsese-{name}`")
     return problems
@@ -123,6 +133,29 @@ class Checks(unittest.TestCase):
         self.assertEqual(
             logging_problems(compose), ["service `web`'s logging is not tagged `scorsese-web`"]
         )
+
+    def test_a_comment_in_column_zero_does_not_end_the_services(self) -> None:
+        compose = CLEAN.replace("\nvolumes:", "# a note\n  server:\n    image: x\n\nvolumes:")
+        self.assertIn(
+            "service `server` has no `logging:`: add `<<: *journald` and its tag",
+            logging_problems(compose),
+        )
+
+    def test_no_services_at_all_is_named(self) -> None:
+        self.assertIn("no services", logging_problems("x-journald: &journald\n  driver: journald\n")[0])
+
+    def test_a_driver_over_the_anchor_is_named(self) -> None:
+        compose = CLEAN.replace("      <<: *journald\n", "      <<: *journald\n      driver: json-file\n")
+        self.assertEqual(
+            logging_problems(compose),
+            ["service `web`'s logging sets its own `driver:` over `*journald`"],
+        )
+
+    def test_an_exemption_with_a_reason_passes(self) -> None:
+        exempt = "\n  shipper:\n    # journald: exempt it ships its own logs\n    image: x\n"
+        self.assertEqual(logging_problems(CLEAN.replace("\nvolumes:", exempt + "\nvolumes:")), [])
+        bare = "\n  shipper:\n    # journald: exempt\n    image: x\n"
+        self.assertNotEqual(logging_problems(CLEAN.replace("\nvolumes:", bare + "\nvolumes:")), [])
 
     def test_a_missing_anchor_is_named(self) -> None:
         compose = CLEAN.replace("  driver: journald\n", "  driver: json-file\n")

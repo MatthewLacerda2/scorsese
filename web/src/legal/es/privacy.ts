@@ -101,7 +101,7 @@ export const PRIVACY_ES: LegalDocument = {
       heading: "Dónde se guardan y por cuánto tiempo",
       blocks: [
         "Tus datos están en nuestro servidor, en Brasil, y en una copia de seguridad que se rehace periódicamente y se conserva por 30 días.",
-        "Se guardan mientras tu cuenta exista. Cuando la cuenta se cierra, todo se borra del servidor, y las copias de seguridad que aún tengan tus datos vencen en un máximo de 30 días. Los registros de pago siguen en Stripe y en nuestra contabilidad por el plazo que exige la ley fiscal, y los registros de acceso siguen guardados, como exige el Marco Civil.",
+        "Se guardan mientras tu cuenta exista. Cuando la cuenta se cierra, todo se borra del servidor, y las copias de seguridad que aún tengan tus datos vencen en un máximo de 30 días. Los registros de pago siguen en Stripe y en nuestra contabilidad por el plazo que exige la ley fiscal, y los registros de acceso siguen guardados, como exige el Marco Civil. Los registros del servidor no se borran uno a uno: siguen hasta que la rotación los borre.",
       ],
     },
     {

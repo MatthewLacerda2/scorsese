@@ -712,10 +712,16 @@ drops the oldest first. To set it, in `/etc/systemd/journald.conf`:
     [Journal]
     Storage=persistent
     SystemMaxUse=200M
+    RateLimitIntervalSec=30s
+    RateLimitBurst=50000
 
 then `sudo systemctl restart systemd-journald`. `Storage=persistent` keeps the
 journal across reboots too (`/var/log/journal`); `journalctl --disk-usage` says
-what it holds now.
+what it holds now. Every container's lines reach the journal through
+`docker.service`, which shares one rate limit (10000 lines per 30 s by
+default): a scanner's burst past it drops lines from every service at once,
+and the journal says `Suppressed N messages from docker.service`. The two
+`RateLimit` lines raise it.
 
 ## Accounts
 
