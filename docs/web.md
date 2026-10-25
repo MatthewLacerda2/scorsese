@@ -2578,14 +2578,8 @@ in the answer's result, and then not again (`chat_turns.script_told_at`).
 
 - **An allowlist**, not the whole surface: `track_new`, `track_remove`,
   `asset_remove`, `place_clip`, `clip_set`, `clip_move`,
-<<<<<<< HEAD
-  `clip_remove`, `sequence`, `project_reframe`, `script_write` (the edits,
-  `http::editor::EDITS`) and `import`, `still`, `script_read`. Anything else is
-=======
   `clip_remove`, `sequence`, `script_write` (the edits,
-  `http::editor::EDITS`) and `import`, `still`, `template_save`,
-  `template_insert`, `script_read`. Anything else is
->>>>>>> 17f2ffa (Web: no platform, style or shape pickers; the assistant reads them from the prompt (#1531))
+  `http::editor::EDITS`) and `import`, `still`, `script_read`. Anything else is
   `404` — a page has no business writing a whole document or spending money.
   An API token is `403`; a program uses web MCP.
 - **An edit names the revision it was worked out on**, and a project at any

@@ -18,11 +18,7 @@ use axum::routing::{MethodFilter, MethodRouter, on};
 
 use super::{
     AppState, account, chat, client_errors, credits, editor, events, google, health, jobs, library,
-<<<<<<< HEAD
-    mcp, payments, projects, renders, styles, tokens, uploads,
-=======
-    mcp, payments, projects, renders, templates, tokens, uploads,
->>>>>>> 17f2ffa (Web: no platform, style or shape pickers; the assistant reads them from the prompt (#1531))
+    mcp, payments, projects, renders, tokens, uploads,
 };
 
 /// One method on one path, and what answers it.

@@ -25,11 +25,6 @@ pub mod projects;
 mod ranges;
 pub mod renders;
 pub mod routes;
-<<<<<<< HEAD
-pub mod styles;
-=======
-pub mod templates;
->>>>>>> 17f2ffa (Web: no platform, style or shape pickers; the assistant reads them from the prompt (#1531))
 pub mod tokens;
 pub mod uploads;
 pub mod visitor;
