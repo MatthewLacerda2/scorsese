@@ -52,15 +52,17 @@ export function Composer({
   const queryClient = useQueryClient();
   const [prompt, setPrompt] = useState("");
   const [refused, setRefused] = useState<Problem | null>(null);
+  // What a message carries is taken as it is sent: a file attached while it
+  // is on its way stays in the tray for the next one.
   const send = useMutation({
-    mutationFn: () => chatApi.send(projectId, prompt.trim(), fresh, attachments.items),
+    mutationFn: (sent: { items: number[]; keys: string[] }) =>
+      chatApi.send(projectId, prompt.trim(), fresh, sent.items),
     onMutate: () => setRefused(null),
-    onSuccess: (turn) => {
+    onSuccess: (turn, sent) => {
       setPrompt("");
       // The files are the project's now: the assets panel lists them.
-      if (attachments.items.length > 0)
-        queryClient.invalidateQueries({ queryKey: queryKeys.library });
-      attachments.clear();
+      if (sent.items.length > 0) queryClient.invalidateQueries({ queryKey: queryKeys.library });
+      attachments.clear(sent.keys);
       onStarted(turn);
     },
     onError: (error) => setRefused(problem(error, t.chat)),
@@ -72,10 +74,12 @@ export function Composer({
   const ready =
     prompt.trim() !== "" && runningTurn === null && !send.isPending && !attachments.busy;
   const stoppable = runningTurn ?? askingTurn;
+  const submit = () =>
+    send.mutate({ items: attachments.items, keys: attachments.list.map((one) => one.key) });
   const keyed = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      if (ready) send.mutate();
+      if (ready) submit();
     }
   };
   return (
@@ -121,7 +125,7 @@ export function Composer({
                 <SquareIcon /> {t.chat.composer.stop}
               </Button>
             )}
-            <Button size="sm" disabled={!ready} onClick={() => send.mutate()}>
+            <Button size="sm" disabled={!ready} onClick={submit}>
               <SendIcon /> {t.chat.composer.send}
             </Button>
           </div>

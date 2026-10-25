@@ -6,6 +6,10 @@
 // server refuses a duplicate at upload too, as a backstop; both end the same
 // way — "you already have this as X", linking to X.
 //
+// A file the library does not take (`GET /api/library/formats`) is refused by
+// name before it is hashed, whichever page sent it; while that list is not in
+// yet, the server's refusal at announcement says so instead.
+//
 // The uploader lives in a provider around the whole signed-in app rather than
 // on the library page, so an upload keeps going while the user browses.
 
@@ -19,10 +23,11 @@ import {
   useRef,
   useState,
 } from "react";
-import { api } from "@/api";
+import { api, type Formats } from "@/api";
 import { queryKeys } from "@/app/queryKeys";
 import { useT } from "@/i18n/I18nProvider";
 import { alreadyHave, duplicateOf } from "@/lib/upload/duplicate";
+import { sort } from "@/lib/upload/formats";
 import { hashFile } from "@/lib/upload/hash";
 import {
   createUploader,
@@ -160,23 +165,34 @@ function useUploader(): Uploads {
   const add = useCallback(
     (files: Iterable<File>) => {
       const started = Array.from(files, (file) => ({ key: `upload-${nextKey++}`, file }));
+      const formats = queryClient.getQueryData<Formats>(queryKeys.formats);
+      const refused = new Set(
+        sort(
+          started.map(({ file }) => file),
+          formats,
+        ).refused,
+      );
       const rowsOf = started.map(
-        ({ key, file }): Upload => ({
-          key,
-          name: file.name,
-          phase: "hashing",
-          progress: 0,
-        }),
+        ({ key, file }): Upload =>
+          refused.has(file.name)
+            ? {
+                key,
+                name: file.name,
+                phase: "failed",
+                progress: 0,
+                message: t.files.uploads.refused,
+              }
+            : { key, name: file.name, phase: "hashing", progress: 0 },
       );
       setUploads((all) => [...rowsOf.reverse(), ...all]);
       // One at a time, as before: hashing is the browser's, and a burst of
       // checks would only queue at the server.
       void (async () => {
-        for (const { key, file } of started) await send(key, file);
+        for (const { key, file } of started) if (!refused.has(file.name)) await send(key, file);
       })();
       return started.map(({ key }) => key);
     },
-    [send],
+    [send, queryClient, t],
   );
 
   const dismiss = useCallback(() => {

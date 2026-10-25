@@ -95,6 +95,7 @@ export const files: Messages["files"] = {
       duplicate: "Já está na sua biblioteca",
       failed: "Falhou",
     },
+    refused: "o scorsese não usa esse tipo de arquivo",
     alreadyHave: (name: string) => `você já tem este arquivo como “${name}”`,
   },
 };

@@ -27,8 +27,8 @@ export interface Attachments {
   /** Attach these, refusing by name what the library does not take. */
   add: (files: Iterable<File>) => void;
   remove: (key: string) => void;
-  /** Empty the tray: the message went. */
-  clear: () => void;
+  /** Take these off the tray: the message that carried them went. A file added since stays. */
+  clear: (keys: readonly string[]) => void;
   /** The names the last pick or drop refused. */
   refused: string[];
   /** A file is still on its way, so sending waits. */
@@ -87,8 +87,9 @@ export function useAttachments(): Attachments {
     setHeld((now) => now.filter((one) => one.key !== key));
     setRefused([]);
   }, []);
-  const clear = useCallback(() => {
-    setHeld([]);
+  const clear = useCallback((keys: readonly string[]) => {
+    const sent = new Set(keys);
+    setHeld((now) => now.filter((one) => !sent.has(one.key)));
     setRefused([]);
   }, []);
 
