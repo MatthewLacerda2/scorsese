@@ -248,9 +248,15 @@ pub async fn run(
             config::PUBLIC_ORIGIN
         ),
     }
+    eprintln!(
+        "scorsese-server: giving every account {} free a day, at most {} a month",
+        credits::dollars(config.free.daily_micros),
+        credits::dollars(config.free.monthly_micros)
+    );
     let services = Services {
         google: config.google,
         payments: config.payments,
+        free: config.free,
     };
     start(
         pool, listener, files, registry, assistant, services, shutdown,
@@ -272,13 +278,16 @@ pub struct Files {
 
 /// The vendors a server is configured to reach for its own sake, each
 /// optional: `None` is a server that answers what needs it with "not
-/// configured" and serves everything else.
+/// configured" and serves everything else — and what it gives away, nothing
+/// unless told.
 #[derive(Debug, Clone, Default)]
 pub struct Services {
     /// Sign in with Google (#952).
     pub google: Option<http::google::Google>,
     /// Users buying credits through Stripe (#548).
     pub payments: Option<payments::Payments>,
+    /// The free allowance every account is given (#1530).
+    pub free: credits::allowance::Allowance,
 }
 
 /// Migrate, then serve on `listener` with users' files in `files`, the
@@ -315,6 +324,9 @@ pub async fn start(
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> Result<(), ServerError> {
     db::migrate(&pool).await?;
+    credits::allowance::set(&pool, services.free)
+        .await
+        .map_err(ServerError::Database)?;
     let migrated = projects::migrate_stored(&pool).await?;
     if migrated > 0 {
         eprintln!("scorsese-server: migrated {migrated} stored projects to this build's format");

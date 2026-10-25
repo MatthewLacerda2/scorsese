@@ -29,9 +29,12 @@
 //! each time the server starts ([`set`]), so the ledger reads them where it
 //! reads everything else.
 
+use scorsese_providers::credentials::Environment;
+use scorsese_providers::prices::parse_dollars;
 use serde::Serialize;
 use sqlx::postgres::PgPool;
 
+use crate::config::{ConfigError, FREE_DAILY, FREE_MONTHLY};
 use crate::db::Tx;
 
 /// What every account is given for nothing.
@@ -56,6 +59,32 @@ impl Allowance {
         daily_micros: 4_000_000,
         monthly_micros: 12_000_000,
     };
+}
+
+impl Allowance {
+    /// What [`FREE_DAILY`] and [`FREE_MONTHLY`] say, each [`Self::DEFAULT`]'s
+    /// figure when unset.
+    pub fn from_environment(environment: &Environment) -> Result<Self, ConfigError> {
+        Ok(Self {
+            daily_micros: dollars(environment, FREE_DAILY, Self::DEFAULT.daily_micros)?,
+            monthly_micros: dollars(environment, FREE_MONTHLY, Self::DEFAULT.monthly_micros)?,
+        })
+    }
+}
+
+/// The dollars, zero or more, `variable` holds, or `default` when unset.
+fn dollars(
+    environment: &Environment,
+    variable: &'static str,
+    default: i64,
+) -> Result<i64, ConfigError> {
+    let Some(value) = environment.get(variable) else {
+        return Ok(default);
+    };
+    parse_dollars(value).ok_or_else(|| ConfigError::Free {
+        variable,
+        value: value.to_owned(),
+    })
 }
 
 impl Default for Allowance {
@@ -151,4 +180,29 @@ pub(super) async fn give_back(tx: &mut Tx, reservation: i64) -> Result<(), sqlx:
     .execute(&mut **tx)
     .await
     .map(drop)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn with(pairs: Vec<(&'static str, &'static str)>) -> Result<Allowance, ConfigError> {
+        Allowance::from_environment(&Environment::of(pairs))
+    }
+
+    #[test]
+    fn the_allowance_is_four_a_day_and_twelve_a_month_unless_told_otherwise() {
+        assert_eq!(with(vec![]).unwrap(), Allowance::DEFAULT);
+        let told = with(vec![(FREE_DAILY, "$2.50"), (FREE_MONTHLY, "0")]).unwrap();
+        assert_eq!(told.daily_micros, 2_500_000);
+        assert_eq!(told.monthly_micros, 0, "zero gives nothing away");
+        for nonsense in ["-1", "four", "1e3"] {
+            let error = with(vec![(FREE_DAILY, nonsense)]).unwrap_err();
+            assert!(matches!(error, ConfigError::Free { .. }), "{nonsense}");
+        }
+        assert_eq!(
+            with(vec![(FREE_MONTHLY, "lots")]).unwrap_err().to_string(),
+            "SCORSESE_FREE_MONTHLY must be dollars like 4.00, or 0 for none, and \"lots\" is not"
+        );
+    }
 }

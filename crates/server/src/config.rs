@@ -1,6 +1,6 @@
 //! What the server is told by the environment it is started in.
 //!
-//! Fourteen things, and four of them are secrets. The database URL carries a
+//! Sixteen things, and four of them are secrets. The database URL carries a
 //! password, the Google OAuth client has a secret and Stripe has two, so all
 //! are held as a [`Secret`] — printing a [`Config`] prints nothing of them, and no error
 //! below ever repeats their values.
@@ -24,6 +24,7 @@ use scorsese_providers::credentials::{Environment, Secret};
 use scorsese_providers::prices::parse_dollars;
 
 use crate::assistant::DEFAULT_TURN_CAP_MICROS;
+use crate::credits::allowance::Allowance;
 use crate::credits::dollars;
 use crate::http::google::Google;
 use crate::jobs::elevenlabs::ElevenLabs;
@@ -62,6 +63,15 @@ pub const RETIRED_MODEL: &str = "SCORSESE_ASSISTANT_MODEL";
 /// e.g. `2.50`; every other model's cap scales from it with its rates
 /// (`Assistant::cap_micros`, #1461). Defaults to [`DEFAULT_TURN_CAP_MICROS`].
 pub const ASSISTANT_TURN_CAP: &str = "SCORSESE_ASSISTANT_TURN_CAP";
+
+/// What every account may spend free each Brasília day, in dollars, e.g.
+/// `4.00`; `0` gives nothing away (`credits::allowance`, #1530). Defaults to
+/// $4.
+pub const FREE_DAILY: &str = "SCORSESE_FREE_DAILY";
+
+/// The most every account may spend free in a calendar month, in dollars,
+/// e.g. `12.00`. Defaults to $12.
+pub const FREE_MONTHLY: &str = "SCORSESE_FREE_MONTHLY";
 
 /// The Google OAuth client's id, `….apps.googleusercontent.com` (#952).
 pub const GOOGLE_CLIENT_ID: &str = "GOOGLE_OAUTH_CLIENT_ID";
@@ -107,6 +117,8 @@ pub struct Config {
     pub bind: SocketAddr,
     /// The most one assistant turn may cost, in micro-dollars.
     pub assistant_turn_cap: i64,
+    /// What every account is given free each day and month.
+    pub free: Allowance,
     /// What the operator's ElevenLabs plan allows: calls at once, voices kept.
     pub elevenlabs: ElevenLabs,
     /// Sign in with Google, when [`GOOGLE_CLIENT_ID`], [`GOOGLE_CLIENT_SECRET`]
@@ -206,6 +218,15 @@ pub enum ConfigError {
         value: String,
     },
 
+    /// A free allowance is not an amount of dollars, zero or more.
+    #[error("{variable} must be dollars like 4.00, or 0 for none, and {value:?} is not")]
+    Free {
+        /// The variable's name.
+        variable: &'static str,
+        /// What it held.
+        value: String,
+    },
+
     /// The per-turn cap is not an amount of dollars above zero.
     #[error(
         "{ASSISTANT_TURN_CAP} must be dollars above zero like {}, and {value:?} is not",
@@ -273,6 +294,7 @@ impl Config {
             None => DEFAULT_TURN_CAP_MICROS,
         };
 
+        let free = Allowance::from_environment(environment)?;
         let elevenlabs = ElevenLabs::from_environment(environment)?;
         let google = Google::from_environment(environment)?;
         let payments = Payments::from_environment(environment)?;
@@ -284,6 +306,7 @@ impl Config {
             render_quota,
             bind,
             assistant_turn_cap,
+            free,
             elevenlabs,
             google,
             payments,
