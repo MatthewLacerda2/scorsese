@@ -2307,7 +2307,7 @@ fixed until measured usage (#707) says otherwise.
 | `GET /api/projects/{id}/chat` | a member | `{project, session, turns, model, models, effort}`: the newest conversation's turns, oldest first; the project's model; every model offered as `{id, label, vendor, unavailable, cache_seconds, cost}`; the project's effort |
 | `PUT /api/projects/{id}/chat/model` | a member | `{model}` → the model as listed; from the next turn the project runs on it. `400` for a model not offered |
 | `PUT /api/projects/{id}/chat/effort` | a member | `{effort}` → `{effort}`; from the next turn the project runs at it. `low`, `medium`, `high` or `xhigh`; `400` for anything else |
-| `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?, attachments?}` → `202` with the turn, at the project's effort; `attachments` are library ids (at most 20, #1534): the media among them are imported once the turn may start, under the editor's per-minute edit limit, and the model is told in a note which files came with the message, a document as one to read; `400` for one not in their library or an empty prompt, `402` no credit, `409` a turn is running, `429` past the edit limit, `503` not configured — and a refused message imports nothing |
+| `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?, attachments?}` → `202` with the turn, at the project's effort; `attachments` are library ids (at most 20, #1534): the media among them are imported once the turn may start, under the editor's per-minute edit limit, and the model is told in a note which files came with the message, a document as one to read; `400` for one not in their library or an empty prompt, `402` no credit, `409` a turn is running, `429` past the edit limit, `503` not configured — a message refused before its turn begins imports nothing; one losing a race to another tab's message at the turn's beginning may leave its files imported, and resending is harmless |
 | `GET /api/chat/turns/{id}` | a member | `{turn, tools}`: the turn and the log of every tool call it made, in order |
 | `POST /api/chat/turns/{id}/stop` | a member | `202`; the turn stops before its next step — at once, its question set aside, when it is `asking`. `409` if it is neither |
 | `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false, change?}` → `{spent, refused, turn, note}`; `turn` is the one the quote paused, carrying on with the answer as the quoting call's result (#1440); `change` with `confirm: true` is `400`, and so is any answer on a turn not paused on a quote |
@@ -2687,7 +2687,7 @@ only while the reader is at the bottom. "New conversation" is a button with a
 confirmation just above it; Start empties the chat at once and the next message
 is sent with `fresh: true`, which opens a new `chat_sessions` row. The old
 conversation stays in the database. Without the project's
-model's key (`ANTHROPIC_API_KEY`) the server's `503` "not configured" is shown as a note, and nothing else changes: a refused message imports none of its attached files.
+model's key (`ANTHROPIC_API_KEY`) the server's `503` "not configured" is shown as a note, and nothing else changes: a message refused before its turn begins imports none of its attached files (one that loses a race to another tab's message as its turn begins may leave them imported, and resending is harmless).
 
 **Files attach to a message** (#1534), the way a chatbot takes them, so adding
 something while talking needs no trip to the Library modal. The "+" in a
@@ -2700,7 +2700,7 @@ page's one uploader, with its duplicate rule, and a progress ring; sending
 waits for them. A file the library does not take is refused by name, by the
 list `GET /api/library/formats` answers. The message carries their library ids
 (`attachments`): the server imports the media into the project once the turn
-may start (a refused message imports nothing) and tells the model which files
+may start (a message refused before its turn begins imports nothing) and tells the model which files
 came with it (*Assistant turns*); a file attached while the message is on its
 way stays for the next one. × takes a file off the message and leaves it in
 the library. A drop on the Library modal is the modal's upload, never also an

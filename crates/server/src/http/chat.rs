@@ -36,7 +36,10 @@ pub struct Send {
 /// project's effort. `503` when the assistant is not configured, `402` when
 /// the balance is empty, `409` while another turn of the conversation runs;
 /// `400` when an attachment is not the caller's, `429` past the editor's
-/// per-minute limit — and on any refusal nothing is imported.
+/// per-minute limit. A message refused before its turn begins imports
+/// nothing; one that loses a race at the turn's beginning (another tab's
+/// message first) may leave its files imported, and sending it again is
+/// harmless.
 pub async fn send(
     State(state): State<AppState>,
     member: Member,

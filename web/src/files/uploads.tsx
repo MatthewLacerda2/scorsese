@@ -184,7 +184,9 @@ function useUploader(): Uploads {
               }
             : { key, name: file.name, phase: "hashing", progress: 0 },
       );
-      setUploads((all) => [...rowsOf.reverse(), ...all]);
+      // Newest first; reversed outside the updater, which StrictMode runs twice.
+      const newest = [...rowsOf].reverse();
+      setUploads((all) => [...newest, ...all]);
       // One at a time, as before: hashing is the browser's, and a burst of
       // checks would only queue at the server.
       void (async () => {

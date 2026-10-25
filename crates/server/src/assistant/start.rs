@@ -46,8 +46,11 @@ pub struct Opening {
 ///
 /// Work the conversation ordered that has landed since is told in a note
 /// (`wake::told`); a woken turn is refused when there is none. Attached files
-/// are imported only after every refusal but that one, which a message never
-/// meets: a refused message changes nothing.
+/// are imported once every refusal that comes before the turn begins has
+/// passed, so a message refused there imports nothing. A race lost later —
+/// another tab's message beginning its turn first, or answering the pause
+/// first — may leave its files imported; sending again is harmless, since
+/// `import` keeps an asset once.
 pub async fn start(
     state: &AppState,
     user: UserId,
@@ -95,15 +98,21 @@ pub async fn start(
     {
         return Err(AssistantError::Busy);
     }
-    if let Some(note) = attached::attach(state, user, project, &opening.attachments).await? {
-        opening.notes.push(note);
+    // Nothing is written yet, so `tx` is let go rather than held across the
+    // import, which takes connections of its own.
+    if !opening.attachments.is_empty() {
+        drop(tx);
+        if let Some(note) = attached::attach(state, user, project, &opening.attachments).await? {
+            opening.notes.push(note);
+        }
+        tx = db::scoped(&state.pool, user).await?;
     }
     let left = if opening.fresh {
         asking::set_aside_in(&mut tx, project).await?
     } else {
         Vec::new()
     };
-    let (session, new) = turns::session(&mut tx, project, opening.fresh).await?;
+    let (session, new) = turns::session(&mut tx, project, newest).await?;
     let scripted = stored.document.script.is_some();
     let about = prompt::about(project, &stored.summary.name, scripted);
     let mut notes = Vec::new();
