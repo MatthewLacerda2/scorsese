@@ -12,7 +12,9 @@ use super::{Script, answers, exchange, member, project};
 async fn offered(pool: &PgPool, dollars: i64) -> (String, bool) {
     let script = Script::new(vec![answers("Here is an intro.")]);
     let (address, _) = super::scripted(pool, &script).await;
-    allowance::set(pool, Allowance::DEFAULT).await.unwrap();
+    allowance::set(pool, Allowance::DEFAULT)
+        .await
+        .expect("the test setup holds");
     let (ana, who) = member(pool, "ana@example.com", dollars).await;
     let id = project(pool, ana, json!([])).await;
     let detail = exchange(address, &who, id, "make an intro").await;

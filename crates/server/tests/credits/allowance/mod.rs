@@ -35,20 +35,25 @@ pub(super) fn line(cents: u64, settings: &Value) -> Request<'_> {
 
 /// What is left of `user`'s free allowance now.
 async fn free(pool: &PgPool, user: UserId) -> i64 {
-    let mut tx = db::scoped(pool, user).await.unwrap();
-    allowance::left(&mut tx).await.unwrap().left_micros
+    let mut tx = db::scoped(pool, user).await.expect("the test setup holds");
+    allowance::left(&mut tx)
+        .await
+        .expect("the test setup holds")
+        .left_micros
 }
 
 /// What is left of `user`'s free allowance at `at`, in seconds since 1970.
 async fn free_at(pool: &PgPool, user: UserId, at: i64) -> allowance::Free {
-    let mut tx = db::scoped(pool, user).await.unwrap();
-    allowance::left_at(&mut tx, at).await.unwrap()
+    let mut tx = db::scoped(pool, user).await.expect("the test setup holds");
+    allowance::left_at(&mut tx, at)
+        .await
+        .expect("the test setup holds")
 }
 
 /// A $1 line that the allowance paid for in full at `at`, written as the
 /// ledger writes one: its reservation and the allowance beside it.
 pub(super) async fn spent_free_at(pool: &PgPool, user: UserId, at: &str, micros: i64) {
-    let mut tx = db::scoped(pool, user).await.unwrap();
+    let mut tx = db::scoped(pool, user).await.expect("the test setup holds");
     let reservation: i64 = sqlx::query_scalar(
         "INSERT INTO credit_entries (user_id, kind, amount_micros, memo, created_at)
          VALUES (member_id(), 'reservation', $1, 'a line', $2::timestamptz) RETURNING id",
@@ -57,7 +62,7 @@ pub(super) async fn spent_free_at(pool: &PgPool, user: UserId, at: &str, micros:
     .bind(at)
     .fetch_one(&mut *tx)
     .await
-    .unwrap();
+    .expect("the test setup holds");
     sqlx::query(
         "INSERT INTO credit_entries (user_id, kind, amount_micros, settles, memo, created_at)
          VALUES (member_id(), 'allowance', $1, $2, 'a line', $3::timestamptz)",
@@ -67,8 +72,8 @@ pub(super) async fn spent_free_at(pool: &PgPool, user: UserId, at: &str, micros:
     .bind(at)
     .execute(&mut *tx)
     .await
-    .unwrap();
-    tx.commit().await.unwrap();
+    .expect("the test setup holds");
+    tx.commit().await.expect("the test setup holds");
 }
 
 /// Seconds since 1970 of an RFC 3339 instant, as Postgres reads it.
@@ -77,5 +82,5 @@ async fn epoch(pool: &PgPool, at: &str) -> i64 {
         .bind(at)
         .fetch_one(pool)
         .await
-        .unwrap()
+        .expect("the test setup holds")
 }
