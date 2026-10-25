@@ -21,6 +21,20 @@ use base64::engine::general_purpose::STANDARD;
 use scorsese_providers::chat::ResultPart;
 use scorsese_render::{Tools, frames};
 
+/// The longest edge of a picture the person attached to a message (#1562):
+/// enough to read what it shows, at about a thousand tokens on every call
+/// that replays it, where [`frames::MODEL_EDGE`] costs some three thousand.
+pub(super) const ATTACHED_EDGE: u32 = 1024;
+
+/// A picture the person attached, as the JPEG the model is sent.
+pub(super) fn attached(ffmpeg: &Tools, picture: &[u8]) -> Result<ResultPart, String> {
+    let jpeg = frames::fitted(ffmpeg, picture, ATTACHED_EDGE).map_err(|error| error.to_string())?;
+    Ok(ResultPart::Image {
+        media_type: frames::JPEG.to_owned(),
+        data: STANDARD.encode(jpeg),
+    })
+}
+
 /// A base64 picture as the JPEG the model is sent, or a line saying it is
 /// not there — never the picture whole, which is what ended a conversation.
 pub(super) fn shrunk(ffmpeg: &Tools, picture: &str) -> ResultPart {
@@ -78,6 +92,31 @@ mod tests {
             data.len(),
             png.len()
         );
+    }
+
+    #[test]
+    fn an_attached_picture_is_sent_no_longer_than_its_edge_keeping_its_aspect() {
+        let ffmpeg = Tools::discover().expect("ffmpeg is on PATH");
+        let png = photographic(&ffmpeg);
+        let ResultPart::Image { media_type, data } =
+            attached(&ffmpeg, &png).expect("a picture shrinks")
+        else {
+            panic!("the picture is sent");
+        };
+        assert_eq!(media_type, "image/jpeg");
+        let jpeg = STANDARD.decode(data).expect("base64");
+        let scratch = std::env::temp_dir().join(format!("attached-{}.jpg", std::process::id()));
+        std::fs::write(&scratch, jpeg).expect("the test setup holds");
+        let probed = ffmpeg
+            .ffprobe()
+            .args(["-v", "error", "-select_streams", "v:0", "-show_entries"])
+            .args(["stream=width,height", "-of", "csv=p=0"])
+            .arg(&scratch)
+            .output()
+            .expect("ffprobe runs");
+        std::fs::remove_file(&scratch).ok();
+        let size = String::from_utf8_lossy(&probed.stdout).trim().to_owned();
+        assert_eq!(size, "1024,576", "1280×720 fitted to {ATTACHED_EDGE}");
     }
 
     #[test]

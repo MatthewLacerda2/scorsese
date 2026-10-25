@@ -36,6 +36,11 @@ pub const JPEG: &str = "image/jpeg";
 /// whose long edge is at most [`MODEL_EDGE`], transparency flattened onto
 /// white. Never enlarged; the aspect is kept.
 pub fn for_a_model(tools: &Tools, picture: &[u8]) -> Result<Vec<u8>, FrameError> {
+    fitted(tools, picture, MODEL_EDGE)
+}
+
+/// [`for_a_model`] with a long edge of at most `edge`.
+pub fn fitted(tools: &Tools, picture: &[u8], edge: u32) -> Result<Vec<u8>, FrameError> {
     let file = Path::new(IN_MEMORY);
     let io = |source| FrameError::Io {
         file: file.to_path_buf(),
@@ -46,7 +51,7 @@ pub fn for_a_model(tools: &Tools, picture: &[u8]) -> Result<Vec<u8>, FrameError>
     // preview went dark. So the picture is laid over white first, where a
     // light page or a dark glyph stays readable.
     let fit = format!(
-        "scale='min({MODEL_EDGE},iw)':'min({MODEL_EDGE},ih)':force_original_aspect_ratio=decrease,\
+        "scale='min({edge},iw)':'min({edge},ih)':force_original_aspect_ratio=decrease,\
          format=rgba,split[picture][under];[under]drawbox=c=white@1:t=fill[white];\
          [white][picture]overlay"
     );

@@ -173,7 +173,8 @@ fn text(tool: &Value, field: &str) -> String {
 }
 
 /// A turn's first messages: the user's words, after a result for every tool
-/// call the conversation left unanswered; an effort change when `effort` is
+/// call the conversation left unanswered and before what they attached is
+/// shown as (`shown`, #1562); an effort change when `effort` is
 /// not the level in effect (#1443); and, when there is anything the server
 /// has to say, one note saying it.
 ///
@@ -185,6 +186,7 @@ fn text(tool: &Value, field: &str) -> String {
 pub(super) fn opening(
     history: &[Message],
     prompt: &str,
+    shown: &[Part],
     notes: &[String],
     effort: Effort,
 ) -> Vec<Message> {
@@ -211,6 +213,7 @@ pub(super) fn opening(
     content.push(Part::Text {
         text: prompt.to_owned(),
     });
+    content.extend_from_slice(shown);
     // Directly after the words, which sets the level of the reply to them
     // (Anthropic's *Effort* page, read 2026-10-18: "Placed directly after a
     // `user` turn with new input, it sets the level for Claude's reply to
@@ -298,9 +301,9 @@ mod tests {
     fn an_effort_change_follows_the_words_it_sets_the_reply_to() {
         let history = [Message::assistant("Done.")];
         let notes = ["The person said yes.".to_owned()];
-        let opened = opening(&history, "now the outro", &notes, Effort::Low);
+        let opened = opening(&history, "now the outro", &[], &notes, Effort::Low);
         assert_eq!(kinds(&opened), ["user", "effort", "system"]);
-        let unchanged = opening(&history, "now the outro", &[], Effort::BASELINE);
+        let unchanged = opening(&history, "now the outro", &[], &[], Effort::BASELINE);
         assert_eq!(kinds(&unchanged), ["user"], "no change, no message");
     }
 
@@ -314,7 +317,7 @@ mod tests {
                 input: json!({}),
             }],
         };
-        let opened = opening(&[stopped], "carry on", &[], Effort::Xhigh);
+        let opened = opening(&[stopped], "carry on", &[], &[], Effort::Xhigh);
         assert_eq!(kinds(&opened), ["user", "effort"]);
         assert!(matches!(
             opened[0].parts().first(),

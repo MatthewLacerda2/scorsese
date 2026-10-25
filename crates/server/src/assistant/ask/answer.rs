@@ -8,6 +8,7 @@ use scorsese_providers::chat::Message;
 use super::resume::{noted, resuming};
 use super::{answered, is_ours, pick};
 use crate::assistant::AssistantError;
+use crate::assistant::attached::Attached;
 use crate::assistant::store::{QuestionView, TurnView, asking, hands, view};
 use crate::assistant::turn::{self, Resumed};
 use crate::credits::{dollars, ledger};
@@ -24,9 +25,9 @@ pub struct Answering {
     /// The `key`s of the candidates they picked from a picker — empty for
     /// "none of these" — or `None` when they answered in words alone.
     pub picked: Option<Vec<String>>,
-    /// What the server has to tell the model with the answer: the files
-    /// attached to the message that answered (#1534).
-    pub notes: Vec<String>,
+    /// The files attached to the message that answered (#1534), as the model
+    /// is told and shown them.
+    pub attached: Option<Attached>,
 }
 
 impl Answering {
@@ -35,7 +36,7 @@ impl Answering {
         Self {
             words: words.to_owned(),
             picked: None,
-            notes: Vec::new(),
+            attached: None,
         }
     }
 }
@@ -114,7 +115,7 @@ pub async fn answer(
         },
     );
     let state = state.clone();
-    let notes = answering.notes;
+    let attached = answering.attached;
     tokio::spawn(async move {
         // Words alone answer a question at once; a picker's result waits for
         // what was picked to be brought in, while the turn already shows as
@@ -127,7 +128,7 @@ pub async fn answer(
             answered(&call, words.as_deref().unwrap_or_default())
         };
         running.answer = Some(Resumed::Next(Message::User {
-            content: vec![noted(result, told, &notes)],
+            content: vec![noted(result, told, attached.as_ref())],
         }));
         turn::run(state, running).await;
     });

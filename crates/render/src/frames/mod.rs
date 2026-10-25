@@ -27,7 +27,7 @@ use scorsese_compositor::{Frame, PIXEL_FORMAT};
 use crate::settings::Resolution;
 use crate::tools::Tools;
 
-pub use shrunk::{JPEG, MODEL_EDGE, for_a_model};
+pub use shrunk::{JPEG, MODEL_EDGE, fitted, for_a_model};
 pub use stills::{Still, stills};
 pub use thumbnail::{THUMBNAIL_SIZE, Thumbnail, thumbnail};
 

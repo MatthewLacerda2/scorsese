@@ -8,7 +8,7 @@ use serde_json::Value;
 use serde_json::value::RawValue;
 
 use super::{Chat, ChatError, Effort, Message, Part, Reply, Request, ResultPart, Streamed};
-use crate::api::anthropic::content::{self, Block};
+use crate::api::anthropic::content::{self, Block, ImageSource};
 use crate::api::anthropic::request::{self as wire, MessageContent, Role};
 use crate::chat::claude::{self, Anthropic, Claude, MAX_TOKENS, Response, Settings};
 
@@ -122,6 +122,9 @@ fn blocks(parts: &[Part]) -> Result<Vec<Block>, serde_json::Error> {
         .map(|part| {
             Ok(match part {
                 Part::Text { text } => Block::Text { text: text.clone() },
+                Part::Image { media_type, data } => Block::Image {
+                    source: ImageSource::base64(media_type.clone(), data.clone()),
+                },
                 Part::Call { id, name, input } => Block::ToolUse {
                     id: id.clone(),
                     name: name.clone(),

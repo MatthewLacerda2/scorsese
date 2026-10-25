@@ -80,7 +80,7 @@ pub(super) fn prepare(
     effort: Effort,
 ) -> Result<Compacting, serde_json::Error> {
     let mut request = history.to_vec();
-    for message in prompt::opening(said, INSTRUCTION, &[], effort) {
+    for message in prompt::opening(said, INSTRUCTION, &[], &[], effort) {
         request.push(chat::freeze(model, &message)?);
     }
     let rest = notes.iter().filter(|note| note.as_str() != about).cloned();
@@ -123,8 +123,8 @@ async fn summarised(
     let summary = summary(state, turn, request).await?;
     let mut notes = compacting.notes;
     notes.insert(1, note(&summary));
-    let words = opened_with(&turn.record).ok_or("the turn opened without words")?;
-    let record = prompt::opening(&[], words, &notes, turn.effort);
+    let (words, shown) = opened_with(&turn.record).ok_or("the turn opened without words")?;
+    let record = prompt::opening(&[], words, &shown, &notes, turn.effort);
     let messages = record
         .iter()
         .map(|message| chat::freeze(turn.model, message))
@@ -139,17 +139,23 @@ async fn summarised(
     Ok(())
 }
 
-/// The words a turn's `record` opened with: its user message's last text,
-/// after any results it carried. Not `Running::prompt`, which for a woken
-/// turn is the transcript's marker, never sent as the person's words (#1489).
-fn opened_with(record: &[Message]) -> Option<&str> {
-    record.iter().find_map(|message| match message {
-        Message::User { content } => content.iter().rev().find_map(|part| match part {
-            Part::Text { text } => Some(text.as_str()),
-            _ => None,
-        }),
+/// The words a turn's `record` opened with — its user message's first text,
+/// after any results it carried — and what it showed after them: the
+/// documents and pictures attached (#1562). Not `Running::prompt`, which for
+/// a woken turn is the transcript's marker, never sent as the person's words
+/// (#1489).
+fn opened_with(record: &[Message]) -> Option<(&str, Vec<Part>)> {
+    let content = record.iter().find_map(|message| match message {
+        Message::User { content } => Some(content),
         _ => None,
-    })
+    })?;
+    let mut parts = content
+        .iter()
+        .skip_while(|part| matches!(part, Part::Result { .. }));
+    let Some(Part::Text { text }) = parts.next() else {
+        return None;
+    };
+    Some((text.as_str(), parts.cloned().collect()))
 }
 
 /// Ask for the summary, charging each reply to the turn: its text, once the
@@ -220,5 +226,47 @@ async fn call(turn: &Running, request: &Arc<Request>) -> Result<(Reply, Duration
                     .map_err(|error| error.to_string());
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use scorsese_providers::chat::ResultPart;
+
+    use super::*;
+
+    #[test]
+    fn a_compacted_turn_opens_with_its_words_and_what_was_attached() {
+        let picture = Part::Image {
+            media_type: "image/jpeg".into(),
+            data: "AA==".into(),
+        };
+        let record = [
+            Message::assistant("(That turn ended before I could answer.)"),
+            Message::User {
+                content: vec![
+                    Part::Result {
+                        call: "toolu_1".into(),
+                        name: "still".into(),
+                        content: vec![ResultPart::Text { text: "no".into() }],
+                        is_error: true,
+                    },
+                    Part::Text {
+                        text: "use these".into(),
+                    },
+                    Part::Text {
+                        text: "Attached document 3 “a.md”:\n\nhi".into(),
+                    },
+                    picture.clone(),
+                ],
+            },
+            Message::System {
+                text: "note".into(),
+            },
+        ];
+        let (words, shown) = opened_with(&record).expect("it opened with words");
+        assert_eq!(words, "use these");
+        assert_eq!(shown.len(), 2);
+        assert_eq!(shown[1], picture);
     }
 }

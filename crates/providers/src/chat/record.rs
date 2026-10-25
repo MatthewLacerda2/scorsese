@@ -3,8 +3,8 @@
 //! Every turn is kept twice (#705): once as the exact bytes the model it ran
 //! on was sent — the vendor's wire, which is what its prompt cache and, on
 //! Claude, its thinking blocks are valid against — and once as a [`Message`]
-//! here, which says only what was said: words, tool calls, tool results, the
-//! server's notes and its effort changes. A turn on another model is built
+//! here, which says only what was said: words, pictures, tool calls, tool
+//! results, the server's notes and its effort changes. A turn on another model is built
 //! from this record, so a project can change model mid-conversation and the
 //! history comes along.
 //!
@@ -54,6 +54,13 @@ pub enum Part {
     Text {
         /// The words.
         text: String,
+    },
+    /// A picture the person attached to their message (#1562), base64.
+    Image {
+        /// What the bytes are, e.g. `image/jpeg`.
+        media_type: String,
+        /// The bytes, base64.
+        data: String,
     },
     /// The model calling a tool.
     Call {

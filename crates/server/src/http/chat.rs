@@ -212,7 +212,7 @@ pub async fn answer(
     let answering = Answering {
         words: answer.answer,
         picked: answer.picked,
-        notes: Vec::new(),
+        attached: None,
     };
     let turn = assistant::answer_question(&state, member.user, id, answering).await?;
     Ok((StatusCode::ACCEPTED, Json(turn)))

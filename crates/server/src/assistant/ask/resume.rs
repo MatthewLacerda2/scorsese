@@ -4,6 +4,7 @@
 use scorsese_providers::chat::{self, Effort, Model, Part, ResultPart};
 
 use crate::assistant::AssistantError;
+use crate::assistant::attached::Attached;
 use crate::assistant::prompt::SCRIPT_REWRITTEN;
 use crate::assistant::store::asking::Paused;
 use crate::assistant::store::turns::history;
@@ -66,22 +67,24 @@ pub(in crate::assistant) async fn resuming(
 
 /// The result a paused turn resumes with, carrying the note that the person
 /// rewrote the script while it waited when `told` (#1488): the turn may have
-/// read it before it paused — and `notes`, what else the server has to tell
-/// it, such as the files attached to the message that answered (#1534).
-pub(in crate::assistant) fn noted(result: Part, told: bool, notes: &[String]) -> Part {
+/// read it before it paused — and the files `attached` to the message that
+/// answered (#1534): their note, then what they are shown as (#1562).
+pub(in crate::assistant) fn noted(result: Part, told: bool, attached: Option<&Attached>) -> Part {
     match result {
         Part::Result {
             call,
             name,
             mut content,
             is_error,
-        } if told || !notes.is_empty() => {
+        } if told || attached.is_some() => {
             let told = told.then(|| SCRIPT_REWRITTEN.to_owned());
+            let note = attached.map(|attached| attached.note.clone());
             content.extend(
                 told.into_iter()
-                    .chain(notes.iter().cloned())
+                    .chain(note)
                     .map(|text| ResultPart::Text { text }),
             );
+            content.extend(attached.into_iter().flat_map(|a| a.shown.iter().cloned()));
             Part::Result {
                 call,
                 name,

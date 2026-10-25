@@ -173,7 +173,7 @@ use scorsese_providers::credentials::resolve;
 use scorsese_providers::prices;
 
 pub use ask::{Answering, answer as answer_question, set_aside};
-pub use attached::MAX_ATTACHMENTS;
+pub use attached::{Attached, MAX_ATTACHMENTS, MAX_INLINE_CHARS, MAX_PICTURES};
 pub use effort::choose_effort;
 pub use model::{Choice, choose};
 pub use quote::{Answer, Answered, answer as answer_quote};
