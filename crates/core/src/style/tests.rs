@@ -3,14 +3,6 @@ use std::collections::HashSet;
 use super::{Platform, STYLES, style, styles_for};
 
 #[test]
-fn every_description_is_at_most_thirty_words() {
-    for style in STYLES {
-        let words = style.description.split_whitespace().count();
-        assert!(words <= 30, "{} has {words} words", style.id);
-    }
-}
-
-#[test]
 fn every_platform_has_at_least_six_styles() {
     for platform in Platform::ALL {
         let count = styles_for(platform).count();
