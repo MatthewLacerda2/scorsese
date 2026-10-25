@@ -69,13 +69,19 @@ describe("a sound's fill (#1572)", () => {
   }
 
   test("draws a bar every three pixels of the slice the clip plays", () => {
-    const bars = sounding({ from: 0, length: 2, width: 6 }).querySelectorAll("[data-bar]");
-    expect([...bars].map((bar) => bar.getAttribute("data-bar"))).toEqual(["1", "0.8"]);
+    const bars = sounding({ from: 0, length: 2, width: 6 }).querySelector("[data-bars]");
+    expect(bars?.getAttribute("data-bars")).toBe("1 0.8");
+  });
+
+  test("a long clip close up is still one path, not a node a bar", () => {
+    const paths = sounding({ from: 0, length: 2, width: 192_000 }).querySelectorAll("path");
+    expect(paths.length).toBe(1);
+    expect(paths[0]?.getAttribute("data-bars")).toBe("0 0.2 1 0.4 0 0 0.8 0");
   });
 
   test("trimmed, it draws the slice from its in point", () => {
-    const bars = sounding({ from: 0.25, length: 0.5, width: 6 }).querySelectorAll("[data-bar]");
-    expect([...bars].map((bar) => bar.getAttribute("data-bar"))).toEqual(["0.2", "1"]);
+    const bars = sounding({ from: 0.25, length: 0.5, width: 6 }).querySelector("[data-bars]");
+    expect(bars?.getAttribute("data-bars")).toBe("0.2 1");
   });
 
   test("peaks not known yet leave the kind's hue", () => {
@@ -88,7 +94,7 @@ describe("a sound's fill (#1572)", () => {
         />
       </QueryClientProvider>,
     );
-    expect(container.querySelectorAll("[data-bar]").length).toBe(0);
+    expect(container.querySelector("[data-bars]")).toBeNull();
     expect((container.firstElementChild as HTMLElement).className).toContain("bg-kind-synth-audio");
   });
 });

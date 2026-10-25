@@ -2,7 +2,9 @@
 // the slice a clip plays, one level per bar.
 
 import { describe, expect, test } from "bun:test";
-import { barsOf, parsePeaks, sliceOf } from "./peaks";
+import { ApiError } from "@/api";
+import type { ServerEvent } from "@/api/events";
+import { barsOf, MOST_BARS, parsePeaks, readAgain, retryPeaks, sliceOf } from "./peaks";
 
 function bytes(perSecond: number, levels: number[]): ArrayBuffer {
   const buffer = new ArrayBuffer(4 + levels.length);
@@ -42,7 +44,47 @@ describe("a sound's peaks", () => {
   });
 
   test("a clip gets a bar every three pixels, at least one", () => {
-    expect(barsOf(90)).toBe(30);
-    expect(barsOf(2)).toBe(1);
+    const peaks = { perSecond: 40, levels: new Uint8Array(4000) };
+    expect(barsOf(peaks, 10, 90)).toBe(30);
+    expect(barsOf(peaks, 10, 2)).toBe(1);
+  });
+
+  test("never more bars than the levels the slice holds", () => {
+    const peaks = { perSecond: 4, levels: new Uint8Array(8) };
+    // Two seconds at four levels a second, drawn 300 px wide: eight bars.
+    expect(barsOf(peaks, 2, 300)).toBe(8);
+    expect(barsOf(peaks, 0.1, 300)).toBe(1);
+  });
+
+  test("never more than a ceiling, however long the clip or close the zoom", () => {
+    // Ten minutes at the closest zoom: 192,000 px and 24,000 levels.
+    const peaks = { perSecond: 40, levels: new Uint8Array(24_000) };
+    expect(barsOf(peaks, 600, 192_000)).toBe(MOST_BARS);
+  });
+});
+
+describe("waiting for a sound's peaks", () => {
+  const done = (item: number, kind = "thumbnail", state = "done") =>
+    ({ type: "job", id: 1, kind, state, attempts: 1, result: { item }, error: null, created_at: 0, started_at: 0, finished_at: 0, interrupted_at: null }) as ServerEvent;
+
+  test("asks again when the job reading this item's peaks is done", () => {
+    expect(readAgain(done(9), 9)).toBe(true);
+  });
+
+  test("and after the stream reconnects, when an event may have been missed", () => {
+    expect(readAgain({ type: "resync" }, 9)).toBe(true);
+  });
+
+  test("not for another item's job, another kind, or one still running", () => {
+    expect(readAgain(done(8), 9)).toBe(false);
+    expect(readAgain(done(9, "proxy"), 9)).toBe(false);
+    expect(readAgain(done(9, "thumbnail", "running"), 9)).toBe(false);
+    expect(readAgain(done(9), undefined)).toBe(false);
+  });
+
+  test("a 404 is waited out on the job's event, never retried to a stop", () => {
+    expect(retryPeaks(0, new ApiError(404, "pending"))).toBe(false);
+    expect(retryPeaks(0, new ApiError(500, "down"))).toBe(true);
+    expect(retryPeaks(3, new ApiError(500, "down"))).toBe(false);
   });
 });
