@@ -40,6 +40,7 @@ export const ProjectFilesPage = lazyPage(
   "ProjectFilesPage",
 );
 export const SpendingPage = lazyPage(() => import("@/pages/SpendingPage"), "SpendingPage");
+export const HandOffPage = lazyPage(() => import("@/pages/HandOffPage"), "HandOffPage");
 export const EditorPage = lazyPage(() => import("@/editor/EditorPage"), "EditorPage");
 export const CreditsReturnPage = lazyPage(
   () => import("@/payments/ReturnPage"),

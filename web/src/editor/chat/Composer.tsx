@@ -12,12 +12,21 @@ import { NoCredits } from "@/app/NoCredits";
 import { queryKeys } from "@/app/queryKeys";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import type { Messages } from "@/i18n/catalogue";
 import { useT } from "@/i18n/I18nProvider";
 import { AttachButton } from "@/prompt/attach/AttachButton";
 import { AttachmentTray } from "@/prompt/attach/AttachmentTray";
 import type { Attachments } from "@/prompt/attach/useAttachments";
+import type { Draft } from "@/prompt/draft";
 import { NewConversation } from "./NewConversation";
 import { type Problem, problem } from "./transcript";
+
+/** Why a draft was not sent: the server's refusal, or the files to attach again. */
+function unsent(draft: Draft, t: Messages["chat"]): Problem | null {
+  if (draft.refusal !== undefined) return problem(draft.refusal, t);
+  if (!draft.missing?.length) return null;
+  return { tone: "note", lead: t.problem.missing, detail: draft.missing.join(", ") };
+}
 
 /**
  * The box a message is written in, with Send, Stop and "new conversation" (#1437).
@@ -34,6 +43,7 @@ export function Composer({
   showFresh,
   onStarted,
   attachments,
+  draft,
 }: {
   projectId: number;
   /** Extra classes for its content: full mode's column. */
@@ -47,11 +57,15 @@ export function Composer({
   showFresh: boolean;
   onStarted: (turn: Awaited<ReturnType<typeof chatApi.send>>) => void;
   attachments: Attachments;
+  /** A first message the project was opened with but could not send (#1535). */
+  draft?: Draft;
 }) {
   const t = useT();
   const queryClient = useQueryClient();
-  const [prompt, setPrompt] = useState("");
-  const [refused, setRefused] = useState<Problem | null>(null);
+  const [prompt, setPrompt] = useState(draft?.prompt ?? "");
+  const [refused, setRefused] = useState<Problem | null>(() =>
+    draft ? unsent(draft, t.chat) : null,
+  );
   // What a message carries is taken as it is sent: a file attached while it
   // is on its way stays in the tray for the next one.
   const send = useMutation({

@@ -19,6 +19,7 @@ export const chat: Messages["chat"] = {
     unconfigured: "O assistente ainda não está configurado neste servidor.",
     noCredit: "Você não tem mais créditos para o assistente.",
     busy: "O assistente ainda está trabalhando na última mensagem.",
+    missing: "Estes arquivos não vieram com o login. Anexe-os de novo e envie:",
   },
   full: {
     enter: "Expandir",

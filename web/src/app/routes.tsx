@@ -9,6 +9,9 @@
 // `/projects` is that home too. `/login` is the landing page
 // with the sign-in popup open, which is where the guard sends everyone else.
 //
+// `/start` is where a prompt written signed out arrives after the sign-in
+// (#1535, `prompt/handOff.ts`): it starts the project and opens it.
+//
 // The editor (#545) is at `/projects/:id/edit`, inside the shell like the
 // rest — the header's balance is what an assistant turn spends — which gives
 // it the whole height under the header rather than a padded page.
@@ -22,6 +25,7 @@ import { PageFallback } from "@/app/PageFallback";
 import {
   CreditsReturnPage,
   EditorPage,
+  HandOffPage,
   HomePage,
   LandingPage,
   LibraryPage,
@@ -34,6 +38,7 @@ import {
   SpendingPage,
   TermsPage,
 } from "@/app/pages";
+import { HAND_OFF } from "@/prompt/handOff";
 import { signedInHint } from "@/session/hint";
 import { RequireSession, useAccount } from "@/session/session";
 import { Shell } from "./Shell";
@@ -119,6 +124,7 @@ export function AppRoutes() {
         <Route element={<Shell />}>
           <Route path="/projects/:id" element={<ProjectFilesPage />} />
           <Route path="/projects/:id/edit" element={<EditorPage />} />
+          <Route path={HAND_OFF} element={<HandOffPage />} />
           <Route path="/credits/return" element={<CreditsReturnPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>

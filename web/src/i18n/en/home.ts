@@ -12,4 +12,8 @@ export const home = {
   untitled: (day: string) => `New video ${day}`,
   rename: "Rename",
   delete: "Delete",
+  /** The page a signed-out prompt lands on after the sign-in (#1535). */
+  handOff: {
+    starting: "Starting your project…",
+  },
 };

@@ -2490,11 +2490,12 @@ laid out.
 
 | URL | what |
 | --- | --- |
-| `/` | the landing page for a visitor without a session (#904): a first screen with the name, a heading, a prompt box (Enter opens the sign-in popup, the text stays) and a strip of films made with scorsese along its bottom, then how it works, one whole video in the visitor's language, what it handles and a second prompt box, as one scrolling page that follows the theme, light by default (`web/src/landing/`); with a session, the home (below) |
+| `/` | the landing page for a visitor without a session (#904): a first screen with the name, a heading, a prompt box (Enter goes to the Google sign-in and on into a new project already running that prompt, below) and a strip of films made with scorsese along its bottom, then how it works, one whole video in the visitor's language, what it handles and a second prompt box, as one scrolling page that follows the theme, light by default (`web/src/landing/`); with a session, the home (below) |
 | `/login` | the landing page with the sign-in popup open: one "Continue with Google" button, which is sign-up too, and what went wrong when a sign-in came back with `?error=`; under the button, the line saying that signing in accepts the terms and the privacy policy |
 | `/terms`, `/privacy` | the terms of use and the privacy policy (#547), public and crawlable whether signed in or not, under the landing's header, in the site's language: Portuguese is the binding text, and English and Spanish are translations that say so and offer the Portuguese beside them. Each opens with a plain summary, and `documents.test.ts` holds the three to one structure (`web/src/legal/`). They are data (`terms.ts`, `privacy.ts` per language) stating what the code and the deployment do, so a change to prices, retention, cookies or vendors changes them too. The seller's identification (`seller.ts`) is also in the landing page's footer, as Decreto 7.962/2013 asks |
 | `/pricing` | the free daily credit, the three purchase sizes with their bonus, what things cost and the questions people ask; public and crawlable, in the landing's look. Its figures are written in `web/src/pricing/examples.ts` until a prices endpoint serves them |
-| `/` with a session | the home: a sidebar (the mark and name, Library, the credits, the projects newest first with a ⋯ menu to rename in place or delete after a confirmation, Settings, Spending, Log out; behind a menu button on a phone), and a prompt box under a title that changes. Enter makes a project named from the prompt (the three longest words that are not stopwords, `web/src/home/projectName.ts`), sends the prompt to its assistant as the first message and opens it. `/library` and `/spending` share the sidebar |
+| `/` with a session | the home: a sidebar (the mark and name, Library, the credits, the projects newest first with a ⋯ menu to rename in place or delete after a confirmation, Settings, Spending, Log out; behind a menu button on a phone), and a prompt box under a title that changes. Enter makes a project named from the prompt (the three longest words that are not stopwords, `web/src/home/projectName.ts`), sends the prompt to its assistant as the first message and opens it. When the message is refused (no credit at all), the project still opens, with the prompt left in its chat box and the reason above it. `/library` and `/spending` share the sidebar |
+| `/start` | where a prompt written signed out lands after the sign-in (#1535): the landing keeps the prompt in `localStorage` and its files in IndexedDB (up to 1 GB; never in the URL, since `next` goes to Google), and this page takes them, deleting them first so a reload makes nothing twice, uploads the files and carries on as the home's prompt box does. Files that could not be kept are named in the new project's chat box to attach again, with the prompt left unsent (`web/src/prompt/handOff.ts`) |
 | `/projects` | goes to `/` |
 | `/projects/{id}` | the library files that project uses (`GET /api/library?project=`), reached from the editor's top bar ("Files"); the bar's first button is Home, leading to `/` |
 | `/library` | every file: filter by kind, search by name, sort; upload by button or by dropping files |
@@ -2706,7 +2707,7 @@ way stays for the next one. × takes a file off the message and leaves it in
 the library. A drop on the Library modal is the modal's upload, never also an
 attachment. The same tray, "+" and
 drop are the prompt box's on the landing page and the signed-in home
-(`web/src/prompt/`); signed out, the files are only held in the page.
+(`web/src/prompt/`); signed out, the files are held in the page and carried across the sign-in (`/start`).
 
 ## Out of scope for now
 

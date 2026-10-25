@@ -123,7 +123,7 @@ export const PRIVACY_PT: LegalDocument = {
     {
       heading: "Cookies",
       blocks: [
-        "Usamos apenas os cookies necessários para o site funcionar: um que mantém você conectado por até 30 dias e outro, temporário, usado durante o login com o Google. Não usamos cookies de publicidade nem de análise. O idioma e o tema que você escolhe ficam guardados no seu próprio navegador.",
+        "Usamos apenas os cookies necessários para o site funcionar: um que mantém você conectado por até 30 dias e outro, temporário, usado durante o login com o Google. Não usamos cookies de publicidade nem de análise. O idioma e o tema que você escolhe ficam guardados no seu próprio navegador. Quando você escreve um pedido antes de entrar, o navegador também o guarda, com os arquivos que você anexou, até o login trazer você de volta para começar o projeto, e então o apaga; nada disso chega a nós antes de você entrar.",
       ],
     },
     {

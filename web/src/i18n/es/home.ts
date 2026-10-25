@@ -14,4 +14,7 @@ export const home: Messages["home"] = {
   untitled: (day) => `Nuevo video ${day}`,
   rename: "Renombrar",
   delete: "Eliminar",
+  handOff: {
+    starting: "Empezando tu proyecto…",
+  },
 };

@@ -114,7 +114,7 @@ export const PRIVACY_ES: LegalDocument = {
     {
       heading: "Cookies",
       blocks: [
-        "Usamos solo las cookies necesarias para que el sitio funcione: una que te mantiene conectado hasta por 30 días y otra, temporal, que se usa durante el inicio de sesión con Google. No usamos cookies de publicidad ni de análisis. El idioma y el tema que eliges se guardan en tu propio navegador.",
+        "Usamos solo las cookies necesarias para que el sitio funcione: una que te mantiene conectado hasta por 30 días y otra, temporal, que se usa durante el inicio de sesión con Google. No usamos cookies de publicidad ni de análisis. El idioma y el tema que eliges se guardan en tu propio navegador. Cuando escribes un pedido antes de iniciar sesión, tu navegador también lo guarda, con los archivos que adjuntaste, hasta que el inicio de sesión te trae de vuelta para empezar tu proyecto, y luego lo borra; nada de eso nos llega antes de que inicies sesión.",
       ],
     },
     {
