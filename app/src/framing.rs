@@ -16,7 +16,7 @@ use scorsese_render::reframe;
 use crate::project::Open;
 
 /// The shapes on offer, `across:down`: the ones a person with an idea reaches
-/// for — the web editor's four.
+/// for — 16:9, 9:16, 1:1 and 4:5.
 const SHAPES: [&str; 4] = ["16:9", "9:16", "1:1", "4:5"];
 
 /// What the last change of shape came to, while it is worth saying.

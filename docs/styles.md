@@ -35,7 +35,10 @@ prompt saying how that kind is made and what to ask the person for. A project
 starts from one with `scorsese new --style <id>` or `project_new`'s `style`,
 and from a placement with `--platform` / `platform`; either or both write a
 brief into the project's `script.md`, and a style not made for the placement
-asked for is refused with the ones that are.
+asked for is refused with the ones that are. A project started with neither
+(every web project, whose assistant reads both from the first prompt) reads
+the same words here: `guide styles` with a style's or a placement's id as the
+section (`kinetic_type`, `tiktok_ad`) is the part of the brief that id writes.
 
 | id | the video | made for |
 | --- | --- | --- |

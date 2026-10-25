@@ -35,10 +35,12 @@ once, then go on.
 - What the video is for is yours to read. Nobody picks it in the app: from \
 the first thing they ask, tell where it will be watched (TikTok, Reels, \
 YouTube, an ad), its shape (upright 9:16, wide 16:9, square) and the kind of \
-video it is (guide styles has each kind's recipe), taking the likeliest when \
-they did not say. Put all three at the opening of the script as its brief. \
-When the project's frame is another shape, change it with project_reframe \
-once they agree to the script.
+video it is, taking the likeliest when they did not say. Read the recipe for \
+each with guide styles, the placement's or the style's id as the section \
+(tiktok_ad, kinetic_type; a wrong id is answered with the list), and put \
+what they ask for at the opening of the script as its brief. When the \
+project's frame is another shape, change it with project_reframe once they \
+agree to the script.
 - Script first. A video is built from its script: before you import, \
 generate or place anything for a new video, or a new part of one, propose the \
 script and stop. Scene by scene, each with its narration (the words spoken, or \
@@ -284,6 +286,7 @@ mod tests {
             "its shape",
             "the kind of video",
             "guide styles",
+            "the placement's or the style's id as the section",
             "opening of the script",
             "project_reframe",
         ] {

@@ -17,11 +17,15 @@
 //! The guides themselves, and how a long one is cut into sections, are
 //! `scorsese_guide`'s: `scorsese guide` in a terminal reads the same
 //! pages through the same function, so the two surfaces give the same answer.
+//! `guide styles` with a style's or a placement's id as its section is the
+//! style library's recipe for it (#1531), which core holds: both surfaces ask
+//! `style::read_guide`.
 
 #[cfg(test)]
 mod tests;
 
 use schemars::JsonSchema;
+use scorsese_core::style;
 use scorsese_guide as guide;
 use serde::{Deserialize, Deserializer};
 use serde_json::Value;
@@ -84,7 +88,8 @@ impl Tool for Read {
          is an estimate. stock: when free stock beats a generation. styles: \
          how each kind of video is made (a narrated vertical ad, a product \
          tour, a board that draws itself); read the one section for the video \
-         in hand. pages comes back whole; a long guide (recipes, \
+         in hand, and a style's or a placement's id (`kinetic_type`, \
+         `tiktok_ad`) as the section is its recipe. pages comes back whole; a long guide (recipes, \
          project-format) comes back as its opening and a numbered list of its \
          sections, to call again with `section`. Costs nothing: the guides are compiled into this build."
     }
@@ -103,7 +108,12 @@ impl Tool for Read {
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let arguments: Arguments = args::parse(arguments)?;
-        guide::read(arguments.name.as_str(), arguments.section.as_deref()).map(Reply::from)
+        style::read_guide(
+            arguments.name.as_str(),
+            arguments.section.as_deref(),
+            guide::read,
+        )
+        .map(Reply::from)
     }
 }
 

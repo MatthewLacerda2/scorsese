@@ -232,7 +232,9 @@ pub(crate) enum Command {
     /// score against. prompts: what certain words make a provider do; read it
     /// before writing a prompt. prices: the providers' rates, and why a cost is
     /// an estimate. stock: when free stock beats a generation. styles: how
-    /// each kind of video is made; read the one section for the video in hand.
+    /// each kind of video is made; read the one section for the video in hand,
+    /// and a style's or a placement's id (`kinetic_type`, `tiktok_ad`) as the
+    /// section is its recipe.
     ///
     /// A short guide prints whole; a long one (recipes, project-format) prints
     /// its opening and a numbered list of its sections, to ask for again with

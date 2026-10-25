@@ -54,8 +54,9 @@ impl Start {
     /// the library does not have and a style not made for that placement.
     ///
     /// A mismatch is refused rather than written down: the library already
-    /// says which placements each style is made for, and the web's dialog only
-    /// offers those, so a mismatch here is a typo more often than a plan.
+    /// says which placements each style is made for, and whoever names both
+    /// (`scorsese new`, `project_new`) can read that list, so a mismatch here
+    /// is a typo more often than a plan.
     pub fn new(platform: Option<Platform>, style_id: Option<&str>) -> Result<Self, StartError> {
         let style = style_id
             .map(|id| style(id).ok_or_else(|| StartError::UnknownStyle(id.to_owned())))
@@ -180,6 +181,52 @@ against `guide prompts` before quoting anything.
 Write the agreed script into this file, keeping whatever above still holds, and \
 build the video from it.
 ";
+
+/// What a style or a placement asks for, by its id: the section
+/// [`Start::brief`] writes for it, `None` for an id the library does not have.
+///
+/// A project started without either — every web project, whose assistant
+/// reads the placement and the kind of video from the first prompt (#1531) —
+/// still reaches these words, through [`read_guide`].
+pub fn recipe(id: &str) -> Option<String> {
+    let mut text = String::new();
+    if let Some(style) = style(id) {
+        style_section(&mut text, style);
+    } else {
+        platform_section(&mut text, id.parse().ok()?);
+    }
+    Some(text)
+}
+
+/// `guide <name>`, for every surface that serves the guides (#1531): `read` is
+/// the guide crate's, and `guide styles` with a style's or a placement's id as
+/// its section answers with that id's [`recipe`] instead. The library lives
+/// here and the guide crate sees nothing, so the two meet in this one function
+/// the CLI and the MCP tool both call. A section `guide styles` refuses also
+/// names the ids it would take.
+pub fn read_guide(
+    name: &str,
+    section: Option<&str>,
+    read: impl FnOnce(&str, Option<&str>) -> Result<String, String>,
+) -> Result<String, String> {
+    if name != STYLES_GUIDE {
+        return read(name, section);
+    }
+    if let Some(recipe) = section.and_then(recipe) {
+        return Ok(recipe);
+    }
+    read(name, section).map_err(|why| {
+        let platforms: Vec<&str> = Platform::ALL.map(Platform::id).to_vec();
+        format!(
+            "{why}; or a style's id for its recipe ({}), or a placement's ({})",
+            ids(STYLES.iter()),
+            platforms.join(", ")
+        )
+    })
+}
+
+/// The guide whose sections the library's ids are too.
+const STYLES_GUIDE: &str = "styles";
 
 #[cfg(test)]
 mod tests;
