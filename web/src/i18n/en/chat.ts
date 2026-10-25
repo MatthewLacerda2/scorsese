@@ -18,6 +18,8 @@ export const chat = {
     unconfigured: "The assistant is not set up on this server yet.",
     noCredit: "You have no credit left for the assistant.",
     busy: "The assistant is still working on the last message.",
+    /** Files that did not come through the sign-in (#1535); their names follow. */
+    missing: "These files did not come through the sign-in. Attach them again, then send:",
   },
   /** The chat taking the whole page, and back (#1027). */
   full: {

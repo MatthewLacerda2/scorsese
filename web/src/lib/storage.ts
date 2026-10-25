@@ -25,6 +25,12 @@ export const KEYS = {
   previewQuality: "scorsese.preview-quality",
   /** Whether a project's chat fills the page (`editor/chat/full.ts`). */
   chatFull: (project: number) => `scorsese-chat-full-${project}`,
+  /**
+   * A signed-out prompt and its files' names, kept across the Google sign-in
+   * (`prompt/handOff.ts`); the files themselves are in the IndexedDB database
+   * of the same name. Both are deleted on arrival.
+   */
+  handOff: "scorsese.hand-off",
 } as const;
 
 /** The part of `Storage` a read needs; tests hand in a map or one that throws. */

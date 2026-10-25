@@ -38,7 +38,7 @@ test("a prompt on the home makes a named project, opens its editor and says the 
   await expect(page.getByText("a lighthouse at dawn")).toBeVisible();
   // The project is in the sidebar of the home, named from the prompt.
   await page.getByRole("link", { name: "Home" }).click();
-  await expect(page.getByRole("link", { name: "Lighthouse dawn" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Lighthouse Dawn" })).toBeVisible();
 });
 
 test("a new project's editor asks nothing about what it is for", async ({ page }) => {

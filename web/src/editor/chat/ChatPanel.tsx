@@ -23,6 +23,7 @@ import { QueryError } from "@/components/ui/query-error";
 import { ScriptButton } from "@/editor/script/ScriptButton";
 import { useT } from "@/i18n/I18nProvider";
 import type { Attachments } from "@/prompt/attach/useAttachments";
+import type { Draft } from "@/prompt/draft";
 import { Composer } from "./Composer";
 import { EffortPicker } from "./EffortPicker";
 import { effortOf } from "./effort";
@@ -51,8 +52,11 @@ export function ChatPanel({
   full,
   onFull,
   attachments,
+  draft,
 }: {
   projectId: number;
+  /** A first message the project was opened with but could not send (#1535). */
+  draft?: Draft;
   /** The files attached to the next message: the page takes a drop anywhere (#1534). */
   attachments: Attachments;
   /** Whether the chat has the whole page. */
@@ -158,6 +162,7 @@ export function ChatPanel({
         showFresh={transcript.entries.length > 0}
         onStarted={(turn) => setTranscript((previous) => upsert(previous, turn))}
         attachments={attachments}
+        draft={draft}
       />
     </div>
   );

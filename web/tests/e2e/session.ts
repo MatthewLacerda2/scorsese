@@ -10,12 +10,8 @@ function account(): { email: string; session: string } {
   return JSON.parse(readFileSync(accountFile(), "utf8"));
 }
 
-/**
- * Signs in: the session cookie and its hint as the server sets them
- * (docs/web.md, *Accounts*), then `/login`, which a signed-in visitor leaves for the
- * home.
- */
-export async function logIn(page: Page) {
+/** The session cookie and its hint, as the server sets them (docs/web.md, *Accounts*). */
+export async function setSession(page: Page) {
   await page.context().addCookies([
     {
       name: "scorsese_session",
@@ -38,6 +34,11 @@ export async function logIn(page: Page) {
       sameSite: "Strict",
     },
   ]);
+}
+
+/** Signs in (`setSession`), then `/login`, which a signed-in visitor leaves for the home. */
+export async function logIn(page: Page) {
+  await setSession(page);
   await page.goto("/login");
   await expect(page.getByRole("navigation", { name: "Main menu" })).toBeVisible();
 }
@@ -59,4 +60,17 @@ export async function newProject(page: Page, name: string) {
   await page.goto(`/projects/${id}/edit`);
   // The assets sidebar's Library button: the panel lost its heading (#1446).
   await expect(page.getByRole("button", { name: "Library" })).toBeVisible();
+}
+
+/**
+ * Stands in for Google, which no test reaches (#952): the server's sign-in
+ * route sets the run's session and sends the browser to its `next`, as a
+ * successful Google sign-in does.
+ */
+export async function fakeGoogle(page: Page) {
+  await page.route(/\/api\/auth\/google(\?.*)?$/, async (route, request) => {
+    await setSession(page);
+    const next = new URL(request.url()).searchParams.get("next") ?? "/";
+    return route.fulfill({ status: 302, headers: { location: next } });
+  });
 }

@@ -6,11 +6,14 @@
 //
 // What it shows is what scorsese makes: the films in it are cuts of videos made
 // with scorsese, and the motion is the kit's (motion.ts). It is one scrolling
-// page: the prompt box first, everything else below it.
+// page: the prompt box first, everything else below it. Enter in either of
+// its prompt boxes goes to the Google sign-in and on into a new project
+// running that prompt (`prompt/handOff.ts`).
 
 import "@/landing/landing.css";
 import { useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router";
+import { api } from "@/api";
 import { useT } from "@/i18n/I18nProvider";
 import { Header } from "@/landing/Header";
 import { Hero } from "@/landing/Hero";
@@ -22,6 +25,8 @@ import { HowItWorks } from "@/landing/sections/HowItWorks";
 import { WhatItHandles } from "@/landing/sections/WhatItHandles";
 import { Footer } from "@/legal/Footer";
 import { useMeta } from "@/lib/useMeta";
+import { HAND_OFF, keep } from "@/prompt/handOff";
+import type { PromptSubmit } from "@/prompt/PromptBox";
 import { safeNext, useAccount } from "@/session/session";
 
 export function LandingPage({ signIn = false }: { signIn?: boolean }) {
@@ -35,6 +40,13 @@ export function LandingPage({ signIn = false }: { signIn?: boolean }) {
   if (account.data) return <Navigate to={safeNext(params.get("next"))} replace />;
 
   const openSignIn = () => setOpen(true);
+  // A prompt is kept in the browser and the sign-in lands on the page that
+  // starts its project (#1535); the promise holds the box busy as the page leaves.
+  const signInWith: PromptSubmit = async (prompt, attached) => {
+    await keep(prompt, attached.files);
+    window.location.assign(api.account.googleSignIn(HAND_OFF));
+    await new Promise(() => {});
+  };
   const onOpenChange = (next: boolean) => {
     setOpen(next);
     // Closed at `/login`, the address follows: the popup is what that URL means.
@@ -46,7 +58,7 @@ export function LandingPage({ signIn = false }: { signIn?: boolean }) {
       <div className="grain" aria-hidden />
       <Header onSignIn={openSignIn} />
       <main>
-        <Hero onSignIn={openSignIn} />
+        <Hero onPrompt={signInWith} />
         <ScrollIn>
           <HowItWorks />
         </ScrollIn>
@@ -57,7 +69,7 @@ export function LandingPage({ signIn = false }: { signIn?: boolean }) {
           <WhatItHandles />
         </ScrollIn>
         <ScrollIn>
-          <Closing onSignIn={openSignIn} />
+          <Closing onPrompt={signInWith} />
         </ScrollIn>
       </main>
       <Footer>

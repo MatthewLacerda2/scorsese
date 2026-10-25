@@ -5,13 +5,14 @@
 // while the session is asked, with and without the hint (#1246).
 
 import { afterEach, expect, test } from "bun:test";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { App } from "@/App";
 import type { Account } from "@/api";
 import { setFetch } from "@/api/client";
 import { createQueryClient, ME } from "@/app/queryClient";
+import { browserStorage, KEYS } from "@/lib/storage";
 import { forgetSignedInHint, HINT_COOKIE, signedInHint } from "@/session/hint";
 
 const LANDING = "The video is one conversation away";
@@ -144,13 +145,23 @@ test("an error code the page does not know says nothing", async () => {
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
-test("Enter in a landing prompt box opens the sign-in popup and keeps what was typed", async () => {
-  visit("/", null);
-  const [box] = await screen.findAllByRole("textbox", { name: "Describe your video" });
-  await userEvent.click(box as HTMLElement);
-  await userEvent.keyboard("{Enter}");
-  expect(screen.queryByRole("dialog")).toBeNull();
-  await userEvent.type(box as HTMLElement, "a promo for my bakery{Enter}");
-  expect(await screen.findByRole("dialog")).toBeDefined();
-  expect((box as HTMLTextAreaElement).value).toBe("a promo for my bakery");
+test("Enter in a landing prompt box keeps the prompt and goes to the sign-in, landing on /start", async () => {
+  const went: string[] = [];
+  const assign = window.location.assign;
+  window.location.assign = (url: string | URL) => void went.push(String(url));
+  try {
+    visit("/", null);
+    const [box] = await screen.findAllByRole("textbox", { name: "Describe your video" });
+    await userEvent.click(box as HTMLElement);
+    await userEvent.keyboard("{Enter}");
+    expect(went).toEqual([]);
+    await userEvent.type(box as HTMLElement, "a promo for my bakery{Enter}");
+    await waitFor(() => expect(went).toEqual(["/api/auth/google?next=%2Fstart"]));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(browserStorage()?.getItem(KEYS.handOff)).toBe(
+      JSON.stringify({ prompt: "a promo for my bakery", names: [] }),
+    );
+  } finally {
+    window.location.assign = assign;
+  }
 });

@@ -37,6 +37,7 @@ import { useFileDrop } from "@/prompt/attach/useFileDrop";
 import { AssetsPanel } from "./assets/AssetsPanel";
 import { ChatPanel } from "./chat/ChatPanel";
 import { useFull } from "./chat/full";
+import { useDraft } from "./chat/useDraft";
 import { useDeleteKey } from "./deleting";
 import { useDrop } from "./drop";
 import { EditorHeader } from "./EditorHeader";
@@ -75,6 +76,7 @@ function Editor({ project }: { project: EditorProject }) {
   const deselect = useCallback(() => setPicked([]), []);
   const attachments = useAttachments();
   const fileDrop = useFileDrop(attachments.add, attachments.prepare);
+  const draft = useDraft(id, attachments.add);
 
   // The assistant, another tab or a finished generation changed the project:
   // draw what is there now, and the preview follows its revision.
@@ -136,6 +138,7 @@ function Editor({ project }: { project: EditorProject }) {
               <ChatPanel
                 projectId={id}
                 attachments={attachments}
+                draft={draft}
                 full={full}
                 onFull={(next) => {
                   // A clip selected out of sight is not one the Delete key may take.

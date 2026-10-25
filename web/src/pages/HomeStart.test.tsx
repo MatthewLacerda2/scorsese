@@ -1,7 +1,7 @@
 // What Enter does in the home's prompt box, and where the sidebar is: a
 // project made from the prompt and named by it, the prompt sent to its
-// assistant as the first message, the editor opened; a refusal shown and the
-// project kept; and the library and `/projects` on the same sidebar.
+// assistant as the first message, the editor opened; a refusal shown in the
+// editor, the project kept; and the library and `/projects` on the same sidebar.
 
 import { afterEach, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
@@ -60,14 +60,30 @@ test("Enter makes a project named from the prompt, sends the prompt to it, and o
     .findByRole("textbox", { name: "Describe your video" }, { timeout: 100 })
     .catch(() => {});
   await new Promise((resolve) => setTimeout(resolve, 50));
-  expect(bodies[0]).toEqual({ name: "Promo bakery" });
+  expect(bodies[0]).toEqual({ name: "Promo Bakery" });
   expect(bodies[1]).toEqual({ prompt: "a promo for my bakery", fresh: false, attachments: [] });
   expect(calls.indexOf("POST /api/projects")).toBeLessThan(
     calls.indexOf("POST /api/projects/7/chat"),
   );
 });
 
-test("a refusal is shown under the box, and sending again does not make a second project", async () => {
+// What the editor reads to open project 7.
+const editable = {
+  ...made,
+  document: { name: "x", timeline_fps: { num: 30, den: 1 }, tracks: [], assets: [] },
+};
+const conversation = {
+  project: 7,
+  session: null,
+  turns: [],
+  model: "m",
+  models: [
+    { id: "m", label: "M", vendor: "anthropic", unavailable: null, cache_seconds: 300, cost: null },
+  ],
+  effort: "high",
+};
+
+test("a refusal opens the project made, with the prompt left in its chat box", async () => {
   let created = 0;
   visit("/", (call) => {
     if (call === "POST /api/projects") {
@@ -77,13 +93,14 @@ test("a refusal is shown under the box, and sending again does not make a second
     if (call === "POST /api/projects/7/chat") {
       return Response.json({ error: "You have no credit left." }, { status: 402 });
     }
+    if (call === "GET /api/projects/7") return Response.json(editable);
+    if (call === "GET /api/projects/7/chat") return Response.json(conversation);
     return Response.json([]);
   });
   const box = await screen.findByRole("textbox", { name: "Describe your video" });
   await userEvent.type(box, "a trailer{Enter}");
-  expect((await screen.findByRole("alert")).textContent).toBe("You have no credit left.");
-  await userEvent.click(screen.getByRole("button", { name: "Send" }));
-  await screen.findByRole("alert");
+  expect(await screen.findByText("You have no credit left for the assistant.")).toBeDefined();
+  expect(screen.getByDisplayValue("a trailer")).toBeDefined();
   expect(created).toBe(1);
 });
 

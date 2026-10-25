@@ -10,9 +10,9 @@ import { Mark } from "@/components/Mark";
 import { useT } from "@/i18n/I18nProvider";
 import { Carousel } from "@/landing/Carousel";
 import { useEntrance } from "@/landing/motion";
-import { PromptBox } from "@/prompt/PromptBox";
+import { PromptBox, type PromptSubmit } from "@/prompt/PromptBox";
 
-export function Hero({ onSignIn }: { onSignIn: () => void }) {
+export function Hero({ onPrompt }: { onPrompt: PromptSubmit }) {
   const t = useT();
   const root = useRef<HTMLElement>(null);
   useEntrance(root);
@@ -41,7 +41,7 @@ export function Hero({ onSignIn }: { onSignIn: () => void }) {
           {t.landing.hero.title}
         </h1>
         <div className="mt-7 w-full" data-rise="0.8">
-          <PromptBox onSubmit={onSignIn} />
+          <PromptBox onSubmit={onPrompt} />
         </div>
       </div>
       <div data-rise="1.1">

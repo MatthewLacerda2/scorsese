@@ -4,9 +4,9 @@
 // would compete, and the header still has one.
 
 import { useT } from "@/i18n/I18nProvider";
-import { PromptBox } from "@/prompt/PromptBox";
+import { PromptBox, type PromptSubmit } from "@/prompt/PromptBox";
 
-export function Closing({ onSignIn }: { onSignIn: () => void }) {
+export function Closing({ onPrompt }: { onPrompt: PromptSubmit }) {
   const t = useT().landing;
   return (
     <section className="mx-auto max-w-4xl px-4 pt-24 pb-14 text-center sm:px-6 sm:pt-32 sm:pb-16">
@@ -17,7 +17,7 @@ export function Closing({ onSignIn }: { onSignIn: () => void }) {
         {t.closing.body}
       </p>
       <div className="mx-auto mt-10 max-w-2xl" data-rise="0.3">
-        <PromptBox onSubmit={onSignIn} />
+        <PromptBox onSubmit={onPrompt} />
       </div>
     </section>
   );

@@ -7,7 +7,7 @@
 // Files attach as they do in a chatbot (#1534): the "+" picks them, a drop on
 // the box adds them, and they show as thumbnails above the text. Signed in
 // they upload to the library at once and sending waits for them; signed out
-// they are only held. `onSubmit` gets them beside the text.
+// they are only held, for the sign-in round trip to carry (`handOff.ts`). `onSubmit` gets them beside the text.
 //
 // It takes its colours from the theme tokens, so the landing page (which
 // wraps it in `dark`) and the app (light or dark) both get a box that fits.
@@ -32,12 +32,17 @@ export interface Attached {
   items: number[];
 }
 
+/** What sending does: a sentence to show, or a promise of the work, which may fail with one. */
+export type PromptSubmit = (
+  text: string,
+  attached: Attached,
+) => string | undefined | void | Promise<unknown>;
+
 export function PromptBox({
   onSubmit,
   autoFocus,
 }: {
-  /** What sending does: a sentence to show, or a promise of the work, which may fail with one. */
-  onSubmit: (text: string, attached: Attached) => string | undefined | void | Promise<unknown>;
+  onSubmit: PromptSubmit;
   autoFocus?: boolean;
 }) {
   const t = useT().prompt;
