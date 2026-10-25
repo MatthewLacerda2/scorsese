@@ -6,7 +6,7 @@
 
 export const landing = {
   meta: {
-    title: "Scorsese - video editor",
+    title: "scorsese · The video editor you talk to",
     description:
       "Promos, ads and event videos for your business, made from your files and a description. No editor to hire, no software to learn.",
   },
@@ -15,7 +15,7 @@ export const landing = {
   hero: { title: "The video is one conversation away" },
   how: {
     eyebrow: "How it works",
-    title: "Three steps, all of them yours to say.",
+    title: "Three steps. You just say what you want.",
     files: {
       title: "Send your files",
       body: "Photos, clips, your logo, the song you like. Whatever you have, as it is.",

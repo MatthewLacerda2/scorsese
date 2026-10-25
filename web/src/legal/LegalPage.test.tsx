@@ -3,7 +3,7 @@
 // and linked from the landing page's footer and the sign-in popup.
 
 import { expect, test } from "bun:test";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { App } from "@/App";
@@ -76,10 +76,8 @@ test("the landing header links both documents, short", async () => {
   expect(links).toContainEqual(["Privacy", "/privacy"]);
 });
 
-test("the landing page's footer links both, and names the seller", async () => {
+test("the landing page's footer links pricing and both documents, and names the seller", async () => {
   visit("/", null);
-  // The footer is on the last slide, hidden until it is scrolled to, so it is
-  // found by its markup rather than by what a screen reader would announce.
   const footer = await waitFor(() => {
     const found = document.querySelector("footer");
     if (!found?.textContent?.includes("Terms of use")) throw new Error("no footer yet");
@@ -89,9 +87,23 @@ test("the landing page's footer links both, and names the seller", async () => {
     a.textContent,
     a.getAttribute("href"),
   ]);
+  // The header hides its links on a phone, so the footer is a phone's way to pricing.
+  expect(links).toContainEqual(["Pricing", "/pricing"]);
   expect(links).toContainEqual(["Terms of use", "/terms"]);
   expect(links).toContainEqual(["Privacy policy", "/privacy"]);
   expect(footer.textContent).toContain(`${SELLER.name} · CNPJ ${SELLER.cnpj}`);
+});
+
+test("a document has the public pages' header: a way home, pricing, the language, a way in", async () => {
+  visit("/terms", null);
+  const header = await screen.findByRole("banner");
+  expect(within(header).getByRole("link", { name: "scorsese" }).getAttribute("href")).toBe("/");
+  expect(within(header).getByRole("link", { name: "Pricing" }).getAttribute("href")).toBe(
+    "/pricing",
+  );
+  expect(within(header).getByRole("combobox", { name: "Language" })).toBeDefined();
+  await userEvent.click(within(header).getByRole("button", { name: "Sign in" }));
+  expect(await screen.findByRole("dialog")).toBeDefined();
 });
 
 test("the sign-in popup says signing in accepts both", async () => {

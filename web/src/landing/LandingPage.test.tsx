@@ -60,10 +60,10 @@ test("without a session, / is the landing page", async () => {
   expect(screen.getAllByRole("textbox", { name: "Describe your video" }).length).toBe(2);
   expect(screen.getByText("The video is one message away")).toBeDefined();
   // Everything the page said before is still on it, below the prompt box.
-  expect(screen.getByText("Three steps, all of them yours to say.")).toBeDefined();
+  expect(screen.getByText("Three steps. You just say what you want.")).toBeDefined();
   expect(screen.getByText("Ready when you are.")).toBeDefined();
   // How it works comes before the film.
-  const how = screen.getByText("Three steps, all of them yours to say.");
+  const how = screen.getByText("Three steps. You just say what you want.");
   const film = screen.getByLabelText("Videos made with scorsese", { selector: "video" });
   expect(how.compareDocumentPosition(film) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(screen.queryByRole("dialog")).toBeNull();

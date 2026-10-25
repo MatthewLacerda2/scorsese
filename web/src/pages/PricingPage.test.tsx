@@ -35,8 +35,8 @@ test("the page is public and shows the free card and the three purchase sizes wi
   expect(
     await screen.findByRole("heading", { level: 1, name: "Pay for what you make" }),
   ).toBeDefined();
-  expect(screen.getByRole("heading", { name: "Free" })).toBeDefined();
-  expect(screen.getByText("$4.00 a day")).toBeDefined();
+  expect(screen.getByText("Free")).toBeDefined();
+  expect(screen.getByRole("heading", { name: "$4.00 a day" })).toBeDefined();
   for (const reais of ["R$ 20", "R$ 40", "R$ 80"]) {
     expect(screen.getByRole("heading", { name: reais })).toBeDefined();
   }

@@ -9,10 +9,9 @@
 // page: the prompt box first, everything else below it.
 
 import "@/landing/landing.css";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router";
 import { useT } from "@/i18n/I18nProvider";
-import { Carousel } from "@/landing/Carousel";
 import { Header } from "@/landing/Header";
 import { Hero } from "@/landing/Hero";
 import { ScrollIn } from "@/landing/ScrollIn";
@@ -22,22 +21,8 @@ import { Closing } from "@/landing/sections/Closing";
 import { HowItWorks } from "@/landing/sections/HowItWorks";
 import { WhatItHandles } from "@/landing/sections/WhatItHandles";
 import { Footer } from "@/legal/Footer";
+import { useMeta } from "@/lib/useMeta";
 import { safeNext, useAccount } from "@/session/session";
-
-/** The page's title and description, in the visitor's language, for as long as it is shown. */
-function useMeta(title: string, description: string) {
-  useEffect(() => {
-    const before = document.title;
-    document.title = title;
-    const meta = document.querySelector<HTMLMetaElement>('meta[name="description"]');
-    const was = meta?.content;
-    if (meta) meta.content = description;
-    return () => {
-      document.title = before;
-      if (meta && was !== undefined) meta.content = was;
-    };
-  }, [title, description]);
-}
 
 export function LandingPage({ signIn = false }: { signIn?: boolean }) {
   const t = useT();
@@ -59,12 +44,9 @@ export function LandingPage({ signIn = false }: { signIn?: boolean }) {
   return (
     <div className="landing">
       <div className="grain" aria-hidden />
-      <Header onSignIn={openSignIn} brandAfterFirstScreen />
+      <Header onSignIn={openSignIn} />
       <main>
         <Hero onSignIn={openSignIn} />
-        <div className="pb-8">
-          <Carousel label={t.landing.showcase.label} />
-        </div>
         <ScrollIn>
           <HowItWorks />
         </ScrollIn>
@@ -77,12 +59,12 @@ export function LandingPage({ signIn = false }: { signIn?: boolean }) {
         <ScrollIn>
           <Closing onSignIn={openSignIn} />
         </ScrollIn>
-        <Footer>
-          <p className="mb-3">
-            <span className="display text-base text-paper">scorsese</span> · {t.landing.footer}
-          </p>
-        </Footer>
       </main>
+      <Footer>
+        <p className="mb-3">
+          <span className="display text-base text-paper">scorsese</span> · {t.landing.footer}
+        </p>
+      </Footer>
       <SignInDialog open={open} onOpenChange={onOpenChange} />
     </div>
   );

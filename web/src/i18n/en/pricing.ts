@@ -4,7 +4,7 @@
 
 export const pricing = {
   meta: {
-    title: "Pricing - scorsese",
+    title: "Pricing · scorsese",
     description:
       "Free credit every day, and credits from R$ 20 that never expire. You see the price and confirm before every paid generation.",
   },
@@ -21,6 +21,7 @@ export const pricing = {
     button: "Start free",
   },
   plan: {
+    name: "Credits",
     reais: (amount: number) => `R$ ${amount}`,
     bonus: (percent: number) => `+${percent}% bonus credit`,
     best: "Best value",

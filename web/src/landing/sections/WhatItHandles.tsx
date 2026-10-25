@@ -1,5 +1,5 @@
 // What scorsese handles, as a row of cards: a part of the landing page
-// (`HowItWorks.tsx` says how they move).
+// (`Section.tsx` says how they move).
 
 import { Gauge, Mic, Music, Scissors, Type } from "lucide-react";
 import { useT } from "@/i18n/I18nProvider";
@@ -17,7 +17,7 @@ export function WhatItHandles() {
   ];
   return (
     <Section eyebrow={t.eyebrow} title={t.title}>
-      <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-5 sm:max-lg:[&>:last-child]:col-span-2">
         {items.map((item, index) => (
           <Feature key={item.title} {...item} index={index} />
         ))}

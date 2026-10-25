@@ -5,11 +5,10 @@
 // who asked for less motion gets it all there at once.
 
 import { type ReactNode, useCallback, useRef } from "react";
-import { useLanguage } from "@/i18n/I18nProvider";
-import { draw, prefersStill, SCROLLED, useOnScroll } from "@/landing/motion";
+import { draw, SCROLLED, useOnScroll } from "@/landing/motion";
+import { prefersStill } from "@/lib/reducedMotion";
 
 export function ScrollIn({ children }: { children: ReactNode }) {
-  const { language } = useLanguage();
   const root = useRef<HTMLDivElement>(null);
   const still = prefersStill();
 
@@ -18,8 +17,8 @@ export function ScrollIn({ children }: { children: ReactNode }) {
     if (!element) return;
     const top = element.getBoundingClientRect().top;
     const t = still ? Number.POSITIVE_INFINITY : (innerHeight - top) / (innerHeight * 0.5);
-    draw(element, Math.max(0, t), SCROLLED, language);
-  }, [language, still]);
+    draw(element, Math.max(0, t), SCROLLED);
+  }, [still]);
   useOnScroll(frame);
 
   return <div ref={root}>{children}</div>;

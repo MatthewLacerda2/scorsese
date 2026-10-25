@@ -2,7 +2,7 @@ import type { Messages } from "@/i18n/catalogue";
 
 export const pricing: Messages["pricing"] = {
   meta: {
-    title: "Precios - scorsese",
+    title: "Precios · scorsese",
     description:
       "Crédito gratis cada día, y créditos desde R$ 20 que no vencen. Ves el precio y confirmas antes de cada generación de pago.",
   },
@@ -19,6 +19,7 @@ export const pricing: Messages["pricing"] = {
     button: "Empezar gratis",
   },
   plan: {
+    name: "Créditos",
     reais: (amount) => `R$ ${amount}`,
     bonus: (percent) => `+${percent}% de crédito de bonificación`,
     best: "La mejor opción",

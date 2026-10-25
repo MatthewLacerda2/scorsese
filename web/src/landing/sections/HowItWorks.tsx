@@ -1,6 +1,5 @@
-// The landing page below the top: how it works, what it handles, and a last
-// way in. Each moves in as it is scrolled to (`ScrollIn.tsx`): what carries
-// `data-rise` rises in, staggered by `kit.stagger`.
+// The landing page's three steps, as a row of numbered cards (`Section.tsx`
+// says how they move).
 
 import { Clapperboard, FolderUp, MessageSquareText } from "lucide-react";
 import { useT } from "@/i18n/I18nProvider";
