@@ -136,3 +136,17 @@ fn the_styles_guide_answers_an_id_with_its_recipe_and_the_rest_from_the_page() {
     let refused = read_guide("pages", Some("vlog"), page).expect_err("not a heading");
     assert!(!refused.contains("kinetic_type"), "{refused}");
 }
+
+#[test]
+fn a_platform_frames_the_project_in_its_shape() {
+    let tall = Start::new(Some(Platform::Tiktok), None).expect("a platform");
+    assert_eq!(tall.aspect(), Some(crate::Ratio::TALL));
+    let wide = Start::new(Some(Platform::Youtube), None).expect("a platform");
+    assert_eq!(wide.aspect(), Some(crate::Ratio::WIDE));
+    assert_eq!(
+        Start::new(None, Some("whiteboard"))
+            .expect("a style")
+            .aspect(),
+        None
+    );
+}
