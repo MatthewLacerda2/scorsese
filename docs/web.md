@@ -2576,10 +2576,13 @@ another.
 
 ### A/B tests
 
-The landing page always runs one test (#1553): visitors are drawn into its
+The landing page runs one test at a time (#1553): visitors are drawn into its
 versions, what they do is recorded, and the test is decided fast, on little
-traffic. The mechanism is permanent; the tests come and go. Only the landing
-is tested: a signed-in person never sees it.
+traffic. The mechanism is permanent; the tests come and go, and a decided test
+hands over to the next, so one is always running once the first (#1554) is.
+With none running nothing is recorded and no cookie is set. Only the landing
+is tested: a signed-in person never sees it, and a visit is not counted until
+the page knows nobody is signed in.
 
 **The rule, 50 / 90% / 100.** Counted per version, in visitors who are not
 bots:
@@ -2612,12 +2615,14 @@ is never without one. Its rows stay in the database.
 
 **What is recorded.** A random visitor code in the `scorsese_visitor` cookie
 (first-party, a year, `SameSite=Lax`), one per browser, set the first time the
-landing loads. The page posts, as beacons: the version of each running test it
+landing loads while a test runs. Safari keeps a cookie a script wrote for 7
+days, so a Safari visitor back after a week counts as a new one. The page posts, as beacons: the version of each running test it
 showed (`ab_exposures`, the first one kept), and events (`ab_events`): `view`;
 `section`, the deepest part of the page reached so far (whatever carries
-`data-ab-section`, counted from 1, `ScrollIn` does); `end`, the last of them
-reached; `time`, seconds the page was visible, sent each time it is hidden, at
-most 30 minutes a visit; `prompt`, a prompt box sent. An event belongs to the
+`data-ab-section`, counted from 1, `ScrollIn` does; reached once it comes up
+into the window's top half); `end`, the last of them reached; `time`, seconds
+the page was visible, sent each time it is hidden or left, at most 30 minutes a
+visit; `prompt`, a prompt box sent. An event belongs to the
 visitor, and counts in a test from the visitor's exposure to it on. Nothing is
 sent from a browser driven by a script (`navigator.webdriver`) or one whose
 user agent says it is a bot. The visitor's country and region
@@ -2630,7 +2635,7 @@ of this.
 
 | route | who | what |
 | --- | --- | --- |
-| `POST /api/ab/events` | anyone | `{visitor, exposures: [{test, version}], events: [{kind, value?}]}` → `204`, always: a body over 4 KB, a batch of another shape (ids are `[a-z0-9-]`, at most 32), and anything past the caps (2,000 rows from one address a day, 200 events from one visitor a day, 32 tests per visitor) are dropped without a word |
+| `POST /api/ab/events` | anyone | `{visitor, exposures: [{test, version}], events: [{kind, value?}]}` → `204`, always: a body over 4 KB, a batch of another shape (ids are `[a-z0-9-]`, at most 32), and anything past the caps (2,000 rows from one address a day, an IPv6 address counted by its /64; 100,000 rows from everybody a day; 200 events from one visitor a day; 32 tests per visitor) are dropped without a word |
 
 **Reading the report.** Through the operator's shell (*Running the service*):
 

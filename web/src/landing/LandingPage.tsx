@@ -45,7 +45,7 @@ export function LandingPage({ signIn = false }: { signIn?: boolean }) {
   const [params] = useSearchParams();
   const [open, setOpen] = useState(signIn);
   useMeta(t.landing.meta.title, t.landing.meta.description);
-  const shown = useLandingTests(!account.data);
+  const shown = useLandingTests(!account.isPending && !account.data);
 
   if (account.data) return <Navigate to={safeNext(params.get("next"))} replace />;
 

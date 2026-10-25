@@ -106,7 +106,7 @@ export const PRIVACY_EN: LegalDocument = {
     {
       heading: "Cookies",
       blocks: [
-        "We use the cookies the site needs to work: one that keeps you signed in for up to 30 days and another, temporary one, used while you sign in with Google. One more, kept for a year, holds the random code that says which version of the home page your browser was shown (see “What we keep”, above); it is ours alone, and we use no advertising or third-party tracking cookies. The language and theme you choose are kept in your own browser. When you write a prompt before signing in, your browser also keeps it, with any files you attached, until the sign-in brings you back to start your project, and then deletes it; it never reaches us before you sign in.",
+        "We use the cookies the site needs to work: one that keeps you signed in for up to 30 days and another, temporary one, used while you sign in with Google. One more, kept for up to a year, holds the random code that says which version of the home page your browser was shown (see “What we keep”, above); it is ours alone, and we use no advertising or third-party tracking cookies. The language and theme you choose are kept in your own browser. When you write a prompt before signing in, your browser also keeps it, with any files you attached, until the sign-in brings you back to start your project, and then deletes it; it never reaches us before you sign in.",
       ],
     },
     {

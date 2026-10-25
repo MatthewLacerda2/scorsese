@@ -74,6 +74,8 @@ pub struct AppState {
     pub reports: limits::Limits<Option<std::net::IpAddr>>,
     /// How many A/B rows each address has written today (#1553).
     pub ab_rows: limits::Limits<Option<std::net::IpAddr>>,
+    /// How many A/B rows everybody has written today.
+    pub ab_total: limits::Limits<()>,
     /// The web MCP calls each user has running, for a cancel to find.
     pub in_flight: mcp::InFlight,
     /// The built-in assistant (#540): how it reaches Claude, and what a turn
@@ -118,6 +120,7 @@ impl AppState {
             limits: limits::Limits::new(mcp::CALLS_PER_MINUTE),
             reports: limits::Limits::new(client_errors::REPORTS_PER_MINUTE),
             ab_rows: limits::Limits::over(ab::DAY, ab::ROWS_PER_ADDRESS_PER_DAY),
+            ab_total: limits::Limits::over(ab::DAY, ab::ROWS_PER_DAY),
             in_flight: mcp::InFlight::default(),
             assistant: Assistant::default(),
             google: None,

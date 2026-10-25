@@ -17,8 +17,10 @@ use crate::db::UserId;
 /// The window a limit counts over unless it says otherwise.
 const MINUTE: Duration = Duration::from_secs(60);
 
-/// Callers remembered before the ones whose minute is out are forgotten, so
-/// a stream of new addresses cannot grow the map without end.
+/// Callers remembered at most. When the map is full the ones whose window is
+/// out are forgotten, and if none is, a new caller is refused until one is:
+/// a stream of new addresses can neither grow the map without end nor push
+/// out a caller still being counted.
 const REMEMBERED: usize = 4096;
 
 /// How many times each caller has acted in the current minute.
@@ -54,6 +56,10 @@ impl<K: Eq + Hash> Limits<K> {
         let mut windows = self.windows.lock().unwrap_or_else(PoisonError::into_inner);
         if windows.len() >= REMEMBERED && !windows.contains_key(&key) {
             windows.retain(|_, window| now.duration_since(window.0) < self.window);
+            if windows.len() >= REMEMBERED {
+                let first = windows.values().map(|window| window.0).min().unwrap_or(now);
+                return Err(self.window.saturating_sub(now.duration_since(first)));
+            }
         }
         let window = windows.entry(key).or_insert((now, 0));
         if now.duration_since(window.0) >= self.window {
@@ -94,14 +100,16 @@ mod tests {
     }
 
     #[test]
-    fn a_crowd_of_callers_forgets_only_the_ones_whose_minute_is_out() {
-        let limits = Limits::new(1);
+    fn a_full_crowd_of_callers_refuses_a_new_one_and_forgets_nobody() {
+        let limits = Limits::over(Duration::from_secs(86_400), 1);
         for caller in 0..REMEMBERED {
             limits.take(caller, 1).unwrap();
         }
-        // Everyone is still inside their minute: nobody is forgotten, so the
-        // first is still refused.
-        limits.take(REMEMBERED, 1).unwrap();
+        // Everyone is still inside their window: nobody is forgotten, so the
+        // first is still refused, and a newcomer waits for room.
+        let wait = limits.take(REMEMBERED, 1).expect_err("no room");
+        assert!(wait > MINUTE, "{wait:?}");
         assert!(limits.take(0, 1).is_err());
+        assert_eq!(limits.windows.lock().unwrap().len(), REMEMBERED);
     }
 }
