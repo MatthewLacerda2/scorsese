@@ -69,7 +69,7 @@ mod startup;
 mod store;
 
 pub use files::ProjectFiles;
-pub use start::{begin, retarget};
+pub use start::begin;
 pub use startup::migrate_stored;
 pub use store::{
     create, delete, edit, list, open, open_with_files, open_with_script_stamp, save,

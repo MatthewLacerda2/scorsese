@@ -61,7 +61,6 @@ button work here too.
 | `src/pages/` | the signed-in home (`HomePage`: the prompt box that starts a project), the two file views, the spending history | — |
 | `src/home/` | the sidebar the home, the library and the spending history share (`SidebarLayout`, `Sidebar`, `ProjectItem` with inline rename and a confirmed delete), the rotating title, and `projectName` (a project's name from its prompt) and `useStartFromPrompt` (make the project, send the prompt, open it) | the sidebar's pages |
 | `src/payments/` | buying credits (#548): the *Add credits* dialog (its own chunk, opened from the button beside the balance), the `/credits/return` page Stripe sends a buyer back to, and reais typed and shown as integer centavos (`reais.ts`) | anything in reais |
-| `src/start/` | what a project is started for (#1016): the platform and style pickers, the menu query (`GET /api/styles`) and its plain decisions (`menu.ts`) — shared by the new-project modal and the editor's Platform and style control | choosing a platform or a style anywhere |
 | `src/editor/` | the editor (`/projects/:id/edit`): `timeline/` (the time↔pixel maths, drag, snap and the tool call a drag becomes, all plain functions), `preview/`, `inspector/`, `assets/`, `selection.ts` (one clip, or several with Shift), `chat/` (the assistant's panel, its transcript a pure reducer over the event stream); every edit goes through `project.ts`'s `useEdit`, a tool call — docs/web.md, *The editor* | — |
 
 **Uploads** hash a file in the browser first (streamed, so a large file is
@@ -129,7 +128,7 @@ already built:
 | --- | --- | --- |
 | server | `cargo build -p scorsese-server` | the binary the flows drive |
 | browser | `bunx playwright install --only-shell chromium` | Playwright's pinned headless Chromium, fetched once; skipped when `E2E_CHROMIUM` names one |
-| flows | `bunx playwright test`, through `tools/with-postgres` | sign in, make a project, upload and place a file, resize a panel, ask the assistant — against the real server and a real Postgres. The flows that run an assistant turn (a message, a new platform, a confirmed quote) run in every language, since a translated piece can crash in one language only (#1429); the rest stay English |
+| flows | `bunx playwright test`, through `tools/with-postgres` | sign in, make a project, upload and place a file, resize a panel, ask the assistant — against the real server and a real Postgres. The flows that run an assistant turn (a message, a confirmed quote) run in every language, since a translated piece can crash in one language only (#1429); the rest stay English |
 
 `playwright.config.ts` starts the server (away from any `.env`, so no provider
 key reaches it) and `vite preview` of the production build, and makes the run's

@@ -61,7 +61,6 @@ function Editor({ project }: { project: EditorProject }) {
   const edit = useEdit(id);
   const [playhead, setPlayhead] = useState(0);
   const [picked, setPicked] = useState<string[]>([]);
-  const [reframed, setReframed] = useState<string | null>(null);
   const [full, setFull] = useFull(id);
   const panels = usePanels();
   const drop = useDrop(id, edit, playhead, (clip) => setPicked([clip]));
@@ -84,40 +83,14 @@ function Editor({ project }: { project: EditorProject }) {
     selected.length === 1 ? found.find(({ clip }) => clip.id === selected[0]) : undefined;
   const aspect = aspectOf(document);
 
-  // Another shape is a re-fit on the server (#1278); its reply says what it
-  // re-fitted and what it left to settle, which the assistant can be asked to.
-  const reframe = async (next: string) => {
-    if (next === aspect) return;
-    const answer = await edit.run({ tool: "project_reframe", args: { aspect: next }, edit: true });
-    if (answer) setReframed(answer.said.map((part) => part.text).join("\n"));
-  };
-
   return (
     <div className="flex h-full min-h-0 flex-col">
       <EditorHeader
         projectId={id}
         name={document.name}
-        edit={edit}
         aspect={aspect}
-        onAspect={(next) => void reframe(next)}
         fps={document.timeline_fps}
       />
-      {reframed && (
-        <div className="flex items-start gap-2 border-b bg-muted px-3 py-1.5 text-sm">
-          <div className="flex-1">
-            <p className="whitespace-pre-line">{reframed}</p>
-            <p className="text-muted-foreground">{t.editor.page.reframeHint}</p>
-          </div>
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label={t.editor.page.dismiss}
-            onClick={() => setReframed(null)}
-          >
-            <XIcon />
-          </Button>
-        </div>
-      )}
       {edit.refused && (
         <div className="flex items-start gap-2 border-b bg-destructive/10 px-3 py-1.5 text-sm text-destructive">
           <p className="flex-1">{edit.refused}</p>

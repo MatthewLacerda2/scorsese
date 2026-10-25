@@ -1,6 +1,7 @@
-// The editor's controls in the app header (#764): the project's name, its
-// platform and style (#1016), the frame shape and Render. They used to be a strip of the
-// editor's own under the header, which took height the timeline needs while
+// The editor's controls in the app header (#764): the project's name and
+// Render. No platform, style or frame shape is picked here (#1531): the
+// assistant reads them from the prompt. They used to be a strip
+// of the editor's own under the header, which took height the timeline needs while
 // the header sat half empty; `EditorHeader` puts them in that room instead.
 //
 // On a narrow window the name gives way first — it truncates to nothing
@@ -19,34 +20,20 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { useT } from "@/i18n/I18nProvider";
-import type { EditOutcome } from "./project";
 import { RenderPanel } from "./RenderPanel";
-import { StartControl } from "./StartControl";
-import { offered } from "./shape";
 
 export interface EditorActionsProps {
   projectId: number;
   name: string;
-  edit: EditOutcome;
-  /** The project's frame shape, `across:down` (`shape.ts`). */
+  /** The project's frame shape, `across:down` (`shape.ts`), which Render sizes in. */
   aspect: string;
-  /** Asks for the frame in another shape: a re-fit, never a setting kept aside. */
-  onAspect: (aspect: string) => void;
   /** The project's own rate, which Render offers first. */
   fps: Fps;
 }
 
 /** What `EditorHeader` puts in the header; its own file so it can be drawn alone. */
-export function EditorActions({
-  projectId,
-  name,
-  edit,
-  aspect,
-  onAspect,
-  fps,
-}: EditorActionsProps) {
+export function EditorActions({ projectId, name, aspect, fps }: EditorActionsProps) {
   const t = useT();
   return (
     <>
@@ -54,19 +41,6 @@ export function EditorActions({
         {name}
       </h1>
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        <StartControl projectId={projectId} onAspect={onAspect} />
-        <NativeSelect
-          aria-label={t.editor.page.frameShape}
-          value={aspect}
-          disabled={edit.pending}
-          onChange={(event) => onAspect(event.target.value)}
-        >
-          {offered(aspect).map((choice) => (
-            <NativeSelectOption key={choice} value={choice}>
-              {choice}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
         <Dialog>
           <DialogTrigger asChild>
             <Button size="sm" variant="outline" aria-label={t.editor.page.render}>

@@ -15,6 +15,7 @@ export const pages: Messages["pages"] = {
   projects: {
     empty: "Nenhum projeto ainda. Clique em Criar para começar.",
     create: "Criar",
+    newName: "Nome do novo projeto",
     name: "Nome do projeto",
     changed: (date: string) => `Alterado em ${date}`,
     open: "Abrir",

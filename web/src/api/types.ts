@@ -21,45 +21,18 @@ export interface ProjectSummary {
   revision: number;
   created_at: number;
   updated_at: number;
-  /** The placement it was started for (#1016), by id, or `null`. */
+  /**
+   * The placement it was started for, by id, or `null`: set only by the
+   * assistant's `project_new` (#1015); the web app asks for none (#1531).
+   */
   platform: string | null;
   /** The kind of video it was started as, by style id, or `null`. */
   style: string | null;
 }
 
-/** `http::styles::PlatformView` — a placement a video is made for. */
-export interface PlatformView {
-  id: string;
-  name: string;
-  /** A paid placement. */
-  ad: boolean;
-  width: number;
-  height: number;
-}
-
-/** `http::styles::StyleView` — a kind of video a project can start as. */
-export interface StyleView {
-  id: string;
-  name: string;
-  /** At most thirty words. */
-  description: string;
-  /** The placements it is made for, by id. */
-  platforms: string[];
-  /** Its animated preview, or `null` until there is one (#1017). */
-  preview: string | null;
-}
-
-/** `GET /api/styles` — the menu a project starts from. */
-export interface StyleMenu {
-  platforms: PlatformView[];
-  styles: StyleView[];
-}
-
 /** `POST /api/projects`'s body: only the name is required. */
 export interface NewProject {
   name: string;
-  platform?: string | null;
-  style?: string | null;
   /** Library files to bring in, by id. */
   assets?: number[];
 }

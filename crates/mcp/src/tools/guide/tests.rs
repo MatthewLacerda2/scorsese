@@ -30,6 +30,21 @@ fn a_section_may_be_sent_as_a_bare_number() {
     assert!(by_number.parts[0].text.starts_with("## The contract"));
 }
 
+/// The style library's recipes are read through the guide, in any project
+/// (#1531): a style's id or a placement's is a section of `guide styles`.
+#[test]
+fn a_style_id_is_a_section_of_the_styles_guide() {
+    let style = &STYLES[0];
+    let reply = Read
+        .call(&serde_json::json!({ "project": "x.scor", "name": "styles", "section": style.id }))
+        .unwrap();
+    assert!(reply.parts[0].text.contains(style.prompt));
+    let reply = Read
+        .call(&serde_json::json!({ "project": "x.scor", "name": "styles", "section": "tiktok_ad" }))
+        .unwrap();
+    assert!(reply.parts[0].text.contains("1080x1920"));
+}
+
 /// A style's prompt sends the editor to a guide's section by its words, so the
 /// words must find exactly one section of that guide. It lives here, beside
 /// the tool that serves the guide, because this crate sees both: the guides

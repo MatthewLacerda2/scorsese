@@ -1,8 +1,7 @@
 // The assistant, faked in the browser, for the flows that run a turn: every
 // route a turn lives on answers from here, so no request that would spend
 // money leaves the page, and a turn stays `running` for as long as a flow
-// wants to look at it (#1429). What the server alone decides — the project
-// change a new platform makes — still goes to the real server first.
+// wants to look at it (#1429).
 //
 // The live stream is faked too: `GET /api/events` answers whatever turns
 // changed since the last connection and then closes, asking for a reconnect a
@@ -60,12 +59,6 @@ export async function fakeAssistant(page: Page): Promise<FakeAssistant> {
     return route.fulfill({
       json: { ...real, session: ours.length > 0 ? SESSION : real.session, turns: ours },
     });
-  });
-  await page.route(/\/api\/projects\/(\d+)\/start$/, async (route, request) => {
-    // The server keeps the new choice; only the turn it would start is ours.
-    await route.fetch();
-    const { message } = request.postDataJSON() as { message: string };
-    return route.fulfill({ json: { turn: begin(projectOf(request.url()), message), note: null } });
   });
   await page.route(/\/api\/chat\/turns\/(\d+)\/quote$/, (route, request) => {
     const quoted = turns.find((turn) => request.url().includes(`/turns/${turn.id}/`));

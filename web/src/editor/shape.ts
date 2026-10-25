@@ -1,13 +1,9 @@
 // The frame's shape is the project's own (#1278): the document's `aspect`,
 // `across:down`, which the preview is drawn in and every render defaults to.
-// Changing it is `project_reframe`, never a setting kept in the browser — the
-// re-fit sets footage that filled the old frame to fill the new one, and says
-// what it could not settle.
+// Changing it is the assistant's `project_reframe` (#1531), never a setting
+// kept in the browser.
 
 import type { ProjectDocument } from "@/api/document";
-
-/** The shapes the editor offers: the ones a person with an idea reaches for. */
-const ASPECTS = ["16:9", "9:16", "1:1", "4:5"] as const;
 
 /** What a document that names no shape is: `scorsese_core::Ratio::WIDE`. */
 const WIDE = "16:9";
@@ -15,11 +11,6 @@ const WIDE = "16:9";
 /** The project's shape, `across:down`. */
 export function aspectOf(document: Pick<ProjectDocument, "aspect">): string {
   return document.aspect ?? WIDE;
-}
-
-/** The shapes to offer for a project now in `aspect`: the usual four, and its own if it is none of them. */
-export function offered(aspect: string): string[] {
-  return (ASPECTS as readonly string[]).includes(aspect) ? [...ASPECTS] : [...ASPECTS, aspect];
 }
 
 /**

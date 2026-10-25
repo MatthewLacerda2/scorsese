@@ -8,8 +8,6 @@ const more = (named: string, rest: number) => `${named} y ${rest} más`;
 export const editor: Messages["editor"] = {
   page: {
     opening: "Abriendo el proyecto…",
-    frameShape: "Formato del cuadro",
-    reframeHint: "Si queda algo por resolver, pídele al asistente que lo resuelva.",
     render: "Renderizar",
     renderTitle: "Renderizar el video",
     renderDescription: "El montaje completo tal como está ahora, en MP4 para descargar.",

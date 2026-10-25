@@ -22,7 +22,7 @@ mod prompts;
 #[cfg(test)]
 mod tests;
 
-pub use brief::{SCRIPT_FILE, Start, StartError};
+pub use brief::{SCRIPT_FILE, Start, StartError, read_guide, recipe};
 pub use library::STYLES;
 pub use platform::{Platform, UnknownPlatform};
 
@@ -31,11 +31,12 @@ pub use platform::{Platform, UnknownPlatform};
 pub struct Style {
     /// What a call or a stored setting names it by, in English snake_case.
     pub id: &'static str,
-    /// What a person is shown, in pt-BR. The web app shows each reader its own
-    /// language's words for the id (#1051) and falls back to these.
+    /// Its name in pt-BR, as the heading of the section a brief or
+    /// [`recipe`] writes for it.
     pub name: &'static str,
-    /// One line for the person choosing, at most thirty words, in pt-BR — the
-    /// web app's fallback, the way [`Style::name`] is.
+    /// One line about it, at most thirty words, in pt-BR. Nothing reads it
+    /// since the web app stopped offering a style picker (#1531); #1545
+    /// decides whether it stays.
     pub description: &'static str,
     /// The placements it is made for, in [`Platform::ALL`]'s order.
     pub platforms: &'static [Platform],

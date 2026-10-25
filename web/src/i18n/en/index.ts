@@ -11,11 +11,9 @@ import { files } from "@/i18n/en/files";
 import { home } from "@/i18n/en/home";
 import { inspector } from "@/i18n/en/inspector";
 import { landing } from "@/i18n/en/landing";
-import { menu } from "@/i18n/en/menu";
 import { pages } from "@/i18n/en/pages";
 import { pricing } from "@/i18n/en/pricing";
 import { prompt } from "@/i18n/en/prompt";
-import { start } from "@/i18n/en/start";
 
 export const en = {
   common,
@@ -26,8 +24,6 @@ export const en = {
   assets,
   inspector,
   landing,
-  start,
-  menu,
   buying,
   prompt,
   pricing,

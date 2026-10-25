@@ -15,6 +15,7 @@ export const pages = {
   projects: {
     empty: "No projects yet. Create one to start.",
     create: "Create",
+    newName: "Name of the new project",
     name: "Project name",
     changed: (date: string) => `Changed ${date}`,
     open: "Open",

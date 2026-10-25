@@ -25,7 +25,6 @@ pub mod projects;
 mod ranges;
 pub mod renders;
 pub mod routes;
-pub mod styles;
 pub mod tokens;
 pub mod uploads;
 pub mod visitor;

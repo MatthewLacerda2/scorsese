@@ -30,13 +30,6 @@ pub struct Opening {
     /// landed (#1441), not by a message: `prompt` is ignored, and the turn
     /// shows a line saying what landed instead.
     pub woken: bool,
-    /// What the model reads in place of `prompt`, when `prompt` is words the
-    /// web app wrote on the person's behalf rather than theirs. The person
-    /// still sees `prompt`, in the site's language; the model must not, or it
-    /// would answer in the site's language instead of the person's. A turn
-    /// that answers a pause (a question or a quote) still hands the pause
-    /// `prompt`, not this (#1505).
-    pub told: Option<String>,
 }
 
 /// Start a turn in `user`'s conversation about `project`: refused when the
@@ -133,12 +126,11 @@ pub async fn start(
     let said: Vec<Message> = kept.iter().flat_map(|turn| turn.record.clone()).collect();
     notes.extend(super::veo::note(&said, veo).map(String::from));
     // A woken turn's user message is the server's, never the person's words:
-    // the marker is for the transcript and the ledger. Words the app wrote
-    // for them are shown, never read (`told`).
+    // the marker is for the transcript and the ledger.
     let words = if opening.woken {
         prompt::WOKEN
     } else {
-        opening.told.as_deref().unwrap_or(&prompt)
+        &prompt
     };
     let record = prompt::opening(&said, words, &notes, effort);
     // Past its size, the turn opens from a summary instead (#1438).

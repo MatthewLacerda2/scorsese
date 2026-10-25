@@ -43,6 +43,15 @@ fn it_prints_what_the_tool_answers() {
     );
 }
 
+/// A style's recipe is a section of `guide styles` here too (#1531).
+#[test]
+fn a_style_id_is_a_section_of_the_styles_guide() {
+    let (ok, printed) = run(&["styles", "--section", "kinetic_type"]);
+    assert!(ok);
+    let kinetic = scorsese_core::style::style("kinetic_type").expect("in the library");
+    assert!(printed.contains(kinetic.prompt), "{printed}");
+}
+
 #[test]
 fn a_guide_that_is_not_there_fails_and_says_what_is() {
     let output = Command::new(env!("CARGO_BIN_EXE_scorsese"))
