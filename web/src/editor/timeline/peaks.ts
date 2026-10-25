@@ -2,6 +2,8 @@
 // slice of them a clip plays, cut into the bars its waveform is drawn with.
 // Pure, so trimming, zooming or scrolling only cuts the same levels again.
 
+import type { ServerEvent } from "@/api/events";
+
 /** `GET /api/library/{id}/peaks`, read: levels over time, 0–255 each. */
 export interface Peaks {
   perSecond: number;
@@ -21,9 +23,32 @@ export function parsePeaks(buffer: ArrayBuffer): Peaks | undefined {
   };
 }
 
-/** How many bars a clip `width` pixels wide is drawn with. */
-export function barsOf(width: number): number {
-  return Math.max(1, Math.floor(width / BAR_PX));
+/** The most bars one clip is drawn with, however long and however zoomed. */
+export const MOST_BARS = 2048;
+
+/**
+ * How many bars a clip `width` pixels wide, playing `length` seconds of a
+ * sound, is drawn with: a bar every few pixels, but never more bars than the
+ * levels its stretch holds, nor more than `MOST_BARS`.
+ */
+export function barsOf(peaks: Peaks, length: number, width: number): number {
+  const held = Math.ceil(length * peaks.perSecond - 1e-9);
+  return Math.max(1, Math.min(Math.floor(width / BAR_PX), held, MOST_BARS));
+}
+
+/**
+ * Whether `event` says the peaks of library item `item` may be there now: the
+ * job that reads them (a `thumbnail`) is done, or the stream reconnected and
+ * may have missed it.
+ */
+export function readsPeaks(event: ServerEvent, item: number): boolean {
+  if (event.type === "resync") return true;
+  return (
+    event.type === "job" &&
+    event.kind === "thumbnail" &&
+    event.state === "done" &&
+    event.result?.item === item
+  );
 }
 
 /**

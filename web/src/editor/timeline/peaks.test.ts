@@ -2,7 +2,7 @@
 // the slice a clip plays, one level per bar.
 
 import { describe, expect, test } from "bun:test";
-import { barsOf, parsePeaks, sliceOf } from "./peaks";
+import { barsOf, MOST_BARS, parsePeaks, readsPeaks, sliceOf } from "./peaks";
 
 function bytes(perSecond: number, levels: number[]): ArrayBuffer {
   const buffer = new ArrayBuffer(4 + levels.length);
@@ -42,7 +42,40 @@ describe("a sound's peaks", () => {
   });
 
   test("a clip gets a bar every three pixels, at least one", () => {
-    expect(barsOf(90)).toBe(30);
-    expect(barsOf(2)).toBe(1);
+    const peaks = { perSecond: 40, levels: new Uint8Array(400) };
+    expect(barsOf(peaks, 2, 90)).toBe(30);
+    expect(barsOf(peaks, 2, 2)).toBe(1);
+  });
+
+  test("never more bars than the levels its stretch holds", () => {
+    const peaks = { perSecond: 4, levels: new Uint8Array(40) };
+    // Two seconds at four a second, however wide the clip is drawn.
+    expect(barsOf(peaks, 2, 6000)).toBe(8);
+    expect(barsOf(peaks, 0.1, 6000)).toBe(1);
+  });
+
+  test("a long bed at the closest zoom stays a few thousand bars", () => {
+    // Ten minutes at 320 px a second: 192,000 px wide.
+    const peaks = { perSecond: 40, levels: new Uint8Array(24_000) };
+    expect(barsOf(peaks, 600, 192_000)).toBe(MOST_BARS);
+  });
+});
+
+describe("a sound's peaks are asked for again", () => {
+  const job = (kind: string, state: string, item: unknown) =>
+    ({ type: "job", id: 1, kind, state, result: { item } }) as never;
+
+  test("when the job reading them is done", () => {
+    expect(readsPeaks(job("thumbnail", "done", 9), 9)).toBe(true);
+  });
+
+  test("after a reconnect, which may have missed it", () => {
+    expect(readsPeaks({ type: "resync" }, 9)).toBe(true);
+  });
+
+  test("not for another file, an unfinished job or another kind", () => {
+    expect(readsPeaks(job("thumbnail", "done", 8), 9)).toBe(false);
+    expect(readsPeaks(job("thumbnail", "running", 9), 9)).toBe(false);
+    expect(readsPeaks(job("render", "done", 9), 9)).toBe(false);
   });
 });
