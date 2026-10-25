@@ -10,6 +10,9 @@ export const common = {
   nav: { projects: "Projects", home: "Home", library: "Library" },
   balanceTitle: "Your credits — see what you spent",
   yourCredits: "Your credits",
+  // "$3.20 free today", beside the balance (#1530).
+  freeToday: (dollars: string) => `${dollars} free today`,
+  freeRenews: (when: string) => `Free credit renews ${when}.`,
   account: "Your account",
   spendingHistory: "Spending history",
   logOut: "Log out",

@@ -1,5 +1,6 @@
 // The rows of the spending history. A generation that made a file links to
-// it in the library; one the provider failed says it was free, and why.
+// it in the library; one the provider failed says it was free, and why; one
+// the free allowance paid part of says how much under its amount (#1530).
 
 import { Link } from "react-router";
 import type { HistoryRow } from "@/api";
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { en } from "@/i18n/en";
 import { useT } from "@/i18n/I18nProvider";
-import { formatMovement } from "@/lib/money";
+import { formatDollars, formatMovement } from "@/lib/money";
 
 const TONE: Record<HistoryRow["status"], "secondary" | "outline"> = {
   charged: "secondary",
@@ -51,6 +52,11 @@ export function HistoryTable({ rows }: { rows: HistoryRow[] }) {
             </TableCell>
             <TableCell className="text-right align-top whitespace-nowrap">
               {formatMovement(row.amount_micros)}
+              {row.free_micros > 0 && (
+                <div className="text-xs text-muted-foreground">
+                  {words.freePart(formatDollars(row.free_micros))}
+                </div>
+              )}
             </TableCell>
           </TableRow>
         ))}

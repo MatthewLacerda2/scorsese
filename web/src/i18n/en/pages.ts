@@ -60,5 +60,7 @@ export const pages = {
     amount: "Amount",
     deletedProject: "a deleted project",
     fileItMade: "the file it made",
+    // Under an amount the free allowance paid part of (#1530).
+    freePart: (dollars: string) => `${dollars} from free credit`,
   },
 };
