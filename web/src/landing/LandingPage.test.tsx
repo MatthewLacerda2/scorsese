@@ -9,9 +9,10 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { App } from "@/App";
-import type { Account } from "@/api";
+import type { Account, Prices } from "@/api";
 import { setFetch } from "@/api/client";
 import { createQueryClient, ME } from "@/app/queryClient";
+import { queryKeys } from "@/app/queryKeys";
 import { browserStorage, KEYS } from "@/lib/storage";
 import { forgetSignedInHint, HINT_COOKIE, signedInHint } from "@/session/hint";
 
@@ -19,11 +20,20 @@ const LANDING = "The video is one conversation away";
 const ana: Account = { id: 1, email: "ana@example.com", created_at: 0 };
 
 /** Open `url`; `account` seeds the session, or leaves it for `GET /api/me` to answer when omitted. */
+const PRICES: Prices = {
+  examples: [],
+  free: { daily_micros: 4_000_000, monthly_micros: 12_000_000 },
+  recharge: null,
+};
+
 function visit(url: string, account?: Account | null) {
   const client = createQueryClient();
   if (account !== undefined) client.setQueryData(ME, account);
   client.setQueryData(["projects"], []);
   client.setQueryData(["credits", "balance"], { balance_micros: 0 });
+  // The free line under the hero asks for these; a stub that answers every
+  // request with one body must not be what it reads.
+  client.setQueryData(queryKeys.prices, PRICES);
   // What the prompt boxes' "+" takes, so reaching for one asks nothing.
   client.setQueryData(["formats"], { video: [], image: [], audio: [], html: [], text: [] });
   render(
