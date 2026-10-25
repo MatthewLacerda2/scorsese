@@ -34,10 +34,6 @@ pub struct Style {
     /// Its name in pt-BR, as the heading of the section a brief or
     /// [`recipe`] writes for it.
     pub name: &'static str,
-    /// One line about it, at most thirty words, in pt-BR. Nothing reads it
-    /// since the web app stopped offering a style picker (#1531); #1545
-    /// decides whether it stays.
-    pub description: &'static str,
     /// The placements it is made for, in [`Platform::ALL`]'s order.
     pub platforms: &'static [Platform],
     /// How this kind of video is made, for the assistant doing the editing:
