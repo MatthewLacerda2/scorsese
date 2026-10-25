@@ -10,14 +10,9 @@ export const landing = {
     description:
       "Promos, ads and event videos for your business, made from your files and a description. No editor to hire, no software to learn.",
   },
+  openApp: "Open scorsese",
   signIn: "Sign in",
-  hero: {
-    eyebrow: "Video for your business",
-    title: "Describe the video.",
-    titleEnd: "It gets made.",
-    lead: "Promos, ads and event videos, cut, titled, scored and paced for you, without hiring an editor or learning a program.",
-    scroll: "See how",
-  },
+  hero: { title: "The video is one conversation away" },
   how: {
     eyebrow: "How it works",
     title: "Three steps, all of them yours to say.",
@@ -63,7 +58,7 @@ export const landing = {
   },
   closing: {
     title: "Ready when you are.",
-    body: "Bring your files and an idea. The video is a conversation away.",
+    body: "The video is one message away",
   },
   footer: "Every film on this page was made with scorsese.",
   dialog: {
@@ -73,7 +68,12 @@ export const landing = {
   legal: {
     terms: "Terms of use",
     privacy: "Privacy policy",
-    portugueseOnly:
-      "This document is in Portuguese, the language of the contract: scorsese is sold by a Brazilian company, under Brazilian law.",
+    pricingShort: "Pricing",
+    termsShort: "Terms",
+    privacyShort: "Privacy",
+    translation:
+      "This is a translation. The Portuguese text is the binding one: if the versions disagree, the Portuguese text prevails.",
+    readPortuguese: "Read the Portuguese text",
+    readTranslation: "Back to the translation",
   },
 };

@@ -1,9 +1,10 @@
 // The terms and the privacy policy (#547): public at their URLs, signed in or
-// not, in Portuguese with a word to a visitor reading in another language,
+// not, in the site's language (Portuguese is the binding text and the others say so),
 // and linked from the landing page's footer and the sign-in popup.
 
 import { expect, test } from "bun:test";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { App } from "@/App";
 import type { Account } from "@/api";
@@ -26,21 +27,53 @@ function visit(url: string, account: Account | null, language: Language = "en") 
   );
 }
 
-test("/terms is public, and says why it is in Portuguese", async () => {
+test("/terms is public, in the site's language, with a summary and the note that Portuguese prevails", async () => {
   visit("/terms", null);
-  expect(await screen.findByRole("heading", { level: 1, name: "Termos de uso" })).toBeDefined();
-  expect(screen.getByText(/in Portuguese, the language of the contract/)).toBeDefined();
+  expect(await screen.findByRole("heading", { level: 1, name: "Terms of use" })).toBeDefined();
+  expect(document.querySelector("article")?.getAttribute("lang")).toBe("en");
+  expect(screen.getByRole("heading", { name: "In short" })).toBeDefined();
+  expect(screen.getByText(/the Portuguese text prevails/)).toBeDefined();
   expect(
     screen.getByText(new RegExp(`CNPJ ${SELLER.cnpj.replaceAll(".", "\\.")} ·`)),
   ).toBeDefined();
 });
 
-test("/privacy is there for a signed-in visitor too, with no note in Portuguese", async () => {
+test("/privacy is there for a signed-in visitor too, in Portuguese with no note", async () => {
   visit("/privacy", ana, "pt-BR");
   expect(
     await screen.findByRole("heading", { level: 1, name: "Política de privacidade" }),
   ).toBeDefined();
-  expect(screen.queryByText(/idioma do contrato/)).toBeNull();
+  expect(screen.getByRole("heading", { name: "Em resumo" })).toBeDefined();
+  expect(screen.queryByText(/o texto em português é o que vale/i)).toBeNull();
+});
+
+test("a translation can be switched to the Portuguese text and back, and the vendors link their policies", async () => {
+  visit("/privacy", null, "es");
+  expect(
+    await screen.findByRole("heading", { level: 1, name: "Política de privacidad" }),
+  ).toBeDefined();
+  const policy = screen.getAllByRole("link", { name: "Política de privacidad" })[0];
+  expect(policy?.getAttribute("href")).toBe("https://www.anthropic.com/legal/privacy");
+  await userEvent.click(screen.getByRole("button", { name: "Leer el texto en portugués" }));
+  expect(screen.getByRole("heading", { level: 1, name: "Política de privacidade" })).toBeDefined();
+  expect(document.querySelector("article")?.getAttribute("lang")).toBe("pt-BR");
+  await userEvent.click(screen.getByRole("button", { name: "Volver a la traducción" }));
+  expect(screen.getByRole("heading", { level: 1, name: "Política de privacidad" })).toBeDefined();
+});
+
+test("the landing header links both documents, short", async () => {
+  visit("/", null);
+  const header = await waitFor(() => {
+    const found = document.querySelector("header");
+    if (!found) throw new Error("no header yet");
+    return found;
+  });
+  const links = [...header.querySelectorAll("a")].map((a) => [
+    a.textContent,
+    a.getAttribute("href"),
+  ]);
+  expect(links).toContainEqual(["Terms", "/terms"]);
+  expect(links).toContainEqual(["Privacy", "/privacy"]);
 });
 
 test("the landing page's footer links both, and names the seller", async () => {

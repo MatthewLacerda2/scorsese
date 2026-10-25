@@ -12,6 +12,8 @@ import { inspector } from "@/i18n/en/inspector";
 import { landing } from "@/i18n/en/landing";
 import { menu } from "@/i18n/en/menu";
 import { pages } from "@/i18n/en/pages";
+import { pricing } from "@/i18n/en/pricing";
+import { prompt } from "@/i18n/en/prompt";
 import { start } from "@/i18n/en/start";
 
 export const en = {
@@ -26,4 +28,6 @@ export const en = {
   start,
   menu,
   buying,
+  prompt,
+  pricing,
 };

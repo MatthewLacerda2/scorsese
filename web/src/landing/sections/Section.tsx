@@ -1,6 +1,6 @@
 // The landing page below the top: how it works, what it handles, and a last
-// way in. Each is a slide (`Slides.tsx`): what carries `data-rise` rises in as
-// the slide fades in, staggered by `kit.stagger`.
+// way in. Each moves in as it is scrolled to (`ScrollIn.tsx`): what carries
+// `data-rise` rises in, staggered by `kit.stagger`.
 
 import type { ReactNode } from "react";
 

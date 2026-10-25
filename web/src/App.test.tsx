@@ -31,18 +31,18 @@ const ana: Account = { id: 1, email: "ana@example.com", created_at: 0 };
 test("/login draws the landing page, its films included", async () => {
   // The popup itself is a portal, drawn only in a browser: landing/LandingPage.test.tsx.
   const html = await render("/login", (client) => client.setQueryData(ME, null));
-  expect(html).toContain("It gets made.");
+  expect(html).toContain("The video is one conversation away");
   // Imported, so the build fingerprints it under /assets (#1238).
   expect(html).toMatch(/<video[^>]*src="[^"]*showcase\/[^"]*\.mp4"/);
 });
 
-test("the theme control offers Light, Dark and System, and System is the default", async () => {
+test("the theme control offers Light and Dark, and Light is the default", async () => {
   const html = await prerenderHtml(<ThemeControl />);
   // Each segment's pressed state, paired with its label (the text that ends the button).
   const pressed = [...html.matchAll(/aria-pressed="(\w+)".*?(\w+)<\/button>/g)].map(
     ([, on, label]) => `${label}:${on}`,
   );
-  expect(pressed).toEqual(["Light:false", "Dark:false", "System:true"]);
+  expect(pressed).toEqual(["Light:true", "Dark:false"]);
 });
 
 test("signed in, the library sits in the shell with the balance in dollars", async () => {

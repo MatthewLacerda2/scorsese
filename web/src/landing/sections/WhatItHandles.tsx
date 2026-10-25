@@ -1,4 +1,4 @@
-// What scorsese handles, as a row of cards: a slide of the landing page
+// What scorsese handles, as a row of cards: a part of the landing page
 // (`HowItWorks.tsx` says how they move).
 
 import { Gauge, Mic, Music, Scissors, Type } from "lucide-react";

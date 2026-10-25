@@ -7,8 +7,8 @@ import { readFileSync } from "node:fs";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 
-/** The pages besides `/` that anyone may read, and search engines index: the terms and the privacy policy (#547). */
-const PUBLIC = ["/terms", "/privacy"];
+/** The pages besides `/` that anyone may read, and search engines index: the pricing, the terms and the privacy policy (#547). */
+const PUBLIC = ["/pricing", "/terms", "/privacy"];
 
 describe("sitemap.xml", () => {
   test("lists the landing page and every public page", () => {

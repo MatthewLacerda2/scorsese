@@ -5,17 +5,19 @@
 // (`?next=`, else `/`, which is the projects list for them).
 //
 // What it shows is what scorsese makes: the films in it are cuts of videos made
-// with scorsese, and the motion is the kit's (motion.ts).
+// with scorsese, and the motion is the kit's (motion.ts). It is one scrolling
+// page: the prompt box first, everything else below it.
 
 import "@/landing/landing.css";
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router";
 import { useT } from "@/i18n/I18nProvider";
+import { Carousel } from "@/landing/Carousel";
 import { Header } from "@/landing/Header";
 import { Hero } from "@/landing/Hero";
+import { ScrollIn } from "@/landing/ScrollIn";
 import { Showcase } from "@/landing/Showcase";
 import { SignInDialog } from "@/landing/SignInDialog";
-import { Slides } from "@/landing/Slides";
 import { Closing } from "@/landing/sections/Closing";
 import { HowItWorks } from "@/landing/sections/HowItWorks";
 import { WhatItHandles } from "@/landing/sections/WhatItHandles";
@@ -57,22 +59,29 @@ export function LandingPage({ signIn = false }: { signIn?: boolean }) {
   return (
     <div className="landing">
       <div className="grain" aria-hidden />
-      <Header onSignIn={openSignIn} />
+      <Header onSignIn={openSignIn} brandAfterFirstScreen />
       <main>
-        <Slides>
-          <Hero onSignIn={openSignIn} />
-          <Showcase />
+        <Hero onSignIn={openSignIn} />
+        <div className="pb-8">
+          <Carousel label={t.landing.showcase.label} />
+        </div>
+        <ScrollIn>
           <HowItWorks />
+        </ScrollIn>
+        <ScrollIn>
+          <Showcase />
+        </ScrollIn>
+        <ScrollIn>
           <WhatItHandles />
-          <div>
-            <Closing onSignIn={openSignIn} />
-            <Footer>
-              <p className="mb-4">
-                <span className="display text-base text-paper">scorsese</span> · {t.landing.footer}
-              </p>
-            </Footer>
-          </div>
-        </Slides>
+        </ScrollIn>
+        <ScrollIn>
+          <Closing onSignIn={openSignIn} />
+        </ScrollIn>
+        <Footer>
+          <p className="mb-3">
+            <span className="display text-base text-paper">scorsese</span> · {t.landing.footer}
+          </p>
+        </Footer>
       </main>
       <SignInDialog open={open} onOpenChange={onOpenChange} />
     </div>

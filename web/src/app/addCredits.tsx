@@ -9,19 +9,29 @@ const AddCreditsDialog = lazy(() =>
   import("@/payments/AddCredits").then((module) => ({ default: module.AddCreditsDialog })),
 );
 
-const Opener = createContext<() => void>(() => {});
+const Opener = createContext<(reais?: unknown) => void>(() => {});
 
-/** Opens the Add credits dialog; a no-op outside the shell. */
-export function useAddCredits(): () => void {
+/**
+ * Opens the Add credits dialog, with `reais` typed in when it is a number (a
+ * pricing card's amount); a no-op outside the shell. Anything else is ignored,
+ * so it can be handed to an `onClick` as it is.
+ */
+export function useAddCredits(): (reais?: unknown) => void {
   return useContext(Opener);
 }
 
 export function AddCreditsProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [opened, setOpened] = useState(false);
+  const [asked, setAsked] = useState<{ count: number; reais?: number }>({ count: 0 });
   return (
     <Opener.Provider
-      value={() => {
+      value={(reais) => {
+        // A new `count` is a new dialog, so the amount it starts with is the one asked for.
+        setAsked(({ count }) => ({
+          count: count + 1,
+          reais: typeof reais === "number" ? reais : undefined,
+        }));
         setOpened(true);
         setOpen(true);
       }}
@@ -29,7 +39,12 @@ export function AddCreditsProvider({ children }: { children: ReactNode }) {
       {children}
       {opened && (
         <Suspense fallback={null}>
-          <AddCreditsDialog open={open} onOpenChange={setOpen} />
+          <AddCreditsDialog
+            key={asked.count}
+            open={open}
+            onOpenChange={setOpen}
+            initial={asked.reais === undefined ? undefined : String(asked.reais)}
+          />
         </Suspense>
       )}
     </Opener.Provider>

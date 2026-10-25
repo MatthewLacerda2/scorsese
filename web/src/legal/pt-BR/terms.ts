@@ -1,4 +1,4 @@
-// The terms of use (#547), in Portuguese (`document.ts` has why). What they
+// The terms of use in Portuguese, the binding text (`document.ts`). What they
 // promise about money is what the code does: the price shown before a
 // generation (`credits::Product`), failed generations released, credits that
 // never expire, R$ 20 to R$ 5.000 per purchase (`payments`). A change to any
@@ -7,9 +7,20 @@
 import type { LegalDocument } from "@/legal/document";
 import { SELLER } from "@/legal/seller";
 
-export const TERMS: LegalDocument = {
+export const TERMS_PT: LegalDocument = {
   title: "Termos de uso",
-  updated: "2026-10-16",
+  updatedLabel: "Última atualização",
+  updated: "2026-10-24",
+  summary: {
+    heading: "Em resumo",
+    points: [
+      "Sem mensalidade: você compra créditos, de R$ 20 a R$ 5.000, e eles não expiram.",
+      "Antes de cada geração paga você vê o preço e confirma.",
+      "Geração que falha não é cobrada.",
+      "Você tem 7 dias para desistir de uma compra e receber de volta o que não gastou.",
+      "O que você envia e faz é seu, e o uso que você faz é responsabilidade sua.",
+    ],
+  },
   sections: [
     {
       heading: "Quem somos",
@@ -97,6 +108,12 @@ export const TERMS: LegalDocument = {
       heading: "Mudanças nestes termos",
       blocks: [
         "Se mudarmos estes termos de forma relevante, avisaremos por e-mail ou no site com pelo menos 15 dias de antecedência. Continuar usando o serviço depois disso significa concordar com a nova versão.",
+      ],
+    },
+    {
+      heading: "Se você não mora no Brasil",
+      blocks: [
+        "Você pode usar o scorsese de qualquer país. Os créditos são cobrados em reais e o seu banco pode converter o valor e cobrar taxas próprias. Os direitos que a lei de consumo do seu país garante e que não podem ser afastados por contrato continuam valendo.",
       ],
     },
     {

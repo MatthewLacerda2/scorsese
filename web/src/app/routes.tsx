@@ -1,7 +1,7 @@
 // Every page, by URL. Everything but the landing page and the legal pages sits behind the session
 // guard and inside the shell (header, balance, upload tray).
 //
-// `/terms` and `/privacy` (#547) are public too, signed in or not.
+// `/terms` and `/privacy` (#547) and `/pricing` are public too, signed in or not.
 //
 // `/` is the landing page for a visitor without a session and the projects
 // list for one with (#904): they came to work. `/login` is the landing page
@@ -24,6 +24,7 @@ import {
   LibraryPage,
   LoginPage,
   NotFound,
+  PricingPage,
   PrivacyPage,
   ProjectFilesPage,
   ProjectsPage,
@@ -67,6 +68,14 @@ export function AppRoutes() {
         element={
           <Suspense fallback={<PageFallback />}>
             <LoginPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/pricing"
+        element={
+          <Suspense fallback={<div className="min-h-svh bg-ink" />}>
+            <PricingPage />
           </Suspense>
         }
       />

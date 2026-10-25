@@ -39,12 +39,15 @@ const SETTLE_MS = 300;
 export function AddCreditsDialog({
   open,
   onOpenChange,
+  initial,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The amount in reais the box starts with; 50 when left out. */
+  initial?: string;
 }) {
   const t = useT();
-  const [text, setText] = useState("50");
+  const [text, setText] = useState(initial ?? "50");
   const centavos = parseReais(text);
   const asked = useSettled(centavos, SETTLE_MS);
   const valid = asked !== null && withinLimits(asked);

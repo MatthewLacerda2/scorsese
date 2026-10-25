@@ -14,6 +14,7 @@ import { setFetch } from "@/api/client";
 import { createQueryClient, ME } from "@/app/queryClient";
 import { forgetSignedInHint, HINT_COOKIE, signedInHint } from "@/session/hint";
 
+const LANDING = "The video is one conversation away";
 const ana: Account = { id: 1, email: "ana@example.com", created_at: 0 };
 
 /** Open `url`; `account` seeds the session, or leaves it for `GET /api/me` to answer when omitted. */
@@ -54,24 +55,33 @@ function heldSession(): (account: Account | null) => void {
 
 test("without a session, / is the landing page", async () => {
   visit("/", null);
-  expect(await screen.findByText("It gets made.")).toBeDefined();
-  expect(screen.getByText("Describe the video.")).toBeDefined();
+  expect(await screen.findByRole("heading", { name: LANDING })).toBeDefined();
+  // One prompt box on the first screen, one in the closing section.
+  expect(screen.getAllByRole("textbox", { name: "Describe your video" }).length).toBe(2);
+  expect(screen.getByText("The video is one message away")).toBeDefined();
+  // Everything the page said before is still on it, below the prompt box.
+  expect(screen.getByText("Three steps, all of them yours to say.")).toBeDefined();
+  expect(screen.getByText("Ready when you are.")).toBeDefined();
+  // How it works comes before the film.
+  const how = screen.getByText("Three steps, all of them yours to say.");
+  const film = screen.getByLabelText("Videos made with scorsese", { selector: "video" });
+  expect(how.compareDocumentPosition(film) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
 test("with a session, / is the projects list", async () => {
   visit("/", ana);
   expect(await screen.findByRole("heading", { name: "Projects" })).toBeDefined();
-  expect(screen.queryByText("It gets made.")).toBeNull();
+  expect(screen.queryByRole("heading", { name: LANDING })).toBeNull();
 });
 
 test("/ draws the landing page before the session answers, and leaves once it says signed in", async () => {
   const answer = heldSession();
   visit("/");
-  expect(await screen.findByText("It gets made.")).toBeDefined();
+  expect(await screen.findByRole("heading", { name: LANDING })).toBeDefined();
   answer(ana);
   expect(await screen.findByRole("heading", { name: "Projects" })).toBeDefined();
-  expect(screen.queryByText("It gets made.")).toBeNull();
+  expect(screen.queryByRole("heading", { name: LANDING })).toBeNull();
 });
 
 test("signed in here before, / waits on the session and never draws the landing page (#1246)", async () => {
@@ -80,7 +90,7 @@ test("signed in here before, / waits on the session and never draws the landing 
   visit("/");
   await new Promise((resolve) => setTimeout(resolve, 50));
   // Text and a count, not elements: a failure prints them, not a whole DOM node.
-  expect(document.body.textContent).not.toContain("It gets made.");
+  expect(document.body.textContent).not.toContain(LANDING);
   expect(document.querySelectorAll("video").length).toBe(0);
   answer(ana);
   expect(await screen.findByRole("heading", { name: "Projects" })).toBeDefined();
@@ -91,7 +101,7 @@ test("a hint the session no longer stands behind costs the wait, then is dropped
   const answer = heldSession();
   visit("/");
   answer(null);
-  expect(await screen.findByText("It gets made.")).toBeDefined();
+  expect(await screen.findByRole("heading", { name: LANDING })).toBeDefined();
   expect(signedInHint()).toBe(false);
 });
 
@@ -109,7 +119,7 @@ test("the Sign in button opens the popup", async () => {
 test("/login is the landing page with the popup already open", async () => {
   visit("/login?next=%2Flibrary", null);
   expect(await screen.findByRole("dialog")).toBeDefined();
-  expect(screen.getByText("It gets made.")).toBeDefined();
+  expect(screen.getByRole("heading", { name: LANDING, hidden: true })).toBeDefined();
   const google = screen.getByRole("link", { name: "Continue with Google" });
   expect(google.getAttribute("href")).toBe("/api/auth/google?next=%2Flibrary");
 });
@@ -130,4 +140,15 @@ test("an error code the page does not know says nothing", async () => {
   visit("/login?error=%3Cscript%3E", null);
   expect(await screen.findByRole("dialog")).toBeDefined();
   expect(screen.queryByRole("alert")).toBeNull();
+});
+
+test("Enter in a landing prompt box opens the sign-in popup and keeps what was typed", async () => {
+  visit("/", null);
+  const [box] = await screen.findAllByRole("textbox", { name: "Describe your video" });
+  await userEvent.click(box as HTMLElement);
+  await userEvent.keyboard("{Enter}");
+  expect(screen.queryByRole("dialog")).toBeNull();
+  await userEvent.type(box as HTMLElement, "a promo for my bakery{Enter}");
+  expect(await screen.findByRole("dialog")).toBeDefined();
+  expect((box as HTMLTextAreaElement).value).toBe("a promo for my bakery");
 });

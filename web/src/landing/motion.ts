@@ -1,6 +1,6 @@
 // The landing page moves with the motion kit, and its clock is the scroll
-// (#904). A slide's time is how far it has faded in (`slideLayout.ts`): 0 as it
-// starts to appear, 1 once it is whole. The kit's helpers are pure functions
+// (#904). A section's time is how far it has come up the window (`ScrollIn.tsx`): 0
+// as it starts to appear, 1 once it is whole. The kit's helpers are pure functions
 // of the time they are handed, which is what lets the scroll stand in for a
 // clip's clock: any scroll position is a frame of its own, and scrolling back
 // plays it backwards.
