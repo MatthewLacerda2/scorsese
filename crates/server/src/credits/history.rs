@@ -35,6 +35,7 @@ pub const KINDS: &[&str] = &[
     "assistant",
     "top_up",
     "refund",
+    "adjustment",
 ];
 
 /// The most rows one page returns.

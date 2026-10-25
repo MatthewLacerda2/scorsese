@@ -80,7 +80,7 @@ pub async fn spendable(tx: &mut Tx) -> Result<i64, sqlx::Error> {
 /// ends, so two spends of one user's money are decided one after the other
 /// and cannot both see the same last dollar. Another user's spending never
 /// waits on it.
-async fn lock(tx: &mut Tx) -> Result<(), sqlx::Error> {
+pub(super) async fn lock(tx: &mut Tx) -> Result<(), sqlx::Error> {
     sqlx::query("SELECT 1 FROM users WHERE id = (SELECT member_id()) FOR UPDATE")
         .execute(&mut **tx)
         .await

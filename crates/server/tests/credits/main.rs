@@ -5,6 +5,8 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod adjust;
+mod adjust_guards;
 mod allowance;
 mod append_only;
 mod commands;

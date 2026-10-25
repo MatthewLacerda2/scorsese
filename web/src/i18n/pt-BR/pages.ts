@@ -48,6 +48,7 @@ export const pages: Messages["pages"] = {
       assistant: "Assistente",
       top_up: "Recarga",
       refund: "Reembolso",
+      adjustment: "Ajuste",
     },
     status: {
       charged: "Cobrado",
