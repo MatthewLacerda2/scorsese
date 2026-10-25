@@ -13,7 +13,7 @@
 
 import { useEffect, useMemo } from "react";
 import { send, versions } from "./record";
-import { runningTests } from "./tests";
+import { type AbTest, runningTests } from "./tests";
 import { visitorCode } from "./visitor";
 
 const MOST_SECONDS = 30 * 60;
@@ -21,12 +21,16 @@ const MOST_SECONDS = 30 * 60;
 /**
  * Draws the visit and returns the version of each running test; records it
  * while `counted` (never for a signed-in visitor, nor before that is known).
+ * `running` is the tests drawn into; this build's own unless a test says.
  */
-export function useLandingTests(counted: boolean): Record<string, string> {
+export function useLandingTests(
+  counted: boolean,
+  running?: readonly AbTest[],
+): Record<string, string> {
   const shown = useMemo(() => {
-    const tests = runningTests();
+    const tests = running ?? runningTests();
     return tests.length === 0 ? {} : versions(visitorCode(), tests);
-  }, []);
+  }, [running]);
   const testing = Object.keys(shown).length > 0;
 
   useEffect(() => {
@@ -76,6 +80,6 @@ export function useLandingTests(counted: boolean): Record<string, string> {
 }
 
 /** Records that a prompt box was sent, while a test runs. */
-export function sendPrompt() {
-  if (runningTests().length > 0) send([{ kind: "prompt" }]);
+export function sendPrompt(running: readonly AbTest[] = runningTests()) {
+  if (running.length > 0) send([{ kind: "prompt" }]);
 }

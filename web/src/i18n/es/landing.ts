@@ -10,6 +10,7 @@ export const landing: Messages["landing"] = {
   signIn: "Iniciar sesión",
   hero: {
     title: "El video está a una conversación de distancia",
+    titleB: "Describe el video. Nosotros lo armamos.",
     free: (dollars?: string) =>
       dollars
         ? `Empieza gratis: US$ ${dollars} al día, sin tarjeta.`

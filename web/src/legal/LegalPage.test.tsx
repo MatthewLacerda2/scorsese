@@ -7,17 +7,27 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { App } from "@/App";
-import type { Account } from "@/api";
+import type { Account, Prices } from "@/api";
 import { createQueryClient, ME } from "@/app/queryClient";
+import { queryKeys } from "@/app/queryKeys";
 import type { Language } from "@/i18n/language";
 import { SELLER } from "@/legal/seller";
 
 const ana: Account = { id: 1, email: "ana@example.com", created_at: 0 };
 
+const PRICES: Prices = {
+  examples: [],
+  free: { daily_micros: 4_000_000, monthly_micros: 12_000_000 },
+  recharge: null,
+};
+
 function visit(url: string, account: Account | null, language: Language = "en") {
   const client = createQueryClient();
   client.setQueryData(ME, account);
   client.setQueryData(["credits", "balance"], { balance_micros: 0 });
+  // The free line under the hero asks for these; a stub that answers every
+  // request with one body must not be what it reads.
+  client.setQueryData(queryKeys.prices, PRICES);
   render(
     <App
       language={language}

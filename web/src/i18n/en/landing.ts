@@ -14,6 +14,7 @@ export const landing = {
   signIn: "Sign in",
   hero: {
     title: "The video is one conversation away",
+    titleB: "Describe the video. We'll make it.",
     free: (dollars?: string) =>
       dollars ? `Start free: US$${dollars} a day, no card.` : "Start free, no card.",
   },

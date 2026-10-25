@@ -17,7 +17,8 @@ import { FreeLine } from "@/landing/FreeLine";
 import { useEntrance } from "@/landing/motion";
 import { PromptBox, type PromptSubmit } from "@/prompt/PromptBox";
 
-export function Hero({ onPrompt }: { onPrompt: PromptSubmit }) {
+/** `version` is the `hero-title` test's (#1554): `b` says what happens, anything else is today's heading. */
+export function Hero({ onPrompt, version }: { onPrompt: PromptSubmit; version?: string }) {
   const t = useT();
   const root = useRef<HTMLElement>(null);
   useEntrance(root);
@@ -43,7 +44,7 @@ export function Hero({ onPrompt }: { onPrompt: PromptSubmit }) {
           className="display mt-4 text-2xl font-medium text-balance sm:mt-9 sm:text-3xl"
           data-rise="0.6"
         >
-          {t.landing.hero.title}
+          {version === "b" ? t.landing.hero.titleB : t.landing.hero.title}
         </h1>
         <div className="mt-5 w-full sm:mt-7" data-rise="0.8">
           <PromptBox onSubmit={onPrompt} />
