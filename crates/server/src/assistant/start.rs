@@ -20,11 +20,9 @@ pub struct Opening {
     pub prompt: String,
     /// Begin a new conversation rather than continue the project's newest.
     pub fresh: bool,
-    /// What the server has to tell the model besides — said as a `system`
-    /// message, which only the server can write.
-    pub notes: Vec<String>,
     /// Library ids of the files attached to the message (#1534): imported
-    /// once the turn may start, and named to the model (`attached`).
+    /// once the turn may start, named to the model in a note and shown to it
+    /// beside the words within a budget (`attached`, #1562).
     pub attachments: Vec<i64>,
     /// How hard the model thinks on it (#769); `None` is the project's level
     /// (#1443).
@@ -55,7 +53,7 @@ pub async fn start(
     state: &AppState,
     user: UserId,
     project: i64,
-    mut opening: Opening,
+    opening: Opening,
 ) -> Result<TurnView, AssistantError> {
     let mut prompt = opening.prompt.trim().to_owned();
     if prompt.is_empty() && !opening.woken {
@@ -100,11 +98,10 @@ pub async fn start(
     }
     // Nothing is written yet, so `tx` is let go rather than held across the
     // import, which takes connections of its own.
+    let mut attached = None;
     if !opening.attachments.is_empty() {
         drop(tx);
-        if let Some(note) = attached::attach(state, user, project, &opening.attachments).await? {
-            opening.notes.push(note);
-        }
+        attached = attached::attach(state, user, project, &opening.attachments).await?;
         tx = db::scoped(&state.pool, user).await?;
     }
     let left = if opening.fresh {
@@ -123,12 +120,12 @@ pub async fn start(
         if last.state == "asking" {
             drop(tx);
             if last.token.is_some() {
-                let instead = quote::Answer::Instead(prompt, opening.notes);
+                let instead = quote::Answer::Instead(prompt, attached);
                 let answered = quote::answer(state, user, last.id, instead).await?;
                 return answered.turn.ok_or(AssistantError::NotFound);
             }
             let answering = ask::Answering {
-                notes: opening.notes,
+                attached,
                 ..ask::Answering::words(&prompt)
             };
             return ask::answer(state, user, last.id, answering).await;
@@ -150,7 +147,11 @@ pub async fn start(
         }
         None => {}
     }
-    notes.append(&mut opening.notes);
+    let shown: Vec<_> = attached
+        .iter()
+        .flat_map(attached::Attached::parts)
+        .collect();
+    notes.extend(attached.map(|attached| attached.note));
     let kept = turns::history(&mut tx, session).await?;
     let written = |error: serde_json::Error| AssistantError::Internal(error.to_string());
     let history = chat::replay(model, &kept).map_err(written)?;
@@ -163,9 +164,10 @@ pub async fn start(
     } else {
         &prompt
     };
-    let record = prompt::opening(&said, words, &notes, effort);
-    // Past its size, the turn opens from a summary instead (#1438).
-    let compacting = if compact::due(&mut tx, session).await? {
+    let record = prompt::opening(&said, words, &shown, &notes, effort);
+    // Past its size, or its pictures, the turn opens from a summary instead
+    // (#1438, #1562).
+    let compacting = if compact::due(&mut tx, session).await? || compact::crowded(&said, &shown) {
         Some(compact::prepare(model, &history, &said, &about, &notes, effort).map_err(written)?)
     } else {
         None

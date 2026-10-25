@@ -1,6 +1,7 @@
 //! Compacting a long conversation (#1438): at the start of a new turn, once
-//! the conversation has passed [`THRESHOLD`] tokens, the model summarises it
-//! and the turn opens from that summary instead, replaying nothing older.
+//! the conversation has passed [`THRESHOLD`] tokens — or would replay more
+//! than [`PICTURES`] pictures (#1562) — the model summarises it and the turn
+//! opens from that summary instead, replaying nothing older.
 //!
 //! Every call in a turn re-reads the whole conversation, and one picked up
 //! again after the prompt cache expired re-reads it uncached, so a long one
@@ -21,7 +22,9 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use scorsese_providers::chat::{self, Effort, Message, Model, Part, Reply, Request, Stop};
+use scorsese_providers::chat::{
+    self, Effort, Message, Model, Part, Reply, Request, ResultPart, Stop,
+};
 use serde_json::value::RawValue;
 
 use super::store::compaction;
@@ -33,6 +36,13 @@ use crate::http::AppState;
 
 /// The size past which a new turn compacts its conversation, in tokens.
 pub(super) const THRESHOLD: i64 = 150_000;
+
+/// The most pictures a conversation replays before a new turn compacts it,
+/// however few tokens they are: under the 100 images one request may carry
+/// on a model with a 200k-token context window (Anthropic's *Vision* page,
+/// read 2026-10-25, which counts every image block, an earlier turn's and a
+/// tool result's included), with room left for the turn's own.
+pub(super) const PICTURES: usize = 64;
 
 /// What the model is asked to write, as the last message of the summarising
 /// call. Its last sentence forbids a tool call: the tools stay declared only
@@ -66,6 +76,23 @@ pub(super) async fn due(tx: &mut Tx, session: i64) -> Result<bool, sqlx::Error> 
     Ok(size.is_some_and(|size| size > THRESHOLD))
 }
 
+/// Whether a turn opening with `shown` after a conversation that said `said`
+/// would replay more than [`PICTURES`] pictures.
+pub(super) fn crowded(said: &[Message], shown: &[Part]) -> bool {
+    let parts = said.iter().flat_map(Message::parts).chain(shown);
+    let pictures: usize = parts
+        .map(|part| match part {
+            Part::Image { .. } => 1,
+            Part::Result { content, .. } => content
+                .iter()
+                .filter(|piece| matches!(piece, ResultPart::Image { .. }))
+                .count(),
+            Part::Text { .. } | Part::Call { .. } => 0,
+        })
+        .sum();
+    pictures > PICTURES
+}
+
 /// The compaction of a conversation whose turns were `history` on `model` and
 /// said `said`, for a turn opening with `notes`. `about` is the server's note
 /// on the project ([`prompt::about`]), said again after the summary whether
@@ -80,7 +107,7 @@ pub(super) fn prepare(
     effort: Effort,
 ) -> Result<Compacting, serde_json::Error> {
     let mut request = history.to_vec();
-    for message in prompt::opening(said, INSTRUCTION, &[], effort) {
+    for message in prompt::opening(said, INSTRUCTION, &[], &[], effort) {
         request.push(chat::freeze(model, &message)?);
     }
     let rest = notes.iter().filter(|note| note.as_str() != about).cloned();
@@ -123,8 +150,8 @@ async fn summarised(
     let summary = summary(state, turn, request).await?;
     let mut notes = compacting.notes;
     notes.insert(1, note(&summary));
-    let words = opened_with(&turn.record).ok_or("the turn opened without words")?;
-    let record = prompt::opening(&[], words, &notes, turn.effort);
+    let (words, shown) = opened_with(&turn.record).ok_or("the turn opened without words")?;
+    let record = prompt::opening(&[], words, &shown, &notes, turn.effort);
     let messages = record
         .iter()
         .map(|message| chat::freeze(turn.model, message))
@@ -139,17 +166,23 @@ async fn summarised(
     Ok(())
 }
 
-/// The words a turn's `record` opened with: its user message's last text,
-/// after any results it carried. Not `Running::prompt`, which for a woken
-/// turn is the transcript's marker, never sent as the person's words (#1489).
-fn opened_with(record: &[Message]) -> Option<&str> {
-    record.iter().find_map(|message| match message {
-        Message::User { content } => content.iter().rev().find_map(|part| match part {
-            Part::Text { text } => Some(text.as_str()),
-            _ => None,
-        }),
+/// The words a turn's `record` opened with — its user message's first text,
+/// after any results it carried — and what it showed after them: the
+/// documents and pictures attached (#1562). Not `Running::prompt`, which for
+/// a woken turn is the transcript's marker, never sent as the person's words
+/// (#1489).
+fn opened_with(record: &[Message]) -> Option<(&str, Vec<Part>)> {
+    let content = record.iter().find_map(|message| match message {
+        Message::User { content } => Some(content),
         _ => None,
-    })
+    })?;
+    let mut parts = content
+        .iter()
+        .skip_while(|part| matches!(part, Part::Result { .. }));
+    let Some(Part::Text { text }) = parts.next() else {
+        return None;
+    };
+    Some((text.as_str(), parts.cloned().collect()))
 }
 
 /// Ask for the summary, charging each reply to the turn: its text, once the
@@ -220,5 +253,76 @@ async fn call(turn: &Running, request: &Arc<Request>) -> Result<(Reply, Duration
                     .map_err(|error| error.to_string());
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pictures_in_tool_results_count_towards_a_crowded_conversation() {
+        let image = || ResultPart::Image {
+            media_type: "image/jpeg".into(),
+            data: "AA==".into(),
+        };
+        let still = |n| Message::User {
+            content: vec![Part::Result {
+                call: format!("toolu_{n}"),
+                name: "still".into(),
+                content: vec![
+                    ResultPart::Text {
+                        text: "a frame".into(),
+                    },
+                    image(),
+                ],
+                is_error: false,
+            }],
+        };
+        let said: Vec<Message> = (0..PICTURES - 1).map(still).collect();
+        let attached = Part::Image {
+            media_type: "image/jpeg".into(),
+            data: "AA==".into(),
+        };
+        assert!(
+            !crowded(&said, std::slice::from_ref(&attached)),
+            "at the limit"
+        );
+        assert!(crowded(&said, &[attached.clone(), attached]), "past it");
+    }
+
+    #[test]
+    fn a_compacted_turn_opens_with_its_words_and_what_was_attached() {
+        let picture = Part::Image {
+            media_type: "image/jpeg".into(),
+            data: "AA==".into(),
+        };
+        let record = [
+            Message::assistant("(That turn ended before I could answer.)"),
+            Message::User {
+                content: vec![
+                    Part::Result {
+                        call: "toolu_1".into(),
+                        name: "still".into(),
+                        content: vec![ResultPart::Text { text: "no".into() }],
+                        is_error: true,
+                    },
+                    Part::Text {
+                        text: "use these".into(),
+                    },
+                    Part::Text {
+                        text: "Attached document 3 “a.md”:\n\nhi".into(),
+                    },
+                    picture.clone(),
+                ],
+            },
+            Message::System {
+                text: "note".into(),
+            },
+        ];
+        let (words, shown) = opened_with(&record).expect("it opened with words");
+        assert_eq!(words, "use these");
+        assert_eq!(shown.len(), 2);
+        assert_eq!(shown[1], picture);
     }
 }

@@ -11,9 +11,10 @@
 //! Through ffmpeg like every other picture here, over pipes, so nothing is
 //! left on disk.
 
+use std::ffi::OsStr;
 use std::io::Write;
 use std::path::Path;
-use std::process::Stdio;
+use std::process::{Command, Output, Stdio};
 
 use super::{FrameError, stderr_of};
 use crate::tools::Tools;
@@ -41,20 +42,7 @@ pub fn for_a_model(tools: &Tools, picture: &[u8]) -> Result<Vec<u8>, FrameError>
         file: file.to_path_buf(),
         source,
     };
-    // JPEG has no alpha, and dropping it shows whatever colour a transparent
-    // pixel happens to hold, black as often as not: a transparent Lottie
-    // preview went dark. So the picture is laid over white first, where a
-    // light page or a dark glyph stays readable.
-    let fit = format!(
-        "scale='min({MODEL_EDGE},iw)':'min({MODEL_EDGE},ih)':force_original_aspect_ratio=decrease,\
-         format=rgba,split[picture][under];[under]drawbox=c=white@1:t=fill[white];\
-         [white][picture]overlay"
-    );
-    let mut child = tools
-        .ffmpeg()
-        .args(["-nostdin", "-v", "error", "-i", "-", "-frames:v", "1"])
-        .args(["-vf", &fit, "-c:v", "mjpeg", "-q:v", QUALITY])
-        .args(["-f", "image2pipe", "-"])
+    let mut child = shrinking(tools, "-".as_ref(), MODEL_EDGE)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -73,12 +61,62 @@ pub fn for_a_model(tools: &Tools, picture: &[u8]) -> Result<Vec<u8>, FrameError>
         (output, fed)
     });
     let output = output.map_err(io)?;
+    let jpeg = shrunk(file, output)?;
+    fed.map_err(io)?;
+    Ok(jpeg)
+}
+
+/// The picture in `file` as [`for_a_model`] makes it, with a long edge of at
+/// most `edge`. Read by its path, never piped: a piped uncompressed TIFF past
+/// a few megabytes is found to hold no picture at all.
+pub fn file_for_a_model(tools: &Tools, file: &Path, edge: u32) -> Result<Vec<u8>, FrameError> {
+    let output = shrinking(tools, file.as_os_str(), edge)
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|source| FrameError::Io {
+            file: file.to_path_buf(),
+            source,
+        })?;
+    shrunk(file, output)
+}
+
+/// ffmpeg reading the picture `input` and writing it to stdout as a JPEG no
+/// longer than `edge`.
+fn shrinking(tools: &Tools, input: &OsStr, edge: u32) -> Command {
+    // JPEG has no alpha, and dropping it shows whatever colour a transparent
+    // pixel happens to hold, black as often as not: a transparent Lottie
+    // preview went dark. So the picture is laid over white first, where a
+    // light page or a dark glyph stays readable.
+    let fit = format!(
+        "scale='min({edge},iw)':'min({edge},ih)':force_original_aspect_ratio=decrease,\
+         format=rgba,split[picture][under];[under]drawbox=c=white@1:t=fill[white];\
+         [white][picture]overlay"
+    );
+    let mut command = tools.ffmpeg();
+    command
+        .args(["-nostdin", "-v", "error", "-i"])
+        .arg(input)
+        .args([
+            "-frames:v",
+            "1",
+            "-vf",
+            &fit,
+            "-c:v",
+            "mjpeg",
+            "-q:v",
+            QUALITY,
+        ])
+        .args(["-f", "image2pipe", "-"]);
+    command
+}
+
+/// The JPEG a finished [`shrinking`] wrote, or why there is none.
+fn shrunk(file: &Path, output: Output) -> Result<Vec<u8>, FrameError> {
     if !output.status.success() || output.stdout.is_empty() {
         return Err(FrameError::Ffmpeg {
             file: file.to_path_buf(),
             message: stderr_of(&output.stderr),
         });
     }
-    fed.map_err(io)?;
     Ok(output.stdout)
 }

@@ -1,54 +1,24 @@
 //! Files attached to a message (#1534): the chat's tray sends their library
 //! ids with the prompt, the media among them are brought into the project
 //! before the turn starts, and the model is told which files came with this
-//! message — a document as one to read, never imported — so it does not go
-//! looking for them. A turn paused on a question or a quote hears them as it
-//! resumes (`paused`).
+//! message — a document never imported — so it does not go looking for them,
+//! and what it is shown of them (`seen`). A turn paused on a question or a
+//! quote hears them as it resumes (`paused`).
 
-use std::path::PathBuf;
-
-use scorsese_render::testing::generate;
-use scorsese_server::db::UserId;
-use scorsese_server::http::AppState;
-use scorsese_server::library::{Arrival, Kind};
+use scorsese_server::library::Kind;
 use scorsese_server::projects;
 use serde_json::{Value, json};
 use sqlx::postgres::PgPool;
 
 use super::{Script, answers, common, finished, member, project, scripted};
 
+mod crowded;
+mod fixtures;
 mod paused;
 mod refused;
+mod seen;
 
-/// `name` in `user`'s library: a red square for a picture, a line of text otherwise.
-pub(super) async fn kept(state: &AppState, user: UserId, name: &str, kind: Kind) -> i64 {
-    let scratch = common::scratch::dir("attached");
-    let extension = name.rsplit_once('.').map(|(_, e)| e).expect("an extension");
-    let file: PathBuf = scratch.join(name);
-    match kind {
-        Kind::Image => generate(
-            &common::tools(),
-            &file,
-            &["-f", "lavfi", "-i", "color=c=red:s=16x16", "-frames:v", "1"],
-        ),
-        _ => std::fs::write(&file, "Scene one: a door opens.").expect("the test setup holds"),
-    }
-    let arrival = Arrival {
-        file,
-        name: name.to_owned(),
-        kind,
-        extension: extension.to_owned(),
-        announced: None,
-        brief_hash: None,
-        words: None,
-    };
-    state
-        .library
-        .admit(user, arrival)
-        .await
-        .expect("the test setup holds")
-        .id
-}
+pub(super) use fixtures::{kept, written};
 
 /// `prompt` sent about `project` with `attachments`: the response.
 pub(super) async fn send_with(
@@ -93,8 +63,8 @@ async fn attached_media_is_imported_and_the_model_told_which_files_came(pool: Pg
     assert!(said.contains(&format!("asset `{}`", names[0])), "{said}");
     assert!(said.contains("brief.txt"), "the document is named: {said}");
     assert!(
-        said.contains("library_read"),
-        "a document is to be read: {said}"
+        said.contains("Scene one: a door opens."),
+        "a short document's text is in the message: {said}"
     );
     assert!(
         said.contains("use these"),

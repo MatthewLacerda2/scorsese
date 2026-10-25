@@ -2159,7 +2159,9 @@ below).
 
 **A long conversation compacts itself** (#1438). A new turn whose
 conversation was past 150,000 tokens when the model was last called — that
-call's input, cache reads and cache writes, from `model_calls` — first asks
+call's input, cache reads and cache writes, from `model_calls` — or that
+would replay more than 64 pictures with its own (#1562: Anthropic refuses a
+request past 100 images on a 200k-token model) first asks
 the turn's own model, with the tools still declared, to summarise everything
 so far, and its last sentence forbids a tool call. The turn then opens from
 the user's message and a server note — the project's own note
@@ -2342,7 +2344,7 @@ fixed until measured usage (#707) says otherwise.
 | `GET /api/projects/{id}/chat` | a member | `{project, session, turns, model, models, effort}`: the newest conversation's turns, oldest first; the project's model; every model offered as `{id, label, vendor, unavailable, cache_seconds, cost}`; the project's effort |
 | `PUT /api/projects/{id}/chat/model` | a member | `{model}` → the model as listed; from the next turn the project runs on it. `400` for a model not offered |
 | `PUT /api/projects/{id}/chat/effort` | a member | `{effort}` → `{effort}`; from the next turn the project runs at it. `low`, `medium`, `high` or `xhigh`; `400` for anything else |
-| `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?, attachments?}` → `202` with the turn, at the project's effort; `attachments` are library ids (at most 20, #1534): the media among them are imported once the turn may start, under the editor's per-minute edit limit, and the model is told in a note which files came with the message, a document as one to read; `400` for one not in their library or an empty prompt, `402` no credit, `409` a turn is running, `429` past the edit limit, `503` not configured — a message refused before its turn begins imports nothing; one losing a race to another tab's message at the turn's beginning may leave its files imported, and resending is harmless |
+| `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?, attachments?}` → `202` with the turn, at the project's effort; `attachments` are library ids (at most 20, #1534): the media among them are imported once the turn may start, under the editor's per-minute edit limit, and the model is told in a note which files came with the message and shown, beside the words, up to 8 pictures and each document's text up to 50,000 characters (#1562, *The editor*); `400` for one not in their library or an empty prompt, `402` no credit, `409` a turn is running, `429` past the edit limit, `503` not configured — a message refused before its turn begins imports nothing; one losing a race to another tab's message at the turn's beginning may leave its files imported, and resending is harmless |
 | `GET /api/chat/turns/{id}` | a member | `{turn, tools}`: the turn and the log of every tool call it made, in order |
 | `POST /api/chat/turns/{id}/stop` | a member | `202`; the turn stops before its next step — at once, its question set aside, when it is `asking`. `409` if it is neither |
 | `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false, change?}` → `{spent, refused, turn, note}`; `turn` is the one the quote paused, carrying on with the answer as the quoting call's result (#1440); `change` with `confirm: true` is `400`, and so is any answer on a turn not paused on a quote |
@@ -2743,6 +2745,16 @@ the library. A drop on the Library modal is the modal's upload, never also an
 attachment. The same tray, "+" and
 drop are the prompt box's on the landing page and the signed-in home
 (`web/src/prompt/`); signed out, the files are held in the page and carried across the sign-in (`/start`).
+
+**What the model receives of them** (#1562), in the message itself beside the
+words, since every later call replays it: the first **8 pictures**, each
+shrunk to a JPEG at most 1024 px on its long side (a picture past the eight is
+named only); a **document's text** whole up to 50,000 characters (a longer one
+is named, to read with `library_read`); a **video or a sound** named only (how
+a model sees a video is #1563). Every file is also named in the server's note,
+saying which of these it got, and the media are imported as before. A paused
+turn gets the same in the result it resumes with. Pictures are input tokens,
+charged as every turn's are.
 
 ## Out of scope for now
 

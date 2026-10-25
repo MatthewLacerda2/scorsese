@@ -23,6 +23,7 @@ use serde::Serialize;
 use serde_json::json;
 
 use super::ask::{noted, resuming};
+use super::attached::Attached;
 use super::store::{QuoteView, TurnView, asking, hands, view};
 use super::turn::{self, Resumed};
 use super::{AssistantError, wake};
@@ -61,8 +62,8 @@ pub enum Answer {
     /// Withdraw it, and ask the assistant for this change to what it covered.
     Change(String),
     /// Withdraw it unanswered: the user wrote this message instead, with
-    /// what the server has to tell the model beside it (#1534).
-    Instead(String, Vec<String>),
+    /// the files attached to it (#1534).
+    Instead(String, Option<Attached>),
 }
 
 impl Answer {
@@ -124,9 +125,9 @@ pub async fn answer(
         },
     );
 
-    let notes = match &answer {
-        Answer::Instead(_, notes) => notes.clone(),
-        _ => Vec::new(),
+    let attached = match &answer {
+        Answer::Instead(_, attached) => attached.clone(),
+        _ => None,
     };
     let (spent, refused, result) = match answer {
         Answer::Confirm { batch } => {
@@ -175,7 +176,7 @@ pub async fn answer(
         content: vec![ResultPart::Text { text: result }],
         is_error: refused,
     };
-    running.answer = Some(Resumed::Settle(noted(result, told, &notes)));
+    running.answer = Some(Resumed::Settle(noted(result, told, attached.as_ref())));
     tokio::spawn(turn::run(state.clone(), running));
     Ok(Answered {
         spent,

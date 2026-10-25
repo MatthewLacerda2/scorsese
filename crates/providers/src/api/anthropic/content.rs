@@ -18,6 +18,11 @@ pub enum Block {
         /// The words.
         text: String,
     },
+    /// A picture in the person's message.
+    Image {
+        /// Where its bytes are.
+        source: ImageSource,
+    },
     /// The model's thinking. Under `display: "updates"` its text is a short
     /// progress note or empty; either way it is sent back unchanged, signature
     /// and all, or the model loses its reasoning.
@@ -89,15 +94,23 @@ pub enum Base64 {
     Base64,
 }
 
+impl ImageSource {
+    /// The bytes of a picture of `media_type` (e.g. `image/jpeg`), already
+    /// base64-encoded.
+    pub fn base64(media_type: impl Into<String>, data: impl Into<String>) -> Self {
+        Self {
+            kind: Base64::Base64,
+            media_type: media_type.into(),
+            data: data.into(),
+        }
+    }
+}
+
 impl ResultPart {
     /// A picture of `media_type` (e.g. `image/jpeg`), already base64-encoded.
     pub fn image(media_type: impl Into<String>, data: impl Into<String>) -> Self {
         Self::Image {
-            source: ImageSource {
-                kind: Base64::Base64,
-                media_type: media_type.into(),
-                data: data.into(),
-            },
+            source: ImageSource::base64(media_type, data),
         }
     }
 }

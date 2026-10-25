@@ -118,3 +118,27 @@ fn every_model_is_served_by_anthropic_under_that_name() {
         assert_eq!(model.vendor().id(), "anthropic");
     }
 }
+
+#[test]
+fn a_picture_the_person_attached_is_sent_as_an_image_block() {
+    let message = Message::User {
+        content: vec![
+            Part::Text {
+                text: "this one".into(),
+            },
+            Part::Image {
+                media_type: "image/jpeg".into(),
+                data: "AA==".into(),
+            },
+        ],
+    };
+    let frozen = freeze(Model::ClaudeSonnet55, &message).expect("it freezes");
+    let sent: Value = serde_json::from_str(frozen.get()).expect("JSON");
+    assert_eq!(
+        sent["content"][1],
+        json!({
+            "type": "image",
+            "source": { "type": "base64", "media_type": "image/jpeg", "data": "AA==" }
+        })
+    );
+}
