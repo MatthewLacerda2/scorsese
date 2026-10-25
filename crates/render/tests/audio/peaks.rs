@@ -102,6 +102,13 @@ fn a_long_sound_is_merged_down_to_the_cap() {
 
     assert_eq!(fitted.levels, [9, 7, 5], "groups of three, ceiling of 7/3");
     assert_eq!(fitted.per_second, 40.0 / 3.0);
+
+    let hour = Peaks {
+        per_second: PEAKS_PER_SECOND as f32,
+        levels: vec![0; 3600 * PEAKS_PER_SECOND as usize],
+    }
+    .fit(MOST_PEAKS);
+    assert_eq!((hour.per_second, hour.to_bytes().len()), (8.0, 28_804));
 }
 
 /// A file under the cap is left as it was.
