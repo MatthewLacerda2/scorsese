@@ -197,10 +197,11 @@ export const chatApi = {
   conversation: (projectId: number) => request<Conversation>("GET", `/projects/${projectId}/chat`),
   /**
    * `202` with the turn, at the project's effort; `402` no credit, `409` one is
-   * running, `503` not configured.
+   * running, `503` not configured. `attachments` are library ids (#1534): the
+   * server brings the media into the project and names them to the model.
    */
-  send: (projectId: number, prompt: string, fresh = false) =>
-    request<TurnView>("POST", `/projects/${projectId}/chat`, { prompt, fresh }),
+  send: (projectId: number, prompt: string, fresh = false, attachments: number[] = []) =>
+    request<TurnView>("POST", `/projects/${projectId}/chat`, { prompt, fresh, attachments }),
   /** The project's assistant runs on `model` from its next turn; `400` for one not offered. */
   chooseModel: (projectId: number, model: string) =>
     request<ModelChoice>("PUT", `/projects/${projectId}/chat/model`, { model }),

@@ -14,7 +14,7 @@ import { UploadIcon } from "lucide-react";
 import { type DragEvent, useDeferredValue, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { FILE_KINDS, type FileKind, type LibraryTile } from "@/api";
-import { useLibrary } from "@/app/queries";
+import { useFormats, useLibrary } from "@/app/queries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { QueryState } from "@/components/ui/query-state";
@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useT } from "@/i18n/I18nProvider";
+import { accept } from "@/lib/upload/formats";
 import { DetailsSheet } from "./DetailsSheet";
 import { DownloadAction } from "./download/DownloadAction";
 import { FileTile } from "./FileTile";
@@ -90,7 +91,7 @@ export function FileBrowser({ project, picking }: Props) {
           onDragOver: (event: DragEvent) => event.preventDefault(),
           onDrop: (event: DragEvent) => {
             event.preventDefault();
-            void add(Array.from(event.dataTransfer.files));
+            add(Array.from(event.dataTransfer.files));
           },
         }
       : {};
@@ -197,6 +198,7 @@ function PickTile({ tile, picking }: { tile: LibraryTile; picking: Picking }) {
 function UploadButton() {
   const t = useT();
   const { add } = useUploads();
+  const formats = useFormats().data;
   const input = useRef<HTMLInputElement>(null);
   return (
     <>
@@ -208,14 +210,14 @@ function UploadButton() {
         type="file"
         multiple
         hidden
-        // A hint for the picker; the server holds files to exactly the
-        // extensions `scorsese import` takes, and the documents the assistant
-        // reads, and says so when it refuses one.
-        accept="video/*,image/*,audio/*,.html,.txt,.md"
+        // A hint for the picker, from the server's own list (#1534): the
+        // extensions `scorsese import` takes and the documents the assistant
+        // reads. The server holds an upload to it and says so when it refuses one.
+        accept={accept(formats)}
         onChange={(event) => {
           const picked = Array.from(event.target.files ?? []);
           event.target.value = "";
-          void add(picked);
+          add(picked);
         }}
       />
     </>

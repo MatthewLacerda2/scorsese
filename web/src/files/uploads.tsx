@@ -51,8 +51,11 @@ let nextKey = 0;
 export interface Uploads {
   /** Every upload this session started, newest first. */
   uploads: Upload[];
-  /** Hash, check and upload these files. */
-  add: (files: Iterable<File>) => Promise<void>;
+  /**
+   * Hash, check and upload these files: the key of each one's row, at once,
+   * so a caller can follow its own (a prompt's tray, #1534).
+   */
+  add: (files: Iterable<File>) => string[];
   /** Forget the rows that have finished, one way or another. */
   dismiss: () => void;
 }
@@ -64,6 +67,11 @@ export function useUploads(): Uploads {
   const uploads = useContext(UploadsContext);
   if (!uploads) throw new Error("useUploads is used outside <UploadsProvider>");
   return uploads;
+}
+
+/** The uploads, or `null` outside {@link UploadsProvider} — signed out, a tray holds files instead. */
+export function useOptionalUploads(): Uploads | null {
+  return useContext(UploadsContext);
 }
 
 /** Keeps one uploader for as long as the signed-in app is open. */
@@ -124,33 +132,51 @@ function useUploader(): Uploads {
     };
   }, [queryClient, update]);
 
-  const add = useCallback(
-    async (files: Iterable<File>) => {
-      for (const file of files) {
-        const key = `upload-${nextKey++}`;
-        setUploads((all) => [{ key, name: file.name, phase: "hashing", progress: 0 }, ...all]);
-        try {
-          const sha256 = await hashFile(file, (progress) => update(key, { progress }));
-          const [existing] = await api.library.list({ sha256 });
-          if (existing) {
-            const duplicate = alreadyHave(existing, t.files.uploads.alreadyHave);
-            update(key, { phase: "duplicate", message: duplicate.message, item: duplicate.item });
-            continue;
-          }
-          update(key, { phase: "uploading", progress: 0 });
-          const id = uploader.current?.addFile({
-            name: file.name,
-            type: file.type,
-            data: file,
-            meta: { name: file.name, sha256 },
-          });
-          if (id) rows.current.set(id, key);
-        } catch (error) {
-          update(key, { phase: "failed", message: (error as Error).message });
+  const send = useCallback(
+    async (key: string, file: File) => {
+      try {
+        const sha256 = await hashFile(file, (progress) => update(key, { progress }));
+        const [existing] = await api.library.list({ sha256 });
+        if (existing) {
+          const duplicate = alreadyHave(existing, t.files.uploads.alreadyHave);
+          update(key, { phase: "duplicate", message: duplicate.message, item: duplicate.item });
+          return;
         }
+        update(key, { phase: "uploading", progress: 0 });
+        const id = uploader.current?.addFile({
+          name: file.name,
+          type: file.type,
+          data: file,
+          meta: { name: file.name, sha256 },
+        });
+        if (id) rows.current.set(id, key);
+      } catch (error) {
+        update(key, { phase: "failed", message: (error as Error).message });
       }
     },
     [update, t],
+  );
+
+  const add = useCallback(
+    (files: Iterable<File>) => {
+      const started = Array.from(files, (file) => ({ key: `upload-${nextKey++}`, file }));
+      const rowsOf = started.map(
+        ({ key, file }): Upload => ({
+          key,
+          name: file.name,
+          phase: "hashing",
+          progress: 0,
+        }),
+      );
+      setUploads((all) => [...rowsOf.reverse(), ...all]);
+      // One at a time, as before: hashing is the browser's, and a burst of
+      // checks would only queue at the server.
+      void (async () => {
+        for (const { key, file } of started) await send(key, file);
+      })();
+      return started.map(({ key }) => key);
+    },
+    [send],
   );
 
   const dismiss = useCallback(() => {

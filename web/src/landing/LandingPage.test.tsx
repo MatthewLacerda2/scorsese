@@ -23,6 +23,8 @@ function visit(url: string, account?: Account | null) {
   if (account !== undefined) client.setQueryData(ME, account);
   client.setQueryData(["projects"], []);
   client.setQueryData(["credits", "balance"], { balance_micros: 0 });
+  // What the prompt boxes' "+" takes, so reaching for one asks nothing.
+  client.setQueryData(["formats"], { video: [], image: [], audio: [], html: [], text: [] });
   render(
     <App
       language="en"

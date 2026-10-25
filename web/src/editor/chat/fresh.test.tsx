@@ -11,6 +11,7 @@ import { setFetch } from "@/api/client";
 import { createQueryClient } from "@/app/queryClient";
 import { CATALOGUES } from "@/i18n/catalogue";
 import { I18nProvider } from "@/i18n/I18nProvider";
+import { noAttachments } from "@/test/attachments";
 import { ChatPanel } from "./ChatPanel";
 
 const t = CATALOGUES.en.chat;
@@ -73,7 +74,7 @@ const open = (project: number) =>
   render(
     <QueryClientProvider client={createQueryClient()}>
       <I18nProvider initial="en">
-        <ChatPanel projectId={project} full={false} onFull={() => {}} />
+        <ChatPanel projectId={project} full={false} onFull={() => {}} attachments={noAttachments} />
       </I18nProvider>
     </QueryClientProvider>,
   );

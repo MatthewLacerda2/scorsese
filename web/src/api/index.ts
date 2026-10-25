@@ -10,6 +10,7 @@ import type {
   ClientError,
   EditorProject,
   FileKind,
+  Formats,
   History,
   HistoryKind,
   LibraryItem,
@@ -110,6 +111,8 @@ export const api = {
   library: {
     list: (filter: LibraryFilter = {}) =>
       request<LibraryTile[]>("GET", `/library${query({ ...filter })}`),
+    /** The extensions each kind is uploaded under (#1534); signed out too. */
+    formats: () => request<Formats>("GET", "/library/formats"),
     details: (id: number) => request<LibraryItem>("GET", `/library/${id}`),
     update: (id: number, change: { name?: string; description?: string }) =>
       request<LibraryItem>("PATCH", `/library/${id}`, change),

@@ -2688,6 +2688,22 @@ is sent with `fresh: true`, which opens a new `chat_sessions` row. The old
 conversation stays in the database. Without the project's
 model's key (`ANTHROPIC_API_KEY`) the server's `503` "not configured" is shown as a note, and nothing else changes.
 
+**Files attach to a message** (#1534), the way a chatbot takes them, so adding
+something while talking needs no trip to the Library modal. The "+" in a
+circle beside the composer picks files, and a file dragged in from the desktop
+and **dropped anywhere on the editor's page** lands in the same tray (the page
+shows "drop here" while it is dragged); only a drag carrying `Files` counts, so
+an asset dragged onto the timeline goes by untouched. Attached files show as
+thumbnails above the text, each uploading to the library at once through the
+page's one uploader, with its duplicate rule, and a progress ring; sending
+waits for them. A file the library does not take is refused by name, by the
+list `GET /api/library/formats` answers. The message carries their library ids
+(`attachments`): the server imports the media into the project before the turn
+starts and tells the model which files came with it (*Assistant turns*). × takes
+a file off the message and leaves it in the library. The same tray, "+" and
+drop are the prompt box's on the landing page and the signed-in home
+(`web/src/prompt/`); signed out, the files are only held in the page.
+
 ## Out of scope for now
 
 Pix payments (#548), folders in the library, a shared cross-user library,

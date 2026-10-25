@@ -1,22 +1,29 @@
 // The prompt box's keys: Enter sends, Shift+Enter is a new line, empty sends nothing.
 
 import { expect, test } from "bun:test";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createQueryClient } from "@/app/queryClient";
 import { I18nProvider } from "@/i18n/I18nProvider";
 import { PromptBox } from "@/prompt/PromptBox";
 
 function setup(answer?: string) {
   const sent: string[] = [];
+  const client = createQueryClient();
+  // What the "+" takes, so focusing the box asks nothing.
+  client.setQueryData(["formats"], { video: [], image: [], audio: [], html: [], text: [] });
   render(
-    <I18nProvider initial="en">
-      <PromptBox
-        onSubmit={(text) => {
-          sent.push(text);
-          return answer;
-        }}
-      />
-    </I18nProvider>,
+    <QueryClientProvider client={client}>
+      <I18nProvider initial="en">
+        <PromptBox
+          onSubmit={(text) => {
+            sent.push(text);
+            return answer;
+          }}
+        />
+      </I18nProvider>
+    </QueryClientProvider>,
   );
   return { sent, box: screen.getByRole("textbox") };
 }
