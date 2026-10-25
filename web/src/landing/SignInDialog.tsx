@@ -12,12 +12,11 @@
 // the popup says so under the button, linking both in a new tab: a first
 // sign-in makes the account, and there is no other step to put it on.
 //
-// It wears the app's dark tokens (`dark` on the content), whatever theme the
-// app is set to, because it opens over the landing page's own dark art
-// direction.
+// It wears the landing page's ink and paper, which follow the theme.
 
 import { Link, useSearchParams } from "react-router";
 import { api } from "@/api";
+import { Mark } from "@/components/Mark";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
@@ -51,11 +50,11 @@ export function SignInDialog({ open, onOpenChange }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="dark gap-6 bg-ink-raised p-8 text-paper ring-paper/10 sm:max-w-md"
+        className="gap-6 bg-ink-raised p-8 text-paper ring-paper/10 sm:max-w-md"
         overlayClassName="bg-screen/60 supports-backdrop-filter:backdrop-blur-sm"
       >
         <DialogHeader className="gap-2">
-          <img src="/icon.png" alt="" width={48} height={48} className="mb-2 size-12 rounded-xl" />
+          <Mark kind="icon" size={48} className="mb-2 size-12 rounded-xl" />
           <DialogTitle className="text-3xl font-semibold tracking-tight">
             {t.landing.dialog.title}
           </DialogTitle>
@@ -69,7 +68,10 @@ export function SignInDialog({ open, onOpenChange }: Props) {
           )}
           <a
             href={googleSignIn(params.get("next"))}
-            className={cn(buttonVariants(), "h-11 rounded-full bg-gold text-ink hover:bg-gold/90")}
+            className={cn(
+              buttonVariants(),
+              "h-11 rounded-full bg-gold text-screen hover:bg-gold/90",
+            )}
           >
             {t.common.login.google}
           </a>

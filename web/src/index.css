@@ -5,14 +5,19 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* The landing page's ink, paper and gold (`landing/landing.css` names them for
-   its own rules), static so they are variables everywhere, `/terms` and the
-   sign-in dialog included, and Tailwind classes (`bg-ink`, `text-paper`). */
+/* The landing page's ink (the ground), paper (the type) and gold, as variables
+   everywhere, `/terms` and the sign-in dialog included, and Tailwind classes
+   (`bg-ink`, `text-paper`). Ink and paper follow the theme, the film's ink and
+   paper in the dark one and the same design turned around in the light one
+   (`--ink` and `--paper`, below); gold is the same in both. */
 @theme {
-  --color-ink: #07070a;
-  --color-ink-raised: #0e0d12;
-  --color-paper: #f4efe6;
   --color-gold: #f2b134;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-ink-raised: var(--ink-raised);
+  --color-paper: var(--paper);
 }
 
 @theme inline {
@@ -83,6 +88,10 @@
 }
 
 :root {
+  --ink: #f8f6f1;
+  --ink-raised: #ffffff;
+  --paper: #16140f;
+  --gold-text: #9a5b00;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -150,6 +159,10 @@
 }
 
 .dark {
+  --ink: #07070a;
+  --ink-raised: #0e0d12;
+  --paper: #f4efe6;
+  --gold-text: #f2b134;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);

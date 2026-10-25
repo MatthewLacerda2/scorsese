@@ -10,7 +10,7 @@ import { SELLER } from "@/legal/seller";
 export function Footer({ children }: { children?: ReactNode }) {
   const t = useT();
   return (
-    <footer className="dim mx-auto max-w-6xl border-t border-paper/10 px-4 py-10 text-sm sm:px-6">
+    <footer className="dim mx-auto max-w-6xl border-t border-paper/10 px-4 py-6 text-sm sm:px-6">
       {children}
       <nav className="flex flex-wrap gap-x-5 gap-y-2 text-paper">
         <Link to="/terms" className="hover:underline">

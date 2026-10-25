@@ -3,7 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/png" href="/icon.png" />
+    <!--
+      The favicon sits on the browser's own tab bar, which follows the system's
+      theme, not the app's stored one (this runs before any script): black on
+      white where the system is light, white on black where it is dark. The
+      first, bare link is for a browser that reads no media on an icon.
+    -->
+    <link rel="icon" type="image/png" href="/icon-light.png" />
+    <link rel="icon" type="image/png" href="/icon-light.png" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/png" href="/icon.png" media="(prefers-color-scheme: dark)" />
     <title>Scorsese - video editor</title>
     <!--
       What a shared link shows (#904). A link preview reads this file and runs
@@ -31,8 +39,8 @@
     <meta name="twitter:card" content="summary_large_image" />
     <!--
       Light or dark before anything paints, so a dark page never flashes white:
-      the stored choice, else the system's. It repeats src/lib/theme.ts's
-      resolveTheme (this runs before the bundle loads); theme.test.ts runs it.
+      the stored choice, else light. It repeats src/lib/theme.ts's
+      storedTheme (this runs before the bundle loads); theme.test.ts runs it.
     -->
     <script id="theme">
       (() => {
@@ -40,9 +48,7 @@
         try {
           stored = localStorage.getItem("scorsese-theme");
         } catch {}
-        var dark =
-          stored === "dark" ||
-          (stored !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+        var dark = stored === "dark";
         document.documentElement.classList.toggle("dark", dark);
         document.documentElement.style.colorScheme = dark ? "dark" : "light";
       })();

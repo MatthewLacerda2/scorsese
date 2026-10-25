@@ -20,7 +20,7 @@ export const common = {
     language: "Language",
     theme: "Theme",
   },
-  theme: { light: "Light", dark: "Dark", system: "System" },
+  theme: { light: "Light", dark: "Dark" },
   login: {
     google: "Continue with Google",
     newHere: "New here? Your first sign-in makes your account.",

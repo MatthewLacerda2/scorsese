@@ -25,6 +25,35 @@ taskbar actually draws; the original's margins would have rendered it as a small
 smudge in a black square. The pad puts an even ~5% back so it does not touch the
 edges.
 
+## The web app's copies
+
+The web app shows the mark in both themes, so each copy comes in the original
+white-on-black and its inverse, black on white. All are derived from the same
+art, run from `app/assets/`:
+
+```
+# web/public/icon.png: the square icon at 64px (favicon, account button, sign-in)
+ffmpeg -i logo.png -vf \
+  "crop=883:902:23:131,pad=982:982:(ow-iw)/2:(oh-ih)/2:black,scale=64:64:flags=lanczos" \
+  -pix_fmt rgba ../../web/public/icon.png
+
+# web/public/icon-light.png: the same, inverted before the crop, padded in white
+ffmpeg -i logo.png -vf \
+  "negate,crop=883:902:23:131,pad=982:982:(ow-iw)/2:(oh-ih)/2:white,scale=64:64:flags=lanczos" \
+  -pix_fmt rgba ../../web/public/icon-light.png
+
+# web/src/landing/media/mark.png: icon.png's brightness as the alpha of a white
+# silhouette with no background, and mark-light.png the same in black
+ffmpeg -i icon.png -filter_complex "[0]format=gray[a];
+  color=white:s=512x512,format=rgba[w];[w][a]alphamerge,format=rgba" \
+  -frames:v 1 ../../web/src/landing/media/mark.png
+ffmpeg -i icon.png -filter_complex "[0]format=gray[a];
+  color=black:s=512x512,format=rgba[w];[w][a]alphamerge,format=rgba" \
+  -frames:v 1 ../../web/src/landing/media/mark-light.png
+```
+
+`web/src/components/Mark.tsx` picks the copy for the page's theme.
+
 ## Why one size and not a set
 
 A window icon is one image here. `eframe::icon_data::from_png_bytes` yields a

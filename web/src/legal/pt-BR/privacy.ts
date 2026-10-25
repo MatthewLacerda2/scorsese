@@ -1,4 +1,4 @@
-// The privacy policy (#547, LGPD), in Portuguese (`document.ts` has why). It
+// The privacy policy in Portuguese, the binding text (`document.ts`; LGPD). It
 // is a list of facts about the deployment: what the server keeps, which
 // vendor each request goes to, the session cookie's 30 days
 // (`accounts::sessions::LIFETIME_DAYS`) and the backups' 30
@@ -8,9 +8,20 @@
 import type { LegalDocument } from "@/legal/document";
 import { SELLER } from "@/legal/seller";
 
-export const PRIVACY: LegalDocument = {
+export const PRIVACY_PT: LegalDocument = {
   title: "Política de privacidade",
-  updated: "2026-10-15",
+  updatedLabel: "Última atualização",
+  updated: "2026-10-24",
+  summary: {
+    heading: "Em resumo",
+    points: [
+      "Você entra com o Google e guardamos só o seu nome, o e-mail e o identificador da conta Google, nunca uma senha.",
+      "Os seus arquivos e vídeos são seus: ficam no nosso servidor no Brasil, separados dos de outras pessoas.",
+      "Para gerar o que você pede, cada fornecedor recebe só o necessário (a lista está abaixo).",
+      "Não vendemos dados, não mostramos anúncios e não usamos o seu conteúdo para treinar inteligência artificial.",
+      "Você pode pedir uma cópia ou a exclusão de tudo por e-mail, e respondemos em até 15 dias.",
+    ],
+  },
   sections: [
     {
       heading: "Quem cuida dos seus dados",
@@ -46,12 +57,49 @@ export const PRIVACY: LegalDocument = {
       blocks: [
         "Cada fornecedor recebe só o que precisa para fazer a sua parte:",
         [
-          "Anthropic (o assistente Claude): as suas mensagens e o conteúdo do projeto que o assistente lê para responder.",
-          "Google: os pedidos de vídeo (Veo) e de imagem (Gemini), com as imagens de referência que você indicar; e o login com o Google.",
-          "ElevenLabs: os textos a serem narrados e as descrições de voz.",
-          "Stripe: o pagamento. A Stripe recebe o seu e-mail e os dados do cartão que você digita na página dela.",
-          "Cloudflare: todo acesso ao site passa por ela, que protege e entrega as páginas.",
-          "Pixabay e LottieFiles: só os termos de busca, quando o assistente procura vídeos, fotos ou animações de banco.",
+          {
+            text: "Anthropic (o assistente Claude): as suas mensagens e o conteúdo do projeto que o assistente lê para responder.",
+            link: {
+              label: "Política de privacidade",
+              href: "https://www.anthropic.com/legal/privacy",
+            },
+          },
+          {
+            text: "Google: os pedidos de vídeo (Veo) e de imagem (Gemini), com as imagens de referência que você indicar; e o login com o Google.",
+            link: { label: "Política de privacidade", href: "https://policies.google.com/privacy" },
+          },
+          {
+            text: "ElevenLabs: os textos a serem narrados e as descrições de voz.",
+            link: {
+              label: "Política de privacidade",
+              href: "https://elevenlabs.io/privacy-policy",
+            },
+          },
+          {
+            text: "Stripe: o pagamento. A Stripe recebe o seu e-mail e os dados do cartão que você digita na página dela.",
+            link: { label: "Política de privacidade", href: "https://stripe.com/privacy" },
+          },
+          {
+            text: "Cloudflare: todo acesso ao site passa por ela, que protege e entrega as páginas.",
+            link: {
+              label: "Política de privacidade",
+              href: "https://www.cloudflare.com/privacypolicy/",
+            },
+          },
+          {
+            text: "Pixabay: só os termos de busca, quando o assistente procura vídeos ou fotos de banco.",
+            link: {
+              label: "Política de privacidade",
+              href: "https://pixabay.com/service/privacy/",
+            },
+          },
+          {
+            text: "LottieFiles: só os termos de busca, quando o assistente procura animações de banco.",
+            link: {
+              label: "Política de privacidade",
+              href: "https://lottiefiles.com/page/privacy-policy",
+            },
+          },
         ],
         "Esses fornecedores ficam, em sua maioria, fora do Brasil, principalmente nos Estados Unidos. A transferência é feita para executar o serviço que você contratou (art. 33, IX, da LGPD) e segue as regras de proteção de dados de cada um deles.",
         "Fora isso, só compartilhamos dados se uma lei ou uma ordem judicial exigir.",
@@ -87,6 +135,12 @@ export const PRIVACY: LegalDocument = {
       heading: "Menores de idade",
       blocks: [
         "O scorsese é para maiores de 18 anos e não coleta, de propósito, dados de menores.",
+      ],
+    },
+    {
+      heading: "Se você não mora no Brasil",
+      blocks: [
+        "O scorsese é operado a partir do Brasil e segue a LGPD. Os direitos descritos acima valem para qualquer pessoa, onde quer que more, pelo mesmo e-mail. Se você mora na União Europeia ou no Reino Unido, também pode reclamar à autoridade de proteção de dados do seu país. Não vendemos nem compartilhamos dados pessoais para publicidade, no sentido de leis como a da Califórnia (CCPA).",
       ],
     },
     {

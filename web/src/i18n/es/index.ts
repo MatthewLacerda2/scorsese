@@ -12,6 +12,8 @@ import { inspector } from "@/i18n/es/inspector";
 import { landing } from "@/i18n/es/landing";
 import { menu } from "@/i18n/es/menu";
 import { pages } from "@/i18n/es/pages";
+import { pricing } from "@/i18n/es/pricing";
+import { prompt } from "@/i18n/es/prompt";
 import { start } from "@/i18n/es/start";
 
 export const es: Messages = {
@@ -26,4 +28,6 @@ export const es: Messages = {
   start,
   menu,
   buying,
+  prompt,
+  pricing,
 };

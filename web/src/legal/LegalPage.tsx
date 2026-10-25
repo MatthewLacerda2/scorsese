@@ -1,26 +1,55 @@
-// A legal document as a page (#547): `/terms` and `/privacy`, public and
-// crawlable, in the landing page's dark art direction since that is where a
-// visitor follows the link from. The document is Portuguese whatever the
-// site's language (`document.ts` has why), so its own text is marked
-// `lang="pt-BR"` and a visitor reading in another language is told why.
+// A legal document as a page: `/terms` and `/privacy`, public and crawlable,
+// in the landing page's look (and its light or dark) since that is where a
+// visitor follows the link from. It is drawn in the site's language; the
+// Portuguese text is the binding one (`document.ts`), so a visitor reading a
+// translation is told so, and can switch to the Portuguese text and back.
+// The article's `lang` is the language of the text it holds.
 
 import "@/landing/landing.css";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { useLanguage, useT } from "@/i18n/I18nProvider";
-import type { LegalDocument } from "@/legal/document";
+import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n/I18nProvider";
+import type { Language } from "@/i18n/language";
+import type { Item, LegalDocument } from "@/legal/document";
 import { Footer } from "@/legal/Footer";
 
-/** `2026-10-14` as "14 de outubro de 2026". */
-function longDate(day: string): string {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "long", timeZone: "UTC" }).format(
+/** `2026-10-14` as "14 de outubro de 2026", in the document's language. */
+function longDate(day: string, language: Language): string {
+  return new Intl.DateTimeFormat(language, { dateStyle: "long", timeZone: "UTC" }).format(
     new Date(`${day}T00:00:00Z`),
   );
 }
 
-export function LegalPage({ document: doc }: { document: LegalDocument }) {
-  const t = useT();
-  const { language } = useLanguage();
+function ListItem({ item }: { item: Item }) {
+  if (typeof item === "string") return <li>{item}</li>;
+  return (
+    <li>
+      {item.text}{" "}
+      <a
+        href={item.link.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-paper underline underline-offset-2"
+      >
+        {item.link.label}
+      </a>
+    </li>
+  );
+}
+
+export function LegalPage({
+  documents,
+  language,
+}: {
+  documents: Record<Language, LegalDocument>;
+  language: Language;
+}) {
+  const t = useT().landing.legal;
+  const [binding, setBinding] = useState(false);
+  const shown: Language = binding ? "pt-BR" : language;
+  const doc = documents[shown];
+  const translated = language !== "pt-BR";
   useEffect(() => {
     const before = document.title;
     document.title = `${doc.title} · scorsese`;
@@ -35,17 +64,32 @@ export function LegalPage({ document: doc }: { document: LegalDocument }) {
         <Link to="/" className="display text-xl text-paper">
           scorsese
         </Link>
-        {language !== "pt-BR" && (
+        {translated && (
           <p className="dim mt-8 rounded-lg border border-paper/15 p-4 text-sm">
-            {t.landing.legal.portugueseOnly}
+            {t.translation}{" "}
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto p-0 text-paper"
+              onClick={() => setBinding(!binding)}
+            >
+              {binding ? t.readTranslation : t.readPortuguese}
+            </Button>
           </p>
         )}
-        <article lang="pt-BR" className="mt-10">
+        <article lang={shown} className="mt-10">
           <h1 className="display text-4xl sm:text-5xl">{doc.title}</h1>
           <p className="dim mt-3 text-sm">
-            {/* biome-ignore lint/plugin/literalUiText: part of the document, which is Portuguese in every language (see above) */}
-            Última atualização: {longDate(doc.updated)}
+            {doc.updatedLabel}: {longDate(doc.updated, shown)}
           </p>
+          <aside className="card mt-8 p-5 sm:p-6">
+            <h2 className="text-lg font-semibold">{doc.summary.heading}</h2>
+            <ul className="dim mt-3 list-disc space-y-2 pl-5 leading-relaxed">
+              {doc.summary.points.map((point) => (
+                <li key={point}>{point}</li>
+              ))}
+            </ul>
+          </aside>
           {doc.sections.map((section, index) => (
             <section key={section.heading} className="mt-10">
               <h2 className="text-xl font-semibold">
@@ -57,9 +101,12 @@ export function LegalPage({ document: doc }: { document: LegalDocument }) {
                     {block}
                   </p>
                 ) : (
-                  <ul key={block[0]} className="dim mt-4 list-disc space-y-2 pl-6 leading-relaxed">
+                  <ul
+                    key={typeof block[0] === "string" ? block[0] : block[0]?.text}
+                    className="dim mt-4 list-disc space-y-2 pl-6 leading-relaxed"
+                  >
                     {block.map((item) => (
-                      <li key={item}>{item}</li>
+                      <ListItem key={typeof item === "string" ? item : item.text} item={item} />
                     ))}
                   </ul>
                 ),

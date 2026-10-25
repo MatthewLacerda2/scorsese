@@ -19,7 +19,7 @@ export const common: Messages["common"] = {
     language: "Idioma",
     theme: "Tema",
   },
-  theme: { light: "Claro", dark: "Oscuro", system: "Sistema" },
+  theme: { light: "Claro", dark: "Oscuro" },
   login: {
     google: "Continuar con Google",
     newHere: "¿Primera vez? Tu primer inicio de sesión crea tu cuenta.",

@@ -6,14 +6,9 @@ export const landing: Messages["landing"] = {
     description:
       "Vídeos promocionais, anúncios e vídeos de eventos para o seu negócio, feitos a partir dos seus arquivos e de uma descrição. Sem contratar editor, sem aprender programa.",
   },
+  openApp: "Abrir o scorsese",
   signIn: "Entrar",
-  hero: {
-    eyebrow: "Vídeo para o seu negócio",
-    title: "Descreva o vídeo.",
-    titleEnd: "Ele fica pronto.",
-    lead: "Promos, anúncios e vídeos de eventos, cortados, com títulos, trilha e ritmo, sem contratar um editor nem aprender um programa.",
-    scroll: "Veja como",
-  },
+  hero: { title: "O vídeo está a uma conversa de distância" },
   how: {
     eyebrow: "Como funciona",
     title: "Três passos, e em todos quem decide é você.",
@@ -62,7 +57,7 @@ export const landing: Messages["landing"] = {
   },
   closing: {
     title: "Quando você quiser.",
-    body: "Traga seus arquivos e uma ideia. O vídeo está a uma conversa de distância.",
+    body: "O vídeo está a uma mensagem de distância",
   },
   footer: "Todos os vídeos desta página foram feitos com o scorsese.",
   dialog: {
@@ -72,7 +67,11 @@ export const landing: Messages["landing"] = {
   legal: {
     terms: "Termos de uso",
     privacy: "Política de privacidade",
-    portugueseOnly:
-      "Este documento está em português, o idioma do contrato: o scorsese é vendido por uma empresa brasileira, sob a lei brasileira.",
+    pricingShort: "Preços",
+    termsShort: "Termos",
+    privacyShort: "Privacidade",
+    translation: "O texto em português é o que vale.",
+    readPortuguese: "Ler o texto em português",
+    readTranslation: "Voltar à tradução",
   },
 };

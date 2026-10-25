@@ -1,7 +1,8 @@
 /* The landing page's own art direction (#904). Designed rather than themed:
-   it ignores the app's Light | Dark | System choice, since a first visitor has
-   chosen nothing, and keeps the ink, paper and gold of the film at its top
-   (web/landing/hero.scor/pages/look.css).
+   one design in two lights. Dark is the ink, paper and gold of the film at its
+   top (web/landing/hero.scor/pages/look.css); light is the same turned around,
+   dark type on a warm paper ground. Which one is the app's Light | Dark choice,
+   light until a visitor picks; `--ink` and `--paper` are index.css's.
 
    The type is the app's own face, Geist (already loaded by index.css), set
    heavy and tight for headlines; the mono is the face the compositor ships
@@ -17,12 +18,9 @@
 }
 
 .landing {
-  --ink: var(--color-ink);
-  --paper: var(--color-paper);
   --gold: var(--color-gold);
   --ember: #e4572e;
-  --dim: rgb(244 239 230 / 0.62);
-  color-scheme: dark;
+  --dim: color-mix(in srgb, var(--paper) 62%, transparent);
   min-height: 100svh;
   overflow-x: clip;
   background:
@@ -47,7 +45,7 @@
   font-family: "JetBrains Mono", monospace;
 }
 .landing .eyebrow {
-  color: var(--gold);
+  color: var(--gold-text);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.35em;
@@ -57,28 +55,28 @@
   color: var(--dim);
 }
 .landing .gold {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 /* The film's frame: a soft gold light behind it, as if it were projected. */
 .landing .screen {
   border-radius: 1.25rem;
   box-shadow:
-    0 0 0 1px rgb(244 239 230 / 0.1),
-    0 40px 120px -20px rgb(0 0 0 / 0.8),
+    0 0 0 1px color-mix(in srgb, var(--paper) 10%, transparent),
+    0 40px 120px -20px rgb(0 0 0 / 0.55),
     0 0 160px -40px rgb(242 177 52 / 0.35);
 }
 
 .landing .card {
   border-radius: 1.25rem;
-  background: rgb(244 239 230 / 0.04);
-  box-shadow: inset 0 0 0 1px rgb(244 239 230 / 0.09);
+  background: color-mix(in srgb, var(--paper) 4%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--paper) 9%, transparent);
 }
 
 .landing .cta {
   border-radius: 999px;
   background: var(--gold);
-  color: var(--ink);
+  color: #07070a;
   font-weight: 600;
   transition:
     transform 150ms ease,
@@ -96,40 +94,17 @@
 }
 .landing .ghost {
   border-radius: 999px;
-  box-shadow: inset 0 0 0 1px rgb(244 239 230 / 0.25);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--paper) 25%, transparent);
 }
 
-/* A film's grain over the whole page, drawn once, never animated. */
+/* A film's grain over the whole page, drawn once, never animated; fainter on
+   the light ground, where it reads as dirt rather than film. */
 .landing .grain {
   pointer-events: none;
   position: fixed;
   inset: 0;
-  opacity: 0.06;
+  opacity: 0.03;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-/* The slides (Slides.tsx): stacked on a stage fixed to the window, under the
-   fixed header, while the page scrolls an empty track beneath them. */
-.landing-stage {
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
-}
-/* A probe as tall as the window at its largest, address bar hidden. */
-.landing-tall {
-  position: fixed;
-  top: 0;
-  height: 100lvh;
-  width: 0;
-  visibility: hidden;
-  pointer-events: none;
-}
-.landing-slide {
-  position: absolute;
-  inset-inline: 0;
-  top: 0;
-  padding-top: 4.5rem;
-  will-change: transform, opacity;
 }
 
 /* The strip of films under the headline (Carousel.tsx). A clip is a third of
@@ -154,7 +129,7 @@
   object-fit: cover;
   background: #000;
   pointer-events: none;
-  box-shadow: 0 0 0 1px rgb(244 239 230 / 0.1);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--paper) 10%, transparent);
 }
 /* One copy of three, gap included: the strip is then where it began. */
 @keyframes carousel {
@@ -171,4 +146,8 @@
 /* The showcase's volume slider, in the page's gold. */
 .landing .volume {
   accent-color: var(--gold);
+}
+
+.dark .landing .grain {
+  opacity: 0.06;
 }

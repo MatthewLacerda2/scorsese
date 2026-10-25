@@ -4,6 +4,7 @@
 // email alone.
 
 import { useNavigate } from "react-router";
+import { Mark } from "@/components/Mark";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -26,7 +27,7 @@ export function AccountMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="rounded-full" aria-label={t.common.account}>
-          <img src="/icon.png" alt="" className="size-7 rounded-full" />
+          <Mark kind="icon" size={28} className="size-7 rounded-full" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
