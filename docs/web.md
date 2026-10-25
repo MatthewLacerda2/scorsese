@@ -127,6 +127,11 @@ new build, before it serves anything.
   *Credits*, *Pricing* has why), and **nothing else: there is no monthly fee**
   (#1243). Users top up themselves through Stripe (*Buying credits*, #548); the
   operator can still record one by hand.
+- **Every account gets free credit** (#1530): $4 a Brasília day, at most $12
+  a calendar month (`SCORSESE_FREE_DAILY`, `SCORSESE_FREE_MONTHLY`), spent
+  before the paid balance, paying users included. It is never deposited and
+  never on a **Veo shot**, which only paid credit buys; the quote-and-ask
+  stays even when it covers everything (*Credits*, *The free allowance*).
 - A generation the provider **failed** is free; one that **worked** is
   charged, liked or not. Users can audit every charge themselves — that is what
   makes the second half acceptable.
@@ -182,6 +187,8 @@ provider keys use, and is documented in `.env.example`:
 | `ANTHROPIC_API_KEY` | The key the assistant's Claude models answer with (*Assistant turns*), by the same resolver. Optional: without it a turn on a Claude model is refused with "`ANTHROPIC_API_KEY` is not set", and nothing else changes. |
 | `PIXABAY_API_KEY` | The key `stock_search` and `stock_import` look Pixabay up with, by the same resolver, shared by every user (*Web MCP*). Optional: without it a Pixabay search fails with the variable's name; LottieFiles needs no key. |
 | `SCORSESE_ASSISTANT_TURN_CAP` | The most one assistant turn on Sonnet 5.5 may cost a user, in dollars: `2.50`. Defaults to `3.50`. Every other model's cap scales from it with its rates (*Assistant turns*, *Money*): at `3.50`, about `7.00` on Opus 5.5 and `17.50` on Fable 5.1. |
+| `SCORSESE_FREE_DAILY` | What every account may spend free each Brasília day, in dollars: `4.00`. Defaults to `4.00`; `0` gives nothing away (*Credits*, *The free allowance*). |
+| `SCORSESE_FREE_MONTHLY` | The most every account may spend free in a calendar month, in dollars. Defaults to `12.00`. |
 | `SCORSESE_ELEVENLABS_CONCURRENCY` | How many ElevenLabs calls may be in flight at once, every kind of job together (*The job queue*): the plan's concurrent requests. Defaults to `3`, Starter's; Free allows `2`. A whole number above zero, or the server will not start. |
 | `SCORSESE_ELEVENLABS_VOICE_SLOTS` | How many designed voices the ElevenLabs account holds, every user's together (*Designing a voice*). Defaults to `10`, Starter's. A whole number above zero, or the server will not start. |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | The Google OAuth client people sign in with (*Accounts*). Optional, with the next one: without all three, Google sign-in is off, the server says so in its log, and everything else is served. The secret is never printed. |
@@ -340,7 +347,7 @@ It is HTTPS, so a session works as in production. What to know about it:
 - **The address changes every time the container starts** — after a power cut,
   after an `up` that recreates it. Read the log again and send the new link.
 - **It is public.** Anyone with the link reaches the landing page and can
-  sign up with Google (*Accounts*), at zero credits. Signing in through it
+  sign up with Google (*Accounts*), with the free allowance and no paid credit. Signing in through it
   needs its callback added to the OAuth client (*Sign in with Google: the
   client*), and the address changes on every restart — so for testing the
   sign-in itself, the tailnet's fixed address is the easier one.
@@ -731,8 +738,9 @@ module's doc carries its argument; this is the whole of it in one place.
 
 **Sign in with Google is sign-up and login at once** (#952). There are no
 passwords. "Continue with Google" on `/login` gives a new Google account a
-scorsese account on its first sign-in, **at zero credits**, so nothing paid
-runs until credits are added (*Credits*); a returning one is simply logged in.
+scorsese account on its first sign-in, with no paid credit but **the day's
+free allowance** (*Credits*, #1530), so its first prompt runs at once; a Veo
+shot waits for paid credit. A returning one is simply logged in.
 There is no invite mode and no switch.
 
 **An account is a Google identity.** On a first sign-in, an account that
@@ -1220,6 +1228,7 @@ deleting the account, which is how a user's rows leave.
 | `release` | + | a reservation given back — the provider answered |
 | `charge` | − | what a generation that worked, or an assistant call, costs |
 | `refund` | + | money given back, with the reason |
+| `allowance` | ± | what the free allowance paid of a spend (+), or gave back to the allowance when the generation failed (−) |
 
 **Pricing** is the provider's cost times its kind's multiplier, rounded up to
 the micro-dollar, and that is all a user pays: **there is no monthly fee**
@@ -1241,6 +1250,38 @@ still be billing. A batched still reserves its half price, charged when its
 picture lands and released when its batch stops without one. The assistant is charged after each call rather than reserved for:
 its cost exists only once the tokens are counted, so a turn checks the balance
 is positive before starting and the call may dip a little below zero.
+
+**The free allowance** (#1530, the maintainer, 2026-10-24): every account
+may spend **$4 a day, at most $12 a calendar month**, for nothing, both
+counted in **Brasília time** (`America/Sao_Paulo`: the day turns at 00:00
+there, the month on the 1st). Real dollars, for reach; paying users keep it.
+The figures are configuration (`SCORSESE_FREE_DAILY`, `SCORSESE_FREE_MONTHLY`),
+which the server writes to the one-row `free_allowance` table as it starts, so
+the ledger reads them in SQL; a database no server has started holds zero.
+`credits::allowance` carries the argument:
+
+- **It is never deposited.** When a reservation or an assistant charge is
+  written, the part the allowance covers is written beside it as an
+  `allowance` entry settling it. Nothing unspent is ever granted, so nothing
+  expires, paid credit still never does, and a balance is still the sum of
+  the entries: the **paid balance**. What is left free now is the less of
+  the day's and the month's figure minus the grants of that day and month.
+- **Free first, then paid**, decided under the same lock as a reservation, so
+  two spends at once cannot both use the last free dollar.
+- **Never a Veo shot.** A shot is reserved and charged from the paid balance
+  only, and refused when that is smaller than the shot whatever is free; a
+  check on the table refuses an `allowance` entry that names one, so a
+  user's own client over web MCP meets the same guard. With no paid credit,
+  the built-in assistant's `generate` says nothing of video and the turn is
+  told *Veo is not available because the user is on free usage*.
+- **A failure gives the free part back to the allowance, never to the paid
+  balance**: a negative `allowance` entry settles the same reservation, one at
+  most by a unique index, and the grant it reverses stops counting against its
+  day. Otherwise failing generations on purpose would turn free credit into
+  paid credit.
+- **The assistant never learns the split**: every balance it is told, and
+  every check that it has credit, is paid and free together
+  (`ledger::spendable`).
 
 **Audit tables.** `veo_generations` (model, resolution, seconds, aspect,
 prompt, brief hash, operation ticket, state, estimated cost, error),
@@ -1301,7 +1342,7 @@ providers' `cents`, for the assistant's confirmation box to show.
 **The user's own history** is the same ledger, scoped and written for them: one
 row per thing that moved the balance — a reservation and what settled it fold
 into one row, *charged*, *free: the provider failed*, or *pending* — each with
-the balance after it, the project's name while the project exists, and what set
+what the free allowance paid of it beside its amount, the balance after it, the project's name while the project exists, and what set
 its price. Filterable by project, kind and UTC days, paged, with a total over
 everything the filter matched. It is also described as a read-only tool,
 `spending_history` (`credits::tool`), which web MCP (#539) registers: the
@@ -1310,7 +1351,7 @@ is nothing but a user's rows in Postgres.
 
 | route | who | what |
 | --- | --- | --- |
-| `GET /api/credits` | a member | their balance, in micro-dollars |
+| `GET /api/credits` | a member | their paid balance, what is free today and when it renews, in micro-dollars |
 | `GET /api/credits/history` | a member | `?project=&kind=&since=&until=&before=&limit=` |
 
 The operator's side, where the server runs:
@@ -1319,7 +1360,12 @@ The operator's side, where the server runs:
 scorsese-server credit top-up ana@example.com --dollars 20
 scorsese-server credit refund ana@example.com --dollars 1.06 --reason "…"
 scorsese-server credit balance ana@example.com
+scorsese-server credit free-usage [--since 2026-10-01] [--until …] [ana@example.com]
 ```
+
+`free-usage` prints what the free allowance paid, per user per Brasília day,
+with the month to date and the day each user first paid: who uses the free
+tier, and how much of it a user had used the month they first paid.
 
 A top-up records the dollars credited and nothing else: whatever currency the
 money arrived in, the ledger tracks dollars (#703). One a user bought links to
@@ -2194,7 +2240,8 @@ Claude's five-minute and one-hour cache writes, cache reads, each at its own rat
 `prices::chat`, so a cache hit is cheaper for the user too — times 1.8, as one `charge` entry naming the turn
 (`credit_entries.chat_turn_id`); the spending history folds a turn's calls into
 one row. Not reserved for, since the cost exists only once counted: a turn is
-**refused up front (`402`) at a balance of zero or less**, and stops between
+**refused up front (`402`) at a balance of zero or less** (paid credit and the
+free allowance together, *Credits*), and stops between
 calls once the balance runs out or the turn reaches the operator's cap
 (`SCORSESE_ASSISTANT_TURN_CAP`, default $3.50: the cap is on what the user
 is charged, so it rose with the multiplier, #1247). That figure is Sonnet
