@@ -17,12 +17,13 @@ use super::read::{self, ANALYSIS_RATE};
 ///
 /// The timeline's closest zoom is 320 pixels a second, so forty puts a level
 /// every eight pixels there: a bar with a gap beside it, as editors draw one.
-/// A three-minute file is 7,200 bytes.
+/// A three-minute file is 7,204 bytes on the wire: the rate, then 7,200 levels.
 pub const PEAKS_PER_SECOND: u32 = 40;
 
 /// The most levels one file is read as. Past it (13.6 minutes at
-/// [`PEAKS_PER_SECOND`]), neighbours are merged and the rate falls, so an
-/// hour-long file is still 32 KiB.
+/// [`PEAKS_PER_SECOND`]), neighbours are merged and the rate falls: an
+/// hour-long file is merged in runs of five, 28,800 levels at eight a second,
+/// 28,804 bytes on the wire.
 pub const MOST_PEAKS: usize = 32_768;
 
 /// A sound's levels over time.

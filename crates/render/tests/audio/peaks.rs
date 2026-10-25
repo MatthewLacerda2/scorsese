@@ -116,3 +116,20 @@ fn a_short_sound_is_not_merged() {
     assert_eq!(PEAKS_PER_SECOND, 40);
     assert_eq!(MOST_PEAKS, 32_768);
 }
+
+/// What reaches the browser, as `PEAKS_PER_SECOND` and `MOST_PEAKS` document
+/// it: three minutes as they were read, an hour merged in runs of five.
+#[test]
+fn a_three_minute_and_an_hour_long_sound_on_the_wire() {
+    let at = |seconds: usize| {
+        Peaks {
+            per_second: PEAKS_PER_SECOND as f32,
+            levels: vec![0; seconds * PEAKS_PER_SECOND as usize],
+        }
+        .fit(MOST_PEAKS)
+    };
+
+    assert_eq!(at(180).to_bytes().len(), 7_204);
+    let hour = at(3600);
+    assert_eq!((hour.per_second, hour.to_bytes().len()), (8.0, 28_804));
+}

@@ -1566,7 +1566,8 @@ merges neighbours and the rate falls — into
 `$SCORSESE_CACHE/users/<id>/peaks/`. A sound's tile carries a `peaks` URL;
 the timeline fetches it once per file, kept forever by the browser, and draws
 the slice each clip plays from it, so a trim, a zoom or a scroll fetches
-nothing. A three-minute file is 7,204 bytes.
+nothing. A three-minute file is 7,204 bytes on the wire; an hour-long one is
+merged to eight levels a second, 28,804 bytes.
 
 **Proxies are a job too** (#542): a small copy of a heavy video — its short
 side brought down to 540 px, the same frames at the same times, H.264 with a
