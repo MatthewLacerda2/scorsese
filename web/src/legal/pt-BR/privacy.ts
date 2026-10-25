@@ -11,7 +11,7 @@ import { SELLER } from "@/legal/seller";
 export const PRIVACY_PT: LegalDocument = {
   title: "Política de privacidade",
   updatedLabel: "Última atualização",
-  updated: "2026-10-24",
+  updated: "2026-10-25",
   summary: {
     heading: "Em resumo",
     points: [
@@ -38,6 +38,7 @@ export const PRIVACY_PT: LegalDocument = {
           "Conversas com o assistente: as mensagens e o registro de cada ação que o assistente faz no seu projeto. A gente usa esse registro para encontrar erros e melhorar o assistente.",
           "Créditos e pagamentos: o seu saldo, o histórico de gastos e, de cada compra, o valor, a cotação usada e o identificador do pagamento na Stripe. Os dados do seu cartão vão direto para a Stripe e nunca passam pelo nosso servidor.",
           "Registros de acesso: o endereço IP, a data e a hora de cada vez que você entra com o Google e do primeiro acesso de cada dia, guardados por no mínimo 6 meses, como determina o Marco Civil da Internet (Lei 12.965/2014).",
+          ""Registros do servidor: para cada requisição ao site, o endereço IP, a localização aproximada que a Cloudflare deduz dele (cidade, estado e país), o navegador (user agent), o endereço pedido e a data e a hora, usados para manter o serviço seguro e encontrar erros. Eles nunca registram o seu nome ou e-mail. Ficam guardados em rodízio limitado por tamanho, em que os mais antigos são apagados à medida que chegam novos.",
         ],
       ],
     },

@@ -34,6 +34,16 @@
 
 name: scorsese
 
+# Every service logs to the host's journal (#1526), each under the tag
+# `scorsese-<service>`, which `.github/scripts/tests/test_deploy_logs.py` holds.
+# Docker's default `json-file` keeps a container's log in the container, so
+# each deploy, which recreates `server` and `web`, wiped the history; the
+# journal outlives containers, and journald's own `SystemMaxUse=` bounds it
+# (docs/web.md, "Logs"). `docker compose logs` reads it as before. The tag
+# carries the prefix so a host's own `postgres`, say, is not mixed in.
+x-journald: &journald
+  driver: journald
+
 # What both tunnels share. They differ only in how cloudflared is told which
 # tunnel it is. Both send everything to http://web:80, nginx's tunnel-only
 # door, where CF-Connecting-IP is believed as the visitor's address
@@ -57,6 +67,10 @@ services:
     # together. The backup image
     # builds on it too, so pg_dump always matches the server it dumps.
     image: postgres:17-alpine
+    logging:
+      <<: *journald
+      options:
+        tag: scorsese-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: scorsese
@@ -88,6 +102,10 @@ services:
     # `latest` only at the restart, because page captures start
     # `scorsese-server` by name (crates/server/src/captures/launch).
     image: scorsese-server:${SCORSESE_IMAGE_TAG:-latest}
+    logging:
+      <<: *journald
+      options:
+        tag: scorsese-server
     restart: unless-stopped
     depends_on:
       postgres:
@@ -171,6 +189,10 @@ services:
       args:
         - CARGO_BUILD_JOBS
     image: scorsese-capture-launcher:${SCORSESE_IMAGE_TAG:-latest}
+    logging:
+      <<: *journald
+      options:
+        tag: scorsese-capture-launcher
     # Healthy, because the server makes the spool before it answers, and the
     # spool is mounted when this starts (`capture-spool` at the bottom); and
     # the server's build makes the image every capture runs, which the
@@ -237,6 +259,10 @@ services:
       context: ..
       dockerfile: deploy/web.Dockerfile
     image: scorsese-web:${SCORSESE_IMAGE_TAG:-latest}
+    logging:
+      <<: *journald
+      options:
+        tag: scorsese-web
     restart: unless-stopped
     # Ordering only. nginx re-resolves `server` as it goes (nginx.conf), so the
     # static site comes up and stays up while the server restarts; `/api`
@@ -251,7 +277,9 @@ services:
     ports:
       - "${SCORSESE_WEB_BIND:?set SCORSESE_WEB_BIND in deploy/.env}:${SCORSESE_WEB_PORT:?set SCORSESE_WEB_PORT in deploy/.env}:8080"
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1/"]
+      # A path nginx keeps out of its access log, so a line every 30 s does
+      # not bury the visitors' (nginx.conf).
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -259,6 +287,10 @@ services:
   named-tunnel:
     <<: *cloudflared
     profiles: [named-tunnel]
+    logging:
+      <<: *journald
+      options:
+        tag: scorsese-named-tunnel
     # A remotely-managed tunnel: the token carries the tunnel's identity and
     # Cloudflare's dashboard carries its one public hostname, pointed at
     # http://web:80. No certificate or config file lives on this machine.
@@ -273,6 +305,10 @@ services:
   quick-tunnel:
     <<: *cloudflared
     profiles: [quick-tunnel]
+    logging:
+      <<: *journald
+      options:
+        tag: scorsese-quick-tunnel
     # No account, no token, no domain: Cloudflare hands out a random
     # https://<words>.trycloudflare.com and forgets it when this stops, so a
     # restart is a new address. It is printed in the log:
@@ -285,6 +321,10 @@ services:
     build:
       context: backup
     image: scorsese-backup:${SCORSESE_IMAGE_TAG:-latest}
+    logging:
+      <<: *journald
+      options:
+        tag: scorsese-backup
     restart: unless-stopped
     # PID 1 that forwards SIGTERM, so `docker compose stop` does not wait out
     # the backup loop's sleep.

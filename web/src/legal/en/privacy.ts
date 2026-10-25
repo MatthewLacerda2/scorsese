@@ -8,7 +8,7 @@ import { SELLER } from "@/legal/seller";
 export const PRIVACY_EN: LegalDocument = {
   title: "Privacy policy",
   updatedLabel: "Last updated",
-  updated: "2026-10-24",
+  updated: "2026-10-25",
   summary: {
     heading: "In short",
     points: [
@@ -35,6 +35,7 @@ export const PRIVACY_EN: LegalDocument = {
           "Conversations with the assistant: the messages and the record of each action the assistant takes on your project. We use this record to find errors and improve the assistant.",
           "Credits and payments: your balance, your spending history and, for each purchase, the amount, the exchange rate used and the payment identifier at Stripe. Your card details go straight to Stripe and never pass through our server.",
           "Access logs: the IP address, date and time of each time you sign in with Google and of your first visit each day, kept for at least 6 months, as Brazil's Marco Civil da Internet (Internet Civil Framework, Law 12.965/2014) requires.",
+          ""Server logs: for each request to the site, the IP address, the approximate location Cloudflare works out from it (city, region and country), the browser (user agent), the address requested and the date and time, used to keep the service secure and to find errors. They never record your name or email. They are kept in a rotation limited by size, in which the oldest are deleted as new ones arrive.",
         ],
       ],
     },
