@@ -199,6 +199,7 @@ impl Library {
             Some(self.storage.library_file(user, &sha256, &extension)),
             thumbnail,
             Some(self.storage.proxy(user, &sha256)),
+            (kind == Kind::Audio).then(|| self.storage.peaks(user, &sha256)),
         ];
         for file in files.into_iter().flatten() {
             match std::fs::remove_file(&file) {

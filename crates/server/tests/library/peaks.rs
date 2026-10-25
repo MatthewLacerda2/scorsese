@@ -126,3 +126,25 @@ async fn another_users_peaks_are_not_there_for_them(pool: PgPool) {
     );
     assert_eq!(request(address, "GET", &path, &[], None).await.status, 401);
 }
+
+#[sqlx::test]
+async fn a_deleted_sound_takes_its_peaks_with_it(pool: PgPool) {
+    let files = common::files("peaks-delete");
+    let storage = files.storage.clone();
+    let bytes = sound(&common::scratch::dir("peaks-delete-media"));
+    let (address, _) = common::serve_with(pool.clone(), files).await;
+    let (user, ana) = member(&pool, "ana@example.com").await;
+    let id = upload(address, &ana, "line.wav", &bytes).await;
+    let kept = storage.peaks(user, &scorsese_core::hash_bytes(&bytes));
+    std::fs::create_dir_all(kept.parent().unwrap()).unwrap();
+    std::fs::write(&kept, 40.0_f32.to_le_bytes()).unwrap();
+
+    let path = format!("/api/library/{id}");
+    assert_eq!(
+        request(address, "DELETE", &path, &[&ana], None)
+            .await
+            .status,
+        204
+    );
+    assert!(!kept.exists(), "the peaks went with the file");
+}
