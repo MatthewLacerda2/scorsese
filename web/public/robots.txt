@@ -4,10 +4,13 @@
 # signed-in visitor's own: their projects, their uploads, what was generated
 # for them and the stock footage fetched for them, whose licences forbid
 # redistributing it. None of that is reachable without a session anyway; this
-# file only keeps crawlers from knocking on doors that will not open.
+# file only keeps crawlers from knocking on doors that will not open. The one
+# door under /api/ that opens to anyone is /api/prices: the pricing page reads
+# its figures there, so a crawler rendering /pricing must be let in.
 # crawlers.test.ts holds every signed-in page in web/src/app/routes.tsx to a
 # Disallow line here.
 User-agent: *
+Allow: /api/prices
 Disallow: /api/
 Disallow: /login
 Disallow: /projects

@@ -20,7 +20,8 @@ describe("sitemap.xml", () => {
 });
 
 describe("robots.txt", () => {
-  const disallowed = read("../../public/robots.txt")
+  const robots = read("../../public/robots.txt");
+  const disallowed = robots
     .split("\n")
     .filter((line) => line.startsWith("Disallow:"))
     .map((line) => line.slice("Disallow:".length).trim());
@@ -41,8 +42,13 @@ describe("robots.txt", () => {
     for (const page of PUBLIC) expect(disallowed).not.toContain(page);
   });
 
-  test("disallows the API", () => {
+  test("disallows the API, but the prices the pricing page renders from", () => {
     expect(disallowed).toContain("/api/");
+    const allowed = robots
+      .split("\n")
+      .filter((line) => line.startsWith("Allow:"))
+      .map((line) => line.slice("Allow:".length).trim());
+    expect(allowed).toEqual(["/api/prices"]);
   });
 
   test("allows the landing page", () => {
