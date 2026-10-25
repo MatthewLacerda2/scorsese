@@ -162,7 +162,9 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
           <JobProgressBar job={playable.job} />
         </div>
       )}
-      <div className="flex items-center gap-1">
+      {/* Under `sm` the row wraps: the buttons and the scrub bar, then the clock
+          and the quality under them, so a phone shows them all (#1578). */}
+      <div className="flex flex-wrap items-center gap-1 sm:flex-nowrap">
         <Button size="icon" variant="ghost" aria-label={t.start} onClick={() => seek(0)}>
           <SkipBackIcon />
         </Button>
@@ -191,34 +193,37 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
         <input
           type="range"
           aria-label={t.scrub}
-          className="mx-2 flex-1"
+          className="mx-2 min-w-0 flex-1"
           min={0}
           max={Math.max(1, total)}
           value={Math.min(playhead, Math.max(1, total))}
           onChange={(event) => seek(Number(event.target.value))}
         />
-        {/* One line however narrow the panel (#1006). */}
-        <span className="shrink-0 whitespace-nowrap font-mono text-xs tabular-nums">
-          {clock(playhead, fps)} / {clock(total, fps)}
-        </span>
-        <NativeSelect
-          aria-label={t.quality}
-          title={t.qualities[quality].says}
-          size="sm"
-          className="text-xs"
-          value={quality}
-          onChange={(event) => {
-            const next = event.target.value as Quality;
-            setQuality(next);
-            saveQuality(next);
-          }}
-        >
-          {(Object.keys(QUALITIES) as Quality[]).map((choice) => (
-            <NativeSelectOption key={choice} value={choice}>
-              {t.qualities[choice].label}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
+        {/* Its own row under `sm`; from `sm` up, its children sit in the row. */}
+        <div className="flex basis-full items-center justify-between gap-1 sm:contents">
+          {/* One line however narrow the panel (#1006). */}
+          <span className="shrink-0 whitespace-nowrap font-mono text-xs tabular-nums">
+            {clock(playhead, fps)} / {clock(total, fps)}
+          </span>
+          <NativeSelect
+            aria-label={t.quality}
+            title={t.qualities[quality].says}
+            size="sm"
+            className="text-xs"
+            value={quality}
+            onChange={(event) => {
+              const next = event.target.value as Quality;
+              setQuality(next);
+              saveQuality(next);
+            }}
+          >
+            {(Object.keys(QUALITIES) as Quality[]).map((choice) => (
+              <NativeSelectOption key={choice} value={choice}>
+                {t.qualities[choice].label}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </div>
       </div>
     </div>
   );
