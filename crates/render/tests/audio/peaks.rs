@@ -7,7 +7,7 @@
 use scorsese_render::audio::{MOST_PEAKS, PEAKS_PER_SECOND, Peaks, peaks};
 
 use crate::common::audio::tone_file;
-use crate::common::ffmpeg::tools;
+use crate::common::ffmpeg::{generate, tools};
 use crate::common::scratch;
 
 /// Silent for a second, then a half-scale tone: the first second's levels are
@@ -48,6 +48,28 @@ fn the_last_part_of_a_stretch_is_a_level_of_its_own() {
 
     assert_eq!(read.levels.len(), 41, "forty whole stretches and a part");
     assert!(read.levels[40].abs_diff(128) <= 1, "{:?}", read.levels);
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A stereo file is read on frames, not samples, and a level is the louder
+/// channel's: two seconds are eighty levels, and a sound in one channel only
+/// still reads at its own level.
+#[test]
+fn a_stereo_sound_is_read_on_frames_at_its_louder_channel() {
+    let tools = tools();
+    let dir = scratch::dir("peaks-stereo");
+    let file = dir.join("right.wav");
+    let graph = "aevalsrc=exprs=0|0.5*sin(2*PI*440*t):duration=2:sample_rate=48000";
+    generate(&tools, &file, &["-f", "lavfi", "-i", graph]);
+
+    let read = peaks(&tools, &file).expect("a wav has peaks");
+
+    assert_eq!(read.levels.len(), 80, "two seconds at forty a second");
+    assert!(
+        read.levels.iter().all(|level| level.abs_diff(128) <= 1),
+        "{:?}",
+        read.levels
+    );
     std::fs::remove_dir_all(&dir).ok();
 }
 
