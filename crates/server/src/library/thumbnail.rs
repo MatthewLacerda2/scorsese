@@ -12,10 +12,17 @@
 //! shorter one), a picture scaled down, a sound's waveform. A page or a
 //! document has none ([`LibraryError::NoThumbnail`]): it is text, and drawing
 //! one would mean capturing it.
+//!
+//! A sound's job also reads its **peaks** ([`scorsese_render::audio::peaks`],
+//! #1572), the levels the timeline draws a clip's waveform from, into the
+//! cache beside its picture; [`Library::peaks`] asks for them as
+//! [`Library::thumbnail`] asks for a picture, and a missing one queues the
+//! same job.
 
 use std::path::{Path, PathBuf};
 
 use scorsese_render::Tools;
+use scorsese_render::audio::peaks;
 use scorsese_render::frames::{Thumbnail, thumbnail};
 use serde_json::{Value, json};
 
@@ -84,17 +91,44 @@ async fn draw(
         return Ok(json!({ "item": id, "drawn": false }));
     };
     let source = storage.library_file(job.user, &item.sha256, &item.extension);
+    let levels = (item.kind == Kind::Audio).then(|| storage.peaks(job.user, &item.sha256));
     let tools = tools.clone();
-    tokio::task::spawn_blocking(move || write(&tools, &source, what, &out))
-        .await
-        .map_err(|error| error.to_string())??;
+    let job = job.id;
+    tokio::task::spawn_blocking(move || {
+        write(&tools, &source, what, &out, job)?;
+        levels.map_or(Ok(()), |levels| read_peaks(&tools, &source, &levels, job))
+    })
+    .await
+    .map_err(|error| error.to_string())??;
     Ok(json!({ "item": id }))
 }
 
+/// Read a sound's peaks into `out`, by way of a file beside it as a picture is.
+fn read_peaks(tools: &Tools, source: &Path, out: &Path, job: i64) -> Result<(), String> {
+    let read = peaks(tools, source).map_err(|error| {
+        eprintln!("scorsese-server: {error}");
+        "the sound's peaks could not be read".to_owned()
+    })?;
+    let reading = out.with_extension(format!("reading-{job}"));
+    if let Some(directory) = out.parent() {
+        std::fs::create_dir_all(directory).map_err(|error| error.to_string())?;
+    }
+    std::fs::write(&reading, read.to_bytes()).map_err(|error| error.to_string())?;
+    std::fs::rename(&reading, out).map_err(|error| error.to_string())
+}
+
 /// Draw to a file beside `out` and rename it into place, so a thumbnail is
-/// never read half-written.
-fn write(tools: &Tools, source: &Path, what: Thumbnail, out: &Path) -> Result<(), String> {
-    let drawing = out.with_extension(format!("drawing.{}", what.extension()));
+/// never read half-written. The file beside it is named for the job: two
+/// jobs drawing one item at once (`/thumbnail` and `/peaks` can each queue
+/// one) never write into each other's.
+fn write(
+    tools: &Tools,
+    source: &Path,
+    what: Thumbnail,
+    out: &Path,
+    job: i64,
+) -> Result<(), String> {
+    let drawing = out.with_extension(format!("drawing-{job}.{}", what.extension()));
     thumbnail(tools, source, what, &drawing).map_err(|error| {
         eprintln!("scorsese-server: {error}");
         "the thumbnail could not be drawn".to_owned()
@@ -114,6 +148,35 @@ impl Library {
         let item = self.get(user, id).await?;
         let file =
             path(&self.storage, user, &item.sha256, item.kind).ok_or(LibraryError::NoThumbnail)?;
+        self.drawn_or_queued(user, id, file).await
+    }
+
+    /// Where `user`'s sound `id`'s peaks are, when they have been read;
+    /// [`LibraryError::NoPeaks`] for anything but a sound. Otherwise as
+    /// [`Library::thumbnail`]: the job that draws a sound's picture reads
+    /// them, and is queued when they are missing.
+    pub async fn peaks(&self, user: UserId, id: i64) -> Result<Option<PathBuf>, LibraryError> {
+        let item = self.get(user, id).await?;
+        if item.kind != Kind::Audio {
+            return Err(LibraryError::NoPeaks);
+        }
+        let file = self.storage.peaks(user, &item.sha256);
+        // Too short to hold its rate: never served, since the browser would
+        // keep it for a year. Read again instead.
+        if std::fs::metadata(&file).is_ok_and(|kept| kept.len() < 4) {
+            let _ = std::fs::remove_file(&file);
+        }
+        self.drawn_or_queued(user, id, file).await
+    }
+
+    /// `file` when it is there; otherwise the drawing job for item `id` queued
+    /// unless one is pending, and `None`.
+    async fn drawn_or_queued(
+        &self,
+        user: UserId,
+        id: i64,
+        file: PathBuf,
+    ) -> Result<Option<PathBuf>, LibraryError> {
         if file.is_file() {
             return Ok(Some(file));
         }

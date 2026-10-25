@@ -2,7 +2,7 @@
 // tables as functions. A page imports `api` and never builds a URL itself, so
 // when a route changes there is one file to change with it.
 
-import { query, request } from "./client";
+import { ApiError, query, request } from "./client";
 import type { JobView } from "./events";
 import type {
   AbBatch,
@@ -133,6 +133,13 @@ export const api = {
     fileUrl: (id: number) => `/api/library/${id}/file`,
     /** The same file sent to be saved under its own name and extension (#711). */
     downloadUrl: (id: number) => `/api/library/${id}/file?download=1`,
+    /** A sound's peaks (#1572) at the URL its tile names; rejects with the
+     * status, `404` while they are being read. */
+    peaks: async (url: string): Promise<ArrayBuffer> => {
+      const response = await fetch(url);
+      if (!response.ok) throw new ApiError(response.status, `peaks: ${response.status}`);
+      return response.arrayBuffer();
+    },
     /** The file as text — a page's source, shown and never run (#1300). */
     fileText: async (id: number): Promise<string> => {
       const response = await fetch(`/api/library/${id}/file`);

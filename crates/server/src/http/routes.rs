@@ -103,6 +103,7 @@ pub fn table() -> Vec<Route> {
         Route::new(M::DELETE, "/library/{id}", library::delete),
         Route::new(M::GET, "/library/{id}/file", library::file),
         Route::new(M::GET, "/library/{id}/thumbnail", library::thumbnail),
+        Route::new(M::GET, "/library/{id}/peaks", library::peaks),
         Route::new(M::OPTIONS, "/uploads", uploads::options),
         Route::new(M::POST, "/uploads", uploads::announce),
         Route::new(M::HEAD, "/uploads/{id}", uploads::progress),

@@ -61,6 +61,8 @@ export interface LibraryTile {
   size_bytes: number;
   /** Where its thumbnail is; `404 {"pending": true}` there until it is drawn. */
   thumbnail: string;
+  /** A sound's peaks (#1572), as `thumbnail`; absent for anything else. */
+  peaks?: string;
 }
 
 /** `scorsese_core::MediaMetadata` — what probing the file found. */

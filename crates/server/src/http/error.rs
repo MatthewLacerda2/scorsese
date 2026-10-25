@@ -82,7 +82,7 @@ impl From<LibraryError> for ApiError {
                 Self::refused(StatusCode::CONFLICT, &error, json!({ "offset": expected }))
             }
             LibraryError::Busy => Self::refused(StatusCode::LOCKED, &error, none),
-            LibraryError::NoThumbnail => {
+            LibraryError::NoThumbnail | LibraryError::NoPeaks => {
                 Self::refused(StatusCode::NOT_FOUND, &error, json!({ "pending": false }))
             }
             LibraryError::Unsupported(_) => {

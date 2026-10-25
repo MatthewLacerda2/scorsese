@@ -23,6 +23,7 @@ pub(crate) mod level;
 pub(crate) mod loudness;
 pub(crate) mod measure;
 pub(crate) mod mix;
+pub(crate) mod peaks;
 pub(crate) mod read;
 pub mod reference;
 pub(crate) mod wave;
@@ -49,6 +50,7 @@ pub use loudness::Lift;
 pub use loudness::target::{LoudnessTarget, LoudnessTargetError};
 pub use measure::measure;
 pub use mix::{CHANNELS, Mix, Ramp};
+pub use peaks::{MOST_PEAKS, PEAKS_PER_SECOND, Peaks, peaks};
 pub use wave::{Findings, WaveError, Waveform, waveform};
 // The four `zimmer` types this crate's own signatures are written in — a
 // measurement, a meter to make one with, and the two shapes a level comes back

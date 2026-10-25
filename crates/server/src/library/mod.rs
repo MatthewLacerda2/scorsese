@@ -187,6 +187,10 @@ pub enum LibraryError {
     #[error("a web page or a document has no thumbnail")]
     NoThumbnail,
 
+    /// The item is not a sound, and only a sound has peaks (#1572).
+    #[error("only a sound has peaks")]
+    NoPeaks,
+
     /// The file is not what it said it was — a hash that differs from the one
     /// announced, a `.mp4` with no picture, a file no prober reads.
     #[error("{0}")]
