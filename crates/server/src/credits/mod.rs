@@ -66,6 +66,7 @@ pub mod adjust;
 pub mod allowance;
 pub mod command;
 pub mod designs;
+pub mod examples;
 pub mod generations;
 pub mod history;
 pub mod ledger;

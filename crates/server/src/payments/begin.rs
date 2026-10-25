@@ -53,7 +53,7 @@ impl Payments {
 }
 
 /// `centavos` at `rate`, with the bonus its tier adds.
-fn quoted(centavos: i64, rate: &Rate, bonus: &Bonus) -> Result<Quote, PaymentError> {
+pub(super) fn quoted(centavos: i64, rate: &Rate, bonus: &Bonus) -> Result<Quote, PaymentError> {
     let credit_micros = rate
         .micros_for(centavos)
         .filter(|micros| *micros > 0)

@@ -172,6 +172,37 @@ export interface PaymentQuote {
   maximum_centavos: number;
 }
 
+/** `credits::examples::Example` — what something costs a user (#1538). */
+export interface CostExample {
+  id: "image" | "narration" | "music" | "video";
+  from_micros: number;
+  /** The most it costs, when it is a range. */
+  to_micros?: number;
+}
+
+/** `payments::Card` — a recharge card and what it buys now. */
+export interface RechargeCard {
+  brl_centavos: number;
+  bonus_percent: number;
+  /** The card with the most bonus, the one the page highlights. */
+  best: boolean;
+  /** At the rate kept now; `null` while the server has none fresh. */
+  quote: PaymentQuote | null;
+}
+
+/** `http::prices::Prices` — what the public pricing page shows (#1538). */
+export interface Prices {
+  examples: CostExample[];
+  free: { daily_micros: number; monthly_micros: number };
+  /** `null` on a server that sells nothing. */
+  recharge: {
+    minimum_centavos: number;
+    maximum_centavos: number;
+    tiers: { from_centavos: number; percent: number }[];
+    cards: RechargeCard[];
+  } | null;
+}
+
 /** `payments::Begun` — a Checkout Session to send the browser to. */
 export interface PaymentBegun {
   url: string;

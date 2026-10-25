@@ -18,7 +18,7 @@ use axum::routing::{MethodFilter, MethodRouter, on};
 
 use super::{
     AppState, account, chat, client_errors, credits, editor, events, google, health, jobs, library,
-    mcp, payments, projects, renders, tokens, uploads,
+    mcp, payments, prices, projects, renders, tokens, uploads,
 };
 
 /// One method on one path, and what answers it.
@@ -90,6 +90,8 @@ pub fn table() -> Vec<Route> {
         // Buying credits (#548): a quote, a Checkout Session, the return
         // page's confirmation, and Stripe's webhook.
         Route::new(M::GET, "/payments/quote", payments::quote),
+        // What the public pricing page shows (#1538).
+        Route::new(M::GET, "/prices", prices::prices),
         Route::new(M::POST, "/payments", payments::start),
         Route::new(M::POST, "/payments/{session}/confirm", payments::confirm),
         Route::new(M::POST, "/payments/stripe/webhook", payments::webhook),

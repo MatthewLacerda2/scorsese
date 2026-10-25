@@ -346,7 +346,8 @@ pub async fn start(
     let state = AppState::new(pool.clone(), files)
         .with_assistant(assistant)
         .with_google(services.google)
-        .with_payments(services.payments.clone());
+        .with_payments(services.payments.clone())
+        .with_free(services.free);
     let (stop, stopping) = watch::channel(false);
     let rate = services
         .payments

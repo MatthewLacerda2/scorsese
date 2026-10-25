@@ -15,7 +15,7 @@ use scorsese_server::payments::Bonus;
 use super::{Fake, balance, bought, member, rates, serve_with, top_ups};
 
 /// What R$ 40,00 buys at 4.99, and its 5%.
-const FORTY: (i64, i64) = (8_016_032, 400_801);
+pub(super) const FORTY: (i64, i64) = (8_016_032, 400_801);
 /// What R$ 80,00 buys at 4.99, and its 10%.
 pub(super) const EIGHTY: (i64, i64) = (16_032_064, 1_603_206);
 
