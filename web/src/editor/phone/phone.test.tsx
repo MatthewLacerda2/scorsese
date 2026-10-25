@@ -32,7 +32,9 @@ const project: EditorProject = {
     schema_version: SCHEMA_VERSION,
     name: "teaser",
     timeline_fps: { num: 30, den: 1 },
-    tracks: [{ id: "v1", kind: "video", clips: [{ id: "c1", asset: "a1", start: 0, duration: 60 }] }],
+    tracks: [
+      { id: "v1", kind: "video", clips: [{ id: "c1", asset: "a1", start: 0, duration: 60 }] },
+    ],
   },
 } as EditorProject;
 
