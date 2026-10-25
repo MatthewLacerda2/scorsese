@@ -47,7 +47,7 @@ async fn free_at(pool: &PgPool, user: UserId, at: i64) -> allowance::Free {
 
 /// A $1 line that the allowance paid for in full at `at`, written as the
 /// ledger writes one: its reservation and the allowance beside it.
-async fn spent_free_at(pool: &PgPool, user: UserId, at: &str, micros: i64) {
+pub(super) async fn spent_free_at(pool: &PgPool, user: UserId, at: &str, micros: i64) {
     let mut tx = db::scoped(pool, user).await.unwrap();
     let reservation: i64 = sqlx::query_scalar(
         "INSERT INTO credit_entries (user_id, kind, amount_micros, memo, created_at)

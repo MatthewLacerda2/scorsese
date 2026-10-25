@@ -158,7 +158,7 @@ fn check(filter: &Filter) -> Result<(), CreditError> {
 }
 
 /// Whether `text` is a real calendar day written `YYYY-MM-DD`.
-fn is_day(text: &str) -> bool {
+pub(super) fn is_day(text: &str) -> bool {
     let parts: Vec<&str> = text.split('-').collect();
     let [year, month, day] = parts.as_slice() else {
         return false;
