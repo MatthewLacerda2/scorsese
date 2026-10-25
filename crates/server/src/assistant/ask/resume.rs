@@ -28,7 +28,7 @@ pub(in crate::assistant) async fn resuming(
     let effort = Effort::from_name(&paused.effort)
         .ok_or_else(|| AssistantError::Internal(format!("unknown effort {}", paused.effort)))?;
     let client = state.assistant.chat(model)?;
-    let balance = ledger::balance(tx).await?;
+    let balance = ledger::spendable(tx).await?;
     // The paused turn is its conversation's last: nothing starts after it
     // while it waits, since a new message is its answer.
     let mut kept = history(tx, paused.session).await?;

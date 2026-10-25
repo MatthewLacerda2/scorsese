@@ -76,7 +76,7 @@ pub async fn start(
         None => effort::of(&mut tx, project).await?,
     };
     let client = state.assistant.chat(model)?;
-    let balance = ledger::balance(&mut tx).await?;
+    let balance = ledger::spendable(&mut tx).await?;
     if balance <= 0 {
         return Err(AssistantError::NoCredit(dollars(balance)));
     }

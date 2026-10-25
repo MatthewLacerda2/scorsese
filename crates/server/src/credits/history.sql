@@ -5,17 +5,21 @@
 -- $6 limit. Every filter is optional.
 WITH keyed AS (
     -- A reservation and the entries that settle it are one group, keyed by
-    -- the reservation; an assistant turn's calls are one group, keyed by its
-    -- first (#540); every other entry is a group of its own.
+    -- the reservation; an assistant turn's calls, and what the allowance paid
+    -- of them, are one group, keyed by its first (#540); every other entry is
+    -- a group of its own.
     SELECT id, kind, amount_micros,
-           COALESCE(settles,
-                    CASE WHEN chat_turn_id IS NOT NULL
+           COALESCE(CASE WHEN chat_turn_id IS NOT NULL
                          THEN min(id) OVER (PARTITION BY chat_turn_id) END,
+                    settles,
                     id) AS root
     FROM credit_entries
 ), settled AS (
     SELECT root,
            sum(amount_micros)::bigint AS amount,
+           -- What the free allowance paid of it (#1530), net of what a
+           -- failure gave back.
+           COALESCE(sum(amount_micros) FILTER (WHERE kind = 'allowance'), 0)::bigint AS free,
            bool_or(kind = 'release') AS released,
            bool_or(kind = 'charge') AS charged
     FROM keyed GROUP BY 1
@@ -38,6 +42,7 @@ WITH keyed AS (
                 WHEN s.released THEN 'free'
                 ELSE 'pending' END AS status,
            s.amount,
+           s.free,
            sum(s.amount) OVER (ORDER BY e.id)::bigint AS balance_after,
            CASE WHEN v.id IS NOT NULL THEN jsonb_build_object(
                     'model', v.model, 'resolution', v.resolution, 'seconds', v.seconds,
@@ -95,6 +100,7 @@ SELECT id,
        project_name,
        memo,
        amount AS amount_micros,
+       free AS free_micros,
        balance_after AS balance_after_micros,
        detail,
        matched,

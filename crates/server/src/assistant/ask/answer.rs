@@ -135,7 +135,7 @@ pub async fn answer(
 pub async fn set_aside(state: &AppState, user: UserId, id: i64) -> Result<bool, AssistantError> {
     let mut tx = db::scoped(&state.pool, user).await?;
     let ended = asking::set_aside(&mut tx, id).await?;
-    let balance = ledger::balance(&mut tx).await?;
+    let balance = ledger::spendable(&mut tx).await?;
     tx.commit().await?;
     let Some((turn, token)) = ended else {
         return Ok(false);

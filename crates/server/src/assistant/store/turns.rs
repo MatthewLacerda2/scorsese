@@ -260,7 +260,7 @@ pub(in crate::assistant) async fn charge(
     .bind(charged.micros)
     .execute(&mut *tx)
     .await?;
-    let balance = ledger::balance(&mut tx).await?;
+    let balance = ledger::spendable(&mut tx).await?;
     tx.commit().await?;
     Ok((charged.micros, balance))
 }
@@ -321,7 +321,7 @@ pub(in crate::assistant) async fn finish(
     .execute(&mut *tx)
     .await?;
     let view = view(&mut tx, turn).await?.ok_or(AssistantError::NotFound)?;
-    let balance = ledger::balance(&mut tx).await?;
+    let balance = ledger::spendable(&mut tx).await?;
     tx.commit().await?;
     Ok((view, balance, held))
 }

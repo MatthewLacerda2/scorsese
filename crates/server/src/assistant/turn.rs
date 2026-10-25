@@ -54,7 +54,8 @@ pub(super) struct Running {
     pub(super) messages: Vec<Box<RawValue>>,
     /// The same, neutral.
     pub(super) record: Vec<Message>,
-    /// Their balance when it started, or resumed.
+    /// What they could spend when it started, or resumed: paid credit and
+    /// the free allowance together (`ledger::spendable`).
     pub(super) balance: i64,
     /// What it had cost before then: nothing for a new turn, the calls made
     /// before its question for a resumed one. The per-turn cap covers both.

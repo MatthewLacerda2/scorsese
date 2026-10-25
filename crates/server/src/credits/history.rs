@@ -10,6 +10,9 @@
 //! ledger in order of the rows — never over the filtered view, which would
 //! make the number depend on the question.
 //!
+//! **A spend the free allowance paid for shows its free part** beside what
+//! it took from the balance (#1530), so the audit stays complete.
+//!
 //! Filterable by project, kind and a date range (UTC days, inclusive), with a
 //! total over everything the filter matches — "this project has cost $…" —
 //! whatever page of it is being read.
@@ -74,7 +77,11 @@ pub struct Row {
     /// What it was, in words.
     pub memo: String,
     /// What it moved the balance by, in micro-dollars: negative is spent.
+    /// The paid part only; the free allowance's is [`Row::free_micros`].
     pub amount_micros: i64,
+    /// What the free allowance paid of it, in micro-dollars (#1530): what
+    /// it cost is this and the amount spent together.
+    pub free_micros: i64,
     /// The balance once it had.
     pub balance_after_micros: i64,
     /// What set its price: model, resolution and seconds; model, voice and

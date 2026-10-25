@@ -186,7 +186,7 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
         let issued = quotes::issue(&mut tx, &quote, charged, now, caller.call)
             .await
             .map_err(database)?;
-        let balance = ledger::balance(&mut tx).await.map_err(database)?;
+        let balance = ledger::spendable(&mut tx).await.map_err(database)?;
         tx.commit().await.map_err(database)?;
         return Ok(format!(
             "design: {}\nAbout {} at ElevenLabs' published rate — {} from your credits. Our \

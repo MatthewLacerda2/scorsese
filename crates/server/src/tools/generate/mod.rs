@@ -193,7 +193,7 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
                 .await
                 .map_err(database)?;
         }
-        let balance = ledger::balance(&mut tx).await.map_err(database)?;
+        let balance = ledger::spendable(&mut tx).await.map_err(database)?;
         tx.commit().await.map_err(database)?;
         lines.push(format!(
             "Your balance is {}. Nothing has been sent. To spend this, call generate again \

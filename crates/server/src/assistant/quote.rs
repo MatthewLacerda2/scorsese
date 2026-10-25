@@ -180,10 +180,10 @@ pub async fn answer(
     })
 }
 
-/// `user`'s balance now.
+/// What `user` can spend now (`ledger::spendable`).
 async fn balance(state: &AppState, user: UserId) -> Result<i64, sqlx::Error> {
     let mut tx = db::scoped(&state.pool, user).await?;
-    let balance = ledger::balance(&mut tx).await?;
+    let balance = ledger::spendable(&mut tx).await?;
     tx.commit().await?;
     Ok(balance)
 }

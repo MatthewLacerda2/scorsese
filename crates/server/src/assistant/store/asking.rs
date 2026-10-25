@@ -31,7 +31,7 @@ pub(in crate::assistant) async fn pause(
     .execute(&mut *tx)
     .await?;
     let view = view(&mut tx, turn).await?.ok_or(AssistantError::NotFound)?;
-    let balance = ledger::balance(&mut tx).await?;
+    let balance = ledger::spendable(&mut tx).await?;
     tx.commit().await?;
     Ok((view, balance))
 }
@@ -49,7 +49,7 @@ pub(in crate::assistant) async fn hold(
         .execute(&mut *tx)
         .await?;
     let view = view(&mut tx, turn).await?.ok_or(AssistantError::NotFound)?;
-    let balance = ledger::balance(&mut tx).await?;
+    let balance = ledger::spendable(&mut tx).await?;
     tx.commit().await?;
     Ok((view, balance))
 }

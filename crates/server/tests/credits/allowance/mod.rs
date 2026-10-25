@@ -20,7 +20,7 @@ const FOUR_A_DAY: Allowance = Allowance {
 };
 
 /// A spoken line quoted at `cents`, which costs the user `cents` × 1.8.
-fn line(cents: u64, settings: &Value) -> Request<'_> {
+pub(super) fn line(cents: u64, settings: &Value) -> Request<'_> {
     Request::Line(Line {
         project: None,
         tool_call: None,

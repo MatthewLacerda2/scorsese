@@ -24,7 +24,8 @@ pub const NAME: &str = "spending_history";
 pub const DESCRIPTION: &str = "List what the signed-in user has spent and paid in: every Veo shot, \
 still, spoken line, voice design, assistant turn, top-up and refund, newest first, each with the balance \
 after it. Read-only and free. A generation the provider failed shows as free; one that worked is \
-charged whether or not it was kept. Amounts are in US dollars, the currency the ledger is kept in. Filter by project, kind or a \
+charged whether or not it was kept, and what the daily free allowance paid of it is shown beside \
+it. Amounts are in US dollars, the currency the ledger is kept in. Filter by project, kind or a \
 range of days, and the answer includes what everything matched adds up to: ask with since and \
 until to answer \"what did I spend this week?\".";
 
@@ -87,8 +88,16 @@ pub fn answer(history: &History) -> String {
             "pending" => format!("{} held while it runs", dollars(-row.amount_micros)),
             _ => dollars(row.amount_micros),
         };
+        let free = if row.free_micros == 0 {
+            String::new()
+        } else {
+            format!(
+                " (and {} from the free allowance)",
+                dollars(row.free_micros)
+            )
+        };
         text.push_str(&format!(
-            "\n#{} on {} — {}{project}: {status}; balance after {}",
+            "\n#{} on {} — {}{project}: {status}{free}; balance after {}",
             row.id,
             row.when,
             row.memo,
