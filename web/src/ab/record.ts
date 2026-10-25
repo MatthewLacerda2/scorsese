@@ -12,7 +12,7 @@ import { visitorCode } from "./visitor";
 const BOT = /bot|crawl|spider|slurp|headless|lighthouse|facebookexternalhit/i;
 
 /** Whether this browser is one whose visits are not counted. */
-export function automated(): boolean {
+function automated(): boolean {
   return navigator.webdriver === true || BOT.test(navigator.userAgent);
 }
 

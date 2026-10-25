@@ -78,7 +78,7 @@ test("a visit's view, depth, time and prompt reach the report", async ({ browser
     document.dispatchEvent(new Event("visibilitychange"));
   });
   const box = page.getByRole("textbox", { name: "Describe your video" }).first();
-  await box.fill("a lighthouse at dawn");
+  await box.fill("a paper boat on a pond");
   await box.press("Enter");
   await expect(page).toHaveURL(/\/projects\/\d+\/edit$/);
   expect(new Set(kinds)).toEqual(new Set(["view", "section", "end", "time", "prompt"]));
