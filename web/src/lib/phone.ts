@@ -7,7 +7,7 @@
 import { useSyncExternalStore } from "react";
 
 /** Tailwind's `md`, below which the window is a phone's. */
-export const PHONE_QUERY = "(max-width: 47.99rem)";
+const PHONE_QUERY = "(max-width: 47.99rem)";
 
 const query = () => (typeof matchMedia === "function" ? matchMedia(PHONE_QUERY) : null);
 
