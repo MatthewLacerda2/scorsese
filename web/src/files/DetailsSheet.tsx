@@ -138,11 +138,6 @@ function Details({
       <section className="flex flex-col gap-1">
         <h3 className="text-sm font-medium">{words.usedIn}</h3>
         <ProjectLinks projects={item.used_by} empty={words.unused} />
-        {item.templates.length > 0 && (
-          <p className="text-sm text-muted-foreground">
-            {words.templates(item.templates.map((template) => template.name).join(", "))}
-          </p>
-        )}
       </section>
 
       {item.generation && <GenerationRecord record={item.generation} />}

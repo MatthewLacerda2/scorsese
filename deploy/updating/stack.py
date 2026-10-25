@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Callable, Dict, List, Sequence, Tuple
+from typing import Callable, Dict, List, Sequence
 
 from .host import Refusal, Result
 
@@ -128,16 +128,13 @@ def not_ready(entries: Sequence[dict], names: Sequence[str] = ()) -> List[str]:
     return sorted(waiting)
 
 
-def stored_migrations(log: str) -> Tuple[int, int]:
-    """Projects and templates the server migrated, from its start-up lines.
+def stored_migrations(log: str) -> int:
+    """Projects the server migrated, from its start-up lines.
 
-    It prints `migrated N stored projects` (and templates) only when N > 0
+    It prints `migrated N stored projects` only when N > 0
     (`crates/server/src/lib.rs`), so silence is zero.
     """
-    counts = {"projects": 0, "templates": 0}
-    for count, what in re.findall(r"migrated (\d+) stored (projects|templates)", log):
-        counts[what] += int(count)
-    return counts["projects"], counts["templates"]
+    return sum(int(count) for count in re.findall(r"migrated (\d+) stored projects", log))
 
 
 def dump_name(backup_out: str) -> str:

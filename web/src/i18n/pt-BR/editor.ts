@@ -111,26 +111,4 @@ export const editor: Messages["editor"] = {
       },
     },
   },
-  templates: {
-    title: "Modelos",
-    none: "Nenhum ainda. Selecione clipes na linha do tempo e salve como modelo.",
-    summary: (seconds: string, clips: number) =>
-      `${seconds}s · ${clips === 1 ? "1 clipe" : `${clips} clipes`}`,
-    insert: (name: string) => `Inserir ${name} na agulha`,
-    insertTitle: (seconds: string) => `Inserir na agulha (${seconds}s)`,
-    remove: (name: string) => `Excluir ${name}`,
-    removeTitle: "Excluir o modelo — os vídeos em que ele foi usado ficam com as cópias deles",
-    confirmRemove: (name: string) => `Excluir o modelo “${name}”?`,
-    save: "Salvar como modelo",
-    unavailable:
-      "Modelos são clipes selecionados para serem reutilizados. Selecione clipes na linha do tempo ou peça ao assistente.",
-    where: "Os seus ficam em Modelos, no painel de recursos.",
-    saveTitle:
-      "Selecione clipes na linha do tempo (Shift+clique para vários) e salve para reutilizar",
-    saveDescription: (count: number) =>
-      `${count === 1 ? "O clipe selecionado" : `Os ${count} clipes selecionados`}, para usar depois em qualquer projeto seu. Mudar o modelo nunca muda um vídeo em que ele já foi usado.`,
-    name: "Nome do modelo",
-    placeholder: "Abertura, encerramento, legenda de nome…",
-    replace: "Substituir o modelo que tem esse nome",
-  },
 };

@@ -24,7 +24,6 @@ import type {
   RenderView,
   StoredProject,
   StyleMenu,
-  TemplateSummary,
   ToolAnswer,
 } from "./types";
 
@@ -38,9 +37,8 @@ export * from "./types";
  * hand-edits (a lane, a placement, a trim, a value, a move to another lane, a
  * delete, removing a lane or an asset with the clips that go named — #396 — and
  * a new frame shape, #1278),
- * bringing a library file in, looking at a frame, and saving the selection as a
- * template or putting one in (#546), and reading and rewriting the script from
- * the Script button (#1445).
+ * bringing a library file in, looking at a frame, and reading and rewriting
+ * the script from the Script button (#1445).
  */
 export type EditorTool =
   | "track_new"
@@ -54,8 +52,6 @@ export type EditorTool =
   | "project_reframe"
   | "import"
   | "still"
-  | "template_save"
-  | "template_insert"
   | "script_read"
   | "script_write";
 
@@ -192,12 +188,6 @@ export const api = {
         `/projects/${id}/previews`,
         ask,
       ),
-  },
-  templates: {
-    /** The user's templates, by name — saved and inserted through the tools. */
-    list: () => request<TemplateSummary[]>("GET", "/templates"),
-    /** The videos it went into keep their copies. */
-    remove: (id: number) => request<void>("DELETE", `/templates/${id}`),
   },
   credits: {
     balance: () => request<Balance>("GET", "/credits"),

@@ -1,9 +1,9 @@
 //! What one asset names in its own brief: the one list of it.
 //!
-//! Collecting, extracting a template and inserting one all ask "what does this
+//! Collecting and garbage-collecting both ask "what does this
 //! asset lean on?", and each used to answer it by hand. Three lists drift: gc's
 //! forgot a shot's stills and deleted pictures a project still named (#1100).
-//! A new field that names an asset is added here, and all three follow.
+//! A new field that names an asset is added here, and every caller follows.
 
 use super::{Asset, AssetId, ImageRequest, VideoRequest};
 

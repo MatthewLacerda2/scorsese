@@ -34,7 +34,6 @@ export const queryKeys = {
   chat: ["chat"] as const,
   conversation: (projectId: number) => ["chat", projectId] as const,
 
-  templates: ["templates"] as const,
   styles: ["styles"] as const,
 
   paymentQuote: (centavos: number | null) => ["payments", "quote", centavos] as const,

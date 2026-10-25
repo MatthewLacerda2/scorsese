@@ -1,13 +1,12 @@
 // The editor's controls in the app header (#764): the project's name, its
-// platform and style (#1016), Save as template, the frame shape and Render. They used to be a strip of the
+// platform and style (#1016), the frame shape and Render. They used to be a strip of the
 // editor's own under the header, which took height the timeline needs while
 // the header sat half empty; `EditorHeader` puts them in that room instead.
 //
 // On a narrow window the name gives way first — it truncates to nothing
 // before a button shrinks — because the name is already on the projects page
-// and the buttons are what the user came for. Below `lg` the two buttons drop
-// their words and keep their icons (named for a screen reader, and Save as
-// template by its hover text too).
+// and the buttons are what the user came for. Below `lg` the buttons drop
+// their words and keep their icons (named for a screen reader).
 
 import { FilmIcon } from "lucide-react";
 import type { Fps } from "@/api";
@@ -26,13 +25,10 @@ import type { EditOutcome } from "./project";
 import { RenderPanel } from "./RenderPanel";
 import { StartControl } from "./StartControl";
 import { offered } from "./shape";
-import { SaveTemplate } from "./templates/SaveTemplate";
 
 export interface EditorActionsProps {
   projectId: number;
   name: string;
-  /** The selected clips, which Save as template saves. */
-  selected: string[];
   edit: EditOutcome;
   /** The project's frame shape, `across:down` (`shape.ts`). */
   aspect: string;
@@ -46,7 +42,6 @@ export interface EditorActionsProps {
 export function EditorActions({
   projectId,
   name,
-  selected,
   edit,
   aspect,
   onAspect,
@@ -60,7 +55,6 @@ export function EditorActions({
       </h1>
       <div className="ml-auto flex shrink-0 items-center gap-2">
         <StartControl projectId={projectId} onAspect={onAspect} />
-        <SaveTemplate clips={selected} edit={edit} />
         <NativeSelect
           aria-label={t.editor.page.frameShape}
           value={aspect}

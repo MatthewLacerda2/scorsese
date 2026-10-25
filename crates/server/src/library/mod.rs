@@ -143,10 +143,10 @@ pub struct Summary {
     pub size_bytes: i64,
 }
 
-/// A project or a template, as the reason an item cannot be deleted.
+/// A project, as the reason an item cannot be deleted.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, sqlx::FromRow)]
 pub struct UsedBy {
-    /// The project's or the template's id.
+    /// The project's id.
     pub id: i64,
     /// Its name.
     pub name: String,
@@ -168,14 +168,11 @@ pub enum LibraryError {
         name: String,
     },
 
-    /// Projects or templates use the item, so it stays (#546: a template
-    /// inserted later would name a file that is gone).
-    #[error("{}", in_use(.projects, .templates))]
+    /// Projects use the item, so it stays.
+    #[error("{}", in_use(.projects))]
     InUse {
         /// The projects that use it.
         projects: Vec<UsedBy>,
-        /// The templates that use it.
-        templates: Vec<UsedBy>,
     },
 
     /// Not a kind of file scorsese edits, by its name.
@@ -223,49 +220,16 @@ pub enum LibraryError {
     Database(#[from] sqlx::Error),
 }
 
-/// Why a file stays: the projects that use it, then the templates, and what
-/// letting it go takes — taking it out of a project, deleting a template.
-fn in_use(projects: &[UsedBy], templates: &[UsedBy]) -> String {
-    let those = |n: usize, one: &str, many: &str| {
-        if n == 1 {
-            format!("that {one}")
-        } else {
-            format!("those {many}")
-        }
-    };
-    let mut users = Vec::new();
-    let mut fixes = Vec::new();
-    if !projects.is_empty() {
-        let kind = if projects.len() == 1 {
-            "project"
-        } else {
-            "projects"
-        };
-        users.push(format!("the {kind} {}", names(projects)));
-        let which = those(projects.len(), "project", "projects");
-        fixes.push(format!("take it out of {which}"));
-    }
-    if !templates.is_empty() {
-        let kind = if templates.len() == 1 {
-            "template"
-        } else {
-            "templates"
-        };
-        users.push(format!("the {kind} {}", names(templates)));
-        fixes.push(format!(
-            "delete {}",
-            those(templates.len(), "template", "templates")
-        ));
-    }
-    let verb = if projects.len() + templates.len() == 1 {
-        "uses"
+/// Why a file stays: the projects that use it, and what letting it go takes.
+fn in_use(projects: &[UsedBy]) -> String {
+    let (kind, verb, which) = if projects.len() == 1 {
+        ("project", "uses", "that project")
     } else {
-        "use"
+        ("projects", "use", "those projects")
     };
     format!(
-        "{} {verb} this file; {} first",
-        users.join(" and "),
-        fixes.join(" and ")
+        "the {kind} {} {verb} this file; take it out of {which} first",
+        names(projects)
     )
 }
 

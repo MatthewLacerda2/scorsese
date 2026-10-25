@@ -48,7 +48,7 @@ class RealRun(unittest.TestCase):
                               "purge-landing")]
         self.assertEqual(order, sorted(order))
         self.assertIn("SQL migrations applied: 43 new thing", out)
-        self.assertIn("stored projects migrated: 2, templates: 0", out)
+        self.assertIn("stored projects migrated: 2", out)
         self.assertIn("restore /srv/scor/backups/db/s-1.dump", out)
 
 
