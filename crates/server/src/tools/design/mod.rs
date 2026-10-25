@@ -230,7 +230,7 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
     start(&mut tx, &request)
         .await
         .map_err(|error| match error {
-            CreditError::Insufficient { .. } => error.to_string(),
+            CreditError::Insufficient { .. } | CreditError::PaidOnly { .. } => error.to_string(),
             other => database(other),
         })?;
     tx.commit().await.map_err(database)?;

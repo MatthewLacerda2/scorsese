@@ -28,9 +28,11 @@ WITH here AS (
 )
 SELECT greatest(0, least(a.daily_micros - u.day, a.monthly_micros - u.month))::bigint
            AS left_micros,
-       extract(epoch FROM
-           CASE WHEN a.monthly_micros - u.month <= 0 THEN b.next_month ELSE b.tomorrow END
-           AT TIME ZONE 'America/Sao_Paulo')::bigint AS renews_at,
+       -- Nothing renews when nothing is given away.
+       CASE WHEN a.daily_micros = 0 OR a.monthly_micros = 0 THEN 0
+            ELSE extract(epoch FROM
+                CASE WHEN a.monthly_micros - u.month <= 0 THEN b.next_month ELSE b.tomorrow END
+                AT TIME ZONE 'America/Sao_Paulo')::bigint END AS renews_at,
        u.day AS used_today_micros,
        u.month AS used_this_month_micros
 FROM free_allowance a, used u, bounds b

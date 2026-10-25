@@ -163,6 +163,7 @@ mod start;
 mod stopping;
 mod store;
 mod turn;
+mod veo;
 mod wake;
 
 use std::sync::Arc;

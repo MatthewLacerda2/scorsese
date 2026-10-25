@@ -22,10 +22,9 @@ pub const NAME: &str = "spending_history";
 /// What it does, in the words a client is shown. The first sentence stands
 /// alone, as every tool's must.
 pub const DESCRIPTION: &str = "List what the signed-in user has spent and paid in: every Veo shot, \
-still, spoken line, voice design, assistant turn, top-up and refund, newest first, each with the balance \
-after it. Read-only and free. A generation the provider failed shows as free; one that worked is \
-charged whether or not it was kept, and what the daily free allowance paid of it is shown beside \
-it. Amounts are in US dollars, the currency the ledger is kept in. Filter by project, kind or a \
+still, spoken line, voice design, assistant turn, top-up and refund, newest first, and the balance \
+that can be spent now. Read-only and free. A generation the provider failed shows as free; one that \
+worked is charged whether or not it was kept. Amounts are in US dollars, the currency the ledger is kept in. Filter by project, kind or a \
 range of days, and the answer includes what everything matched adds up to: ask with since and \
 until to answer \"what did I spend this week?\".";
 
@@ -69,9 +68,12 @@ pub fn filter(arguments: &Value) -> Result<Filter, CreditError> {
         .map_err(|error| CreditError::Invalid(format!("the arguments do not read: {error}")))
 }
 
-/// The answer, as text an assistant can quote from.
+/// The answer, as text an assistant can quote from. Like every figure the
+/// assistant is told, it never splits paid credit from free (#1530): the
+/// balance is what can be spent, and each row what it cost.
 pub fn answer(history: &History) -> String {
-    let mut text = format!("Balance: {}.\n", dollars(history.balance_micros));
+    let spendable = history.balance_micros + history.free_micros;
+    let mut text = format!("Balance: {}.\n", dollars(spendable));
     text.push_str(&format!(
         "{} matching rows, adding up to {}.\n",
         history.matched,
@@ -83,25 +85,15 @@ pub fn answer(history: &History) -> String {
             (None, Some(id)) => format!(" — project {id}, since deleted"),
             (None, None) => String::new(),
         };
+        let cost = row.amount_micros - row.free_micros;
         let status = match row.status.as_str() {
             "free" => "free: the provider failed".to_owned(),
-            "pending" => format!("{} held while it runs", dollars(-row.amount_micros)),
-            _ => dollars(row.amount_micros),
-        };
-        let free = if row.free_micros == 0 {
-            String::new()
-        } else {
-            format!(
-                " (and {} from the free allowance)",
-                dollars(row.free_micros)
-            )
+            "pending" => format!("{} held while it runs", dollars(-cost)),
+            _ => dollars(cost),
         };
         text.push_str(&format!(
-            "\n#{} on {} — {}{project}: {status}{free}; balance after {}",
-            row.id,
-            row.when,
-            row.memo,
-            dollars(row.balance_after_micros)
+            "\n#{} on {} — {}{project}: {status}",
+            row.id, row.when, row.memo
         ));
     }
     text

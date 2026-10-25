@@ -81,17 +81,22 @@ async fn scripted(pool: &PgPool, script: &Arc<Script>) -> (SocketAddr, http::App
     serve(pool, Assistant::new(1_000_000).answered_by(script.clone())).await
 }
 
+/// Credit `user` with `dollars`.
+async fn top_up(pool: &PgPool, user: UserId, dollars: i64) {
+    let mut tx = db::scoped(pool, user).await.expect("the test setup holds");
+    ledger::top_up(&mut tx, dollars * 1_000_000)
+        .await
+        .expect("the test setup holds");
+    tx.commit().await.expect("the test setup holds");
+}
+
 /// A new account with `dollars` of credit, and its `Authorization:` line.
 async fn member(pool: &PgPool, email: &str, dollars: i64) -> (UserId, String) {
     let user = users::create(pool, email)
         .await
         .expect("the test setup holds");
     if dollars > 0 {
-        let mut tx = db::scoped(pool, user).await.expect("the test setup holds");
-        ledger::top_up(&mut tx, dollars * 1_000_000)
-            .await
-            .expect("the test setup holds");
-        tx.commit().await.expect("the test setup holds");
+        top_up(pool, user, dollars).await;
     }
     let token = tokens::issue(pool, user, "laptop")
         .await

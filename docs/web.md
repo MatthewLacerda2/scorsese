@@ -1273,7 +1273,9 @@ the ledger reads them in SQL; a database no server has started holds zero.
   check on the table refuses an `allowance` entry that names one, so a
   user's own client over web MCP meets the same guard. With no paid credit,
   the built-in assistant's `generate` says nothing of video and the turn is
-  told *Veo is not available because the user is on free usage*.
+  told *Veo is not available because the user is on free usage* — once, and
+told it is available again once paid credit arrives, since a conversation's
+history is replayed every turn.
 - **A failure gives the free part back to the allowance, never to the paid
   balance**: a negative `allowance` entry settles the same reservation, one at
   most by a unique index, and the grant it reverses stops counting against its
@@ -1281,7 +1283,9 @@ the ledger reads them in SQL; a database no server has started holds zero.
   paid credit.
 - **The assistant never learns the split**: every balance it is told, and
   every check that it has credit, is paid and free together
-  (`ledger::spendable`).
+  (`ledger::spendable`); `spending_history` too says what can be spent and
+  what each thing cost, free part included. A shot refused for want of paid
+  credit, when free credit would have covered it, says so.
 
 **Audit tables.** `veo_generations` (model, resolution, seconds, aspect,
 prompt, brief hash, operation ticket, state, estimated cost, error),
@@ -1342,7 +1346,8 @@ providers' `cents`, for the assistant's confirmation box to show.
 **The user's own history** is the same ledger, scoped and written for them: one
 row per thing that moved the balance — a reservation and what settled it fold
 into one row, *charged*, *free: the provider failed*, or *pending* — each with
-what the free allowance paid of it beside its amount, the balance after it, the project's name while the project exists, and what set
+what the free allowance paid of it beside its amount (the paid part), the
+balance after it, the project's name while the project exists, and what set
 its price. Filterable by project, kind and UTC days, paged, with a total over
 everything the filter matched. It is also described as a read-only tool,
 `spending_history` (`credits::tool`), which web MCP (#539) registers: the

@@ -51,7 +51,7 @@ async fn the_answer_says_what_was_charged_and_what_was_free(pool: PgPool) {
         "{text}"
     );
     assert!(
-        text.contains("Top-up: $10.00; balance after $10.00"),
+        text.contains("Top-up: $10.00\n") || text.ends_with("Top-up: $10.00"),
         "{text}"
     );
 }

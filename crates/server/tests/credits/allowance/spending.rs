@@ -1,10 +1,10 @@
 //! Free first, then paid: a generation and an assistant call.
 
 use scorsese_providers::chat::{Model, Usage};
-use scorsese_server::credits::allowance;
 use scorsese_server::credits::generations::Answer;
 use scorsese_server::credits::ledger::{self, AssistantCall};
 use scorsese_server::credits::{CreditError, Product, price};
+use scorsese_server::credits::{allowance, history, tool};
 use scorsese_server::db;
 use serde_json::json;
 use sqlx::postgres::PgPool;
@@ -17,6 +17,10 @@ async fn a_server_that_gives_nothing_away_leaves_a_new_account_at_zero(pool: PgP
     let ana = account(&pool, "ana@example.com").await;
     let settings = json!({});
     assert_eq!(free(&pool, ana).await, 0);
+    let mut tx = db::scoped(&pool, ana).await.unwrap();
+    let none = allowance::left(&mut tx).await.unwrap();
+    assert_eq!(none.renews_at, 0, "nothing given, nothing renews");
+    drop(tx);
     let refused = start(&pool, ana, &line(10, &settings)).await.unwrap_err();
     assert!(
         matches!(refused, CreditError::Insufficient { balance: 0, .. }),
@@ -97,4 +101,27 @@ async fn an_assistant_call_is_paid_from_the_allowance_first(pool: PgPool) {
     assert_eq!(charged.micros, price(Product::Assistant, 30_000));
     assert_eq!(balance(&pool, ana).await, 0, "the allowance paid all of it");
     assert_eq!(free(&pool, ana).await, 4_000_000 - charged.micros);
+}
+
+/// The assistant never learns the split (#1530): the history tool says what
+/// can be spent and what each thing cost, and a total counts the free part.
+#[sqlx::test]
+async fn the_history_tool_says_what_can_be_spent_and_what_things_cost(pool: PgPool) {
+    allowance::set(&pool, FOUR_A_DAY).await.unwrap();
+    let ana = account(&pool, "ana@example.com").await;
+    let settings = json!({});
+    let paid = start(&pool, ana, &line(100, &settings)).await.unwrap();
+    finish(&pool, ana, paid, &Answer::Worked(None))
+        .await
+        .unwrap();
+    let seen = history::read(&pool, ana, &Default::default())
+        .await
+        .unwrap();
+    assert_eq!(seen.total_micros, -1_800_000, "the free part is spent too");
+    assert_eq!(seen.free_micros, 2_200_000);
+    let text = tool::answer(&seen);
+    assert!(text.starts_with("Balance: $2.20.\n"), "{text}");
+    assert!(text.contains("adding up to -$1.80"), "{text}");
+    assert!(text.contains(": -$1.80"), "{text}");
+    assert!(!text.contains("free"), "{text}");
 }

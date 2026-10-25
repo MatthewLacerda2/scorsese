@@ -126,14 +126,12 @@ pub async fn start(
         }
         None => {}
     }
-    if !veo {
-        notes.push(NO_VEO.into());
-    }
     notes.append(&mut opening.notes);
     let kept = turns::history(&mut tx, session).await?;
     let written = |error: serde_json::Error| AssistantError::Internal(error.to_string());
     let history = chat::replay(model, &kept).map_err(written)?;
     let said: Vec<Message> = kept.iter().flat_map(|turn| turn.record.clone()).collect();
+    notes.extend(super::veo::note(&said, veo).map(String::from));
     // A woken turn's user message is the server's, never the person's words:
     // the marker is for the transcript and the ledger. Words the app wrote
     // for them are shown, never read (`told`).
@@ -198,12 +196,6 @@ pub async fn start(
     tokio::spawn(turn::run(state.clone(), running));
     Ok(view)
 }
-
-/// What a turn is told when the person has no paid credit (#1530): the free
-/// allowance pays for everything but a Veo shot.
-const NO_VEO: &str = "Veo is not available because the user is on \
-     free usage: there are no Veo shots to generate. Hold, push in or pan on a generated_image, \
-     or use stock footage, instead.";
 
 /// What the model is told about the last turn's quote, when that turn ended
 /// without its answer: one held before quotes paused their turn (#1440), which

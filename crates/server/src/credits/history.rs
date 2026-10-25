@@ -22,7 +22,7 @@ use serde_json::Value;
 use sqlx::postgres::PgPool;
 
 use super::CreditError;
-use super::ledger;
+use super::{allowance, ledger};
 use crate::db::{self, UserId};
 
 /// What a row is about, as a filter names it.
@@ -92,11 +92,14 @@ pub struct Row {
 /// A page of history, and what the filter adds up to.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct History {
-    /// The balance now, in micro-dollars.
+    /// The paid balance now, in micro-dollars.
     pub balance_micros: i64,
+    /// What is left of the free allowance now, in micro-dollars (#1530).
+    pub free_micros: i64,
     /// How many rows the filter matches, across every page.
     pub matched: i64,
-    /// What they add up to, in micro-dollars: negative is spent.
+    /// What they add up to, in micro-dollars: negative is spent, what the
+    /// free allowance paid included.
     pub total_micros: i64,
     /// This page, newest first.
     pub rows: Vec<Row>,
@@ -116,6 +119,7 @@ pub async fn read(pool: &PgPool, user: UserId, filter: &Filter) -> Result<Histor
     check(filter)?;
     let mut tx = db::scoped(pool, user).await?;
     let balance = ledger::balance(&mut tx).await?;
+    let free = allowance::left(&mut tx).await?.left_micros;
     let counted: Vec<Counted> = sqlx::query_as(include_str!("history.sql"))
         .bind(filter.project)
         .bind(filter.kind.as_deref())
@@ -131,6 +135,7 @@ pub async fn read(pool: &PgPool, user: UserId, filter: &Filter) -> Result<Histor
         .map_or((0, 0), |first| (first.matched, first.total_micros));
     Ok(History {
         balance_micros: balance,
+        free_micros: free,
         matched,
         total_micros: total,
         rows: counted.into_iter().map(|counted| counted.row).collect(),

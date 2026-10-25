@@ -61,6 +61,7 @@ impl From<CreditError> for ApiError {
                 Self::Internal
             }
             CreditError::Insufficient { .. }
+            | CreditError::PaidOnly { .. }
             | CreditError::NotOpen(_)
             | CreditError::Invalid(_) => Self::BadRequest(error.to_string()),
         }

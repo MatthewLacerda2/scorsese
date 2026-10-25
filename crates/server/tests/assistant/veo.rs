@@ -46,3 +46,30 @@ async fn with_paid_credit_the_assistant_is_offered_veo(pool: PgPool) {
     assert!(description.contains("Veo shots"), "{description}");
     assert!(!told);
 }
+
+/// The note is said once while it holds, and taken back once paid credit
+/// arrives: the history is replayed every turn.
+#[sqlx::test]
+async fn the_note_is_said_once_and_taken_back_when_credit_arrives(pool: PgPool) {
+    let script = Script::new(vec![answers("One."), answers("Two."), answers("Three.")]);
+    let (address, _) = super::scripted(&pool, &script).await;
+    allowance::set(&pool, Allowance::DEFAULT)
+        .await
+        .expect("the test setup holds");
+    let (ana, who) = member(&pool, "ana@example.com", 0).await;
+    let id = project(&pool, ana, json!([])).await;
+    let said = |n: usize, what: &str| {
+        script
+            .messages(n)
+            .iter()
+            .filter(|message| message.contains(what))
+            .count()
+    };
+    exchange(address, &who, id, "make an intro").await;
+    exchange(address, &who, id, "and an outro").await;
+    assert_eq!(said(1, "Veo is not available"), 1, "not said twice");
+
+    super::top_up(&pool, ana, 20).await;
+    exchange(address, &who, id, "now a shot").await;
+    assert_eq!(said(2, "Veo is available again"), 1);
+}

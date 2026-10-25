@@ -240,7 +240,10 @@ export interface HistoryRow {
 
 /** `credits::history::History` — a page of history and the filter's total. */
 export interface History {
+  /** The paid balance. */
   balance_micros: number;
+  /** What is left of the free allowance now (#1530). */
+  free_micros: number;
   matched: number;
   total_micros: number;
   rows: HistoryRow[];

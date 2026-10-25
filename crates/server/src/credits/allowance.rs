@@ -100,7 +100,8 @@ pub struct Free {
     /// what is left of the day and of the month, never below zero.
     pub left_micros: i64,
     /// When it next grows, in seconds since 1970: the next midnight in
-    /// Brasília, or the 1st of the next month once the month's is spent.
+    /// Brasília, or the 1st of the next month once the month's is spent;
+    /// `0` when the server gives nothing away.
     pub renews_at: i64,
     /// What the day has taken of it so far, in micro-dollars.
     pub used_today_micros: i64,

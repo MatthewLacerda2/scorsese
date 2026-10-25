@@ -92,8 +92,16 @@ async fn lock(tx: &mut Tx) -> Result<(), sqlx::Error> {
 pub async fn cover(tx: &mut Tx, micros: i64, funds: Funds) -> Result<i64, CreditError> {
     lock(tx).await?;
     let paid = balance(tx).await?;
+    let left = allowance::left(tx).await?.left_micros;
+    // A shot the free allowance would have covered says why it does not.
+    if funds == Funds::PaidOnly && paid < micros && paid.saturating_add(left) >= micros {
+        return Err(CreditError::PaidOnly {
+            paid,
+            needed: micros,
+        });
+    }
     let free = match funds {
-        Funds::Any => allowance::left(tx).await?.left_micros,
+        Funds::Any => left,
         Funds::PaidOnly => 0,
     };
     if paid.saturating_add(free) < micros {

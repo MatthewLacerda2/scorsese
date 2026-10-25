@@ -19,8 +19,8 @@ async fn a_veo_shot_is_never_paid_from_the_free_allowance(pool: PgPool) {
     assert!(
         matches!(
             refused,
-            CreditError::Insufficient {
-                balance: 0,
+            CreditError::PaidOnly {
+                paid: 0,
                 needed: SHOT_PRICE
             }
         ),
@@ -49,12 +49,18 @@ async fn a_paid_balance_smaller_than_the_shot_is_refused_whatever_is_free(pool: 
     assert!(
         matches!(
             refused,
-            CreditError::Insufficient {
-                balance: 1_000_000,
+            CreditError::PaidOnly {
+                paid: 1_000_000,
                 needed: SHOT_PRICE
             }
         ),
         "{refused:?}"
+    );
+    assert!(
+        refused
+            .to_string()
+            .contains("free credit cannot pay for a Veo shot"),
+        "{refused}"
     );
 }
 

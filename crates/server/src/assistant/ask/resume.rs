@@ -29,7 +29,6 @@ pub(in crate::assistant) async fn resuming(
         .ok_or_else(|| AssistantError::Internal(format!("unknown effort {}", paused.effort)))?;
     let client = state.assistant.chat(model)?;
     let balance = ledger::spendable(tx).await?;
-    let veo = ledger::balance(tx).await? > 0;
     // The paused turn is its conversation's last: nothing starts after it
     // while it waits, since a new message is its answer.
     let mut kept = history(tx, paused.session).await?;
@@ -38,6 +37,14 @@ pub(in crate::assistant) async fn resuming(
         .ok_or_else(|| AssistantError::Internal(format!("turn {id} has no messages")))?;
     let written = |error: serde_json::Error| AssistantError::Internal(error.to_string());
     let history = chat::replay(model, &kept).map_err(written)?;
+    // Offered what the conversation was last told, so the tools and the note
+    // agree; the ledger refuses a shot without paid credit either way.
+    let said: Vec<_> = kept
+        .iter()
+        .chain([&this])
+        .flat_map(|turn| turn.record.clone())
+        .collect();
+    let veo = crate::assistant::veo::told(&said);
     Ok(Running {
         user,
         turn: id,

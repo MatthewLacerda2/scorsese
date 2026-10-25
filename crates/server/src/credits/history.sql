@@ -84,7 +84,8 @@ WITH keyed AS (
 ), matching AS (
     SELECT *,
            count(*) OVER () AS matched,
-           (sum(amount) OVER ())::bigint AS total
+           -- What it cost, the free allowance's part included (#1530).
+           (sum(amount - free) OVER ())::bigint AS total
     FROM rows
     WHERE ($1::bigint IS NULL OR project_id = $1)
       AND ($2::text IS NULL OR kind = $2)

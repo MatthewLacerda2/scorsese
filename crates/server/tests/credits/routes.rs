@@ -94,4 +94,8 @@ async fn a_member_reads_what_is_free_today(pool: PgPool) {
     let history = history.json();
     assert_eq!(history["rows"][0]["amount_micros"], 0);
     assert_eq!(history["rows"][0]["free_micros"], 1_800_000);
+    assert_eq!(
+        history["total_micros"], -1_800_000,
+        "what it cost, free part too"
+    );
 }
