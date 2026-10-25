@@ -62,6 +62,7 @@
 //! at `GET /api/credits/history` and described as a read-only tool
 //! ([`tool`]), which web MCP (#539, `crate::tools`) serves.
 
+pub mod allowance;
 pub mod command;
 pub mod designs;
 pub mod generations;
