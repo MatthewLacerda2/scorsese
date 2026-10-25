@@ -11,7 +11,7 @@
 // by its hash with the same `?sha256=` question an upload asks.
 
 import { useQuery } from "@tanstack/react-query";
-import { api, type DocumentAsset } from "@/api";
+import { api, type DocumentAsset, type LibraryTile } from "@/api";
 import { queryKeys } from "@/app/queryKeys";
 import { useT } from "@/i18n/I18nProvider";
 import { look } from "./look";
@@ -38,13 +38,18 @@ export function AssetTile(props: TileProps) {
   return <TileView {...props} shown={shown} src={src} words={t.assets} />;
 }
 
-/** Where the library's thumbnail of the file with these bytes is, once known. */
-export function useThumbnail(sha256: string | undefined): string | undefined {
+/** The library's tile of the file with these bytes, once known. */
+export function useLibraryTile(sha256: string | undefined): LibraryTile | undefined {
   const query = useQuery({
     queryKey: queryKeys.libraryList({ sha256 }),
     queryFn: () => api.library.list({ sha256 }),
     enabled: sha256 !== undefined,
     staleTime: Number.POSITIVE_INFINITY,
   });
-  return query.data?.[0]?.thumbnail;
+  return query.data?.[0];
+}
+
+/** Where the library's thumbnail of the file with these bytes is, once known. */
+export function useThumbnail(sha256: string | undefined): string | undefined {
+  return useLibraryTile(sha256)?.thumbnail;
 }

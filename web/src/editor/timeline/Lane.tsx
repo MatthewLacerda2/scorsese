@@ -25,7 +25,7 @@ import {
   toolCall,
 } from "./drag";
 import { isMade } from "./made";
-import { framesToPx, pxSpan, type Zoom } from "./time";
+import { framesToPx, pxSpan, toSeconds, type Zoom } from "./time";
 import { Unmade } from "./Unmade";
 
 /** How close to a clip's edge, in pixels, a press takes the edge rather than the clip. */
@@ -148,6 +148,14 @@ export function Lane(props: Props) {
         // (`ClipFill`); one nobody has made yet is tinted and hatched with it,
         // as the desktop app draws it.
         const made = isMade(asset);
+        const width = Math.max(3, framesToPx(extent.duration, zoom, fps));
+        // The stretch of its source the clip plays: from its in point, as
+        // much source as its length at its speed consumes.
+        const span = {
+          from: toSeconds(extent.sourceIn, fps),
+          length: toSeconds(extent.duration, fps) * (clip.speed ?? 1),
+          width,
+        };
         const body = `${kindOutline(asset?.kind)} ${made ? "text-on-screen" : "bg-muted text-foreground"}`;
         return (
           // biome-ignore lint/plugin/shadcnControls: a clip dragged and positioned absolutely on the timeline; a Button's base styles would fight its geometry
@@ -158,7 +166,7 @@ export function Lane(props: Props) {
             className={`absolute top-0.5 bottom-0.5 cursor-grab touch-none overflow-hidden rounded-sm border px-1 text-[11px] select-none ${body} ${chosen ? "ring-2 ring-foreground" : "opacity-90"} ${held?.clip.id === clip.id ? "z-10 cursor-grabbing shadow-lg" : ""}`}
             style={{
               left: framesToPx(extent.start, zoom, fps),
-              width: Math.max(3, framesToPx(extent.duration, zoom, fps)),
+              width,
               transform: dy ? `translateY(${dy}px)` : undefined,
             }}
             data-made={made}
@@ -170,7 +178,11 @@ export function Lane(props: Props) {
               if (event.key === "Enter") props.onSelect(clip.id, adds(event));
             }}
           >
-            {made ? <ClipFill asset={asset} /> : <Unmade kind={asset?.kind} state={asset?.state} />}
+            {made ? (
+              <ClipFill asset={asset} span={span} />
+            ) : (
+              <Unmade kind={asset?.kind} state={asset?.state} />
+            )}
             <span
               className={`pointer-events-none absolute top-0 left-0 max-w-full truncate rounded-br-sm bg-screen/60 px-1 text-[10px] leading-4 text-on-screen ${!made && asset?.state ? "pr-10" : ""}`}
             >

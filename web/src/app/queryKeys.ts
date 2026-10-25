@@ -24,6 +24,8 @@ export const queryKeys = {
   library: ["library"] as const,
   libraryList: (filter: LibraryFilter) => ["library", "list", filter] as const,
   libraryItem: (id: number | null) => ["library", "item", id] as const,
+  /** A sound's peaks (#1572), by the URL its tile names: read once, kept. */
+  peaks: (url: string | undefined) => ["library", "peaks", url] as const,
   /** What the library takes: the same for everyone, and never invalidated with it. */
   formats: ["formats"] as const,
 
