@@ -10,9 +10,10 @@ hand-backs go in the description and an issue comment, never a push
 notification. Use the GitHub MCP tools (load them with ToolSearch); don't
 assume `gh` is installed.
 
-**Nothing you find goes unrecorded** (`CLAUDE.md`, *File what you notice*):
-fold it into the branch when it is small or in your way, otherwise file it with
-the evidence and the `agent` label, and keep going.
+**File only on a signal** (`CLAUDE.md`, *File an issue only on a signal*):
+fold what you find into the branch when it is small or in your way; file it,
+with the evidence and the `agent` label, only when it has bitten or will bite,
+or costs more left than fixed; otherwise let it go, and keep going.
 
 ## Before you start
 

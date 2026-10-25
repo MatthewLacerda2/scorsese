@@ -259,9 +259,9 @@ so its public API is rusty's contract (`crates/zimmer/CLAUDE.md`).
 - **Issues are how work is planned**, read cold by a future Claude, often
   unattended. Quote a vendor's figures from the vendor's own page, with the
   date; point at code by symbol and path, never by line number.
-- **File what you notice: it is a duty, not an option.** A bug, a missing
-  feature, a design gap or a quality-of-life fix is folded into the task when
-  small or in the way, filed as an issue otherwise, never dropped. **A change
+- **File an issue only on a signal**: it has bitten or will bite, or leaving
+  it costs more than fixing it now. A finding small or in the way is folded
+  into the task; one with no signal is dropped. **A change
   that needs the user's approval is never folded in**: one that changes how the
   user sees or understands their existing data or project, changes stored data,
   or needs a migration. **A bug or a documentation fix never needs it**: filed
