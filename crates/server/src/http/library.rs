@@ -1,5 +1,5 @@
 //! A user's library over HTTP: list, details, rename and describe, delete,
-//! open or download, thumbnail. Each a call into [`crate::library`], which has the
+//! open or download, thumbnail, a sound's peaks. Each a call into [`crate::library`], which has the
 //! arguments; uploads are [`super::uploads`].
 
 use axum::Json;
@@ -26,6 +26,9 @@ pub struct Tile {
     pub summary: Summary,
     /// Where to fetch its thumbnail. `404` there means not drawn yet.
     pub thumbnail: String,
+    /// Where to fetch a sound's peaks (#1572); absent for anything else.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub peaks: Option<String>,
 }
 
 /// `GET /api/library`: the caller's files, newest first — thumbnail, name,
@@ -44,6 +47,8 @@ pub async fn list(
             .into_iter()
             .map(|summary| Tile {
                 thumbnail: format!("/api/library/{}/thumbnail", summary.id),
+                peaks: (summary.kind == Kind::Audio)
+                    .then(|| format!("/api/library/{}/peaks", summary.id)),
                 summary,
             })
             .collect(),
@@ -191,6 +196,37 @@ pub async fn thumbnail(
     let served = ranges::Served {
         path: &path,
         content_type,
+        etag: &etag,
+    };
+    ranges::serve(&served, &headers).await
+}
+
+/// `GET /api/library/{id}/peaks`: a sound's levels over time (#1572), the
+/// bytes [`scorsese_render::audio::Peaks::to_bytes`] writes — a little-endian
+/// `f32` of levels per second, then a byte a level — or `404` while they are
+/// being read. Kept forever by the browser, as the file is: the timeline asks
+/// once per sound and draws every trim and zoom from it.
+pub async fn peaks(
+    State(state): State<AppState>,
+    member: Member,
+    Path(id): Path<i64>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let Some(path) = state.library.peaks(member.user, id).await? else {
+        return Err(ApiError::Refused {
+            status: StatusCode::NOT_FOUND,
+            message: "the sound's peaks are still being read".to_owned(),
+            detail: json!({ "pending": true }),
+        });
+    };
+    let etag = path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or_default()
+        .to_owned();
+    let served = ranges::Served {
+        path: &path,
+        content_type: "application/octet-stream",
         etag: &etag,
     };
     ranges::serve(&served, &headers).await

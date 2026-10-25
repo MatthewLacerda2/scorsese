@@ -1559,6 +1559,15 @@ transaction; queued again when one is asked for and missing, so clearing the
 cache costs nothing but time. A list carries each item's thumbnail URL, which
 answers `404 {"pending": true}` until it is drawn.
 
+**A sound's peaks ride its thumbnail job** (#1572): `audio::peaks` in
+`scorsese-render` reads forty levels a second (one byte each, the loudest
+sample of each fortieth, linear), at most 32,768 of them — a longer file
+merges neighbours and the rate falls — into
+`$SCORSESE_CACHE/users/<id>/peaks/`. A sound's tile carries a `peaks` URL;
+the timeline fetches it once per file, kept forever by the browser, and draws
+the slice each clip plays from it, so a trim, a zoom or a scroll fetches
+nothing. A three-minute file is 7,204 bytes.
+
 **Proxies are a job too** (#542): a small copy of a heavy video — its short
 side brought down to 540 px, the same frames at the same times, H.264 with a
 keyframe every fifteen — which a **preview** decodes instead of the original
@@ -1609,6 +1618,7 @@ local project keeps them, so a render's pages get `scorsese.words` and
 | `DELETE /api/library/{id}` | a member | `204`; `409` with `projects` when one uses it |
 | `GET /api/library/{id}/file` | a member | the file, whole or in the range asked for; `?download=1` adds `Content-Disposition: attachment` with its name and real extension (#711) |
 | `GET /api/library/{id}/thumbnail` | a member | the picture, or `404` while it is drawn |
+| `GET /api/library/{id}/peaks` | a member | a sound's peaks (#1572): a little-endian `f32` of levels per second, then a byte a level; `404 {"pending": true}` while they are read, `{"pending": false}` for anything but a sound |
 | `OPTIONS /api/uploads` | anyone | what tus this server speaks |
 | `POST /api/uploads` | a member | announce: `Upload-Length`, `Upload-Metadata` → `201`, `Location` |
 | `HEAD /api/uploads/{id}` | a member | `Upload-Offset`, `Upload-Length` |
