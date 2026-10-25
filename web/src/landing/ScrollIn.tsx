@@ -2,7 +2,8 @@
 // `data-rise` rises, on the scroll's clock (`motion.ts`). The part's time is
 // how far its top has come up the window — 0 as it enters at the bottom, 1
 // once it is past the middle — so scrolling back plays it backwards. A visitor
-// who asked for less motion gets it all there at once.
+// who asked for less motion gets it all there at once. Each is a section the
+// A/B tests count the visit's depth by (`data-ab-section`, `ab/useLandingTests.ts`).
 
 import { type ReactNode, useCallback, useRef } from "react";
 import { draw, SCROLLED, useOnScroll } from "@/landing/motion";
@@ -21,5 +22,9 @@ export function ScrollIn({ children }: { children: ReactNode }) {
   }, [still]);
   useOnScroll(frame);
 
-  return <div ref={root}>{children}</div>;
+  return (
+    <div ref={root} data-ab-section>
+      {children}
+    </div>
+  );
 }

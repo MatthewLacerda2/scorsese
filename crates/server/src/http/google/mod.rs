@@ -15,7 +15,8 @@
 //!    which [`users::sign_in`] turns into a scorsese account; and the browser
 //!    gets **the same session cookie a login always gave it**, and its hint
 //!    ([`auth`]), and is sent on to where it was going, `/projects` by
-//!    default.
+//!    default. A browser carrying the landing's visitor code is linked to
+//!    the account on the way ([`crate::ab::link`], #1553).
 //!
 //! Every way that can fail ends on `/login?error=<why>`, where the web app
 //! says it in words: `unconfigured`, `cancelled` (the person said no at
@@ -177,7 +178,8 @@ pub async fn callback(
         return to_login("unconfigured");
     };
     let flow = Flow::from_headers(&headers);
-    let signed = finish(&state, google, flow.as_ref(), callback, address).await;
+    let visitor = super::ab::visitor_cookie(&headers);
+    let signed = finish(&state, google, flow.as_ref(), callback, address, visitor).await;
     let clear = (SET_COOKIE, flow::clear_cookie());
     match signed {
         Ok(cookie) => {
@@ -209,6 +211,7 @@ async fn finish(
     flow: Option<&Flow>,
     callback: Callback,
     address: Option<IpAddr>,
+    visitor: Option<String>,
 ) -> Result<String, &'static str> {
     if callback.error.is_some() {
         return Err("cancelled");
@@ -257,6 +260,9 @@ async fn finish(
             "failed"
         })?;
     access::record_or_log(&state.pool, signed.user(), address, Access::SignIn).await;
+    if let Some(visitor) = visitor {
+        crate::ab::link(&state.pool, &visitor, signed.user()).await;
+    }
     Ok(cookie)
 }
 

@@ -14,6 +14,7 @@
 import "@/landing/landing.css";
 import { useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router";
+import { sendPrompt, useLandingTests } from "@/ab/useLandingTests";
 import { api } from "@/api";
 import { useT } from "@/i18n/I18nProvider";
 import { Header } from "@/landing/Header";
@@ -31,6 +32,12 @@ import { HAND_OFF, keep } from "@/prompt/handOff";
 import type { PromptSubmit } from "@/prompt/PromptBox";
 import { safeNext, useAccount } from "@/session/session";
 
+/** `data-ab`'s value: `test:version` for each running test, or none. */
+const drawn = (shown: Record<string, string>) =>
+  Object.entries(shown)
+    .map(([test, version]) => `${test}:${version}`)
+    .join(" ") || undefined;
+
 export function LandingPage({ signIn = false }: { signIn?: boolean }) {
   const t = useT();
   const account = useAccount();
@@ -38,6 +45,7 @@ export function LandingPage({ signIn = false }: { signIn?: boolean }) {
   const [params] = useSearchParams();
   const [open, setOpen] = useState(signIn);
   useMeta(t.landing.meta.title, t.landing.meta.description);
+  const shown = useLandingTests(!account.isPending && !account.data);
 
   if (account.data) return <Navigate to={safeNext(params.get("next"))} replace />;
 
@@ -45,6 +53,7 @@ export function LandingPage({ signIn = false }: { signIn?: boolean }) {
   // A prompt is kept in the browser and the sign-in lands on the page that
   // starts its project (#1535); the promise holds the box busy as the page leaves.
   const signInWith: PromptSubmit = async (prompt, attached) => {
+    sendPrompt();
     await keep(prompt, attached.files);
     window.location.assign(api.account.googleSignIn(HAND_OFF));
     await new Promise(() => {});
@@ -56,7 +65,8 @@ export function LandingPage({ signIn = false }: { signIn?: boolean }) {
   };
 
   return (
-    <div className="landing">
+    // Each running A/B test's version, for its CSS and its e2e flow (#1553).
+    <div className="landing" data-ab={drawn(shown)}>
       <div className="grain" aria-hidden />
       <Header onSignIn={openSignIn} />
       <main>

@@ -35,6 +35,7 @@ export const PRIVACY_EN: LegalDocument = {
           "Conversations with the assistant: the messages and the record of each action the assistant takes on your project. We use this record to find errors and improve the assistant.",
           "Credits and payments: your balance, your spending history and, for each purchase, the amount, the exchange rate used and the payment identifier at Stripe. Your card details go straight to Stripe and never pass through our server.",
           "Access logs: the IP address, date and time of each time you sign in with Google and of your first visit each day, kept for at least 6 months, as Brazil's Marco Civil da Internet (Internet Civil Framework, Law 12.965/2014) requires.",
+          "Home page visits: before you sign in, a random code in a cookie identifies your browser, not you, and we record which version of the home page it was shown, how far down the page was scrolled, how long the page was visible, whether a prompt was sent, and the country and region Cloudflare works out from the IP address (the address itself is not kept with them). When you sign in with Google, the code is linked to your account, so we can tell which version led to what; deleting the account removes the link.",
           "Server logs: for each request to the site, the IP address, the approximate location Cloudflare works out from it (city, region and country), the browser (user agent), the address requested and the date and time, used to keep the service secure and to find errors. They never record your name or email. They are kept in a rotation limited by size, in which the oldest are deleted as new ones arrive.",
         ],
       ],
@@ -45,7 +46,7 @@ export const PRIVACY_EN: LegalDocument = {
         [
           "To provide the service you signed up for: store and edit your projects, generate what you ask for and charge for it (performance of a contract, LGPD art. 7, V).",
           "To meet legal obligations, such as tax rules and keeping the access logs (art. 7, II).",
-          "To keep the service secure and improve the assistant from the conversation record (legitimate interest, art. 7, IX).",
+          "To keep the service secure, improve the assistant from the conversation record and improve the home page from how its versions are visited (legitimate interest, art. 7, IX).",
         ],
         "We do not sell your data, we show no ads and we do not use your content to train artificial intelligence models.",
       ],
@@ -92,7 +93,7 @@ export const PRIVACY_EN: LegalDocument = {
       heading: "Where it is kept and for how long",
       blocks: [
         "Your data is kept on our server, in Brazil, and in a backup that is redone periodically and kept for 30 days.",
-        "It is kept as long as your account exists. When the account is closed, everything is deleted from the server, and backups that still hold your data expire within 30 days. Payment records remain at Stripe and in our accounting for as long as tax law requires, and the access logs remain kept, as the Marco Civil requires. The server logs are not deleted one by one: they remain until their rotation deletes them.",
+        "It is kept as long as your account exists. When the account is closed, everything is deleted from the server, and backups that still hold your data expire within 30 days. Payment records remain at Stripe and in our accounting for as long as tax law requires, and the access logs remain kept, as the Marco Civil requires. The server logs are not deleted one by one: they remain until their rotation deletes them. Home page visits stay, no longer linked to anyone.",
       ],
     },
     {
@@ -105,7 +106,7 @@ export const PRIVACY_EN: LegalDocument = {
     {
       heading: "Cookies",
       blocks: [
-        "We use only the cookies the site needs to work: one that keeps you signed in for up to 30 days and another, temporary one, used while you sign in with Google. We use no advertising or analytics cookies. The language and theme you choose are kept in your own browser. When you write a prompt before signing in, your browser also keeps it, with any files you attached, until the sign-in brings you back to start your project, and then deletes it; it never reaches us before you sign in.",
+        "We use the cookies the site needs to work: one that keeps you signed in for up to 30 days and another, temporary one, used while you sign in with Google. One more, kept for up to a year, holds the random code that says which version of the home page your browser was shown (see “What we keep”, above); it is ours alone, and we use no advertising or third-party tracking cookies. The language and theme you choose are kept in your own browser. When you write a prompt before signing in, your browser also keeps it, with any files you attached, until the sign-in brings you back to start your project, and then deletes it; it never reaches us before you sign in.",
       ],
     },
     {

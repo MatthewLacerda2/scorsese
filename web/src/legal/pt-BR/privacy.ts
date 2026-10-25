@@ -38,6 +38,7 @@ export const PRIVACY_PT: LegalDocument = {
           "Conversas com o assistente: as mensagens e o registro de cada ação que o assistente faz no seu projeto. A gente usa esse registro para encontrar erros e melhorar o assistente.",
           "Créditos e pagamentos: o seu saldo, o histórico de gastos e, de cada compra, o valor, a cotação usada e o identificador do pagamento na Stripe. Os dados do seu cartão vão direto para a Stripe e nunca passam pelo nosso servidor.",
           "Registros de acesso: o endereço IP, a data e a hora de cada vez que você entra com o Google e do primeiro acesso de cada dia, guardados por no mínimo 6 meses, como determina o Marco Civil da Internet (Lei 12.965/2014).",
+          "Visitas à página inicial: antes de você entrar, um código aleatório num cookie identifica o seu navegador, não você, e registramos qual versão da página inicial ele viu, até onde a página foi rolada, por quanto tempo ela ficou visível, se um pedido foi enviado e o país e o estado que a Cloudflare deduz do endereço IP (o endereço em si não é guardado junto). Quando você entra com o Google, o código é ligado à sua conta, para sabermos qual versão levou a quê; excluir a conta desfaz essa ligação.",
           "Registros do servidor: para cada requisição ao site, o endereço IP, a localização aproximada que a Cloudflare deduz dele (cidade, estado e país), o navegador (user agent), o endereço pedido e a data e a hora, usados para manter o serviço seguro e encontrar erros. Eles nunca registram o seu nome ou e-mail. Ficam guardados em rodízio limitado por tamanho, em que os mais antigos são apagados à medida que chegam novos.",
         ],
       ],
@@ -48,7 +49,7 @@ export const PRIVACY_PT: LegalDocument = {
         [
           "Para prestar o serviço que você contratou: guardar e editar os seus projetos, gerar o que você pede e cobrar por isso (execução de contrato, art. 7º, V, da LGPD).",
           "Para cumprir obrigações legais, como as fiscais e a guarda dos registros de acesso (art. 7º, II).",
-          "Para manter o serviço seguro e melhorar o assistente a partir do registro das conversas (legítimo interesse, art. 7º, IX).",
+          "Para manter o serviço seguro, melhorar o assistente a partir do registro das conversas e melhorar a página inicial a partir de como as suas versões são visitadas (legítimo interesse, art. 7º, IX).",
         ],
         "Não vendemos os seus dados, não mostramos anúncios e não usamos o seu conteúdo para treinar modelos de inteligência artificial.",
       ],
@@ -110,7 +111,7 @@ export const PRIVACY_PT: LegalDocument = {
       heading: "Onde ficam e por quanto tempo",
       blocks: [
         "Os seus dados ficam no nosso servidor, no Brasil, e numa cópia de segurança, refeita periodicamente e mantida por 30 dias.",
-        "Eles ficam guardados enquanto a sua conta existir. Quando a conta é encerrada, tudo é apagado do servidor, e as cópias de segurança que ainda tiverem os seus dados expiram em até 30 dias. Os registros de pagamento continuam na Stripe e na nossa contabilidade pelo prazo que a lei fiscal exige, e os registros de acesso continuam guardados, como determina o Marco Civil. Os registros do servidor não são apagados um a um: continuam até que o rodízio os apague.",
+        "Eles ficam guardados enquanto a sua conta existir. Quando a conta é encerrada, tudo é apagado do servidor, e as cópias de segurança que ainda tiverem os seus dados expiram em até 30 dias. Os registros de pagamento continuam na Stripe e na nossa contabilidade pelo prazo que a lei fiscal exige, e os registros de acesso continuam guardados, como determina o Marco Civil. Os registros do servidor não são apagados um a um: continuam até que o rodízio os apague. As visitas à página inicial continuam, sem ligação com ninguém.",
       ],
     },
     {
@@ -123,7 +124,7 @@ export const PRIVACY_PT: LegalDocument = {
     {
       heading: "Cookies",
       blocks: [
-        "Usamos apenas os cookies necessários para o site funcionar: um que mantém você conectado por até 30 dias e outro, temporário, usado durante o login com o Google. Não usamos cookies de publicidade nem de análise. O idioma e o tema que você escolhe ficam guardados no seu próprio navegador. Quando você escreve um pedido antes de entrar, o navegador também o guarda, com os arquivos que você anexou, até o login trazer você de volta para começar o projeto, e então o apaga; nada disso chega a nós antes de você entrar.",
+        "Usamos os cookies necessários para o site funcionar: um que mantém você conectado por até 30 dias e outro, temporário, usado durante o login com o Google. Mais um, guardado por até um ano, leva o código aleatório que diz qual versão da página inicial o seu navegador viu (veja “O que guardamos”, acima); ele é só nosso, e não usamos cookies de publicidade nem de rastreamento de terceiros. O idioma e o tema que você escolhe ficam guardados no seu próprio navegador. Quando você escreve um pedido antes de entrar, o navegador também o guarda, com os arquivos que você anexou, até o login trazer você de volta para começar o projeto, e então o apaga; nada disso chega a nós antes de você entrar.",
       ],
     },
     {

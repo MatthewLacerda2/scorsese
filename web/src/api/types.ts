@@ -343,3 +343,16 @@ export interface ClientError {
   /** Which build of the web app was running. */
   build?: string;
 }
+
+/** `ab::Event`: one thing a landing visitor did (#1553). */
+export type AbEvent =
+  | { kind: "view" | "end" | "prompt" }
+  | { kind: "section"; value: number }
+  | { kind: "time"; value: number };
+
+/** `ab::Batch`: a visitor, the versions it was shown, and what it did. */
+export interface AbBatch {
+  visitor: string;
+  exposures: { test: string; version: string }[];
+  events: AbEvent[];
+}

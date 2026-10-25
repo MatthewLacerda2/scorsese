@@ -74,6 +74,10 @@ async fn perform(config: Config, command: Command) -> Result<(), ServerError> {
             let pool = scorsese_server::open_database(&config).await?;
             scorsese_server::credits::command::run(&pool, command).await?
         }
+        Command::Ab(command) => {
+            let pool = scorsese_server::open_database(&config).await?;
+            scorsese_server::ab::report::run(&pool, command).await?
+        }
         Command::CaptureLauncher(_) | Command::CaptureWorker(_) | Command::CaptureOne(_) => {
             unreachable!("handled before the environment is read")
         }

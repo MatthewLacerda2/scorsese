@@ -2574,6 +2574,83 @@ The browser trims a stack to its first lines and sends nothing about who is
 signed in: the path, the language and the build are what tell one crash from
 another.
 
+### A/B tests
+
+The landing page runs one test at a time (#1553): visitors are drawn into its
+versions, what they do is recorded, and the test is decided fast, on little
+traffic. The mechanism is permanent; the tests come and go, and a decided test
+hands over to the next, so one is always running once the first (#1554) is.
+With none running nothing is recorded and no cookie is set. Only the landing
+is tested: a signed-in person never sees it, and a visit is not counted until
+the page knows nobody is signed in.
+
+**The rule, 50 / 90% / 100.** Counted per version, in visitors who are not
+bots:
+
+- **ready to decide** once every version has **50** and one version has at
+  least a **90%** chance of being the best on the **prompt rate**, or else on
+  **reaching the last section**: that version wins;
+- **at 100 per version** with no version at 90%, it is ready anyway, as **no
+  clear difference**: keep the version preferred (the first, the current
+  page, by default) and start the next test.
+
+Nothing waits for more than 100 per version. The chance is a Beta-binomial
+posterior with a uniform prior (`crates/server/src/ab/decide.rs`).
+
+**One test runs at a time.** The tests are the web app's, in
+`web/src/ab/tests.ts`: an id, its versions (the first is the current page) and
+whether it is `running`. The list may hold tests waiting their turn, and
+`tests.test.ts` refuses one with two running. The server knows none of them.
+The order of the next ones: the heading (#1554), then the film strip (#1555).
+
+**Adding a test** is an entry in that list and the versions in the landing's
+code: `useLandingTests` gives the page each running test's version (and
+`data-ab` on the page's root carries `test:version`). A version is drawn from
+a hash of the visitor code and the test's id, in equal shares, so the same
+browser sees the same version on every visit and nothing is stored for it.
+
+**Deciding a test is a pull request**: it removes the losing version and the
+test's entry, and sets the next test running in the same change, so the page
+is never without one. Its rows stay in the database.
+
+**What is recorded.** A random visitor code in the `scorsese_visitor` cookie
+(first-party, a year, `SameSite=Lax`), one per browser, set the first time the
+landing loads while a test runs. Safari keeps a cookie a script wrote for 7
+days, so a Safari visitor back after a week counts as a new one. The page posts, as beacons: the version of each running test it
+showed (`ab_exposures`, the first one kept), and events (`ab_events`): `view`;
+`section`, the deepest part of the page reached so far (whatever carries
+`data-ab-section`, counted from 1, `ScrollIn` does; reached once it comes up
+into the window's top half); `end`, the last of them reached; `time`, seconds
+the page was visible, sent each time it is hidden or left, at most 30 minutes a
+visit; `prompt`, a prompt box sent. An event belongs to the
+visitor, and counts in a test from the visitor's exposure to it on. Nothing is
+sent from a browser driven by a script (`navigator.webdriver`) or one whose
+user agent says it is a bot. The visitor's country and region
+(`ab_visitors`) are Cloudflare's, from the tunnel's door only, as
+`deploy/nginx.conf` passes them (`X-Scorsese-Country`, `X-Scorsese-Region`);
+no city, no address. **A Google sign-in links the visitor to the account**
+(`ab_visitors.user_id`), and deleting the account sets it back to NULL. The
+tables are operator-only, like the access record. The privacy policy says all
+of this.
+
+| route | who | what |
+| --- | --- | --- |
+| `POST /api/ab/events` | anyone | `{visitor, exposures: [{test, version}], events: [{kind, value?}]}` → `204`, always: a body over 4 KB, a batch of another shape (ids are `[a-z0-9-]`, at most 32), and anything past the caps (2,000 rows from one address a day, an IPv6 address counted by its /64; 100,000 rows from everybody a day; 200 events from one visitor a day; 32 tests per visitor) are dropped without a word |
+
+**Reading the report.** Through the operator's shell (*Running the service*):
+
+    docker compose exec server scorsese-server ab report [--test heading]
+
+For each test and version: visitors; the share who reached the last section;
+the median visible seconds; the shares who sent a prompt, signed in and paid;
+and the share of company accounts among the signed-in (an email at a free
+mail provider is personal, any other domain a company,
+`crates/server/src/ab/domains.rs`). Then each version's chance of being the
+best on the prompt rate and on the last section, the verdict by the rule
+above, and the same split by hour band (07:00–18:00 and 18:00–07:00,
+Brasília) and by region, a cell under 20 visitors marked thin. The split is
+for noticing, never for deciding.
+
 ## The editor
 
 `/projects/{id}/edit` (#545), laid out as the desktop app is: on the left the
