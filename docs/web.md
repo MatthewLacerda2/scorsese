@@ -411,6 +411,7 @@ lives*, below).
 | File | What it holds |
 | --- | --- |
 | `cloudflare/zone.tf` | the zone, looked up by `domain`; DNSSEC on; HTTPS only (every `http://` request a 301, and HSTS for six months, not preloaded) |
+| `cloudflare/transforms.tf` | the visitor location headers Cloudflare adds to each request (`cf-ipcity`, `cf-region-code`, …), for nginx's access log (*Logs*) |
 | `cloudflare/tunnel.tf` | the tunnel's ingress (the apex and `www` to `http://web:80`, anything else 404), their proxied CNAMEs, and the `www` → apex 301 |
 | `cloudflare/email.tf` | Email Routing's records, the `security@` and `contato@` forwards (one verified destination, `SCORSESE_SECURITY_FORWARD_TO`), and DMARC `p=reject` (the domain never sends mail) |
 | `google/project.tf` | the `scorseseestudio` Google Cloud project (deletion-protected), the billing account it is charged to, and the APIs enabled on it |
@@ -676,6 +677,51 @@ remote, by the same path. Then:
 **On a new machine** after losing this one: first-time setup steps 1–6 with the
 same remote and credentials (the tunnel's token is in the dashboard still),
 then the restore above.
+
+### Logs
+
+Every container logs to the host's journal, tagged `scorsese-<service>`
+(`scorsese-web`, `scorsese-server`, `scorsese-postgres`, …), so a deploy that
+recreates a container keeps what it logged before. Read them by service and
+time, from anywhere on the host:
+
+    journalctl -t scorsese-web --since yesterday
+    journalctl -t scorsese-server --since "2026-10-23 14:00" --until "2026-10-23 15:00"
+    journalctl -t scorsese-server -p err --since today   # stderr only
+    journalctl -t scorsese-web -f                        # follow
+
+`docker compose logs <service>` still works, from `deploy/`.
+
+**nginx's access log** (`scorsese-web`) is one line per request, the visitor's
+address first (the one the server is told, *The access record*), then the
+request, status, size, referrer, browser, and Cloudflare's guess at the city,
+region and country, then the ray id, to look the request up at Cloudflare:
+
+    203.0.113.7 [23/Oct/2026:14:02:11 +0000] "GET / HTTP/1.1" 200 1530 "" "Mozilla/5.0 …" "São Paulo" "SP" "BR" "8c1f2a…-GRU"
+
+Country `T1` is Tor. On the local door (8080: loopback, `tailscale serve`) the
+location and ray are blank, since only Cloudflare's are believed. The
+healthchecks are not logged. To leave out scanners probing for other software:
+
+    journalctl -t scorsese-web --since today -o cat | grep -v -E '"(GET|POST|HEAD) /(wp-|wordpress|\.env|\.git|xmlrpc|phpmyadmin|cgi-bin)'
+
+**The size bound is journald's**, a setting of this machine, not of the repo:
+by default the journal takes up to 10% of its filesystem, capped at 4 GB, and
+drops the oldest first. To set it, in `/etc/systemd/journald.conf`:
+
+    [Journal]
+    Storage=persistent
+    SystemMaxUse=200M
+    RateLimitIntervalSec=30s
+    RateLimitBurst=50000
+
+then `sudo systemctl restart systemd-journald`. `Storage=persistent` keeps the
+journal across reboots too (`/var/log/journal`); `journalctl --disk-usage` says
+what it holds now. Every container's lines reach the journal through
+`docker.service`, which shares one rate limit (10000 lines per 30 s by
+default): a scanner's burst past it drops lines from every service at once,
+and the journal says `Suppressed N messages from docker.service`. The two
+`RateLimit` lines raise it.
 
 ## Accounts
 

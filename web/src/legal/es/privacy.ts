@@ -8,7 +8,7 @@ import { SELLER } from "@/legal/seller";
 export const PRIVACY_ES: LegalDocument = {
   title: "Política de privacidad",
   updatedLabel: "Última actualización",
-  updated: "2026-10-24",
+  updated: "2026-10-25",
   summary: {
     heading: "En resumen",
     points: [
@@ -35,6 +35,7 @@ export const PRIVACY_ES: LegalDocument = {
           "Conversaciones con el asistente: los mensajes y el registro de cada acción que el asistente hace en tu proyecto. Usamos ese registro para encontrar errores y mejorar el asistente.",
           "Créditos y pagos: tu saldo, el historial de gastos y, de cada compra, el monto, la cotización usada y el identificador del pago en Stripe. Los datos de tu tarjeta van directo a Stripe y nunca pasan por nuestro servidor.",
           "Registros de acceso: la dirección IP, la fecha y la hora de cada vez que entras con Google y del primer ingreso de cada día, guardados por al menos 6 meses, como exige el Marco Civil de Internet de Brasil (Ley 12.965/2014).",
+          "Registros del servidor: por cada solicitud al sitio, la dirección IP, la ubicación aproximada que Cloudflare deduce de ella (ciudad, región y país), el navegador (user agent), la dirección solicitada y la fecha y la hora, usados para mantener el servicio seguro y encontrar errores. Nunca registran tu nombre ni tu correo electrónico. Se guardan en una rotación limitada por tamaño, en la que los más antiguos se borran a medida que llegan nuevos.",
         ],
       ],
     },
@@ -100,7 +101,7 @@ export const PRIVACY_ES: LegalDocument = {
       heading: "Dónde se guardan y por cuánto tiempo",
       blocks: [
         "Tus datos están en nuestro servidor, en Brasil, y en una copia de seguridad que se rehace periódicamente y se conserva por 30 días.",
-        "Se guardan mientras tu cuenta exista. Cuando la cuenta se cierra, todo se borra del servidor, y las copias de seguridad que aún tengan tus datos vencen en un máximo de 30 días. Los registros de pago siguen en Stripe y en nuestra contabilidad por el plazo que exige la ley fiscal, y los registros de acceso siguen guardados, como exige el Marco Civil.",
+        "Se guardan mientras tu cuenta exista. Cuando la cuenta se cierra, todo se borra del servidor, y las copias de seguridad que aún tengan tus datos vencen en un máximo de 30 días. Los registros de pago siguen en Stripe y en nuestra contabilidad por el plazo que exige la ley fiscal, y los registros de acceso siguen guardados, como exige el Marco Civil. Los registros del servidor no se borran uno a uno: siguen hasta que la rotación los borre.",
       ],
     },
     {
