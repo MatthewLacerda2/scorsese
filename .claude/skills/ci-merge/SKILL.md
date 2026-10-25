@@ -142,7 +142,8 @@ same five steps:
   change it needs is a pull request of its own off `main`. A bot pull request
   without the label means the *Sync labels* workflow never ran.
 - **A hand-back stays out until its head changes.** Pushing a fix (or a rebase)
-  is the whole of re-queueing it.
+  is the whole of re-queueing it; one fixed in the description alone (an
+  exception line) is re-queued with an empty commit.
 - **It is bounded to fit the harness's two-hour background cap**: it takes new
   pull requests for `--for` minutes (default 70), the last one gets its own
   `--deadline` (40). Run it in the background and re-arm it when it exits; its

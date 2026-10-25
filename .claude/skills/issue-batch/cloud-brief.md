@@ -24,6 +24,9 @@ open, stand down: no branch, a comment saying which should go first, and stop.
 
 **Test first** (`docs/testing.md`): write the test and watch it fail, then the
 code. For a bug, the branch's first commit is the test that reproduces it.
+`make gates` cannot run CI's `regression test` job: a bug no `bun test` or
+Rust test can reproduce (layout a Playwright flow proves) takes its
+`No regression test on base: <why>` line in the description before ready.
 
 ## Ready means finished, and then the branch is not yours
 
