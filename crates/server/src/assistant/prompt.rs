@@ -336,6 +336,23 @@ mod tests {
             .collect()
     }
 
+    /// Nobody picks a platform, a shape or a style on the web (#1531): the
+    /// assistant reads them from the first prompt, writes them into the
+    /// script, and re-fits the frame.
+    #[test]
+    fn the_assistant_reads_where_the_video_goes_from_the_prompt() {
+        for said in [
+            "where it will be watched",
+            "its shape",
+            "the kind of video",
+            "guide styles",
+            "opening of the script",
+            "project_reframe",
+        ] {
+            assert!(SYSTEM.contains(said), "the system prompt lacks {said:?}");
+        }
+    }
+
     #[test]
     fn an_effort_change_follows_the_words_it_sets_the_reply_to() {
         let history = [Message::assistant("Done.")];

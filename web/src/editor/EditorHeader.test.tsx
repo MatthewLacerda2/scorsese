@@ -1,4 +1,5 @@
-// The editor's controls as the header draws them (#764): the name, the frame shape and Render — and no revision. Drawn alone through
+// The editor's controls as the header draws them (#764): the name and Render — and no revision, and no platform, style or frame
+// shape to pick (#1531): the assistant reads those from the prompt. Drawn alone through
 // `react-dom/server`, because the portal into the header needs a DOM; that the
 // shell offers the place is App.test.tsx's.
 
@@ -15,19 +16,19 @@ const props: EditorActionsProps = {
   name: "teaser",
   edit: { run: async () => null, refused: null, dismiss: () => {}, pending: false },
   aspect: "9:16",
-  onAspect: () => {},
   fps: { num: 30, den: 1 },
 };
 
 const draw = (node: React.ReactNode) =>
   renderToString(<QueryClientProvider client={createQueryClient()}>{node}</QueryClientProvider>);
 
-test("the header's editor controls: name, frame shape, Render", () => {
+test("the header's editor controls: name, Render", () => {
   const html = draw(<EditorActions {...props} />);
   expect(html).toContain(">teaser</h1>");
-  expect(html).toContain('aria-label="Frame shape"');
-  expect(html).toMatch(/<option [^>]*value="9:16" selected="">9:16<\/option>/);
   expect(html).toContain("Render");
+  expect(html).not.toContain("Frame shape");
+  expect(html).not.toContain("<select");
+  expect(html).not.toContain("Platform and style");
   expect(html).not.toMatch(/revision/i);
 });
 
