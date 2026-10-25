@@ -4,7 +4,7 @@
 //! **`<SCORSESE_STORAGE>/users/<user id>/`** holds what cannot be made again —
 //! the library (#535), `library/<sha256>.<extension>` — and is backed up off the
 //! machine every night. **`<SCORSESE_CACHE>/users/<user id>/`** holds what can:
-//! thumbnails, and uploads still on their way in. The two are kept apart
+//! thumbnails, a sound's peaks, and uploads still on their way in. The two are kept apart
 //! because the backup ships the first whole (`docs/web.md`, *Running the
 //! service*), and a thumbnail or half an upload is not worth that bandwidth.
 //!
@@ -75,6 +75,14 @@ impl Storage {
         user_directory(&self.cache, user)
             .join("thumbnails")
             .join(format!("{sha256}.{extension}"))
+    }
+
+    /// Where the peaks of the sound with this hash are kept (#1572): beside
+    /// the thumbnails, for their reason.
+    pub fn peaks(&self, user: UserId, sha256: &str) -> PathBuf {
+        user_directory(&self.cache, user)
+            .join("peaks")
+            .join(format!("{sha256}.peaks"))
     }
 
     /// Where the preview proxy of the file with this hash is kept (#542).

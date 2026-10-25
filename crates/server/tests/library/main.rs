@@ -17,6 +17,7 @@ mod generated;
 mod manage;
 mod midi;
 mod pages;
+mod peaks;
 mod proxies;
 mod upload;
 
