@@ -12,7 +12,11 @@ export const landing = {
   },
   openApp: "Open scorsese",
   signIn: "Sign in",
-  hero: { title: "The video is one conversation away" },
+  hero: {
+    title: "The video is one conversation away",
+    free: (dollars?: string) =>
+      dollars ? `Start free: US$${dollars} a day, no card.` : "Start free, no card.",
+  },
   how: {
     eyebrow: "How it works",
     title: "Three steps. You just say what you want.",
@@ -56,6 +60,7 @@ export const landing = {
       body: "A voice that reads your script, timed to the picture.",
     },
   },
+  ask: { title: "Your turn. Describe the video you need." },
   closing: {
     title: "Ready when you are.",
     body: "The video is one message away",
@@ -69,8 +74,6 @@ export const landing = {
     terms: "Terms of use",
     privacy: "Privacy policy",
     pricingShort: "Pricing",
-    termsShort: "Terms",
-    privacyShort: "Privacy",
     translation:
       "This is a translation. The Portuguese text is the binding one: if the versions disagree, the Portuguese text prevails.",
     readPortuguese: "Read the Portuguese text",

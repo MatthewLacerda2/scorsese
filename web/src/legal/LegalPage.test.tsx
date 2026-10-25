@@ -61,21 +61,6 @@ test("a translation can be switched to the Portuguese text and back, and the ven
   expect(screen.getByRole("heading", { level: 1, name: "Política de privacidad" })).toBeDefined();
 });
 
-test("the landing header links both documents, short", async () => {
-  visit("/", null);
-  const header = await waitFor(() => {
-    const found = document.querySelector("header");
-    if (!found) throw new Error("no header yet");
-    return found;
-  });
-  const links = [...header.querySelectorAll("a")].map((a) => [
-    a.textContent,
-    a.getAttribute("href"),
-  ]);
-  expect(links).toContainEqual(["Terms", "/terms"]);
-  expect(links).toContainEqual(["Privacy", "/privacy"]);
-});
-
 test("the landing page's footer links pricing and both documents, and names the seller", async () => {
   visit("/", null);
   const footer = await waitFor(() => {
@@ -87,7 +72,7 @@ test("the landing page's footer links pricing and both documents, and names the 
     a.textContent,
     a.getAttribute("href"),
   ]);
-  // The header hides its links on a phone, so the footer is a phone's way to pricing.
+  // The documents are the footer's alone: the header leads only to pricing (#1566).
   expect(links).toContainEqual(["Pricing", "/pricing"]);
   expect(links).toContainEqual(["Terms of use", "/terms"]);
   expect(links).toContainEqual(["Privacy policy", "/privacy"]);

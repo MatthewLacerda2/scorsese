@@ -7,9 +7,11 @@
 //
 // The strip is the clips three times over and slides one copy's width, then
 // starts again, which loops without a seam on any screen up to three copies
-// wide. A visitor who asked for less motion gets the stills, standing. Once
-// the strip is scrolled out of view its films pause, so a phone is not
-// decoding twelve videos nobody sees, and play again when it comes back.
+// wide. A visitor who asked for less motion gets the stills, standing. Until
+// the strip is near the screen only its stills are fetched (`preload="none"`,
+// no autoplay, #1566), so a phone that never scrolls to it never downloads a
+// film; near, its films play, and scrolled out of view they pause, so a phone
+// is not decoding twelve videos nobody sees.
 
 import { type RefObject, useEffect, useRef } from "react";
 import cyberpunkStill from "@/landing/media/showcase/cyberpunk.jpg";
@@ -30,17 +32,23 @@ const CLIPS = [
 ];
 const COPIES = 3;
 
-/** Plays the films under `ref` while it is on screen, and pauses them once it is not. */
+/** How far off the screen the strip counts as near: its films start loading there. */
+const NEAR = "300px 0px";
+
+/** Plays the films under `ref` while it is near the screen, and pauses them once it is not. */
 function usePlayWhileSeen(ref: RefObject<HTMLElement | null>, still: boolean) {
   useEffect(() => {
     const root = ref.current;
     if (!root || still) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      for (const film of root.querySelectorAll("video")) {
-        if (entry?.isIntersecting) void film.play()?.catch(() => {});
-        else film.pause();
-      }
-    });
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        for (const film of root.querySelectorAll("video")) {
+          if (entry?.isIntersecting) void film.play()?.catch(() => {});
+          else film.pause();
+        }
+      },
+      { rootMargin: NEAR },
+    );
     observer.observe(root);
     return () => observer.disconnect();
   }, [ref, still]);
@@ -62,7 +70,7 @@ export function Carousel({ label }: { label: string }) {
             className="carousel-clip"
             src={clip.film}
             poster={clip.still}
-            autoPlay={!still}
+            preload="none"
             muted
             loop
             playsInline

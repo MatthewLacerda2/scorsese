@@ -59,8 +59,8 @@ function heldSession(): (account: Account | null) => void {
 test("without a session, / is the landing page", async () => {
   visit("/", null);
   expect(await screen.findByRole("heading", { name: LANDING })).toBeDefined();
-  // One prompt box on the first screen, one in the closing section.
-  expect(screen.getAllByRole("textbox", { name: "Describe your video" }).length).toBe(2);
+  // One prompt box on the first screen, one after the film, one in the closing section.
+  expect(screen.getAllByRole("textbox", { name: "Describe your video" }).length).toBe(3);
   expect(screen.getByText("The video is one message away")).toBeDefined();
   // Everything the page said before is still on it, below the prompt box.
   expect(screen.getByText("Three steps. You just say what you want.")).toBeDefined();

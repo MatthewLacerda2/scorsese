@@ -13,7 +13,8 @@
 // play button, or a click on the picture, does. Its other controls are the
 // sound: a button to turn it on or off and a volume slider, the slider left off
 // on a phone, where the video is short enough for it to cover the picture and
-// the phone's own buttons set the volume. No fullscreen, no seeking, nothing
+// the phone's own buttons set the volume, and the two buttons there apart
+// enough for a thumb (`touch-target`). No fullscreen, no seeking, nothing
 // else to learn.
 
 import { Pause, Play, Volume2, VolumeX } from "lucide-react";
@@ -117,14 +118,14 @@ export function Showcase() {
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
         />
-        <div className="absolute right-3 bottom-3 flex items-center gap-2 rounded-full bg-screen/55 p-1.5 text-on-screen sm:pr-4 backdrop-blur">
+        <div className="absolute right-3 bottom-3 flex items-center gap-5 rounded-full sm:gap-2 bg-screen/55 p-1.5 text-on-screen sm:pr-4 backdrop-blur">
           <Button
             type="button"
             variant="ghost"
             size="icon-lg"
             onClick={playPause}
             aria-label={playing ? t.pause : t.play}
-            className="rounded-full hover:bg-on-screen/10 hover:text-on-screen dark:hover:bg-on-screen/10"
+            className="relative touch-target rounded-full hover:bg-on-screen/10 hover:text-on-screen dark:hover:bg-on-screen/10"
           >
             {playing ? <Pause className="size-5" /> : <Play className="size-5" />}
           </Button>
@@ -134,7 +135,7 @@ export function Showcase() {
             size="icon-lg"
             onClick={toggle}
             aria-label={muted ? t.soundOn : t.soundOff}
-            className="rounded-full hover:bg-on-screen/10 hover:text-on-screen dark:hover:bg-on-screen/10"
+            className="relative touch-target rounded-full hover:bg-on-screen/10 hover:text-on-screen dark:hover:bg-on-screen/10"
           >
             {muted ? <VolumeX className="size-5" /> : <Volume2 className="size-5" />}
           </Button>

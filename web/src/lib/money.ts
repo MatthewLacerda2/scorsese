@@ -32,3 +32,11 @@ export function formatMovement(micros: number): string {
   const sign = micros > 0 ? "+" : MINUS;
   return `${sign}${formatDollars(Math.abs(micros))}`;
 }
+
+/**
+ * Dollars for a sentence that names the currency itself (`US$ 4 por dia`):
+ * no symbol, and no cents when the amount is whole. Never negative.
+ */
+export function dollarAmount(micros: number): string {
+  return formatDollars(Math.abs(micros)).slice(1).replace(/\.00$/, "");
+}
