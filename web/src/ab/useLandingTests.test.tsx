@@ -3,17 +3,18 @@
 
 import { expect, test } from "bun:test";
 import { render } from "@testing-library/react";
-import { runningTests } from "./tests";
+import type { AbTest } from "./tests";
 import { sendPrompt, useLandingTests } from "./useLandingTests";
 import { VISITOR_COOKIE } from "./visitor";
 
+const NONE: readonly AbTest[] = [];
+
 function Landing() {
-  const shown = useLandingTests(true);
+  const shown = useLandingTests(true, NONE);
   return <p>{JSON.stringify(shown)}</p>;
 }
 
 test("no running test, no cookie and no beacon", () => {
-  expect(runningTests()).toEqual([]);
   document.cookie = `${VISITOR_COOKIE}=; Path=/; Max-Age=0`;
   let beacons = 0;
   navigator.sendBeacon = () => {
@@ -21,7 +22,7 @@ test("no running test, no cookie and no beacon", () => {
     return true;
   };
   const page = render(<Landing />);
-  sendPrompt();
+  sendPrompt(NONE);
   expect(page.container.textContent).toBe("{}");
   page.unmount();
   expect(beacons).toBe(0);

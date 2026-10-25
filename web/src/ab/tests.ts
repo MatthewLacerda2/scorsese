@@ -19,7 +19,10 @@ export interface AbTest {
 }
 
 /** Every test, in the order they run. */
-export const TESTS: readonly AbTest[] = [];
+export const TESTS: readonly AbTest[] = [
+  // The first screen's heading (#1554): `a` the metaphor, `b` the concrete promise.
+  { id: "hero-title", versions: ["a", "b"], running: true },
+];
 
 /**
  * A stand-in test for the end-to-end flows only (`make web-e2e` builds with
