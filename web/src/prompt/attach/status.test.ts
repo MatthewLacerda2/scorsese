@@ -2,7 +2,7 @@
 
 import { expect, test } from "bun:test";
 import type { Upload } from "@/files/uploads";
-import { busy, items, statusOf } from "./status";
+import { busy, isSettled, items, statusOf } from "./status";
 
 const row = (change: Partial<Upload>): Upload => ({
   key: "upload-1",
@@ -52,4 +52,11 @@ test("sending waits while any is on its way, and sends the items that are ready"
   expect(busy(statuses)).toBe(false);
   expect(items(statuses)).toEqual([3]);
   expect(busy([...statuses, statusOf("upload-1", [row({})])])).toBe(true);
+});
+
+test("a settled file stays settled once its row is cleared from the uploads corner", () => {
+  const ready = statusOf("upload-1", [row({ phase: "done", item: 3 })]);
+  expect(isSettled(ready)).toBe(true);
+  expect(statusOf("upload-1", [], ready)).toEqual(ready);
+  expect(isSettled(statusOf("upload-1", [row({})]))).toBe(false);
 });

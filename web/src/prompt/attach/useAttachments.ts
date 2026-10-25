@@ -6,12 +6,12 @@
 // Taking one off forgets it here and leaves the library as it is.
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FileKind } from "@/api";
 import { formatsQuery, useFormats } from "@/app/queries";
 import { useOptionalUploads } from "@/files/uploads";
 import { accept, sort } from "@/lib/upload/formats";
-import { busy, items, type Status, statusOf } from "./status";
+import { busy, isSettled, items, type Status, statusOf } from "./status";
 
 /** One attached file and where it is. */
 export interface Attachment {
@@ -49,6 +49,8 @@ interface Held {
   kind: FileKind | null;
   /** Its upload row, signed in. */
   upload?: string;
+  /** What it came to, kept once final: the row may be cleared. */
+  settled?: Status;
 }
 
 export function useAttachments(): Attachments {
@@ -92,9 +94,19 @@ export function useAttachments(): Attachments {
 
   const rows = uploads?.uploads;
   const list = useMemo(
-    () => held.map((one) => ({ ...one, status: statusOf(one.upload, rows ?? []) })),
+    () => held.map((one) => ({ ...one, status: statusOf(one.upload, rows ?? [], one.settled) })),
     [held, rows],
   );
+  // Keep what each upload came to, so clearing the uploads corner changes nothing here.
+  useEffect(() => {
+    const final = new Map(
+      list
+        .filter((one) => !one.settled && isSettled(one.status))
+        .map((one) => [one.key, one.status]),
+    );
+    if (final.size === 0) return;
+    setHeld((now) => now.map((one) => ({ ...one, settled: one.settled ?? final.get(one.key) })));
+  }, [list]);
   const statuses = list.map((one) => one.status);
   const prepare = useCallback(() => setWanted(true), []);
   return {

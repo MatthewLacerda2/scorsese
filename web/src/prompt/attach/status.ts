@@ -15,8 +15,17 @@ export interface Status {
   message?: string;
 }
 
-/** The state of the file whose upload row is `key` — `undefined` when it is only held. */
-export function statusOf(key: string | undefined, rows: readonly Upload[]): Status {
+/**
+ * The state of the file whose upload row is `key` — `undefined` when it is only
+ * held. `settled` is what it came to before, kept because the uploads corner's
+ * "Clear finished" forgets the row.
+ */
+export function statusOf(
+  key: string | undefined,
+  rows: readonly Upload[],
+  settled?: Status,
+): Status {
+  if (settled) return settled;
   if (key === undefined) return { phase: "held", progress: 1 };
   const row = rows.find((found) => found.key === key);
   if (!row) return { phase: "uploading", progress: 0 };
@@ -33,6 +42,11 @@ export function statusOf(key: string | undefined, rows: readonly Upload[]): Stat
         ? { phase: "failed", progress: 0, message: row.message }
         : { phase: "ready", progress: 1, item: row.item };
   }
+}
+
+/** Whether a status is final: ready or refused, never to change again. */
+export function isSettled(status: Status): boolean {
+  return status.phase === "ready" || status.phase === "failed";
 }
 
 /** Whether sending must wait: a file is still on its way. */
