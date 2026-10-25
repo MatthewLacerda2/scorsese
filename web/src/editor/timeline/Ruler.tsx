@@ -21,7 +21,7 @@ export function Ruler({ width, zoom, fps, onScrub }: Props) {
   for (let second = 0; second <= seconds; second += every) marks.push(second);
   return (
     <div
-      className="relative h-6 shrink-0 cursor-ew-resize select-none border-b text-[10px] text-muted-foreground"
+      className="relative h-5 shrink-0 cursor-ew-resize select-none border-b text-[10px] text-muted-foreground"
       style={{ width }}
       onPointerDown={(event) => {
         event.currentTarget.setPointerCapture(event.pointerId);

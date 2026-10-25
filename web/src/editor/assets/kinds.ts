@@ -24,6 +24,24 @@ const COLORS: Record<string, string> = {
   group: "bg-kind-group",
 };
 
+/** The same hues as 1px outlines; spelt out because Tailwind reads whole class names. */
+const OUTLINES: Record<string, string> = {
+  video: "border-kind-video",
+  generated_video: "border-kind-generated-video",
+  image: "border-kind-image",
+  generated_image: "border-kind-generated-image",
+  image_sequence: "border-kind-image-sequence",
+  audio: "border-kind-audio",
+  generated_audio: "border-kind-generated-audio",
+  synth_audio: "border-kind-synth-audio",
+  text: "border-kind-text",
+  html: "border-kind-html",
+  color: "border-kind-color",
+  shape: "border-kind-shape",
+  icon: "border-kind-icon",
+  group: "border-kind-group",
+};
+
 /**
  * The kind's name in `names` (the page's `t.assets.kinds`); a kind this build
  * does not know reads as itself.
@@ -35,4 +53,9 @@ export function kindName(kind: string, names: Messages["assets"]["kinds"]): stri
 /** A theme background class for the kind; grey for one this build does not know. */
 export function kindColor(kind: string | undefined): string {
   return (kind && COLORS[kind]) || "bg-kind-other";
+}
+
+/** A theme border-colour class for the kind; grey for one this build does not know. */
+export function kindOutline(kind: string | undefined): string {
+  return (kind && OUTLINES[kind]) || "border-kind-other";
 }
