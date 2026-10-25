@@ -12,6 +12,7 @@ import { setFetch } from "@/api/client";
 import { createQueryClient } from "@/app/queryClient";
 import { CATALOGUES } from "@/i18n/catalogue";
 import { I18nProvider } from "@/i18n/I18nProvider";
+import { noAttachments } from "@/test/attachments";
 import { ChatPanel } from "./ChatPanel";
 import { useFull } from "./full";
 
@@ -52,7 +53,7 @@ function Editor({ project }: { project: number }) {
   const [full, setFull] = useFull(project);
   return (
     <div data-full={full}>
-      <ChatPanel projectId={project} full={full} onFull={setFull} />
+      <ChatPanel projectId={project} full={full} onFull={setFull} attachments={noAttachments} />
     </div>
   );
 }

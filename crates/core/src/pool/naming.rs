@@ -16,6 +16,18 @@ const AUDIO: &[&str] = &[
     "mp3", "wav", "m4a", "aac", "flac", "ogg", "opus", "aiff", "wma",
 ];
 
+/// The extensions [`infer_kind`] takes as `kind`, lower case — none for a
+/// kind no file is imported as.
+pub fn extensions(kind: AssetKind) -> &'static [&'static str] {
+    match kind {
+        AssetKind::Video => VIDEO,
+        AssetKind::Image => IMAGE,
+        AssetKind::Audio => AUDIO,
+        AssetKind::Html => &["html"],
+        _ => &[],
+    }
+}
+
 /// Guesses a kind from the file extension. The probe checks the guess against
 /// what the file actually contains, so a wrong extension is caught rather
 /// than trusted.
@@ -32,7 +44,7 @@ pub fn infer_kind(path: &Path) -> Option<AssetKind> {
         Some(AssetKind::Image)
     } else if AUDIO.contains(&extension) {
         Some(AssetKind::Audio)
-    } else if extension == "html" {
+    } else if extensions(AssetKind::Html).contains(&extension) {
         Some(AssetKind::Html)
     } else {
         None
@@ -129,5 +141,31 @@ fn join_extension(stem: &str, extension: Option<&str>) -> String {
     match extension {
         Some(extension) => format!("{stem}.{extension}"),
         None => stem.to_owned(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_extension_listed_for_a_kind_is_inferred_as_it() {
+        let kinds = [
+            AssetKind::Video,
+            AssetKind::Image,
+            AssetKind::Audio,
+            AssetKind::Html,
+        ];
+        for kind in kinds {
+            assert!(!extensions(kind).is_empty(), "{kind:?} lists none");
+            for extension in extensions(kind) {
+                let name = format!("clip.{}", extension.to_ascii_uppercase());
+                assert_eq!(infer_kind(Path::new(&name)), Some(kind), "{name}");
+            }
+        }
+        assert!(
+            extensions(AssetKind::Text).is_empty(),
+            "no file is a text asset"
+        );
     }
 }

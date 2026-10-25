@@ -10,6 +10,7 @@
 mod common;
 
 mod asking;
+mod attached;
 mod batching;
 mod changes;
 mod compaction;

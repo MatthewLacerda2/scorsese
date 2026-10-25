@@ -66,18 +66,22 @@ pub(in crate::assistant) async fn resuming(
 
 /// The result a paused turn resumes with, carrying the note that the person
 /// rewrote the script while it waited when `told` (#1488): the turn may have
-/// read it before it paused.
-pub(in crate::assistant) fn noted(result: Part, told: bool) -> Part {
+/// read it before it paused — and `notes`, what else the server has to tell
+/// it, such as the files attached to the message that answered (#1534).
+pub(in crate::assistant) fn noted(result: Part, told: bool, notes: &[String]) -> Part {
     match result {
         Part::Result {
             call,
             name,
             mut content,
             is_error,
-        } if told => {
-            content.push(ResultPart::Text {
-                text: SCRIPT_REWRITTEN.to_owned(),
-            });
+        } if told || !notes.is_empty() => {
+            let told = told.then(|| SCRIPT_REWRITTEN.to_owned());
+            content.extend(
+                told.into_iter()
+                    .chain(notes.iter().cloned())
+                    .map(|text| ResultPart::Text { text }),
+            );
             Part::Result {
                 call,
                 name,

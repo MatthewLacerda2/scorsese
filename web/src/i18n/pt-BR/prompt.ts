@@ -17,4 +17,12 @@ export const prompt: Messages["prompt"] = {
   ],
   label: "Descreva seu vídeo",
   send: "Enviar",
+  attach: {
+    add: "Anexar arquivos",
+    tray: "Arquivos anexados",
+    remove: (name: string) => `Remover ${name}`,
+    refused: (name: string) => `${name}: o scorsese não usa esse tipo de arquivo`,
+    drop: "Solte os arquivos para anexá-los",
+    failed: "Não foi possível enviar este arquivo",
+  },
 };

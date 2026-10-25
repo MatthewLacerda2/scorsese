@@ -15,4 +15,13 @@ export const prompt = {
   ],
   label: "Describe your video",
   send: "Send",
+  // The files attached to a prompt (#1534): the "+", the tray above the box, a drop.
+  attach: {
+    add: "Attach files",
+    tray: "Attached files",
+    remove: (name: string) => `Remove ${name}`,
+    refused: (name: string) => `${name}: scorsese can't use this kind of file`,
+    drop: "Drop files to attach them",
+    failed: "This file could not be uploaded",
+  },
 };

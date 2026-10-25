@@ -95,6 +95,7 @@ export const files = {
       duplicate: "Already in your library",
       failed: "Failed",
     },
+    refused: "scorsese can't use this kind of file",
     alreadyHave: (name: string) => `you already have this as “${name}”`,
   },
 };

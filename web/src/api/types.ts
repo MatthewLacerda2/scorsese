@@ -50,6 +50,9 @@ export interface StoredProject extends ProjectSummary {
 export const FILE_KINDS = ["video", "image", "audio", "html", "text"] as const;
 export type FileKind = (typeof FILE_KINDS)[number];
 
+/** `GET /api/library/formats` — the extensions each kind is uploaded under, lower case. */
+export type Formats = Record<FileKind, string[]>;
+
 /** `http::library::Tile` — a file in a list: enough to draw a tile. */
 export interface LibraryTile {
   id: number;

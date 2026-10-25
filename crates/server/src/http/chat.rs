@@ -26,11 +26,20 @@ pub struct Send {
     /// newest one.
     #[serde(default)]
     pub fresh: bool,
+    /// Library ids of the files attached to the message (#1534): brought
+    /// into the project before the turn starts, and named to the model.
+    #[serde(default)]
+    pub attachments: Vec<i64>,
 }
 
 /// `POST /api/projects/{id}/chat`: a turn starts, `202` with it, at the
 /// project's effort. `503` when the assistant is not configured, `402` when
-/// the balance is empty, `409` while another turn of the conversation runs.
+/// the balance is empty, `409` while another turn of the conversation runs;
+/// `400` when an attachment is not the caller's, `429` past the editor's
+/// per-minute limit. A message refused before its turn begins imports
+/// nothing; one that loses a race at the turn's beginning (another tab's
+/// message first) may leave its files imported, and sending it again is
+/// harmless.
 pub async fn send(
     State(state): State<AppState>,
     member: Member,
@@ -40,9 +49,8 @@ pub async fn send(
     let opening = Opening {
         prompt: send.prompt,
         fresh: send.fresh,
-        notes: Vec::new(),
-        effort: None,
-        woken: false,
+        attachments: send.attachments,
+        ..Opening::default()
     };
     let turn = assistant::start(&state, member.user, project, opening).await?;
     Ok((StatusCode::ACCEPTED, Json(turn)))
@@ -204,6 +212,7 @@ pub async fn answer(
     let answering = Answering {
         words: answer.answer,
         picked: answer.picked,
+        notes: Vec::new(),
     };
     let turn = assistant::answer_question(&state, member.user, id, answering).await?;
     Ok((StatusCode::ACCEPTED, Json(turn)))
@@ -220,6 +229,10 @@ impl From<AssistantError> for ApiError {
             AssistantError::NotConfigured(_) => refused(StatusCode::SERVICE_UNAVAILABLE),
             AssistantError::NoCredit(_) => refused(StatusCode::PAYMENT_REQUIRED),
             AssistantError::Busy => Self::Conflict(error.to_string()),
+            AssistantError::TooMany(seconds) => Self::TooMany {
+                message: error.to_string(),
+                retry_after: *seconds,
+            },
             AssistantError::NotFound => Self::NotFound,
             AssistantError::Invalid(why) => Self::BadRequest(why.clone()),
             AssistantError::Database(_) | AssistantError::Internal(_) => {

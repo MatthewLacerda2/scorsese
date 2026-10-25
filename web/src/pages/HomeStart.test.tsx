@@ -61,7 +61,7 @@ test("Enter makes a project named from the prompt, sends the prompt to it, and o
     .catch(() => {});
   await new Promise((resolve) => setTimeout(resolve, 50));
   expect(bodies[0]).toEqual({ name: "Promo bakery" });
-  expect(bodies[1]).toEqual({ prompt: "a promo for my bakery", fresh: false });
+  expect(bodies[1]).toEqual({ prompt: "a promo for my bakery", fresh: false, attachments: [] });
   expect(calls.indexOf("POST /api/projects")).toBeLessThan(
     calls.indexOf("POST /api/projects/7/chat"),
   );

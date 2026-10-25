@@ -24,6 +24,8 @@ export const queryKeys = {
   library: ["library"] as const,
   libraryList: (filter: LibraryFilter) => ["library", "list", filter] as const,
   libraryItem: (id: number | null) => ["library", "item", id] as const,
+  /** What the library takes: the same for everyone, and never invalidated with it. */
+  formats: ["formats"] as const,
 
   credits: ["credits"] as const,
   balance: ["credits", "balance"] as const,

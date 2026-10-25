@@ -1487,7 +1487,10 @@ crosses the network; the refusal at upload is the backstop.
 **The kinds `scorsese import` takes** — video, image, audio and an `.html`
 page, by the same extension list (`scorsese_core::pool::infer_kind`). Any
 other file, a `.mid` included (#964), is refused at announcement (`415`)
-before a byte is sent. **A page (#1144) is text, not media**: never probed,
+before a byte is sent. The browser holds every pick and drop, the library
+page's and a prompt's tray alike, to the same list, asked of `GET
+/api/library/formats` rather than copied, and names a file it refuses before
+hashing it. **A page (#1144) is text, not media**: never probed,
 held to UTF-8 and to the size a project keeps a page at (1 MiB, refused at
 announcement when the length says so), given no thumbnail (`404` with
 `pending: false`), and served as `text/plain`, never run from the app's
@@ -1565,6 +1568,7 @@ local project keeps them, so a render's pages get `scorsese.words` and
 | route | who | what |
 | --- | --- | --- |
 | `GET /api/library` | a member | their files, newest first: `id`, `name`, `kind`, `size_bytes`, `thumbnail`; `?kind=`, `?search=`, `?sha256=` and `?project=` (the files that project uses) narrow it |
+| `GET /api/library/formats` | anyone | the extensions each kind is uploaded under, `{video: […], image: […], audio: […], html: […], text: […]}`: the list the web app's pickers and drops refuse a file by (#1534) |
 | `GET /api/library/{id}` | a member | everything known, `used_by` (projects), `generation` (or `null`), `source` — where a stock file came from (or `null`, #1237) |
 | `PATCH /api/library/{id}` | a member | `{name?, description?}`; an empty description removes it |
 | `DELETE /api/library/{id}` | a member | `204`; `409` with `projects` when one uses it |
@@ -2303,7 +2307,7 @@ fixed until measured usage (#707) says otherwise.
 | `GET /api/projects/{id}/chat` | a member | `{project, session, turns, model, models, effort}`: the newest conversation's turns, oldest first; the project's model; every model offered as `{id, label, vendor, unavailable, cache_seconds, cost}`; the project's effort |
 | `PUT /api/projects/{id}/chat/model` | a member | `{model}` → the model as listed; from the next turn the project runs on it. `400` for a model not offered |
 | `PUT /api/projects/{id}/chat/effort` | a member | `{effort}` → `{effort}`; from the next turn the project runs at it. `low`, `medium`, `high` or `xhigh`; `400` for anything else |
-| `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?}` → `202` with the turn, at the project's effort; `402` no credit, `409` a turn is running, `503` not configured |
+| `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?, attachments?}` → `202` with the turn, at the project's effort; `attachments` are library ids (at most 20, #1534): the media among them are imported once the turn may start, under the editor's per-minute edit limit, and the model is told in a note which files came with the message, a document as one to read; `400` for one not in their library or an empty prompt, `402` no credit, `409` a turn is running, `429` past the edit limit, `503` not configured — a message refused before its turn begins imports nothing; one losing a race to another tab's message at the turn's beginning may leave its files imported, and resending is harmless |
 | `GET /api/chat/turns/{id}` | a member | `{turn, tools}`: the turn and the log of every tool call it made, in order |
 | `POST /api/chat/turns/{id}/stop` | a member | `202`; the turn stops before its next step — at once, its question set aside, when it is `asking`. `409` if it is neither |
 | `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false, change?}` → `{spent, refused, turn, note}`; `turn` is the one the quote paused, carrying on with the answer as the quoting call's result (#1440); `change` with `confirm: true` is `400`, and so is any answer on a turn not paused on a quote |
@@ -2683,7 +2687,26 @@ only while the reader is at the bottom. "New conversation" is a button with a
 confirmation just above it; Start empties the chat at once and the next message
 is sent with `fresh: true`, which opens a new `chat_sessions` row. The old
 conversation stays in the database. Without the project's
-model's key (`ANTHROPIC_API_KEY`) the server's `503` "not configured" is shown as a note, and nothing else changes.
+model's key (`ANTHROPIC_API_KEY`) the server's `503` "not configured" is shown as a note, and nothing else changes: a message refused before its turn begins imports none of its attached files (one that loses a race to another tab's message as its turn begins may leave them imported, and resending is harmless).
+
+**Files attach to a message** (#1534), the way a chatbot takes them, so adding
+something while talking needs no trip to the Library modal. The "+" in a
+circle beside the composer picks files, and a file dragged in from the desktop
+and **dropped anywhere on the editor's page** lands in the same tray (the page
+shows "drop here" while it is dragged); only a drag carrying `Files` counts, so
+an asset dragged onto the timeline goes by untouched. Attached files show as
+thumbnails above the text, each uploading to the library at once through the
+page's one uploader, with its duplicate rule, and a progress ring; sending
+waits for them. A file the library does not take is refused by name, by the
+list `GET /api/library/formats` answers. The message carries their library ids
+(`attachments`): the server imports the media into the project once the turn
+may start (a message refused before its turn begins imports nothing) and tells the model which files
+came with it (*Assistant turns*); a file attached while the message is on its
+way stays for the next one. × takes a file off the message and leaves it in
+the library. A drop on the Library modal is the modal's upload, never also an
+attachment. The same tray, "+" and
+drop are the prompt box's on the landing page and the signed-in home
+(`web/src/prompt/`); signed out, the files are only held in the page.
 
 ## Out of scope for now
 

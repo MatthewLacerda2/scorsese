@@ -13,6 +13,11 @@
 // the page draws is always the server's document — after an edit from its
 // answer, after the assistant's from the `project` event.
 //
+// A file dragged in from the desktop and dropped anywhere on the page is
+// attached to the chat's next message (#1534), with a "drop here" over the
+// page while it is dragged; an asset dragged onto the timeline is not a file
+// drag, so it goes by.
+//
 // Each panel has an error boundary of its own (#1428): one that throws says so
 // in its place, and the others keep working.
 
@@ -26,6 +31,9 @@ import { useServerEvents } from "@/app/events";
 import { queryKeys } from "@/app/queryKeys";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n/I18nProvider";
+import { DropOverlay } from "@/prompt/attach/DropOverlay";
+import { useAttachments } from "@/prompt/attach/useAttachments";
+import { useFileDrop } from "@/prompt/attach/useFileDrop";
 import { AssetsPanel } from "./assets/AssetsPanel";
 import { ChatPanel } from "./chat/ChatPanel";
 import { useFull } from "./chat/full";
@@ -65,6 +73,8 @@ function Editor({ project }: { project: EditorProject }) {
   const panels = usePanels();
   const drop = useDrop(id, edit, playhead, (clip) => setPicked([clip]));
   const deselect = useCallback(() => setPicked([]), []);
+  const attachments = useAttachments();
+  const fileDrop = useFileDrop(attachments.add, attachments.prepare);
 
   // The assistant, another tab or a finished generation changed the project:
   // draw what is there now, and the preview follows its revision.
@@ -84,7 +94,8 @@ function Editor({ project }: { project: EditorProject }) {
   const aspect = aspectOf(document);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="relative flex h-full min-h-0 flex-col" {...fileDrop.handlers}>
+      {fileDrop.dragging && <DropOverlay />}
       <EditorHeader
         projectId={id}
         name={document.name}
@@ -124,6 +135,7 @@ function Editor({ project }: { project: EditorProject }) {
             <ErrorBoundary place="panel">
               <ChatPanel
                 projectId={id}
+                attachments={attachments}
                 full={full}
                 onFull={(next) => {
                   // A clip selected out of sight is not one the Delete key may take.

@@ -53,6 +53,24 @@ const DOCUMENT: [&str; 2] = ["txt", "md"];
 pub const MAX_DOCUMENT_BYTES: usize = 1000 * 1000;
 
 impl Kind {
+    /// Every kind, in the order the library lists them.
+    pub const ALL: [Self; 5] = [
+        Self::Video,
+        Self::Image,
+        Self::Audio,
+        Self::Html,
+        Self::Text,
+    ];
+
+    /// The extensions a file of this kind is uploaded under, lower case:
+    /// exactly what [`Kind::of_file_name`] takes as it.
+    pub fn extensions(self) -> &'static [&'static str] {
+        match self.asset_kind() {
+            Some(kind) => scorsese_core::pool::extensions(kind),
+            None => &DOCUMENT,
+        }
+    }
+
     /// What a file called `name` is, by the list `scorsese import` uses — so
     /// the web app welcomes exactly the files the CLI does — and a document.
     pub fn of_file_name(name: &str) -> Option<Self> {

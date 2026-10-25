@@ -95,6 +95,7 @@ pub fn table() -> Vec<Route> {
         Route::new(M::POST, "/payments/stripe/webhook", payments::webhook),
         // The library (#535): its files, and the tus uploads that fill it.
         Route::new(M::GET, "/library", library::list),
+        Route::new(M::GET, "/library/formats", library::formats),
         Route::new(M::GET, "/library/{id}", library::details),
         Route::new(M::PATCH, "/library/{id}", library::update),
         Route::new(M::DELETE, "/library/{id}", library::delete),

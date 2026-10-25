@@ -50,6 +50,17 @@ pub async fn list(
     ))
 }
 
+/// `GET /api/library/formats`: the extensions each kind is uploaded under
+/// (#1534), so the browser's pickers and drops are held to the server's own
+/// list rather than a copy. Signed out too: nothing in it is anyone's.
+pub async fn formats() -> Json<Value> {
+    let formats = Kind::ALL
+        .into_iter()
+        .map(|kind| (kind.as_str().to_owned(), json!(kind.extensions())))
+        .collect::<serde_json::Map<_, _>>();
+    Json(Value::Object(formats))
+}
+
 /// One file with everything known about it.
 #[derive(Debug, Serialize)]
 pub struct Details {

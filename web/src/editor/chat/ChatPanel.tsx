@@ -11,24 +11,23 @@
 // panel in both modes, so a draft, a running turn or an open picker outlives
 // the switch.
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Maximize2Icon, Minimize2Icon, SendIcon, SquareIcon } from "lucide-react";
-import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Maximize2Icon, Minimize2Icon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { chatApi } from "@/api/chat";
 import type { ServerEvent } from "@/api/events";
 import { useServerEvents } from "@/app/events";
-import { NoCredits } from "@/app/NoCredits";
 import { queryKeys } from "@/app/queryKeys";
 import { Button } from "@/components/ui/button";
 import { QueryError } from "@/components/ui/query-error";
-import { Textarea } from "@/components/ui/textarea";
 import { ScriptButton } from "@/editor/script/ScriptButton";
 import { useT } from "@/i18n/I18nProvider";
+import type { Attachments } from "@/prompt/attach/useAttachments";
+import { Composer } from "./Composer";
 import { EffortPicker } from "./EffortPicker";
 import { effortOf } from "./effort";
 import { Generating } from "./Generating";
 import { ModelPicker } from "./ModelPicker";
-import { NewConversation } from "./NewConversation";
 import { Turn } from "./Turn";
 import {
   apply,
@@ -36,8 +35,6 @@ import {
   empty,
   fromConversation,
   generating,
-  type Problem,
-  problem,
   restart,
   running,
   upsert,
@@ -53,8 +50,11 @@ export function ChatPanel({
   projectId,
   full,
   onFull,
+  attachments,
 }: {
   projectId: number;
+  /** The files attached to the next message: the page takes a drop anywhere (#1534). */
+  attachments: Attachments;
   /** Whether the chat has the whole page. */
   full: boolean;
   onFull: (full: boolean) => void;
@@ -157,104 +157,8 @@ export function ChatPanel({
         onFresh={() => setTranscript(restart)}
         showFresh={transcript.entries.length > 0}
         onStarted={(turn) => setTranscript((previous) => upsert(previous, turn))}
+        attachments={attachments}
       />
-    </div>
-  );
-}
-
-/**
- * The box a message is written in, with Send, Stop and "new conversation" (#1437).
- * While a turn waits on a question, a message sent here is its answer, and
- * Stop sets the question aside.
- */
-function Composer({
-  projectId,
-  column,
-  runningTurn,
-  askingTurn,
-  fresh,
-  onFresh,
-  showFresh,
-  onStarted,
-}: {
-  projectId: number;
-  /** Extra classes for its content: full mode's column. */
-  column: string;
-  runningTurn: number | null;
-  askingTurn: number | null;
-  /** The next message opens a new conversation. */
-  fresh: boolean;
-  onFresh: () => void;
-  /** There is a conversation to leave. */
-  showFresh: boolean;
-  onStarted: (turn: Awaited<ReturnType<typeof chatApi.send>>) => void;
-}) {
-  const t = useT();
-  const [prompt, setPrompt] = useState("");
-  const [refused, setRefused] = useState<Problem | null>(null);
-  const send = useMutation({
-    mutationFn: () => chatApi.send(projectId, prompt.trim(), fresh),
-    onMutate: () => setRefused(null),
-    onSuccess: (turn) => {
-      setPrompt("");
-      onStarted(turn);
-    },
-    onError: (error) => setRefused(problem(error, t.chat)),
-  });
-  const stop = useMutation({
-    mutationFn: (turn: number) => chatApi.stop(turn),
-    onError: (error) => setRefused(problem(error, t.chat)),
-  });
-  const ready = prompt.trim() !== "" && runningTurn === null && !send.isPending;
-  const stoppable = runningTurn ?? askingTurn;
-  const keyed = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      if (ready) send.mutate();
-    }
-  };
-  return (
-    <div className="border-t p-3">
-      <div className={`flex flex-col gap-2 ${column}`}>
-        {refused && (
-          <div
-            className={`rounded-md px-2 py-1.5 text-xs ${refused.tone === "note" ? "bg-muted text-muted-foreground" : "bg-destructive/10 text-destructive"}`}
-          >
-            {refused.lead && <p className="font-medium">{refused.lead}</p>}
-            <p>{refused.detail}</p>
-            {refused.noCredit && <NoCredits always />}
-          </div>
-        )}
-        <Textarea
-          value={prompt}
-          onChange={(event) => setPrompt(event.target.value)}
-          onKeyDown={keyed}
-          placeholder={
-            askingTurn !== null && !fresh
-              ? t.chat.composer.answerPlaceholder
-              : t.chat.composer.placeholder
-          }
-          className="max-h-40 min-h-16 resize-none"
-        />
-        <div className="flex items-center gap-2">
-          {showFresh && !fresh && runningTurn === null && <NewConversation onStart={onFresh} />}
-          <div className="ml-auto flex gap-2">
-            {stoppable !== null && (
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={stop.isPending}
-                onClick={() => stop.mutate(stoppable)}
-              >
-                <SquareIcon /> {t.chat.composer.stop}
-              </Button>
-            )}
-            <Button size="sm" disabled={!ready} onClick={() => send.mutate()}>
-              <SendIcon /> {t.chat.composer.send}
-            </Button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

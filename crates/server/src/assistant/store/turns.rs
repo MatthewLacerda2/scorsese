@@ -25,14 +25,15 @@ pub(in crate::assistant) async fn newest_session(
         .await
 }
 
-/// The conversation a new turn about `project` joins — the newest, or a new
-/// one when there is none or `fresh` asks for it — and whether it is new.
+/// The conversation a new turn about `project` joins — `joined`, the one
+/// [`newest_session`] read, or a new one when there is none — and whether it
+/// is new.
 pub(in crate::assistant) async fn session(
     tx: &mut Tx,
     project: i64,
-    fresh: bool,
+    joined: Option<i64>,
 ) -> Result<(i64, bool), sqlx::Error> {
-    if !fresh && let Some(session) = newest_session(tx, project).await? {
+    if let Some(session) = joined {
         return Ok((session, false));
     }
     let id = sqlx::query_scalar(

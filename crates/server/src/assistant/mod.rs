@@ -147,6 +147,7 @@
 //! changing that buys nothing a user can see.
 
 mod ask;
+mod attached;
 mod calls;
 mod compact;
 mod cost;
@@ -172,6 +173,7 @@ use scorsese_providers::credentials::resolve;
 use scorsese_providers::prices;
 
 pub use ask::{Answering, answer as answer_question, set_aside};
+pub use attached::MAX_ATTACHMENTS;
 pub use effort::choose_effort;
 pub use model::{Choice, choose};
 pub use quote::{Answer, Answered, answer as answer_quote};
@@ -230,6 +232,9 @@ pub enum AssistantError {
     /// A turn is already running in this conversation.
     #[error("the assistant is still working on your last message; wait for it, or stop it")]
     Busy,
+    /// Too many edits this minute: the seconds until one more can be made.
+    #[error("too many edits this minute; try again in {0} seconds")]
+    TooMany(u64),
     /// No such project, turn or quote of theirs.
     #[error("not found")]
     NotFound,

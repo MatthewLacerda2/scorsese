@@ -26,7 +26,7 @@ pub use hash::{hash_bytes, hash_file};
 pub use import::{ImportError, import_asset, measure};
 pub use listing::{Listed, listing};
 pub use many::{ImportBatch, import_many, import_sequences};
-pub use naming::{asset_id_for, infer_kind};
+pub use naming::{asset_id_for, extensions, infer_kind};
 pub use page::{
     MAX_PAGE_FILE_BYTES, PAGE_FILE_KINDS, PageError, PageFileError, PageFileWritten, PageReadError,
     PageWritten, page_file_path, read_page, read_page_file, write_page, write_page_file,

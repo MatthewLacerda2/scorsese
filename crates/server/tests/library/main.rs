@@ -12,6 +12,7 @@ mod documents;
 mod download;
 mod fetched;
 mod files;
+mod formats;
 mod generated;
 mod manage;
 mod midi;

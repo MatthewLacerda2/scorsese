@@ -6,6 +6,10 @@
 // server refuses a duplicate at upload too, as a backstop; both end the same
 // way — "you already have this as X", linking to X.
 //
+// A file the library does not take (`GET /api/library/formats`) is refused by
+// name before it is hashed, whichever page sent it; while that list is not in
+// yet, the server's refusal at announcement says so instead.
+//
 // The uploader lives in a provider around the whole signed-in app rather than
 // on the library page, so an upload keeps going while the user browses.
 
@@ -19,10 +23,11 @@ import {
   useRef,
   useState,
 } from "react";
-import { api } from "@/api";
+import { api, type Formats } from "@/api";
 import { queryKeys } from "@/app/queryKeys";
 import { useT } from "@/i18n/I18nProvider";
 import { alreadyHave, duplicateOf } from "@/lib/upload/duplicate";
+import { sort } from "@/lib/upload/formats";
 import { hashFile } from "@/lib/upload/hash";
 import {
   createUploader,
@@ -51,8 +56,11 @@ let nextKey = 0;
 export interface Uploads {
   /** Every upload this session started, newest first. */
   uploads: Upload[];
-  /** Hash, check and upload these files. */
-  add: (files: Iterable<File>) => Promise<void>;
+  /**
+   * Hash, check and upload these files: the key of each one's row, at once,
+   * so a caller can follow its own (a prompt's tray, #1534).
+   */
+  add: (files: Iterable<File>) => string[];
   /** Forget the rows that have finished, one way or another. */
   dismiss: () => void;
 }
@@ -64,6 +72,11 @@ export function useUploads(): Uploads {
   const uploads = useContext(UploadsContext);
   if (!uploads) throw new Error("useUploads is used outside <UploadsProvider>");
   return uploads;
+}
+
+/** The uploads, or `null` outside {@link UploadsProvider} — signed out, a tray holds files instead. */
+export function useOptionalUploads(): Uploads | null {
+  return useContext(UploadsContext);
 }
 
 /** Keeps one uploader for as long as the signed-in app is open. */
@@ -124,33 +137,64 @@ function useUploader(): Uploads {
     };
   }, [queryClient, update]);
 
-  const add = useCallback(
-    async (files: Iterable<File>) => {
-      for (const file of files) {
-        const key = `upload-${nextKey++}`;
-        setUploads((all) => [{ key, name: file.name, phase: "hashing", progress: 0 }, ...all]);
-        try {
-          const sha256 = await hashFile(file, (progress) => update(key, { progress }));
-          const [existing] = await api.library.list({ sha256 });
-          if (existing) {
-            const duplicate = alreadyHave(existing, t.files.uploads.alreadyHave);
-            update(key, { phase: "duplicate", message: duplicate.message, item: duplicate.item });
-            continue;
-          }
-          update(key, { phase: "uploading", progress: 0 });
-          const id = uploader.current?.addFile({
-            name: file.name,
-            type: file.type,
-            data: file,
-            meta: { name: file.name, sha256 },
-          });
-          if (id) rows.current.set(id, key);
-        } catch (error) {
-          update(key, { phase: "failed", message: (error as Error).message });
+  const send = useCallback(
+    async (key: string, file: File) => {
+      try {
+        const sha256 = await hashFile(file, (progress) => update(key, { progress }));
+        const [existing] = await api.library.list({ sha256 });
+        if (existing) {
+          const duplicate = alreadyHave(existing, t.files.uploads.alreadyHave);
+          update(key, { phase: "duplicate", message: duplicate.message, item: duplicate.item });
+          return;
         }
+        update(key, { phase: "uploading", progress: 0 });
+        const id = uploader.current?.addFile({
+          name: file.name,
+          type: file.type,
+          data: file,
+          meta: { name: file.name, sha256 },
+        });
+        if (id) rows.current.set(id, key);
+      } catch (error) {
+        update(key, { phase: "failed", message: (error as Error).message });
       }
     },
     [update, t],
+  );
+
+  const add = useCallback(
+    (files: Iterable<File>) => {
+      const started = Array.from(files, (file) => ({ key: `upload-${nextKey++}`, file }));
+      const formats = queryClient.getQueryData<Formats>(queryKeys.formats);
+      const refused = new Set(
+        sort(
+          started.map(({ file }) => file),
+          formats,
+        ).refused,
+      );
+      const rowsOf = started.map(
+        ({ key, file }): Upload =>
+          refused.has(file.name)
+            ? {
+                key,
+                name: file.name,
+                phase: "failed",
+                progress: 0,
+                message: t.files.uploads.refused,
+              }
+            : { key, name: file.name, phase: "hashing", progress: 0 },
+      );
+      // Newest first; reversed outside the updater, which StrictMode runs twice.
+      const newest = [...rowsOf].reverse();
+      setUploads((all) => [...newest, ...all]);
+      // One at a time, as before: hashing is the browser's, and a burst of
+      // checks would only queue at the server.
+      void (async () => {
+        for (const { key, file } of started) if (!refused.has(file.name)) await send(key, file);
+      })();
+      return started.map(({ key }) => key);
+    },
+    [send, queryClient, t],
   );
 
   const dismiss = useCallback(() => {

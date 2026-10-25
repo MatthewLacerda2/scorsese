@@ -31,3 +31,18 @@ export function useLibraryItem(id: number | null) {
     enabled: id !== null,
   });
 }
+
+/**
+ * The extensions the library takes, by kind (#1534): what a picker hints and a
+ * drop is refused by. The same for everyone and for the life of the page, and
+ * asked only once `enabled`, so a page that never attaches never asks.
+ */
+export const formatsQuery = {
+  queryKey: queryKeys.formats,
+  queryFn: api.library.formats,
+  staleTime: Number.POSITIVE_INFINITY,
+};
+
+export function useFormats(enabled = true) {
+  return useQuery({ ...formatsQuery, enabled });
+}
