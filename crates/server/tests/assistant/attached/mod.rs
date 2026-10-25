@@ -2,7 +2,8 @@
 //! ids with the prompt, the media among them are brought into the project
 //! before the turn starts, and the model is told which files came with this
 //! message — a document as one to read, never imported — so it does not go
-//! looking for them. A turn paused on a question hears them as it resumes.
+//! looking for them. A turn paused on a question or a quote hears them as it
+//! resumes (`paused`).
 
 use std::path::PathBuf;
 
@@ -14,10 +15,12 @@ use scorsese_server::projects;
 use serde_json::{Value, json};
 use sqlx::postgres::PgPool;
 
-use super::{Script, answers, calls, common, finished, member, project, scripted};
+use super::{Script, answers, common, finished, member, project, scripted};
+
+mod paused;
 
 /// `name` in `user`'s library: a red square for a picture, a line of text otherwise.
-async fn kept(state: &AppState, user: UserId, name: &str, kind: Kind) -> i64 {
+pub(super) async fn kept(state: &AppState, user: UserId, name: &str, kind: Kind) -> i64 {
     let scratch = common::scratch::dir("attached");
     let extension = name.rsplit_once('.').map(|(_, e)| e).expect("an extension");
     let file: PathBuf = scratch.join(name);
@@ -47,7 +50,7 @@ async fn kept(state: &AppState, user: UserId, name: &str, kind: Kind) -> i64 {
 }
 
 /// `prompt` sent about `project` with `attachments`: the response.
-async fn send_with(
+pub(super) async fn send_with(
     address: std::net::SocketAddr,
     who: &str,
     project: i64,
@@ -60,7 +63,7 @@ async fn send_with(
 }
 
 /// Everything request `n` sent the model, as one text.
-fn heard(script: &Script, n: usize) -> String {
+pub(super) fn heard(script: &Script, n: usize) -> String {
     script.messages(n).join("\n")
 }
 
@@ -134,26 +137,4 @@ async fn a_file_not_in_the_senders_library_is_refused_before_anything_runs(pool:
         .expect("opens")
         .document;
     assert!(document.assets.is_empty(), "nothing was imported");
-}
-
-#[sqlx::test]
-async fn a_turn_paused_on_a_question_hears_the_attachments_as_it_resumes(pool: PgPool) {
-    let question = json!({ "question": "Which logo?", "options": ["old", "new"] });
-    let script = Script::new(vec![calls("ask_user", question), answers("Using it.")]);
-    let (address, state) = scripted(&pool, &script).await;
-    let (ana, who) = member(&pool, "ana@example.com", 10).await;
-    let id = project(&pool, ana, json!([])).await;
-    let paused = super::exchange(address, &who, id, "add the logo").await;
-    assert_eq!(paused["turn"]["state"], "asking", "{paused}");
-
-    let logo = kept(&state, ana, "logo.png", Kind::Image).await;
-    let sent = send_with(address, &who, id, "this one", json!([logo])).await;
-    assert_eq!(sent.status, 202, "{}", sent.body);
-    finished(address, &who, sent.json()["id"].as_i64().expect("an id")).await;
-    let said = heard(&script, 1);
-    assert!(
-        said.contains("logo.png"),
-        "the resumed turn is told: {said}"
-    );
-    assert!(said.contains("this one"), "{said}");
 }

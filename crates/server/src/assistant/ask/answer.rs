@@ -24,6 +24,9 @@ pub struct Answering {
     /// The `key`s of the candidates they picked from a picker — empty for
     /// "none of these" — or `None` when they answered in words alone.
     pub picked: Option<Vec<String>>,
+    /// What the server has to tell the model with the answer: the files
+    /// attached to the message that answered (#1534).
+    pub notes: Vec<String>,
 }
 
 impl Answering {
@@ -32,6 +35,7 @@ impl Answering {
         Self {
             words: words.to_owned(),
             picked: None,
+            notes: Vec::new(),
         }
     }
 }
@@ -110,6 +114,7 @@ pub async fn answer(
         },
     );
     let state = state.clone();
+    let notes = answering.notes;
     tokio::spawn(async move {
         // Words alone answer a question at once; a picker's result waits for
         // what was picked to be brought in, while the turn already shows as
@@ -122,7 +127,7 @@ pub async fn answer(
             answered(&call, words.as_deref().unwrap_or_default())
         };
         running.answer = Some(Resumed::Next(Message::User {
-            content: vec![noted(result, told)],
+            content: vec![noted(result, told, &notes)],
         }));
         turn::run(state, running).await;
     });

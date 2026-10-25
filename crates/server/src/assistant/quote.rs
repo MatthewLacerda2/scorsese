@@ -60,8 +60,9 @@ pub enum Answer {
     Decline,
     /// Withdraw it, and ask the assistant for this change to what it covered.
     Change(String),
-    /// Withdraw it unanswered: the user wrote this message instead.
-    Instead(String),
+    /// Withdraw it unanswered: the user wrote this message instead, with
+    /// what the server has to tell the model beside it (#1534).
+    Instead(String, Vec<String>),
 }
 
 impl Answer {
@@ -73,7 +74,7 @@ impl Answer {
             Self::Decline => ("declined", ("declined", None)),
             // A change spends nothing, and the result carries the rest.
             Self::Change(text) => ("declined", ("changed", Some(text.trim()))),
-            Self::Instead(text) => ("withdrawn", ("withdrawn", Some(text.as_str()))),
+            Self::Instead(text, _) => ("withdrawn", ("withdrawn", Some(text.as_str()))),
         }
     }
 }
@@ -123,6 +124,10 @@ pub async fn answer(
         },
     );
 
+    let notes = match &answer {
+        Answer::Instead(_, notes) => notes.clone(),
+        _ => Vec::new(),
+    };
     let (spent, refused, result) = match answer {
         Answer::Confirm { batch } => {
             let (said, refused) =
@@ -144,7 +149,7 @@ pub async fn answer(
             withdraw(state, user, &token).await;
             let result = match other {
                 Answer::Change(text) => change_note(&quote, text.trim()),
-                Answer::Instead(text) => format!(
+                Answer::Instead(text, _) => format!(
                     "The person did not answer the quote; it is withdrawn and nothing was spent. \
                      They wrote instead:\n{text}"
                 ),
@@ -170,7 +175,7 @@ pub async fn answer(
         content: vec![ResultPart::Text { text: result }],
         is_error: refused,
     };
-    running.answer = Some(Resumed::Settle(noted(result, told)));
+    running.answer = Some(Resumed::Settle(noted(result, told, &notes)));
     tokio::spawn(turn::run(state.clone(), running));
     Ok(Answered {
         spent,

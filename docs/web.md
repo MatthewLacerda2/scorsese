@@ -1487,7 +1487,9 @@ crosses the network; the refusal at upload is the backstop.
 **The kinds `scorsese import` takes** — video, image, audio and an `.html`
 page, by the same extension list (`scorsese_core::pool::infer_kind`). Any
 other file, a `.mid` included (#964), is refused at announcement (`415`)
-before a byte is sent. **A page (#1144) is text, not media**: never probed,
+before a byte is sent. The browser holds a pick or a drop to the same list,
+asked of `GET /api/library/formats` rather than copied, and names a file it
+refuses before hashing it. **A page (#1144) is text, not media**: never probed,
 held to UTF-8 and to the size a project keeps a page at (1 MiB, refused at
 announcement when the length says so), given no thumbnail (`404` with
 `pending: false`), and served as `text/plain`, never run from the app's
@@ -1565,6 +1567,7 @@ local project keeps them, so a render's pages get `scorsese.words` and
 | route | who | what |
 | --- | --- | --- |
 | `GET /api/library` | a member | their files, newest first: `id`, `name`, `kind`, `size_bytes`, `thumbnail`; `?kind=`, `?search=`, `?sha256=` and `?project=` (the files that project uses) narrow it |
+| `GET /api/library/formats` | anyone | the extensions each kind is uploaded under, `{video: […], image: […], audio: […], html: […], text: […]}`: the list the web app's pickers and drops refuse a file by (#1534) |
 | `GET /api/library/{id}` | a member | everything known, `used_by` (projects), `generation` (or `null`), `source` — where a stock file came from (or `null`, #1237) |
 | `PATCH /api/library/{id}` | a member | `{name?, description?}`; an empty description removes it |
 | `DELETE /api/library/{id}` | a member | `204`; `409` with `projects` when one uses it |
@@ -2303,7 +2306,7 @@ fixed until measured usage (#707) says otherwise.
 | `GET /api/projects/{id}/chat` | a member | `{project, session, turns, model, models, effort}`: the newest conversation's turns, oldest first; the project's model; every model offered as `{id, label, vendor, unavailable, cache_seconds, cost}`; the project's effort |
 | `PUT /api/projects/{id}/chat/model` | a member | `{model}` → the model as listed; from the next turn the project runs on it. `400` for a model not offered |
 | `PUT /api/projects/{id}/chat/effort` | a member | `{effort}` → `{effort}`; from the next turn the project runs at it. `low`, `medium`, `high` or `xhigh`; `400` for anything else |
-| `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?}` → `202` with the turn, at the project's effort; `402` no credit, `409` a turn is running, `503` not configured |
+| `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?, attachments?}` → `202` with the turn, at the project's effort; `attachments` are library ids (at most 20, #1534): the media among them are imported first and the model is told in a note which files came with the message, a document as one to read; `400` with nothing imported for one not in their library, `402` no credit, `409` a turn is running, `503` not configured |
 | `GET /api/chat/turns/{id}` | a member | `{turn, tools}`: the turn and the log of every tool call it made, in order |
 | `POST /api/chat/turns/{id}/stop` | a member | `202`; the turn stops before its next step — at once, its question set aside, when it is `asking`. `409` if it is neither |
 | `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false, change?}` → `{spent, refused, turn, note}`; `turn` is the one the quote paused, carrying on with the answer as the quoting call's result (#1440); `change` with `confirm: true` is `400`, and so is any answer on a turn not paused on a quote |

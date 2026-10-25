@@ -96,11 +96,15 @@ pub async fn start(
             }
             drop(tx);
             if last.token.is_some() {
-                let instead = quote::Answer::Instead(prompt);
+                let instead = quote::Answer::Instead(prompt, opening.notes);
                 let answered = quote::answer(state, user, last.id, instead).await?;
                 return answered.turn.ok_or(AssistantError::NotFound);
             }
-            return ask::answer(state, user, last.id, ask::Answering::words(&prompt)).await;
+            let answering = ask::Answering {
+                notes: opening.notes,
+                ..ask::Answering::words(&prompt)
+            };
+            return ask::answer(state, user, last.id, answering).await;
         }
         notes.extend(settle_quote(state, user, &mut tx, &last).await?);
         if hands::rewrote_script(&mut tx, project, last.id).await? {

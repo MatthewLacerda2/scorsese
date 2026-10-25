@@ -26,21 +26,27 @@ pub struct Send {
     /// newest one.
     #[serde(default)]
     pub fresh: bool,
+    /// Library ids of the files attached to the message (#1534): brought
+    /// into the project before the turn starts, and named to the model.
+    #[serde(default)]
+    pub attachments: Vec<i64>,
 }
 
 /// `POST /api/projects/{id}/chat`: a turn starts, `202` with it, at the
 /// project's effort. `503` when the assistant is not configured, `402` when
-/// the balance is empty, `409` while another turn of the conversation runs.
+/// the balance is empty, `409` while another turn of the conversation runs;
+/// `400`, with nothing imported, when an attachment is not the caller's.
 pub async fn send(
     State(state): State<AppState>,
     member: Member,
     Path(project): Path<i64>,
     Json(send): Json<Send>,
 ) -> Result<(StatusCode, Json<TurnView>), ApiError> {
+    let attached = assistant::attach(&state, member.user, project, &send.attachments).await?;
     let opening = Opening {
         prompt: send.prompt,
         fresh: send.fresh,
-        notes: Vec::new(),
+        notes: attached.into_iter().collect(),
         effort: None,
         woken: false,
     };
@@ -204,6 +210,7 @@ pub async fn answer(
     let answering = Answering {
         words: answer.answer,
         picked: answer.picked,
+        notes: Vec::new(),
     };
     let turn = assistant::answer_question(&state, member.user, id, answering).await?;
     Ok((StatusCode::ACCEPTED, Json(turn)))
