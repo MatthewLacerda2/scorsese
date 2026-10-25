@@ -1,5 +1,5 @@
 // The flows that run an assistant turn, in every language the web app speaks
-// (#1429): a message, a new platform, a confirmed quote. Each checks the page
+// (#1429): a message and a confirmed quote. Each checks the page
 // still shows the editor while the turn runs and after it ends, because the
 // pieces a running turn draws are translated and stateful — the 2026-10-16
 // black page (#1426) broke them in Portuguese and Spanish only, where no
@@ -26,17 +26,6 @@ for (const { language } of LANGUAGES) {
       const assistant = await editing(page, language, "Assistant");
       await page.getByPlaceholder(t.chat.composer.placeholder).fill("Put the lighthouse first");
       await page.keyboard.press("Enter");
-      await runsThenAnswers(page, t, assistant);
-    });
-
-    test("a new platform starts a turn that runs, then answers", async ({ page }) => {
-      const assistant = await editing(page, language, "Retarget");
-      await page.getByRole("button", { name: t.start.button }).click();
-      const modal = page.getByRole("dialog");
-      // Any platform but none: what changes is what matters, not which.
-      await modal.getByRole("radio").nth(1).click();
-      await modal.getByRole("button", { name: t.start.save }).click();
-      await expect(modal).toBeHidden();
       await runsThenAnswers(page, t, assistant);
     });
 

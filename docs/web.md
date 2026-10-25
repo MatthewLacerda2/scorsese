@@ -1174,26 +1174,21 @@ updating. Local folders go through the same steps with `scorsese migrate`.
 | route | who | what |
 | --- | --- | --- |
 | `GET /api/projects` | a member | their projects, newest write first, without documents |
-| `POST /api/projects` | a member | `{name, fps?, platform?, style?, assets?}` → a new project, `201`: with the starting brief in `script.md` when a platform or style is chosen, and the library files in `assets` imported; `400` for a platform, style or file the server refuses, and nothing is kept |
+| `POST /api/projects` | a member | `{name, fps?, assets?}` → a new project, `201`, with the library files in `assets` imported; `400` for a blank name or a file the server refuses, and nothing is kept |
 | `GET /api/projects/{id}` | a member | the project, its `document` and `revision`, and `script_changed_at`: when its script last changed, in microseconds, or `null` (#1493) |
 | `PUT /api/projects/{id}` | a member | `{revision, document}` → `{revision}`; `409` if it moved on, `400` for a document this build does not read |
 | `PATCH /api/projects/{id}` | a member | `{name}` → `{revision}` |
 | `DELETE /api/projects/{id}` | a member | `204`; `404` for an id that is not theirs |
-| `PUT /api/projects/{id}/start` | a member | `{platform?, style?, message?}` → `{turn, note}`: the project is made for that now, and when it changed a turn starts with `message` and a note saying so; `400` for a choice the library refuses |
-| `GET /api/styles` | a member | the menu a project starts from: `{platforms, styles}`, each style with its name, description, platforms and `preview` (`null` until #1017) |
 
-**What a project is started for** (#1016): a placement (`scorsese_core::style::Platform`)
-and a kind of video (a style from the library), both optional, chosen in the
-new-project dialog. They do two separate things. The **brief** —
-`style::Start::brief`, the same words `scorsese new` and the local `project_new`
-write — goes into the project's script, `script.md`, which is what the
-assistant reads and from then on edits like any other text. The **columns**
-`projects.platform` and `projects.style` are the web's memory of the choice:
-what the editor shows as chosen, and the size a render or preview that asks for
-none is delivered at. Neither enters the document; a platform is a render
-preset and a style a prompt. Changing either later (`PUT …/start`) rewrites no
-script: it starts a turn whose server note says what
-changed, with the new choice's brief, and the assistant updates the script.
+**What a project is for** (#1531): the web app asks for no platform, style or
+shape. A project is made from a name, and the assistant reads where the video
+will be watched, its shape and its kind (`guide styles`) from the first prompt,
+writes them at the opening of the script, `script.md`, as its brief, and
+re-fits the frame with `project_reframe`. The assistant's own `project_new`
+still takes a platform and a style, as the CLI and local MCP do (#1015): the
+brief `style::Start::brief` writes goes into the script, and the columns
+`projects.platform` and `projects.style` keep the choice. Neither enters the
+document; a platform is a render preset and a style a prompt.
 Every conversation is told when its project has a script, and the system
 prompt puts the script first for every project: scenes proposed, nothing
 edited until the person answers. When anything is to be generated, the
@@ -2583,8 +2578,14 @@ in the answer's result, and then not again (`chat_turns.script_told_at`).
 
 - **An allowlist**, not the whole surface: `track_new`, `track_remove`,
   `asset_remove`, `place_clip`, `clip_set`, `clip_move`,
+<<<<<<< HEAD
   `clip_remove`, `sequence`, `project_reframe`, `script_write` (the edits,
   `http::editor::EDITS`) and `import`, `still`, `script_read`. Anything else is
+=======
+  `clip_remove`, `sequence`, `script_write` (the edits,
+  `http::editor::EDITS`) and `import`, `still`, `template_save`,
+  `template_insert`, `script_read`. Anything else is
+>>>>>>> 17f2ffa (Web: no platform, style or shape pickers; the assistant reads them from the prompt (#1531))
   `404` — a page has no business writing a whole document or spending money.
   An API token is `403`; a program uses web MCP.
 - **An edit names the revision it was worked out on**, and a project at any
@@ -2662,11 +2663,8 @@ in the browser is not attempted.
 
 The frame's **shape** is the project's own, the document's `aspect` (#1278):
 a project started for a platform opens in its shape, and nobody chooses
-anything. The header shows it (16:9, 9:16, 1:1, 4:5, and the project's own if
-it is none of those), and choosing another calls `project_reframe` with the
-revision — the re-fit every surface makes — and shows its reply: what it
-re-fitted, and what it left to settle, which the assistant can be asked to
-settle. Changing the platform to one of another shape re-fits the same way. The
+anything: the editor offers no shape to pick (#1531), and the assistant
+changes it with `project_reframe` when the video is for another. The
 shape sets the preview raster and the sizes the **Render** dialog offers, 1080
 lines on the shorter side first (`Ratio::delivery`); that dialog asks for a
 finished render, follows it through the queue and lists the project's kept

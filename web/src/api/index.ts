@@ -2,7 +2,6 @@
 // tables as functions. A page imports `api` and never builds a URL itself, so
 // when a route changes there is one file to change with it.
 
-import type { TurnView } from "./chat";
 import { query, request } from "./client";
 import type { JobView } from "./events";
 import type {
@@ -23,7 +22,6 @@ import type {
   RenderAsk,
   RenderView,
   StoredProject,
-  StyleMenu,
   ToolAnswer,
 } from "./types";
 
@@ -35,8 +33,7 @@ export * from "./types";
 /**
  * The tools the editor calls — the server's allowlist (`http::editor`): the
  * hand-edits (a lane, a placement, a trim, a value, a move to another lane, a
- * delete, removing a lane or an asset with the clips that go named — #396 — and
- * a new frame shape, #1278),
+ * delete, and removing a lane or an asset with the clips that go named — #396),
  * bringing a library file in, looking at a frame, and reading and rewriting
  * the script from the Script button (#1445).
  */
@@ -49,7 +46,6 @@ export type EditorTool =
   | "clip_move"
   | "clip_remove"
   | "sequence"
-  | "project_reframe"
   | "import"
   | "still"
   | "script_read"
@@ -104,30 +100,12 @@ export const api = {
   },
   projects: {
     list: () => request<ProjectSummary[]>("GET", "/projects"),
-    /** A project, with its starting brief when a platform or style is chosen (#1016). */
+    /** A project from a name; the assistant reads what it is for from the first prompt (#1531). */
     create: (project: NewProject) => request<StoredProject>("POST", "/projects", project),
     open: (id: number) => request<StoredProject>("GET", `/projects/${id}`),
     rename: (id: number, name: string) =>
       request<{ revision: number }>("PATCH", `/projects/${id}`, { name }),
     remove: (id: number) => request<void>("DELETE", `/projects/${id}`),
-    /**
-     * Change what the project is made for (#1016). When it changed, the
-     * assistant is told in a turn that opens with `message`; `note` says why
-     * none started.
-     */
-    retarget: (
-      id: number,
-      start: { platform: string | null; style: string | null; message: string },
-    ) =>
-      request<{ turn: TurnView | null; note: string | null }>(
-        "PUT",
-        `/projects/${id}/start`,
-        start,
-      ),
-  },
-  /** Every placement and style a project can start from. */
-  styles: {
-    menu: () => request<StyleMenu>("GET", "/styles"),
   },
   library: {
     list: (filter: LibraryFilter = {}) =>

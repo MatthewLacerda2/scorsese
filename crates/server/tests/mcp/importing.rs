@@ -68,12 +68,11 @@ async fn a_project_made_over_http_brings_its_library_files_in(pool: PgPool) {
     let address = common::serve(pool.clone()).await;
     let (ana, token) = member(&pool, "ana@example.com").await;
     let item = common::hold(&pool, ana, SHA).await;
-    let body = json!({ "name": "Reel", "platform": "instagram_reels", "assets": [item] });
+    let body = json!({ "name": "Reel", "assets": [item] });
     let made = common::request(address, "POST", "/api/projects", &[&token], Some(&body)).await;
     assert_eq!(made.status, 201, "{}", made.body);
     let made = made.json();
     assert_eq!(made["document"]["assets"][0]["sha256"], SHA, "{made}");
-    assert_eq!(made["platform"], "instagram_reels");
 }
 
 #[sqlx::test]

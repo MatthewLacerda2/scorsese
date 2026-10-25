@@ -1,5 +1,4 @@
-//! A user's projects: list, create, open, save, rename, delete — and change
-//! what one is made for.
+//! A user's projects: list, create, open, save, rename, delete.
 //!
 //! Deliberately few. What a project *says* is changed by `scorsese-core`'s
 //! editing functions, reached through the tools (#539, #540) or the editor
@@ -10,7 +9,6 @@
 use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use scorsese_core::style::{Platform, Start};
 use scorsese_core::{Fps, Project};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -18,7 +16,6 @@ use serde_json::{Value, json};
 use super::AppState;
 use super::auth::Member;
 use super::error::ApiError;
-use crate::assistant::{self, Retargeted};
 use crate::projects::{self, Stored, Summary};
 use crate::tools::Client;
 
@@ -39,34 +36,29 @@ pub struct NewProject {
     /// The document's own default when omitted.
     #[serde(default)]
     pub fps: Option<Fps>,
-    /// The placement the video is made for (#1016), by id; none when omitted.
-    #[serde(default)]
-    pub platform: Option<String>,
-    /// The kind of video it is, by style id; none when omitted. Refused when
-    /// it is not made for `platform`.
-    #[serde(default)]
-    pub style: Option<String>,
     /// Library files to bring in at once, by id — what `import` takes.
     #[serde(default)]
     pub assets: Vec<i64>,
 }
 
 /// `POST /api/projects`: a project, made by `core` exactly as `scorsese new`
-/// makes one — with the starting brief in its script when a platform or a
-/// style was chosen (#1016), and the library files asked for imported.
+/// makes one, with the library files asked for imported. No platform or
+/// style is asked for (#1531): the assistant reads them from the first prompt.
 ///
-/// `400` for a platform or style the library does not have, a style not made
-/// for the platform, or a file that is not in the caller's library; nothing
-/// is kept then, so a refused create never leaves a half-made project.
+/// `400` for a blank name or a file that is not in the caller's library;
+/// nothing is kept then, so a refused create never leaves a half-made project.
 pub async fn create(
     State(state): State<AppState>,
     member: Member,
     Json(new): Json<NewProject>,
 ) -> Result<(StatusCode, Json<Stored>), ApiError> {
     let name = named(&new.name)?;
-    let start = started(new.platform.as_deref(), new.style.as_deref())?;
     let project = Project::new(name, new.fps.unwrap_or_default());
-    let stored = projects::begin(&state.pool, member.user, project, &start).await?;
+    let summary = projects::create(&state.pool, member.user, &project).await?;
+    let stored = Stored {
+        summary,
+        document: project,
+    };
     if new.assets.is_empty() {
         return Ok((StatusCode::CREATED, Json(stored)));
     }
@@ -82,57 +74,6 @@ pub async fn create(
     }
     let stored = projects::open(&state.pool, member.user, id).await?;
     Ok((StatusCode::CREATED, Json(stored)))
-}
-
-/// `PUT /api/projects/{id}/start`'s body: what the project is made for now.
-#[derive(Debug, Deserialize)]
-pub struct Retarget {
-    /// The placement, by id; none when omitted.
-    #[serde(default)]
-    pub platform: Option<String>,
-    /// The kind of video, by style id; none when omitted.
-    #[serde(default)]
-    pub style: Option<String>,
-    /// The words the person's chat shows for the turn that carries the change,
-    /// in the site's language — the web app writes them. A plain default when
-    /// omitted. The model does not read them: it is told the change in the
-    /// app's own words, so it answers in the person's language, not the site's.
-    /// The one gap is a conversation paused on a question or a quote, which
-    /// still takes them as the person's answer (#1505).
-    #[serde(default)]
-    pub message: Option<String>,
-}
-
-/// `PUT /api/projects/{id}/start`: change the platform or the style a project
-/// is made for (#1016). The choice is kept and, when it changed, the assistant
-/// is told in a turn of its own: it updates the
-/// script, which the server never rewrites. `400` for a choice the library
-/// refuses; `404` for a project that is not theirs.
-pub async fn retarget(
-    State(state): State<AppState>,
-    member: Member,
-    Path(id): Path<i64>,
-    Json(retarget): Json<Retarget>,
-) -> Result<Json<Retargeted>, ApiError> {
-    let start = started(retarget.platform.as_deref(), retarget.style.as_deref())?;
-    let words = retarget
-        .message
-        .as_deref()
-        .map(str::trim)
-        .filter(|words| !words.is_empty())
-        .unwrap_or("I changed what this video is made for.");
-    Ok(Json(
-        assistant::retarget(&state, member.user, id, start, words).await?,
-    ))
-}
-
-/// A platform and a style as the library takes them, or why not.
-fn started(platform: Option<&str>, style: Option<&str>) -> Result<Start, ApiError> {
-    let platform = platform
-        .map(str::parse::<Platform>)
-        .transpose()
-        .map_err(|error| ApiError::BadRequest(error.to_string()))?;
-    Start::new(platform, style).map_err(|error| ApiError::BadRequest(error.to_string()))
 }
 
 /// `GET /api/projects/{id}`'s answer.

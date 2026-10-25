@@ -41,18 +41,9 @@ test("a prompt on the home makes a named project, opens its editor and says the 
   await expect(page.getByRole("link", { name: "Lighthouse dawn" })).toBeVisible();
 });
 
-test("choosing another frame shape re-fits the project and says what it did", async ({ page }) => {
-  await newProject(page, "Square cut");
-  const shape = page.getByRole("combobox", { name: "Frame shape" });
-  await expect(shape).toHaveValue("16:9");
-  await shape.selectOption("1:1");
-  await expect(page.getByText("Reframed from 16:9 to 1:1.")).toBeVisible();
-  await expect(shape).toHaveValue("1:1");
-  // The shape is the project's, not this browser's: it is there on a reload.
-  await page.reload();
-  await expect(shape).toHaveValue("1:1");
-  await page.getByRole("button", { name: "Render", exact: true }).click();
-  await expect(page.getByRole("dialog").getByRole("combobox", { name: "Resolution" })).toHaveValue(
-    "1080x1080",
-  );
+test("a new project's editor asks nothing about what it is for", async ({ page }) => {
+  await newProject(page, "Lighthouse");
+  // The assistant reads the platform, shape and kind from the prompt (#1531).
+  await expect(page.getByRole("combobox", { name: "Frame shape" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Platform and style" })).toHaveCount(0);
 });

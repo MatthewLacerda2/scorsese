@@ -18,7 +18,11 @@ use axum::routing::{MethodFilter, MethodRouter, on};
 
 use super::{
     AppState, account, chat, client_errors, credits, editor, events, google, health, jobs, library,
+<<<<<<< HEAD
     mcp, payments, projects, renders, styles, tokens, uploads,
+=======
+    mcp, payments, projects, renders, templates, tokens, uploads,
+>>>>>>> 17f2ffa (Web: no platform, style or shape pickers; the assistant reads them from the prompt (#1531))
 };
 
 /// One method on one path, and what answers it.
@@ -80,9 +84,6 @@ pub fn table() -> Vec<Route> {
         Route::new(M::PUT, "/projects/{id}", projects::save),
         Route::new(M::PATCH, "/projects/{id}", projects::rename),
         Route::new(M::DELETE, "/projects/{id}", projects::delete),
-        // What a project is started for (#1016): the menu, and changing it.
-        Route::new(M::GET, "/styles", styles::menu),
-        Route::new(M::PUT, "/projects/{id}/start", projects::retarget),
         // Web MCP (#539): only `POST` is served; the others say so.
         Route::new(M::POST, "/mcp", mcp::post),
         Route::new(M::GET, "/mcp", mcp::refuse),

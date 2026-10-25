@@ -11,11 +11,9 @@ import { files } from "@/i18n/pt-BR/files";
 import { home } from "@/i18n/pt-BR/home";
 import { inspector } from "@/i18n/pt-BR/inspector";
 import { landing } from "@/i18n/pt-BR/landing";
-import { menu } from "@/i18n/pt-BR/menu";
 import { pages } from "@/i18n/pt-BR/pages";
 import { pricing } from "@/i18n/pt-BR/pricing";
 import { prompt } from "@/i18n/pt-BR/prompt";
-import { start } from "@/i18n/pt-BR/start";
 
 export const ptBR: Messages = {
   common,
@@ -26,8 +24,6 @@ export const ptBR: Messages = {
   assets,
   inspector,
   landing,
-  start,
-  menu,
   buying,
   prompt,
   pricing,

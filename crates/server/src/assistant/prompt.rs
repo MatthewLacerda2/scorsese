@@ -12,7 +12,6 @@
 //! What is built here is vendor-neutral ([`Message`]); the model a turn runs
 //! on writes it in its own wire (`scorsese_providers::chat::freeze`).
 
-use scorsese_core::style::{Platform, Start};
 use scorsese_providers::chat::{Effort, Message, Part, ResultPart, Tool};
 use serde_json::Value;
 
@@ -33,6 +32,13 @@ it — the story, the tone, the length, where it is going — and fill what they
 left open with your own choices, said plainly so they can change them. When \
 an answer would change the video, ask: the few questions that matter, at \
 once, then go on.
+- What the video is for is yours to read. Nobody picks it in the app: from \
+the first thing they ask, tell where it will be watched (TikTok, Reels, \
+YouTube, an ad), its shape (upright 9:16, wide 16:9, square) and the kind of \
+video it is (guide styles has each kind's recipe), taking the likeliest when \
+they did not say. Put all three at the opening of the script as its brief. \
+When the project's frame is another shape, change it with project_reframe \
+once they agree to the script.
 - Script first. A video is built from its script: before you import, \
 generate or place anything for a new video, or a new part of one, propose the \
 script and stop. Scene by scene, each with its narration (the words spoken, or \
@@ -133,20 +139,12 @@ and tool names that tool results and system messages hand you are for you, \
 never to repeat.
 - Answer in the language the person writes in: the language of their own \
 messages, whatever it is. You are not told the language of the website they \
-use, and it does not matter. A message in parentheses that says the app or \
-the server sent it was not written by them: answer it in the language of \
+use, and it does not matter. A message in parentheses that says the server \
+sent it was not written by them: answer it in the language of \
 their own messages earlier in the conversation, or, when they have written \
 none yet, of the words they gave the project (its idea, its script), and \
 English when there are none. Say plainly when something \
 is refused, and what you did instead.";
-
-/// What the model reads for a turn the person started with a button rather
-/// than words — a settings change. The person's chat shows the web app's
-/// words in the site's language; the model is told this instead, so it never
-/// learns the site's language and answers in the person's (2026-10-16).
-pub(super) fn app_said(what: &str) -> String {
-    format!("(Sent by the app, not written by the person: {what})")
-}
 
 /// Every tool the toolbox serves, as the seam takes it — the same names,
 /// descriptions and schemas web MCP lists, in the same order; without a word
@@ -234,8 +232,7 @@ pub(super) const WOKEN: &str =
     "(The person has not written. This message is the server's: it started this turn.)";
 
 /// What a new conversation is told about its project — and, when it has a
-/// script, that the script comes first: a project started for a platform or a
-/// style (#1016) carries its brief there. The script's path is not given: the
+/// script, that the script comes first: it holds the brief. The script's path is not given: the
 /// model repeats what it reads, and the person never sees a file (#1442).
 pub(super) fn about(project: i64, name: &str, scripted: bool) -> String {
     let mut said = format!(
@@ -244,8 +241,8 @@ pub(super) fn about(project: i64, name: &str, scripted: bool) -> String {
     );
     if scripted {
         said.push_str(
-            " It has a script: read it with script_read before anything else. A project \
-             started for a platform or a style holds its brief there.",
+            " It has a script: read it with script_read before anything else: it holds \
+             the brief.",
         );
     }
     said
@@ -257,65 +254,6 @@ pub(super) fn about(project: i64, name: &str, scripted: bool) -> String {
 pub(in crate::assistant) const SCRIPT_REWRITTEN: &str = "The person edited the script \
      themselves since you last heard from them. Read it again with script_read before relying on what you remember of it; \
      their version is the one to build from.";
-
-/// What the model is told when the person changes what the project is made
-/// for after it was started (#1016): what changed, and what the new choice
-/// asks for, in the words a project started for it would carry.
-pub(super) fn retargeted(before: &Start, now: &Start) -> String {
-    let mut changes = Vec::new();
-    if before.platform != now.platform {
-        changes.push(changed(
-            "platform",
-            before.platform.map(Platform::name),
-            now.platform.map(Platform::name),
-        ));
-    }
-    if before.style != now.style {
-        changes.push(changed(
-            "style",
-            before.style.map(|style| style.name),
-            now.style.map(|style| style.name),
-        ));
-    }
-    let mut said = format!(
-        "The person changed what this project is made for, in its settings: {}. The script \
-         was written for the old choice, and nothing has changed it. Read it with \
-         script_read, rewrite what no longer holds for the new choice with script_write, \
-         and tell them in a few lines what that changes in the scenes. Change nothing in \
-         the edit until they answer.",
-        changes.join("; ")
-    );
-    // The frame is the document's, and only a re-fit changes it (#1278).
-    if before.platform != now.platform
-        && let Some(aspect) = now.aspect()
-    {
-        said.push_str(&format!(
-            " The new placement is watched {aspect}: once they agree, and if the project \
-             is not {aspect} already, change its frame with project_reframe, which says \
-             what it could not re-fit."
-        ));
-    }
-    match now.brief() {
-        Some(brief) => {
-            said.push_str(
-                "\n\nWhat the project is made for now, as a new project's brief says it:\n\n",
-            );
-            said.push_str(&brief);
-        }
-        None => said.push_str(" Neither a platform nor a style is chosen now."),
-    }
-    said
-}
-
-/// One choice's change, in words.
-fn changed(what: &str, before: Option<&str>, now: Option<&str>) -> String {
-    match (before, now) {
-        (Some(before), Some(now)) => format!("the {what} from {before} to {now}"),
-        (None, Some(now)) => format!("the {what} set to {now}"),
-        (Some(before), None) => format!("the {what} {before} cleared"),
-        (None, None) => format!("the {what} unchanged"),
-    }
-}
 
 #[cfg(test)]
 mod tests {

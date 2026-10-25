@@ -2,7 +2,7 @@
 // render that names no size and the one the Render dialog offers first agree.
 
 import { expect, test } from "bun:test";
-import { aspectOf, aspectOfSize, deliveries, offered } from "./shape";
+import { aspectOf, aspectOfSize, deliveries } from "./shape";
 
 test("a document that names no shape is 16:9", () => {
   expect(aspectOf({})).toBe("16:9");
@@ -15,11 +15,6 @@ test("the first size is Ratio::delivery's: 1080 lines on the shorter side", () =
   expect(deliveries("1:1")).toEqual(["1080x1080", "720x720"]);
   expect(deliveries("4:5")).toEqual(["1080x1350", "720x900"]);
   expect(deliveries("21:9")).toEqual(["2520x1080", "1680x720"]);
-});
-
-test("a shape the editor does not offer is offered too, so the picker shows it", () => {
-  expect(offered("9:16")).toEqual(["16:9", "9:16", "1:1", "4:5"]);
-  expect(offered("4:3")).toEqual(["16:9", "9:16", "1:1", "4:5", "4:3"]);
 });
 
 test("a size's shape is in lowest terms", () => {

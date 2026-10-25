@@ -234,7 +234,7 @@ PYTHON_CHECK = command -v $(PYTHON) >/dev/null 2>&1 || { \
 # directories called `app/` and `web/`, so without it make sees the target as
 # already built and `make app` prints "up to date" without running a thing. A
 # check that silently does nothing is worse than no check.
-.PHONY: help setup compile-cache gates pre-commit target-dir inventory $(GATES) app-gates web-gates web-e2e-run release format-fix mcp-table style-menu landing-og coverage mutants mutants-remote mutants-status mergeable queue live-check infra-plan infra-apply
+.PHONY: help setup compile-cache gates pre-commit target-dir inventory $(GATES) app-gates web-gates web-e2e-run release format-fix mcp-table landing-og coverage mutants mutants-remote mutants-status mergeable queue live-check infra-plan infra-apply
 
 ##@ Everyday
 
@@ -893,15 +893,6 @@ mcp-table: ## Rewrite docs/mcp.md's tool table and docs/web.md's served-tool lis
 	UPDATE_MCP_TABLE=1 cargo test --locked -p scorsese-mcp --test table
 	UPDATE_WEB_TOOLS=1 cargo test --locked -p scorsese-server --lib tools::surface::page
 	@echo "mcp-table: docs/mcp.md and docs/web.md now say what the code says."
-
-# The web app's copy of the style menu (#1051): `GET /api/styles` as served,
-# so the web gate can hold its per-language words to the library without a
-# server. The server's own test is what rewrites it, and what fails when it is
-# stale; biome then formats it the way the web gate checks.
-style-menu: ## Rewrite web/src/start/menu.json from the style library
-	UPDATE_STYLE_MENU=1 cargo test --locked -p scorsese-server --lib http::styles
-	cd web && bun install --frozen-lockfile && bun x biome format --write src/start/menu.json
-	@echo "style-menu: web/src/start/menu.json now says what the library says."
 
 # The landing page's link-preview still (#904) is a frame of a project kept
 # beside it in web/landing/, made only of pages and native text, so this costs

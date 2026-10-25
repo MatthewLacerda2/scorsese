@@ -2,8 +2,8 @@
 //! or both (#1015): written into the project's script, because the script is
 //! the project's brief by definition — never rendered, never parsed.
 //!
-//! One function every surface calls, so `scorsese new`, the MCP `project_new`
-//! tool and the web app's new-project dialog start a project with the same
+//! One function every surface calls, so `scorsese new` and the MCP
+//! `project_new` tool, local or on the web, start a project with the same
 //! words. Nothing reads the brief back: once written it is the script, and the
 //! assistant edits it like any other text — which is why changing the style
 //! later is an edit, not a tool.
