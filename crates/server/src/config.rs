@@ -73,6 +73,11 @@ pub const FREE_DAILY: &str = "SCORSESE_FREE_DAILY";
 /// e.g. `12.00`. Defaults to $12.
 pub const FREE_MONTHLY: &str = "SCORSESE_FREE_MONTHLY";
 
+/// The bonus credit on larger recharges, as tiers of whole reais and
+/// percent, e.g. `40:5,80:10`, or `none` (`payments::bonus`, #1537).
+/// Defaults to +5% from R$ 40 and +10% from R$ 80.
+pub const RECHARGE_BONUS: &str = "SCORSESE_RECHARGE_BONUS";
+
 /// The Google OAuth client's id, `….apps.googleusercontent.com` (#952).
 pub const GOOGLE_CLIENT_ID: &str = "GOOGLE_OAUTH_CLIENT_ID";
 
@@ -224,6 +229,16 @@ pub enum ConfigError {
         /// The variable's name.
         variable: &'static str,
         /// What it held.
+        value: String,
+    },
+
+    /// The recharge bonus is not tiers that rise.
+    #[error(
+        "{RECHARGE_BONUS} must be tiers like 40:5,80:10 (from so many reais, so many percent \
+         more, each higher than the last, at most 100), or none, and {value:?} is not"
+    )]
+    Bonus {
+        /// What the variable held.
         value: String,
     },
 

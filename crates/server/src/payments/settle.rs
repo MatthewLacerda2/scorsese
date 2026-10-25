@@ -34,6 +34,8 @@ pub struct Payment {
     pub brl_centavos: i64,
     /// What it credits, in micro-dollars.
     pub credit_micros: i64,
+    /// The bonus it credits on top, in micro-dollars (#1537).
+    pub bonus_micros: i64,
 }
 
 /// Credit `session`'s payment if Stripe says it is paid, or mark it expired
@@ -57,20 +59,23 @@ pub async fn settle(pool: &PgPool, session: &Session) -> Result<Settled, Payment
     };
 
     let mut tx = db::scoped(pool, UserId::from_row(owner)).await?;
-    let row: Option<(i64, String, i64, i64)> = sqlx::query_as(
-        "SELECT id, state, brl_centavos, credit_micros FROM payments
+    let row: Option<(i64, String, i64, i64, i64)> = sqlx::query_as(
+        "SELECT id, state, brl_centavos, credit_micros, bonus_micros FROM payments
          WHERE stripe_session = $1 FOR UPDATE",
     )
     .bind(&session.id)
     .fetch_optional(&mut *tx)
     .await?;
-    let Some((id, state, centavos, micros)) = row else {
+    let Some((id, state, centavos, micros, bonus)) = row else {
         return Ok(Settled::Unknown);
     };
     let settled = match state.as_str() {
         "paid" => Settled::Already,
         "open" if payments::paid(session, centavos) => {
             ledger::top_up_paid(&mut tx, micros, id).await?;
+            if bonus > 0 {
+                ledger::bonus(&mut tx, bonus, id).await?;
+            }
             mark(&mut tx, id, "paid").await?;
             Settled::Credited
         }
@@ -135,7 +140,7 @@ pub async fn confirm(
 async fn read(pool: &PgPool, user: UserId, session: &str) -> Result<Payment, PaymentError> {
     let mut tx = db::scoped(pool, user).await?;
     let payment = sqlx::query_as(
-        "SELECT stripe_session AS session, state, brl_centavos, credit_micros
+        "SELECT stripe_session AS session, state, brl_centavos, credit_micros, bonus_micros
          FROM payments WHERE stripe_session = $1",
     )
     .bind(session)

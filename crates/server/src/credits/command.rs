@@ -13,6 +13,7 @@ use super::{CreditError, adjust, dollars, history, ledger};
 use crate::ServerError;
 use crate::accounts::users;
 use crate::db;
+use crate::payments::{reais, withdraw};
 
 /// `scorsese-server credit …`
 #[derive(Debug, Subcommand)]
@@ -60,6 +61,20 @@ pub enum CreditCommand {
         /// Stripe: without it, real purchases are never taken back.
         #[arg(long)]
         include_paid: bool,
+    },
+    /// Withdraw a user's purchase within its 7 days: take back what is left
+    /// of it, its bonus included, and print the reais to refund in Stripe's
+    /// Dashboard.
+    Withdraw {
+        /// The account's email.
+        email: String,
+        /// The purchase's Checkout Session id, `cs_…`.
+        #[arg(long)]
+        session: String,
+        /// The day the customer asked, YYYY-MM-DD in Brasília; today when
+        /// left out. The 7 days are counted to it.
+        #[arg(long)]
+        requested: Option<String>,
     },
     /// Print a user's balance.
     Balance {
@@ -165,6 +180,43 @@ pub async fn run(pool: &PgPool, command: CreditCommand) -> Result<String, Server
                     "took {} back from {email}; balance now {}",
                     dollars(taken),
                     dollars(balance)
+                )
+            }
+        }
+        CreditCommand::Withdraw {
+            email,
+            session,
+            requested,
+        } => {
+            if let Some(day) = requested.as_deref().filter(|day| !history::is_day(day)) {
+                return Err(CreditError::Invalid(format!(
+                    "{day:?} is not a day; write it as YYYY-MM-DD"
+                ))
+                .into());
+            }
+            let user = users::find(pool, &email).await?;
+            let mut tx = db::scoped(pool, user)
+                .await
+                .map_err(ServerError::Database)?;
+            let withdrawn = withdraw::withdraw(&mut tx, &session, requested.as_deref()).await?;
+            let balance = ledger::balance(&mut tx)
+                .await
+                .map_err(ServerError::Database)?;
+            tx.commit().await.map_err(ServerError::Database)?;
+            if withdrawn.taken_micros == 0 {
+                format!(
+                    "nothing is left of {email}'s purchase {session}; nothing taken back, \
+                     nothing to refund"
+                )
+            } else {
+                format!(
+                    "took back {} of {email}'s purchase {session} ({} of it bonus); balance now \
+                     {}\nrefund R$ {} of the R$ {} paid, in Stripe's Dashboard",
+                    dollars(withdrawn.taken_micros),
+                    dollars(withdrawn.bonus_micros),
+                    dollars(balance),
+                    reais(withdrawn.refund_centavos),
+                    reais(withdrawn.paid_centavos)
                 )
             }
         }

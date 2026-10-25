@@ -10,6 +10,7 @@ export const buying: Messages["buying"] = {
   accepted: "Pix ou cartão de crédito Visa/Mastercard.",
   amount: "Valor em reais",
   preview: (reais, dollars) => `${reais} → ${dollars} em créditos`,
+  bonus: (dollars, percent) => `+ ${dollars} de bônus (+${percent}%)`,
   rate: (rate) => `A R$ ${rate.replace(".", ",")} por dólar, travado no momento em que você paga.`,
   limits: (least, most) => `De ${least} a ${most} por vez.`,
   pay: "Pagar",

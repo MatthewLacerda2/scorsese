@@ -141,6 +141,7 @@ services:
       SCORSESE_ASSISTANT_TURN_CAP: ${SCORSESE_ASSISTANT_TURN_CAP:-}
       SCORSESE_FREE_DAILY: ${SCORSESE_FREE_DAILY:-}
       SCORSESE_FREE_MONTHLY: ${SCORSESE_FREE_MONTHLY:-}
+      SCORSESE_RECHARGE_BONUS: ${SCORSESE_RECHARGE_BONUS:-}
       # Sign in with Google (#952). All three, or sign-in is off and the
       # rest of the site still serves.
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}

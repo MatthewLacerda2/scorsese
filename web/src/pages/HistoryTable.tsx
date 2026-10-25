@@ -22,6 +22,7 @@ const TONE: Record<HistoryRow["status"], "secondary" | "outline"> = {
   free: "outline",
   pending: "outline",
   credited: "secondary",
+  withdrawn: "outline",
 };
 
 // Money in is green and money out is yellow, from the theme's tokens.

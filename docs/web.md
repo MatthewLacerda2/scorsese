@@ -125,8 +125,9 @@ new build, before it serves anything.
   tracks and voice designs — and the assistant are charged at **cost times a multiplier
   per kind** (`credits::Product`: ×1.5 on a Veo shot, ×1.8 on the rest;
   *Credits*, *Pricing* has why), and **nothing else: there is no monthly fee**
-  (#1243). Users top up themselves through Stripe (*Buying credits*, #548); the
-  operator can still record one by hand.
+  (#1243). Users top up themselves through Stripe (*Buying credits*, #548), a
+  purchase from R$ 40 earning 5% more credit and from R$ 80 10% more (#1537);
+  the operator can still record one by hand.
 - **Every account gets free credit** (#1530): $4 a Brasília day, at most $12
   a calendar month (`SCORSESE_FREE_DAILY`, `SCORSESE_FREE_MONTHLY`), spent
   before the paid balance, paying users included. It is never deposited and
@@ -189,6 +190,7 @@ provider keys use, and is documented in `.env.example`:
 | `SCORSESE_ASSISTANT_TURN_CAP` | The most one assistant turn on Sonnet 5.5 may cost a user, in dollars: `2.50`. Defaults to `3.50`. Every other model's cap scales from it with its rates (*Assistant turns*, *Money*): at `3.50`, about `7.00` on Opus 5.5 and `17.50` on Fable 5.1. |
 | `SCORSESE_FREE_DAILY` | What every account may spend free each Brasília day, in dollars: `4.00`. Defaults to `4.00`; `0` gives nothing away (*Credits*, *The free allowance*). |
 | `SCORSESE_FREE_MONTHLY` | The most every account may spend free in a calendar month, in dollars. Defaults to `12.00`. |
+| `SCORSESE_RECHARGE_BONUS` | The bonus credit on larger purchases, as tiers of whole reais and percent: `40:5,80:10`, or `none` (*Buying credits*). Defaults to `40:5,80:10`. Each tier starts higher and gives more than the last, at most `100`, or the server will not start. |
 | `SCORSESE_ELEVENLABS_CONCURRENCY` | How many ElevenLabs calls may be in flight at once, every kind of job together (*The job queue*): the plan's concurrent requests. Defaults to `3`, Starter's; Free allows `2`. A whole number above zero, or the server will not start. |
 | `SCORSESE_ELEVENLABS_VOICE_SLOTS` | How many designed voices the ElevenLabs account holds, every user's together (*Designing a voice*). Defaults to `10`, Starter's. A whole number above zero, or the server will not start. |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | The Google OAuth client people sign in with (*Accounts*). Optional, with the next one: without all three, Google sign-in is off, the server says so in its log, and everything else is served. The secret is never printed. |
@@ -1224,6 +1226,8 @@ deleting the account, which is how a user's rows leave.
 | `charge` | − | what a generation that worked, or an assistant call, costs |
 | `refund` | + | money given back, with the reason |
 | `allowance` | ± | what the free allowance paid of a spend (+), or gave back to the allowance when the generation failed (−) |
+| `bonus` | + | the bonus credit a larger purchase adds, beside its top-up (*Buying credits*) |
+| `withdrawal` | − | what was left of a purchase withdrawn within its 7 days, its bonus included (*Buying credits*) |
 
 **Pricing** is the provider's cost times its kind's multiplier, rounded up to
 the micro-dollar, and that is all a user pays: **there is no monthly fee**
@@ -1326,6 +1330,13 @@ Profit per R$ 100 a user spends is `100 × (1 − tax − fee) − 107.6 / multi
 | ×1.1 (until #1247) | −8.6 | −18.1 |
 | ×1.5 | 17.4 | 8.0 |
 | ×1.8 | 29.4 | 19.9 |
+| ×1.5, with the 10% recharge bonus | 10.3 | 0.8 |
+| ×1.8, with the 10% recharge bonus | 23.4 | 13.9 |
+
+A bonus is more credit for the same reais, so it multiplies the API cost side:
+`100 × (1 − tax − fee) − 107.6 × (1 + bonus) / multiplier`. At 10% a Veo shot
+is about break-even in the higher bracket, which is why the bonus stops there
+(#1537).
 
 A thinner margin on video was accepted, since it is the most expensive thing a
 user buys. These are conservative defaults until the tax rate is known.
@@ -1362,6 +1373,7 @@ scorsese-server credit refund ana@example.com --dollars 1.06 --reason "…"
 scorsese-server credit adjust ana@example.com --dollars -5 --reason "…"
 scorsese-server credit adjust ana@example.com --to-zero --reason "…" [--include-paid]
 scorsese-server credit balance ana@example.com
+scorsese-server credit withdraw ana@example.com --session cs_live_… [--requested 2026-10-20]
 scorsese-server credit free-usage [--since 2026-10-01] [--until …] [ana@example.com]
 ```
 
@@ -1391,7 +1403,8 @@ Stripe and the rate sources, `crates/providers/src/payments/` and
 `crates/providers/src/fx/`; their module docs carry each argument.
 
 **The flow.** Beside the balance, *Add credits* takes an amount in reais and
-shows, live, what it buys: "R$ 50,00 → $10,02 em créditos". Paying sends the
+shows, live, what it buys: "R$ 50,00 → $10,02 em créditos", and the bonus
+beside it. Paying sends the
 browser to Stripe's page; Stripe sends it back to `/credits/return`, which
 shows the result once the balance moves. Customers are assumed Brazilian:
 every charge is in **BRL**, from **R$ 20** (so the card's fixed R$ 0,39 stays
@@ -1421,11 +1434,21 @@ minutes (Stripe's least is 30, measured on its clock). AwesomeAPI's keyless
 quota is small — a cloud machine was answered `429` the day this was written
 — which is what the fallback is for.
 
+**A bonus on larger purchases** (#1537, the maintainer, 2026-10-24): **+5%
+from R$ 40, +10% from R$ 80**, of the credits the reais buy, floored. The
+tiers are configuration (`SCORSESE_RECHARGE_BONUS`). It is a bonus rather
+than a lower multiplier because credits are one pool: a price that depended
+on the purchase would need to know which purchase each spent micro-dollar
+came from. The quote carries it (`bonus_micros`, `bonus_percent`), the
+payment **locks it with the rate**, so what the person saw is what they get,
+and settling credits it as a `bonus` entry beside the top-up, in the same
+transaction. It is paid credit like the rest: it buys a Veo shot.
+
 **`payments` is the record**: one row per Checkout Session — its owner, the
-session id (unique), the reais in centavos, the credits in micro-dollars, the
+session id (unique), the reais in centavos, the credits and the bonus in micro-dollars, the
 rate **as its source sent it** and which source, the state (`open`, `paid`,
-`expired`) and when it was paid. Per-user like every table. The `top_up` it
-causes carries its `payment_id`.
+`expired`) and when it was paid. Per-user like every table. The `top_up`,
+`bonus` and `withdrawal` it causes carry its `payment_id`.
 
 **Crediting is exactly once, keyed on the session id**, with two ways in that
 both call `payments::settle::settle`:
@@ -1444,13 +1467,13 @@ both call `payments::settle::settle`:
 `settle` finds the payment's owner by session id (a `privileged` read: a
 webhook carries no user), then works scoped as them under the payment row's
 lock, so the second of two racing calls finds it `paid`. A unique index on
-`credit_entries (payment_id)` refuses a second top-up for one payment even if
-everything above it went wrong. An amount or currency that disagrees with what
+`credit_entries (payment_id, kind)` refuses a second top-up or bonus for one
+payment even if everything above it went wrong. An amount or currency that disagrees with what
 was asked credits nothing and is logged for the operator to look at in Stripe.
 
 | route | who | what |
 | --- | --- | --- |
-| `GET /api/payments/quote` | a member | `?centavos=`: the credits they buy, the rate and its source, and the limits |
+| `GET /api/payments/quote` | a member | `?centavos=`: the credits they buy and the bonus on them, the rate and its source, and the limits |
 | `POST /api/payments` | a member | `{"centavos", "brl_per_usd"}`: a Checkout Session at the rate shown — its `url` to send the browser to, and its `session`; `409` with `quote` when the rate moved |
 | `POST /api/payments/{session}/confirm` | a member | their payment by session, credited first if Stripe says it is paid |
 | `POST /api/payments/stripe/webhook` | Stripe, signed | how a session went |
@@ -1466,9 +1489,20 @@ refund and privacy pages) and is a change to `deploy/.env`, not to code — but 
 live key is a different endpoint at Stripe, with its own secret, so the apply
 and `tf stripe secret` run again after the switch.
 
-**Not here**: refunds stay by hand — the Stripe Dashboard, and
-`scorsese-server credit refund` — until #547 sets the policy. Foreign customers
-and other currencies wait for demand.
+**Withdrawing a purchase** (the terms' 7 days, CDC art. 49) is the
+operator's: `scorsese-server credit withdraw <email> --session cs_…
+[--requested YYYY-MM-DD]` (`payments::withdraw`). The 7 days are counted in
+Brasília days from the day it was paid to the day the customer asked (today
+when `--requested` is left out), so an operator who gets to it late still
+honours it. It refuses a purchase not paid, asked for outside its 7 days,
+withdrawn already, or while a generation of the user's is still waiting on its
+provider (what it holds is not spent yet); otherwise it takes back **what is left of the purchase,
+its bonus included** — its credits and bonus, or the paid balance when that is
+less — as one `withdrawal` entry, and prints the reais to refund in Stripe's
+Dashboard. The bonus counts as spent in the same share as the rest: a purchase
+left whole gives back all its bonus and all its reais, one half spent half of
+each. The money itself goes back by hand in Stripe's Dashboard. Foreign
+customers and other currencies wait for demand.
 
 ## Library
 

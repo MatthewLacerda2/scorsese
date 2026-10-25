@@ -37,7 +37,9 @@ export function CreditsReturnPage() {
   let message: string = t.buying.returned.checking;
   if (!session || payment.isError) message = payment.error?.message ?? t.buying.returned.missing;
   else if (payment.data?.state === "paid")
-    message = t.buying.returned.paid(formatDollars(wholeCents(payment.data.credit_micros)));
+    message = t.buying.returned.paid(
+      formatDollars(wholeCents(payment.data.credit_micros + payment.data.bonus_micros)),
+    );
   else if (state === "open") message = t.buying.returned.open;
   else if (state === "expired") message = t.buying.returned.expired;
 

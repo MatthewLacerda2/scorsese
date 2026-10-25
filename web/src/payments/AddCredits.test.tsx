@@ -12,6 +12,8 @@ import { AddCreditsDialog } from "./AddCredits";
 const FIFTY: PaymentQuote = {
   brl_centavos: 5_000,
   credit_micros: 10_020_040,
+  bonus_micros: 501_002,
+  bonus_percent: 5,
   brl_per_usd: "4.99",
   rate_source: "awesomeapi",
   minimum_centavos: 2_000,
@@ -31,6 +33,7 @@ function dialog() {
 test("the credits the reais buy, and the rate, are shown before paying", () => {
   dialog();
   expect(screen.getByText("R$ 50,00 → $10.02 in credits")).toBeTruthy();
+  expect(screen.getByText("+ $0.50 bonus (+5%)")).toBeTruthy();
   expect(screen.getByText(/At R\$ 4.99 to the dollar/)).toBeTruthy();
   const pay = screen.getByRole("button", { name: "Pay" }) as HTMLButtonElement;
   expect(pay.disabled).toBe(false);
@@ -54,7 +57,7 @@ test("an amount that is not one, or is outside the limits, cannot be paid", () =
 
 test("Pay names the rate shown, and a rate that moved is shown before paying again", async () => {
   const sent: unknown[] = [];
-  const moved = { ...FIFTY, credit_micros: 9_980_039, brl_per_usd: "5.01" };
+  const moved = { ...FIFTY, credit_micros: 9_980_039, bonus_micros: 499_001, brl_per_usd: "5.01" };
   const previous = setFetch(async (_, init) => {
     sent.push(JSON.parse(String(init?.body)));
     const body = { error: "the dollar's rate just changed", quote: moved };

@@ -7,11 +7,12 @@ import { SELLER } from "@/legal/seller";
 export const TERMS_EN: LegalDocument = {
   title: "Terms of use",
   updatedLabel: "Last updated",
-  updated: "2026-10-24",
+  updated: "2026-10-25",
   summary: {
     heading: "In short",
     points: [
       "No subscription: you buy credits, from R$ 20 to R$ 5,000, and they never expire.",
+      "Every account gets US$ 4 free a day, up to US$ 12 a month, and purchases from R$ 40 earn a bonus.",
       "Before every paid generation you see the price and confirm.",
       "A generation that fails is not charged.",
       "You have 7 days to cancel a purchase and get back what you have not spent.",
@@ -49,6 +50,8 @@ export const TERMS_EN: LegalDocument = {
           "Before every generation (narration, image, video and others), scorsese shows how much it will cost and generates only after you confirm.",
           "Each message to the assistant uses credits according to the work it does to answer, with a maximum per message. The cost of each one appears in your spending history.",
           "Credits do not expire.",
+          "Every account may spend up to US$ 4 a day, and at most US$ 12 a month, without paying anything, counted in Brasília time (the day turns at midnight, the month on the 1st). This free use comes before your purchased balance, applies to those who have bought too, and never pays for a Veo video. If a generation paid with it fails, the amount goes back to your free use, not to your balance. What is not used does not accumulate, and these figures may change.",
+          "Purchases from R$ 40 earn 5% more in bonus credits, and from R$ 80, 10% more. The bonus is shown before you pay and is added to your balance with the purchase. These tiers may change; a change never affects a purchase already made.",
           "Prices follow what our suppliers charge us and may change. A change never affects a generation you have already confirmed.",
         ],
       ],
@@ -63,7 +66,7 @@ export const TERMS_EN: LegalDocument = {
     {
       heading: "Refunds and the right to cancel",
       blocks: [
-        `You may cancel a credit purchase within 7 days of making it, as article 49 of Brazil's Consumer Protection Code (CDC) provides. Just write to ${SELLER.email}. We return the part of that purchase that has not yet been spent, by the same payment method.`,
+        `You may cancel a credit purchase within 7 days of making it, as article 49 of Brazil's Consumer Protection Code (CDC) provides. Just write to ${SELLER.email}. We return the part of that purchase that has not yet been spent, by the same payment method, and take back from your balance its bonus that has not been spent either, in the same proportion.`,
         "After the 7 days, purchased credits are not refunded, but they stay in your balance with no deadline to use them.",
       ],
     },
