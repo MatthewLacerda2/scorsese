@@ -1,9 +1,12 @@
 // What the quote box needs worked out before it draws (#709): a long prompt is
 // shown collapsed, only a change with words in it can be sent, and a half-price
-// batch offered beside the price for now (#947) is a second yes, and the box
-// shows only while its turn is paused on it (#1440).
+// batch offered beside the price for now (#947) is a second yes, the box
+// shows only while its turn is paused on it (#1440), and each item's name is
+// drawn in its asset kind's hue, the timeline's (#1573).
 
-import type { QuoteAnswer, QuoteView, TurnView } from "@/api/chat";
+import type { DocumentAsset } from "@/api";
+import type { QuoteAnswer, QuoteItem, QuoteView, TurnView } from "@/api/chat";
+import { kindColor } from "../assets/kinds";
 
 /** How much of a description shows before the expander. */
 const PREVIEW_CHARS = 160;
@@ -38,4 +41,25 @@ export function offer(quote: QuoteView): { now: number; batch: number } | null {
  */
 export function awaitingQuote(turn: TurnView): boolean {
   return turn.state === "asking" && turn.quote !== null && turn.quote_answer === null;
+}
+
+/**
+ * The asset kind a quoted item makes: its asset's, from the project document,
+ * where it waits as a sketch; a voice design's (`design`, no asset) is the
+ * speech it makes. `undefined` for a subject the document does not hold.
+ */
+export function itemKind(
+  item: Pick<QuoteItem, "subject" | "brief">,
+  assets: DocumentAsset[] | undefined,
+): string | undefined {
+  const asset = assets?.find((held) => held.id === item.subject);
+  return asset?.kind ?? (item.brief === "voice" ? "generated_audio" : undefined);
+}
+
+/**
+ * The kind's hue as a CSS colour: the `--kind-*` token behind `kindColor`'s
+ * class, so a name is drawn in the colour its clip has on the timeline.
+ */
+export function kindHue(kind: string | undefined): string {
+  return `var(--${kindColor(kind).slice("bg-".length)})`;
 }

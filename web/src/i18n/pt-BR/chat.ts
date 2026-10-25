@@ -106,7 +106,7 @@ export const chat: Messages["chat"] = {
     dearest: "o mais caro",
   },
   quote: {
-    ask: (cost) => `Isso custa ${cost} dos seus créditos. Pode seguir?`,
+    ask: (cost) => `Isso vai custar ${cost} dos seus créditos. Pode seguir?`,
     choose: (now, batch) =>
       `Agora: ${now} · em até 24 horas: ${batch}, metade do preço nas imagens. Qual prefere?`,
     now: (cost) => `Agora — ${cost}`,
@@ -114,9 +114,8 @@ export const chat: Messages["chat"] = {
     expired: "Este orçamento expirou.",
     confirm: "Confirmar",
     decline: "Recusar",
-    changePlaceholder: "Ou diga o que mudar — ex.: deixe a capa amarela em vez de vermelha",
+    changePlaceholder: "Mude algo aqui...",
     change: "Pedir uma mudança",
-    brief: { prompt: "Prompt", line: "Fala", voice: "Voz" },
     answered: {
       confirmed: (cost) => `Aprovado — ${cost}`,
       declined: (cost) => `Recusado — ${cost}`,

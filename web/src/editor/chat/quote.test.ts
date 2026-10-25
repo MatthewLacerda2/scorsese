@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import type { DocumentAsset } from "@/api";
 import type { QuoteView, TurnView } from "@/api/chat";
-import { awaitingQuote, changeAnswer, offer, preview } from "./quote";
+import { awaitingQuote, changeAnswer, itemKind, kindHue, offer, preview } from "./quote";
 
 describe("preview", () => {
   test("keeps a short description whole", () => {
@@ -60,5 +61,34 @@ describe("awaitingQuote", () => {
 
   test("is false on a turn that ended holding one: no dead box (#1440)", () => {
     expect(awaitingQuote(turn({ state: "stopped" }))).toBe(false);
+  });
+});
+
+describe("itemKind", () => {
+  const assets = [
+    { id: "pose-wide", kind: "generated_image" },
+    { id: "rain", kind: "generated_audio" },
+  ] as DocumentAsset[];
+
+  test("an asset in the document is its kind", () => {
+    expect(itemKind({ subject: "pose-wide", brief: "prompt" }, assets)).toBe("generated_image");
+    expect(itemKind({ subject: "rain", brief: "prompt" }, assets)).toBe("generated_audio");
+  });
+
+  test("a voice design is the speech it makes", () => {
+    expect(itemKind({ subject: "design", brief: "voice" }, assets)).toBe("generated_audio");
+  });
+
+  test("a subject the document does not hold has no kind", () => {
+    expect(itemKind({ subject: "gone", brief: "prompt" }, assets)).toBeUndefined();
+    expect(itemKind({ subject: "pose-wide", brief: "prompt" }, undefined)).toBeUndefined();
+  });
+});
+
+describe("kindHue", () => {
+  test("is the kind's token, and the grey for one this build does not know", () => {
+    expect(kindHue("generated_audio")).toBe("var(--kind-generated-audio)");
+    expect(kindHue("hologram")).toBe("var(--kind-other)");
+    expect(kindHue(undefined)).toBe("var(--kind-other)");
   });
 });

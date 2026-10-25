@@ -110,7 +110,7 @@ const MOUNTS: Record<string, () => ReactNode> = {
   PickerCard: () => <PickerCard turn={2} question={picker} waiting />,
   PickerModal: () => <PickerModal turn={2} question={picker} open onOpenChange={ignore} />,
   QuestionCard: () => <QuestionCard turn={2} question={question} waiting />,
-  QuoteBox: () => <QuoteBox turn={1} quote={quote} />,
+  QuoteBox: () => <QuoteBox turn={1} project={PROJECT} quote={quote} />,
   Reply: () => <Reply text={"**Done.** A [link](https://example.invalid)."} />,
   Turn: () => (
     <ol>
@@ -125,7 +125,12 @@ let previous: Parameters<typeof setFetch>[0];
 const realEventSource = globalThis.EventSource;
 
 beforeAll(() => {
-  previous = setFetch(async () => new Response(JSON.stringify(conversation)));
+  // The project the quote box colours its items from; every other call reads the conversation.
+  previous = setFetch(async (input) =>
+    input.endsWith(`/projects/${PROJECT}`)
+      ? new Response(JSON.stringify({ id: PROJECT, revision: 1, document: { assets: [] } }))
+      : new Response(JSON.stringify(conversation)),
+  );
   // The live stream is never opened for real: a source that stays silent.
   globalThis.EventSource = class {
     close() {}
