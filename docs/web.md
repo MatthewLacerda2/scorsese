@@ -2661,6 +2661,20 @@ middle, the timeline under both, and on the right the assets panel — a
 is a first version by the rule in `CLAUDE.md` — *the user can start editing
 with it* — and is meant to be tuned from use.
 
+**On a phone the chat is the page** (#1570). Below Tailwind's `md` (the
+breakpoint the sidebar pages fold at; a tablet and a desktop keep the layout
+above) the editor opens in the chat's full mode (#1027) with no way out of
+it, under a slim bar of its own in place of the app header: on the left a
+menu opening the sidebar's drawer (the home, the library, the credits,
+settings), on the right a clapperboard to the **video view** — the preview at
+the screen's width, the timeline under it filling the rest, and Render in the
+bar — whose chat bubble switches back. The chat is hidden there, never
+unmounted, so its draft, its scroll and a running turn are kept. The video
+view's timeline only scrubs: the ruler and the lanes seek, and no clip is
+selected, dragged, trimmed or removed. There is no assets panel and no
+inspector on a phone: files reach the project through the chat's attachments
+(#1534), and the frame shape is a sentence to the assistant.
+
 **Assets are what is in the project; the library is what is owned** (#702).
 The assets panel lists only the first. The Library button opens the library page's
 own browser in a modal, in picking mode, over the editor blurred behind it:

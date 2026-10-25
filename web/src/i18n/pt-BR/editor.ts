@@ -15,6 +15,8 @@ export const editor: Messages["editor"] = {
     resizeAssets: "Redimensionar o painel de recursos",
     resizeChat: "Redimensionar o painel do chat",
     resizeTimeline: "Redimensionar a linha do tempo",
+    showVideo: "Ver o vídeo",
+    showChat: "Voltar ao chat",
   },
   refusal: {
     failed: "não deu para fazer a edição",

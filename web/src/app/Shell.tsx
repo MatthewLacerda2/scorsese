@@ -43,7 +43,10 @@ export function Shell() {
     <UploadsProvider>
       <AddCreditsProvider>
         <div className={editing ? "flex h-svh flex-col" : "flex min-h-svh flex-col"}>
-          <header className="flex items-center gap-2 border-b px-4 py-2">
+          {/* A phone's editor draws a bar of its own instead (#1570). */}
+          <header
+            className={`items-center gap-2 border-b px-4 py-2 ${editing ? "hidden md:flex" : "flex"}`}
+          >
             <nav className="flex shrink-0 gap-1">
               {NAV.map(({ to, key }) => (
                 <NavLink key={to} to={to} end className={LINK}>

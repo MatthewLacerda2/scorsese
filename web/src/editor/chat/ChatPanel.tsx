@@ -61,7 +61,8 @@ export function ChatPanel({
   attachments: Attachments;
   /** Whether the chat has the whole page. */
   full: boolean;
-  onFull: (full: boolean) => void;
+  /** Leaves or enters full mode; absent, the chat stays as it is (a phone's, #1570). */
+  onFull?: (full: boolean) => void;
 }) {
   const t = useT();
   const queryClient = useQueryClient();
@@ -121,17 +122,19 @@ export function ChatPanel({
           )}
           <ScriptButton projectId={projectId} labelled={full} />
           {/* Beside the picker in a narrow sidebar, the icon alone; named either way. */}
-          <Button
-            size={full ? "sm" : "icon-sm"}
-            variant="ghost"
-            className="shrink-0"
-            aria-label={full ? t.chat.full.leave : t.chat.full.enter}
-            title={full ? t.chat.full.leave : t.chat.full.enter}
-            onClick={() => onFull(!full)}
-          >
-            {full ? <Minimize2Icon /> : <Maximize2Icon />}
-            {full && t.chat.full.leave}
-          </Button>
+          {onFull && (
+            <Button
+              size={full ? "sm" : "icon-sm"}
+              variant="ghost"
+              className="shrink-0"
+              aria-label={full ? t.chat.full.leave : t.chat.full.enter}
+              title={full ? t.chat.full.leave : t.chat.full.enter}
+              onClick={() => onFull(!full)}
+            >
+              {full ? <Minimize2Icon /> : <Maximize2Icon />}
+              {full && t.chat.full.leave}
+            </Button>
+          )}
         </div>
       </div>
       <div
