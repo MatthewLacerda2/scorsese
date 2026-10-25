@@ -93,22 +93,32 @@ async fn draw(
     let source = storage.library_file(job.user, &item.sha256, &item.extension);
     let levels = (item.kind == Kind::Audio).then(|| storage.peaks(job.user, &item.sha256));
     let tools = tools.clone();
+    let ours = (job.id, job.attempts);
     tokio::task::spawn_blocking(move || {
-        write(&tools, &source, what, &out)?;
-        levels.map_or(Ok(()), |levels| read_peaks(&tools, &source, &levels))
+        write(&tools, &source, what, &out, ours)?;
+        levels.map_or(Ok(()), |levels| read_peaks(&tools, &source, &levels, ours))
     })
     .await
     .map_err(|error| error.to_string())??;
     Ok(json!({ "item": id }))
 }
 
+/// The file beside `out` that job `ours` (its id and attempt) writes before
+/// renaming it into place, ending in `suffix`. Two jobs can draw one item at
+/// once — `/thumbnail` and `/peaks` each queue one — so each writes its own,
+/// and neither renames the other's half-written file into place.
+fn beside(out: &Path, ours: (i64, i32), suffix: &str) -> PathBuf {
+    let (id, attempt) = ours;
+    out.with_extension(format!("{id}-{attempt}.{suffix}"))
+}
+
 /// Read a sound's peaks into `out`, by way of a file beside it as a picture is.
-fn read_peaks(tools: &Tools, source: &Path, out: &Path) -> Result<(), String> {
+fn read_peaks(tools: &Tools, source: &Path, out: &Path, ours: (i64, i32)) -> Result<(), String> {
     let read = peaks(tools, source).map_err(|error| {
         eprintln!("scorsese-server: {error}");
         "the sound's peaks could not be read".to_owned()
     })?;
-    let reading = out.with_extension("reading");
+    let reading = beside(out, ours, "reading");
     if let Some(directory) = out.parent() {
         std::fs::create_dir_all(directory).map_err(|error| error.to_string())?;
     }
@@ -118,8 +128,14 @@ fn read_peaks(tools: &Tools, source: &Path, out: &Path) -> Result<(), String> {
 
 /// Draw to a file beside `out` and rename it into place, so a thumbnail is
 /// never read half-written.
-fn write(tools: &Tools, source: &Path, what: Thumbnail, out: &Path) -> Result<(), String> {
-    let drawing = out.with_extension(format!("drawing.{}", what.extension()));
+fn write(
+    tools: &Tools,
+    source: &Path,
+    what: Thumbnail,
+    out: &Path,
+    ours: (i64, i32),
+) -> Result<(), String> {
+    let drawing = beside(out, ours, &format!("drawing.{}", what.extension()));
     thumbnail(tools, source, what, &drawing).map_err(|error| {
         eprintln!("scorsese-server: {error}");
         "the thumbnail could not be drawn".to_owned()
@@ -139,7 +155,7 @@ impl Library {
         let item = self.get(user, id).await?;
         let file =
             path(&self.storage, user, &item.sha256, item.kind).ok_or(LibraryError::NoThumbnail)?;
-        self.drawn_or_queued(user, id, file).await
+        self.drawn_or_queued(user, id, file, 1).await
     }
 
     /// Where `user`'s sound `id`'s peaks are, when they have been read;
@@ -152,18 +168,24 @@ impl Library {
             return Err(LibraryError::NoPeaks);
         }
         let file = self.storage.peaks(user, &item.sha256);
-        self.drawn_or_queued(user, id, file).await
+        // Shorter than the rate it starts with is no peaks at all: read again,
+        // never served to be kept for a year.
+        self.drawn_or_queued(user, id, file, 4).await
     }
 
-    /// `file` when it is there; otherwise the drawing job for item `id` queued
+    /// `file` when it is there and holds at least `least` bytes; otherwise the drawing job for item `id` queued
     /// unless one is pending, and `None`.
     async fn drawn_or_queued(
         &self,
         user: UserId,
         id: i64,
         file: PathBuf,
+        least: u64,
     ) -> Result<Option<PathBuf>, LibraryError> {
-        if file.is_file() {
+        if file
+            .metadata()
+            .is_ok_and(|kept| kept.is_file() && kept.len() >= least)
+        {
             return Ok(Some(file));
         }
         let mut tx = crate::db::scoped(&self.pool, user).await?;
@@ -186,5 +208,24 @@ impl Library {
             self.queue.announce(user, &job);
         }
         Ok(None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn two_jobs_never_write_through_the_same_file() {
+        let out = Path::new("/cache/peaks/abc.peaks");
+        let first = beside(out, (7, 1), "reading");
+        assert_eq!(first, Path::new("/cache/peaks/abc.7-1.reading"));
+        assert_ne!(first, beside(out, (8, 1), "reading"));
+        assert_ne!(first, beside(out, (7, 2), "reading"));
+        assert_eq!(
+            beside(Path::new("/t/abc.png"), (7, 1), "drawing.png"),
+            Path::new("/t/abc.7-1.drawing.png"),
+            "the picture keeps its extension last, for ffmpeg to read"
+        );
     }
 }

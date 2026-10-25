@@ -18,6 +18,7 @@ mod manage;
 mod midi;
 mod pages;
 mod peaks;
+mod peaks_kept;
 mod proxies;
 mod upload;
 
