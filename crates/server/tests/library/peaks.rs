@@ -26,6 +26,7 @@ fn sound(directory: &Path) -> Vec<u8> {
 #[sqlx::test]
 async fn the_worker_reads_a_sounds_peaks_and_they_are_served_to_keep(pool: PgPool) {
     let files = common::files("peaks-drawn");
+    let storage = files.storage.clone();
     let registry = kinds::registry(&files, Default::default());
     let bytes = sound(&common::scratch::dir("peaks-drawn-media"));
     let (address, state) = common::serve_with(pool.clone(), files).await;
@@ -37,7 +38,7 @@ async fn the_worker_reads_a_sounds_peaks_and_they_are_served_to_keep(pool: PgPoo
         stopping,
     ));
     common::release_at_teardown(&pool, &state.pool, [worker.abort_handle()]);
-    let (_, ana) = member(&pool, "ana@example.com").await;
+    let (user, ana) = member(&pool, "ana@example.com").await;
     let id = upload(address, &ana, "line.wav", &bytes).await;
 
     let listed = request(address, "GET", "/api/library", &[&ana], None).await;
@@ -75,6 +76,19 @@ async fn the_worker_reads_a_sounds_peaks_and_they_are_served_to_keep(pool: PgPoo
         "an eighth of full scale: {:?}",
         &read.bytes[4..]
     );
+
+    let kept = storage.peaks(user, &scorsese_core::hash_bytes(&bytes));
+    assert!(kept.is_file(), "read into {}", kept.display());
+    let deleted = request(
+        address,
+        "DELETE",
+        &format!("/api/library/{id}"),
+        &[&ana],
+        None,
+    )
+    .await;
+    assert_eq!(deleted.status, 204, "{}", deleted.body);
+    assert!(!kept.exists(), "the peaks go with their item");
 }
 
 #[sqlx::test]
