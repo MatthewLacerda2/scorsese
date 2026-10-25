@@ -9,8 +9,9 @@
 import { type DragEvent, type PointerEvent, useState } from "react";
 import type { Clip, ProjectDocument, Track } from "@/api";
 import { useT } from "@/i18n/I18nProvider";
-import { kindColor } from "../assets/kinds";
+import { kindOutline } from "../assets/kinds";
 import { adds } from "../selection";
+import { ClipFill } from "./ClipFill";
 import {
   type Extent,
   extentOf,
@@ -126,7 +127,7 @@ export function Lane(props: Props) {
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: a lane is a pointer surface — seeking and dropping — whose keyboard equivalents are the transport and the inspector
     <div
-      className="relative h-12 shrink-0"
+      className="relative h-10 shrink-0"
       data-track={track.id}
       style={{ width: props.width }}
       onPointerDown={(event) => props.onEmptyClick(event, event.currentTarget)}
@@ -143,17 +144,18 @@ export function Lane(props: Props) {
         const dy = held?.clip.id === clip.id ? held.dy : landing?.clip === clip.id ? landing.dy : 0;
         const asset = assets.find((found) => found.id === clip.asset);
         const chosen = props.selected.includes(clip.id);
-        // A made clip is a solid block of its kind's hue; one nobody has made
-        // yet is tinted and hatched with it, as the desktop app draws it.
+        // Every clip is outlined in its kind's hue and filled by kind
+        // (`ClipFill`); one nobody has made yet is tinted and hatched with it,
+        // as the desktop app draws it.
         const made = isMade(asset);
-        const body = made ? `text-on-screen ${kindColor(asset?.kind)}` : "bg-muted text-foreground";
+        const body = `${kindOutline(asset?.kind)} ${made ? "text-on-screen" : "bg-muted text-foreground"}`;
         return (
           // biome-ignore lint/plugin/shadcnControls: a clip dragged and positioned absolutely on the timeline; a Button's base styles would fight its geometry
           <button
             type="button"
             key={clip.id}
             title={t.editor.timeline.clipTitle(clip.id)}
-            className={`absolute top-1 bottom-1 cursor-grab touch-none overflow-hidden rounded-sm px-1.5 text-[11px] select-none ${body} ${chosen ? "ring-2 ring-foreground" : "opacity-90"} ${held?.clip.id === clip.id ? "z-10 cursor-grabbing shadow-lg" : ""}`}
+            className={`absolute top-0.5 bottom-0.5 cursor-grab touch-none overflow-hidden rounded-sm border px-1 text-[11px] select-none ${body} ${chosen ? "ring-2 ring-foreground" : "opacity-90"} ${held?.clip.id === clip.id ? "z-10 cursor-grabbing shadow-lg" : ""}`}
             style={{
               left: framesToPx(extent.start, zoom, fps),
               width: Math.max(3, framesToPx(extent.duration, zoom, fps)),
@@ -168,9 +170,9 @@ export function Lane(props: Props) {
               if (event.key === "Enter") props.onSelect(clip.id, adds(event));
             }}
           >
-            {!made && <Unmade kind={asset?.kind} state={asset?.state} />}
+            {made ? <ClipFill asset={asset} /> : <Unmade kind={asset?.kind} state={asset?.state} />}
             <span
-              className={`pointer-events-none relative block truncate leading-10 ${!made && asset?.state ? "pr-10" : ""}`}
+              className={`pointer-events-none absolute top-0 left-0 max-w-full truncate rounded-br-sm bg-screen/60 px-1 text-[10px] leading-4 text-on-screen ${!made && asset?.state ? "pr-10" : ""}`}
             >
               {asset?.text ?? clip.asset}
             </span>

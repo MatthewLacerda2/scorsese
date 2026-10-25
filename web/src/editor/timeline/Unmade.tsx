@@ -29,7 +29,7 @@ export function Unmade(props: { kind: string | undefined; state: string | undefi
       {/* Only on what does not exist yet: "generated" on a clip that plays is
           a word taking up room to say everything is normal. */}
       {props.state && (
-        <span className="pointer-events-none absolute top-0 right-2 leading-10 text-[10px] text-muted-foreground">
+        <span className="pointer-events-none absolute top-0.5 right-2 leading-4 text-[10px] text-muted-foreground">
           {states[props.state] ?? props.state}
         </span>
       )}

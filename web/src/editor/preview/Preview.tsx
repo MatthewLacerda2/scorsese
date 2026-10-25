@@ -117,7 +117,7 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
             : null;
 
   return (
-    <div ref={stage} className="flex h-full min-h-0 flex-col gap-2 bg-background p-3">
+    <div ref={stage} className="flex h-full min-h-0 flex-col gap-1 bg-background px-3 pt-3 pb-1">
       <div className="group relative flex min-h-0 flex-1 items-center justify-center">
         <div
           className="relative max-h-full max-w-full overflow-hidden rounded-md bg-screen"
