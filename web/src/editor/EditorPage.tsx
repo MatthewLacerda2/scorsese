@@ -18,6 +18,14 @@
 // page while it is dragged; an asset dragged onto the timeline is not a file
 // drag, so it goes by.
 //
+// On a phone (#1570) the chat is the page, in full mode with no way out of
+// it, under a bar of the editor's own (`phone/PhoneBar.tsx`) in place of the
+// app header; its clapperboard swaps the chat for the video view
+// (`phone/PhoneVideo.tsx`) and back. The chat is hidden there, never
+// unmounted, so its draft, its scroll and a running turn are where they were.
+// There is no assets panel and no inspector on a phone: files reach the
+// project through the chat's attachments.
+//
 // Each panel has an error boundary of its own (#1428): one that throws says so
 // in its place, and the others keep working.
 
@@ -31,6 +39,7 @@ import { useServerEvents } from "@/app/events";
 import { queryKeys } from "@/app/queryKeys";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n/I18nProvider";
+import { usePhone } from "@/lib/phone";
 import { DropOverlay } from "@/prompt/attach/DropOverlay";
 import { useAttachments } from "@/prompt/attach/useAttachments";
 import { useFileDrop } from "@/prompt/attach/useFileDrop";
@@ -44,6 +53,8 @@ import { EditorHeader } from "./EditorHeader";
 import { Inspector } from "./inspector/Inspector";
 import { Handle } from "./panels/Handle";
 import { usePanels } from "./panels/usePanels";
+import { PhoneBar } from "./phone/PhoneBar";
+import { PhoneVideo } from "./phone/PhoneVideo";
 import { Preview } from "./preview/Preview";
 import { useEdit, useEditorProject } from "./project";
 import { confirmThen, trackRemoval } from "./removing";
@@ -71,6 +82,10 @@ function Editor({ project }: { project: EditorProject }) {
   const [playhead, setPlayhead] = useState(0);
   const [picked, setPicked] = useState<string[]>([]);
   const [full, setFull] = useFull(id);
+  const phone = usePhone();
+  const [video, setVideo] = useState(false);
+  // A phone's chat is always full; the mode stored for a wider window is kept.
+  const whole = phone || full;
   const panels = usePanels();
   const drop = useDrop(id, edit, playhead, (clip) => setPicked([clip]));
   const deselect = useCallback(() => setPicked([]), []);
@@ -88,8 +103,9 @@ function Editor({ project }: { project: EditorProject }) {
 
   const tracks = document.tracks ?? [];
   const found = tracks.flatMap((track) => track.clips.map((clip) => ({ track, clip })));
-  // Only clips the project still has: the assistant may have removed one.
-  const selected = kept(picked, new Set(found.map(({ clip }) => clip.id)));
+  // Only clips the project still has: the assistant may have removed one. A
+  // clip selected out of sight is not one the Delete key may take.
+  const selected = whole ? [] : kept(picked, new Set(found.map(({ clip }) => clip.id)));
   useDeleteKey(selected, edit.run, deselect);
   const chosen =
     selected.length === 1 ? found.find(({ clip }) => clip.id === selected[0]) : undefined;
@@ -98,12 +114,23 @@ function Editor({ project }: { project: EditorProject }) {
   return (
     <div className="relative flex h-full min-h-0 flex-col" {...fileDrop.handlers}>
       {fileDrop.dragging && <DropOverlay />}
-      <EditorHeader
-        projectId={id}
-        name={document.name}
-        aspect={aspect}
-        fps={document.timeline_fps}
-      />
+      {phone ? (
+        <PhoneBar
+          projectId={id}
+          name={document.name}
+          aspect={aspect}
+          fps={document.timeline_fps}
+          video={video}
+          onVideo={setVideo}
+        />
+      ) : (
+        <EditorHeader
+          projectId={id}
+          name={document.name}
+          aspect={aspect}
+          fps={document.timeline_fps}
+        />
+      )}
       {edit.refused && (
         <div className="flex items-start gap-2 border-b bg-destructive/10 px-3 py-1.5 text-sm text-destructive">
           <p className="flex-1">{edit.refused}</p>
@@ -118,9 +145,11 @@ function Editor({ project }: { project: EditorProject }) {
         </div>
       )}
       {/* Each panel's edge is a handle with a track of its own (#863). */}
-      <div ref={panels.grid} className="grid min-h-0 flex-1" style={full ? FULL : panels.style}>
-        <aside className="col-start-1 row-span-3 row-start-1 flex min-h-0 flex-col">
-          {chosen && !full && (
+      <div ref={panels.grid} className="grid min-h-0 flex-1" style={whole ? FULL : panels.style}>
+        <aside
+          className={`col-start-1 row-span-3 row-start-1 flex min-h-0 flex-col ${phone && video ? "invisible" : ""}`}
+        >
+          {chosen && !whole && (
             <div className="max-h-[55%] shrink-0 overflow-y-auto border-b">
               <ErrorBoundary place="panel">
                 <Inspector
@@ -139,17 +168,32 @@ function Editor({ project }: { project: EditorProject }) {
                 projectId={id}
                 attachments={attachments}
                 draft={draft}
-                full={full}
-                onFull={(next) => {
-                  // A clip selected out of sight is not one the Delete key may take.
-                  if (next) deselect();
-                  setFull(next);
-                }}
+                full={whole}
+                onFull={
+                  phone
+                    ? undefined
+                    : (next) => {
+                        if (next) deselect();
+                        setFull(next);
+                      }
+                }
               />
             </ErrorBoundary>
           </div>
         </aside>
-        {!full && (
+        {phone && video && (
+          <section className="col-start-1 row-start-1 min-h-0">
+            <PhoneVideo
+              projectId={id}
+              revision={revision}
+              document={document}
+              playhead={playhead}
+              onSeek={setPlayhead}
+              deliver={deliveries(aspect)[0]}
+            />
+          </section>
+        )}
+        {!whole && (
           <>
             <Handle
               grows="right"

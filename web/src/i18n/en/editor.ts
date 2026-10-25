@@ -15,6 +15,8 @@ export const editor = {
     resizeAssets: "Resize the assets panel",
     resizeChat: "Resize the chat panel",
     resizeTimeline: "Resize the timeline",
+    showVideo: "Show the video",
+    showChat: "Back to the chat",
   },
   /** An edit the server would not make. */
   refusal: {
