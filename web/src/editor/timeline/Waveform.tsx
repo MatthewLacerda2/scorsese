@@ -38,7 +38,7 @@ function usePeaks(sha256: string | undefined): Peaks | undefined {
 
 /** Bars of `levels` (0–1), each centred on the middle line, in a box one unit
  * tall: one path, however many bars, so a long clip is one node. */
-const Bars = memo(function Bars({ levels }: { levels: number[] }) {
+const Bars = memo(function DrawnBars({ levels }: { levels: number[] }) {
   const d = levels
     .map((level, at) => {
       const height = Math.max(level, 0.04);

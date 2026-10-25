@@ -65,7 +65,19 @@ describe("a sound's peaks", () => {
 
 describe("waiting for a sound's peaks", () => {
   const done = (item: number, kind = "thumbnail", state = "done") =>
-    ({ type: "job", id: 1, kind, state, attempts: 1, result: { item }, error: null, created_at: 0, started_at: 0, finished_at: 0, interrupted_at: null }) as ServerEvent;
+    ({
+      type: "job",
+      id: 1,
+      kind,
+      state,
+      attempts: 1,
+      result: { item },
+      error: null,
+      created_at: 0,
+      started_at: 0,
+      finished_at: 0,
+      interrupted_at: null,
+    }) as ServerEvent;
 
   test("asks again when the job reading this item's peaks is done", () => {
     expect(readAgain(done(9), 9)).toBe(true);
