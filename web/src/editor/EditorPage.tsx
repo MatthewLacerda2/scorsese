@@ -88,7 +88,6 @@ function Editor({ project }: { project: EditorProject }) {
       <EditorHeader
         projectId={id}
         name={document.name}
-        edit={edit}
         aspect={aspect}
         fps={document.timeline_fps}
       />

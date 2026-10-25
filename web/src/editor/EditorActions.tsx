@@ -21,13 +21,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useT } from "@/i18n/I18nProvider";
-import type { EditOutcome } from "./project";
 import { RenderPanel } from "./RenderPanel";
 
 export interface EditorActionsProps {
   projectId: number;
   name: string;
-  edit: EditOutcome;
   /** The project's frame shape, `across:down` (`shape.ts`), which Render sizes in. */
   aspect: string;
   /** The project's own rate, which Render offers first. */
@@ -35,13 +33,7 @@ export interface EditorActionsProps {
 }
 
 /** What `EditorHeader` puts in the header; its own file so it can be drawn alone. */
-export function EditorActions({
-  projectId,
-  name,
-  edit,
-  aspect,
-  fps,
-}: EditorActionsProps) {
+export function EditorActions({ projectId, name, aspect, fps }: EditorActionsProps) {
   const t = useT();
   return (
     <>

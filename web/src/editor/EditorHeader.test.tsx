@@ -14,7 +14,6 @@ import { EditorHeader } from "./EditorHeader";
 const props: EditorActionsProps = {
   projectId: 4,
   name: "teaser",
-  edit: { run: async () => null, refused: null, dismiss: () => {}, pending: false },
   aspect: "9:16",
   fps: { num: 30, den: 1 },
 };
