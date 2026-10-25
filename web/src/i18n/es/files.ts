@@ -44,7 +44,6 @@ export const files: Messages["files"] = {
     descriptionPlaceholder: "Lo que el asistente lee al elegir un archivo",
     usedIn: "Se usa en",
     unused: "Ningún proyecto lo usa todavía.",
-    templates: (names: string) => `Plantillas: ${names}`,
     delete: "Eliminar",
     deleteTitle: (name: string) => `¿Eliminar «${name}»?`,
     deleteDescription: "El archivo se elimina de tu biblioteca para siempre.",

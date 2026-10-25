@@ -18,7 +18,7 @@ use axum::routing::{MethodFilter, MethodRouter, on};
 
 use super::{
     AppState, account, chat, client_errors, credits, editor, events, google, health, jobs, library,
-    mcp, payments, projects, renders, styles, templates, tokens, uploads,
+    mcp, payments, projects, renders, styles, tokens, uploads,
 };
 
 /// One method on one path, and what answers it.
@@ -124,10 +124,8 @@ pub fn table() -> Vec<Route> {
         Route::new(M::POST, "/chat/turns/{id}/stop", chat::stop),
         Route::new(M::POST, "/chat/turns/{id}/quote", chat::quote),
         Route::new(M::POST, "/chat/turns/{id}/answer", chat::answer),
-        // The web editor's tools, and templates.
+        // The web editor's tools.
         Route::new(M::POST, "/projects/{id}/tools/{name}", editor::call),
-        Route::new(M::GET, "/templates", templates::list),
-        Route::new(M::DELETE, "/templates/{id}", templates::delete),
         // The browser's crash reports (#1428), signed in or not.
         Route::new(M::POST, "/client-errors", client_errors::report).capped(client_errors::CAP),
     ]

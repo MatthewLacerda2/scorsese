@@ -1,7 +1,6 @@
 // Which clips are selected. A click picks one clip; a click with Shift (or
-// Ctrl, or ⌘) adds it to the selection or takes it out — how a person gathers
-// the clips an intro is made of to save them as a template (#546), and how
-// Delete removes several at once. The inspector shows a clip only when one is
+// Ctrl, or ⌘) adds it to the selection or takes it out — how Delete
+// removes several clips at once. The inspector shows a clip only when one is
 // selected: a value typed there is one clip's.
 
 /** The selection after clicking `clip`, `adding` when a modifier was held. */

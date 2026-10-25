@@ -1739,10 +1739,7 @@ composite a frame on top of what its members cost anyway.
 Not here: groups with their own frame rate or raster, and editing inside a
 group with the place, trim and move tools — those reach the project's own
 tracks. A member is edited by ungrouping, editing and grouping again, or in the
-document itself. A template carries a group whole: saving a group clip as a
-template brings the group and everything its members show, nested groups
-included, and inserting it renames the members' clip ids and the group's track
-ids wherever the project already uses them.
+document itself.
 
 ### Image sequences
 

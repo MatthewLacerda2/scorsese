@@ -60,8 +60,7 @@
 //! the arithmetic every raster is sized with, and the re-fit that changes it; [`mod@level`] holds one clip's property at a
 //! value; [`mod@probe`] is the seam an ffprobe lives behind, so this crate can
 //! reason about media without spawning anything; [`mod@migrate`] brings a
-//! document written by an older build forward to this one; [`mod@template`]
-//! lifts clips out of one edit and copies them into another; [`mod@words`]
+//! document written by an older build forward to this one; [`mod@words`]
 //! reads when a narration says each word and places them on the timeline;
 //! [`mod@captions`] turns those words into on-screen captions; [`mod@voice`]
 //! cuts a narrated video to its lines;
@@ -114,7 +113,6 @@ pub(crate) mod project;
 pub(crate) mod shape;
 pub(crate) mod stamp;
 pub mod style;
-pub mod template;
 #[cfg(feature = "test-support")]
 pub mod testing;
 pub(crate) mod text;

@@ -111,26 +111,4 @@ export const editor: Messages["editor"] = {
       },
     },
   },
-  templates: {
-    title: "Plantillas",
-    none: "Todavía no hay ninguna. Selecciona clips en la línea de tiempo y guárdalos como plantilla.",
-    summary: (seconds: string, clips: number) =>
-      `${seconds}s · ${clips === 1 ? "1 clip" : `${clips} clips`}`,
-    insert: (name: string) => `Insertar ${name} en el cabezal`,
-    insertTitle: (seconds: string) => `Insertar en el cabezal (${seconds}s)`,
-    remove: (name: string) => `Eliminar ${name}`,
-    removeTitle: "Eliminar la plantilla — los videos donde se usó conservan sus copias",
-    confirmRemove: (name: string) => `¿Eliminar la plantilla “${name}”?`,
-    save: "Guardar como plantilla",
-    unavailable:
-      "Las plantillas son clips seleccionados para reutilizarlos. Selecciona clips en la línea de tiempo o pídeselo al asistente.",
-    where: "Las tuyas están en Plantillas, en el panel de recursos.",
-    saveTitle:
-      "Selecciona clips en la línea de tiempo (Mayús+clic para varios) y guárdalos para reutilizarlos",
-    saveDescription: (count: number) =>
-      `${count === 1 ? "El clip seleccionado" : `Los ${count} clips seleccionados`}, para usarlos luego en cualquiera de tus proyectos. Cambiar la plantilla nunca cambia un video donde ya se usó.`,
-    name: "Nombre de la plantilla",
-    placeholder: "Intro, cierre, rótulo…",
-    replace: "Reemplazar la plantilla que tiene este nombre",
-  },
 };

@@ -214,7 +214,7 @@ anime.js, lottie-web, opentype.js, a face's file, an icon or a Humaaans part is 
 a page that does not load it is not.
 
 **Inside Chromium's sandbox.** The browser that draws a page runs with its own
-sandbox on, everywhere, so a page from a template, a shared project or an
+sandbox on, everywhere, so a page from a shared project or an
 agent's mistake cannot reach the machine's processes or files. It costs nothing
 measurable and draws the same pixels. A machine that cannot start it — one
 running as root, or a kernel that refuses unprivileged user namespaces, like

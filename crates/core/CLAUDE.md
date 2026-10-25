@@ -20,8 +20,7 @@ would break paying users. So:
   compatible — **`Project::load` still refuses any version that is not this
   build's**, so the bump still turns a silent reinterpretation into a loud
   refusal, and the only way past the refusal is the migration.
-- **The server migrates every stored document** — projects and templates
-  (`crate::template`) alike — when it starts on a new build, before serving a
+- **The server migrates every stored document** — projects — when it starts on a new build, before serving a
   request — a stored project is never read by code
   that does not understand it.
 - **Local `.scor` folders are migrated by the same steps, through the CLI**:

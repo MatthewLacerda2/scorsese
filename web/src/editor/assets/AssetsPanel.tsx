@@ -3,8 +3,7 @@
 // files come in is the first thing in the panel. Then **Assets**, what this project holds, as a
 // grid of tiles two across (#766, `AssetTile`) — each dragged onto a lane to
 // place it (the desktop app's pool, #543), or removed with the bin its tile
-// shows on hover, after a confirm listing the clips that go with it (#396) —
-// then **Templates**, inserted at the playhead (#546).
+// shows on hover, after a confirm listing the clips that go with it (#396).
 // The two lists are kept apart on purpose: what is *in* the project, and what
 // is merely *owned* and picked from, as every editor's media bin and import
 // dialog are.
@@ -19,7 +18,6 @@ import { useState } from "react";
 import type { DocumentAsset, ProjectDocument } from "@/api";
 import { useT } from "@/i18n/I18nProvider";
 import type { EditOutcome } from "../project";
-import { TemplatesSection } from "../templates/TemplatesSection";
 import { AssetGrid } from "./AssetGrid";
 import { AssetSheet } from "./AssetSheet";
 import { LibraryModal } from "./LibraryModal";
@@ -28,10 +26,9 @@ interface Props {
   projectId: number;
   document: ProjectDocument;
   edit: EditOutcome;
-  playhead: number;
 }
 
-export function AssetsPanel({ projectId, document, edit, playhead }: Props) {
+export function AssetsPanel({ projectId, document, edit }: Props) {
   const t = useT();
   const assets = document.assets ?? [];
   const [opened, setOpened] = useState<DocumentAsset | null>(null);
@@ -58,7 +55,6 @@ export function AssetsPanel({ projectId, document, edit, playhead }: Props) {
             onOpen={setOpened}
           />
         </section>
-        <TemplatesSection edit={edit} playhead={playhead} fps={document.timeline_fps} />
       </div>
       <AssetSheet asset={opened} onClose={() => setOpened(null)} />
     </div>

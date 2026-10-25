@@ -7,9 +7,8 @@
 //! a new frame shape is `project_reframe`,
 //! a lane or an asset deleted after its confirm is `track_remove` or
 //! `asset_remove` with the clips that go named (#396),
-//! the preview's frame is `still`, and a selection saved as a template or a
-//! template put in at the playhead is `template_save` or `template_insert`
-//! (#546), and the script read or rewritten from the Script button is
+//! the preview's frame is `still`, and the script read or rewritten from the
+//! Script button is
 //! `script_read` or `script_write` (#1445) — run by
 //! [`Toolbox::edit`](crate::tools::Toolbox::edit), on the same code the
 //! assistant and web MCP reach, and recorded in `tool_calls` as client
@@ -30,10 +29,8 @@
 //! the user sees what is there now. The same rule the projects API keeps
 //! (#534) — and a script rewritten by hand names it too, so a script the
 //! assistant wrote meanwhile is never overwritten unseen. Adding a library
-//! file, looking at a frame, reading the script and saving a template
-//! change nothing a drag was computed on, and inserting one is worked out on
-//! the project as the server finds it — where each track lands is `core`'s
-//! rule, not something the user drew — so those take no revision.
+//! file, looking at a frame and reading the script change nothing a drag
+//! was computed on, so those take no revision.
 //!
 //! **A browser session only.** A program holding a token has web MCP, the whole
 //! surface; this route is the page's, which is what makes `editor` in the log
@@ -68,15 +65,9 @@ pub const EDITS: &[&str] = &[
 ];
 
 /// The tools that do not: bringing a library file into the assets table,
-/// looking at a frame, saving clips as a template and inserting one, and
+/// looking at a frame, and
 /// reading the script.
-pub const UNPINNED: &[&str] = &[
-    "import",
-    "still",
-    "template_save",
-    "template_insert",
-    "script_read",
-];
+pub const UNPINNED: &[&str] = &["import", "still", "script_read"];
 
 /// `POST /api/projects/{id}/tools/{name}`'s body.
 #[derive(Debug, Deserialize)]

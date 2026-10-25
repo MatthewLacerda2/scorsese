@@ -71,8 +71,7 @@ class Finish:
         if self.opts.dry_run:
             return
         log = self.compose(["logs", "server", "--since", started, "--no-color"]).out
-        projects, templates = stack.stored_migrations(log)
-        self.say(f"stored projects migrated: {projects}, templates: {templates}")
+        self.say(f"stored projects migrated: {stack.stored_migrations(log)}")
         self.say(f"the way back: check out {before[:12]}, rebuild, and restore "
                  f"{self.dump_path} (docs/web.md, Restoring)")
 

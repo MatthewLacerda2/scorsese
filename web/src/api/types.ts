@@ -166,8 +166,6 @@ export interface LibraryItem {
   last_used_at: number | null;
   generated: boolean;
   used_by: ProjectRef[];
-  /** The templates that use it (#546), which keep it from being deleted too. */
-  templates: ProjectRef[];
   generation: GenerationRecord | null;
   /** For a stock file, where it came from; `null` for an upload or a generation. */
   source: StockSource | null;
@@ -255,20 +253,6 @@ export interface EditorProject extends ProjectSummary {
 interface ToolPart {
   text: string;
   image: string | null;
-}
-
-/** `templates::Summary` — a saved piece of an edit (#546), as a list shows it. */
-export interface TemplateSummary {
-  id: number;
-  name: string;
-  seconds: number;
-  clips: number;
-  tracks: number;
-  /** The assets its clips show, by id. */
-  assets: string[];
-  /** What it is for, as it was saved — `null` when nobody said (#560). */
-  description: string | null;
-  updated_at: number;
 }
 
 /** `POST /api/projects/{id}/tools/{name}` — `http::editor::call`. */

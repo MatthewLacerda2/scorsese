@@ -44,7 +44,6 @@ export const files = {
     descriptionPlaceholder: "Words the assistant reads when choosing a file",
     usedIn: "Used in",
     unused: "No project uses it yet.",
-    templates: (names: string) => `Templates: ${names}`,
     delete: "Delete",
     deleteTitle: (name: string) => `Delete “${name}”?`,
     deleteDescription: "The file is removed from your library for good.",

@@ -8,9 +8,8 @@
 // the chat's own element stays where it is, so nothing in it is lost.
 //
 // The page is thin on purpose (CLAUDE.md, *The GUI is thin*): the hand-edits
-// are place, move (along a lane or onto another), trim, delete, a plain value,
-// and saving the selected clips as a template or putting one in (#546), each
-// one a call to the server's tools; anything with structure to it is a sentence to the assistant. What
+// are place, move (along a lane or onto another), trim, delete and a plain value,
+// each one a call to the server's tools; anything with structure to it is a sentence to the assistant. What
 // the page draws is always the server's document — after an edit from its
 // answer, after the assistant's from the `project` event.
 //
@@ -98,7 +97,6 @@ function Editor({ project }: { project: EditorProject }) {
       <EditorHeader
         projectId={id}
         name={document.name}
-        selected={selected}
         edit={edit}
         aspect={aspect}
         onAspect={(next) => void reframe(next)}
@@ -195,7 +193,7 @@ function Editor({ project }: { project: EditorProject }) {
             />
             <aside className="col-start-5 row-start-1 min-h-0">
               <ErrorBoundary place="panel">
-                <AssetsPanel projectId={id} document={document} edit={edit} playhead={playhead} />
+                <AssetsPanel projectId={id} document={document} edit={edit} />
               </ErrorBoundary>
             </aside>
             <Handle

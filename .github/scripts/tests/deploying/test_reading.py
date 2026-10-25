@@ -23,10 +23,10 @@ class Reading(unittest.TestCase):
         self.assertEqual(stack.not_ready(stack.services(exited)), ["server (exited)"])
 
     def test_start_up_lines_and_the_dump(self):
-        log = "server-1 | scorsese-server: migrated 3 stored projects to this build's format\n" \
-              "server-1 | scorsese-server: migrated 1 stored templates to this build's format\n"
-        self.assertEqual(stack.stored_migrations(log), (3, 1))
-        self.assertEqual(stack.stored_migrations(""), (0, 0))
+        log = "server-1 | scorsese-server: migrated 3 stored projects to this build's format\n"
+
+        self.assertEqual(stack.stored_migrations(log), 3)
+        self.assertEqual(stack.stored_migrations(""), 0)
         out = "backup: database dumped to /data/backups/db/scorsese-20261023T1200Z.dump\n"
         self.assertEqual(stack.dump_name(out), "/data/backups/db/scorsese-20261023T1200Z.dump")
 

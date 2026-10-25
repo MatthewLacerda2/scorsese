@@ -145,11 +145,4 @@ impl ImageRequest {
             .into_iter()
             .flat_map(|kind| self.references_of(kind))
     }
-
-    /// [`Self::references`], to edit — the same pictures in the same order.
-    pub fn references_mut(&mut self) -> impl Iterator<Item = &mut AssetId> {
-        self.reference_images
-            .iter_mut()
-            .chain(self.character_images.iter_mut())
-    }
 }

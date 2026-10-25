@@ -80,7 +80,7 @@ changes often, and normalising it would fork every editing operation into SQL
 
 Everything *around* the edit is normalised: users, library items, which
 library items a project uses (derived from the document on every save, never
-edited by hand), templates, the credit ledger, the provider audit tables, chat
+edited by hand), the credit ledger, the provider audit tables, chat
 turns and tool calls, renders, jobs.
 
 **Postgres, no extensions.** No pgvector: a library is dozens to hundreds of
@@ -577,7 +577,7 @@ first names the commit the stack runs, which is the way back, then:
 8. **Checks** that `/` and `/api/health` answer 200 on the local address and
    on `SCORSESE_PUBLIC_ORIGIN`.
 9. **Says what changed**: the commits, the SQL migrations applied, how many
-   stored projects and templates the server migrated, and the dump to restore.
+   stored projects the server migrated, and the dump to restore.
 
 **What is running** is read off the running server's image, which carries the
 commit it was built from as its `org.opencontainers.image.revision` label
@@ -602,7 +602,7 @@ build's fingerprinted files, which the new `web` image no longer has. Until it
 is dropped, or expires within the hour, a first visit draws a blank page.
 
 The script runs no migrations: the server applies its SQL migrations and
-migrates every stored project and template before it answers its health
+migrates every stored project before it answers its health
 check, so a healthy server is the proof they ran. Its steps live in
 `deploy/updating/`, tested without Docker by `make scripts`.
 
@@ -1486,9 +1486,8 @@ colour sitting in the cache.
 video plays and seeks without being fetched whole. A file never changes under
 its id, so it is sent `private, immutable`, tagged by its hash.
 
-**A file a project or a template uses cannot be deleted**: `409` naming the
-projects and the templates (*Templates*), and the foreign keys from
-`project_assets` and `template_assets` hold it if two requests race. Removing
+**A file a project uses cannot be deleted**: `409` naming the projects, and
+the foreign key from `project_assets` holds it if two requests race. Removing
 an asset from a project, locally or here, is `asset_remove` (#396, *The web
 editor*); that takes it out of the document and leaves the library file, which
 this rule alone deletes.
@@ -1512,9 +1511,9 @@ local project keeps them, so a render's pages get `scorsese.words` and
 | route | who | what |
 | --- | --- | --- |
 | `GET /api/library` | a member | their files, newest first: `id`, `name`, `kind`, `size_bytes`, `thumbnail`; `?kind=`, `?search=`, `?sha256=` and `?project=` (the files that project uses) narrow it |
-| `GET /api/library/{id}` | a member | everything known, `used_by` (projects), `templates`, `generation` (or `null`), `source` — where a stock file came from (or `null`, #1237) |
+| `GET /api/library/{id}` | a member | everything known, `used_by` (projects), `generation` (or `null`), `source` — where a stock file came from (or `null`, #1237) |
 | `PATCH /api/library/{id}` | a member | `{name?, description?}`; an empty description removes it |
-| `DELETE /api/library/{id}` | a member | `204`; `409` with `projects` and `templates` when one uses it |
+| `DELETE /api/library/{id}` | a member | `204`; `409` with `projects` when one uses it |
 | `GET /api/library/{id}/file` | a member | the file, whole or in the range asked for; `?download=1` adds `Content-Disposition: attachment` with its name and real extension (#711) |
 | `GET /api/library/{id}/thumbnail` | a member | the picture, or `404` while it is drawn |
 | `OPTIONS /api/uploads` | anyone | what tus this server speaks |
@@ -1797,7 +1796,6 @@ the web — or be left off it — without a reason written down.
 | `voice_design` | the server's own: paid from credits, made by the queue, the samples kept in the library and the voices in the user's own record — *Designing a voice*, below |
 | `voice_clone` | the server's own: free, made by the queue from the user's uploaded recordings, the voice in the same record as a designed one — *Cloning a voice*, below |
 | `spending_history` | the ledger, read for the caller (*Credits*) |
-| `template_list`, `template_save`, `template_insert` | the server's own: a user's templates are rows (*Templates*) |
 
 **The document tools**, served as they are on the stored project:
 
@@ -2481,22 +2479,19 @@ another.
 
 ## The editor
 
-`/projects/{id}/edit` (#545), laid out as the desktop app is: a sidebar on the
-left — a **Library** button at the top (#702, #1006), then the project's
-**Assets** and the user's **Templates** — the preview in the middle, the
-timeline under both, and on the right the selected clip's inspector over the
-assistant's chat panel. The code is `web/src/editor/`, the route
+`/projects/{id}/edit` (#545), laid out as the desktop app is: on the left the
+selected clip's inspector over the assistant's chat panel, the preview in the
+middle, the timeline under both, and on the right the assets panel — a
+**Library** button at the top (#702, #1006), then the project's **Assets**. The code is `web/src/editor/`, the route
 `crates/server/src/http/editor.rs`; their module docs carry each argument. It
 is a first version by the rule in `CLAUDE.md` — *the user can start editing
 with it* — and is meant to be tuned from use.
 
 **Assets are what is in the project; the library is what is owned** (#702).
-The sidebar lists only the first. The Library button opens the library page's
+The assets panel lists only the first. The Library button opens the library page's
 own browser in a modal, in picking mode, over the editor blurred behind it:
 picking a file is an `import`, which brings it into Assets without placing it,
-and the user drags it from there onto a lane. Templates are not in the modal — a template has no
-"in this project" state, it is inserted at the playhead, which the sidebar's
-Templates section already does.
+and the user drags it from there onto a lane.
 
 **The hand-edits are few, and each is a tool call.** Add a track, drop a file
 on it, drag a clip along it or onto another lane, drag an edge to trim, press
@@ -2537,8 +2532,7 @@ in the answer's result, and then not again (`chat_turns.script_told_at`).
 - **An allowlist**, not the whole surface: `track_new`, `track_remove`,
   `asset_remove`, `place_clip`, `clip_set`, `clip_move`,
   `clip_remove`, `sequence`, `project_reframe`, `script_write` (the edits,
-  `http::editor::EDITS`) and `import`, `still`, `template_save`,
-  `template_insert`, `script_read`. Anything else is
+  `http::editor::EDITS`) and `import`, `still`, `script_read`. Anything else is
   `404` — a page has no business writing a whole document or spending money.
   An API token is `403`; a program uses web MCP.
 - **An edit names the revision it was worked out on**, and a project at any
@@ -2546,10 +2540,8 @@ in the answer's result, and then not again (`chat_turns.script_told_at`).
   nothing written: the conflict rule of *Projects*. Web MCP and the assistant
   re-run a call on a project that moved, since a tool is a function of the
   document; a drag is not, because it was computed on the timeline the user
-  saw. The page reads the project again and says so. `import`, `still` and the
-  two template tools take no revision: none changes what a drag is computed
-  on, and where an inserted template lands is `core`'s rule applied to the
-  project as the server finds it, not something the user drew.
+  saw. The page reads the project again and says so. `import`, `still` and
+  `script_read` take no revision: none changes what a drag is computed on.
 - A refused edit is `422` with the tool's own reason, shown above the timeline;
   the clip springs back, since the page only draws what the server holds.
 - It shares web MCP's 120 calls a minute. An edit that lands sends `project`
@@ -2640,77 +2632,6 @@ confirmation just above it; Start empties the chat at once and the next message
 is sent with `fresh: true`, which opens a new `chat_sessions` row. The old
 conversation stays in the database. Without the project's
 model's key (`ANTHROPIC_API_KEY`) the server's `503` "not configured" is shown as a note, and nothing else changes.
-
-## Templates
-
-A piece of an edit saved to be copied into any of the same user's projects —
-an intro, an outro, a running gag, the whole shape of a daily video (#546). The
-code is `scorsese_core::template` (what a template is, and where one lands),
-`crates/server/src/templates/` (the rows) and the three tools in
-`crates/server/src/tools/own/templates.rs`; their module docs carry each
-argument.
-
-**A template is a `project.json` document**: `core`'s `extract` keeps the
-chosen clips, the tracks they are on and the assets they show, moved so the
-earliest clip starts at zero, under the template's name and the source's frame
-rate. Not a new format — so `Project::validate` says whether one is coherent,
-and **a schema bump migrates stored templates on start** with the same
-`scorsese_core::migrate` steps as projects, in the same all-or-nothing way. An
-arrow is saved with the clip it follows or not at all; a brief in flight is
-kept as a sketch.
-
-**Inserting copies; it never links** (#527). `core`'s `insert` writes the clips
-into the project at the time asked for, so changing or deleting a template
-never changes a video it went into. The files are not copied: a template names
-library files by hash exactly as a project does, and a file the project
-already has is shared, so a Veo intro is paid for once. Ids are kept where free
-and suffixed (`-2`) where not.
-
-**Where its tracks land** — decided in `core`, and the one rule to know: by
-position among tracks of the same kind, from the bottom. The template's first
-video track goes on the project's first video track, its second on the second,
-audio alike, and a project with no tracks takes the template's own. Where
-something is already in the way, that track **and every one above it** of that
-kind go onto new tracks on top, in the template's order — sending only the
-blocked one up would draw the template's background over its own title.
-Nothing already in the project moves; an insert that pushes the rest of the
-cut later is a different edit, not built.
-
-**The rows.** `templates` (owner, the document, a `name` generated from it and
-unique per user whatever its case) and `template_assets`, derived from the
-document on every save exactly as `project_assets` is, with the same key to
-`library_items` — which is what makes the library refuse to delete a file a
-template uses, naming the template. Both follow *Per-user isolation*. Saving
-under a taken name is refused unless the caller says `replace`; replacing is
-how a template is updated.
-
-**What a template is for** (#560) is a `description` column beside the
-document — prose the assistant reads before inserting, at most 2000
-characters, held to `scorsese_core::template::Description`'s rule. Not a field
-in the document, because the document is a `project.json` document and a field
-there would be a format change (schema bump and migration) for something no
-project has; the local side, when it keeps templates, stores the same
-`Description` beside its document the same way. Replacing a template without
-a description keeps the old one.
-
-| tool | what |
-| --- | --- |
-| `template_list` | the caller's templates: id, name, length, clips, tracks, the assets shown, and what each is for |
-| `template_save` | `{project, clips, name, description?, replace?}` — those clips of that project, as a template |
-| `template_insert` | `{project, template, at_seconds}` — a copy of it, its first clip at that time; the reply names every clip and the track it went on |
-
-All three are served to web MCP and the assistant, and the editor reaches the
-last two through its tool route (*The editor*): **Save as template** on the
-selected clips (shift-click adds to a selection), and a **Templates** list in
-the assets panel whose entries go in at the playhead.
-
-| route | who | what |
-| --- | --- | --- |
-| `GET /api/templates` | a member | their templates, by name |
-| `DELETE /api/templates/{id}` | a member | `204`; the videos it went into keep their copies |
-
-Not in v1: sharing templates across users, and templates for local `.scor`
-folders — which `core`'s two functions already serve when the CLI wants them.
 
 ## Out of scope for now
 

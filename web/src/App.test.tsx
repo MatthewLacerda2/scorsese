@@ -121,10 +121,9 @@ test("the editor draws the stored document: its tracks, clips and assets", async
   expect(html).toContain("HELLO");
   expect(html).toContain("c1 — drag to move"); // the timeline, with its clip
   expect(html).toContain("Ask the assistant");
-  // The sidebar (#702): the project's assets, the templates, and a button to
+  // The sidebar (#702): the project's assets, and a button to
   // the library rather than the library itself.
   expect(html).toContain("Drag onto a track to place it"); // the assets, headed by nothing (#1446)
-  expect(html).toContain("Templates");
   expect(html).toContain("Library</button>");
   expect(html).not.toContain("Your library");
 });

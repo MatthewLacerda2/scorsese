@@ -1,4 +1,4 @@
-// The editor's strings — the page, rendering, removals, templates, the preview
+// The editor's strings — the page, rendering, removals, the preview
 // and the timeline — in English, the source the other catalogues are typed
 // against. The inspector has its own area (`inspector.ts`).
 
@@ -110,26 +110,5 @@ export const editor = {
       half: { label: "1/2", says: "half quality: fewer pixels, proxies where made" },
       quarter: { label: "1/4", says: "quarter quality: fastest, proxies where made" },
     },
-  },
-  templates: {
-    title: "Templates",
-    none: "None yet. Select clips on the timeline and save them as a template.",
-    summary: (seconds: string, clips: number) =>
-      `${seconds}s · ${clips === 1 ? "1 clip" : `${clips} clips`}`,
-    insert: (name: string) => `Insert ${name} at the playhead`,
-    insertTitle: (seconds: string) => `Insert at the playhead (${seconds}s)`,
-    remove: (name: string) => `Delete ${name}`,
-    removeTitle: "Delete the template — videos it went into keep their copies",
-    confirmRemove: (name: string) => `Delete the template “${name}”?`,
-    save: "Save as template",
-    unavailable:
-      "Templates are selected clips, kept to reuse. Select clips on the timeline or ask the assistant.",
-    where: "Yours are under Templates, in the assets panel.",
-    saveTitle: "Select clips on the timeline (Shift-click for several), then save them to reuse",
-    saveDescription: (count: number) =>
-      `The ${count === 1 ? "1 clip" : `${count} clips`} selected, to put into any of your projects later. Changing the template never changes a video it was used in.`,
-    name: "Template name",
-    placeholder: "Intro, outro, lower third…",
-    replace: "Replace the template that has this name",
   },
 };
