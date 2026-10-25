@@ -22,7 +22,9 @@ fn adjust(dollars: Option<&str>, to_zero: bool, include_paid: bool) -> CreditCom
 
 /// A Stripe payment of `user`'s that arrived, as the webhook leaves it.
 async fn paid_payment(pool: &PgPool, user: UserId) {
-    let mut tx = db::privileged(pool).await.unwrap();
+    let mut tx = db::privileged(pool)
+        .await
+        .expect("a privileged scope opens");
     sqlx::query(
         "INSERT INTO payments (user_id, stripe_session, brl_centavos, credit_micros,
                                brl_per_usd, rate_source, state, paid_at)
@@ -31,8 +33,8 @@ async fn paid_payment(pool: &PgPool, user: UserId) {
     .bind(user.get())
     .execute(&mut *tx)
     .await
-    .unwrap();
-    tx.commit().await.unwrap();
+    .expect("a paid payment is recorded");
+    tx.commit().await.expect("the payment commits");
 }
 
 /// Taking test money back is one new negative entry, with its reason, that
