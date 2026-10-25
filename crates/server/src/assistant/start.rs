@@ -80,6 +80,7 @@ pub async fn start(
     if balance <= 0 {
         return Err(AssistantError::NoCredit(dollars(balance)));
     }
+    let veo = ledger::balance(&mut tx).await? > 0;
     let left = if opening.fresh {
         asking::set_aside_in(&mut tx, project).await?
     } else {
@@ -124,6 +125,9 @@ pub async fn start(
             return Err(AssistantError::Invalid("no work has landed".into()));
         }
         None => {}
+    }
+    if !veo {
+        notes.push(NO_VEO.into());
     }
     notes.append(&mut opening.notes);
     let kept = turns::history(&mut tx, session).await?;
@@ -186,6 +190,7 @@ pub async fn start(
         messages: first,
         record,
         balance,
+        veo,
         spent: 0,
         answer: None,
         compacting,
@@ -193,6 +198,12 @@ pub async fn start(
     tokio::spawn(turn::run(state.clone(), running));
     Ok(view)
 }
+
+/// What a turn is told when the person has no paid credit (#1530): the free
+/// allowance pays for everything but a Veo shot.
+const NO_VEO: &str = "Veo is not available because the user is on \
+     free usage: there are no Veo shots to generate. Hold, push in or pan on a generated_image, \
+     or use stock footage, instead.";
 
 /// What the model is told about the last turn's quote, when that turn ended
 /// without its answer: one held before quotes paused their turn (#1440), which

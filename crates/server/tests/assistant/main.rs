@@ -26,6 +26,7 @@ mod script;
 mod started;
 mod stopping;
 mod turns;
+mod veo;
 mod woken;
 
 use std::net::SocketAddr;

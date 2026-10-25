@@ -154,6 +154,21 @@ impl Toolbox {
         surface::listing()
     }
 
+    /// [`Self::listing`], or without a word of Veo when `veo` is false: what
+    /// the built-in assistant is shown for a user with no paid credit, who
+    /// cannot buy a shot (#1530). The ledger refuses one all the same.
+    pub fn listing_for(&self, veo: bool) -> Vec<Value> {
+        let mut listing = surface::listing();
+        if !veo
+            && let Some(tool) = listing
+                .iter_mut()
+                .find(|tool| tool["name"] == generate::NAME)
+        {
+            tool["description"] = Value::from(generate::description_without_veo());
+        }
+        listing
+    }
+
     /// Whether there is a tool called `name` here.
     pub fn serves(&self, name: &str) -> bool {
         surface::find(name).is_some()

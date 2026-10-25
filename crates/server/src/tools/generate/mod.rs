@@ -61,6 +61,20 @@ out shorter than a clip laid out over its sketch shortens that clip to it, and t
 job (or this reply, for one brought in) names each one — the gap left after it is yours to \
 close. Stills can instead be ordered in a batch at half price, ready within 24 hours: when they are worth a dollar or more and are all there is to pay for, the quote offers it beside the price for now. Put that choice to whoever is paying and never pick the wait for them; set batch only when they chose it. Each batched still lands on its own when its batch answers. Every price is our own arithmetic over published rates.";
 
+/// What it does, said to an assistant whose user has no paid credit (#1530):
+/// a Veo shot is never paid from the free allowance, so the video kind is
+/// left out and the rest is the same.
+pub(crate) fn description_without_veo() -> String {
+    DESCRIPTION
+        .replacen("Veo shots, Gemini stills", "Gemini stills", 1)
+        .replacen(
+            "generated_video, generated_image and",
+            "generated_image and",
+            1,
+        )
+        .replacen("A shot or line that comes", "A line that comes", 1)
+}
+
 /// Its arguments.
 pub(crate) fn schema() -> Value {
     json!({
@@ -325,4 +339,20 @@ pub(super) fn credits(quote: &Quote, project: &Project) -> i64 {
             Some(charge_for(Product::of(asset)?, charge.cents))
         })
         .sum()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every mention of video goes, and nothing else does.
+    #[test]
+    fn without_veo_the_description_says_nothing_of_video() {
+        let without = description_without_veo();
+        for word in ["Veo", "generated_video", "shot"] {
+            assert!(!without.contains(word), "{word}: {without}");
+        }
+        assert!(without.contains("Gemini stills and ElevenLabs lines"));
+        assert!(without.len() > DESCRIPTION.len() - 80);
+    }
 }
