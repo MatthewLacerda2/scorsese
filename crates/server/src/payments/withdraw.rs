@@ -11,9 +11,13 @@
 //! it. The reais refunded are the same share of what was paid, floored.
 
 use serde_json::json;
+use sqlx::postgres::PgPool;
 
-use crate::credits::{CreditError, ledger};
-use crate::db::Tx;
+use super::reais;
+use crate::ServerError;
+use crate::accounts::users;
+use crate::credits::{CreditError, dollars, history, ledger};
+use crate::db::{self, Tx};
 
 /// The withdrawal's own window, in days from the day the purchase was paid
 /// to the day the customer asked, both in Brasília.
@@ -114,6 +118,46 @@ pub async fn withdraw(
         ledger::withdraw(tx, withdrawn.taken_micros, id, detail).await?;
     }
     Ok(withdrawn)
+}
+
+/// `scorsese-server credit withdraw`: withdraw `email`'s purchase by
+/// `session`, asked for on `requested`, and say what was taken back and what
+/// to refund.
+pub async fn run(
+    pool: &PgPool,
+    email: &str,
+    session: &str,
+    requested: Option<&str>,
+) -> Result<String, ServerError> {
+    if let Some(day) = requested.filter(|day| !history::is_day(day)) {
+        return Err(
+            CreditError::Invalid(format!("{day:?} is not a day; write it as YYYY-MM-DD")).into(),
+        );
+    }
+    let user = users::find(pool, email).await?;
+    let mut tx = db::scoped(pool, user)
+        .await
+        .map_err(ServerError::Database)?;
+    let withdrawn = withdraw(&mut tx, session, requested).await?;
+    let balance = ledger::balance(&mut tx)
+        .await
+        .map_err(ServerError::Database)?;
+    tx.commit().await.map_err(ServerError::Database)?;
+    Ok(if withdrawn.taken_micros == 0 {
+        format!(
+            "nothing is left of {email}'s purchase {session}; nothing taken back, nothing to refund"
+        )
+    } else {
+        format!(
+            "took back {} of {email}'s purchase {session} ({} of it bonus); balance now \
+             {}\nrefund R$ {} of the R$ {} paid, in Stripe's Dashboard",
+            dollars(withdrawn.taken_micros),
+            dollars(withdrawn.bonus_micros),
+            dollars(balance),
+            reais(withdrawn.refund_centavos),
+            reais(withdrawn.paid_centavos)
+        )
+    })
 }
 
 /// What withdrawing a purchase of `centavos` that credited `credit` and

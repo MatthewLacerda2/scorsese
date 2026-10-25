@@ -9,11 +9,11 @@
 use clap::Subcommand;
 use sqlx::postgres::PgPool;
 
-use super::{CreditError, adjust, dollars, history, ledger};
+use super::{CreditError, adjust, dollars, ledger, usage};
 use crate::ServerError;
 use crate::accounts::users;
 use crate::db;
-use crate::payments::{reais, withdraw};
+use crate::payments::withdraw;
 
 /// `scorsese-server credit …`
 #[derive(Debug, Subcommand)]
@@ -187,39 +187,7 @@ pub async fn run(pool: &PgPool, command: CreditCommand) -> Result<String, Server
             email,
             session,
             requested,
-        } => {
-            if let Some(day) = requested.as_deref().filter(|day| !history::is_day(day)) {
-                return Err(CreditError::Invalid(format!(
-                    "{day:?} is not a day; write it as YYYY-MM-DD"
-                ))
-                .into());
-            }
-            let user = users::find(pool, &email).await?;
-            let mut tx = db::scoped(pool, user)
-                .await
-                .map_err(ServerError::Database)?;
-            let withdrawn = withdraw::withdraw(&mut tx, &session, requested.as_deref()).await?;
-            let balance = ledger::balance(&mut tx)
-                .await
-                .map_err(ServerError::Database)?;
-            tx.commit().await.map_err(ServerError::Database)?;
-            if withdrawn.taken_micros == 0 {
-                format!(
-                    "nothing is left of {email}'s purchase {session}; nothing taken back, \
-                     nothing to refund"
-                )
-            } else {
-                format!(
-                    "took back {} of {email}'s purchase {session} ({} of it bonus); balance now \
-                     {}\nrefund R$ {} of the R$ {} paid, in Stripe's Dashboard",
-                    dollars(withdrawn.taken_micros),
-                    dollars(withdrawn.bonus_micros),
-                    dollars(balance),
-                    reais(withdrawn.refund_centavos),
-                    reais(withdrawn.paid_centavos)
-                )
-            }
-        }
+        } => withdraw::run(pool, &email, &session, requested.as_deref()).await?,
         CreditCommand::Balance { email } => {
             let user = users::find(pool, &email).await?;
             let mut tx = db::scoped(pool, user)
@@ -235,64 +203,8 @@ pub async fn run(pool: &PgPool, command: CreditCommand) -> Result<String, Server
             email,
             since,
             until,
-        } => free_usage(pool, email.as_deref(), since.as_deref(), until.as_deref()).await?,
+        } => usage::free_usage(pool, email.as_deref(), since.as_deref(), until.as_deref()).await?,
     })
-}
-
-/// One day of a user's free usage, as `free_usage.sql` reads it.
-#[derive(sqlx::FromRow)]
-struct Day {
-    email: String,
-    day: String,
-    free: i64,
-    month_to_date: i64,
-    first_paid: Option<String>,
-}
-
-/// `credit free-usage`: each user's line, then one per day they used the
-/// allowance.
-async fn free_usage(
-    pool: &PgPool,
-    email: Option<&str>,
-    since: Option<&str>,
-    until: Option<&str>,
-) -> Result<String, ServerError> {
-    for day in [since, until].into_iter().flatten() {
-        if !history::is_day(day) {
-            return Err(CreditError::Invalid(format!(
-                "{day:?} is not a day; write it as YYYY-MM-DD"
-            ))
-            .into());
-        }
-    }
-    let mut tx = db::privileged(pool).await.map_err(ServerError::Database)?;
-    let days: Vec<Day> = sqlx::query_as(include_str!("free_usage.sql"))
-        .bind(email)
-        .bind(since)
-        .bind(until)
-        .fetch_all(&mut *tx)
-        .await
-        .map_err(ServerError::Database)?;
-    tx.commit().await.map_err(ServerError::Database)?;
-    let mut lines = Vec::new();
-    for (index, day) in days.iter().enumerate() {
-        if index == 0 || days[index - 1].email != day.email {
-            lines.push(match &day.first_paid {
-                Some(first) => format!("{}, first paid {first}", day.email),
-                None => format!("{}, never paid", day.email),
-            });
-        }
-        lines.push(format!(
-            "  {}  {} free, {} this month",
-            day.day,
-            dollars(day.free),
-            dollars(day.month_to_date)
-        ));
-    }
-    if lines.is_empty() {
-        lines.push("nobody has used the free allowance in that range".to_owned());
-    }
-    Ok(lines.join("\n"))
 }
 
 /// An amount to take back, written negative as the operator types it —
