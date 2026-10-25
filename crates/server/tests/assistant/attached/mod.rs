@@ -18,6 +18,7 @@ use sqlx::postgres::PgPool;
 use super::{Script, answers, common, finished, member, project, scripted};
 
 mod paused;
+mod refused;
 
 /// `name` in `user`'s library: a red square for a picture, a line of text otherwise.
 pub(super) async fn kept(state: &AppState, user: UserId, name: &str, kind: Kind) -> i64 {

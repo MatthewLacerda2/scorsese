@@ -6,7 +6,7 @@ use super::store::TurnView;
 use super::store::turns::{self, Beginning, Last};
 use super::store::{asking, hands};
 use super::turn::{self, Running};
-use super::{AssistantError, ask, compact, effort, model, prompt, quote, wake};
+use super::{AssistantError, ask, attached, compact, effort, model, prompt, quote, wake};
 use crate::credits::{dollars, ledger};
 use crate::db::{self, UserId};
 use crate::events::Event;
@@ -23,6 +23,9 @@ pub struct Opening {
     /// What the server has to tell the model besides — said as a `system`
     /// message, which only the server can write.
     pub notes: Vec<String>,
+    /// Library ids of the files attached to the message (#1534): imported
+    /// once the turn may start, and named to the model ([`attached`]).
+    pub attachments: Vec<i64>,
     /// How hard the model thinks on it (#769); `None` is the project's level
     /// (#1443).
     pub effort: Option<Effort>,
@@ -42,7 +45,9 @@ pub struct Opening {
 /// ([`quote::answer`]). A new conversation sets either aside.
 ///
 /// Work the conversation ordered that has landed since is told in a note
-/// (`wake::told`); a woken turn is refused when there is none.
+/// (`wake::told`); a woken turn is refused when there is none. Attached files
+/// are imported only after every refusal but that one, which a message never
+/// meets: a refused message changes nothing.
 pub async fn start(
     state: &AppState,
     user: UserId,
@@ -74,6 +79,25 @@ pub async fn start(
         return Err(AssistantError::NoCredit(dollars(balance)));
     }
     let veo = ledger::balance(&mut tx).await? > 0;
+    // The conversation joined and its last turn, read before anything is
+    // written: a busy one refuses the message before its files come in.
+    let newest = if opening.fresh {
+        None
+    } else {
+        turns::newest_session(&mut tx, project).await?
+    };
+    let last = match newest {
+        Some(session) => turns::last(&mut tx, session).await?,
+        None => None,
+    };
+    if let Some(last) = &last
+        && (last.state == "running" || (last.state == "asking" && opening.woken))
+    {
+        return Err(AssistantError::Busy);
+    }
+    if let Some(note) = attached::attach(state, user, project, &opening.attachments).await? {
+        opening.notes.push(note);
+    }
     let left = if opening.fresh {
         asking::set_aside_in(&mut tx, project).await?
     } else {
@@ -86,14 +110,8 @@ pub async fn start(
     if new {
         notes.push(about.clone());
     }
-    if let Some(last) = turns::last(&mut tx, session).await? {
-        if last.state == "running" {
-            return Err(AssistantError::Busy);
-        }
+    if let Some(last) = last {
         if last.state == "asking" {
-            if opening.woken {
-                return Err(AssistantError::Busy);
-            }
             drop(tx);
             if last.token.is_some() {
                 let instead = quote::Answer::Instead(prompt, opening.notes);

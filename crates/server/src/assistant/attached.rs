@@ -4,6 +4,11 @@
 //! recorded as the editor's, since the person put them there by hand — and
 //! the model is told in a note which files came with this message, a
 //! document as one to read (`library_read`), so it does not go looking.
+//! [`super::start`] brings them in only once its own refusals have passed,
+//! so a refused message changes nothing; the import is held to the same
+//! per-minute limit as the editor's own edits.
+
+use std::collections::HashSet;
 
 use serde_json::json;
 
@@ -22,25 +27,25 @@ pub const MAX_ATTACHMENTS: usize = 20;
 /// Bring `items` from `user`'s library into `project`, and the note telling
 /// the model of them — `None` when nothing is attached. Refused, with
 /// nothing imported, when one is not a file of theirs.
-pub async fn attach(
+pub(super) async fn attach(
     state: &AppState,
     user: UserId,
     project: i64,
     items: &[i64],
 ) -> Result<Option<String>, AssistantError> {
-    let mut ids: Vec<i64> = Vec::with_capacity(items.len());
-    for id in items {
-        if !ids.contains(id) {
-            ids.push(*id);
-        }
-    }
-    if ids.is_empty() {
-        return Ok(None);
-    }
-    if ids.len() > MAX_ATTACHMENTS {
+    if items.len() > MAX_ATTACHMENTS {
         return Err(AssistantError::Invalid(format!(
             "a message carries at most {MAX_ATTACHMENTS} files"
         )));
+    }
+    let mut seen = HashSet::with_capacity(items.len());
+    let ids: Vec<i64> = items
+        .iter()
+        .copied()
+        .filter(|id| seen.insert(*id))
+        .collect();
+    if ids.is_empty() {
+        return Ok(None);
     }
     let before = projects::open(&state.pool, user, project)
         .await
@@ -68,6 +73,10 @@ pub async fn attach(
     }
     let mut lines = Vec::new();
     if !media.is_empty() {
+        state
+            .limits
+            .take(user, 1)
+            .map_err(|wait| AssistantError::TooMany(wait.as_secs().max(1)))?;
         let arguments = json!({ "project": project, "items": media });
         let reply = state
             .tools

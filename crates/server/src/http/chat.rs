@@ -35,20 +35,19 @@ pub struct Send {
 /// `POST /api/projects/{id}/chat`: a turn starts, `202` with it, at the
 /// project's effort. `503` when the assistant is not configured, `402` when
 /// the balance is empty, `409` while another turn of the conversation runs;
-/// `400`, with nothing imported, when an attachment is not the caller's.
+/// `400` when an attachment is not the caller's, `429` past the editor's
+/// per-minute limit — and on any refusal nothing is imported.
 pub async fn send(
     State(state): State<AppState>,
     member: Member,
     Path(project): Path<i64>,
     Json(send): Json<Send>,
 ) -> Result<(StatusCode, Json<TurnView>), ApiError> {
-    let attached = assistant::attach(&state, member.user, project, &send.attachments).await?;
     let opening = Opening {
         prompt: send.prompt,
         fresh: send.fresh,
-        notes: attached.into_iter().collect(),
-        effort: None,
-        woken: false,
+        attachments: send.attachments,
+        ..Opening::default()
     };
     let turn = assistant::start(&state, member.user, project, opening).await?;
     Ok((StatusCode::ACCEPTED, Json(turn)))
@@ -227,6 +226,10 @@ impl From<AssistantError> for ApiError {
             AssistantError::NotConfigured(_) => refused(StatusCode::SERVICE_UNAVAILABLE),
             AssistantError::NoCredit(_) => refused(StatusCode::PAYMENT_REQUIRED),
             AssistantError::Busy => Self::Conflict(error.to_string()),
+            AssistantError::TooMany(seconds) => Self::TooMany {
+                message: error.to_string(),
+                retry_after: *seconds,
+            },
             AssistantError::NotFound => Self::NotFound,
             AssistantError::Invalid(why) => Self::BadRequest(why.clone()),
             AssistantError::Database(_) | AssistantError::Internal(_) => {
