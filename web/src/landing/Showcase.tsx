@@ -5,6 +5,8 @@
 // everyone else sees the English one.
 //
 // It starts muted, since a browser plays nothing aloud on its own, and loops.
+// Nothing but its still is downloaded until it plays (`preload="none"`: the
+// film is the page's heaviest file, and many visitors never scroll to it).
 // It starts when the picture is first seen, not at page load below the fold,
 // and pauses when the visitor stops seeing it: the section scrolled mostly out
 // of view, or another tab in front (#1310). Coming back does not resume it; the
@@ -22,7 +24,7 @@ import englishStill from "@/landing/media/showcase/promo-en.jpg";
 import english from "@/landing/media/showcase/promo-en.mp4";
 import portugueseStill from "@/landing/media/showcase/promo-pt.jpg";
 import portuguese from "@/landing/media/showcase/promo-pt.mp4";
-import { prefersStill } from "@/landing/motion";
+import { prefersStill } from "@/lib/reducedMotion";
 
 /** How much of the picture must show for the visitor to count as watching. */
 const MOSTLY = 0.5;
@@ -104,6 +106,7 @@ export function Showcase() {
           className="size-full object-contain"
           src={film}
           poster={still}
+          preload="none"
           muted={muted}
           loop
           playsInline

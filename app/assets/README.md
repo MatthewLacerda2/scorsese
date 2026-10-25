@@ -32,23 +32,25 @@ white-on-black and its inverse, black on white. All are derived from the same
 art, run from `app/assets/`:
 
 ```
-# web/public/icon.png: the square icon at 64px (favicon, account button, sign-in)
+# web/public/icon.png: the square icon at 128px (favicon, the sidebar and header
+# marks, sign-in), sharp at twice the largest size it is drawn
 ffmpeg -i logo.png -vf \
-  "crop=883:902:23:131,pad=982:982:(ow-iw)/2:(oh-ih)/2:black,scale=64:64:flags=lanczos" \
+  "crop=883:902:23:131,pad=982:982:(ow-iw)/2:(oh-ih)/2:black,scale=128:128:flags=lanczos" \
   -pix_fmt rgba ../../web/public/icon.png
 
 # web/public/icon-light.png: the same, inverted before the crop, padded in white
 ffmpeg -i logo.png -vf \
-  "negate,crop=883:902:23:131,pad=982:982:(ow-iw)/2:(oh-ih)/2:white,scale=64:64:flags=lanczos" \
+  "negate,crop=883:902:23:131,pad=982:982:(ow-iw)/2:(oh-ih)/2:white,scale=128:128:flags=lanczos" \
   -pix_fmt rgba ../../web/public/icon-light.png
 
 # web/src/landing/media/mark.png: icon.png's brightness as the alpha of a white
-# silhouette with no background, and mark-light.png the same in black
+# silhouette with no background, at 256px (three times the landing's largest),
+# and mark-light.png the same in black
 ffmpeg -i icon.png -filter_complex "[0]format=gray[a];
-  color=white:s=512x512,format=rgba[w];[w][a]alphamerge,format=rgba" \
+  color=white:s=512x512,format=rgba[w];[w][a]alphamerge,format=rgba,scale=256:256:flags=lanczos" \
   -frames:v 1 ../../web/src/landing/media/mark.png
 ffmpeg -i icon.png -filter_complex "[0]format=gray[a];
-  color=black:s=512x512,format=rgba[w];[w][a]alphamerge,format=rgba" \
+  color=black:s=512x512,format=rgba[w];[w][a]alphamerge,format=rgba,scale=256:256:flags=lanczos" \
   -frames:v 1 ../../web/src/landing/media/mark-light.png
 ```
 
