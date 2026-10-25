@@ -5,21 +5,10 @@
    light until a visitor picks; `--ink` and `--paper` are index.css's.
 
    The type is the app's own face, Geist (already loaded by index.css), set
-   heavy and tight for headlines; the mono is the face the compositor ships
-   (crates/compositor/fonts/). `swap`, so the words are readable before the
-   faces arrive. */
-
-@font-face {
-  font-family: "JetBrains Mono";
-  src: url("../../../crates/compositor/fonts/JetBrainsMono[wght].ttf") format("truetype");
-  font-weight: 100 800;
-  font-style: normal;
-  font-display: swap;
-}
+   heavy and tight for headlines. */
 
 .landing {
   --gold: var(--color-gold);
-  --ember: #e4572e;
   --dim: color-mix(in srgb, var(--paper) 62%, transparent);
   min-height: 100svh;
   overflow-x: clip;
@@ -34,15 +23,6 @@
   font-family: "Geist Variable", sans-serif;
   font-weight: 600;
   letter-spacing: -0.035em;
-}
-/* A headline's italic is a colour change, not a slant: Geist has no italic,
-   and a faked one leans badly. */
-.landing .display .italic,
-.landing .display.italic {
-  font-style: normal;
-}
-.landing .mono {
-  font-family: "JetBrains Mono", monospace;
 }
 .landing .eyebrow {
   color: var(--gold-text);
@@ -67,8 +47,17 @@
     0 0 160px -40px rgb(242 177 52 / 0.35);
 }
 
+/* A card: white paper with a hairline and a soft shadow in the light theme, a
+   faint lift of the ink in the dark one. */
 .landing .card {
   border-radius: 1.25rem;
+  background: var(--ink-raised);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--paper) 8%, transparent),
+    0 1px 2px rgb(22 20 15 / 0.04),
+    0 8px 24px -12px rgb(22 20 15 / 0.12);
+}
+.dark .landing .card {
   background: color-mix(in srgb, var(--paper) 4%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--paper) 9%, transparent);
 }

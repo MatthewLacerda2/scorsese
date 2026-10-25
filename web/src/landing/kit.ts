@@ -35,20 +35,6 @@ export interface Kit {
     options?: { length?: number; distance?: number; out?: number },
   ) => void;
   stagger: (index: number, step?: number, first?: number) => number;
-  count: (
-    t: number,
-    at: number,
-    length: number,
-    to: number,
-    options?: {
-      from?: number;
-      decimals?: number;
-      locale?: string;
-      grouping?: boolean;
-      by?: Ease;
-      pad?: boolean;
-    },
-  ) => string;
 }
 
 export const kit = (window as unknown as { kit: Kit }).kit;

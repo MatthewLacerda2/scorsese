@@ -57,7 +57,7 @@ export function PromptBox({
 
   return (
     <div className="w-full">
-      <div className="relative rounded-3xl border border-border bg-card text-card-foreground shadow-lg transition-colors focus-within:border-ring/60">
+      <div className="relative rounded-3xl border border-border bg-card text-card-foreground shadow-lg transition-[color,box-shadow,border-color] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30">
         <Textarea
           ref={field}
           value={text}
