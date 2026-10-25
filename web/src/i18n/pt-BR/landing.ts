@@ -8,7 +8,11 @@ export const landing: Messages["landing"] = {
   },
   openApp: "Abrir o scorsese",
   signIn: "Entrar",
-  hero: { title: "O vídeo está a uma conversa de distância" },
+  hero: {
+    title: "O vídeo está a uma conversa de distância",
+    free: (dollars?: string) =>
+      dollars ? `Comece grátis: US$ ${dollars} por dia, sem cartão.` : "Comece grátis, sem cartão.",
+  },
   how: {
     eyebrow: "Como funciona",
     title: "Três passos. Você só diz o que quer.",
@@ -55,6 +59,7 @@ export const landing: Messages["landing"] = {
     },
     narration: { title: "Narração", body: "Uma voz que lê o seu roteiro, no tempo da imagem." },
   },
+  ask: { title: "Sua vez. Descreva o vídeo que você precisa." },
   closing: {
     title: "Quando você quiser.",
     body: "O vídeo está a uma mensagem de distância",
@@ -68,8 +73,6 @@ export const landing: Messages["landing"] = {
     terms: "Termos de uso",
     privacy: "Política de privacidade",
     pricingShort: "Preços",
-    termsShort: "Termos",
-    privacyShort: "Privacidade",
     translation: "O texto em português é o que vale.",
     readPortuguese: "Ler o texto em português",
     readTranslation: "Voltar à tradução",

@@ -11,6 +11,7 @@
 //
 // It takes its colours from the theme tokens, so the landing page (which
 // wraps it in `dark`) and the app (light or dark) both get a box that fits.
+// Its "+" and send answer a thumb on a phone (`touch-target`, #1566).
 
 import { ArrowUpIcon } from "lucide-react";
 import { type KeyboardEvent, useLayoutEffect, useRef, useState } from "react";
@@ -104,14 +105,14 @@ export function PromptBox({
           rows={2}
           className="max-h-60 min-h-28 field-sizing-fixed resize-none rounded-3xl border-0 bg-transparent px-5 pt-4 pb-14 text-base shadow-none focus-visible:ring-0 md:text-base dark:bg-transparent"
         />
-        <AttachButton attachments={attachments} className="absolute bottom-3 left-3" />
+        <AttachButton attachments={attachments} className="touch-target absolute bottom-3 left-3" />
         <Button
           type="button"
           size="icon-lg"
           onClick={send}
           disabled={!text.trim() || busy || attachments.busy}
           aria-label={t.send}
-          className="absolute right-3 bottom-3 rounded-full"
+          className="touch-target absolute right-3 bottom-3 rounded-full"
         >
           <ArrowUpIcon />
         </Button>

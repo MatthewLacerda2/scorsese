@@ -214,3 +214,20 @@
     @apply font-sans;
   }
 }
+
+/* A control drawn smaller than a thumb still takes one: the area it answers is
+   at least 48×48 CSS px around its centre (Google's touch-target figure,
+   #1566), while what is drawn keeps its size. Neighbours keep 8 px between
+   their areas, so two of these sit at least 20 px apart when drawn at 36.
+   The control must be positioned (`relative`, or `absolute` already). */
+@utility touch-target {
+  &::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 48px);
+    height: max(100%, 48px);
+    transform: translate(-50%, -50%);
+  }
+}

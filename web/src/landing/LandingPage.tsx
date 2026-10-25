@@ -6,9 +6,10 @@
 //
 // What it shows is what scorsese makes: the films in it are cuts of videos made
 // with scorsese, and the motion is the kit's (motion.ts). It is one scrolling
-// page: the prompt box first, everything else below it. Enter in either of
-// its prompt boxes goes to the Google sign-in and on into a new project
-// running that prompt (`prompt/handOff.ts`).
+// page: the prompt box first, everything else below it. Enter in any of its
+// three prompt boxes (the first screen, after the film, the end) goes to the
+// Google sign-in and on into a new project running that prompt
+// (`prompt/handOff.ts`).
 
 import "@/landing/landing.css";
 import { useState } from "react";
@@ -20,6 +21,7 @@ import { Hero } from "@/landing/Hero";
 import { ScrollIn } from "@/landing/ScrollIn";
 import { Showcase } from "@/landing/Showcase";
 import { SignInDialog } from "@/landing/SignInDialog";
+import { Ask } from "@/landing/sections/Ask";
 import { Closing } from "@/landing/sections/Closing";
 import { HowItWorks } from "@/landing/sections/HowItWorks";
 import { WhatItHandles } from "@/landing/sections/WhatItHandles";
@@ -64,6 +66,9 @@ export function LandingPage({ signIn = false }: { signIn?: boolean }) {
         </ScrollIn>
         <ScrollIn>
           <Showcase />
+        </ScrollIn>
+        <ScrollIn>
+          <Ask onPrompt={signInWith} />
         </ScrollIn>
         <ScrollIn>
           <WhatItHandles />
