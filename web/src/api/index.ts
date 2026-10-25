@@ -19,6 +19,7 @@ import type {
   Payment,
   PaymentBegun,
   PaymentQuote,
+  Prices,
   ProjectSummary,
   RenderAsk,
   RenderView,
@@ -175,6 +176,8 @@ export const api = {
     history: (filter: HistoryFilter = {}) =>
       request<History>("GET", `/credits/history${query({ ...filter })}`),
   },
+  /** What the public pricing page shows, from the tables that charge. */
+  prices: () => request<Prices>("GET", "/prices"),
   payments: {
     /** What `centavos` buy at the rate now. */
     quote: (centavos: number) =>

@@ -42,6 +42,7 @@
 
 mod begin;
 pub mod bonus;
+mod cards;
 mod refresh;
 pub mod settle;
 pub mod withdraw;
@@ -55,6 +56,7 @@ use scorsese_providers::payments::{Checkout, Stripe};
 
 pub use begin::{Begun, Quote, begin};
 pub use bonus::Bonus;
+pub use cards::{Card, Recharge};
 pub use refresh::refresh;
 
 use crate::config::{ConfigError, PUBLIC_ORIGIN, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET};

@@ -38,6 +38,7 @@ export const queryKeys = {
 
   styles: ["styles"] as const,
 
+  prices: ["prices"] as const,
   paymentQuote: (centavos: number | null) => ["payments", "quote", centavos] as const,
   paymentConfirm: (session: string) => ["payments", "confirm", session] as const,
 };

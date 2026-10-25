@@ -22,12 +22,14 @@ export const pricing: Messages["pricing"] = {
     name: "Créditos",
     reais: (amount) => `R$ ${amount}`,
     bonus: (percent) => `+${percent}% de crédito de bonificación`,
+    credits: (dollars) => `≈ ${dollars} en créditos`,
     best: "La mejor opción",
     lines: [
       "Convertidos a dólares estadounidenses a la cotización del día de la compra",
       "No vencen",
     ],
     button: "Comprar",
+    buying: "Abriendo Stripe…",
   },
   costs: {
     title: "Cuánto cuestan las cosas",
@@ -36,7 +38,6 @@ export const pricing: Messages["pricing"] = {
     narration: "Una línea de narración",
     music: "40 segundos de música",
     video: "8 segundos de video generado, en la calidad predeterminada",
-    assistant: "Un mensaje al asistente, según el trabajo",
     around: (amount) => `≈ ${amount}`,
     footnote:
       "Un video narrado de 1 minuto, con imágenes y música, normalmente cabe en el crédito gratis de un día.",

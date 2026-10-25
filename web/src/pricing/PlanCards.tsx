@@ -4,20 +4,25 @@
 // price (the card's heading, so a screen reader's list of them tells the
 // cards apart), a bonus line (kept at its height when there is no bonus), what it
 // includes, a button — so the rows line up across the cards. What the buttons
-// do is the page's: the free one starts, a buy one is told its amount in reais.
+// do is the page's: the free one starts, a buy one is told its card. The
+// figures are the server's (`usePrices`): each card says the dollars it buys at
+// the day's rate, bonus included, once the server has a rate to say it at.
 
 import { CheckIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import type { Prices, RechargeCard } from "@/api";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n/I18nProvider";
 import { formatDollars } from "@/lib/money";
-import { FREE, PLANS } from "@/pricing/examples";
+import { wholeCents } from "@/payments/reais";
 
 function Card(props: {
   name: string;
   badge?: string;
   price: string;
   bonus?: string;
+  credits?: string;
+  note?: string;
   lines: readonly string[];
   best?: boolean;
   children: ReactNode;
@@ -36,6 +41,7 @@ function Card(props: {
       <p className="dim font-medium">{props.name}</p>
       <h2 className="display mt-4 text-3xl font-semibold">{props.price}</h2>
       <p className="gold mt-1 min-h-5 text-sm font-medium">{props.bonus}</p>
+      <p className="mt-1 min-h-5 text-sm">{props.credits}</p>
       <ul className="mt-6 flex flex-1 flex-col gap-2">
         {props.lines.map((line) => (
           <li key={line} className="dim flex gap-2 text-sm leading-snug">
@@ -45,6 +51,11 @@ function Card(props: {
         ))}
       </ul>
       <div className="mt-6">{props.children}</div>
+      {props.note && (
+        <p role="alert" className="mt-3 text-sm text-destructive">
+          {props.note}
+        </p>
+      )}
     </div>
   );
 }
@@ -52,41 +63,60 @@ function Card(props: {
 const BUTTON = "h-11 w-full";
 
 export function PlanCards({
+  free,
+  cards,
   onStart,
   onBuy,
+  buying,
+  notes,
 }: {
+  free: Prices["free"];
+  cards: readonly RechargeCard[];
   onStart: () => void;
-  onBuy: (reais: number) => void;
+  onBuy: (card: RechargeCard) => void;
+  /** The centavos of the card whose purchase is being opened, if one is. */
+  buying?: number;
+  /** What went wrong buying a card, by its centavos. */
+  notes: Readonly<Record<number, string>>;
 }) {
   const t = useT().pricing;
   return (
     <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <Card
         name={t.free.name}
-        price={t.free.price(formatDollars(FREE.dailyMicros))}
-        lines={t.free.lines(formatDollars(FREE.monthlyMicros))}
+        price={t.free.price(formatDollars(free.daily_micros))}
+        lines={t.free.lines(formatDollars(free.monthly_micros))}
       >
         <Button type="button" variant="ghost" className={`ghost ${BUTTON}`} onClick={onStart}>
           {t.free.button}
         </Button>
       </Card>
-      {PLANS.map((plan) => (
+      {cards.map((card) => (
         <Card
-          key={plan.reais}
+          key={card.brl_centavos}
           name={t.plan.name}
-          badge={plan.best ? t.plan.best : undefined}
-          price={t.plan.reais(plan.reais)}
-          bonus={plan.bonusPercent > 0 ? t.plan.bonus(plan.bonusPercent) : undefined}
+          badge={card.best ? t.plan.best : undefined}
+          price={t.plan.reais(card.brl_centavos / 100)}
+          bonus={card.bonus_percent > 0 ? t.plan.bonus(card.bonus_percent) : undefined}
+          credits={
+            card.quote
+              ? t.plan.credits(
+                  formatDollars(wholeCents(card.quote.credit_micros + card.quote.bonus_micros)),
+                )
+              : undefined
+          }
+          note={notes[card.brl_centavos]}
           lines={t.plan.lines}
-          best={plan.best}
+          best={card.best}
         >
           <Button
             type="button"
-            className={`${BUTTON} ${plan.best ? "cta" : "ghost"}`}
-            variant={plan.best ? "default" : "ghost"}
-            onClick={() => onBuy(plan.reais)}
+            className={`${BUTTON} ${card.best ? "cta" : "ghost"}`}
+            variant={card.best ? "default" : "ghost"}
+            disabled={buying !== undefined}
+            onClick={() => onBuy(card)}
           >
-            {t.plan.button}
+            {buying === card.brl_centavos ? t.plan.buying : t.plan.button}
           </Button>
         </Card>
       ))}

@@ -21,6 +21,7 @@ pub mod library;
 pub mod limits;
 pub mod mcp;
 pub mod payments;
+pub mod prices;
 pub mod projects;
 mod ranges;
 pub mod renders;
@@ -83,6 +84,9 @@ pub struct AppState {
     pub payments: Option<crate::payments::Payments>,
     /// Which accounts' access is already recorded today (#1267).
     pub daily: crate::accounts::access::Daily,
+    /// The free allowance every account is given (#1530), as the pricing
+    /// page states it.
+    pub free: crate::credits::allowance::Allowance,
 }
 
 impl AppState {
@@ -115,6 +119,7 @@ impl AppState {
             google: None,
             payments: None,
             daily: crate::accounts::access::Daily::default(),
+            free: crate::credits::allowance::Allowance::NONE,
             pool,
             jobs,
             events,
@@ -139,6 +144,12 @@ impl AppState {
     /// The same state, selling credits through `payments`.
     pub fn with_payments(mut self, payments: Option<crate::payments::Payments>) -> Self {
         self.payments = payments;
+        self
+    }
+
+    /// The same state, stating `free` as the allowance every account gets.
+    pub fn with_free(mut self, free: crate::credits::allowance::Allowance) -> Self {
+        self.free = free;
         self
     }
 

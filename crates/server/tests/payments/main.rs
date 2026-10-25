@@ -8,6 +8,7 @@ mod common;
 
 mod bonus;
 mod confirm;
+mod prices;
 mod rate;
 mod start;
 mod webhook;

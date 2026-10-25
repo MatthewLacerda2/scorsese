@@ -24,9 +24,11 @@ export const pricing = {
     name: "Credits",
     reais: (amount: number) => `R$ ${amount}`,
     bonus: (percent: number) => `+${percent}% bonus credit`,
+    credits: (dollars: string) => `≈ ${dollars} in credits`,
     best: "Best value",
     lines: ["Converted into US dollars at the day's rate when you buy", "Never expire"],
     button: "Buy",
+    buying: "Opening Stripe…",
   },
   costs: {
     title: "What things cost",
@@ -35,7 +37,6 @@ export const pricing = {
     narration: "A line of narration",
     music: "40 seconds of music",
     video: "8 seconds of generated video, at the default quality",
-    assistant: "A message to the assistant, depending on the work",
     around: (amount: string) => `≈ ${amount}`,
     footnote:
       "A 1-minute narrated video with images and music usually fits in a day's free credit.",
