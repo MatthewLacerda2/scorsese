@@ -1,6 +1,7 @@
 //! Compacting a long conversation (#1438): at the start of a new turn, once
-//! the conversation has passed [`THRESHOLD`] tokens, the model summarises it
-//! and the turn opens from that summary instead, replaying nothing older.
+//! the conversation has passed [`THRESHOLD`] tokens — or would replay more
+//! than [`PICTURES`] pictures (#1562) — the model summarises it and the turn
+//! opens from that summary instead, replaying nothing older.
 //!
 //! Every call in a turn re-reads the whole conversation, and one picked up
 //! again after the prompt cache expired re-reads it uncached, so a long one
@@ -21,7 +22,9 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use scorsese_providers::chat::{self, Effort, Message, Model, Part, Reply, Request, Stop};
+use scorsese_providers::chat::{
+    self, Effort, Message, Model, Part, Reply, Request, ResultPart, Stop,
+};
 use serde_json::value::RawValue;
 
 use super::store::compaction;
@@ -33,6 +36,13 @@ use crate::http::AppState;
 
 /// The size past which a new turn compacts its conversation, in tokens.
 pub(super) const THRESHOLD: i64 = 150_000;
+
+/// The most pictures a conversation replays before a new turn compacts it,
+/// however few tokens they are: under the 100 images one request may carry
+/// on a model with a 200k-token context window (Anthropic's *Vision* page,
+/// read 2026-10-25, which counts every image block, an earlier turn's and a
+/// tool result's included), with room left for the turn's own.
+pub(super) const PICTURES: usize = 64;
 
 /// What the model is asked to write, as the last message of the summarising
 /// call. Its last sentence forbids a tool call: the tools stay declared only
@@ -64,6 +74,23 @@ pub(super) struct Compacting {
 pub(super) async fn due(tx: &mut Tx, session: i64) -> Result<bool, sqlx::Error> {
     let size = compaction::size(tx, session).await?;
     Ok(size.is_some_and(|size| size > THRESHOLD))
+}
+
+/// Whether a turn opening with `shown` after a conversation that said `said`
+/// would replay more than [`PICTURES`] pictures.
+pub(super) fn crowded(said: &[Message], shown: &[Part]) -> bool {
+    let parts = said.iter().flat_map(Message::parts).chain(shown);
+    let pictures: usize = parts
+        .map(|part| match part {
+            Part::Image { .. } => 1,
+            Part::Result { content, .. } => content
+                .iter()
+                .filter(|piece| matches!(piece, ResultPart::Image { .. }))
+                .count(),
+            Part::Text { .. } | Part::Call { .. } => 0,
+        })
+        .sum();
+    pictures > PICTURES
 }
 
 /// The compaction of a conversation whose turns were `history` on `model` and
@@ -231,8 +258,6 @@ async fn call(turn: &Running, request: &Arc<Request>) -> Result<(Reply, Duration
 
 #[cfg(test)]
 mod tests {
-    use scorsese_providers::chat::ResultPart;
-
     use super::*;
 
     #[test]

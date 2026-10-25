@@ -165,8 +165,9 @@ pub async fn start(
         &prompt
     };
     let record = prompt::opening(&said, words, &shown, &notes, effort);
-    // Past its size, the turn opens from a summary instead (#1438).
-    let compacting = if compact::due(&mut tx, session).await? {
+    // Past its size, or its pictures, the turn opens from a summary instead
+    // (#1438, #1562).
+    let compacting = if compact::due(&mut tx, session).await? || compact::crowded(&said, &shown) {
         Some(compact::prepare(model, &history, &said, &about, &notes, effort).map_err(written)?)
     } else {
         None

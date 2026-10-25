@@ -2159,7 +2159,9 @@ below).
 
 **A long conversation compacts itself** (#1438). A new turn whose
 conversation was past 150,000 tokens when the model was last called — that
-call's input, cache reads and cache writes, from `model_calls` — first asks
+call's input, cache reads and cache writes, from `model_calls` — or that
+would replay more than 64 pictures with its own (#1562: Anthropic refuses a
+request past 100 images on a 200k-token model) first asks
 the turn's own model, with the tools still declared, to summarise everything
 so far, and its last sentence forbids a tool call. The turn then opens from
 the user's message and a server note — the project's own note

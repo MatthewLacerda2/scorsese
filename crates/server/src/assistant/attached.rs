@@ -197,16 +197,21 @@ async fn document(state: &AppState, user: UserId, item: &Item) -> (String, Optio
                 text: inline(item, &text),
             }),
         ),
-        read => {
-            if let Err(error) = read {
-                eprintln!(
-                    "scorsese-server: assistant: reading document {}: {error}",
-                    item.id
-                );
-            }
+        Ok(_) => (
+            format!(
+                "{} “{}” — a document too long to show whole: read it with library_read",
+                item.id, item.name
+            ),
+            None,
+        ),
+        Err(error) => {
+            eprintln!(
+                "scorsese-server: assistant: reading document {}: {error}",
+                item.id
+            );
             (
                 format!(
-                    "{} “{}” — a document too long to show whole: read it with library_read",
+                    "{} “{}” — a document that could not be read to show you",
                     item.id, item.name
                 ),
                 None,
@@ -228,12 +233,9 @@ async fn picture(state: &AppState, user: UserId, item: &Item) -> (String, Option
         .storage()
         .library_file(user, &item.sha256, &item.extension);
     let ffmpeg = state.tools.ffmpeg().clone();
-    let shrunk = match tokio::fs::read(file).await {
-        Ok(bytes) => tokio::task::spawn_blocking(move || pictures::attached(&ffmpeg, &bytes))
-            .await
-            .unwrap_or_else(|error| Err(error.to_string())),
-        Err(error) => Err(error.to_string()),
-    };
+    let shrunk = tokio::task::spawn_blocking(move || pictures::attached(&ffmpeg, &file))
+        .await
+        .unwrap_or_else(|error| Err(error.to_string()));
     match shrunk {
         Ok(image) => (
             format!(

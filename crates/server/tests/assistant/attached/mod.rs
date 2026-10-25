@@ -12,6 +12,7 @@ use sqlx::postgres::PgPool;
 
 use super::{Script, answers, common, finished, member, project, scripted};
 
+mod crowded;
 mod fixtures;
 mod paused;
 mod refused;
