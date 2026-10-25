@@ -161,6 +161,10 @@ export interface Balance {
 export interface PaymentQuote {
   brl_centavos: number;
   credit_micros: number;
+  /** The bonus credit a larger purchase adds on top (#1537). */
+  bonus_micros: number;
+  /** That bonus as a percentage of the credits: 0, or its tier's. */
+  bonus_percent: number;
   /** Reais per dollar, as its source sent it: `"5.0096"`. */
   brl_per_usd: string;
   rate_source: "awesomeapi" | "bcb_ptax";
@@ -181,6 +185,7 @@ export interface Payment {
   state: "open" | "paid" | "expired";
   brl_centavos: number;
   credit_micros: number;
+  bonus_micros: number;
 }
 
 /** What a history row is about — `credits::history::KINDS`. */
@@ -192,6 +197,8 @@ export const HISTORY_KINDS = [
   "voice_design",
   "assistant",
   "top_up",
+  "bonus",
+  "withdrawal",
   "refund",
   "adjustment",
 ] as const;
@@ -203,7 +210,7 @@ export interface HistoryRow {
   at: number;
   when: string;
   kind: HistoryKind;
-  status: "charged" | "free" | "pending" | "credited";
+  status: "charged" | "free" | "pending" | "credited" | "withdrawn";
   project_id: number | null;
   project_name: string | null;
   memo: string;

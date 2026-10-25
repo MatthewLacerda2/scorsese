@@ -22,7 +22,8 @@ pub const NAME: &str = "spending_history";
 /// What it does, in the words a client is shown. The first sentence stands
 /// alone, as every tool's must.
 pub const DESCRIPTION: &str = "List what the signed-in user has spent and paid in: every Veo shot, \
-still, spoken line, voice design, assistant turn, top-up and refund, newest first, and the balance \
+still, spoken line, voice design, assistant turn, top-up, recharge bonus, withdrawn purchase, \
+refund and adjustment, newest first, and the balance \
 that can be spent now. Read-only and free. A generation the provider failed shows as free; one that \
 worked is charged whether or not it was kept. Amounts are in US dollars, the currency the ledger is kept in. Filter by project, kind or a \
 range of days, and the answer includes what everything matched adds up to: ask with since and \
@@ -42,7 +43,9 @@ pub fn schema() -> Value {
                 "type": "string",
                 "enum": KINDS,
                 "description": "Only rows of this kind: a Veo shot, a still, a spoken line, a \
-    voice design, an assistant turn, a top-up or a refund."
+    voice design, an assistant turn, a top-up, the bonus a larger purchase added, a purchase \
+    withdrawn within its 7 days (what was left of it taken back), a refund, or an adjustment \
+    (money the operator took back, with the reason)."
             },
             "since": {
                 "type": "string",

@@ -6,10 +6,12 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod bonus;
 mod confirm;
 mod rate;
 mod start;
 mod webhook;
+mod withdraw;
 
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -23,7 +25,7 @@ use scorsese_server::accounts::{tokens, users};
 use scorsese_server::credits::ledger;
 use scorsese_server::db::{self, UserId};
 use scorsese_server::http;
-use scorsese_server::payments::Payments;
+use scorsese_server::payments::{Bonus, Payments};
 use sqlx::postgres::PgPool;
 
 /// The webhook's signing secret in every test.
@@ -115,6 +117,17 @@ fn rates(rate: Option<&'static str>) -> Arc<Latest> {
 
 /// [`serve`], keeping its rate in `latest` — for a test that ages it.
 async fn serve_kept(pool: &PgPool, fake: Option<Arc<Fake>>, latest: &Arc<Latest>) -> SocketAddr {
+    serve_with(pool, fake, latest, Bonus::none()).await
+}
+
+/// A served server selling through `fake` at the rate kept in `latest`,
+/// adding `bonus`.
+async fn serve_with(
+    pool: &PgPool,
+    fake: Option<Arc<Fake>>,
+    latest: &Arc<Latest>,
+    bonus: Bonus,
+) -> SocketAddr {
     let (listener, address) = common::listener().await;
     db::migrate(pool).await.expect("the migrations apply");
     let members = db::member_pool(pool)
@@ -125,6 +138,7 @@ async fn serve_kept(pool: &PgPool, fake: Option<Arc<Fake>>, latest: &Arc<Latest>
         rates: latest.clone(),
         webhook_secret: Secret::new(SECRET),
         origin: "https://scorsese.example".into(),
+        bonus,
     });
     let state =
         http::AppState::new(members.clone(), common::files("payments")).with_payments(payments);

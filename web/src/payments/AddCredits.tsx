@@ -104,6 +104,14 @@ export function AddCreditsDialog({
                     formatDollars(wholeCents(current.credit_micros)),
                   )}
                 </p>
+                {current.bonus_micros > 0 && (
+                  <p className="font-medium text-primary">
+                    {t.buying.bonus(
+                      formatDollars(wholeCents(current.bonus_micros)),
+                      current.bonus_percent,
+                    )}
+                  </p>
+                )}
                 <p className="text-muted-foreground text-sm">
                   {t.buying.rate(current.brl_per_usd)}
                 </p>

@@ -11,6 +11,8 @@ export const buying = {
   amount: "Amount in reais",
   // "R$ 50,00 → $10.02 in credits"
   preview: (reais: string, dollars: string) => `${reais} → ${dollars} in credits`,
+  // "+ $1.60 bonus (+10%)"
+  bonus: (dollars: string, percent: number) => `+ ${dollars} bonus (+${percent}%)`,
   rate: (rate: string) => `At R$ ${rate} to the dollar, kept from the moment you pay.`,
   limits: (least: string, most: string) => `Between ${least} and ${most} at a time.`,
   pay: "Pay",

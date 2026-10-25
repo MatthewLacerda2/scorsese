@@ -8,11 +8,12 @@ import { SELLER } from "@/legal/seller";
 export const TERMS_ES: LegalDocument = {
   title: "Términos de uso",
   updatedLabel: "Última actualización",
-  updated: "2026-10-24",
+  updated: "2026-10-25",
   summary: {
     heading: "En resumen",
     points: [
       "Sin mensualidad: compras créditos, de R$ 20 a R$ 5.000, y no vencen.",
+      "Toda cuenta tiene US$ 4 gratis al día, hasta US$ 12 al mes, y las compras desde R$ 40 reciben un bono.",
       "Antes de cada generación de pago ves el precio y confirmas.",
       "Una generación que falla no se cobra.",
       "Tienes 7 días para desistir de una compra y recibir de vuelta lo que no gastaste.",
@@ -50,6 +51,8 @@ export const TERMS_ES: LegalDocument = {
           "Antes de cada generación (narración, imagen, video y otras), scorsese muestra cuánto va a costar y solo genera después de que confirmas.",
           "Cada mensaje al asistente consume créditos según el trabajo que hace para responder, con un límite máximo por mensaje. El costo de cada uno aparece en tu historial de gastos.",
           "Los créditos no vencen.",
+          "Toda cuenta puede gastar hasta US$ 4 al día, y como máximo US$ 12 al mes, sin pagar nada, contados en la hora de Brasilia (el día cambia a medianoche, el mes el día 1). Este uso gratuito va antes del saldo comprado, vale también para quien ya compró y nunca paga un video de Veo. Si una generación pagada con él falla, el monto vuelve al uso gratuito, no al saldo. Lo que no se usa no se acumula, y estos valores pueden cambiar.",
+          "Las compras desde R$ 40 reciben un 5% más en créditos de bono, y desde R$ 80, un 10% más. El bono se muestra antes de pagar y entra en el saldo junto con la compra. Estos tramos pueden cambiar; un cambio nunca afecta una compra ya hecha.",
           "Los precios siguen lo que nos cobran los proveedores y pueden cambiar. Un cambio nunca afecta una generación que ya confirmaste.",
         ],
       ],
@@ -64,7 +67,7 @@ export const TERMS_ES: LegalDocument = {
     {
       heading: "Reembolso y derecho de arrepentimiento",
       blocks: [
-        `Puedes desistir de una compra de créditos dentro de los 7 días siguientes a hacerla, como prevé el artículo 49 del Código de Defensa del Consumidor de Brasil (CDC). Basta con escribir a ${SELLER.email}. Te devolvemos la parte de esa compra que aún no se gastó, por el mismo medio de pago.`,
+        `Puedes desistir de una compra de créditos dentro de los 7 días siguientes a hacerla, como prevé el artículo 49 del Código de Defensa del Consumidor de Brasil (CDC). Basta con escribir a ${SELLER.email}. Te devolvemos la parte de esa compra que aún no se gastó, por el mismo medio de pago, y retiramos de tu saldo su bono que tampoco se gastó, en la misma proporción.`,
         "Pasados los 7 días, los créditos comprados no se reembolsan, pero siguen en tu saldo, sin plazo para usarlos.",
       ],
     },

@@ -34,6 +34,8 @@ pub const KINDS: &[&str] = &[
     "voice_design",
     "assistant",
     "top_up",
+    "bonus",
+    "withdrawal",
     "refund",
     "adjustment",
 ];
@@ -69,7 +71,8 @@ pub struct Row {
     pub when: String,
     /// One of [`KINDS`].
     pub kind: String,
-    /// `charged`, `free` (the provider failed), `pending`, or `credited`.
+    /// `charged`, `free` (the provider failed), `pending`, `credited`, or
+    /// `withdrawn` (a purchase taken back within its 7 days).
     pub status: String,
     /// The project it was spent on, if any. Kept when the project is deleted.
     pub project_id: Option<i64>,
@@ -164,7 +167,7 @@ fn check(filter: &Filter) -> Result<(), CreditError> {
 }
 
 /// Whether `text` is a real calendar day written `YYYY-MM-DD`.
-pub(super) fn is_day(text: &str) -> bool {
+pub(crate) fn is_day(text: &str) -> bool {
     let parts: Vec<&str> = text.split('-').collect();
     let [year, month, day] = parts.as_slice() else {
         return false;

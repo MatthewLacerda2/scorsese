@@ -1,7 +1,9 @@
 // The terms of use in Portuguese, the binding text (`document.ts`). What they
 // promise about money is what the code does: the price shown before a
 // generation (`credits::Product`), failed generations released, credits that
-// never expire, R$ 20 to R$ 5.000 per purchase (`payments`). A change to any
+// never expire, R$ 20 to R$ 5.000 per purchase (`payments`), the free
+// allowance (`credits::allowance`), the recharge bonus and what a withdrawal
+// takes back of it (`payments::bonus`, `payments::withdraw`). A change to any
 // of those is a change to this text, and to `updated`.
 
 import type { LegalDocument } from "@/legal/document";
@@ -10,11 +12,12 @@ import { SELLER } from "@/legal/seller";
 export const TERMS_PT: LegalDocument = {
   title: "Termos de uso",
   updatedLabel: "Última atualização",
-  updated: "2026-10-24",
+  updated: "2026-10-25",
   summary: {
     heading: "Em resumo",
     points: [
       "Sem mensalidade: você compra créditos, de R$ 20 a R$ 5.000, e eles não expiram.",
+      "Toda conta tem US$ 4 grátis por dia, até US$ 12 por mês, e compras a partir de R$ 40 ganham bônus.",
       "Antes de cada geração paga você vê o preço e confirma.",
       "Geração que falha não é cobrada.",
       "Você tem 7 dias para desistir de uma compra e receber de volta o que não gastou.",
@@ -52,6 +55,8 @@ export const TERMS_PT: LegalDocument = {
           "Antes de cada geração (narração, imagem, vídeo e outras), o scorsese mostra quanto ela vai custar e só gera depois que você confirma.",
           "Cada mensagem ao assistente consome créditos conforme o trabalho que ele faz para responder, com um limite máximo por mensagem. O custo de cada uma aparece no seu histórico de gastos.",
           "Créditos não expiram.",
+          "Toda conta pode gastar até US$ 4 por dia, e no máximo US$ 12 por mês, sem pagar nada, contados no horário de Brasília (o dia vira à meia-noite, o mês no dia 1º). Esse uso gratuito vem antes do saldo comprado, vale também para quem já comprou e nunca paga um vídeo do Veo. Se uma geração paga com ele falhar, o valor volta para o uso gratuito, não para o saldo. O que não for usado não se acumula, e esses valores podem mudar.",
+          "Compras a partir de R$ 40 ganham 5% a mais em créditos de bônus, e a partir de R$ 80, 10% a mais. O bônus é mostrado antes de você pagar e entra no saldo junto com a compra. Essas faixas podem mudar; uma mudança nunca afeta uma compra já feita.",
           "Os preços acompanham o que os fornecedores nos cobram e podem mudar. Uma mudança nunca afeta uma geração que você já confirmou.",
         ],
       ],
@@ -66,7 +71,7 @@ export const TERMS_PT: LegalDocument = {
     {
       heading: "Reembolso e direito de arrependimento",
       blocks: [
-        `Você pode desistir de uma compra de créditos em até 7 dias depois de fazê-la, como prevê o artigo 49 do Código de Defesa do Consumidor. Basta escrever para ${SELLER.email}. A gente devolve a parte daquela compra que ainda não foi gasta, pelo mesmo meio de pagamento.`,
+        `Você pode desistir de uma compra de créditos em até 7 dias depois de fazê-la, como prevê o artigo 49 do Código de Defesa do Consumidor. Basta escrever para ${SELLER.email}. A gente devolve a parte daquela compra que ainda não foi gasta, pelo mesmo meio de pagamento, e retira do saldo o bônus dela que também não foi gasto, na mesma proporção.`,
         "Passados os 7 dias, os créditos comprados não são reembolsados, mas continuam no seu saldo, sem prazo para usar.",
       ],
     },

@@ -290,6 +290,50 @@ pub async fn top_up_paid(tx: &mut Tx, micros: i64, payment: i64) -> Result<(), C
     insert_credit(tx, "top_up", micros, "Top-up", json!({}), Some(payment)).await
 }
 
+/// Credit the bonus `micros` a larger purchase, `payment`, adds (#1537),
+/// beside its top-up — refused by a unique index if that payment's bonus was
+/// credited already.
+pub async fn bonus(tx: &mut Tx, micros: i64, payment: i64) -> Result<(), CreditError> {
+    if micros <= 0 {
+        return Err(CreditError::Invalid(
+            "a bonus needs a positive amount".into(),
+        ));
+    }
+    insert_credit(tx, "bonus", micros, "Bonus", json!({}), Some(payment)).await
+}
+
+/// Take back `micros`, what was left of `payment` when it was withdrawn
+/// (`payments::withdraw`) — refused by a unique index if it was withdrawn
+/// already. Under the user's lock, so nothing is spent while it is decided.
+pub async fn withdraw(
+    tx: &mut Tx,
+    micros: i64,
+    payment: i64,
+    detail: serde_json::Value,
+) -> Result<(), CreditError> {
+    if micros <= 0 {
+        return Err(CreditError::Invalid(
+            "a withdrawal takes back a positive amount".into(),
+        ));
+    }
+    insert_credit(
+        tx,
+        "withdrawal",
+        -micros,
+        "Purchase withdrawn",
+        detail,
+        Some(payment),
+    )
+    .await
+}
+
+/// Take the user's lock and read their paid balance, for a decision that
+/// must not race a spend.
+pub async fn locked_balance(tx: &mut Tx) -> Result<i64, sqlx::Error> {
+    lock(tx).await?;
+    balance(tx).await
+}
+
 /// Give back `micros` with the reason in words — the refund entry kind the
 /// refund policy (#547) acts through.
 pub async fn refund(tx: &mut Tx, micros: i64, reason: &str) -> Result<(), CreditError> {
@@ -309,7 +353,7 @@ pub async fn refund(tx: &mut Tx, micros: i64, reason: &str) -> Result<(), Credit
     .await
 }
 
-/// One entry that adds money.
+/// One entry that is not a spend: `micros` signed as its kind is.
 async fn insert_credit(
     tx: &mut Tx,
     kind: &str,

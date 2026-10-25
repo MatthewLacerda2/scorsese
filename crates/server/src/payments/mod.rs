@@ -4,7 +4,8 @@
 //! ## The flow
 //!
 //! 1. **A quote** ([`Payments::quote`]): the reais a person typed, what they
-//!    buy in dollars of credit, and the rate that says so. Shown live as they
+//!    buy in dollars of credit, the bonus a larger purchase adds ([`bonus`]),
+//!    and the rate that says so. Shown live as they
 //!    type, so nobody pays without seeing the credits first.
 //! 2. **A session** ([`begin`]): the quote the person saw, with the rate **locked**
 //!    into a `payments` row, and a Checkout Session at Stripe for exactly
@@ -16,7 +17,10 @@
 //!    page, whose call retrieves the session from Stripe in case the webhook
 //!    is late. Whichever arrives second finds the row already `paid` under
 //!    the same row lock, and a unique index on the ledger refuses a second
-//!    top-up for one payment even if it did not.
+//!    top-up or bonus for one payment even if it did not.
+//! 4. **Withdrawing** ([`withdraw`]), within 7 days, by the operator: what is
+//!    left of the purchase, its bonus included, is taken back, and the reais
+//!    to refund are printed for Stripe's Dashboard.
 //!
 //! ## Money
 //!
@@ -37,8 +41,10 @@
 //! so the rate stored on the payment is always the one they saw.
 
 mod begin;
+pub mod bonus;
 mod refresh;
 pub mod settle;
+pub mod withdraw;
 
 use std::sync::Arc;
 
@@ -48,6 +54,7 @@ use scorsese_providers::fx::{FxError, Latest, Live};
 use scorsese_providers::payments::{Checkout, Stripe};
 
 pub use begin::{Begun, Quote, begin};
+pub use bonus::Bonus;
 pub use refresh::refresh;
 
 use crate::config::{ConfigError, PUBLIC_ORIGIN, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET};
@@ -79,6 +86,8 @@ pub struct Payments {
     pub webhook_secret: Secret,
     /// The site's origin, with no trailing slash.
     pub origin: String,
+    /// The bonus credit larger purchases add (#1537).
+    pub bonus: Bonus,
 }
 
 impl std::fmt::Debug for Payments {
@@ -94,6 +103,7 @@ impl Payments {
     /// and the public origin, or none, which is a server that sells nothing
     /// and answers a purchase with "not configured".
     pub fn from_environment(environment: &Environment) -> Result<Option<Self>, ConfigError> {
+        let bonus = Bonus::from_environment(environment)?;
         let (Some(key), Some(webhook), Some(origin)) = (
             environment.get(STRIPE_SECRET_KEY),
             environment.get(STRIPE_WEBHOOK_SECRET),
@@ -110,6 +120,7 @@ impl Payments {
             rates: Arc::new(Latest::new(Arc::new(Live))),
             webhook_secret: Secret::new(webhook.trim()),
             origin,
+            bonus,
         }))
     }
 }
