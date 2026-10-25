@@ -125,6 +125,35 @@ async fn peaks_not_read_yet_are_pending_and_a_picture_has_none(pool: PgPool) {
     assert!(listed.json()[0].get("peaks").is_none(), "{}", listed.body);
 }
 
+/// A peaks file too short to hold its rate is never served — it would be
+/// kept by the browser for a year — but read again.
+#[sqlx::test]
+async fn a_peaks_file_shorter_than_its_rate_is_not_served(pool: PgPool) {
+    let files = common::files("peaks-short");
+    let storage = files.storage.clone();
+    let bytes = sound(&common::scratch::dir("peaks-short-media"));
+    let (address, _) = common::serve_with(pool.clone(), files).await;
+    let (user, ana) = member(&pool, "ana@example.com").await;
+    let line = upload(address, &ana, "line.wav", &bytes).await;
+    let kept = storage.peaks(user, &scorsese_core::hash_bytes(&bytes));
+    std::fs::create_dir_all(kept.parent().unwrap()).unwrap();
+    std::fs::write(&kept, [0, 0]).unwrap();
+
+    let asked = request(
+        address,
+        "GET",
+        &format!("/api/library/{line}/peaks"),
+        &[&ana],
+        None,
+    )
+    .await;
+
+    assert_eq!(
+        (asked.status, &asked.json()["pending"]),
+        (404, &true.into())
+    );
+}
+
 #[sqlx::test]
 async fn another_users_peaks_are_not_there_for_them(pool: PgPool) {
     let scratch = common::scratch::dir("peaks-iso-media");

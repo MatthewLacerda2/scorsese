@@ -93,9 +93,10 @@ async fn draw(
     let source = storage.library_file(job.user, &item.sha256, &item.extension);
     let levels = (item.kind == Kind::Audio).then(|| storage.peaks(job.user, &item.sha256));
     let tools = tools.clone();
+    let job = job.id;
     tokio::task::spawn_blocking(move || {
-        write(&tools, &source, what, &out)?;
-        levels.map_or(Ok(()), |levels| read_peaks(&tools, &source, &levels))
+        write(&tools, &source, what, &out, job)?;
+        levels.map_or(Ok(()), |levels| read_peaks(&tools, &source, &levels, job))
     })
     .await
     .map_err(|error| error.to_string())??;
@@ -103,12 +104,12 @@ async fn draw(
 }
 
 /// Read a sound's peaks into `out`, by way of a file beside it as a picture is.
-fn read_peaks(tools: &Tools, source: &Path, out: &Path) -> Result<(), String> {
+fn read_peaks(tools: &Tools, source: &Path, out: &Path, job: i64) -> Result<(), String> {
     let read = peaks(tools, source).map_err(|error| {
         eprintln!("scorsese-server: {error}");
         "the sound's peaks could not be read".to_owned()
     })?;
-    let reading = out.with_extension("reading");
+    let reading = out.with_extension(format!("reading-{job}"));
     if let Some(directory) = out.parent() {
         std::fs::create_dir_all(directory).map_err(|error| error.to_string())?;
     }
@@ -117,9 +118,17 @@ fn read_peaks(tools: &Tools, source: &Path, out: &Path) -> Result<(), String> {
 }
 
 /// Draw to a file beside `out` and rename it into place, so a thumbnail is
-/// never read half-written.
-fn write(tools: &Tools, source: &Path, what: Thumbnail, out: &Path) -> Result<(), String> {
-    let drawing = out.with_extension(format!("drawing.{}", what.extension()));
+/// never read half-written. The file beside it is named for the job: two
+/// jobs drawing one item at once (`/thumbnail` and `/peaks` can each queue
+/// one) never write into each other's.
+fn write(
+    tools: &Tools,
+    source: &Path,
+    what: Thumbnail,
+    out: &Path,
+    job: i64,
+) -> Result<(), String> {
+    let drawing = out.with_extension(format!("drawing-{job}.{}", what.extension()));
     thumbnail(tools, source, what, &drawing).map_err(|error| {
         eprintln!("scorsese-server: {error}");
         "the thumbnail could not be drawn".to_owned()
@@ -152,6 +161,11 @@ impl Library {
             return Err(LibraryError::NoPeaks);
         }
         let file = self.storage.peaks(user, &item.sha256);
+        // Too short to hold its rate: never served, since the browser would
+        // keep it for a year. Read again instead.
+        if std::fs::metadata(&file).is_ok_and(|kept| kept.len() < 4) {
+            let _ = std::fs::remove_file(&file);
+        }
         self.drawn_or_queued(user, id, file).await
     }
 
