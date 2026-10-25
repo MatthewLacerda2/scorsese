@@ -49,6 +49,7 @@ export const pages = {
       assistant: "Assistant",
       top_up: "Top-up",
       refund: "Refund",
+      adjustment: "Adjustment",
     },
     status: {
       charged: "Charged",

@@ -309,6 +309,54 @@ pub async fn refund(tx: &mut Tx, micros: i64, reason: &str) -> Result<(), Credit
     .await
 }
 
+/// How much an adjustment takes back.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Take {
+    /// This many micro-dollars: positive, at most the balance.
+    Micros(i64),
+    /// The whole balance, leaving it at zero.
+    All,
+}
+
+/// Take money back out with the reason in words (#1542): one new negative
+/// `adjustment` entry, never an edit, never below zero. Returns what was
+/// taken: nothing, with nothing written, when [`Take::All`] finds the balance
+/// at zero or below.
+pub async fn adjust(tx: &mut Tx, take: Take, reason: &str) -> Result<i64, CreditError> {
+    if reason.trim().is_empty() {
+        return Err(CreditError::Invalid("an adjustment needs a reason".into()));
+    }
+    lock(tx).await?;
+    let paid = balance(tx).await?;
+    let micros = match take {
+        Take::All => paid,
+        Take::Micros(micros) if micros <= 0 => {
+            return Err(CreditError::Invalid(
+                "an adjustment takes a positive amount back".into(),
+            ));
+        }
+        Take::Micros(micros) if micros > paid => {
+            return Err(CreditError::Invalid(format!(
+                "the balance is {}, so at most that can be taken back",
+                super::dollars(paid)
+            )));
+        }
+        Take::Micros(micros) => micros,
+    };
+    if micros <= 0 {
+        return Ok(0);
+    }
+    sqlx::query(
+        "INSERT INTO credit_entries (user_id, kind, amount_micros, memo)
+         VALUES (member_id(), 'adjustment', $1, $2)",
+    )
+    .bind(-micros)
+    .bind(format!("Adjustment: {}", reason.trim()))
+    .execute(&mut **tx)
+    .await?;
+    Ok(micros)
+}
+
 /// One entry that adds money.
 async fn insert_credit(
     tx: &mut Tx,

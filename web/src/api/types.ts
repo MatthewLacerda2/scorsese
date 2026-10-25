@@ -190,6 +190,7 @@ export const HISTORY_KINDS = [
   "assistant",
   "top_up",
   "refund",
+  "adjustment",
 ] as const;
 export type HistoryKind = (typeof HISTORY_KINDS)[number];
 

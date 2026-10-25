@@ -64,7 +64,7 @@ pub enum Command {
     /// See what the job queue has been through.
     #[command(subcommand)]
     Job(JobCommand),
-    /// Record top-ups and refunds, read a balance.
+    /// Record top-ups, refunds and adjustments, read a balance.
     #[command(subcommand)]
     Credit(CreditCommand),
     /// Capture web pages for the server's renders, each capture a container

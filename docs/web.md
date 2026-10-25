@@ -1359,9 +1359,16 @@ The operator's side, where the server runs:
 ```text
 scorsese-server credit top-up ana@example.com --dollars 20
 scorsese-server credit refund ana@example.com --dollars 1.06 --reason "…"
+scorsese-server credit adjust ana@example.com --dollars -5 --reason "…"
+scorsese-server credit adjust ana@example.com --to-zero --reason "…" [--include-paid]
 scorsese-server credit balance ana@example.com
 scorsese-server credit free-usage [--since 2026-10-01] [--until …] [ana@example.com]
 ```
+
+`adjust` takes money back out (#1542): one new negative `adjustment` entry
+with its reason, a line of its own in the user's history, never past zero and
+never an edit. It refuses an account with a `paid` payment unless
+`--include-paid` is given, so a reset never takes back a real purchase.
 
 `free-usage` prints what the free allowance paid, per user per Brasília day,
 with the month to date and the day each user first paid: who uses the free
