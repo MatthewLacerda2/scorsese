@@ -261,6 +261,37 @@ mod tests {
     use super::*;
 
     #[test]
+    fn pictures_in_tool_results_count_towards_a_crowded_conversation() {
+        let image = || ResultPart::Image {
+            media_type: "image/jpeg".into(),
+            data: "AA==".into(),
+        };
+        let still = |n| Message::User {
+            content: vec![Part::Result {
+                call: format!("toolu_{n}"),
+                name: "still".into(),
+                content: vec![
+                    ResultPart::Text {
+                        text: "a frame".into(),
+                    },
+                    image(),
+                ],
+                is_error: false,
+            }],
+        };
+        let said: Vec<Message> = (0..PICTURES - 1).map(still).collect();
+        let attached = Part::Image {
+            media_type: "image/jpeg".into(),
+            data: "AA==".into(),
+        };
+        assert!(
+            !crowded(&said, std::slice::from_ref(&attached)),
+            "at the limit"
+        );
+        assert!(crowded(&said, &[attached.clone(), attached]), "past it");
+    }
+
+    #[test]
     fn a_compacted_turn_opens_with_its_words_and_what_was_attached() {
         let picture = Part::Image {
             media_type: "image/jpeg".into(),
