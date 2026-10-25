@@ -31,12 +31,16 @@ function untouched(event: PointerEvent) {
 
 export function PhoneVideo({ projectId, revision, document, playhead, onSeek, deliver }: Props) {
   const [width = 16, height = 9] = deliver.split("x").map(Number);
-  // The picture at the screen's width under its padding, plus the transport;
-  // a tall frame stops short of the whole screen so the timeline keeps a share.
-  const tall = `min(calc((100vw - 1.5rem) * ${height / width} + 4.5rem), 65%)`;
+  // The picture at the screen's width under its padding, plus the transport
+  // (two rows under `sm`, one from it up); a tall frame stops short of the
+  // whole screen so the timeline keeps a share.
+  const tall = `min(calc((100vw - 1.5rem) * ${height / width} + var(--transport)), 65%)`;
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <section className="shrink-0 border-b" style={{ height: tall }}>
+      <section
+        className="shrink-0 border-b [--transport:6.5rem] sm:[--transport:4.5rem]"
+        style={{ height: tall }}
+      >
         <ErrorBoundary place="panel">
           <Preview
             projectId={projectId}
