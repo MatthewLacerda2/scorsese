@@ -69,9 +69,9 @@ test("without a session, / is the landing page", async () => {
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
-test("with a session, / is the projects list", async () => {
+test("with a session, / is the home with its sidebar", async () => {
   visit("/", ana);
-  expect(await screen.findByRole("heading", { name: "Projects" })).toBeDefined();
+  expect(await screen.findByRole("navigation", { name: "Main menu" })).toBeDefined();
   expect(screen.queryByRole("heading", { name: LANDING })).toBeNull();
 });
 
@@ -80,7 +80,7 @@ test("/ draws the landing page before the session answers, and leaves once it sa
   visit("/");
   expect(await screen.findByRole("heading", { name: LANDING })).toBeDefined();
   answer(ana);
-  expect(await screen.findByRole("heading", { name: "Projects" })).toBeDefined();
+  expect(await screen.findByRole("navigation", { name: "Main menu" })).toBeDefined();
   expect(screen.queryByRole("heading", { name: LANDING })).toBeNull();
 });
 
@@ -93,7 +93,7 @@ test("signed in here before, / waits on the session and never draws the landing 
   expect(document.body.textContent).not.toContain(LANDING);
   expect(document.querySelectorAll("video").length).toBe(0);
   answer(ana);
-  expect(await screen.findByRole("heading", { name: "Projects" })).toBeDefined();
+  expect(await screen.findByRole("navigation", { name: "Main menu" })).toBeDefined();
 });
 
 test("a hint the session no longer stands behind costs the wait, then is dropped", async () => {

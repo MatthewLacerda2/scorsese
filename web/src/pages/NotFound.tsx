@@ -8,7 +8,7 @@ export function NotFound() {
   return (
     <p className="text-muted-foreground">
       {t.common.notFound.text}{" "}
-      <Link to="/projects" className="underline">
+      <Link to="/" className="underline">
         {t.common.notFound.link}
       </Link>
     </p>

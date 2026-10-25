@@ -2387,12 +2387,13 @@ laid out.
 
 | URL | what |
 | --- | --- |
-| `/` | the landing page for a visitor without a session (#904): a first screen with the name, a heading and a prompt box (Enter opens the sign-in popup, the text stays), then a strip of films made with scorsese, how it works, one whole video in the visitor's language, what it handles and a second prompt box, as one scrolling page that follows the theme, light by default (`web/src/landing/`); with a session, the projects list |
+| `/` | the landing page for a visitor without a session (#904): a first screen with the name, a heading and a prompt box (Enter opens the sign-in popup, the text stays), then a strip of films made with scorsese, how it works, one whole video in the visitor's language, what it handles and a second prompt box, as one scrolling page that follows the theme, light by default (`web/src/landing/`); with a session, the home (below) |
 | `/login` | the landing page with the sign-in popup open: one "Continue with Google" button, which is sign-up too, and what went wrong when a sign-in came back with `?error=`; under the button, the line saying that signing in accepts the terms and the privacy policy |
 | `/terms`, `/privacy` | the terms of use and the privacy policy (#547), public and crawlable whether signed in or not, in the site's language: Portuguese is the binding text, and English and Spanish are translations that say so and offer the Portuguese beside them. Each opens with a plain summary, and `documents.test.ts` holds the three to one structure (`web/src/legal/`). They are data (`terms.ts`, `privacy.ts` per language) stating what the code and the deployment do, so a change to prices, retention, cookies or vendors changes them too. The seller's identification (`seller.ts`) is also in the landing page's footer, as Decreto 7.962/2013 asks |
 | `/pricing` | the free daily credit, the three purchase sizes with their bonus, what things cost and the questions people ask; public and crawlable, in the landing's look. Its figures are written in `web/src/pricing/examples.ts` until a prices endpoint serves them |
-| `/projects` | create, open, rename, delete |
-| `/projects/{id}` | the library files that project uses (`GET /api/library?project=`) |
+| `/` with a session | the home: a sidebar (the mark and name, Library, the credits, the projects newest first with a ⋯ menu to rename in place or delete after a confirmation, Settings, Spending, Log out; behind a menu button on a phone), and a prompt box under a title that changes. Enter makes a project named from the prompt (the three longest words that are not stopwords, `web/src/home/projectName.ts`), sends the prompt to its assistant as the first message and opens it. `/library` and `/spending` share the sidebar |
+| `/projects` | goes to `/` |
+| `/projects/{id}` | the library files that project uses (`GET /api/library?project=`), reached from the editor's top bar ("Files"); the bar's first button is Home, leading to `/` |
 | `/library` | every file: filter by kind, search by name, sort; upload by button or by dropping files |
 | `/library?item={id}` | the same, with that file's details open — what "you already have this" and the spending history link to |
 | `/spending` | the history, filterable, with the filter's total; the balance in the header opens it |

@@ -47,7 +47,7 @@ export function CreditsReturnPage() {
       <p aria-live="polite">{message}</p>
       <div className="flex gap-2">
         <Button asChild>
-          <Link to="/projects">{t.buying.returned.projects}</Link>
+          <Link to="/">{t.buying.returned.projects}</Link>
         </Button>
         <Button asChild variant="outline">
           <Link to="/spending">{t.buying.returned.history}</Link>

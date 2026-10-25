@@ -24,15 +24,19 @@ const RenderToasts = lazy(() =>
 );
 
 const NAV = [
-  { to: "/projects", key: "projects" },
+  { to: "/", key: "home" },
   { to: "/library", key: "library" },
 ] as const;
+
+const LINK = ({ isActive }: { isActive: boolean }) =>
+  `rounded-md px-3 py-1.5 text-sm ${isActive ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground"}`;
 
 export function Shell() {
   // The editor takes the whole window under the header, its panels scrolling
   // on their own; every other page is a padded page that scrolls. One shell
   // either way, so the upload tray and its uploads survive moving between them.
-  const editing = useMatch("/projects/:id/edit") !== null;
+  const edit = useMatch("/projects/:id/edit");
+  const editing = edit !== null;
   const t = useT();
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   return (
@@ -42,16 +46,16 @@ export function Shell() {
           <header className="flex items-center gap-2 border-b px-4 py-2">
             <nav className="flex shrink-0 gap-1">
               {NAV.map(({ to, key }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  className={({ isActive }) =>
-                    `rounded-md px-3 py-1.5 text-sm ${isActive ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground"}`
-                  }
-                >
+                <NavLink key={to} to={to} end className={LINK}>
                   {t.common.nav[key]}
                 </NavLink>
               ))}
+              {/* The project's files page is reached from its editor. */}
+              {edit?.params.id && (
+                <NavLink to={`/projects/${edit.params.id}`} end className={LINK}>
+                  {t.pages.projects.files}
+                </NavLink>
+              )}
             </nav>
             {/* A page's own controls; empty, it still pushes the account side right. */}
             <div

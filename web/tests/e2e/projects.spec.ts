@@ -1,13 +1,15 @@
 // Arriving, signing in, and making a project: the first things anybody does.
 
 import { expect, test } from "@playwright/test";
+import { fakeAssistant } from "./fakeAssistant";
 import { logIn, newProject } from "./session";
 
-test("signed in, /login and / both land on the projects list", async ({ page }) => {
+test("signed in, /login and / both land on the home, and /projects too", async ({ page }) => {
   await logIn(page);
-  await expect(page).toHaveURL(/\/projects$/);
-  await page.goto("/");
-  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto("/projects");
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("textbox", { name: "Describe your video" })).toBeVisible();
 });
 
 test("a first visit is the landing page, and its Sign in goes to the server's Google sign-in", async ({
@@ -25,41 +27,18 @@ test("a first visit is the landing page, and its Sign in goes to the server's Go
   await expect(page.getByRole("alert")).toHaveText("Sign-in isn't set up on this server yet.");
 });
 
-test("creating a project opens its editor, and the list then has it", async ({ page }) => {
-  await newProject(page, "Lighthouse");
-  await page.goto("/projects");
-  await expect(page.getByText("Lighthouse")).toBeVisible();
-});
-
-test("a project started for a platform and a style opens upright, renders upright, and says so", async ({
+test("a prompt on the home makes a named project, opens its editor and says the prompt there", async ({
   page,
 }) => {
+  await fakeAssistant(page);
   await logIn(page);
-  await page.getByRole("button", { name: "Create" }).click();
-  const modal = page.getByRole("dialog");
-  await modal.getByLabel("Project's name").fill("Flash sale");
-  await modal.getByRole("button", { name: "3. Platform" }).click();
-  await expect(modal.getByText("You can choose or change the platform later.")).toBeVisible();
-  await modal.getByRole("radio", { name: /TikTok ad/ }).click();
-  await modal.getByRole("button", { name: "Next" }).click();
-  await expect(modal.getByText("You can choose or change the style later.")).toBeVisible();
-  // Only the styles made for a TikTok ad, each with a placeholder until #1017.
-  await expect(modal.getByRole("radio", { name: /Board that draws itself/ })).toHaveCount(0);
-  await expect(modal.getByTestId("style-placeholder").first()).toBeVisible();
-  await modal.getByRole("radio", { name: /Flash offer/ }).click();
-  await modal.getByRole("button", { name: "Create" }).click();
-
+  await page.getByRole("textbox", { name: "Describe your video" }).fill("a lighthouse at dawn");
+  await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/projects\/\d+\/edit$/);
-  // The server framed the document in the platform's shape (#1278), and the
-  // editor reads it there: nobody chose anything.
-  await expect(page.getByRole("combobox", { name: "Frame shape" })).toHaveValue("9:16");
-  await expect(page.getByRole("button", { name: "Platform and style" })).toContainText(
-    "Flash offer",
-  );
-  await page.getByRole("button", { name: "Render", exact: true }).click();
-  await expect(page.getByRole("dialog").getByRole("combobox", { name: "Resolution" })).toHaveValue(
-    "1080x1920",
-  );
+  await expect(page.getByText("a lighthouse at dawn")).toBeVisible();
+  // The project is in the sidebar of the home, named from the prompt.
+  await page.getByRole("link", { name: "Home" }).click();
+  await expect(page.getByRole("link", { name: "Lighthouse dawn" })).toBeVisible();
 });
 
 test("choosing another frame shape re-fits the project and says what it did", async ({ page }) => {

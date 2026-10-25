@@ -6,7 +6,7 @@ export const common: Messages["common"] = {
   save: "Salvar",
   loading: "Carregando…",
   tryAgain: "Tentar de novo",
-  nav: { projects: "Projetos", library: "Biblioteca" },
+  nav: { projects: "Projetos", home: "Início", library: "Biblioteca" },
   balanceTitle: "Seus créditos — veja o que você gastou",
   yourCredits: "Seus créditos",
   account: "Sua conta",

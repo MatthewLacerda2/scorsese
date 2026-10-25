@@ -1,10 +1,12 @@
-// Every page, by URL. Everything but the landing page and the legal pages sits behind the session
-// guard and inside the shell (header, balance, upload tray).
+// Every page, by URL. Everything but the landing page, the pricing and the legal pages sits behind
+// the session guard: the library and spending pages inside the sidebar layout, the rest inside the
+// shell (header, balance, upload tray).
 //
 // `/terms` and `/privacy` (#547) and `/pricing` are public too, signed in or not.
 //
-// `/` is the landing page for a visitor without a session and the projects
-// list for one with (#904): they came to work. `/login` is the landing page
+// `/` is the landing page for a visitor without a session and the home (the
+// sidebar and the prompt box) for one with (#904): they came to work.
+// `/projects` is that home too. `/login` is the landing page
 // with the sign-in popup open, which is where the guard sends everyone else.
 //
 // The editor (#545) is at `/projects/:id/edit`, inside the shell like the
@@ -20,6 +22,7 @@ import { PageFallback } from "@/app/PageFallback";
 import {
   CreditsReturnPage,
   EditorPage,
+  HomePage,
   LandingPage,
   LibraryPage,
   LoginPage,
@@ -27,7 +30,7 @@ import {
   PricingPage,
   PrivacyPage,
   ProjectFilesPage,
-  ProjectsPage,
+  SidebarLayout,
   SpendingPage,
   TermsPage,
 } from "@/app/pages";
@@ -36,7 +39,7 @@ import { RequireSession, useAccount } from "@/session/session";
 import { Shell } from "./Shell";
 
 /**
- * `/`: the projects for a signed-in visitor, the landing page for anyone else.
+ * `/`: the home for a signed-in visitor, the landing page for anyone else.
  *
  * Which one is decided before any request, by the hint the server sets beside
  * the session (#1246, `session/hint.ts`). Without it — the anonymous visitor,
@@ -44,14 +47,20 @@ import { Shell } from "./Shell";
  * page is drawn at once, its chunk and the session check going out together
  * (#1238). With it, the page waits on the session behind the landing page's
  * dark ground, so a signed-in visitor never sees the landing page flash nor
- * starts its film, and is sent on to `/projects`. A stale hint only costs that
+ * starts its film, and gets the home. A stale hint only costs that
  * wait, and is dropped when the session answers as nobody.
  */
 function Home() {
   const account = useAccount();
   const ground = <div className="min-h-svh bg-ink" />;
-  if (account.data) return <Navigate to="/projects" replace />;
   if (account.isPending && signedInHint()) return ground;
+  if (account.data) {
+    return (
+      <Suspense fallback={ground}>
+        <HomePage />
+      </Suspense>
+    );
+  }
   return (
     <Suspense fallback={ground}>
       <LandingPage />
@@ -96,12 +105,20 @@ export function AppRoutes() {
         }
       />
       <Route element={<RequireSession />}>
-        <Route element={<Shell />}>
-          <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/projects/:id" element={<ProjectFilesPage />} />
-          <Route path="/projects/:id/edit" element={<EditorPage />} />
+        <Route path="/projects" element={<Navigate to="/" replace />} />
+        <Route
+          element={
+            <Suspense fallback={<PageFallback />}>
+              <SidebarLayout />
+            </Suspense>
+          }
+        >
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/spending" element={<SpendingPage />} />
+        </Route>
+        <Route element={<Shell />}>
+          <Route path="/projects/:id" element={<ProjectFilesPage />} />
+          <Route path="/projects/:id/edit" element={<EditorPage />} />
           <Route path="/credits/return" element={<CreditsReturnPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>

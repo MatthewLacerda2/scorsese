@@ -61,8 +61,8 @@ test("signed in, the library sits in the shell with the balance in dollars", asy
   expect(html).toContain("Upload");
 });
 
-test("the projects page lists what the user has", async () => {
-  const html = await render("/projects", (client) => {
+test("signed in, / is the home, listing the user's projects in the sidebar", async () => {
+  const html = await render("/", (client) => {
     client.setQueryData(ME, ana);
     client.setQueryData(
       ["projects"],
@@ -80,11 +80,8 @@ test("the projects page lists what the user has", async () => {
     );
   });
   expect(html).toContain("teaser");
-  // Open, into the editor, comes before Files.
-  const open = html.indexOf('href="/projects/4/edit"');
-  expect(open).toBeGreaterThan(-1);
-  expect(html.slice(open, html.indexOf("</a>", open))).toContain("Open");
-  expect(open).toBeLessThan(html.indexOf('href="/projects/4"'));
+  expect(html).toContain('href="/projects/4/edit"');
+  expect(html).toContain('aria-label="Describe your video"');
 });
 
 test("the editor draws the stored document: its tracks, clips and assets", async () => {
@@ -133,7 +130,7 @@ test("the editor draws the stored document: its tracks, clips and assets", async
 });
 
 test("the header has room for a page's own controls, empty unless the page fills it", async () => {
-  const html = await render("/projects", (client) => {
+  const html = await render("/projects/9", (client) => {
     client.setQueryData(ME, ana);
   });
   const header = html.slice(html.indexOf("<header"), html.indexOf("</header>"));

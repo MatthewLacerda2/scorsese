@@ -47,13 +47,13 @@ test("the shell and the library switch language together, and money stays in dol
   const pt = render("/library", "pt-BR", true);
   expect(pt).toContain("Projetos");
   expect(pt).toContain("Biblioteca");
-  expect(pt).toContain('aria-label="Configurações"');
+  expect(pt).toContain("Configurações");
   expect(pt).toContain("$1,234.56");
   expect(pt).not.toContain("R$");
   expect(pt).not.toContain(">Projects<");
 
   const es = render("/library", "es", true);
   expect(es).toContain("Proyectos");
-  expect(es).toContain('aria-label="Ajustes"');
+  expect(es).toContain("Ajustes");
   expect(es).toContain("$1,234.56");
 });
