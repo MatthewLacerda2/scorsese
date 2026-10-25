@@ -9,7 +9,7 @@
 use clap::Subcommand;
 use sqlx::postgres::PgPool;
 
-use super::{CreditError, dollars, history, ledger};
+use super::{CreditError, adjust, dollars, history, ledger};
 use crate::ServerError;
 use crate::accounts::users;
 use crate::db;
@@ -132,8 +132,8 @@ pub async fn run(pool: &PgPool, command: CreditCommand) -> Result<String, Server
             include_paid,
         } => {
             let take = match (amount, to_zero) {
-                (Some(amount), false) => ledger::Take::Micros(parse_negative(&amount)?),
-                (None, true) => ledger::Take::All,
+                (Some(amount), false) => adjust::Take::Micros(parse_negative(&amount)?),
+                (None, true) => adjust::Take::All,
                 _ => {
                     return Err(CreditError::Invalid(
                         "give exactly one of --dollars -N and --to-zero".into(),
@@ -145,14 +145,12 @@ pub async fn run(pool: &PgPool, command: CreditCommand) -> Result<String, Server
             let mut tx = db::scoped(pool, user)
                 .await
                 .map_err(ServerError::Database)?;
-            if !include_paid && has_paid(&mut tx).await? {
-                return Err(CreditError::Invalid(format!(
-                    "{email} has paid through Stripe; nothing was taken back. \
-                     Pass --include-paid to adjust it anyway"
-                ))
-                .into());
-            }
-            let taken = ledger::adjust(&mut tx, take, &reason).await?;
+            let taken = adjust::adjust(&mut tx, take, &reason, include_paid)
+                .await
+                .map_err(|error| match error {
+                    CreditError::Invalid(why) => CreditError::Invalid(format!("{email}: {why}")),
+                    other => other,
+                })?;
             let balance = ledger::balance(&mut tx)
                 .await
                 .map_err(ServerError::Database)?;
@@ -245,14 +243,6 @@ async fn free_usage(
     Ok(lines.join("\n"))
 }
 
-/// Whether the scoped user has a payment that arrived through Stripe.
-async fn has_paid(tx: &mut db::Tx) -> Result<bool, ServerError> {
-    sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM payments WHERE state = 'paid')")
-        .fetch_one(&mut **tx)
-        .await
-        .map_err(ServerError::Database)
-}
-
 /// An amount to take back, written negative as the operator types it —
 /// `-5`, `-2.50` — as positive micro-dollars. A figure without the minus is
 /// refused: an adjustment never adds.
@@ -264,7 +254,14 @@ fn parse_negative(text: &str) -> Result<i64, CreditError> {
                 "{text:?} does not take money back; write it negative, e.g. -5"
             ))
         })
-        .and_then(|amount| parse_decimal(amount, 6))
+        .and_then(|amount| {
+            parse_decimal(amount, 6).map_err(|_| {
+                CreditError::Invalid(format!(
+                    "{text:?} is not an amount to take back; write it negative with at most \
+                     6 decimal places, e.g. -2.50"
+                ))
+            })
+        })
 }
 
 /// A decimal the operator typed — `100`, `100.5`, `1.06` — as an integer of

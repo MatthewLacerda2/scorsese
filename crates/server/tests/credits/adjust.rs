@@ -4,13 +4,12 @@
 use scorsese_server::ServerError;
 use scorsese_server::credits::command::{CreditCommand, run};
 use scorsese_server::credits::history::Filter;
-use scorsese_server::db::{self, UserId};
 use sqlx::postgres::PgPool;
 
 use super::{account, balance};
 
 /// `credit adjust`, as the operator would type it.
-fn adjust(dollars: Option<&str>, to_zero: bool, include_paid: bool) -> CreditCommand {
+pub(crate) fn adjust(dollars: Option<&str>, to_zero: bool, include_paid: bool) -> CreditCommand {
     CreditCommand::Adjust {
         email: "ana@example.com".into(),
         dollars: dollars.map(Into::into),
@@ -18,23 +17,6 @@ fn adjust(dollars: Option<&str>, to_zero: bool, include_paid: bool) -> CreditCom
         reason: "test credit taken back".into(),
         include_paid,
     }
-}
-
-/// A Stripe payment of `user`'s that arrived, as the webhook leaves it.
-async fn paid_payment(pool: &PgPool, user: UserId) {
-    let mut tx = db::privileged(pool)
-        .await
-        .expect("a privileged scope opens");
-    sqlx::query(
-        "INSERT INTO payments (user_id, stripe_session, brl_centavos, credit_micros,
-                               brl_per_usd, rate_source, state, paid_at)
-         VALUES ($1, 'cs_test', 5000, 10000000, '5.0', 'awesomeapi', 'paid', now())",
-    )
-    .bind(user.get())
-    .execute(&mut *tx)
-    .await
-    .expect("a paid payment is recorded");
-    tx.commit().await.expect("the payment commits");
 }
 
 /// Taking test money back is one new negative entry, with its reason, that
@@ -133,20 +115,4 @@ async fn an_adjustment_never_adds_or_goes_below_zero(pool: PgPool) {
     .await;
     assert!(blank.is_err(), "a reason is required: {blank:?}");
     assert_eq!(balance(&pool, ana).await, 5_000_000);
-}
-
-/// Money a user paid through Stripe is never taken back by accident: only
-/// `--include-paid` lets an adjustment touch such an account.
-#[sqlx::test]
-async fn an_adjustment_refuses_an_account_that_paid_unless_told(pool: PgPool) {
-    let ana = account(&pool, "ana@example.com").await;
-    super::fund(&pool, ana, 10).await;
-    paid_payment(&pool, ana).await;
-
-    let refused = run(&pool, adjust(None, true, false)).await.unwrap_err();
-    assert!(refused.to_string().contains("--include-paid"), "{refused}");
-    assert_eq!(balance(&pool, ana).await, 10_000_000);
-
-    let said = run(&pool, adjust(None, true, true)).await.unwrap();
-    assert!(said.ends_with("balance now $0.00"), "{said}");
 }

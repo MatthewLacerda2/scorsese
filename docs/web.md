@@ -1368,7 +1368,8 @@ scorsese-server credit free-usage [--since 2026-10-01] [--until …] [ana@exampl
 `adjust` takes money back out (#1542): one new negative `adjustment` entry
 with its reason, a line of its own in the user's history, never past zero and
 never an edit. It refuses an account with a `paid` payment unless
-`--include-paid` is given, so a reset never takes back a real purchase.
+`--include-paid` is given, so a reset never takes back a Stripe purchase, and
+`--to-zero` waits until no generation on the account holds a reservation.
 
 `free-usage` prints what the free allowance paid, per user per Brasília day,
 with the month to date and the day each user first paid: who uses the free

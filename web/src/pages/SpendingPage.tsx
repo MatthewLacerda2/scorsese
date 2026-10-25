@@ -1,5 +1,5 @@
 // The spending history (#537): one list of everything that moved the balance —
-// generations, assistant turns, top-ups, refunds — each with its amount
+// generations, assistant turns, top-ups, refunds, adjustments — each with its amount
 // filterable by project, kind and date. A list, deliberately: no charts (#544, out of scope).
 
 import { useInfiniteQuery } from "@tanstack/react-query";
