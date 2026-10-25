@@ -251,8 +251,9 @@ Each lesson ends as one of: **fixed** (a pull request removing the cause),
 `ci-merge`, `cloud-brief.md`, `CLAUDE.md`), or **tracked** (an issue with the
 evidence and a proposed fix). Mid-batch, fix what blocks or bites twice; a
 Markdown-only fix lands in minutes, and one that changes a rule in `CLAUDE.md`
-is left open for the user. File a coder's "follow-up, not in this PR" as soon
-as you read it.
+is left open for the user. A coder's "follow-up, not in this PR" is folded
+into a branch still in flight when it fits there, filed as soon as you read it
+when it carries `CLAUDE.md`'s signal, and dropped otherwise.
 
 At the end, before reporting: list every trap, hand-back and surprise, and map
 each one. Leave a *Context update* comment on the next unstarted issues whose
