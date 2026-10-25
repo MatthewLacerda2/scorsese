@@ -109,7 +109,10 @@
 //! `generate` queues; [`designs`] the voices its `voice_design` designs and
 //! keeps for a user. [`assistant`] is that built-in assistant: the model a
 //! project picks (#705), run turn by turn against it, charged per call.
+//! [`ab`] is the landing page's A/B tests (#1553): what signed-out visitors
+//! were shown and did, and the report that decides each test.
 
+pub mod ab;
 pub mod accounts;
 pub mod assistant;
 pub mod captures;

@@ -16,7 +16,19 @@ use sqlx::postgres::PgPool;
 /// - `free_allowance` (#1530): one row, what every account is given free each
 ///   day and month, as the server was started with. The same for everybody;
 ///   members read it and write nothing (`credits::allowance`).
-const NOT_PER_USER: &[&str] = &["_sqlx_migrations", "access_log", "free_allowance"];
+/// - `ab_visitors`, `ab_exposures`, `ab_events` (#1553): the landing's A/B
+///   tests, kept per browser, most of which never sign in. A visitor that
+///   does names its account with `ON DELETE SET NULL`, so a deletion lets go
+///   of the person and keeps the counts. No member may read them
+///   (`tests/ab/events.rs`).
+const NOT_PER_USER: &[&str] = &[
+    "_sqlx_migrations",
+    "access_log",
+    "free_allowance",
+    "ab_visitors",
+    "ab_exposures",
+    "ab_events",
+];
 
 #[sqlx::test]
 async fn every_table_is_owned_cascaded_and_policed(pool: PgPool) {

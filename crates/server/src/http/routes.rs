@@ -17,8 +17,8 @@ use axum::http::Method;
 use axum::routing::{MethodFilter, MethodRouter, on};
 
 use super::{
-    AppState, account, chat, client_errors, credits, editor, events, google, health, jobs, library,
-    mcp, payments, prices, projects, renders, tokens, uploads,
+    AppState, ab, account, chat, client_errors, credits, editor, events, google, health, jobs,
+    library, mcp, payments, prices, projects, renders, tokens, uploads,
 };
 
 /// One method on one path, and what answers it.
@@ -128,6 +128,8 @@ pub fn table() -> Vec<Route> {
         Route::new(M::POST, "/projects/{id}/tools/{name}", editor::call),
         // The browser's crash reports (#1428), signed in or not.
         Route::new(M::POST, "/client-errors", client_errors::report).capped(client_errors::CAP),
+        // The landing's A/B tests (#1553): what a signed-out visitor saw and did.
+        Route::new(M::POST, "/ab/events", ab::events).capped(ab::CAP),
     ]
 }
 

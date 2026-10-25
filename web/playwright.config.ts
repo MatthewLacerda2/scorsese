@@ -80,7 +80,8 @@ export default defineConfig({
     {
       command: `bun run build && bun run preview --host 127.0.0.1 --port ${PAGE_PORT} --strictPort`,
       url: `http://127.0.0.1:${PAGE_PORT}/`,
-      env: { SCORSESE_API: `http://127.0.0.1:${SERVER_PORT}` },
+      // `VITE_AB_FIXTURE` gives the build a stand-in A/B test (src/ab/tests.ts).
+      env: { SCORSESE_API: `http://127.0.0.1:${SERVER_PORT}`, VITE_AB_FIXTURE: "1" },
       reuseExistingServer: false,
       timeout: 120_000,
     },

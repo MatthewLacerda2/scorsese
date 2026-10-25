@@ -1,5 +1,6 @@
-//! The operator's commands: `scorsese-server user …`, `token …`, `job …` and
-//! `credit …` (the last in [`crate::credits::command`]).
+//! The operator's commands: `scorsese-server user …`, `token …`, `job …`,
+//! `credit …` (in [`crate::credits::command`]) and `ab …` (in
+//! [`crate::ab::report`]).
 //!
 //! **People sign themselves up, with Google** (#952), so accounts mostly make
 //! themselves. What is left for the operator, run where the server runs,
@@ -67,6 +68,9 @@ pub enum Command {
     /// Record top-ups, refunds and adjustments, read a balance.
     #[command(subcommand)]
     Credit(CreditCommand),
+    /// Read the landing page's A/B tests.
+    #[command(subcommand)]
+    Ab(crate::ab::report::AbCommand),
     /// Capture web pages for the server's renders, each capture a container
     /// of its own: the `capture-launcher` container's process (#852). Needs
     /// the Docker socket, and no database and no network.

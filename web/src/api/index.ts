@@ -5,6 +5,7 @@
 import { query, request } from "./client";
 import type { JobView } from "./events";
 import type {
+  AbBatch,
   Account,
   Balance,
   ClientError,
@@ -74,6 +75,16 @@ export interface HistoryFilter {
 }
 
 export const api = {
+  /**
+   * The landing's A/B tests (#1553): what a signed-out visitor was shown and
+   * did, sent as a beacon so it survives the page leaving. Always `204`.
+   */
+  ab: {
+    send: (batch: AbBatch) => {
+      const body = new Blob([JSON.stringify(batch)], { type: "application/json" });
+      navigator.sendBeacon("/api/ab/events", body);
+    },
+  },
   /**
    * Tell the server the page crashed (#1428): it writes a line to its log and
    * answers `204`, signed in or not.
