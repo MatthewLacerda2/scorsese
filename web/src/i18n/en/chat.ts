@@ -108,7 +108,7 @@ export const chat = {
     dearest: "most expensive",
   },
   quote: {
-    ask: (cost: string) => `This costs ${cost} from your credits. Go ahead?`,
+    ask: (cost: string) => `This will cost ${cost} from your credits. Go ahead?`,
     choose: (now: string, batch: string) =>
       `Now: ${now} · within 24 hours: ${batch}, half price for the stills. Which would you like?`,
     now: (cost: string) => `Now — ${cost}`,
@@ -116,9 +116,8 @@ export const chat = {
     expired: "This quote has expired.",
     confirm: "Confirm",
     decline: "Decline",
-    changePlaceholder: "Or say what to change — e.g. make the cape yellow instead of red",
+    changePlaceholder: "Change something here...",
     change: "Ask for a change",
-    brief: { prompt: "Prompt", line: "Line", voice: "Voice" },
     /** An answered quote, as the one line it collapses into. */
     answered: {
       confirmed: (cost: string) => `Approved — ${cost}`,

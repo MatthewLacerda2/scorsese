@@ -49,7 +49,9 @@ export function Turn({ entry }: { entry: Entry }) {
         );
       })}
       {ended && <p className="text-xs text-destructive">{ended}</p>}
-      {awaitingQuote(turn) && turn.quote && <QuoteBox turn={turn.id} quote={turn.quote} />}
+      {awaitingQuote(turn) && turn.quote && (
+        <QuoteBox turn={turn.id} project={turn.project} quote={turn.quote} />
+      )}
       {(turn.quote_replies ?? []).map((reply, index) => (
         // Replies only ever append, so a reply's place is its identity.
         // biome-ignore lint/suspicious/noArrayIndexKey: see above
