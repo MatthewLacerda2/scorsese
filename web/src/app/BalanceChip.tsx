@@ -1,5 +1,6 @@
-// The balance in the header (#1280). Clicking it opens a small modal with the
-// balance, the "Add credits" button and a link to the spending history.
+// The balance in the header (#1280), and beside it what is free today
+// (#1530). Clicking it opens a small modal with the balance, when the free
+// credit renews, the "Add credits" button and a link to the spending history.
 
 import { useState } from "react";
 import { Link } from "react-router";
@@ -13,17 +14,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useT } from "@/i18n/I18nProvider";
+import { useLanguage, useT } from "@/i18n/I18nProvider";
+import { formatDate } from "@/lib/format";
 import { formatDollars } from "@/lib/money";
 
 export function BalanceChip() {
   const balance = useBalance();
   const addCredits = useAddCredits();
   const t = useT();
+  const { language } = useLanguage();
   const [open, setOpen] = useState(false);
   if (!balance.data) return null;
-  const { balance_micros } = balance.data;
+  const { balance_micros, free_micros, free_renews_at } = balance.data;
   const dollars = formatDollars(balance_micros);
+  // What the free allowance has left today, beside the balance (#1530).
+  const free = free_micros > 0 ? t.common.freeToday(formatDollars(free_micros)) : null;
   return (
     <>
       <Button
@@ -33,6 +38,7 @@ export function BalanceChip() {
         onClick={() => setOpen(true)}
       >
         <span className={balance_micros < 0 ? "text-destructive" : undefined}>{dollars}</span>
+        {free && <span className="text-muted-foreground">· {free}</span>}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-xs">
@@ -42,6 +48,12 @@ export function BalanceChip() {
               {dollars}
             </DialogDescription>
           </DialogHeader>
+          {free_renews_at > 0 && (
+            <p className="text-sm text-muted-foreground">
+              {free && `${free}. `}
+              {t.common.freeRenews(formatDate(free_renews_at, language))}
+            </p>
+          )}
           <Button
             onClick={() => {
               setOpen(false);

@@ -14,7 +14,7 @@
 //! [`for_job`].
 
 use super::designs::{self, Design};
-use super::ledger::{self, Link, Reservation};
+use super::ledger::{self, Funds, Link, Reservation};
 use super::lines;
 use super::tracks;
 use super::{CreditError, Product, charge_for, from_cents};
@@ -127,7 +127,12 @@ pub async fn start(tx: &mut Tx, request: &Request<'_>) -> Result<Paid, CreditErr
         Request::Track(track) => (Product::MusicTrack, track.estimated_cents, track.project),
     };
     let charged = charge_for(product, cents);
-    ledger::cover(tx, charged).await?;
+    let funds = if product == Product::VeoShot {
+        Funds::PaidOnly
+    } else {
+        Funds::Any
+    };
+    ledger::cover(tx, charged, funds).await?;
     let cost = i64::try_from(from_cents(cents)).unwrap_or(i64::MAX);
     let (generation, memo, link) = match request {
         Request::Shot(shot) => {

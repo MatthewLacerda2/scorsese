@@ -59,5 +59,6 @@ export const pages: Messages["pages"] = {
     amount: "Importe",
     deletedProject: "un proyecto eliminado",
     fileItMade: "el archivo que creó",
+    freePart: (dollars: string) => `${dollars} del crédito gratis`,
   },
 };

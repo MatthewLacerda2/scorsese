@@ -112,7 +112,7 @@ async fn summarised(
     turn: &mut Running,
     compacting: Compacting,
 ) -> Result<(), String> {
-    let mut tools = prompt::tools(&state.tools);
+    let mut tools = prompt::tools(&state.tools, turn.veo);
     tools.extend(ask::functions());
     let request = Request {
         model: turn.model,

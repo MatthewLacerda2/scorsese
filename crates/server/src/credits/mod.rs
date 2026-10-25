@@ -62,6 +62,7 @@
 //! at `GET /api/credits/history` and described as a read-only tool
 //! ([`tool`]), which web MCP (#539, `crate::tools`) serves.
 
+pub mod allowance;
 pub mod command;
 pub mod designs;
 pub mod generations;
@@ -181,6 +182,20 @@ pub enum CreditError {
         /// What the balance was.
         balance: i64,
         /// What the generation would have reserved.
+        needed: i64,
+    },
+    /// A Veo shot the paid balance does not cover, whatever is free: a shot
+    /// is never paid from the free allowance (#1530). Nothing was spent.
+    #[error(
+        "your paid balance is {}, and this needs {} — free credit cannot pay for a Veo shot, \
+         so nothing was sent to the provider. Add credit to go ahead.",
+        dollars(*paid),
+        dollars(*needed)
+    )]
+    PaidOnly {
+        /// What the paid balance was.
+        paid: i64,
+        /// What the shot would have reserved.
         needed: i64,
     },
     /// A reservation that does not exist, or was already settled.

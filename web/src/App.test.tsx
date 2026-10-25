@@ -46,7 +46,7 @@ test("the theme control offers Light and Dark, and Light is the default", async 
 });
 
 test("signed in, the library sits in the shell with the balance in dollars", async () => {
-  const balance: Balance = { balance_micros: 2_000_000 };
+  const balance: Balance = { balance_micros: 2_000_000, free_micros: 0, free_renews_at: 0 };
   const html = (
     await render("/library", (client) => {
       client.setQueryData(ME, ana);

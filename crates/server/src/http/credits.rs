@@ -10,26 +10,33 @@ use super::AppState;
 use super::auth::Member;
 use super::error::ApiError;
 use crate::credits::history::{self, Filter, History};
-use crate::credits::{CreditError, ledger};
+use crate::credits::{CreditError, allowance, ledger};
 use crate::db;
 
 /// What `GET /api/credits` answers.
 #[derive(Debug, Serialize)]
 pub struct Balance {
-    /// The balance, in micro-dollars.
+    /// The paid balance, in micro-dollars.
     pub balance_micros: i64,
+    /// What is left of the free allowance today, in micro-dollars (#1530).
+    pub free_micros: i64,
+    /// When it next grows, in seconds since 1970.
+    pub free_renews_at: i64,
 }
 
-/// `GET /api/credits`: the caller's balance, in dollars.
+/// `GET /api/credits`: the caller's paid balance, and what is free today.
 pub async fn balance(
     State(state): State<AppState>,
     member: Member,
 ) -> Result<Json<Balance>, ApiError> {
     let mut tx = db::scoped(&state.pool, member.user).await?;
     let balance = ledger::balance(&mut tx).await?;
+    let free = allowance::left(&mut tx).await?;
     tx.commit().await?;
     Ok(Json(Balance {
         balance_micros: balance,
+        free_micros: free.left_micros,
+        free_renews_at: free.renews_at,
     }))
 }
 
@@ -54,6 +61,7 @@ impl From<CreditError> for ApiError {
                 Self::Internal
             }
             CreditError::Insufficient { .. }
+            | CreditError::PaidOnly { .. }
             | CreditError::NotOpen(_)
             | CreditError::Invalid(_) => Self::BadRequest(error.to_string()),
         }

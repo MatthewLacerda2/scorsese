@@ -186,7 +186,7 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
         let issued = quotes::issue(&mut tx, &quote, charged, now, caller.call)
             .await
             .map_err(database)?;
-        let balance = ledger::balance(&mut tx).await.map_err(database)?;
+        let balance = ledger::spendable(&mut tx).await.map_err(database)?;
         tx.commit().await.map_err(database)?;
         return Ok(format!(
             "design: {}\nAbout {} at ElevenLabs' published rate — {} from your credits. Our \
@@ -230,7 +230,7 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
     start(&mut tx, &request)
         .await
         .map_err(|error| match error {
-            CreditError::Insufficient { .. } => error.to_string(),
+            CreditError::Insufficient { .. } | CreditError::PaidOnly { .. } => error.to_string(),
             other => database(other),
         })?;
     tx.commit().await.map_err(database)?;

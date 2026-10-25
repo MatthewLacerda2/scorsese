@@ -55,8 +55,10 @@ its `session-start:` lines are missing, run it yourself
   `gh pr view --json` fail; REST and the MCP tools work. A script meant to run
   here uses REST.
 - **The web image cannot be built here**: `bun install` fails behind the proxy
-  (`SELF_SIGNED_CERT_IN_CHAIN`). Reproduce the image's layout and run `bun run
-  build` there. If Playwright's Chromium cannot be fetched either, point
+  (`SELF_SIGNED_CERT_IN_CHAIN`) inside it. In the container itself it works
+  with `NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt` exported, which `make
+  web-gates` needs too. Reproduce the image's layout and run `bun run build`
+  there. If Playwright's Chromium cannot be fetched either, point
   `E2E_CHROMIUM` at the container's headless shell (`web/README.md`).
 - A gate you cannot run (`make deploy` refused as a production deploy, `infra`
   refused the network) is named on the *Gates* line with the CI job that

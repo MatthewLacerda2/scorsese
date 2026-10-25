@@ -12,7 +12,9 @@ export function NoCredits({ always = false }: { always?: boolean }) {
   const balance = useBalance();
   const addCredits = useAddCredits();
   const t = useT();
-  if (!always && !(balance.data && balance.data.balance_micros <= 0)) return null;
+  // Free credit left today is credit too (#1530).
+  const spendable = balance.data && balance.data.balance_micros + (balance.data.free_micros ?? 0);
+  if (!always && !(spendable !== undefined && spendable <= 0)) return null;
   return (
     <p className="text-sm text-muted-foreground">
       {t.buying.empty}{" "}

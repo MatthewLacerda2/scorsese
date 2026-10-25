@@ -105,7 +105,8 @@
 //! (`credits::Product::Assistant`), against the turn
 //! (`credits::ledger::charge_assistant`). Not reserved for: the cost exists
 //! only once counted. So a turn is **refused up front at a balance of zero or
-//! less**, and stops between calls once the balance runs out or the turn has
+//! less** — the balance the assistant knows, paid credit and the free
+//! allowance together (`credits::ledger::spendable`, #1530) — and stops between calls once the balance runs out or the turn has
 //! cost the operator's **per-turn cap** ([`Assistant::cap_micros`]). The cap
 //! is set for Sonnet 5.5 and scales with the turn's model's blended rate
 //! (`cost`, #1461), so a turn may do the same work on any model. The call
@@ -162,6 +163,7 @@ mod start;
 mod stopping;
 mod store;
 mod turn;
+mod veo;
 mod wake;
 
 use std::sync::Arc;

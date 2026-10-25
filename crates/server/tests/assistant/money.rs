@@ -2,6 +2,7 @@
 //! call against the turn — and without a key the rest of the server is fine.
 
 use scorsese_server::assistant::Assistant;
+use scorsese_server::credits::allowance::{self, Allowance};
 use scorsese_server::credits::history::{self, Filter};
 use serde_json::json;
 use sqlx::postgres::PgPool;
@@ -79,4 +80,22 @@ async fn a_turns_calls_are_one_row_of_the_spending_history(pool: PgPool) {
     assert_eq!(turn.detail["calls"], 2);
     assert_eq!(seen.rows.len(), 2, "the turn, and the top-up");
     assert_eq!(seen.balance_micros, 10_000_000 - 2 * CHARGED);
+}
+
+/// A new account with no credit runs a turn on the free allowance, which
+/// pays all of it (#1530).
+#[sqlx::test]
+async fn a_new_account_runs_a_turn_on_the_free_allowance(pool: PgPool) {
+    let script = Script::new(vec![answers("Here is an intro.")]);
+    let (address, _) = super::scripted(&pool, &script).await;
+    allowance::set(&pool, Allowance::DEFAULT).await.unwrap();
+    let (ana, who) = member(&pool, "ana@example.com", 0).await;
+    let id = project(&pool, ana, json!([])).await;
+    let detail = exchange(address, &who, id, "make an intro").await;
+    assert_eq!(detail["turn"]["state"], "answered", "{detail}");
+
+    let seen = history::read(&pool, ana, &Filter::default()).await.unwrap();
+    assert_eq!(seen.balance_micros, 0, "nothing paid, nothing owed");
+    assert_eq!(seen.rows[0].amount_micros, 0);
+    assert_eq!(seen.rows[0].free_micros, CHARGED);
 }

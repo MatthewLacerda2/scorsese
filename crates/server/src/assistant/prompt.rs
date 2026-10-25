@@ -2,7 +2,8 @@
 //! message.
 //!
 //! **The system prompt and the tool list are the cached prefix**, identical
-//! for every user, every turn and every model — so nothing about a user, a
+//! for every user, every turn and every model — but for the one kind a user
+//! with no paid credit is not offered (Veo, #1530) — so nothing about a user, a
 //! project or the time goes in them. What is particular to a conversation
 //! (which project it is about) or to a moment (the user confirmed a quote)
 //! arrives as a server note after the history, which caches nothing away and
@@ -148,10 +149,12 @@ pub(super) fn app_said(what: &str) -> String {
 }
 
 /// Every tool the toolbox serves, as the seam takes it — the same names,
-/// descriptions and schemas web MCP lists, in the same order.
-pub(super) fn tools(toolbox: &Toolbox) -> Vec<Tool> {
+/// descriptions and schemas web MCP lists, in the same order; without a word
+/// of Veo when `veo` is false (`Toolbox::listing_for`, #1530). Two prefixes,
+/// then, each the same for everybody it is shown to.
+pub(super) fn tools(toolbox: &Toolbox, veo: bool) -> Vec<Tool> {
     toolbox
-        .listing()
+        .listing_for(veo)
         .into_iter()
         .map(|tool| Tool {
             name: text(&tool, "name"),

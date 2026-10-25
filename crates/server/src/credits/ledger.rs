@@ -10,8 +10,29 @@ use scorsese_providers::prices::Checked;
 use scorsese_providers::prices::chat::{self, Usage};
 use serde_json::json;
 
-use super::{CreditError, Product, price};
+use super::{CreditError, Product, allowance, price};
 use crate::db::Tx;
+
+/// Which money may pay for a spend.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Funds {
+    /// The free allowance first, then the paid balance.
+    Any,
+    /// The paid balance only: a Veo shot (#1530).
+    PaidOnly,
+}
+
+impl Funds {
+    /// What may pay for what `link` is about: a Veo shot is paid only from
+    /// the paid balance, everything else from the allowance first.
+    pub fn for_link(link: &Link) -> Self {
+        if link.veo.is_some() {
+            Self::PaidOnly
+        } else {
+            Self::Any
+        }
+    }
+}
 
 /// A reserved amount waiting on a provider's answer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,34 +60,62 @@ pub struct Link {
     pub music: Option<i64>,
 }
 
-/// The user's balance, in micro-dollars: the sum of their entries.
+/// The user's paid balance, in micro-dollars: the sum of their entries. The
+/// free allowance is not in it ([`allowance`]).
 pub async fn balance(tx: &mut Tx) -> Result<i64, sqlx::Error> {
     sqlx::query_scalar("SELECT COALESCE(sum(amount_micros), 0)::bigint FROM credit_entries")
         .fetch_one(&mut **tx)
         .await
 }
 
-/// Take the user's lock, then fail unless the balance covers `micros`.
-///
-/// The lock is their own `users` row, held until the transaction ends, so two
-/// spends of one user's money are decided one after the other and cannot both
-/// see the same last dollar. Another user's spending never waits on it.
-pub async fn cover(tx: &mut Tx, micros: i64) -> Result<i64, CreditError> {
+/// What the user can spend now on anything but a Veo shot: the paid balance
+/// and what is left of the free allowance. The assistant is told this, never
+/// the split (#1530).
+pub async fn spendable(tx: &mut Tx) -> Result<i64, sqlx::Error> {
+    let paid = balance(tx).await?;
+    Ok(paid + allowance::left(tx).await?.left_micros)
+}
+
+/// Take the user's lock: their own `users` row, held until the transaction
+/// ends, so two spends of one user's money are decided one after the other
+/// and cannot both see the same last dollar. Another user's spending never
+/// waits on it.
+async fn lock(tx: &mut Tx) -> Result<(), sqlx::Error> {
     sqlx::query("SELECT 1 FROM users WHERE id = (SELECT member_id()) FOR UPDATE")
         .execute(&mut **tx)
-        .await?;
-    let balance = balance(tx).await?;
-    if balance < micros {
-        return Err(CreditError::Insufficient {
-            balance,
+        .await
+        .map(drop)
+}
+
+/// Take the user's lock, then fail unless `funds` cover `micros`; the part
+/// of it the free allowance pays, spent first.
+pub async fn cover(tx: &mut Tx, micros: i64, funds: Funds) -> Result<i64, CreditError> {
+    lock(tx).await?;
+    let paid = balance(tx).await?;
+    let left = allowance::left(tx).await?.left_micros;
+    // A shot the free allowance would have covered says why it does not.
+    if funds == Funds::PaidOnly && paid < micros && paid.saturating_add(left) >= micros {
+        return Err(CreditError::PaidOnly {
+            paid,
             needed: micros,
         });
     }
-    Ok(balance)
+    let free = match funds {
+        Funds::Any => left,
+        Funds::PaidOnly => 0,
+    };
+    if paid.saturating_add(free) < micros {
+        return Err(CreditError::Insufficient {
+            balance: paid.saturating_add(free),
+            needed: micros,
+        });
+    }
+    Ok(free.min(micros))
 }
 
 /// Reserve `micros` for something about to be paid for — refused, with
-/// nothing written, when the balance does not cover it.
+/// nothing written, when the balance does not cover it. The part the free
+/// allowance covers is granted beside it, except for a Veo shot.
 pub async fn reserve(
     tx: &mut Tx,
     micros: i64,
@@ -78,7 +127,7 @@ pub async fn reserve(
             "only a positive amount can be reserved".into(),
         ));
     }
-    cover(tx, micros).await?;
+    let free = cover(tx, micros, Funds::for_link(&link)).await?;
     let entry = sqlx::query_scalar(
         "INSERT INTO credit_entries
              (user_id, kind, amount_micros, project_id, veo_generation_id, speech_generation_id,
@@ -95,18 +144,23 @@ pub async fn reserve(
     .bind(memo)
     .fetch_one(&mut **tx)
     .await?;
+    allowance::grant(tx, entry, free).await?;
     Ok(Reservation { entry, micros })
 }
 
-/// Settle a reservation whose provider **failed**: give it all back. Free.
+/// Settle a reservation whose provider **failed**: give it all back — the
+/// paid part to the balance, the free part to the allowance. Free.
 pub async fn release(tx: &mut Tx, reservation: Reservation) -> Result<(), CreditError> {
-    settle(tx, reservation, "release", reservation.micros).await
+    settle(tx, reservation, "release", reservation.micros).await?;
+    allowance::give_back(tx, reservation.entry).await?;
+    Ok(())
 }
 
 /// Settle a reservation whose provider **worked**: give it back, and charge
 /// `micros` — the price, which for every provider today is what was reserved.
+/// What the allowance granted for it stays spent.
 pub async fn charge(tx: &mut Tx, reservation: Reservation, micros: i64) -> Result<(), CreditError> {
-    release(tx, reservation).await?;
+    settle(tx, reservation, "release", reservation.micros).await?;
     settle(tx, reservation, "charge", -micros).await
 }
 
@@ -171,9 +225,9 @@ pub struct Charged {
 }
 
 /// Charge one assistant call: its exact cost at its own model's rates
-/// (#705), times [`Product::Assistant`]'s multiplier. Not reserved
-/// for, and not refused — the tokens are already spent (see the module doc
-/// of [`credits`](super)).
+/// (#705), times [`Product::Assistant`]'s multiplier, the free allowance
+/// paying first. Not reserved for, and not refused — the tokens are already
+/// spent (see the module doc of [`credits`](super)).
 pub async fn charge_assistant(
     tx: &mut Tx,
     call: &AssistantCall<'_>,
@@ -189,6 +243,8 @@ pub async fn charge_assistant(
         "cost_micros": cost,
         "prompt": call.prompt,
     });
+    lock(tx).await?;
+    let free = allowance::left(tx).await?.left_micros.min(charged);
     let entry = sqlx::query_scalar(
         "INSERT INTO credit_entries (user_id, kind, amount_micros, project_id, memo, detail,
                                      chat_turn_id)
@@ -201,6 +257,7 @@ pub async fn charge_assistant(
     .bind(call.turn)
     .fetch_one(&mut **tx)
     .await?;
+    allowance::grant(tx, entry, free).await?;
     Ok(Charged {
         entry,
         cost: i64::try_from(cost).unwrap_or(i64::MAX),

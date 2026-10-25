@@ -54,8 +54,12 @@ pub(super) struct Running {
     pub(super) messages: Vec<Box<RawValue>>,
     /// The same, neutral.
     pub(super) record: Vec<Message>,
-    /// Their balance when it started, or resumed.
+    /// What they could spend when it started, or resumed: paid credit and
+    /// the free allowance together (`ledger::spendable`).
     pub(super) balance: i64,
+    /// Whether it is offered Veo: only with paid credit, which a shot is
+    /// paid from (#1530).
+    pub(super) veo: bool,
     /// What it had cost before then: nothing for a new turn, the calls made
     /// before its question for a resumed one. The per-turn cap covers both.
     pub(super) spent: i64,
@@ -136,7 +140,7 @@ async fn settle(
 /// The loop. `Err` is a failure, in words for the user.
 async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
     let assistant = &state.assistant;
-    let mut tools = prompt::tools(&state.tools);
+    let mut tools = prompt::tools(&state.tools, turn.veo);
     tools.extend(ask::functions());
     match turn.answer.take() {
         Some(Resumed::Next(answer)) => {

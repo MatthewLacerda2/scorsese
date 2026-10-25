@@ -13,7 +13,10 @@ use sqlx::postgres::PgPool;
 /// - `access_log` (#1267): the access record Marco Civil art. 15 keeps for at
 ///   least six months, which the law says outlives the account, so it has no
 ///   cascade. No member may read it at all (`tests/access.rs`).
-const NOT_PER_USER: &[&str] = &["_sqlx_migrations", "access_log"];
+/// - `free_allowance` (#1530): one row, what every account is given free each
+///   day and month, as the server was started with. The same for everybody;
+///   members read it and write nothing (`credits::allowance`).
+const NOT_PER_USER: &[&str] = &["_sqlx_migrations", "access_log", "free_allowance"];
 
 #[sqlx::test]
 async fn every_table_is_owned_cascaded_and_policed(pool: PgPool) {

@@ -173,7 +173,12 @@ export interface LibraryItem {
 
 /** `http::credits::Balance` — `GET /api/credits`. */
 export interface Balance {
+  /** The paid balance. */
   balance_micros: number;
+  /** What is left of the free allowance today (#1530). */
+  free_micros: number;
+  /** When it next grows, in seconds since 1970. */
+  free_renews_at: number;
 }
 
 /** `payments::Quote` — what an amount of reais buys now (#548). */
@@ -226,6 +231,8 @@ export interface HistoryRow {
   project_name: string | null;
   memo: string;
   amount_micros: number;
+  /** What the free allowance paid of it (#1530); the amount is the paid part. */
+  free_micros: number;
   balance_after_micros: number;
   /** What set its price; a generation's carries `library_item_id` and `error`. */
   detail: Record<string, unknown>;
@@ -233,7 +240,10 @@ export interface HistoryRow {
 
 /** `credits::history::History` — a page of history and the filter's total. */
 export interface History {
+  /** The paid balance. */
   balance_micros: number;
+  /** What is left of the free allowance now (#1530). */
+  free_micros: number;
   matched: number;
   total_micros: number;
   rows: HistoryRow[];

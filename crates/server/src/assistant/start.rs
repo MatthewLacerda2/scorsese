@@ -76,10 +76,11 @@ pub async fn start(
         None => effort::of(&mut tx, project).await?,
     };
     let client = state.assistant.chat(model)?;
-    let balance = ledger::balance(&mut tx).await?;
+    let balance = ledger::spendable(&mut tx).await?;
     if balance <= 0 {
         return Err(AssistantError::NoCredit(dollars(balance)));
     }
+    let veo = ledger::balance(&mut tx).await? > 0;
     let left = if opening.fresh {
         asking::set_aside_in(&mut tx, project).await?
     } else {
@@ -130,6 +131,7 @@ pub async fn start(
     let written = |error: serde_json::Error| AssistantError::Internal(error.to_string());
     let history = chat::replay(model, &kept).map_err(written)?;
     let said: Vec<Message> = kept.iter().flat_map(|turn| turn.record.clone()).collect();
+    notes.extend(super::veo::note(&said, veo).map(String::from));
     // A woken turn's user message is the server's, never the person's words:
     // the marker is for the transcript and the ledger. Words the app wrote
     // for them are shown, never read (`told`).
@@ -186,6 +188,7 @@ pub async fn start(
         messages: first,
         record,
         balance,
+        veo,
         spent: 0,
         answer: None,
         compacting,

@@ -9,6 +9,8 @@ export const common: Messages["common"] = {
   nav: { projects: "Proyectos", home: "Inicio", library: "Biblioteca" },
   balanceTitle: "Tus créditos — mira en qué los gastaste",
   yourCredits: "Tus créditos",
+  freeToday: (dollars: string) => `${dollars} gratis hoy`,
+  freeRenews: (when: string) => `El crédito gratis se renueva el ${when}.`,
   account: "Tu cuenta",
   spendingHistory: "Historial de gastos",
   logOut: "Cerrar sesión",

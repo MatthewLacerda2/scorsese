@@ -2,6 +2,7 @@
 //! app reads them.
 
 use scorsese_server::accounts::tokens;
+use scorsese_server::credits::allowance::{self, Allowance};
 use scorsese_server::credits::generations::Answer;
 use sqlx::postgres::PgPool;
 
@@ -56,4 +57,45 @@ async fn a_bad_filter_is_a_bad_request_and_a_stranger_is_turned_away(pool: PgPoo
     for path in ["/api/credits", "/api/credits/history"] {
         assert_eq!(common::get(address, path).await.0, 401, "{path}");
     }
+}
+
+/// The free allowance left today, and when it renews, beside the balance; a
+/// spend it paid for shows its free part in the history (#1530).
+#[sqlx::test]
+async fn a_member_reads_what_is_free_today(pool: PgPool) {
+    let address = common::serve(pool.clone()).await;
+    allowance::set(&pool, Allowance::DEFAULT).await.unwrap();
+    let ana = account(&pool, "ana@example.com").await;
+    let settings = serde_json::json!({});
+    let paid = start(&pool, ana, &super::allowance::line(100, &settings))
+        .await
+        .unwrap();
+    finish(&pool, ana, paid, &Answer::Worked(None))
+        .await
+        .unwrap();
+    let token = tokens::issue(&pool, ana, "script").await.unwrap().token;
+    let bearer = format!("Authorization: Bearer {token}");
+
+    let credits = request(address, "GET", "/api/credits", &[bearer.as_str()], None).await;
+    assert_eq!(credits.status, 200, "{}", credits.body);
+    let credits = credits.json();
+    assert_eq!(credits["balance_micros"], 0);
+    assert_eq!(credits["free_micros"], 4_000_000 - 1_800_000);
+    assert!(credits["free_renews_at"].as_i64().unwrap() > 0, "{credits}");
+
+    let history = request(
+        address,
+        "GET",
+        "/api/credits/history",
+        &[bearer.as_str()],
+        None,
+    )
+    .await;
+    let history = history.json();
+    assert_eq!(history["rows"][0]["amount_micros"], 0);
+    assert_eq!(history["rows"][0]["free_micros"], 1_800_000);
+    assert_eq!(
+        history["total_micros"], -1_800_000,
+        "what it cost, free part too"
+    );
 }
