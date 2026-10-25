@@ -37,6 +37,20 @@ fn a_sound_reads_as_forty_levels_a_second_at_its_own_level() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+/// A stretch left over at the end is a level of its own, not dropped.
+#[test]
+fn the_last_part_of_a_stretch_is_a_level_of_its_own() {
+    let tools = tools();
+    let dir = scratch::dir("peaks-tail");
+    let file = tone_file(&tools, &dir, "tail", "0.5", 1.01);
+
+    let read = peaks(&tools, &file).expect("a wav has peaks");
+
+    assert_eq!(read.levels.len(), 41, "forty whole stretches and a part");
+    assert!(read.levels[40].abs_diff(128) <= 1, "{:?}", read.levels);
+    std::fs::remove_dir_all(&dir).ok();
+}
+
 /// What the server stores and sends: the rate as a little-endian `f32`, then
 /// one byte a level.
 #[test]
