@@ -1,18 +1,21 @@
 // A legal document as a page: `/terms` and `/privacy`, public and crawlable,
-// in the landing page's look (and its light or dark) since that is where a
-// visitor follows the link from. It is drawn in the site's language; the
+// in the landing page's look (and its light or dark) and under its header,
+// since that is where a visitor follows the link from. It is drawn in the site's language; the
 // Portuguese text is the binding one (`document.ts`), so a visitor reading a
 // translation is told so, and can switch to the Portuguese text and back.
 // The article's `lang` is the language of the text it holds.
 
 import "@/landing/landing.css";
-import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n/I18nProvider";
 import type { Language } from "@/i18n/language";
+import { Header } from "@/landing/Header";
+import { SignInDialog } from "@/landing/SignInDialog";
 import type { Item, LegalDocument } from "@/legal/document";
 import { Footer } from "@/legal/Footer";
+import { useMeta } from "@/lib/useMeta";
+import { useAccount } from "@/session/session";
 
 /** `2026-10-14` as "14 de outubro de 2026", in the document's language. */
 function longDate(day: string, language: Language): string {
@@ -50,22 +53,16 @@ export function LegalPage({
   const shown: Language = binding ? "pt-BR" : language;
   const doc = documents[shown];
   const translated = language !== "pt-BR";
-  useEffect(() => {
-    const before = document.title;
-    document.title = `${doc.title} · scorsese`;
-    return () => {
-      document.title = before;
-    };
-  }, [doc.title]);
+  const signedIn = Boolean(useAccount().data);
+  const [signIn, setSignIn] = useState(false);
+  useMeta(`${doc.title} · scorsese`);
 
   return (
     <div className="landing">
-      <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16">
-        <Link to="/" className="display text-xl text-paper">
-          scorsese
-        </Link>
+      <Header signedIn={signedIn} onSignIn={() => setSignIn(true)} />
+      <main className="mx-auto max-w-3xl px-4 pt-28 pb-16 sm:px-6 sm:pt-32">
         {translated && (
-          <p className="dim mt-8 rounded-lg border border-paper/15 p-4 text-sm">
+          <p className="dim mb-10 rounded-lg border border-paper/15 p-4 text-sm">
             {t.translation}{" "}
             <Button
               type="button"
@@ -77,7 +74,7 @@ export function LegalPage({
             </Button>
           </p>
         )}
-        <article lang={shown} className="mt-10">
+        <article lang={shown}>
           <h1 className="display text-4xl sm:text-5xl">{doc.title}</h1>
           <p className="dim mt-3 text-sm">
             {doc.updatedLabel}: {longDate(doc.updated, shown)}
@@ -116,6 +113,7 @@ export function LegalPage({
         </article>
       </main>
       <Footer />
+      <SignInDialog open={signIn} onOpenChange={setSignIn} />
     </div>
   );
 }

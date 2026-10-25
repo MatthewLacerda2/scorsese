@@ -1,5 +1,5 @@
-// The public pages' footer: the links to the terms and the privacy policy,
-// and who sells the service, which Decreto 7.962/2013 wants in plain view
+// The public pages' footer: the links to pricing, the terms and the privacy
+// policy (the header hides its own on a phone), and who sells the service, which Decreto 7.962/2013 wants in plain view
 // (`seller.ts`). The landing page puts its own line above it.
 
 import type { ReactNode } from "react";
@@ -13,6 +13,9 @@ export function Footer({ children }: { children?: ReactNode }) {
     <footer className="dim mx-auto max-w-6xl border-t border-paper/10 px-4 py-6 text-sm sm:px-6">
       {children}
       <nav className="flex flex-wrap gap-x-5 gap-y-2 text-paper">
+        <Link to="/pricing" className="hover:underline">
+          {t.landing.legal.pricingShort}
+        </Link>
         <Link to="/terms" className="hover:underline">
           {t.landing.legal.terms}
         </Link>
