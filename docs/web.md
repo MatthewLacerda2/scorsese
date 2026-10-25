@@ -2479,17 +2479,16 @@ another.
 
 ## The editor
 
-`/projects/{id}/edit` (#545), laid out as the desktop app is: a sidebar on the
-left — a **Library** button at the top (#702, #1006), then the project's
-**Assets** — the preview in the middle, the
-timeline under both, and on the right the selected clip's inspector over the
-assistant's chat panel. The code is `web/src/editor/`, the route
+`/projects/{id}/edit` (#545), laid out as the desktop app is: on the left the
+selected clip's inspector over the assistant's chat panel, the preview in the
+middle, the timeline under both, and on the right the assets panel — a
+**Library** button at the top (#702, #1006), then the project's **Assets**. The code is `web/src/editor/`, the route
 `crates/server/src/http/editor.rs`; their module docs carry each argument. It
 is a first version by the rule in `CLAUDE.md` — *the user can start editing
 with it* — and is meant to be tuned from use.
 
 **Assets are what is in the project; the library is what is owned** (#702).
-The sidebar lists only the first. The Library button opens the library page's
+The assets panel lists only the first. The Library button opens the library page's
 own browser in a modal, in picking mode, over the editor blurred behind it:
 picking a file is an `import`, which brings it into Assets without placing it,
 and the user drags it from there onto a lane.
