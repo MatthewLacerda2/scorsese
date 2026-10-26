@@ -32,6 +32,10 @@ fn a_clip_that_says_nothing_plays_at_its_sources_own_rate() {
 fn a_rate_is_read_as_written() {
     assert_eq!(speed_of(&with_clip(r#", "speed": 2.0"#)).get(), 2.0);
     assert_eq!(speed_of(&with_clip(r#", "speed": 0.25"#)).get(), 0.25);
+    assert_eq!(
+        speed_of(&with_clip(r#", "speed": 0.5"#)).to_string(),
+        "0.5×"
+    );
 }
 
 #[test]

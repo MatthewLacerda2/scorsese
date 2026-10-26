@@ -69,6 +69,10 @@ fn what_is_not_media_is_skipped_and_named_rather_than_ignored() {
             ("b-roll", SkipReason::NotAFile),
         ]
     );
+    assert_eq!(
+        SkipReason::NotAFile.to_string(),
+        "not a file — import does not recurse into directories"
+    );
     assert!(
         !project.assets.iter().any(|a| a.id.as_str() == "extra"),
         "import does not recurse"
@@ -93,6 +97,24 @@ fn an_id_an_asset_already_answers_to_refuses_the_whole_folder() {
     );
     assert_eq!(project.assets.len(), 1, "nothing was added");
     assert_eq!(pool(&dir), before, "and nothing was copied");
+}
+
+#[test]
+fn two_files_in_one_folder_wanting_one_id_refuse_it_whole() {
+    let (dir, mut project) = new_project("dir-twins");
+    source_file(&dir, "wide.mov", b"the wide shot, once");
+    source_file(&dir, "wide.mp4", b"the wide shot, again");
+    let refused = import_path(
+        &mut project,
+        &dir,
+        &dir.join("sources"),
+        None,
+        &StubProbe::video(),
+    )
+    .expect_err("both want `wide`");
+    assert!(matches!(refused, ImportError::IdTaken { ref id, .. } if id.as_str() == "wide"));
+    assert!(project.assets.is_empty());
+    assert!(pool(&dir).is_empty(), "nothing was copied");
 }
 
 #[test]

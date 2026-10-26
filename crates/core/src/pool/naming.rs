@@ -168,4 +168,16 @@ mod tests {
             "no file is a text asset"
         );
     }
+
+    #[test]
+    fn a_taken_file_name_counts_up_from_two_and_a_dot_file_keeps_its_name() {
+        let pool = crate::scratch::fresh("scorsese-naming", "");
+        std::fs::create_dir_all(&pool).unwrap();
+        for taken in ["logo.png", "logo-2.png", ".env"] {
+            std::fs::write(pool.join(taken), b"").unwrap();
+        }
+        assert_eq!(unique_file_name(&pool, Path::new("Logo.png")), "logo-3.png");
+        assert_eq!(unique_file_name(&pool, Path::new(".env")), ".env-2");
+        assert_eq!(split_extension(".env"), (".env", None));
+    }
 }

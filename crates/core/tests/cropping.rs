@@ -56,7 +56,7 @@ fn the_absent_case_is_not_written_back_out() {
     let project = Project::from_json(&with_clip("")).expect("parses");
     let json = project.to_json().expect("serialise");
     assert!(
-        !json.contains("\"crop\""),
+        !json.contains("\"crop\"") && !json.contains("\"anchor\""),
         "an uncropped clip must not grow a field it did not have:\n{json}"
     );
 }
@@ -96,18 +96,20 @@ fn a_rectangle_that_runs_off_the_source_is_refused() {
 /// no pixels — and nothing downstream has a sensible thing to do with it.
 #[test]
 fn a_rectangle_enclosing_none_of_the_source_is_refused() {
-    let project = Project::from_json(&with_clip(
+    for empty in [
         r#", "crop": { "x": 0.2, "y": 0.2, "width": 0.0, "height": 0.5 }"#,
-    ))
-    .expect("parses");
-    let errors = project.validate().expect_err("it does not validate");
-    assert!(
-        errors.as_slice().iter().any(|error| matches!(
-            error,
-            ValidationError::Timeline(TimelineProblem::CropOutsideSource { .. })
-        )),
-        "got {errors:?}"
-    );
+        r#", "crop": { "x": 0.2, "y": 0.2, "width": 0.5, "height": 0.0 }"#,
+    ] {
+        let project = Project::from_json(&with_clip(empty)).expect("parses");
+        let errors = project.validate().expect_err("it does not validate");
+        assert!(
+            errors.as_slice().iter().any(|error| matches!(
+                error,
+                ValidationError::Timeline(TimelineProblem::CropOutsideSource { .. })
+            )),
+            "got {errors:?}"
+        );
+    }
 }
 
 /// The message names the fields the way `project.json` spells them, so it

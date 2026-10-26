@@ -80,5 +80,6 @@ mod tests {
             project.assets[0].path.as_ref().map(ProjectPath::as_str),
             Some("assets/a.mp4")
         );
+        assert_eq!(project.assets[0].media, Some(MediaMetadata::default()));
     }
 }
