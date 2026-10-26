@@ -43,8 +43,9 @@
 //! shown `image/png` in its examples (#1341). So the same still is asked for
 //! once more as a PNG, and the step **reports** what came back — accepted with
 //! the picture's header, refused in the vendor's words, or a JPEG drawn anyway
-//! — rather than judging it: any of those is the answer #1341 waits on. Only
-//! no answer at all, or a rejected key, fails it.
+//! — rather than judging it: any of those is the answer #1341 waits on. A 429
+//! or a 5xx is reported as inconclusive, never as a refusal. Only no answer at
+//! all, or a rejected key, fails it.
 //!
 //! [`ResponseFormat::mime_type`]: crate::api::gemini::request::ResponseFormat::mime_type
 
@@ -141,12 +142,21 @@ pub(super) fn check(key: &Secret, tap: &Tap) -> (Vec<Step>, u64) {
     };
     steps.push(step);
     let answer = gemini.create(&png_body());
-    // A picture of either kind was drawn, and billed; a refusal was not.
-    if answer.as_ref().is_ok_and(|reply| reply.image().is_some()) {
-        spent += still_cents();
-    }
+    spent += png_cents(&answer);
     steps.push(png_step(answer));
     (steps, spent)
+}
+
+/// What the PNG probe spent, in cents: a reply the vendor drew is billed,
+/// counted as the still's step counts it — a picture of either kind, a 2xx
+/// body that would not parse, or a reply with neither picture nor words. A
+/// refusal, or the model's words alone, was not.
+pub fn png_cents(answer: &Result<Interaction, HttpError>) -> u64 {
+    let billed = match answer {
+        Err(error) => matches!(error, HttpError::Unreadable { .. }),
+        Ok(reply) => reply.image().is_some() || reply.said().is_empty(),
+    };
+    if billed { still_cents() } else { 0 }
 }
 
 /// What `GET models/{id}` said about the image model.
@@ -196,16 +206,26 @@ pub fn picture_step(answer: Result<Interaction, HttpError>) -> Step {
 /// What asking for a PNG gave back, reported rather than judged (#1341).
 ///
 /// Passes with a note for every answer the vendor gave; fails only on no
-/// answer, or on the key.
+/// answer, or on the key. Only a 4xx other than 429 is a refusal: a 429 or a
+/// 5xx says nothing about `image/png`, so it is reported as inconclusive.
 pub fn png_step(answer: Result<Interaction, HttpError>) -> Step {
     let call = "POST interactions as image/png";
     let reported = |note: String| Step::new(call, Verdict::Ok).noting(note);
     let reply = match answer {
         Err(error) => {
-            return match judge::gemini(&error) {
-                Verdict::Refused { said } => reported(format!("refused: {said}")),
-                Verdict::ShapeChanged { field } => reported(format!("unreadable reply: {field}")),
-                failed => Step::new(call, failed),
+            return match (judge::gemini(&error), &error) {
+                (Verdict::Refused { said }, HttpError::Refused { status, .. })
+                    if (400..500).contains(status) && *status != 429 =>
+                {
+                    reported(format!("refused: {said}"))
+                }
+                (Verdict::Refused { said }, _) => {
+                    reported(format!("inconclusive, try again: {said}"))
+                }
+                (Verdict::ShapeChanged { field }, _) => {
+                    reported(format!("unreadable reply: {field}"))
+                }
+                (failed, _) => Step::new(call, failed),
             };
         }
         Ok(reply) => reply,
@@ -221,11 +241,20 @@ pub fn png_step(answer: Result<Interaction, HttpError>) -> Step {
     let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(encoded) else {
         return reported(String::from("a picture that is not base64"));
     };
-    if let Some((width, height)) = judge::png_size(&bytes) {
-        return reported(format!(
-            "accepted: a {width}x{height} PNG, {} bytes — #1341 can switch",
-            bytes.len()
-        ));
+    match judge::png_size(&bytes) {
+        Some((SIDE, SIDE)) => {
+            return reported(format!(
+                "accepted: a {SIDE}x{SIDE} PNG, {} bytes — #1341 can switch",
+                bytes.len()
+            ));
+        }
+        Some((width, height)) => {
+            return reported(format!(
+                "a {width}x{height} PNG, {} bytes, asked for 1K ({SIDE}x{SIDE}) — the format was taken and the size or the shape was not",
+                bytes.len()
+            ));
+        }
+        None => {}
     }
     match judge::jpeg_size(&bytes) {
         Some((width, height)) => reported(format!(

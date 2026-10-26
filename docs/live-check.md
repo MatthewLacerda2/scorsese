@@ -52,7 +52,7 @@ make live-check ARGS="--include-veo --record /tmp/live"
 | | with `--include-veo`: one shot — 4 s, Lite, 720p — submitted, polled, downloaded | $0.20 |
 | Gemini (stills) | `GET models/gemini-nano-banana-2.1`, the one image model, listing `generateContent` and `batchGenerateContent` | free |
 | | one 1024x1024 still — Nano Banana 2.1, 1K, `1:1`, no references, the cheapest picture there is — through the product's own request | $0.04 |
-| | the same still asked for as `image/png` (#1341), **reported**, never failed: accepted (the picture's header), refused (the vendor's words) or a JPEG drawn anyway | at most $0.04, nothing if refused |
+| | the same still asked for as `image/png` (#1341), **reported**: accepted (the picture's header), refused (the vendor's words), inconclusive (a 429 or a 5xx) or a JPEG drawn anyway; fails only on no answer or a rejected key | at most $0.04, nothing if refused |
 | ElevenLabs | `GET /v1/voices?category=premade` (also picks the voice to speak with) | free |
 | | text-to-speech of `Checking.` on the `fast` model, with its timestamps | $0.01 |
 | | Voice Design from a 100-character passage — three candidates, **none kept** | $0.01 |
