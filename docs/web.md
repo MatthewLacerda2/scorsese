@@ -966,7 +966,7 @@ passwords (#952).
 
 **Kept forever, and past the account** (the maintainer, 2026-10-14): six
 months is the law's minimum, not a ceiling, so nothing prunes the table. It
-is not per user (`tests/isolation.rs` lists it with the reason): `user_id`
+is not per user (`tests/suite/isolation.rs` lists it with the reason): `user_id`
 has no foreign key, so `user delete` leaves the rows, and account ids are
 never reused, so they keep naming the same account. No member may read it,
 their own rows included, and nothing in the server does.
@@ -997,7 +997,7 @@ table (projects, library, jobs, credits…) is:
 1. **The table carries `user_id BIGINT NOT NULL REFERENCES users (id) ON
    DELETE CASCADE`**, enables row-level security, and has a policy
    `USING (user_id = (SELECT member_id()))` — copy `0001_accounts.sql`.
-   `tests/isolation.rs` reads the catalog and fails on any table that does
+   `tests/suite/isolation.rs` reads the catalog and fails on any table that does
    not. The cascade is also what makes account deletion complete.
 2. **Queries that act for a user run in `db::scoped(pool, user)`**, and need no
    owner filter: the policy is the filter. Inserts write `member_id()` as the
@@ -1914,7 +1914,7 @@ a conflict, since a tool is a function of the document). The folder's path
 never reaches the client. Each registry tool keeps the registry's own
 description, word for word; only `project` changes, to **the id** of one of the
 caller's projects. Every tool and argument is described, held by
-`tests/mcp/described.rs` as `docs/mcp.md` holds the registry, and every
+`tests/suite/mcp/described.rs` as `docs/mcp.md` holds the registry, and every
 registry tool is decided about in `tools/surface/` — one name a line, the
 lists below generated from it by `make mcp-table` — so a new one cannot reach
 the web — or be left off it — without a reason written down.

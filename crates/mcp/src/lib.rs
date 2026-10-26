@@ -10,7 +10,7 @@
 //! speaks MCP get the same tools, the same way an HTTP API does not care
 //! whether a browser, a phone or curl is calling. Claude is who this is
 //! developed and tested against, not a dependency, and nothing here may assume
-//! otherwise. `tests/neutral.rs` holds the part a test can see: no tool or
+//! otherwise. `tests/suite/neutral.rs` holds the part a test can see: no tool or
 //! argument names a client in what it says about itself.
 //!
 //! Boundary: protocol handling only. No editing logic of its own, no display,
@@ -82,7 +82,7 @@
 //! second copy of facts this crate already holds — and a tool added without a
 //! row was a capability nobody reading that page could learn about, failing
 //! nothing. [`tool_table`] renders it from [`registry`] instead, and
-//! `tests/table.rs` fails when the checked-in page is not what it produces.
+//! `tests/suite/table.rs` fails when the checked-in page is not what it produces.
 //! `make mcp-table` rewrites it.
 //!
 //! That is why [`Tool::costs`] exists at all. What a call spends was a fact

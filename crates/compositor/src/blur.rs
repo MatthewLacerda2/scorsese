@@ -210,7 +210,7 @@ fn pass<S: Sample>(
 
 /// The arithmetic, on buffers small enough to work out by hand.
 ///
-/// Here rather than in `tests/blurring.rs` because that is where the *effect*
+/// Here rather than in `tests/suite/blurring.rs` because that is where the *effect*
 /// is asserted — an edge comes out soft, a corner does not go dark — and an
 /// effect is satisfied by more than one arithmetic. The three functions above
 /// take a buffer and a radius and produce bytes, so the value to name is the

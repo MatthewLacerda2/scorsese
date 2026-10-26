@@ -14,7 +14,7 @@ is a statement about where this comparison is authoritative rather than a
 softening of the one before it; *The platform* below is the whole of why.
 
 **Pixels only.** Sound is guarded a different way, in
-`crates/render/tests/audio/`: those tests render real projects and ask how loud
+`crates/render/tests/suite/audio/`: those tests render real projects and ask how loud
 the result is over a window of time. There is no committed reference waveform
 and there should not be — a soundtrack that has been resampled and through a
 lossy encoder is not reproducible sample for sample, and a binary reference
@@ -88,7 +88,7 @@ Each compared frame is measured two ways, both with tolerance:
   colour, a frame a few levels bright, a cut one frame early.
 
 Neither alone is enough and each catches what the other waves through;
-`crates/golden/tests/comparing.rs` pins that to specific cases. Defaults are
+`crates/golden/tests/suite/comparing.rs` pins that to specific cases. Defaults are
 `min_ssim` 0.95 and `max_mean_error` 2.0, overridable per fixture under
 `tolerance`. They are deliberately loose enough to survive a different
 platform's x264 and far tighter than any real regression — red against blue
@@ -122,14 +122,14 @@ frame came back **bit-identical to the ungrained plate**.
 So grain, and anything else whose output is fine noise, is pinned where the
 claim can be exact instead:
 
-- **`crates/compositor/tests/grading/grain/`** — the pixels themselves, before
+- **`crates/compositor/tests/suite/grading/grain/`** — the pixels themselves, before
   an encoder has seen them: the same seed twice, a frame drawn alone against the
   same frame drawn after five others, one value on all three channels. And
   `pinned.rs`, which is this gate's job done another way — one exact frame and
   one exact seed written down as literals, so "the same project renders the same
   picture on every machine" is asserted rather than assumed. Exact rather than
   within a tolerance, because no encoder stands between.
-- **`crates/render/tests/pipeline/grain.rs`** — through a real render, in the
+- **`crates/render/tests/suite/pipeline/grain.rs`** — through a real render, in the
   two places a whole file is what is being claimed about: two renders of one
   project extract to identical frames, and a `--range` out of the middle of a
   timeline lands the same grain on the same timeline frame. The second compares
@@ -272,7 +272,7 @@ wrong by 2.2 and 22.5. Neither measure alone holds this fixture, and each waves
 through exactly what the other catches. `chroma_bleed`'s margin is the narrowest
 here (2.22 against a bar of 2.0, over encoder noise of 1.33) and that is
 inherent: a change confined to the colour-difference axes moves nothing a luma
-SSIM can see, so it is pinned exactly in `crates/compositor/tests/taping/` as
+SSIM can see, so it is pinned exactly in `crates/compositor/tests/suite/taping/` as
 well.
 
 **And the snow, which is grain's answer again.** With `vhs.noise` at `0.15` the
@@ -289,7 +289,7 @@ exactly, arrived at from the other direction. At `0.35` both sides fail
 outright, so there is no amount that works: light snow is deleted by x264 and
 heavy snow makes the frame unencodable to a tolerance. **So the fixture carries
 no `noise`, and what the tape adds per pixel is pinned before an encoder has
-seen it**, in `crates/compositor/tests/taping/snow.rs`, exactly as grain is.
+seen it**, in `crates/compositor/tests/suite/taping/snow.rs`, exactly as grain is.
 
 **One more thing worth recording, because it cost an afternoon.** The first
 version of this fixture used `smptebars` as its plate, on the reasoning that
@@ -319,7 +319,7 @@ because a bitrate target is not a `-crf` and the harness has no preset knob.
 Its key frame (frame 0) is the fragile one: x264 opens a starved encode at a
 coarse quantiser. CI decodes and encodes with the same `6.1.1-3ubuntu5` that
 blessed it. **If frame 0 alone starts failing after an ffmpeg change, measure
-before re-blessing** — and `crates/render/tests/pipeline/banding.rs`, which
+before re-blessing** — and `crates/render/tests/suite/pipeline/banding.rs`, which
 asserts the banding claim directly as row-to-row jumps in luma, is the check
 that says whether the dither itself broke.
 
@@ -429,7 +429,7 @@ rule that out first".
 Failing on a mismatch instead would make the suite unrunnable for anyone whose
 distribution ships something else, which is a gate going red for a cause its
 author cannot see in their own diff. Warning on every green run would train
-everyone to scroll past it. `crates/golden/tests/provenance.rs` holds both
+everyone to scroll past it. `crates/golden/tests/suite/provenance.rs` holds both
 halves to specific cases, including that a fixture whose record names a
 different ffmpeg still passes when its frames match.
 
@@ -607,7 +607,7 @@ in a cloud session (x86_64 Ubuntu, with CI's apt ffmpeg once installed).
 **Bless by name, never the whole suite.** The command above rewrites every
 fixture, so with a new fixture in hand run the existing ones first and bless
 nothing if any fails, then bless only the new one
-(`UPDATE_GOLDENS=1 cargo test -p scorsese-golden --test goldens -- --exact <name>`),
+(`UPDATE_GOLDENS=1 cargo test -p scorsese-golden --test suite -- --exact goldens::<name>`),
 and check that no other `expected/` changed before committing.
 
 **Re-blessing is legitimate when** the render changed on purpose and the new
@@ -662,7 +662,7 @@ those frames are uploaded as the `golden-failures` artifact.
 ## Adding a fixture
 
 1. Make the directory with `project.json` and `fixture.json`.
-2. Add its name to the `goldens!` list in `crates/golden/tests/goldens.rs`. If
+2. Add its name to the `goldens!` list in `crates/golden/tests/suite/goldens.rs`. If
    you forget, `every_fixture_is_covered` fails — an untested fixture sitting in
    the repository looking like coverage is exactly the failure mode this whole
    file exists to prevent.

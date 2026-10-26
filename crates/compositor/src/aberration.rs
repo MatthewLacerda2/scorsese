@@ -136,7 +136,7 @@ fn sample(source: &[u8], resolution: Resolution, point: (f64, f64), channel: usi
 
 /// The threshold arithmetic, which nothing outside this file can reach.
 ///
-/// Here rather than in `tests/aberrating/` for [`crate::blur`]'s reason: that is
+/// Here rather than in `tests/suite/aberrating/` for [`crate::blur`]'s reason: that is
 /// where the *effect* is asserted — a fringe grows outward, an edge keeps its
 /// alpha — and an effect is satisfied by more than one arithmetic. The number
 /// this hands back is the whole of what the clip's one number means, so the

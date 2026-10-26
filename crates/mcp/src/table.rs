@@ -8,7 +8,7 @@
 //! [`Tool::description`] being three lines from the cursor.
 //!
 //! So the table is not a second source. It is a rendering of the first one, and
-//! `tests/table.rs` holds the checked-in page to it — the same contract
+//! `tests/suite/table.rs` holds the checked-in page to it — the same contract
 //! `cargo fmt --check` has. A tool added without a row was previously a
 //! capability nobody reading the page could learn about, and nothing failed.
 //!

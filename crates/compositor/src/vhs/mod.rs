@@ -222,7 +222,7 @@ pub(crate) fn into<'a>(
 /// The two questions this file answers before any pixel is touched: is there a
 /// tape at all, and is this buffer one.
 ///
-/// Here rather than in `tests/taping/` because both are decisions rather than
+/// Here rather than in `tests/suite/taping/` because both are decisions rather than
 /// effects — one of them, `mono` on its own, produces no picture to assert
 /// against through the compositor's copy path, which is exactly the case it
 /// exists to catch.

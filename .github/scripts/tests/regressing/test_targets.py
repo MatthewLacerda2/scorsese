@@ -19,8 +19,9 @@ from regression import BROKEN, FAILED, PASSED, Target  # noqa: E402
 
 TREE = {
     "crates/core/Cargo.toml", "crates/core/tests/time.rs",
-    "crates/server/Cargo.toml", "crates/server/tests/api/main.rs",
-    "crates/server/tests/api/projects.rs", "crates/server/tests/common/mod.rs",
+    "crates/server/Cargo.toml", "crates/server/tests/suite/main.rs",
+    "crates/server/tests/suite/api/mod.rs", "crates/server/tests/suite/api/projects.rs",
+    "crates/server/tests/suite/logs.rs", "crates/server/tests/suite/common/mod.rs",
     "crates/golden/Cargo.toml", "crates/golden/fixtures/alpha/project.json",
     "web/package.json", "web/src/timeline/Track.test.tsx",
     ".github/scripts/tests/test_closing.py", ".github/scripts/tests/fixtures/a.json",
@@ -49,14 +50,16 @@ class Classify(unittest.TestCase):
     def test_each_file_names_the_target_its_runner_runs(self) -> None:
         self.assertEqual(regression.targets(sorted(TREE), exists), sorted([
             Target("cargo", "crates/core", "time"),
-            Target("cargo", "crates/server", "api"),
-            Target("cargo", "crates/golden", "goldens"),
+            Target("cargo", "crates/server", "suite"),
+            Target("cargo", "crates/server", "suite", "api"),
+            Target("cargo", "crates/server", "suite", "logs"),
+            Target("cargo", "crates/golden", "suite"),
             Target("bun", "web", "src/timeline/Track.test.tsx"),
             Target("unittest", "", ".github/scripts/tests/test_closing.py"),
         ]))
 
     def test_a_helper_or_a_fixture_names_none(self) -> None:
-        for path in ("crates/server/tests/common/mod.rs", ".github/scripts/tests/fixtures/a.json"):
+        for path in ("crates/server/tests/suite/common/mod.rs", ".github/scripts/tests/fixtures/a.json"):
             with self.subTest(path=path):
                 self.assertIsNone(regression.target(path, exists))
 

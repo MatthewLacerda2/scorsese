@@ -638,7 +638,7 @@ exclude_re = [
     #
     # Line-qualified, because the sibling mutations on both lines are real:
     # `>` to `<` or `==` at either site changes which samples are bent, and the
-    # glide tests in `tracks.rs` and `tests/song/articulation/glide.rs` kill
+    # glide tests in `tracks.rs` and `tests/suite/song/articulation/glide.rs` kill
     # all four.
     'tracks\.rs:82:53: replace > with >= in pitch_track',
     'tracks\.rs:98:25: replace > with >= in pitch_track',
@@ -653,7 +653,7 @@ exclude_re = [
     # dedups it away: the same reason `cuts`' own two widenings are above.
     #
     # Measured, not argued: `a_member_edge_on_the_windows_edge_is_the_group_
-    # clips_own_cut` (tests/plan/grouping/edges.rs) puts one member's start
+    # clips_own_cut` (tests/suite/plan/grouping/edges.rs) puts one member's start
     # exactly on the window's opening and another's end exactly on its close.
     # With both applied, the list goes from `[0, 30, 10, 30, 20]` to `[0, 30,
     # 10, 30, 10, 20, 20, 30]` and render's whole suite still passes, because
@@ -911,7 +911,7 @@ minimum_test_timeout = 30.0
 # nextest, not cargo-mutants' default of `cargo test`, so every baseline and
 # every mutant runs with the network refused (#1302). `.config/nextest.toml`'s
 # `offline` setup script is what refuses it, and only nextest runs that script:
-# under `cargo test`, `crates/providers/tests/offline` fails by design, which
+# under `cargo test`, `crates/providers/tests/suite/offline` fails by design, which
 # would fail the baseline of every run that reaches `scorsese-providers`, and
 # any mutant test that reached for a vendor would get the network. The copy
 # each mutant builds in keeps `.config/`, so the script comes with it.

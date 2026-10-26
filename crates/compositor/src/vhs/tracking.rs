@@ -114,7 +114,7 @@ impl Tracking {
     }
 }
 
-/// The displacement arithmetic, named where it is decided. `tests/taping/`
+/// The displacement arithmetic, named where it is decided. `tests/suite/taping/`
 /// asserts what a wobbling picture *looks* like — whole pixels, varying down
 /// the frame, moving with it — and every one of those claims is satisfied by
 /// more than one set of numbers. These are the numbers.

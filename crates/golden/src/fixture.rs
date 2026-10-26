@@ -92,7 +92,7 @@ pub struct RenderSpec {
 #[derive(Debug, Clone)]
 pub struct Fixture {
     /// The fixture directory's own name, which is how it is listed in
-    /// `tests/goldens.rs` and how it is named when it fails.
+    /// `tests/suite/goldens.rs` and how it is named when it fails.
     pub(crate) name: String,
     /// The committed fixture directory. Read from, never rendered into — the
     /// render happens in a scratch copy so the repository stays clean.

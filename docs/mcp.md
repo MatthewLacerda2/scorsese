@@ -2451,7 +2451,7 @@ the limit raised again.
 
 **A pointer names the tool.** A description that sends a client to more reading
 says `` `guide pages` ``, or `` `guide pages`, section *A Lottie animation* ``,
-never a path. `tests/described.rs` refuses a description or argument that
+never a path. `tests/suite/described.rs` refuses a description or argument that
 mentions `docs/`, and follows every pointer, so one naming a guide or a
 section that is not there fails the build.
 
@@ -2459,7 +2459,7 @@ section that is not there fails the build.
 …]` prints exactly what the tool answers, through the same function in
 `scorsese-core` (#916), so an installed build's terminal user is not sent to a
 `docs/` they do not have either. The CLI's pointers name it —
-`` `scorsese guide prices` `` — and `crates/cli/tests/guiding.rs` holds them to
+`` `scorsese guide prices` `` — and `crates/cli/tests/suite/guiding.rs` holds them to
 that the way `described.rs` holds the tools.
 
 ## Every tool describes itself, and that is a gate
@@ -2468,14 +2468,14 @@ A tool's description is the entire interface a client has to it. An undescribed
 tool is a capability that exists and cannot be found — nothing fails, the
 assistant simply never calls it, and nobody ever learns why.
 
-So `crates/mcp/tests/described.rs` walks the registry and fails on a tool or an
+So `crates/mcp/tests/suite/described.rs` walks the registry and fails on a tool or an
 argument that says nothing useful about itself. The same gate already covers
 `scorsese --help` and the animatable-property table in `project-format.md`.
 
 **A tool missing from this page was the same failure by another door**, and
 nothing caught it: the row's absence was invisible to every test in the repo, so
 an agent reading the page cold learned about every capability except the newest
-one. `crates/mcp/tests/table.rs` closes that by holding the page to the
+one. `crates/mcp/tests/suite/table.rs` closes that by holding the page to the
 registry — which is why a description's **first sentence** now has a second job.
 It is the cell, so it has to say what the tool is for on its own, without the
 rest of the paragraph standing behind it.

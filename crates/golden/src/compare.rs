@@ -7,7 +7,7 @@
 //! - **Mean absolute error**, per colour channel, catches *what* pixels are — a
 //!   wrong colour, a whole frame a few levels bright, a cut one frame early.
 //!
-//! Each of those is a failure the other waves through, and `tests/comparing.rs`
+//! Each of those is a failure the other waves through, and `tests/suite/comparing.rs`
 //! holds that claim to specific cases.
 
 use std::ops::Range;

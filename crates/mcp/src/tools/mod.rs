@@ -4,7 +4,7 @@
 //! A description is not a courtesy: it is the entire interface a client has to
 //! a tool. An undescribed tool is a capability that exists and cannot be
 //! found — nothing fails, the assistant on the other end simply never calls
-//! it. `tests/described.rs` walks this registry and fails on one that is
+//! it. `tests/suite/described.rs` walks this registry and fails on one that is
 //! missing, from the first tool onwards.
 //!
 //! Nothing here holds session state. Every tool takes the project directory it

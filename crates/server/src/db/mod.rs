@@ -13,7 +13,7 @@
 //! - **Named `NNNN_what_it_does.sql`**, four digits, numbered one after the
 //!   last with no gaps. Sequential rather than timestamped *because* branches
 //!   here are written in parallel and merged one at a time: two branches that
-//!   both add `0002_` collide when the second rebases, and `tests/migrations.rs`
+//!   both add `0002_` collide when the second rebases, and `tests/suite/migrations.rs`
 //!   fails on the duplicate, which is the loud version of that conflict. A
 //!   timestamp would let both through and apply them in an order neither
 //!   author tested.
@@ -24,7 +24,7 @@
 //!   migration is the next migration.
 //! - **A file sqlx would skip is an error, not a no-op.** sqlx silently
 //!   ignores a file whose name does not parse — `0002-users.sql` would simply
-//!   never run. `tests/migrations.rs` holds every file in the directory to the
+//!   never run. `tests/suite/migrations.rs` holds every file in the directory to the
 //!   naming rule so that a typo cannot become a table that does not exist.
 //!
 //! Forward-only: there are no down migrations. Undoing one on a database that

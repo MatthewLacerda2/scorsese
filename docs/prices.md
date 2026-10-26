@@ -8,7 +8,7 @@ trusting any total scorsese prints: **it is our arithmetic, not a bill.**
 figure was last checked and how old that is.
 
 **Every table here is held to the code** (#1218). A test
-(`crates/providers/tests/pricing/documented/`) reads each one — *Shots*, both
+(`crates/providers/tests/suite/pricing/documented/`) reads each one — *Shots*, both
 of them, *Stills*, *Narration*, *Music*, *The assistant* — with the day each section
 says its figures were read, and compares every cell with `prices`, both ways:
 a wrong figure, a missing row or an extra one fails `make gates` and names the

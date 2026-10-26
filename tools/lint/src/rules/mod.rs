@@ -19,6 +19,7 @@
 //!   root workspace, and the words a crate's source may not write (#1224).
 //! - [`printing`] — the web app's server logs through `tracing`, never a
 //!   print macro (#1520).
+//! - [`binaries`] — each crate links one integration-test binary (#1128).
 //! - [`agent_docs`] — every `CLAUDE.md` and skill within its line cap, a
 //!   skill's frontmatter loadable, and no history cited in either.
 //!
@@ -28,6 +29,7 @@
 
 pub mod agent_docs;
 pub mod allow;
+pub mod binaries;
 pub mod boundary;
 pub mod crate_docs;
 pub mod ignored;
@@ -91,6 +93,7 @@ pub fn check_tree(root: &Path) -> io::Result<Vec<Finding>> {
             findings.extend(schema::check(&file.path, text, current));
         }
         findings.extend(markers::check(&file.path, text));
+        findings.extend(binaries::check(&file.path, text));
         findings.extend(skips::check(&file.path, text));
         findings.extend(printing::check(&file.path, text));
         findings.extend(crate_docs::check(&file.path, text));
