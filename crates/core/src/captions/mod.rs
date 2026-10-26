@@ -20,8 +20,13 @@
 //! called anything else, is never touched. Editing a caption's words by hand
 //! is an edit the next run replaces, which its asset's note says.
 //!
-//! **A line with no timings is named and skipped, never guessed** — imported
-//! speech, or a narration generated before timings were kept.
+//! **Transcribed footage is captioned like a line** (#1549): an imported
+//! video or sound whose speech was transcribed has the same timings beside
+//! it, on whatever track its clip is.
+//!
+//! **A line with no timings is named and skipped, never guessed** — speech
+//! nobody transcribed on a track the caller named, or a narration generated
+//! before timings were kept.
 //!
 //! Like [`crate::dip`], this names no property: the caller hands in the
 //! property paths for the arrival and the height, and the style the text is
@@ -51,9 +56,10 @@ pub struct Captioning {
     /// The video track the captions go on. Made, on top of every other, when
     /// the project has no track so called.
     pub track: TrackId,
-    /// The audio tracks whose lines are captioned. Empty means every audio
-    /// track, where only generated narration counts — so music on its own
-    /// track is not reported as a line without timings.
+    /// The tracks whose clips are captioned. Empty means generated narration
+    /// on any audio track and transcribed recordings on any track — so music,
+    /// or footage nobody transcribed, is not reported as a line without
+    /// timings.
     pub narration: Vec<TrackId>,
     /// How lines are cut and timed.
     pub chunking: Chunking,

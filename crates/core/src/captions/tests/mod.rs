@@ -2,6 +2,7 @@
 
 mod disk;
 mod fixture;
+mod footage;
 
 use crate::ClipId;
 use crate::captions::{Chunking, chunks, time};

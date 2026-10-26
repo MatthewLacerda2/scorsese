@@ -62,7 +62,7 @@ pub fn caption(
         ..Captioned::default()
     };
     let mut all = Vec::new();
-    for clip in narration(&next, asked) {
+    for clip in narration(&next, root, asked) {
         let words = next
             .asset(&clip.asset)
             .and_then(|asset| Words::of(asset, root));
@@ -81,18 +81,29 @@ pub fn caption(
     Ok(report)
 }
 
-/// The narration clips `asked` names, in document order.
-fn narration<'a>(project: &'a Project, asked: &Captioning) -> Vec<&'a Clip> {
+/// The clips whose words `asked` captions, in document order: every clip on
+/// the tracks it names; or, when it names none, each generated narration line
+/// on an audio track and each transcribed recording on any track (#1549).
+fn narration<'a>(project: &'a Project, root: &Path, asked: &Captioning) -> Vec<&'a Clip> {
+    if !asked.narration.is_empty() {
+        return project
+            .tracks
+            .iter()
+            .filter(|track| asked.narration.contains(&track.id))
+            .flat_map(|track| &track.clips)
+            .collect();
+    }
     project
-        .tracks_of(TrackKind::Audio)
-        .filter(|track| asked.narration.is_empty() || asked.narration.contains(&track.id))
-        .flat_map(|track| &track.clips)
-        .filter(|clip| {
-            !asked.narration.is_empty()
-                || project
-                    .asset(&clip.asset)
-                    .is_some_and(|asset| asset.kind == AssetKind::GeneratedAudio)
+        .tracks
+        .iter()
+        .flat_map(|track| track.clips.iter().map(move |clip| (track.kind, clip)))
+        .filter(|(kind, clip)| {
+            project.asset(&clip.asset).is_some_and(|asset| {
+                (*kind == TrackKind::Audio && asset.kind == AssetKind::GeneratedAudio)
+                    || (Words::transcribable(asset.kind) && Words::of(asset, root).is_some())
+            })
         })
+        .map(|(_, clip)| clip)
         .collect()
 }
 
