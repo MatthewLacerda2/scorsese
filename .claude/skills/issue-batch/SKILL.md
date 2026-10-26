@@ -271,14 +271,17 @@ compiling:
    and not `git branch --merged`, which misses squashes — and of any branch with
    no commits beyond `main` and no agent standing in it. Unmerged work is only
    ever deleted by the user.
-2. `git pull --ff-only` on `main`.
-3. `make release`, then `cargo build --release --manifest-path app/Cargo.toml`,
-   one after the other, launching nothing. A connected MCP client keeps the old
-   server until it reconnects: say so.
+2. When the operator asked for a deploy, `make finish-batch` on `main`: it
+   pulls, rebuilds the local tools and updates the web app, each half whatever
+   the other did. Otherwise `git pull --ff-only`, then `make local-tools`.
+   Launch nothing. A connected MCP client keeps the old server until it
+   reconnects: say so. A failed half is reported with its last lines, never
+   retried blind: a failed web update says where the checkout, the images and
+   the running stack are, and rolling back stays the operator's call
+   (`docs/web.md`, *Restoring*).
 
 Nothing deploys on merge. The web app is updated by hand from `main`, once, at
-the end of a batch, when the operator asks, with `deploy/update` (`docs/web.md`,
-*Updating*). The
+the end of a batch, only on the operator's word (`docs/web.md`, *Updating*). The
 desktop app, CLI and MCP server are built from source; a `v*` tag makes
 `release.yml` build the CLI and MCP server, which is welcome, never required.
 

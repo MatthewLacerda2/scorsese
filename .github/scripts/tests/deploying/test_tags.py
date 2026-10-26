@@ -13,7 +13,7 @@ import unittest
 from .scripted import APPLIED, BUSY, DUMPED, ENV, GIT, IDLE, PS, ROOT, Result, Scripted, stack, update
 
 PULLED = GIT + [(["pull"], Result(0)), APPLIED]
-HEALTHY = (["--format json"], Result(0, PS))
+HEALTHY = (["ps --all"], Result(0, PS))
 
 
 def tagging(host):

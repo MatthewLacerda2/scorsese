@@ -14,7 +14,7 @@ PULLED = GIT + [(["pull"], Result(0)), APPLIED, IDLE]
 
 class Order(unittest.TestCase):
     def test_the_build_comes_before_the_drain_the_dump_and_the_restart(self):
-        host = Scripted(PULLED + [(["backup backup"], DUMPED), (["--format json"], Result(0, PS))])
+        host = Scripted(PULLED + [(["backup backup"], DUMPED), (["ps --all"], Result(0, PS))])
         code, _, err = update(host)
         self.assertEqual(code, 0, err)
         index = {step: next(i for i, c in enumerate(host.ran) if step in c)
@@ -47,7 +47,7 @@ class Before(unittest.TestCase):
 
 class WayBack(unittest.TestCase):
     def test_a_health_timeout_names_the_commit_and_the_dump(self):
-        sick = (["--format json"], Result(0, '{"Service":"server","State":"running","Health":"unhealthy"}'))
+        sick = (["ps --all"], Result(0, '{"Service":"server","State":"running","Health":"unhealthy"}'))
         host = Scripted(PULLED + [(["backup backup"], DUMPED), sick])
         code, _, err = update(host, "--timeout", "0")
         self.assertEqual(code, 1)

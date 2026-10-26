@@ -22,13 +22,14 @@ from typing import List, Optional, Sequence
 
 from . import stack
 from .finish import Finish
+from .spool import Spool
 from .host import Host, Refusal, Result, read_env
 from .options import parse
 
 DEPLOY = Path(__file__).resolve().parent.parent
 
 
-class Update(Finish):
+class Update(Finish, Spool):
     """One run: the options, the machine, and what it learns on the way."""
 
     POLL = 30  # seconds between looks at the running work, under --wait
@@ -274,10 +275,12 @@ class Update(Finish):
         args = self.compose_args(["up", "--detach"])
         started = datetime.datetime.fromtimestamp(self.host.now(), datetime.timezone.utc)
         if self.opts.dry_run:
-            self.say(f"would move `latest` to each `:{self.tag()}` image, then run: "
-                     + " ".join(args))
+            self.say(f"would move `latest` to each `:{self.tag()}` image")
+            self.respool()
+            self.say("would run: " + " ".join(args))
         else:
             self.retag()
+            self.respool()
             self.stage = "restarted"
             if self.host.stream(args, cwd=self.deploy) != 0:
                 self.server_logs()

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Callable, Dict, List, Sequence
+from typing import Callable, Dict, List, Sequence, Tuple
 
 from .host import Refusal, Result
 
@@ -38,6 +38,11 @@ REVISION = "org.opencontainers.image.revision"
 # build writes them under the new commit's tag, and the restart moves `latest`
 # to them, so until then whatever starts one by name (page captures start
 # `scorsese-server`) gets the build the stack runs.
+# The volume that points capture-launcher at the capture spool (compose.yaml,
+# `capture-spool`). It keeps the folder it was made with, so after
+# SCORSESE_DATA moves it must be made again, which `up` only asks at a terminal.
+SPOOL = "capture-spool"
+
 BUILT = ("scorsese-server", "scorsese-capture-launcher", "scorsese-web", "scorsese-backup")
 TAG = "SCORSESE_IMAGE_TAG"
 
@@ -126,6 +131,24 @@ def not_ready(entries: Sequence[dict], names: Sequence[str] = ()) -> List[str]:
         elif health not in ("", "healthy"):
             waiting.append(f"{name} ({health})")
     return sorted(waiting)
+
+
+def spool(config_json: str) -> Tuple[str, str]:
+    """The spool volume's name and the folder it should point at, from `config --format json`."""
+    try:
+        volume = json.loads(config_json)["volumes"][SPOOL]
+        return volume["name"], volume["driver_opts"]["device"]
+    except (ValueError, KeyError, TypeError):
+        raise Refusal(f"`docker compose config` does not describe the `{SPOOL}` volume "
+                      "the way deploy/compose.yaml declares it") from None
+
+
+def volume_device(inspect_json: str) -> str:
+    """The folder a local bind volume points at, from `docker volume inspect`'s options."""
+    try:
+        return (json.loads(inspect_json) or {}).get("device") or ""
+    except ValueError:
+        return ""
 
 
 def stored_migrations(log: str) -> int:

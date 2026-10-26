@@ -551,9 +551,13 @@ nothing, because every merge goes through `make queue`, which rebases first.
 
 From anywhere in the checkout, on `main`:
 
-    deploy/update                # --dry-run to see what it would do first
+    make deploy-web              # deploy/update --wait
 
-It runs the whole update and stops, saying why, at the first thing wrong. It
+At the end of a batch, `make finish-batch` pulls `main` once, then rebuilds the
+local tools (`make local-tools`: the CLI, the MCP server and the desktop app)
+and runs `make deploy-web`, each whether or not the other failed, and ends
+with one line per half. By hand, `deploy/update` takes the flags below
+(`--dry-run` to see what it would do first). It runs the whole update and stops, saying why, at the first thing wrong. It
 first names the commit the stack runs, which is the way back, then:
 
 1. **Refuses** unless the checkout is on `main` with nothing uncommitted, and
@@ -576,7 +580,8 @@ first names the commit the stack runs, which is the way back, then:
    during the backup is caught by a second look: it refuses, keeping the
    dump, or under `--wait` waits again and takes a fresh one.
 5. **Restarts** on the new build: moves `latest` to each new image, drops the
-   commit's tag, then `docker compose up --detach`. A server that never turns
+   commit's tag, makes the `capture-spool` volume again if `SCORSESE_DATA` has
+   moved (below), then `docker compose up --detach`. A server that never turns
    healthy fails here, with its last lines and the way back.
 6. **Waits for every service to be healthy**, ten minutes by default
    (`--timeout`); past that it prints the server's last lines and stops.
@@ -625,12 +630,14 @@ labels the image, so the next update knows what runs), and restore the dump
 (*Restoring*, below). BuildKit's cache for the Rust build
 grows over time; `docker buildx du` shows it.
 
-**If `SCORSESE_DATA` has moved** since the last `up`, Compose asks whether to
-recreate the volume `capture-spool`, warning that data will be lost. Answer
-yes: that volume only points `capture-launcher` at `cache/captures`, and
-recreating it deletes nothing (`deploy/compose.yaml` has why the spool is a
-volume, #861). Answered no, or run without a terminal, it keeps the old path,
-and every page capture waits out its 30 s and draws a slug card.
+**If `SCORSESE_DATA` has moved** since the last `up`, the volume
+`capture-spool` still points at the old folder. `deploy/update` sees it and
+removes `capture-launcher` and the volume before `up`, which makes both again;
+the volume only points `capture-launcher` at `cache/captures`, so this deletes
+nothing (`deploy/compose.yaml` has why the spool is a volume, #861). A hand
+`docker compose up` asks instead whether to recreate it, warning that data will
+be lost: answer yes. Answered no, or run without a terminal, it keeps the old
+path, and every page capture waits out its 30 s and draws a slug card.
 
 ### Backups
 

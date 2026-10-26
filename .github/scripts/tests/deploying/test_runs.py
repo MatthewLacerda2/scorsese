@@ -11,7 +11,7 @@ from .scripted import APPLIED, GIT, IDLE, PS, Result, Scripted, update
 
 class DryRun(unittest.TestCase):
     def test_it_prints_every_step_and_changes_nothing(self):
-        host = Scripted(GIT + [APPLIED, IDLE, (["--format json"], Result(0, PS))])
+        host = Scripted(GIT + [APPLIED, IDLE, (["ps --all"], Result(0, PS))])
         code, out, err = update(host, "--dry-run")
         self.assertEqual(code, 0, err)
         for n in range(1, 10):
@@ -39,7 +39,7 @@ class RealRun(unittest.TestCase):
         logs = Result(0, "server-1 | migrated 2 stored projects to this build's format\n")
         host = Scripted(GIT + [(["pull"], Result(0)), (["chat_turns"], [busy, Result(0)]),
                                (["_sqlx_migrations"], [APPLIED[1], Result(0, "1\ta\n43\tnew thing\n")]),
-                               (["backup backup"], dumped), (["--format json"], Result(0, PS)),
+                               (["backup backup"], dumped), (["ps --all"], Result(0, PS)),
                                (["logs server --since"], logs)])
         code, out, err = update(host, "--wait")
         self.assertEqual(code, 0, err)
