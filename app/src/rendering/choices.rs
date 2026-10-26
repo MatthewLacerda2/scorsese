@@ -1,6 +1,6 @@
 //! What a render is asked to make: the plain settings, and their defaults.
 //!
-//! Three choices and no more — size, frame rate, kind of file — each with a
+//! Four choices and no more — size, frame rate, kind of file, loudness — each with a
 //! default good enough that pressing Render without touching any of them gives
 //! the file most people want: a 1080p mp4 at the edit's own rate, in the
 //! project's own shape (#1278) — 1920 × 1080 for 16:9, 1080 × 1920 for 9:16. Bitrates,
@@ -11,7 +11,7 @@
 use egui::{ComboBox, Ui};
 use scorsese_core::frame::{DELIVERY_LINES, even};
 use scorsese_core::{Fps, Ratio};
-use scorsese_render::{Container, OutputFormat, RenderSettings, Resolution};
+use scorsese_render::{Container, LoudnessTarget, OutputFormat, RenderSettings, Resolution};
 
 /// The sizes on offer, as `(name, lines on the frame's shorter side)`, each in
 /// the project's shape: its default delivery first (`Ratio::delivery`). The
@@ -20,6 +20,45 @@ const SIZES: [(&str, u32); 3] = [("1080p", DELIVERY_LINES), ("720p", 720), ("4K"
 
 /// The rates on offer besides the edit's own.
 const RATES: [Fps; 4] = [Fps::FILM, Fps::PAL, Fps::THIRTY, Fps::SIXTY];
+
+/// Where the soundtrack is headed, as the web's menu words it: the loudness a
+/// destination plays back at, or the mix as balanced.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Loudness {
+    /// The mix as balanced, conformed to nothing.
+    Mixed,
+    /// Streaming platforms and social feeds, about −14 LUFS.
+    Streaming,
+    /// Podcast apps, about −16 LUFS.
+    Podcast,
+}
+
+impl Loudness {
+    const ALL: [Self; 3] = [Self::Mixed, Self::Streaming, Self::Podcast];
+
+    /// The integrated loudness to deliver at, in LUFS; `None` leaves the mix.
+    fn lufs(self) -> Option<f64> {
+        match self {
+            Self::Mixed => None,
+            Self::Streaming => Some(-14.0),
+            Self::Podcast => Some(-16.0),
+        }
+    }
+
+    /// The entry as the menu says it — the web's own words.
+    fn words(self) -> &'static str {
+        match self {
+            Self::Mixed => "As mixed",
+            Self::Streaming => "Streaming and social (−14 LUFS)",
+            Self::Podcast => "Podcast (−16 LUFS)",
+        }
+    }
+
+    /// The target the renderer takes, through the CLI's own type.
+    fn target(self) -> Option<LoudnessTarget> {
+        self.lufs().and_then(|lufs| LoudnessTarget::new(lufs).ok())
+    }
+}
 
 /// The render settings as the dialog holds them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,6 +69,8 @@ pub(crate) struct Choices {
     rate: Option<Fps>,
     /// The kind of file. Its codecs are the container's defaults.
     container: Container,
+    /// Where the soundtrack is headed; the mix as balanced unless said.
+    loudness: Loudness,
 }
 
 impl Default for Choices {
@@ -38,6 +79,7 @@ impl Default for Choices {
             size: 0,
             rate: None,
             container: Container::DEFAULT,
+            loudness: Loudness::Mixed,
         }
     }
 }
@@ -49,6 +91,7 @@ impl Choices {
         let (_, lines) = SIZES.get(self.size).copied().unwrap_or(SIZES[0]);
         RenderSettings::new(sized(aspect, lines), self.rate.unwrap_or(own))
             .with_format(OutputFormat::defaults_for(self.container))
+            .with_loudness(self.loudness.target())
     }
 
     /// The container chosen, which also names the file's extension.
@@ -56,7 +99,7 @@ impl Choices {
         self.container
     }
 
-    /// The three menus. The sizes are in the project's shape, `aspect`; `own`
+    /// The menus. The sizes are in the project's shape, `aspect`; `own`
     /// is the edit's rate, named in its option.
     pub(crate) fn show(&mut self, ui: &mut Ui, aspect: Ratio, own: Fps) {
         egui::Grid::new("render choices")
@@ -69,6 +112,15 @@ impl Choices {
                     .show_ui(ui, |ui| {
                         for container in Container::ALL {
                             ui.selectable_value(&mut self.container, container, kind(container));
+                        }
+                    });
+                ui.end_row();
+                ui.label("Loudness");
+                ComboBox::from_id_salt("render loudness")
+                    .selected_text(self.loudness.words())
+                    .show_ui(ui, |ui| {
+                        for each in Loudness::ALL {
+                            ui.selectable_value(&mut self.loudness, each, each.words());
                         }
                     });
                 ui.end_row();
@@ -152,6 +204,28 @@ mod tests {
         assert_eq!(upright.resolution.to_string(), "1080x1920");
         assert_eq!(settings.fps, Fps::PAL);
         assert_eq!(settings.format, OutputFormat::default());
+        assert_eq!(settings.loudness, None);
+    }
+
+    /// The two destinations reach the renderer as the targets the web sends.
+    #[test]
+    fn a_chosen_loudness_reaches_the_settings() {
+        let aim = |loudness| {
+            let chosen = Choices {
+                loudness,
+                ..Choices::default()
+            };
+            chosen.settings(Ratio::WIDE, Fps::THIRTY).loudness
+        };
+        assert_eq!(aim(Loudness::Mixed), None);
+        assert_eq!(
+            aim(Loudness::Streaming).map(LoudnessTarget::lufs),
+            Some(-14.0)
+        );
+        assert_eq!(
+            aim(Loudness::Podcast).map(LoudnessTarget::lufs),
+            Some(-16.0)
+        );
     }
 
     /// Every size on offer is in the project's shape, and says what it is.
