@@ -10,11 +10,11 @@
 //! a plan starting at 0:40, so nothing before it is decoded. The renderer
 //! already takes a `FrameRange`; this asks for one.
 //!
-//! **Mixed off the window's thread.** Mixing spawns an ffmpeg per audible clip
-//! per stretch, which is far too slow to do between two repaints. It happens
-//! on a worker; until it lands, the picture plays silently on the wall clock
-//! and then the sound takes over the clock when it starts. A window that froze
-//! on the play button would be a worse answer than a beat of silence.
+//! **Mixed off the window's thread.** Mixing spawns an ffmpeg per audible clip,
+//! which is far too slow to do between two repaints. It happens on a worker;
+//! until it lands, the picture plays silently on the wall clock and then the
+//! sound takes over the clock when it starts. A window that froze on the play
+//! button would be a worse answer than a beat of silence.
 //!
 //! ## Scrubbing and stepping are silent, deliberately
 //!

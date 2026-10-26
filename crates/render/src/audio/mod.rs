@@ -1,10 +1,11 @@
 //! The audio half of a render: decode, mix, hand the result to the encoder.
 //!
 //! Structurally this mirrors what happens to picture. The plan cuts the
-//! timeline where the *audible* set changes, one decoder runs per clip in a
-//! stretch, and the samples are summed in our process — ffmpeg decodes and
-//! encodes, and every decision about what is heard when is ours. That is Path B
-//! with a different medium.
+//! timeline where the *audible* set changes, each stretch reads its share of
+//! every clip heard in it — off one decoder per clip, kept open across the
+//! stretches the clip plays through — and the samples are summed in our
+//! process. ffmpeg decodes and encodes, and every decision about what is heard
+//! when is ours. That is Path B with a different medium.
 //!
 //! A shot in one of these stretches can be a clip on a **video** track, when
 //! its file has sound on it. Nothing here knows the difference: a source of
@@ -26,6 +27,7 @@ pub(crate) mod mix;
 pub(crate) mod peaks;
 pub(crate) mod read;
 pub mod reference;
+mod sources;
 pub(crate) mod speech;
 pub(crate) mod wave;
 
@@ -37,12 +39,13 @@ use scorsese_core::Frames;
 
 use crate::cancel::Cancel;
 use crate::error::{RenderError, Stage};
-use crate::pipe::{AudioDecoder, AudioSource};
 use crate::plan::{Plan, Segment, Shot};
 use crate::report::{Note, StandIn};
 use crate::settings::RenderSettings;
 use crate::slug::Standing;
 use crate::tools::Tools;
+
+use sources::Sources;
 
 pub use gain::{Gain, path};
 pub use headroom::{DELIVERY_CEILING_DBTP, Trim};
@@ -100,8 +103,8 @@ pub fn mixdown(
     mixdown_unless(tools, settings, plan, (project_root, out), &Cancel::new())
 }
 
-/// [`mixdown`], looking at `cancel` before each clip is decoded (#1088): a long
-/// timeline starts one ffmpeg per clip per segment, minutes of them, and a stop
+/// [`mixdown`], looking at `cancel` before each clip is mixed (#1088): a long
+/// timeline mixes every clip in every segment, minutes of them, and a stop
 /// asked for then should not wait them out. Stopped, it is
 /// [`RenderError::Cancelled`] with nothing written, and the scratch file goes.
 pub(crate) fn mixdown_unless(
@@ -126,16 +129,18 @@ pub(crate) fn mixdown_unless(
     let mut notes = Vec::new();
     let mut levels = Levels::new(settings.sample_rate.hz());
 
-    for segment in plan.audio() {
+    let mut sources = Sources::new(tools, settings, plan);
+    for (index, segment) in plan.audio().iter().enumerate() {
         let mix = mix_segment(
-            (tools, cancel),
-            settings,
+            cancel,
+            &mut sources,
             plan,
             project_root,
-            segment,
+            (index, segment),
             &mut notes,
             &mut levels,
         )?;
+        sources.close_after(index)?;
         // The mix is metered as it is written rather than afterwards: the file
         // is the only place the whole thing ever exists, and reading it back to
         // measure it would be a second pass over every sample of the render.
@@ -159,16 +164,16 @@ pub(crate) fn mixdown_unless(
 }
 
 /// Sums one stretch of timeline, in which the audible set does not change.
-fn mix_segment(
-    (tools, cancel): (&Tools, &Cancel),
-    settings: &RenderSettings,
-    plan: &Plan<'_>,
+fn mix_segment<'a>(
+    cancel: &Cancel,
+    sources: &mut Sources<'_, 'a>,
+    plan: &Plan<'a>,
     project_root: &Path,
-    segment: &Segment<'_>,
+    (index, segment): (usize, &Segment<'a>),
     notes: &mut Vec<Note>,
     levels: &mut Levels,
 ) -> Result<Mix, RenderError> {
-    let rate = settings.sample_rate.hz();
+    let rate = sources.settings().sample_rate.hz();
     let frames = plan.samples_of(segment, rate);
     let mut mix = Mix::silence(frames as usize);
     if frames == 0 {
@@ -196,10 +201,9 @@ fn mix_segment(
         let Some(file) = audio_file(shot, project_root, notes)? else {
             continue;
         };
-        let source = audio_source(shot, file, plan, frames);
-        let mut decoder = AudioDecoder::start(tools, &source, settings)?;
-        let read = decoder.read(&mut decoded, frames as usize)?;
-        decoder.finish()?;
+        let read = sources
+            .decoder(index, shot, file)?
+            .read(&mut decoded, frames as usize)?;
 
         if read < frames as usize {
             notes.push(Note::AudioRanShort {
@@ -254,16 +258,6 @@ fn audio_file(
             }
             Ok(None)
         }
-    }
-}
-
-/// How much of a shot's sound to read, and from where in it.
-fn audio_source(shot: &Shot<'_>, file: PathBuf, plan: &Plan<'_>, frames: u64) -> AudioSource {
-    AudioSource {
-        file,
-        seek_seconds: plan.timeline_fps().seconds_at(shot.source_in),
-        speed: shot.clip.speed,
-        frames,
     }
 }
 

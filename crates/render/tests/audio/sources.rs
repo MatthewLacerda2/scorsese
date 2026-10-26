@@ -1,14 +1,15 @@
 //! Where a clip opens in its own media, and what happens when it runs out.
 
-use scorsese_core::Clip;
-use scorsese_render::Note;
+use scorsese_core::{AssetKind, Clip, Fps};
+use scorsese_render::audio::mixdown;
+use scorsese_render::{FrameRange, Note, Plan, RenderSettings, Resolution};
 
 use crate::common::audio::{
     assert_audible, assert_silent, level, soundtrack, tone_asset, with_volume,
 };
 use crate::common::ffmpeg::tools;
 use crate::common::scratch;
-use crate::common::{audio_track, clip_from, project, video_track};
+use crate::common::{audio_track, clip_from, file_asset, project, video_track};
 use crate::{picture, render};
 
 #[test]
@@ -105,5 +106,35 @@ fn a_clip_outlasting_its_source_goes_silent_and_says_so() {
         (900..=1100).contains(&missing),
         "about a second should be missing, not {missing}ms"
     );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn a_sound_ffmpeg_cannot_read_fails_the_mix_and_the_first_track_id_is_the_one_named() {
+    // #1607: the decoders were finished in hash order, so which of two broken
+    // files the error named changed from one render to the next.
+    let tools = tools();
+    let dir = scratch::dir("unreadable-sound");
+    std::fs::create_dir_all(dir.join("assets")).expect("make assets/");
+    for id in ["bad1", "bad2"] {
+        std::fs::write(dir.join(format!("assets/{id}.wav")), b"not a sound").expect("write it");
+    }
+    let project = project(
+        vec![
+            file_asset("bad1", AssetKind::Audio),
+            file_asset("bad2", AssetKind::Audio),
+        ],
+        vec![
+            audio_track("a1", vec![Clip::at("m1", "bad1", 0, 30)]),
+            audio_track("a2", vec![Clip::at("m2", "bad2", 0, 30)]),
+        ],
+    );
+    let settings = RenderSettings::new(Resolution::new(32, 32).expect("legal"), Fps::THIRTY);
+    let plan = Plan::build_sound(&project, Fps::THIRTY, FrameRange::ALL).expect("a plan");
+
+    let Err(error) = mixdown(&tools, &settings, &plan, &dir, &dir.join("out.wav")) else {
+        panic!("an unreadable file was mixed as silence");
+    };
+    assert!(error.to_string().contains("bad1.wav"), "{error}");
     std::fs::remove_dir_all(&dir).ok();
 }
