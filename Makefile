@@ -143,7 +143,7 @@ MUTANTS_TMPDIR := $(or $(XDG_CACHE_HOME),$(HOME)/.cache)/scorsese/mutants
 # second is the one that would otherwise bite: two worktrees can run this at
 # once, so a blanket clean would delete the other one's scratch; and `TMPDIR`
 # is where *the tests* put their own temporary directories too. The project
-# fixtures under `crates/core/tests/common/` create a `scorsese-<label>.scor`
+# fixtures under `crates/core/tests/suite/common/` create a `scorsese-<label>.scor`
 # per call and never remove it, which is invisible while it lands in a /tmp
 # that is wiped at boot and would be a slow leak in a cache directory that is
 # not. A run cleans up after itself instead.
@@ -386,7 +386,7 @@ format: ## [gate] cargo fmt --check, workspace and tools/lint
 # `pre-commit`, so putting it through nextest would mean a clone that has not
 # installed the runner yet cannot commit at all — and there is nothing to win:
 # six small test files, nothing for a scheduler to overlap.
-size: ## [gate] Source <= 300 lines of code, tests <= 150; and the conventions tools/lint holds (prefix groups, markers, skips, crate docs, schema literals, script modes, crate boundaries, no prints in the server, CLAUDE.md and skill caps)
+size: ## [gate] Source <= 300 lines of code, tests <= 150; and the conventions tools/lint holds (prefix groups, markers, skips, crate docs, schema literals, script modes, crate boundaries, no prints in the server, one test binary per crate, CLAUDE.md and skill caps)
 	@out=$$(cargo test $(LINT) --locked --quiet 2>&1) \
 		|| { printf '%s\n' "$$out" >&2; exit 1; }
 	cargo run $(LINT) --locked --quiet
@@ -408,7 +408,7 @@ docs: ## [gate] cargo doc with -D warnings: a broken intra-doc link is a failure
 	RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
 
 # nextest rather than `cargo test`, and the reason is scheduling. This
-# workspace has 147 test binaries; cargo runs them essentially one at a time and
+# workspace has a test binary per crate; cargo runs them one at a time and
 # threads only *within* each, so the slow render and golden binaries leave the
 # other cores idle while they finish. nextest puts every test from every binary
 # into one global pool and gives each its own process (#225 measured the
@@ -928,7 +928,7 @@ format-fix: ## Rewrite files to satisfy the format gate
 # second implementation, so what rewrites the page and what holds the page to it
 # can never disagree about the answer.
 mcp-table: ## Rewrite docs/mcp.md's tool table and docs/web.md's served-tool lists from the code
-	UPDATE_MCP_TABLE=1 cargo test --locked -p scorsese-mcp --test table
+	UPDATE_MCP_TABLE=1 cargo test --locked -p scorsese-mcp --test suite -- table::
 	UPDATE_WEB_TOOLS=1 cargo test --locked -p scorsese-server --lib tools::surface::page
 	@echo "mcp-table: docs/mcp.md and docs/web.md now say what the code says."
 

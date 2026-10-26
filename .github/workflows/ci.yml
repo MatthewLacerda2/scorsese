@@ -288,7 +288,7 @@ jobs:
       # examples are parsed as projects and its animatable-property table is
       # held to what the code publishes. Nothing extra to invoke here.
       #
-      # nextest rather than `cargo test`: 147 test binaries, which cargo runs
+      # nextest rather than `cargo test`: cargo runs the test binaries
       # essentially one at a time while threading only within each. nextest
       # schedules every test from every binary in one pool and runs each in its
       # own process, so a crash costs one result instead of a binary's worth

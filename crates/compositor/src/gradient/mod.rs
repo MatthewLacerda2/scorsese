@@ -23,7 +23,7 @@
 //! between neighbouring rows' mean luma was **2.0 levels undithered, 2.0 with
 //! Bayer, 0.78 with noise one level either side and 0.37 with this** (frame 15
 //! of 30); film grain on top (`grade.grain` 0.1) moved it only to 0.31, so the
-//! dither is what does the work. `crates/render/tests/pipeline/banding.rs`
+//! dither is what does the work. `crates/render/tests/suite/pipeline/banding.rs`
 //! holds the steady state as a gate — 2.00 undithered, 0.28 dithered — and
 //! the `gradients` golden, rendered at 60k, fails without it.
 //!

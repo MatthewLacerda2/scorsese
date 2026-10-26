@@ -25,7 +25,7 @@ each came from, what it weighs, and what its licence asks for.
 The other thirty-two came with #998 — the free faces people see every day, by
 the kind of video that reaches for them. Every one sets Portuguese (á à â ã é ê
 í ó ô õ ú ü ç and their capitals), checked in the files rather than taken from
-Google Fonts' listing, and `tests/text/catalogue.rs` keeps checking it.
+Google Fonts' listing, and `tests/suite/text/catalogue.rs` keeps checking it.
 
 | name | family | weights | shape | italic |
 | --- | --- | --- | --- | --- |

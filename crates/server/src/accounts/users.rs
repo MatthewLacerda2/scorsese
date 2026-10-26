@@ -50,7 +50,7 @@ pub async fn create(pool: &PgPool, email: &str) -> Result<UserId, AccountError> 
 /// files.
 ///
 /// The rows go by `ON DELETE CASCADE` — every per-user table has one, and
-/// `tests/isolation.rs` refuses a table that does not — so this names only
+/// `tests/suite/isolation.rs` refuses a table that does not — so this names only
 /// `users`, and a table added next year is covered without touching it.
 /// Rows first, then files: an account whose files outlived it is an operator
 /// cleaning up a named directory, while files deleted under a live account

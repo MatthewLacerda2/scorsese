@@ -17,7 +17,7 @@
 //!
 //! The accepted set is deliberately short and entirely tested; it is written
 //! out for a reader in `docs/output-formats.md`, and
-//! `crates/render/tests/formats/` holds the page to what this module says.
+//! `crates/render/tests/suite/formats/` holds the page to what this module says.
 //! "Whatever ffmpeg has" would not be an answer we could stand behind — which
 //! ffmpeg is a shipping decision (a distro build in dev and CI, a bundled
 //! sidecar in a shipped build) and a licensing one.

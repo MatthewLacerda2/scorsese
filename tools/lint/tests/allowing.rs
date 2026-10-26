@@ -42,7 +42,10 @@ fn the_tree_is_walked_and_its_findings_ordered() {
         fs::write(path, text).expect("write");
     };
     write("crates/a/src/lib.rs", "//! A crate.\npub mod b;\n");
-    write("crates/a/tests/t.rs", "#[test]\n#[ignore]\nfn t() {}\n");
+    write(
+        "crates/a/tests/suite/t.rs",
+        "#[test]\n#[ignore]\nfn t() {}\n",
+    );
     write("target/debug/build/x.rs", "#[ignore]\n");
     write("notes.md", "#[ignore]\n");
 
@@ -61,7 +64,7 @@ fn the_tree_is_walked_and_its_findings_ordered() {
         "{found:?}"
     );
     assert!(
-        found[1].starts_with("crates/a/tests/t.rs:2: [skip]"),
+        found[1].starts_with("crates/a/tests/suite/t.rs:2: [skip]"),
         "{found:?}"
     );
 }

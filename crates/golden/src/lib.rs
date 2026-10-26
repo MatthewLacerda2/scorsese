@@ -36,7 +36,7 @@
 //! It is also why the fixture suite runs on Linux and skips itself anywhere
 //! else. References are blessed there and CI compares them there; off it, a
 //! comparison measures the local decode path as much as it measures the
-//! compositor. That decision lives in `tests/goldens.rs` rather than in this
+//! compositor. That decision lives in `tests/suite/goldens.rs` rather than in this
 //! API — nothing here inspects the target — and `docs/golden-renders.md`
 //! argues it, including why it is keyed on the platform and not on
 //! [`Decoder`].

@@ -44,7 +44,7 @@ it at all.
 | `wav` | `.wav` | — | `pcm_s16le` |
 | `m4a` | `.m4a` | — | `aac` |
 
-Anything not in that table is refused. `crates/render/tests/formats/` holds this
+Anything not in that table is refused. `crates/render/tests/suite/formats/` holds this
 page to the code, so a row here that the code does not write — or a codec the
 code writes that this page never mentions — fails the build.
 
@@ -211,7 +211,7 @@ whenever the codec is lossy, and the file's is the one a clipping verdict is
 about — and a line saying how far the soundtrack was turned down, when it was.
 `scorsese render` and the MCP `render` tool both say those two things, in the
 same words from the same function (#519).
-`crates/render/tests/audio/loudness/headroom.rs` holds this to a square wave
+`crates/render/tests/suite/audio/loudness/headroom.rs` holds this to a square wave
 that overshoots AAC by more than 3 dB.
 
 ## Delivering at a loudness target

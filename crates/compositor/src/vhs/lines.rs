@@ -106,7 +106,7 @@ impl Band {
     }
 }
 
-/// The row arithmetic, named where it is decided. `tests/taping/` asserts what
+/// The row arithmetic, named where it is decided. `tests/suite/taping/` asserts what
 /// a darkened row and a torn band *look* like; these are the two numbers that
 /// decide which rows they are.
 #[cfg(test)]

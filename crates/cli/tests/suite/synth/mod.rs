@@ -1,0 +1,14 @@
+//! `scorsese synth`, driven end to end against real project directories.
+//!
+//! Nothing here is mocked and nothing needs a network, because synthesis is
+//! arithmetic — these tests run the real thing and listen to the result.
+
+mod authoring;
+mod baking;
+mod drumming;
+mod measuring;
+mod metadata;
+mod partial;
+mod patches;
+mod surveying;
+mod transcribing;

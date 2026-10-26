@@ -4,7 +4,7 @@
 # so a new test file gets the exemption without having to remember it.
 #
 # The exemption reaches `#[test]` functions and `#[cfg(test)]` modules, and no
-# further. A shared helper in `tests/common/` is still held to `expect("…")` —
+# further. A shared helper in `tests/suite/common/` is still held to `expect("…")` —
 # which is right: a helper fails a long way from the test that called it, so the
 # message is the only thing telling you which one.
 allow-unwrap-in-tests = true

@@ -78,8 +78,8 @@ every PNG you bless before committing, and list it in the pull request under a
 not name (`docs/golden-renders.md`, *Re-blessing*).
 
 - **Render goldens**: run the others first and bless nothing if any fails; then
-  `UPDATE_GOLDENS=1 cargo test -p scorsese-golden --test goldens -- --exact
-  <name>`, never the whole suite. An unintended mismatch is investigated, never
+  `UPDATE_GOLDENS=1 cargo test -p scorsese-golden --test suite -- --exact
+  goldens::<name>`, never the whole suite. An unintended mismatch is investigated, never
   re-blessed.
 - **App panel snapshots** (`app/tests/panels`) are each cropped to the part
   they are named for, except `a_whole_edit` and `a_whole_edit_in_dark`, which

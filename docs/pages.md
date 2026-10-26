@@ -395,7 +395,7 @@ draws as an empty frame.
 
 ## Worked pages
 
-Each of these is captured by the test suite (`crates/render/tests/pipeline/guide.rs`),
+Each of these is captured by the test suite (`crates/render/tests/suite/pipeline/guide.rs`),
 which fails if one draws nothing, warns or cannot be captured, so they stay
 true as the renderer changes. The word after `html` names it.
 

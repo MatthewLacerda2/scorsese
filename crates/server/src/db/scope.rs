@@ -20,7 +20,7 @@
 //!    the pool directly gets `permission denied for table …` on the first
 //!    run of the first test — even against an empty table, which is where a
 //!    policy alone would have stayed silent.
-//! 3. **A test holds every table to (1)** — `tests/isolation.rs` reads the
+//! 3. **A test holds every table to (1)** — `tests/suite/isolation.rs` reads the
 //!    catalog and fails on any table without the owner column, the cascade,
 //!    row-level security or a policy that calls `member_id()`. So a new
 //!    migration that forgets the pattern is caught the day it is written, not

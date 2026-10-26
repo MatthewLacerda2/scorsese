@@ -29,7 +29,7 @@
 //! gets the picture smaller: the emulated device scale changes what the page
 //! sees as `devicePixelRatio` but not the picture's size, and neither does the
 //! emulation's own `scale`, both measured on Chromium 154. The floor is
-//! Chromium's, not ours; `tests/pipeline/capture_size.rs` holds it. On macOS a
+//! Chromium's, not ours; `tests/suite/pipeline/capture_size.rs` holds it. On macOS a
 //! frame is a screenshot, which has no floor of its own, so it is asked for at
 //! this one (`drawing`'s, #844): a page is drawn at the same size everywhere.
 

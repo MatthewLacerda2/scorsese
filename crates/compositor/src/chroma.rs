@@ -334,7 +334,7 @@ fn quantise(value: f64) -> u8 {
 
 /// The plane and the ramp, which nothing outside this file can reach.
 ///
-/// Here rather than in `tests/keying/` for [`crate::aberration`]'s reason: that
+/// Here rather than in `tests/suite/keying/` for [`crate::aberration`]'s reason: that
 /// is where the *effect* is asserted — a screen goes, an edge ramps, a rim
 /// loses its colour — and an effect is satisfied by more than one arithmetic.
 /// What these name are the numbers themselves.
@@ -449,7 +449,7 @@ mod tests {
         // Within a rounding error of whole at the far end, not exactly whole:
         // `0.6 − 0.2` is a hair under `0.4` in binary, so the ramp is taken
         // rather than the far branch. A byte of alpha rounds it to 255 either
-        // way, and `tests/keying/` is where the claim about the byte is made.
+        // way, and `tests/suite/keying/` is where the claim about the byte is made.
         assert!(
             (keyer.kept(0.6) - 1.0).abs() < 1e-12,
             "the far end is whole"

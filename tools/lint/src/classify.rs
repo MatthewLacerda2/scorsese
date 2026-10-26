@@ -38,7 +38,7 @@
 //!   (`crates/*/tests/**`), and it is the file's role in the build that decides
 //!   the cap, not its subject matter. So `crates/golden/src/**` — test
 //!   infrastructure, but compiled as a library others use — is *source*, and
-//!   a helper module under `crates/render/tests/common/` is a *test* file.
+//!   a helper module under `crates/render/tests/suite/common/` is a *test* file.
 //! - **A TypeScript or JavaScript file is also a test file when its name ends
 //!   `.test.ts`, `.test.tsx` or `.test.js`.** That is how `bun test` finds tests — beside the component
 //!   they test, not in a `tests` directory — so it is the same rule: the file's

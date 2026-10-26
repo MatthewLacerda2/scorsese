@@ -19,9 +19,11 @@ from regression import BROKEN, FAILED, PASSED, Target  # noqa: E402
 
 TREE = {
     "crates/core/Cargo.toml", "crates/core/tests/time.rs",
-    "crates/server/Cargo.toml", "crates/server/tests/api/main.rs",
-    "crates/server/tests/api/projects.rs", "crates/server/tests/common/mod.rs",
+    "crates/server/Cargo.toml", "crates/server/tests/suite/main.rs",
+    "crates/server/tests/suite/api/mod.rs", "crates/server/tests/suite/api/projects.rs",
+    "crates/server/tests/suite/logs.rs", "crates/server/tests/suite/common/mod.rs",
     "crates/golden/Cargo.toml", "crates/golden/fixtures/alpha/project.json",
+    "app/Cargo.toml", "app/tests/panels/main.rs", "app/tests/panels/fixture.rs",
     "web/package.json", "web/src/timeline/Track.test.tsx",
     ".github/scripts/tests/test_closing.py", ".github/scripts/tests/fixtures/a.json",
 }
@@ -38,7 +40,8 @@ def bug(*labels: str, **fields: object) -> dict:
 class Classify(unittest.TestCase):
     def test_tests_as_the_size_gate_reads_them_and_the_golden_fixtures(self) -> None:
         for path in sorted(TREE - {"crates/core/Cargo.toml", "crates/server/Cargo.toml",
-                                   "crates/golden/Cargo.toml", "web/package.json"}):
+                                   "crates/golden/Cargo.toml", "app/Cargo.toml",
+                                   "web/package.json"}):
             with self.subTest(path=path):
                 self.assertTrue(regression.is_test(path))
         for path in ("crates/core/src/time.rs", "web/src/timeline/Track.tsx",
@@ -49,16 +52,23 @@ class Classify(unittest.TestCase):
     def test_each_file_names_the_target_its_runner_runs(self) -> None:
         self.assertEqual(regression.targets(sorted(TREE), exists), sorted([
             Target("cargo", "crates/core", "time"),
-            Target("cargo", "crates/server", "api"),
-            Target("cargo", "crates/golden", "goldens"),
+            Target("cargo", "crates/server", "suite", "api"),
+            Target("cargo", "crates/server", "suite", "logs"),
+            Target("cargo", "crates/golden", "suite"),
+            Target("cargo", "app", "panels"),
             Target("bun", "web", "src/timeline/Track.test.tsx"),
             Target("unittest", "", ".github/scripts/tests/test_closing.py"),
         ]))
 
     def test_a_helper_or_a_fixture_names_none(self) -> None:
-        for path in ("crates/server/tests/common/mod.rs", ".github/scripts/tests/fixtures/a.json"):
+        for path in ("crates/server/tests/suite/common/mod.rs", "crates/server/tests/suite/main.rs",
+                     ".github/scripts/tests/fixtures/a.json"):
             with self.subTest(path=path):
                 self.assertIsNone(regression.target(path, exists))
+
+    def test_a_binary_other_than_the_suite_runs_whole(self) -> None:
+        self.assertEqual(regression.target("app/tests/panels/fixture.rs", exists),
+                         Target("cargo", "app", "panels"))
 
     def test_a_deleted_test_names_none(self) -> None:
         self.assertEqual(regression.targets(["crates/core/tests/gone.rs"], exists), [])

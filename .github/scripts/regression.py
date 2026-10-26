@@ -31,10 +31,13 @@ does not count — a test calling the API the fix added would otherwise pass
 anything — and neither does one that passes. A target past `TIMEOUT` (or
 nextest's slow-timeout) has failed.
 
-A target is the smallest thing each runner runs by name: a Cargo integration
-test target, one Python test file, one `bun test` file. So an unchanged test in
-the same target failing on the base would count too; `main` is green, so one
-failing there is one the laid-over files broke.
+A target is the smallest thing each runner runs by name: a top-level module of
+a crate's one integration-test binary (`tests/suite/<module>`, #1128), or a
+Cargo test target of its own, one Python test file, one `bun test` file. So an
+unchanged test in the same target failing on the base would count too; `main`
+is green, so one failing there is one the laid-over files broke. A target
+builds the whole binary, so a laid-over file that does not compile on the base
+leaves every module of its crate unjudged.
 
 Pure but for [`run_target`], [`lay_over`], [`labelled`], [`write_output`] and `main`.
 """
@@ -64,22 +67,25 @@ WORD = re.compile(r"[A-Za-z0-9]{2,}")
 REASON_WORDS = 3
 
 # Test data outside a `tests` directory, and the Cargo target that reads it.
-GOLDEN = ("crates/golden/fixtures/", "crates/golden", "goldens")
+GOLDEN = ("crates/golden/fixtures/", "crates/golden", "suite")
 
 PASSED, FAILED, BROKEN = "passed", "failed", "broken"
 
 
 class Target(NamedTuple):
-    """What one runner runs by name: `cargo` (a package directory and a test
-    target), `unittest` (a file) or `bun` (a package directory and a file)."""
+    """What one runner runs by name: `cargo` (a package directory, a test
+    target and the module of it that changed, empty for all of it),
+    `unittest` (a file) or `bun` (a package directory and a file)."""
 
     runner: str
     where: str
     name: str
+    module: str = ""
 
     def __str__(self) -> str:
         if self.runner == "cargo":
-            return f"`{self.where}` test target `{self.name}`"
+            within = f" module `{self.module}`" if self.module else ""
+            return f"`{self.where}` test target `{self.name}`{within}"
         return f"`{self.where}/{self.name}`" if self.where else f"`{self.name}`"
 
 
@@ -125,6 +131,12 @@ def target(path: str, exists: Callable[[str], bool]) -> Target | None:
         return None
     if len(rest) == 1:
         return Target("cargo", package, PurePosixPath(rest[0]).stem)
+    if rest[0] == "suite" and exists(f"{package}/tests/suite/main.rs"):
+        # A crate's one test binary (#1128): the module the file sits in.
+        # `main.rs` only declares the modules and `common` holds the helpers,
+        # so neither runs anything alone.
+        module = PurePosixPath(rest[1]).stem
+        return None if module in ("main", "common") else Target("cargo", package, "suite", module)
     if exists(f"{package}/tests/{rest[0]}/main.rs"):
         return Target("cargo", package, rest[0])
     return None
@@ -287,7 +299,8 @@ def run_target(t: Target, base: Path, env: dict) -> str:
         built = call("cargo", "nextest", "run", *manifest, "--no-run", limit=CARGO_BUILD_TIMEOUT)
         if built is None or built.returncode:
             return BROKEN
-        ran = call("cargo", "nextest", "run", *manifest, limit=CARGO_RUN_TIMEOUT)
+        within = ["-E", f"test(/^{t.module}::/)"] if t.module else []
+        ran = call("cargo", "nextest", "run", *manifest, *within, limit=CARGO_RUN_TIMEOUT)
         return FAILED if ran is None else nextest_outcome(ran.returncode)
     if t.runner == "unittest":
         ran = call(sys.executable, "-c", UNITTEST, t.name, limit=TIMEOUT)

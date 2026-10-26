@@ -131,7 +131,7 @@ jobs:
 
       # `llvm-cov nextest` rather than plain `llvm-cov`, which is `cargo
       # test`: only nextest runs `.config/nextest.toml`'s setup script that
-      # refuses the network (#1302), and `crates/providers/tests/offline`
+      # refuses the network (#1302), and `crates/providers/tests/suite/offline`
       # fails without it.
       - name: Install cargo-nextest
         uses: taiki-e/install-action@v2

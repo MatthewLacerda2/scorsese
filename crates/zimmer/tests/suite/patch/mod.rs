@@ -1,0 +1,15 @@
+//! The patch document: how it is written down, and what it refuses to be.
+
+mod additive;
+mod chorus;
+mod compress;
+mod delay;
+mod document;
+mod eq;
+mod filter;
+mod fm4;
+mod noise;
+mod strict;
+mod unison;
+mod validation;
+mod width;

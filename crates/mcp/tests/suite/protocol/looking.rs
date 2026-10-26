@@ -1,0 +1,161 @@
+//! The tools that only read: listing, describing, checking, and the pool.
+
+use super::fixture::{DOCUMENT, empty_sha256, project, with_footage};
+use crate::protocol::{call, once, said};
+use serde_json::json;
+
+#[test]
+fn listing_tools_gives_a_name_a_description_and_a_schema_for_each() {
+    let reply = once(&json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" }).to_string());
+    let tools = reply["result"]["tools"].as_array().expect("a list");
+    assert!(!tools.is_empty());
+    for tool in tools {
+        assert!(tool["name"].as_str().is_some_and(|n| !n.is_empty()));
+        assert!(tool["description"].as_str().is_some_and(|d| d.len() > 20));
+        assert_eq!(tool["inputSchema"]["type"], json!("object"));
+    }
+}
+
+#[test]
+fn reading_a_project_gives_back_the_document() {
+    let dir = project("read");
+    let (text, failed) = said(&call("project_read", json!({ "project": dir })));
+    assert!(!failed, "{text}");
+    assert!(text.contains("\"name\":\"Teaser\""), "got {text}");
+    assert!(
+        !text.contains('\n'),
+        "the document comes back compact: {text}"
+    );
+    std::fs::remove_dir_all(dir).ok();
+}
+
+#[test]
+fn describing_a_project_says_what_is_in_the_cut() {
+    let dir = project("describe");
+    let (text, failed) = said(&call("project_describe", json!({ "project": dir })));
+    assert!(!failed, "{text}");
+    assert!(text.contains("Teaser"), "got {text}");
+    std::fs::remove_dir_all(dir).ok();
+}
+
+/// `scorsese describe --fps --range` (#1069): the cut as a render at that rate,
+/// of that stretch, would sequence it — and a rate the CLI refuses is refused.
+#[test]
+fn describing_at_a_rate_and_over_a_range_sequences_that_render() {
+    let dir = project("describe-settings");
+    let asked = |extra: serde_json::Value| {
+        let mut arguments = json!({ "project": dir });
+        arguments
+            .as_object_mut()
+            .expect("an object")
+            .extend(extra.as_object().expect("an object").clone());
+        said(&call("project_describe", arguments))
+    };
+    let (text, failed) = asked(json!({ "fps": "60", "range": "0:30" }));
+    assert!(!failed, "{text}");
+    assert!(
+        text.contains("60 frames at 60 fps, timeline frames 0–30"),
+        "got {text}"
+    );
+    let (text, failed) = asked(json!({ "fps": "29.97" }));
+    assert!(failed && text.starts_with("fps: "), "got {text}");
+    std::fs::remove_dir_all(dir).ok();
+}
+
+/// The half an assistant laying out a frame needs: not what is on screen, but
+/// where it is — in the unit the document is written in, so the number comes
+/// back ready to write back.
+#[test]
+fn describing_with_an_instant_also_says_where_everything_lands() {
+    let dir = project("where");
+    let (text, failed) = said(&call(
+        "project_describe",
+        json!({ "project": dir, "at": ["1s", "3s"] }),
+    ));
+    assert!(!failed, "{text}");
+    assert!(text.contains("where things land at 1.00s"), "got {text}");
+    assert!(text.contains("where things land at 3.00s"), "got {text}");
+    // The title runs throughout, so it has a rectangle at both instants.
+    assert!(text.contains("v1/c1"), "got {text}");
+    // The narration sketch starts at 2s: not on screen at the first instant,
+    // and a card across the foot of the frame at the second — two different
+    // answers about one clip, which is the point of naming both.
+    assert!(text.contains("not on screen here: v1c"), "got {text}");
+    assert!(
+        text.contains("vo/v1c") && text.contains("y 0.700–1.000"),
+        "got {text}"
+    );
+    std::fs::remove_dir_all(dir).ok();
+}
+
+#[test]
+fn checking_a_healthy_project_says_so() {
+    let dir = project("check");
+    let (text, failed) = said(&call("project_check", json!({ "project": dir })));
+    assert!(!failed && text.contains("no problems"), "got {text}");
+    std::fs::remove_dir_all(dir).ok();
+}
+
+/// Being asked what is wrong and finding something is this tool working, so it
+/// comes back as an answer rather than as an error.
+#[test]
+fn checking_a_broken_project_reports_the_problems_as_an_answer() {
+    let dir = project("check-broken");
+    let broken = DOCUMENT.replace(r#""asset": "bed""#, r#""asset": "ghost""#);
+    std::fs::write(dir.join("project.json"), broken).expect("write");
+
+    let (text, failed) = said(&call("project_check", json!({ "project": dir })));
+    assert!(!failed, "a report of faults is not itself a fault");
+    assert!(text.contains("ghost"), "got {text}");
+    std::fs::remove_dir_all(dir).ok();
+}
+
+/// Why #334 was filed: a project whose JSON is flawless and whose footage was
+/// deleted underneath it used to be told there was nothing wrong with it.
+#[test]
+fn checking_reports_a_file_the_document_names_and_the_disk_has_not_got() {
+    let dir = project("check-media");
+    std::fs::write(dir.join("project.json"), with_footage("")).expect("write");
+
+    let (text, failed) = said(&call("project_check", json!({ "project": dir })));
+    assert!(!failed, "a report of faults is not itself a fault");
+    assert!(text.contains("boat"), "got {text}");
+    assert!(text.contains("its file is not there"), "got {text}");
+    std::fs::remove_dir_all(dir).ok();
+}
+
+/// Hashing is opt-in, and both answers are right: media edited behind the
+/// project's back is worth knowing about, and re-reading a whole pool on a
+/// tool called after every edit is not worth paying for.
+#[test]
+fn bytes_that_changed_since_import_are_found_only_when_asked_for() {
+    let dir = project("check-verify");
+    let recorded = format!(r#", "sha256": "{}""#, empty_sha256());
+    std::fs::write(dir.join("project.json"), with_footage(&recorded)).expect("write");
+    std::fs::write(dir.join("assets/boat.mp4"), b"not what was imported").expect("write");
+
+    let (quiet, _) = said(&call("project_check", json!({ "project": dir })));
+    assert!(!quiet.contains("changed since import"), "got {quiet}");
+
+    let asked = call("project_check", json!({ "project": dir, "verify": true }));
+    let (verified, failed) = said(&asked);
+    assert!(!failed, "{verified}");
+    assert!(verified.contains("changed since import"), "got {verified}");
+    std::fs::remove_dir_all(dir).ok();
+}
+
+#[test]
+fn listing_assets_names_them_and_their_state() {
+    let dir = project("assets");
+    let (text, failed) = said(&call("project_assets", json!({ "project": dir })));
+    assert!(!failed, "{text}");
+    assert!(text.contains("bed") && text.contains("vo"), "got {text}");
+    // The document's words, never Rust's `GeneratedAudio` or `Awaiting(Sketch)`
+    // (#1115), and the recipe the bed is written in.
+    assert!(
+        text.contains("generated_audio\tawaiting generation (sketch)"),
+        "{text}"
+    );
+    assert!(text.contains("recipes/bed.json"), "{text}");
+    std::fs::remove_dir_all(dir).ok();
+}
