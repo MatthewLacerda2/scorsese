@@ -78,6 +78,13 @@ or file, not the branch's.
 4. `make mergeable PR=N`.
 5. Merge. Then remove the worktree and delete the branch.
 
+**A session may be refused a force-push** (auto mode blocks it as destructive;
+`make queue` still pushes its own rebases). When a hand-back's rebase has to be
+pushed by hand and the push is refused, push it to `<branch>-rebased` instead,
+open a new pull request from it that supersedes the first (its description
+names the old one and copies its `Independent review` record), close the old
+one, and delete both branches once it merges. Never work round the refusal.
+
 Merging is serialized because Rust is compiled: two branches can each be green
 alone and break `main` together — a changed signature in one crate and a new
 caller in another compile apart and not together. So **speculative CI and
