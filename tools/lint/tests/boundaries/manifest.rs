@@ -64,3 +64,32 @@ test-support = []
 fn a_manifest_without_a_package_has_no_name() {
     assert_eq!(parse("[workspace]\nmembers = []\n").name, None);
 }
+
+#[test]
+fn a_dotted_key_names_the_crate_before_its_first_dot() {
+    let text = r#"
+[dependencies]
+strsim.workspace = true
+scorsese-render.path = "../render"
+serde . version = "1"
+"dotted.name" = "1"
+"quoted".workspace = true
+alias.package = "scorsese-core"
+"#;
+    let names: Vec<String> = parse(text)
+        .dependencies
+        .into_iter()
+        .map(|dep| dep.name)
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "strsim",
+            "scorsese-render",
+            "serde",
+            "dotted.name",
+            "quoted",
+            "scorsese-core",
+        ]
+    );
+}

@@ -112,3 +112,15 @@ fn an_allow_with_a_reason_excuses_one_line() {
     );
     assert_eq!(found[0].rule, EDGE);
 }
+
+#[test]
+fn a_dotted_key_is_an_edge_like_any_other() {
+    let text =
+        "[package]\nname = \"scorsese-core\"\n[dependencies]\nscorsese-render.workspace = true\n";
+    let [finding] = &findings(text)[..] else {
+        panic!("expected one finding: {:?}", findings(text));
+    };
+    assert_eq!((finding.rule, finding.line), (EDGE, Some(4)));
+    let text = "[package]\nname = \"scorsese-compositor\"\n[dependencies]\nscorsese-core.workspace = true\nstrsim.workspace = true\n";
+    assert!(findings(text).is_empty(), "{:?}", findings(text));
+}
