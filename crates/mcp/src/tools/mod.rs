@@ -290,8 +290,8 @@ pub trait Tool: Send + Sync {
     ///
     /// Only `render` and `jobs` (#700) override this — they are
     /// the tools with something to say about work that outlives a call — and
-    /// `transcribe` (#1549), which holds its project only for its last write
-    /// ([`Context::hold`]). Every other one is [`Tool::call_cancellable`].
+    /// `transcribe` (#1549), which holds its project only for its last write.
+    /// Every other one is [`Tool::call_cancellable`].
     fn call_in(&self, arguments: &Value, context: &mut Context<'_>) -> Result<Reply, String> {
         self.call_cancellable(arguments, context.cancel)
     }
