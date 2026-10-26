@@ -146,3 +146,29 @@ fn a_ceiling_the_run_would_cross_is_refused() {
     assert_eq!(quote.total_cents(), 97, "97c against a 50c ceiling");
     assert!(quote.over_budget());
 }
+
+/// #1463: a shot already on disk for its brief costs nothing and is left out of
+/// the rows, as in every other surface (#1436), and counted instead.
+#[test]
+fn a_made_shot_is_counted_not_listed() {
+    let project = project();
+    let root = root("made");
+    let brief = scorsese_providers::video::Brief::of(&project, &root, &project.assets[0])
+        .expect("the shot has a brief");
+    let output = root.join(brief.output().as_str());
+    std::fs::create_dir_all(output.parent().expect("a directory")).expect("create generated/");
+    std::fs::write(output, b"video").expect("write the made shot");
+
+    let quote = Quote::of(&project, &root, &fresh());
+    assert!(
+        quote
+            .of_kind(&project, AssetKind::GeneratedVideo)
+            .is_empty(),
+        "a made shot is not a row"
+    );
+    assert_eq!(quote.made(), 1);
+    assert_eq!(
+        quote.made_line().as_deref(),
+        Some("1 more already made — nothing to pay.")
+    );
+}

@@ -146,8 +146,8 @@ impl Generating {
         } else if quote.free() {
             ui.label("Nothing in this project would be paid for.");
         }
-        // Every generated asset has a row, made ones included, so a long
-        // project scrolls here rather than pushing the total off the screen.
+        // A long project scrolls here rather than pushing the total off the
+        // screen; the made ones are one line below, not a row each.
         let project = &open.project;
         egui::ScrollArea::vertical()
             .max_height(LIST_HEIGHT)
@@ -167,6 +167,10 @@ impl Generating {
                     "NARRATION",
                     &quote.of_kind(project, AssetKind::GeneratedAudio),
                 );
+                if let Some(made) = quote.made_line() {
+                    ui.add_space(4.0);
+                    ui.label(RichText::new(made).weak().small());
+                }
             });
 
         if !quote.free() {

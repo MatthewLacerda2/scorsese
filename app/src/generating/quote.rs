@@ -77,7 +77,8 @@ impl Quote {
     }
 
     /// The items of one asset kind, in document order: what the run would do
-    /// with each, charged or not.
+    /// with each, charged or not. Those already made are left out, as in every
+    /// surface (#1436); [`made_line`](Self::made_line) counts them.
     pub(crate) fn of_kind<'a>(&'a self, project: &'a Project, kind: AssetKind) -> Vec<&'a Item> {
         self.items()
             .filter(|item| {
@@ -124,9 +125,20 @@ impl Quote {
         ))
     }
 
-    /// Every item, or none when the project cannot be priced.
+    /// How many items are already made or on their way, and left unlisted.
+    pub(crate) fn made(&self) -> usize {
+        self.priced.as_ref().map_or(0, quote::Quote::made)
+    }
+
+    /// The line that stands in for the made items, or `None` when there are none.
+    pub(crate) fn made_line(&self) -> Option<String> {
+        let made = self.made();
+        (made > 0).then(|| format!("{made} more already made — nothing to pay."))
+    }
+
+    /// Every item to show, or none when the project cannot be priced.
     fn items(&self) -> impl Iterator<Item = &Item> {
-        self.priced.iter().flat_map(|priced| priced.items.iter())
+        self.priced.iter().flat_map(quote::Quote::shown)
     }
 }
 
