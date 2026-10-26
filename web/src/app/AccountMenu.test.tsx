@@ -3,7 +3,7 @@
 
 import { expect, test } from "bun:test";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import type { Account } from "@/api";
 import { createQueryClient, ME } from "@/app/queryClient";
@@ -38,4 +38,33 @@ test("without a name, the email alone", async () => {
   await opened({ id: 1, email: "ana@example.com", created_at: 0 });
   const email = screen.getByText("ana@example.com");
   expect(email.parentElement?.textContent).toBe("ana@example.com");
+});
+
+test("the menu is the name, Settings and Log out", async () => {
+  await opened({ id: 1, email: "ana@example.com", created_at: 0 });
+  const items = screen.getAllByRole("menuitem").map((item) => item.textContent);
+  expect(items).toEqual(["Settings", "Log out"]);
+});
+
+test("Settings opens the language and theme controls", async () => {
+  await opened({ id: 1, email: "ana@example.com", created_at: 0 });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("menuitem", { name: "Settings" }));
+  });
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByRole("heading", { name: "Language" })).toBeTruthy();
+  expect(within(dialog).getByRole("heading", { name: "Theme" })).toBeTruthy();
+});
+
+test("the page is clickable again once Settings closes", async () => {
+  await opened({ id: 1, email: "ana@example.com", created_at: 0 });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("menuitem", { name: "Settings" }));
+  });
+  await screen.findByRole("dialog");
+  await act(async () => {
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+  });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(document.body.style.pointerEvents).not.toBe("none");
 });

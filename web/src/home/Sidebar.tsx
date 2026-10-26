@@ -7,7 +7,7 @@ import { FolderIcon, LogOutIcon, ReceiptIcon } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { BalanceChip } from "@/app/BalanceChip";
 import { useProjects } from "@/app/queries";
-import { SettingsButton } from "@/app/Settings";
+import { SettingsButton } from "@/app/SettingsButton";
 import { Mark } from "@/components/Mark";
 import { Button } from "@/components/ui/button";
 import { QueryError } from "@/components/ui/query-error";
@@ -51,7 +51,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         </ul>
       </div>
       <div className="flex flex-col gap-0.5 border-t pt-3">
-        <SettingsButton labelled />
+        <SettingsButton />
         <Button asChild variant="ghost" className="w-full justify-start">
           <Link to="/spending" onClick={onNavigate}>
             <ReceiptIcon /> {t.common.spendingHistory}

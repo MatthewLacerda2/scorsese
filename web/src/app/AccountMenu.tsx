@@ -3,7 +3,9 @@
 // (#1266), with the email under it; an account Google gave no name shows the
 // email alone.
 
+import { useState } from "react";
 import { useNavigate } from "react-router";
+import { SettingsDialog } from "@/app/Settings";
 import { Mark } from "@/components/Mark";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,30 +24,39 @@ export function AccountMenu() {
   const logout = useLogout();
   const navigate = useNavigate();
   const t = useT();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const name = account.data?.name;
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="rounded-full" aria-label={t.common.account}>
-          <Mark kind="icon" size={28} className="size-7 rounded-full" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel className="flex flex-col font-normal">
-          {name && <span>{name}</span>}
-          <span className="text-muted-foreground">{account.data?.email}</span>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => navigate("/spending")}>
-          {t.common.spendingHistory}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={() => logout.mutate(undefined, { onSettled: () => navigate("/login") })}
-        >
-          {t.common.logOut}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full"
+            aria-label={t.common.account}
+          >
+            <Mark kind="icon" size={28} className="size-7 rounded-full" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel className="flex flex-col font-normal">
+            {name && <span>{name}</span>}
+            <span className="text-muted-foreground">{account.data?.email}</span>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+            {t.common.settings.open}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={() => logout.mutate(undefined, { onSettled: () => navigate("/login") })}
+          >
+            {t.common.logOut}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+    </>
   );
 }
