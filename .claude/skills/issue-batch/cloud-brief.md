@@ -143,7 +143,10 @@ Survivors in code you wrote: fix, exclude with a reason, or file (`ci-merge`).
 - A decision the issue left open takes the default it, `CLAUDE.md` or Filmora 9
   points to, and the pull request says which and why.
 - Rebase onto `origin/main` **once, last**, run `make gates`, then mark it
-  ready. **Do NOT merge.** If the merges you rebased over touched none of your
+  ready. **Do NOT merge**, and never merge `main` into the branch: the
+  queue cannot replay a merge commit, and a force-push may be refused. If yours
+  is, push the rebase to `<branch>-rebased` and open a new pull request that
+  supersedes the first. If the merges you rebased over touched none of your
   crates and the gates were green before, `cargo check --workspace
   --all-targets --locked`, `make size` and your own crates' tests are enough.
 - ≈3 attempts at the same failure, or a decision that is genuinely the user's:
