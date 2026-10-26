@@ -3819,7 +3819,6 @@ dependencies = [
  "bytemuck",
  "cfg-if",
  "log",
- "png",
  "tiny-skia-path 0.12.0",
 ]
 
