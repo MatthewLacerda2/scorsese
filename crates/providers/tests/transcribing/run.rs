@@ -79,11 +79,11 @@ pub(super) fn never() -> bool {
     false
 }
 
+/// What the tests decode a recording with.
+pub(super) type Decode = fn(&Path) -> Result<Vec<u8>, Undecoded>;
+
 /// A hearing by `ear`, of the speech [`decode`] makes.
-pub(super) fn hearing<'a>(
-    asked: &'a Asked,
-    ear: &'a dyn Transcriber,
-) -> Hearing<'a, fn(&Path) -> Result<Vec<u8>, Undecoded>> {
+pub(super) fn hearing<'a>(asked: &'a Asked, ear: &'a dyn Transcriber) -> Hearing<'a, Decode> {
     Hearing {
         asked,
         transcriber: ear,
