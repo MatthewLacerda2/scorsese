@@ -6,12 +6,14 @@
 //! and a header may hold an `=`: `[target.'cfg(unix = "x")'.dependencies]`)
 //! that opens a table, and a value spread over
 //! several lines (an inline table or array left open) is skipped until it
-//! closes, so its inner keys are never read as dependencies.
+//! closes, so its inner keys are never read as dependencies. A dotted key
+//! (`foo.workspace = true`) names the crate before its first dot.
 
 /// One dependency a manifest declares, in any of its dependency tables.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Dependency {
-    /// The crate depended on: the `package = "…"` it renames, or its key.
+    /// The crate depended on: the `package = "…"` it renames, or its key (the
+    /// part before the first dot of a dotted one).
     pub name: String,
     /// The 1-based line declaring it.
     pub line: usize,
@@ -41,6 +43,20 @@ fn dependency_table(header: &str) -> Option<Option<&str>> {
         }
     }
     None
+}
+
+/// A key's first part and what follows its dot, if anything: `foo.workspace`
+/// is `("foo", Some("workspace"))`, and a quoted part keeps its dots
+/// (`"foo.bar"` is `("foo.bar", None)`).
+fn first_part(key: &str) -> (&str, Option<&str>) {
+    let key = key.trim();
+    let (part, rest) = match key.strip_prefix('"').and_then(|k| k.split_once('"')) {
+        Some((inside, rest)) => (inside, rest),
+        None => key.split_once('.').unwrap_or((key, "")),
+    };
+    let rest = rest.trim_start();
+    let rest = rest.strip_prefix('.').unwrap_or(rest).trim();
+    (part.trim(), (!rest.is_empty()).then_some(rest))
 }
 
 /// The text inside the first pair of double quotes after `key =` in `value`.
@@ -99,11 +115,15 @@ pub fn parse(text: &str) -> Manifest {
         let Some((key, value)) = line.split_once('=') else {
             continue;
         };
-        let key = key.trim().trim_matches('"');
+        let (key, rest) = first_part(key);
         if table == "package" && key == "name" {
             manifest.name = quoted_after(line, "name").map(str::to_string);
         } else if dependency_table(&table) == Some(None) {
-            let name = quoted_after(value, "package").unwrap_or(key);
+            let name = match rest {
+                Some("package") => value.trim().trim_matches('"'),
+                Some(_) => key,
+                None => quoted_after(value, "package").unwrap_or(key),
+            };
             manifest.dependencies.push(Dependency {
                 name: name.to_string(),
                 line: index + 1,
