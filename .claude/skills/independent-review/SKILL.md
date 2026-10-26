@@ -1,6 +1,6 @@
 ---
 name: independent-review
-description: Use before labelling `queue` on a scorsese pull request that changes money, stored data, security or web isolation, concurrency (jobs, cancel, the assistant's turn loop), the render pipeline, or the gates — `make mergeable` hands one back without it — and whenever the user asks for an open or merged pull request to be reviewed. Dispatches a fresh, read-only reviewer that never saw the coder's reasoning, then answers its findings on the pull request.
+description: Use before readying (a coder) or labelling `queue` (the orchestrator) a scorsese pull request that changes money, stored data, security or web isolation, concurrency (jobs, cancel, the assistant's turn loop), the render pipeline, or the gates — `make mergeable` hands one back without it — and whenever the user asks for an open or merged pull request to be reviewed. Dispatches a fresh, read-only reviewer that never saw the coder's reasoning, then answers its findings on the pull request.
 ---
 
 # Independent review
@@ -72,8 +72,10 @@ merged (*Catching up on a merged pull request*, below).
 - **One reviewer per pull request**, all dispatched in the same message when
   several are ready. A reviewer only reads, so it counts against no limit
   (`issue-batch`, *Agents that only read and think*).
-- **When:** once the pull request is ready and its gates are green, and before
-  it is labelled `queue`. CI runs meanwhile; the review does not wait for it.
+- **Who and when:** the coder, once its gates are green and **before** it marks
+  the pull request ready, so it answers the findings in its own session; the
+  orchestrator for a branch it wrote, or one readied without its review. The
+  prompt is the template below, never the coder's own account of the change.
 
 ### Level
 
@@ -154,11 +156,10 @@ Paste every list whose area the pull request hits, and the last one always.
 
 ## Answering the findings
 
-The coder answers: a local subagent is resumed with `SendMessage`, and this
-session answers for what it wrote itself. A cloud coder has ended by the time
-its pull request is ready (`issue-batch`, *The pull request is the report*),
-so the orchestrator fixes its branch or briefs a coder of the model the branch
-takes (`CLAUDE.md`, *Which model writes a branch*) with a new `Brief` comment.
+The coder answers, in the session that wrote the branch. For a review the
+orchestrator ran on a cloud coder's branch, the coder has ended, so the
+orchestrator fixes the branch or briefs a coder of the model the branch takes
+(`CLAUDE.md`, *Which model writes a branch*) with a new `Brief` comment.
 Pushing these fixes is fine: the branch is not the queue's until it is
 labelled. The reviewer can be wrong, so every finding is checked against the
 code first, then:
