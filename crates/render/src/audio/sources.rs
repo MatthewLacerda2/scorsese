@@ -29,7 +29,7 @@ pub(super) struct Sources<'r, 'a> {
     open: BTreeMap<Key<'a>, Open>,
 }
 
-/// A clip by its track, then its start, then its id: the order decoders are
+/// A clip by its track id, then its start, then its id: the order decoders are
 /// finished in, so which of two failures is reported does not change from one
 /// render to the next.
 type Key<'a> = (&'a TrackId, u64, &'a str);

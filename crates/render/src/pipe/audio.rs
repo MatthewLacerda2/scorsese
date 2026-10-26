@@ -160,7 +160,11 @@ impl AudioDecoder {
 /// gap or overlap of at least 0.1 s (`min_hard_comp`) is filled with silence
 /// or trimmed, anything smaller is left as decoded, and nothing is stretched.
 ///
-/// A sound that starts at or before its picture is unchanged.
+/// A sound that starts at or before its picture is unchanged, except after a
+/// seek into an audio-only AAC file (`.m4a`): ffmpeg drops its first frame
+/// there, so the filter opens it on ~21 ms of silence. The decoder opens early
+/// ([`PRIME_SECONDS`]) so that silence falls before the cut; a caller that
+/// seeks and uses this filter alone gets the hole.
 pub(crate) const ALIGN_TO_FILE_CLOCK: &str = "aresample=async=1:first_pts=0";
 
 /// The whole chain a source's sound goes through: [`ALIGN_TO_FILE_CLOCK`],

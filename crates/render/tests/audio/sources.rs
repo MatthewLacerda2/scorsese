@@ -110,7 +110,7 @@ fn a_clip_outlasting_its_source_goes_silent_and_says_so() {
 }
 
 #[test]
-fn a_sound_ffmpeg_cannot_read_fails_the_mix_and_the_first_track_is_the_one_named() {
+fn a_sound_ffmpeg_cannot_read_fails_the_mix_and_the_first_track_id_is_the_one_named() {
     // #1607: the decoders were finished in hash order, so which of two broken
     // files the error named changed from one render to the next.
     let tools = tools();
