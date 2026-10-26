@@ -92,8 +92,10 @@ fn a_take_silenced_throughout_is_not_captioned() {
         });
         KeyframeTrack::new(PropertyPath::new("volume"), points.collect())
     };
-    shots.clips[0].keyframes = vec![volume(&[1.0]), volume(&[0.0, 0.0])];
-    shots.clips[1].keyframes = vec![volume(&[0.0, 1.0])];
+    // Silenced by one track at nothing; heard through a track held loud and
+    // one that rises from nothing.
+    shots.clips[0].keyframes = vec![volume(&[0.0, 0.0])];
+    shots.clips[1].keyframes = vec![volume(&[1.0]), volume(&[0.0, 1.0])];
     project.tracks.insert(0, shots);
     let mut asked = asked();
     asked.volume = Some(PropertyPath::new("volume"));
