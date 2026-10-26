@@ -52,7 +52,7 @@ x-journald: &journald
 x-cloudflared: &cloudflared
   # Pinned: this is the one container that talks to the internet, and an
   # update to it is a deliberate change like any other.
-  image: cloudflare/cloudflared:2026.9.3
+  image: cloudflare/cloudflared:2026.10.4
   restart: unless-stopped
   depends_on:
     web:
