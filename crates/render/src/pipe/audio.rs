@@ -141,24 +141,31 @@ impl AudioDecoder {
     }
 }
 
-/// The whole chain a source's sound goes through: aligned to the file's clock,
-/// then played at the clip's speed.
+/// Puts a file's sound on the file's clock, the one its picture is decoded on.
 ///
-/// **The alignment comes first, and is always there.** Raw samples carry no
-/// timestamps, so ffmpeg writes a stream's first sample first wherever that
-/// stream starts: a file whose sound begins half a second after its picture
-/// would reach the mixer half a second early, at every seek (#1601). The
-/// picture is decoded on the file's clock, so the sound is too:
-/// `first_pts=0` pads a late start with silence from the seek point, and
-/// `async=1` keeps the rest of the stream on its timestamps the same way. A
-/// sound that starts at or before its picture starts at zero already, and
-/// the alignment changes nothing. The speed acts on the aligned stream, so the
-/// silence is sped with the sound it belongs to.
+/// Raw samples carry no timestamps, so ffmpeg writes a stream's first sample
+/// first wherever that stream starts: a file whose sound begins half a second
+/// after its picture would read half a second early, at every seek (#1601).
+/// `first_pts=0` pads a late start with silence from the seek point (or the
+/// file's zero). `async=1` then follows the stream's timestamps from there: a
+/// gap or overlap of at least 0.1 s (`min_hard_comp`) is filled with silence
+/// or trimmed, anything smaller is left as decoded, and nothing is stretched.
+///
+/// A sound that starts at or before its picture is mostly unchanged. The one
+/// difference is an audio-only AAC file (`.m4a`): ffmpeg drops its first frame
+/// after a seek, so it now opens with ~21 ms of silence where it used to play
+/// ~23 ms early (#1607).
+pub(crate) const ALIGN_TO_FILE_CLOCK: &str = "aresample=async=1:first_pts=0";
+
+/// The whole chain a source's sound goes through: [`ALIGN_TO_FILE_CLOCK`],
+/// then the clip's speed.
+///
+/// **The alignment comes first, and is always there.** The speed acts on the
+/// aligned stream, so the silence is sped with the sound it belongs to.
 fn audio_filter(speed: Speed, rate: u32) -> String {
-    const ALIGN: &str = "aresample=async=1:first_pts=0";
     match speed_filter(speed, rate) {
-        Some(speed) => format!("{ALIGN},{speed}"),
-        None => ALIGN.to_owned(),
+        Some(speed) => format!("{ALIGN_TO_FILE_CLOCK},{speed}"),
+        None => ALIGN_TO_FILE_CLOCK.to_owned(),
     }
 }
 

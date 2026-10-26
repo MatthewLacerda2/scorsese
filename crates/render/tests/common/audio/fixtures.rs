@@ -137,7 +137,7 @@ pub(crate) fn late_talking_picture(
     crate::common::file_asset(id, AssetKind::Video)
 }
 
-/// What both of the above are named after their asset id.
+/// The file each fixture above writes, named after its asset id.
 fn name(id: &str) -> String {
     format!("{id}.mp4")
 }
