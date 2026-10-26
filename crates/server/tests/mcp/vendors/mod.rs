@@ -52,6 +52,8 @@ pub(super) struct Mock {
     pub(super) deaf: bool,
     /// The Whisper listens until it is stopped.
     pub(super) hang: bool,
+    /// The Whisper answers with this status, and what speaches says with it.
+    pub(super) refuses: Option<u16>,
 }
 
 impl Mock {

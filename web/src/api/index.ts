@@ -163,7 +163,7 @@ export const api = {
   },
   jobs: {
     /**
-     * Stop a render or a preview (#660): a waiting one comes back `cancelled`,
+     * Stop a render, a preview or a transcription (#660): a waiting one comes back `cancelled`,
      * a running one `running`, turning `cancelled` on the event stream once it
      * has stopped. `409` for a kind that is never stopped.
      */

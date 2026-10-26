@@ -57,16 +57,20 @@ pub struct Held {
     /// Its words, when it has been transcribed.
     pub words: Option<Words>,
     /// Whether it was generated — a spoken line, whose words are the timings
-    /// that came with it and are never heard or corrected over.
+    /// that came with it, or a shot or a sound paid for as it is: never heard
+    /// or corrected over.
     pub generated: bool,
+    /// How long its probe says it lasts, in seconds.
+    pub seconds: Option<f64>,
 }
 
 impl Library {
     /// `user`'s item with this hash, and its transcript.
     pub async fn transcript(&self, user: UserId, sha256: &str) -> Result<Held, LibraryError> {
         let mut tx = crate::db::scoped(&self.pool, user).await?;
-        let row: Option<(i64, Option<String>, bool)> = sqlx::query_as(
-            "SELECT id, words::text, brief_hash IS NOT NULL FROM library_items WHERE sha256 = $1",
+        let row: Option<Row> = sqlx::query_as(
+            "SELECT id, words::text, brief_hash IS NOT NULL,
+                (media->>'duration_seconds')::float8 FROM library_items WHERE sha256 = $1",
         )
         .bind(sha256)
         .fetch_optional(&mut *tx)
@@ -87,8 +91,9 @@ impl Library {
         amend: impl FnOnce(Held) -> Result<(Words, T), String>,
     ) -> Result<Result<T, String>, LibraryError> {
         let mut tx = crate::db::scoped(&self.pool, user).await?;
-        let row: Option<(i64, Option<String>, bool)> = sqlx::query_as(
-            "SELECT id, words::text, brief_hash IS NOT NULL FROM library_items
+        let row: Option<Row> = sqlx::query_as(
+            "SELECT id, words::text, brief_hash IS NOT NULL,
+                (media->>'duration_seconds')::float8 FROM library_items
                 WHERE sha256 = $1 FOR UPDATE",
         )
         .bind(sha256)
@@ -148,13 +153,18 @@ impl Library {
     }
 }
 
+/// What [`Held`] is read from: the id, the words, whether it was generated
+/// and how long it lasts.
+type Row = (i64, Option<String>, bool, Option<f64>);
+
 /// An item's row as [`Held`].
-fn held(row: Option<(i64, Option<String>, bool)>) -> Result<Held, LibraryError> {
-    let (item, words, generated) = row.ok_or(LibraryError::NotFound)?;
+fn held(row: Option<Row>) -> Result<Held, LibraryError> {
+    let (item, words, generated, seconds) = row.ok_or(LibraryError::NotFound)?;
     Ok(Held {
         item,
         words: words.and_then(|text| serde_json::from_str(&text).ok()),
         generated,
+        seconds,
     })
 }
 
@@ -220,8 +230,8 @@ async fn hear(
     };
     if item.brief_hash.is_some() {
         return Err(
-            "a generated line has word timings of its own from when it was spoken; \
-                    they are never heard over"
+            "the file was generated, and what was paid for is kept as it came: only an upload \
+             is transcribed"
                 .to_owned(),
         );
     }
@@ -238,18 +248,11 @@ async fn hear(
     // A stop kills the decode and closes the request's connection, so the blocking work
     // ends with the job and never runs on behind the next one.
     let cancel: Cancel = context.cancel().clone();
+    let job_id = job.id;
     let heard = tokio::task::spawn_blocking(move || {
         let wav = decode(&tools, &source, &cancel)?;
         ear.transcribe(wav, language.as_ref(), &|| cancel.is_cancelled())
-            .map_err(|error| match error {
-                // How to start it is the operator's business, not the user's.
-                TranscribeError::NotRunning { .. } => {
-                    "the transcription server is not answering; nothing was spent, and it is \
-                     ours to fix: try again later"
-                        .to_owned()
-                }
-                other => other.to_string(),
-            })
+            .map_err(|error| plainly(job_id, error))
     })
     .await
     .map_err(|error| error.to_string())??;
@@ -277,6 +280,50 @@ fn decode(tools: &Tools, file: &Path, cancel: &Cancel) -> Result<Vec<u8>, String
         RenderError::Stopped { .. } => "stopped".to_owned(),
         _ => "the file's sound could not be read".to_owned(),
     })
+}
+
+/// What the Whisper container's failure means to the user. How to start or
+/// rebuild it, and what it said, are the operator's: those go to the log.
+fn plainly(job: i64, error: TranscribeError) -> String {
+    let ours = "the transcription server could not hear it; nothing was spent, and it is ours \
+                to fix: try again later";
+    match error {
+        TranscribeError::Stopped => "stopped".to_owned(),
+        TranscribeError::NotRunning { address, why } => {
+            tracing::warn!(
+                job,
+                "the Whisper server is not answering at {address}: {why}"
+            );
+            "the transcription server is not answering; nothing was spent, and it is ours to \
+             fix: try again later"
+                .to_owned()
+        }
+        TranscribeError::Refused {
+            status,
+            body,
+            forced,
+        } => {
+            tracing::warn!(job, status, "the Whisper server refused: {body}");
+            match status {
+                413 => "the recording is more than the transcription server takes at once; \
+                        nothing was spent: cut the part with speech into a shorter file and \
+                        upload that"
+                    .to_owned(),
+                503 => "the transcription server is busy; nothing was spent: try again in a \
+                        few minutes"
+                    .to_owned(),
+                500 if forced => "the language given is not one Whisper knows; nothing was \
+                                  spent: give a code like `pt` or `en`, or leave it out to \
+                                  have it detected"
+                    .to_owned(),
+                _ => ours.to_owned(),
+            }
+        }
+        other => {
+            tracing::warn!(job, "transcription failed: {other}");
+            ours.to_owned()
+        }
+    }
 }
 
 /// Why a recording `seconds` long is not heard, in the user's words.

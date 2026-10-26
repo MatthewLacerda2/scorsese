@@ -2117,8 +2117,11 @@ on two cores, so a render always has the rest; its owner stops it with `jobs`'
 `cancel`, which kills the decode and closes the request's connection, sent or
 still sending, so nothing waits on its reply or holds its WAV, and an answer
 that lands with the stop is not kept. A recording longer than two hours
-(`transcribe::LONGEST`) is refused from its probe before it is decoded, so one
-job holds the slot for a bounded time. Asking again while a job asked the same
+(`transcribe::LONGEST`) is refused by the call, from the item's stored probe,
+before anything is queued, so one job holds the slot for a bounded time. What
+the container says when it fails (a model missing, a body too large, busy) is
+the operator's and goes to the server's log; the user reads what it means for
+them and that nothing was spent. Asking again while a job asked the same
 language (or both detecting it) is waiting or running hands that job back,
 checked and queued under the item's row lock. The words are kept on the
 library item, in the `words` column a spoken line's timings use (`0024`), so

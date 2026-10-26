@@ -33,6 +33,14 @@ impl Transcriber for Mock {
                 why: "connection refused".into(),
             });
         }
+        if let Some(status) = self.refuses {
+            return Err(TranscribeError::Refused {
+                status,
+                body: r#"{"detail":"Model 'deepdml/faster-whisper-large-v3-turbo-ct2' is not installed locally."}"#
+                    .into(),
+                forced: false,
+            });
+        }
         assert_eq!(&wav[..4], b"RIFF", "the speech is sent as a WAV");
         let said = |text: &str, start: f64, end: f64| Word {
             text: text.into(),

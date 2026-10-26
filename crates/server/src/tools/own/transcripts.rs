@@ -16,7 +16,7 @@ use scorsese_core::words::{Fix, Words};
 use scorsese_core::{Asset, AssetId, ProjectPath};
 use scorsese_mcp::Reply;
 use scorsese_providers::transcribe::{
-    Corrected, Language, TranscribeError, Transcribed, recording,
+    Corrected, LONGEST, Language, TranscribeError, Transcribed, recording,
 };
 use serde_json::{Value, json};
 
@@ -141,6 +141,19 @@ async fn recorded(
     Ok((asset.clone(), sha256, Words::transcript(path)))
 }
 
+/// Why a generated item is neither heard nor corrected, for what it is: a
+/// spoken line has timings of its own; anything else was paid for as it is.
+fn generated(asset: &AssetId, timed: bool) -> String {
+    if timed {
+        TranscribeError::Generated(asset.clone()).to_string()
+    } else {
+        format!(
+            "`{asset}` was generated, and what was paid for is kept as it came: only an \
+             uploaded video or sound is transcribed"
+        )
+    }
+}
+
 /// A library failure, said to the caller.
 fn said(error: LibraryError) -> String {
     match error {
@@ -168,7 +181,7 @@ pub(super) async fn transcribe(caller: &Caller<'_>, arguments: &Value) -> Result
         .await
         .map_err(said)?;
     if held.generated {
-        return Err(TranscribeError::Generated(asset).to_string());
+        return Err(generated(&asset, held.words.is_some()));
     }
     if let (Some(words), false) = (held.words, again) {
         let kept = Transcribed {
@@ -179,6 +192,12 @@ pub(super) async fn transcribe(caller: &Caller<'_>, arguments: &Value) -> Result
             heard: None,
         };
         return Ok(kept.said().into());
+    }
+    if let Some(seconds) = held
+        .seconds
+        .filter(|&seconds| seconds > LONGEST.as_secs_f64())
+    {
+        return Err(TranscribeError::TooLong { asset, seconds }.to_string());
     }
     let payload = Payload {
         item: held.item,
@@ -222,7 +241,7 @@ pub(super) async fn fix(caller: &Caller<'_>, arguments: &Value) -> Result<Reply,
         .library
         .amend_transcript(caller.user, &sha256, |held| {
             if held.generated {
-                return Err(TranscribeError::Generated(asset.clone()).to_string());
+                return Err(generated(&asset, held.words.is_some()));
             }
             let mut words = held.words.ok_or_else(|| {
                 format!("`{asset}` has no transcript to correct: transcribe it first")

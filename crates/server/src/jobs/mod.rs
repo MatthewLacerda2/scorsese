@@ -90,7 +90,8 @@
 //!
 //! ## Stopping one
 //!
-//! Its owner may stop a render or a preview ([`kinds::STOPPABLE`], #660) —
+//! Its owner may stop a render, a preview or a transcription
+//! ([`kinds::STOPPABLE`], #660, #1549) —
 //! nothing else: a paid generation is billed whether or not anybody still
 //! wants it, and a thumbnail or proxy is the server's own housekeeping. A
 //! waiting one is marked `cancelled` there and then and is never claimed. A
