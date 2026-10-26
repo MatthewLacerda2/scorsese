@@ -30,7 +30,7 @@ type Playable =
   // Never the server's sentence (#1439): that is for the job row and the
   // log, and "Broken pipe (os error 32)" under a picture helps nobody. The
   // editor says the preview could not be made, in its own words.
-  | { state: "failed"; why: null };
+  | { state: "failed" };
 
 /** How often a render on its way is asked about, in case no event arrives. */
 const POLL_MS = 4000;
@@ -74,11 +74,11 @@ export function usePlayable(
         : asked.job
           ? { state: "preparing", job: asked.job }
           : // Neither a render nor a job: nothing more to say than that it failed.
-            { state: "failed", why: null };
+            { state: "failed" };
       setHeld({ revision: at, playable: next });
     } catch (error) {
       console.error("preview: asking failed", error);
-      setHeld({ revision: at, playable: { state: "failed", why: null } });
+      setHeld({ revision: at, playable: { state: "failed" } });
     }
   }, [id, revision, deliver, quality]);
 
@@ -101,7 +101,7 @@ export function usePlayable(
     if (event.state === "done" || event.state === "cancelled") void ask();
     else if (event.state === "failed" || event.state === "stuck") {
       console.error(`preview: job ${event.id} ${event.state}`, event.error);
-      setHeld({ revision, playable: { state: "failed", why: null } });
+      setHeld({ revision, playable: { state: "failed" } });
     } else
       setHeld({ revision, playable: { state: "preparing", job: folded(playable.job, event) } });
   });

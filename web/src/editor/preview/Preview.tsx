@@ -107,9 +107,7 @@ export function Preview({ projectId, revision, document, playhead, onSeek, deliv
     playable.state === "preparing"
       ? waiting(playable.job, t)
       : playable.state === "failed"
-        ? playable.why
-          ? t.failedWhy(playable.why)
-          : t.failed
+        ? t.failed
         : still.data && "none" in still.data
           ? still.data.none
           : total === 0

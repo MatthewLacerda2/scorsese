@@ -92,7 +92,6 @@ export const editor = {
     rendering: "Rendering the preview…",
     ready: "Preview ready",
     failed: "The preview could not be made; try again.",
-    failedWhy: (why: string) => `The preview could not be rendered: ${why}`,
     empty: "Nothing on the timeline yet.",
     frame: "The frame under the playhead",
     start: "To the start",
