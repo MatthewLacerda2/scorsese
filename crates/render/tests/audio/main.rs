@@ -21,6 +21,7 @@ mod mixing;
 mod peaks;
 mod prompts;
 mod retiming;
+mod seams;
 mod sources;
 mod stereo;
 mod volume;
