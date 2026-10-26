@@ -110,14 +110,66 @@ fn a_design_is_three_candidates_each_with_an_id_and_an_mp3() {
 }
 
 /// What the check sends is inside the vendor's limits, and cheap: a cent to
-/// speak a word, a cent for the shortest passage a design accepts.
+/// speak a word, a cent for the shortest passage a design accepts, a cent for
+/// the shortest track.
 #[test]
-fn the_calls_stay_inside_the_vendors_limits_and_cost_two_cents() {
+fn the_calls_stay_inside_the_vendors_limits_and_cost_three_cents() {
     assert_eq!(
         PASSAGE.chars().count(),
         *PASSAGES.start(),
         "the minimum is the price"
     );
     assert!(PROMPT.contains(&DESCRIPTION.chars().count()));
-    assert_eq!(cost(), 2);
+    assert_eq!(cost(), 3);
+}
+
+/// The music probe (#1418): a three-second instrumental track.
+mod music {
+    use std::time::Duration;
+
+    use scorsese_providers::api::elevenlabs::music::MODEL_ID;
+    use scorsese_providers::live::Verdict;
+    use scorsese_providers::live::elevenlabs::{TRACK_SECONDS, music_cents, music_step, track};
+
+    use super::{FREE_PLAN, MISSING_SCOPE, refused};
+
+    #[test]
+    fn an_mp3_is_ok_and_says_how_long_it_took() {
+        let step = music_step(Ok(b"ID3\x04rest".to_vec()), Duration::from_millis(4_200));
+        assert_eq!(step.verdict, Verdict::Ok, "{step:?}");
+        assert_eq!(step.notes, ["8 bytes of MP3, back in 4.2 s"]);
+    }
+
+    #[test]
+    fn json_where_the_track_should_be_is_a_shape_change() {
+        let step = music_step(Ok(br#"{"detail":"x"}"#.to_vec()), Duration::ZERO);
+        assert!(
+            matches!(&step.verdict, Verdict::ShapeChanged { field } if field.contains("JSON")),
+            "{step:?}"
+        );
+    }
+
+    /// A refusal is sorted by the one reader of the vendor's refusals.
+    #[test]
+    fn a_refusal_is_sorted_as_the_vendor_meant_it() {
+        let scope = music_step(Err(refused(401, MISSING_SCOPE)), Duration::ZERO);
+        assert!(
+            matches!(scope.verdict, Verdict::AuthFailed { .. }),
+            "{scope:?}"
+        );
+        let plan = music_step(Err(refused(402, FREE_PLAN)), Duration::ZERO);
+        assert!(matches!(plan.verdict, Verdict::Refused { .. }), "{plan:?}");
+    }
+
+    /// The shortest track the vendor composes, on the product's model, with
+    /// no singing: a cent, rounded up from three-quarters of one.
+    #[test]
+    fn the_track_is_the_shortest_instrumental_and_costs_a_cent() {
+        let body = track();
+        assert_eq!(body.music_length_ms, 3_000);
+        assert_eq!(body.music_length_ms, TRACK_SECONDS * 1_000);
+        assert_eq!(body.model_id, MODEL_ID);
+        assert!(body.force_instrumental);
+        assert_eq!(music_cents(), 1);
+    }
 }

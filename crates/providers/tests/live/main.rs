@@ -16,6 +16,7 @@ mod elevenlabs;
 mod image;
 mod lottiefiles;
 mod planning;
+mod png;
 mod recording;
 mod veo;
 

@@ -52,9 +52,11 @@ make live-check ARGS="--include-veo --record /tmp/live"
 | | with `--include-veo`: one shot — 4 s, Lite, 720p — submitted, polled, downloaded | $0.20 |
 | Gemini (stills) | `GET models/gemini-nano-banana-2.1`, the one image model, listing `generateContent` and `batchGenerateContent` | free |
 | | one 1024x1024 still — Nano Banana 2.1, 1K, `1:1`, no references, the cheapest picture there is — through the product's own request | $0.04 |
+| | the same still asked for as `image/png` (#1341), **reported**, never failed: accepted (the picture's header), refused (the vendor's words) or a JPEG drawn anyway | at most $0.04, nothing if refused |
 | ElevenLabs | `GET /v1/voices?category=premade` (also picks the voice to speak with) | free |
 | | text-to-speech of `Checking.` on the `fast` model, with its timestamps | $0.01 |
 | | Voice Design from a 100-character passage — three candidates, **none kept** | $0.01 |
+| | a 3-second instrumental track on `music_v2_5`, as `mp3_44100_128`, through the product's own `Music::compose` — a bare MP3, and how long it took | $0.01 |
 | Anthropic | two streamed calls to `claude-opus-5-5` at `low` effort: ask for a tool call; then send the reply back unchanged, with an effort change, the tool's result and a mid-conversation `system` message | at most $0.15 |
 | Pixabay | `GET /api/videos/?q=sunrise` — hits, each with a usable rendition | free |
 | LottieFiles | `searchPublicAnimations("rocket", first: 3)`, anonymously — each result with an id, a `jsonUrl` and an `imageUrl`; `metadata`'s width, height, frame rate and duration carried by at least one | free, no key |
@@ -69,7 +71,15 @@ reply to check it against: the `interactions` endpoint and body, where the
 picture sits in the reply, and that the size and shape are taken. A size or
 shape the endpoint ignored is drawn at its own default and billed as asked; the
 check reads the JPEG's frame header, so a picture that is not 1024x1024 is
-reported as **shape changed** naming `image_size`.
+reported as **shape changed** naming `image_size`. The PNG probe passes
+whatever the vendor answers and fails only on no answer or a rejected key: its
+line's note is the answer, for `ResponseFormat::mime_type` to follow.
+
+The track settles what #1264 read off ElevenLabs' API reference: that
+`mp3_44100_128` is taken on the music endpoint by a Starter key, that the
+model and `force_instrumental` are taken as sent, and that the reply is the
+MP3 itself. Its note says how long the track took, which the vendor does not
+document.
 
 The Anthropic calls confirm the three things #540 could not: the stream's real
 events (every `fixtures/anthropic/*.sse` is hand-written), the
@@ -137,6 +147,7 @@ Every response shape scorsese parses, and where its test body came from.
 | ElevenLabs `/v1/shared-voices` | `Listing` | `fixtures/elevenlabs/shared-voices-pt.json` | **captured** 2026-08-05 |
 | ElevenLabs refusals (401 scope, 402 plan) | `api::elevenlabs::refusal` | inline in `tests/speaking/refusals.rs`, `src/api/elevenlabs/refusal.rs`, `tests/live/elevenlabs.rs` | **captured** |
 | ElevenLabs speech | bytes, an MP3 | — | nothing to parse |
+| ElevenLabs music | bytes, an MP3 | — | nothing to parse |
 | ElevenLabs Voice Design | `api::elevenlabs::design::DesignReply` | `fixtures/elevenlabs/design.json` | hand-written |
 | ElevenLabs keep a candidate | `CreatedVoice` | — | not exercised: it leaves a voice in the account |
 | Veo model lookup | `api::veo::response::ModelInfo` | `fixtures/veo/model.json` | **captured** 2026-10-07 |

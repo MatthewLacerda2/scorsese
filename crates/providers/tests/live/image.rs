@@ -3,13 +3,13 @@
 use scorsese_providers::api::gemini::response::Interaction;
 use scorsese_providers::api::google::ModelInfo;
 use scorsese_providers::live::Verdict;
-use scorsese_providers::live::image::{cost, model_step, picture_step};
+use scorsese_providers::live::image::{cost, model_step, picture_step, still_cents};
 
 use super::{parsed, refused};
 
 /// A JPEG frame header claiming 2048x2048 — what an ignored `image_size`
 /// could give back.
-const JPEG_2K: &str = "/9j/wAARCAgACAA=";
+pub(super) const JPEG_2K: &str = "/9j/wAARCAgACAA=";
 
 /// A Huffman table, whose marker sits inside the frame markers' range without
 /// being one, ahead of a 640x360 progressive frame.
@@ -17,10 +17,10 @@ const TABLE_THEN_FRAME: &str = "/9j/xAAHBAAEAAD/wgARCAFoAoA=";
 
 /// The opening of a 512x512 PNG: the right size, in the format the endpoint
 /// no longer draws.
-const PNG: &str = "iVBORw0KGgoAAAANSUhEUgAAAgAAAAIA";
+pub(super) const PNG: &str = "iVBORw0KGgoAAAANSUhEUgAAAgAAAAIA";
 
 /// A reply whose one model output is this base64 picture.
-fn drawn(data: &str) -> Interaction {
+pub(super) fn drawn(data: &str) -> Interaction {
     serde_json::from_value(serde_json::json!({"status": "completed", "steps": [
         {"type": "model_output", "content": [{"type": "image", "data": data}]}
     ]}))
@@ -102,10 +102,11 @@ fn a_rejected_key_is_an_auth_failure_and_a_bad_request_a_refusal() {
 }
 
 /// 2.1 at 1K is $0.0336 a picture and the prompt a fraction of a cent:
-/// four cents, rounded up once.
+/// four cents, rounded up once — and the PNG probe is a second such still.
 #[test]
-fn the_still_costs_four_cents() {
-    assert_eq!(cost(), 4);
+fn the_still_costs_four_cents_and_the_part_two_stills() {
+    assert_eq!(still_cents(), 4);
+    assert_eq!(cost(), 8);
 }
 
 #[test]
