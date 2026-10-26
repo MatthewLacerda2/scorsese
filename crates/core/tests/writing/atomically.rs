@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use scorsese_core::write::atomically;
+use scorsese_core::write::{atomically, scratch_beside};
 
 use crate::common;
 
@@ -98,4 +98,29 @@ fn concurrent_writers_never_splice_their_documents() {
         found.len()
     );
     assert_eq!(entries(&dir), [PathBuf::from("project.json")]);
+}
+
+/// Scratch names are what keeps writers apart, so no two calls get one — not
+/// even on two threads of one process, which is how the MCP server renders.
+#[test]
+fn no_two_writers_share_a_scratch_name_even_on_two_threads() {
+    let file = Path::new("/s/part-0-30");
+    let names: Vec<PathBuf> = std::thread::scope(|scope| {
+        let threads: Vec<_> = (0..4)
+            .map(|_| scope.spawn(|| scratch_beside(file, "partial.mkv").expect("a file")))
+            .collect();
+        threads
+            .into_iter()
+            .map(|t| t.join().expect("join"))
+            .collect()
+    });
+    let mut unique = names.clone();
+    unique.sort();
+    unique.dedup();
+    assert_eq!(unique.len(), names.len(), "{names:?}");
+    for name in names {
+        let name = name.to_string_lossy().into_owned();
+        assert!(name.starts_with("/s/part-0-30."), "{name}");
+        assert!(name.ends_with(".partial.mkv"), "{name}");
+    }
 }

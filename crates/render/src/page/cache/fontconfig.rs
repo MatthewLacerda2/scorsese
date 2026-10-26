@@ -32,7 +32,7 @@ const GENERICS: [(&str, &str); 4] = [
 /// the host has installed (#606) — and with the [`GENERICS`] bound to the faces
 /// they mean. Returns that file.
 ///
-/// Written once per project, and whole or not at all ([`super::write_whole`]):
+/// Written once per project, and whole or not at all ([`scorsese_core::write::atomically`]):
 /// a face whose file is already there at the right length, and a fontconfig
 /// file that already says what it would, are left alone — a browser starting
 /// on another thread never reads one cut short (#1085).
@@ -43,7 +43,7 @@ pub(crate) fn fonts(project_root: &Path) -> std::io::Result<PathBuf> {
         let file = folder.join(&face.file);
         let current = std::fs::metadata(&file).map(|m| m.len()).ok();
         if current != Some(face.bytes.len() as u64) {
-            super::write_whole(&file, face.bytes)?;
+            scorsese_core::write::atomically(&file, face.bytes)?;
         }
     }
     let conf = folder.join("fonts.conf");
@@ -61,7 +61,7 @@ pub(crate) fn fonts(project_root: &Path) -> std::io::Result<PathBuf> {
         escaped(&folder.join(".cache"))
     );
     if std::fs::read(&conf).ok().as_deref() != Some(text.as_bytes()) {
-        super::write_whole(&conf, text.as_bytes())?;
+        scorsese_core::write::atomically(&conf, text.as_bytes())?;
     }
     Ok(conf)
 }
