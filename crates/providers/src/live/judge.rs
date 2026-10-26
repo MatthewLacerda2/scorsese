@@ -186,6 +186,23 @@ pub fn jpeg_size(bytes: &[u8]) -> Option<(u32, u32)> {
     }
 }
 
+/// The width and height of a PNG, read off its header; `None` for anything
+/// that is not one.
+///
+/// A PNG opens with its eight-byte signature and then, always first, the
+/// `IHDR` chunk: a four-byte length, the name, then width and height as
+/// big-endian `u32`s.
+pub fn png_size(bytes: &[u8]) -> Option<(u32, u32)> {
+    let header = bytes.strip_prefix(b"\x89PNG\r\n\x1a\n")?.get(4..16)?;
+    let (name, size) = header.split_at(4);
+    if name != b"IHDR" {
+        return None;
+    }
+    let (width, height) = size.split_at(4);
+    let number = |four: &[u8]| four.try_into().ok().map(u32::from_be_bytes);
+    Some((number(width)?, number(height)?))
+}
+
 /// What a body that should have been media looks like instead, for a report.
 pub(super) fn looks_like(bytes: &[u8]) -> String {
     match bytes.first() {

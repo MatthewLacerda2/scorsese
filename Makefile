@@ -234,7 +234,7 @@ PYTHON_CHECK = command -v $(PYTHON) >/dev/null 2>&1 || { \
 # directories called `app/` and `web/`, so without it make sees the target as
 # already built and `make app` prints "up to date" without running a thing. A
 # check that silently does nothing is worse than no check.
-.PHONY: help setup compile-cache gates pre-commit target-dir inventory $(GATES) app-gates web-gates web-e2e-run release format-fix mcp-table landing-og coverage mutants mutants-remote mutants-status mergeable queue live-check infra-plan infra-apply
+.PHONY: help setup compile-cache gates pre-commit target-dir inventory $(GATES) app-gates web-gates web-e2e-run release app-release local-tools deploy-web finish-batch finish-batch-pulled format-fix mcp-table landing-og coverage mutants mutants-remote mutants-status mergeable queue live-check infra-plan infra-apply
 
 ##@ Everyday
 
@@ -332,6 +332,44 @@ gates: target-dir inventory $(GATES) ## Everything CI blocks on. Run this before
 release: ## Optimised binaries, for a final render rather than for iterating
 	cargo build --release
 	@echo "release: binaries in target/release -- scorsese, scorsese-mcp, scorsese-server"
+
+# The end of a batch (#1074; issue-batch, *Finishing a batch*): this machine
+# brought up to `main`, in two halves that fail for different reasons and serve
+# different people, so neither stops the other. The local tools are what the
+# maintainer's agents run; the web app is what its users run, and is deployed
+# only on the operator's word, so `finish-batch` is for when they asked.
+LOCAL_TOOLS := release app-release
+
+app-release: ## The desktop app, optimised
+	cargo build --release --manifest-path app/Cargo.toml
+	@echo "app-release: the desktop app in app/target/release"
+
+local-tools: $(LOCAL_TOOLS) ## What the local agents and the maintainer run: release, then app-release; launches nothing
+	@echo "local-tools: rebuilt; a connected MCP client keeps the old server until it reconnects"
+
+# deploy/update does every step of docs/web.md's *Updating*, the dump and the
+# capped build included; --wait lets running renders finish instead of refusing.
+deploy-web: ## Update the hosted web app from main with deploy/update --wait (docs/web.md, Updating)
+	@$(PYTHON_CHECK)
+	$(PYTHON) deploy/update --wait
+
+finish-batch: ## End of a batch with a deploy: pull main once, then local-tools and deploy-web, each whatever the other did
+	@branch="$$(git rev-parse --abbrev-ref HEAD)"; [ "$$branch" = main ] || { \
+		echo "finish-batch: the checkout is on $$branch, not main; 'git switch main' first" >&2; exit 1; }
+	@git pull --ff-only origin main || { \
+		echo "finish-batch: 'git pull --ff-only' failed, so nothing was built or deployed" >&2; exit 1; }
+	@$(MAKE) --no-print-directory finish-batch-pulled
+
+# finish-batch's second half, in a make of its own so its steps are the pulled
+# Makefile's, not the one parsed before the pull.
+finish-batch-pulled:
+	@local=ok; for t in $(LOCAL_TOOLS); do \
+		$(MAKE) --no-print-directory $$t || { local="FAILED at make $$t"; break; }; \
+	done; \
+	web=ok; $(MAKE) --no-print-directory deploy-web || \
+		web="FAILED (deploy/update's last lines above say at which step, and where things stand)"; \
+	echo; echo "finish-batch: local tools: $$local"; echo "finish-batch: web: $$web"; \
+	[ "$$local" = ok ] && [ "$$web" = ok ]
 
 ##@ The gates
 

@@ -16,7 +16,9 @@ import { queryKeys } from "@/app/queryKeys";
 import { browserStorage, KEYS } from "@/lib/storage";
 import { forgetSignedInHint, HINT_COOKIE, signedInHint } from "@/session/hint";
 
-const LANDING = "The video is one conversation away";
+const LANDING = "Create your videos right now";
+// The home shares the headline (#1593); this is said on the landing alone.
+const LANDING_ONLY = "Three steps. You just say what you want.";
 const ana: Account = { id: 1, email: "ana@example.com", created_at: 0 };
 
 /** Open `url`; `account` seeds the session, or leaves it for `GET /api/me` to answer when omitted. */
@@ -85,7 +87,7 @@ test("without a session, / is the landing page", async () => {
 test("with a session, / is the home with its sidebar", async () => {
   visit("/", ana);
   expect(await screen.findByRole("navigation", { name: "Main menu" })).toBeDefined();
-  expect(screen.queryByRole("heading", { name: LANDING })).toBeNull();
+  expect(screen.queryByText(LANDING_ONLY)).toBeNull();
 });
 
 test("/ draws the landing page before the session answers, and leaves once it says signed in", async () => {
@@ -94,7 +96,7 @@ test("/ draws the landing page before the session answers, and leaves once it sa
   expect(await screen.findByRole("heading", { name: LANDING })).toBeDefined();
   answer(ana);
   expect(await screen.findByRole("navigation", { name: "Main menu" })).toBeDefined();
-  expect(screen.queryByRole("heading", { name: LANDING })).toBeNull();
+  expect(screen.queryByText(LANDING_ONLY)).toBeNull();
 });
 
 test("signed in here before, / waits on the session and never draws the landing page (#1246)", async () => {
@@ -103,7 +105,7 @@ test("signed in here before, / waits on the session and never draws the landing 
   visit("/");
   await new Promise((resolve) => setTimeout(resolve, 50));
   // Text and a count, not elements: a failure prints them, not a whole DOM node.
-  expect(document.body.textContent).not.toContain(LANDING);
+  expect(document.body.textContent).not.toContain(LANDING_ONLY);
   expect(document.querySelectorAll("video").length).toBe(0);
   answer(ana);
   expect(await screen.findByRole("navigation", { name: "Main menu" })).toBeDefined();

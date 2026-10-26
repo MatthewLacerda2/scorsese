@@ -1,8 +1,6 @@
-// The signed-in home: its sidebar and its rotating title.
+// The signed-in home: its sidebar. Its headline is the landing's (`landing.hero`).
 
 export const home = {
-  // The title cycles through these, one after another.
-  titles: ["Describe your video", "What shall we create today?", "What is your idea?"],
   menu: "Open the menu",
   nav: "Main menu",
   projects: "Projects",

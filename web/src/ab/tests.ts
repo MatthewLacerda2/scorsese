@@ -20,8 +20,9 @@ export interface AbTest {
 
 /** Every test, in the order they run. */
 export const TESTS: readonly AbTest[] = [
-  // The first screen's heading (#1554): `a` the metaphor, `b` the concrete promise.
-  { id: "hero-title", versions: ["a", "b"], running: true },
+  // The line under the first screen's headline (#1593): `a` the promise the
+  // heading test (#1554) chose, `b` that no editing of one's own is needed.
+  { id: "hero-subtitle", versions: ["a", "b"], running: true },
 ];
 
 /**

@@ -1,10 +1,8 @@
 import type { Messages } from "@/i18n/catalogue";
 
-// The signed-in home: its sidebar and its rotating title.
+// The signed-in home: its sidebar. Its headline is the landing's (`landing.hero`).
 
 export const home: Messages["home"] = {
-  // The title cycles through these, one after another.
-  titles: ["Descreva seu vídeo", "O que vamos criar hoje?", "Qual é a sua ideia?"],
   menu: "Abrir o menu",
   nav: "Menu principal",
   projects: "Projetos",

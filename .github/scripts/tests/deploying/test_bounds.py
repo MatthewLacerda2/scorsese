@@ -10,7 +10,7 @@ import unittest
 from .scripted import APPLIED, BUSY, DUMPED, GIT, PS, Result, Scripted, cli, update
 
 PULLED = GIT + [(["pull"], Result(0)), APPLIED]
-HEALTHY = (["--format json"], Result(0, PS))
+HEALTHY = (["ps --all"], Result(0, PS))
 
 
 def ups(host):
@@ -68,14 +68,14 @@ class Restart(unittest.TestCase):
     def test_an_orphan_container_does_not_fail_a_healthy_stack(self):
         orphan = PS + '{"Service":"old-thing","State":"exited","Health":""}\n'
         host = Scripted(PULLED + [(["chat_turns"], Result(0)), (["backup backup"], DUMPED),
-                                  (["--format json"], Result(0, orphan))])
+                                  (["ps --all"], Result(0, orphan))])
         code, out, err = update(host, "--timeout", "0")
         self.assertEqual(code, 0, err)
         self.assertIn("healthy: server, tunnel", out)
 
     def test_an_unexpected_error_says_where_things_stand(self):
         host = Scripted(PULLED + [(["chat_turns"], Result(0)), (["backup backup"], DUMPED),
-                                  (["--format json"], Result(0, "not json"))])
+                                  (["ps --all"], Result(0, "not json"))])
         code, _, err = update(host)
         self.assertEqual(code, 1)
         self.assertIn("Traceback", err)
