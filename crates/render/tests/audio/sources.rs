@@ -1,14 +1,15 @@
 //! Where a clip opens in its own media, and what happens when it runs out.
 
-use scorsese_core::Clip;
-use scorsese_render::Note;
+use scorsese_core::{AssetKind, Clip, Fps};
+use scorsese_render::audio::mixdown;
+use scorsese_render::{FrameRange, Note, Plan, RenderSettings, Resolution};
 
 use crate::common::audio::{
     assert_audible, assert_silent, level, soundtrack, tone_asset, with_volume,
 };
 use crate::common::ffmpeg::tools;
 use crate::common::scratch;
-use crate::common::{audio_track, clip_from, project, video_track};
+use crate::common::{audio_track, clip_from, file_asset, project, video_track};
 use crate::{picture, render};
 
 #[test]
@@ -105,5 +106,25 @@ fn a_clip_outlasting_its_source_goes_silent_and_says_so() {
         (900..=1100).contains(&missing),
         "about a second should be missing, not {missing}ms"
     );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn a_sound_ffmpeg_cannot_read_fails_the_mix_rather_than_going_quiet() {
+    let tools = tools();
+    let dir = scratch::dir("unreadable-sound");
+    let bad = file_asset("bad", AssetKind::Audio);
+    std::fs::create_dir_all(dir.join("assets")).expect("make assets/");
+    std::fs::write(dir.join("assets/bad.wav"), b"not a sound at all").expect("write it");
+    let project = project(
+        vec![bad],
+        vec![audio_track("a1", vec![Clip::at("m1", "bad", 0, 30)])],
+    );
+    let settings = RenderSettings::new(Resolution::new(32, 32).expect("legal"), Fps::THIRTY);
+    let plan = Plan::build_sound(&project, Fps::THIRTY, FrameRange::ALL).expect("a plan");
+
+    let mixed = mixdown(&tools, &settings, &plan, &dir, &dir.join("out.wav"));
+
+    assert!(mixed.is_err(), "an unreadable file was mixed as silence");
     std::fs::remove_dir_all(&dir).ok();
 }
