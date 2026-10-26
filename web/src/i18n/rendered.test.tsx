@@ -38,9 +38,9 @@ test("the landing page reads in each language", async () => {
       />,
     );
   };
-  expect(await landing("en")).toContain("The video is one conversation away");
-  expect(await landing("pt-BR")).toContain("O vídeo está a uma conversa de distância");
-  expect(await landing("es")).toContain("El video está a una conversación de distancia");
+  expect(await landing("en")).toContain("Create your videos right now");
+  expect(await landing("pt-BR")).toContain("Crie seus vídeos agora mesmo");
+  expect(await landing("es")).toContain("Crea tus videos ahora mismo");
 });
 
 test("the shell and the library switch language together, and money stays in dollars", () => {

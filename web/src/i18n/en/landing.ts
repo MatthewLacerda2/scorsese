@@ -13,8 +13,11 @@ export const landing = {
   openApp: "Open scorsese",
   signIn: "Sign in",
   hero: {
-    title: "The video is one conversation away",
-    titleB: "Describe the video. We'll make it.",
+    // The first screen's headline, the home's too (#1593).
+    title: "Create your videos right now",
+    // The line under it, in the `hero-subtitle` test's versions; the home shows `a`.
+    subtitle: "Describe the video. We'll make it.",
+    subtitleB: "You don't need to know how to edit. We do it for you.",
     free: (dollars?: string) =>
       dollars ? `Start free: US$${dollars} a day, no card.` : "Start free, no card.",
   },

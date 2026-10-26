@@ -15,10 +15,10 @@ GlobalRegistrator.register({ url: "http://localhost/" });
 const { cleanup } = await import("@testing-library/react");
 const { afterEach, beforeEach } = await import("bun:test");
 
-// Every page test sees the landing's heading test as version `a`, today's page;
-// a test of `b` calls `seeVersion` itself (src/ab/heading.test.tsx).
+// Every page test sees the landing's subtitle test as version `a`, today's page;
+// a test of `b` calls `seeVersion` itself (src/ab/subtitle.test.tsx).
 const { seeVersion } = await import("./visitor");
-beforeEach(() => seeVersion("hero-title", "a"));
+beforeEach(() => seeVersion("hero-subtitle", "a"));
 
 // Bun has no global `afterEach` for Testing Library to find on its own, so each
 // test's mounted tree is unmounted here — and the storage it wrote cleared, so
