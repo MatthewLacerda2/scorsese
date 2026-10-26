@@ -9,7 +9,7 @@
 //! Cropping everything would lose what a whole window catches and a part never
 //! can: a **layout** regression — a panel running under another, the side
 //! column overrunning the window (#681). So two references stay whole on
-//! purpose, `a_whole_edit` and `a_whole_edit_in_light`, and they are the only
+//! purpose, `a_whole_edit` and `a_whole_edit_in_dark`, and they are the only
 //! ones a change to the chrome is expected to move.
 
 use egui::{Context, Id, PanelState, Rect};
@@ -61,11 +61,12 @@ impl Part {
                 egui::pos2(panel("timeline").left(), panel("menu").bottom()),
                 egui::pos2(panel("side").left(), panel("timeline").top()),
             ),
-            // A window's area is keyed by its title as egui reads it, which is
-            // an optional text — hence the `Some`.
+            // The dialog's box, as it recorded itself under its lower-cased title.
             Self::Dialog(title) => ctx
-                .memory(|memory| memory.area_rect(Id::new(Some(title))))
-                .unwrap_or_else(|| panic!("the `{title}` window is open")),
+                .data(|data| {
+                    data.get_temp::<Rect>(Id::new(("dialog rect", title.to_lowercase().as_str())))
+                })
+                .unwrap_or_else(|| panic!("the `{title}` dialog is open")),
         }
     }
 

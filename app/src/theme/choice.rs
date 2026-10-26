@@ -1,11 +1,8 @@
 //! Light or dark, and whether the person chose.
 //!
-//! The web's rule (`web/src/lib/theme.ts`, #582), restated: **an explicit
-//! choice is remembered and wins; until there is one, the system decides**, and
-//! is followed live. Following live costs nothing here — with no choice the
-//! window asks egui for [`egui::ThemePreference::System`], and eframe passes
-//! the platform's appearance through on every frame, so a desktop switching to
-//! dark at sunset switches this window with it.
+//! The web's rule (`web/src/lib/theme.ts`, #1532), restated: **an explicit
+//! choice is remembered and wins; until there is one, the window is light**,
+//! whatever the system prefers.
 //!
 //! ## Where the choice is kept
 //!
@@ -21,7 +18,7 @@
 //!
 //! A file that is missing, unreadable or not understood reads as *not chosen*,
 //! exactly as the web treats a `localStorage` that throws: the worst outcome is
-//! following the system, never a window that will not open.
+//! light, never a window that will not open.
 
 use std::path::{Path, PathBuf};
 
@@ -35,9 +32,9 @@ const FILE: &str = "app.json";
 pub(crate) struct Choice(Option<Theme>);
 
 impl Choice {
-    /// No choice: follow the system. What a fresh install, and every snapshot
-    /// test, starts from.
-    pub(crate) const SYSTEM: Self = Self(None);
+    /// No choice: light. What a fresh install, and every snapshot test, starts
+    /// from.
+    pub(crate) const DEFAULT: Self = Self(None);
 
     /// A theme chosen outright.
     pub(crate) const fn of(theme: Theme) -> Self {
@@ -46,7 +43,7 @@ impl Choice {
 
     /// What this machine remembers.
     pub(crate) fn load() -> Self {
-        path().map_or(Self::SYSTEM, |path| Self::read(&path))
+        path().map_or(Self::DEFAULT, |path| Self::read(&path))
     }
 
     /// Remembers this choice. A file that cannot be written means it lasts
@@ -75,13 +72,12 @@ impl Choice {
         }
     }
 
-    /// What to ask egui for: the choice, or the system's appearance.
+    /// What to ask egui for: the choice, or light.
     pub(crate) fn preference(self) -> egui::ThemePreference {
-        self.0.map_or(egui::ThemePreference::System, Into::into)
+        self.0.map_or(egui::ThemePreference::Light, Into::into)
     }
 
-    /// The other theme from the one on screen, chosen outright — so the first
-    /// press always visibly changes something, whatever the system said.
+    /// The other theme from the one on screen, chosen outright.
     pub(crate) fn toggled(showing: Theme) -> Self {
         Self::of(match showing {
             Theme::Dark => Theme::Light,
@@ -127,8 +123,8 @@ mod tests {
         }
     }
 
-    /// Anything else is *not chosen* — the system decides, and the window
-    /// still opens.
+    /// Anything else is *not chosen* — the window is light, and it still
+    /// opens.
     #[test]
     fn a_file_nobody_understands_is_no_choice() {
         for text in ["", "{", "{}", r#"{"theme":"sepia"}"#, r#"{"theme":1}"#] {
@@ -142,7 +138,7 @@ mod tests {
     fn a_choice_survives_a_relaunch() {
         let folder = crate::scratch::fresh("scorsese-choice", "");
         let file = folder.join("nested").join(FILE);
-        assert_eq!(Choice::read(&file), Choice::SYSTEM);
+        assert_eq!(Choice::read(&file), Choice::DEFAULT);
         Choice::of(Theme::Light).write(&file);
         assert_eq!(Choice::read(&file), Choice::of(Theme::Light));
         Choice::of(Theme::Dark).write(&file);
@@ -160,18 +156,21 @@ mod tests {
         }
     }
 
-    /// No choice follows the system; a choice wins over it.
+    /// No choice is light, whatever the system prefers; a choice wins.
     #[test]
-    fn a_choice_wins_and_no_choice_follows_the_system() {
-        assert_eq!(Choice::SYSTEM.preference(), egui::ThemePreference::System);
+    fn a_choice_wins_and_no_choice_is_light() {
+        assert_eq!(Choice::DEFAULT.preference(), egui::ThemePreference::Light);
+        assert_eq!(
+            Choice::of(Theme::Dark).preference(),
+            egui::ThemePreference::Dark
+        );
         assert_eq!(
             Choice::of(Theme::Light).preference(),
             egui::ThemePreference::Light
         );
     }
 
-    /// The toggle turns over what is showing, not what was stored: with the
-    /// system dark and nothing chosen, the first press is light.
+    /// The toggle turns over what is showing, not what was stored.
     #[test]
     fn the_toggle_turns_over_what_is_on_screen() {
         assert_eq!(Choice::toggled(Theme::Dark), Choice::of(Theme::Light));

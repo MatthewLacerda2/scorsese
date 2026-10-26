@@ -33,7 +33,7 @@ mod worker;
 
 use std::time::{Duration, Instant};
 
-use egui::{Context, RichText, Ui, Window};
+use egui::{Context, RichText, Ui};
 use scorsese_core::{AssetKind, Project};
 use scorsese_providers::credentials::Settings;
 use scorsese_providers::prices::{dollars, from_cents};
@@ -129,12 +129,15 @@ impl Generating {
         if !self.open {
             return;
         }
-        let mut showing = self.open;
-        Window::new("Generate")
-            .open(&mut showing)
-            .resizable(false)
-            .show(ctx, |ui| self.body(ui, open, settings));
-        self.open = showing;
+        let closed = crate::theme::dialog::show(
+            ctx,
+            "generate",
+            true,
+            "Generate",
+            "Make the shots, stills and narration that are still sketches.",
+            |ui| self.body(ui, open, settings),
+        );
+        self.open = !closed;
     }
 
     /// What the dialog says and offers.

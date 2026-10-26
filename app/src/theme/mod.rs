@@ -28,7 +28,7 @@
 //!
 //! Both, chosen at runtime by the web's rule — see [`choice`]. Every colour a
 //! panel draws is read from [`palette::of`], which follows the theme egui has
-//! resolved, so a toggle or a change in the system's appearance reaches every
+//! resolved, so a toggle reaches every
 //! panel on the next frame. The one thing that does not turn over is the black
 //! a picture sits on ([`palette::MATTE`]): a picture is judged against its
 //! surround, and a white one would lie about every exposure.
@@ -42,7 +42,9 @@
 //! nobody uses.
 
 pub(crate) mod choice;
+pub(crate) mod dialog;
 mod fonts;
+use fonts::{medium, semibold};
 #[cfg(test)]
 mod literals;
 pub(crate) mod marks;
@@ -59,18 +61,26 @@ use palette::Palette;
 /// `web/src/index.css` derives from it.
 const RADIUS: f32 = 10.0;
 
-/// `--radius-sm`, 0.6 of the base: a clip, a lane, a tag, a chip — and a
-/// control. The web rounds its 24px `xs` button at `--radius-md`, a third of
-/// its height; a control here is 20px (see [`spacing`]), and `sm` is the step
-/// that keeps that proportion.
+/// `--radius-sm`, 0.6 of the base: a clip, a lane, a tag, a chip.
 pub(crate) const ROUND_SM: CornerRadius = CornerRadius::same((RADIUS * 0.6) as u8);
 /// `--radius-md`, 0.8 of the base: a menu, and the picture's box.
 pub(crate) const ROUND_MD: CornerRadius = CornerRadius::same((RADIUS * 0.8) as u8);
-/// `--radius-lg`, the base itself: a dialog.
+/// `--radius-lg`, the base itself: a control and a tile (`rounded-lg`).
 pub(crate) const ROUND_LG: CornerRadius = CornerRadius::same(RADIUS as u8);
+/// `--radius-xl`, 1.4 of the base: a dialog (`rounded-xl`).
+pub(crate) const ROUND_XL: CornerRadius = CornerRadius::same((RADIUS * 1.4) as u8);
 
-/// Installs the whole look into `ctx`, light or dark as `choice` and the
-/// system decide.
+/// The text style of a heading: `text-xs font-semibold`.
+pub(crate) fn semibold_small() -> TextStyle {
+    TextStyle::Name("semibold-small".into())
+}
+
+/// The text style of a dialog's title: `text-base font-medium`.
+pub(crate) fn medium_large() -> TextStyle {
+    TextStyle::Name("medium-large".into())
+}
+
+/// Installs the whole look into `ctx`, light or dark as `choice` says.
 ///
 /// Idempotent: each style is built from `egui`'s default rather than derived
 /// from what is installed, so calling it on every repaint cannot compound, and
@@ -79,34 +89,51 @@ pub(crate) const ROUND_LG: CornerRadius = CornerRadius::same(RADIUS as u8);
 /// nothing else.
 pub(crate) fn apply(ctx: &egui::Context, choice: Choice) {
     fonts::install(ctx);
+    let weights = fonts::weights_ready(ctx);
+    if !weights {
+        // Draw once more, in the weights.
+        ctx.request_repaint();
+    }
     ctx.set_theme(choice.preference());
     for (theme, palette) in [
         (Theme::Dark, &palette::DARK),
         (Theme::Light, &palette::LIGHT),
     ] {
         let mut style = egui::Style::default();
-        text(&mut style);
+        text(&mut style, weights);
         spacing(&mut style);
         style.visuals = visuals(palette, theme);
         ctx.set_style_of(theme, style);
     }
 }
 
-/// The type scale.
+/// The type scale: the web's. Panels are `text-sm` (14px), labels `text-xs`
+/// (12px), buttons `text-sm font-medium`, and a heading `font-semibold`. Every
+/// number here is a frame count or a timecode, so figures are monospaced:
+/// digits that do not line up in a column are compared by reading rather than
+/// by looking.
 ///
-/// The web's sizes, a step down where this window is denser: its panels are
-/// `text-sm` (14px) and its labels `text-xs` (12px), and this window puts four
-/// panels and a timeline in 1280 pixels. Every number here is a frame count or
-/// a timecode, so figures are monospaced: digits that do not line up in a
-/// column are compared by reading rather than by looking.
-fn text(style: &mut egui::Style) {
+/// The weights are faces egui binds a frame after they are queued; until then
+/// (`weights` false) the same sizes are drawn in the regular face.
+fn text(style: &mut egui::Style, weights: bool) {
     use FontFamily::{Monospace, Proportional};
+    let regular = |size| FontId::new(size, Proportional);
+    let medium = |size| if weights { medium(size) } else { regular(size) };
+    let semibold = |size| {
+        if weights {
+            semibold(size)
+        } else {
+            regular(size)
+        }
+    };
     style.text_styles = [
-        (TextStyle::Heading, FontId::new(16.0, Proportional)),
-        (TextStyle::Body, FontId::new(13.0, Proportional)),
-        (TextStyle::Button, FontId::new(13.0, Proportional)),
-        (TextStyle::Small, FontId::new(10.5, Proportional)),
+        (TextStyle::Heading, semibold(14.0)),
+        (TextStyle::Body, regular(14.0)),
+        (TextStyle::Button, medium(14.0)),
+        (TextStyle::Small, regular(12.0)),
         (TextStyle::Monospace, FontId::new(12.0, Monospace)),
+        (semibold_small(), semibold(12.0)),
+        (medium_large(), medium(16.0)),
     ]
     .into();
     // A frame count being dragged is read digit by digit; proportional digits
@@ -114,23 +141,16 @@ fn text(style: &mut egui::Style) {
     style.drag_value_text_style = TextStyle::Monospace;
 }
 
-/// The gaps: the web's, as far as this window's density allows.
-///
-/// Its padding (`px-2`) and the air between rows, a little more than this
-/// window had. Not its 24px control height: the inspector does not scroll, and
-/// at 24px a generated shot's brief already ran its last fields under the
-/// timeline on an 800px window — so controls stay 20px, and a look that hid a
-/// field would be a capability lost to taste. For the same reason the vertical
-/// padding is two pixels, not three: Geist's line is taller than the face it
-/// replaced, and three made every row two pixels taller than it was.
+/// The gaps: the web's. A control is 32px tall (`h-8`) with `px-2.5`, a panel
+/// is `p-3`; a window that outgrows its inspector scrolls it.
 fn spacing(style: &mut egui::Style) {
     let spacing = &mut style.spacing;
-    spacing.item_spacing = egui::vec2(8.0, 5.0);
-    spacing.button_padding = egui::vec2(8.0, 2.0);
+    spacing.item_spacing = egui::vec2(8.0, 6.0);
+    spacing.button_padding = egui::vec2(10.0, 4.0);
     spacing.menu_margin = Margin::same(4);
     spacing.window_margin = Margin::same(16);
     spacing.indent = 14.0;
-    spacing.interact_size.y = 20.0;
+    spacing.interact_size.y = 32.0;
     // Solid, not egui's floating default: that one draws its handle in the
     // text colour, which in the light theme is a black bar down the panel.
     // Solid takes the handle from the widget fill [`visuals`] sets.
@@ -156,17 +176,19 @@ fn visuals(palette: &Palette, theme: Theme) -> Visuals {
     visuals.error_fg_color = palette.destructive;
     visuals.hyperlink_color = palette.foreground;
 
-    visuals.window_corner_radius = ROUND_LG;
+    visuals.window_corner_radius = ROUND_XL;
     visuals.menu_corner_radius = ROUND_MD;
-    visuals.window_stroke = Stroke::new(1.0, palette.border);
-    visuals.window_shadow = shadow(theme);
+    // A dialog is the web's `ring-1 ring-foreground/10`, with no shadow.
+    visuals.window_stroke = Stroke::new(1.0, palette::over(palette.foreground, palette.card, 0.1));
+    visuals.window_shadow = egui::epaint::Shadow::NONE;
     visuals.popup_shadow = shadow(theme);
 
     // A selected row is filled a step past hover, and selected text — a focused
     // field's outline among it — is drawn in the strongest neutral, the web's
     // `primary`. Grey, not a hue, for the reason in the module doc.
     visuals.selection.bg_fill = palette.pressed;
-    visuals.selection.stroke = Stroke::new(1.0, palette.primary);
+    // A focused field takes the web's `border-ring`; egui draws no halo.
+    visuals.selection.stroke = Stroke::new(1.0, palette.ring);
 
     let widgets = &mut visuals.widgets;
     // Separators and a non-interactive frame are hairlines.
@@ -191,7 +213,7 @@ fn widget(fill: Color32, outline: Color32, text: Color32) -> egui::style::Widget
         weak_bg_fill: fill,
         bg_stroke: Stroke::new(1.0, outline),
         fg_stroke: Stroke::new(1.0, text),
-        corner_radius: ROUND_SM,
+        corner_radius: ROUND_LG,
         // A control that grows under the pointer nudges everything beside it.
         expansion: 0.0,
     }
@@ -222,9 +244,9 @@ mod tests {
     #[test]
     fn applying_the_theme_twice_leaves_the_same_style() {
         let ctx = egui::Context::default();
-        apply(&ctx, Choice::SYSTEM);
+        apply(&ctx, Choice::DEFAULT);
         let once = ctx.style_of(Theme::Light);
-        apply(&ctx, Choice::SYSTEM);
+        apply(&ctx, Choice::DEFAULT);
         let twice = ctx.style_of(Theme::Light);
         assert_eq!(once.visuals.panel_fill, twice.visuals.panel_fill);
         assert_eq!(once.text_styles, twice.text_styles);
@@ -236,7 +258,7 @@ mod tests {
     #[test]
     fn each_theme_is_drawn_in_its_own_palette() {
         let ctx = egui::Context::default();
-        apply(&ctx, Choice::SYSTEM);
+        apply(&ctx, Choice::DEFAULT);
         let dark = ctx.style_of(Theme::Dark);
         let light = ctx.style_of(Theme::Light);
         assert!(dark.visuals.dark_mode && !light.visuals.dark_mode);
@@ -266,5 +288,32 @@ mod tests {
                 visuals.widgets.inactive.weak_bg_fill
             );
         }
+    }
+
+    /// The web's sizes: a control is 32px (`h-8`), a button's text is 14px
+    /// medium, a heading is semibold.
+    #[test]
+    fn controls_and_type_are_the_webs() {
+        let ctx = egui::Context::default();
+        // The faces are bound a pass after they are queued.
+        for _ in 0..3 {
+            let _ = ctx.run_ui(Default::default(), |ui| apply(ui.ctx(), Choice::DEFAULT));
+        }
+        let style = ctx.style_of(Theme::Light);
+        assert_eq!(style.spacing.interact_size.y, 32.0);
+        assert_eq!(style.spacing.button_padding.x, 10.0);
+        assert_eq!(style.text_styles[&TextStyle::Body].size, 14.0);
+        assert_eq!(style.text_styles[&TextStyle::Small].size, 12.0);
+        assert_eq!(style.text_styles[&TextStyle::Button], medium(14.0));
+        assert_eq!(style.text_styles[&TextStyle::Heading], semibold(14.0));
+    }
+
+    /// A dialog is outlined at `foreground/10` and casts no shadow.
+    #[test]
+    fn a_dialog_has_a_ring_and_no_shadow() {
+        let visuals = visuals(&palette::LIGHT, Theme::Light);
+        assert_eq!(visuals.window_shadow, egui::epaint::Shadow::NONE);
+        assert_ne!(visuals.window_stroke.color, palette::LIGHT.border);
+        assert_eq!(visuals.window_corner_radius, ROUND_XL);
     }
 }

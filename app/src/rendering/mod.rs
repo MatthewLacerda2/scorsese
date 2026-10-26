@@ -20,7 +20,7 @@ mod popup;
 
 use std::path::PathBuf;
 
-use egui::{Context, Window};
+use egui::Context;
 use scorsese_render::Reading;
 
 use crate::project::Open;
@@ -78,18 +78,20 @@ impl Rendering {
     /// The settings and the button that asks where to save.
     fn dialog(&mut self, ctx: &Context, open: &Open) {
         let (aspect, own) = (open.project.aspect, open.project.timeline_fps);
-        let mut showing = true;
         let mut start = false;
-        Window::new("Render")
-            .open(&mut showing)
-            .collapsible(false)
-            .resizable(false)
-            .show(ctx, |ui| {
+        let closed = crate::theme::dialog::show(
+            ctx,
+            "render",
+            true,
+            "Render",
+            "Choose how the video is delivered.",
+            |ui| {
                 self.choices.show(ui, aspect, own);
                 ui.separator();
-                start = ui.button("Render…").clicked();
-            });
-        self.asking = showing && !start;
+                start = crate::theme::marks::primary_button(ui, "Render…").clicked();
+            },
+        );
+        self.asking = !closed && !start;
         if start && let Some(out) = self.destination(open) {
             let settings = self.choices.settings(aspect, own);
             self.job = Some(Job::start(&open.project, &open.root, settings, out));
