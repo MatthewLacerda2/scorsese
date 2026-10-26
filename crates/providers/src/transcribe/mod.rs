@@ -36,7 +36,7 @@ mod whisper;
 use crate::credentials::{Environment, Settings, SettingsError};
 
 pub use error::TranscribeError;
-pub use run::{Asked, Transcribed, transcribe};
+pub use run::{Asked, Corrected, Transcribed, correct, transcribe};
 pub use whisper::{Heard, Language, Transcriber, Whisper};
 
 /// Where the server answers unless told otherwise: what

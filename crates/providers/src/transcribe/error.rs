@@ -48,6 +48,12 @@ pub enum TranscribeError {
         /// What it is.
         kind: AssetKind,
     },
+    /// A correction to a recording that has no transcript.
+    #[error("`{0}` has no transcript to correct: transcribe it first")]
+    Untranscribed(AssetId),
+    /// A correction that names no word, or one word twice.
+    #[error(transparent)]
+    Fix(#[from] scorsese_core::words::FixError),
     /// The recording's file is not there.
     #[error("`{asset}`'s file {path} is not in the project")]
     Missing {

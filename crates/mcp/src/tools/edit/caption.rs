@@ -24,8 +24,9 @@ struct Arguments {
     /// Id of the video track the captions go on. Made, on top, when there is
     /// none. Default `captions`.
     track: Option<String>,
-    /// Audio track ids whose lines are captioned. Omit and every generated
-    /// narration line on any audio track is.
+    /// Track ids whose clips are captioned. Omit and every generated
+    /// narration line on an audio track is, and every transcribed video or
+    /// sound on any track.
     narration: Option<Vec<String>>,
     #[schemars(description = format!(
         "The most characters one caption holds, about two lines at the default \
@@ -60,12 +61,14 @@ impl Tool for CaptionNarration {
 
     fn description(&self) -> &'static str {
         "Put the narration's own words on screen as captions, timed from the \
-         word timings saved when each line was generated. For viewers watching \
-         muted: each line is cut into short pieces at its sentences, commas and \
-         pauses, and each piece arrives whole on its first spoken word. Writes \
-         ordinary text assets and clips on one video track. Safe to re-run after \
-         a line is regenerated or moved: it replaces only the captions it wrote. \
-         A line without word timings is named and skipped."
+         word timings saved when each line was generated, and from footage's \
+         speech once transcribe has heard it. For viewers watching muted: each \
+         line is cut into short pieces at its sentences, commas and pauses, and \
+         each piece arrives whole on its first spoken word. Writes ordinary text \
+         assets and clips on one video track. Safe to re-run after a line is \
+         regenerated or moved, or a transcript corrected: it replaces only the \
+         captions it wrote. A clip without word timings on a track named in \
+         `narration` is named and skipped."
     }
 
     fn costs(&self) -> Costs {
@@ -134,7 +137,7 @@ fn said(report: &Captioned, track: &TrackId) -> String {
     for clip in &report.untimed {
         lines.push(format!(
             "{clip}: skipped — no word timings (not generated yet, generated \
-             before timings were kept, or not generated speech)"
+             before timings were kept, or footage not transcribed yet)"
         ));
     }
     lines.join("\n")

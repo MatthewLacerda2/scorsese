@@ -12,7 +12,7 @@ use scorsese_providers::transcribe::{
 
 /// A Whisper that hears one word, and counts how often it was asked.
 #[derive(Default)]
-struct Ear {
+pub(super) struct Ear {
     asked: Cell<usize>,
 }
 
@@ -40,7 +40,7 @@ impl Transcriber for Ear {
 
 /// A folder with footage `take`, a picture, a generated line and footage whose
 /// file is gone.
-fn folder(label: &str) -> (std::path::PathBuf, Project) {
+pub(super) fn folder(label: &str) -> (std::path::PathBuf, Project) {
     let dir = std::env::temp_dir().join(format!(
         "scorsese-transcribe-{label}-{}",
         std::process::id()
@@ -61,7 +61,7 @@ fn folder(label: &str) -> (std::path::PathBuf, Project) {
     (dir, project)
 }
 
-fn decode(file: &Path) -> Result<Vec<u8>, String> {
+pub(super) fn decode(file: &Path) -> Result<Vec<u8>, String> {
     let name = file
         .strip_prefix(
             file.parent()
@@ -73,7 +73,7 @@ fn decode(file: &Path) -> Result<Vec<u8>, String> {
     Ok(format!("WAV of {}", name.display()).into_bytes())
 }
 
-fn asked(again: bool) -> Asked {
+pub(super) fn asked(again: bool) -> Asked {
     Asked {
         language: None,
         again,

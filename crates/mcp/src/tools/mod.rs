@@ -43,6 +43,7 @@ mod script;
 mod still;
 mod stock;
 mod synth;
+mod transcribe;
 mod vectorize;
 mod voices;
 
@@ -195,6 +196,10 @@ pub enum Costs {
     /// however little it spends. Equally not [`Costs::Money`], which is the one
     /// cost here that cannot be undone by trying again.
     Request,
+    /// `ffmpeg` decodes, and the local Whisper server hears it (#1549): no
+    /// money and no network past this machine, but about a minute of the CPU
+    /// for every half-minute of speech, and a server that has to be running.
+    Hearing,
     /// **Real money, to somebody else.** The only cost on this list that is not
     /// paid in seconds, and the only one that cannot be undone by waiting — so
     /// it is its own answer rather than a note on `Encode`, and a client
@@ -212,6 +217,7 @@ impl Costs {
             Self::Frames => "ffmpeg, and seconds",
             Self::Encode => "ffmpeg, and real time",
             Self::Request => "a network, and a key where the vendor needs one, but no money",
+            Self::Hearing => "ffmpeg, and the local Whisper server's minutes, but no money",
             Self::Money => "money, at a provider",
         }
     }
@@ -353,6 +359,8 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(edit::ClipUngroup),
         Box::new(edit::Dissolve),
         Box::new(edit::Duck),
+        Box::new(transcribe::Transcribe),
+        Box::new(transcribe::TranscriptFix),
         Box::new(edit::CaptionNarration),
         Box::new(edit::SetVolume),
         Box::new(edit::ScalePacing),

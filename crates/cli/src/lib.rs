@@ -301,6 +301,7 @@ fn dispatch(cli: Cli) -> Result<()> {
         }
         Command::Duck(options) => commands::duck::run(&directory, &options),
         Command::Caption(options) => commands::caption::run(&directory, &options),
+        Command::Transcribe(options) => commands::transcribe::run(&directory, &options),
         Command::CutToVoice(options) => commands::voice::run(&directory, &options),
         Command::Stock { action } => commands::stock::run(&directory, action),
         Command::Level {

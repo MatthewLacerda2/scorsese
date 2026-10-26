@@ -116,7 +116,9 @@ the tools relate to each other, which is knowledge no single tool has.
 | `clip_ungroup` | Undo clip_group: replace a clip of a group with the group's own clips, at exactly the times and places the group was showing them, and remove the group asset. | nothing |
 | `dissolve` | Dissolve one shot into the next, by writing ordinary opacity keyframes on both clips — the same ones you would place by hand, and they stay editable afterwards. | nothing |
 | `duck_music` | Lower a music track while narration plays over it, by writing ordinary volume keyframes on its clips. | nothing |
-| `caption_narration` | Put the narration's own words on screen as captions, timed from the word timings saved when each line was generated. | nothing |
+| `transcribe` | Hear the speech in an imported video or sound with a local Whisper, keeping when each word is said. | ffmpeg, and the local Whisper server's minutes, but no money |
+| `transcript_fix` | Correct misheard words in a transcript transcribe made, each keeping when it is said, so captions timed to it stay in sync. | nothing |
+| `caption_narration` | Put the narration's own words on screen as captions, timed from the word timings saved when each line was generated, and from footage's speech once transcribe has heard it. | nothing |
 | `set_volume` | Set how loud one clip plays — a level, a mute, or a fade between two points — by writing the ordinary volume keyframes you would place by hand, which stay editable afterwards. | nothing |
 | `scale_pacing` | Move some clips toward or away from one instant, all by the same factor — the operation for pacing. | nothing |
 | `cut_to_voice` | Cut a narrated video to its voice: each scene ends a gap after its line's last word, and the next begins there. | nothing |
@@ -1029,12 +1031,14 @@ duck_music  { "project": "teaser.scor", "music": "score",
 ## Captions from the narration: `caption_narration`
 
 `caption_narration` puts the narration's own words on screen, timed from the
-word timings saved when each line was generated: each line is cut into short
+word timings saved when each line was generated, or heard in footage by
+`transcribe` (below): each line is cut into short
 pieces at its sentences, commas and pauses, and each piece arrives whole on its
 first spoken word. What it writes is ordinary `text` assets and clips on one
 video track, so any of them can be changed afterwards like any other caption.
 **It is safe to re-run** after a line is regenerated or moved: it replaces only
-the captions it wrote. A line without word timings is named and skipped.
+the captions it wrote. A clip without word timings on a track named in
+`narration` is named and skipped.
 
 ```
 caption_narration  { "project": "teaser.scor" }
@@ -1048,7 +1052,7 @@ Everything it takes has a default, chosen so the plain call reads well on a
 | argument | what it is | default |
 |---|---|---|
 | `track` | the video track the captions go on, made on top when there is none | `captions` |
-| `narration` | the audio track ids whose lines are captioned | every generated line on any audio track |
+| `narration` | the track ids whose clips are captioned | every generated line on an audio track, and every transcribed recording |
 | `max_chars` | the most characters one caption holds | 36, about two lines at the default size in 9:16 |
 | `font` | a face this build ships, or a font file inside the project | `montserrat` |
 | `weight` | how heavy, 1 to 1000 | 800 |
@@ -1056,6 +1060,36 @@ Everything it takes has a default, chosen so the plain call reads well on a
 | `color` | the words' colour, `#rrggbb` or `#rrggbbaa` | white |
 | `stroke` | the rim outside each letter, `#rrggbb`, or `none` | black |
 | `lift` | how far up from the frame's bottom edge, as a fraction of its height | 0.2, the lower third |
+
+## Words in real footage: `transcribe` and `transcript_fix`
+
+`transcribe` has a local Whisper hear the speech in an imported video or sound
+and keeps when each word is said beside the asset, in the file a generated
+line's timings are kept in — so `caption_narration`, pages' `scorsese.words`
+and `project_describe` work on an interview or a sketch as they do on
+narration. It answers with the words numbered. `transcript_fix` corrects a
+misheard one by its number, keeping its times; an empty `text` drops a word.
+
+```
+transcribe      { "project": "story.scor", "asset": "sketch" }
+transcribe      { "project": "story.scor", "asset": "sketch", "language": "pt" }
+transcript_fix  { "project": "story.scor", "asset": "sketch",
+                  "fixes": [{ "word": 14, "text": "Kassab" }, { "word": 15, "text": "" }] }
+```
+
+Free, and nothing leaves the machine, but slow: about a minute of the CPU for
+every half-minute of speech. **The Whisper server is a container of its own**
+(`deploy/whisper/`), which scorsese reaches at `http://127.0.0.1:8970` unless
+`SCORSESE_WHISPER_URL` or the settings file's `whisper_url` says otherwise
+(`docs/credentials.md`). When it is not running, the error says how to start
+it:
+
+```
+docker compose --file deploy/whisper/compose.yaml up --detach
+```
+
+A transcript is kept, corrections and all: `transcribe` called again reads it
+back, and only `"again": true` hears the recording afresh, replacing it.
 
 ## Pacing: the same clips, spread differently
 

@@ -2,8 +2,8 @@
 
 use std::path::Path;
 
-use scorsese_core::words::Words;
-use scorsese_core::{AssetId, AssetKind, Project, ProjectPath};
+use scorsese_core::words::{Fix, Words};
+use scorsese_core::{Asset, AssetId, AssetKind, Project, ProjectPath};
 
 use super::{Heard, Language, TranscribeError, Transcriber};
 
@@ -67,20 +67,7 @@ pub fn transcribe(
     transcriber: &dyn Transcriber,
     decode: impl FnOnce(&Path) -> Result<Vec<u8>, String>,
 ) -> Result<Transcribed, TranscribeError> {
-    let found = project
-        .asset(asset)
-        .ok_or_else(|| TranscribeError::NoSuchAsset(asset.clone()))?;
-    if found.kind == AssetKind::GeneratedAudio {
-        return Err(TranscribeError::Generated(asset.clone()));
-    }
-    let path = found
-        .path
-        .as_ref()
-        .filter(|_| Words::transcribable(found.kind))
-        .ok_or_else(|| TranscribeError::NotARecording {
-            asset: asset.clone(),
-            kind: found.kind,
-        })?;
+    let (found, path) = recording(project, asset)?;
     let source = path.resolve(root);
     if !source.is_file() {
         return Err(TranscribeError::Missing {
@@ -120,4 +107,80 @@ fn write(root: &Path, file: &ProjectPath, words: &Words) -> Result<(), Transcrib
     };
     std::fs::write(&writing, words.to_json()).map_err(failed)?;
     std::fs::rename(&writing, &target).map_err(failed)
+}
+
+/// A transcript after a correction, and how much it changed.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Corrected {
+    /// The transcript as now kept.
+    pub transcript: Transcribed,
+    /// How many corrections were made.
+    pub fixed: usize,
+    /// How many of them dropped a word.
+    pub dropped: usize,
+}
+
+impl Corrected {
+    /// What every surface says: a line, then the words numbered afresh.
+    pub fn said(&self) -> String {
+        let plural =
+            |n: usize, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
+        format!(
+            "`{}` corrected in {}: {}, {} dropped, each kept word at its own times. \
+             Numbered afresh:\n{}",
+            self.transcript.asset,
+            self.transcript.file,
+            plural(self.fixed, "fix", "fixes"),
+            plural(self.dropped, "word", "words"),
+            self.transcript.words.listing()
+        )
+    }
+}
+
+/// Corrects `asset`'s transcript ([`Words::fix`]) and writes it back, each
+/// word keeping its times.
+pub fn correct(
+    project: &Project,
+    root: &Path,
+    asset: &AssetId,
+    fixes: &[Fix],
+) -> Result<Corrected, TranscribeError> {
+    let (found, path) = recording(project, asset)?;
+    let mut words =
+        Words::of(found, root).ok_or_else(|| TranscribeError::Untranscribed(asset.clone()))?;
+    let dropped = words.fix(fixes)?;
+    let file = Words::beside(path);
+    write(root, &file, &words)?;
+    Ok(Corrected {
+        transcript: Transcribed {
+            asset: asset.clone(),
+            file,
+            words,
+            heard: None,
+        },
+        fixed: fixes.len(),
+        dropped,
+    })
+}
+
+/// `asset`, when it is a recording a transcript can be made of, and its file.
+fn recording<'a>(
+    project: &'a Project,
+    asset: &AssetId,
+) -> Result<(&'a Asset, &'a ProjectPath), TranscribeError> {
+    let found = project
+        .asset(asset)
+        .ok_or_else(|| TranscribeError::NoSuchAsset(asset.clone()))?;
+    if found.kind == AssetKind::GeneratedAudio {
+        return Err(TranscribeError::Generated(asset.clone()));
+    }
+    let path = found
+        .path
+        .as_ref()
+        .filter(|_| Words::transcribable(found.kind))
+        .ok_or_else(|| TranscribeError::NotARecording {
+            asset: asset.clone(),
+            kind: found.kind,
+        })?;
+    Ok((found, path))
 }

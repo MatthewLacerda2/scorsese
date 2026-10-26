@@ -38,7 +38,13 @@ REVISION = "org.opencontainers.image.revision"
 # build writes them under the new commit's tag, and the restart moves `latest`
 # to them, so until then whatever starts one by name (page captures start
 # `scorsese-server`) gets the build the stack runs.
-BUILT = ("scorsese-server", "scorsese-capture-launcher", "scorsese-web", "scorsese-backup")
+BUILT = (
+    "scorsese-server",
+    "scorsese-capture-launcher",
+    "scorsese-web",
+    "scorsese-backup",
+    "scorsese-whisper",
+)
 TAG = "SCORSESE_IMAGE_TAG"
 
 Compose = Callable[[Sequence[str]], Result]

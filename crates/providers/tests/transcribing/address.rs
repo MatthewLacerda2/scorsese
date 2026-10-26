@@ -23,3 +23,18 @@ fn the_variable_wins_then_the_settings_file_then_the_default() {
     assert_eq!(DEFAULT_ADDRESS, "http://127.0.0.1:8970");
     assert_eq!(VARIABLE, "SCORSESE_WHISPER_URL");
 }
+
+/// The image bakes in one model and the server answers for no other, so what
+/// is asked for is what `deploy/whisper/Dockerfile` downloads.
+#[test]
+fn the_model_asked_for_is_the_one_the_image_bakes_in() {
+    let dockerfile = include_str!("../../../../deploy/whisper/Dockerfile");
+    assert!(
+        dockerfile.contains(&format!(
+            "\nARG MODEL={}\n",
+            scorsese_providers::transcribe::MODEL
+        )),
+        "deploy/whisper/Dockerfile's ARG MODEL is not {}",
+        scorsese_providers::transcribe::MODEL
+    );
+}

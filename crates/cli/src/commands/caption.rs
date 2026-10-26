@@ -14,8 +14,9 @@ pub(crate) struct Options {
     /// The video track the captions go on. Made, on top, when there is none.
     #[arg(long, default_value = "captions")]
     track: String,
-    /// An audio track whose lines are captioned. Repeatable; without it,
-    /// every generated narration line on any audio track is.
+    /// A track whose clips are captioned. Repeatable; without it, every
+    /// generated narration line on an audio track is, and every transcribed
+    /// video or sound on any track.
     #[arg(long)]
     narration: Vec<String>,
     /// The most characters one caption holds — about two lines at the
