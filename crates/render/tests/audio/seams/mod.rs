@@ -81,10 +81,12 @@ pub(super) fn holds_to_one_decode(
     std::fs::remove_dir_all(dir).ok();
 }
 
-/// A four-second sine at a half, at 44.1 kHz as Pixabay's music is, encoded
-/// with `codec` into `assets/bed.{extension}`.
+/// A five-second sine at a half, at 44.1 kHz as Pixabay's music is, encoded
+/// with `codec` into `assets/bed.{extension}`. It outlasts every mix of it: an
+/// `.m4a`'s alignment can move a few thousandths at the file's own end, which
+/// is not a seam.
 pub(super) fn compressed_bed(tools: &Tools, root: &Path, extension: &str, codec: &[&str]) -> Asset {
-    let graph = format!("{},aresample=44100", tone_graph(440, "0.5", 4.0));
+    let graph = format!("{},aresample=44100", tone_graph(440, "0.5", 5.0));
     let path = format!("assets/bed.{extension}");
     let mut args = vec!["-f", "lavfi", "-i", &graph, "-ac", "2"];
     args.extend_from_slice(codec);

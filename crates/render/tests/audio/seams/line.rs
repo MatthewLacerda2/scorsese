@@ -18,7 +18,7 @@ fn an_m4a_bed_is_continuous_across_the_seams_of_a_line_over_it() {
     under_a_line("m4a", M4A);
 }
 
-/// A four-second bed of `extension` under a silent line from one second to
+/// Four seconds of a bed of `extension` under a silent line from one second to
 /// two.
 fn under_a_line(extension: &str, codec: &[&str]) {
     // #1607: every stretch decoded the bed again with an input seek, which in
