@@ -92,11 +92,15 @@ fn a_take_silenced_throughout_is_not_captioned() {
         });
         KeyframeTrack::new(PropertyPath::new("volume"), points.collect())
     };
-    // Silenced by one track at nothing; heard through a track held loud and
-    // one that rises from nothing.
-    shots.clips[0].keyframes = vec![volume(&[0.0, 0.0])];
+    // Silenced by one track at nothing, or below it, which the mixer plays
+    // as nothing; heard through a track held loud and one that rises from
+    // nothing.
+    shots.clips[0].keyframes = vec![volume(&[0.0, -0.5])];
     shots.clips[1].keyframes = vec![volume(&[1.0]), volume(&[0.0, 1.0])];
     project.tracks.insert(0, shots);
+    // A generated line held at nothing is still captioned: only a
+    // transcribed recording is skipped for its silence.
+    project.tracks[1].clips[0].keyframes = vec![volume(&[0.0])];
     let mut asked = asked();
     asked.volume = Some(PropertyPath::new("volume"));
     let report = caption(&mut project, &dir, &asked).unwrap();
@@ -104,6 +108,7 @@ fn a_take_silenced_throughout_is_not_captioned() {
         report.lines,
         [(ClipId::new("heard"), 1), (ClipId::new("nar"), 2)]
     );
+    assert_eq!(report.silenced, [ClipId::new("silenced")]);
 }
 
 fn said() -> Words {

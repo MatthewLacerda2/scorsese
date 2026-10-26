@@ -87,6 +87,9 @@ fn describe(report: &Captioned, track: &TrackId) {
     for line in &report.untimed {
         println!("{line} — skipped, no word timings");
     }
+    for line in &report.silenced {
+        println!("{line} — skipped, transcribed footage at volume 0 throughout");
+    }
     let made: usize = report.lines.iter().map(|(_, n)| n).sum();
     println!(
         "{made} caption(s) on track `{track}`, {} replaced — ordinary text clips, yours to edit",

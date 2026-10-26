@@ -1038,7 +1038,9 @@ first spoken word. What it writes is ordinary `text` assets and clips on one
 video track, so any of them can be changed afterwards like any other caption.
 **It is safe to re-run** after a line is regenerated or moved: it replaces only
 the captions it wrote. A clip without word timings on a track named in
-`narration` is named and skipped.
+`narration` is named and skipped, and so, when no track is named, is a
+transcribed recording held at volume 0 throughout (a generated line is
+captioned whatever its volume).
 
 ```
 caption_narration  { "project": "teaser.scor" }

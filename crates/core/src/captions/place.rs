@@ -18,6 +18,9 @@ pub struct Captioned {
     pub lines: Vec<(ClipId, usize)>,
     /// Narration clips with no word timings, skipped.
     pub untimed: Vec<ClipId>,
+    /// Transcribed recordings held at nothing throughout, skipped when no
+    /// track was named.
+    pub silenced: Vec<ClipId>,
     /// How many captions from an earlier run were taken away first.
     pub replaced: usize,
 }
@@ -62,7 +65,9 @@ pub fn caption(
         ..Captioned::default()
     };
     let mut all = Vec::new();
-    for clip in narration(&next, root, asked) {
+    let (spoken, silenced) = narration(&next, root, asked);
+    report.silenced = silenced;
+    for clip in spoken {
         let words = next
             .asset(&clip.asset)
             .and_then(|asset| Words::of(asset, root));
@@ -85,11 +90,15 @@ pub fn caption(
 /// can carry speech on the tracks it names — a line, a video, a sound; or,
 /// when it names none, each generated narration line on an audio track and
 /// each transcribed recording on any track (#1549) that is not silenced
-/// throughout.
-fn narration<'a>(project: &'a Project, root: &Path, asked: &Captioning) -> Vec<&'a Clip> {
+/// throughout. Second, the recordings left out for their silence.
+fn narration<'a>(
+    project: &'a Project,
+    root: &Path,
+    asked: &Captioning,
+) -> (Vec<&'a Clip>, Vec<ClipId>) {
     let speaks = |kind: AssetKind| kind == AssetKind::GeneratedAudio || Words::transcribable(kind);
     if !asked.narration.is_empty() {
-        return project
+        let named = project
             .tracks
             .iter()
             .filter(|track| asked.narration.contains(&track.id))
@@ -100,25 +109,32 @@ fn narration<'a>(project: &'a Project, root: &Path, asked: &Captioning) -> Vec<&
                     .is_some_and(|asset| speaks(asset.kind))
             })
             .collect();
+        return (named, Vec::new());
     }
-    project
-        .tracks
-        .iter()
-        .flat_map(|track| track.clips.iter().map(move |clip| (track.kind, clip)))
-        .filter(|(kind, clip)| {
-            project.asset(&clip.asset).is_some_and(|asset| {
-                (*kind == TrackKind::Audio && asset.kind == AssetKind::GeneratedAudio)
-                    || (Words::transcribable(asset.kind) && Words::of(asset, root).is_some())
-            })
-        })
-        .filter(|(_, clip)| !silenced(clip, asked.volume.as_ref()))
-        .map(|(_, clip)| clip)
-        .collect()
+    let (mut spoken, mut silent) = (Vec::new(), Vec::new());
+    for track in &project.tracks {
+        for clip in &track.clips {
+            let Some(asset) = project.asset(&clip.asset) else {
+                continue;
+            };
+            if track.kind == TrackKind::Audio && asset.kind == AssetKind::GeneratedAudio {
+                spoken.push(clip);
+            } else if Words::transcribable(asset.kind) && Words::of(asset, root).is_some() {
+                if silenced(clip, asked.volume.as_ref()) {
+                    silent.push(clip.id.clone());
+                } else {
+                    spoken.push(clip);
+                }
+            }
+        }
+    }
+    (spoken, silent)
 }
 
 /// Whether `clip` is held at nothing throughout on `volume`: one of its
-/// tracks there, which multiply, has every point at `0`. Between two zeros
-/// every easing stays at zero, and outside them the end is held.
+/// tracks there, which multiply, has every point at or below `0`, which the
+/// mixer plays as nothing. Between two such points every easing stays at or
+/// below zero, and outside them the end is held.
 fn silenced(clip: &Clip, volume: Option<&PropertyPath>) -> bool {
     let Some(volume) = volume else {
         return false;
@@ -126,7 +142,7 @@ fn silenced(clip: &Clip, volume: Option<&PropertyPath>) -> bool {
     clip.keyframes.iter().any(|track| {
         &track.property == volume
             && !track.keyframes.is_empty()
-            && track.keyframes.iter().all(|point| point.value == 0.0)
+            && track.keyframes.iter().all(|point| point.value <= 0.0)
     })
 }
 

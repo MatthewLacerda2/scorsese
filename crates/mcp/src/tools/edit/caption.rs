@@ -144,5 +144,11 @@ fn said(report: &Captioned, track: &TrackId) -> String {
              before timings were kept, or footage not transcribed yet)"
         ));
     }
+    for clip in &report.silenced {
+        lines.push(format!(
+            "{clip}: skipped — transcribed footage at volume 0 throughout; name its \
+             track in `narration` to caption it anyway"
+        ));
+    }
     lines.join("\n")
 }
