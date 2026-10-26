@@ -106,6 +106,13 @@ fn the_probe_is_counted_spent_whenever_the_vendor_drew() {
     )
     .unwrap();
     assert_eq!(png_cents(&Ok(words)), 0);
+    let empty: scorsese_providers::api::gemini::response::Interaction =
+        serde_json::from_str(r#"{"status": "completed", "steps": []}"#).unwrap();
+    assert_eq!(
+        png_cents(&Ok(empty)),
+        still_cents(),
+        "neither picture nor words is billed"
+    );
 }
 
 #[test]
