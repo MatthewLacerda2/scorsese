@@ -22,9 +22,9 @@ from typing import List, Optional, Sequence
 
 from . import stack
 from .finish import Finish
-from .spool import Spool
 from .host import Host, Refusal, Result, read_env
 from .options import parse
+from .spool import Spool
 
 DEPLOY = Path(__file__).resolve().parent.parent
 
