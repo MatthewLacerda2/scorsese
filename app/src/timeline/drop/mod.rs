@@ -163,7 +163,7 @@ impl Timeline {
         let offset = lanes::laid_out(laid)
             .into_iter()
             .find(|(lane, _)| Some(&lane.id) == track)
-            .map_or_else(|| lanes::height(project) + lanes::GAP, |(_, at)| at);
+            .map_or_else(|| lanes::height(project), |(_, at)| at);
         let lane = lanes::lane_rect(area, top, offset);
         Rect::from_min_size(
             egui::pos2(area.left() + self.view.offset_of(landing.start), lane.top()),

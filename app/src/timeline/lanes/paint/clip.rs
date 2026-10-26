@@ -1,44 +1,53 @@
 //! One block on a lane: what it is, whether anybody has made it, and what a
 //! tool has written across it.
 //!
-//! Three things are said about every clip, in the order somebody reads them:
+//! `web/src/editor/timeline/Lane.tsx`, `ClipFill.tsx` and `Unmade.tsx`, in
+//! egui. Every clip fills its lane top to bottom and wears a 1px border in its
+//! kind's hue; what is inside says whether it exists:
 //!
-//! 1. **What kind of thing it is**, as a hue — the same hue the pool uses for
-//!    the same asset, and the same the web editor's timeline uses, so the
-//!    panels and the two apps are telling one story. A clip that exists is a
-//!    solid block of it with white text, as the web draws one.
-//! 2. **Whether it exists**, as hatching. A clip whose asset is a brief nobody
-//!    has paid for renders as a slug card, and *which* those are is the
-//!    question asked before pressing the button that spends money — so an
-//!    unmade clip is only tinted with its hue, and hatched. The web hatches
-//!    the same clips, by the same rule (`web/src/editor/timeline/made.ts`).
-//! 3. **What animates it**, as a line drawn through it. A volume ramp is in the
-//!    document already and was drawn nowhere — so a duck written by `duck_music`
-//!    was invisible until somebody clicked the clip and read a row that said
-//!    `volume · 4 points`.
+//! 1. **A made clip** is filled by its kind: the asset's picture tiled along
+//!    it, a sound's waveform, or the solid hue.
+//! 2. **An unmade clip** — a brief nobody has paid for, which renders as a slug
+//!    card — is tinted and hatched with its hue, and says how far along it is.
+//!    *Which* clips those are is the question asked before pressing the button
+//!    that spends money.
+//! 3. **What animates it** is a line drawn through it. A volume ramp is in the
+//!    document already; a duck written by `duck_music` would otherwise be
+//!    invisible until somebody clicked the clip and read a row.
+//!
+//! Both wear the asset's name on a dark strip top-left and a trim strip at each
+//! end, and a selected clip a ring outside it.
 
-use egui::{Align2, Color32, Painter, Rect, Stroke, StrokeKind, pos2, vec2};
-use scorsese_core::{Asset, Clip};
-use scorsese_render::audio::Gain;
+use std::sync::Arc;
+
+use egui::{
+    Align2, Color32, CornerRadius, Painter, Rect, Stroke, StrokeKind, TextureHandle, pos2, vec2,
+};
+use scorsese_core::{Asset, Clip, Project};
+use scorsese_render::audio::{Gain, Peaks};
 
 use super::Paint;
 use crate::theme::palette::{self, Palette};
 use crate::theme::{ROUND_SM, marks};
+use crate::timeline::fill::Fill;
+use crate::timeline::sound;
 use crate::timeline::view::View;
 
-/// How far a clip's text and its ramp stand in from the block's top edge.
-const INSET: f32 = 5.0;
+/// How tall the name strip is: the web's `leading-4`.
+const STRIP: f32 = 16.0;
 /// How far apart the hatching is on a clip nobody has made yet.
-///
-/// Wide enough to read as a texture rather than as a fill, and pale enough that
-/// the clip's own label still sits on top of it — the hatching says *this is
-/// indicated*, and a clip you cannot read the name of has said it too loudly.
 const HATCH: f32 = 9.0;
+/// How wide the trim strip at each end of a clip is.
+const TRIM: f32 = 6.0;
 /// Below this width there is no room for text, and a clipped glyph reads as a
 /// rendering fault rather than as a small clip.
 const READABLE: f32 = 30.0;
+/// How much room the state word of an unmade clip keeps clear on the name
+/// strip's right: the web's `pr-10`.
+const STATE_ROOM: f32 = 40.0;
 
-/// Where a clip sits in its lane.
+/// Where a clip sits in its lane: the whole lane's height, as the web's
+/// `inset-y-0`.
 pub(in crate::timeline::lanes) fn rect(lane: Rect, clip: &Clip, view: View) -> Rect {
     let left = lane.left() + view.offset_of(clip.start);
     // At least a hair wide, so a very short clip at a wide zoom is still
@@ -63,7 +72,17 @@ pub(in crate::timeline::lanes) fn draw(paint: &Paint<'_>, rect: Rect, lane: Rect
     let made = asset.is_some_and(Asset::has_renderable_media);
     let chosen = paint.selected.contains(&clip.id);
 
-    body(&painter, rect, hue, made, chosen, colours);
+    if made {
+        let fill = asset.and_then(|asset| paint.fills.get(&asset.id));
+        body(&painter, rect, hue, chosen, colours);
+        fill_in(&painter, rect, fill, (clip, paint.project), chosen);
+    } else {
+        unmade(&painter, rect, hue, colours);
+    }
+    painter.rect_stroke(rect, ROUND_SM, Stroke::new(1.0, hue), StrokeKind::Inside);
+    // The name strip sits over the picture, and the trim strips over that.
+    caption(&painter, (rect, lane), clip, asset, made, colours);
+    trims(&painter, rect);
     // White on a solid block, as the web sets it; the theme's own text on a
     // tinted one, which is nearly the lane.
     let ink = if made {
@@ -73,14 +92,17 @@ pub(in crate::timeline::lanes) fn draw(paint: &Paint<'_>, rect: Rect, lane: Rect
     };
     ramp(&painter, rect, lane, clip, ink);
     if chosen {
-        painter.rect_stroke(
-            rect,
-            ROUND_SM,
-            Stroke::new(2.0, colours.foreground),
-            StrokeKind::Inside,
-        );
+        // Outside the clip, so it may stand over a neighbouring lane's edge.
+        paint
+            .painter
+            .with_clip_rect(lane.expand2(vec2(0.0, 2.0)))
+            .rect_stroke(
+                rect,
+                ROUND_SM,
+                Stroke::new(2.0, colours.foreground),
+                StrokeKind::Outside,
+            );
     }
-    caption(&painter, (rect, lane), clip, asset, ink, colours);
 }
 
 /// The hue this clip is drawn in, dimmed when the pool is pointing at some
@@ -98,28 +120,127 @@ fn tint(paint: &Paint<'_>, asset: Option<&Asset>, colours: &Palette) -> Color32 
     }
 }
 
-/// The block itself: solid when it exists, tinted and hatched when it is a
-/// brief.
-///
-/// Solid at nine-tenths, and whole when selected, as the web draws a clip
-/// (`opacity-90`, and none on the chosen one) — together with the ring drawn
-/// over it, that is what picks a selected clip out from a neighbour of the
-/// same kind touching it, which is the ordinary case on a cut.
-fn body(painter: &Painter, rect: Rect, hue: Color32, made: bool, chosen: bool, colours: &Palette) {
-    let lane = colours.muted;
-    if made {
-        let strength = if chosen { 1.0 } else { 0.9 };
-        painter.rect_filled(rect, ROUND_SM, palette::over(hue, lane, strength));
-        return;
-    }
-    painter.rect_filled(rect, ROUND_SM, palette::over(hue, lane, 0.16));
-    marks::hatch(painter, rect, palette::over(hue, lane, 0.45), HATCH);
+/// A made clip's ground: the solid hue at nine-tenths, and whole when
+/// selected, as the web draws a clip (`opacity-90`, and none on the chosen
+/// one) — together with the ring drawn over it, that is what picks a selected
+/// clip out from a neighbour of the same kind touching it, which is the
+/// ordinary case on a cut.
+fn body(painter: &Painter, rect: Rect, hue: Color32, chosen: bool, colours: &Palette) {
+    let strength = if chosen { 1.0 } else { 0.9 };
+    painter.rect_filled(rect, ROUND_SM, palette::over(hue, colours.muted, strength));
+}
+
+/// An unmade clip: `muted` ground, the hue at 15%, hatching in the hue at 45%
+/// and an inset ring (`Unmade.tsx`).
+fn unmade(painter: &Painter, rect: Rect, hue: Color32, colours: &Palette) {
+    let tinted = palette::over(hue, colours.muted, 0.15);
+    painter.rect_filled(rect, ROUND_SM, tinted);
+    marks::hatch(painter, rect, palette::over(hue, tinted, 0.45), HATCH, 2.0);
     painter.rect_stroke(
         rect,
         ROUND_SM,
-        Stroke::new(1.0, palette::over(hue, lane, 0.7)),
+        Stroke::new(1.0, colours.foreground.gamma_multiply(0.2)),
         StrokeKind::Inside,
     );
+}
+
+/// What a made clip is filled with beyond its hue: its picture tiled along it
+/// at the clip's height, or its sound's waveform (`ClipFill.tsx`).
+fn fill_in(
+    painter: &Painter,
+    rect: Rect,
+    fill: Option<&Fill>,
+    (clip, project): (&Clip, &Project),
+    chosen: bool,
+) {
+    let inner = rect.shrink(1.0);
+    let strength = if chosen { 1.0 } else { 0.9 };
+    match fill {
+        Some(Fill::Picture(texture)) => tiles(painter, inner, texture, strength),
+        Some(Fill::Sound(found)) => waveform(painter, inner, found, (clip, project)),
+        None => {}
+    }
+}
+
+/// The picture repeated along `inner`, each copy as tall as the clip.
+fn tiles(painter: &Painter, inner: Rect, texture: &TextureHandle, strength: f32) {
+    let size = texture.size_vec2();
+    if size.x <= 0.0 || size.y <= 0.0 || inner.height() < 1.0 {
+        return;
+    }
+    let wide = (inner.height() * size.x / size.y).max(1.0);
+    // Only the tiles anybody can see: a clip is drawn at its whole width even
+    // when most of it is scrolled off the side.
+    let seen = inner.intersect(painter.clip_rect());
+    if seen.width() < 1.0 {
+        return;
+    }
+    let tint = palette::UNTINTED.gamma_multiply(strength);
+    let first = ((seen.left() - inner.left()) / wide).floor().max(0.0);
+    let mut x = inner.left() + first * wide;
+    while x < seen.right() {
+        let whole = Rect::from_min_size(pos2(x, inner.top()), vec2(wide, inner.height()));
+        let shown = whole.intersect(inner);
+        let uv = Rect::from_min_max(
+            pos2((shown.left() - x) / wide, 0.0),
+            pos2((shown.right() - x) / wide, 1.0),
+        );
+        painter.image(texture.id(), shown, uv, tint);
+        x += wide;
+    }
+}
+
+/// The sound's levels, a bar every few pixels below the name strip.
+fn waveform(
+    painter: &Painter,
+    inner: Rect,
+    found: &Arc<Peaks>,
+    (clip, project): (&Clip, &Project),
+) {
+    let fps = project.timeline_fps;
+    let from = fps.seconds(clip.source_in);
+    let length = fps.seconds(clip.duration) * clip.speed.get();
+    let band = Rect::from_min_max(
+        pos2(inner.left(), inner.top() + STRIP - 1.0),
+        pos2(inner.right(), inner.bottom() - 1.0),
+    );
+    if band.height() < 2.0 {
+        return;
+    }
+    let bars = sound::bars_of(found.per_second, length, band.width());
+    let levels = sound::slice_of(found, from, length, bars);
+    let each = band.width() / bars as f32;
+    let seen = band.intersect(painter.clip_rect());
+    let first = (((seen.left() - band.left()) / each).floor().max(0.0)) as usize;
+    let ink = palette::ON_HUE.gamma_multiply(0.55);
+    for (at, level) in levels.iter().enumerate().skip(first) {
+        let x = band.left() + at as f32 * each;
+        if x > seen.right() {
+            break;
+        }
+        let tall = level.max(0.04) * band.height();
+        let bar = Rect::from_center_size(
+            pos2(x + each / 3.0, band.center().y),
+            vec2(each * 2.0 / 3.0, tall),
+        );
+        painter.rect_filled(bar, 0.0, ink);
+    }
+}
+
+/// The trim strips: 6px of `screen/20` at both ends.
+fn trims(painter: &Painter, rect: Rect) {
+    let strip = palette::TRIM_STRIP;
+    let inner = rect.shrink(1.0);
+    if inner.width() < TRIM * 2.0 {
+        return;
+    }
+    for x in [inner.left(), inner.right() - TRIM] {
+        painter.rect_filled(
+            Rect::from_min_size(pos2(x, inner.top()), vec2(TRIM, inner.height())),
+            0.0,
+            strip,
+        );
+    }
 }
 
 /// The volume ramp, drawn across the clip that carries it.
@@ -144,7 +265,7 @@ fn ramp(painter: &Painter, rect: Rect, lane: Rect, clip: &Clip, ink: Color32) {
     }
     // The band the curve travels in: under the top edge, and clear of the
     // bottom one so a ramp at zero is still a line rather than the outline.
-    let top = rect.top() + INSET;
+    let top = rect.top() + STRIP;
     let floor = rect.bottom() - 3.0;
     if floor <= top {
         return;
@@ -179,46 +300,63 @@ fn ramp(painter: &Painter, rect: Rect, lane: Rect, clip: &Clip, ink: Color32) {
     painter.add(egui::Shape::line(points, Stroke::new(1.0, line)));
 }
 
-/// What the clip says on it: the asset it shows, and — when it is a brief —
-/// how far along that brief is.
+/// What the clip says on it: the asset's text if it has one, else its id, on a
+/// dark strip top-left — and, when it is a brief, how far along that brief is.
 fn caption(
     painter: &Painter,
     (rect, lane): (Rect, Rect),
     clip: &Clip,
     asset: Option<&Asset>,
-    ink: Color32,
+    made: bool,
     colours: &Palette,
 ) {
     let seen = rect.intersect(lane);
     if seen.width() < READABLE {
         return;
     }
-    let baseline = rect.top() + INSET;
+    // Only for something that does not exist yet. "generated" on a clip that
+    // plays is a word taking up room to say that everything is normal.
+    let state = (!made)
+        .then(|| asset.and_then(|asset| asset.state))
+        .flatten()
+        .map(|state| format!("{state:?}").to_lowercase());
+    let name = asset
+        .and_then(|asset| asset.text.as_deref())
+        .unwrap_or(clip.asset.as_str());
     // Pinned to whichever edge is visible rather than to the block's own left,
     // so a long clip scrolled halfway off the side still says what it is —
     // which is exactly when you most want to know.
-    marks::label(
+    let at = pos2(seen.left() + 1.0, rect.top() + 1.0);
+    let room = seen.width() - 2.0 - if state.is_some() { STATE_ROOM } else { 0.0 };
+    let galley = marks::truncated(
         painter,
-        pos2(seen.left() + 6.0, baseline),
-        Align2::LEFT_TOP,
-        clip.asset.as_str(),
-        11.0,
-        ink,
+        name,
+        marks::caption_font(),
+        palette::ON_HUE,
+        (room - 8.0).max(0.0),
     );
-    // Only for something that does not exist yet. "generated" on a clip that
-    // plays is a word taking up room to say that everything is normal.
-    if asset.is_some_and(Asset::has_renderable_media) {
-        return;
+    let strip = Rect::from_min_size(at, vec2(galley.size().x + 8.0, STRIP));
+    painter.rect_filled(
+        strip,
+        CornerRadius {
+            se: ROUND_SM.se,
+            ..CornerRadius::ZERO
+        },
+        palette::NAME_STRIP,
+    );
+    painter.galley(
+        pos2(strip.left() + 4.0, strip.center().y - galley.size().y / 2.0),
+        galley,
+        palette::ON_HUE,
+    );
+    if let Some(state) = state {
+        marks::label(
+            painter,
+            pos2(seen.right() - 8.0, rect.top() + 2.0),
+            Align2::RIGHT_TOP,
+            &state,
+            10.0,
+            colours.muted_foreground,
+        );
     }
-    let Some(state) = asset.and_then(|asset| asset.state) else {
-        return;
-    };
-    marks::label(
-        painter,
-        pos2(seen.right() - 6.0, baseline),
-        Align2::RIGHT_TOP,
-        &format!("{state:?}").to_lowercase(),
-        10.0,
-        colours.muted_foreground,
-    );
 }

@@ -43,21 +43,21 @@ enum Slot {
 
 /// The worker and the textures it has delivered.
 #[derive(Default)]
-pub(super) struct Thumbs {
+pub(crate) struct Thumbs {
     worker: Option<(Sender<Job>, Receiver<Done>)>,
     slots: HashMap<PathBuf, Slot>,
 }
 
 impl Thumbs {
     /// Forgets every picture, for when a different project is opened.
-    pub(super) fn reset(&mut self) {
+    pub(crate) fn reset(&mut self) {
         // Dropping the sender ends the thread once its queue is empty.
         self.worker = None;
         self.slots.clear();
     }
 
     /// Takes in whatever the worker has finished since the last frame.
-    pub(super) fn poll(&mut self, ctx: &Context) {
+    pub(crate) fn poll(&mut self, ctx: &Context) {
         let Some((_, done)) = &self.worker else {
             return;
         };
@@ -75,7 +75,7 @@ impl Thumbs {
     }
 
     /// The picture at `out`, asking for it to be made if nobody has yet.
-    pub(super) fn get(
+    pub(crate) fn get(
         &mut self,
         ctx: &Context,
         source: &Path,
@@ -104,7 +104,7 @@ impl Thumbs {
 
 /// What a picture of this asset is made of, or `None` when it has no file to
 /// take one from (text, a colour, sound — those are drawn, not taken).
-pub(super) fn how(kind: AssetKind) -> Option<Thumbnail> {
+pub(crate) fn how(kind: AssetKind) -> Option<Thumbnail> {
     match kind {
         AssetKind::Video | AssetKind::GeneratedVideo => Some(Thumbnail::Frame { at_seconds: 0.0 }),
         AssetKind::Image | AssetKind::GeneratedImage => Some(Thumbnail::Picture),
@@ -114,7 +114,13 @@ pub(super) fn how(kind: AssetKind) -> Option<Thumbnail> {
 
 /// Where the picture of `asset` is kept: named for the asset and the hash of
 /// the file, so a replaced file is a new picture.
-pub(super) fn cached(root: &Path, asset: &Asset) -> PathBuf {
+pub(crate) fn cached(root: &Path, asset: &Asset) -> PathBuf {
+    kept(root, asset, "thumbs", "png")
+}
+
+/// Where something derived from `asset`'s file is kept under `cache/<folder>/`,
+/// named for the asset and the file's hash so a replaced file is a new one.
+pub(crate) fn kept(root: &Path, asset: &Asset, folder: &str, extension: &str) -> PathBuf {
     let hash = asset.sha256.as_deref().unwrap_or("unhashed");
     let name: String = format!("{}-{}", asset.id, &hash[..hash.len().min(16)])
         .chars()
@@ -126,7 +132,9 @@ pub(super) fn cached(root: &Path, asset: &Asset) -> PathBuf {
             }
         })
         .collect();
-    root.join("cache/thumbs").join(format!("{name}.png"))
+    root.join("cache")
+        .join(folder)
+        .join(format!("{name}.{extension}"))
 }
 
 fn spawn(ctx: Context) -> (Sender<Job>, Receiver<Done>) {

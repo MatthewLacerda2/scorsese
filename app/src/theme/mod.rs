@@ -80,6 +80,16 @@ pub(crate) fn medium_large() -> TextStyle {
     TextStyle::Name("medium-large".into())
 }
 
+/// The web's `font-medium` at `size`, or the regular face while the weights
+/// are still being bound (the first pass after start-up).
+pub(crate) fn medium_font(ctx: &egui::Context, size: f32) -> egui::FontId {
+    if fonts::weights_ready(ctx) {
+        fonts::medium(size)
+    } else {
+        egui::FontId::proportional(size)
+    }
+}
+
 /// Installs the whole look into `ctx`, light or dark as `choice` says.
 ///
 /// Idempotent: each style is built from `egui`'s default rather than derived

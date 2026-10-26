@@ -69,6 +69,11 @@ impl Timeline {
         let Some(at) = response.interact_pointer_pos() else {
             return;
         };
+        // A press on a track head is the head's own (its bin, its menu): it
+        // starts no gesture, and is no click on bare timeline.
+        if self.gesture.is_none() && at.x < area.left() {
+            return;
+        }
         let on_ruler = at.y <= area.top() + ruler::HEIGHT;
 
         if response.drag_started() {

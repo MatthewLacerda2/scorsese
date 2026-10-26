@@ -13,11 +13,12 @@ use std::collections::BTreeSet;
 use egui::{Painter, Rect};
 use scorsese_core::{AssetId, ClipId, Project, Track};
 
-use crate::theme::{ROUND_SM, marks, palette};
+use crate::theme::{marks, palette};
+use crate::timeline::fill::Fills;
 use crate::timeline::view::View;
 
 pub(in crate::timeline::lanes) use clip::rect as clip_rect;
-pub(in crate::timeline) use gutter::draw as gutter;
+pub(in crate::timeline) use gutter::{draw as gutter, trash};
 
 /// Everything drawing a lane needs that is the same for every lane.
 ///
@@ -43,25 +44,20 @@ pub(in crate::timeline) struct Paint<'a> {
     /// strength and everything else steps back, which answers "where is this
     /// used?" without anyone having to read ids off a timeline.
     pub(in crate::timeline) highlighted: Option<AssetId>,
+    /// The pictures and waveforms the made clips are filled with.
+    pub(in crate::timeline) fills: &'a Fills,
 }
 
-/// One lane's ground.
+/// The line under one lane: the web's `border-b`. The lane's ground is the
+/// panel's own background, so a row is a hairline and nothing more.
 ///
-/// Apart from the clips because the grid goes between them: a vertical rule
-/// drawn over a lane and under its blocks shows in the gaps, which is where
-/// somebody looking to see whether two cuts line up is looking. Drawn over the
-/// blocks it would be a stripe through every label on the timeline.
+/// Apart from the clips because it is drawn first, and a clip must cover it.
 pub(in crate::timeline) fn ground(painter: &Painter, lane: Rect) {
-    let colours = palette::of(painter.ctx());
-    painter.rect_filled(lane, ROUND_SM, colours.muted);
-    // A hairline under each lane rather than a gap of a different colour: the
-    // lanes are a stack of like things, and a rule is how a stack of like
-    // things is divided without implying that any two of them are grouped.
     marks::rule(
         painter,
         lane.left_bottom(),
         lane.right_bottom(),
-        colours.border,
+        palette::of(painter.ctx()).border,
     );
 }
 
