@@ -412,7 +412,7 @@ pub(super) fn write(path: &Path, wav: &[u8]) -> Result<(), SynthesisError> {
 /// Every line here is a fact written onto an asset from a file that was just
 /// produced, so the only way to check one is to bake for real and read the
 /// project back: `cli/tests/synth/metadata.rs` does, down to the duration, and
-/// so does `tests/synthesis/caching.rs` here, because the mutation signal runs
+/// so does `tests/suite/synthesis/caching.rs` here, because the mutation signal runs
 /// only this package's own tests and a gap it cannot see is one it reports
 /// (#341).
 fn record(project: &mut Project, id: &AssetId, baked: &Baked, project_root: &Path) {

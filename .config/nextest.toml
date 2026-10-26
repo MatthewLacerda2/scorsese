@@ -18,7 +18,7 @@ slow-timeout = { period = "60s", terminate-after = 3 }
 # call a vendor; this is what stops one that does anyway — a key in the
 # tester's shell or `.env`, a fake forgotten — before the request leaves the
 # machine. The CLI harness seals its child runs the same way
-# (`crates/cli/tests/common`); this covers the in-process tests too.
+# (`crates/cli/tests/suite/common`); this covers the in-process tests too.
 #
 # How: every proxy variable points at the discard port on this machine, where
 # nothing listens, so a request is refused at once. The HTTP client reads them
@@ -31,7 +31,7 @@ slow-timeout = { period = "60s", terminate-after = 3 }
 # command it would stop a cold build fetching crates, and `[env]` would reach
 # `cargo run` and block a real generation. A setup script runs after the build
 # and its variables reach test processes and nothing else.
-# `crates/providers/tests/offline` holds both halves, and fails by name if a
+# `crates/providers/tests/suite/offline` holds both halves, and fails by name if a
 # runner ever stops applying this.
 #
 # Setup scripts are still behind nextest's `experimental` switch (0.9.146,

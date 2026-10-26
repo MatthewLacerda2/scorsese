@@ -73,7 +73,7 @@ impl ToMidi {
 /// not a new asset, and nothing in the project points at it.
 ///
 /// The conversion itself is tested where it lives, in `scorsese-zimmer`; the
-/// file on disk and the report are `tests/synthesis/midi.rs`'s, and the
+/// file on disk and the report are `tests/suite/synthesis/midi.rs`'s, and the
 /// command line's own tests check the same from the outside.
 pub fn export_midi(
     project: &Project,

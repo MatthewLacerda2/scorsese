@@ -42,7 +42,7 @@ publish = false
 # `clippy::pedantic` is off: a gate people route around teaches everyone to
 # route around gates. `clippy.toml` holds `allow-unwrap-in-tests`, because a
 # failed `unwrap` in a test *is* the assertion; shared helpers under
-# `tests/common/` still say what they assume with `expect("…")`. Adding or
+# `tests/suite/common/` still say what they assume with `expect("…")`. Adding or
 # removing a lint is a change to this rule, so it is its own pull request with
 # the reason written beside it.
 [workspace.lints.rust]

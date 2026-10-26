@@ -30,7 +30,7 @@ test-support = []
 # This crate's own integration tests take `testing` the way every other
 # crate's do.
 scorsese-core = { version = "0.1.0", path = ".", features = ["test-support"] }
-# Property-based tests only — see `tests/properties/`. A dev-dependency, so it
+# Property-based tests only — see `tests/suite/properties/`. A dev-dependency, so it
 # never reaches a shipped build.
 #
 # Default features off, and the three kept are the ones the properties need:

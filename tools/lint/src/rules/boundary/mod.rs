@@ -17,7 +17,7 @@
 //! boundaries are held elsewhere, by the tool that sees them best: where an
 //! environment variable may be read is clippy's `disallowed-methods`
 //! (`clippy.toml`), and that no MCP tool names a client is a test over the
-//! registry (`crates/mcp/tests/neutral.rs`).
+//! registry (`crates/mcp/tests/suite/neutral.rs`).
 
 pub mod edges;
 pub mod fences;

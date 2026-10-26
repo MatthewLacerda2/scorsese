@@ -145,7 +145,7 @@ Every response shape scorsese parses, and where its test body came from.
 | --- | --- | --- | --- |
 | ElevenLabs `/v1/voices` | `api::elevenlabs::voices::Listing` | `fixtures/elevenlabs/premade.json` | **captured** 2026-08-05 |
 | ElevenLabs `/v1/shared-voices` | `Listing` | `fixtures/elevenlabs/shared-voices-pt.json` | **captured** 2026-08-05 |
-| ElevenLabs refusals (401 scope, 402 plan) | `api::elevenlabs::refusal` | inline in `tests/speaking/refusals.rs`, `src/api/elevenlabs/refusal.rs`, `tests/live/elevenlabs.rs` | **captured** |
+| ElevenLabs refusals (401 scope, 402 plan) | `api::elevenlabs::refusal` | inline in `tests/suite/speaking/refusals.rs`, `src/api/elevenlabs/refusal.rs`, `tests/suite/live/elevenlabs.rs` | **captured** |
 | ElevenLabs speech | bytes, an MP3 | — | nothing to parse |
 | ElevenLabs music | bytes, an MP3 | — | nothing to parse |
 | ElevenLabs Voice Design | `api::elevenlabs::design::DesignReply` | `fixtures/elevenlabs/design.json` | hand-written |
@@ -155,12 +155,12 @@ Every response shape scorsese parses, and where its test body came from.
 | Veo operation: running, done, failed, blocked by the filters | `Operation` | `fixtures/veo/{running,done,failed,blocked}.json` | hand-written; `blocked` from the fields `google-genai` reads (2026-10-11) |
 | Gemini image interaction | `api::gemini::response::Interaction` | `fixtures/gemini/interaction.json` | **captured** 2026-10-07 (signature and picture cut down) |
 | Gemini image model lookup | `api::veo::response::ModelInfo` | `fixtures/gemini/model.json` | hand-written, in the shape of `veo/model.json` |
-| Gemini refusals | carried whole, never parsed | inline in `tests/live/veo.rs`, `tests/live/image.rs` | hand-written |
+| Gemini refusals | carried whole, never parsed | inline in `tests/suite/live/veo.rs`, `tests/suite/live/image.rs` | hand-written |
 | LottieFiles search | `api::lottiefiles::Searched` | `fixtures/lottiefiles/search.json` | **captured** 2026-10-08 (three results) |
 | Pixabay video search | `api::pixabay::Listing<VideoHit>` | `fixtures/pixabay/videos.json` | **captured** 2026-10-08 (three hits) |
 | Pixabay image search | `api::pixabay::Listing<ImageHit>` | `fixtures/pixabay/images.json` | **captured** (two hits, their signed URLs' tokens replaced) |
 | Claude streams: tool use, answer, refusal, overload | `api::anthropic::stream` + `claude::Assembler` | `fixtures/anthropic/*.sse` | hand-written |
-| Anthropic refusals | carried whole, never parsed | inline in `tests/live/claude.rs` | hand-written |
+| Anthropic refusals | carried whole, never parsed | inline in `tests/suite/live/claude.rs` | hand-written |
 | Whisper transcription, speech and silence | `api::whisper::Verbose` | `fixtures/whisper/{transcription,silence}.json` | **captured** 2026-10-26 from the image `deploy/whisper/Dockerfile` builds (a local server, not a vendor: `make live-check` has nothing to spend on it) |
 
 `.github/scripts/tests/test_live_check_fixtures.py` holds this table to

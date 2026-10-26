@@ -524,7 +524,7 @@ about it landing in *almost* the right place — a Bézier control point a few
 pixels out, an origin computed by an addition. That is "name the value, not the
 range" read visually, and the values are there to be named: the box a drawing's
 ink occupies and the area it covers are both things the geometry can be asked for
-on paper. `crates/compositor/tests/common/extent.rs` is that measurement, shared
+on paper. `crates/compositor/tests/suite/common/extent.rs` is that measurement, shared
 by the shape, icon and blur tests rather than written three times.
 
 What is never a correct response is **weakening or deleting an assertion** to

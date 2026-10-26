@@ -151,7 +151,7 @@ pub(crate) fn bleed(row: &[Sample], out: &mut [(f64, f64)], window: usize) {
 
 /// The threshold arithmetic, which nothing outside this file can reach.
 ///
-/// Here rather than in `tests/taping/` for [`crate::aberration`]'s reason: that
+/// Here rather than in `tests/suite/taping/` for [`crate::aberration`]'s reason: that
 /// is where the *effect* is asserted — colour runs rightward and not leftward,
 /// the brightness survives — and an effect is satisfied by more than one
 /// arithmetic. The number this hands back is the whole of what the clip's

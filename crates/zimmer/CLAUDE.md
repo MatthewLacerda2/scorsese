@@ -45,7 +45,7 @@ own doc in `src/lib.rs` carries the argument and a table of the versions. So: to
 filter, an envelope or an effect and the samples move — bump it. Touch only
 prose, a name or a document type — leave it alone.
 
-**Three checks hold this**. `tests/fingerprint` bakes a small probe
+**Three checks hold this**. `tests/suite/fingerprint` bakes a small probe
 corpus and compares its length, level and band shares, with tolerance, to a
 table recorded at the current version: measures that move under an unchanged
 version fail with "bump `SYNTH_VERSION`", and a bumped version asks for the
@@ -53,8 +53,8 @@ table to be re-recorded, which the failure message prints. It runs on every
 platform (sums over a whole file average a platform's last-bit `sin` and
 `exp` away) with CI's x86_64 Linux as the authority. The merge queue hands
 back a branch whose bump a sibling already took (`numbering.py`), since two
-identical bumps merge without a conflict. And `tests/defaults.rs`, with the
-worked recipes in `crates/providers/tests/documented`, holds the rule below.
+identical bumps merge without a conflict. And `tests/suite/defaults.rs`, with the
+worked recipes in `crates/providers/tests/suite/documented`, holds the rule below.
 
 **Verify by rendering only when the change touches rendering maths.** Baking a
 probe corpus against two checkouts settles a genuine doubt — an edited note
@@ -70,6 +70,6 @@ whenever a tool writes one, and the address hashes the file's bytes, so a
 field that writes its default into every document invalidates every cached
 bake without changing a sample. Give it `skip_serializing_if`, the way
 `fx.rs`'s `not_ping_pong` and `song`'s `no_swing` do. A round trip that adds a
-key fails `tests/defaults.rs` (and the docs' worked recipes, in `providers`);
-the fields that predate the rule are named in `tests/common/written.rs`. A new
+key fails `tests/suite/defaults.rs` (and the docs' worked recipes, in `providers`);
+the fields that predate the rule are named in `tests/suite/common/written.rs`. A new
 field never joins that list.
