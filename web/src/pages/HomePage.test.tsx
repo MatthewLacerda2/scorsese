@@ -71,7 +71,9 @@ test("the home shows the landing's headline and version a's line, whatever the v
   // The subtitle test is the landing's, for visitors (#1593).
   seeVersion("hero-subtitle", "b");
   await open();
-  expect(screen.getByRole("heading", { level: 1, name: "Create your videos right now" })).toBeDefined();
+  expect(
+    screen.getByRole("heading", { level: 1, name: "Create your videos right now" }),
+  ).toBeDefined();
   expect(screen.getByText("Describe the video. We'll make it.")).toBeDefined();
   expect(screen.queryByText("You don't need to know how to edit. We do it for you.")).toBeNull();
 });

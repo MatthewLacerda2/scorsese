@@ -29,7 +29,12 @@ export function Hero({ onPrompt, version }: { onPrompt: PromptSubmit; version?: 
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center px-4 pb-12 text-center before:grow before:content-[''] after:grow-[2] after:content-[''] sm:justify-center sm:px-6 sm:before:hidden sm:after:hidden">
         {/* The mark and the headline come up from behind an edge, not fading in (`data-emerge`). */}
         <span className="block overflow-hidden">
-          <Mark kind="silhouette" size={72} className="size-11 sm:size-[4.5rem]" data-emerge="0.2" />
+          <Mark
+            kind="silhouette"
+            size={72}
+            className="size-11 sm:size-[4.5rem]"
+            data-emerge="0.2"
+          />
         </span>
         <div className="mt-4 overflow-hidden pb-1 sm:mt-6">
           <h1
