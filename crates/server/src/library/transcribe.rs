@@ -23,7 +23,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use scorsese_core::words::Words;
-use scorsese_providers::transcribe::Language;
+use scorsese_providers::transcribe::{Language, TranscribeError};
 use scorsese_render::Tools;
 use scorsese_render::audio::speech;
 use serde::{Deserialize, Serialize};
@@ -179,7 +179,15 @@ async fn hear(
     let mut heard = tokio::task::spawn_blocking(move || {
         let wav = decode(&tools, &source)?;
         ear.transcribe(wav, language.as_ref())
-            .map_err(|error| error.to_string())
+            .map_err(|error| match error {
+                // How to start it is the operator's business, not the user's.
+                TranscribeError::NotRunning { .. } => {
+                    "the transcription server is not answering; nothing was spent, and it is \
+                     ours to fix: try again later"
+                        .to_owned()
+                }
+                other => other.to_string(),
+            })
     });
     let heard = loop {
         tokio::select! {

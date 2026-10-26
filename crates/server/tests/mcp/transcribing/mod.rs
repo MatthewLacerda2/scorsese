@@ -13,7 +13,7 @@ use super::{call, document, member};
 
 /// Two seconds of footage with sound, held in `user`'s library, and a new
 /// project: the project's id and the file's hash.
-async fn footage(
+pub(super) async fn footage(
     pool: &PgPool,
     state: &scorsese_server::http::AppState,
     user: scorsese_server::db::UserId,
@@ -122,38 +122,4 @@ async fn footage_is_heard_by_a_free_job_then_read_back_corrected_and_captioned(p
     assert_eq!(caption.text.as_deref(), Some("Bom dia!"));
 }
 
-#[sqlx::test]
-async fn what_is_not_a_recording_is_refused_and_queues_nothing(pool: PgPool) {
-    let mock = Mock::default();
-    let (address, state, _worker) = serve(&pool, &mock).await;
-    let (ana, who) = member(&pool, "ana@example.com").await;
-    let id = super::stored(
-        &pool,
-        ana,
-        json!({ "assets": [{ "id": "title", "kind": "text", "text": "Hi" }] }),
-    )
-    .await;
-    for (asked, says) in [
-        (
-            json!({ "project": id, "asset": "title" }),
-            "`title` is text",
-        ),
-        (
-            json!({ "project": id, "asset": "nope" }),
-            "there is no asset `nope`",
-        ),
-        (json!({ "project": id }), "`asset` is required"),
-        (
-            json!({ "project": id, "asset": "title", "language": "Portuguese" }),
-            "like `pt`",
-        ),
-    ] {
-        let (said, refused) = call(address, &who, "transcribe", asked).await;
-        assert!(refused, "{said}");
-        assert!(said.contains(says), "{says} not in {said}");
-    }
-    let fix = json!({ "project": id, "asset": "title", "fixes": [{ "word": 1, "text": "x" }] });
-    let (said, refused) = call(address, &who, "transcript_fix", fix).await;
-    assert!(refused && said.contains("`title` is text"), "{said}");
-    assert!(settled(&state, ana).await.is_empty());
-}
+mod refused;

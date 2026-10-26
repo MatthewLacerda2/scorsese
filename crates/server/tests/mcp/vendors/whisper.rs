@@ -7,7 +7,7 @@ use scorsese_providers::transcribe::{Heard, Language, TranscribeError, Transcrib
 
 use super::Mock;
 
-/// A Whisper that hears "Bom dia." in a WAV, whatever it was sent.
+/// A Whisper that, unless it is deaf, hears "Bom dia." in a WAV, whatever it was sent.
 impl Transcriber for Mock {
     fn transcribe(
         &self,
@@ -15,6 +15,12 @@ impl Transcriber for Mock {
         language: Option<&Language>,
     ) -> Result<Heard, TranscribeError> {
         self.heard.fetch_add(1, Ordering::SeqCst);
+        if self.deaf {
+            return Err(TranscribeError::NotRunning {
+                address: "http://whisper:8000".into(),
+                why: "connection refused".into(),
+            });
+        }
         assert_eq!(&wav[..4], b"RIFF", "the speech is sent as a WAV");
         let said = |text: &str, start: f64, end: f64| Word {
             text: text.into(),

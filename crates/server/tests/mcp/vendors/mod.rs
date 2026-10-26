@@ -48,6 +48,8 @@ pub(super) struct Mock {
     pub(super) refuse_forget: Option<String>,
     /// How often the Whisper was asked to hear something (#1549).
     pub(super) heard: Arc<AtomicUsize>,
+    /// The Whisper container is down.
+    pub(super) deaf: bool,
 }
 
 impl Mock {
