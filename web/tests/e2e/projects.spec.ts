@@ -17,7 +17,7 @@ test("a first visit is the landing page, and its Sign in goes to the server's Go
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "The video is one conversation away" }),
+    page.getByRole("heading", { name: "Create your videos right now" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Sign in" }).first().click();
   await page.getByRole("dialog").getByRole("link", { name: "Continue with Google" }).click();

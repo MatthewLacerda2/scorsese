@@ -9,8 +9,9 @@ export const landing: Messages["landing"] = {
   openApp: "Abrir o scorsese",
   signIn: "Entrar",
   hero: {
-    title: "O vídeo está a uma conversa de distância",
-    titleB: "Descreva o vídeo. A gente monta.",
+    title: "Crie seus vídeos agora mesmo",
+    subtitle: "Descreva o vídeo. A gente monta.",
+    subtitleB: "Você não precisa saber editar. A gente edita pra você.",
     free: (dollars?: string) =>
       dollars ? `Comece grátis: US$ ${dollars} por dia, sem cartão.` : "Comece grátis, sem cartão.",
   },

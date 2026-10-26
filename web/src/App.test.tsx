@@ -31,7 +31,7 @@ const ana: Account = { id: 1, email: "ana@example.com", created_at: 0 };
 test("/login draws the landing page, its films included", async () => {
   // The popup itself is a portal, drawn only in a browser: landing/LandingPage.test.tsx.
   const html = await render("/login", (client) => client.setQueryData(ME, null));
-  expect(html).toContain("The video is one conversation away");
+  expect(html).toContain("Create your videos right now");
   // Imported, so the build fingerprints it under /assets (#1238).
   expect(html).toMatch(/<video[^>]*src="[^"]*showcase\/[^"]*\.mp4"/);
 });

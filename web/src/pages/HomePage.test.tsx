@@ -1,5 +1,5 @@
-// The signed-in home: its sidebar lists the real projects and renames and
-// deletes them in place.
+// The signed-in home: the landing's headline over the prompt box, and its
+// sidebar lists the real projects and renames and deletes them in place.
 
 import { afterEach, expect, test } from "bun:test";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -12,6 +12,7 @@ import { setFetch } from "@/api/client";
 import { HomePage } from "@/app/pages";
 import { createQueryClient } from "@/app/queryClient";
 import { I18nProvider } from "@/i18n/I18nProvider";
+import { seeVersion } from "@/test/visitor";
 
 const project = (id: number, name: string): ProjectSummary => ({
   id,
@@ -64,6 +65,15 @@ test("the sidebar lists the projects, newest first, each opening the editor", as
   expect(screen.getByRole("button", { name: "$5.00" })).toBeDefined();
   expect(screen.getByRole("link", { name: "Spending history" })).toBeDefined();
   expect(screen.getByRole("button", { name: "Log out" })).toBeDefined();
+});
+
+test("the home shows the landing's headline and version a's line, whatever the visitor drew", async () => {
+  // The subtitle test is the landing's, for visitors (#1593).
+  seeVersion("hero-subtitle", "b");
+  await open();
+  expect(screen.getByRole("heading", { level: 1, name: "Create your videos right now" })).toBeDefined();
+  expect(screen.getByText("Describe the video. We'll make it.")).toBeDefined();
+  expect(screen.queryByText("You don't need to know how to edit. We do it for you.")).toBeNull();
 });
 
 test("Rename turns the row into a field and Enter saves the new name", async () => {
