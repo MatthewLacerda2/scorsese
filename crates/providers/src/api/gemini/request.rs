@@ -52,9 +52,12 @@ pub struct ResponseFormat {
     /// Always `image`.
     #[serde(rename = "type")]
     pub kind: &'static str,
-    /// Always `image/jpeg`, the only value the endpoint takes: a live check on
-    /// 2026-10-07 asking for `image/png` was refused with *"Supported values:
-    /// 'image/jpeg'"*, so every still is a JPEG, compression blocks and all.
+    /// Always `image/jpeg`, the only value the endpoint takes: live checks on
+    /// 2026-10-07 and, for Nano Banana 2.1, 2026-10-26 asking for `image/png`
+    /// were refused with *"The value 'image/png' is not supported for
+    /// 'response_format.mime_type'. Supported values: 'image/jpeg'"*, so every
+    /// still is a JPEG, compression blocks and all. `make live-check` asks
+    /// again each run.
     pub mime_type: &'static str,
     /// `16:9`, `1:1`, ...
     pub aspect_ratio: &'static str,
