@@ -190,7 +190,7 @@ pub async fn start(
     // The old conversation's quote, set aside above, is spent by nobody now.
     for token in left {
         if let Err(error) = state.tools.withdraw_quote(user, &token).await {
-            eprintln!("scorsese-server: assistant: withdrawing a quote: {error}");
+            tracing::error!("assistant: withdrawing a quote: {error}");
         }
     }
 

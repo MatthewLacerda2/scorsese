@@ -84,3 +84,13 @@ impl IntoIterator for ValidationErrors {
         self.0.into_iter()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_set_with_no_problems_in_it_is_empty() {
+        assert!(ValidationErrors::new(Vec::new()).is_empty());
+    }
+}

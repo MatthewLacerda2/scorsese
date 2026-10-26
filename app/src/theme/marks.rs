@@ -6,7 +6,10 @@
 //! its own version of — a heading, a tag, a line, a way of saying *this is not
 //! finished*.
 
-use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, RichText, Stroke, Ui, pos2, vec2};
+use egui::{
+    Align2, Button, Color32, FontId, Painter, Pos2, Rect, Response, RichText, Stroke, Ui, pos2,
+    vec2,
+};
 
 use super::{ROUND_SM, palette};
 
@@ -15,47 +18,61 @@ use super::{ROUND_SM, palette};
 /// rounded up to one, because a quarter pixel on a desktop is nothing at all.
 const TRACKING: f32 = 1.0;
 
-/// A section heading: small capitals, lightly tracked, in the secondary text
-/// colour — the web's `text-xs uppercase tracking-wide text-muted-foreground`.
+/// A section heading: the web's `text-xs font-semibold uppercase
+/// tracking-wide text-muted-foreground`.
 ///
 /// Capitals because these name *regions* and not things — `INSPECTOR` is a
 /// label on a wall. Quiet because a heading is the one text in a panel nobody
 /// reads for its content: you find it, then look under it.
 pub(crate) fn heading(label: &str) -> RichText {
     RichText::new(label.to_uppercase())
-        .small()
+        .text_style(super::semibold_small())
         .weak()
         .extra_letter_spacing(TRACKING)
 }
 
 /// The same, for a heading *inside* a panel that already has one — a group of
 /// rows in the pool, the animated properties on a clip. The web draws both
-/// levels alike, and so does this; the rule [`section`] runs out from a
-/// panel's own heading is what tells them apart.
+/// levels alike, and so does this.
 pub(crate) fn subheading(label: &str) -> RichText {
     heading(label)
 }
 
-/// A heading with a hairline running out from it to the right edge.
-///
-/// The rule is what makes the heading a *lid* on the rows beneath rather than
-/// the first of them. It runs to the edge rather than under the text, so the
-/// eye reads the word and then follows the line across the panel.
+/// A panel's heading, with room under it.
 pub(crate) fn section(ui: &mut Ui, label: &str) {
-    ui.add_space(2.0);
-    ui.horizontal(|ui| {
-        let text = ui.label(heading(label));
-        let line = Rect::from_min_max(
-            pos2(text.rect.right() + 8.0, text.rect.center().y),
-            pos2(ui.max_rect().right(), text.rect.center().y),
-        );
-        if line.width() > 0.0 {
-            let rule = palette::of(ui.ctx()).border;
-            ui.painter()
-                .line_segment([line.min, line.max], Stroke::new(1.0, rule));
-        }
-    });
+    ui.label(heading(label));
     ui.add_space(1.0);
+}
+
+/// The web's default (primary-filled) button: what a screen's one main action
+/// wears.
+pub(crate) fn primary_button(ui: &mut Ui, label: &str) -> Response {
+    primary_button_enabled(ui, true, label)
+}
+
+/// [`primary_button`], greyed out when `enabled` is false.
+pub(crate) fn primary_button_enabled(ui: &mut Ui, enabled: bool, label: &str) -> Response {
+    let colours = palette::of(ui.ctx());
+    ui.add_enabled(
+        enabled,
+        Button::new(RichText::new(label).color(colours.primary_foreground))
+            .fill(colours.primary)
+            .stroke(Stroke::NONE),
+    )
+}
+
+/// The web's `ui/progress.tsx`: a 4px rounded bar, a `muted` track and a
+/// `primary` fill. The words beside it are the caller's, in xs muted.
+pub(crate) fn progress(ui: &mut Ui, fraction: f32) {
+    let colours = palette::of(ui.ctx());
+    let (track, _) = ui.allocate_exact_size(vec2(ui.available_width(), 4.0), egui::Sense::hover());
+    let round = egui::CornerRadius::same(2);
+    ui.painter().rect_filled(track, round, colours.muted);
+    let fill = Rect::from_min_size(
+        track.min,
+        vec2(track.width() * fraction.clamp(0.0, 1.0), 4.0),
+    );
+    ui.painter().rect_filled(fill, round, colours.primary);
 }
 
 /// A number, a code, a timecode: anything read digit by digit.

@@ -129,7 +129,13 @@ fn buttons(ui: &mut Ui, fps: Fps, at: Frames, last: Frames) -> Option<Command> {
             ("|▶", "Forward one frame", Command::Seek(forward(at, last))),
             ("⏭", "To the end", Command::Seek(last)),
         ] {
-            if ui.button(label).on_hover_text(hint).clicked() {
+            // Play is the web's primary button; the rest are outline.
+            let button = if what == Command::Toggle {
+                marks::primary_button(ui, label)
+            } else {
+                ui.button(label)
+            };
+            if button.on_hover_text(hint).clicked() {
                 command = Some(what);
             }
         }

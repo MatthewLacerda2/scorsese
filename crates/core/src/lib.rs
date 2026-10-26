@@ -75,7 +75,10 @@
 //!
 //! **[`mod@bytes`] keeps its path too**, though it is about no project: it is
 //! how big a file is, said the one way every surface says it, and this is the
-//! one crate everything that prints a size can reach.
+//! one crate everything that prints a size can reach. [`mod@spelling`] is
+//! the same kind of thing: the one "did you mean …?" rule, for every surface
+//! that answers a misspelt name. [`hex`] sits at the root beside
+//! [`hash_bytes`], the one way bytes are written as text.
 //!
 //! **Everything else is `pub(crate)`.** How the document is parsed and saved,
 //! how the frame grid does its arithmetic, how a font choice and a colour are
@@ -111,6 +114,7 @@ pub mod pool;
 pub mod probe;
 pub(crate) mod project;
 pub(crate) mod shape;
+pub mod spelling;
 pub(crate) mod stamp;
 pub mod style;
 #[cfg(feature = "test-support")]
@@ -175,7 +179,7 @@ pub use pool::{
     MAX_PAGE_FILE_BYTES, NamedBy, PAGE_FILE_KINDS, PageError, PageFileError, PageFileWritten,
     PageReadError, PageWritten, ProbeOutcome, Probed, Reprobe, SequenceChange, SequenceChanged,
     SequenceError, SequenceImport, SkipReason, Skipped, asset_id_for, asset_status,
-    change_sequence, hash_bytes, import_asset, import_many, import_path, import_sequence,
+    change_sequence, hash_bytes, hex, import_asset, import_many, import_path, import_sequence,
     import_sequences, listing, page_file_path, probe_assets, read_page, read_page_file,
     unprobed_assets, write_page, write_page_file,
 };

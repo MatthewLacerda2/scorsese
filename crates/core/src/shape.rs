@@ -418,3 +418,41 @@ impl Heads {
         matches!(self, Self::Both)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn each_side_is_the_middle_of_its_edge() {
+        let at: Vec<(f64, f64)> = [
+            Side::Left,
+            Side::Right,
+            Side::Top,
+            Side::Bottom,
+            Side::Center,
+        ]
+        .into_iter()
+        .map(Side::on_unit_rect)
+        .collect();
+        assert_eq!(
+            at,
+            [(0.0, 0.5), (1.0, 0.5), (0.5, 0.0), (0.5, 1.0), (0.5, 0.5)]
+        );
+    }
+
+    #[test]
+    fn heads_say_which_ends_are_pointed() {
+        let ends = |heads: Heads| (heads.at_start(), heads.at_end());
+        assert_eq!(ends(Heads::None), (false, false));
+        assert_eq!(ends(Heads::End), (false, true));
+        assert_eq!(ends(Heads::Both), (true, true));
+    }
+
+    #[test]
+    fn a_point_is_placed_only_when_both_coordinates_are_numbers() {
+        assert!(Point::new(-0.5, 1.5).is_placed(), "off-screen is a place");
+        assert!(!Point::new(f64::NAN, 0.5).is_placed());
+        assert!(!Point::new(0.5, f64::INFINITY).is_placed());
+    }
+}

@@ -128,7 +128,7 @@ fn briefs(project: &Project, root: &Path) -> HashMap<String, ProjectPath> {
 pub(super) fn keep_stock_cache(storage: &Storage, user: UserId, root: &Path) -> Result<(), String> {
     let kept = storage.stock(user);
     std::fs::create_dir_all(&kept).map_err(|error| {
-        eprintln!("scorsese-server: making the stock cache: {error}");
+        tracing::error!("making the stock cache: {error}");
         "laying the project out failed on the server".to_owned()
     })?;
     link(&kept, &scorsese_providers::stock::cache_dir(root))
@@ -143,7 +143,7 @@ pub(super) fn link(source: &Path, target: &Path) -> Result<(), String> {
         .map_or(Ok(()), std::fs::create_dir_all)
         .and_then(|()| symlink(source, target));
     made.map_err(|error| {
-        eprintln!("scorsese-server: linking a generation into a folder: {error}");
+        tracing::error!("linking a generation into a folder: {error}");
         "laying the project out failed on the server".to_owned()
     })
 }

@@ -87,13 +87,15 @@ pub(super) async fn run(state: &AppState, user: UserId, turn: i64, call: &Call) 
     let said: String = words.join("\n").chars().take(SAID).collect();
     tell(if is_error { "refused" } else { "answered" }, Some(said));
     let ffmpeg = state.tools.ffmpeg().clone();
-    let content = tokio::task::spawn_blocking(move || blocks(&ffmpeg, parts))
-        .await
-        .unwrap_or_else(|_| {
-            vec![ResultPart::Text {
-                text: "(the answer could not be read back)".into(),
-            }]
-        });
+    let content = crate::jobs::blocking("reading the answer back crashed", move || {
+        blocks(&ffmpeg, parts)
+    })
+    .await
+    .unwrap_or_else(|_| {
+        vec![ResultPart::Text {
+            text: "(the answer could not be read back)".into(),
+        }]
+    });
     let part = Part::Result {
         call: call.id.clone(),
         name: call.name.clone(),
@@ -177,7 +179,7 @@ async fn held(
         Err(error) => {
             // Unknowable whether a quote was issued, so nothing of the reply
             // may reach the model: it could carry a token.
-            eprintln!("scorsese-server: assistant: reading a quote: {error}");
+            tracing::error!("assistant: reading a quote: {error}");
             return (UNHELD.into(), false);
         }
     };
@@ -203,12 +205,12 @@ async fn held(
         // A second quote in one reply takes the first one's place.
         Ok(Some(earlier)) => {
             if let Err(error) = state.tools.withdraw_quote(user, &earlier).await {
-                eprintln!("scorsese-server: assistant: withdrawing a quote: {error}");
+                tracing::error!("assistant: withdrawing a quote: {error}");
             }
         }
         Ok(None) => {}
         Err(error) => {
-            eprintln!("scorsese-server: assistant: holding a quote: {error}");
+            tracing::error!("assistant: holding a quote: {error}");
             return (UNHELD.into(), false);
         }
     }

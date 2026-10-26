@@ -33,11 +33,7 @@ pub struct Minted {
 pub fn mint(prefix: &str) -> Result<Minted, AccountError> {
     let mut bytes = [0u8; 32];
     getrandom::fill(&mut bytes).map_err(|error| AccountError::Crypto(error.to_string()))?;
-    let mut plain = String::with_capacity(prefix.len() + 64);
-    plain.push_str(prefix);
-    for byte in bytes {
-        plain.push_str(&format!("{byte:02x}"));
-    }
+    let plain = format!("{prefix}{}", scorsese_core::hex(&bytes));
     let digest = digest(&plain);
     Ok(Minted { plain, digest })
 }

@@ -50,6 +50,21 @@ fn a_ticket_on_an_imported_file_names_work_nobody_is_doing() {
 }
 
 #[test]
+fn a_queue_stamp_on_an_imported_file_is_refused() {
+    let mut p = project();
+    let stamp = scorsese_core::Timestamp::from_utc(2026, 8, 4, 9, 0, 0).expect("an instant");
+    asset_mut(&mut p, "logo").queued_at = Some(stamp);
+    assert_only_problem(
+        &p,
+        E::StrayField {
+            asset: asset_id("logo"),
+            field: F::QueuedAt,
+            kind: AssetKind::Image,
+        },
+    );
+}
+
+#[test]
 fn a_ticket_on_a_line_names_work_nobody_is_doing() {
     let mut p = project();
     asset_mut(&mut p, "vo-open").operation = Some("batches/abc".to_owned());

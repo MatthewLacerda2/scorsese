@@ -13,9 +13,9 @@ pub async fn refresh(payments: Payments, mut stop: watch::Receiver<bool>) {
         match tokio::task::spawn_blocking(move || rates.refresh()).await {
             Ok(Ok(_)) => {}
             Ok(Err(error)) => {
-                eprintln!("scorsese-server: the dollar's rate was not refreshed: {error}");
+                tracing::warn!("the dollar's rate was not refreshed: {error}");
             }
-            Err(error) => eprintln!("scorsese-server: the rate refresh was cut off: {error}"),
+            Err(error) => tracing::warn!("the rate refresh was cut off: {error}"),
         }
         tokio::select! {
             _ = stop.wait_for(|stopping| *stopping) => return,

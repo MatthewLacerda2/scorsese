@@ -17,7 +17,7 @@ use serde::Deserialize;
 use std::collections::BTreeMap;
 
 use super::{BASE, KEY_HEADER};
-use crate::api::http::{Caller, HttpError, encoded};
+use crate::api::http::{Caller, HttpError, encoded, filled, query};
 use crate::credentials::Secret;
 
 /// The most voices the vendor will put on one page of the Voice Library.
@@ -73,25 +73,16 @@ impl Filters {
     /// percent-encoded because an accent is free text and a space in one would
     /// otherwise produce a URL the transport refuses.
     pub fn query(&self) -> String {
-        let mut pairs: Vec<String> = Vec::new();
-        let mut text = |name: &str, value: &Option<String>| {
-            if let Some(value) = value.as_ref().filter(|value| !value.trim().is_empty()) {
-                pairs.push(format!("{name}={}", encoded(value.trim())));
-            }
-        };
-        text("language", &self.language);
-        text("locale", &self.locale.as_deref().map(canonical_locale));
-        text("gender", &self.gender);
-        text("age", &self.age);
-        text("accent", &self.accent);
-        if let Some(size) = self.page_size {
-            pairs.push(format!("page_size={size}"));
-        }
-        if pairs.is_empty() {
-            String::new()
-        } else {
-            format!("?{}", pairs.join("&"))
-        }
+        let locale = self.locale.as_deref().map(canonical_locale);
+        let page_size = self.page_size.map(|size| size.to_string());
+        query(&[
+            ("language", filled(&self.language)),
+            ("locale", filled(&locale)),
+            ("gender", filled(&self.gender)),
+            ("age", filled(&self.age)),
+            ("accent", filled(&self.accent)),
+            ("page_size", page_size.as_deref()),
+        ])
     }
 }
 

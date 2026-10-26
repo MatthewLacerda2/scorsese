@@ -110,7 +110,9 @@
 //! keeps for a user. [`assistant`] is that built-in assistant: the model a
 //! project picks (#705), run turn by turn against it, charged per call.
 //! [`ab`] is the landing page's A/B tests (#1553): what signed-out visitors
-//! were shown and did, and the report that decides each test.
+//! were shown and did, and the report that decides each test. [`logs`] is
+//! what the server writes to stderr: `tracing`, a span per request, job and
+//! turn.
 
 pub mod ab;
 pub mod accounts;
@@ -125,6 +127,7 @@ pub mod generations;
 pub mod http;
 pub mod jobs;
 pub mod library;
+pub mod logs;
 pub mod operator;
 pub mod payments;
 pub mod projects;
@@ -228,31 +231,28 @@ pub async fn run(
     let registry = jobs::kinds::registry(&files, config.elevenlabs);
     let assistant = assistant::Assistant::new(config.assistant_turn_cap);
     match &config.google {
-        Some(google) => eprintln!(
-            "scorsese-server: signing in with Google, back to {}",
-            google.origin
-        ),
-        None => eprintln!(
-            "scorsese-server: sign-in with Google is off; set {}, {} and {} to turn it on",
+        Some(google) => tracing::info!("signing in with Google, back to {}", google.origin),
+        None => tracing::info!(
+            "sign-in with Google is off; set {}, {} and {} to turn it on",
             config::GOOGLE_CLIENT_ID,
             config::GOOGLE_CLIENT_SECRET,
             config::PUBLIC_ORIGIN
         ),
     }
     match &config.payments {
-        Some(payments) => eprintln!(
-            "scorsese-server: selling credits through Stripe, back to {}",
+        Some(payments) => tracing::info!(
+            "selling credits through Stripe, back to {}",
             payments.origin
         ),
-        None => eprintln!(
-            "scorsese-server: buying credits is off; set {}, {} and {} to turn it on",
+        None => tracing::info!(
+            "buying credits is off; set {}, {} and {} to turn it on",
             config::STRIPE_SECRET_KEY,
             config::STRIPE_WEBHOOK_SECRET,
             config::PUBLIC_ORIGIN
         ),
     }
-    eprintln!(
-        "scorsese-server: giving every account {} free a day, at most {} a month",
+    tracing::info!(
+        "giving every account {} free a day, at most {} a month",
         credits::dollars(config.free.daily_micros),
         credits::dollars(config.free.monthly_micros)
     );
@@ -332,13 +332,13 @@ pub async fn start(
         .map_err(ServerError::Database)?;
     let migrated = projects::migrate_stored(&pool).await?;
     if migrated > 0 {
-        eprintln!("scorsese-server: migrated {migrated} stored projects to this build's format");
+        tracing::info!("migrated {migrated} stored projects to this build's format");
     }
     let interrupted = assistant::recover(&pool)
         .await
         .map_err(ServerError::Database)?;
     if interrupted > 0 {
-        eprintln!("scorsese-server: {interrupted} assistant turns were cut off by the last stop");
+        tracing::warn!("{interrupted} assistant turns were cut off by the last stop");
     }
     let cache = files.renders.clone();
     cache
@@ -371,13 +371,13 @@ pub async fn start(
         rate.abort();
     }
     if let Err(error) = worker.await {
-        eprintln!("scorsese-server: the job worker failed: {error}");
+        tracing::error!("the job worker failed: {error}");
     }
     if let Err(error) = waker.await {
-        eprintln!("scorsese-server: the assistant's waker failed: {error}");
+        tracing::error!("the assistant's waker failed: {error}");
     }
     if let Err(error) = sweep.await {
-        eprintln!("scorsese-server: the render sweep failed: {error}");
+        tracing::error!("the render sweep failed: {error}");
     }
     Ok(served?)
 }

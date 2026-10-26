@@ -163,7 +163,7 @@ export function Lane(props: Props) {
             type="button"
             key={clip.id}
             title={t.editor.timeline.clipTitle(clip.id)}
-            className={`absolute top-0.5 bottom-0.5 cursor-grab touch-none overflow-hidden rounded-sm border px-1 text-[11px] select-none ${body} ${chosen ? "ring-2 ring-foreground" : "opacity-90"} ${held?.clip.id === clip.id ? "z-10 cursor-grabbing shadow-lg" : ""}`}
+            className={`absolute inset-y-0 cursor-grab touch-none overflow-hidden rounded-sm border px-1 text-[11px] select-none ${body} ${chosen ? "ring-2 ring-foreground" : "opacity-90"} ${held?.clip.id === clip.id ? "z-10 cursor-grabbing shadow-lg" : ""}`}
             style={{
               left: framesToPx(extent.start, zoom, fps),
               width,

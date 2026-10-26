@@ -23,10 +23,12 @@ mod explain;
 mod file;
 mod media;
 mod multipart;
+mod url;
 
 pub use explain::{AT_ITS_LIMIT, scrubbed};
 pub use file::stream_to;
 pub use multipart::Form;
+pub(crate) use url::{encoded, filled, query};
 
 /// How long to wait on a single request before giving up on it.
 ///
@@ -433,29 +435,4 @@ fn refused(
         status,
         body,
     })
-}
-
-/// Everything RFC 3986 lets stand unescaped in a query value.
-const UNRESERVED: &[u8] = b"-._~";
-
-/// `value`, safe to put in a URL.
-///
-/// Here, beside the transport, because every vendor module builds a query
-/// string and none of them should own the escaping the others use. Written
-/// rather than taken as a dependency, for the reason the MCP
-/// server gives for its own base64: a dozen lines against a fixed
-/// specification, and every dependency is one `cargo deny` has to keep
-/// clearing. Deliberately strict — everything outside the unreserved set is
-/// escaped, including characters a query would tolerate, because being
-/// over-cautious in a URL costs nothing and being wrong costs a failed call.
-pub(crate) fn encoded(value: &str) -> String {
-    let mut out = String::with_capacity(value.len());
-    for byte in value.as_bytes() {
-        if byte.is_ascii_alphanumeric() || UNRESERVED.contains(byte) {
-            out.push(char::from(*byte));
-        } else {
-            out.push_str(&format!("%{byte:02X}"));
-        }
-    }
-    out
 }

@@ -3317,6 +3317,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "strsim",
  "thiserror 2.0.21",
 ]
 
@@ -3819,7 +3820,6 @@ dependencies = [
  "bytemuck",
  "cfg-if",
  "log",
- "png",
  "tiny-skia-path 0.12.0",
 ]
 

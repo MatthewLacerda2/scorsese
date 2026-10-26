@@ -174,11 +174,27 @@ impl AppState {
 /// server in production route it with a single rule — and a path that is not
 /// `/api/...` is never this server's, so it can go to the front-end.
 pub fn router(state: AppState) -> Router {
-    let api = routes::table()
+    let logged = tower_http::trace::TraceLayer::new_for_http()
+        .make_span_with(crate::logs::request)
+        .on_request(())
+        .on_response(crate::logs::answered)
+        .on_body_chunk(())
+        .on_eos(())
+        .on_failure(());
+    let (unlogged, routes): (Vec<_>, Vec<_>) = routes::table()
+        .into_iter()
+        .partition(|route| route.path == crate::logs::UNLOGGED);
+    // A layer wraps only the routes added before it, so the health check,
+    // added after, is never in the request log.
+    let api = routes
         .into_iter()
         .fold(Router::new(), |api, route| {
             api.route(route.path, route.handler)
-        });
+        })
+        .layer(logged);
+    let api = unlogged
+        .into_iter()
+        .fold(api, |api, route| api.route(route.path, route.handler));
     Router::new().nest("/api", api).with_state(state)
 }
 

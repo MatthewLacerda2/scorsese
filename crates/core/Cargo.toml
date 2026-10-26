@@ -17,6 +17,7 @@ serde = { version = "1.0.229", features = ["derive"] }
 # unify, so this holds for every crate that reads a project.
 serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
 sha2 = "0.11.0"
+strsim.workspace = true
 thiserror = "2.0.19"
 
 [features]

@@ -15,6 +15,7 @@
 //! `properties`, or says `additionalProperties` is anything but `false`, is
 //! open and takes any key — whatever reads it has its own rule.
 
+use scorsese_core::spelling::closest;
 use serde_json::{Map, Value};
 
 /// The refusal for the first object in `given`, at any depth, holding a key
@@ -111,31 +112,14 @@ fn named(given: &Map<String, Value>, properties: &Map<String, Value>, at: &str) 
 
 /// The argument `name` was probably meant to be, when one stands out.
 ///
-/// Two ways to miss: a typo close to the name (`opactiy`), or the name without
-/// its unit (`duration` for `duration_seconds`). Nothing is suggested unless
-/// exactly one candidate answers — a wrong suggestion is worse than none,
-/// because it is the one thing a reader acts on without checking (the rule
-/// `ANIMATABLE.did_you_mean` keeps too).
+/// Two ways to miss: a typo close to the name (`opactiy`), by [`closest`] —
+/// the rule `ANIMATABLE.did_you_mean` keeps too — or, failing that, the name
+/// without its unit (`duration` for `duration_seconds`). Nothing is suggested
+/// unless exactly one candidate answers: a wrong suggestion is worse than
+/// none, because it is the one thing a reader acts on without checking.
 fn nearest<'a>(name: &str, known: &[&'a str]) -> Option<&'a str> {
-    /// Two edits: a swapped pair of letters costs exactly this.
-    const NEAREST: usize = 2;
-
-    let close: Vec<(usize, &str)> = known
-        .iter()
-        .map(|candidate| (strsim::levenshtein(name, candidate), *candidate))
-        .filter(|(apart, candidate)| *apart <= NEAREST && apart * 2 < candidate.len())
-        .collect();
-    let best = close.iter().map(|(apart, _)| *apart).min();
-    let closest: Vec<&str> = close
-        .iter()
-        .filter(|(apart, _)| Some(*apart) == best)
-        .map(|(_, candidate)| *candidate)
-        .collect();
-    if let [only] = closest.as_slice() {
-        return Some(only);
-    }
-    if !closest.is_empty() {
-        return None;
+    if let Some(meant) = closest(name, known.iter().copied()) {
+        return Some(meant);
     }
     let prefix = format!("{name}_");
     let extended: Vec<&str> = known

@@ -80,11 +80,7 @@ pub fn sign(secret: &Secret, timestamp: i64, body: &[u8]) -> String {
     mac.update(timestamp.to_string().as_bytes());
     mac.update(b".");
     mac.update(body);
-    mac.finalize()
-        .into_bytes()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
+    scorsese_core::hex(&mac.finalize().into_bytes())
 }
 
 /// Whether `received` is `expected`, compared without stopping at the first

@@ -209,7 +209,7 @@ async fn introduce(state: &AppState, user: UserId, token: i64, message: &Value) 
     if let Err(error) =
         tokens::introduce(&state.pool, user, token, info("name"), info("version")).await
     {
-        eprintln!("scorsese-server: could not record token {token}'s MCP client: {error}");
+        tracing::error!("could not record token {token}'s MCP client: {error}");
     }
 }
 

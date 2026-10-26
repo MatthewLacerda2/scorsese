@@ -5,7 +5,7 @@
 //! whenever the assistant worked, for twelve days, and the server never knew:
 //! every request it saw answered `200`. Now the web app's error boundaries and
 //! its `window` error handlers post what threw here, and the server writes one
-//! `scorsese-server: client error: …` line to its log — the log is the whole
+//! `client error: …` warning to its log — the log is the whole
 //! record; no table keeps them.
 //!
 //! Anyone may post, signed in or not, since a page can crash before anyone
@@ -69,7 +69,7 @@ pub async fn report(
         },
         _ => ApiError::BadRequest("a crash report is a JSON object with a `message`".into()),
     })?;
-    eprintln!("{}", line(&report));
+    tracing::warn!("{}", line(&report));
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -77,7 +77,7 @@ pub async fn report(
 fn line(report: &Report) -> String {
     let or_none = |field: &Option<String>| field.as_deref().unwrap_or("").to_owned();
     format!(
-        "scorsese-server: client error: {:?} at {:?} (language {:?}, build {:?}); stack {:?}; components {:?}",
+        "client error: {:?} at {:?} (language {:?}, build {:?}); stack {:?}; components {:?}",
         report.message,
         or_none(&report.path),
         or_none(&report.language),
@@ -94,7 +94,7 @@ mod tests {
     #[test]
     fn a_report_is_one_line_however_many_lines_it_carries() {
         let report = Report {
-            message: "x is not a function\nscorsese-server: forged".into(),
+            message: "x is not a function\nclient error: forged".into(),
             stack: Some("at Busy\nat Chat".into()),
             component_stack: None,
             path: Some("/projects/7/edit".into()),
@@ -103,7 +103,7 @@ mod tests {
         };
         let line = line(&report);
         assert!(!line.contains('\n'), "{line}");
-        assert!(line.starts_with("scorsese-server: client error: \"x is not a function\\n"));
+        assert!(line.starts_with("client error: \"x is not a function\\n"));
         assert!(line.contains("\"/projects/7/edit\"") && line.contains("\"pt-BR\""));
     }
 }

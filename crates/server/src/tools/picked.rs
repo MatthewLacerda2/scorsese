@@ -190,7 +190,7 @@ impl Toolbox {
         match resolve(Provider::Pixabay) {
             Ok(key) => Ok(Arc::new(PixabayLibrary::new(&key.secret))),
             Err(error) => {
-                eprintln!("scorsese-server: stock import: {error}");
+                tracing::error!("stock import: {error}");
                 Err(format!(
                     "{} is not set on this server, so stock media cannot be brought in",
                     Provider::Pixabay.variable()

@@ -84,10 +84,12 @@ pub async fn settle(pool: &PgPool, session: &Session) -> Result<Settled, Payment
             Settled::Expired
         }
         "open" if session.payment_status == "paid" => {
-            eprintln!(
-                "scorsese-server: payment {id} ({}) was paid {:?} {:?}, not BRL {centavos} \
+            tracing::error!(
+                "payment {id} ({}) was paid {:?} {:?}, not BRL {centavos} \
                  centavos as asked; not credited — look at it in Stripe's Dashboard",
-                session.id, session.amount_total, session.currency
+                session.id,
+                session.amount_total,
+                session.currency
             );
             Settled::Open
         }

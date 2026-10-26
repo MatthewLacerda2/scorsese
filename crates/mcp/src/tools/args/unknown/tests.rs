@@ -99,3 +99,19 @@ fn what_lists_no_keys_or_takes_any_stays_open() {
     let refused = refused(&json!({ "either": { "z": 2 } }), &schema());
     assert!(refused.is_some_and(|said| said.starts_with("`either.z`")));
 }
+
+#[test]
+fn a_short_far_candidate_does_not_silence_a_close_one() {
+    // The rule `ANIMATABLE.did_you_mean` keeps too (#1522).
+    assert_eq!(nearest("abcd", &["ab", "abcdef"]), Some("abcdef"));
+}
+
+#[test]
+fn a_tie_between_typos_leaves_the_unit_suffix_to_answer() {
+    // `stars` and `stark` are each one edit from `start`, so neither is said;
+    // `start_seconds` is still the one name `start` is short for (#1522).
+    assert_eq!(
+        nearest("start", &["stars", "stark", "start_seconds"]),
+        Some("start_seconds")
+    );
+}

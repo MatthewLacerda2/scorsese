@@ -97,12 +97,14 @@ They come from Vercel's `geist` npm package, version 1.7.2, unmodified:
 | file | from | sha256 |
 | --- | --- | --- |
 | `Geist-Regular.ttf` | `dist/fonts/geist-sans/` | `5c8968eafb98a4c4f47033daf29e38e284a6f2a82eb017d171ab040fe7c4b615` |
+| `Geist-Medium.ttf` | `dist/fonts/geist-sans/` | `0090e004725f6f64b841715b4167920580f883fcf9b67fc6d744089103fec101` |
+| `Geist-SemiBold.ttf` | `dist/fonts/geist-sans/` | `612ec98df33935354f39e81e54101656961ab6e5549f64b63eb57868ba7bab8d` |
 | `GeistMono-Regular.ttf` | `dist/fonts/geist-mono/` | `42d8ad2e610238e64e8abfcde3037c63f7850a73928742b7ab7229d897bcb155` |
 
-**Static Regular files, not the variable one the web loads**, because egui
-draws a font at its default instance and has no weight axis to set: a variable
-file would ship every weight to draw one. One weight is what egui can use —
-a heading here is set apart by capitals, tracking and colour, as the web's
-`text-xs uppercase tracking-wide` headings are, rather than by weight. egui's
+**Static files, not the variable one the web loads**, because egui draws a
+font at its default instance and has no weight axis to set: each weight the web
+uses (regular, medium for buttons and names, semibold for headings and the
+project's name) is its own file and its own font family (`theme::medium`,
+`theme::semibold`). egui's
 own fonts stay behind both as the fallback, for the transport's symbols and
 any glyph Geist does not have.

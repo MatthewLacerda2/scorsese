@@ -108,8 +108,8 @@ async fn wait(
                     blocking("fetching a shot crashed", move || fetching.fetch(&ready)).await;
                 match fetched {
                     Ok(Ok(bytes)) => return work.keep(paid, bytes, Kind::Video).await,
-                    Ok(Err(error)) => eprintln!("scorsese-server: fetching a shot: {error}"),
-                    Err(why) => eprintln!("scorsese-server: {why}"),
+                    Ok(Err(error)) => tracing::warn!("fetching a shot: {error}"),
+                    Err(why) => tracing::warn!("{why}"),
                 }
             }
             // A network blip is not a refusal: the shot is still Google's,
@@ -123,8 +123,8 @@ async fn wait(
                 let why = format!("Veo no longer knows this shot's ticket: {}", error.message);
                 return work.refused(paid, why).await;
             }
-            Ok(Err(error)) => eprintln!("scorsese-server: polling a shot: {error}"),
-            Err(why) => eprintln!("scorsese-server: {why}"),
+            Ok(Err(error)) => tracing::warn!("polling a shot: {error}"),
+            Err(why) => tracing::warn!("{why}"),
         }
         if started.elapsed() >= timing.patience {
             return Outcome::Stuck(format!(

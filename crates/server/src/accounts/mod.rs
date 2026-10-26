@@ -86,6 +86,22 @@ pub enum AccountError {
     Database(#[from] sqlx::Error),
 }
 
+impl AccountError {
+    /// The error as the log may say it: an account is named by id alone, so
+    /// the kinds carrying an email say their kind without it.
+    pub fn logged(&self) -> String {
+        match self {
+            Self::InvalidEmail(_) => "not an email address".to_owned(),
+            Self::Taken(_) => "the email already has an account".to_owned(),
+            Self::NoSuchAccount(_) => "no account has the email".to_owned(),
+            Self::LinkedElsewhere(_) => {
+                "the email's account belongs to another Google account".to_owned()
+            }
+            other => other.to_string(),
+        }
+    }
+}
+
 /// `email`, trimmed and lower-cased, if it looks like an address at all.
 ///
 /// Deliberately loose — one `@` with something either side and no spaces.
@@ -106,5 +122,28 @@ pub fn normalize_email(email: &str) -> Result<String, AccountError> {
         Ok(email)
     } else {
         Err(AccountError::InvalidEmail(email))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AccountError;
+
+    #[test]
+    fn the_log_never_names_an_email() {
+        let email = "ana@example.com";
+        for error in [
+            AccountError::InvalidEmail(email.into()),
+            AccountError::Taken(email.into()),
+            AccountError::NoSuchAccount(email.into()),
+            AccountError::LinkedElsewhere(email.into()),
+        ] {
+            assert!(error.to_string().contains(email), "{error}");
+            assert!(!error.logged().contains(email), "{}", error.logged());
+        }
+        assert_eq!(
+            AccountError::SubTaken(7).logged(),
+            AccountError::SubTaken(7).to_string()
+        );
     }
 }

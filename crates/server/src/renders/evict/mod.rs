@@ -81,8 +81,8 @@ pub async fn admit<T>(
         let evicted = idle(pool, cache).await?;
         let after = total.saturating_sub(evicted.bytes).saturating_add(size);
         if after > quota {
-            eprintln!(
-                "scorsese-server: warning: the render cache holds {after} bytes with its \
+            tracing::warn!(
+                "warning: the render cache holds {after} bytes with its \
                  page captures, over its quota of {quota}, and nothing in it has been idle \
                  for {} hours; keeping the new render anyway",
                 IDLE.as_secs() / 3600
@@ -113,16 +113,18 @@ pub async fn run(pool: PgPool, cache: RenderCache, mut stop: watch::Receiver<boo
         if due(&cache.root.join(SWEPT)) {
             match sweep(&pool, &cache).await {
                 Ok(evicted) => {
-                    eprintln!(
-                        "scorsese-server: swept the render cache: {} renders, {} page \
+                    tracing::info!(
+                        "swept the render cache: {} renders, {} page \
                          captures, {} bytes",
-                        evicted.renders, evicted.captures, evicted.bytes
+                        evicted.renders,
+                        evicted.captures,
+                        evicted.bytes
                     );
                     if let Err(error) = std::fs::write(cache.root.join(SWEPT), b"") {
-                        eprintln!("scorsese-server: could not mark the sweep: {error}");
+                        tracing::error!("could not mark the sweep: {error}");
                     }
                 }
-                Err(error) => eprintln!("scorsese-server: the render sweep failed: {error}"),
+                Err(error) => tracing::error!("the render sweep failed: {error}"),
             }
         }
         tokio::select! {
@@ -263,10 +265,7 @@ fn files(root: &Path) -> Vec<PathBuf> {
 fn remove(path: &Path) {
     match std::fs::remove_file(path) {
         Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
-            eprintln!(
-                "scorsese-server: could not delete {}: {error}",
-                path.display()
-            );
+            tracing::error!("could not delete {}: {error}", path.display());
         }
         _ => {}
     }

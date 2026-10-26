@@ -109,10 +109,42 @@ mod tests {
             (11_016, (2000, 2, 29)),
             (-25_508, (1900, 3, 1)),
             (20_740, (2026, 10, 14)),
+            (19_753, (2024, 1, 31)),
+            (19_722, (2023, 12, 31)),
+            (10_651, (1999, 3, 1)),
+            (47_540, (2100, 2, 28)),
+            (47_541, (2100, 3, 1)),
+            (157_113, (2400, 2, 29)),
+            (-135_140, (1600, 1, 1)),
+            (-719_162, (1, 1, 1)),
         ] {
             assert_eq!(date_of_day(days), date, "{days}");
             assert_eq!(day_of_date(date.0, date.1, date.2), days, "{date:?}");
         }
         assert_eq!(day_of_date(1900, 3, 1) - day_of_date(1900, 2, 28), 1);
+    }
+
+    #[test]
+    fn an_instant_splits_into_its_date_and_time_of_day() {
+        let at = |seconds| {
+            let utc = Utc::from_unix(seconds);
+            (
+                utc.year, utc.month, utc.day, utc.hour, utc.minute, utc.second,
+            )
+        };
+        assert_eq!(at(1_234_567_890), (2009, 2, 13, 23, 31, 30));
+        assert_eq!(at(86_399), (1970, 1, 1, 23, 59, 59));
+        assert_eq!(at(-3_661), (1969, 12, 31, 22, 58, 59));
+    }
+
+    #[test]
+    fn today_is_the_clock_s_day() {
+        let day = || super::super::Timestamp::unix_now().map(|s| s.div_euclid(SECONDS_A_DAY));
+        let (before, read, after) = (day(), today(), day());
+        assert!(
+            before <= read && read <= after,
+            "{before:?} {read:?} {after:?}"
+        );
+        assert!(read > Some(20_000), "after 2024: {read:?}");
     }
 }

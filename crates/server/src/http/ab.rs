@@ -22,7 +22,7 @@ use std::time::Duration;
 use axum::Json;
 use axum::extract::State;
 use axum::extract::rejection::JsonRejection;
-use axum::http::{HeaderMap, StatusCode, header::COOKIE};
+use axum::http::{HeaderMap, StatusCode};
 
 use super::AppState;
 use super::visitor::Visitor;
@@ -68,7 +68,7 @@ pub async fn events(
     let header = |name: &str| headers.get(name).and_then(|value| value.to_str().ok());
     let place = Place::new(header(COUNTRY_HEADER), header(REGION_HEADER));
     if let Err(error) = ab::record(&state.pool, &batch, &place).await {
-        eprintln!("scorsese-server: could not record landing events: {error}");
+        tracing::error!("could not record landing events: {error}");
     }
     StatusCode::NO_CONTENT
 }
@@ -84,19 +84,13 @@ pub fn network(address: Option<IpAddr>) -> Option<IpAddr> {
 
 /// The visitor code the request's `scorsese_visitor` cookie carries.
 pub fn visitor_cookie(headers: &HeaderMap) -> Option<String> {
-    headers
-        .get_all(COOKIE)
-        .iter()
-        .filter_map(|header| header.to_str().ok())
-        .flat_map(|header| header.split(';'))
-        .filter_map(|pair| pair.trim().split_once('='))
-        .find(|(name, _)| *name == VISITOR_COOKIE)
-        .and_then(|(_, value)| ab::visitor_code(value))
+    super::auth::cookie(headers, VISITOR_COOKIE).and_then(ab::visitor_code)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::http::header::COOKIE;
 
     #[test]
     fn an_ipv6_address_is_counted_by_its_64() {

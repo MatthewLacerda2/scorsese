@@ -42,8 +42,9 @@ Rust test can reproduce (layout a Playwright flow proves) takes its
 
 The `SessionStart` hook (`.claude/hooks/session-start.sh`) has installed what
 `make gates` needs, started a native Postgres (`SCORSESE_TEST_DATABASE_URL`)
-and exported `CARGO_INCREMENTAL=0` for the ~30 GB disk: don't override it. If
-its `session-start:` lines are missing, run it yourself
+and exported `CARGO_INCREMENTAL=0` for the ~30 GB disk: don't override it,
+except for `cargo mutants` (*The mutation signal*). If its `session-start:`
+lines are missing, run it yourself
 (`CLAUDE_PROJECT_DIR=$PWD .claude/hooks/session-start.sh`) and apply the
 `export` lines it prints; a `FAIL` line says what to install.
 
@@ -81,7 +82,7 @@ not name (`docs/golden-renders.md`, *Re-blessing*).
   <name>`, never the whole suite. An unintended mismatch is investigated, never
   re-blessed.
 - **App panel snapshots** (`app/tests/panels`) are each cropped to the part
-  they are named for, except `a_whole_edit` and `a_whole_edit_in_light`, which
+  they are named for, except `a_whole_edit` and `a_whole_edit_in_dark`, which
   move with any chrome change. Check each diff stays inside your change.
 
 ## Easy to miss
@@ -110,8 +111,9 @@ a reason to stay draft. Check the mutant count before running.
 
 - **Inside `.cargo/mutants.toml`'s surface**: `python3
   .github/scripts/mutants/scope.py resolve '<your globs>' --out
-  target/scope.json --diff target/scope.diff`, then `cargo mutants --in-diff
-  target/scope.diff --jobs 2` (`docs/mutation-testing.md`).
+  target/scope.json --diff target/scope.diff`, then `CARGO_INCREMENTAL=1
+  cargo mutants --in-diff target/scope.diff --jobs 2`
+  (`docs/mutation-testing.md`).
 - **Outside it** (`crates/server`, the rest of `crates/render/src/run`, `app/`)
   it reports nothing. A server module tested in its own file: `cargo mutants
   --no-config --test-tool nextest -f <file> --test-package scorsese-server --

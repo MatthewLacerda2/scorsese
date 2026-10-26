@@ -135,7 +135,7 @@ pub(in crate::assistant) async fn history(
 /// A stored conversation that does not parse: logged, and the user told to
 /// start afresh rather than shown a parser's words.
 fn damaged(error: serde_json::Error) -> AssistantError {
-    eprintln!("scorsese-server: a stored conversation is unreadable: {error}");
+    tracing::error!("a stored conversation is unreadable: {error}");
     AssistantError::Invalid("this conversation's record is damaged; start a new one".into())
 }
 

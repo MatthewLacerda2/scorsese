@@ -324,4 +324,31 @@ mod tests {
         .expect("an icon is a valid asset");
         assert_eq!(id.as_str(), "clapperboard");
     }
+
+    /// Every block a sketch carries reaches the asset, not only the line's.
+    #[test]
+    fn a_sketch_keeps_whichever_block_it_was_given() {
+        let shot = VideoRequest {
+            seed: Some(7),
+            ..VideoRequest::default()
+        };
+        let still = ImageRequest::default();
+        let track = MusicRequest {
+            seconds: Some(30),
+            ..MusicRequest::default()
+        };
+        let asset = Inline::Sketch {
+            kind: AssetKind::GeneratedVideo,
+            prompt: "a city at dawn".to_owned(),
+            video: Some(shot.clone()),
+            image: Some(still.clone()),
+            speech: None,
+            music: Some(track.clone()),
+        }
+        .asset(AssetId::new("dawn"));
+        assert_eq!(
+            (asset.video, asset.image, asset.music),
+            (Some(shot), Some(still), Some(track))
+        );
+    }
 }

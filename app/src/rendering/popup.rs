@@ -9,7 +9,7 @@
 
 use std::time::Duration;
 
-use egui::{Align2, Context, ProgressBar, RichText, Ui, Window};
+use egui::{Context, RichText, Ui};
 use scorsese_render::{Phase, Reading};
 
 use super::job::{Ended, Job};
@@ -26,19 +26,21 @@ pub(super) fn show(ctx: &Context, job: &mut Job) -> bool {
         ctx.request_repaint_after(REDRAW);
     }
     let mut dismissed = false;
-    Window::new("Rendering")
-        .collapsible(false)
-        .resizable(false)
-        .pivot(Align2::CENTER_CENTER)
-        .default_pos(ctx.content_rect().center())
-        .show(ctx, |ui| {
+    crate::theme::dialog::show(
+        ctx,
+        "rendering",
+        false,
+        "Rendering",
+        "The video is being made.",
+        |ui| {
             ui.set_width(380.0);
             destination(ui, job);
             ui.add_space(6.0);
             gauge(ui, job.reading());
             ui.add_space(6.0);
             dismissed = outcome(ui, job, ended.as_ref());
-        });
+        },
+    );
     dismissed
 }
 
@@ -58,19 +60,17 @@ fn destination(ui: &mut Ui, job: &Job) {
 /// The bar, the percentage on it, and the stage and frame count under it.
 fn gauge(ui: &mut Ui, reading: Reading) {
     let percent = reading.percent();
-    ui.add(
-        ProgressBar::new(f32::from(percent) / 100.0)
-            .text(format!("{percent}%"))
-            .desired_width(ui.available_width()),
-    );
+    crate::theme::marks::progress(ui, f32::from(percent) / 100.0);
     ui.horizontal(|ui| {
-        ui.label(RichText::new(stage(reading.phase)).small());
-        if reading.of > 0 {
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let count = format!("{} of {} frames", reading.done, reading.of);
-                ui.label(RichText::new(count).weak().small());
-            });
-        }
+        ui.label(RichText::new(stage(reading.phase)).weak().small());
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            let count = if reading.of > 0 {
+                format!("{percent}% · {} of {} frames", reading.done, reading.of)
+            } else {
+                format!("{percent}%")
+            };
+            ui.label(RichText::new(count).weak().small());
+        });
     });
 }
 

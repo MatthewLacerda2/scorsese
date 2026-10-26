@@ -98,7 +98,7 @@ pub(super) async fn clone(
     for recorded in &payload.recordings {
         let file = storage.library_file(user, &recorded.sha256, &recorded.extension);
         let bytes = tokio::fs::read(&file).await.map_err(|error| {
-            eprintln!("scorsese-server: reading a recording to clone: {error}");
+            tracing::error!("reading a recording to clone: {error}");
             format!(
                 "the recording \"{}\" is no longer in your library — nothing was created",
                 recorded.name

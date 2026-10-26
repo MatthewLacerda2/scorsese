@@ -15,6 +15,7 @@ mod batching;
 mod changes;
 mod compaction;
 mod effort;
+mod logged;
 mod models;
 mod money;
 mod picking;

@@ -265,7 +265,7 @@ async fn landed(state: &AppState, user: UserId, job: i64) {
     match turn.await {
         Ok(Some(turn)) => check(state, user, turn).await,
         Ok(None) => {}
-        Err(error) => eprintln!("scorsese-server: assistant: job {job} landed: {error}"),
+        Err(error) => tracing::error!("assistant: job {job} landed: {error}"),
     }
 }
 
@@ -284,11 +284,11 @@ async fn check(state: &AppState, user: UserId, turn: i64) {
                 Ok(_) | Err(AssistantError::Busy | AssistantError::Invalid(_)) => {}
                 // An empty balance or a missing key: the note waits for the
                 // person's next message.
-                Err(error) => eprintln!("scorsese-server: assistant: waking turn {turn}: {error}"),
+                Err(error) => tracing::error!("assistant: waking turn {turn}: {error}"),
             }
         }
         Ok(None) => {}
-        Err(error) => eprintln!("scorsese-server: assistant: waking turn {turn}: {error}"),
+        Err(error) => tracing::error!("assistant: waking turn {turn}: {error}"),
     }
 }
 
@@ -355,6 +355,6 @@ async fn sweep(state: &AppState) {
                 check(state, UserId::from_row(user), turn).await;
             }
         }
-        Err(error) => eprintln!("scorsese-server: assistant: sweeping for landed work: {error}"),
+        Err(error) => tracing::error!("assistant: sweeping for landed work: {error}"),
     }
 }

@@ -133,3 +133,23 @@ impl Default for Grade {
         Self::NEUTRAL
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `"grade": {}` is the neutral grade, field for field, and says so.
+    #[test]
+    fn an_empty_grade_is_the_neutral_one() {
+        let empty: Grade = serde_json::from_str("{}").expect("every field has a default");
+        assert_eq!(empty, Grade::NEUTRAL);
+        assert!(empty.is_neutral());
+        assert!(
+            !Grade {
+                grain: 0.1,
+                ..Grade::NEUTRAL
+            }
+            .is_neutral()
+        );
+    }
+}

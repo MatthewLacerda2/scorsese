@@ -58,3 +58,10 @@ fn even_rounds_to_the_nearest_even_side_and_never_below_two() {
     assert_eq!(even(336.9), 336);
     assert_eq!(even(0.2), 2);
 }
+
+#[test]
+fn only_a_shape_taller_than_it_is_wide_is_upright() {
+    assert!(Ratio::TALL.is_upright());
+    assert!(!Ratio::WIDE.is_upright());
+    assert!(!Ratio::new(1, 1).expect("square").is_upright());
+}

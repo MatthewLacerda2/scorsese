@@ -3,6 +3,7 @@
 mod disk;
 mod fixture;
 mod footage;
+mod reveal;
 mod speaking;
 
 use crate::ClipId;

@@ -74,6 +74,16 @@ fn interpolating_between_two_stills_fixes_the_length_too() {
 }
 
 #[test]
+fn a_first_still_alone_leaves_the_length_free() {
+    let p = asking(|r| {
+        r.resolution = VideoResolution::P720;
+        r.seconds = ClipSeconds::Four;
+        r.first_image = Some(asset_id("logo"));
+    });
+    assert!(p.validate().is_ok(), "{:?}", p.validate());
+}
+
+#[test]
 fn four_k_only_generates_at_eight_seconds_and_says_so_by_name() {
     let p = asking(|r| {
         r.resolution = VideoResolution::P4k;

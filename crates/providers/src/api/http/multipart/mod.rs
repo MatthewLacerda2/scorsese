@@ -334,7 +334,7 @@ impl Form {
         }
         let mut digest = hasher.finalize().to_vec();
         loop {
-            let boundary = format!("scorsese-{}", hex(&digest[..16]));
+            let boundary = format!("scorsese-{}", scorsese_core::hex(&digest[..16]));
             if !self
                 .parts
                 .iter()
@@ -370,11 +370,6 @@ fn quoted(value: &str) -> String {
         .replace('"', "%22")
         .replace('\r', "%0D")
         .replace('\n', "%0A")
-}
-
-/// `bytes` as lowercase hex.
-fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 #[cfg(test)]

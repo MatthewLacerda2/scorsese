@@ -85,8 +85,13 @@ pub async fn webhook(
     let signature = headers
         .get("stripe-signature")
         .and_then(|value| value.to_str().ok());
-    let event = webhook::verify(signature, &body, &payments.webhook_secret, now())
-        .map_err(|error| ApiError::BadRequest(error.to_string()))?;
+    let event = webhook::verify(
+        signature,
+        &body,
+        &payments.webhook_secret,
+        scorsese_core::Timestamp::unix_now_or_epoch(),
+    )
+    .map_err(|error| ApiError::BadRequest(error.to_string()))?;
     let happened = Happened::of(&event).map_err(|error| ApiError::BadRequest(error.to_string()))?;
     let session = match &happened {
         Happened::Settled(session) | Happened::Expired(session) => session,
@@ -94,9 +99,10 @@ pub async fn webhook(
     };
     let settled = settle::settle(&state.pool, session).await?;
     if settled == Settled::Unknown {
-        eprintln!(
-            "scorsese-server: Stripe event {} names session {}, which is no payment here",
-            event.id, session.id
+        tracing::warn!(
+            "Stripe event {} names session {}, which is no payment here",
+            event.id,
+            session.id
         );
     }
     Ok(Json(json!({ "received": event.kind })))
@@ -111,11 +117,6 @@ fn configured(state: &AppState) -> Result<&Payments, ApiError> {
     })
 }
 
-/// Seconds since the epoch, for a signature's timestamp.
-fn now() -> i64 {
-    scorsese_core::Timestamp::unix_now().unwrap_or(0)
-}
-
 impl From<PaymentError> for ApiError {
     fn from(error: PaymentError) -> Self {
         let refused = |status| Self::Refused {
@@ -127,11 +128,11 @@ impl From<PaymentError> for ApiError {
             PaymentError::OutOfRange => Self::BadRequest(error.to_string()),
             PaymentError::NotFound => Self::NotFound,
             PaymentError::NoRate(why) => {
-                eprintln!("scorsese-server: no rate for a purchase: {why}");
+                tracing::warn!("no rate for a purchase: {why}");
                 refused(StatusCode::SERVICE_UNAVAILABLE)
             }
             PaymentError::StaleRate => {
-                eprintln!("scorsese-server: a purchase was refused: {error}");
+                tracing::warn!("a purchase was refused: {error}");
                 refused(StatusCode::SERVICE_UNAVAILABLE)
             }
             PaymentError::RateMoved(quote) => Self::Refused {
@@ -140,11 +141,11 @@ impl From<PaymentError> for ApiError {
                 detail: json!({ "quote": quote }),
             },
             PaymentError::Stripe(_) | PaymentError::NoPage(_) => {
-                eprintln!("scorsese-server: {error}");
+                tracing::warn!("{error}");
                 refused(StatusCode::BAD_GATEWAY)
             }
             PaymentError::Interrupted | PaymentError::Credit(_) | PaymentError::Database(_) => {
-                eprintln!("scorsese-server: a payment failed: {error}");
+                tracing::error!("a payment failed: {error}");
                 Self::Internal
             }
         }

@@ -177,3 +177,23 @@ pub fn duck_track(
     }
     Ok(report)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Ducked;
+
+    #[test]
+    fn a_run_is_empty_only_when_it_dipped_and_cleared_nothing() {
+        assert!(Ducked::default().is_empty());
+        let one = |clip: &str| vec![clip.to_owned()];
+        let dipped = Ducked {
+            dipped: one("bed"),
+            ..Ducked::default()
+        };
+        let cleared = Ducked {
+            untouched: one("bed"),
+            ..Ducked::default()
+        };
+        assert!(!dipped.is_empty() && !cleared.is_empty());
+    }
+}

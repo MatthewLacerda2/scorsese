@@ -85,10 +85,7 @@ pub async fn record_or_log(
     match record(pool, user, address, access).await {
         Ok(()) => true,
         Err(error) => {
-            eprintln!(
-                "scorsese-server: could not record account {}'s access: {error}",
-                user.get()
-            );
+            tracing::error!("could not record account {}'s access: {error}", user.get());
             false
         }
     }

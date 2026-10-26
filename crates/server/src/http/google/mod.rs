@@ -227,14 +227,18 @@ async fn finish(
         let redirect_uri = google.redirect_uri();
         let form = sign_in::exchange_form(&google.client, &redirect_uri, &code, &verifier);
         let id_token = google.endpoint.exchange(&form)?;
-        sign_in::identity(&id_token, &google.client.id, now())
+        sign_in::identity(
+            &id_token,
+            &google.client.id,
+            scorsese_core::Timestamp::unix_now_or_epoch(),
+        )
     })
     .await
     .map_err(|_| "failed")?;
     let identity = traded.map_err(|error| match error {
         SignInError::Unverified => "unverified",
         error => {
-            eprintln!("scorsese-server: a Google sign-in failed: {error}");
+            tracing::warn!("a Google sign-in failed: {error}");
             "failed"
         }
     })?;
@@ -243,20 +247,17 @@ async fn finish(
         .map_err(|error| match error {
             AccountError::LinkedElsewhere(_) => "linked",
             error => {
-                eprintln!("scorsese-server: a Google sign-in failed: {error}");
+                tracing::warn!("a Google sign-in failed: {}", error.logged());
                 "failed"
             }
         })?;
     if let users::SignedIn::Created(user) = signed {
-        eprintln!(
-            "scorsese-server: account {} created by a Google sign-in",
-            user.get()
-        );
+        tracing::info!("account {} created by a Google sign-in", user.get());
     }
     let cookie = sessions::open(&state.pool, signed.user())
         .await
         .map_err(|error| {
-            eprintln!("scorsese-server: a Google sign-in failed: {error}");
+            tracing::warn!("a Google sign-in failed: {error}");
             "failed"
         })?;
     access::record_or_log(&state.pool, signed.user(), address, Access::SignIn).await;
@@ -264,11 +265,6 @@ async fn finish(
         crate::ab::link(&state.pool, &visitor, signed.user()).await;
     }
     Ok(cookie)
-}
-
-/// Seconds since the epoch, for an ID token's `exp`.
-fn now() -> i64 {
-    scorsese_core::Timestamp::unix_now().unwrap_or(0)
 }
 
 /// Back to the login page, saying `why`.
@@ -282,6 +278,6 @@ fn to_login(why: &str) -> Response {
 
 /// A failure of our own, before Google was involved.
 fn failed(error: &AccountError) -> Response {
-    eprintln!("scorsese-server: a Google sign-in could not start: {error}");
+    tracing::warn!("a Google sign-in could not start: {error}");
     to_login("failed")
 }
