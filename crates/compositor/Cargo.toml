@@ -13,7 +13,9 @@ workspace = true
 scorsese-core = { version = "0.1.0", path = "../core" }
 strsim.workspace = true
 thiserror = "2.0.19"
-tiny-skia = "0.12.0"
+# `png-format` is off: PNG goes through ffmpeg (`scorsese_render::frames`), and
+# nothing here calls tiny-skia's own PNG API.
+tiny-skia = { version = "0.12.0", default-features = false, features = ["std", "simd"] }
 
 # Font parsing and glyph outlines — read-only, no layout, no system font
 # lookup. It answers what a title card asks of a face ("what is this glyph's
