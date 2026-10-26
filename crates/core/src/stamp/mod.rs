@@ -77,6 +77,22 @@ impl Timestamp {
             .and_then(|since| i64::try_from(since.as_secs()).ok())
     }
 
+    /// [`Timestamp::unix_now`], or `0` on a clock set before 1970.
+    ///
+    /// For a caller that needs a number whatever the clock says. With the
+    /// clock unreadable, `0` does not mean "closed" everywhere:
+    ///
+    /// - a two-sided window (a signature's age, `|now - t| <= tolerance`)
+    ///   refuses every real timestamp;
+    /// - a one-sided deadline (`t <= now` means expired) never expires, and a
+    ///   recorded heartbeat always reads as fresh, since `now - last` is
+    ///   negative;
+    /// - a value recorded from it (a heartbeat written, `now + n` stored as
+    ///   an expiry) is a moment in 1970.
+    pub fn unix_now_or_epoch() -> i64 {
+        Self::unix_now().unwrap_or(0)
+    }
+
     /// The instant `seconds` after the Unix epoch, in UTC.
     pub fn from_unix(seconds: i64) -> Option<Self> {
         let at = civil::Utc::from_unix(seconds);
@@ -175,4 +191,26 @@ fn in_range(field: &str, low: u32, high: u32) -> bool {
     field
         .parse::<u32>()
         .is_ok_and(|value| (low..=high).contains(&value))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Timestamp;
+
+    #[test]
+    fn now_or_epoch_reads_the_clock_when_it_can() {
+        let clock = || {
+            let since = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap();
+            i64::try_from(since.as_secs()).unwrap()
+        };
+        let before = clock();
+        let now = Timestamp::unix_now_or_epoch();
+        let after = clock();
+        assert!(
+            (before..=after).contains(&now),
+            "{before} <= {now} <= {after}"
+        );
+    }
 }

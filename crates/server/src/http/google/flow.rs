@@ -20,12 +20,12 @@
 //! `/api/auth/google`, and the callback clears it whatever happens.
 
 use axum::http::HeaderMap;
-use axum::http::header::COOKIE;
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use sha2::{Digest, Sha256};
 
 use crate::accounts::{AccountError, secret};
+use crate::http::auth::cookie;
 
 /// The cookie's name.
 pub const FLOW_COOKIE: &str = "scorsese_google";
@@ -77,14 +77,7 @@ impl Flow {
 
     /// The sign-in this request's cookie carries, if it carries one whole.
     pub fn from_headers(headers: &HeaderMap) -> Option<Self> {
-        let value = headers
-            .get_all(COOKIE)
-            .iter()
-            .filter_map(|header| header.to_str().ok())
-            .flat_map(|header| header.split(';'))
-            .filter_map(|pair| pair.trim().split_once('='))
-            .find(|(name, _)| *name == FLOW_COOKIE)?
-            .1;
+        let value = cookie(headers, FLOW_COOKIE)?;
         let mut parts = value.split('.');
         let (Some(state), Some(verifier), Some(next), None) =
             (parts.next(), parts.next(), parts.next(), parts.next())
@@ -123,6 +116,7 @@ pub fn landing(next: Option<&str>) -> String {
 #[cfg(test)]
 mod tests {
     use axum::http::HeaderValue;
+    use axum::http::header::COOKIE;
 
     use super::*;
 

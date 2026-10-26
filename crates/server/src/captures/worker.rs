@@ -20,7 +20,7 @@ use std::process::{Command, ExitStatus, Stdio};
 use std::time::{Duration, Instant};
 
 use super::launch::{self, Launch};
-use super::{ANSWER, ASK, Answer, Ask, Asked, PROJECT, Spool, now, publish, read};
+use super::{ANSWER, ASK, Answer, Ask, Asked, PROJECT, Spool, publish, read};
 
 /// `scorsese-server capture-worker`
 #[derive(Debug, clap::Args)]
@@ -239,7 +239,10 @@ impl Worker {
 
     /// Says the worker is running, for the server to see ([`super::dispatch`]).
     fn beat(&self) {
-        let _ = std::fs::write(self.spool.alive(), now().to_string());
+        let _ = std::fs::write(
+            self.spool.alive(),
+            scorsese_core::Timestamp::unix_now_or_epoch().to_string(),
+        );
     }
 }
 

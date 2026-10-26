@@ -16,7 +16,7 @@ use scorsese_core::CACHE_DIR;
 use scorsese_render::Cancel;
 use scorsese_render::page::{CHROME_ENV, Chrome, Wanted};
 
-use super::{ANSWER, ASK, Answer, Ask, Asked, PROJECT, Spool, now, publish, read};
+use super::{ANSWER, ASK, Answer, Ask, Asked, PROJECT, Spool, publish, read};
 
 /// How stale the worker's last look may be before the server stops waiting
 /// for it: it looks at least every second, busy or not.
@@ -155,10 +155,13 @@ pub(super) fn wait(
 
 /// Whether the worker has looked at the spool lately.
 pub(super) fn worker_alive(spool: &Spool) -> bool {
-    let last: Option<u64> = std::fs::read_to_string(spool.alive())
+    let last: Option<i64> = std::fs::read_to_string(spool.alive())
         .ok()
         .and_then(|text| text.trim().parse().ok());
-    last.is_some_and(|last| now().saturating_sub(last) <= SILENCE.as_secs())
+    last.is_some_and(|last| {
+        scorsese_core::Timestamp::unix_now_or_epoch().saturating_sub(last)
+            <= SILENCE.as_secs().cast_signed()
+    })
 }
 
 /// The browser this server's captures are kept under: the one
@@ -196,7 +199,11 @@ mod tests {
         let spool = Spool::new(crate::scratch::dir(label));
         let job = spool.still(1);
         std::fs::create_dir_all(&job).unwrap();
-        std::fs::write(spool.alive(), now().to_string()).unwrap();
+        std::fs::write(
+            spool.alive(),
+            scorsese_core::Timestamp::unix_now_or_epoch().to_string(),
+        )
+        .unwrap();
         (spool, job)
     }
 

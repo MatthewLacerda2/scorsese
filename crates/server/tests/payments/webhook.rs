@@ -3,7 +3,6 @@
 
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use scorsese_providers::credentials::Secret;
 use scorsese_providers::payments::webhook::sign;
@@ -37,10 +36,7 @@ async fn deliver(address: SocketAddr, body: &[u8], secret: &str, at: i64) -> Res
 }
 
 fn now() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("the clock is past 1970")
-        .as_secs() as i64
+    scorsese_core::Timestamp::unix_now().expect("the clock is past 1970")
 }
 
 #[sqlx::test]

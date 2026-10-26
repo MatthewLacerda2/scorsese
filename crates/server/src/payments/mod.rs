@@ -184,11 +184,6 @@ pub fn reais(centavos: i64) -> String {
     format!("{grouped},{:02}", centavos % 100)
 }
 
-/// Seconds since the epoch.
-fn now() -> i64 {
-    scorsese_core::Timestamp::unix_now().unwrap_or(0)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -227,7 +227,11 @@ async fn finish(
         let redirect_uri = google.redirect_uri();
         let form = sign_in::exchange_form(&google.client, &redirect_uri, &code, &verifier);
         let id_token = google.endpoint.exchange(&form)?;
-        sign_in::identity(&id_token, &google.client.id, now())
+        sign_in::identity(
+            &id_token,
+            &google.client.id,
+            scorsese_core::Timestamp::unix_now_or_epoch(),
+        )
     })
     .await
     .map_err(|_| "failed")?;
@@ -261,11 +265,6 @@ async fn finish(
         crate::ab::link(&state.pool, &visitor, signed.user()).await;
     }
     Ok(cookie)
-}
-
-/// Seconds since the epoch, for an ID token's `exp`.
-fn now() -> i64 {
-    scorsese_core::Timestamp::unix_now().unwrap_or(0)
 }
 
 /// Back to the login page, saying `why`.
