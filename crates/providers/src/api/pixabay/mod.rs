@@ -25,7 +25,7 @@
 
 use serde::Deserialize;
 
-use crate::api::http::{Caller, HttpError, encoded};
+use crate::api::http::{Caller, HttpError, filled, query};
 use crate::credentials::Secret;
 
 /// Every Pixabay endpoint hangs off this.
@@ -72,35 +72,21 @@ impl Search {
     /// `type_name` the endpoint's name for the kind (`video_type`,
     /// `image_type`).
     fn query(&self, type_name: &str, images: bool) -> String {
-        let mut pairs: Vec<String> = Vec::new();
-        let mut text = |name: &str, value: Option<&str>| {
-            if let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) {
-                pairs.push(format!("{name}={}", encoded(value)));
-            }
-        };
-        text("q", self.q.as_deref());
-        text(type_name, self.kind.as_deref());
-        if images {
-            text("orientation", self.orientation.as_deref());
-        }
-        text("order", self.order.as_deref());
-        if let Some(id) = self.id {
-            pairs.push(format!("id={id}"));
-        }
-        if let Some(page) = self.page {
-            pairs.push(format!("page={page}"));
-        }
-        if let Some(per_page) = self.per_page {
-            pairs.push(format!("per_page={per_page}"));
-        }
-        if self.safesearch {
-            pairs.push(String::from("safesearch=true"));
-        }
-        if pairs.is_empty() {
-            String::new()
-        } else {
-            format!("?{}", pairs.join("&"))
-        }
+        let (id, page, per_page) = (
+            self.id.map(|id| id.to_string()),
+            self.page.map(|page| page.to_string()),
+            self.per_page.map(|per_page| per_page.to_string()),
+        );
+        query(&[
+            ("q", filled(&self.q)),
+            (type_name, filled(&self.kind)),
+            ("orientation", filled(&self.orientation).filter(|_| images)),
+            ("order", filled(&self.order)),
+            ("id", id.as_deref()),
+            ("page", page.as_deref()),
+            ("per_page", per_page.as_deref()),
+            ("safesearch", self.safesearch.then_some("true")),
+        ])
     }
 }
 

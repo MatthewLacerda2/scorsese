@@ -13,7 +13,11 @@ fn asking(label: &str) -> (StillPages, PathBuf) {
     let root = crate::scratch::dir(label);
     let spool = Spool::new(root.join("spool"));
     std::fs::create_dir_all(spool.root()).unwrap();
-    std::fs::write(spool.alive(), super::super::now().to_string()).unwrap();
+    std::fs::write(
+        spool.alive(),
+        scorsese_core::Timestamp::unix_now_or_epoch().to_string(),
+    )
+    .unwrap();
     let renders = RenderCache::new(root.join("renders"), Quota::bytes(u64::MAX));
     let pages = StillPages {
         cache: root.join("renders/pages"),

@@ -26,7 +26,7 @@
 
 use serde::Deserialize;
 
-use crate::api::http::{Caller, HttpError, encoded};
+use crate::api::http::{Caller, HttpError, query};
 
 /// Where a browser is sent to sign in.
 pub const AUTHORIZE: &str = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -57,21 +57,17 @@ pub struct Authorize<'a> {
 impl Authorize<'_> {
     /// The URL to send the browser to.
     pub fn url(&self) -> String {
-        let pairs = [
-            ("client_id", self.client_id),
-            ("redirect_uri", self.redirect_uri),
-            ("response_type", "code"),
-            ("scope", SCOPE),
-            ("state", self.state),
-            ("code_challenge", self.code_challenge),
-            ("code_challenge_method", "S256"),
-            ("prompt", "select_account"),
-        ];
-        let query: Vec<String> = pairs
-            .iter()
-            .map(|(name, value)| format!("{name}={}", encoded(value)))
-            .collect();
-        format!("{AUTHORIZE}?{}", query.join("&"))
+        let query = query(&[
+            ("client_id", Some(self.client_id)),
+            ("redirect_uri", Some(self.redirect_uri)),
+            ("response_type", Some("code")),
+            ("scope", Some(SCOPE)),
+            ("state", Some(self.state)),
+            ("code_challenge", Some(self.code_challenge)),
+            ("code_challenge_method", Some("S256")),
+            ("prompt", Some("select_account")),
+        ]);
+        format!("{AUTHORIZE}{query}")
     }
 }
 

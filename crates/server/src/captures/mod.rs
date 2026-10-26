@@ -246,13 +246,6 @@ fn read<T: for<'de> Deserialize<'de>>(path: &Path) -> Option<T> {
     serde_json::from_slice(&std::fs::read(path).ok()?).ok()
 }
 
-/// Seconds since the epoch, as both containers' shared clock tells it.
-fn now() -> u64 {
-    scorsese_core::Timestamp::unix_now()
-        .and_then(|seconds| u64::try_from(seconds).ok())
-        .unwrap_or(0)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

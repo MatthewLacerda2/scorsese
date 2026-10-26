@@ -125,14 +125,20 @@ async fn authenticate(parts: &Parts, state: &AppState) -> Result<Member, ApiErro
 
 /// The session cookie's value, if the request carries one.
 pub fn session_cookie(headers: &HeaderMap) -> Option<String> {
+    cookie(headers, SESSION_COOKIE).map(str::to_owned)
+}
+
+/// The value of the cookie called `name`, if the request carries one: the
+/// first, across every `Cookie` header.
+pub fn cookie<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
     headers
         .get_all(COOKIE)
         .iter()
         .filter_map(|header| header.to_str().ok())
         .flat_map(|header| header.split(';'))
         .filter_map(|pair| pair.trim().split_once('='))
-        .find(|(name, _)| *name == SESSION_COOKIE)
-        .map(|(_, value)| value.to_owned())
+        .find(|(found, _)| *found == name)
+        .map(|(_, value)| value)
 }
 
 /// The `Set-Cookie` values that log a browser in with `value`: the session,
@@ -157,3 +163,41 @@ const ATTRIBUTES: &str = "Path=/api; HttpOnly; Secure; SameSite=Strict";
 
 /// The session's attributes but two: every page reads it, and so does script.
 const HINT_ATTRIBUTES: &str = "Path=/; Secure; SameSite=Strict";
+
+#[cfg(test)]
+mod tests {
+    use axum::http::HeaderValue;
+
+    use super::*;
+
+    fn headers(values: &[&str]) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        for value in values {
+            headers.append(COOKIE, HeaderValue::from_str(value).unwrap());
+        }
+        headers
+    }
+
+    #[test]
+    fn a_cookie_is_found_among_others_in_any_header() {
+        let headers = headers(&["a=1; scorsese_session=abc", "b=2;flow=x.y"]);
+        assert_eq!(cookie(&headers, SESSION_COOKIE), Some("abc"));
+        assert_eq!(cookie(&headers, "flow"), Some("x.y"));
+        assert_eq!(cookie(&headers, "b"), Some("2"));
+        assert_eq!(session_cookie(&headers).as_deref(), Some("abc"));
+    }
+
+    #[test]
+    fn a_missing_or_valueless_cookie_is_none() {
+        let headers = headers(&["a=1; scorsese_session", "other"]);
+        assert_eq!(cookie(&headers, SESSION_COOKIE), None);
+        assert_eq!(cookie(&headers, "c"), None);
+        assert_eq!(cookie(&HeaderMap::new(), "a"), None);
+    }
+
+    #[test]
+    fn the_first_of_two_with_one_name_wins() {
+        let headers = headers(&["a=1; a=2"]);
+        assert_eq!(cookie(&headers, "a"), Some("1"));
+    }
+}

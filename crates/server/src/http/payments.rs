@@ -85,8 +85,13 @@ pub async fn webhook(
     let signature = headers
         .get("stripe-signature")
         .and_then(|value| value.to_str().ok());
-    let event = webhook::verify(signature, &body, &payments.webhook_secret, now())
-        .map_err(|error| ApiError::BadRequest(error.to_string()))?;
+    let event = webhook::verify(
+        signature,
+        &body,
+        &payments.webhook_secret,
+        scorsese_core::Timestamp::unix_now_or_epoch(),
+    )
+    .map_err(|error| ApiError::BadRequest(error.to_string()))?;
     let happened = Happened::of(&event).map_err(|error| ApiError::BadRequest(error.to_string()))?;
     let session = match &happened {
         Happened::Settled(session) | Happened::Expired(session) => session,
@@ -113,10 +118,6 @@ fn configured(state: &AppState) -> Result<&Payments, ApiError> {
 }
 
 /// Seconds since the epoch, for a signature's timestamp.
-fn now() -> i64 {
-    scorsese_core::Timestamp::unix_now().unwrap_or(0)
-}
-
 impl From<PaymentError> for ApiError {
     fn from(error: PaymentError) -> Self {
         let refused = |status| Self::Refused {

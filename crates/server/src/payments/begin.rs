@@ -6,7 +6,7 @@ use serde::Serialize;
 use sqlx::postgres::PgPool;
 
 use super::{
-    Bonus, EXPIRES_AFTER_SECONDS, MAXIMUM_CENTAVOS, MINIMUM_CENTAVOS, PaymentError, Payments, now,
+    Bonus, EXPIRES_AFTER_SECONDS, MAXIMUM_CENTAVOS, MINIMUM_CENTAVOS, PaymentError, Payments,
 };
 use crate::credits::{MICROS_PER_CENT, dollars};
 use crate::db::{self, UserId};
@@ -114,7 +114,7 @@ pub async fn begin(
         name,
         success_url: format!("{}/credits/return?session={SESSION_ID}", payments.origin),
         cancel_url: format!("{}/spending", payments.origin),
-        expires_at: now() + EXPIRES_AFTER_SECONDS,
+        expires_at: scorsese_core::Timestamp::unix_now_or_epoch() + EXPIRES_AFTER_SECONDS,
         reference: user.get().to_string(),
     };
     let checkout = payments.checkout.clone();

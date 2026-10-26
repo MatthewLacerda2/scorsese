@@ -2,7 +2,7 @@
 
 mod common;
 
-use scorsese_compositor::{ANIMATED, Properties, Registry, path};
+use scorsese_compositor::{ANIMATED, Properties, Property, Registry, path};
 use scorsese_core::{ChromaKey, Frames, Glow, PropertyPath, Rgba, Shadow};
 
 use common::constant;
@@ -108,4 +108,23 @@ fn a_path_equally_close_to_two_properties_gets_no_suggestion() {
     // what someone animating in three dimensions would write. Picking either
     // would be a coin flip presented as advice.
     assert_eq!(DRAWN.did_you_mean(&path_of("transform.scale.z")), None);
+}
+
+#[test]
+fn a_short_far_candidate_does_not_silence_a_close_one() {
+    // `ab` is as many edits from `abcd` as `abcdef` is, but two edits are not
+    // under half of `ab`: it is no candidate, so it cannot tie (#1522).
+    const TIED: &[Property] = &[
+        Property {
+            path: "ab",
+            describes: "short",
+        },
+        Property {
+            path: "abcdef",
+            describes: "long",
+        },
+    ];
+    const REGISTRY: Registry = Registry::new(&[TIED]);
+    let suggestion = REGISTRY.did_you_mean(&path_of("abcd"));
+    assert_eq!(suggestion.map(|property| property.path), Some("abcdef"));
 }

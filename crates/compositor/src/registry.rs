@@ -12,6 +12,7 @@
 //! authored against a build that had it.
 
 use scorsese_core::PropertyPath;
+use scorsese_core::spelling::closest;
 
 /// One property something in this workspace can animate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,32 +51,16 @@ impl Registry {
         self.get(path).is_some()
     }
 
-    /// The known path an unknown one was probably meant to be.
+    /// The known path an unknown one was probably meant to be, by
+    /// [`scorsese_core::spelling::closest`].
     ///
     /// This is the point of the whole exercise — the case being caught is a
-    /// typo, and "`opactiy` is not a property" is half an answer. Nothing is
-    /// suggested unless one candidate is both close and closer than any other:
-    /// a wrong suggestion is worse than none, because it is the one thing a
-    /// reader will act on without checking.
+    /// typo, and "`opactiy` is not a property" is half an answer.
     pub fn did_you_mean(&self, path: &PropertyPath) -> Option<&'static Property> {
-        /// Two edits: a swapped pair of letters costs exactly this, and a
-        /// transposition is the typo worth catching.
-        const NEAREST: usize = 2;
-
-        let mut ranked: Vec<(usize, &'static Property)> = self
-            .properties()
-            .map(|property| (strsim::levenshtein(path.as_str(), property.path), property))
-            .collect();
-        ranked.sort_by_key(|(distance, property)| (*distance, property.path));
-        let (best, property) = *ranked.first()?;
-        // Far enough apart to be a different word, or two candidates equally
-        // close: either way there is nothing to say with confidence.
-        if best > NEAREST || best * 2 >= property.path.len() {
-            return None;
-        }
-        match ranked.get(1) {
-            Some((second, _)) if *second == best => None,
-            _ => Some(property),
-        }
+        let meant = closest(
+            path.as_str(),
+            self.properties().map(|property| property.path),
+        )?;
+        self.properties().find(|property| property.path == meant)
     }
 }
