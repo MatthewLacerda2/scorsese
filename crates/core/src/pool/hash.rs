@@ -38,7 +38,11 @@ pub fn hash_bytes(bytes: &[u8]) -> String {
     hex(&hasher.finalize())
 }
 
-fn hex(bytes: &[u8]) -> String {
+/// `bytes` as lowercase hex, two digits a byte (#1522).
+///
+/// The one spelling of a digest, a key or a random token wherever one is
+/// written as text.
+pub fn hex(bytes: &[u8]) -> String {
     use std::fmt::Write;
     bytes
         .iter()
@@ -46,4 +50,24 @@ fn hex(bytes: &[u8]) -> String {
             let _ = write!(out, "{byte:02x}");
             out
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{hash_bytes, hex};
+
+    #[test]
+    fn hex_is_lowercase_and_two_digits_a_byte() {
+        assert_eq!(hex(&[0x00, 0x0f, 0xa0, 0xff]), "000fa0ff");
+        assert_eq!(hex(&[]), "");
+    }
+
+    #[test]
+    fn a_hash_is_the_hex_of_its_digest() {
+        // SHA-256 of nothing.
+        assert_eq!(
+            hash_bytes(b""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+    }
 }

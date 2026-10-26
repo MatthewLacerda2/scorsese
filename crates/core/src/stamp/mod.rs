@@ -77,6 +77,15 @@ impl Timestamp {
             .and_then(|since| i64::try_from(since.as_secs()).ok())
     }
 
+    /// [`Timestamp::unix_now`], or `0` on a clock set before 1970.
+    ///
+    /// For a caller that compares against the clock rather than records it —
+    /// a deadline, a signature's age, a heartbeat — where an unreadable clock
+    /// reads as the epoch and every window it opens has long closed.
+    pub fn unix_now_or_epoch() -> i64 {
+        Self::unix_now().unwrap_or(0)
+    }
+
     /// The instant `seconds` after the Unix epoch, in UTC.
     pub fn from_unix(seconds: i64) -> Option<Self> {
         let at = civil::Utc::from_unix(seconds);
@@ -175,4 +184,20 @@ fn in_range(field: &str, low: u32, high: u32) -> bool {
     field
         .parse::<u32>()
         .is_ok_and(|value| (low..=high).contains(&value))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Timestamp;
+
+    #[test]
+    fn now_or_epoch_reads_the_clock_when_it_can() {
+        let before = Timestamp::unix_now().unwrap();
+        let now = Timestamp::unix_now_or_epoch();
+        let after = Timestamp::unix_now().unwrap();
+        assert!(
+            (before..=after).contains(&now),
+            "{before} <= {now} <= {after}"
+        );
+    }
 }
