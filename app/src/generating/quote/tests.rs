@@ -161,9 +161,14 @@ fn a_made_shot_is_counted_not_listed() {
 
     let quote = Quote::of(&project, &root, &fresh());
     assert!(
-        quote.of_kind(&project, AssetKind::GeneratedVideo).is_empty(),
+        quote
+            .of_kind(&project, AssetKind::GeneratedVideo)
+            .is_empty(),
         "a made shot is not a row"
     );
     assert_eq!(quote.made(), 1);
-    assert_eq!(quote.made_line().as_deref(), Some("1 already made — nothing to pay"));
+    assert_eq!(
+        quote.made_line().as_deref(),
+        Some("1 already made — nothing to pay")
+    );
 }
