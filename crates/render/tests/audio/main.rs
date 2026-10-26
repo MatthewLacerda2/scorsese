@@ -13,6 +13,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod clock;
 mod embedded;
 mod hearing;
 mod loudness;

@@ -6,7 +6,7 @@
 
 use scorsese_render::audio::{MOST_PEAKS, PEAKS_PER_SECOND, Peaks, peaks};
 
-use crate::common::audio::tone_file;
+use crate::common::audio::{SHOT_LEVEL, late_talking_picture, tone_file};
 use crate::common::ffmpeg::{generate, tools};
 use crate::common::scratch;
 
@@ -33,6 +33,35 @@ fn a_sound_reads_as_forty_levels_a_second_at_its_own_level() {
             .all(|level| level.abs_diff(128) <= 1),
         "a half-scale tone peaks at half the range: {:?}",
         &read.levels[41..]
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A file whose sound starts half a second after its picture reads on the
+/// file's clock, as the render mixes it (#1601): half a second of silence, then
+/// the tone, so the waveform sits under the picture it was recorded with.
+#[test]
+fn a_sound_that_starts_after_its_picture_reads_on_the_files_clock() {
+    let tools = tools();
+    let dir = scratch::dir("peaks-late-stream");
+    late_talking_picture(&tools, &dir, "phone", 2, 440, 0.5);
+    let file = dir.join("assets").join("phone.mp4");
+
+    let read = peaks(&tools, &file).expect("an mp4 with sound has peaks");
+
+    // Short of the tone's last stretches, where AAC rings at its hard stop.
+    let tone = (SHOT_LEVEL * 255.0).round() as u8;
+    assert!(
+        read.levels[..18].iter().all(|level| *level == 0),
+        "the half second before its sound is silent: {:?}",
+        read.levels
+    );
+    assert!(
+        read.levels[22..56]
+            .iter()
+            .all(|level| level.abs_diff(tone) <= 5),
+        "its sound, from half a second on: {:?}",
+        read.levels
     );
     std::fs::remove_dir_all(&dir).ok();
 }

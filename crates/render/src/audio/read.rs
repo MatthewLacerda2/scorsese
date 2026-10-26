@@ -33,7 +33,7 @@ use std::process::Stdio;
 use scorsese_core::probe::ProbeMedia;
 
 use crate::error::{RenderError, Stage};
-use crate::pipe::{Process, SAMPLE_FORMAT};
+use crate::pipe::{ALIGN_TO_FILE_CLOCK, Process, SAMPLE_FORMAT};
 use crate::probe::Ffprobe;
 use crate::tools::Tools;
 
@@ -76,6 +76,10 @@ pub(crate) fn channels(tools: &Tools, file: &Path) -> usize {
 ///
 /// `channels` is asked for rather than worked out here so that what the meter
 /// was told and what ffmpeg was told are the same number by construction.
+///
+/// The samples are on the file's clock ([`ALIGN_TO_FILE_CLOCK`]), as the render
+/// mixes them: a sound that starts after its picture reads as silence first,
+/// so what is heard and drawn sits where the render plays it.
 pub(crate) fn decode(
     tools: &Tools,
     file: &Path,
@@ -88,6 +92,7 @@ pub(crate) fn decode(
         .args(["-nostdin", "-v", "error"])
         .arg("-i")
         .arg(file)
+        .args(["-af", ALIGN_TO_FILE_CLOCK])
         .args(["-vn", "-ar", &ANALYSIS_RATE.to_string()])
         .args(["-ac", &channels.to_string()])
         .args(["-f", SAMPLE_FORMAT, "-"])

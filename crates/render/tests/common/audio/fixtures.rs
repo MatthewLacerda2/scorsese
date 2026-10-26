@@ -103,7 +103,41 @@ pub(crate) fn generated_talking_shot(
     crate::common::generated_asset(id, AssetKind::GeneratedVideo)
 }
 
-/// What both of the above are named after their asset id.
+/// A video asset whose recorded sound starts `offset` seconds **after** its
+/// picture: a second of tone at `hz` muxed with `-itsoffset`, so the audio
+/// stream's `start_time` is late while the picture's and the container's are
+/// zero — the shape of a phone recording or an edited export (#1601).
+pub(crate) fn late_talking_picture(
+    tools: &Tools,
+    root: &Path,
+    id: &str,
+    seconds: u32,
+    hz: u32,
+    offset: f64,
+) -> Asset {
+    let graph = tone_graph(hz, &SHOT_LEVEL.to_string(), 1.0);
+    generate(
+        tools,
+        &root.join("assets").join(name(id)),
+        &[
+            "-f",
+            "lavfi",
+            "-i",
+            &format!("color=c=black:s=32x32:d={seconds}:r=30"),
+            "-itsoffset",
+            &offset.to_string(),
+            "-f",
+            "lavfi",
+            "-i",
+            &graph,
+            "-pix_fmt",
+            "yuv420p",
+        ],
+    );
+    crate::common::file_asset(id, AssetKind::Video)
+}
+
+/// The file each fixture above writes, named after its asset id.
 fn name(id: &str) -> String {
     format!("{id}.mp4")
 }
