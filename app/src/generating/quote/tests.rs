@@ -169,6 +169,6 @@ fn a_made_shot_is_counted_not_listed() {
     assert_eq!(quote.made(), 1);
     assert_eq!(
         quote.made_line().as_deref(),
-        Some("1 already made — nothing to pay")
+        Some("1 more already made — nothing to pay.")
     );
 }

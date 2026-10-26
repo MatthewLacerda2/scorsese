@@ -133,7 +133,7 @@ impl Quote {
     /// The line that stands in for the made items, or `None` when there are none.
     pub(crate) fn made_line(&self) -> Option<String> {
         let made = self.made();
-        (made > 0).then(|| format!("{made} already made — nothing to pay"))
+        (made > 0).then(|| format!("{made} more already made — nothing to pay."))
     }
 
     /// Every item to show, or none when the project cannot be priced.
