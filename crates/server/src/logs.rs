@@ -29,6 +29,10 @@ const HEALTH: &str = "/api/health";
 
 /// Log to stderr for the rest of the process, filtered by [`LOG_FILTER`].
 /// A filter that does not parse is said, and `info` is used instead.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "a log filter is no key, and it is read before the configuration so a refused one is logged"
+)]
 pub fn init() {
     let text = std::env::var(LOG_FILTER).ok();
     let installed = tracing::subscriber::set_global_default(subscriber(

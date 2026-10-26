@@ -12,13 +12,17 @@ pub(crate) struct Kept(Arc<Mutex<Vec<u8>>>);
 impl Kept {
     /// What was logged so far.
     pub(crate) fn text(&self) -> String {
-        String::from_utf8_lossy(&self.0.lock().unwrap()).into_owned()
+        String::from_utf8_lossy(&self.0.lock().expect("no test panics holding the log"))
+            .into_owned()
     }
 }
 
 impl Write for Kept {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        self.0.lock().unwrap().extend_from_slice(bytes);
+        self.0
+            .lock()
+            .expect("no test panics holding the log")
+            .extend_from_slice(bytes);
         Ok(bytes.len())
     }
 
