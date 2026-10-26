@@ -8,11 +8,13 @@
 
 mod drag;
 mod drop;
+mod fill;
 mod gesture;
 mod lanes;
 mod pacing;
 mod remove;
 mod ruler;
+mod sound;
 mod view;
 
 use egui::{Rect, Sense, Ui, vec2};
@@ -30,12 +32,8 @@ use view::View;
 /// and two spellings of a timecode would be two answers to the same question.
 pub(crate) use view::{duration, timecode};
 
-/// How wide the track-label gutter is.
-///
-/// Wide enough for a tag and a name beside it: `V1` and `Main` is the shape a
-/// track head has, and one that truncated the name would be answering the
-/// question with the half nobody chose.
-const GUTTER: f32 = 124.0;
+/// How wide the track-label gutter is: the web's lane header.
+const GUTTER: f32 = 112.0;
 /// How much one notch of the wheel magnifies.
 const ZOOM_STEP: f32 = 1.15;
 
@@ -72,6 +70,9 @@ pub(crate) struct Timeline {
     /// stops following the pointer — but *why* is the part nobody can guess,
     /// and a save that failed would otherwise be silent.
     trouble: Option<String>,
+    /// The pictures and waveforms the made clips are filled with, made in the
+    /// background.
+    makers: fill::Makers,
 }
 
 impl Timeline {
@@ -162,11 +163,11 @@ impl Timeline {
         // beside them rather than as one of them.
         let ghost = self.dropping(ui, &response, area, open, editing);
 
+        let fills = self.makers.resolve(ui.ctx(), open);
         let whole = ui.painter_at(full);
         let fps = open.project.timeline_fps;
         let colours = palette::of(ui.ctx());
         whole.rect_filled(full, 0.0, colours.background);
-        heading(&whole, gutter, area);
 
         // Two painters, and the clip between them is what makes the gutter a
         // gutter. A clip scrolled off the left of the view is drawn at a
@@ -176,6 +177,13 @@ impl Timeline {
         let heads = whole.with_clip_rect(gutter);
         let painter = whole.with_clip_rect(area);
         ruler::draw(&painter, ruler_rect(area), self.view, fps);
+        // The ruler's underline carries on across the corner above the heads.
+        marks::rule(
+            &heads,
+            egui::pos2(gutter.left(), top),
+            egui::pos2(gutter.right(), top),
+            colours.border,
+        );
         rows(
             &lanes::Paint {
                 painter: &painter,
@@ -183,13 +191,12 @@ impl Timeline {
                 view: self.view,
                 selected: &editing.selected,
                 highlighted: editing.highlighted.clone(),
+                fills: &fills,
             },
             &heads,
-            gutter,
-            area,
+            (gutter, area),
+            pointer,
         );
-        beyond(&painter, area, self.view, &open.project);
-        divider(&painter, area, &open.project);
         // The gutter's own edge, drawn last of the furniture so nothing lands
         // on top of the line that says where the labels stop.
         marks::rule(
@@ -288,22 +295,24 @@ impl Timeline {
     }
 }
 
-/// Every lane, track head and clip — in three passes, and the order is the
-/// whole point.
-///
-/// Grounds first, then the grid over them, then the blocks over the grid. A
-/// grid drawn under the lane grounds would be invisible; one drawn over the
-/// blocks would stripe every label. Between the two it shows exactly where
-/// there is no clip, which is where somebody is looking when they are judging
-/// whether two cuts land on the same beat.
-fn rows(paint: &lanes::Paint<'_>, heads: &egui::Painter, gutter: Rect, area: Rect) {
+/// Every lane, track head and clip: grounds first, then the blocks over them.
+fn rows(
+    paint: &lanes::Paint<'_>,
+    heads: &egui::Painter,
+    (gutter, area): (Rect, Rect),
+    pointer: Option<egui::Pos2>,
+) {
     let top = area.top() + ruler::HEIGHT;
     let laid = lanes::laid_out(paint.project);
     for (track, offset) in &laid {
-        lanes::gutter(heads, lanes::lane_rect(gutter, top, *offset), track);
+        lanes::gutter(
+            heads,
+            lanes::lane_rect(gutter, top, *offset),
+            track,
+            pointer,
+        );
         lanes::ground(paint.painter, lanes::lane_rect(area, top, *offset));
     }
-    ruler::grid(paint.painter, area, paint.view, paint.project.timeline_fps);
     for (track, offset) in &laid {
         lanes::draw(paint, lanes::lane_rect(area, top, *offset), track);
     }
@@ -322,80 +331,11 @@ pub(crate) fn desired_height(project: &Project) -> f32 {
     wanted.clamp(120.0, 340.0)
 }
 
-/// The line where picture stops and sound begins.
-///
-/// Brighter than the hairline under a lane, because it divides two *kinds* of
-/// row rather than two rows: video tracks composite in array order and audio
-/// tracks all sum, so the halves mean different things and must not read as one
-/// list.
-fn divider(painter: &egui::Painter, area: Rect, project: &Project) {
-    let Some(offset) = lanes::divider(project) else {
-        return;
-    };
-    let y = area.top() + ruler::HEIGHT + offset;
-    marks::rule(
-        painter,
-        egui::pos2(area.left(), y),
-        egui::pos2(area.right(), y),
-        palette::of(painter.ctx()).input,
-    );
-}
-
 /// The gutter and the clip area.
 fn split(full: Rect) -> (Rect, Rect) {
     let gutter = Rect::from_min_size(full.min, vec2(GUTTER, full.height()));
     let area = Rect::from_min_max(egui::pos2(full.left() + GUTTER, full.top()), full.max);
     (gutter, area)
-}
-
-/// Where the film stops.
-///
-/// Everything past the last frame anything occupies is knocked back and a line
-/// is drawn at the edge. Without it a timeline zoomed out looks the same a
-/// second after the film ends as it does an hour after — and "how much of this
-/// strip is the actual cut" is a thing you should be able to see rather than
-/// work out from the ruler.
-///
-/// Over the lane grounds and under the clips, like the grid, for the same
-/// reason: nothing this draws may dim a block somebody is looking at.
-fn beyond(painter: &egui::Painter, area: Rect, view: View, project: &Project) {
-    let end = area.left() + view.offset_of(project.length());
-    if end >= area.right() {
-        return;
-    }
-    let from = end.max(area.left());
-    let colours = palette::of(painter.ctx());
-    // The panel's own ground laid back over the lanes: darker in the dark
-    // theme and paler in the light, so either way the strip recedes.
-    painter.rect_filled(
-        Rect::from_min_max(egui::pos2(from, area.top() + ruler::HEIGHT), area.max),
-        0.0,
-        colours.background.gamma_multiply(0.55),
-    );
-    if end >= area.left() {
-        marks::rule(
-            painter,
-            egui::pos2(end, area.top() + ruler::HEIGHT),
-            egui::pos2(end, area.bottom()),
-            colours.input,
-        );
-    }
-}
-
-/// The panel's own name, in the corner the ruler leaves empty above the track
-/// heads.
-///
-/// There is nowhere else for it now that the timeline has no widget heading of
-/// its own, and the corner is otherwise the one piece of this window that says
-/// nothing at all. Set as every other heading is ([`marks::heading`]).
-fn heading(painter: &egui::Painter, gutter: Rect, area: Rect) {
-    painter.text(
-        egui::pos2(gutter.left() + 10.0, area.top() + ruler::HEIGHT / 2.0),
-        egui::Align2::LEFT_CENTER,
-        "TIMELINE",
-        egui::FontId::proportional(marks::CORNER_TITLE_SIZE),
-        palette::of(painter.ctx()).muted_foreground,
-    );
 }
 
 /// The ruler's strip across the top of the clip area.

@@ -1,55 +1,97 @@
 //! The track head: the fixed column of labels the clips scroll under.
 //!
 //! Fixed on purpose. A timeline whose labels scroll away is one you get lost
-//! in, and what the label answers is the question a hand asks before it moves
-//! anything: *is this row picture or sound?*
-//!
-//! It answers it three times over, which sounds like too many and is not. The
-//! bar down the left edge answers it at a glance and from the corner of the
-//! eye. The tag says which track, by the id the document and an assistant both
-//! use — so a sentence about `a2` and a row on screen are findable from each
-//! other. The name says what the person editing calls it, which is the only one
-//! of the three that means anything to them.
+//! in. Set as the web's lane header is (`Timeline.tsx`): the track's name in
+//! xs medium, its kind in 10px muted beneath, and a ghost bin at the right that
+//! removes the track — after the confirm that lists its clips.
 
-use egui::{Align2, Painter, Rect, pos2, vec2};
-use scorsese_core::Track;
+use egui::{Align2, Painter, Pos2, Rect, Stroke, pos2, vec2};
+use scorsese_core::{Track, TrackKind};
 
-use crate::theme::{marks, palette};
+use crate::theme::{ROUND_MD, marks, palette};
 
-/// How wide the colour bar down the edge of a lane is.
-const BAR: f32 = 3.0;
-/// Half a tag's height, which is what centring one on a lane costs.
-///
-/// A measured constant rather than a layout: [`marks::tag`] reports its width
-/// because that is what a caller placing the *next* thing needs, and asking it
-/// for a height as well would be two return values to save one number that the
-/// font size already fixes.
-const TAG_HALF: f32 = 7.5;
+/// How far in the name stands from the head's left edge: the web's `pl-2`.
+const PAD: f32 = 8.0;
+/// The bin button's side: the web's icon button.
+const BUTTON: f32 = 28.0;
 
-/// Draws one lane's head.
-pub(in crate::timeline) fn draw(painter: &Painter, lane: Rect, track: &Track) {
-    let hue = palette::of_track(track.kind);
-    painter.rect_filled(
-        Rect::from_min_size(lane.min, vec2(BAR, lane.height())),
-        0.0,
-        hue,
+/// The bin's button inside one lane's head.
+pub(in crate::timeline) fn trash(head: Rect) -> Rect {
+    Rect::from_center_size(
+        pos2(head.right() - 2.0 - BUTTON / 2.0, head.center().y),
+        vec2(BUTTON, BUTTON),
+    )
+}
+
+/// The word for a track's kind, as the web's catalogue spells it.
+fn kind_word(kind: TrackKind) -> &'static str {
+    match kind {
+        TrackKind::Video => "video",
+        TrackKind::Audio => "audio",
+    }
+}
+
+/// Draws one lane's head. `pointer` lights the bin when it is over it.
+pub(in crate::timeline) fn draw(
+    painter: &Painter,
+    lane: Rect,
+    track: &Track,
+    pointer: Option<Pos2>,
+) {
+    let colours = palette::of(painter.ctx());
+    marks::rule(
+        painter,
+        lane.left_bottom(),
+        lane.right_bottom(),
+        colours.border,
+    );
+    let button = trash(lane);
+    let room = (button.left() - lane.left() - PAD - 4.0).max(0.0);
+    let name = track.name.as_deref().unwrap_or(track.id.as_str());
+    let galley = marks::truncated(
+        painter,
+        name,
+        crate::theme::medium_font(painter.ctx(), 12.0),
+        colours.foreground,
+        room,
+    );
+    painter.galley(
+        pos2(lane.left() + PAD, lane.center().y - 15.0),
+        galley,
+        colours.foreground,
+    );
+    marks::label(
+        painter,
+        pos2(lane.left() + PAD, lane.center().y + 1.0),
+        Align2::LEFT_TOP,
+        kind_word(track.kind),
+        10.0,
+        colours.muted_foreground,
     );
 
-    let mut at = pos2(lane.left() + BAR + 7.0, lane.center().y - TAG_HALF);
-    // The id in the document's own spelling, upper-cased — `v1` is what the
-    // file says and `V1` is what every editor ever made writes on the row.
-    at.x += marks::tag(painter, at, &track.id.as_str().to_uppercase(), hue) + 6.0;
-
-    // The name is optional in the format, and a head that fell back to printing
-    // the id twice would look like a bug rather than like an unnamed track.
-    if let Some(name) = &track.name {
-        marks::label(
-            painter,
-            pos2(at.x, lane.top() + lane.height() / 2.0),
-            Align2::LEFT_CENTER,
-            name,
-            11.0,
-            palette::of(painter.ctx()).foreground,
-        );
+    if pointer.is_some_and(|at| button.contains(at)) {
+        painter.rect_filled(button, ROUND_MD, colours.hover);
     }
+    bin(painter, button.center(), colours.foreground);
+}
+
+/// A small bin: lid, handle and body, drawn in lines because the face has no
+/// glyph for one.
+fn bin(painter: &Painter, c: Pos2, colour: egui::Color32) {
+    let stroke = Stroke::new(1.25, colour);
+    painter.line_segment([c + vec2(-6.0, -4.5), c + vec2(6.0, -4.5)], stroke);
+    painter.line_segment([c + vec2(-2.0, -4.5), c + vec2(-2.0, -7.0)], stroke);
+    painter.line_segment([c + vec2(2.0, -4.5), c + vec2(2.0, -7.0)], stroke);
+    painter.line_segment([c + vec2(-2.0, -7.0), c + vec2(2.0, -7.0)], stroke);
+    painter.add(egui::Shape::line(
+        vec![
+            c + vec2(-4.5, -4.5),
+            c + vec2(-3.8, 6.5),
+            c + vec2(3.8, 6.5),
+            c + vec2(4.5, -4.5),
+        ],
+        stroke,
+    ));
+    painter.line_segment([c + vec2(-1.5, -1.5), c + vec2(-1.5, 3.5)], stroke);
+    painter.line_segment([c + vec2(1.5, -1.5), c + vec2(1.5, 3.5)], stroke);
 }

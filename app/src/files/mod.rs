@@ -28,7 +28,7 @@
 //! them stays a sentence to the assistant.
 
 mod glyph;
-mod thumbs;
+pub(crate) mod thumbs;
 mod tile;
 
 use std::collections::HashSet;
