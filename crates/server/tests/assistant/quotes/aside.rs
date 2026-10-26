@@ -43,6 +43,7 @@ async fn a_stop_heard_while_quoting_ends_the_turn_and_withdraws_the_quote(pool: 
     let (address, _) = scripted(&pool, &script).await;
     let (ana, who) = member(&pool, "ana@example.com", 10).await;
     let id = project(&pool, ana, narrated()).await;
+    slow_to_forget(&pool).await;
     script.replace(vec![calls("generate", json!({ "project": id }))]);
     let sent = crate::send(address, &who, id, "narrate it").await;
     assert_eq!(sent.status, 202, "{}", sent.body);
@@ -56,7 +57,27 @@ async fn a_stop_heard_while_quoting_ends_the_turn_and_withdraws_the_quote(pool: 
     assert_eq!(log["turn"]["state"], "stopped", "{log}");
     assert!(log["turn"]["quote"].is_object(), "it did quote: {log}");
     assert_eq!(log["turn"]["quote_answer"], "withdrawn", "no dead box");
-    assert_eq!(quotes_held(&pool).await, 0);
+    assert_eq!(
+        quotes_held(&pool).await,
+        0,
+        "gone by the time the turn reads as stopped (#1483)"
+    );
     let late = answer(address, &who, &log, true).await;
     assert_eq!(late.status, 400, "nothing to answer: {}", late.body);
+}
+
+/// Every quote deleted from now on takes half a second to go: a turn that
+/// read as ended before its quote was withdrawn would show it (#1483).
+async fn slow_to_forget(pool: &PgPool) {
+    for statement in [
+        "CREATE FUNCTION slow_delete() RETURNS trigger LANGUAGE plpgsql AS
+         $$ BEGIN PERFORM pg_sleep(0.5); RETURN OLD; END $$",
+        "CREATE TRIGGER slow_delete BEFORE DELETE ON quotes
+         FOR EACH ROW EXECUTE FUNCTION slow_delete()",
+    ] {
+        sqlx::query(statement)
+            .execute(pool)
+            .await
+            .expect("the test may slow the table down");
+    }
 }
