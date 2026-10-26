@@ -44,7 +44,9 @@
 //! [`thumbnail`] is the job that draws each item's picture — the first handler
 //! the job queue runs — into the cache, since a thumbnail can always be drawn
 //! again. [`proxy`] is the job that makes a heavy video's preview proxy, into
-//! the cache for the same reason (#542).
+//! the cache for the same reason (#542). [`transcribe`] is the job that hears
+//! an uploaded recording's speech, keeping its words on the item's row —
+//! never in the cache, since the user's corrections cannot be rebuilt (#1549).
 
 mod admit;
 mod generated;
@@ -54,6 +56,7 @@ pub mod proxy;
 mod source;
 mod store;
 pub mod thumbnail;
+pub mod transcribe;
 pub mod upload;
 
 pub use admit::Arrival;

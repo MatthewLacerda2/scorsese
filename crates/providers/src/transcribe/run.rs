@@ -163,8 +163,10 @@ pub fn correct(
     })
 }
 
-/// `asset`, when it is a recording a transcript can be made of, and its file.
-fn recording<'a>(
+/// `asset`, when it is a recording a transcript can be made of, and its file:
+/// what [`transcribe`] and [`correct`] refuse, for a caller that keeps the
+/// words elsewhere — the web app, on the library's row.
+pub fn recording<'a>(
     project: &'a Project,
     asset: &AssetId,
 ) -> Result<(&'a Asset, &'a ProjectPath), TranscribeError> {

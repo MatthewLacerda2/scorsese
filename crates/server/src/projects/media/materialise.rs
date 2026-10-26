@@ -24,10 +24,11 @@
 //! saved. Written after the document and before any link, so neither a link
 //! nor a kept file can land where another already is.
 //!
-//! **A spoken line's word timings come too** (#886): the library keeps them
-//! on the line's item rather than as a file of their own, and they are
-//! written out at [`Words::beside`] its audio — where a local project keeps
-//! them, so pages and `project_describe` read them exactly as they do there.
+//! **A spoken line's word timings come too** (#886), and so does a
+//! recording's transcript (#1549): the library keeps them on the item rather
+//! than as a file of their own, and they are written out at [`Words::beside`]
+//! its file — where a local project keeps them, so captions, pages and
+//! `project_describe` read them exactly as they do there.
 //!
 //! What starts a render, and where the folder goes, is the job queue's
 //! (#536, #541). This only builds and removes the folder.
@@ -195,7 +196,7 @@ pub fn materialise(
         }
         let source = std::path::absolute(&source).map_err(io(&source))?;
         link(&source, &target).map_err(io(&target))?;
-        if asset.kind == AssetKind::GeneratedAudio
+        if (asset.kind == AssetKind::GeneratedAudio || Words::transcribable(asset.kind))
             && let Some(words) = media.words(hash)
         {
             let beside = Words::beside(path).resolve(at);

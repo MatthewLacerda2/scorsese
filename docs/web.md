@@ -1043,11 +1043,13 @@ too; music and sound join it when they arrive.
 | `voice_design` | the ElevenLabs budget | an ElevenLabs voice design (#572): seconds, mostly network |
 | `voice_keep` | 1, within the ElevenLabs budget | a designed candidate kept as a voice (#572), or a voice cloned from a user's recordings (#1263): one free call, one at a time so the voice-slot count it checks first is never raced |
 | `voice_forget` | 1, within the ElevenLabs budget | a kept voice deleted at ElevenLabs, then its row (#1381): one free call, freeing the voice slot it took |
+| `transcribe` | 1 | a recording's speech heard by the Whisper container (#1549): about a minute of its two cores for every half-minute of speech, free, and stoppable like a render |
 
 **Every kind has a handler** — `thumbnail` and `proxy` (#535, #542, *Library*),
 `render` and `preview` (#541, #542, *Renders*), `veo_shot`, `still_image`,
 `batch_still` and `spoken_line` (#539, #461, #947, *Web MCP*, below), `voice_design`, `voice_keep`
-and `voice_forget` (#572, #1381, *Designing a voice*, below). A paid generation pays through credits (*Credits*,
+and `voice_forget` (#572, #1381, *Designing a voice*, below), and `transcribe`
+(#1549, *Transcribing a recording*, below). A paid generation pays through credits (*Credits*,
 below: a failed one is free) and keeps what it made in the library. Each
 registers its handler in `jobs::kinds::registry()`; a kind nothing registers
 waits rather than failing. The worker, the claim, recovery and
@@ -1900,6 +1902,7 @@ the web — or be left off it — without a reason written down.
 | `generate` | the server's own: paid from credits, made by the queue — below |
 | `voice_design` | the server's own: paid from credits, made by the queue, the samples kept in the library and the voices in the user's own record — *Designing a voice*, below |
 | `voice_clone` | the server's own: free, made by the queue from the user's uploaded recordings, the voice in the same record as a designed one — *Cloning a voice*, below |
+| `transcribe`, `transcript_fix` | the server's own: free, heard by a `transcribe` job in the Whisper container, the words kept on the library item and laid out beside the asset — *Transcribing a recording*, below |
 | `spending_history` | the ledger, read for the caller (*Credits*) |
 
 **The document tools**, served as they are on the stored project:
@@ -2066,6 +2069,22 @@ reservation is run again and settles it, where a call cut off mid-way would
 leave the money held; keeping is free, but it reaches the same vendor, so the
 vendor stays behind one seam (`generations::Vendors::studio`) a test replaces.
 `keep`, `forget` and `list` take no token.
+
+**Transcribing a recording (#1549).** `transcribe` hears the speech in a
+video or sound the user uploaded, so captions, pages and `project_describe`
+work on real footage. It is free, as a render is, and runs as a `transcribe`
+job (`library::transcribe`): ffmpeg makes a 16 kHz mono WAV of the file and
+the job sends it to the `whisper` container — speaches over faster-whisper,
+Whisper large-v3-turbo int8 baked into its image (`deploy/whisper/`) — over
+the `whisper` network, which is internal: the container has no way out and
+nothing reaches it but the server (`SCORSESE_WHISPER_URL`). One job at a time,
+on two cores, so a render always has the rest; its owner stops it with `jobs`'
+`cancel`. The words are kept on the library item, in the `words` column a
+spoken line's timings use (`0024`), so one file is one transcript in every
+project using it; every layout of a project writes them beside the asset,
+where the registry's tools read them. Called again, `transcribe` answers with
+the kept words numbered rather than hearing the file afresh, unless `again`;
+`transcript_fix` corrects a word on the row, keeping its times.
 
 **Cloning a voice (#1263).** `voice_clone` clones a voice from recordings the
 user uploaded to their library and imported into a project: the project's

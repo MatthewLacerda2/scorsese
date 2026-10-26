@@ -1,21 +1,23 @@
 //! Vendors that never spend a cent: a Veo, a Gemini — drawing now or in a
 //! batch — and an ElevenLabs —
 //! speech, music and voice design — answering from files ffmpeg made, and
-//! counting how often they were asked. The Gemini half is [`image`],
-//! ElevenLabs' speech [`speech`] and its music [`music`].
+//! counting how often they were asked. Veo is [`video`], the Gemini half [`image`],
+//! ElevenLabs' speech [`speech`] and its music [`music`], and the local
+//! Whisper [`whisper`] (#1549).
 
 mod image;
 mod music;
 mod speech;
+mod video;
+mod whisper;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-use scorsese_providers::video::{self, Progress, ProviderError, Ready, Ticket, VideoProvider};
 use scorsese_render::testing::generate;
-use scorsese_server::generations::{Image, Music, Speech, Studio, Timing, Vendors, Video};
+use scorsese_server::generations::{Ear, Image, Music, Speech, Studio, Timing, Vendors, Video};
 use scorsese_server::http::AppState;
 use scorsese_server::jobs::elevenlabs::ElevenLabs;
 use scorsese_server::jobs::{self, kinds};
@@ -44,6 +46,8 @@ pub(super) struct Mock {
     pub(super) cloned: Arc<AtomicUsize>,
     /// Why ElevenLabs will not delete a voice, instead of deleting it.
     pub(super) refuse_forget: Option<String>,
+    /// How often the Whisper was asked to hear something (#1549).
+    pub(super) heard: Arc<AtomicUsize>,
 }
 
 impl Mock {
@@ -84,40 +88,9 @@ impl Vendors for Mock {
     fn studio(&self) -> Result<Studio, String> {
         Ok(Box::new(self.clone()))
     }
-}
 
-impl VideoProvider for Mock {
-    fn submit(&self, _: &video::Brief) -> Result<Ticket, ProviderError> {
-        self.submitted.fetch_add(1, Ordering::SeqCst);
-        Ok(Ticket("operations/mock-1".into()))
-    }
-
-    fn poll(&self, _: &Ticket) -> Result<Progress, ProviderError> {
-        if let Some(why) = &self.lose {
-            return Err(ProviderError::lost("mock video", why));
-        }
-        Ok(match &self.refuse {
-            Some(why) => Progress::Failed(why.clone()),
-            None => Progress::Ready(Ready("mock".into())),
-        })
-    }
-
-    fn fetch(&self, _: &Ready) -> Result<Vec<u8>, ProviderError> {
-        Ok(made(
-            "shot.mp4",
-            &[
-                "-f",
-                "lavfi",
-                "-i",
-                "testsrc=s=64x64:d=1:r=30",
-                "-pix_fmt",
-                "yuv420p",
-            ],
-        ))
-    }
-
-    fn name(&self) -> &'static str {
-        "mock video"
+    fn whisper(&self) -> Result<Ear, String> {
+        Ok(Box::new(self.clone()))
     }
 }
 

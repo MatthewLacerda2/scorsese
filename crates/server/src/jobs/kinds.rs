@@ -14,7 +14,7 @@ use super::{Budget, Kind, Registry};
 use crate::Files;
 use crate::designs;
 use crate::generations::{self, Keys, Timing, Vendors};
-use crate::library::{proxy, thumbnail};
+use crate::library::{proxy, thumbnail, transcribe};
 use crate::renders::job as render;
 
 /// A render of a stored project (#534, #541). The compositor and the encoder
@@ -127,14 +127,24 @@ pub const PROXY: Kind = Kind {
     budget: None,
 };
 
-/// The kinds whose owner may stop them (#660): the two that take the
-/// machine's cores for as long as a project is long.
+/// A recording's speech heard by the Whisper container (#1549): about a
+/// minute of two cores for every half-minute of speech. One at a time, so
+/// transcriptions queue behind each other and a render always has the rest
+/// of the machine; free, like a render.
+pub const TRANSCRIBE: Kind = Kind {
+    name: "transcribe",
+    limit: 1,
+    budget: None,
+};
+
+/// The kinds whose owner may stop them (#660): the three that take the
+/// machine's cores for as long as a project, or a recording, is long.
 ///
 /// A paid generation is not here: the provider bills whether or not anybody
 /// still wants the shot, and the reservation must settle on its answer. A
 /// thumbnail or a proxy is the server's own housekeeping, quick or needed by
 /// the next preview, and nobody asked for it to stop.
-pub const STOPPABLE: [Kind; 2] = [RENDER, PREVIEW];
+pub const STOPPABLE: [Kind; 3] = [RENDER, PREVIEW, TRANSCRIBE];
 
 /// Whether a job of the kind called `name` may be stopped by its owner.
 pub fn stoppable(name: &str) -> bool {
@@ -173,7 +183,7 @@ pub const PATIENT: [Kind; 1] = [BATCH_STILL];
 /// (#539, `crate::generations`), [`MUSIC_TRACK`] (#1264), [`STILL_IMAGE`] (#461), [`BATCH_STILL`]
 /// (#947), [`PREVIEW`] and [`PROXY`] (#542),
 /// [`VOICE_DESIGN`] and [`VOICE_KEEP`] (#572, `crate::designs`) and
-/// [`VOICE_FORGET`] (#1381) have theirs.
+/// [`VOICE_FORGET`] (#1381) and [`TRANSCRIBE`] (#1549) have theirs.
 /// A kind nothing registers is never claimed, so a job of that kind waits
 /// rather than failing.
 ///
@@ -263,6 +273,14 @@ pub fn with_vendors(
         .register(
             MUSIC_TRACK,
             generations::track_handler(
+                files.storage.clone(),
+                files.tools.clone(),
+                Arc::clone(&vendors),
+            ),
+        )
+        .register(
+            TRANSCRIBE,
+            transcribe::handler(
                 files.storage.clone(),
                 files.tools.clone(),
                 Arc::clone(&vendors),
