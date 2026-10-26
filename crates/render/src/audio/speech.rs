@@ -25,7 +25,7 @@ pub const SPEECH_RATE: u32 = 16_000;
 const CHUNK: usize = 64 * 1024;
 
 /// `file`'s sound as a WAV: one channel, [`SPEECH_RATE`], sixteen-bit, on the
-/// file's own clock ([`ALIGN_TO_FILE_CLOCK`]), as the render mixes it — sound
+/// file's own clock (`ALIGN_TO_FILE_CLOCK`), as the render mixes it — sound
 /// that starts after the picture starts after silence, so a word's time is
 /// where a render plays it.
 ///
