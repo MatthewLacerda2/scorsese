@@ -182,7 +182,8 @@ beside it, one responsibility a module (#1136): `rebase` (rebase and push, or
 Dependabot's own), `ci` (waiting on the run) over `verdict` (the pure
 decision), `merge` (verifying a merge that failed in transit), `report` (the
 summary and exit status), `numbering` (#729's collisions), `lock` (one queue
-at a time per repository, #1346), `talk` (git,
+at a time per repository, #1346), `tally` (the aging tally between watches,
+#1423), `talk` (git,
 GitHub's view of the pull request, and the queue's output), `options` (the
 command line) and `states` (the words they share). Each calls another's
 functions through the module (`ci.wait_for(…)`), never by imported name, so a
@@ -203,7 +204,7 @@ HERE = str(Path(__file__).resolve().parent)
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-from merge_queue import ci, lock, merge, mergeable, options, rebase, report, talk, verdict, watch  # noqa: E402,F401
+from merge_queue import ci, lock, merge, mergeable, options, rebase, report, talk, tally, verdict, watch  # noqa: E402,F401
 from merge_queue.numbering import migration_number, numbering, schema_version  # noqa: E402,F401
 from merge_queue.options import DEADLINE_MINUTES, POLL_SECONDS, parse, since  # noqa: E402,F401
 from merge_queue.states import (  # noqa: E402,F401
@@ -346,8 +347,14 @@ def run_queue(repo: str, opts: argparse.Namespace) -> list[tuple[int, str, str]]
     return results
 
 
-def run_watch(repo: str, opts: argparse.Namespace) -> list[tuple[int, str, str]]:
+def run_watch(
+    repo: str, opts: argparse.Namespace, tally_path: Path | None = None
+) -> list[tuple[int, str, str]]:
     """Take cleared pull requests as they appear, until `--for` runs out.
+
+    The aging tally is read from `tally_path` and written back at every pick,
+    so a resumed watch carries on counting (#1423); without one it is kept in
+    memory only.
 
     One at a time, through the same [`take`] as a list — merging stays
     serialized and the watch only decides what comes next ([`watch.pick`]).
@@ -366,7 +373,7 @@ def run_watch(repo: str, opts: argparse.Namespace) -> list[tuple[int, str, str]]
     issues: dict[int, list[str]] = {}
     merges: dict[frozenset[str], bool] = {}
     behind_main: dict[frozenset[str], list[str] | None] = {}
-    passes: dict[int, int] = {}
+    saved = tally.load(tally_path) if tally_path else {}
     board = watch.Board(opts.since)
     stop_taking = time.monotonic() + opts.watch_for * 60
 
@@ -404,6 +411,7 @@ def run_watch(repo: str, opts: argparse.Namespace) -> list[tuple[int, str, str]]
             clashes = watch.clashing(
                 watch.contenders(pulls, dropped), opts.root, merges
             )
+            passes = tally.carried(saved, pulls)
             pull = watch.pick(pulls, dropped, labels, clashes, passes)
             if pull is None:
                 time.sleep(watch.IDLE_SECONDS)
@@ -413,6 +421,9 @@ def run_watch(repo: str, opts: argparse.Namespace) -> list[tuple[int, str, str]]
                 talk.say(note)
             number = pull["number"]
             watch.count_passes(passes, pulls, dropped, number)
+            saved = tally.stamped(passes, pulls)
+            if tally_path:
+                tally.save(tally_path, saved)
             heads: dict[int, str] = {}
             try:
                 outcome = take(repo, number, opts, heads, tick)
@@ -443,8 +454,10 @@ def main(argv: list[str] | None = None) -> int:
     except mergeable.Unreachable as outage:
         talk.say(str(outage), "Nothing was attempted. Run it again once GitHub answers.")
         return mergeable.UNREACHABLE_STATUS
-    take_all = run_watch if opts.watch else run_queue
-    results = take_all(repo["nameWithOwner"], opts)
+    if opts.watch:
+        results = run_watch(repo["nameWithOwner"], opts, tally.path_for(opts.root))
+    else:
+        results = run_queue(repo["nameWithOwner"], opts)
 
     print()
     for line in report.summary(results):

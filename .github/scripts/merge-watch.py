@@ -66,8 +66,10 @@ the picks it was in line for and another was taken ([`count_passes`]); at
 whatever its conflicts. Taking it either merges it or hands it back with the
 conflict named, and both beat silence. The count is of passes, not minutes: a
 watch with nothing else in line takes the one it has, so time in line without
-being overtaken is not waiting on the order. Being taken starts the count
-over.
+being overtaken is not waiting on the order. Being taken, or a new head,
+starts the count over. The tally outlives the watch (#1423): it is kept in a
+file beside the queue's lock and read by the next watch (`merge_queue/tally`),
+since a bounded watch resumed every hour would otherwise never count to three.
 
 **A pull request that conflicts with `main` is handed back at once, not kept
 in line** ([`against_main`], [`behind`]). Its turn could only end in that

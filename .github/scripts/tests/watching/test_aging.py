@@ -86,11 +86,11 @@ class Carrying(unittest.TestCase):
 
     def test_a_moved_head_starts_over_and_the_rest_carry(self):
         saved = {1: (f"{1:040x}", 2), 2: ("0" * 40, 2), 3: (f"{3:040x}", 1)}
-        self.assertEqual(watch.carried(saved, [pr(1), pr(2)]), {1: 2})
+        self.assertEqual(tally.carried(saved, [pr(1), pr(2)]), {1: 2})
 
     def test_the_tally_is_stamped_with_each_head_still_listed(self):
         self.assertEqual(
-            watch.stamped({1: 3, 5: 1}, [pr(1), pr(2)]), {1: (f"{1:040x}", 3)}
+            tally.stamped({1: 3, 5: 1}, [pr(1), pr(2)]), {1: (f"{1:040x}", 3)}
         )
 
 
