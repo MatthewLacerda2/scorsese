@@ -32,6 +32,9 @@ Rust test can reproduce (layout a Playwright flow proves) takes its
 
 - Never wait on CI: it runs once you mark the pull request ready, and the merge
   queue waits for it. Your proof is `make gates`, run here.
+- A branch that changes a path `independent-review` names gets that review
+  **before** you ready it, by that skill: you dispatch the reviewer, answer
+  its findings, re-run the gates and post its comment.
 - Mark it ready **only when the branch is truly finished**: it merges the
   moment CI is green. Never ready it just to get a CI run.
 - **Once ready, never push to it again**, not even a rebase: the queue rebases

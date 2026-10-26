@@ -118,7 +118,8 @@ back to a local worktree in a local session. Give it:
 - `run_once_at` computed, never typed: `date -u -d '+2 min'
   +%Y-%m-%dT%H:%M:00Z` (`-v+2M` on macOS); the API refuses a time already past;
 - the model *Model* names (the `schedule` example defaults to a Sonnet), and
-  `allowed_tools` with room for ToolSearch and the GitHub MCP tools;
+  `allowed_tools` with room for ToolSearch, the GitHub MCP tools and `Agent`
+  (the coder dispatches its own `independent-review`);
 - this repository as its source, and this prompt:
 
 ```text
@@ -187,8 +188,9 @@ For each pull request that turns ready:
    Check its decisions against the issue, and its *Gates* line: a cheaper model
    has readied a pull request without running `make gates`. A Sonnet's pull
    request carries `minor`; add it if not. A risky change (money, stored data,
-   security, concurrency, the render pipeline, the gates) goes through
-   **`independent-review`** before the label.
+   security, concurrency, the render pipeline, the gates) carries its
+   `Independent review` comment, which the coder ran before readying; run
+   **`independent-review`** yourself only when it is missing.
 2. **Label it `queue`.** When merges ahead touched the same crates, first
    rebase it yourself, `cargo check --workspace --all-targets --locked` (and
    `--manifest-path app/Cargo.toml` when it touches `app/`) and `make size`, and
