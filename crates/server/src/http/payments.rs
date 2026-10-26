@@ -117,7 +117,6 @@ fn configured(state: &AppState) -> Result<&Payments, ApiError> {
     })
 }
 
-/// Seconds since the epoch, for a signature's timestamp.
 impl From<PaymentError> for ApiError {
     fn from(error: PaymentError) -> Self {
         let refused = |status| Self::Refused {

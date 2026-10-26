@@ -65,8 +65,7 @@ fn every_file_is_a_migration_numbered_one_after_the_last() {
 /// A migration's line in the manifest: its file name and the checksum sqlx
 /// records when it applies it, as hex.
 fn line(name: &str, checksum: &[u8]) -> String {
-    let hex: String = checksum.iter().map(|byte| format!("{byte:02x}")).collect();
-    format!("{name} {hex}")
+    format!("{name} {}", scorsese_core::hex(checksum))
 }
 
 /// Every merged migration is held to the checksum it merged with (#1223).

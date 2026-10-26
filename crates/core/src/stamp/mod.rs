@@ -79,9 +79,16 @@ impl Timestamp {
 
     /// [`Timestamp::unix_now`], or `0` on a clock set before 1970.
     ///
-    /// For a caller that compares against the clock rather than records it —
-    /// a deadline, a signature's age, a heartbeat — where an unreadable clock
-    /// reads as the epoch and every window it opens has long closed.
+    /// For a caller that needs a number whatever the clock says. With the
+    /// clock unreadable, `0` does not mean "closed" everywhere:
+    ///
+    /// - a two-sided window (a signature's age, `|now - t| <= tolerance`)
+    ///   refuses every real timestamp;
+    /// - a one-sided deadline (`t <= now` means expired) never expires, and a
+    ///   recorded heartbeat always reads as fresh, since `now - last` is
+    ///   negative;
+    /// - a value recorded from it (a heartbeat written, `now + n` stored as
+    ///   an expiry) is a moment in 1970.
     pub fn unix_now_or_epoch() -> i64 {
         Self::unix_now().unwrap_or(0)
     }

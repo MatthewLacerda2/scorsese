@@ -267,7 +267,6 @@ async fn finish(
     Ok(cookie)
 }
 
-/// Seconds since the epoch, for an ID token's `exp`.
 /// Back to the login page, saying `why`.
 fn to_login(why: &str) -> Response {
     (
