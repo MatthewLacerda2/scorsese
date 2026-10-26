@@ -24,11 +24,12 @@ from . import stack
 from .finish import Finish
 from .host import Host, Refusal, Result, read_env
 from .options import parse
+from .spool import Spool
 
 DEPLOY = Path(__file__).resolve().parent.parent
 
 
-class Update(Finish):
+class Update(Finish, Spool):
     """One run: the options, the machine, and what it learns on the way."""
 
     POLL = 30  # seconds between looks at the running work, under --wait
@@ -40,7 +41,8 @@ class Update(Finish):
         self.root = deploy.parent
         self.env_file = (opts.env_file or Path(host.env("DEPLOY_ENV") or deploy / ".env")).resolve()
         self.before = self.after = self.dump_path = ""
-        # How far the run got: "pulled", "building", "built", "retagging", "restarted".
+        # How far the run got: "pulled", "building", "built", "retagging", "respooling",
+        # "restarted".
         self.stage = ""
 
     def say(self, line: str = "") -> None:
@@ -99,8 +101,13 @@ class Update(Finish):
             "built": f"its images are built as `:{self.tag()}`, with `latest` left as it was",
             "retagging": "its images are built and some may already be `latest` (page "
                          "captures may run the new server image)",
+            "respooling": "its images are built and `latest` (page captures may run the new "
+                          "server image), and capture-launcher may be stopped or removed, so "
+                          "page captures may fail until an update restarts the stack",
         }[self.stage]
-        return (f"the checkout is at {after} and {images}, while the running containers "
+        running = "the other running containers" if self.stage == "respooling" else \
+            "the running containers"
+        return (f"the checkout is at {after} and {images}, while {running} "
                 f"are still {before}'s{dump}")
 
     def preconditions(self) -> None:
@@ -273,11 +280,14 @@ class Update(Finish):
         self.step(5, "restart on the new build")
         args = self.compose_args(["up", "--detach"])
         started = datetime.datetime.fromtimestamp(self.host.now(), datetime.timezone.utc)
+        moved = self.moved_spool()
         if self.opts.dry_run:
-            self.say(f"would move `latest` to each `:{self.tag()}` image, then run: "
-                     + " ".join(args))
+            self.say(f"would move `latest` to each `:{self.tag()}` image")
+            self.respool(moved)
+            self.say("would run: " + " ".join(args))
         else:
             self.retag()
+            self.respool(moved)
             self.stage = "restarted"
             if self.host.stream(args, cwd=self.deploy) != 0:
                 self.server_logs()

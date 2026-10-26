@@ -381,7 +381,8 @@ volumes:
   # leaves what is in it alone. It remembers the path it was made with,
   # though: after SCORSESE_DATA moves, `up` asks to recreate it, and the
   # answer is yes — its warning that data will be lost is about volumes that
-  # hold their own, and this one holds none (docs/web.md, "Updating").
+  # hold their own, and this one holds none. deploy/update makes it again
+  # itself rather than leave the question to a terminal (docs/web.md, "Updating").
   capture-spool:
     driver: local
     driver_opts:

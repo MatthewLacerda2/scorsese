@@ -82,11 +82,18 @@ def update(host, *argv, env=ENV, deploy=None):
     return code, out.getvalue(), err.getvalue()
 
 
+# What `docker compose config` says of the spool volume, made from ENV's SCORSESE_DATA.
+CONFIG = Result(0, '{"name": "scorsese", "volumes": {"capture-spool": {"name": '
+                   '"scorsese_capture-spool", "driver": "local", "driver_opts": {"type": "none", '
+                   '"o": "bind", "device": "/srv/scor/cache/captures"}}}}\n')
+SPOOL_MADE = Result(0, '{"device":"/srv/scor/cache/captures","o":"bind","type":"none"}\n')
+
 # The stack runs dddd, as its server image's label says, and declares two services.
 RUNNING = [(["ps", "--quiet", "server"], Result(0, "c0ffee\n")),
            (["{{.Image}}"], Result(0, "sha256:01d\n")),
            (["image", "inspect"], Result(0, "dddd\n")), (["--verify"], Result(0, "dddd\n")),
-           (["config", "--services"], Result(0, "server\ntunnel\n"))]
+           (["config", "--services"], Result(0, "server\ntunnel\n")),
+           (["config", "--format json"], CONFIG), (["volume", "inspect"], SPOOL_MADE)]
 GIT = RUNNING + [(["--abbrev-ref"], Result(0, "main\n")), (["origin/main"], Result(0, "bbbb\n")),
        (["rev-parse", "HEAD"], Result(0, "aaaa\n")), (["--oneline"], Result(0, "bbbb A fix\n")),
        (["--count"], Result(0, "1\n")),
