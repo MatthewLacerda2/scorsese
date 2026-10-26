@@ -93,7 +93,7 @@ pub(crate) fn figure_dim(text: impl Into<String>) -> RichText {
 /// invisible at any zoom where you can see the whole cut. Hatching is legible
 /// across the room and is the drafting convention for *this region is
 /// indicated, not drawn* — which is exactly what a brief is.
-pub(crate) fn hatch(painter: &Painter, rect: Rect, colour: Color32, spacing: f32) {
+pub(crate) fn hatch(painter: &Painter, rect: Rect, colour: Color32, spacing: f32, width: f32) {
     if rect.width() < 1.0 || rect.height() < 1.0 || spacing <= 0.0 {
         return;
     }
@@ -107,7 +107,7 @@ pub(crate) fn hatch(painter: &Painter, rect: Rect, colour: Color32, spacing: f32
         return;
     }
     let painter = painter.with_clip_rect(seen);
-    let stroke = Stroke::new(1.0, colour);
+    let stroke = Stroke::new(width, colour);
     // Leaning the same way as the reading direction, and stepped from the
     // rectangle's **own** left edge rather than from the visible one — the
     // phase has to belong to the clip, or the pattern swims through a block
@@ -182,6 +182,24 @@ pub(crate) fn plate(painter: &Painter, right_top: Pos2, text: &str, colour: Colo
     size.y
 }
 
+/// One line of `text` in `font`, cut with an ellipsis where it passes `width`.
+pub(crate) fn truncated(
+    painter: &Painter,
+    text: &str,
+    font: FontId,
+    colour: Color32,
+    width: f32,
+) -> std::sync::Arc<egui::Galley> {
+    let mut job = egui::text::LayoutJob::simple_singleline(text.to_owned(), font, colour);
+    job.wrap = egui::text::TextWrapping {
+        max_width: width,
+        max_rows: 1,
+        break_anywhere: true,
+        overflow_character: Some('…'),
+    };
+    painter.layout_job(job)
+}
+
 /// A hairline between two points.
 pub(crate) fn rule(painter: &Painter, from: Pos2, to: Pos2, colour: Color32) {
     painter.line_segment([from, to], Stroke::new(1.0, colour));
@@ -225,18 +243,20 @@ mod tests {
             egui::LayerId::background(),
             Rect::from_min_size(Pos2::ZERO, vec2(100.0, 100.0)),
         );
-        hatch(&painter, Rect::ZERO, palette::DARK.playhead, 5.0);
+        hatch(&painter, Rect::ZERO, palette::DARK.playhead, 5.0, 1.0);
         hatch(
             &painter,
             Rect::from_min_size(Pos2::ZERO, vec2(20.0, 20.0)),
             palette::DARK.playhead,
             0.0,
+            1.0,
         );
         hatch(
             &painter,
             Rect::from_min_size(pos2(400.0, 0.0), vec2(50.0, 20.0)),
             palette::DARK.playhead,
             5.0,
+            1.0,
         );
     }
 }

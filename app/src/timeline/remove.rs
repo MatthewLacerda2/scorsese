@@ -42,7 +42,8 @@ impl Timeline {
         };
     }
 
-    /// Asks to remove the track whose head was right-clicked, if one was.
+    /// Asks to remove the track whose head was right-clicked, or whose bin was
+    /// pressed, if one was.
     pub(super) fn ask_on_head(
         response: &Response,
         pointer: Option<Pos2>,
@@ -50,14 +51,19 @@ impl Timeline {
         open: &Open,
         editing: &mut Editing,
     ) {
-        if !response.secondary_clicked() {
+        let secondary = response.secondary_clicked();
+        if !secondary && !response.clicked() {
             return;
         }
         let top = gutter.top() + super::ruler::HEIGHT;
         let head = pointer
             .filter(|at| gutter.contains(*at))
-            .and_then(|at| super::lanes::lane_at(&open.project, gutter, top, at.y));
-        if let Some((track, _)) = head {
+            .and_then(|at| {
+                super::lanes::lane_at(&open.project, gutter, top, at.y).map(|found| (found, at))
+            });
+        if let Some(((track, lane), at)) = head
+            && (secondary || super::lanes::trash(lane).contains(at))
+        {
             editing.asking = Some(Asking::about(Removal::Track(track.id.clone())));
         }
     }

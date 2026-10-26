@@ -80,6 +80,7 @@ pub(super) fn show(ui: &mut Ui, width: f32, face: &Face<'_>) -> Drawn {
                 area,
                 hue.gamma_multiply(0.5),
                 8.0,
+                1.0,
             );
         } else {
             glyph::draw(ui, &painter, area, face.kind);
