@@ -35,6 +35,12 @@ pub struct Settings {
     /// The Pixabay key, for searching free stock footage and photos.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pixabay_api_key: Option<String>,
+    /// Where the local Whisper server answers, when not at
+    /// [`DEFAULT_ADDRESS`](crate::transcribe::DEFAULT_ADDRESS) (#1549). Not a
+    /// secret: kept here because it is a fact about this machine, read in the
+    /// same order as a key ([`crate::transcribe::address`]).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub whisper_url: Option<String>,
     /// The most a project may have spent, in US cents — every take sent, this
     /// run's included, and every voice designed ([`super::Budget`]).
     ///

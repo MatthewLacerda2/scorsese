@@ -19,3 +19,4 @@ mod new;
 mod page;
 mod probe;
 mod reframe;
+mod transcribe;

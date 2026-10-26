@@ -49,6 +49,8 @@ pub fn captioning(track: TrackId, fps: f64) -> Captioning {
         arrive: ((ARRIVE * fps).round() as u64).max(1),
         reveal: PropertyPath::new(path::REVEAL),
         height: PropertyPath::new(path::POSITION_Y),
+        // The mixer's to name: the caller that renders sound sets it.
+        volume: None,
     }
 }
 

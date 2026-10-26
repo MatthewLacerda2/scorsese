@@ -28,6 +28,7 @@ mod shortening;
 mod slots;
 mod stopping;
 mod studio;
+mod transcribing;
 mod transport;
 mod vendors;
 mod voicing;

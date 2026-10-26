@@ -1,9 +1,11 @@
-//! `scorsese settings` — where the keys are kept, and which of them resolved.
+//! `scorsese settings` — where the keys are kept, which of them resolved, and
+//! where the Whisper server is looked for.
 
 use anyhow::{Context, Result};
 use scorsese_providers::credentials::{
     Environment, Provider, Settings, Source, resolve_from, settings_path,
 };
+use scorsese_providers::transcribe;
 
 /// Prints where the settings file is, what resolved, and from where.
 ///
@@ -29,6 +31,10 @@ pub(crate) fn run() -> Result<()> {
         Some(cents) => println!("budget:        {} cents a run", cents),
         None => println!("budget:        no ceiling set"),
     }
+    println!(
+        "whisper:       {}",
+        transcribe::address_from(&environment, &settings)
+    );
 
     // Every provider, so the report is the same length whatever is configured:
     // a key that is missing has to appear in order to be seen to be missing.

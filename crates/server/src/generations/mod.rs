@@ -50,6 +50,7 @@ use scorsese_providers::credentials::{Provider, resolve};
 use scorsese_providers::image::{GeminiProvider, ImageProvider};
 use scorsese_providers::music::{ElevenLabsComposer, MusicProvider};
 use scorsese_providers::speech::{ElevenLabsProvider, SpeechProvider};
+use scorsese_providers::transcribe::{self, Transcriber, Whisper};
 use scorsese_providers::video::{POLL_EVERY, VeoProvider, VideoProvider};
 use scorsese_providers::voices::design::{ElevenLabsStudio, Studio as DesignStudio};
 use serde::{Deserialize, Serialize};
@@ -94,6 +95,9 @@ pub type Music = Box<dyn MusicProvider + Send + Sync>;
 /// Where voices are designed (#572), owned and moved between threads.
 pub type Studio = Box<dyn DesignStudio + Send + Sync>;
 
+/// Where speech is heard (#1549), owned and moved between threads.
+pub type Ear = Box<dyn Transcriber + Send + Sync>;
+
 /// Where the jobs' providers come from.
 pub trait Vendors: Send + Sync + 'static {
     /// Veo, or why it cannot be reached — no key, most likely.
@@ -107,11 +111,15 @@ pub trait Vendors: Send + Sync + 'static {
     /// ElevenLabs' voice design, or why it cannot be reached
     /// ([`crate::designs`]).
     fn studio(&self) -> Result<Studio, String>;
+    /// The local Whisper server ([`crate::library::transcribe`]), which is
+    /// no vendor and takes no key, or why its address will not resolve.
+    fn whisper(&self) -> Result<Ear, String>;
 }
 
 /// The real vendors, with keys from the one credentials resolver
 /// (`docs/credentials.md`): the server's environment, where compose passes
-/// `GEMINI_API_KEY` and `ELEVENLABS_API_KEY`.
+/// `GEMINI_API_KEY` and `ELEVENLABS_API_KEY` — and the Whisper server at the
+/// `SCORSESE_WHISPER_URL` it passes too.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Keys;
 
@@ -139,6 +147,11 @@ impl Vendors for Keys {
     fn studio(&self) -> Result<Studio, String> {
         let key = resolve(Provider::ElevenLabs).map_err(|error| error.to_string())?;
         Ok(Box::new(ElevenLabsStudio::new(&key.secret)))
+    }
+
+    fn whisper(&self) -> Result<Ear, String> {
+        let address = transcribe::address().map_err(|error| error.to_string())?;
+        Ok(Box::new(Whisper::new(&address)))
     }
 }
 

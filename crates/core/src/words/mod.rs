@@ -9,9 +9,17 @@
 //! the audio file**.
 //!
 //! **A line with no such file has no word timings, and that is said, never
-//! guessed.** Imported audio has none, and neither does a narration generated
-//! before timings were asked for. Getting them would mean paying for the line
-//! again, which nothing does on its own: only a new generation brings them.
+//! guessed.** A narration generated before timings were asked for has none.
+//! Getting them would mean paying for the line again, which nothing does on
+//! its own: only a new generation brings them.
+//!
+//! **Imported speech gets them by being transcribed** (#1549): a local
+//! Whisper hears an imported video or sound and its words are written in the
+//! same file, beside the asset under its whole name —
+//! `assets/sketch.mp4.words.json` next to `assets/sketch.mp4`
+//! ([`Words::transcript`]) — so captions, pages and `project_describe` read them
+//! as they read a narration's. The agent's corrections ([`Words::fix`]) make
+//! that file work nothing can rebuild, so it is never under `cache/`.
 //!
 //! [`Words::placed`] carries the words onto the timeline through the clip that
 //! plays the line — its `start`, `source_in` and `speed` — and names each one
@@ -19,6 +27,7 @@
 //! each narration is on at an instant.
 
 mod at;
+mod fix;
 mod name;
 mod placed;
 mod tags;
@@ -30,6 +39,7 @@ use serde::{Deserialize, Serialize};
 use crate::{Asset, AssetKind, GenerationState, ProjectPath};
 
 pub use at::{Saying, saying};
+pub use fix::{Fix, FixError};
 pub use placed::Placed;
 
 /// One word of a line, as written, and when it is said.
@@ -86,21 +96,57 @@ impl Words {
         ProjectPath::new(format!("{stem}.words.json"))
     }
 
-    /// The timings of `asset`'s line, if it is a generated narration whose
-    /// audio has them beside it. `None` for every other asset, for a line
-    /// generated before timings were kept, and for a file that will not read.
-    /// An `expressive` line's audio tags are left out even when its file still
-    /// holds them, as one folded before #1061 does ([`Words::spoken_by`]).
+    /// Where an imported recording's transcript is kept: beside it, under its
+    /// whole file name with `.words.json` after it — `assets/take.mp4.words.json`
+    /// — so a film and a sound of one take, `take.mp4` and `take.wav`, keep
+    /// one each.
+    pub fn transcript(recording: &ProjectPath) -> ProjectPath {
+        ProjectPath::new(format!("{recording}.words.json"))
+    }
+
+    /// Where `asset`'s words are kept, when it is one that has them: a
+    /// recording's [`Words::transcript`], or a generated line's timings
+    /// [`Words::beside`] it. `None` for any other asset, or one with no file.
+    pub fn file_of(asset: &Asset) -> Option<ProjectPath> {
+        let path = asset.path.as_ref()?;
+        if Self::transcribable(asset.kind) {
+            Some(Self::transcript(path))
+        } else if asset.kind == AssetKind::GeneratedAudio {
+            Some(Self::beside(path))
+        } else {
+            None
+        }
+    }
+
+    /// The timings of what `asset` says, when they are beside it: a generated
+    /// narration's, or an imported recording's transcript
+    /// ([`Words::transcribable`]). `None` for every other asset, for a line
+    /// generated before timings were kept, for a recording nobody transcribed,
+    /// and for a file that will not read. An `expressive` line's audio tags
+    /// are left out even when its file still holds them, as one folded before
+    /// #1061 does ([`Words::spoken_by`]).
     pub fn of(asset: &Asset, project_root: &Path) -> Option<Self> {
+        let file = Self::file_of(asset)?.resolve(project_root);
+        let read = || -> Option<Self> {
+            let text = std::fs::read_to_string(&file).ok()?;
+            serde_json::from_str(&text).ok()
+        };
+        if Self::transcribable(asset.kind) {
+            return read();
+        }
         if asset.kind != AssetKind::GeneratedAudio
             || asset.state != Some(GenerationState::Generated)
         {
             return None;
         }
-        let file = Self::beside(asset.path.as_ref()?).resolve(project_root);
-        let text = std::fs::read_to_string(file).ok()?;
-        let words: Self = serde_json::from_str(&text).ok()?;
-        Some(words.spoken_by(asset.speech_request().model))
+        Some(read()?.spoken_by(asset.speech_request().model))
+    }
+
+    /// Whether an asset of `kind` is a recording a transcript can be made of:
+    /// an imported video or sound. A generated line has its timings from the
+    /// provider that spoke it.
+    pub fn transcribable(kind: AssetKind) -> bool {
+        matches!(kind, AssetKind::Video | AssetKind::Audio)
     }
 
     /// The file's contents, as [`Words::of`] reads them back.

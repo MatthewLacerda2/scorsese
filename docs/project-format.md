@@ -603,9 +603,24 @@ the reading and are not said, so they are not words either: they are left
 out of its timings, and out of a file written before they were whenever it is
 read. On `standard` and `fast` a bracket is read aloud, and stays. `generate`
 says where it saved them. Nothing in
-`project.json` changes, and a line generated before timings were kept, or
-speech that was imported rather than generated, has none: they are never
-guessed.
+`project.json` changes, and a line generated before timings were kept has
+none: they are never guessed.
+
+**Imported speech gets the same file by being transcribed.** `transcribe`
+(`scorsese transcribe <asset>`) has a local Whisper hear an imported `video`
+or `audio` asset and keeps its words beside it, in the same format, under the
+recording's whole file name: `assets/sketch.mp4` gets
+`assets/sketch.mp4.words.json`, so a film and a sound of one take
+(`take.mp4`, `take.wav`) keep one each. Reach for it whenever
+real footage has speech worth captioning or syncing to — an interview, a
+sketch, a phone recording. It answers with the words numbered; a misheard one
+is corrected with `transcript_fix` (`scorsese transcribe <asset> --fix
+N=TEXT`), which changes what a word says and never when, and an empty text
+drops a word heard where nothing was said. The file is the agent's work once
+corrected, so it lives beside the asset rather than under `cache/`, and
+`transcribe` reads it back rather than hearing the recording again unless
+asked `again`. It goes when the asset is collected. Nothing in `project.json`
+changes for this either.
 
 **Anything timed to the voice reads them, never an ear or a silence
 detector.** `caption_narration` (`scorsese caption`) turns them into captions:
@@ -615,7 +630,8 @@ and leaving when the next arrives. It writes them on a video track of their
 own (`captions` unless named) as assets and clips called
 `caption-<narration clip>-<n>`, which is how a re-run finds and replaces its
 own work after a line is regenerated or moved — and why a hand edit to one is
-kept by renaming it. Pages read the same timings as `scorsese.words`
+kept by renaming it. A transcribed recording is captioned the same way,
+whatever track its clip is on. Pages read the same timings as `scorsese.words`
 ([pages.md](pages.md), `guide pages`), and `project_describe` names the word being said at an
 instant.
 
@@ -3411,7 +3427,7 @@ A project directory holds five of its own:
 
 | Directory | What is in it | Survives a delete? |
 | --- | --- | --- |
-| `assets/` | imported media, copied in on import | no — the originals are elsewhere |
+| `assets/` | imported media, copied in on import, and a transcribed recording's words beside it, as `<its whole name>.words.json` (see *When each word is said*) | **no** — the media's originals are elsewhere, but a transcript's corrections are kept here and nowhere else |
 | `generated/` | provider and synthesis output, named for the hash of its brief — a narration's word timings beside its audio, as `<same name>.words.json` (see *When each word is said*), and under `generated/tickets/` which brief each shot in flight was bought for | yes — it can be made again |
 | `recipes/` | authored synthesis documents | **no** — deleting one loses work |
 | `pages/` | authored web pages, played by `html` assets, and the `.js`, `.css`, `.json` and `.svg` files they share (at most 1 MiB each) | **no** — deleting one loses work |

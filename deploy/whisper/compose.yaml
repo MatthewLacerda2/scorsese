@@ -1,0 +1,23 @@
+# The Whisper server `transcribe` reaches on a person's own machine (#1549):
+#
+#   docker compose --file deploy/whisper/compose.yaml up --detach
+#
+# from a scorsese checkout. The first run builds the image, baking in a 1.6 GB
+# model; after that it starts in seconds and runs offline. It answers on
+# loopback at 8970, where the CLI, the MCP server and the desktop app look by
+# default (docs/credentials.md, "Where the Whisper server is"), and comes back
+# after a reboot until `docker compose --file deploy/whisper/compose.yaml down`.
+#
+# The web app's stack runs the same image from deploy/compose.yaml, on a
+# network with no way out.
+
+name: scorsese-whisper
+
+services:
+  whisper:
+    build:
+      context: .
+    image: scorsese-whisper:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8970:8000"

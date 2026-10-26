@@ -34,13 +34,13 @@ pub(super) const PATIENCE: Duration = Duration::from_secs(30);
 
 /// The projects being changed, each with the tool changing it.
 #[derive(Default)]
-pub(super) struct Holds {
+pub(crate) struct Holds {
     held: Mutex<HashMap<PathBuf, &'static str>>,
     freed: Condvar,
 }
 
 /// A project held by one call, until this is dropped.
-pub(super) struct Held<'a> {
+pub(crate) struct Held<'a> {
     holds: &'a Holds,
     project: PathBuf,
 }
@@ -48,7 +48,7 @@ pub(super) struct Held<'a> {
 impl Holds {
     /// Holds `project` for `tool`, waiting up to [`PATIENCE`] for whoever is
     /// changing it now.
-    pub(super) fn take(&self, project: &str, tool: &'static str) -> Result<Held<'_>, String> {
+    pub(crate) fn take(&self, project: &str, tool: &'static str) -> Result<Held<'_>, String> {
         self.take_within(project, tool, PATIENCE)
     }
 

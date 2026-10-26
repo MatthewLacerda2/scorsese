@@ -1,4 +1,4 @@
-//! A generated line's word timings leave with it.
+//! A generated line's word timings leave with it, and so does a transcript.
 
 use crate::common::new_project;
 use scorsese_core::pool::{Paid, remove_assets};
@@ -80,4 +80,35 @@ fn timings_go_even_if_the_audio_was_already_gone() {
 
     assert_eq!(report.files_missing, 1);
     assert!(!Words::beside(&audio).resolve(&dir).exists());
+}
+
+#[test]
+fn an_imported_recordings_transcript_leaves_with_it() {
+    let (dir, mut project) = new_project("gc-transcript");
+    let take = ProjectPath::new("assets/take.mp4");
+    std::fs::create_dir_all(dir.join("assets")).expect("make assets/");
+    std::fs::write(take.resolve(&dir), b"footage").expect("write the footage");
+    let transcript = Words::transcript(&take).resolve(&dir);
+    std::fs::write(&transcript, Words::default().to_json()).expect("write the transcript");
+    project.assets.push(Asset::imported(
+        AssetId::new("take"),
+        AssetKind::Video,
+        take.clone(),
+    ));
+    // The recorder's sound of the same take, under the same name.
+    let sound = ProjectPath::new("assets/take.wav");
+    std::fs::write(sound.resolve(&dir), b"sound").expect("write the sound");
+    let kept = Words::transcript(&sound).resolve(&dir);
+    std::fs::write(&kept, Words::default().to_json()).expect("write its transcript");
+    project.assets.push(Asset::imported(
+        AssetId::new("sound"),
+        AssetKind::Audio,
+        sound,
+    ));
+
+    remove_assets(&mut project, &dir, &[AssetId::new("take")], Paid::Keep).expect("collect");
+
+    assert!(!take.resolve(&dir).exists());
+    assert!(!transcript.exists(), "a transcript of nothing is not kept");
+    assert!(kept.is_file(), "the sound's own transcript stays");
 }

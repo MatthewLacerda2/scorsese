@@ -152,6 +152,12 @@
 //! asks it to decide whether they want to; two answers to that would first be
 //! noticed by somebody who had already paid.
 //!
+//! [`transcribe`], an imported recording's speech heard by a local Whisper
+//! (#1549): word timings for footage, in the format a narration's come in.
+//! It spends nothing and reaches no vendor — the server is a container the
+//! user or the web app's stack runs — but it is a call over HTTP, and this is
+//! the crate that makes those.
+//!
 //! [`Stopped`], what every prompted run — shots, stills, narration — answers
 //! with when it stops part-way: what it made before the stop, and why (#1153).
 
@@ -174,6 +180,7 @@ pub mod speech;
 pub mod spending;
 pub mod stock;
 pub mod synth;
+pub mod transcribe;
 pub mod video;
 pub mod voices;
 

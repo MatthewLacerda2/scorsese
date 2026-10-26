@@ -11,6 +11,7 @@ mod document;
 mod pages;
 mod projects;
 mod queue;
+mod transcripts;
 
 use scorsese_mcp::Reply;
 use serde_json::{Value, json};
@@ -41,13 +42,17 @@ pub(crate) enum Own {
     VoiceDesign,
     /// A voice cloned from recordings, listed or forgotten (#1263).
     VoiceClone,
+    /// A recording's speech heard by a job (#1549).
+    Transcribe,
+    /// A transcript corrected (#1549).
+    TranscriptFix,
     /// What the caller has spent.
     Spending,
 }
 
 impl Own {
     /// Every one of them.
-    pub(crate) const ALL: [Self; 11] = [
+    pub(crate) const ALL: [Self; 13] = [
         Self::ProjectList,
         Self::ProjectNew,
         Self::Library,
@@ -58,6 +63,8 @@ impl Own {
         Self::Generate,
         Self::VoiceDesign,
         Self::VoiceClone,
+        Self::Transcribe,
+        Self::TranscriptFix,
         Self::Spending,
     ];
 
@@ -78,6 +85,8 @@ impl Own {
             "voice_design" => &[Self::VoiceDesign],
             "voice_clone" => &[Self::VoiceClone],
             "render" => &[Self::Render, Self::Jobs],
+            "transcribe" => &[Self::Transcribe],
+            "transcript_fix" => &[Self::TranscriptFix],
             _ => &[],
         }
     }
@@ -95,6 +104,8 @@ impl Own {
             Self::Generate => super::generate::NAME,
             Self::VoiceDesign => super::design::NAME,
             Self::VoiceClone => super::design::clone::NAME,
+            Self::Transcribe => transcripts::TRANSCRIBE,
+            Self::TranscriptFix => transcripts::FIX,
             Self::Spending => spending::NAME,
         }
     }
@@ -112,6 +123,8 @@ impl Own {
             Self::Generate => super::generate::DESCRIPTION,
             Self::VoiceDesign => super::design::DESCRIPTION,
             Self::VoiceClone => super::design::clone::DESCRIPTION,
+            Self::Transcribe => transcripts::TRANSCRIBE_SAYS,
+            Self::TranscriptFix => transcripts::FIX_SAYS,
             Self::Spending => spending::DESCRIPTION,
         }
     }
@@ -129,6 +142,8 @@ impl Own {
             Self::Generate => super::generate::schema(),
             Self::VoiceDesign => super::design::schema(),
             Self::VoiceClone => super::design::clone::schema(),
+            Self::Transcribe => transcripts::transcribe_schema(),
+            Self::TranscriptFix => transcripts::fix_schema(),
             Self::Spending => spending::schema(),
         }
     }
@@ -159,6 +174,8 @@ impl Own {
             Self::Generate => super::generate::call(caller, arguments).await,
             Self::VoiceDesign => super::design::call(caller, arguments).await,
             Self::VoiceClone => super::design::clone::call(caller, arguments).await,
+            Self::Transcribe => transcripts::transcribe(caller, arguments).await,
+            Self::TranscriptFix => transcripts::fix(caller, arguments).await,
             Self::Spending => spending_history(caller, arguments).await,
         }
     }

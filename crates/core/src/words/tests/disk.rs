@@ -8,7 +8,7 @@ use crate::{
 
 /// A project folder with one generated line `vo`, timed when `timed`, played
 /// by clip `nar` from frame 30 (1 s) — and its title, which is no narration.
-fn spoken(label: &str, timed: bool) -> (std::path::PathBuf, Project) {
+pub(super) fn spoken(label: &str, timed: bool) -> (std::path::PathBuf, Project) {
     let dir = crate::scratch::fresh(&format!("scorsese-words-{label}"), "");
     std::fs::create_dir_all(dir.join("generated")).unwrap();
     let audio = ProjectPath::new("generated.d/vo-abc.mp3");
@@ -60,11 +60,11 @@ fn only_a_generated_line_with_a_file_beside_it_has_words() {
     assert_eq!(Words::of(&line, &dir).map(|w| w.words.len()), Some(1));
     project.assets[0].state = Some(GenerationState::Stale);
     assert_eq!(Words::of(&project.assets[0], &dir), None, "stale");
-    let imported = Asset {
-        kind: AssetKind::Audio,
+    let image = Asset {
+        kind: AssetKind::Image,
         ..line
     };
-    assert_eq!(Words::of(&imported, &dir), None, "imported audio");
+    assert_eq!(Words::of(&image, &dir), None, "a picture says nothing");
     std::fs::remove_dir_all(&dir).ok();
 }
 

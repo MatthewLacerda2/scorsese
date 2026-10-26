@@ -5,7 +5,7 @@ mod pages;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::asset::{Asset, AssetId, AssetKind};
+use crate::asset::{Asset, AssetId};
 use crate::project::Project;
 use crate::validate::ValidationErrors;
 use crate::words::Words;
@@ -49,7 +49,8 @@ fn in_use(project: &Project, id: &AssetId) -> bool {
 
 /// Drops these assets from the table and deletes the media files they own —
 /// never a page, which is a document somebody wrote. A generated line's word
-/// timings, kept beside its audio, go with it, and only when the line does.
+/// timings, kept beside its audio, go with it, and only when the line does; so
+/// does an imported recording's transcript.
 ///
 /// Every id is checked, and the project without them validated, **before any
 /// file is touched**: an asset still shown, named by another or named by a
@@ -123,17 +124,15 @@ pub fn remove_assets(
     Ok(report)
 }
 
-/// Deletes a generated line's word timings, which live beside its audio and
-/// mean nothing once the line is gone, returning the bytes they held. A line
-/// generated without timings, or whose timings are already gone, frees none.
+/// Deletes a generated line's word timings, or an imported recording's
+/// transcript, which live beside its file and mean nothing once it is gone,
+/// returning the bytes they held. One without them, or whose timings are
+/// already gone, frees none.
 fn remove_timings(asset: &Asset, project_root: &Path) -> Result<u64, GcError> {
-    let Some(audio) = asset.path.as_ref() else {
+    let Some(words) = Words::file_of(asset) else {
         return Ok(0);
     };
-    if asset.kind != AssetKind::GeneratedAudio {
-        return Ok(0);
-    }
-    let file = Words::beside(audio).resolve(project_root);
+    let file = words.resolve(project_root);
     let Ok(metadata) = fs::metadata(&file) else {
         return Ok(0);
     };

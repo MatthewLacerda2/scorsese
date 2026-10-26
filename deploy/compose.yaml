@@ -153,6 +153,13 @@ services:
       # above, or buying is off and the rest of the site still serves.
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      # Where `transcribe` jobs send a user's speech (#1549): the `whisper`
+      # container below, over the network only the two of them share.
+      SCORSESE_WHISPER_URL: http://whisper:8000
+    # The compose network, as every service is on, and the Whisper one.
+    networks:
+      - default
+      - whisper
     volumes:
       - &data
         type: bind
@@ -171,6 +178,32 @@ services:
       # Migrations run before the first request; a long one must not read as
       # a dead server and get restarted halfway through.
       start_period: 120s
+
+  # The speech-to-text server `transcribe` jobs reach (#1549): speaches over
+  # faster-whisper, Whisper large-v3-turbo baked into the image at build time
+  # (whisper/Dockerfile), CPU only. It hears users' recordings, so it is on a
+  # network of its own with the server and nothing else, and that network is
+  # internal: no way out to the internet, and nothing published. Two cores,
+  # so a transcription leaves the rest to renders; the job queue runs one at a
+  # time (crates/server/src/jobs/kinds.rs).
+  whisper:
+    build:
+      context: whisper
+    image: scorsese-whisper:${SCORSESE_IMAGE_TAG:-latest}
+    logging:
+      <<: *journald
+      options:
+        tag: scorsese-whisper
+    restart: unless-stopped
+    networks:
+      - whisper
+    cpus: 2
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--output", "/dev/null", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
 
   # Users' web pages, drawn by a browser (#778), each capture in a container
   # of its own that mounts only its job (#852). Somebody else's code on this
@@ -365,6 +398,13 @@ services:
       timeout: 10s
       retries: 1
       start_period: 1h
+
+networks:
+  # Every service but `whisper` and `capture-launcher`.
+  default:
+  # The server and the Whisper server, with no route out (#1549).
+  whisper:
+    internal: true
 
 volumes:
   postgres-data:

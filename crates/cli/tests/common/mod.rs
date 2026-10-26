@@ -92,7 +92,7 @@ const PROXY_VARIABLES: [&str; 6] = [
 ///
 /// - **No provider key** reaches it from the tester's environment: every one
 ///   [`Provider::ALL`] names is removed, so a new provider is covered the day
-///   it is added. The credentials resolver reads the environment *first*, so
+///   it is added — nor the tester's Whisper server's address. The credentials resolver reads the environment *first*, so
 ///   an exported key would beat any fake settings a test writes.
 /// - **No `.env`**: it runs in the system's temporary directory, outside the
 ///   checkout, so the walk up for one finds nothing.
@@ -110,6 +110,7 @@ pub(crate) fn seal(mut command: Command) -> Command {
     for provider in Provider::ALL {
         command.env_remove(provider.variable());
     }
+    command.env_remove(scorsese_providers::transcribe::VARIABLE);
     let home = scratch::fresh("scorsese-cli-sealed-home", "");
     std::fs::create_dir_all(&home).expect("create the sealed home");
     for name in ["XDG_CONFIG_HOME", "APPDATA", "HOME"] {

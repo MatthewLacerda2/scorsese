@@ -110,7 +110,7 @@ fn call_held(
         }
     };
     let report = token.is_some().then_some(&mut notify as &mut Say<'_>);
-    let mut context = Context::new(cancel, &shared.renders, report);
+    let mut context = Context::new(cancel, &shared.renders, report).holding(&shared.holds);
     catch_unwind(AssertUnwindSafe(|| {
         tool.call_in(&call.arguments, &mut context)
     }))
