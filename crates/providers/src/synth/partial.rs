@@ -59,7 +59,7 @@ pub struct Partial {
 ///
 /// Most of what asserts this lives in `crates/cli`: every claim here is about
 /// a file on disk and a project that did *not* change, so checking one means
-/// baking for real and reading the directory back. `cli/tests/synth/partial.rs`
+/// baking for real and reading the directory back. `cli/tests/suite/synth/partial.rs`
 /// does exactly that — the cache path, the size against a whole bake, the
 /// `--out` destination, the empty `generated/` and the untouched asset. The
 /// refusals are this crate's own (`tests/suite/synthesis/caching.rs`), so the

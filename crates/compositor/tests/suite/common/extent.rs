@@ -19,13 +19,12 @@
 //! Shared deliberately: the compositor's strongest assertions are pixels in
 //! `crates/golden`, which the mutation harness cannot reach, and its own tests
 //! sample points. That is one gap in several modules — shapes, icons, the blur —
-//! so the measurement lives in one place for all of them. Each test binary uses
-//! a different slice of it, so unused items here are expected rather than dead.
+//! so the measurement lives in one place for all of them.
 
 use scorsese_compositor::{BYTES_PER_PIXEL, Frame};
 
 /// The smallest box holding every pixel with any ink in it, in pixels of the
-/// raster. Both edges are inclusive, so a single inked pixel has `width() == 1`.
+/// raster. Both edges are inclusive, so a single inked pixel has `left == right`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Extent {
     pub(crate) left: u32,

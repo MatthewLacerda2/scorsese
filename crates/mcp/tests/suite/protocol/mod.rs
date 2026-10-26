@@ -51,6 +51,7 @@ mod removing;
 mod rendering;
 #[path = "../../../../../tools/scratch.rs"]
 mod scratch;
+mod scripting;
 mod searching;
 mod sectioning;
 mod seeing;

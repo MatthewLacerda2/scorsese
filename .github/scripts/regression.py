@@ -131,11 +131,14 @@ def target(path: str, exists: Callable[[str], bool]) -> Target | None:
         return None
     if len(rest) == 1:
         return Target("cargo", package, PurePosixPath(rest[0]).stem)
+    if rest[0] == "suite" and exists(f"{package}/tests/suite/main.rs"):
+        # A crate's one test binary (#1128): the module the file sits in.
+        # `main.rs` only declares the modules and `common` holds the helpers,
+        # so neither runs anything alone.
+        module = PurePosixPath(rest[1]).stem
+        return None if module in ("main", "common") else Target("cargo", package, "suite", module)
     if exists(f"{package}/tests/{rest[0]}/main.rs"):
-        # A crate's one test binary (#1128): the module the file sits in,
-        # where `common` is the helpers' and runs nothing alone.
-        module = "" if rest[1] == "main.rs" else PurePosixPath(rest[1]).stem
-        return None if module == "common" else Target("cargo", package, rest[0], module)
+        return Target("cargo", package, rest[0])
     return None
 
 

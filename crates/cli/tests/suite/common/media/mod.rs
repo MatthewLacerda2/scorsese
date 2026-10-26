@@ -10,7 +10,6 @@ use std::path::Path;
 
 use scorsese_render::Tools;
 use scorsese_render::testing;
-#[allow(unused_imports)] // Each test binary uses its own subset.
 pub(crate) use scorsese_render::testing::{generate, tools};
 
 /// The raster the fixtures are made at: small enough that a whole render costs

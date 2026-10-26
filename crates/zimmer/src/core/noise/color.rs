@@ -73,7 +73,7 @@
 //!
 //! Measured end to end, off a rendered note rather than off the filter: white
 //! −0.05 dB per octave, pink −3.06, brown −5.97, at 0.07 and 0.15 dB from
-//! white's level. `zimmer/tests/patch/noise.rs` is where those are asserted.
+//! white's level. `zimmer/tests/suite/patch/noise.rs` is where those are asserted.
 
 use crate::patch::NoiseColor;
 

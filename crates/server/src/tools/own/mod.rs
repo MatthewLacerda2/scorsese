@@ -4,7 +4,7 @@
 //! Each is described in its module the way a registry tool describes itself —
 //! a name, a description whose first sentence stands alone, and a schema in
 //! which every argument says what it is — and the same test holds them to it
-//! (`tests/tools/described.rs`).
+//! (`tests/suite/mcp/described.rs`).
 
 mod catalogue;
 mod document;

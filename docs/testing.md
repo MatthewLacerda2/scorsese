@@ -55,7 +55,7 @@ module doc the detail.
 - **What it runs.** The test files the pull request changed, as the size gate
   classifies tests (`tools/lint/src/classify.rs`), plus the golden fixtures
   under `crates/golden/fixtures/`, are copied over a checkout of the base, and
-  each target they name runs there: a Cargo integration-test target (under
+  each target they name runs there: a module of a crate's `tests/suite` (under
   nextest, with the workspace's per-test timeout where it has a nextest
   config, and a limit on its build and its run either way), one Python test
   file, one `bun test` file, each with a time limit. Output streams to the
@@ -63,9 +63,10 @@ module doc the detail.
   laid over too, but names no target alone.
 - **What passes.** One target failing on the base; a target past its time
   limit has failed. A target that does not build or import there does not
-  count, and neither does one whose every failure is a name the base lacks
-  (Python's `ImportError`, or an `AttributeError` on a module; bun's
-  `ReferenceError`): a test calling a function the fix added would otherwise
+  count (a suite builds whole, so one changed test file that does not compile
+  on the base leaves every module of its crate unjudged), and neither does one
+  whose every failure is a name the base lacks (Python's `ImportError`, or an
+  `AttributeError` on a module; bun's `ReferenceError`): a test calling a function the fix added would otherwise
   pass any fix. An `AttributeError` on an object or a `TypeError` is what a
   real bug throws too, so it counts as failing.
 - **A Playwright flow names no target.** A web fix proved only by one adds a

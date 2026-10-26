@@ -5,10 +5,10 @@ use scorsese_compositor::{
 };
 use scorsese_core::{Easing, Frames, Keyframe, KeyframeTrack, PropertyPath};
 
-/// The raster the tests work at: big enough for a centred half-scale layer to
-/// land on whole pixels, small enough to reason about by hand.
 pub(crate) mod extent;
 
+/// The raster the tests work at: big enough for a centred half-scale layer to
+/// land on whole pixels, small enough to reason about by hand.
 pub(crate) const SIZE: u32 = 64;
 
 /// The centre of the canvas, and a point well inside its top-left corner.

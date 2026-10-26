@@ -408,7 +408,7 @@ docs: ## [gate] cargo doc with -D warnings: a broken intra-doc link is a failure
 	RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
 
 # nextest rather than `cargo test`, and the reason is scheduling. This
-# workspace has 147 test binaries; cargo runs them essentially one at a time and
+# workspace has a test binary per crate; cargo runs them one at a time and
 # threads only *within* each, so the slow render and golden binaries leave the
 # other cores idle while they finish. nextest puts every test from every binary
 # into one global pool and gives each its own process (#225 measured the

@@ -16,9 +16,7 @@ pub(crate) mod logged;
 pub(crate) mod scratch;
 mod teardown;
 
-#[allow(unused_imports)] // As above: each test binary uses its own subset.
 pub(crate) use client::{Response, get, request, send};
-#[allow(unused_imports)] // As above.
 pub(crate) use teardown::{members, release_at_teardown};
 
 /// A listener on a port the OS picked, and the address it ended up on.
