@@ -164,7 +164,7 @@ impl Work {
             {
                 Ok(item) => item,
                 Err(Unkept::Unwritten(error)) => {
-                    eprintln!("scorsese-server: keeping a voice design sample: {error}");
+                    tracing::error!("keeping a voice design sample: {error}");
                     return Err("the server could not keep what came back".into());
                 }
                 Err(Unkept::Refused(error)) => return Err(database(error)),

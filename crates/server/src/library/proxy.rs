@@ -85,7 +85,7 @@ async fn make(
         .map_err(|error| error.to_string())?
         .map_err(|error| {
             // ffmpeg's words name the server's paths: for the log.
-            eprintln!("scorsese-server: {error}");
+            tracing::error!("{error}");
             "the preview proxy could not be made".to_owned()
         })?;
     Ok(json!({ "item": id, "made": true }))

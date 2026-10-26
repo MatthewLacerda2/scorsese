@@ -234,7 +234,7 @@ async fn finish(
     let identity = traded.map_err(|error| match error {
         SignInError::Unverified => "unverified",
         error => {
-            eprintln!("scorsese-server: a Google sign-in failed: {error}");
+            tracing::warn!("a Google sign-in failed: {error}");
             "failed"
         }
     })?;
@@ -243,20 +243,17 @@ async fn finish(
         .map_err(|error| match error {
             AccountError::LinkedElsewhere(_) => "linked",
             error => {
-                eprintln!("scorsese-server: a Google sign-in failed: {error}");
+                tracing::warn!("a Google sign-in failed: {error}");
                 "failed"
             }
         })?;
     if let users::SignedIn::Created(user) = signed {
-        eprintln!(
-            "scorsese-server: account {} created by a Google sign-in",
-            user.get()
-        );
+        tracing::info!("account {} created by a Google sign-in", user.get());
     }
     let cookie = sessions::open(&state.pool, signed.user())
         .await
         .map_err(|error| {
-            eprintln!("scorsese-server: a Google sign-in failed: {error}");
+            tracing::warn!("a Google sign-in failed: {error}");
             "failed"
         })?;
     access::record_or_log(&state.pool, signed.user(), address, Access::SignIn).await;
@@ -282,6 +279,6 @@ fn to_login(why: &str) -> Response {
 
 /// A failure of our own, before Google was involved.
 fn failed(error: &AccountError) -> Response {
-    eprintln!("scorsese-server: a Google sign-in could not start: {error}");
+    tracing::warn!("a Google sign-in could not start: {error}");
     to_login("failed")
 }

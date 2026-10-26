@@ -50,11 +50,11 @@ pub(super) async fn serve(served: &Served<'_>, headers: &HeaderMap) -> Result<Re
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             // A row whose file is gone: the disk lost it. Said in the log,
             // because nothing the user does brings it back.
-            eprintln!("scorsese-server: {} is missing", served.path.display());
+            tracing::error!("{} is missing", served.path.display());
             return Err(ApiError::NotFound);
         }
         Err(error) => {
-            eprintln!("scorsese-server: {}: {error}", served.path.display());
+            tracing::error!("{}: {error}", served.path.display());
             return Err(ApiError::Internal);
         }
     };
@@ -62,7 +62,7 @@ pub(super) async fn serve(served: &Served<'_>, headers: &HeaderMap) -> Result<Re
         .metadata()
         .await
         .map_err(|error| {
-            eprintln!("scorsese-server: {}: {error}", served.path.display());
+            tracing::error!("{}: {error}", served.path.display());
             ApiError::Internal
         })?
         .len();

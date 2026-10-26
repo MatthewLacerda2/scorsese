@@ -106,7 +106,7 @@ async fn draw(
 /// Read a sound's peaks into `out`, by way of a file beside it as a picture is.
 fn read_peaks(tools: &Tools, source: &Path, out: &Path, job: i64) -> Result<(), String> {
     let read = peaks(tools, source).map_err(|error| {
-        eprintln!("scorsese-server: {error}");
+        tracing::error!("{error}");
         "the sound's peaks could not be read".to_owned()
     })?;
     let reading = out.with_extension(format!("reading-{job}"));
@@ -130,7 +130,7 @@ fn write(
 ) -> Result<(), String> {
     let drawing = out.with_extension(format!("drawing-{job}.{}", what.extension()));
     thumbnail(tools, source, what, &drawing).map_err(|error| {
-        eprintln!("scorsese-server: {error}");
+        tracing::error!("{error}");
         "the thumbnail could not be drawn".to_owned()
     })?;
     std::fs::rename(&drawing, out).map_err(|error| error.to_string())

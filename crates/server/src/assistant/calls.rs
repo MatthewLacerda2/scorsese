@@ -177,7 +177,7 @@ async fn held(
         Err(error) => {
             // Unknowable whether a quote was issued, so nothing of the reply
             // may reach the model: it could carry a token.
-            eprintln!("scorsese-server: assistant: reading a quote: {error}");
+            tracing::error!("assistant: reading a quote: {error}");
             return (UNHELD.into(), false);
         }
     };
@@ -203,12 +203,12 @@ async fn held(
         // A second quote in one reply takes the first one's place.
         Ok(Some(earlier)) => {
             if let Err(error) = state.tools.withdraw_quote(user, &earlier).await {
-                eprintln!("scorsese-server: assistant: withdrawing a quote: {error}");
+                tracing::error!("assistant: withdrawing a quote: {error}");
             }
         }
         Ok(None) => {}
         Err(error) => {
-            eprintln!("scorsese-server: assistant: holding a quote: {error}");
+            tracing::error!("assistant: holding a quote: {error}");
             return (UNHELD.into(), false);
         }
     }

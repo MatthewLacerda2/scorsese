@@ -10,7 +10,10 @@ where
     T: Send + 'static,
     F: FnOnce() -> T + Send + 'static,
 {
-    tokio::task::spawn_blocking(work)
+    // The caller's span (its job's) goes with the work, so a line it logs
+    // names the job.
+    let span = tracing::Span::current();
+    tokio::task::spawn_blocking(move || span.in_scope(work))
         .await
         .map_err(|_| crashed.to_owned())
 }

@@ -205,10 +205,7 @@ async fn document(state: &AppState, user: UserId, item: &Item) -> (String, Optio
             None,
         ),
         Err(error) => {
-            eprintln!(
-                "scorsese-server: assistant: reading document {}: {error}",
-                item.id
-            );
+            tracing::error!("assistant: reading document {}: {error}", item.id);
             (
                 format!(
                     "{} “{}” — a document that could not be read to show you",
@@ -245,10 +242,7 @@ async fn picture(state: &AppState, user: UserId, item: &Item) -> (String, Option
             Some(image),
         ),
         Err(why) => {
-            eprintln!(
-                "scorsese-server: assistant: showing picture {}: {why}",
-                item.id
-            );
+            tracing::warn!("assistant: showing picture {}: {why}", item.id);
             (
                 format!(
                     "{} “{}” — a picture that could not be prepared to show you",

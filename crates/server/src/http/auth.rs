@@ -87,6 +87,7 @@ impl FromRequestParts<AppState> for Member {
 
     async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, ApiError> {
         let member = authenticate(parts, state).await?;
+        crate::logs::signed_in(member.user);
         let Visitor(address) = Visitor::of(parts);
         state.daily.note(&state.pool, member.user, address).await;
         Ok(member)

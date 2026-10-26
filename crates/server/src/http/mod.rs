@@ -179,7 +179,17 @@ pub fn router(state: AppState) -> Router {
         .fold(Router::new(), |api, route| {
             api.route(route.path, route.handler)
         });
-    Router::new().nest("/api", api).with_state(state)
+    let logged = tower_http::trace::TraceLayer::new_for_http()
+        .make_span_with(crate::logs::request)
+        .on_request(())
+        .on_response(crate::logs::answered)
+        .on_body_chunk(())
+        .on_eos(())
+        .on_failure(());
+    Router::new()
+        .nest("/api", api)
+        .layer(logged)
+        .with_state(state)
 }
 
 /// Whether this server can do its job right now: `200 ok` or `503`.

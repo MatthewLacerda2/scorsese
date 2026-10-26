@@ -93,7 +93,7 @@ impl From<LibraryError> for ApiError {
             }
             LibraryError::Invalid(_) => Self::BadRequest(error.to_string()),
             LibraryError::Io(_) | LibraryError::Tools(_) | LibraryError::Database(_) => {
-                eprintln!("scorsese-server: {error}");
+                tracing::error!("{error}");
                 Self::Internal
             }
         }
@@ -110,7 +110,7 @@ impl From<AccountError> for ApiError {
             | AccountError::SubTaken(_)
             | AccountError::UnnamedToken => Self::BadRequest(error.to_string()),
             AccountError::Crypto(_) | AccountError::Files { .. } | AccountError::Database(_) => {
-                eprintln!("scorsese-server: {error}");
+                tracing::error!("{error}");
                 Self::Internal
             }
         }
@@ -119,7 +119,7 @@ impl From<AccountError> for ApiError {
 
 impl From<sqlx::Error> for ApiError {
     fn from(error: sqlx::Error) -> Self {
-        eprintln!("scorsese-server: {error}");
+        tracing::error!("{error}");
         Self::Internal
     }
 }
@@ -135,7 +135,7 @@ impl From<ProjectError> for ApiError {
             ProjectError::Unreadable { .. }
             | ProjectError::Migrate { .. }
             | ProjectError::Database(_) => {
-                eprintln!("scorsese-server: {error}");
+                tracing::error!("{error}");
                 Self::Internal
             }
         }

@@ -172,7 +172,7 @@ fn probe(
         other => {
             // The prober's own words name the server's paths; they are
             // for the log, not for the person uploading.
-            eprintln!("scorsese-server: refusing an upload: {other}");
+            tracing::warn!("refusing an upload: {other}");
             LibraryError::Rejected(format!(
                 "this could not be read as {}; is it damaged, or not really a {} file?",
                 article(kind),

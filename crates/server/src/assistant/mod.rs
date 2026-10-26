@@ -310,7 +310,7 @@ impl Assistant {
                     Ok(key) => Ok(chat::client(model.vendor(), &key.secret)),
                     // Where it looked names the server's own paths: the log's.
                     Err(error) => {
-                        eprintln!("scorsese-server: assistant: {error}");
+                        tracing::error!("assistant: {error}");
                         Err(AssistantError::NotConfigured(format!(
                             "{} is not set, so {} cannot answer",
                             provider.variable(),

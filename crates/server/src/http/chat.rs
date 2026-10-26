@@ -236,7 +236,7 @@ impl From<AssistantError> for ApiError {
             AssistantError::NotFound => Self::NotFound,
             AssistantError::Invalid(why) => Self::BadRequest(why.clone()),
             AssistantError::Database(_) | AssistantError::Internal(_) => {
-                eprintln!("scorsese-server: assistant: {error}");
+                tracing::error!("assistant: {error}");
                 Self::Internal
             }
         }

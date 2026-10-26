@@ -94,9 +94,10 @@ pub async fn webhook(
     };
     let settled = settle::settle(&state.pool, session).await?;
     if settled == Settled::Unknown {
-        eprintln!(
-            "scorsese-server: Stripe event {} names session {}, which is no payment here",
-            event.id, session.id
+        tracing::warn!(
+            "Stripe event {} names session {}, which is no payment here",
+            event.id,
+            session.id
         );
     }
     Ok(Json(json!({ "received": event.kind })))
@@ -127,11 +128,11 @@ impl From<PaymentError> for ApiError {
             PaymentError::OutOfRange => Self::BadRequest(error.to_string()),
             PaymentError::NotFound => Self::NotFound,
             PaymentError::NoRate(why) => {
-                eprintln!("scorsese-server: no rate for a purchase: {why}");
+                tracing::warn!("no rate for a purchase: {why}");
                 refused(StatusCode::SERVICE_UNAVAILABLE)
             }
             PaymentError::StaleRate => {
-                eprintln!("scorsese-server: a purchase was refused: {error}");
+                tracing::warn!("a purchase was refused: {error}");
                 refused(StatusCode::SERVICE_UNAVAILABLE)
             }
             PaymentError::RateMoved(quote) => Self::Refused {
@@ -140,11 +141,11 @@ impl From<PaymentError> for ApiError {
                 detail: json!({ "quote": quote }),
             },
             PaymentError::Stripe(_) | PaymentError::NoPage(_) => {
-                eprintln!("scorsese-server: {error}");
+                tracing::warn!("{error}");
                 refused(StatusCode::BAD_GATEWAY)
             }
             PaymentError::Interrupted | PaymentError::Credit(_) | PaymentError::Database(_) => {
-                eprintln!("scorsese-server: a payment failed: {error}");
+                tracing::error!("a payment failed: {error}");
                 Self::Internal
             }
         }

@@ -13,6 +13,7 @@ use tokio::net::TcpListener;
 
 pub(crate) mod capturing;
 mod client;
+pub(crate) mod logged;
 #[path = "../../../../tools/scratch.rs"]
 pub(crate) mod scratch;
 mod teardown;

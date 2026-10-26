@@ -57,7 +57,7 @@ impl From<CreditError> for ApiError {
         match error {
             CreditError::Database(error) => error.into(),
             CreditError::Unpriced(_) => {
-                eprintln!("scorsese-server: {error}");
+                tracing::error!("{error}");
                 Self::Internal
             }
             CreditError::Insufficient { .. }

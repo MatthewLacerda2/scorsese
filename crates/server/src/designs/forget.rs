@@ -80,7 +80,7 @@ pub async fn everything(
     let mut left = Vec::new();
     for voice in voices {
         if let Err(why) = at_vendor(vendors, &voice).await {
-            eprintln!("scorsese-server: forgetting voice {voice}: {why}");
+            tracing::error!("forgetting voice {voice}: {why}");
             left.push(format!("{voice}: {why}"));
         }
     }

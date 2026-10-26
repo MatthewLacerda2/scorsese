@@ -68,7 +68,7 @@ pub async fn events(
     let header = |name: &str| headers.get(name).and_then(|value| value.to_str().ok());
     let place = Place::new(header(COUNTRY_HEADER), header(REGION_HEADER));
     if let Err(error) = ab::record(&state.pool, &batch, &place).await {
-        eprintln!("scorsese-server: could not record landing events: {error}");
+        tracing::error!("could not record landing events: {error}");
     }
     StatusCode::NO_CONTENT
 }

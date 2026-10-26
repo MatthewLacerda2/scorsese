@@ -52,6 +52,11 @@ pub const RENDER_QUOTA: &str = "SCORSESE_RENDER_QUOTA";
 /// The render cache's quota when [`RENDER_QUOTA`] is not set.
 pub const DEFAULT_RENDER_QUOTA: &str = "20GB";
 
+/// What the server's log lets through, as `info,scorsese_server=debug`
+/// does; `info` when unset ([`crate::logs`]). Read before the rest, so a
+/// configuration the server refuses is logged.
+pub const LOG_FILTER: &str = "RUST_LOG";
+
 /// The address the HTTP server listens on, e.g. `0.0.0.0:8080` in a container.
 pub const BIND: &str = "SCORSESE_BIND";
 
