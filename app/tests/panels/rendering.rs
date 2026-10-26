@@ -1,4 +1,4 @@
-//! The render popup, part way through.
+//! The render popup, part way through, and the dialog that opens before it.
 
 use scorsese_render::{Phase, Reading};
 
@@ -34,7 +34,7 @@ fn the_render_popup_part_way_through() {
 }
 
 /// The render dialog as it opens: the kind of file, the size, the frame rate and
-/// where the soundtrack is headed, each at the default pressing Render takes.
+/// where the soundtrack is headed (the menus in the order drawn), each at the default pressing Render takes.
 #[test]
 fn the_render_dialog() {
     let project = fixture::project("rendering");

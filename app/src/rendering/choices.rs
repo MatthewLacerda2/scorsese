@@ -115,40 +115,43 @@ impl Choices {
                         }
                     });
                 ui.end_row();
+                // A sound-only file has no picture for a size or a rate to
+                // describe, so neither is offered rather than both ignored.
+                if !self.container.is_sound_only() {
+                    ui.label("Size");
+                    ComboBox::from_id_salt("render size")
+                        .selected_text(
+                            SIZES
+                                .get(self.size)
+                                .map_or_else(String::new, |size| label(*size, aspect)),
+                        )
+                        .show_ui(ui, |ui| {
+                            for (index, size) in SIZES.iter().enumerate() {
+                                ui.selectable_value(&mut self.size, index, label(*size, aspect));
+                            }
+                        });
+                    ui.end_row();
+                    ui.label("Frame rate");
+                    ComboBox::from_id_salt("render rate")
+                        .selected_text(rate(self.rate, own))
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut self.rate, None, rate(None, own));
+                            for fps in RATES {
+                                ui.selectable_value(
+                                    &mut self.rate,
+                                    Some(fps),
+                                    rate(Some(fps), own),
+                                );
+                            }
+                        });
+                    ui.end_row();
+                }
                 ui.label("Loudness");
                 ComboBox::from_id_salt("render loudness")
                     .selected_text(self.loudness.words())
                     .show_ui(ui, |ui| {
                         for each in Loudness::ALL {
                             ui.selectable_value(&mut self.loudness, each, each.words());
-                        }
-                    });
-                ui.end_row();
-                // A sound-only file has no picture for a size or a rate to
-                // describe, so neither is offered rather than both ignored.
-                if self.container.is_sound_only() {
-                    return;
-                }
-                ui.label("Size");
-                ComboBox::from_id_salt("render size")
-                    .selected_text(
-                        SIZES
-                            .get(self.size)
-                            .map_or_else(String::new, |size| label(*size, aspect)),
-                    )
-                    .show_ui(ui, |ui| {
-                        for (index, size) in SIZES.iter().enumerate() {
-                            ui.selectable_value(&mut self.size, index, label(*size, aspect));
-                        }
-                    });
-                ui.end_row();
-                ui.label("Frame rate");
-                ComboBox::from_id_salt("render rate")
-                    .selected_text(rate(self.rate, own))
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.rate, None, rate(None, own));
-                        for fps in RATES {
-                            ui.selectable_value(&mut self.rate, Some(fps), rate(Some(fps), own));
                         }
                     });
                 ui.end_row();
