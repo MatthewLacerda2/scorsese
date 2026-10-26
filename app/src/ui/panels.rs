@@ -4,21 +4,16 @@ use egui::{CentralPanel, Frame, Margin, Panel, RichText, ScrollArea, Ui};
 
 use super::Scorsese;
 use super::{empty, status};
+use crate::theme::buttons::{self, Look};
+use crate::theme::icons::Icon;
 use crate::theme::{marks, palette};
 
 /// How tall the timeline strip opens when there is no project to size it to.
 const EMPTY_TIMELINE_HEIGHT: f32 = 140.0;
 /// How wide the inspector and files column opens.
 const SIDE_WIDTH: f32 = 296.0;
-/// How much of the side column the files list keeps when the inspector is
-/// taller than the column: its heading and a few rows, enough to see what is in
-/// the pool and to scroll through the rest.
-///
-/// A floor for the list rather than a share for the inspector, because the
-/// inspector is the panel being worked in — it gets everything the list can
-/// spare, and a short window is what takes room from both. See [`side`] for why
-/// the column is two scroll areas and not one.
-const FILES_ROOM: f32 = 140.0;
+/// A side panel's padding: the web's `p-3`.
+const PANEL: Margin = Margin::same(12);
 
 /// The bar along the top: the wordmark, what is open, and what may be done to
 /// it that is not an edit.
@@ -29,46 +24,50 @@ const FILES_ROOM: f32 = 140.0;
 /// strongest text the window has, and nothing else.
 pub(super) fn menu(ui: &mut Ui, window: &mut Scorsese) {
     Panel::top("menu")
-        .frame(chrome(ui, Margin::symmetric(12, 5)))
+        .frame(chrome(ui, Margin::symmetric(16, 8)))
         .show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.label(RichText::new("scorsese").heading());
-                ui.add_space(4.0);
-                if ui.button("Open…").clicked() {
-                    window.pick();
-                }
-                opened(ui, window);
-                // Said here rather than over the picture: an outside edit is
-                // ordinary in this workflow, not an interruption, and the bar is
-                // where a window says what it is showing.
-                if let Some(note) = window.disk().note() {
-                    ui.add_space(6.0);
-                    let text = RichText::new(note.text).small();
-                    ui.label(if note.trouble {
-                        text.color(palette::of(ui.ctx()).destructive)
-                    } else {
-                        text.weak()
-                    });
-                }
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    appearance(ui, window);
+            // The actions are laid from the right edge inwards, so that the
+            // name, on the left, truncates into whatever they leave.
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                appearance(ui, window);
+                actions(ui, window);
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                    ui.label(RichText::new("scorsese").heading());
+                    ui.add_space(4.0);
+                    if buttons::small(ui, true, Look::Outline, Some(Icon::Folder), "Open…")
+                        .clicked()
+                    {
+                        window.pick();
+                    }
+                    name(ui, window);
+                    // Said here rather than over the picture: an outside edit
+                    // is ordinary in this workflow, not an interruption, and the
+                    // bar is where a window says what it is showing.
+                    if let Some(note) = window.disk().note() {
+                        ui.add_space(6.0);
+                        let text = RichText::new(note.text).small();
+                        ui.label(if note.trouble {
+                            text.color(palette::of(ui.ctx()).destructive)
+                        } else {
+                            text.weak()
+                        });
+                    }
                 });
             });
         });
 }
 
-/// Everything on the bar that needs a project to be about.
-fn opened(ui: &mut Ui, window: &mut Scorsese) {
+/// What is open, semibold and truncating, as the web's header sets it.
+fn name(ui: &mut Ui, window: &Scorsese) {
     let Some(open) = window.project() else {
         return;
     };
-    let read_only = open.read_only();
     ui.add_space(4.0);
     ui.add(egui::Label::new(RichText::new(open.directory()).heading()).truncate());
     // Beside the project's name rather than only over the picture, because
     // "why does nothing I click do anything" is a question asked at the top of
     // the window.
-    if read_only {
+    if open.read_only() {
         ui.label(
             RichText::new("READ-ONLY")
                 .small()
@@ -81,21 +80,35 @@ fn opened(ui: &mut Ui, window: &mut Scorsese) {
              What is wrong is listed in the centre.",
         );
     }
-    ui.add_space(4.0);
-    // On the bar rather than behind a menu, because the number it leads to is
-    // one somebody checks before spending — and a shot still generating is
-    // worth seeing without opening anything.
-    //
-    // Disabled rather than hidden on a read-only project: GO writes assets and
-    // saves the document, and a button that vanishes reads as a build that
-    // never had it.
-    if ui
-        .add_enabled(!read_only, egui::Button::new("Generate…"))
-        .on_hover_text("What the unmade shots would cost, and the button that pays for them")
-        .on_disabled_hover_text("Not while this project does not validate")
-        .clicked()
+}
+
+/// Everything on the bar that needs a project to be about, laid right to left:
+/// Render, the frame's shape, Generate and what is generating.
+fn actions(ui: &mut Ui, window: &mut Scorsese) {
+    let Some(open) = window.project() else {
+        return;
+    };
+    let read_only = open.read_only();
+    // Beside Generate, and disabled on a read-only project for the same
+    // reason: the renderer takes a document that validates, and a broken one
+    // would only fail after the save dialog had been answered.
+    let busy = window.rendering_busy();
+    if buttons::small(
+        ui,
+        !read_only && !busy,
+        Look::Outline,
+        Some(Icon::Film),
+        "Render…",
+    )
+    .on_hover_text("Make a video file of the whole edit")
+    .on_disabled_hover_text(if busy {
+        "Already rendering"
+    } else {
+        "Not while this project does not validate"
+    })
+    .clicked()
     {
-        window.start_generating();
+        window.start_rendering();
     }
     // The frame's shape, before Render as on the web's header: it is the
     // shape every render is delivered in. Disabled on a read-only project, as
@@ -103,21 +116,25 @@ fn opened(ui: &mut Ui, window: &mut Scorsese) {
     if let Some((framing, open)) = window.framing() {
         framing.show(ui, open, !read_only);
     }
-    // Beside Generate, and disabled on a read-only project for the same
-    // reason: the renderer takes a document that validates, and a broken one
-    // would only fail after the save dialog had been answered.
-    let busy = window.rendering_busy();
-    if ui
-        .add_enabled(!read_only && !busy, egui::Button::new("Render…"))
-        .on_hover_text("Make a video file of the whole edit")
-        .on_disabled_hover_text(if busy {
-            "Already rendering"
-        } else {
-            "Not while this project does not validate"
-        })
-        .clicked()
+    // On the bar rather than behind a menu, because the number it leads to is
+    // one somebody checks before spending — and a shot still generating is
+    // worth seeing without opening anything.
+    //
+    // Disabled rather than hidden on a read-only project: GO writes assets and
+    // saves the document, and a button that vanishes reads as a build that
+    // never had it.
+    if buttons::small(
+        ui,
+        !read_only,
+        Look::Outline,
+        Some(Icon::Sparkle),
+        "Generate…",
+    )
+    .on_hover_text("What the unmade shots would cost, and the button that pays for them")
+    .on_disabled_hover_text("Not while this project does not validate")
+    .clicked()
     {
-        window.start_rendering();
+        window.start_generating();
     }
     let generating = window.generating_count();
     if generating > 0 {
@@ -168,9 +185,10 @@ pub(super) fn timeline(ui: &mut Ui, window: &mut Scorsese) {
         });
 }
 
-/// The inspector and project files, stacked down the right-hand edge.
-pub(super) fn side(ui: &mut Ui, window: &mut Scorsese) {
-    Panel::right("side")
+/// The inspector, down the left-hand edge: where the web puts the chat over
+/// the selected clip's fields, minus the chat, which is web-only.
+pub(super) fn inspector(ui: &mut Ui, window: &mut Scorsese) {
+    Panel::left("inspector")
         .default_size(SIDE_WIDTH)
         // A floor and not only a starting width. `Panel` sizes itself to its
         // content unless the content takes the available space, and none of
@@ -178,27 +196,12 @@ pub(super) fn side(ui: &mut Ui, window: &mut Scorsese) {
         // longest sentence, which on an empty inspector is narrow enough to
         // wrap *"select a clip to see what it is"* onto two lines.
         .min_size(SIDE_WIDTH)
-        .frame(chrome(ui, Margin::symmetric(10, 6)))
+        .frame(chrome(ui, PANEL))
         .show(ui, |ui| {
             let read_only = window.read_only();
-            // Its own scroll, leaving the files their room (#681). Before, a
-            // generated shot's brief simply ran under the timeline, and its
-            // last fields could not be reached at all.
-            //
-            // Two scroll areas rather than the column as one, because the two
-            // halves are used at once: a person editing a brief and reaching
-            // for the asset it should start from wants both on screen, and one
-            // long scroll would carry the fields away to reach the list — and
-            // at the usual window size would put the list below the fold, where
-            // nobody knows it exists. Shrunk to its content, so a short
-            // inspector leaves the files the rest. Never less than half the
-            // column, so a window too short for both still favours the edit.
-            let column = ui.available_height();
-            let most = (column - FILES_ROOM).max(column / 2.0);
             ScrollArea::vertical()
                 .id_salt("inspector")
-                .max_height(most)
-                .auto_shrink([false, true])
+                .auto_shrink([false, false])
                 .show(ui, |ui| {
                     // The inspector is the one panel that changes the document,
                     // so it is the one that most needs to be legible and inert
@@ -206,16 +209,10 @@ pub(super) fn side(ui: &mut Ui, window: &mut Scorsese) {
                     // clip's numbers here and edits them in a text editor.
                     match window.inspector() {
                         Some((inspector, open, editing)) => {
-                            // Scoped, so the files panel below stays live:
-                            // listing the pool and highlighting an asset are
-                            // reads, and taking them away would be protecting
-                            // the document from being looked at.
-                            ui.scope(|ui| {
-                                if read_only {
-                                    ui.disable();
-                                }
-                                inspector.show(ui, open, editing);
-                            });
+                            if read_only {
+                                ui.disable();
+                            }
+                            inspector.show(ui, open, editing);
                         }
                         None => {
                             marks::section(ui, "Inspector");
@@ -223,8 +220,19 @@ pub(super) fn side(ui: &mut Ui, window: &mut Scorsese) {
                         }
                     }
                 });
-            ui.add_space(10.0);
+        });
+}
 
+/// The project's files, down the right-hand edge.
+///
+/// Declared after the timeline, which therefore runs under it as it does on the
+/// web.
+pub(super) fn files(ui: &mut Ui, window: &mut Scorsese) {
+    Panel::right("files")
+        .default_size(SIDE_WIDTH)
+        .min_size(SIDE_WIDTH)
+        .frame(chrome(ui, PANEL))
+        .show(ui, |ui| {
             let Some((files, open, editing)) = window.files() else {
                 marks::section(ui, "Project files");
                 empty::placeholder(ui, "the assets appear here");
@@ -238,7 +246,15 @@ pub(super) fn side(ui: &mut Ui, window: &mut Scorsese) {
 /// has to be said instead.
 pub(super) fn centre(ui: &mut Ui, window: &mut Scorsese) {
     CentralPanel::default()
-        .frame(Frame::NONE.fill(palette::of(ui.ctx()).background))
+        .frame(
+            Frame::NONE
+                .fill(palette::of(ui.ctx()).background)
+                // The web's `px-3 pt-3` round the picture.
+                .inner_margin(Margin {
+                    top: 12,
+                    ..Margin::symmetric(12, 0)
+                }),
+        )
         .show(ui, |ui| {
             if let Some(refused) = window.problem() {
                 empty::refusal(ui, refused);
@@ -287,8 +303,7 @@ fn appearance(ui: &mut Ui, window: &mut Scorsese) {
         egui::Theme::Dark => "Light mode",
         egui::Theme::Light => "Dark mode",
     };
-    if ui
-        .button(label)
+    if buttons::small(ui, true, Look::Outline, None, label)
         .on_hover_text("Remembered on this machine. Until you choose, the window is light.")
         .clicked()
     {

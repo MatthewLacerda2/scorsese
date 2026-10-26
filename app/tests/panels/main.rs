@@ -108,7 +108,7 @@ fn a_clip_selected() {
     let mut harness = window(Some(project.path().to_path_buf()));
     harness.state_mut().select("c-title");
     harness.run();
-    harness.snapshot(Part::Side, "a_clip_selected");
+    harness.snapshot(Part::Inspector, "a_clip_selected");
 }
 
 /// Several clips selected, on two tracks: every one of them outlined in the
@@ -125,7 +125,7 @@ fn several_clips_selected() {
     // Two pictures, because the claim is about two panels: a crop around both
     // would be the bounding box of an L, which is most of the window.
     harness.snapshot(Part::Timeline, "several_clips_selected_in_the_timeline");
-    harness.snapshot(Part::Side, "several_clips_selected_in_the_inspector");
+    harness.snapshot(Part::Inspector, "several_clips_selected_in_the_inspector");
 }
 
 /// A scale in flight: the clips drawn where the pointer has put them, and the
@@ -221,17 +221,15 @@ fn a_generated_shot_selected() {
     let mut harness = window(Some(project.path().to_path_buf()));
     harness.state_mut().select("c-shot");
     harness.run();
-    harness.snapshot(Part::Side, "a_generated_shot_selected");
+    harness.snapshot(Part::Inspector, "a_generated_shot_selected");
 }
 
 /// The same shot in a window too short for its brief: the inspector scrolls
-/// rather than running under the timeline, and the side column ends where the
+/// rather than running under the timeline, and its column ends where the
 /// window does (#681).
 ///
 /// At 800 points the brief only just fitted, which is why nobody saw that the
-/// inspector had no scroll at all. 500 is short enough that the files list's
-/// room would be more than half the column, so this is also the picture of the
-/// inspector keeping its half. Scrolled to the bottom, so the picture shows the
+/// inspector had no scroll at all. Scrolled to the bottom, so the picture shows the
 /// last field reached rather than the first ones repeated.
 #[test]
 fn a_generated_shot_selected_in_a_short_window() {
@@ -242,7 +240,7 @@ fn a_generated_shot_selected_in_a_short_window() {
     );
     harness.state_mut().select("c-shot");
     harness.run();
-    harness.hover_at(egui::pos2(1100.0, 120.0));
+    harness.hover_at(egui::pos2(150.0, 120.0));
     harness.event(egui::Event::MouseWheel {
         unit: egui::MouseWheelUnit::Point,
         delta: egui::vec2(0.0, -2000.0),
@@ -251,7 +249,10 @@ fn a_generated_shot_selected_in_a_short_window() {
     });
     // A wheel scroll is animated, so it takes frames rather than one run.
     harness.run_steps(60);
-    harness.snapshot(Part::Side, "a_generated_shot_selected_in_a_short_window");
+    harness.snapshot(
+        Part::Inspector,
+        "a_generated_shot_selected_in_a_short_window",
+    );
 }
 
 /// A generated line selected: the words, what they will cost to speak, and the
@@ -268,5 +269,5 @@ fn a_narration_line_selected() {
     let mut harness = window(Some(project.path().to_path_buf()));
     harness.state_mut().select("c-vo");
     harness.run();
-    harness.snapshot(Part::Side, "a_narration_line_selected");
+    harness.snapshot(Part::Inspector, "a_narration_line_selected");
 }

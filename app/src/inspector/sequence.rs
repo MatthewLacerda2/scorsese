@@ -6,10 +6,11 @@
 //! `scorsese sequence set` — so the panel says how many there are and leaves
 //! the list alone.
 
-use egui::{Checkbox, DragValue, Grid, RichText, Ui};
+use egui::{Checkbox, Grid, RichText, Ui};
 use scorsese_core::{AssetKind, Frames, ImageSequence};
 
 use super::Inspector;
+use super::number;
 use super::selected::Selected;
 use crate::project::Open;
 
@@ -32,32 +33,34 @@ impl Inspector {
         ui.label(crate::theme::marks::subheading("Sequence"));
         ui.label(RichText::new(sequence.to_string()).weak().small());
         let mut change: Option<(&str, ImageSequence)> = None;
-        Grid::new("sequence").num_columns(2).show(ui, |ui| {
-            ui.label("Hold");
-            let mut hold = sequence.hold.get();
-            if ui
-                .add(DragValue::new(&mut hold).range(1..=600).suffix(" f"))
-                .on_hover_text("How many frames each still stays on screen")
-                .changed()
-            {
-                let mut held = sequence.clone();
-                held.hold = Frames(hold);
-                change = Some(("hold", held));
-            }
-            ui.end_row();
-            ui.label("Loop");
-            let mut looping = sequence.looping;
-            if ui
-                .add(Checkbox::without_text(&mut looping))
-                .on_hover_text("Start again from the first still, instead of holding the last")
-                .changed()
-            {
-                let mut looped = sequence.clone();
-                looped.looping = looping;
-                change = Some(("loop", looped));
-            }
-            ui.end_row();
-        });
+        Grid::new("sequence")
+            .num_columns(2)
+            .min_col_width(number::LABELS)
+            .show(ui, |ui| {
+                ui.label("Hold");
+                let mut hold = sequence.hold.get();
+                if number::field(ui, &mut hold, "", "f", |drag| drag.range(1..=600))
+                    .on_hover_text("How many frames each still stays on screen")
+                    .changed()
+                {
+                    let mut held = sequence.clone();
+                    held.hold = Frames(hold);
+                    change = Some(("hold", held));
+                }
+                ui.end_row();
+                ui.label("Loop");
+                let mut looping = sequence.looping;
+                if ui
+                    .add(Checkbox::without_text(&mut looping))
+                    .on_hover_text("Start again from the first still, instead of holding the last")
+                    .changed()
+                {
+                    let mut looped = sequence.clone();
+                    looped.looping = looping;
+                    change = Some(("loop", looped));
+                }
+                ui.end_row();
+            });
         if let Some((what, sequence)) = change {
             let asset = selected.asset.clone();
             self.attempt_brief(open, selected, &asset, what, move |asset| {

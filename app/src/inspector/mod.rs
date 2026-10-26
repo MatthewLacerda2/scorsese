@@ -33,6 +33,7 @@ mod controls;
 mod edit;
 #[cfg(test)]
 mod fixture;
+mod number;
 mod one;
 mod selected;
 mod sequence;

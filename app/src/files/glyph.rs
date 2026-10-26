@@ -1,14 +1,13 @@
 //! What a tile shows when its asset has no picture to take: a drawing of what
-//! kind of thing it is, in the same colour its clips are on the timeline.
+//! kind of thing it is, in the muted ink the web draws it in.
 
 use egui::{Align2, Color32, Painter, Rect, Stroke, StrokeKind, TextStyle, Ui, pos2, vec2};
 use scorsese_core::AssetKind;
 
-use crate::theme::{ROUND_SM, palette};
+use crate::theme::ROUND_SM;
 
 /// Draws the glyph for `kind` centred in `area`.
-pub(super) fn draw(ui: &Ui, painter: &Painter, area: Rect, kind: AssetKind) {
-    let hue = palette::of_kind(kind);
+pub(super) fn draw(ui: &Ui, painter: &Painter, area: Rect, kind: AssetKind, hue: Color32) {
     let centre = area.center();
     let unit = area.height() * 0.22;
     let stroke = Stroke::new(2.0, hue);

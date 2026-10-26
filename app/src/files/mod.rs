@@ -45,7 +45,7 @@ use crate::theme::{marks, palette};
 use thumbs::Thumbs;
 use tile::Face;
 
-/// How many tiles sit across the side column, as the web's sidebar's two.
+/// How many tiles sit across the files column, as the web's sidebar's two.
 const ACROSS: usize = 2;
 /// The gap between tiles.
 const GAP: f32 = 6.0;
@@ -115,7 +115,7 @@ impl Files {
         self.thumbs.poll(ui.ctx());
         // No floor under its height. egui's default makes a scroll area at
         // least 64 points tall whatever room is left, and in a short window
-        // that floor pushed the side column past the bottom of the window
+        // that floor pushed the column past the bottom of the window
         // (#681): a list that shrinks to a sliver is still reachable by
         // scrolling, and a column drawn off-screen is not.
         ScrollArea::vertical()
@@ -168,7 +168,9 @@ impl Files {
         let room = ui.available_width() - ui.spacing().scroll.allocated_width();
         let width = (room - GAP * (ACROSS as f32 - 1.0)) / ACROSS as f32;
         for chunk in entries.chunks(ACROSS) {
-            ui.horizontal(|ui| {
+            // From the top, because a tile that says its state is taller than
+            // one that does not, and centring them would stagger the row.
+            ui.horizontal_top(|ui| {
                 ui.spacing_mut().item_spacing.x = GAP;
                 for entry in chunk {
                     tile(thumbs, unfolded, ui, width, open, editing, entry);

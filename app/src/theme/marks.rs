@@ -123,12 +123,6 @@ pub(crate) fn hatch(painter: &Painter, rect: Rect, colour: Color32, spacing: f32
     }
 }
 
-/// The face for small figures that annotate a drawing: a ruler's tick label, a
-/// tag. Monospaced so that digits line up along the ruler.
-pub(crate) fn figure_font() -> FontId {
-    FontId::monospace(9.5)
-}
-
 /// The size of a notice standing in for a picture that is not there.
 pub(crate) const NOTICE_SIZE: f32 = 13.0;
 
@@ -137,23 +131,23 @@ pub(crate) fn caption_font() -> FontId {
     FontId::proportional(10.0)
 }
 
-/// A small tag: a word or two in a tinted box, for a thing's kind or its state.
-///
-/// Returns how wide it was, so a caller laying things out along a row can put
-/// the next one after it.
-pub(crate) fn tag(painter: &Painter, at: Pos2, label: &str, colour: Color32) -> f32 {
-    let font = figure_font();
-    let text = painter.layout_no_wrap(label.to_owned(), font, colour);
-    let box_size = vec2(text.rect.width() + 8.0, text.rect.height() + 3.0);
-    let rect = Rect::from_min_size(at, box_size);
-    let ground = palette::of(painter.ctx()).background;
-    painter.rect_filled(rect, ROUND_SM, palette::over(colour, ground, 0.18));
-    painter.galley(
-        rect.center() - text.rect.size() / 2.0,
-        text,
-        Color32::PLACEHOLDER,
-    );
-    box_size.x
+/// The web's `text-[11px]`: the line of state under a tile's name.
+pub(crate) fn state_font() -> FontId {
+    FontId::proportional(11.0)
+}
+
+/// Takes the outline and the fill off the controls drawn in `ui`, for one that
+/// sits inside a box of its own.
+pub(crate) fn frameless(ui: &mut Ui) {
+    let widgets = &mut ui.visuals_mut().widgets;
+    for state in [
+        &mut widgets.inactive,
+        &mut widgets.hovered,
+        &mut widgets.active,
+    ] {
+        state.bg_stroke = Stroke::NONE;
+        state.weak_bg_fill = Color32::TRANSPARENT;
+    }
 }
 
 /// A line of text on a plate of its own, hung from its top-right corner.

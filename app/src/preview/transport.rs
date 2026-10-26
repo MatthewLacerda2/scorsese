@@ -1,4 +1,5 @@
-//! The transport: a scrub bar, and the five ways to move the playhead.
+//! The transport: the five ways to move the playhead, a scrub bar, the clock
+//! and the quality picker, in one row.
 //!
 //! Jump to start, back one frame, play or pause, forward one frame, jump to
 //! end. Nothing invented — this is the row of buttons under every preview
@@ -18,13 +19,16 @@
 
 use egui::{Align, Layout, Rect, RichText, Sense, Stroke, Ui, pos2, vec2};
 use scorsese_core::{Fps, Frames};
+use scorsese_render::Quality;
 
+use crate::theme::buttons::{self, Look};
+use crate::theme::icons::Icon;
 use crate::theme::{marks, palette};
 use crate::timeline::timecode;
 
 /// How tall the scrub bar's strip is, and how far the knob may travel from the
 /// ends of it.
-const BAR: f32 = 18.0;
+const BAR: f32 = 32.0;
 /// The knob's radius.
 const KNOB: f32 = 5.0;
 /// How thick the rail is.
@@ -45,6 +49,8 @@ pub(super) enum Command {
     /// like the others and decides nothing: what "keep it" means is
     /// [`super::save`]'s.
     Keep,
+    /// The preview's quality, chosen from the picker.
+    Quality(Quality),
 }
 
 /// The last frame anything is on, which is what "the end" means to a transport.
@@ -56,16 +62,63 @@ pub(super) fn last_frame(length: Frames) -> Frames {
     Frames(length.get().saturating_sub(1))
 }
 
-/// Draws the transport and says what was asked of it.
+/// Draws the transport and says what was asked of it: the web's one row, as
+/// `Preview.tsx` sets it — the five icon buttons, the scrub bar, the clock, the
+/// quality picker, and Save frame as a ghost button at the end.
 pub(super) fn show(
     ui: &mut Ui,
     fps: Fps,
     at: Frames,
     last: Frames,
+    quality: Quality,
+    playing: bool,
     silent: Option<&str>,
 ) -> Option<Command> {
-    let scrubbed = scrubber(ui, at, last).map(Command::Seek);
-    let pressed = buttons(ui, fps, at, last);
+    let mut command = None;
+    let mut scrubbed = None;
+    ui.horizontal(|ui| {
+        for (icon, hint, what) in [
+            (Icon::Start, "To the start", Command::Seek(Frames::ZERO)),
+            (Icon::StepBack, "Back one frame", Command::Seek(back(at))),
+            (
+                if playing { Icon::Pause } else { Icon::Play },
+                "Play or pause",
+                Command::Toggle,
+            ),
+            (
+                Icon::StepForward,
+                "Forward one frame",
+                Command::Seek(forward(at, last)),
+            ),
+            (Icon::End, "To the end", Command::Seek(last)),
+        ] {
+            // Play is the web's primary button; the rest are ghost.
+            let look = if what == Command::Toggle {
+                Look::Primary
+            } else {
+                Look::Ghost
+            };
+            if buttons::icon(ui, look, icon, hint).clicked() {
+                command = Some(what);
+            }
+        }
+        // Added in this order because the layout is right-to-left: the bar
+        // takes whatever the four things at the end leave it.
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            // Words rather than a camera glyph, for the reason in `marks`.
+            if buttons::small(ui, true, Look::Ghost, None, "Save frame")
+                .on_hover_text("Write this frame out as a PNG, at delivery resolution")
+                .clicked()
+            {
+                command = Some(Command::Keep);
+            }
+            if let Some(chosen) = super::quality::picker(ui, quality) {
+                command = Some(Command::Quality(chosen));
+            }
+            ui.label(marks::figure_dim(timecode(at, fps)).color(palette::of(ui.ctx()).foreground));
+            scrubbed = scrubber(ui, at, last).map(Command::Seek);
+        });
+    });
     // Said quietly, under the transport, because it is not an error — the film
     // still plays. But a preview that is silent for a reason should give the
     // reason, or the reason someone reaches for is "the sound is broken".
@@ -75,7 +128,7 @@ pub(super) fn show(
     // The scrub bar wins a tie, because a drag is continuous and a click is
     // not: letting a button press during a drag jump the playhead elsewhere
     // would make the drag stutter.
-    scrubbed.or(pressed)
+    scrubbed.or(command)
 }
 
 /// The bar: a track with a knob on it, dragged or clicked to seek.
@@ -84,8 +137,10 @@ pub(super) fn show(
 /// is: a position in time is a picture, and what a slider would add is a
 /// numeric readout nobody wants under a preview.
 fn scrubber(ui: &mut Ui, at: Frames, last: Frames) -> Option<Frames> {
-    let (rect, response) =
-        ui.allocate_exact_size(vec2(ui.available_width(), BAR), Sense::click_and_drag());
+    let (rect, response) = ui.allocate_exact_size(
+        vec2(ui.available_width().max(0.0), BAR),
+        Sense::click_and_drag(),
+    );
     let track = travel(rect);
     let painter = ui.painter();
     let middle = rect.center().y;
@@ -115,53 +170,6 @@ fn scrubber(ui: &mut Ui, at: Frames, last: Frames) -> Option<Frames> {
     }
     let pointer = response.interact_pointer_pos()?;
     Some(frame_at((pointer.x - track.left()) / track.width(), last))
-}
-
-/// The five buttons, the one that keeps a frame, and the reading of where the
-/// playhead is.
-fn buttons(ui: &mut Ui, fps: Fps, at: Frames, last: Frames) -> Option<Command> {
-    let mut command = None;
-    ui.horizontal(|ui| {
-        for (label, hint, what) in [
-            ("⏮", "To the start", Command::Seek(Frames::ZERO)),
-            ("◀|", "Back one frame", Command::Seek(back(at))),
-            ("▶", "Play or pause", Command::Toggle),
-            ("|▶", "Forward one frame", Command::Seek(forward(at, last))),
-            ("⏭", "To the end", Command::Seek(last)),
-        ] {
-            // Play is the web's primary button; the rest are outline.
-            let button = if what == Command::Toggle {
-                marks::primary_button(ui, label)
-            } else {
-                ui.button(label)
-            };
-            if button.on_hover_text(hint).clicked() {
-                command = Some(what);
-            }
-        }
-        // Set apart from the five, because it is the one control here that
-        // does not move the playhead. Words rather than a camera glyph: the
-        // window draws in Geist with egui's own faces behind it
-        // (`theme::fonts`), and a symbol none of them has draws as an empty
-        // box.
-        ui.separator();
-        if ui
-            .button("Save frame")
-            .on_hover_text("Write this frame out as a PNG, at delivery resolution")
-            .clicked()
-        {
-            command = Some(Command::Keep);
-        }
-
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            // Added in this order because the layout is right-to-left: the
-            // frame count lands on the right and the timecode beside it, which
-            // is the order they read in.
-            ui.label(marks::figure_dim(format!("f {}", at.get())));
-            ui.label(marks::figure(timecode(at, fps)));
-        });
-    });
-    command
 }
 
 /// One frame back, and never before the first.

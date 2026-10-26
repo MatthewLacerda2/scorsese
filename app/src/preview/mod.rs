@@ -39,7 +39,7 @@ mod sound;
 mod still;
 mod transport;
 
-use egui::{Panel, Ui};
+use egui::{Panel, RichText, Ui};
 use scorsese_core::{Fps, Frames, Project};
 use scorsese_render::Quality;
 
@@ -157,33 +157,51 @@ impl Preview {
             .as_ref()
             .and_then(|playing| playing.sound.trouble())
             .map(str::to_owned);
-        Panel::bottom("transport").show(ui, |ui| {
-            match transport::show(ui, fps, editing.playhead.min(last), last, silent.as_deref()) {
-                Some(Command::Seek(frame)) => {
-                    // Any seek stops playback, which is what every editor does:
-                    // a step or a jump is someone taking hold of the playhead,
-                    // and having it run away again is never what was meant.
-                    editing.playhead = frame;
-                    self.playing = None;
+        Panel::bottom("transport")
+            .frame(egui::Frame::NONE.inner_margin(egui::Margin::symmetric(12, 4)))
+            .show(ui, |ui| {
+                let quality = self.quality;
+                match transport::show(
+                    ui,
+                    fps,
+                    editing.playhead.min(last),
+                    last,
+                    quality,
+                    self.playing.is_some(),
+                    silent.as_deref(),
+                ) {
+                    Some(Command::Seek(frame)) => {
+                        // Any seek stops playback, which is what every editor does:
+                        // a step or a jump is someone taking hold of the playhead,
+                        // and having it run away again is never what was meant.
+                        editing.playhead = frame;
+                        self.playing = None;
+                    }
+                    Some(Command::Toggle) => self.toggle(open, editing.playhead, last),
+                    // Composited again rather than taken off the panel above: the
+                    // preview draws at a reduced raster, and a kept frame is the
+                    // one a render would deliver.
+                    Some(Command::Keep) => self.saved.keep(open, editing.playhead.min(last)),
+                    Some(Command::Quality(chosen)) => self.quality = chosen,
+                    None => {}
                 }
-                Some(Command::Toggle) => self.toggle(open, editing.playhead, last),
-                // Composited again rather than taken off the panel above: the
-                // preview draws at a reduced raster, and a kept frame is the
-                // one a render would deliver.
-                Some(Command::Keep) => self.saved.keep(open, editing.playhead.min(last)),
-                None => {}
-            }
-            self.saved.note(ui);
-            let making = [self.proxies.status(), self.pages.status()]
-                .into_iter()
-                .flatten()
-                .reduce(|one, other| format!("{one} · {other}"));
-            if let Some(chosen) =
-                quality::show(ui, self.quality, open.project.aspect, making.as_deref())
-            {
-                self.quality = chosen;
-            }
-        });
+                self.saved.note(ui);
+                // The mode the picture is in, said quietly under the row: at a
+                // reduced quality it is not the render's own picture.
+                let making = [self.proxies.status(), self.pages.status()]
+                    .into_iter()
+                    .flatten()
+                    .reduce(|one, other| format!("{one} · {other}"));
+                ui.label(
+                    RichText::new(quality::mode(
+                        self.quality,
+                        open.project.aspect,
+                        making.as_deref(),
+                    ))
+                    .small()
+                    .weak(),
+                );
+            });
 
         // Clamped rather than refused: the timeline lets the playhead rest one
         // past the last frame — that is where the edit *ends* — and there is no
