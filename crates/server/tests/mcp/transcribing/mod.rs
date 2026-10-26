@@ -122,5 +122,6 @@ async fn footage_is_heard_by_a_free_job_then_read_back_corrected_and_captioned(p
     assert_eq!(caption.text.as_deref(), Some("Bom dia!"));
 }
 
+mod fixed;
 mod refused;
 mod stopped;

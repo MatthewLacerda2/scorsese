@@ -72,25 +72,37 @@ impl Library {
         .fetch_optional(&mut *tx)
         .await?;
         tx.commit().await?;
-        let (item, words, generated) = row.ok_or(LibraryError::NotFound)?;
-        Ok(Held {
-            item,
-            words: words.and_then(|text| serde_json::from_str(&text).ok()),
-            generated,
-        })
+        held(row)
     }
 
-    /// Keeps `words` as `user`'s item `item`'s transcript.
-    pub async fn keep_transcript(
+    /// Changes `user`'s item's transcript by `amend`, which is handed it as
+    /// it is now and answers the words to keep, or why not. The row is locked
+    /// from the read to the write, so two corrections at once each amend what
+    /// the other left, and a hearing landing between them is never overwritten
+    /// with the words from before it.
+    pub async fn amend_transcript<T>(
         &self,
         user: UserId,
-        item: i64,
-        words: &Words,
-    ) -> Result<(), LibraryError> {
+        sha256: &str,
+        amend: impl FnOnce(Held) -> Result<(Words, T), String>,
+    ) -> Result<Result<T, String>, LibraryError> {
         let mut tx = crate::db::scoped(&self.pool, user).await?;
-        keep(&mut tx, item, words).await?;
+        let row: Option<(i64, Option<String>, bool)> = sqlx::query_as(
+            "SELECT id, words::text, brief_hash IS NOT NULL FROM library_items
+                WHERE sha256 = $1 FOR UPDATE",
+        )
+        .bind(sha256)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let held = held(row)?;
+        let item = held.item;
+        let (words, amended) = match amend(held) {
+            Ok(amended) => amended,
+            Err(why) => return Ok(Err(why)),
+        };
+        keep(&mut tx, item, &words).await?;
         tx.commit().await?;
-        Ok(())
+        Ok(Ok(amended))
     }
 
     /// Queues the hearing of `user`'s item, unless one asked the same —
@@ -134,6 +146,16 @@ impl Library {
         self.queue.announce(user, &job);
         Ok(job)
     }
+}
+
+/// An item's row as [`Held`].
+fn held(row: Option<(i64, Option<String>, bool)>) -> Result<Held, LibraryError> {
+    let (item, words, generated) = row.ok_or(LibraryError::NotFound)?;
+    Ok(Held {
+        item,
+        words: words.and_then(|text| serde_json::from_str(&text).ok()),
+        generated,
+    })
 }
 
 /// Keeps `words` on an upload's row — never a generated one's

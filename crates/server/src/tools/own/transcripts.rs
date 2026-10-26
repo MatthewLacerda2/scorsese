@@ -216,22 +216,22 @@ pub(super) async fn fix(caller: &Caller<'_>, arguments: &Value) -> Result<Reply,
         })
         .collect::<Result<Vec<_>, _>>()?;
     let (asset, sha256, file) = recorded(caller, arguments).await?;
-    let library = &caller.toolbox.library;
-    let held = library
-        .transcript(caller.user, &sha256)
+    let amended = caller
+        .toolbox
+        .library
+        .amend_transcript(caller.user, &sha256, |held| {
+            if held.generated {
+                return Err(TranscribeError::Generated(asset.clone()).to_string());
+            }
+            let mut words = held.words.ok_or_else(|| {
+                format!("`{asset}` has no transcript to correct: transcribe it first")
+            })?;
+            let dropped = words.fix(&fixes).map_err(|error| error.to_string())?;
+            Ok((words.clone(), (words, dropped)))
+        })
         .await
         .map_err(said)?;
-    if held.generated {
-        return Err(TranscribeError::Generated(asset).to_string());
-    }
-    let mut words = held
-        .words
-        .ok_or_else(|| format!("`{asset}` has no transcript to correct: transcribe it first"))?;
-    let dropped = words.fix(&fixes).map_err(|error| error.to_string())?;
-    library
-        .keep_transcript(caller.user, held.item, &words)
-        .await
-        .map_err(said)?;
+    let (words, dropped) = amended?;
     let corrected = Corrected {
         transcript: Transcribed {
             asset,
