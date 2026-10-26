@@ -110,8 +110,11 @@ a reason to stay draft. Check the mutant count before running.
 
 - **Inside `.cargo/mutants.toml`'s surface**: `python3
   .github/scripts/mutants/scope.py resolve '<your globs>' --out
-  target/scope.json --diff target/scope.diff`, then `cargo mutants --in-diff
-  target/scope.diff --jobs 2` (`docs/mutation-testing.md`).
+  target/scope.json --diff target/scope.diff`, then `CARGO_INCREMENTAL=1
+  cargo mutants --in-diff target/scope.diff --jobs 2`
+  (`docs/mutation-testing.md`). The hook's `CARGO_INCREMENTAL=0` makes every
+  mutant rebuild its crate's tests from cold, about ten times slower (45s
+  against 5s for core); the scratch copies fit the disk either way.
 - **Outside it** (`crates/server`, the rest of `crates/render/src/run`, `app/`)
   it reports nothing. A server module tested in its own file: `cargo mutants
   --no-config --test-tool nextest -f <file> --test-package scorsese-server --
