@@ -9,6 +9,7 @@ is tested with `gh`, `take` and the clock replaced, as in `test_loop.py`.
 from __future__ import annotations
 
 import importlib.util
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -18,6 +19,7 @@ _spec = importlib.util.spec_from_file_location("merge_queue", SCRIPTS / "merge-q
 queue = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(queue)
 watch = queue.watch
+tally = queue.tally
 
 
 def pr(number: int, *labels: str, bot=False, mergeable="MERGEABLE"):
@@ -96,6 +98,46 @@ class Watching(unittest.TestCase):
             mock.patch("builtins.print"):
             queue.run_watch("o/r", opts)
         self.assertEqual(taken[:4], [10, 11, 12, 1])
+
+    def test_the_count_carries_across_resumed_watches(self):
+        # As on 2026-10-16: each watch is short enough to take one pull request,
+        # so a tally kept in memory would never reach three passes for #1. #1 is
+        # pushed between watches, and its count carries over the new head.
+        clock, taken = [0.0], []
+        stream = iter(range(10, 30))
+        line = [pr(1), pr(2)]
+
+        def gh(*args):
+            if "--label" not in args:
+                return []
+            if not any(p["number"] >= 10 for p in line):
+                line.append(pr(next(stream)))
+            return list(line)
+
+        def take(repo, number, opts, heads=None, tick=None):
+            taken.append(number)
+            line[:] = [p for p in line if p["number"] != number]
+            clock[0] += 600
+            return number, queue.MERGED, "why"
+
+        def clashing(pulls, *_):
+            present = {p["number"] for p in pulls}
+            return {frozenset((1, 2))} if {1, 2} <= present else set()
+
+        opts = queue.parse(["--watch", "--for", "5"])
+        with tempfile.TemporaryDirectory() as root, \
+            mock.patch.object(queue.mergeable, "gh", side_effect=gh), \
+            mock.patch.object(queue, "take", side_effect=take), \
+            mock.patch.object(watch, "clashing", side_effect=clashing), \
+            mock.patch.object(watch, "against_main", return_value={}), \
+            mock.patch.object(queue.time, "monotonic", side_effect=lambda: clock[0]), \
+            mock.patch.object(queue.time, "sleep", side_effect=lambda s: clock.__setitem__(0, clock[0] + s)), \
+            mock.patch("builtins.print"):
+            for resumed in range(4):
+                clock[0] = 0.0
+                line[0] = {**line[0], "headRefOid": f"{resumed:040x}"}
+                queue.run_watch("o/r", opts, Path(root, tally.NAME))
+        self.assertEqual(taken, [10, 11, 12, 1])
 
 
 if __name__ == "__main__":

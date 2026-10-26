@@ -67,7 +67,11 @@ whatever its conflicts. Taking it either merges it or hands it back with the
 conflict named, and both beat silence. The count is of passes, not minutes: a
 watch with nothing else in line takes the one it has, so time in line without
 being overtaken is not waiting on the order. Being taken starts the count
-over.
+over; a new head does not, since a broad pull request rebased after a hand-back
+is the one the count protects. The tally outlives the watch (#1423): it is kept
+in a file beside the queue's lock, one per label, and read by the next watch
+(`merge_queue/tally`), since a bounded watch resumed every hour would otherwise
+never count to three. A `--no-merge` watch keeps it in memory only.
 
 **A pull request that conflicts with `main` is handed back at once, not kept
 in line** ([`against_main`], [`behind`]). Its turn could only end in that
