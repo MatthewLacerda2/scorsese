@@ -198,9 +198,9 @@ pub fn png_size(bytes: &[u8]) -> Option<(u32, u32)> {
     if name != b"IHDR" {
         return None;
     }
-    let number =
-        |at: usize| u32::from_be_bytes([size[at], size[at + 1], size[at + 2], size[at + 3]]);
-    Some((number(0), number(4)))
+    let (width, height) = size.split_at(4);
+    let number = |four: &[u8]| four.try_into().ok().map(u32::from_be_bytes);
+    Some((number(width)?, number(height)?))
 }
 
 /// What a body that should have been media looks like instead, for a report.

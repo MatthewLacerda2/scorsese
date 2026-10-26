@@ -27,6 +27,14 @@ fn a_png_coming_back_is_reported_accepted_with_its_header() {
 
 /// A refusal is the answer #1341 asks for, not a failure: the vendor's
 /// words are reported so they can be recorded.
+/// The width and the height are each read whole, from the header.
+#[test]
+fn a_wide_png_reports_its_own_size() {
+    // The opening of a 1920x1080 PNG.
+    let step = png_step(Ok(drawn("iVBORw0KGgoAAAANSUhEUgAAB4AAAAQ4")));
+    assert!(note(&step).contains("1920x1080 PNG"), "{step:?}");
+}
+
 #[test]
 fn a_refusal_is_reported_in_the_vendors_words_without_failing() {
     let supported = r#"{"error":{"code":400,"message":"Supported values: 'image/jpeg'"}}"#;
