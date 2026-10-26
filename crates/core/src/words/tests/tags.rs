@@ -57,6 +57,13 @@ fn an_expressive_line_folds_without_its_tags() {
 }
 
 #[test]
+fn an_empty_tag_is_dropped_and_what_follows_it_is_kept() {
+    let empty = read("Okay. [] Fine.", &[(0.0, 0.4), (0.5, 0.6), (0.7, 1.2)]);
+    let words = Words::from_reading(empty, SpeechModel::Expressive);
+    assert_eq!(texts(&words), ["Okay.", "Fine."]);
+}
+
+#[test]
 fn brackets_are_words_on_the_models_that_read_them() {
     for model in [SpeechModel::Standard, SpeechModel::Fast] {
         let words = Words::from_reading(gruff(), model);
