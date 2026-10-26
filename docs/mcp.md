@@ -1052,7 +1052,7 @@ Everything it takes has a default, chosen so the plain call reads well on a
 | argument | what it is | default |
 |---|---|---|
 | `track` | the video track the captions go on, made on top when there is none | `captions` |
-| `narration` | the track ids whose clips are captioned | every generated line on an audio track, and every transcribed recording |
+| `narration` | the track ids whose speaking clips (lines, videos, sounds) are captioned | every generated line on an audio track, and every transcribed recording not at volume 0 throughout |
 | `max_chars` | the most characters one caption holds | 36, about two lines at the default size in 9:16 |
 | `font` | a face this build ships, or a font file inside the project | `montserrat` |
 | `weight` | how heavy, 1 to 1000 | 800 |
@@ -1088,8 +1088,12 @@ it:
 docker compose --file deploy/whisper/compose.yaml up --detach
 ```
 
-A transcript is kept, corrections and all: `transcribe` called again reads it
-back, and only `"again": true` hears the recording afresh, replacing it.
+A transcript is kept, corrections and all, as `<the file's whole name>.words.json`
+beside it: `transcribe` called again reads it back, and only `"again": true`
+hears the recording afresh, replacing it. A recording over two hours is
+refused before it is decoded. The call can be cancelled
+(`notifications/cancelled`), which stops the decode and the wait, and it holds
+the project only for its last write, so other edits go ahead while it listens.
 
 ## Pacing: the same clips, spread differently
 

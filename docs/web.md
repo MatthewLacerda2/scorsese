@@ -1609,7 +1609,8 @@ MCP's (*Web MCP*).
 column, the document `scorsese_core::words::Words` serialises to, and `NULL`
 for everything else — uploads, shots, stills, and any line kept before it
 existed (never backfilled: that would mean paying for the line again). Laying
-a project out writes them beside the audio as `<audio>.words.json`, where a
+a project out writes them beside the audio as `<audio's stem>.words.json` (and
+a transcribed upload's beside it as `<its whole name>.words.json`, #1549), where a
 local project keeps them, so a render's pages get `scorsese.words` and
 `project_describe` names the word being said, as they do locally.
 
@@ -2079,12 +2080,20 @@ Whisper large-v3-turbo int8 baked into its image (`deploy/whisper/`) — over
 the `whisper` network, which is internal: the container has no way out and
 nothing reaches it but the server (`SCORSESE_WHISPER_URL`). One job at a time,
 on two cores, so a render always has the rest; its owner stops it with `jobs`'
-`cancel`. The words are kept on the library item, in the `words` column a
-spoken line's timings use (`0024`), so one file is one transcript in every
-project using it; every layout of a project writes them beside the asset,
-where the registry's tools read them. Called again, `transcribe` answers with
-the kept words numbered rather than hearing the file afresh, unless `again`;
-`transcript_fix` corrects a word on the row, keeping its times.
+`cancel`, which kills the decode and abandons the request, and an answer that
+lands with the stop is not kept. A recording longer than two hours
+(`transcribe::LONGEST`) is refused from its probe before it is decoded, so one
+job holds the slot for a bounded time. Asking again while a job asked the same
+language (or both detecting it) is waiting or running hands that job back,
+checked and queued under the item's row lock. The words are kept on the
+library item, in the `words` column a spoken line's timings use (`0024`), so
+one file is one transcript in every project using it; every layout of a
+project writes them beside the asset as `<its whole name>.words.json`, where
+the registry's tools read them. Called again, `transcribe` answers with the
+kept words numbered rather than hearing the file afresh, unless `again`;
+`transcript_fix` corrects a word on the row, keeping its times. **A generated
+line is refused by both**, though it is a plain sound in a project it was
+imported into: its row's words are the timings paid for with it.
 
 **Cloning a voice (#1263).** `voice_clone` clones a voice from recordings the
 user uploaded to their library and imported into a project: the project's
