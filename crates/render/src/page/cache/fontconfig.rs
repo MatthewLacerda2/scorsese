@@ -136,6 +136,23 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
+    /// A write the cache cannot finish leaves the folder as it found it: no
+    /// scratch file beside the one it meant to replace.
+    #[test]
+    fn a_fontconfig_file_that_cannot_be_written_leaves_nothing_beside_it() {
+        let root = crate::scratch::fresh("scorsese-fonts-refused", "");
+        let folder = root.join("cache/pages/fonts");
+        std::fs::create_dir_all(folder.join("fonts.conf/occupied")).unwrap();
+        assert!(fonts(&root).is_err(), "a file cannot replace a folder");
+        let stray: Vec<_> = std::fs::read_dir(&folder)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .filter(|name| name.starts_with("fonts.conf."))
+            .collect();
+        assert_eq!(stray, Vec::<String>::new());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     #[test]
     fn each_generic_is_bound_to_a_name_a_shipped_file_gives_itself() {
         let root = crate::scratch::fresh("scorsese-fonts-generic", "");
