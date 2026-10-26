@@ -124,3 +124,13 @@ pub enum ColorError {
         String,
     ),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Rgba;
+
+    #[test]
+    fn channels_are_in_straight_rgba_order() {
+        assert_eq!(Rgba::new(1, 2, 3, 4).channels(), [1, 2, 3, 4]);
+    }
+}
