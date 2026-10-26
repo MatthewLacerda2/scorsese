@@ -24,7 +24,7 @@ pub(crate) const SAMPLE_FORMAT: &str = "f32le";
 
 /// How much longer than asked for to let ffmpeg decode.
 ///
-/// `-t` bounds the work so a two-second segment of a five-minute music bed does
+/// `-t` bounds the work so a two-second clip of a five-minute music bed does
 /// not decode five minutes; the margin covers the sample or two that rounding a
 /// duration into seconds can cost, since coming up short would be silence in the
 /// mix rather than a rounding error.
@@ -154,7 +154,8 @@ impl AudioDecoder {
 /// A sound that starts at or before its picture is mostly unchanged. The one
 /// difference is an audio-only AAC file (`.m4a`): ffmpeg drops its first frame
 /// after a seek, so it now opens with ~21 ms of silence where it used to play
-/// ~23 ms early (#1607).
+/// ~23 ms early. A seek happens only where a clip enters partway into its
+/// file: the stretches after that read on from the same decode (#1607).
 pub(crate) const ALIGN_TO_FILE_CLOCK: &str = "aresample=async=1:first_pts=0";
 
 /// The whole chain a source's sound goes through: [`ALIGN_TO_FILE_CLOCK`],
