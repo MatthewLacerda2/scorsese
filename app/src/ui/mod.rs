@@ -119,7 +119,7 @@ impl Scorsese {
             framing: Framing::default(),
             rendering: Rendering::default(),
             settings,
-            theme: Choice::SYSTEM,
+            theme: Choice::DEFAULT,
         };
         if let Some(directory) = directory {
             window.open(&directory);
@@ -339,6 +339,9 @@ impl Scorsese {
         // Here and not in `main.rs`, so that the offscreen harness draws the
         // same window a person sees. See [`crate::theme`].
         crate::theme::apply(ui.ctx(), self.theme);
+        // The first frame's ui was styled before the theme existed, and would
+        // lack the text styles the marks name.
+        ui.set_style(ui.ctx().global_style());
         self.follow_disk(ui.ctx());
         self.follow_probe();
         // Before the panels, so a key pressed this frame moves the playhead

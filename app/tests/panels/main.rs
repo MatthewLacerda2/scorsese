@@ -83,21 +83,21 @@ fn a_whole_edit() {
     harness.snapshot(Part::Window, "a_whole_edit");
 }
 
-/// The same edit in the light theme, with a clip selected.
+/// The same edit in the dark theme, with a clip selected.
 ///
-/// Every other picture here is the dark theme, because that is what a window
-/// with no choice and no system preference shows — so this is the one that
-/// holds the light palette to anything (#643). A clip is selected so the
-/// selection ring, the inspector's fields and the outline controls are all in
-/// it, which are the parts a palette swap most easily gets wrong.
+/// Every other picture here is the light theme, because that is what a window
+/// with no choice shows (as the web's does) — so this is the one that holds
+/// the dark palette to anything (#643). A clip is selected so the selection
+/// ring, the inspector's fields and the outline controls are all in it, which
+/// are the parts a palette swap most easily gets wrong.
 #[test]
-fn a_whole_edit_in_light() {
-    let project = fixture::project("light");
+fn a_whole_edit_in_dark() {
+    let project = fixture::project("dark");
     let mut harness = window(Some(project.path().to_path_buf()));
-    harness.state_mut().show_in(egui::Theme::Light);
+    harness.state_mut().show_in(egui::Theme::Dark);
     harness.state_mut().select("c-title");
     harness.run();
-    harness.snapshot(Part::Window, "a_whole_edit_in_light");
+    harness.snapshot(Part::Window, "a_whole_edit_in_dark");
 }
 
 /// A clip selected: the inspector stops saying "select a clip" and starts

@@ -21,9 +21,16 @@ impl Oklch {
             }
             None => (inner, 1.0),
         };
-        let mut parts = colour.split_whitespace().map(|p| p.parse::<f64>().ok());
+        let mut parts = colour.split_whitespace();
+        // Tailwind writes lightness as a percentage: `oklch(68.5% 0.169 237.323)`.
+        let lightness = parts.next()?;
+        let lightness = match lightness.strip_suffix('%') {
+            Some(percent) => percent.parse::<f64>().ok()? / 100.0,
+            None => lightness.parse::<f64>().ok()?,
+        };
+        let mut parts = parts.map(|p| p.parse::<f64>().ok());
         Some(Self {
-            l: parts.next()??,
+            l: lightness,
             c: parts.next()??,
             h: parts.next()??,
             alpha,

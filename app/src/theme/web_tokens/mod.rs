@@ -6,8 +6,8 @@
 //! compares it with its counterpart. A colour changed on the web fails here
 //! until the app matches.
 //!
-//! The asset-kind hues are not in the table: the web draws them with Tailwind
-//! classes (`web/src/editor/assets/kinds.ts`), not tokens, until #1210.
+//! The asset-kind hues are held too: the web's `--kind-*` tokens
+//! (`web/src/editor/assets/kinds.ts` names them), the same in both themes.
 
 mod oklch;
 
@@ -19,7 +19,7 @@ use super::palette::{DARK, LIGHT};
 const CSS: &str = include_str!("../../../../web/src/index.css");
 
 /// Each web token and the app colour that carries it, per theme.
-fn pairing() -> [(&'static str, Color32, Color32); 9] {
+fn pairing() -> [(&'static str, Color32, Color32); 13] {
     [
         // (token, light, dark)
         ("--background", LIGHT.background, DARK.background),
@@ -35,6 +35,14 @@ fn pairing() -> [(&'static str, Color32, Color32); 9] {
         ("--input", LIGHT.input, DARK.input),
         ("--ring", LIGHT.ring, DARK.ring),
         ("--primary", LIGHT.primary, DARK.primary),
+        (
+            "--primary-foreground",
+            LIGHT.primary_foreground,
+            DARK.primary_foreground,
+        ),
+        ("--secondary", LIGHT.secondary, DARK.secondary),
+        ("--accent", LIGHT.accent, DARK.accent),
+        ("--success", LIGHT.success, DARK.success),
     ]
 }
 
@@ -116,5 +124,39 @@ fn the_signal_colours_are_the_webs() {
         "--playhead (dark)",
         DARK.playhead,
         token(dark, "--playhead").over(white),
+    );
+}
+
+/// Every asset kind's hue, against the `--kind-*` token the web names it by.
+#[test]
+fn the_kind_hues_are_the_webs() {
+    use scorsese_core::AssetKind::*;
+    let css = block(":root");
+    for (name, kind) in [
+        ("video", Video),
+        ("generated-video", GeneratedVideo),
+        ("image", Image),
+        ("generated-image", GeneratedImage),
+        ("image-sequence", ImageSequence),
+        ("audio", Audio),
+        ("generated-audio", GeneratedAudio),
+        ("synth-audio", SynthAudio),
+        ("text", Text),
+        ("html", Html),
+        ("color", Color),
+        ("shape", Shape),
+        ("icon", Icon),
+        ("group", Group),
+    ] {
+        assert_close(
+            &format!("--kind-{name}"),
+            super::palette::of_kind(kind),
+            token(css, &format!("--kind-{name}")).over([255.0; 3]),
+        );
+    }
+    assert_close(
+        "--kind-other",
+        super::palette::UNKNOWN,
+        token(css, "--kind-other").over([255.0; 3]),
     );
 }

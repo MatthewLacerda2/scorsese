@@ -32,7 +32,7 @@ pub(super) fn menu(ui: &mut Ui, window: &mut Scorsese) {
         .frame(chrome(ui, Margin::symmetric(12, 5)))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(RichText::new("scorsese").heading().strong());
+                ui.label(RichText::new("scorsese").heading());
                 ui.add_space(4.0);
                 if ui.button("Open…").clicked() {
                     window.pick();
@@ -64,7 +64,7 @@ fn opened(ui: &mut Ui, window: &mut Scorsese) {
     };
     let read_only = open.read_only();
     ui.add_space(4.0);
-    ui.label(RichText::new(open.directory()).strong());
+    ui.add(egui::Label::new(RichText::new(open.directory()).heading()).truncate());
     // Beside the project's name rather than only over the picture, because
     // "why does nothing I click do anything" is a question asked at the top of
     // the window.
@@ -289,9 +289,7 @@ fn appearance(ui: &mut Ui, window: &mut Scorsese) {
     };
     if ui
         .button(label)
-        .on_hover_text(
-            "Remembered on this machine. Until you choose, the window follows the system.",
-        )
+        .on_hover_text("Remembered on this machine. Until you choose, the window is light.")
         .clicked()
     {
         window.toggle_theme(showing);

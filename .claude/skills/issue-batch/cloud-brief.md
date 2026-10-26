@@ -82,7 +82,7 @@ not name (`docs/golden-renders.md`, *Re-blessing*).
   <name>`, never the whole suite. An unintended mismatch is investigated, never
   re-blessed.
 - **App panel snapshots** (`app/tests/panels`) are each cropped to the part
-  they are named for, except `a_whole_edit` and `a_whole_edit_in_light`, which
+  they are named for, except `a_whole_edit` and `a_whole_edit_in_dark`, which
   move with any chrome change. Check each diff stays inside your change.
 
 ## Easy to miss

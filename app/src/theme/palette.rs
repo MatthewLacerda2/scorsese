@@ -54,6 +54,14 @@ pub(crate) struct Palette {
     pub(crate) ring: Color32,
     /// The strongest neutral: what the web fills a primary button with.
     pub(crate) primary: Color32,
+    /// Text on a `primary` fill: the web's `--primary-foreground`.
+    pub(crate) primary_foreground: Color32,
+    /// A quiet fill that is not `muted`: the web's `--secondary`.
+    pub(crate) secondary: Color32,
+    /// What a hovered menu row or ghost button is filled with: `--accent`.
+    pub(crate) accent: Color32,
+    /// A thing that went well: the web's `--success`.
+    pub(crate) success: Color32,
     /// Something that is wrong: a refused edit, a missing file.
     pub(crate) destructive: Color32,
     /// A control at rest: the fill of the web's `outline` button and its
@@ -84,6 +92,10 @@ pub(crate) const DARK: Palette = Palette {
     input: grey(0x2F),                                // oklch(1 0 0 / 15%) over background
     ring: grey(0x73),                                 // oklch(0.556 0 0)
     primary: grey(0xE5),                              // oklch(0.922 0 0)
+    primary_foreground: grey(0x17),                   // oklch(0.205 0 0)
+    secondary: grey(0x26),                            // oklch(0.269 0 0)
+    accent: grey(0x26),                               // oklch(0.269 0 0)
+    success: Color32::from_rgb(0x16, 0xA3, 0x4A),     // oklch(0.627 0.17 149.214)
     destructive: Color32::from_rgb(0xFF, 0x64, 0x67), // oklch(0.704 0.191 22.216)
     field: grey(0x15),   // `dark:bg-input/30`: 4.5% white over background
     hover: grey(0x1C),   // `dark:hover:bg-input/50`: 7.5% white
@@ -103,6 +115,10 @@ pub(crate) const LIGHT: Palette = Palette {
     input: grey(0xE5),                                // oklch(0.922 0 0)
     ring: grey(0xA1),                                 // oklch(0.708 0 0)
     primary: grey(0x17),                              // oklch(0.205 0 0)
+    primary_foreground: grey(0xFA),                   // oklch(0.985 0 0)
+    secondary: grey(0xF5),                            // oklch(0.97 0 0)
+    accent: grey(0xF5),                               // oklch(0.97 0 0)
+    success: Color32::from_rgb(0x00, 0x82, 0x36),     // oklch(0.527 0.154 150.069)
     destructive: Color32::from_rgb(0xE7, 0x00, 0x0B), // oklch(0.577 0.245 27.325)
     field: grey(0xFF),                                // `bg-background`
     hover: grey(0xF5),                                // `hover:bg-muted`, oklch(0.97 0 0)
