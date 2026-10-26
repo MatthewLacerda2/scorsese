@@ -41,3 +41,21 @@ fn a_project_is_refused_as_one() {
     );
     std::fs::remove_dir_all(&dir).ok();
 }
+
+#[test]
+fn a_project_is_named_as_asked_or_after_its_directory() {
+    let named = |asked: Option<&str>| {
+        let dir = temp_project_dir("create-name");
+        let project = Project::create(&dir, asked, Fps::THIRTY, scorsese_core::Ratio::WIDE)
+            .expect("an empty directory is free");
+        let stem = dir.file_stem().and_then(|s| s.to_str()).unwrap().to_owned();
+        std::fs::remove_dir_all(&dir).ok();
+        (project.name, stem)
+    };
+    assert_eq!(named(Some("  Trip ")).0, "Trip");
+    let (blank, stem) = named(Some("   "));
+    assert_eq!(blank, stem, "a blank name is no name");
+    let (unnamed, stem) = named(None);
+    assert_eq!(unnamed, stem);
+    assert!(stem.starts_with("scorsese-create-name"), "{stem}");
+}

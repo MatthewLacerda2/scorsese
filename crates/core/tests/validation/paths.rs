@@ -82,3 +82,12 @@ fn a_relative_path_resolves_under_the_project_root() {
     let resolved = ProjectPath::new("assets/logo.png").resolve(root);
     assert_eq!(resolved, root.join("assets").join("logo.png"));
 }
+
+#[test]
+fn each_problem_says_what_is_wrong_with_the_path() {
+    assert_eq!(PathProblem::Empty.to_string(), "is empty");
+    assert_eq!(
+        PathProblem::ParentEscape.to_string(),
+        "contains a `..` component and escapes the project root"
+    );
+}

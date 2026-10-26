@@ -34,3 +34,26 @@ fn the_first_message_is_the_first_problem() {
     let first = errors.as_slice()[0].to_string();
     assert_eq!(errors.first_message(), Some(first));
 }
+
+#[test]
+fn the_report_counts_its_problems_and_hands_them_over() {
+    let errors = twice_wrong().validate().expect_err("two problems");
+    assert!(!errors.is_empty());
+    assert!(
+        errors
+            .to_string()
+            .starts_with("2 problems in this project:\n  - "),
+        "{errors}"
+    );
+    let each = errors.messages();
+    let taken: Vec<String> = errors.into_iter().map(|e| e.to_string()).collect();
+    assert_eq!(taken, each);
+
+    let mut once = project();
+    crate::common::asset_mut(&mut once, "logo").path = None;
+    let one = once.validate().expect_err("one problem");
+    assert!(
+        one.to_string().starts_with("1 problem in this project:"),
+        "{one}"
+    );
+}

@@ -82,5 +82,15 @@ mod tests {
         let long = LongPrompt::of(&shot(MAX_PROMPT_CHARACTERS + 1)).expect("too long");
         assert_eq!(long.found, MAX_PROMPT_CHARACTERS + 1);
         assert!(long.to_string().contains("1024 tokens"), "{long}");
+        assert_eq!(MAX_PROMPT_CHARACTERS, 6 * 1024);
+    }
+
+    #[test]
+    fn a_project_lists_its_long_prompts_and_no_other() {
+        let mut project = Project::new("long", crate::Fps::THIRTY);
+        project.assets = vec![shot(10), shot(MAX_PROMPT_CHARACTERS + 1)];
+        let found = project.long_prompts();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].found, MAX_PROMPT_CHARACTERS + 1);
     }
 }

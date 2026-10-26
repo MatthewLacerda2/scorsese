@@ -620,3 +620,6 @@ impl fmt::Display for MediaMetadata {
         f.write_str(&parts.join(", "))
     }
 }
+
+#[cfg(test)]
+mod tests;

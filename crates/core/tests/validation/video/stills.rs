@@ -46,6 +46,12 @@ fn the_cheaper_tier_refuses_four_k_rather_than_shrinking_it() {
 }
 
 #[test]
+fn three_reference_images_are_as_many_as_a_shot_takes() {
+    let p = asking(|r| r.reference_images = vec![asset_id("logo"); 3]);
+    assert!(p.validate().is_ok(), "{:?}", p.validate());
+}
+
+#[test]
 fn a_fourth_reference_image_is_one_too_many() {
     let p = asking(|r| r.reference_images = vec![asset_id("logo"); 4]);
     assert_only_problem(

@@ -114,4 +114,12 @@ fn a_counter_s_numbers_have_to_be_writable() {
             value: f64::INFINITY,
         },
     );
+    asset_mut(&mut p, "title").style = Some(styled(
+        None,
+        Some(Counter {
+            decimals: 6,
+            ..Counter::default()
+        }),
+    ));
+    assert!(p.validate().is_ok(), "six decimals are writable");
 }

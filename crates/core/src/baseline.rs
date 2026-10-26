@@ -153,3 +153,28 @@ impl fmt::Debug for Baseline {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bytes_read_are_based_on_their_own_fingerprint() {
+        let read = Baseline::of(b"{}");
+        assert_eq!(read.fingerprint(), Some(fingerprint_of(b"{}")));
+        assert_eq!(
+            format!("{read:?}"),
+            format!("Baseline({})", fingerprint_of(b"{}"))
+        );
+        assert_eq!(format!("{:?}", Baseline::unread()), "Baseline(unread)");
+    }
+
+    /// Only a missing file passes unread: one that cannot be read is not one
+    /// that is not there.
+    #[test]
+    fn a_document_that_cannot_be_read_is_an_error_not_a_pass() {
+        let directory = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let refused = Baseline::unread().guard(directory);
+        assert!(matches!(refused, Err(SaveError::Io { .. })), "{refused:?}");
+    }
+}

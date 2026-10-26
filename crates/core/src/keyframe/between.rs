@@ -116,6 +116,8 @@ mod tests {
         assert_eq!(between.easing, Easing::BackOut);
         assert_eq!(between.linear(), 1.0);
         assert_eq!(Some(between.eased()), track.value_at(Frames::from(5)));
+        let early = track.between(Frames::from(2)).expect("keyframes");
+        assert!((early.linear() - 0.7).abs() < 1e-12, "{}", early.linear());
     }
 
     #[test]

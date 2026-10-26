@@ -682,8 +682,8 @@ exclude_re = [
     # The mutations that *shrink* the bound — `0`, `1`, and either `+` to `-`,
     # which underflows once assets outnumber clips or tracks outnumber both —
     # are caught by that same test.
-    'grouping/mod\.rs:51:34: replace \+ with \* in id_limit',
-    'grouping/mod\.rs:51:57: replace \+ with \* in id_limit',
+    'grouping/mod\.rs:38:34: replace \+ with \* in id_limit',
+    'grouping/mod\.rs:38:57: replace \+ with \* in id_limit',
 
     # `name_lanes` widens that bound by the number of lanes it is naming,
     # because the names it has already given crowd the ones still to come.
@@ -697,8 +697,49 @@ exclude_re = [
     # lanes` is at least the track count plus one, since every lane moved at
     # least one clip. Measured: core's whole suite passes with each applied,
     # the crowded-document test included.
-    'wrap\.rs:184:35: replace \+ with - in name_lanes',
-    'wrap\.rs:184:35: replace \+ with \* in name_lanes',
+    'wrap\.rs:183:35: replace \+ with - in name_lanes',
+    'wrap\.rs:183:35: replace \+ with \* in name_lanes',
+
+    # `frame::Ratio` reads two shapes as the same when their ratio is within
+    # `SAME` (1%) of one: `(a / b - 1.0).abs() < SAME`, in `of_size` against
+    # each common shape and in `matches` against another ratio. As `<=` they
+    # differ only when that expression is exactly `0.01` in `f64`, and no
+    # ratio of whole numbers was found to land there: every `across:down` with
+    # `down` up to 20 000 against the eleven common shapes, and every pair of
+    # ratios with both parts up to 200, searched. A real size is inside the
+    # band or outside it by more than a rounding.
+    'frame/mod\.rs:102:53: replace < with <= in Ratio::of_size',
+    'frame/mod\.rs:125:52: replace < with <= in Ratio::matches',
+
+    # `words::untagged` walks the characters while `at < len`. As `<=` it takes
+    # one more turn at `at == len`, where the slice left is empty, `position`
+    # finds no `]` and the turn only steps past the end. And `at += close + 1`
+    # with `*` for `+` lands on the `]` itself instead of past it: that
+    # character is not `[`, so the next turn steps over it, and every span
+    # dropped is the same. (`-` lands one short, which re-reads an empty tag
+    # `[]` forever: `an_empty_tag_is_dropped_and_what_follows_it_is_kept`
+    # times out on it, which is the catch.)
+    'words/tags\.rs:64:14: replace < with <= in untagged',
+    'words/tags\.rs:68:29: replace \+ with \* in untagged',
+
+    # `Baseline::unread` *is* `Self::default()`; the mutant writes the same.
+    'baseline\.rs:71:9: replace Baseline::unread -> Self with Default::default\(\)',
+
+    # `light::default_intensity` is serde's default for a glow's intensity,
+    # `Glow::INTENSITY`, which is 1.0 — the value the mutant returns.
+    'light\.rs:155:5: replace default_intensity -> f64 with 1\.0',
+
+    # `fit_references` (the v-step merging still models' reference lists)
+    # moves objects past `OBJECTS` into characters when `len > OBJECTS`. As
+    # `>=`, a list of exactly `OBJECTS` is split at its own length, the part
+    # past it is empty, and nothing moves.
+    'one_model/mod\.rs:57:22: replace > with >= in fit_references',
+
+    # `project::version_advice` picks the advice for a document at another
+    # version: `found < supported` is older. Its one caller is
+    # `LoadError::SchemaVersion`, raised only when the two differ, so `<=`
+    # changes the answer for an input that never reaches it.
+    'project/mod\.rs:388:14: replace < with <= in version_advice',
 
     # `keyframe::bezier`'s solver, three tolerance comparisons and one tie
     # (#609). Each was applied and core's whole suite passed with it — which

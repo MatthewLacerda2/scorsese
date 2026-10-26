@@ -111,22 +111,4 @@ impl Icon {
             ..self
         }
     }
-
-    /// Whether anything would be drawn at all.
-    ///
-    /// The one thing an icon cannot be allowed to be, for the reason a shape
-    /// cannot be invisible: a layer that renders nothing looks exactly like a
-    /// layer that failed to render. A size or a thickness that is zero,
-    /// negative, or not a number at all is each on its own enough to produce
-    /// one.
-    pub fn draws(&self) -> bool {
-        positive(self.size) && positive(self.stroke_width)
-    }
-}
-
-/// A measurement that could describe something with ink in it — which rules
-/// out zero, negatives, and the two ends of the float range an arithmetic
-/// mistake arrives at without anyone having written them down.
-fn positive(value: f64) -> bool {
-    value.is_finite() && value > 0.0
 }

@@ -92,6 +92,14 @@ fn a_sketch_is_awaiting_generation_not_broken() {
 }
 
 #[test]
+fn a_generated_asset_with_its_file_is_checked_like_any_other() {
+    let (dir, mut project) = imported("status-generated");
+    project.assets[0].state = Some(GenerationState::Generated);
+    let rows = asset_status(&project, &dir, HashCheck::Verify);
+    assert_eq!(only(&rows).health, AssetHealth::Ok);
+}
+
+#[test]
 fn a_text_asset_has_no_file_to_check() {
     let (dir, mut project) = new_project("status-text");
     let mut text = scorsese_core::Asset::imported(
