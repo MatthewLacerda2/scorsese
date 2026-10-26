@@ -40,7 +40,8 @@ pub(super) const FIX_SAYS: &str = "Correct misheard words in a transcript transc
 each keeping when it is said, so captions timed to it stay in sync. Name each word by its \
 number in the transcript as last shown and give what it says instead; an empty text drops a \
 word heard where nothing was said. Every number is the one shown before this call. Answers \
-with the transcript numbered afresh.";
+with the transcript numbered afresh. The corrections belong to the library file, so every \
+project using it reads them.";
 
 /// `transcribe`'s arguments.
 pub(super) fn transcribe_schema() -> Value {
