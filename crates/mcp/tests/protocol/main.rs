@@ -65,6 +65,7 @@ mod spilling;
 mod started;
 mod starting;
 mod syncing;
+mod transcribing;
 mod tuning;
 mod voicing;
 mod watching;

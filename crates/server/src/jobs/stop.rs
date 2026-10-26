@@ -65,8 +65,8 @@ pub enum CancelError {
     NotFound,
     /// A kind that is never stopped, named.
     #[error(
-        "a {0} job cannot be stopped: only renders and previews can — a generation is billed \
-         whether or not anybody still wants it"
+        "a {0} job cannot be stopped: only renders, previews and transcriptions can — a \
+         generation is billed whether or not anybody still wants it"
     )]
     Unstoppable(String),
     /// The database failed.
@@ -104,4 +104,28 @@ pub async fn cancel(
         queue.running().forget(id);
     }
     Ok(queue.progressed(now))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The refusal names every kind that can be stopped, by what it is.
+    #[test]
+    fn the_refusal_names_what_can_be_stopped() {
+        let said = CancelError::Unstoppable("still".into()).to_string();
+        for (kind, word) in [
+            (kinds::RENDER, "renders"),
+            (kinds::PREVIEW, "previews"),
+            (kinds::TRANSCRIBE, "transcriptions"),
+        ] {
+            assert!(kinds::stoppable(kind.name), "{}", kind.name);
+            assert!(said.contains(word), "{word} not in {said}");
+        }
+        assert_eq!(
+            kinds::STOPPABLE.len(),
+            3,
+            "a new stoppable kind is named here"
+        );
+    }
 }

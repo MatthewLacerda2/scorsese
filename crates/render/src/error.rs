@@ -176,6 +176,44 @@ pub enum RenderError {
         of: u64,
     },
 
+    /// A file asked for its sound could not be probed (#1549): not media, or
+    /// damaged.
+    #[error("{file} could not be read as a video or a sound: {why}")]
+    Unprobed {
+        /// Which file.
+        file: String,
+        /// What ffprobe said.
+        why: String,
+    },
+
+    /// A file asked for its sound has none — footage shot without a
+    /// microphone, or a picture.
+    #[error("{file} has no sound in it")]
+    NoSound {
+        /// Which file.
+        file: String,
+    },
+
+    /// A file asked for its sound lasts longer than the caller will take
+    /// (#1549): refused from its probe, before any of it is decoded.
+    #[error("{file} lasts {seconds:.0} s, longer than the {longest:.0} s it may")]
+    TooLong {
+        /// Which file.
+        file: String,
+        /// How long its probe says it lasts.
+        seconds: f64,
+        /// The longest the caller takes.
+        longest: f64,
+    },
+
+    /// Whoever asked for a file's sound stopped it while ffmpeg decoded it,
+    /// through a [`crate::Cancel`]; ffmpeg was killed, and nothing came back.
+    #[error("stopped while {file}'s sound was decoded")]
+    Stopped {
+        /// Which file.
+        file: String,
+    },
+
     /// ffmpeg ran, understood the request, and refused it — an unsupported
     /// codec, an unwritable output, a source it cannot open.
     #[error("ffmpeg failed while {stage} {subject}: {message}")]

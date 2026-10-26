@@ -2,7 +2,9 @@
 
 mod disk;
 mod fixture;
+mod footage;
 mod reveal;
+mod speaking;
 
 use crate::ClipId;
 use crate::captions::{Chunking, chunks, time};

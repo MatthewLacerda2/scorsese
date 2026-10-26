@@ -4,7 +4,8 @@ use std::path::Path;
 
 use anyhow::Result;
 use scorsese_core::captions::{Captioned, Chunking, caption};
-use scorsese_core::{FontChoice, Rgba, TrackId};
+use scorsese_core::{FontChoice, PropertyPath, Rgba, TrackId};
+use scorsese_render::audio::path;
 use scorsese_render::picture::caption as look;
 
 /// What `scorsese caption` takes. Every look has a default, so a bare
@@ -14,8 +15,9 @@ pub(crate) struct Options {
     /// The video track the captions go on. Made, on top, when there is none.
     #[arg(long, default_value = "captions")]
     track: String,
-    /// An audio track whose lines are captioned. Repeatable; without it,
-    /// every generated narration line on any audio track is.
+    /// A track whose clips are captioned. Repeatable; without it, every
+    /// generated narration line on an audio track is, and every transcribed
+    /// video or sound on any track.
     #[arg(long)]
     narration: Vec<String>,
     /// The most characters one caption holds — about two lines at the
@@ -54,7 +56,7 @@ pub(crate) struct Options {
 /// after a line is regenerated or moved re-times them.
 pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
     let mut project = super::open(project_dir)?;
-    let asked = look::Choices {
+    let mut asked = look::Choices {
         narration: options.narration.iter().map(TrackId::new).collect(),
         max_chars: Some(options.max_chars),
         font: options.font.clone().map(FontChoice::from),
@@ -70,6 +72,7 @@ pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
         TrackId::new(options.track.as_str()),
         project.timeline_fps.as_f64(),
     );
+    asked.volume = Some(PropertyPath::new(path::VOLUME));
 
     let report = caption(&mut project, project_dir, &asked)?;
     super::save(&project, project_dir)?;
@@ -83,6 +86,9 @@ fn describe(report: &Captioned, track: &TrackId) {
     }
     for line in &report.untimed {
         println!("{line} — skipped, no word timings");
+    }
+    for line in &report.silenced {
+        println!("{line} — skipped, transcribed footage at volume 0 throughout");
     }
     let made: usize = report.lines.iter().map(|(_, n)| n).sum();
     println!(

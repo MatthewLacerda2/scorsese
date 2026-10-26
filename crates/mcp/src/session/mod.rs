@@ -51,7 +51,7 @@ use scorsese_render::Cancel;
 use serde_json::Value;
 
 use crate::renders::Renders;
-use hold::Holds;
+pub(crate) use hold::{Held, Holds};
 use read::{InFlight, read};
 use run::Job;
 

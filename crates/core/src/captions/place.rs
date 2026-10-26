@@ -3,7 +3,7 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 
-use crate::keyframe::{Easing, Keyframe, KeyframeTrack};
+use crate::keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
 use crate::text::Reveal;
 use crate::timeline::{Anchor, AnchorY, Clip, ClipId, Track, TrackId, TrackKind};
 use crate::words::Words;
@@ -18,6 +18,9 @@ pub struct Captioned {
     pub lines: Vec<(ClipId, usize)>,
     /// Narration clips with no word timings, skipped.
     pub untimed: Vec<ClipId>,
+    /// Transcribed recordings held at nothing throughout, skipped when no
+    /// track was named.
+    pub silenced: Vec<ClipId>,
     /// How many captions from an earlier run were taken away first.
     pub replaced: usize,
 }
@@ -62,7 +65,9 @@ pub fn caption(
         ..Captioned::default()
     };
     let mut all = Vec::new();
-    for clip in narration(&next, asked) {
+    let (spoken, silenced) = narration(&next, root, asked);
+    report.silenced = silenced;
+    for clip in spoken {
         let words = next
             .asset(&clip.asset)
             .and_then(|asset| Words::of(asset, root));
@@ -81,19 +86,64 @@ pub fn caption(
     Ok(report)
 }
 
-/// The narration clips `asked` names, in document order.
-fn narration<'a>(project: &'a Project, asked: &Captioning) -> Vec<&'a Clip> {
-    project
-        .tracks_of(TrackKind::Audio)
-        .filter(|track| asked.narration.is_empty() || asked.narration.contains(&track.id))
-        .flat_map(|track| &track.clips)
-        .filter(|clip| {
-            !asked.narration.is_empty()
-                || project
+/// The clips whose words `asked` captions, in document order: every clip that
+/// can carry speech on the tracks it names — a line, a video, a sound; or,
+/// when it names none, each generated narration line on an audio track and
+/// each transcribed recording on any track (#1549) that is not silenced
+/// throughout. Second, the recordings left out for their silence.
+fn narration<'a>(
+    project: &'a Project,
+    root: &Path,
+    asked: &Captioning,
+) -> (Vec<&'a Clip>, Vec<ClipId>) {
+    let speaks = |kind: AssetKind| kind == AssetKind::GeneratedAudio || Words::transcribable(kind);
+    if !asked.narration.is_empty() {
+        let named = project
+            .tracks
+            .iter()
+            .filter(|track| asked.narration.contains(&track.id))
+            .flat_map(|track| &track.clips)
+            .filter(|clip| {
+                project
                     .asset(&clip.asset)
-                    .is_some_and(|asset| asset.kind == AssetKind::GeneratedAudio)
-        })
-        .collect()
+                    .is_some_and(|asset| speaks(asset.kind))
+            })
+            .collect();
+        return (named, Vec::new());
+    }
+    let (mut spoken, mut silent) = (Vec::new(), Vec::new());
+    for track in &project.tracks {
+        for clip in &track.clips {
+            let Some(asset) = project.asset(&clip.asset) else {
+                continue;
+            };
+            if track.kind == TrackKind::Audio && asset.kind == AssetKind::GeneratedAudio {
+                spoken.push(clip);
+            } else if Words::transcribable(asset.kind) && Words::of(asset, root).is_some() {
+                if silenced(clip, asked.volume.as_ref()) {
+                    silent.push(clip.id.clone());
+                } else {
+                    spoken.push(clip);
+                }
+            }
+        }
+    }
+    (spoken, silent)
+}
+
+/// Whether `clip` is held at nothing throughout on `volume`: one of its
+/// tracks there, which multiply, has every point at or below `0`, which the
+/// mixer plays as nothing. Between two such points every easing stays at or
+/// below zero, and outside them the end is held.
+fn silenced(clip: &Clip, volume: Option<&PropertyPath>) -> bool {
+    let Some(volume) = volume else {
+        return false;
+    };
+    clip.keyframes.iter().any(|track| {
+        &track.property == volume
+            && !track.keyframes.is_empty()
+            && track.keyframes.iter().all(|point| point.value <= 0.0)
+    })
 }
 
 /// Takes away every caption an earlier run wrote, and the caption assets

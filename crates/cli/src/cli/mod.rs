@@ -686,9 +686,15 @@ pub(crate) enum Command {
     /// keyframes. Safe to re-run: it replaces only its own work.
     Duck(crate::commands::duck::Options),
     /// Put the narration's own words on screen as captions, timed from the
-    /// word timings saved beside each generated line. Safe to re-run: it
-    /// replaces only its own captions.
+    /// word timings saved beside each generated line and each transcribed
+    /// recording. Safe to re-run: it replaces only its own captions.
     Caption(crate::commands::caption::Options),
+    /// Hear the speech in an imported video or sound with the local Whisper
+    /// server and keep each word's timing beside it, so `caption` and pages
+    /// work on real footage. Lists the words numbered; `--fix` corrects a
+    /// misheard one, keeping its times. A kept transcript is listed again
+    /// rather than heard afresh, unless `--again`.
+    Transcribe(crate::commands::transcribe::Options),
     /// Cut a narrated video to its voice: each scene ends a gap after its
     /// line's last word, and the next begins there. Name the scenes in order;
     /// clips named nowhere stay put. Safe to re-run after a line changes.

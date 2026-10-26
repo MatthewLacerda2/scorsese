@@ -104,6 +104,7 @@ used instead, as an exported variable is for a key.
   "elevenlabs_api_key": "…",
   "anthropic_api_key": "…",
   "pixabay_api_key": "…",
+  "whisper_url": "http://127.0.0.1:8970",
   "budget_cents": 5000
 }
 ```
@@ -113,6 +114,15 @@ because this holds credentials and a default that happens to be safe on one
 machine is not a guarantee on the next. Every field is optional; a machine
 nobody has configured has an empty file or none at all, and that is not an
 error.
+
+## Where the Whisper server is
+
+`transcribe` (#1549) reaches a local Whisper server, which is no vendor and
+takes no key: its address is resolved in the same order, from
+`SCORSESE_WHISPER_URL`, then the settings file's `whisper_url`, then
+`http://127.0.0.1:8970`, where `deploy/whisper/compose.yaml` publishes it.
+`scorsese settings` prints the address it resolved. The web app's stack sets
+the variable to its own container (`deploy/compose.yaml`).
 
 ## Asking before spending
 

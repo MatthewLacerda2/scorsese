@@ -47,3 +47,4 @@ pub mod sse;
 pub mod stripe;
 pub mod tap;
 pub mod veo;
+pub mod whisper;
