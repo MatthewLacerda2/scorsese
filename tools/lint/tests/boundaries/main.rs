@@ -4,5 +4,6 @@
 mod edges;
 mod fences;
 mod headless;
+mod keys;
 mod manifest;
 mod root;
