@@ -11,7 +11,6 @@ import { AddCreditsProvider } from "@/app/addCredits";
 import { BalanceChip } from "@/app/BalanceChip";
 import { HeaderSlotProvider } from "@/app/headerSlot";
 import { PageFallback } from "@/app/PageFallback";
-import { SettingsButton } from "@/app/Settings";
 import { UploadTray } from "@/files/UploadTray";
 import { UploadsProvider } from "@/files/uploads";
 import { useT } from "@/i18n/I18nProvider";
@@ -68,7 +67,6 @@ export function Shell() {
             />
             <div className="flex shrink-0 items-center gap-2">
               <BalanceChip />
-              <SettingsButton />
               <AccountMenu />
             </div>
           </header>
