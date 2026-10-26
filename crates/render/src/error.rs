@@ -176,6 +176,16 @@ pub enum RenderError {
         of: u64,
     },
 
+    /// A file asked for its sound could not be probed (#1549): not media, or
+    /// damaged.
+    #[error("{file} could not be read as a video or a sound: {why}")]
+    Unprobed {
+        /// Which file.
+        file: String,
+        /// What ffprobe said.
+        why: String,
+    },
+
     /// A file asked for its sound has none — footage shot without a
     /// microphone, or a picture.
     #[error("{file} has no sound in it")]

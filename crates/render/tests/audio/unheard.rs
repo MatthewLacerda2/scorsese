@@ -46,3 +46,18 @@ fn a_stopped_decode_answers_stopped() {
     assert!(error.contains("stopped"), "{error}");
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// A file ffprobe cannot read is said to be unreadable, not to have no sound.
+#[test]
+fn a_file_that_will_not_probe_is_not_called_silent() {
+    let tools = tools();
+    let dir = scratch::dir("speech-unprobed");
+    let film = dir.join("broken.mp4");
+    std::fs::write(&film, b"not a film at all").expect("as set up");
+    let error = speech(&tools, &film, LONGEST, &Cancel::new())
+        .unwrap_err()
+        .to_string();
+    assert!(!error.contains("no sound"), "{error}");
+    assert!(error.contains("could not be read"), "{error}");
+    std::fs::remove_dir_all(&dir).ok();
+}

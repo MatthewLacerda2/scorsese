@@ -28,8 +28,8 @@ const CHUNK: usize = 64 * 1024;
 /// file's own clock — sound that starts after the picture starts after
 /// silence, so a word's time is where a render seeks for it.
 ///
-/// Refused, before any of it is decoded, as [`RenderError::NoSound`] for a
-/// file with none and [`RenderError::TooLong`] for one its probe says lasts
+/// Refused, before any of it is decoded, as [`RenderError::Unprobed`] for a
+/// file ffprobe cannot read, [`RenderError::NoSound`] for a file with none and [`RenderError::TooLong`] for one its probe says lasts
 /// past `longest` seconds; whatever no probe measured is cut there. Stopped,
 /// ffmpeg killed, as [`RenderError::Stopped`] once `cancel` trips.
 pub fn speech(
@@ -39,18 +39,17 @@ pub fn speech(
     cancel: &Cancel,
 ) -> Result<Vec<u8>, RenderError> {
     let subject = file.display().to_string();
-    let probed = Ffprobe::new(tools.clone()).probe(file).ok();
-    if probed
-        .as_ref()
-        .and_then(|media| media.audio_channels)
-        .is_none()
-    {
+    let probed =
+        Ffprobe::new(tools.clone())
+            .probe(file)
+            .map_err(|error| RenderError::Unprobed {
+                file: subject.clone(),
+                why: error.message,
+            })?;
+    if probed.audio_channels.is_none() {
         return Err(RenderError::NoSound { file: subject });
     }
-    if let Some(seconds) = probed
-        .and_then(|media| media.duration_seconds)
-        .filter(|&seconds| seconds > longest)
-    {
+    if let Some(seconds) = probed.duration_seconds.filter(|&seconds| seconds > longest) {
         return Err(RenderError::TooLong {
             file: subject,
             seconds,
