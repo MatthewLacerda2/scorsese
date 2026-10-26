@@ -51,7 +51,7 @@ static WRITES: AtomicU64 = AtomicU64::new(0);
 /// If the scratch file cannot be written or renamed. In that case `path` still
 /// holds whatever it held before, and no scratch file is left beside it.
 pub fn atomically(path: &Path, contents: impl AsRef<[u8]>) -> io::Result<()> {
-    let scratch = beside(path)?;
+    let scratch = scratch_beside(path, "part")?;
     let written = fill(&scratch, contents.as_ref()).and_then(|()| fs::rename(&scratch, path));
     if written.is_err() {
         // The previous document survives a failed write; it must not have to
@@ -61,8 +61,16 @@ pub fn atomically(path: &Path, contents: impl AsRef<[u8]>) -> io::Result<()> {
     written
 }
 
-/// A scratch path in the same directory as `path`, unique to this write.
-fn beside(path: &Path) -> io::Result<PathBuf> {
+/// A scratch path in the same directory as `path` that no other writer is
+/// using, in this process or another: `path`'s name, this process's id, a
+/// number no other call in it has had, and `suffix`. What a file is written
+/// under before it is renamed into place — beside it, because a rename is only
+/// atomic within one filesystem.
+///
+/// # Errors
+///
+/// If `path` names no file (it ends in `..`, or is a root).
+pub fn scratch_beside(path: &Path, suffix: &str) -> io::Result<PathBuf> {
     let name = path.file_name().ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -74,7 +82,7 @@ fn beside(path: &Path) -> io::Result<PathBuf> {
     let directory = path.parent().unwrap_or_else(|| Path::new(""));
     let mut scratch = name.to_os_string();
     scratch.push(format!(
-        ".{}-{}.part",
+        ".{}-{}.{suffix}",
         std::process::id(),
         WRITES.fetch_add(1, Ordering::Relaxed)
     ));

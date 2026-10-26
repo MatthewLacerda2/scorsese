@@ -32,7 +32,7 @@ const GENERICS: [(&str, &str); 4] = [
 /// the host has installed (#606) — and with the [`GENERICS`] bound to the faces
 /// they mean. Returns that file.
 ///
-/// Written once per project, and whole or not at all ([`super::write_whole`]):
+/// Written once per project, and whole or not at all ([`scorsese_core::write::atomically`]):
 /// a face whose file is already there at the right length, and a fontconfig
 /// file that already says what it would, are left alone — a browser starting
 /// on another thread never reads one cut short (#1085).
@@ -43,7 +43,7 @@ pub(crate) fn fonts(project_root: &Path) -> std::io::Result<PathBuf> {
         let file = folder.join(&face.file);
         let current = std::fs::metadata(&file).map(|m| m.len()).ok();
         if current != Some(face.bytes.len() as u64) {
-            super::write_whole(&file, face.bytes)?;
+            scorsese_core::write::atomically(&file, face.bytes)?;
         }
     }
     let conf = folder.join("fonts.conf");
@@ -61,7 +61,7 @@ pub(crate) fn fonts(project_root: &Path) -> std::io::Result<PathBuf> {
         escaped(&folder.join(".cache"))
     );
     if std::fs::read(&conf).ok().as_deref() != Some(text.as_bytes()) {
-        super::write_whole(&conf, text.as_bytes())?;
+        scorsese_core::write::atomically(&conf, text.as_bytes())?;
     }
     Ok(conf)
 }
@@ -133,6 +133,23 @@ mod tests {
                 .unwrap()
                 .len() as u64
         );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// A write the cache cannot finish leaves the folder as it found it: no
+    /// scratch file beside the one it meant to replace.
+    #[test]
+    fn a_fontconfig_file_that_cannot_be_written_leaves_nothing_beside_it() {
+        let root = crate::scratch::fresh("scorsese-fonts-refused", "");
+        let folder = root.join("cache/pages/fonts");
+        std::fs::create_dir_all(folder.join("fonts.conf/occupied")).unwrap();
+        assert!(fonts(&root).is_err(), "a file cannot replace a folder");
+        let stray: Vec<_> = std::fs::read_dir(&folder)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .filter(|name| name.starts_with("fonts.conf."))
+            .collect();
+        assert_eq!(stray, Vec::<String>::new());
         let _ = std::fs::remove_dir_all(&root);
     }
 

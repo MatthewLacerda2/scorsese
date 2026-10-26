@@ -88,10 +88,10 @@ impl Holding {
         // own, so two renders of one project capturing the same page cannot
         // interleave, whether two processes or two threads of one. Which shelf
         // it goes on is known only once the page has said what it read.
-        let partial = cache::temporary(
+        let partial = scorsese_core::write::scratch_beside(
             &slot.join(format!("part-{}-{}", piece.start, piece.end)),
             "partial.mkv",
-        );
+        )?;
         let served = capture::Served {
             project_root,
             follow,
