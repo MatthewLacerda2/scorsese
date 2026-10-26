@@ -43,6 +43,12 @@ pub enum TranscribeError {
         /// mean.
         forced: bool,
     },
+    /// The recording was removed or replaced while it was heard.
+    #[error(
+        "`{0}` was removed or replaced while it was heard, so nothing was written: transcribe it \
+         again if it is still wanted"
+    )]
+    Changed(AssetId),
     /// Whoever asked stopped it before its words came back.
     #[error("stopped before its words came back; nothing was written")]
     Stopped,

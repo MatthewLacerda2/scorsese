@@ -26,6 +26,9 @@ pub struct Transcribed {
     pub file: ProjectPath,
     /// The words, as kept.
     pub words: Words,
+    /// The recording's hash when it was heard or read, which [`keep`] checks
+    /// the project still has.
+    pub sha256: Option<String>,
     /// What the server heard, when it was asked; `None` when the transcript
     /// already kept was read back.
     pub heard: Option<Heard>,
@@ -88,7 +91,7 @@ pub fn transcribe(
     hearing: Hearing<'_, impl FnOnce(&Path) -> Result<Vec<u8>, Undecoded>>,
 ) -> Result<Transcribed, TranscribeError> {
     let done = hear(project, root, asset, hearing)?;
-    keep(root, &done)?;
+    keep(project, root, &done)?;
     Ok(done)
 }
 
@@ -116,6 +119,7 @@ pub fn hear(
         asset: asset.clone(),
         file: file.clone(),
         words,
+        sha256: found.sha256.clone(),
         heard,
     };
     if !hearing.asked.again
@@ -148,11 +152,19 @@ pub fn hear(
     Ok(done(heard.words.clone(), Some(heard)))
 }
 
-/// Writes what [`hear`] just heard beside its recording; a transcript only
-/// read back is already there, and is left alone.
-pub fn keep(root: &Path, done: &Transcribed) -> Result<(), TranscribeError> {
+/// Writes what [`hear`] just heard beside its recording, when `project` —
+/// read again as it is now — still has that recording, at the same file with
+/// the same hash; otherwise [`TranscribeError::Changed`], and nothing is
+/// written for a recording removed or replaced while it was heard. A
+/// transcript only read back is already there, and is left alone.
+pub fn keep(project: &Project, root: &Path, done: &Transcribed) -> Result<(), TranscribeError> {
     if done.heard.is_none() {
         return Ok(());
+    }
+    let changed = || TranscribeError::Changed(done.asset.clone());
+    let (found, path) = recording(project, &done.asset).map_err(|_| changed())?;
+    if Words::transcript(path) != done.file || found.sha256 != done.sha256 {
+        return Err(changed());
     }
     write(root, &done.file, &done.words)
 }
@@ -217,6 +229,7 @@ pub fn correct(
             asset: asset.clone(),
             file,
             words,
+            sha256: found.sha256.clone(),
             heard: None,
         },
         fixed: fixes.len(),

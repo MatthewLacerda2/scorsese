@@ -175,6 +175,7 @@ pub(super) async fn transcribe(caller: &Caller<'_>, arguments: &Value) -> Result
             asset,
             file,
             words,
+            sha256: Some(sha256),
             heard: None,
         };
         return Ok(kept.said().into());
@@ -237,6 +238,7 @@ pub(super) async fn fix(caller: &Caller<'_>, arguments: &Value) -> Result<Reply,
             asset,
             file,
             words,
+            sha256: Some(sha256),
             heard: None,
         },
         fixed: fixes.len(),

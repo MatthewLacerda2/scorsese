@@ -145,8 +145,11 @@ impl Tool for Transcribe {
         let asset = AssetId::new(arguments.asset.as_str());
         let done = hear(&project, dir, &asset, hearing).map_err(|error| error.to_string())?;
         if done.heard.is_some() {
+            // Read again under the hold: the project may have changed while
+            // the server listened, and words are never written for a
+            // recording that is gone.
             let _held = context.hold(&dir.to_string_lossy(), self.name())?;
-            keep(dir, &done).map_err(|error| error.to_string())?;
+            keep(&load(dir)?, dir, &done).map_err(|error| error.to_string())?;
         }
         Ok(done.said().into())
     }
