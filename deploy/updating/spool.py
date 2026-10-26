@@ -13,12 +13,13 @@ from .host import Refusal
 class Spool:
     """The `capture-spool` volume, made again in step 5 when it points elsewhere."""
 
-    def respool(self) -> None:
-        """Make the spool volume again when SCORSESE_DATA has moved since it was made.
+    def moved_spool(self) -> str:
+        """The spool volume's name when SCORSESE_DATA has moved since it was made, else "".
 
-        `up` would ask first, and run without a terminal it keeps the old folder,
-        so every page capture times out into a slug card (docs/web.md, Updating).
-        The volume holds nothing of its own; only capture-launcher mounts it.
+        Read-only, so it runs before `latest` moves and a refusal here leaves
+        everything as it was. `up` would ask first, and run without a terminal it
+        keeps the old folder, so every page capture times out into a slug card
+        (docs/web.md, Updating).
         """
         config = self.compose(["config", "--format", "json"])
         if not config.ok:
@@ -27,9 +28,20 @@ class Spool:
         made = self.host.run(["docker", "volume", "inspect", "--format", "{{json .Options}}", name])
         was = stack.volume_device(made.out) if made.ok else ""
         if not made.ok or was == device:
-            return
+            return ""
         self.say(f"SCORSESE_DATA has moved: the volume {name} points at {was or 'nothing'}, "
                  f"not {device}, so it is made again (it holds nothing of its own)")
+        return name
+
+    def respool(self, name: str) -> None:
+        """Remove capture-launcher and the volume `name`, so `up` makes both again.
+
+        The volume holds nothing of its own; only capture-launcher mounts it.
+        """
+        if not name:
+            return
+        if not self.opts.dry_run:
+            self.stage = "respooling"
         steps = (self.compose_args(["rm", "--stop", "--force", "capture-launcher"]),
                  ["docker", "volume", "rm", name])
         for args in steps:
@@ -38,6 +50,5 @@ class Spool:
                 continue
             done = self.host.run(args, cwd=self.deploy)
             if not done.ok:
-                raise Refusal(f"`{' '.join(args)}` failed, so the stack was not restarted; "
-                              "capture-launcher may be stopped until `docker compose up "
-                              "--detach` runs:\n" + (done.err or done.out).strip())
+                raise Refusal(f"`{' '.join(args)}` failed, so the stack was not restarted:\n"
+                              + (done.err or done.out).strip())

@@ -549,16 +549,19 @@ nothing, because every merge goes through `make queue`, which rebases first.
 
 ### Updating
 
-From anywhere in the checkout, on `main`:
+From the repository's root, on `main`:
 
     make deploy-web              # deploy/update --wait
 
-At the end of a batch, `make finish-batch` pulls `main` once, then rebuilds the
-local tools (`make local-tools`: the CLI, the MCP server and the desktop app)
-and runs `make deploy-web`, each whether or not the other failed, and ends
-with one line per half. By hand, `deploy/update` takes the flags below
-(`--dry-run` to see what it would do first). It runs the whole update and stops, saying why, at the first thing wrong. It
-first names the commit the stack runs, which is the way back, then:
+At the end of a batch, `make finish-batch` (also from the root) pulls `main`
+once, then rebuilds the local tools (`make local-tools`: the CLI, the MCP
+server and the desktop app) and runs `make deploy-web`, each whether or not
+the other failed, and ends with one line per half.
+
+By hand, `deploy/update` runs from anywhere in the checkout and takes the
+flags below (`--dry-run` to see what it would do first). It runs the whole
+update and stops, saying why, at the first thing wrong. It first names the
+commit the stack runs, which is the way back, then:
 
 1. **Refuses** unless the checkout is on `main` with nothing uncommitted, and
    `git pull --ff-only` succeeds.
@@ -579,10 +582,11 @@ first names the commit the stack runs, which is the way back, then:
    fails, it says so and stops until the backup works. Work that started
    during the backup is caught by a second look: it refuses, keeping the
    dump, or under `--wait` waits again and takes a fresh one.
-5. **Restarts** on the new build: moves `latest` to each new image, drops the
-   commit's tag, makes the `capture-spool` volume again if `SCORSESE_DATA` has
-   moved (below), then `docker compose up --detach`. A server that never turns
-   healthy fails here, with its last lines and the way back.
+5. **Restarts** on the new build: checks whether `SCORSESE_DATA` has moved
+   (below) before changing anything, moves `latest` to each new image, drops
+   the commit's tag, makes the `capture-spool` volume again if it moved, then
+   `docker compose up --detach`. A server that never turns healthy fails here,
+   with its last lines and the way back.
 6. **Waits for every service to be healthy**, ten minutes by default
    (`--timeout`); past that it prints the server's last lines and stops.
 7. **Purges Cloudflare's copy of the landing page** (`./purge-landing`), or

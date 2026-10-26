@@ -38,13 +38,13 @@ REVISION = "org.opencontainers.image.revision"
 # build writes them under the new commit's tag, and the restart moves `latest`
 # to them, so until then whatever starts one by name (page captures start
 # `scorsese-server`) gets the build the stack runs.
+BUILT = ("scorsese-server", "scorsese-capture-launcher", "scorsese-web", "scorsese-backup")
+TAG = "SCORSESE_IMAGE_TAG"
+
 # The volume that points capture-launcher at the capture spool (compose.yaml,
 # `capture-spool`). It keeps the folder it was made with, so after
 # SCORSESE_DATA moves it must be made again, which `up` only asks at a terminal.
 SPOOL = "capture-spool"
-
-BUILT = ("scorsese-server", "scorsese-capture-launcher", "scorsese-web", "scorsese-backup")
-TAG = "SCORSESE_IMAGE_TAG"
 
 Compose = Callable[[Sequence[str]], Result]
 

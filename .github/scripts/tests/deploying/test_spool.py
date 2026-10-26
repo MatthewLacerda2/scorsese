@@ -38,12 +38,19 @@ class Moved(unittest.TestCase):
         self.assertIn("would run: docker volume rm scorsese_capture-spool", out)
         self.assertFalse(ran(host, "volume rm") or ran(host, "rm --stop"))
 
-    def test_a_failed_removal_stops_before_up(self):
+    def test_a_failed_removal_stops_before_up_and_says_where_things_are(self):
         failed = (["volume rm"], Result(1, err="volume is in use"))
-        code, _, err = update(Scripted([MOVED, failed] + GIT + REAL))
+        host = Scripted([MOVED, failed] + GIT + REAL)
+        code, _, err = update(host)
         self.assertEqual(code, 1)
         self.assertIn("so the stack was not restarted", err)
         self.assertIn("volume is in use", err)
+        self.assertIn("built and `latest`", err)
+        self.assertIn("capture-launcher may be stopped or removed", err)
+        self.assertIn("the other running containers are still dddd's", err)
+        self.assertNotIn("some may already be", err)
+        self.assertNotIn("docker compose up", err)
+        self.assertFalse(ran(host, "up --detach"))
 
 
 class Unmoved(unittest.TestCase):
@@ -65,6 +72,16 @@ class Unmoved(unittest.TestCase):
         code, _, err = update(Scripted([bare] + GIT + REAL))
         self.assertEqual(code, 1)
         self.assertIn("does not describe the `capture-spool` volume", err)
+
+    def test_a_config_it_cannot_read_refuses_before_any_retag(self):
+        broken = (["config", "--format json"], Result(1, err="yaml: line 3: bad"))
+        host = Scripted([MOVED, broken] + GIT + REAL)
+        code, _, err = update(host)
+        self.assertEqual(code, 1)
+        self.assertIn("`docker compose config` failed", err)
+        self.assertIn("with `latest` left as it was", err)
+        touched = ran(host, "docker tag") + ran(host, "rm --stop") + ran(host, "up --detach")
+        self.assertFalse(touched, host.ran)
 
 
 if __name__ == "__main__":

@@ -234,7 +234,7 @@ PYTHON_CHECK = command -v $(PYTHON) >/dev/null 2>&1 || { \
 # directories called `app/` and `web/`, so without it make sees the target as
 # already built and `make app` prints "up to date" without running a thing. A
 # check that silently does nothing is worse than no check.
-.PHONY: help setup compile-cache gates pre-commit target-dir inventory $(GATES) app-gates web-gates web-e2e-run release app-release local-tools deploy-web finish-batch format-fix mcp-table landing-og coverage mutants mutants-remote mutants-status mergeable queue live-check infra-plan infra-apply
+.PHONY: help setup compile-cache gates pre-commit target-dir inventory $(GATES) app-gates web-gates web-e2e-run release app-release local-tools deploy-web finish-batch finish-batch-pulled format-fix mcp-table landing-og coverage mutants mutants-remote mutants-status mergeable queue live-check infra-plan infra-apply
 
 ##@ Everyday
 
@@ -354,9 +354,22 @@ deploy-web: ## Update the hosted web app from main with deploy/update --wait (do
 	$(PYTHON) deploy/update --wait
 
 finish-batch: ## End of a batch with a deploy: pull main once, then local-tools and deploy-web, each whatever the other did
-	@branch="$$(git rev-parse --abbrev-ref HEAD)"; [ "$$branch" = main ] || { 		echo "finish-batch: the checkout is on $$branch, not main; 'git switch main' first" >&2; exit 1; }
-	@git pull --ff-only origin main || { 		echo "finish-batch: 'git pull --ff-only' failed, so nothing was built or deployed" >&2; exit 1; }
-	@local=ok; for t in $(LOCAL_TOOLS); do 		$(MAKE) --no-print-directory $$t || { local="FAILED at make $$t"; break; }; 	done; 	web=ok; $(MAKE) --no-print-directory deploy-web || web="FAILED (deploy/update's last lines above say at which step, and where things stand)"; 	echo; echo "finish-batch: local tools: $$local"; echo "finish-batch: web: $$web"; 	[ "$$local" = ok ] && [ "$$web" = ok ]
+	@branch="$$(git rev-parse --abbrev-ref HEAD)"; [ "$$branch" = main ] || { \
+		echo "finish-batch: the checkout is on $$branch, not main; 'git switch main' first" >&2; exit 1; }
+	@git pull --ff-only origin main || { \
+		echo "finish-batch: 'git pull --ff-only' failed, so nothing was built or deployed" >&2; exit 1; }
+	@$(MAKE) --no-print-directory finish-batch-pulled
+
+# finish-batch's second half, in a make of its own so its steps are the pulled
+# Makefile's, not the one parsed before the pull.
+finish-batch-pulled:
+	@local=ok; for t in $(LOCAL_TOOLS); do \
+		$(MAKE) --no-print-directory $$t || { local="FAILED at make $$t"; break; }; \
+	done; \
+	web=ok; $(MAKE) --no-print-directory deploy-web || \
+		web="FAILED (deploy/update's last lines above say at which step, and where things stand)"; \
+	echo; echo "finish-batch: local tools: $$local"; echo "finish-batch: web: $$web"; \
+	[ "$$local" = ok ] && [ "$$web" = ok ]
 
 ##@ The gates
 
