@@ -102,8 +102,8 @@ impl Transcriptions {
         &self.url
     }
 
-    /// Sends `request` and waits for its words, for as long as `within`; its
-    /// sending abandoned once `stopped` is set.
+    /// Sends `request` and waits for its words, for as long as `within`; the
+    /// connection closed once `stopped` is set, sent or not.
     pub fn transcribe(
         &self,
         request: Request<'_>,

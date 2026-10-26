@@ -111,3 +111,64 @@ fn a_needle_is_found_in_every_field_of_a_part_and_nowhere_else() {
 fn a_quote_or_a_line_break_cannot_end_a_header() {
     assert_eq!(quoted("a\"b\r\nc"), "a%22b%0D%0Ac");
 }
+
+/// Stopped after the whole body is sent, while the server is still working
+/// it out, the request ends at once and the connection is closed — nothing
+/// is left waiting on a reply, holding the form.
+#[test]
+fn a_stop_after_the_upload_closes_the_connection() {
+    use std::io::{BufRead, BufReader};
+    use std::net::TcpListener;
+    use std::sync::mpsc;
+    use std::time::Instant;
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("as set up");
+    let url = format!("http://{}/up", listener.local_addr().expect("as set up"));
+    let (uploaded, heard_all) = mpsc::channel();
+    let server = std::thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("as set up");
+        let mut reader = BufReader::new(stream);
+        let mut length = 0;
+        loop {
+            let mut line = String::new();
+            reader.read_line(&mut line).expect("as set up");
+            if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                length = value.trim().parse().expect("as set up");
+            }
+            if line == "\r\n" {
+                break;
+            }
+        }
+        let mut sent = vec![0; length];
+        reader.read_exact(&mut sent).expect("as set up");
+        uploaded.send(()).expect("as set up");
+        // Never answers: reads until the client hangs up.
+        let mut rest = Vec::new();
+        let _ = reader.read_to_end(&mut rest);
+        Instant::now()
+    });
+    let stopped = Arc::new(AtomicBool::new(false));
+    let (answer, answered) = mpsc::channel();
+    let stopping = Arc::clone(&stopped);
+    std::thread::spawn(move || {
+        let form = Form::new().file("file", "speech.wav", "audio/wav", vec![1; 64 * 1024]);
+        let reply: Result<serde_json::Value, HttpError> = Caller::anonymous().post_multipart_until(
+            &url,
+            &form,
+            Duration::from_secs(60),
+            &stopping,
+        );
+        let _ = answer.send(reply.is_err());
+    });
+    heard_all
+        .recv_timeout(Duration::from_secs(10))
+        .expect("the body arrives");
+    let stop = Instant::now();
+    stopped.store(true, Ordering::SeqCst);
+    let failed = answered
+        .recv_timeout(Duration::from_secs(5))
+        .expect("the request ends soon after the stop, not at its timeout");
+    assert!(failed, "a stopped request is no answer");
+    let closed = server.join().expect("as set up");
+    assert!(closed.duration_since(stop) < Duration::from_secs(5));
+}

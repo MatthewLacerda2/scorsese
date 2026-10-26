@@ -2091,8 +2091,9 @@ Whisper large-v3-turbo int8 baked into its image (`deploy/whisper/`) — over
 the `whisper` network, which is internal: the container has no way out and
 nothing reaches it but the server (`SCORSESE_WHISPER_URL`). One job at a time,
 on two cores, so a render always has the rest; its owner stops it with `jobs`'
-`cancel`, which kills the decode and abandons the request, and an answer that
-lands with the stop is not kept. A recording longer than two hours
+`cancel`, which kills the decode and closes the request's connection, sent or
+still sending, so nothing waits on its reply or holds its WAV, and an answer
+that lands with the stop is not kept. A recording longer than two hours
 (`transcribe::LONGEST`) is refused from its probe before it is decoded, so one
 job holds the slot for a bounded time. Asking again while a job asked the same
 language (or both detecting it) is waiting or running hands that job back,

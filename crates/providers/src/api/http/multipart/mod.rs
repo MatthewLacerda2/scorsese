@@ -21,10 +21,14 @@ use std::borrow::Cow;
 use std::io::{self, Read};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde::de::DeserializeOwned;
 use sha2::{Digest, Sha256};
+use ureq::unversioned::resolver::DefaultResolver;
+use ureq::unversioned::transport::{
+    Buffers, ConnectionDetails, Connector, DefaultConnector, NextTimeout, Transport,
+};
 
 use super::{Caller, HttpError};
 
@@ -56,8 +60,9 @@ impl Caller {
         self.post_multipart_until(url, form, whole, &Arc::new(AtomicBool::new(false)))
     }
 
-    /// [`Caller::post_multipart_within`], its sending abandoned — the
-    /// connection closed — once `stopped` is set.
+    /// [`Caller::post_multipart_within`], abandoned once `stopped` is set —
+    /// while the body is sent or while its reply is waited on: the call
+    /// returns, the connection is closed and the form is free to drop.
     pub fn post_multipart_until<R: DeserializeOwned>(
         &self,
         url: &str,
@@ -65,11 +70,17 @@ impl Caller {
         whole: Duration,
         stopped: &Arc<AtomicBool>,
     ) -> Result<R, HttpError> {
-        let agent: ureq::Agent = ureq::Agent::config_builder()
+        let config = ureq::Agent::config_builder()
             .timeout_global(Some(whole))
             .http_status_as_error(false)
-            .build()
-            .into();
+            .build();
+        let agent = ureq::Agent::with_parts(
+            config,
+            DefaultConnector::new().chain(Stopping {
+                stopped: Arc::clone(stopped),
+            }),
+            DefaultResolver::default(),
+        );
         let (content_type, length, body) = form.body();
         let mut body = Stoppable {
             body,
@@ -84,14 +95,85 @@ impl Caller {
     }
 }
 
-/// A body that stops being read once it is told to, so a request nobody
-/// wants any more is not sent whole.
-struct Stoppable<'a> {
-    body: Body<'a>,
+/// How often a reply being waited on looks for a stop.
+const LISTEN_FOR_STOP: Duration = Duration::from_millis(100);
+
+/// Wraps each connection the agent opens in [`Stoppable`], so a stop reaches
+/// a request blocked on its reply — which the body's own check cannot, once
+/// the body is sent.
+#[derive(Debug)]
+struct Stopping {
     stopped: Arc<AtomicBool>,
 }
 
-impl Read for Stoppable<'_> {
+impl Connector<Box<dyn Transport>> for Stopping {
+    type Out = Stoppable<Box<dyn Transport>>;
+
+    fn connect(
+        &self,
+        _: &ConnectionDetails,
+        chained: Option<Box<dyn Transport>>,
+    ) -> Result<Option<Self::Out>, ureq::Error> {
+        Ok(chained.map(|inner| Stoppable {
+            body: inner,
+            stopped: Arc::clone(&self.stopped),
+        }))
+    }
+}
+
+/// Waits for input in slices of [`LISTEN_FOR_STOP`], looking for a stop
+/// between them, rather than in one wait as long as the request's timeout.
+impl Transport for Stoppable<Box<dyn Transport>> {
+    fn buffers(&mut self) -> &mut dyn Buffers {
+        self.body.buffers()
+    }
+
+    fn transmit_output(&mut self, amount: usize, timeout: NextTimeout) -> Result<(), ureq::Error> {
+        self.body.transmit_output(amount, timeout)
+    }
+
+    fn await_input(&mut self, timeout: NextTimeout) -> Result<bool, ureq::Error> {
+        let until = timeout.not_zero().map(|wait| Instant::now() + *wait);
+        loop {
+            if self.stopped.load(Ordering::SeqCst) {
+                return Err(ureq::Error::Io(io::Error::new(
+                    io::ErrorKind::Interrupted,
+                    "stopped",
+                )));
+            }
+            let left = until.map(|until| until.saturating_duration_since(Instant::now()));
+            let slice = left.map_or(LISTEN_FOR_STOP, |left| left.min(LISTEN_FOR_STOP));
+            let last = left.is_some_and(|left| left <= LISTEN_FOR_STOP);
+            let waiting = NextTimeout {
+                after: slice.into(),
+                reason: timeout.reason,
+            };
+            match self.body.await_input(waiting) {
+                Err(ureq::Error::Timeout(_)) if !last => {}
+                done => return done,
+            }
+        }
+    }
+
+    fn is_open(&mut self) -> bool {
+        self.body.is_open()
+    }
+
+    fn is_tls(&self) -> bool {
+        self.body.is_tls()
+    }
+}
+
+/// A body that stops being read once it is told to, so a request nobody
+/// wants any more is not sent whole — or, around a connection, one that
+/// stops waiting for its reply ([`Stopping`]).
+#[derive(Debug)]
+struct Stoppable<T> {
+    body: T,
+    stopped: Arc<AtomicBool>,
+}
+
+impl Read for Stoppable<Body<'_>> {
     fn read(&mut self, into: &mut [u8]) -> io::Result<usize> {
         if self.stopped.load(Ordering::SeqCst) {
             return Err(io::Error::new(io::ErrorKind::Interrupted, "stopped"));

@@ -104,10 +104,11 @@ impl Whisper {
 
 impl Transcriber for Whisper {
     /// The request runs on a thread of its own, waited on until it answers or
-    /// `stop` says so. Stopped, its sending is abandoned — the connection
-    /// closed, a body half sent never finished — and its answer, should one
-    /// still come, dropped with the thread. What the server was already
-    /// working out it finishes on its own two cores (`deploy/compose.yaml`).
+    /// `stop` says so. Stopped, the thread's request ends too, within a tenth
+    /// of a second, whether its body is still going up or its reply is being
+    /// waited on: the connection closed, the WAV dropped with the thread.
+    /// What the server was already working out it finishes on its own two
+    /// cores (`deploy/compose.yaml`).
     fn transcribe(
         &self,
         wav: Vec<u8>,

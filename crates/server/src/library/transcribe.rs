@@ -12,8 +12,8 @@
 //!
 //! **Free, and a job**, as a render is: it costs the machine minutes, so it
 //! queues ([`kinds::TRANSCRIBE`], one at a time) and its owner can stop it. A
-//! stop kills the decode and abandons the request, and an answer that lands
-//! with it is thrown away.
+//! stop kills the decode and closes the request's connection, and an answer
+//! that lands with it is thrown away.
 //!
 //! **Only an upload is heard.** A generated line brought from the library is
 //! a plain sound in the project using it, but its row's words are the
@@ -213,7 +213,7 @@ async fn hear(
     let ear = vendors.whisper()?;
     let source = storage.library_file(job.user, &item.sha256, &item.extension);
     let tools = tools.clone();
-    // A stop kills the decode and abandons the request, so the blocking work
+    // A stop kills the decode and closes the request's connection, so the blocking work
     // ends with the job and never runs on behind the next one.
     let cancel: Cancel = context.cancel().clone();
     let heard = tokio::task::spawn_blocking(move || {
