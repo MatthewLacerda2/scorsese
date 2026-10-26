@@ -95,7 +95,7 @@ enum End {
 /// Run `turn` to its end, and record and announce how it ended, in a span
 /// naming it.
 pub(super) async fn run(state: AppState, turn: Running) {
-    let span = tracing::info_span!("turn", id = turn.turn, user = turn.user.get());
+    let span = tracing::error_span!("turn", id = turn.turn, user = turn.user.get());
     run_named(state, turn).instrument(span).await;
 }
 
@@ -268,7 +268,7 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
                 ));
             }
             Stop::Other(reason) => {
-                tracing::info!("assistant: turn {}: stopped: {reason}", turn.turn);
+                tracing::warn!("assistant: turn {}: stopped: {reason}", turn.turn);
                 return Ok(End::Over("failed", super::failure::stopped(reason)));
             }
         }

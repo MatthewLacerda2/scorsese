@@ -20,7 +20,28 @@ where
 
 #[cfg(test)]
 mod tests {
+    use tracing::Instrument;
+
     use super::blocking;
+    use crate::logs::tests::{kept, text};
+
+    /// The pool's threads log through the process's subscriber, so this one
+    /// installs it: each test runs in a process of its own (nextest).
+    #[tokio::test]
+    async fn a_line_logged_in_the_work_names_the_callers_span() {
+        let (assembled, kept) = kept("info");
+        tracing::subscriber::set_global_default(assembled).unwrap();
+        let span = tracing::error_span!("job", id = 3);
+        blocking("never said", || tracing::warn!("drawn"))
+            .instrument(span)
+            .await
+            .unwrap();
+        let log = text(&kept);
+        assert!(
+            log.contains("job{id=3}: ") && log.contains("drawn"),
+            "{log}"
+        );
+    }
 
     #[tokio::test]
     async fn a_finished_closure_answers_with_its_value() {

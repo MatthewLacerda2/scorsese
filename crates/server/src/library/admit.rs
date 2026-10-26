@@ -70,9 +70,11 @@ impl Library {
     async fn admit_file(&self, user: UserId, arrival: Arrival) -> Result<Item, LibraryError> {
         let measured = {
             let (tools, file, kind) = (self.tools.clone(), arrival.file.clone(), arrival.kind);
-            tokio::task::spawn_blocking(move || read(&tools, &file, kind))
-                .await
-                .map_err(|error| LibraryError::Tools(error.to_string()))??
+            crate::jobs::blocking("reading the upload crashed", move || {
+                read(&tools, &file, kind)
+            })
+            .await
+            .map_err(LibraryError::Tools)??
         };
         if let Some(announced) = &arrival.announced
             && *announced != measured.sha256

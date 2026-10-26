@@ -16,9 +16,41 @@ pub const RULE: &str = "server-print";
 /// The macros that write past the server's log.
 const PRINTS: [&str; 5] = ["eprintln", "println", "eprint", "print", "dbg"];
 
+/// `line`'s code: string literals blanked and a trailing `//` comment cut,
+/// so `"http://x"` hides no call after it and a string holds none.
+fn code(line: &str) -> String {
+    let mut code = String::with_capacity(line.len());
+    let mut chars = line.chars().peekable();
+    let mut quoted = false;
+    while let Some(c) = chars.next() {
+        match (quoted, c) {
+            (true, '\\') => {
+                chars.next();
+            }
+            (true, '"') => {
+                quoted = false;
+                code.push('"');
+            }
+            (true, _) => {}
+            (false, '"') => {
+                quoted = true;
+                code.push('"');
+            }
+            // A quote as a character, `'"'`, opens no string.
+            (false, '\'') if chars.peek() == Some(&'"') => {
+                chars.next();
+                chars.next();
+            }
+            (false, '/') if chars.peek() == Some(&'/') => break,
+            (false, _) => code.push(c),
+        }
+    }
+    code
+}
+
 /// Whether `line` calls one of [`PRINTS`] as a name of its own.
 fn prints(line: &str) -> bool {
-    let code = line.split("//").next().unwrap_or(line);
+    let code = code(line);
     PRINTS.iter().any(|name| {
         let call = format!("{name}!(");
         code.match_indices(&call).any(|(at, _)| {

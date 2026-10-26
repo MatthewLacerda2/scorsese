@@ -35,10 +35,15 @@ impl Write for Kept {
 /// until the guard drops. The test's runtime is one thread, so the server
 /// and the worker it spawns log here too.
 pub(crate) fn keep() -> (DefaultGuard, Kept) {
+    keep_at(None)
+}
+
+/// [`keep`], filtered as `RUST_LOG=filter` would.
+pub(crate) fn keep_at(filter: Option<&str>) -> (DefaultGuard, Kept) {
     let kept = Kept::default();
     let writer = kept.clone();
     let subscriber =
-        scorsese_server::logs::subscriber(scorsese_server::logs::filter(None), move || {
+        scorsese_server::logs::subscriber(scorsese_server::logs::filter(filter), move || {
             writer.clone()
         });
     (tracing::subscriber::set_default(subscriber), kept)

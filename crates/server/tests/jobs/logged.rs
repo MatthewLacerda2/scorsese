@@ -11,7 +11,17 @@ use super::{ECHO, account, enqueue, members, start_worker, stop_worker, when};
 
 #[sqlx::test]
 async fn a_failed_job_is_logged_by_its_id_kind_and_owner(pool: PgPool) {
-    let (_logging, kept) = logged::keep();
+    failed_job_is_named(pool, None).await;
+}
+
+/// A filter keeping warnings alone still names the job a failure is in.
+#[sqlx::test]
+async fn a_failed_job_is_named_under_a_warn_filter(pool: PgPool) {
+    failed_job_is_named(pool, Some("warn")).await;
+}
+
+async fn failed_job_is_named(pool: PgPool, filter: Option<&str>) {
+    let (_logging, kept) = logged::keep_at(filter);
     let ana = account(&pool, "ana@example.com").await;
     let members = members(&pool).await;
     let registry = Registry::new().register(ECHO, |_job: Job, _context| async move {

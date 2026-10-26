@@ -243,7 +243,7 @@ async fn finish(
         .map_err(|error| match error {
             AccountError::LinkedElsewhere(_) => "linked",
             error => {
-                tracing::warn!("a Google sign-in failed: {error}");
+                tracing::warn!("a Google sign-in failed: {}", error.logged());
                 "failed"
             }
         })?;

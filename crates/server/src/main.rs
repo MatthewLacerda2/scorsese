@@ -20,8 +20,9 @@ use scorsese_server::{Config, ServerError};
 async fn main() -> ExitCode {
     scorsese_server::logs::init();
     let command = Cli::parse().command.unwrap_or(Command::Serve);
-    // The capture containers' commands read no environment and no database:
-    // they have neither a network nor the server's secrets.
+    // The capture containers' commands read no environment but the log's
+    // filter, and no database: they have neither a network nor the server's
+    // secrets.
     match command {
         Command::CaptureLauncher(args) => return capture_launcher(&args),
         Command::CaptureWorker(args) => return capture_worker(&args),

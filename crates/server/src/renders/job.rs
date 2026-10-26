@@ -91,7 +91,7 @@ pub fn handler(cache: RenderCache, tools: Tools, storage: Storage) -> impl Handl
             if preview::outrun(&job, &context).await {
                 // Still logged: ffmpeg dying while its owner kept editing is
                 // a failure the screen never shows, and only here is it seen.
-                tracing::info!("superseded preview {} ended: {why}", job.id);
+                tracing::warn!("superseded preview {} ended: {why}", job.id);
                 return Outcome::Cancelled(why);
             }
             Outcome::Failed(why)

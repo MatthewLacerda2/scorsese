@@ -94,12 +94,11 @@ async fn draw(
     let levels = (item.kind == Kind::Audio).then(|| storage.peaks(job.user, &item.sha256));
     let tools = tools.clone();
     let job = job.id;
-    tokio::task::spawn_blocking(move || {
+    crate::jobs::blocking("drawing crashed", move || {
         write(&tools, &source, what, &out, job)?;
         levels.map_or(Ok(()), |levels| read_peaks(&tools, &source, &levels, job))
     })
-    .await
-    .map_err(|error| error.to_string())??;
+    .await??;
     Ok(json!({ "item": id }))
 }
 

@@ -5,8 +5,10 @@
 //! route (never the raw path, which carries ids) and, once signed in, the
 //! account by id alone; it ends with one line saying its status and how long
 //! it took, at `error` for a 5xx. The health check, asked every 15 seconds,
-//! writes nothing. Every job runs in a `job` span and every assistant turn in
-//! a `turn` span, so whatever goes wrong inside one names it.
+//! is routed outside it and writes nothing. Every job runs in a `job` span
+//! and every assistant turn in a `turn` span, so whatever goes wrong inside
+//! one names it. The spans are at `error`, so every filter but `off` keeps
+//! them and a warning still says whose it is.
 //!
 //! [`LOG_FILTER`] picks what is written, as `info,scorsese_server=debug`
 //! does: `info` when unset or blank.
@@ -20,12 +22,14 @@ use tracing::{Level, Span, Subscriber};
 use tracing_subscriber::filter::Targets;
 use tracing_subscriber::fmt::MakeWriter;
 use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::registry::Registry;
 
 use crate::config::LOG_FILTER;
 use crate::db::UserId;
 
-/// The route the container's health check asks, left out of the log.
-const HEALTH: &str = "/api/health";
+/// The route the container's health check asks, under `/api`: the router
+/// leaves it out of the request log.
+pub const UNLOGGED: &str = "/health";
 
 /// Log to stderr for the rest of the process, filtered by [`LOG_FILTER`].
 /// A filter that does not parse is said, and `info` is used instead.
@@ -66,22 +70,20 @@ pub fn subscriber<W>(filter: Targets, writer: W) -> impl Subscriber + Send + Syn
 where
     W: for<'w> MakeWriter<'w> + Send + Sync + 'static,
 {
-    tracing_subscriber::fmt()
-        .with_writer(writer)
-        .finish()
+    // The filter alone decides: `fmt()`'s builder would keep its own `info`
+    // ceiling under it, and no `debug` line would ever be written.
+    Registry::default()
+        .with(tracing_subscriber::fmt::layer().with_writer(writer))
         .with(filter)
 }
 
-/// The span a request runs in; none for the health check.
+/// The span a request runs in.
 pub fn request<B>(request: &Request<B>) -> Span {
     let route = request
         .extensions()
         .get::<MatchedPath>()
         .map_or("(no route)", MatchedPath::as_str);
-    if route == HEALTH {
-        return Span::none();
-    }
-    tracing::info_span!("request", method = %request.method(), route = %route, user = Empty)
+    tracing::error_span!("request", method = %request.method(), route = %route, user = Empty)
 }
 
 /// Name the account the current request is from, by id alone.
@@ -90,10 +92,7 @@ pub fn signed_in(user: UserId) {
 }
 
 /// The line a request ends with: its status and how long it took.
-pub fn answered<B>(response: &Response<B>, latency: Duration, span: &Span) {
-    if span.is_none() {
-        return;
-    }
+pub fn answered<B>(response: &Response<B>, latency: Duration, _span: &Span) {
     let status = response.status().as_u16();
     let ms = u64::try_from(latency.as_millis()).unwrap_or(u64::MAX);
     if response.status().is_server_error() {
@@ -104,11 +103,70 @@ pub fn answered<B>(response: &Response<B>, latency: Duration, span: &Span) {
 }
 
 #[cfg(test)]
-mod tests {
-    use tracing::Level;
+pub(crate) mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use tracing::{Level, Subscriber};
     use tracing_subscriber::filter::Targets;
 
-    use super::filter;
+    use super::{filter, subscriber};
+
+    /// The assembled log under `text`, and what it has written so far.
+    pub(crate) fn kept(text: &str) -> (impl Subscriber + Send + Sync, Arc<Mutex<Vec<u8>>>) {
+        let kept = Arc::new(Mutex::new(Vec::new()));
+        let writer = Arc::clone(&kept);
+        let assembled = subscriber(filter(Some(text)), move || Kept(Arc::clone(&writer)));
+        (assembled, kept)
+    }
+
+    /// What `kept` holds, as text.
+    pub(crate) fn text(kept: &Mutex<Vec<u8>>) -> String {
+        String::from_utf8(kept.lock().unwrap().clone()).unwrap()
+    }
+
+    /// What the assembled log writes while `log` runs, under `text`.
+    fn written(filter: &str, log: impl FnOnce()) -> String {
+        let (assembled, kept) = kept(filter);
+        tracing::subscriber::with_default(assembled, log);
+        text(&kept)
+    }
+
+    struct Kept(Arc<Mutex<Vec<u8>>>);
+
+    impl std::io::Write for Kept {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_debug_filter_writes_debug_lines() {
+        let log = written("info,scorsese_server=debug", || {
+            tracing::debug!("a debug line");
+            tracing::trace!("a trace line");
+        });
+        assert!(log.contains("a debug line"), "{log}");
+        assert!(!log.contains("a trace line"), "{log}");
+    }
+
+    #[test]
+    fn a_warn_filter_keeps_the_span_a_warning_is_in() {
+        let log = written("warn", || {
+            let span = tracing::error_span!("job", id = 7);
+            span.in_scope(|| {
+                tracing::info!("an info line");
+                tracing::warn!("a warning");
+            });
+        });
+        assert!(log.contains("job{id=7}"), "{log}");
+        assert!(log.contains("a warning"), "{log}");
+        assert!(!log.contains("an info line"), "{log}");
+    }
 
     fn at(targets: &Targets, target: &str) -> Option<Level> {
         [

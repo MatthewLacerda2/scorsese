@@ -204,7 +204,8 @@ async fn claim_what_fits(
         };
         queue.tell(job.user, view);
         running.started(kind);
-        let span = tracing::info_span!("job", id = job.id, kind = %job.kind, user = job.user.get());
+        let span =
+            tracing::error_span!("job", id = job.id, kind = %job.kind, user = job.user.get());
         let handle = tasks.spawn(run(pool.clone(), handler, job, queue.clone()).instrument(span));
         kinds_of.insert(handle.id(), kind);
     }

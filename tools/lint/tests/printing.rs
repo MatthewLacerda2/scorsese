@@ -14,7 +14,11 @@ fn a_print_in_the_server_is_flagged_on_its_line() {
         "eprintln!(\"x\")",
         "println!(\"{x}\")",
         "eprint!(\"x\")",
+        "print!(\"x\")",
         "dbg!(x)",
+        "let u = \"http://x\"; eprintln!(\"{u}\")",
+        "let q = '\"'; eprintln!(\"{q}\")",
+        "let half = a / 2; eprintln!(\"{half}\")",
     ] {
         let text = format!("fn a() {{\n    {print};\n}}\n");
         let [finding] = &check(Path::new(SERVER), &text)[..] else {
@@ -34,6 +38,10 @@ fn a_print_elsewhere_or_in_a_comment_or_a_longer_name_passes() {
     let quiet =
         "//! Once `eprintln!` logged here.\nfn a() { my_println!(x); tracing::error!(\"x\"); }\n";
     assert!(check(Path::new(SERVER), quiet).is_empty());
+    let said = "fn a() { tracing::warn!(\"never eprintln!(x) here, \\\" nor println!(y)\"); }\n";
+    assert!(check(Path::new(SERVER), said).is_empty());
+    let after = "fn a() { tracing::warn!(\"x\"); // once eprintln!(x)\n}\n";
+    assert!(check(Path::new(SERVER), after).is_empty());
 }
 
 #[test]

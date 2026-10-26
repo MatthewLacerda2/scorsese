@@ -721,9 +721,9 @@ with one `answered` line with its status and milliseconds, at `ERROR` for a
 5xx; the health check is not logged. Every job runs in a `job` span (its id,
 kind and owner), and every assistant turn in a `turn` span:
 
-    2026-10-23T14:02:11.412Z ERROR request{method=GET route=/api/projects/{id} user=12}: scorsese_server::http::error: database: …
-    2026-10-23T14:02:11.413Z ERROR request{method=GET route=/api/projects/{id} user=12}: scorsese_server::logs: answered status=500 ms=31
-    2026-10-23T14:05:40.090Z  WARN job{id=881 kind=render user=12}: scorsese_server::jobs::worker: failed: …
+    2026-10-23T14:02:11.412387Z ERROR request{method=GET route=/api/projects/{id} user=12}: scorsese_server::http::error: database: pool timed out while waiting for an open connection
+    2026-10-23T14:02:11.413020Z ERROR request{method=GET route=/api/projects/{id} user=12}: scorsese_server::logs: answered status=500 ms=31
+    2026-10-23T14:05:40.090614Z  WARN job{id=881 kind=render user=12}: scorsese_server::jobs::worker: failed: the render crashed on the server; that is a bug
 
 So one account's trail, one job, or the failures alone are a `grep` away:
 

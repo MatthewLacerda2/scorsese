@@ -87,13 +87,15 @@ pub(super) async fn run(state: &AppState, user: UserId, turn: i64, call: &Call) 
     let said: String = words.join("\n").chars().take(SAID).collect();
     tell(if is_error { "refused" } else { "answered" }, Some(said));
     let ffmpeg = state.tools.ffmpeg().clone();
-    let content = tokio::task::spawn_blocking(move || blocks(&ffmpeg, parts))
-        .await
-        .unwrap_or_else(|_| {
-            vec![ResultPart::Text {
-                text: "(the answer could not be read back)".into(),
-            }]
-        });
+    let content = crate::jobs::blocking("reading the answer back crashed", move || {
+        blocks(&ffmpeg, parts)
+    })
+    .await
+    .unwrap_or_else(|_| {
+        vec![ResultPart::Text {
+            text: "(the answer could not be read back)".into(),
+        }]
+    });
     let part = Part::Result {
         call: call.id.clone(),
         name: call.name.clone(),
