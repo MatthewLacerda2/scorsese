@@ -2,17 +2,25 @@
 //!
 //! Two calls take one: ElevenLabs' Instant Voice Cloning
 //! (`POST /v1/voices/add`) wants its recordings as files in a form, not as
-//! JSON, and so does the local Whisper server ([`whisper`](crate::api::whisper)). `ureq` 3 has a multipart feature behind no flag scorsese turns on,
-//! and turning one on for a single call buys a dependency `cargo deny` has to
+//! JSON, and so does the local Whisper server ([`whisper`](crate::api::whisper)).
+//! `ureq` 3 has a multipart feature behind no flag scorsese turns on, and
+//! turning one on for a single call buys a dependency `cargo deny` has to
 //! keep clearing for what is fifty lines against a fixed specification — the
-//! reason [`encoded`](super::encoded) is written here too. The body is built
-//! whole in memory: a minute or two of somebody's voice is a few megabytes.
+//! reason [`encoded`](super::encoded) is written here too.
+//!
+//! **A file's bytes are sent from where they are**, never copied into a
+//! body: [`Form::body`] reads the parts in turn, with the length said up
+//! front, so two hours of speech is one buffer, not three.
 //!
 //! **The boundary is derived from the content**, not drawn at random: a hash
 //! of every part, so the same form is the same bytes (a test can hold them),
 //! and checked against every part anyway — a boundary that occurred inside a
 //! recording would cut it in two.
 
+use std::borrow::Cow;
+use std::io::{self, Read};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use serde::de::DeserializeOwned;
@@ -45,17 +53,76 @@ impl Caller {
         form: &Form,
         whole: Duration,
     ) -> Result<R, HttpError> {
+        self.post_multipart_until(url, form, whole, &Arc::new(AtomicBool::new(false)))
+    }
+
+    /// [`Caller::post_multipart_within`], its sending abandoned — the
+    /// connection closed — once `stopped` is set.
+    pub fn post_multipart_until<R: DeserializeOwned>(
+        &self,
+        url: &str,
+        form: &Form,
+        whole: Duration,
+        stopped: &Arc<AtomicBool>,
+    ) -> Result<R, HttpError> {
         let agent: ureq::Agent = ureq::Agent::config_builder()
             .timeout_global(Some(whole))
             .http_status_as_error(false)
             .build()
             .into();
-        let (content_type, body) = form.encode();
+        let (content_type, length, body) = form.body();
+        let mut body = Stoppable {
+            body,
+            stopped: Arc::clone(stopped),
+        };
         let sent = self
             .signed(agent.post(url))
             .header("Content-Type", content_type)
-            .send(&body[..]);
+            .header("Content-Length", length.to_string())
+            .send(ureq::SendBody::from_reader(&mut body));
         self.json(url, sent)
+    }
+}
+
+/// A body that stops being read once it is told to, so a request nobody
+/// wants any more is not sent whole.
+struct Stoppable<'a> {
+    body: Body<'a>,
+    stopped: Arc<AtomicBool>,
+}
+
+impl Read for Stoppable<'_> {
+    fn read(&mut self, into: &mut [u8]) -> io::Result<usize> {
+        if self.stopped.load(Ordering::SeqCst) {
+            return Err(io::Error::new(io::ErrorKind::Interrupted, "stopped"));
+        }
+        self.body.read(into)
+    }
+}
+
+/// A form's body as it is sent: the framing it is written in, with each
+/// part's bytes read from the form itself.
+pub struct Body<'a> {
+    pieces: Vec<Cow<'a, [u8]>>,
+    piece: usize,
+    at: usize,
+}
+
+impl Read for Body<'_> {
+    fn read(&mut self, into: &mut [u8]) -> io::Result<usize> {
+        while let Some(piece) = self.pieces.get(self.piece) {
+            let left = &piece[self.at..];
+            if left.is_empty() {
+                self.piece += 1;
+                self.at = 0;
+                continue;
+            }
+            let read = left.len().min(into.len());
+            into[..read].copy_from_slice(&left[..read]);
+            self.at += read;
+            return Ok(read);
+        }
+        Ok(0)
     }
 }
 
@@ -109,20 +176,27 @@ impl Form {
 
     /// The `Content-Type` header and the body, ready to send.
     pub fn encode(&self) -> (String, Vec<u8>) {
+        let (content_type, length, mut body) = self.body();
+        let mut bytes = Vec::with_capacity(usize::try_from(length).unwrap_or(0));
+        body.read_to_end(&mut bytes)
+            .expect("a body read from memory always reads");
+        (content_type, bytes)
+    }
+
+    /// The `Content-Type` header, the body's length in bytes, and the body,
+    /// each file read from the form rather than copied out of it.
+    pub fn body(&self) -> (String, u64, Body<'_>) {
         let boundary = self.boundary();
-        let mut body = Vec::new();
+        let mut pieces: Vec<Cow<'_, [u8]>> = Vec::new();
+        let framing = |text: String| Cow::Owned(text.into_bytes());
         for part in &self.parts {
-            body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
             match part {
                 Part::Text { name, value } => {
-                    body.extend_from_slice(
-                        format!(
-                            "Content-Disposition: form-data; name=\"{}\"\r\n\r\n",
-                            quoted(name)
-                        )
-                        .as_bytes(),
-                    );
-                    body.extend_from_slice(value.as_bytes());
+                    pieces.push(framing(format!(
+                        "--{boundary}\r\nContent-Disposition: form-data; name=\"{}\"\r\n\r\n\
+                         {value}\r\n",
+                        quoted(name)
+                    )));
                 }
                 Part::File {
                     name,
@@ -130,22 +204,28 @@ impl Form {
                     media_type,
                     bytes,
                 } => {
-                    body.extend_from_slice(
-                        format!(
-                            "Content-Disposition: form-data; name=\"{}\"; filename=\"{}\"\r\n\
-                             Content-Type: {media_type}\r\n\r\n",
-                            quoted(name),
-                            quoted(file_name)
-                        )
-                        .as_bytes(),
-                    );
-                    body.extend_from_slice(bytes);
+                    pieces.push(framing(format!(
+                        "--{boundary}\r\nContent-Disposition: form-data; name=\"{}\"; \
+                         filename=\"{}\"\r\nContent-Type: {media_type}\r\n\r\n",
+                        quoted(name),
+                        quoted(file_name)
+                    )));
+                    pieces.push(Cow::Borrowed(bytes));
+                    pieces.push(Cow::Borrowed(b"\r\n"));
                 }
             }
-            body.extend_from_slice(b"\r\n");
         }
-        body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
-        (format!("multipart/form-data; boundary={boundary}"), body)
+        pieces.push(framing(format!("--{boundary}--\r\n")));
+        let length = pieces.iter().map(|piece| piece.len() as u64).sum();
+        (
+            format!("multipart/form-data; boundary={boundary}"),
+            length,
+            Body {
+                pieces,
+                piece: 0,
+                at: 0,
+            },
+        )
     }
 
     /// A boundary no part contains: a hash of every part, rehashed in the
@@ -216,77 +296,4 @@ fn hex(bytes: &[u8]) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_form_is_its_parts_between_one_boundary() {
-        let form = Form::new()
-            .text("name", "My voice")
-            .file("files", "a.mp3", "audio/mpeg", b"ID3 one".to_vec())
-            .file("files", "b.wav", "audio/wav", b"RIFF two".to_vec());
-        let (content_type, body) = form.encode();
-        let boundary = content_type
-            .strip_prefix("multipart/form-data; boundary=")
-            .expect("a multipart content type");
-        let expected = format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\nMy voice\r\n\
-             --{boundary}\r\nContent-Disposition: form-data; name=\"files\"; \
-             filename=\"a.mp3\"\r\nContent-Type: audio/mpeg\r\n\r\nID3 one\r\n\
-             --{boundary}\r\nContent-Disposition: form-data; name=\"files\"; \
-             filename=\"b.wav\"\r\nContent-Type: audio/wav\r\n\r\nRIFF two\r\n\
-             --{boundary}--\r\n"
-        );
-        assert_eq!(String::from_utf8(body).unwrap(), expected);
-    }
-
-    #[test]
-    fn the_same_form_is_the_same_bytes_and_another_is_not() {
-        let form = || Form::new().text("name", "a");
-        assert_eq!(form().encode(), form().encode());
-        assert_ne!(form().encode().0, Form::new().text("name", "b").encode().0);
-    }
-
-    #[test]
-    fn no_part_contains_the_boundary() {
-        let first = Form::new().text("x", "y").boundary();
-        // A part carrying the boundary the form would otherwise have chosen.
-        let form =
-            Form::new()
-                .text("x", "y")
-                .file("files", "f", "audio/mpeg", first.clone().into_bytes());
-        let boundary = form.boundary();
-        assert!(
-            !form
-                .parts
-                .iter()
-                .any(|part| part.contains(boundary.as_bytes()))
-        );
-    }
-
-    #[test]
-    fn a_needle_is_found_in_every_field_of_a_part_and_nowhere_else() {
-        let text = |name: &str, value: &str| Part::Text {
-            name: name.to_owned(),
-            value: value.to_owned(),
-        };
-        let file = |name: &str, file_name: &str, bytes: &[u8]| Part::File {
-            name: name.to_owned(),
-            file_name: file_name.to_owned(),
-            media_type: String::from("audio/mpeg"),
-            bytes: bytes.to_vec(),
-        };
-        assert!(text("xNEEDLEx", "v").contains(b"NEEDLE"));
-        assert!(text("n", "xNEEDLEx").contains(b"NEEDLE"));
-        assert!(!text("n", "v").contains(b"NEEDLE"));
-        assert!(file("xNEEDLE", "f", b"b").contains(b"NEEDLE"));
-        assert!(file("n", "NEEDLE.mp3", b"b").contains(b"NEEDLE"));
-        assert!(file("n", "f", b"..NEEDLE..").contains(b"NEEDLE"));
-        assert!(!file("n", "f", b"b").contains(b"NEEDLE"));
-    }
-
-    #[test]
-    fn a_quote_or_a_line_break_cannot_end_a_header() {
-        assert_eq!(quoted("a\"b\r\nc"), "a%22b%0D%0Ac");
-    }
-}
+mod tests;

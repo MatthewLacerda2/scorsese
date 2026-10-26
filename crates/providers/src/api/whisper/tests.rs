@@ -31,7 +31,7 @@ fn the_form_asks_for_word_timings_and_a_language_only_when_forced() {
         model: "deepdml/faster-whisper-large-v3-turbo-ct2",
         language: None,
     };
-    let (_, body) = detected.form().encode();
+    let (_, body) = detected.clone().form().encode();
     let body = String::from_utf8_lossy(&body);
     for field in [
         "name=\"model\"\r\n\r\ndeepdml/faster-whisper-large-v3-turbo-ct2\r\n",

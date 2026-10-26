@@ -111,7 +111,7 @@ fn footage_is_heard_and_its_words_kept_beside_it_then_corrected() {
     assert_eq!(words.words[1].text, "there!");
     assert_eq!(words.words.len(), 11);
     assert!(
-        Words::beside(&ProjectPath::new("assets/take.mp4"))
+        Words::transcript(&ProjectPath::new("assets/take.mp4"))
             .resolve(&dir)
             .is_file()
     );

@@ -83,5 +83,6 @@ pub(super) fn asked() -> Captioning {
         arrive: 8,
         reveal: PropertyPath::new("reveal"),
         height: PropertyPath::new("transform.position.y"),
+        volume: None,
     }
 }

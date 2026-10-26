@@ -32,7 +32,7 @@ fn an_imported_recording_with_a_transcript_beside_it_has_words() {
         }],
     };
     for asset in [&sketch, &call] {
-        let beside = Words::beside(asset.path.as_ref().unwrap());
+        let beside = Words::file_of(asset).unwrap();
         std::fs::write(beside.resolve(&dir), heard.to_json()).unwrap();
         assert_eq!(Words::of(asset, &dir), Some(heard.clone()), "{}", asset.id);
     }
@@ -78,12 +78,58 @@ fn a_transcribed_recording_says_its_word_at_an_instant() {
             end: 2.0,
         }],
     };
-    std::fs::write(Words::beside(&take).resolve(&dir), heard.to_json()).unwrap();
+    std::fs::write(Words::transcript(&take).resolve(&dir), heard.to_json()).unwrap();
     let said = saying(&project, &dir, 1.75);
     let Some((_, Saying::Word(word))) = said.iter().find(|(clip, _)| clip.as_str() == "shot")
     else {
         panic!("{said:?}")
     };
     assert_eq!(word.name, "corta");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A camera's film and a recorder's sound of one take often share a name
+/// (#1549): each keeps a transcript of its own, named for its whole file name.
+#[test]
+fn two_recordings_of_one_name_keep_two_transcripts() {
+    let dir = crate::scratch::fresh("scorsese-words-pair", "");
+    std::fs::create_dir_all(dir.join("assets")).unwrap();
+    let film = Asset::imported(
+        AssetId::new("film"),
+        AssetKind::Video,
+        ProjectPath::new("assets/take.mp4"),
+    );
+    let sound = Asset::imported(
+        AssetId::new("sound"),
+        AssetKind::Audio,
+        ProjectPath::new("assets/take.wav"),
+    );
+    let transcript = |asset: &Asset| Words::file_of(asset).unwrap();
+    assert_eq!(transcript(&film).as_str(), "assets/take.mp4.words.json");
+    assert_eq!(transcript(&sound).as_str(), "assets/take.wav.words.json");
+    let said = |text: &str| Words {
+        words: vec![Word {
+            text: text.into(),
+            start: 0.0,
+            end: 0.5,
+        }],
+    };
+    std::fs::write(transcript(&film).resolve(&dir), said("camera").to_json()).unwrap();
+    assert_eq!(
+        Words::of(&sound, &dir),
+        None,
+        "the sound is not transcribed"
+    );
+    std::fs::write(transcript(&sound).resolve(&dir), said("recorder").to_json()).unwrap();
+    assert_eq!(Words::of(&film, &dir), Some(said("camera")));
+    assert_eq!(Words::of(&sound, &dir), Some(said("recorder")));
+
+    let mut line = Asset::sketch(AssetId::new("vo"), AssetKind::GeneratedAudio, "a line");
+    line.path = Some(ProjectPath::new("generated/vo-abc.mp3"));
+    assert_eq!(
+        transcript(&line).as_str(),
+        "generated/vo-abc.words.json",
+        "a line's timings keep their name"
+    );
     std::fs::remove_dir_all(&dir).ok();
 }

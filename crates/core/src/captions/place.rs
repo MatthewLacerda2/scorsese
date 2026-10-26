@@ -3,7 +3,7 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 
-use crate::keyframe::{Easing, Keyframe, KeyframeTrack};
+use crate::keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
 use crate::text::Reveal;
 use crate::timeline::{Anchor, AnchorY, Clip, ClipId, Track, TrackId, TrackKind};
 use crate::words::Words;
@@ -81,16 +81,24 @@ pub fn caption(
     Ok(report)
 }
 
-/// The clips whose words `asked` captions, in document order: every clip on
-/// the tracks it names; or, when it names none, each generated narration line
-/// on an audio track and each transcribed recording on any track (#1549).
+/// The clips whose words `asked` captions, in document order: every clip that
+/// can carry speech on the tracks it names — a line, a video, a sound; or,
+/// when it names none, each generated narration line on an audio track and
+/// each transcribed recording on any track (#1549) that is not silenced
+/// throughout.
 fn narration<'a>(project: &'a Project, root: &Path, asked: &Captioning) -> Vec<&'a Clip> {
+    let speaks = |kind: AssetKind| kind == AssetKind::GeneratedAudio || Words::transcribable(kind);
     if !asked.narration.is_empty() {
         return project
             .tracks
             .iter()
             .filter(|track| asked.narration.contains(&track.id))
             .flat_map(|track| &track.clips)
+            .filter(|clip| {
+                project
+                    .asset(&clip.asset)
+                    .is_some_and(|asset| speaks(asset.kind))
+            })
             .collect();
     }
     project
@@ -103,8 +111,23 @@ fn narration<'a>(project: &'a Project, root: &Path, asked: &Captioning) -> Vec<&
                     || (Words::transcribable(asset.kind) && Words::of(asset, root).is_some())
             })
         })
+        .filter(|(_, clip)| !silenced(clip, asked.volume.as_ref()))
         .map(|(_, clip)| clip)
         .collect()
+}
+
+/// Whether `clip` is held at nothing throughout on `volume`: one of its
+/// tracks there, which multiply, has every point at `0`. Between two zeros
+/// every easing stays at zero, and outside them the end is held.
+fn silenced(clip: &Clip, volume: Option<&PropertyPath>) -> bool {
+    let Some(volume) = volume else {
+        return false;
+    };
+    clip.keyframes.iter().any(|track| {
+        &track.property == volume
+            && !track.keyframes.is_empty()
+            && track.keyframes.iter().all(|point| point.value == 0.0)
+    })
 }
 
 /// Takes away every caption an earlier run wrote, and the caption assets

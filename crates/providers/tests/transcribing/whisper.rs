@@ -3,13 +3,29 @@
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
 use scorsese_providers::transcribe::{Language, TranscribeError, Transcriber, Whisper};
 
+use super::run::never;
+
 /// A server on loopback that answers one request with `status` and `body`,
 /// handing back what it was sent.
-fn serve(status: &'static str, body: &'static str) -> (String, thread::JoinHandle<String>) {
+pub(super) fn serve(
+    status: &'static str,
+    body: &'static str,
+) -> (String, thread::JoinHandle<String>) {
+    serve_telling(status, body, Arc::default())
+}
+
+/// [`serve`], setting `answered` once its answer is written.
+pub(super) fn serve_telling(
+    status: &'static str,
+    body: &'static str,
+    answered: Arc<AtomicBool>,
+) -> (String, thread::JoinHandle<String>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("as set up");
     let address = format!("http://{}", listener.local_addr().expect("as set up"));
     let handle = thread::spawn(move || {
@@ -39,6 +55,7 @@ fn serve(status: &'static str, body: &'static str) -> (String, thread::JoinHandl
             .get_mut()
             .write_all(reply.as_bytes())
             .expect("as set up");
+        answered.store(true, Ordering::SeqCst);
         head + &String::from_utf8_lossy(&sent)
     });
     (address, handle)
@@ -54,6 +71,7 @@ fn the_words_come_back_trimmed_with_the_language_heard() {
         .transcribe(
             b"RIFF....".to_vec(),
             Some(&"PT".parse().expect("as set up")),
+            &never,
         )
         .expect("as set up");
     let sent = server.join().expect("as set up");
@@ -83,7 +101,7 @@ fn a_server_not_running_is_told_how_to_start() {
         format!("http://{}", listener.local_addr().expect("as set up"))
     };
     let error = Whisper::new(&address)
-        .transcribe(Vec::new(), None)
+        .transcribe(Vec::new(), None, &never)
         .expect_err("refused");
     assert!(
         matches!(&error, TranscribeError::NotRunning { address: at, .. } if *at == address),
@@ -106,7 +124,7 @@ fn a_refusal_carries_what_the_server_said() {
         r#"{"detail":"Model 'x' is not installed locally."}"#,
     );
     let error = Whisper::new(&address)
-        .transcribe(Vec::new(), None)
+        .transcribe(Vec::new(), None, &never)
         .expect_err("refused");
     server.join().expect("as set up");
     let said = error.to_string();

@@ -12,6 +12,7 @@ use std::process::Stdio;
 
 use scorsese_core::probe::ProbeMedia;
 
+use crate::cancel::Cancel;
 use crate::error::{RenderError, Stage};
 use crate::pipe::Process;
 use crate::probe::Ffprobe;
@@ -20,24 +21,51 @@ use crate::tools::Tools;
 /// The rate speech is sent at: what Whisper hears.
 pub const SPEECH_RATE: u32 = 16_000;
 
-/// `file`'s sound as a WAV: one channel, [`SPEECH_RATE`], sixteen-bit.
-/// [`RenderError::NoSound`] for a file with none.
-pub fn speech(tools: &Tools, file: &Path) -> Result<Vec<u8>, RenderError> {
+/// How much is read from ffmpeg at a time, between looks at the cancel.
+const CHUNK: usize = 64 * 1024;
+
+/// `file`'s sound as a WAV: one channel, [`SPEECH_RATE`], sixteen-bit, on the
+/// file's own clock — sound that starts after the picture starts after
+/// silence, so a word's time is where a render seeks for it.
+///
+/// Refused, before any of it is decoded, as [`RenderError::NoSound`] for a
+/// file with none and [`RenderError::TooLong`] for one its probe says lasts
+/// past `longest` seconds; whatever no probe measured is cut there. Stopped,
+/// ffmpeg killed, as [`RenderError::Stopped`] once `cancel` trips.
+pub fn speech(
+    tools: &Tools,
+    file: &Path,
+    longest: f64,
+    cancel: &Cancel,
+) -> Result<Vec<u8>, RenderError> {
     let subject = file.display().to_string();
-    let sounds = Ffprobe::new(tools.clone())
-        .probe(file)
-        .ok()
+    let probed = Ffprobe::new(tools.clone()).probe(file).ok();
+    if probed
+        .as_ref()
         .and_then(|media| media.audio_channels)
-        .is_some();
-    if !sounds {
+        .is_none()
+    {
         return Err(RenderError::NoSound { file: subject });
+    }
+    if let Some(seconds) = probed
+        .and_then(|media| media.duration_seconds)
+        .filter(|&seconds| seconds > longest)
+    {
+        return Err(RenderError::TooLong {
+            file: subject,
+            seconds,
+            longest,
+        });
     }
     let mut command = tools.ffmpeg();
     command
         .args(["-nostdin", "-v", "error"])
         .arg("-i")
         .arg(file)
-        .args(["-vn", "-ac", "1", "-ar", &SPEECH_RATE.to_string()])
+        .args(["-t", &format!("{longest:.3}")])
+        // Silence from the file's zero up to its sound's first sample.
+        .args(["-vn", "-af", "aresample=async=1:first_pts=0"])
+        .args(["-ac", "1", "-ar", &SPEECH_RATE.to_string()])
         .args(["-c:a", "pcm_s16le", "-f", "wav", "-"])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -50,14 +78,25 @@ pub fn speech(tools: &Tools, file: &Path) -> Result<Vec<u8>, RenderError> {
         .stdout
         .take()
         .expect("stdout was piped when the process was spawned");
+    // Dropped on a stop, which kills it.
     let child = Process::new(child);
     let mut wav = Vec::new();
-    stdout
-        .read_to_end(&mut wav)
-        .map_err(|source| RenderError::Pipe {
-            stage: Stage::Measure,
-            source,
-        })?;
+    let mut chunk = vec![0; CHUNK];
+    loop {
+        if cancel.is_cancelled() {
+            return Err(RenderError::Stopped { file: subject });
+        }
+        let read = stdout
+            .read(&mut chunk)
+            .map_err(|source| RenderError::Pipe {
+                stage: Stage::Measure,
+                source,
+            })?;
+        if read == 0 {
+            break;
+        }
+        wav.extend_from_slice(&chunk[..read]);
+    }
     child.finish(Stage::Measure, &subject)?;
     Ok(wav)
 }

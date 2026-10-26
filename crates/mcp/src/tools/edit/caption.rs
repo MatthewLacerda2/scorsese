@@ -5,7 +5,8 @@ use std::str::FromStr;
 
 use schemars::JsonSchema;
 use scorsese_core::captions::{Captioned, Captioning, Chunking, caption};
-use scorsese_core::{FontChoice, TrackId};
+use scorsese_core::{FontChoice, PropertyPath, TrackId};
+use scorsese_render::audio::path;
 use scorsese_render::picture::caption as look;
 use serde::Deserialize;
 use serde_json::Value;
@@ -24,9 +25,10 @@ struct Arguments {
     /// Id of the video track the captions go on. Made, on top, when there is
     /// none. Default `captions`.
     track: Option<String>,
-    /// Track ids whose clips are captioned. Omit and every generated
-    /// narration line on an audio track is, and every transcribed video or
-    /// sound on any track.
+    /// Track ids whose speaking clips (lines, videos, sounds) are captioned.
+    /// Omit and every generated narration line on an audio track is, and
+    /// every transcribed video or sound on any track unless its volume is 0
+    /// throughout.
     narration: Option<Vec<String>>,
     #[schemars(description = format!(
         "The most characters one caption holds, about two lines at the default \
@@ -108,7 +110,9 @@ fn asked(arguments: &Arguments, fps: f64) -> Result<Captioning, String> {
         stroke: parsed("stroke", arguments.stroke.as_deref())?,
         lift: arguments.lift,
     };
-    Ok(choices.captioning(TrackId::new(track), fps))
+    let mut asked = choices.captioning(TrackId::new(track), fps);
+    asked.volume = Some(PropertyPath::new(path::VOLUME));
+    Ok(asked)
 }
 
 /// `text` read as a `T`, when it was given at all.

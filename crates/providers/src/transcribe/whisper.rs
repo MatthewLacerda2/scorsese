@@ -1,6 +1,9 @@
 //! The server behind a trait.
 
 use std::str::FromStr;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
 use std::time::Duration;
 
 use scorsese_core::words::{Word, Words};
@@ -8,7 +11,7 @@ use scorsese_core::words::{Word, Words};
 use crate::api::http::HttpError;
 use crate::api::whisper::{Request, Transcriptions};
 
-use super::{MODEL, TranscribeError};
+use super::{LONGEST, MODEL, TranscribeError};
 
 /// How long a request may take before its speech: the model loading, the
 /// first time after the server starts.
@@ -23,6 +26,17 @@ const PER_SECOND: f64 = 4.0;
 /// kilohertz (`scorsese_render::audio::speech`).
 const BYTES_PER_SECOND: f64 = 32_000.0;
 
+/// How often a request being waited on looks for a stop.
+const LISTEN_FOR_STOP: Duration = Duration::from_millis(100);
+
+/// How long the server may take over `bytes` of speech: [`SETTLING`], and
+/// [`PER_SECOND`] for each second of it up to [`LONGEST`] — so never past
+/// about eight hours, whatever it is sent.
+pub(super) fn within(bytes: usize) -> Duration {
+    let seconds = (bytes as f64 / BYTES_PER_SECOND).min(LONGEST.as_secs_f64());
+    SETTLING + Duration::from_secs_f64(seconds * PER_SECOND)
+}
+
 /// What was heard.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Heard {
@@ -36,11 +50,13 @@ pub struct Heard {
 
 /// Somewhere speech can be heard.
 pub trait Transcriber {
-    /// Hears `wav`, in `language` when one is forced.
+    /// Hears `wav`, in `language` when one is forced — or gives up waiting,
+    /// [`TranscribeError::Stopped`], as soon as `stop` says so.
     fn transcribe(
         &self,
         wav: Vec<u8>,
         language: Option<&Language>,
+        stop: &dyn Fn() -> bool,
     ) -> Result<Heard, TranscribeError>;
 }
 
@@ -87,31 +103,62 @@ impl Whisper {
 }
 
 impl Transcriber for Whisper {
+    /// The request runs on a thread of its own, waited on until it answers or
+    /// `stop` says so. Stopped, its sending is abandoned — the connection
+    /// closed, a body half sent never finished — and its answer, should one
+    /// still come, dropped with the thread. What the server was already
+    /// working out it finishes on its own two cores (`deploy/compose.yaml`).
     fn transcribe(
         &self,
         wav: Vec<u8>,
         language: Option<&Language>,
+        stop: &dyn Fn() -> bool,
     ) -> Result<Heard, TranscribeError> {
-        let within =
-            SETTLING + Duration::from_secs_f64(wav.len() as f64 / BYTES_PER_SECOND * PER_SECOND);
-        let request = Request {
-            wav,
-            model: MODEL,
-            language: language.map(Language::as_str),
-        };
-        let reply = self
-            .api
-            .transcribe(&request, within)
-            .map_err(|error| match error {
-                HttpError::Unreachable { message, .. } => TranscribeError::NotRunning {
-                    address: self.address.clone(),
-                    why: message,
-                },
-                HttpError::Refused { status, body, .. } => {
-                    TranscribeError::Refused { status, body }
+        let within = within(wav.len());
+        let forced = language.map(|code| code.as_str().to_owned());
+        let api = self.api.clone();
+        let stopped = Arc::new(AtomicBool::new(false));
+        let (answer, answered) = mpsc::channel();
+        let sending = Arc::clone(&stopped);
+        std::thread::spawn(move || {
+            let request = Request {
+                wav,
+                model: MODEL,
+                language: forced.as_deref(),
+            };
+            let _ = answer.send(api.transcribe(request, within, &sending));
+        });
+        let reply = loop {
+            if stop() {
+                stopped.store(true, Ordering::SeqCst);
+                return Err(TranscribeError::Stopped);
+            }
+            match answered.recv_timeout(LISTEN_FOR_STOP) {
+                Ok(reply) => break reply,
+                Err(mpsc::RecvTimeoutError::Timeout) => {}
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    return Err(TranscribeError::Unreadable(
+                        "the request ended without an answer".to_owned(),
+                    ));
                 }
-                HttpError::Unreadable { message, .. } => TranscribeError::Unreadable(message),
-            })?;
+            }
+        };
+        let reply = reply.map_err(|error| match error {
+            HttpError::Unreachable { message, .. } => TranscribeError::NotRunning {
+                address: self.address.clone(),
+                why: message,
+            },
+            HttpError::Refused { status, body, .. } => TranscribeError::Refused {
+                status,
+                body,
+                forced: language.is_some(),
+            },
+            HttpError::Unreadable { message, .. } => TranscribeError::Unreadable(message),
+        })?;
+        // A stop that came with the answer still stops it.
+        if stop() {
+            return Err(TranscribeError::Stopped);
+        }
         let words = reply
             .words
             .into_iter()
@@ -129,5 +176,22 @@ impl Transcriber for Whisper {
             duration: reply.duration,
             words: Words { words },
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The wait grows with the speech and stops growing at the longest heard,
+    /// however much is sent.
+    #[test]
+    fn the_wait_is_capped_at_the_longest_recording() {
+        let minute = 60 * 32_000;
+        assert_eq!(within(0), SETTLING);
+        assert_eq!(within(minute), SETTLING + Duration::from_secs(240));
+        let longest = SETTLING + Duration::from_secs(8 * 60 * 60);
+        assert_eq!(within(120 * minute), longest);
+        assert_eq!(within(usize::MAX), longest);
     }
 }

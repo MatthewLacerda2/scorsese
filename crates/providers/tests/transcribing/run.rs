@@ -7,13 +7,13 @@ use std::path::Path;
 use scorsese_core::words::{Word, Words};
 use scorsese_core::{Asset, AssetId, AssetKind, Fps, Project, ProjectPath};
 use scorsese_providers::transcribe::{
-    Asked, Heard, Language, TranscribeError, Transcriber, transcribe,
+    Asked, Heard, Hearing, Language, TranscribeError, Transcriber, Undecoded, transcribe,
 };
 
 /// A Whisper that hears one word, and counts how often it was asked.
 #[derive(Default)]
 pub(super) struct Ear {
-    asked: Cell<usize>,
+    pub(super) asked: Cell<usize>,
 }
 
 impl Transcriber for Ear {
@@ -21,6 +21,7 @@ impl Transcriber for Ear {
         &self,
         wav: Vec<u8>,
         language: Option<&Language>,
+        _: &dyn Fn() -> bool,
     ) -> Result<Heard, TranscribeError> {
         self.asked.set(self.asked.get() + 1);
         assert_eq!(wav, b"WAV of assets/take.mp4");
@@ -61,7 +62,7 @@ pub(super) fn folder(label: &str) -> (std::path::PathBuf, Project) {
     (dir, project)
 }
 
-pub(super) fn decode(file: &Path) -> Result<Vec<u8>, String> {
+pub(super) fn decode(file: &Path) -> Result<Vec<u8>, Undecoded> {
     let name = file
         .strip_prefix(
             file.parent()
@@ -71,6 +72,24 @@ pub(super) fn decode(file: &Path) -> Result<Vec<u8>, String> {
         )
         .expect("as set up");
     Ok(format!("WAV of {}", name.display()).into_bytes())
+}
+
+/// Nobody stops it.
+pub(super) fn never() -> bool {
+    false
+}
+
+/// A hearing by `ear`, of the speech [`decode`] makes.
+pub(super) fn hearing<'a>(
+    asked: &'a Asked,
+    ear: &'a dyn Transcriber,
+) -> Hearing<'a, fn(&Path) -> Result<Vec<u8>, Undecoded>> {
+    Hearing {
+        asked,
+        transcriber: ear,
+        decode,
+        stop: &never,
+    }
 }
 
 pub(super) fn asked(again: bool) -> Asked {
@@ -85,8 +104,8 @@ fn the_words_are_written_beside_the_footage_and_kept_until_asked_again() {
     let (dir, project) = folder("writes");
     let ear = Ear::default();
     let take = AssetId::new("take");
-    let done = transcribe(&project, &dir, &take, &asked(false), &ear, decode).expect("as set up");
-    assert_eq!(done.file.as_str(), "assets/take.words.json");
+    let done = transcribe(&project, &dir, &take, hearing(&asked(false), &ear)).expect("as set up");
+    assert_eq!(done.file.as_str(), "assets/take.mp4.words.json");
     assert_eq!(done.heard.as_ref().map(|h| h.language.as_str()), Some("pt"));
     let asset = project.asset(&take).expect("as set up");
     assert_eq!(Words::of(asset, &dir), Some(done.words.clone()));
@@ -95,8 +114,8 @@ fn the_words_are_written_beside_the_footage_and_kept_until_asked_again() {
     // Corrected since: a second call reads it back and asks nobody.
     let mut fixed = done.words.clone();
     fixed.words[0].text = "Corta.".into();
-    std::fs::write(dir.join("assets/take.words.json"), fixed.to_json()).expect("as set up");
-    let kept = transcribe(&project, &dir, &take, &asked(false), &ear, decode).expect("as set up");
+    std::fs::write(dir.join("assets/take.mp4.words.json"), fixed.to_json()).expect("as set up");
+    let kept = transcribe(&project, &dir, &take, hearing(&asked(false), &ear)).expect("as set up");
     assert_eq!((&kept.heard, &kept.words), (&None, &fixed));
     assert_eq!(ear.asked.get(), 1);
     assert!(
@@ -105,7 +124,7 @@ fn the_words_are_written_beside_the_footage_and_kept_until_asked_again() {
         kept.said()
     );
 
-    let again = transcribe(&project, &dir, &take, &asked(true), &ear, decode).expect("as set up");
+    let again = transcribe(&project, &dir, &take, hearing(&asked(true), &ear)).expect("as set up");
     assert_eq!(again.words.words[0].text, "Corta!");
     assert_eq!(ear.asked.get(), 2);
     std::fs::remove_dir_all(&dir).ok();
@@ -120,9 +139,7 @@ fn only_an_imported_recording_with_its_file_is_transcribed() {
             &project,
             &dir,
             &AssetId::new(id),
-            &asked(false),
-            &ear,
-            decode,
+            hearing(&asked(false), &ear),
         )
         .expect_err("refused")
         .to_string()

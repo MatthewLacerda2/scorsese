@@ -19,6 +19,8 @@
 //!   a `404` with `{"detail": …}`.
 //! - Silence is no error: `{"text": "", "words": []}`.
 
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use serde::Deserialize;
@@ -48,10 +50,11 @@ pub struct Request<'a> {
 }
 
 impl Request<'_> {
-    /// The form the server reads.
-    pub fn form(&self) -> Form {
+    /// The form the server reads, the recording moved into it rather than
+    /// copied.
+    pub fn form(self) -> Form {
         let mut form = Form::new()
-            .file("file", "speech.wav", "audio/wav", self.wav.clone())
+            .file("file", "speech.wav", "audio/wav", self.wav)
             .text("model", self.model)
             .text("response_format", "verbose_json")
             .text("timestamp_granularities[]", "word");
@@ -99,14 +102,16 @@ impl Transcriptions {
         &self.url
     }
 
-    /// Sends `request` and waits for its words, for as long as `within`.
+    /// Sends `request` and waits for its words, for as long as `within`; its
+    /// sending abandoned once `stopped` is set.
     pub fn transcribe(
         &self,
-        request: &Request<'_>,
+        request: Request<'_>,
         within: Duration,
+        stopped: &Arc<AtomicBool>,
     ) -> Result<Verbose, HttpError> {
         self.caller
-            .post_multipart_within(&self.url, &request.form(), within)
+            .post_multipart_until(&self.url, &request.form(), within, stopped)
     }
 }
 

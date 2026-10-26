@@ -31,7 +31,7 @@ fn footage(label: &str, heard: bool) -> std::path::PathBuf {
         let words = Words {
             words: vec![said("Olha", 0.0), said("casa", 0.3), said("bê", 0.6)],
         };
-        std::fs::write(Words::beside(&take).resolve(&dir), words.to_json())
+        std::fs::write(Words::transcript(&take).resolve(&dir), words.to_json())
             .expect("write the transcript");
     }
     dir
@@ -46,7 +46,7 @@ fn a_kept_transcript_is_read_back_numbered_without_asking_whisper() {
     ));
     assert!(!failed, "{text}");
     assert!(
-        text.starts_with("`take` was already transcribed: 3 words in assets/take.words.json"),
+        text.starts_with("`take` was already transcribed: 3 words in assets/take.mp4.words.json"),
         "{text}"
     );
     assert!(text.contains("   2  0.30–0.60  casa"), "{text}");

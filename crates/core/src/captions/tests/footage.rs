@@ -30,7 +30,7 @@ fn transcribed_footage_is_captioned_and_untranscribed_footage_is_not_named() {
                     },
                 ],
             };
-            std::fs::write(Words::beside(&path).resolve(&dir), words.to_json()).unwrap();
+            std::fs::write(Words::transcript(&path).resolve(&dir), words.to_json()).unwrap();
         }
         project
             .assets

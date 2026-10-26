@@ -608,8 +608,10 @@ none: they are never guessed.
 
 **Imported speech gets the same file by being transcribed.** `transcribe`
 (`scorsese transcribe <asset>`) has a local Whisper hear an imported `video`
-or `audio` asset and keeps its words beside it, in the same format:
-`assets/sketch.mp4` gets `assets/sketch.words.json`. Reach for it whenever
+or `audio` asset and keeps its words beside it, in the same format, under the
+recording's whole file name: `assets/sketch.mp4` gets
+`assets/sketch.mp4.words.json`, so a film and a sound of one take
+(`take.mp4`, `take.wav`) keep one each. Reach for it whenever
 real footage has speech worth captioning or syncing to — an interview, a
 sketch, a phone recording. It answers with the words numbered; a misheard one
 is corrected with `transcript_fix` (`scorsese transcribe <asset> --fix
@@ -3425,7 +3427,7 @@ A project directory holds five of its own:
 
 | Directory | What is in it | Survives a delete? |
 | --- | --- | --- |
-| `assets/` | imported media, copied in on import | no — the originals are elsewhere |
+| `assets/` | imported media, copied in on import, and a transcribed recording's words beside it, as `<its whole name>.words.json` (see *When each word is said*) | **no** — the media's originals are elsewhere, but a transcript's corrections are kept here and nowhere else |
 | `generated/` | provider and synthesis output, named for the hash of its brief — a narration's word timings beside its audio, as `<same name>.words.json` (see *When each word is said*), and under `generated/tickets/` which brief each shot in flight was bought for | yes — it can be made again |
 | `recipes/` | authored synthesis documents | **no** — deleting one loses work |
 | `pages/` | authored web pages, played by `html` assets, and the `.js`, `.css`, `.json` and `.svg` files they share (at most 1 MiB each) | **no** — deleting one loses work |

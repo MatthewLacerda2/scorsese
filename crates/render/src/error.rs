@@ -184,6 +184,26 @@ pub enum RenderError {
         file: String,
     },
 
+    /// A file asked for its sound lasts longer than the caller will take
+    /// (#1549): refused from its probe, before any of it is decoded.
+    #[error("{file} lasts {seconds:.0} s, longer than the {longest:.0} s it may")]
+    TooLong {
+        /// Which file.
+        file: String,
+        /// How long its probe says it lasts.
+        seconds: f64,
+        /// The longest the caller takes.
+        longest: f64,
+    },
+
+    /// Whoever asked for a file's sound stopped it while ffmpeg decoded it,
+    /// through a [`crate::Cancel`]; ffmpeg was killed, and nothing came back.
+    #[error("stopped while {file}'s sound was decoded")]
+    Stopped {
+        /// Which file.
+        file: String,
+    },
+
     /// ffmpeg ran, understood the request, and refused it — an unsupported
     /// codec, an unwritable output, a source it cannot open.
     #[error("ffmpeg failed while {stage} {subject}: {message}")]

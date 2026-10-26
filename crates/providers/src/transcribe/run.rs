@@ -55,17 +55,53 @@ impl Transcribed {
     }
 }
 
-/// Transcribes `asset`, an imported video or sound in the project at `root`,
-/// by `transcriber`, its speech decoded by `decode` from the file — and writes
-/// the words beside it ([`Words::beside`]). A transcript already there is read
-/// back instead, unless [`Asked::again`].
+/// Why a recording's speech did not come out of its file, as the `decode`
+/// a caller hands [`transcribe`] says.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Undecoded {
+    /// Whoever asked stopped it while it was decoded.
+    Stopped,
+    /// What the decoder said.
+    Failed(String),
+}
+
+/// What [`transcribe`] and [`hear`] are handed besides the asset.
+pub struct Hearing<'a, D> {
+    /// What is asked.
+    pub asked: &'a Asked,
+    /// Who hears it.
+    pub transcriber: &'a dyn Transcriber,
+    /// The recording's speech, out of its file: a WAV, at most
+    /// [`LONGEST`](super::LONGEST) of it.
+    pub decode: D,
+    /// Whether whoever asked has stopped it.
+    pub stop: &'a dyn Fn() -> bool,
+}
+
+/// Transcribes `asset`, an imported video or sound in the project at `root`
+/// ([`hear`]), and writes the words beside it ([`keep`]) when they were just
+/// heard.
 pub fn transcribe(
     project: &Project,
     root: &Path,
     asset: &AssetId,
-    asked: &Asked,
-    transcriber: &dyn Transcriber,
-    decode: impl FnOnce(&Path) -> Result<Vec<u8>, String>,
+    hearing: Hearing<'_, impl FnOnce(&Path) -> Result<Vec<u8>, Undecoded>>,
+) -> Result<Transcribed, TranscribeError> {
+    let done = hear(project, root, asset, hearing)?;
+    keep(root, &done)?;
+    Ok(done)
+}
+
+/// Hears `asset`, an imported video or sound in the project at `root`, by its
+/// [`Hearing`] — or reads back the transcript already beside it
+/// ([`Words::transcript`]) unless [`Asked::again`]. Writes nothing: what was
+/// heard is [`keep`]'s, so a caller that holds the project while it writes
+/// need not hold it while the server listens.
+pub fn hear(
+    project: &Project,
+    root: &Path,
+    asset: &AssetId,
+    hearing: Hearing<'_, impl FnOnce(&Path) -> Result<Vec<u8>, Undecoded>>,
 ) -> Result<Transcribed, TranscribeError> {
     let (found, path) = recording(project, asset)?;
     let source = path.resolve(root);
@@ -75,25 +111,50 @@ pub fn transcribe(
             path: path.clone(),
         });
     }
-    let file = Words::beside(path);
+    let file = Words::transcript(path);
     let done = |words, heard| Transcribed {
         asset: asset.clone(),
         file: file.clone(),
         words,
         heard,
     };
-    if !asked.again
+    if !hearing.asked.again
         && let Some(kept) = Words::of(found, root)
     {
         return Ok(done(kept, None));
     }
-    let wav = decode(&source).map_err(|why| TranscribeError::Decode {
-        asset: asset.clone(),
-        why,
+    if let Some(seconds) = found
+        .media
+        .as_ref()
+        .and_then(|media| media.duration_seconds)
+        .filter(|&seconds| seconds > super::LONGEST.as_secs_f64())
+    {
+        return Err(TranscribeError::TooLong {
+            asset: asset.clone(),
+            seconds,
+        });
+    }
+    let wav = (hearing.decode)(&source).map_err(|why| match why {
+        Undecoded::Stopped => TranscribeError::Stopped,
+        Undecoded::Failed(why) => TranscribeError::Decode {
+            asset: asset.clone(),
+            why,
+        },
     })?;
-    let heard = transcriber.transcribe(wav, asked.language.as_ref())?;
-    write(root, &file, &heard.words)?;
+    let heard =
+        hearing
+            .transcriber
+            .transcribe(wav, hearing.asked.language.as_ref(), hearing.stop)?;
     Ok(done(heard.words.clone(), Some(heard)))
+}
+
+/// Writes what [`hear`] just heard beside its recording; a transcript only
+/// read back is already there, and is left alone.
+pub fn keep(root: &Path, done: &Transcribed) -> Result<(), TranscribeError> {
+    if done.heard.is_none() {
+        return Ok(());
+    }
+    write(root, &done.file, &done.words)
 }
 
 /// Writes `words` at `file`, by way of a file beside it, so a transcript is
@@ -149,7 +210,7 @@ pub fn correct(
     let mut words =
         Words::of(found, root).ok_or_else(|| TranscribeError::Untranscribed(asset.clone()))?;
     let dropped = words.fix(fixes)?;
-    let file = Words::beside(path);
+    let file = Words::transcript(path);
     write(root, &file, &words)?;
     Ok(Corrected {
         transcript: Transcribed {

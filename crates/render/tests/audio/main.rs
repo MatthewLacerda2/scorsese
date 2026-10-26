@@ -23,6 +23,7 @@ mod retiming;
 mod sources;
 mod speech;
 mod stereo;
+mod unheard;
 mod volume;
 
 use std::path::{Path, PathBuf};

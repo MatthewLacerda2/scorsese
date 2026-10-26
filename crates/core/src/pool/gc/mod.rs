@@ -5,7 +5,7 @@ mod pages;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::asset::{Asset, AssetId, AssetKind};
+use crate::asset::{Asset, AssetId};
 use crate::project::Project;
 use crate::validate::ValidationErrors;
 use crate::words::Words;
@@ -129,13 +129,10 @@ pub fn remove_assets(
 /// returning the bytes they held. One without them, or whose timings are
 /// already gone, frees none.
 fn remove_timings(asset: &Asset, project_root: &Path) -> Result<u64, GcError> {
-    let Some(audio) = asset.path.as_ref() else {
+    let Some(words) = Words::file_of(asset) else {
         return Ok(0);
     };
-    if asset.kind != AssetKind::GeneratedAudio && !Words::transcribable(asset.kind) {
-        return Ok(0);
-    }
-    let file = Words::beside(audio).resolve(project_root);
+    let file = words.resolve(project_root);
     let Ok(metadata) = fs::metadata(&file) else {
         return Ok(0);
     };

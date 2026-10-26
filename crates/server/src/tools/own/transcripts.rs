@@ -7,11 +7,17 @@
 //! them beside the asset. What is refused, how a transcript reads and how a
 //! correction is made are `scorsese_providers::transcribe`'s and
 //! `scorsese_core::words`' — the same words the CLI and the stdio server say.
+//!
+//! **A generated line is refused even here**, where a library item brought
+//! into another project is a plain sound: its row's words are the timings
+//! paid for with it.
 
 use scorsese_core::words::{Fix, Words};
 use scorsese_core::{Asset, AssetId, ProjectPath};
 use scorsese_mcp::Reply;
-use scorsese_providers::transcribe::{Corrected, Language, Transcribed, recording};
+use scorsese_providers::transcribe::{
+    Corrected, Language, TranscribeError, Transcribed, recording,
+};
 use serde_json::{Value, json};
 
 use super::super::surface::project_property;
@@ -132,7 +138,7 @@ async fn recorded(
         .sha256
         .clone()
         .ok_or_else(|| format!("`{asset}` names no library file"))?;
-    Ok((asset.clone(), sha256, Words::beside(path)))
+    Ok((asset.clone(), sha256, Words::transcript(path)))
 }
 
 /// A library failure, said to the caller.
@@ -161,6 +167,9 @@ pub(super) async fn transcribe(caller: &Caller<'_>, arguments: &Value) -> Result
         .transcript(caller.user, &sha256)
         .await
         .map_err(said)?;
+    if held.generated {
+        return Err(TranscribeError::Generated(asset).to_string());
+    }
     if let (Some(words), false) = (held.words, again) {
         let kept = Transcribed {
             asset,
@@ -212,6 +221,9 @@ pub(super) async fn fix(caller: &Caller<'_>, arguments: &Value) -> Result<Reply,
         .transcript(caller.user, &sha256)
         .await
         .map_err(said)?;
+    if held.generated {
+        return Err(TranscribeError::Generated(asset).to_string());
+    }
     let mut words = held
         .words
         .ok_or_else(|| format!("`{asset}` has no transcript to correct: transcribe it first"))?;

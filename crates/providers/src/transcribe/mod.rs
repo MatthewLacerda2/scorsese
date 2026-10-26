@@ -36,12 +36,19 @@ mod whisper;
 use crate::credentials::{Environment, Settings, SettingsError};
 
 pub use error::TranscribeError;
-pub use run::{Asked, Corrected, Transcribed, correct, recording, transcribe};
+pub use run::{
+    Asked, Corrected, Hearing, Transcribed, Undecoded, correct, hear, keep, recording, transcribe,
+};
 pub use whisper::{Heard, Language, Transcriber, Whisper};
 
 /// Where the server answers unless told otherwise: what
 /// `deploy/whisper/compose.yaml` publishes on this machine.
 pub const DEFAULT_ADDRESS: &str = "http://127.0.0.1:8970";
+
+/// The longest recording heard (#1549): an interview or a social video fits
+/// well inside it, and past it one transcription would hold the machine for
+/// hours. Refused from the probe, before anything is decoded.
+pub const LONGEST: std::time::Duration = std::time::Duration::from_secs(2 * 60 * 60);
 
 /// The environment variable that says where it answers instead.
 pub const VARIABLE: &str = "SCORSESE_WHISPER_URL";

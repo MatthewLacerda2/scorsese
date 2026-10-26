@@ -10,9 +10,11 @@ use std::path::Path;
 use anyhow::{Result, anyhow};
 use scorsese_core::AssetId;
 use scorsese_core::words::Fix;
-use scorsese_providers::transcribe::{self, Asked, Language, Whisper, correct};
-use scorsese_render::Tools;
+use scorsese_providers::transcribe::{
+    self, Asked, Hearing, LONGEST, Language, Undecoded, Whisper, correct,
+};
 use scorsese_render::audio::speech;
+use scorsese_render::{Cancel, Tools};
 
 /// What `scorsese transcribe` takes.
 #[derive(Debug, clap::Args)]
@@ -48,10 +50,18 @@ pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
         again: options.again,
     };
     let whisper = Whisper::new(&transcribe::address()?);
-    let done = transcribe::transcribe(&project, project_dir, &asset, &asked, &whisper, |file| {
-        let tools = Tools::discover().map_err(|error| error.to_string())?;
-        speech(&tools, file).map_err(|error| error.to_string())
-    })?;
+    let hearing = Hearing {
+        asked: &asked,
+        transcriber: &whisper,
+        decode: |file: &Path| {
+            let failed = |error: &dyn std::fmt::Display| Undecoded::Failed(error.to_string());
+            let tools = Tools::discover().map_err(|error| failed(&error))?;
+            speech(&tools, file, LONGEST.as_secs_f64(), &Cancel::new()).map_err(|e| failed(&e))
+        },
+        // A person at a terminal stops it with Ctrl-C.
+        stop: &|| false,
+    };
+    let done = transcribe::transcribe(&project, project_dir, &asset, hearing)?;
     println!("{}", done.said());
     Ok(())
 }

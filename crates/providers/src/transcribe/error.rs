@@ -2,7 +2,24 @@
 
 use scorsese_core::{AssetId, AssetKind, ProjectPath};
 
-use super::START_IT;
+use super::{LONGEST, START_IT};
+
+/// What a refusal's status means, said after it.
+fn meaning(status: u16, forced: bool) -> &'static str {
+    match status {
+        404 => {
+            " — the model asked for is not in the server's image: rebuild it from \
+             deploy/whisper/Dockerfile"
+        }
+        413 => " — the recording is more than the server takes in one request",
+        500 if forced => {
+            " — a language it does not know answers 500; force one only with a code like `pt` \
+             or `en`, or leave it out to have it detected"
+        }
+        503 => " — the server is busy or still loading its model: try again in a minute",
+        _ => "",
+    }
+}
 
 /// Why a recording was not transcribed.
 #[derive(Debug, thiserror::Error)]
@@ -15,16 +32,32 @@ pub enum TranscribeError {
         /// What the transport said: refused, or a wait that ran out.
         why: String,
     },
-    /// It answered with a refusal, carried whole.
-    #[error(
-        "the Whisper server refused ({status}): {body} — a language it does not know answers \
-         500; force one only with a code like `pt` or `en`"
-    )]
+    /// It answered with a refusal, carried whole, with what its status means.
+    #[error("the Whisper server refused ({status}): {body}{}", meaning(*status, *forced))]
     Refused {
         /// The status code.
         status: u16,
         /// What it said.
         body: String,
+        /// Whether a language was forced: the one thing a `500` is known to
+        /// mean.
+        forced: bool,
+    },
+    /// Whoever asked stopped it before its words came back.
+    #[error("stopped before its words came back; nothing was written")]
+    Stopped,
+    /// A recording longer than the longest heard.
+    #[error(
+        "`{asset}` lasts {} min, longer than the {} min a transcription takes: cut the part \
+         with speech into a file of its own and import that",
+        (seconds / 60.0).ceil(),
+        LONGEST.as_secs() / 60
+    )]
+    TooLong {
+        /// Which.
+        asset: AssetId,
+        /// How long it lasts, in seconds.
+        seconds: f64,
     },
     /// It answered with something that is not a transcription.
     #[error("the Whisper server answered with something unreadable: {0}")]

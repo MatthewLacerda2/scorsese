@@ -56,6 +56,7 @@ use scorsese_render::Cancel;
 use serde_json::Value;
 
 use crate::renders::{Renders, Report};
+use crate::session::{Held, Holds};
 
 /// The `mimeType` an image block carries. One kind, because there is one kind
 /// of picture this server produces — see [`scorsese_render::frames`] for why it
@@ -273,8 +274,9 @@ pub trait Tool: Send + Sync {
     /// request (`notifications/cancelled`).
     ///
     /// Only a tool that runs long enough to be worth stopping overrides this —
-    /// `render` (#647), `synth_bake` (#661), and `still` waiting on pages
-    /// captured ahead (#1469). Every other one finishes in
+    /// `render` (#647), `synth_bake` (#661), `still` waiting on pages
+    /// captured ahead (#1469), and `transcribe` waiting on the Whisper server
+    /// (#1549). Every other one finishes in
     /// the time it takes to notice, so it runs to the end and its answer is
     /// simply not sent.
     fn call_cancellable(&self, arguments: &Value, cancel: &Cancel) -> Result<Reply, String> {
@@ -287,8 +289,9 @@ pub trait Tool: Send + Sync {
     /// to report progress when the client asked for it.
     ///
     /// Only `render` and `jobs` (#700) override this — they are
-    /// the tools with something to say about work that outlives a call. Every
-    /// other one is [`Tool::call_cancellable`].
+    /// the tools with something to say about work that outlives a call — and
+    /// `transcribe` (#1549), which holds its project only for its last write
+    /// ([`Context::hold`]). Every other one is [`Tool::call_cancellable`].
     fn call_in(&self, arguments: &Value, context: &mut Context<'_>) -> Result<Reply, String> {
         self.call_cancellable(arguments, context.cancel)
     }
@@ -306,6 +309,9 @@ pub struct Context<'a> {
     renders: &'a Renders,
     /// Where `notifications/progress` go, when the call asked for them.
     report: Option<Report<'a>>,
+    /// Which projects the session's calls are changing, for a call that holds
+    /// its project only for part of its run ([`Context::hold`]).
+    holds: Option<&'a Holds>,
 }
 
 impl<'a> Context<'a> {
@@ -318,7 +324,31 @@ impl<'a> Context<'a> {
             cancel,
             renders,
             report,
+            holds: None,
         }
+    }
+
+    /// The same context, inside a session whose calls hold projects in
+    /// `holds`.
+    pub(crate) fn holding(self, holds: &'a Holds) -> Self {
+        Self {
+            holds: Some(holds),
+            ..self
+        }
+    }
+
+    /// Holds `project` for `tool` from now until what this returns drops —
+    /// for a call that says it [`Tool::writes`] nothing, because it changes
+    /// its project only at the end of a long run (`transcribe`, #1549).
+    /// Outside a session nothing else is changing it, and nothing is held.
+    pub(crate) fn hold(
+        &self,
+        project: &str,
+        tool: &'static str,
+    ) -> Result<Option<Held<'a>>, String> {
+        self.holds
+            .map(|holds| holds.take(project, tool))
+            .transpose()
     }
 }
 

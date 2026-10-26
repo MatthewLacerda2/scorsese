@@ -22,7 +22,8 @@
 //!
 //! **Transcribed footage is captioned like a line** (#1549): an imported
 //! video or sound whose speech was transcribed has the same timings beside
-//! it, on whatever track its clip is.
+//! it, on whatever track its clip is — unless its clip is held silent
+//! throughout, the picture kept under another voice.
 //!
 //! **A line with no timings is named and skipped, never guessed** — speech
 //! nobody transcribed on a track the caller named, or a narration generated
@@ -56,10 +57,11 @@ pub struct Captioning {
     /// The video track the captions go on. Made, on top of every other, when
     /// the project has no track so called.
     pub track: TrackId,
-    /// The tracks whose clips are captioned. Empty means generated narration
-    /// on any audio track and transcribed recordings on any track — so music,
-    /// or footage nobody transcribed, is not reported as a line without
-    /// timings.
+    /// The tracks whose clips are captioned — those that can carry speech: a
+    /// generated line, a video, a sound. Empty means generated narration on
+    /// any audio track and transcribed recordings on any track not silenced
+    /// throughout ([`Captioning::volume`]) — so music, or footage nobody
+    /// transcribed, is not reported as a line without timings.
     pub narration: Vec<TrackId>,
     /// How lines are cut and timed.
     pub chunking: Chunking,
@@ -75,6 +77,10 @@ pub struct Captioning {
     pub reveal: PropertyPath,
     /// The property that offsets a layer vertically.
     pub height: PropertyPath,
+    /// The property that sets how loud a clip plays, as a multiplier: with no
+    /// track named, a clip held at `0` on it throughout says nothing, and is
+    /// not captioned. `None` hears every clip.
+    pub volume: Option<PropertyPath>,
 }
 
 #[cfg(test)]

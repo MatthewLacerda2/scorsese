@@ -15,8 +15,9 @@
 //!
 //! **Imported speech gets them by being transcribed** (#1549): a local
 //! Whisper hears an imported video or sound and its words are written in the
-//! same file, beside the asset — `assets/sketch.words.json` next to
-//! `assets/sketch.mp4` — so captions, pages and `project_describe` read them
+//! same file, beside the asset under its whole name —
+//! `assets/sketch.mp4.words.json` next to `assets/sketch.mp4`
+//! ([`Words::transcript`]) — so captions, pages and `project_describe` read them
 //! as they read a narration's. The agent's corrections ([`Words::fix`]) make
 //! that file work nothing can rebuild, so it is never under `cache/`.
 //!
@@ -95,6 +96,28 @@ impl Words {
         ProjectPath::new(format!("{stem}.words.json"))
     }
 
+    /// Where an imported recording's transcript is kept: beside it, under its
+    /// whole file name with `.words.json` after it — `assets/take.mp4.words.json`
+    /// — so a film and a sound of one take, `take.mp4` and `take.wav`, keep
+    /// one each.
+    pub fn transcript(recording: &ProjectPath) -> ProjectPath {
+        ProjectPath::new(format!("{recording}.words.json"))
+    }
+
+    /// Where `asset`'s words are kept, when it is one that has them: a
+    /// recording's [`Words::transcript`], or a generated line's timings
+    /// [`Words::beside`] it. `None` for any other asset, or one with no file.
+    pub fn file_of(asset: &Asset) -> Option<ProjectPath> {
+        let path = asset.path.as_ref()?;
+        if Self::transcribable(asset.kind) {
+            Some(Self::transcript(path))
+        } else if asset.kind == AssetKind::GeneratedAudio {
+            Some(Self::beside(path))
+        } else {
+            None
+        }
+    }
+
     /// The timings of what `asset` says, when they are beside it: a generated
     /// narration's, or an imported recording's transcript
     /// ([`Words::transcribable`]). `None` for every other asset, for a line
@@ -103,7 +126,7 @@ impl Words {
     /// are left out even when its file still holds them, as one folded before
     /// #1061 does ([`Words::spoken_by`]).
     pub fn of(asset: &Asset, project_root: &Path) -> Option<Self> {
-        let file = Self::beside(asset.path.as_ref()?).resolve(project_root);
+        let file = Self::file_of(asset)?.resolve(project_root);
         let read = || -> Option<Self> {
             let text = std::fs::read_to_string(&file).ok()?;
             serde_json::from_str(&text).ok()

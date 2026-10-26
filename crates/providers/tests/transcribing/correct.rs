@@ -4,7 +4,7 @@ use scorsese_core::AssetId;
 use scorsese_core::words::{Fix, Words};
 use scorsese_providers::transcribe::{correct, transcribe};
 
-use super::run::{Ear, asked, decode, folder};
+use super::run::{Ear, asked, folder, hearing};
 
 #[test]
 fn a_correction_is_written_back_and_a_recording_never_heard_is_refused() {
@@ -18,9 +18,7 @@ fn a_correction_is_written_back_and_a_recording_never_heard_is_refused() {
         &project,
         &dir,
         &take,
-        &asked(false),
-        &Ear::default(),
-        decode,
+        hearing(&asked(false), &Ear::default()),
     )
     .expect("transcribed");
     let fixes = [Fix {
@@ -35,7 +33,7 @@ fn a_correction_is_written_back_and_a_recording_never_heard_is_refused() {
     assert!(
         fixed
             .said()
-            .starts_with("`take` corrected in assets/take.words.json: 1 fix, 0 words dropped"),
+            .starts_with("`take` corrected in assets/take.mp4.words.json: 1 fix, 0 words dropped"),
         "{}",
         fixed.said()
     );

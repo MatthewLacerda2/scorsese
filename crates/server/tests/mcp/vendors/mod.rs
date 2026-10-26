@@ -50,6 +50,8 @@ pub(super) struct Mock {
     pub(super) heard: Arc<AtomicUsize>,
     /// The Whisper container is down.
     pub(super) deaf: bool,
+    /// The Whisper listens until it is stopped.
+    pub(super) hang: bool,
 }
 
 impl Mock {
