@@ -128,8 +128,8 @@ same five steps:
   request lands last and takes the one rebase. A tie goes to the label, read
   from the pull request and from the issues it closes. A pull request passed
   over three times goes first whatever its conflicts; the count is kept beside
-  the lock, so it carries across resumed watches, and a new head starts it
-  over. **Dependabot goes after
+  the lock, so it carries across resumed watches and pushes; only being
+  taken starts it over. **Dependabot goes after
   all of them.** One that **conflicts with `main`** is handed back at once with
   the files named. A list run keeps the order it was given.
 - **One queue at a time.** A second run on the same clone refuses with exit

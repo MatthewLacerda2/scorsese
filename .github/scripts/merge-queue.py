@@ -353,8 +353,8 @@ def run_watch(
     """Take cleared pull requests as they appear, until `--for` runs out.
 
     The aging tally is read from `tally_path` and written back at every pick,
-    so a resumed watch carries on counting (#1423); without one it is kept in
-    memory only.
+    so a resumed watch carries on counting (#1423); without one (`main` passes
+    none under `--no-merge`) it is kept in memory only.
 
     One at a time, through the same [`take`] as a list — merging stays
     serialized and the watch only decides what comes next ([`watch.pick`]).
@@ -373,7 +373,7 @@ def run_watch(
     issues: dict[int, list[str]] = {}
     merges: dict[frozenset[str], bool] = {}
     behind_main: dict[frozenset[str], list[str] | None] = {}
-    saved = tally.load(tally_path) if tally_path else {}
+    passes = tally.load(tally_path) if tally_path else {}
     board = watch.Board(opts.since)
     stop_taking = time.monotonic() + opts.watch_for * 60
 
@@ -411,7 +411,6 @@ def run_watch(
             clashes = watch.clashing(
                 watch.contenders(pulls, dropped), opts.root, merges
             )
-            passes = tally.carried(saved, pulls)
             pull = watch.pick(pulls, dropped, labels, clashes, passes)
             if pull is None:
                 time.sleep(watch.IDLE_SECONDS)
@@ -421,9 +420,8 @@ def run_watch(
                 talk.say(note)
             number = pull["number"]
             watch.count_passes(passes, pulls, dropped, number)
-            saved = tally.stamped(passes, pulls)
             if tally_path:
-                tally.save(tally_path, saved)
+                tally.save(tally_path, passes)
             heads: dict[int, str] = {}
             try:
                 outcome = take(repo, number, opts, heads, tick)
@@ -455,7 +453,8 @@ def main(argv: list[str] | None = None) -> int:
         talk.say(str(outage), "Nothing was attempted. Run it again once GitHub answers.")
         return mergeable.UNREACHABLE_STATUS
     if opts.watch:
-        results = run_watch(repo["nameWithOwner"], opts, tally.path_for(opts.root))
+        kept = None if opts.no_merge else tally.path_for(opts.root, opts.label)
+        results = run_watch(repo["nameWithOwner"], opts, kept)
     else:
         results = run_queue(repo["nameWithOwner"], opts)
 
