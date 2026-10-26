@@ -213,11 +213,11 @@ so its public API is rusty's contract (`crates/zimmer/CLAUDE.md`).
   `CLAUDE.md`) is never the exception. Nothing that spends the user's money (a
   provider generation, `make live-check`) is done on initiative: it is asked
   first, every time.
-- **Flow:** idea → (issue) → branch → PR → CI green → merge; every change
-  arrives as a pull request. A PR closes its issue by number; one leaving it
-  open writes `refs #N`. The procedures are skills: batches, worktrees and
-  cloud coders (`issue-batch`); gates, CI, the mutation signal and merging
-  (`ci-merge`); a reviewer for a risky change (`independent-review`).
+- **Flow:** idea → (issue) → branch → PR → review → ready → CI green →
+  merge, always as a PR; the coder has a risky change reviewed by a fresh
+  agent before readying it (`independent-review`). A PR closes its issue by
+  number (`refs #N` leaves it open). The procedures are skills: batches,
+  worktrees and cloud coders (`issue-batch`); gates, CI, merging (`ci-merge`).
 - **Gates vs. signals: block on correctness, inform on quality.** Signals
   (coverage, mutation, perf) never hold a merge. A branch that adds mechanism
   asks for a mutation run before it is readied.
