@@ -6,7 +6,7 @@
 //! when not. No minor ticks and no grid through the lanes — a clip covers the
 //! lane it sits on, and a line behind it would only show in the gaps.
 
-use egui::{Align2, FontId, Painter, Rect, Stroke, pos2};
+use egui::{Align2, Painter, Rect, Stroke, pos2};
 use scorsese_core::{Fps, Frames};
 
 use super::view::{View, timecode};
@@ -51,7 +51,7 @@ pub(super) fn draw(painter: &Painter, rect: Rect, view: View, fps: Fps) {
             pos2(x + 4.0, rect.center().y),
             Align2::LEFT_CENTER,
             timecode(frame, fps),
-            FontId::proportional(10.0),
+            marks::caption_font(),
             colours.muted_foreground,
         );
     }

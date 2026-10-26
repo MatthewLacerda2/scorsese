@@ -30,7 +30,7 @@
 //! in the browser too.
 
 use egui::Color32;
-use scorsese_core::{AssetKind, TrackKind};
+use scorsese_core::AssetKind;
 
 /// One complete set of roles. There are two of them, [`DARK`] and [`LIGHT`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -183,14 +183,11 @@ pub(crate) const fn of_kind(kind: AssetKind) -> Color32 {
     }
 }
 
-/// The hue that says what a *lane* carries: its commonest member's, so a track
-/// head and the blocks along it agree.
-pub(crate) const fn of_track(kind: TrackKind) -> Color32 {
-    match kind {
-        TrackKind::Video => of_kind(AssetKind::Video),
-        TrackKind::Audio => of_kind(AssetKind::Audio),
-    }
-}
+/// The web's `bg-screen/60`: the strip a clip's name stands on.
+pub(crate) const NAME_STRIP: Color32 = Color32::from_black_alpha(153);
+
+/// The web's `bg-screen/20`: the strips that mark a clip's trimmable ends.
+pub(crate) const TRIM_STRIP: Color32 = Color32::from_black_alpha(51);
 
 /// A clip whose asset is not in the table: the web's grey for a kind it does
 /// not know, `zinc-500`, `oklch(55.2% 0.016 285.938)`. A validated project

@@ -129,11 +129,13 @@ pub(crate) fn figure_font() -> FontId {
     FontId::monospace(9.5)
 }
 
-/// The size of a panel's name set in a corner of a drawing, as the timeline's.
-pub(crate) const CORNER_TITLE_SIZE: f32 = 10.0;
-
 /// The size of a notice standing in for a picture that is not there.
 pub(crate) const NOTICE_SIZE: f32 = 13.0;
+
+/// The web's `text-[10px]`: a clip's name, a ruler label, a track's kind.
+pub(crate) fn caption_font() -> FontId {
+    FontId::proportional(10.0)
+}
 
 /// A small tag: a word or two in a tinted box, for a thing's kind or its state.
 ///

@@ -79,12 +79,7 @@ pub(in crate::timeline::lanes) fn draw(paint: &Paint<'_>, rect: Rect, lane: Rect
     } else {
         unmade(&painter, rect, hue, colours);
     }
-    painter.rect_stroke(
-        rect,
-        ROUND_SM,
-        Stroke::new(1.0, hue),
-        StrokeKind::Inside,
-    );
+    painter.rect_stroke(rect, ROUND_SM, Stroke::new(1.0, hue), StrokeKind::Inside);
     // The name strip sits over the picture, and the trim strips over that.
     caption(&painter, (rect, lane), clip, asset, made, colours);
     trims(&painter, rect);
@@ -180,7 +175,7 @@ fn tiles(painter: &Painter, inner: Rect, texture: &TextureHandle, strength: f32)
     if seen.width() < 1.0 {
         return;
     }
-    let tint = Color32::WHITE.gamma_multiply(strength);
+    let tint = palette::UNTINTED.gamma_multiply(strength);
     let first = ((seen.left() - inner.left()) / wide).floor().max(0.0);
     let mut x = inner.left() + first * wide;
     while x < seen.right() {
@@ -196,7 +191,12 @@ fn tiles(painter: &Painter, inner: Rect, texture: &TextureHandle, strength: f32)
 }
 
 /// The sound's levels, a bar every few pixels below the name strip.
-fn waveform(painter: &Painter, inner: Rect, found: &Arc<Peaks>, (clip, project): (&Clip, &Project)) {
+fn waveform(
+    painter: &Painter,
+    inner: Rect,
+    found: &Arc<Peaks>,
+    (clip, project): (&Clip, &Project),
+) {
     let fps = project.timeline_fps;
     let from = fps.seconds(clip.source_in);
     let length = fps.seconds(clip.duration) * clip.speed.get();
@@ -229,7 +229,7 @@ fn waveform(painter: &Painter, inner: Rect, found: &Arc<Peaks>, (clip, project):
 
 /// The trim strips: 6px of `screen/20` at both ends.
 fn trims(painter: &Painter, rect: Rect) {
-    let strip = Color32::from_black_alpha(51);
+    let strip = palette::TRIM_STRIP;
     let inner = rect.shrink(1.0);
     if inner.width() < TRIM * 2.0 {
         return;
@@ -331,9 +331,10 @@ fn caption(
     let galley = marks::truncated(
         painter,
         name,
-        egui::FontId::proportional(10.0),
+        marks::caption_font(),
         palette::ON_HUE,
-        (room - 8.0).max(0.0));
+        (room - 8.0).max(0.0),
+    );
     let strip = Rect::from_min_size(at, vec2(galley.size().x + 8.0, STRIP));
     painter.rect_filled(
         strip,
@@ -341,7 +342,7 @@ fn caption(
             se: ROUND_SM.se,
             ..CornerRadius::ZERO
         },
-        Color32::from_black_alpha(153),
+        palette::NAME_STRIP,
     );
     painter.galley(
         pos2(strip.left() + 4.0, strip.center().y - galley.size().y / 2.0),

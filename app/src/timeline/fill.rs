@@ -81,12 +81,6 @@ impl Makers {
             .cloned()
             .map(Fill::Picture)
     }
-
-    /// Forgets everything, for when a different project is opened.
-    pub(super) fn reset(&mut self) {
-        // Dropping the workers' senders ends their threads once idle.
-        *self = Self::default();
-    }
 }
 
 /// The kinds whose file is a sound, drawn as its waveform.

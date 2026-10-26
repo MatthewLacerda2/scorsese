@@ -56,11 +56,9 @@ impl Timeline {
             return;
         }
         let top = gutter.top() + super::ruler::HEIGHT;
-        let head = pointer
-            .filter(|at| gutter.contains(*at))
-            .and_then(|at| {
-                super::lanes::lane_at(&open.project, gutter, top, at.y).map(|found| (found, at))
-            });
+        let head = pointer.filter(|at| gutter.contains(*at)).and_then(|at| {
+            super::lanes::lane_at(&open.project, gutter, top, at.y).map(|found| (found, at))
+        });
         if let Some(((track, lane), at)) = head
             && (secondary || super::lanes::trash(lane).contains(at))
         {

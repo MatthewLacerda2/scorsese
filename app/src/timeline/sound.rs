@@ -111,10 +111,8 @@ fn spawn(ctx: Context) -> (Sender<Job>, Receiver<Done>) {
 /// than [`MOST_BARS`]. At least one.
 pub(super) fn bars_of(per_second: f32, length: f64, width: f32) -> usize {
     let levels = (length * f64::from(per_second) - 1e-9).ceil().max(0.0) as usize;
-    ((width / BAR_PX).floor() as usize)
-        .min(levels)
-        .min(MOST_BARS)
-        .max(1)
+    let wide = (width / BAR_PX).floor() as usize;
+    wide.min(levels).clamp(1, MOST_BARS)
 }
 
 /// `bars` levels, 0–1, for the `length` seconds of the sound from `from`: each
@@ -128,9 +126,10 @@ pub(super) fn slice_of(found: &Peaks, from: f64, length: f64, bars: usize) -> Ve
             let end = (first + 1.0).max(((from + (bar + 1) as f64 * each) * rate - 1e-9).ceil());
             let first = first.max(0.0) as usize;
             let end = (end.max(0.0) as usize).min(found.levels.len());
-            let loudest = found.levels.get(first..end).map_or(0, |run| {
-                run.iter().copied().max().unwrap_or(0)
-            });
+            let loudest = found
+                .levels
+                .get(first..end)
+                .map_or(0, |run| run.iter().copied().max().unwrap_or(0));
             f32::from(loudest) / 255.0
         })
         .collect()

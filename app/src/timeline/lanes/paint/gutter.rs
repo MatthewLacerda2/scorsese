@@ -32,7 +32,12 @@ fn kind_word(kind: TrackKind) -> &'static str {
 }
 
 /// Draws one lane's head. `pointer` lights the bin when it is over it.
-pub(in crate::timeline) fn draw(painter: &Painter, lane: Rect, track: &Track, pointer: Option<Pos2>) {
+pub(in crate::timeline) fn draw(
+    painter: &Painter,
+    lane: Rect,
+    track: &Track,
+    pointer: Option<Pos2>,
+) {
     let colours = palette::of(painter.ctx());
     marks::rule(
         painter,
