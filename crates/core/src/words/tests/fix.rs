@@ -40,9 +40,9 @@ fn a_listing_numbers_each_word_from_one_with_its_times() {
 fn a_fixed_word_keeps_its_times_and_an_empty_one_is_dropped() {
     let mut words = heard();
     let dropped = words
-        .fix(&[fix(3, "Kassab"), fix(4, ""), fix(1, " Olha, ")])
+        .fix(&[fix(3, "Kassab"), fix(4, ""), fix(1, " Olha, "), fix(2, " ")])
         .unwrap();
-    assert_eq!(dropped, 1);
+    assert_eq!(dropped, 2);
     let read: Vec<(&str, f64, f64)> = words
         .words
         .iter()
@@ -52,12 +52,18 @@ fn a_fixed_word_keeps_its_times_and_an_empty_one_is_dropped() {
         read,
         [
             ("Olha,", 0.0, 0.32),
-            ("o", 0.32, 0.4),
             ("Kassab", 0.4, 0.71),
             ("aqui.", 0.9, 1.25)
         ],
         "numbers are the listing's before the fix, so a drop renumbers nothing"
     );
+    let mut last = heard();
+    assert_eq!(
+        last.fix(&[fix(5, "aqui!")]),
+        Ok(0),
+        "the last word is a word"
+    );
+    assert_eq!(last.words[4].text, "aqui!");
 }
 
 #[test]
