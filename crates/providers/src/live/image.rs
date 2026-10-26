@@ -1,5 +1,5 @@
 //! Gemini's image part of the live check: the model's id, free, then one
-//! still, the smallest Google sells.
+//! still, the smallest Google sells, then the same still asked for as a PNG.
 //!
 //! # The free part
 //!
@@ -35,6 +35,19 @@
 //! quoted and held to the ceiling with the rest. The reply is base64 inside
 //! JSON, so a recording keeps it whole: that body is what replaces
 //! `fixtures/gemini/interaction.json`.
+//!
+//! # The PNG probe
+//!
+//! Every still is asked for as a JPEG because the endpoint refused `image/png`
+//! on 2026-10-07 ([`ResponseFormat::mime_type`]), and Google's page has since
+//! shown `image/png` in its examples (#1341). So the same still is asked for
+//! once more as a PNG, and the step **reports** what came back — accepted with
+//! the picture's header, refused in the vendor's words, or a JPEG drawn anyway
+//! — rather than judging it: any of those is the answer #1341 waits on. A 429
+//! or a 5xx is reported as inconclusive, never as a refusal. Only no answer at
+//! all, or a rejected key, fails it.
+//!
+//! [`ResponseFormat::mime_type`]: crate::api::gemini::request::ResponseFormat::mime_type
 
 use base64::Engine;
 use scorsese_core::{AssetId, ImageAspect, ImageRequest, ImageResolution};
@@ -73,10 +86,15 @@ pub fn still() -> ImageRequest {
 }
 
 /// What the still costs, in cents.
-pub fn cost() -> u64 {
+pub fn still_cents() -> u64 {
     prices::image(&still(), PROMPT.chars().count(), 0)
         .expect("Nano Banana 2.1 at 1K has a published rate")
         .cents
+}
+
+/// What the image part costs, in cents: the still, and the PNG probe's.
+pub fn cost() -> u64 {
+    2 * still_cents()
 }
 
 /// The calls, as a quote lists them.
@@ -85,7 +103,11 @@ pub(super) fn calls() -> Vec<String> {
         format!("GET models/{MODEL} — free"),
         format!(
             "draw one {SIDE}x{SIDE} still (Nano Banana 2.1, 1K, no references) — {}",
-            dollars(from_cents(cost()), 2)
+            dollars(from_cents(still_cents()), 2)
+        ),
+        format!(
+            "ask for the same still as image/png, reporting accepted or refused — at most {}",
+            dollars(from_cents(still_cents()), 2)
         ),
     ]
 }
@@ -101,18 +123,40 @@ fn body() -> Create {
     })
 }
 
+/// The PNG probe's body: the still's, asking for `image/png`.
+fn png_body() -> Create {
+    let mut body = body();
+    body.response_format.mime_type = "image/png";
+    body
+}
+
 /// Runs the image part; returns what it found and what it spent, in cents.
 pub(super) fn check(key: &Secret, tap: &Tap) -> (Vec<Step>, u64) {
     let gemini = Gemini::new(key).tapped(tap);
     let mut steps = vec![model_step(gemini.model())];
     let step = picture_step(gemini.create(&body()));
-    let spent = match step.verdict {
+    let mut spent = match step.verdict {
         // A shape change was billed before we failed to read it.
-        Verdict::Ok | Verdict::ShapeChanged { .. } => cost(),
+        Verdict::Ok | Verdict::ShapeChanged { .. } => still_cents(),
         _ => 0,
     };
     steps.push(step);
+    let answer = gemini.create(&png_body());
+    spent += png_cents(&answer);
+    steps.push(png_step(answer));
     (steps, spent)
+}
+
+/// What the PNG probe spent, in cents: a reply the vendor drew is billed,
+/// counted as the still's step counts it — a picture of either kind, a 2xx
+/// body that would not parse, or a reply with neither picture nor words. A
+/// refusal, or the model's words alone, was not.
+pub fn png_cents(answer: &Result<Interaction, HttpError>) -> u64 {
+    let billed = match answer {
+        Err(error) => matches!(error, HttpError::Unreadable { .. }),
+        Ok(reply) => reply.image().is_some() || reply.said().is_empty(),
+    };
+    if billed { still_cents() } else { 0 }
 }
 
 /// What `GET models/{id}` said about the image model.
@@ -159,6 +203,70 @@ pub fn picture_step(answer: Result<Interaction, HttpError>) -> Step {
     }
 }
 
+/// What asking for a PNG gave back, reported rather than judged (#1341).
+///
+/// Passes with a note for every answer the vendor gave; fails only on no
+/// answer, or on the key. Only a 4xx other than 429 is a refusal: a 429 or a
+/// 5xx says nothing about `image/png`, so it is reported as inconclusive.
+pub fn png_step(answer: Result<Interaction, HttpError>) -> Step {
+    let call = "POST interactions as image/png";
+    let reported = |note: String| Step::new(call, Verdict::Ok).noting(note);
+    let reply = match answer {
+        Err(error) => {
+            return match (judge::gemini(&error), &error) {
+                (Verdict::Refused { said }, HttpError::Refused { status, .. })
+                    if (400..500).contains(status) && *status != 429 =>
+                {
+                    reported(format!("refused: {said}"))
+                }
+                (Verdict::Refused { said }, _) => {
+                    reported(format!("inconclusive, try again: {said}"))
+                }
+                (Verdict::ShapeChanged { field }, _) => {
+                    reported(format!("unreadable reply: {field}"))
+                }
+                (failed, _) => Step::new(call, failed),
+            };
+        }
+        Ok(reply) => reply,
+    };
+    let Some(encoded) = reply.image() else {
+        return reported(format!(
+            "no picture: {}",
+            Some(reply.said())
+                .filter(|said| !said.is_empty())
+                .unwrap_or_else(|| String::from("and no words"))
+        ));
+    };
+    let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(encoded) else {
+        return reported(String::from("a picture that is not base64"));
+    };
+    match judge::png_size(&bytes) {
+        Some((SIDE, SIDE)) => {
+            return reported(format!(
+                "accepted: a {SIDE}x{SIDE} PNG, {} bytes — #1341 can switch",
+                bytes.len()
+            ));
+        }
+        Some((width, height)) => {
+            return reported(format!(
+                "a {width}x{height} PNG, {} bytes, asked for 1K ({SIDE}x{SIDE}) — the format was taken and the size or the shape was not",
+                bytes.len()
+            ));
+        }
+        None => {}
+    }
+    match judge::jpeg_size(&bytes) {
+        Some((width, height)) => reported(format!(
+            "ignored: asked for a PNG, drew a {width}x{height} JPEG"
+        )),
+        None => reported(format!(
+            "neither a PNG nor a JPEG: {}",
+            judge::looks_like(&bytes)
+        )),
+    }
+}
+
 /// The request is the product's, so this pins what the product sends for the
 /// cheapest still — the body a person's paid run will put to the vendor.
 #[cfg(test)]
@@ -181,5 +289,13 @@ mod tests {
                 "store": false,
             })
         );
+    }
+
+    /// The probe differs from the still in its format alone.
+    #[test]
+    fn the_png_probe_is_the_still_asking_for_a_png() {
+        let mut still = serde_json::to_value(super::body()).unwrap();
+        still["response_format"]["mime_type"] = json!("image/png");
+        assert_eq!(serde_json::to_value(super::png_body()).unwrap(), still);
     }
 }

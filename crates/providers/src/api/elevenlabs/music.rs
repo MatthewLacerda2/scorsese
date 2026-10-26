@@ -72,6 +72,13 @@ impl Music {
         }
     }
 
+    /// The same client, copying every reply into `tap` — for the live
+    /// provider check ([`crate::live`]); see [`crate::api::tap`].
+    pub fn tapped(mut self, tap: &crate::api::tap::Tap) -> Self {
+        self.caller = self.caller.tapped(tap);
+        self
+    }
+
     /// Composes a track, and hands back the MP3.
     ///
     /// The format is asked for rather than left at the vendor's `auto`, which

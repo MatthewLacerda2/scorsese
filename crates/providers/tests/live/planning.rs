@@ -45,8 +45,8 @@ fn only_the_vendors_with_keys_are_planned_and_priced() {
     assert_eq!(
         cents,
         [
-            (Vendor::Keyed(Provider::Gemini), 4, false),
-            (Vendor::Keyed(Provider::ElevenLabs), 2, false),
+            (Vendor::Keyed(Provider::Gemini), 8, false),
+            (Vendor::Keyed(Provider::ElevenLabs), 3, false),
             (Vendor::Keyed(Provider::Anthropic), 0, true),
             (Vendor::Keyed(Provider::Pixabay), 0, true),
             (Vendor::LottieFiles, 0, true),
@@ -71,7 +71,7 @@ fn the_shot_is_priced_into_the_plan_only_when_asked_for() {
         include_veo: true,
         ..Options::default()
     };
-    assert_eq!(total(&plan(&asked, &env, &Settings::default())), 24);
+    assert_eq!(total(&plan(&asked, &env, &Settings::default())), 28);
 }
 
 /// The ceiling refuses the whole plan before anything is sent, `--yes` or
@@ -81,8 +81,8 @@ fn a_plan_over_the_ceiling_is_refused_whole() {
     let env = keys(&[("ELEVENLABS_API_KEY", "e"), ("ANTHROPIC_API_KEY", "a")]);
     let planned = plan(&Options::default(), &env, &Settings::default());
     let over = permit(&planned, Budget::new(5, 0)).unwrap_err();
-    assert_eq!(over.estimate, 17);
-    assert!(permit(&planned, Budget::new(17, 0)).is_ok());
+    assert_eq!(over.estimate, 18);
+    assert!(permit(&planned, Budget::new(18, 0)).is_ok());
     assert!(permit(&planned, Budget::unlimited(0)).is_ok());
 }
 
