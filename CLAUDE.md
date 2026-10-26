@@ -8,9 +8,10 @@ Use plain language with the user and explain things at a high level; go into
 Rust, ffmpeg or the compositor only when it is needed. The user does not read
 the code: never point them at a file or a line of it (naming a crate, a module
 or a dependency is fine). Issues and PRs can be technical and detailed: they
-are documentation for a future Claude. Tell the user when something is
-bottlenecking you. Don't recite this file unless a rule blocks you or explains
-a conclusion.
+are documentation for a future Claude. Whatever language the user writes in,
+everything written down (code, comments, docs, skills, issues, PRs) is
+English. Tell the user when something is bottlenecking you. Don't recite this
+file unless a rule blocks you or explains a conclusion.
 
 ## North star
 
@@ -190,10 +191,10 @@ so its public API is rusty's contract (`crates/zimmer/CLAUDE.md`).
     its own issue when it carries its own responsibility.
   - **Agent velocity is first-class.** Agents drive this repo, often
     unattended: code that is readable by design and lean, and a fast CI.
-- **Which model writes a branch.** Sonnet for what is purely front-end (the web
-  app, or the desktop app's egui) and for mechanical work (removing a feature
-  no longer used, a translation, moving code); Opus for the rest. A Sonnet's
-  pull request carries the `minor` label.
+- **Which model writes a branch.** Sonnet for mechanical work (bringing the app
+  to the web's decided look, a translation, moving code) and minor work (a
+  padding, a control moved, nothing removed or changed); Opus for the rest,
+  visual design included. A Sonnet's pull request carries the `minor` label.
 - **The gates (push back before you build).** An idea becomes an issue only
   when all three hold; if any fails, push back instead of complying:
   1. **Understanding.** The user has a clear intent and Claude can restate it.

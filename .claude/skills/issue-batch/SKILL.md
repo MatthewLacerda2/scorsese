@@ -231,10 +231,11 @@ all of this from `cloud-brief.md`.
 ## Model
 
 For writing a branch (`CLAUDE.md`, *Which model writes a branch*): Sonnet for
-what is purely front-end (the web app, or the desktop app's egui) and for
-mechanical work (removing a feature no longer used, a translation, moving code,
-a rebase); Opus for the rest, and for a mix. For work that is not a branch,
-judgement takes the strongest model; when unsure, err upward.
+mechanical work (bringing the app to the web's decided look, a translation,
+moving code, a rebase) and minor work (a padding, a control moved, nothing
+removed or changed in what it does); Opus for the rest, visual design and a mix
+included. For work that is not a branch, judgement takes the strongest model;
+when unsure, err upward.
 
 ## When a branch stops
 
