@@ -76,9 +76,7 @@ impl AudioDecoder {
                 .arg(format!("{:.6}", source.seek_seconds));
         }
         command.arg("-i").arg(&source.file);
-        if let Some(filter) = speed_filter(source.speed, rate) {
-            command.arg("-af").arg(filter);
-        }
+        command.arg("-af").arg(audio_filter(source.speed, rate));
         command
             .args(["-t", &format!("{seconds:.6}")])
             .args(["-vn", "-ar", &rate.to_string()])
@@ -140,6 +138,27 @@ impl AudioDecoder {
             }
         })?;
         self.child.finish(Stage::Mix, &self.subject)
+    }
+}
+
+/// The whole chain a source's sound goes through: aligned to the file's clock,
+/// then played at the clip's speed.
+///
+/// **The alignment comes first, and is always there.** Raw samples carry no
+/// timestamps, so ffmpeg writes a stream's first sample first wherever that
+/// stream starts: a file whose sound begins half a second after its picture
+/// would reach the mixer half a second early, at every seek (#1601). The
+/// picture is decoded on the file's clock, so the sound is too:
+/// `first_pts=0` pads a late start with silence from the seek point, and
+/// `async=1` keeps the rest of the stream on its timestamps the same way. A
+/// sound that starts at or before its picture starts at zero already, and
+/// the alignment changes nothing. The speed acts on the aligned stream, so the
+/// silence is sped with the sound it belongs to.
+fn audio_filter(speed: Speed, rate: u32) -> String {
+    const ALIGN: &str = "aresample=async=1:first_pts=0";
+    match speed_filter(speed, rate) {
+        Some(speed) => format!("{ALIGN},{speed}"),
+        None => ALIGN.to_owned(),
     }
 }
 
