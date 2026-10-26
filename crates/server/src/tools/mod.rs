@@ -295,7 +295,7 @@ impl Toolbox {
         let refused = Err(why);
         match log::begin(&self.pool, user, client, name, arguments).await {
             Ok(id) => log::end(&self.pool, user, id, refused.as_ref().map_err(Clone::clone)).await,
-            Err(error) => eprintln!("scorsese-server: could not record a refused call: {error}"),
+            Err(error) => tracing::error!("could not record a refused call: {error}"),
         }
         refused
     }

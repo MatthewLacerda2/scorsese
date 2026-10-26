@@ -184,6 +184,7 @@ provider keys use, and is documented in `.env.example`:
 | `SCORSESE_CACHE` | The absolute directory what can be rebuilt is kept under — thumbnails, uploads still arriving, finished renders. Required, and refused inside `SCORSESE_STORAGE`, which is backed up. |
 | `SCORSESE_RENDER_QUOTA` | How much disk finished renders and page captures aim to stay under: `500MB`, `20GB`, `1TB`. Defaults to `20GB`. See *Renders*. |
 | `SCORSESE_BIND` | Where to listen. Defaults to `127.0.0.1:8080`, this machine only. |
+| `RUST_LOG` | What the server's log lets through (*Logs*): a level, then a level per module, `info,scorsese_server=debug`. Defaults to `info`; one that does not parse is said in the log and `info` is used. |
 | `GEMINI_API_KEY`, `ELEVENLABS_API_KEY` | The provider keys paid generations are made with (*Web MCP*), read by the one resolver `docs/credentials.md` describes; Optional: without one, a generation needing it fails, free. |
 | `ANTHROPIC_API_KEY` | The key the assistant's Claude models answer with (*Assistant turns*), by the same resolver. Optional: without it a turn on a Claude model is refused with "`ANTHROPIC_API_KEY` is not set", and nothing else changes. |
 | `PIXABAY_API_KEY` | The key `stock_search` and `stock_import` look Pixabay up with, by the same resolver, shared by every user (*Web MCP*). Optional: without it a Pixabay search fails with the variable's name; LottieFiles needs no key. |
@@ -711,6 +712,28 @@ time, from anywhere on the host:
     journalctl -t scorsese-web -f                        # follow
 
 `docker compose logs <service>` still works, from `deploy/`.
+
+**The server's log** (`scorsese-server`) is one line per event: when, the
+level, the span it happened in, the module, then what happened. Every request
+runs in a `request` span naming its method, its route as declared (never the
+path, which carries ids) and the account by id once it is signed in, and ends
+with one `answered` line with its status and milliseconds, at `ERROR` for a
+5xx; the health check is not logged. Every job runs in a `job` span (its id,
+kind and owner), and every assistant turn in a `turn` span:
+
+    2026-10-23T14:02:11.412387Z ERROR request{method=GET route=/api/projects/{id} user=12}: scorsese_server::http::error: database: pool timed out while waiting for an open connection
+    2026-10-23T14:02:11.413020Z ERROR request{method=GET route=/api/projects/{id} user=12}: scorsese_server::logs: answered status=500 ms=31
+    2026-10-23T14:05:40.090614Z  WARN job{id=881 kind=render user=12}: scorsese_server::jobs::worker: failed: the render crashed on the server; that is a bug
+
+So one account's trail, one job, or the failures alone are a `grep` away:
+
+    journalctl -t scorsese-server --since today -o cat | grep 'user=12[ }]'
+    journalctl -t scorsese-server --since today -o cat | grep 'job{id=881 '
+    journalctl -t scorsese-server --since today -o cat | grep -E ' (ERROR|WARN) '
+
+`RUST_LOG` in `deploy/.env` sets how much is written (`info` when blank):
+`warn` for less, `info,scorsese_server=debug` for more of the server and no
+more of its libraries. It takes effect at the server's next start.
 
 **nginx's access log** (`scorsese-web`) is one line per request, the visitor's
 address first (the one the server is told, *The access record*), then the
@@ -2591,7 +2614,7 @@ answering `200`.
 
 | route | who | what |
 | --- | --- | --- |
-| `POST /api/client-errors` | anyone | `{message, stack?, component_stack?, path?, language?, build?}` → `204`; the server writes one `scorsese-server: client error: …` line to its log, each field quoted and escaped, and keeps no table. At most 20 reports a minute from one address (the access record's, *Accounts*) or `429`; a body over 16 KB is `413`; the body is never sent back |
+| `POST /api/client-errors` | anyone | `{message, stack?, component_stack?, path?, language?, build?}` → `204`; the server writes one `client error: …` warning to its log, each field quoted and escaped, and keeps no table. At most 20 reports a minute from one address (the access record's, *Accounts*) or `429`; a body over 16 KB is `413`; the body is never sent back |
 
 The browser trims a stack to its first lines and sends nothing about who is
 signed in: the path, the language and the build are what tell one crash from

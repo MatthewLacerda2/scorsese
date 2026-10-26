@@ -126,10 +126,7 @@ pub(super) async fn compact(state: &AppState, turn: &mut Running) {
         return;
     };
     if let Err(error) = summarised(state, turn, compacting).await {
-        eprintln!(
-            "scorsese-server: assistant: turn {}: not compacted: {error}",
-            turn.turn
-        );
+        tracing::error!("assistant: turn {}: not compacted: {error}", turn.turn);
     }
 }
 
@@ -241,8 +238,8 @@ async fn call(turn: &Running, request: &Arc<Request>) -> Result<(Reply, Duration
             .map_err(|error| error.to_string())?;
         match (reply, waits.next()) {
             (Err(error), Some(wait)) if error.retryable() => {
-                eprintln!(
-                    "scorsese-server: assistant: turn {}: summarising: {error}; retrying",
+                tracing::warn!(
+                    "assistant: turn {}: summarising: {error}; retrying",
                     turn.turn
                 );
                 tokio::time::sleep(*wait).await;

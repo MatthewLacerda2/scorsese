@@ -17,6 +17,8 @@
 //! - [`boundary`] — the decided architecture's boundaries: which crate may
 //!   depend on which, who holds the HTTP and Postgres clients, a headless
 //!   root workspace, and the words a crate's source may not write (#1224).
+//! - [`printing`] — the web app's server logs through `tracing`, never a
+//!   print macro (#1520).
 //! - [`agent_docs`] — every `CLAUDE.md` and skill within its line cap, a
 //!   skill's frontmatter loadable, and no history cited in either.
 //!
@@ -31,6 +33,7 @@ pub mod crate_docs;
 pub mod ignored;
 pub mod markers;
 pub mod prefix;
+pub mod printing;
 pub mod schema;
 pub mod shebang;
 pub mod skips;
@@ -89,6 +92,7 @@ pub fn check_tree(root: &Path) -> io::Result<Vec<Finding>> {
         }
         findings.extend(markers::check(&file.path, text));
         findings.extend(skips::check(&file.path, text));
+        findings.extend(printing::check(&file.path, text));
         findings.extend(crate_docs::check(&file.path, text));
         findings.extend(boundary::fences::check(&file.path, text));
     }

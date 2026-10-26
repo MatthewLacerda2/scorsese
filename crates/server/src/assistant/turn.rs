@@ -15,6 +15,7 @@ use scorsese_providers::chat::{
     self, Chat, ChatError, Effort, Message, Model, Part, Reply, Request, Stop,
 };
 use serde_json::value::RawValue;
+use tracing::Instrument;
 
 use super::ask::{self, Asked};
 use super::compact::{self, Compacting};
@@ -91,8 +92,15 @@ enum End {
     Quoting,
 }
 
-/// Run `turn` to its end, and record and announce how it ended.
-pub(super) async fn run(state: AppState, mut turn: Running) {
+/// Run `turn` to its end, and record and announce how it ended, in a span
+/// naming it.
+pub(super) async fn run(state: AppState, turn: Running) {
+    let span = tracing::error_span!("turn", id = turn.turn, user = turn.user.get());
+    run_named(state, turn).instrument(span).await;
+}
+
+/// [`run`], inside its span.
+async fn run_named(state: AppState, mut turn: Running) {
     compact::compact(&state, &mut turn).await;
     let end = match drive(&state, &mut turn).await {
         Ok(end) => end,
@@ -107,10 +115,7 @@ pub(super) async fn run(state: AppState, mut turn: Running) {
                 balance_micros: balance,
             },
         ),
-        Err(error) => eprintln!(
-            "scorsese-server: assistant: ending turn {}: {error}",
-            turn.turn
-        ),
+        Err(error) => tracing::error!("assistant: ending turn {}: {error}", turn.turn),
     }
 }
 
@@ -179,7 +184,7 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
         // turn recorded, or its messages are not what the start wrote.
         debug_assert_eq!(request.effort(), turn.effort, "turn {}", turn.turn);
         let (reply, latency) = ask(state, turn, request).await.map_err(|error| {
-            eprintln!("scorsese-server: assistant: turn {}: {error}", turn.turn);
+            tracing::error!("assistant: turn {}: {error}", turn.turn);
             super::failure::unreached(&error)
         })?;
         let charge = Charge {
@@ -263,10 +268,7 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
                 ));
             }
             Stop::Other(reason) => {
-                eprintln!(
-                    "scorsese-server: assistant: turn {}: stopped: {reason}",
-                    turn.turn
-                );
+                tracing::warn!("assistant: turn {}: stopped: {reason}", turn.turn);
                 return Ok(End::Over("failed", super::failure::stopped(reason)));
             }
         }
@@ -296,10 +298,7 @@ async fn ask(
         .map_err(|_| ChatError::Claude(chat::ClaudeError::Cut))?;
         match (reply, waits.next()) {
             (Err(error), Some(wait)) if error.retryable() && !heard => {
-                eprintln!(
-                    "scorsese-server: assistant: turn {}: {error}; retrying",
-                    turn.turn
-                );
+                tracing::warn!("assistant: turn {}: {error}; retrying", turn.turn);
                 tokio::time::sleep(*wait).await;
             }
             (reply, _) => return reply.map(|reply| (reply, sent.elapsed())),
@@ -325,10 +324,7 @@ async fn keep(
     )
     .await
     .map_err(|error| {
-        eprintln!(
-            "scorsese-server: assistant: keeping turn {}: {error}",
-            turn.turn
-        );
+        tracing::error!("assistant: keeping turn {}: {error}", turn.turn);
         "The conversation could not be saved.".to_owned()
     })
 }
@@ -355,6 +351,6 @@ async fn announce(state: &AppState, turn: &Running, balance: i64) {
                 balance_micros: balance,
             },
         ),
-        Err(error) => eprintln!("scorsese-server: assistant: turn {}: {error}", turn.turn),
+        Err(error) => tracing::error!("assistant: turn {}: {error}", turn.turn),
     }
 }

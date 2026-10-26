@@ -52,7 +52,7 @@ pub(super) fn shrunk(ffmpeg: &Tools, picture: &str) -> ResultPart {
             data: STANDARD.encode(jpeg),
         },
         Err(why) => {
-            eprintln!("scorsese-server: assistant: shrinking a picture: {why}");
+            tracing::warn!("assistant: shrinking a picture: {why}");
             ResultPart::Text {
                 text: "(a picture here could not be prepared to show you; ask for it again)".into(),
             }

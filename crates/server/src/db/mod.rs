@@ -107,11 +107,11 @@ impl Display for Says {
     }
 }
 
-/// A database failure, logged with its detail as `scorsese-server: {context}:
+/// A database failure, logged as an error with its detail, `{context}:
 /// {error}`, and what [`Says`] answered in its place — the one way every job
 /// and tool reports one.
 pub fn user_facing(context: &str, says: Says, error: impl Display) -> String {
-    eprintln!("scorsese-server: {context}: {error}");
+    tracing::error!("{context}: {error}");
     says.to_string()
 }
 

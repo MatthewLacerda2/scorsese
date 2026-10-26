@@ -18,9 +18,11 @@ use scorsese_server::{Config, ServerError};
 
 #[tokio::main]
 async fn main() -> ExitCode {
+    scorsese_server::logs::init();
     let command = Cli::parse().command.unwrap_or(Command::Serve);
-    // The capture containers' commands read no environment and no database:
-    // they have neither a network nor the server's secrets.
+    // The capture containers' commands read no environment but the log's
+    // filter, and no database: they have neither a network nor the server's
+    // secrets.
     match command {
         Command::CaptureLauncher(args) => return capture_launcher(&args),
         Command::CaptureWorker(args) => return capture_worker(&args),
@@ -28,6 +30,7 @@ async fn main() -> ExitCode {
             return match scorsese_server::captures::one::run(&args) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(error) => {
+                    // lint: allow(server-print) the capture worker reads this last line as the failure
                     eprintln!("scorsese-server: {error}");
                     ExitCode::FAILURE
                 }
@@ -43,7 +46,7 @@ async fn main() -> ExitCode {
     match outcome {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            eprintln!("scorsese-server: {error}");
+            tracing::error!("{error}");
             ExitCode::FAILURE
         }
     }
@@ -53,9 +56,9 @@ async fn main() -> ExitCode {
 async fn perform(config: Config, command: Command) -> Result<(), ServerError> {
     let output = match command {
         Command::Serve => {
-            eprintln!("scorsese-server: starting on {}", config.bind);
+            tracing::info!("starting on {}", config.bind);
             scorsese_server::run(config, stop_requested()).await?;
-            eprintln!("scorsese-server: stopped");
+            tracing::info!("stopped");
             return Ok(());
         }
         Command::User(command) => {
@@ -82,6 +85,7 @@ async fn perform(config: Config, command: Command) -> Result<(), ServerError> {
             unreachable!("handled before the environment is read")
         }
     };
+    // lint: allow(server-print) an operator command's answer, on stdout for the operator
     println!("{output}");
     Ok(())
 }
@@ -94,15 +98,15 @@ fn capture_worker(args: &scorsese_server::captures::worker::Args) -> ExitCode {
                 Isolation::Process { sandbox, .. } => sandbox,
                 Isolation::Container(_) => true,
             };
-            eprintln!(
-                "scorsese-server: capturing pages from {}, sandbox {}",
+            tracing::info!(
+                "capturing pages from {}, sandbox {}",
                 args.spool.display(),
                 if sandbox { "on" } else { "off" }
             );
             worker.run()
         }
         Err(error) => {
-            eprintln!("scorsese-server: {error}");
+            tracing::error!("{error}");
             ExitCode::FAILURE
         }
     }
@@ -112,11 +116,11 @@ fn capture_worker(args: &scorsese_server::captures::worker::Args) -> ExitCode {
 fn capture_launcher(args: &scorsese_server::captures::launch::Args) -> ExitCode {
     let launch = scorsese_server::captures::launch::Launch::from_args(args);
     if let Err(error) = scorsese_server::captures::launch::ready() {
-        eprintln!("scorsese-server: {error}");
+        tracing::error!("{error}");
         return ExitCode::FAILURE;
     }
-    eprintln!(
-        "scorsese-server: capturing pages from {}, a container each, sandbox on",
+    tracing::info!(
+        "capturing pages from {}, a container each, sandbox on",
         args.spool.display()
     );
     Worker::launching(launch).run()

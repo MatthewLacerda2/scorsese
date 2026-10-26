@@ -138,7 +138,7 @@ pub(super) async fn end(pool: &PgPool, user: UserId, id: i64, outcome: Result<&R
         tx.commit().await
     };
     if let Err(error) = written.await {
-        eprintln!("scorsese-server: could not record how tool call {id} ended: {error}");
+        tracing::error!("could not record how tool call {id} ended: {error}");
     }
 }
 
@@ -156,6 +156,6 @@ pub(super) async fn saved(pool: &PgPool, user: UserId, id: i64, revision: i64) {
         tx.commit().await
     };
     if let Err(error) = written.await {
-        eprintln!("scorsese-server: could not record what tool call {id} saved: {error}");
+        tracing::error!("could not record what tool call {id} saved: {error}");
     }
 }

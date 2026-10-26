@@ -8,6 +8,7 @@ mod common;
 mod budget;
 mod claim;
 mod live;
+mod logged;
 mod recover;
 mod worker;
 

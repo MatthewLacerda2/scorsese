@@ -265,8 +265,8 @@ pub async fn link(pool: &PgPool, code: &str, user: UserId) {
         tx.commit().await
     };
     if let Err(error) = linked.await {
-        eprintln!(
-            "scorsese-server: could not link a visitor to account {}: {error}",
+        tracing::error!(
+            "could not link a visitor to account {}: {error}",
             user.get()
         );
     }

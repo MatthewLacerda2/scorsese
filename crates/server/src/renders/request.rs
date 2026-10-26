@@ -92,7 +92,7 @@ pub async fn ask(
     // editor is waiting for this one, and previews run one at a time.
     for running in outrun {
         if let Err(error) = crate::jobs::cancel(pool, queue, user, running).await {
-            eprintln!("scorsese-server: could not stop preview {running}: {error}");
+            tracing::error!("could not stop preview {running}: {error}");
         }
     }
     Ok(Asked::Queued(job))

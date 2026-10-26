@@ -121,8 +121,8 @@ async fn wait(
             // Still drawing, or a network blip: the batch is Google's either
             // way, and asking again is free.
             Ok(Ok(Batch::Running)) => {}
-            Ok(Err(error)) => eprintln!("scorsese-server: asking after a batch: {error}"),
-            Err(why) => eprintln!("scorsese-server: {why}"),
+            Ok(Err(error)) => tracing::warn!("asking after a batch: {error}"),
+            Err(why) => tracing::warn!("{why}"),
         }
         if started.elapsed() >= timing.batch_patience {
             return Outcome::Stuck(format!(

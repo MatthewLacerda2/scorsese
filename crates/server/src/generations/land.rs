@@ -57,10 +57,7 @@ impl Work {
     /// polling with the one it holds.
     pub(super) async fn keep_ticket(&self, paid: Paid, ticket: &str) {
         if let Err(error) = self.context.keep_ticket(ticket).await {
-            eprintln!(
-                "scorsese-server: job {}: keeping a ticket: {error}",
-                self.job.id
-            );
+            tracing::error!("job {}: keeping a ticket: {error}", self.job.id);
         }
         let kept = async {
             let mut tx = self.context.scoped().await?;
@@ -68,7 +65,7 @@ impl Work {
             tx.commit().await
         };
         if let Err(error) = kept.await {
-            eprintln!("{}", database(error));
+            tracing::error!("{}", database(error));
         }
     }
 
@@ -149,7 +146,7 @@ impl Work {
         let item = match kept {
             Ok(item) => item,
             Err(Unkept::Unwritten(error)) => {
-                eprintln!("scorsese-server: keeping a generation: {error}");
+                tracing::error!("keeping a generation: {error}");
                 return Outcome::Failed("the server could not keep what came back".into());
             }
             Err(Unkept::Refused(error)) => return Outcome::Failed(database(error)),

@@ -61,8 +61,8 @@ pub fn touch(project_root: &Path, requests: &[Wanted], chrome_version: &str) {
             .open(&captured.file)
             .and_then(|file| file.set_modified(SystemTime::now()));
         if let Err(error) = stamped {
-            eprintln!(
-                "scorsese-server: could not mark {} as used: {error}",
+            tracing::error!(
+                "could not mark {} as used: {error}",
                 captured.file.display()
             );
         }
@@ -231,10 +231,7 @@ fn number(path: &Path) -> Option<i64> {
 fn remove(path: &Path) {
     match std::fs::remove_dir_all(path) {
         Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
-            eprintln!(
-                "scorsese-server: could not delete {}: {error}",
-                path.display()
-            );
+            tracing::error!("could not delete {}: {error}", path.display());
         }
         _ => {}
     }

@@ -204,10 +204,7 @@ impl Library {
         for file in files.into_iter().flatten() {
             match std::fs::remove_file(&file) {
                 Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
-                    eprintln!(
-                        "scorsese-server: could not remove {}: {error}",
-                        file.display()
-                    );
+                    tracing::error!("could not remove {}: {error}", file.display());
                 }
                 _ => {}
             }

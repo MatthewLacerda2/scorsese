@@ -94,19 +94,18 @@ async fn draw(
     let levels = (item.kind == Kind::Audio).then(|| storage.peaks(job.user, &item.sha256));
     let tools = tools.clone();
     let job = job.id;
-    tokio::task::spawn_blocking(move || {
+    crate::jobs::blocking("drawing crashed", move || {
         write(&tools, &source, what, &out, job)?;
         levels.map_or(Ok(()), |levels| read_peaks(&tools, &source, &levels, job))
     })
-    .await
-    .map_err(|error| error.to_string())??;
+    .await??;
     Ok(json!({ "item": id }))
 }
 
 /// Read a sound's peaks into `out`, by way of a file beside it as a picture is.
 fn read_peaks(tools: &Tools, source: &Path, out: &Path, job: i64) -> Result<(), String> {
     let read = peaks(tools, source).map_err(|error| {
-        eprintln!("scorsese-server: {error}");
+        tracing::error!("{error}");
         "the sound's peaks could not be read".to_owned()
     })?;
     let reading = out.with_extension(format!("reading-{job}"));
@@ -130,7 +129,7 @@ fn write(
 ) -> Result<(), String> {
     let drawing = out.with_extension(format!("drawing-{job}.{}", what.extension()));
     thumbnail(tools, source, what, &drawing).map_err(|error| {
-        eprintln!("scorsese-server: {error}");
+        tracing::error!("{error}");
         "the thumbnail could not be drawn".to_owned()
     })?;
     std::fs::rename(&drawing, out).map_err(|error| error.to_string())

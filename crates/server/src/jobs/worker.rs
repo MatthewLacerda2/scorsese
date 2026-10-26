@@ -10,6 +10,7 @@ use sqlx::Executor;
 use sqlx::postgres::PgPool;
 use tokio::sync::{Notify, watch};
 use tokio::task::{Id, JoinSet};
+use tracing::Instrument;
 
 use super::stop::Running;
 use super::{
@@ -152,8 +153,8 @@ async fn start(pool: &PgPool, queue: &Queue) -> Option<sqlx::PgConnection> {
             .await?;
         let recovered = store::recover(pool).await?;
         for (user, job) in recovered {
-            eprintln!(
-                "scorsese-server: job {} ({}) of user {} was interrupted; now {:?}",
+            tracing::warn!(
+                "job {} ({}) of user {} was interrupted; now {:?}",
                 job.id,
                 job.kind,
                 user.get(),
@@ -166,7 +167,7 @@ async fn start(pool: &PgPool, queue: &Queue) -> Option<sqlx::PgConnection> {
     match started.await {
         Ok(lock) => Some(lock),
         Err(error) => {
-            eprintln!("scorsese-server: the job worker could not start: {error}");
+            tracing::error!("the job worker could not start: {error}");
             None
         }
     }
@@ -194,7 +195,7 @@ async fn claim_what_fits(
             Ok(Some(claimed)) => claimed,
             Ok(None) => return,
             Err(error) => {
-                eprintln!("scorsese-server: could not claim a job: {error}");
+                tracing::error!("could not claim a job: {error}");
                 return;
             }
         };
@@ -203,7 +204,9 @@ async fn claim_what_fits(
         };
         queue.tell(job.user, view);
         running.started(kind);
-        let handle = tasks.spawn(run(pool.clone(), handler, job, queue.clone()));
+        let span =
+            tracing::error_span!("job", id = job.id, kind = %job.kind, user = job.user.get());
+        let handle = tasks.spawn(run(pool.clone(), handler, job, queue.clone()).instrument(span));
         kinds_of.insert(handle.id(), kind);
     }
 }
@@ -260,11 +263,16 @@ async fn run(pool: PgPool, handler: Arc<dyn super::Handler>, job: Job, queue: Qu
     let outcome = progress::watch(running, &queue, job.user, job.id, readout)
         .await
         .unwrap_or_else(|_| Outcome::Failed("the job crashed on the server; that is a bug".into()));
+    match &outcome {
+        Outcome::Failed(why) => tracing::warn!("failed: {why}"),
+        Outcome::Stuck(why) => tracing::warn!("stuck: {why}"),
+        Outcome::Done(_) | Outcome::Cancelled(_) => {}
+    }
     match store::finish(&pool, &job, &outcome).await {
         Ok(view) => queue.tell(job.user, view),
         // Left `running`: the next start recovers it and runs it again, and a
         // job holding a ticket polls rather than paying twice.
-        Err(error) => eprintln!("scorsese-server: could not record job {}: {error}", job.id),
+        Err(error) => tracing::error!("could not record job {}: {error}", job.id),
     }
     // After the record: a cancel that reads the job as still running and
     // makes its flag again is forgotten by the next line or by its own.

@@ -168,7 +168,7 @@ pub async fn answer(
         && !refused
         && let Err(error) = awaiting(state, user, id).await
     {
-        eprintln!("scorsese-server: assistant: turn {id} awaiting its jobs: {error}");
+        tracing::error!("assistant: turn {id} awaiting its jobs: {error}");
     }
     let result = Part::Result {
         call,
@@ -204,7 +204,7 @@ async fn awaiting(state: &AppState, user: UserId, id: i64) -> Result<(), sqlx::E
 /// Withdraw `token`, saying so if it fails: it lapses on its own anyway.
 async fn withdraw(state: &AppState, user: UserId, token: &str) {
     if let Err(error) = state.tools.withdraw_quote(user, token).await {
-        eprintln!("scorsese-server: assistant: withdrawing a quote: {error}");
+        tracing::error!("assistant: withdrawing a quote: {error}");
     }
 }
 
