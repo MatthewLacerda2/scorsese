@@ -99,7 +99,10 @@ landed on: heavy Montserrat, white, rimmed in black, in the lower third, clear
 of the buttons a phone draws over the bottom of a reel. Run it **after** the
 cut is final: it places captions where the words are now, and a line moved
 afterwards leaves its captions behind until it is run again. A page that has to land on a word reads the same timings
-(`guide pages`, section "Start on a spoken word").
+(`guide pages`, section "Start on a spoken word"). Speech in imported footage
+— a sketch, an interview — is captioned the same way once `transcribe` has
+heard it: read its numbered words, correct what Whisper misheard with
+`transcript_fix`, then caption.
 
 **The music is ducked.** Lay the music bed under the whole cut, then
 `duck_music` against the narration track, last, for the same reason as the
