@@ -122,15 +122,7 @@ async fn settle(
 ) -> Result<(TurnView, i64), super::AssistantError> {
     match end {
         End::Over(ended, words) => {
-            let (view, balance, held) =
-                turns::finish(&state.pool, turn.user, turn.turn, ended, words).await?;
-            // A turn that ends holding a quote leaves no box to answer.
-            if let Some(token) = held
-                && let Err(error) = state.tools.withdraw_quote(turn.user, &token).await
-            {
-                eprintln!("scorsese-server: assistant: withdrawing a quote: {error}");
-            }
-            Ok((view, balance))
+            Ok(turns::finish(&state.pool, turn.user, turn.turn, ended, words).await?)
         }
         End::Asking(question) => asking::pause(&state.pool, turn.user, turn.turn, question).await,
         End::Quoting => asking::hold(&state.pool, turn.user, turn.turn).await,

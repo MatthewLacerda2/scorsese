@@ -13,6 +13,7 @@ use super::{QuoteView, TurnView, view};
 use crate::assistant::AssistantError;
 use crate::credits::ledger::{self, AssistantCall};
 use crate::db::{self, Tx, UserId};
+use crate::tools::Toolbox;
 
 /// The newest conversation about `project`, if there is one.
 pub(in crate::assistant) async fn newest_session(
@@ -293,17 +294,17 @@ pub(in crate::assistant) async fn hold_quote(
     Ok(earlier)
 }
 
-/// End turn `turn` in `state`, with its answer; the turn as it ended, the
-/// balance, and the token of any quote it still held — withdrawn here, since
-/// only a paused turn's box can be answered, and now the caller's to withdraw
-/// from the paid tool (#1440).
+/// End turn `turn` in `state`, with its answer; the turn as it ended and the
+/// balance. Any quote it still held is withdrawn in the same commit, from the
+/// turn and from the paid tool, since only a paused turn's box can be
+/// answered (#1440).
 pub(in crate::assistant) async fn finish(
     pool: &PgPool,
     user: UserId,
     turn: i64,
     state: &str,
     answer: &str,
-) -> Result<(TurnView, i64, Option<String>), AssistantError> {
+) -> Result<(TurnView, i64), AssistantError> {
     let mut tx = db::scoped(pool, user).await?;
     let held: Option<String> =
         sqlx::query_scalar("SELECT quote_token FROM chat_turns WHERE id = $1 FOR UPDATE")
@@ -311,6 +312,11 @@ pub(in crate::assistant) async fn finish(
             .fetch_optional(&mut *tx)
             .await?
             .flatten();
+    // A turn that ends holding a quote leaves no box to answer, nor a token
+    // the paid tool would still spend once the turn reads as ended (#1483).
+    if let Some(token) = &held {
+        Toolbox::withdraw_quote_in(&mut tx, token).await?;
+    }
     sqlx::query(concat!(
         "UPDATE chat_turns SET state = $2, answer = $3, finished_at = now(), ",
         withdrawing!(),
@@ -324,7 +330,7 @@ pub(in crate::assistant) async fn finish(
     let view = view(&mut tx, turn).await?.ok_or(AssistantError::NotFound)?;
     let balance = ledger::spendable(&mut tx).await?;
     tx.commit().await?;
-    Ok((view, balance, held))
+    Ok((view, balance))
 }
 
 /// The neutral record as the JSON array stored.

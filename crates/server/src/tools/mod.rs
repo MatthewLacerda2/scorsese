@@ -328,8 +328,14 @@ impl Toolbox {
     /// Forget `user`'s quote `token` unspent, and any batch offered beside it.
     pub async fn withdraw_quote(&self, user: UserId, token: &str) -> Result<(), sqlx::Error> {
         let mut tx = crate::db::scoped(&self.pool, user).await?;
-        quotes::withdraw(&mut tx, token).await?;
+        Self::withdraw_quote_in(&mut tx, token).await?;
         tx.commit().await
+    }
+
+    /// [`Self::withdraw_quote`] inside `tx`, the user's own: gone in the same
+    /// commit as whatever else `tx` writes.
+    pub(crate) async fn withdraw_quote_in(tx: &mut db::Tx, token: &str) -> Result<(), sqlx::Error> {
+        quotes::withdraw(tx, token).await
     }
 }
 
