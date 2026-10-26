@@ -1,8 +1,8 @@
 //! A `multipart/form-data` body, written out by hand (RFC 7578).
 //!
-//! One vendor call takes one: ElevenLabs' Instant Voice Cloning
+//! Two calls take one: ElevenLabs' Instant Voice Cloning
 //! (`POST /v1/voices/add`) wants its recordings as files in a form, not as
-//! JSON. `ureq` 3 has a multipart feature behind no flag scorsese turns on,
+//! JSON, and so does the local Whisper server ([`whisper`](crate::api::whisper)). `ureq` 3 has a multipart feature behind no flag scorsese turns on,
 //! and turning one on for a single call buys a dependency `cargo deny` has to
 //! keep clearing for what is fifty lines against a fixed specification — the
 //! reason [`encoded`](super::encoded) is written here too. The body is built
@@ -33,8 +33,20 @@ impl Caller {
         url: &str,
         form: &Form,
     ) -> Result<R, HttpError> {
+        self.post_multipart_within(url, form, FORM_WHOLE)
+    }
+
+    /// [`Caller::post_multipart`], answered within `whole` rather than five
+    /// minutes — for a server whose answer takes as long as the file it was
+    /// sent: a transcription on a CPU.
+    pub fn post_multipart_within<R: DeserializeOwned>(
+        &self,
+        url: &str,
+        form: &Form,
+        whole: Duration,
+    ) -> Result<R, HttpError> {
         let agent: ureq::Agent = ureq::Agent::config_builder()
-            .timeout_global(Some(FORM_WHOLE))
+            .timeout_global(Some(whole))
             .http_status_as_error(false)
             .build()
             .into();

@@ -21,6 +21,7 @@ mod peaks;
 mod prompts;
 mod retiming;
 mod sources;
+mod speech;
 mod stereo;
 mod volume;
 

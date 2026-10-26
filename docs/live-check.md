@@ -150,6 +150,7 @@ Every response shape scorsese parses, and where its test body came from.
 | Pixabay image search | `api::pixabay::Listing<ImageHit>` | `fixtures/pixabay/images.json` | **captured** (two hits, their signed URLs' tokens replaced) |
 | Claude streams: tool use, answer, refusal, overload | `api::anthropic::stream` + `claude::Assembler` | `fixtures/anthropic/*.sse` | hand-written |
 | Anthropic refusals | carried whole, never parsed | inline in `tests/live/claude.rs` | hand-written |
+| Whisper transcription, speech and silence | `api::whisper::Verbose` | `fixtures/whisper/{transcription,silence}.json` | **captured** 2026-10-26 from the image `deploy/whisper/Dockerfile` builds (a local server, not a vendor: `make live-check` has nothing to spend on it) |
 
 `.github/scripts/tests/test_live_check_fixtures.py` holds this table to
 `crates/providers/fixtures/`: a file with no row, or a row naming no file,

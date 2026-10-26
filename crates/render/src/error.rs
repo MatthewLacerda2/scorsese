@@ -176,6 +176,14 @@ pub enum RenderError {
         of: u64,
     },
 
+    /// A file asked for its sound has none — footage shot without a
+    /// microphone, or a picture.
+    #[error("{file} has no sound in it")]
+    NoSound {
+        /// Which file.
+        file: String,
+    },
+
     /// ffmpeg ran, understood the request, and refused it — an unsupported
     /// codec, an unwritable output, a source it cannot open.
     #[error("ffmpeg failed while {stage} {subject}: {message}")]
