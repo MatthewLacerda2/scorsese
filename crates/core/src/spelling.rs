@@ -82,6 +82,17 @@ mod tests {
     #[test]
     fn an_exact_match_is_its_own_answer() {
         assert_eq!(closest("scale", ["scale", "scales"]), Some("scale"));
+        assert_eq!(closest("ab", ["ab"]), Some("ab"));
+    }
+
+    #[test]
+    fn one_edit_in_three_letters_is_close() {
+        assert_eq!(closest("fot", ["fit"]), Some("fit"));
+    }
+
+    #[test]
+    fn a_closer_candidate_listed_later_wins() {
+        assert_eq!(closest("scale", ["scales", "scale"]), Some("scale"));
     }
 
     #[test]

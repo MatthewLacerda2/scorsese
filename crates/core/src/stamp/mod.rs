@@ -192,9 +192,15 @@ mod tests {
 
     #[test]
     fn now_or_epoch_reads_the_clock_when_it_can() {
-        let before = Timestamp::unix_now().unwrap();
+        let clock = || {
+            let since = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap();
+            i64::try_from(since.as_secs()).unwrap()
+        };
+        let before = clock();
         let now = Timestamp::unix_now_or_epoch();
-        let after = Timestamp::unix_now().unwrap();
+        let after = clock();
         assert!(
             (before..=after).contains(&now),
             "{before} <= {now} <= {after}"
