@@ -7,7 +7,7 @@
 //! for, and a change to the bar re-blesses only pictures *of* the bar.
 //!
 //! Cropping everything would lose what a whole window catches and a part never
-//! can: a **layout** regression — a panel running under another, the side
+//! can: a **layout** regression — a panel running under another, the inspector
 //! column overrunning the window (#681). So two references stay whole on
 //! purpose, `a_whole_edit` and `a_whole_edit_in_dark`, and they are the only
 //! ones a change to the chrome is expected to move.
@@ -26,8 +26,10 @@ pub(crate) enum Part {
     /// The strip along the top — the wordmark, the project's name, and the
     /// buttons that are not edits.
     Bar,
-    /// The column down the right: the inspector over the project files.
-    Side,
+    /// The column down the left: the inspector.
+    Inspector,
+    /// The column down the right: the project files.
+    Files,
     /// The tracks along the bottom, from the ruler down.
     Timeline,
     /// Whatever is left in the middle: the preview, or what is said instead.
@@ -51,15 +53,16 @@ impl Part {
         match self {
             Self::Window => ctx.content_rect(),
             Self::Bar => panel("menu"),
-            Self::Side => panel("side"),
+            Self::Inspector => panel("inspector"),
+            Self::Files => panel("files"),
             Self::Timeline => panel("timeline"),
             // The central panel keeps no state of its own; it is exactly the
             // room the edge panels leave. Its left edge is the timeline's
             // rather than the window's, because the harness draws inside a
             // margin and the panels start where that margin ends.
             Self::Centre => Rect::from_min_max(
-                egui::pos2(panel("timeline").left(), panel("menu").bottom()),
-                egui::pos2(panel("side").left(), panel("timeline").top()),
+                egui::pos2(panel("inspector").right(), panel("menu").bottom()),
+                egui::pos2(panel("files").left(), panel("timeline").top()),
             ),
             // The dialog's box, as it recorded itself under its lower-cased title.
             Self::Dialog(title) => ctx

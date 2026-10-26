@@ -14,7 +14,7 @@
 //! decode threads, a buffer, a policy for throwing it away — and it should be
 //! built from a measurement of this, not instead of it.
 
-use egui::{Align2, FontId, Image, Rect, Sense, Stroke, TextureHandle, TextureOptions, Ui};
+use egui::{Align2, FontId, Image, Rect, Sense, TextureHandle, TextureOptions, Ui};
 use scorsese_core::Frames;
 use scorsese_render::page::Chrome;
 use scorsese_render::preview::{self, Proxies};
@@ -204,19 +204,12 @@ impl Still {
         let frame = fitted(area, size.x / size.y);
         // The web's preview: the picture in a rounded box on black, standing on
         // the panel's own ground. Black in both themes, because what surrounds
-        // a picture is black — see `palette::MATTE`. The hairline is what shows
-        // where the picture ends when the frame itself is nearly black, which
-        // is most of the frames in most of the films anybody cuts.
+        // a picture is black — see `palette::MATTE`. No hairline
+        // around it, as the web's.
         painter.rect_filled(frame, ROUND_MD, palette::MATTE);
         Image::new((texture.id(), size))
             .corner_radius(ROUND_MD)
             .paint_at(ui, frame);
-        painter.rect_stroke(
-            frame,
-            ROUND_MD,
-            Stroke::new(1.0, colours.border),
-            egui::StrokeKind::Outside,
-        );
     }
 }
 

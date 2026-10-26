@@ -78,8 +78,8 @@ checked by looking at it.
 — no window, no display, no X server — and holds each panel to a reference
 image in `app/tests/snapshots/`.
 
-Each reference is **cropped to the part it is named for** — the bar, the side
-column, the timeline, the middle, or a dialog — so a change to the top bar
+Each reference is **cropped to the part it is named for** — the bar, the inspector,
+the files, the timeline, the middle, or a dialog — so a change to the top bar
 re-blesses pictures of the bar and nothing else (#755). `a_whole_edit` and
 `a_whole_edit_in_dark` stay whole on purpose: they are the layout check, the
 only pictures that would show one panel running under another, and the only
@@ -127,8 +127,9 @@ cannot reproduce itself is not a reference.
 
 ## What is here now
 
-The window and the four-panel frame: preview, timeline, inspector, project
-files. It opens a project, says what is in it, and lists every validation
+The window and the four-panel frame, laid out as the web editor is: the
+inspector down the left, the preview in the middle, the project files down the
+right and the timeline under the preview and the files. It opens a project, says what is in it, and lists every validation
 problem when it will not load.
 
 The preview shows the picture at the playhead, composited at a reduced raster

@@ -360,8 +360,10 @@ impl Scorsese {
         // and gets whatever is left.
         panels::menu(ui, self);
         panels::status(ui, self);
+        panels::inspector(ui, self);
+        // Before the files, so that it runs under them.
         panels::timeline(ui, self);
-        panels::side(ui, self);
+        panels::files(ui, self);
         panels::centre(ui, self);
         // Last, and floating: a dialog belongs over the panels rather than
         // taking an edge from them.

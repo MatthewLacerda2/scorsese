@@ -51,5 +51,5 @@ fn a_sequence_unfolded_in_the_files_panel() {
     // Off the panel, so the pointer does not sit over the arrow in the picture.
     harness.hover_at(egui::pos2(700.0, 780.0));
     harness.run_steps(12);
-    harness.snapshot(Part::Side, "a_sequence_unfolded_in_the_files_panel");
+    harness.snapshot(Part::Files, "a_sequence_unfolded_in_the_files_panel");
 }

@@ -13,6 +13,7 @@ use scorsese_core::{AssetKind, GenerationState};
 
 use super::Inspector;
 use super::controls::{fit_row, frames_row, speed_row};
+use super::number::LABELS;
 use super::selected::Selected;
 use crate::project::Open;
 use crate::theme::{ROUND_SM, marks, palette};
@@ -51,30 +52,33 @@ impl Inspector {
     /// which is what dragging a clip into its neighbour feels like: a wall.
     fn controls(&mut self, ui: &mut Ui, open: &mut Open, selected: &Selected) {
         let fps = open.project.timeline_fps;
-        Grid::new("clip").num_columns(3).show(ui, |ui| {
-            if let Some(start) = frames_row(ui, "Start", selected.start, fps) {
-                self.attempt(open, selected, "start", move |clip| clip.start = start);
-            }
-            if let Some(duration) = frames_row(ui, "Duration", selected.duration, fps) {
-                self.attempt(open, selected, "duration", move |clip| {
-                    clip.duration = duration;
-                });
-            }
-            // Retimes rather than writing the rate on its own: this is a
-            // person picking 2× on a menu, and what that means to them is the
-            // same footage in half the time. The document keeps the rate and
-            // the length apart, and this is the panel spending that freedom.
-            if let Some(speed) = speed_row(ui, selected.speed, selected.duration, fps) {
-                self.attempt(open, selected, "speed", move |clip| clip.retime(speed));
-            }
-            // Picture only. A sound has no raster, so a fit control on an audio
-            // clip would be a choice with nothing on the other end of it.
-            if selected.picture
-                && let Some(fit) = fit_row(ui, selected.fit)
-            {
-                self.attempt(open, selected, "fit", move |clip| clip.fit = fit);
-            }
-        });
+        Grid::new("clip")
+            .num_columns(3)
+            .min_col_width(LABELS)
+            .show(ui, |ui| {
+                if let Some(start) = frames_row(ui, "Start", selected.start, fps) {
+                    self.attempt(open, selected, "start", move |clip| clip.start = start);
+                }
+                if let Some(duration) = frames_row(ui, "Duration", selected.duration, fps) {
+                    self.attempt(open, selected, "duration", move |clip| {
+                        clip.duration = duration;
+                    });
+                }
+                // Retimes rather than writing the rate on its own: this is a
+                // person picking 2× on a menu, and what that means to them is the
+                // same footage in half the time. The document keeps the rate and
+                // the length apart, and this is the panel spending that freedom.
+                if let Some(speed) = speed_row(ui, selected.speed, selected.duration, fps) {
+                    self.attempt(open, selected, "speed", move |clip| clip.retime(speed));
+                }
+                // Picture only. A sound has no raster, so a fit control on an audio
+                // clip would be a choice with nothing on the other end of it.
+                if selected.picture
+                    && let Some(fit) = fit_row(ui, selected.fit)
+                {
+                    self.attempt(open, selected, "fit", move |clip| clip.fit = fit);
+                }
+            });
     }
 
     /// What animates this clip.
@@ -129,11 +133,13 @@ fn identity(ui: &mut Ui, selected: &Selected) {
         // The kind's own colour, in the same square the pool uses and the same
         // hue the block on the timeline is drawn in. Three panels, one code.
         if let Some(kind) = selected.kind {
-            let (rect, _) = ui.allocate_exact_size(egui::vec2(8.0, 8.0), egui::Sense::hover());
+            let (rect, _) = ui.allocate_exact_size(egui::vec2(10.0, 10.0), egui::Sense::hover());
             ui.painter()
                 .rect_filled(rect, ROUND_SM, palette::of_kind(kind));
         }
-        ui.label(RichText::new(selected.asset.as_str()).strong());
+        ui.label(
+            RichText::new(selected.asset.as_str()).font(crate::theme::medium_font(ui.ctx(), 14.0)),
+        );
     });
     ui.label(RichText::new(describe(selected)).small().weak());
     if let Some(source) = &selected.source {

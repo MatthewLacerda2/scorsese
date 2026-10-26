@@ -41,9 +41,11 @@
 //! never see — and the pictures in `app/tests/snapshots/` would be of a window
 //! nobody uses.
 
+pub(crate) mod buttons;
 pub(crate) mod choice;
 pub(crate) mod dialog;
 mod fonts;
+pub(crate) mod icons;
 use fonts::{medium, semibold};
 #[cfg(test)]
 mod literals;

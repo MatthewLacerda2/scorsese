@@ -22,33 +22,31 @@ pub(super) fn raster(quality: Quality, aspect: Ratio) -> Resolution {
     quality.raster(Resolution::framed(aspect, Budget::Delivery))
 }
 
-/// Draws the control and the line under it; the quality chosen, if one was.
-pub(super) fn show(
-    ui: &mut Ui,
-    quality: Quality,
-    aspect: Ratio,
-    making: Option<&str>,
-) -> Option<Quality> {
+/// Draws the picker, the web's native select at `text-xs`; the quality chosen,
+/// if one was. Which mode the picture is in is said by [`mode`], beside it.
+pub(super) fn picker(ui: &mut Ui, quality: Quality) -> Option<Quality> {
     let mut chosen = None;
-    ui.horizontal(|ui| {
-        ui.label(RichText::new("Preview").small().weak());
-        for step in Quality::ALL {
-            if ui
-                .selectable_label(step == quality, step.label())
-                .on_hover_text(hint(step))
-                .clicked()
-                && step != quality
-            {
-                chosen = Some(step);
+    egui::ComboBox::from_id_salt("preview quality")
+        .selected_text(RichText::new(quality.label()).small())
+        .show_ui(ui, |ui| {
+            for step in Quality::ALL {
+                if ui
+                    .selectable_label(step == quality, step.label())
+                    .on_hover_text(hint(step))
+                    .clicked()
+                    && step != quality
+                {
+                    chosen = Some(step);
+                }
             }
-        }
-        ui.label(RichText::new(mode(quality, aspect, making)).small().weak());
-    });
+        })
+        .response
+        .on_hover_text("How many pixels the preview draws");
     chosen
 }
 
 /// What the picture is, at `quality`, in the words under the control.
-fn mode(quality: Quality, aspect: Ratio, making: Option<&str>) -> String {
+pub(super) fn mode(quality: Quality, aspect: Ratio, making: Option<&str>) -> String {
     let raster = raster(quality, aspect);
     let said = if quality.uses_proxies() {
         format!("{raster}, from proxies where made")

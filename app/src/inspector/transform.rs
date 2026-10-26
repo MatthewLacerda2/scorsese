@@ -20,6 +20,7 @@ use scorsese_render::picture::path::{POSITION_X, POSITION_Y, ROTATION, SCALE_X, 
 
 use super::Inspector;
 use super::edit::{self, Refusal};
+use super::number;
 use super::selected::Selected;
 use crate::project::Open;
 
@@ -117,36 +118,39 @@ impl Inspector {
             return;
         };
         ui.add_space(6.0);
-        Grid::new("transform").num_columns(2).show(ui, |ui| {
-            ui.label("Position");
-            ui.horizontal(|ui| {
-                if let Some(x) = field(ui, transform.x, Unit::Percent, "x ") {
-                    self.hold(open, selected, "position", &[POSITION_X], x);
-                }
-                if let Some(y) = field(ui, transform.y, Unit::Percent, "y ") {
-                    self.hold(open, selected, "position", &[POSITION_Y], y);
-                }
-            })
-            .response
-            .on_hover_text(
-                "How far from where it naturally sits: right and down, in % of the frame",
-            );
-            ui.end_row();
+        Grid::new("transform")
+            .num_columns(2)
+            .min_col_width(number::LABELS)
+            .show(ui, |ui| {
+                ui.label("Position");
+                ui.horizontal(|ui| {
+                    if let Some(x) = field(ui, transform.x, Unit::Percent, "x ") {
+                        self.hold(open, selected, "position", &[POSITION_X], x);
+                    }
+                    if let Some(y) = field(ui, transform.y, Unit::Percent, "y ") {
+                        self.hold(open, selected, "position", &[POSITION_Y], y);
+                    }
+                })
+                .response
+                .on_hover_text(
+                    "How far from where it naturally sits: right and down, in % of the frame",
+                );
+                ui.end_row();
 
-            ui.label("Rotation");
-            if let Some(turn) = field(ui, transform.rotation, Unit::Degrees, "") {
-                self.hold(open, selected, "rotation", &[ROTATION], turn);
-            }
-            ui.end_row();
+                ui.label("Rotation");
+                if let Some(turn) = field(ui, transform.rotation, Unit::Degrees, "") {
+                    self.hold(open, selected, "rotation", &[ROTATION], turn);
+                }
+                ui.end_row();
 
-            ui.label("Scale");
-            if let Some(size) = field(ui, transform.scale, Unit::Size, "") {
-                // Both axes, because this is the one scale a person means: the
-                // picture bigger or smaller, in proportion.
-                self.hold(open, selected, "scale", &[SCALE_X, SCALE_Y], size);
-            }
-            ui.end_row();
-        });
+                ui.label("Scale");
+                if let Some(size) = field(ui, transform.scale, Unit::Size, "") {
+                    // Both axes, because this is the one scale a person means: the
+                    // picture bigger or smaller, in proportion.
+                    self.hold(open, selected, "scale", &[SCALE_X, SCALE_Y], size);
+                }
+                ui.end_row();
+            });
     }
 
     /// Holds each of `paths` at `value` for the whole clip, or says why not.
@@ -228,15 +232,18 @@ fn field(ui: &mut Ui, held: Held, unit: Unit, prefix: &str) -> Option<f64> {
     match held {
         Held::Value(value) => {
             let mut shown = unit.shown(value);
-            let drag = DragValue::new(&mut shown).prefix(prefix).max_decimals(2);
-            let drag = match unit {
-                Unit::Percent => drag.speed(0.5).suffix("%"),
-                Unit::Degrees => drag.speed(0.5).suffix("°"),
+            let (suffix, tune): (&str, fn(DragValue) -> DragValue) = match unit {
+                Unit::Percent => ("%", |drag| drag.speed(0.5).max_decimals(2)),
+                Unit::Degrees => ("°", |drag| drag.speed(0.5).max_decimals(2)),
                 // Floored above zero: a layer at no size is not there at all,
                 // and a negative one is a flip, which is its own property.
-                Unit::Size => drag.speed(0.5).range(1.0..=1000.0).suffix("%"),
+                Unit::Size => ("%", |drag| {
+                    drag.speed(0.5).range(1.0..=1000.0).max_decimals(2)
+                }),
             };
-            ui.add(drag).changed().then(|| unit.stored(shown))
+            number::field(ui, &mut shown, prefix, suffix, tune)
+                .changed()
+                .then(|| unit.stored(shown))
         }
         Held::Stretched { wide, tall } => {
             ui.label(RichText::new(format!("{:.0}% wide, {:.0}% tall", wide * 100.0, tall * 100.0)).weak())

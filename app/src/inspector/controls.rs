@@ -4,10 +4,10 @@
 //! every other frame, which is what lets the panel treat "the person changed
 //! this" as an event without keeping a copy of the clip to compare against.
 
-use egui::{DragValue, RichText, Ui};
+use egui::{RichText, Ui};
 use scorsese_core::{Fit, Fps, Frames, Speed};
 
-use super::time;
+use super::{number, time};
 
 /// The slowest and fastest a clip may be dragged to here.
 ///
@@ -48,8 +48,7 @@ const FITS: [(Fit, &str, &str); 3] = [
 pub(super) fn frames_row(ui: &mut Ui, label: &str, value: Frames, fps: Fps) -> Option<Frames> {
     ui.label(label);
     let mut frames = value.get();
-    let changed = ui
-        .add(DragValue::new(&mut frames).suffix(" f"))
+    let changed = number::field(ui, &mut frames, "", "f", |drag| drag)
         .on_hover_text("Frames on the project's grid — drag, or click to type")
         .changed();
     let frames = Frames(frames);
@@ -70,15 +69,11 @@ pub(super) fn frames_row(ui: &mut Ui, label: &str, value: Frames, fps: Fps) -> O
 pub(super) fn speed_row(ui: &mut Ui, value: Speed, duration: Frames, fps: Fps) -> Option<Speed> {
     ui.label("Speed");
     let mut rate = value.get();
-    let changed = ui
-        .add(
-            DragValue::new(&mut rate)
-                .speed(0.01)
-                .range(RANGE)
-                .suffix("×"),
-        )
-        .on_hover_text("How fast this plays. The sound goes with it, pitch and all")
-        .changed();
+    let changed = number::field(ui, &mut rate, "", "×", |drag| {
+        drag.speed(0.01).range(RANGE)
+    })
+    .on_hover_text("How fast this plays. The sound goes with it, pitch and all")
+    .changed();
     let rate = Speed::new(rate);
     ui.label(
         RichText::new(retimed(value, rate, duration, fps))
