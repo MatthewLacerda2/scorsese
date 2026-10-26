@@ -7,9 +7,13 @@
 //! sound does not land sample-exact — an mp3 opens on ~31 ms of near-silence,
 //! an `.m4a` drops a frame (#1607). So a clip's sound is decoded **once**, from
 //! where it enters the first of its stretches for as long as it stays, and
-//! each stretch reads its share off the same stream.
+//! each stretch reads its share off the same stream. That one decode opens a
+//! little early and cuts to the point exactly, so a clip entering partway into
+//! its file — a bed split in two, or trimmed at its head — has no hole either.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
+
+use scorsese_core::TrackId;
 
 use crate::error::RenderError;
 use crate::pipe::{AudioDecoder, AudioSource};
@@ -22,8 +26,13 @@ pub(super) struct Sources<'r, 'a> {
     tools: &'r Tools,
     settings: &'r RenderSettings,
     plan: &'r Plan<'a>,
-    open: HashMap<&'a str, Open>,
+    open: BTreeMap<Key<'a>, Open>,
 }
+
+/// A clip by its track, then its start, then its id: the order decoders are
+/// finished in, so which of two failures is reported does not change from one
+/// render to the next.
+type Key<'a> = (&'a TrackId, u64, &'a str);
 
 /// A clip's decoder, and the last stretch it is heard in.
 struct Open {
@@ -37,7 +46,7 @@ impl<'r, 'a> Sources<'r, 'a> {
             tools,
             settings,
             plan,
-            open: HashMap::new(),
+            open: BTreeMap::new(),
         }
     }
 
@@ -55,7 +64,8 @@ impl<'r, 'a> Sources<'r, 'a> {
         file: std::path::PathBuf,
     ) -> Result<&mut AudioDecoder, RenderError> {
         let clip = shot.clip.id.as_str();
-        if !self.open.contains_key(clip) {
+        let key = (shot.track, shot.clip.start.get(), clip);
+        if !self.open.contains_key(&key) {
             let (last, frames) = self.run(index, clip);
             let source = AudioSource {
                 file,
@@ -64,22 +74,22 @@ impl<'r, 'a> Sources<'r, 'a> {
                 frames,
             };
             let decoder = AudioDecoder::start(self.tools, &source, self.settings)?;
-            self.open.insert(clip, Open { decoder, last });
+            self.open.insert(key, Open { decoder, last });
         }
-        Ok(&mut self.open.get_mut(clip).expect("opened above").decoder)
+        Ok(&mut self.open.get_mut(&key).expect("opened above").decoder)
     }
 
     /// Finishes every decoder whose clip is not heard after stretch `index`,
-    /// reporting the first that failed.
+    /// reporting the first that failed, in [`Key`] order.
     pub(super) fn close_after(&mut self, index: usize) -> Result<(), RenderError> {
-        let done: Vec<&'a str> = self
+        let done: Vec<Key<'a>> = self
             .open
             .iter()
             .filter(|(_, open)| open.last <= index)
-            .map(|(clip, _)| *clip)
+            .map(|(key, _)| *key)
             .collect();
-        for clip in done {
-            let open = self.open.remove(clip).expect("listed above");
+        for key in done {
+            let open = self.open.remove(&key).expect("listed above");
             open.decoder.finish()?;
         }
         Ok(())

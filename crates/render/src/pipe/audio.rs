@@ -30,6 +30,14 @@ pub(crate) const SAMPLE_FORMAT: &str = "f32le";
 /// mix rather than a rounding error.
 const MARGIN_SECONDS: f64 = 0.5;
 
+/// How far before the asked-for point a decode opens, at most.
+///
+/// An input seek into a compressed sound does not land sample-exact: an mp3
+/// opens on ~31 ms of near-silence while its decoder primes, an `.m4a` drops
+/// its first frame (#1607). Opening this much earlier spends the priming on
+/// samples nobody hears, and [`trim_filter`] then cuts to the point exactly.
+const PRIME_SECONDS: f64 = 0.5;
+
 /// What to decode, and how much of it.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct AudioSource {
@@ -68,15 +76,16 @@ impl AudioDecoder {
         let rate = settings.sample_rate.hz();
         let seconds = source.frames as f64 / f64::from(rate) + MARGIN_SECONDS;
 
+        let open = (source.seek_seconds - PRIME_SECONDS).max(0.0);
         let mut command = tools.ffmpeg();
         command.args(["-nostdin", "-v", "error"]);
-        if source.seek_seconds > 0.0 {
-            command
-                .arg("-ss")
-                .arg(format!("{:.6}", source.seek_seconds));
+        if open > 0.0 {
+            command.arg("-ss").arg(format!("{open:.6}"));
         }
         command.arg("-i").arg(&source.file);
-        command.arg("-af").arg(audio_filter(source.speed, rate));
+        command
+            .arg("-af")
+            .arg(audio_filter(source.seek_seconds - open, source.speed, rate));
         command
             .args(["-t", &format!("{seconds:.6}")])
             .args(["-vn", "-ar", &rate.to_string()])
@@ -151,23 +160,33 @@ impl AudioDecoder {
 /// gap or overlap of at least 0.1 s (`min_hard_comp`) is filled with silence
 /// or trimmed, anything smaller is left as decoded, and nothing is stretched.
 ///
-/// A sound that starts at or before its picture is mostly unchanged. The one
-/// difference is an audio-only AAC file (`.m4a`): ffmpeg drops its first frame
-/// after a seek, so it now opens with ~21 ms of silence where it used to play
-/// ~23 ms early. A seek happens only where a clip enters partway into its
-/// file: the stretches after that read on from the same decode (#1607).
+/// A sound that starts at or before its picture is unchanged.
 pub(crate) const ALIGN_TO_FILE_CLOCK: &str = "aresample=async=1:first_pts=0";
 
 /// The whole chain a source's sound goes through: [`ALIGN_TO_FILE_CLOCK`],
-/// then the clip's speed.
+/// the cut to the asked-for point `primed` seconds after where the decode
+/// opened, then the clip's speed.
 ///
-/// **The alignment comes first, and is always there.** The speed acts on the
-/// aligned stream, so the silence is sped with the sound it belongs to.
-fn audio_filter(speed: Speed, rate: u32) -> String {
-    match speed_filter(speed, rate) {
-        Some(speed) => format!("{ALIGN_TO_FILE_CLOCK},{speed}"),
-        None => ALIGN_TO_FILE_CLOCK.to_owned(),
-    }
+/// **The alignment comes first, and is always there.** The cut is on the
+/// file's clock, so it follows the alignment, and the speed acts on what is
+/// kept, so the silence is sped with the sound it belongs to.
+fn audio_filter(primed: f64, speed: Speed, rate: u32) -> String {
+    [
+        Some(ALIGN_TO_FILE_CLOCK.to_owned()),
+        trim_filter(primed),
+        speed_filter(speed, rate),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join(",")
+}
+
+/// The filter that drops the first `primed` seconds a decode opened early by
+/// ([`PRIME_SECONDS`]) and starts the clock again where it cuts — `None` when
+/// the decode opened on the point itself.
+fn trim_filter(primed: f64) -> Option<String> {
+    (primed > 0.0).then(|| format!("atrim=start={primed:.6},asetpts=PTS-STARTPTS"))
 }
 
 /// The filter that plays a clip's sound at its own rate — `None` when that rate

@@ -110,21 +110,31 @@ fn a_clip_outlasting_its_source_goes_silent_and_says_so() {
 }
 
 #[test]
-fn a_sound_ffmpeg_cannot_read_fails_the_mix_rather_than_going_quiet() {
+fn a_sound_ffmpeg_cannot_read_fails_the_mix_and_the_first_track_is_the_one_named() {
+    // #1607: the decoders were finished in hash order, so which of two broken
+    // files the error named changed from one render to the next.
     let tools = tools();
     let dir = scratch::dir("unreadable-sound");
-    let bad = file_asset("bad", AssetKind::Audio);
     std::fs::create_dir_all(dir.join("assets")).expect("make assets/");
-    std::fs::write(dir.join("assets/bad.wav"), b"not a sound at all").expect("write it");
+    for id in ["bad1", "bad2"] {
+        std::fs::write(dir.join(format!("assets/{id}.wav")), b"not a sound").expect("write it");
+    }
     let project = project(
-        vec![bad],
-        vec![audio_track("a1", vec![Clip::at("m1", "bad", 0, 30)])],
+        vec![
+            file_asset("bad1", AssetKind::Audio),
+            file_asset("bad2", AssetKind::Audio),
+        ],
+        vec![
+            audio_track("a1", vec![Clip::at("m1", "bad1", 0, 30)]),
+            audio_track("a2", vec![Clip::at("m2", "bad2", 0, 30)]),
+        ],
     );
     let settings = RenderSettings::new(Resolution::new(32, 32).expect("legal"), Fps::THIRTY);
     let plan = Plan::build_sound(&project, Fps::THIRTY, FrameRange::ALL).expect("a plan");
 
-    let mixed = mixdown(&tools, &settings, &plan, &dir, &dir.join("out.wav"));
-
-    assert!(mixed.is_err(), "an unreadable file was mixed as silence");
+    let Err(error) = mixdown(&tools, &settings, &plan, &dir, &dir.join("out.wav")) else {
+        panic!("an unreadable file was mixed as silence");
+    };
+    assert!(error.to_string().contains("bad1.wav"), "{error}");
     std::fs::remove_dir_all(&dir).ok();
 }
