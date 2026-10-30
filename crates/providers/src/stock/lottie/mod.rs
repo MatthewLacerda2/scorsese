@@ -83,9 +83,10 @@ impl Library for LottieLibrary {
 
     fn download(&self, url: &str, limit: u64, to: &mut dyn Write) -> Result<u64, StockError> {
         // LottieFiles' CDN is public: nothing is signed.
+        // Its own check, whoever called it, and every redirect's too.
+        fetchable(self, url)?;
         let allowed = |next: &str| fetchable(self, next).is_ok();
-        http::stream_where(url, limit, to, &allowed)
-            .map_err(|error| fetch_failed(NAME, url, &error))
+        http::stream_where(url, limit, to, &allowed).map_err(|error| fetch_failed(NAME, &error))
     }
 }
 

@@ -136,3 +136,23 @@ fn pixabay_and_lottiefiles_ask_nothing_of_a_host_that_is_not_theirs() {
     let said = kept[0].as_ref().expect_err("refused").to_string();
     assert!(said.contains("nothing was downloaded"), "{said}");
 }
+
+/// Asked directly, with no page in between, a real library still asks
+/// nothing of a host that is not its own.
+#[test]
+fn a_real_librarys_own_download_refuses_another_host() {
+    let pixabay = PixabayLibrary::new(&Secret::new("unused"));
+    let lottie = LottieLibrary::new();
+    for (library, url) in [
+        (&pixabay as &dyn Library, "https://127.0.0.1:9/x.mp4"),
+        (&lottie, "http://127.0.0.1:9/x.json"),
+    ] {
+        let mut got = Vec::new();
+        let said = library
+            .download(url, 64, &mut got)
+            .expect_err(url)
+            .to_string();
+        assert!(said.contains("nothing was downloaded"), "{said}");
+        assert!(got.is_empty());
+    }
+}

@@ -245,12 +245,22 @@ pub enum StockError {
 /// what the server sent: the host, and its status, or that it could not be
 /// reached or the file broke off. A file host's error page is not a sentence
 /// for an agent.
-pub(super) fn fetch_failed(library: &'static str, url: &str, error: &HttpError) -> StockError {
+///
+/// The host is the one that failed, which after a redirect is not always the
+/// one first asked.
+pub(super) fn fetch_failed(library: &'static str, error: &HttpError) -> StockError {
     if error.rate_limited() {
         return StockError::RateLimited { library };
     }
+    let (HttpError::Refused { url, .. }
+    | HttpError::Unreachable { url, .. }
+    | HttpError::Unreadable { url, .. }) = error;
     let host = host(url).unwrap_or_else(|| String::from("its file host"));
     let said = match error {
+        HttpError::Refused { status, .. } if (300..400).contains(status) => format!(
+            "{host} redirected a download off {library}'s own hosts, or too many times, so \
+             nothing was downloaded"
+        ),
         HttpError::Refused { status, .. } => format!("{host} answered {status} to a download"),
         HttpError::Unreachable { .. } => format!("{host} could not be reached for a download"),
         HttpError::Unreadable { .. } => {
@@ -346,14 +356,14 @@ mod tests {
             status: 500,
             body: String::from("<html>internal details</html>"),
         };
-        let said = fetch_failed("Pixabay", url, &refused).to_string();
+        let said = fetch_failed("Pixabay", &refused).to_string();
         assert!(said.contains("cdn.pixabay.com answered 500"), "{said}");
         assert!(!said.contains("internal details"), "{said}");
         let unreachable = HttpError::Unreachable {
             url: url.to_owned(),
             message: String::from("dns error naming a resolver"),
         };
-        let said = fetch_failed("Pixabay", url, &unreachable).to_string();
+        let said = fetch_failed("Pixabay", &unreachable).to_string();
         assert!(!said.contains("resolver"), "{said}");
         let limited = HttpError::Refused {
             url: url.to_owned(),
@@ -361,8 +371,18 @@ mod tests {
             body: String::new(),
         };
         assert!(matches!(
-            fetch_failed("Pixabay", url, &limited),
+            fetch_failed("Pixabay", &limited),
             StockError::RateLimited { .. }
         ));
+        let moved = HttpError::Refused {
+            url: String::from("https://pixabay.com/get/x"),
+            status: 302,
+            body: String::new(),
+        };
+        let said = fetch_failed("Pixabay", &moved).to_string();
+        assert!(
+            said.contains("pixabay.com redirected a download off"),
+            "{said}"
+        );
     }
 }
