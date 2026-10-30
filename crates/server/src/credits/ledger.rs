@@ -79,8 +79,10 @@ pub async fn spendable(tx: &mut Tx) -> Result<i64, sqlx::Error> {
 /// Take the user's lock: their own `users` row, held until the transaction
 /// ends, so two spends of one user's money are decided one after the other
 /// and cannot both see the same last dollar. Another user's spending never
-/// waits on it.
-pub(super) async fn lock(tx: &mut Tx) -> Result<(), sqlx::Error> {
+/// waits on it. The same lock orders what else one user may take only so
+/// much of: assistant turns at once (`assistant::holds`) and storage
+/// (`library::upload`).
+pub(crate) async fn lock(tx: &mut Tx) -> Result<(), sqlx::Error> {
     sqlx::query("SELECT 1 FROM users WHERE id = (SELECT member_id()) FOR UPDATE")
         .execute(&mut **tx)
         .await

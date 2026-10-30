@@ -19,6 +19,7 @@ use tracing::Instrument;
 
 use super::ask::{self, Asked};
 use super::compact::{self, Compacting};
+use super::holds::{self, Short};
 use super::relay::Relay;
 use super::store::asking;
 use super::store::turns::{self, Charge};
@@ -147,7 +148,7 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
         Some(Resumed::Settle(answer)) => settle_held(state, turn, answer).await?,
         None => {}
     }
-    let (mut spent, mut balance) = (turn.spent, turn.balance);
+    let mut spent = turn.spent;
     let mut revision = calls::revision(state, turn.user, turn.project).await;
     loop {
         if assistant.stop_requested(turn.turn) {
@@ -163,15 +164,6 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
                 ),
             ));
         }
-        if balance <= 0 {
-            return Ok(End::Over(
-                "capped",
-                format!(
-                    "Stopped: your balance is {}. Add credit to carry on.",
-                    dollars(balance)
-                ),
-            ));
-        }
         let mut messages = turn.history.clone();
         messages.extend(turn.messages.iter().cloned());
         let request = Request {
@@ -183,6 +175,14 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
         // The level is the conversation's own (`Effort::change`): what the
         // turn recorded, or its messages are not what the start wrote.
         debug_assert_eq!(request.effort(), turn.effort, "turn {}", turn.turn);
+        // Held until the call is charged, or however it ends.
+        let held = match holds::hold(state, turn.user, (turn.turn, spent), &request)
+            .await
+            .map_err(|error| error.to_string())?
+        {
+            Ok(held) => held,
+            Err(short) => return Ok(End::Over("capped", stopped_short(short))),
+        };
         let (reply, latency) = ask(state, turn, request).await.map_err(|error| {
             tracing::error!("assistant: turn {}: {error}", turn.turn);
             super::failure::unreached(&error)
@@ -198,8 +198,9 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
         let (charged, now) = turns::charge(&state.pool, turn.user, &charge, &reply)
             .await
             .map_err(|error| error.to_string())?;
-        (spent, balance) = (spent + charged, now);
-        announce(state, turn, balance).await;
+        spent += charged;
+        drop(held);
+        announce(state, turn, now).await;
         match &reply.stop {
             Stop::EndTurn => {
                 keep(state, turn, reply.native.clone(), reply.message.clone()).await?;
@@ -339,6 +340,21 @@ async fn settle_held(state: &AppState, turn: &mut Running, answer: Part) -> Resu
     let native = chat::freeze(turn.model, &results).map_err(|e| e.to_string())?;
     turn.messages.pop();
     keep(state, turn, native, results).await
+}
+
+/// What a turn that may not make its next call ends saying.
+fn stopped_short(short: Short) -> String {
+    match short {
+        Short::Spent(balance) => format!(
+            "Stopped: your balance is {}. Add credit to carry on.",
+            dollars(balance)
+        ),
+        Short::Held(balance) => format!(
+            "Stopped: your balance is {}, and your other messages being worked on may spend \
+             it. Send this again once they finish, or add credit.",
+            dollars(balance)
+        ),
+    }
 }
 
 /// Tell the browser what the turn has cost so far, and the balance.

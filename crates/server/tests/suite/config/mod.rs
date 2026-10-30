@@ -5,6 +5,8 @@ use scorsese_providers::credentials::Environment;
 use scorsese_server::config::{BIND, CACHE, DATABASE_URL, DEFAULT_BIND, RENDER_QUOTA, STORAGE};
 use scorsese_server::{Config, ConfigError};
 
+mod per_user;
+
 const URL: &str = "postgres://scorsese:hunter2@db/scorsese";
 
 fn with(extra: &[(&'static str, &'static str)]) -> Result<Config, ConfigError> {

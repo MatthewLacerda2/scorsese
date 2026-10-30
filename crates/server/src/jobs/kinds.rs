@@ -78,6 +78,12 @@ pub const BATCH_STILL: Kind = Kind {
     budget: None,
 };
 
+/// How many [`BATCH_STILL`]s one user may have running at once when
+/// [`crate::config::USER_BATCH_STILLS`] does not say: a quarter of the pool,
+/// so one account's storyboard never holds every slot for the day a batch
+/// may take. The rest of theirs wait in line, unrefused.
+pub const DEFAULT_BATCH_STILLS_PER_USER: usize = 16;
+
 /// A voice design (#572): one ElevenLabs call, three samples back. Seconds,
 /// mostly network.
 pub const VOICE_DESIGN: Kind = Kind {
@@ -203,6 +209,7 @@ pub fn with_vendors(
 ) -> Registry {
     Registry::new()
         .budget(ELEVENLABS, elevenlabs.concurrency)
+        .per_user(BATCH_STILL, DEFAULT_BATCH_STILLS_PER_USER)
         .register(
             THUMBNAIL,
             thumbnail::handler(files.storage.clone(), files.tools.clone()),

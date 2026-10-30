@@ -10,8 +10,10 @@
 //!
 //! Anyone may post, signed in or not, since a page can crash before anyone
 //! signs in. So the route guards itself: at most [`REPORTS_PER_MINUTE`] from
-//! one address ([`Visitor`], the address the access record keeps), a body of
-//! at most [`CAP`] bytes, and nothing of the body ever sent back. Each field
+//! one address ([`Visitor`], the address the access record keeps, an IPv6 one
+//! counted by its /64 as `ab` counts it), [`REPORTS_PER_HOUR`] from
+//! everybody, a body of at most [`CAP`] bytes, and nothing of the body ever
+//! sent back. Each field
 //! is written escaped, so a report can never forge a second log line.
 
 use axum::Json;
@@ -20,11 +22,21 @@ use axum::http::StatusCode;
 use serde::Deserialize;
 
 use super::AppState;
+use super::ab::network;
 use super::error::ApiError;
 use super::visitor::Visitor;
 
 /// Reports one address may send in a minute; the rest are refused `429`.
 pub const REPORTS_PER_MINUTE: u32 = 20;
+
+/// Reports everybody together may send in an hour: a bad build crashing for
+/// every user at once is still a few dozen, and at [`CAP`] bytes each the
+/// most the log can be sent in a day stays under a hundred megabytes,
+/// whatever addresses a client rotates through.
+pub const REPORTS_PER_HOUR: u32 = 200;
+
+/// The window [`REPORTS_PER_HOUR`] counts over.
+pub const HOUR: std::time::Duration = std::time::Duration::from_secs(60 * 60);
 
 /// The most a report may weigh, in bytes; a heavier one is refused `413`
 /// before it is read.
@@ -51,15 +63,21 @@ pub async fn report(
     Visitor(address): Visitor,
     report: Result<Json<Report>, axum::extract::rejection::JsonRejection>,
 ) -> Result<StatusCode, ApiError> {
-    if let Err(wait) = state.reports.take(address, 1) {
+    let too_many = |wait: std::time::Duration, what: &str| {
         let retry_after = wait.as_secs().max(1);
-        return Err(ApiError::TooMany {
-            message: format!(
-                "too many crash reports this minute; try again in {retry_after} seconds"
-            ),
+        ApiError::TooMany {
+            message: format!("{what}; try again in {retry_after} seconds"),
             retry_after,
-        });
-    }
+        }
+    };
+    state
+        .reports
+        .take(network(address), 1)
+        .map_err(|wait| too_many(wait, "too many crash reports this minute"))?;
+    state
+        .reports_total
+        .take((), 1)
+        .map_err(|wait| too_many(wait, "too many crash reports from everyone this hour"))?;
     // The rejection's own words can quote the body back; these never do.
     let Json(report) = report.map_err(|rejection| match rejection.status() {
         StatusCode::PAYLOAD_TOO_LARGE => ApiError::Refused {

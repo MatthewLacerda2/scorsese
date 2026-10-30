@@ -1,7 +1,8 @@
 //! The `jobs` table's queries.
 //!
 //! Two are privileged, because they are cross-user by nature: [`claim`] (which
-//! job next, whoever's it is) and [`recover`] (every job a dead process left
+//! job next, whoever's it is — [`claim_within`] counting what each user
+//! already runs) and [`recover`] (every job a dead process left
 //! running), plus [`interrupted`], the operator's view of a crash. Everything
 //! else runs scoped as the job's owner — see the module doc of
 //! [`jobs`](super).
@@ -88,12 +89,34 @@ pub async fn get(pool: &PgPool, user: UserId, id: i64) -> Result<Option<JobView>
 /// waited on or taken twice. Fair between users: the owner with the fewest
 /// jobs running goes first, and the oldest job among equals.
 pub async fn claim(pool: &PgPool, kinds: &[&str]) -> Result<Option<(Job, JobView)>, sqlx::Error> {
+    claim_within(pool, kinds, &[]).await
+}
+
+/// [`claim`], passing over the jobs of a user who already runs as many of
+/// their kind as `per_user` lets one user run: `(kind, most)` pairs, a kind
+/// not named being uncapped. Counted in the claim itself, which is enough
+/// because one worker claims, one job at a time (`super::work`).
+pub async fn claim_within(
+    pool: &PgPool,
+    kinds: &[&str],
+    per_user: &[(&str, usize)],
+) -> Result<Option<(Job, JobView)>, sqlx::Error> {
+    let (capped, most): (Vec<&str>, Vec<i64>) = per_user
+        .iter()
+        .map(|(kind, most)| (*kind, i64::try_from(*most).unwrap_or(i64::MAX)))
+        .unzip();
     let mut tx = db::privileged(pool).await?;
     let row: Option<ClaimRow> = sqlx::query_as(concat!(
         "UPDATE jobs SET state = 'running', attempts = attempts + 1,
                 started_at = now(), finished_at = NULL, error = NULL
          WHERE id = (
              SELECT id FROM jobs j WHERE state = 'waiting' AND kind = ANY($1)
+               AND NOT EXISTS (
+                   SELECT 1 FROM unnest($2::text[], $3::bigint[]) AS cap (kind, most)
+                   WHERE cap.kind = j.kind
+                     AND (SELECT count(*) FROM jobs r
+                          WHERE r.user_id = j.user_id AND r.kind = j.kind
+                            AND r.state = 'running') >= cap.most)
              ORDER BY (SELECT count(*) FROM jobs r
                        WHERE r.user_id = j.user_id AND r.state = 'running'), id
              LIMIT 1 FOR UPDATE SKIP LOCKED)
@@ -101,6 +124,8 @@ pub async fn claim(pool: &PgPool, kinds: &[&str]) -> Result<Option<(Job, JobView
         view!()
     ))
     .bind(kinds)
+    .bind(capped)
+    .bind(most)
     .fetch_optional(&mut *tx)
     .await?;
     tx.commit().await?;

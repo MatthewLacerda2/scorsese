@@ -38,12 +38,13 @@ where
 /// never a flood of the vendor it stands for.
 pub const UNSIZED: usize = 1;
 
-/// Every kind the worker claims, each with its handler, and how big each
-/// budget they share is.
+/// Every kind the worker claims, each with its handler, how big each budget
+/// they share is, and how many of a kind one user may have running.
 #[derive(Clone, Default)]
 pub struct Registry {
     entries: Vec<(Kind, Arc<dyn Handler>)>,
     budgets: HashMap<Budget, usize>,
+    per_user: HashMap<&'static str, usize>,
 }
 
 impl Registry {
@@ -63,6 +64,18 @@ impl Registry {
     pub fn budget(mut self, budget: Budget, size: usize) -> Self {
         self.budgets.insert(budget, size);
         self
+    }
+
+    /// Let at most `most` jobs of `kind` run at once for any one user: the
+    /// rest of theirs wait in line while other users' are claimed.
+    pub fn per_user(mut self, kind: Kind, most: usize) -> Self {
+        self.per_user.insert(kind.name, most);
+        self
+    }
+
+    /// Each kind one user may run only so many of at once, and how many.
+    pub(super) fn per_user_caps(&self) -> impl Iterator<Item = (&'static str, usize)> + '_ {
+        self.per_user.iter().map(|(name, most)| (*name, *most))
     }
 
     /// How many of `budget`'s kinds may run at once: what

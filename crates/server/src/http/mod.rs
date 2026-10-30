@@ -70,8 +70,11 @@ pub struct AppState {
     pub tools: Toolbox,
     /// How many tool calls each user has made lately, over web MCP.
     pub limits: limits::Limits,
-    /// How many crash reports each address has sent lately (#1428).
+    /// How many crash reports each address has sent lately (#1428), an
+    /// IPv6 one counted by its /64 (`ab::network`).
     pub reports: limits::Limits<Option<std::net::IpAddr>>,
+    /// How many crash reports everybody has sent this hour.
+    pub reports_total: limits::Limits<()>,
     /// How many A/B rows each address has written today (#1553).
     pub ab_rows: limits::Limits<Option<std::net::IpAddr>>,
     /// How many A/B rows everybody has written today.
@@ -122,6 +125,10 @@ impl AppState {
             tools,
             limits: limits::Limits::new(mcp::CALLS_PER_MINUTE),
             reports: limits::Limits::new(client_errors::REPORTS_PER_MINUTE),
+            reports_total: limits::Limits::over(
+                client_errors::HOUR,
+                client_errors::REPORTS_PER_HOUR,
+            ),
             ab_rows: limits::Limits::over(ab::DAY, ab::ROWS_PER_ADDRESS_PER_DAY),
             ab_total: limits::Limits::over(ab::DAY, ab::ROWS_PER_DAY),
             in_flight: mcp::InFlight::default(),

@@ -5,6 +5,7 @@ use scorsese_providers::chat::{self, Effort, Model, Part, ResultPart};
 
 use crate::assistant::AssistantError;
 use crate::assistant::attached::Attached;
+use crate::assistant::holds;
 use crate::assistant::prompt::SCRIPT_REWRITTEN;
 use crate::assistant::store::asking::Paused;
 use crate::assistant::store::turns::history;
@@ -16,7 +17,8 @@ use crate::http::AppState;
 /// `user`'s turn `id`, paused as `paused`, ready to run again from where it
 /// stopped — its own messages, the conversation's before them, and the
 /// balance now — with nothing to say first yet. Refused when its model has
-/// no key; the caller decides what a balance of nothing means.
+/// no key, or the user already runs as many turns as they may (`holds`); the
+/// caller decides what a balance of nothing means.
 pub(in crate::assistant) async fn resuming(
     state: &AppState,
     tx: &mut Tx,
@@ -29,6 +31,9 @@ pub(in crate::assistant) async fn resuming(
     let effort = Effort::from_name(&paused.effort)
         .ok_or_else(|| AssistantError::Internal(format!("unknown effort {}", paused.effort)))?;
     let client = state.assistant.chat(model)?;
+    // Running again is running: refused while the user runs as many as they
+    // may, under the lock `tx` holds until the resume is committed.
+    holds::admit(state, tx, user, true).await?;
     let balance = ledger::spendable(tx).await?;
     // The paused turn is its conversation's last: nothing starts after it
     // while it waits, since a new message is its answer.

@@ -191,7 +191,8 @@ async fn claim_what_fits(
         if open.is_empty() {
             return;
         }
-        let (job, view) = match store::claim(pool, &open).await {
+        let per_user: Vec<_> = registry.per_user_caps().collect();
+        let (job, view) = match store::claim_within(pool, &open, &per_user).await {
             Ok(Some(claimed)) => claimed,
             Ok(None) => return,
             Err(error) => {

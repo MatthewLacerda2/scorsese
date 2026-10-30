@@ -64,6 +64,7 @@ async fn a_database_it_cannot_reach_is_a_startup_error() {
         assistant_turn_cap: 1,
         free: Default::default(),
         elevenlabs: Default::default(),
+        per_user: Default::default(),
         google: None,
         payments: None,
     };

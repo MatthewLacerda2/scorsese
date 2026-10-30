@@ -228,8 +228,16 @@ pub async fn run(
         tools,
         renders,
     };
-    let registry = jobs::kinds::registry(&files, config.elevenlabs);
-    let assistant = assistant::Assistant::new(config.assistant_turn_cap);
+    let per_user = config.per_user;
+    let registry = jobs::kinds::registry(&files, config.elevenlabs)
+        .per_user(jobs::kinds::BATCH_STILL, per_user.batch_stills);
+    let assistant = assistant::Assistant::new(config.assistant_turn_cap).at_once(per_user.turns);
+    tracing::info!(
+        "each account may run {} assistant turns and {} batched stills at once, and keep {}",
+        per_user.turns,
+        per_user.batch_stills,
+        scorsese_core::bytes::format_bytes(per_user.storage.get())
+    );
     match &config.google {
         Some(google) => tracing::info!("signing in with Google, back to {}", google.origin),
         None => tracing::info!(
@@ -309,8 +317,9 @@ pub struct Services {
 /// transaction — per-user isolation, `db::scope`. The job worker
 /// ([`jobs::work`]), the assistant's waker ([`assistant::watch`], #1441), the
 /// dollar's rate kept fresh ([`payments::refresh`],
-/// where Stripe is configured) and the render cache's weekly sweep
-/// ([`renders::evict::run`]) run beside them on the same pool. The render
+/// where Stripe is configured), the render cache's weekly sweep
+/// ([`renders::evict::run`]) and the hourly sweep of abandoned uploads
+/// ([`library::upload::sweep`]) run beside them on the same pool. The render
 /// cache's scratch folder is emptied first, while
 /// no render can be running.
 ///
@@ -356,6 +365,10 @@ pub async fn start(
         .payments
         .map(|payments| tokio::spawn(payments::refresh(payments, stopping.clone())));
     let sweep = tokio::spawn(renders::evict::run(pool.clone(), cache, stopping.clone()));
+    let uploads = tokio::spawn(library::upload::sweep(
+        state.library.clone(),
+        stopping.clone(),
+    ));
     let waker = tokio::spawn(assistant::watch(state.clone(), stopping.clone()));
     let worker = tokio::spawn(jobs::work(pool, registry, state.jobs.clone(), stopping));
     let events = state.events.clone();
@@ -378,6 +391,9 @@ pub async fn start(
     }
     if let Err(error) = sweep.await {
         tracing::error!("the render sweep failed: {error}");
+    }
+    if let Err(error) = uploads.await {
+        tracing::error!("the upload sweep failed: {error}");
     }
     Ok(served?)
 }

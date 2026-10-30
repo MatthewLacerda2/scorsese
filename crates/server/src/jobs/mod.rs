@@ -48,6 +48,12 @@
 //! ([`Registry::budget`]). A kind runs only while both its own limit and its
 //! budget have room.
 //!
+//! A kind may also be capped **per user** ([`Registry::per_user`]): then a
+//! user who already runs that many of it has the rest wait in line while
+//! other users' are claimed. [`kinds::BATCH_STILL`] is, because its slots are
+//! held for up to a day and one account's storyboard must not hold the whole
+//! pool ([`kinds::DEFAULT_BATCH_STILLS_PER_USER`]).
+//!
 //! ## After a crash
 //!
 //! **One worker per database**, held by a Postgres advisory lock, so a job

@@ -1,6 +1,6 @@
 //! What the server is told by the environment it is started in.
 //!
-//! Sixteen things, and four of them are secrets. The database URL carries a
+//! Nineteen things, and four of them are secrets. The database URL carries a
 //! password, the Google OAuth client has a secret and Stripe has two, so all
 //! are held as a [`Secret`] — printing a [`Config`] prints nothing of them, and no error
 //! below ever repeats their values.
@@ -28,6 +28,7 @@ use crate::credits::allowance::Allowance;
 use crate::credits::dollars;
 use crate::http::google::Google;
 use crate::jobs::elevenlabs::ElevenLabs;
+use crate::jobs::elevenlabs::count;
 use crate::payments::Payments;
 use crate::renders::Quota;
 use crate::storage::Storage;
@@ -83,6 +84,18 @@ pub const FREE_MONTHLY: &str = "SCORSESE_FREE_MONTHLY";
 /// Defaults to +5% from R$ 40 and +10% from R$ 80.
 pub const RECHARGE_BONUS: &str = "SCORSESE_RECHARGE_BONUS";
 
+/// How many assistant turns one account may have running at once, every
+/// project and conversation together, e.g. `2` ([`PerUser::turns`]).
+pub const USER_TURNS: &str = "SCORSESE_USER_TURNS";
+
+/// How many half-price batch stills one account may have waiting on Google
+/// at once ([`PerUser::batch_stills`]); the rest wait in line.
+pub const USER_BATCH_STILLS: &str = "SCORSESE_USER_BATCH_STILLS";
+
+/// How much one account may keep, e.g. `50GB`: its library, its kept renders
+/// and the uploads it has announced ([`PerUser::storage`]).
+pub const USER_STORAGE: &str = "SCORSESE_USER_STORAGE";
+
 /// The Google OAuth client's id, `….apps.googleusercontent.com` (#952).
 pub const GOOGLE_CLIENT_ID: &str = "GOOGLE_OAUTH_CLIENT_ID";
 
@@ -131,6 +144,8 @@ pub struct Config {
     pub free: Allowance,
     /// What the operator's ElevenLabs plan allows: calls at once, voices kept.
     pub elevenlabs: ElevenLabs,
+    /// How much of the shared machine one account may take.
+    pub per_user: PerUser,
     /// Sign in with Google, when [`GOOGLE_CLIENT_ID`], [`GOOGLE_CLIENT_SECRET`]
     /// and [`PUBLIC_ORIGIN`] are all set. `None` serves everything else and
     /// answers a sign-in with "not configured" — a development stack without
@@ -247,6 +262,13 @@ pub enum ConfigError {
         value: String,
     },
 
+    /// The per-user storage quota is not a size.
+    #[error("{USER_STORAGE} must be a size like 50GB or 500MB, and {value:?} is not")]
+    Storage {
+        /// What the variable held.
+        value: String,
+    },
+
     /// The per-turn cap is not an amount of dollars above zero.
     #[error(
         "{ASSISTANT_TURN_CAP} must be dollars above zero like {}, and {value:?} is not",
@@ -316,6 +338,7 @@ impl Config {
 
         let free = Allowance::from_environment(environment)?;
         let elevenlabs = ElevenLabs::from_environment(environment)?;
+        let per_user = PerUser::from_environment(environment)?;
         let google = Google::from_environment(environment)?;
         let payments = Payments::from_environment(environment)?;
 
@@ -328,6 +351,7 @@ impl Config {
             assistant_turn_cap,
             free,
             elevenlabs,
+            per_user,
             google,
             payments,
         })
@@ -335,9 +359,58 @@ impl Config {
 }
 
 impl Config {
-    /// Where users' files go, kept and cached, as these settings say.
+    /// Where users' files go, kept and cached, and how much each may keep,
+    /// as these settings say.
     pub fn files(&self) -> Storage {
-        Storage::new(&self.storage, &self.cache)
+        Storage::new(&self.storage, &self.cache).with_quota(self.per_user.storage)
+    }
+}
+
+/// How much of the one shared machine a single account may take at once
+/// (`docs/web.md`, *Running the service*): each a default nobody should need to
+/// touch. A turn or an upload past its limit is refused in plain words; a
+/// batched still past it waits in line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PerUser {
+    /// Assistant turns running at once, every conversation together
+    /// ([`USER_TURNS`]).
+    pub turns: usize,
+    /// Batched stills waiting on Google at once ([`USER_BATCH_STILLS`]).
+    pub batch_stills: usize,
+    /// Bytes kept: the library, kept renders and announced uploads
+    /// ([`USER_STORAGE`]).
+    pub storage: Quota,
+}
+
+impl Default for PerUser {
+    fn default() -> Self {
+        Self {
+            turns: crate::assistant::DEFAULT_TURNS_AT_ONCE,
+            batch_stills: crate::jobs::kinds::DEFAULT_BATCH_STILLS_PER_USER,
+            storage: crate::storage::DEFAULT_QUOTA,
+        }
+    }
+}
+
+impl PerUser {
+    /// The limits `environment` sets, each its default when unset.
+    pub fn from_environment(environment: &Environment) -> Result<Self, ConfigError> {
+        let defaults = Self::default();
+        let storage = match environment.get(USER_STORAGE) {
+            Some(size) => size
+                .parse()
+                .ok()
+                .filter(|quota: &Quota| quota.get() > 0)
+                .ok_or_else(|| ConfigError::Storage {
+                    value: size.to_owned(),
+                })?,
+            None => defaults.storage,
+        };
+        Ok(Self {
+            turns: count(environment, USER_TURNS, defaults.turns)?,
+            batch_stills: count(environment, USER_BATCH_STILLS, defaults.batch_stills)?,
+            storage,
+        })
     }
 }
 

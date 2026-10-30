@@ -54,7 +54,7 @@ impl ElevenLabs {
 }
 
 /// The whole number above zero `variable` holds, or `default` when unset.
-fn count(
+pub(crate) fn count(
     environment: &Environment,
     variable: &'static str,
     default: usize,
