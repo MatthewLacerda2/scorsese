@@ -17,7 +17,7 @@ use scorsese_core::{AssetId, AssetKind, GENERATED_DIR, GenerationState, Project,
 
 use super::batch::half;
 use super::{Batch, Brief, ImageError, ImageProvider, Outcome};
-use crate::generated::{record, write};
+use crate::generated::{place, record, write};
 
 /// Asks after every batch a still waits in, and does what each answer calls
 /// for. Saving the project is the caller's.
@@ -65,7 +65,7 @@ fn keep(root: &Path, answers: &[(String, Result<Vec<u8>, String>)]) -> Result<()
         let (Some(path), Ok(bytes)) = (path_of(key), picture) else {
             continue;
         };
-        let file = path.resolve(root);
+        let file = place(root, &path)?;
         if !file.is_file() {
             write(&file, bytes)?;
         }
@@ -90,7 +90,11 @@ fn land(
     };
     if brief.realized(root) {
         let output = brief.output();
-        let bytes = std::fs::read(output.resolve(root)).unwrap_or_default();
+        let bytes = output
+            .resolve(root)
+            .ok()
+            .and_then(|file| std::fs::read(file).ok())
+            .unwrap_or_default();
         record(project, id, &output, &bytes, Some(half(&brief)?));
         return Ok(Outcome::Collected {
             path: output,

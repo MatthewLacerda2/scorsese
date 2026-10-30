@@ -54,7 +54,13 @@ fn a_window_is_shorter_than_the_whole_piece() {
 
     run_in(&dir, &["synth", "bake", "theme"]).ok();
     let asset = reload(&dir).assets.first().cloned().expect("one asset");
-    let whole = size(&asset.path.expect("baked").resolve(&dir));
+    let whole = size(
+        &asset
+            .path
+            .expect("baked")
+            .resolve(&dir)
+            .expect("a project path"),
+    );
     assert!(
         part * 2 < whole,
         "the window is {part} bytes against the whole piece's {whole}"

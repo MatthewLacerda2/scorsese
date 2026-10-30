@@ -130,7 +130,8 @@ impl Outcome {
             return None;
         };
         let beside = Words::beside(path);
-        beside.resolve(root).is_file().then_some(beside)
+        let file = beside.resolve(root).ok()?;
+        file.is_file().then_some(beside)
     }
 
     /// [`Outcome::says`], and where the line's word timings were saved when

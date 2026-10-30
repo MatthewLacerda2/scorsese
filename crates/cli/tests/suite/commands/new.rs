@@ -132,7 +132,8 @@ fn a_platform_and_a_style_start_the_project_with_a_brief() {
     let script = reload(&dir)
         .script
         .expect("a started project carries its brief");
-    let brief = std::fs::read_to_string(script.resolve(&dir)).expect("the brief is on disk");
+    let brief = std::fs::read_to_string(script.resolve(&dir).expect("a project path"))
+        .expect("the brief is on disk");
     assert!(brief.contains("--platform tiktok_ad"), "{brief}");
     assert!(brief.contains("Kinetic typography"), "{brief}");
     assert!(brief.contains("propose the script"), "{brief}");

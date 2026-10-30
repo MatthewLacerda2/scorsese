@@ -17,7 +17,13 @@ fn a_named_track_collects_only_what_can_speak() {
     let (dir, mut project) = project("footage-named");
     std::fs::create_dir_all(dir.join("assets")).unwrap();
     let take = ProjectPath::new("assets/take.mp4");
-    std::fs::write(Words::transcript(&take).resolve(&dir), said().to_json()).unwrap();
+    std::fs::write(
+        Words::transcript(&take)
+            .resolve(&dir)
+            .expect("a project path"),
+        said().to_json(),
+    )
+    .unwrap();
     project.assets.push(Asset::imported(
         AssetId::new("take"),
         AssetKind::Video,
@@ -69,7 +75,13 @@ fn a_take_silenced_throughout_is_not_captioned() {
     let (dir, mut project) = project("footage-silenced");
     std::fs::create_dir_all(dir.join("assets")).unwrap();
     let take = ProjectPath::new("assets/take.mp4");
-    std::fs::write(Words::transcript(&take).resolve(&dir), said().to_json()).unwrap();
+    std::fs::write(
+        Words::transcript(&take)
+            .resolve(&dir)
+            .expect("a project path"),
+        said().to_json(),
+    )
+    .unwrap();
     project.assets.push(Asset::imported(
         AssetId::new("take"),
         AssetKind::Video,

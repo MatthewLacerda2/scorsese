@@ -6,7 +6,7 @@ use std::path::Path;
 use scorsese_core::{Asset, AssetId, AssetKind, AudioBlock, Project, ProjectPath};
 
 use crate::credentials::Budget;
-use crate::generated::{self, Prompted, write};
+use crate::generated::{self, Prompted, write_in};
 use crate::prices;
 use crate::spending;
 
@@ -151,7 +151,7 @@ fn one(
         }
     };
     let output = brief.output();
-    write(&output.resolve(root), &bytes)?;
+    write_in(root, &output, &bytes)?;
     spending::sent(project, root, id, &brief.digest(), cents)?;
     generated::record(project, id, &output, &bytes, Some(cents));
     Ok(Outcome::Generated {

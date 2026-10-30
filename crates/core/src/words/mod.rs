@@ -126,7 +126,7 @@ impl Words {
     /// are left out even when its file still holds them, as one folded before
     /// #1061 does ([`Words::spoken_by`]).
     pub fn of(asset: &Asset, project_root: &Path) -> Option<Self> {
-        let file = Self::file_of(asset)?.resolve(project_root);
+        let file = Self::file_of(asset)?.resolve(project_root).ok()?;
         let read = || -> Option<Self> {
             let text = std::fs::read_to_string(&file).ok()?;
             serde_json::from_str(&text).ok()

@@ -33,7 +33,11 @@ fn at_names_the_word_each_narration_is_saying() {
         words: vec![word("A", 0.2, 0.4), word("voice.", 0.5, 1.0)],
     };
     let beside = Words::beside(&ProjectPath::new("generated/vo.mp3"));
-    std::fs::write(beside.resolve(&dir), timed.to_json()).expect("write the timings");
+    std::fs::write(
+        beside.resolve(&dir).expect("a project path"),
+        timed.to_json(),
+    )
+    .expect("write the timings");
 
     let (succeeded, output) = describe(&dir, &["--at", "0.7s", "--at", "0.45s"]);
 

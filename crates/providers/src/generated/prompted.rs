@@ -78,7 +78,11 @@ pub(crate) fn found<K: Prompted>(
     brief: &K::Brief,
 ) -> Result<ProjectPath, K::Error> {
     let output = K::output(brief);
-    let bytes = std::fs::read(output.resolve(root)).unwrap_or_default();
+    let bytes = output
+        .resolve(root)
+        .ok()
+        .and_then(|file| std::fs::read(file).ok())
+        .unwrap_or_default();
     K::keep(project, root, id, &output, &bytes, brief)?;
     Ok(output)
 }

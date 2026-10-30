@@ -151,7 +151,7 @@ impl Brief {
     /// Whether a drawing of this brief is already on disk — the answer to *has
     /// this been paid for*, from the **current** brief's file.
     pub fn realized(&self, root: &Path) -> bool {
-        self.output().resolve(root).is_file()
+        self.output().resolve(root).is_ok_and(|file| file.is_file())
     }
 }
 

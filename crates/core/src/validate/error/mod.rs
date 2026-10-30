@@ -95,6 +95,23 @@ pub enum ValidationError {
     Matte(#[from] MatteProblem),
 }
 
+impl ValidationError {
+    /// A path that breaks [`crate::ProjectPath::check`]: one that could name
+    /// something outside the project — [`crate::Project::check_paths`]'s
+    /// subset.
+    pub fn is_path_problem(&self) -> bool {
+        matches!(
+            self,
+            Self::BadScriptPath { .. }
+                | Self::Asset(
+                    AssetProblem::BadPath { .. }
+                        | AssetProblem::BadRecipePath { .. }
+                        | AssetProblem::BadFontPath { .. }
+                )
+        )
+    }
+}
+
 /// A video problem is an asset problem, so it reaches the collected list the
 /// same way — spelled out because `From` does not chain, and a caller naming
 /// the catalogue its subject lives in should not have to know how many layers

@@ -59,7 +59,7 @@ fn a_shot_edited_in_flight_files_its_video_under_the_brief_that_bought_it() {
         panic!("the old brief's video was paid for and kept");
     };
     assert_eq!(
-        std::fs::read(path.resolve(&dir)).ok(),
+        std::fs::read(path.resolve(&dir).expect("a project path")).ok(),
         Some(b"OLD TAKE".to_vec())
     );
     std::fs::remove_dir_all(&dir).ok();

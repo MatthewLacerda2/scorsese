@@ -112,6 +112,10 @@ pub(super) async fn run(
             return outcome;
         }
         let document = document.unwrap_or_else(|| stored.document.clone());
+        // Never kept: the next call could not lay it out.
+        document.check_paths().map_err(|problems| {
+            format!("the tool left a path out of the project, so nothing was saved: {problems}")
+        })?;
         bakes::keep(
             &toolbox.library,
             caller.user,

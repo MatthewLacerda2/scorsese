@@ -50,7 +50,8 @@ fn both_starters_bake_audible_sound_unedited() {
         let project = reload(&dir);
         let asset = project.assets.first().expect("one asset");
         let path = asset.path.as_ref().expect("baked media");
-        let wav = std::fs::read(path.resolve(&dir)).expect("the baked file");
+        let wav =
+            std::fs::read(path.resolve(&dir).expect("a project path")).expect("the baked file");
         assert!(
             wav.len() > 44 * 100,
             "the {kind} starter baked almost nothing: {} bytes",

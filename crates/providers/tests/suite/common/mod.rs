@@ -18,7 +18,9 @@ pub(crate) fn project(label: &str) -> (PathBuf, Project) {
 /// Writes a file into the project at a project-relative path, creating
 /// whatever directories it needs.
 pub(crate) fn write(dir: &Path, relative: &str, contents: &str) {
-    let path = ProjectPath::new(relative).resolve(dir);
+    let path = ProjectPath::new(relative)
+        .resolve(dir)
+        .expect("a project path");
     let parent = path.parent().expect("a file has a parent directory");
     std::fs::create_dir_all(parent).expect("create the directory");
     std::fs::write(&path, contents).expect("write the file");

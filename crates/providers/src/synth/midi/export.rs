@@ -7,7 +7,7 @@ use scorsese_zimmer::midi::{self, Drum};
 
 use super::super::error::SynthesisError;
 use super::super::recipe::Recipe;
-use super::super::{read_recipe, write};
+use super::super::{place, read_recipe, write};
 
 /// Where an export lands when the caller does not say — under `cache/`,
 /// because the file is rebuildable from the recipe at any time, and a copy
@@ -101,7 +101,7 @@ pub fn export_midi(
         Some(path) => (path.to_path_buf(), path.display().to_string()),
         None => {
             let relative = ProjectPath::new(format!("{MIDI_EXPORT_DIR}/{id}.mid"));
-            (relative.resolve(project_root), relative.to_string())
+            (place(project_root, &relative)?, relative.to_string())
         }
     };
     write(&destination, &exported.bytes)?;

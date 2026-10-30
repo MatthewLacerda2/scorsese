@@ -250,7 +250,12 @@ pub(crate) fn standing(shot: &Shot<'_>, project_root: &Path) -> Result<Standing,
         .path
         .as_ref()
         .expect("the plan gives a shot showing media a path");
-    let file = path.resolve(project_root);
+    let file = path
+        .resolve(project_root)
+        .map_err(|refused| RenderError::OutsideProject {
+            asset: shot.asset.id.to_string(),
+            refused,
+        })?;
     if file.is_file() {
         return Ok(Standing::Media(file));
     }
@@ -281,7 +286,12 @@ pub(crate) fn still_files(
                 .path
                 .as_ref()
                 .expect("the plan gives a sequence's stills a path");
-            let file = path.resolve(project_root);
+            let file =
+                path.resolve(project_root)
+                    .map_err(|refused| RenderError::OutsideProject {
+                        asset: still.id.to_string(),
+                        refused,
+                    })?;
             if file.is_file() {
                 Ok(file)
             } else {

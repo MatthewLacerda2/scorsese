@@ -74,6 +74,9 @@ shares, and is still only theirs to use or look up (*Designing a voice*).
 A project's edit is stored as its **`project.json` document** in a JSON
 column, loaded into `scorsese_core::Project`, edited by the **same** functions
 the CLI and MCP use, validated by the same `Project::validate`, and saved back.
+A save that does not validate is refused in its words, a render validates the
+document again before it is laid out, and no folder is laid out from a
+document with a path that leaves it.
 The timeline is **not** normalised into tables: the format is versioned and
 changes often, and normalising it would fork every editing operation into SQL
 — two implementations of every edit, drifting.

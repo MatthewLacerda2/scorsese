@@ -166,7 +166,7 @@ pub use note::{Annotated, Noted};
 // [`pacing`] for why `scorsese_core::scale` would be the wrong name.
 pub use frame::{Ratio, RatioError};
 pub use pacing::{PaceError, Paced};
-pub use path::{PathProblem, ProjectPath};
+pub use path::{PathProblem, ProjectPath, UnresolvablePath};
 // The functions stay behind the module, for [`pacing`]'s reason: a bare
 // `scorsese_core::trim` says nothing about what it trims, `place` reads as
 // spatial, and `remove` could be removing anything.

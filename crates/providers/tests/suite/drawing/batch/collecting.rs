@@ -41,7 +41,7 @@ fn a_finished_batch_lands_at_half_price_on_the_next_run() {
     };
     assert_eq!(run[0].1.spent_cents(), 0, "the ordering run spent it");
     assert!(run[0].1.landed());
-    assert!(path.resolve(&dir).is_file());
+    assert!(path.resolve(&dir).expect("a project path").is_file());
     let cents = half(&project, &dir, &id);
     let asset = project.asset(&id).expect("the asset");
     assert_eq!(asset.state, Some(GenerationState::Generated));

@@ -20,7 +20,8 @@ fn a_design_paid_twice_for_one_digest_counts_twice() {
     let brief = brief("a narrator", Some(1));
     let first = design(&dir, &studio, &brief, Budget::unlimited(0)).expect("the first design");
     for sample in &first.session.candidates {
-        std::fs::remove_file(sample.path.resolve(&dir)).expect("removing a sample");
+        std::fs::remove_file(sample.path.resolve(&dir).expect("a project path"))
+            .expect("removing a sample");
     }
 
     let again = design(&dir, &studio, &brief, Budget::unlimited(0)).expect("the design again");

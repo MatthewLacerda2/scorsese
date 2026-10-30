@@ -25,7 +25,12 @@ fn a_timed_line_keeps_its_words_beside_the_audio() {
     generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a run");
     let asset = project.asset(&id).expect("the line");
     let audio = asset.path.clone().expect("spoken");
-    assert!(Words::beside(&audio).resolve(&dir).is_file());
+    assert!(
+        Words::beside(&audio)
+            .resolve(&dir)
+            .expect("a project path")
+            .is_file()
+    );
     assert_eq!(Words::of(asset, &dir), Some(said()));
     std::fs::remove_dir_all(&dir).ok();
 }

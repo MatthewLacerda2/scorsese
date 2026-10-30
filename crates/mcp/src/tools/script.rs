@@ -169,7 +169,6 @@ fn script_path(project: &Project, path: Option<&str>) -> ProjectPath {
 /// never a way to read or write outside the project.
 fn resolve(script: &ProjectPath, dir: &Path) -> Result<std::path::PathBuf, String> {
     script
-        .check()
-        .map_err(|problem| format!("script path `{script}` {problem}"))?;
-    Ok(script.resolve(dir))
+        .resolve(dir)
+        .map_err(|refused| format!("script path {refused}"))
 }

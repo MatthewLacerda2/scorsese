@@ -108,7 +108,9 @@ pub fn unusable_faces(project: &Project, project_root: &Path) -> Vec<UnusableFac
                 }
                 // Said in the document's words rather than the operating
                 // system's "No such file or directory (os error 2)".
-                FontChoice::File(path) if !path.resolve(project_root).is_file() => {
+                FontChoice::File(path)
+                    if !path.resolve(project_root).is_ok_and(|file| file.is_file()) =>
+                {
                     return Some(UnusableFace {
                         asset: asset.id.to_string(),
                         named: path.to_string(),

@@ -170,7 +170,7 @@ impl Brief {
     /// reading. Every decision about whether a run has work goes through here
     /// so it cannot be made both ways.
     pub fn realized(&self, root: &std::path::Path) -> bool {
-        self.output().resolve(root).is_file()
+        self.output().resolve(root).is_ok_and(|file| file.is_file())
     }
 }
 

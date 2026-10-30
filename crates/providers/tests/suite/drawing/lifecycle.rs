@@ -29,7 +29,7 @@ fn a_sketch_becomes_a_png_in_one_call_with_no_ticket() {
         Some(6),
         "2K on Nano Banana 2.1, the default: 5.04¢ and input"
     );
-    assert!(path.resolve(&dir).is_file());
+    assert!(path.resolve(&dir).expect("a project path").is_file());
     std::fs::remove_dir_all(&dir).ok();
 }
 

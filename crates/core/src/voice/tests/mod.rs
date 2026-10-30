@@ -32,7 +32,11 @@ pub(super) fn project(label: &str) -> (PathBuf, Project) {
         let words = Words {
             words: vec![word("A", 0.1, 0.3), word("line.", 0.4, last)],
         };
-        std::fs::write(Words::beside(&audio).resolve(&dir), words.to_json()).unwrap();
+        std::fs::write(
+            Words::beside(&audio).resolve(&dir).expect("a project path"),
+            words.to_json(),
+        )
+        .unwrap();
         project.assets.push(line);
     }
     for (id, kind, path) in [

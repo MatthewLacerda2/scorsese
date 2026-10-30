@@ -33,7 +33,8 @@ fn a_named_instrument_is_read_from_the_project() {
     let baked = bake_asset(&mut project, &dir, &id).expect("bakes");
     assert!(baked.is_fresh());
 
-    let wav = std::fs::read(baked.path().resolve(&dir)).expect("the baked file");
+    let wav =
+        std::fs::read(baked.path().resolve(&dir).expect("a project path")).expect("the baked file");
     assert!(
         wav[44..].iter().any(|&byte| byte != 0),
         "a resolved instrument must actually play"

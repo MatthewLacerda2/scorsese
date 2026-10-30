@@ -30,10 +30,9 @@ impl args::Arguments for RecipeArguments {}
 /// the renderer and the synthesiser both hold.
 pub(super) fn recipe_path(dir: &Path, recipe: &Name) -> Result<(PathBuf, String), String> {
     let relative = ProjectPath::new(recipe.as_str());
-    relative
-        .check()
-        .map_err(|problem| format!("recipe path {problem}"))?;
-    let file = relative.resolve(dir);
+    let file = relative
+        .resolve(dir)
+        .map_err(|refused| format!("recipe path {}", refused.problem))?;
     Ok((file, relative.as_str().to_owned()))
 }
 

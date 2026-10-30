@@ -34,7 +34,7 @@ pub fn named_by_pages(project: &Project, project_root: &Path) -> Vec<NamedByPage
         .iter()
         .filter(|asset| asset.kind == AssetKind::Html)
         .filter_map(|page| {
-            let file = page.path.as_ref()?.resolve(project_root);
+            let file = page.path.as_ref()?.resolve(project_root).ok()?;
             Some((&page.id, fs::read_to_string(file).ok()?))
         })
         .collect();

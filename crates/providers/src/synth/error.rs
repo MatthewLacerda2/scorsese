@@ -1,6 +1,6 @@
 //! What can go wrong between a recipe on disk and a file in `generated/`.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use scorsese_core::{AssetId, PathProblem, ProjectPath};
 use scorsese_zimmer::SynthError;
@@ -207,4 +207,15 @@ pub enum SynthesisError {
         #[source]
         source: std::io::Error,
     },
+}
+
+/// Where `path` is under `project_root`, or a refusal to write there: a name
+/// made from an asset id is whatever the document says, and one that climbs
+/// names no file in the project.
+pub(super) fn place(project_root: &Path, path: &ProjectPath) -> Result<PathBuf, SynthesisError> {
+    path.resolve(project_root)
+        .map_err(|refused| SynthesisError::Write {
+            path: PathBuf::from(path.as_str()),
+            source: refused.into(),
+        })
 }

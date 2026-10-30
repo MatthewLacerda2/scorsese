@@ -83,6 +83,11 @@ impl Tool for Write {
         // project.json is the one thing that makes every other tool useless.
         let mut project = Project::from_json(&arguments.document)
             .map_err(|problem| format!("refused, nothing written: {problem}"))?;
+        // Its paths before any is probed: a file the document names outside
+        // the project is never looked at.
+        project
+            .check_paths()
+            .map_err(|problems| format!("refused, nothing written:\n{problems}"))?;
 
         // Measured before it is validated, because validation reads what the
         // probe records: a clip is held to its source's length, and checking

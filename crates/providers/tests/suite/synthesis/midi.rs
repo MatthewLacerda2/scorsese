@@ -38,7 +38,7 @@ fn a_song_goes_out_to_the_cache_and_comes_back_as_a_new_song() {
     let out = export_midi(&project, &dir, &id, &[], None).expect("exports");
     let expected = format!("{MIDI_EXPORT_DIR}/tune.mid");
     assert_eq!(out.shown, expected, "said project-relative");
-    assert_eq!(out.file, ProjectPath::new(&expected).resolve(&dir));
+    assert_eq!(out.file, ProjectPath::new(&expected).resolve(&dir).unwrap());
     let bytes = std::fs::read(&out.file).expect("the file is on disk");
     assert_eq!(out.bytes, bytes.len());
     assert_eq!((out.tracks, out.notes), (2, 3));
@@ -55,7 +55,10 @@ fn a_song_goes_out_to_the_cache_and_comes_back_as_a_new_song() {
     let asset = project.asset(&back.id).expect("the import added an asset");
     assert_eq!(asset.kind, AssetKind::SynthAudio);
     let recipe = asset.recipe.as_ref().expect("it points at its recipe");
-    assert!(recipe.resolve(&dir).is_file(), "and the recipe was written");
+    assert!(
+        recipe.resolve(&dir).unwrap().is_file(),
+        "and the recipe was written"
+    );
     std::fs::remove_dir_all(dir).ok();
 }
 

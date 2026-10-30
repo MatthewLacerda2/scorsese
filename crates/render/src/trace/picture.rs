@@ -136,7 +136,13 @@ pub fn vectorize(
     {
         return Err(TraceError::BadName(name.to_owned()));
     }
-    let (rgba, width, height) = read(tools, &path.resolve(project_root))?;
+    let source = path
+        .resolve(project_root)
+        .map_err(|refused| TraceError::Unreadable {
+            file: PathBuf::from(path.as_str()),
+            message: refused.problem.to_string(),
+        })?;
+    let (rgba, width, height) = read(tools, &source)?;
     let traced = trace(&rgba, width, height, tracing, name);
     let relative = format!("{PAGES_DIR}/{name}.svg");
     let file = project_root.join(&relative);

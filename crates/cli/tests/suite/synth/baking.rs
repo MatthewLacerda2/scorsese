@@ -20,7 +20,7 @@ fn media(dir: &Path) -> (String, usize) {
     let asset = project.assets.first().expect("one asset");
     assert_eq!(asset.state, Some(GenerationState::Generated));
     let path = asset.path.as_ref().expect("baked media");
-    let bytes = std::fs::read(path.resolve(dir)).expect("the baked file");
+    let bytes = std::fs::read(path.resolve(dir).expect("a project path")).expect("the baked file");
     (path.as_str().to_owned(), bytes.len())
 }
 

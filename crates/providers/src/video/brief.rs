@@ -20,7 +20,7 @@
 //! Nothing about *when* is in it. A timestamp inside a brief hash would make an
 //! unchanged prompt look edited and pay for it again.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use scorsese_core::{
     Asset, AssetId, AssetKind, LongPrompt, Project, ProjectPath, VideoRequest, hash_bytes,
@@ -157,7 +157,7 @@ impl Brief {
     /// generation. Every decision about whether a run has work goes through
     /// here so it cannot be made both ways.
     pub fn realized(&self, root: &Path) -> bool {
-        self.output().resolve(root).is_file()
+        self.output().resolve(root).is_ok_and(|file| file.is_file())
     }
 }
 
@@ -195,7 +195,13 @@ pub(crate) fn read_still(
         .path
         .as_ref()
         .ok_or_else(|| GenerationError::StillHasNoFile { id: id.clone() })?;
-    let file = path.resolve(root);
+    let file = path
+        .resolve(root)
+        .map_err(|refused| GenerationError::ReadStill {
+            id: id.clone(),
+            path: PathBuf::from(path.as_str()),
+            source: refused.into(),
+        })?;
     let bytes = std::fs::read(&file).map_err(|source| GenerationError::ReadStill {
         id: id.clone(),
         path: file,

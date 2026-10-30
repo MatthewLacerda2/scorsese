@@ -217,7 +217,12 @@ fn health_of(asset: &Asset, project_root: &Path, check: HashCheck) -> AssetHealt
     let Some(path) = &asset.path else {
         return AssetHealth::Missing;
     };
-    let file = path.resolve(project_root);
+    // Never looked for outside the project: what is there is not the
+    // project's to report.
+    let file = match path.resolve(project_root) {
+        Ok(file) => file,
+        Err(refused) => return AssetHealth::Unreadable(refused.to_string()),
+    };
     if !file.is_file() {
         return AssetHealth::Missing;
     }

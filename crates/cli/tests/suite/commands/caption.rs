@@ -28,7 +28,11 @@ fn spoken(label: &str) -> std::path::PathBuf {
         words: vec![word("Stop.", 0.2, 0.6), word("Read.", 0.9, 1.4)],
     };
     let beside = Words::beside(&ProjectPath::new("generated/vo.mp3"));
-    std::fs::write(beside.resolve(&dir), timed.to_json()).expect("its timings");
+    std::fs::write(
+        beside.resolve(&dir).expect("a project path"),
+        timed.to_json(),
+    )
+    .expect("its timings");
     dir
 }
 

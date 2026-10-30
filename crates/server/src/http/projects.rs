@@ -116,9 +116,11 @@ pub struct Save {
 /// `revision`. `409` if somebody did, and nothing is written.
 ///
 /// Parsed by the strict path, so a document in another build's format or
-/// with an unknown field is a `400` — the same refusal `Project::load` gives.
-/// Not validated, exactly as a local save is not: an edit in progress may be
-/// incoherent for a moment, and validating is the render's job.
+/// with an unknown field is a `400` — the same refusal `Project::load` gives —
+/// and validated as `project_write` validates: a document that does not is a
+/// `400` listing every problem in `Project::validate`'s words, and nothing is
+/// stored. What a stored document names is laid out on this machine, so one
+/// naming a path out of its folder is never kept.
 pub async fn save(
     State(state): State<AppState>,
     member: Member,
@@ -127,6 +129,9 @@ pub async fn save(
 ) -> Result<Json<Value>, ApiError> {
     let project = Project::from_json(&save.document.to_string())
         .map_err(|error| ApiError::BadRequest(error.to_string()))?;
+    project
+        .validate()
+        .map_err(|problems| ApiError::BadRequest(problems.to_string()))?;
     let revision = projects::save(&state.pool, member.user, id, save.revision, &project).await?;
     Ok(Json(json!({ "revision": revision })))
 }

@@ -362,6 +362,6 @@ fn media(project: &Project, project_dir: &Path, hashes: HashCheck) -> Vec<Findin
 /// producing a second complaint about the same field.
 fn missing_script(project: &Project, project_dir: &Path) -> Option<ProjectPath> {
     let script = project.script.clone()?;
-    script.check().ok()?;
-    (!script.resolve(project_dir).is_file()).then_some(script)
+    let file = script.resolve(project_dir).ok()?;
+    (!file.is_file()).then_some(script)
 }

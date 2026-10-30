@@ -39,7 +39,10 @@ fn a_sketch_is_queued_then_generated() {
     };
     assert_eq!(*bytes, 9);
     assert!(path.as_str().starts_with("generated/shot-"));
-    assert!(path.resolve(&dir).is_file(), "the video is not on disk");
+    assert!(
+        path.resolve(&dir).expect("a project path").is_file(),
+        "the video is not on disk"
+    );
 
     let (state, on_asset, ticket) = standing(&project, &id);
     assert_eq!(state, "Some(Generated)");

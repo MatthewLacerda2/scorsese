@@ -24,7 +24,7 @@ use scorsese_zimmer::{Excerpt, bake_excerpt_unless};
 
 use super::error::SynthesisError;
 use super::recipe::Recipe;
-use super::{instruments, read_recipe, write};
+use super::{instruments, place, read_recipe, write};
 
 /// Where a partial bake lands when the caller does not say — under `cache/`,
 /// which is the directory a project already treats as rebuildable.
@@ -112,7 +112,7 @@ pub fn bake_partial_unless(
         Some(path) => (path.to_path_buf(), path.display().to_string()),
         None => {
             let relative = ProjectPath::new(format!("{CACHE_DIR}/{PARTIAL_DIR}/{id}.wav"));
-            (relative.resolve(project_root), relative.to_string())
+            (place(project_root, &relative)?, relative.to_string())
         }
     };
     write(&destination, &bake.wav)?;

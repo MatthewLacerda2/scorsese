@@ -90,7 +90,12 @@ fn generate(
     let relative = asset.path.as_ref().ok_or_else(|| SetupError::NoPath {
         asset: asset.id.to_string(),
     })?;
-    let file = relative.resolve(directory);
+    let file = relative
+        .resolve(directory)
+        .map_err(|refused| SetupError::Io {
+            path: PathBuf::from(relative.as_str()),
+            source: refused.into(),
+        })?;
     if let Some(parent) = file.parent() {
         std::fs::create_dir_all(parent).map_err(|source| SetupError::Io {
             path: parent.to_path_buf(),

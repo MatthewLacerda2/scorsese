@@ -110,6 +110,11 @@ async fn render(
         .map_err(|error| format!("the job does not describe a render: {error}"))?;
     let project = Project::from_json(&payload.document.to_string())
         .map_err(|error| format!("the project does not load: {error}"))?;
+    // Whatever queued it: nothing is laid out or rendered from a document
+    // that does not validate, which is what keeps its paths in its folder.
+    project
+        .validate()
+        .map_err(|problems| format!("cannot render this project: {problems}"))?;
     let settings = payload.settings.render(&project)?;
     let range = payload.settings.range()?;
     let quality = payload.settings.quality()?;

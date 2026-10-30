@@ -6,7 +6,7 @@ use std::path::Path;
 use scorsese_core::{Asset, AssetId, AssetKind, GenerationState, Project, ProjectPath, Timestamp};
 
 use crate::credentials::Budget;
-use crate::generated::{self, Plan, Prompted, write};
+use crate::generated::{self, Plan, Prompted, write_in};
 use crate::{prices, spending};
 
 use super::{
@@ -272,7 +272,7 @@ fn waiting(
             let bytes = provider.fetch(&ready)?;
             let current = brief.output();
             let bought = submitted::output(root, id, &ticket.0).unwrap_or_else(|| current.clone());
-            write(&bought.resolve(root), &bytes)?;
+            write_in(root, &bought, &bytes)?;
             if bought != current {
                 release(project, root, id);
                 return Ok(Outcome::Failed {

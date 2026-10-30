@@ -87,7 +87,7 @@ fn the_samples_and_their_ids_are_written_into_generated() {
         let path = sample.path.as_str();
         assert!(path.starts_with("generated/"), "{path}");
         assert!(
-            sample.path.resolve(&dir).is_file(),
+            sample.path.resolve(&dir).expect("a project path").is_file(),
             "{path} was not written"
         );
     }
@@ -183,7 +183,8 @@ fn a_design_nobody_kept_is_still_spent() {
     )
     .expect("the same design again");
     for sample in &first.session.candidates {
-        std::fs::remove_file(sample.path.resolve(&dir)).expect("removing a sample");
+        std::fs::remove_file(sample.path.resolve(&dir).expect("a project path"))
+            .expect("removing a sample");
     }
     assert_eq!(spent(&dir), first.estimate.cents + second.estimate.cents);
 }

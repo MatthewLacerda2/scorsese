@@ -10,7 +10,7 @@ use std::path::Path;
 use scorsese_core::{Asset, AssetId, AssetKind, Project, ProjectPath};
 
 use crate::credentials::Budget;
-use crate::generated::{self, Plan, Prompted, record, write};
+use crate::generated::{self, Plan, Prompted, record, write_in};
 use crate::prices::{self, ImageEstimate, UnpricedImage};
 use crate::spending;
 
@@ -183,7 +183,7 @@ fn one(
             });
         }
     };
-    write(&output.resolve(root), &bytes)?;
+    write_in(root, &output, &bytes)?;
     spending::sent(project, root, id, &brief.digest(), cents)?;
     record(project, id, &output, &bytes, Some(cents));
     Ok(Outcome::Generated {

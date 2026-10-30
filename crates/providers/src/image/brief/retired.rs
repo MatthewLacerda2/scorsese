@@ -53,7 +53,7 @@ pub(super) fn drawn(brief: &Brief, asset: &Asset, root: &Path) -> Option<Project
             *path == fingerprint::output(&brief.id, &digest, "jpg")
         })
     });
-    (found && path.resolve(root).is_file()).then(|| path.clone())
+    (found && path.resolve(root).is_ok_and(|file| file.is_file())).then(|| path.clone())
 }
 
 /// The sizes the still may have been drawn at: as written, or the model's

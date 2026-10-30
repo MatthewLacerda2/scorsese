@@ -42,7 +42,9 @@ pub async fn keep(
         let (Some(path), Some(sha256)) = (&asset.path, &asset.sha256) else {
             continue;
         };
-        let file = path.resolve(root);
+        let Ok(file) = path.resolve(root) else {
+            continue;
+        };
         let written = file.symlink_metadata().is_ok_and(|meta| meta.is_file());
         if !written || known.contains(sha256.as_str()) {
             continue;

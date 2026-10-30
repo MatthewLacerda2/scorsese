@@ -121,3 +121,25 @@ fn each_problem_says_what_is_wrong_with_the_path() {
         "contains a `..` component and escapes the project root"
     );
 }
+
+/// What refuses an escaping path before anything touches the disk, and leaves
+/// the rest of validation to what runs next.
+#[test]
+fn the_path_check_reports_the_paths_and_nothing_else() {
+    let mut p = project();
+    p.assets.push(p.assets[0].clone());
+    assert!(p.validate().is_err(), "a repeated id is a problem");
+    assert_eq!(p.check_paths(), Ok(()), "and not a path one");
+
+    let escaping = ProjectPath::new("../logo.png");
+    asset_mut(&mut p, "logo").path = Some(escaping.clone());
+    let problems = p.check_paths().expect_err("the path escapes").into_vec();
+    assert_eq!(
+        problems,
+        [ValidationError::Asset(E::BadPath {
+            asset: asset_id("logo"),
+            path: escaping,
+            problem: PathProblem::ParentEscape,
+        })]
+    );
+}

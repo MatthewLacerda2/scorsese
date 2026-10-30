@@ -107,13 +107,13 @@ pub fn hear(
     hearing: Hearing<'_, impl FnOnce(&Path) -> Result<Vec<u8>, Undecoded>>,
 ) -> Result<Transcribed, TranscribeError> {
     let (found, path) = recording(project, asset)?;
-    let source = path.resolve(root);
-    if !source.is_file() {
+    let source = path.resolve(root).ok();
+    let Some(source) = source.filter(|source| source.is_file()) else {
         return Err(TranscribeError::Missing {
             asset: asset.clone(),
             path: path.clone(),
         });
-    }
+    };
     let file = Words::transcript(path);
     let done = |words, heard| Transcribed {
         asset: asset.clone(),
@@ -172,12 +172,14 @@ pub fn keep(project: &Project, root: &Path, done: &Transcribed) -> Result<(), Tr
 /// Writes `words` at `file`, by way of a file beside it, so a transcript is
 /// never read half-written.
 fn write(root: &Path, file: &ProjectPath, words: &Words) -> Result<(), TranscribeError> {
-    let target = file.resolve(root);
-    let writing = target.with_extension("json.writing");
     let failed = |source| TranscribeError::Write {
         path: file.clone(),
         source,
     };
+    let target = file
+        .resolve(root)
+        .map_err(|refused| failed(refused.into()))?;
+    let writing = target.with_extension("json.writing");
     std::fs::write(&writing, words.to_json()).map_err(failed)?;
     std::fs::rename(&writing, &target).map_err(failed)
 }

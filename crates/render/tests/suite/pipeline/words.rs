@@ -36,7 +36,7 @@ fn a_page_lights_on_the_word_where_the_clip_plays_it() {
     let audio = line.path.clone().expect("a generated line has a file");
     generate(
         &tools,
-        &audio.resolve(&dir),
+        &audio.resolve(&dir).expect("a project path"),
         &["-f", "lavfi", "-i", "sine=duration=2"],
     );
     // *gradient* is said from 1.0 s to 1.5 s into the line.
@@ -54,7 +54,11 @@ fn a_page_lights_on_the_word_where_the_clip_plays_it() {
             },
         ],
     };
-    std::fs::write(Words::beside(&audio).resolve(&dir), said.to_json()).expect("timings");
+    std::fs::write(
+        Words::beside(&audio).resolve(&dir).expect("a project path"),
+        said.to_json(),
+    )
+    .expect("timings");
     let page = Asset::imported(
         AssetId::new("lit"),
         AssetKind::Html,

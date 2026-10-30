@@ -141,7 +141,7 @@ fn missing(project: &Project, root: &std::path::Path) -> Vec<(PathBuf, PathBuf)>
         .filter_map(|asset| {
             let media = asset.media.as_ref()?;
             let sha256 = asset.sha256.as_ref()?;
-            let source = asset.path.as_ref()?.resolve(root);
+            let source = asset.path.as_ref()?.resolve(root).ok()?;
             let out = folder.join(preview::file_name(sha256));
             (preview::worth_making(asset.kind, media) && source.is_file() && !out.is_file())
                 .then_some((source, out))
