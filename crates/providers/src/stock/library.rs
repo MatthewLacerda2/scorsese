@@ -92,7 +92,8 @@ pub trait Library {
     fn hosts(&self) -> &'static [&'static str];
 
     /// Downloads `url` into `to`, at most `limit` bytes. Answers how many
-    /// arrived. Called only once [`fetchable`] has passed `url`.
+    /// arrived. Called only once [`fetchable`] has passed `url`; a real
+    /// library follows a redirect only where [`fetchable`] passes it too.
     fn download(&self, url: &str, limit: u64, to: &mut dyn Write) -> Result<u64, StockError>;
 }
 
@@ -252,7 +253,9 @@ pub(super) fn fetch_failed(library: &'static str, url: &str, error: &HttpError) 
     let said = match error {
         HttpError::Refused { status, .. } => format!("{host} answered {status} to a download"),
         HttpError::Unreachable { .. } => format!("{host} could not be reached for a download"),
-        HttpError::Unreadable { .. } => format!("a download from {host} broke off"),
+        HttpError::Unreadable { .. } => {
+            format!("a download from {host} broke off, or could not be kept on this machine")
+        }
     };
     StockError::Provider { library, said }
 }

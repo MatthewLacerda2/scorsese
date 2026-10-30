@@ -8,8 +8,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use scorsese_providers::credentials::Secret;
 use scorsese_providers::stock::{
-    Candidate, Choice, Library, LottieLibrary, Medium, PixabayLibrary, cache_dir, footage, import,
-    keep, previews,
+    Candidate, Choice, Library, LottieLibrary, Medium, PixabayLibrary, cache_dir, find_cached,
+    footage, import, keep, previews,
 };
 use serde_json::json;
 
@@ -123,6 +123,10 @@ fn pixabay_and_lottiefiles_ask_nothing_of_a_host_that_is_not_theirs() {
         ),
     ];
     plant(&cache, &planted);
+    // A page this test cannot plant would send `find` to the vendor by id.
+    for one in &planted {
+        assert!(find_cached(&cache, one.medium, one.id).is_some(), "planted");
+    }
 
     let pixabay = PixabayLibrary::new(&Secret::new("unused"));
     for said in imported(&root, &pixabay, Medium::Video, &[7, 8, 9, 10]) {

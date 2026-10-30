@@ -12,7 +12,7 @@ use crate::credentials::Secret;
 
 use super::PAGE_SIZE;
 use super::candidate::{Candidate, Medium, Rendition};
-use super::library::{Library, Page, Query, StockError, failed, fetch_failed};
+use super::library::{Library, Page, Query, StockError, failed, fetch_failed, fetchable};
 
 /// What this library is called wherever a message names it.
 const NAME: &str = "Pixabay";
@@ -125,7 +125,8 @@ impl Library for PixabayLibrary {
     fn download(&self, url: &str, limit: u64, to: &mut dyn Write) -> Result<u64, StockError> {
         // A file on Pixabay's CDN is public: nothing is signed, so no key
         // goes anywhere near it.
-        http::stream_to(url, limit, to, &mut |_, _| {})
+        let allowed = |next: &str| fetchable(self, next).is_ok();
+        http::stream_where(url, limit, to, &allowed)
             .map_err(|error| fetch_failed(NAME, url, &error))
     }
 }

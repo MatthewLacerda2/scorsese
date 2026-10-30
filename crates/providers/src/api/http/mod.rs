@@ -26,7 +26,7 @@ mod multipart;
 mod url;
 
 pub use explain::{AT_ITS_LIMIT, scrubbed};
-pub use file::stream_to;
+pub use file::{stream_to, stream_where};
 pub use multipart::Form;
 pub(crate) use url::{encoded, filled, host, https_host, query};
 
