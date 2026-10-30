@@ -5,11 +5,14 @@
 //! module doc of `credits`), so a turn decides before each call only that the
 //! balance is above zero. One turn alone may then end a little below it, by
 //! the one call that crossed. Several at once would each see the same last
-//! dollar and each cross it. So **a call in flight holds what it may cost**
-//! ([`estimate`]) until it is charged, and a turn — starting, or about to
-//! call — counts the balance less what the user's *other* turns hold. A turn
-//! alone is decided exactly as before; turns at once share the balance
-//! rather than each spending it.
+//! dollar and each cross it. So **a call in flight holds what it is likely
+//! to cost** ([`estimate`]) until it is charged, and a turn — starting, or
+//! about to call — counts the balance less what the user's *other* turns
+//! hold. A turn alone is decided exactly as before; turns at once share the
+//! balance rather than each assuming all of it. The hold is an estimate, not
+//! a bound — a call that thinks long writes more than it holds for — so what
+//! turns at once can still cross by is what their calls cost past their
+//! holds, as one turn alone crosses by its last call.
 //!
 //! Holds are in memory, kept by [`Holds`]: there is one server, every turn
 //! runs in it, and a restart ends every running turn (`store::recover`) along
@@ -34,14 +37,25 @@ use crate::db::{self, Tx, UserId};
 use crate::http::AppState;
 
 /// Output tokens a call is held for: a few steps of thinking and a tool
-/// call, about what an editing call writes. Input is held at its full rate,
-/// uncached, which a cached call pays a tenth of — so together the hold errs
-/// high.
+/// call, about what an editing call writes, though one may write up to the
+/// model's `max_tokens`. Input is held at its full rate, uncached, where a
+/// cached call pays a tenth of it.
 const OUTPUT_HELD: u64 = 4_096;
 
-/// Bytes of a request taken for one token: four, the estimate `tool_calls`
-/// already records replies by (migration `0020`).
+/// Bytes of a request's text taken for one token: four, the estimate
+/// `tool_calls` already records replies by (migration `0020`).
 const BYTES_PER_TOKEN: usize = 4;
+
+/// Tokens a picture in the request is held for: Anthropic's largest
+/// unscaled image, about 1.15 megapixels at 750 pixels a token — the figure
+/// `tools::size` takes for a picture it cannot measure. Its base64 is never
+/// counted as text, which would make one picture weigh tens of thousands.
+const PICTURE_TOKENS: usize = 1_600;
+
+/// What starts a picture's (or a document's) base64 in the wire's JSON: its
+/// `data` key. A string's own quotes are escaped, so text that says this is
+/// never mistaken for one.
+const BASE64_KEY: &str = "\"data\":\"";
 
 /// What each running turn's call in flight holds, by turn. Cheap to clone;
 /// clones share it.
@@ -171,23 +185,45 @@ pub(super) async fn hold(
     Ok(Ok(held))
 }
 
-/// What `request` may cost the user: its input at the model's full rate, as
-/// if nothing were cached, and [`OUTPUT_HELD`] tokens out, times the
+/// What `request` is likely to cost the user: its input at the model's full
+/// rate, as if nothing were cached — text at [`BYTES_PER_TOKEN`], each
+/// picture at [`PICTURE_TOKENS`] — and [`OUTPUT_HELD`] tokens out, times the
 /// assistant's multiplier. Nothing for a model with no price, which is never
 /// charged either.
 pub(super) fn estimate(request: &Request) -> i64 {
-    let bytes = request.system.len()
-        + request
-            .tools
-            .iter()
-            .map(|tool| tool.name.len() + tool.description.len() + tool.schema.to_string().len())
-            .sum::<usize>()
-        + request
-            .messages
-            .iter()
-            .map(|message| message.get().len())
-            .sum::<usize>();
-    held(request.model, bytes / BYTES_PER_TOKEN)
+    let tools: usize = request
+        .tools
+        .iter()
+        .map(|tool| tool.name.len() + tool.description.len() + tool.schema.to_string().len())
+        .sum();
+    let (text, pictures) = request
+        .messages
+        .iter()
+        .map(|message| weigh(message.get()))
+        .fold(
+            (request.system.len() + tools, 0),
+            |(text, pictures), (t, p)| (text + t, pictures + p),
+        );
+    held(
+        request.model,
+        text / BYTES_PER_TOKEN + pictures * PICTURE_TOKENS,
+    )
+}
+
+/// One message's text bytes and the pictures in it: everything but each
+/// base64 string after [`BASE64_KEY`], which is one picture.
+fn weigh(json: &str) -> (usize, usize) {
+    let (mut text, mut pictures, mut rest) = (0, 0, json);
+    while let Some(at) = rest.find(BASE64_KEY) {
+        let start = at + BASE64_KEY.len();
+        text += start;
+        pictures += 1;
+        // base64 has no quote or backslash, so the next quote ends it.
+        rest = rest[start..]
+            .find('"')
+            .map_or("", |end| &rest[start + end..]);
+    }
+    (text + rest.len(), pictures)
 }
 
 /// What `input` tokens and [`OUTPUT_HELD`] out cost on `model` today, to the
@@ -247,6 +283,41 @@ mod tests {
         assert_eq!(
             estimate(&request(&"x".repeat(400_000))),
             held(model, 100_000)
+        );
+    }
+
+    #[test]
+    fn a_picture_is_held_as_a_picture_and_never_as_its_base64() {
+        let message = |json: String| {
+            serde_json::value::RawValue::from_string(json).expect("the test's JSON holds")
+        };
+        let picture = "A".repeat(400_000);
+        let with_picture = Request {
+            model: Model::DEFAULT,
+            system: String::new(),
+            tools: Vec::new(),
+            messages: vec![message(format!(
+                "{{\"role\":\"user\",\"content\":[{{\"type\":\"image\",\"source\":\
+                 {{\"type\":\"base64\",\"media_type\":\"image/jpeg\",\"data\":\"{picture}\"}}}}]}}"
+            ))],
+        };
+        let around = with_picture.messages[0].get().len() - picture.len();
+        assert_eq!(
+            estimate(&with_picture),
+            held(Model::DEFAULT, around / BYTES_PER_TOKEN + PICTURE_TOKENS)
+        );
+        // Words that merely say the key, escaped inside a string, are words.
+        let words = "x".repeat(400);
+        let quoting = Request {
+            messages: vec![message(format!(
+                "{{\"role\":\"user\",\"content\":\"\\\"data\\\":\\\"{words}\"}}"
+            ))],
+            ..with_picture
+        };
+        let length = quoting.messages[0].get().len();
+        assert_eq!(
+            estimate(&quoting),
+            held(Model::DEFAULT, length / BYTES_PER_TOKEN)
         );
     }
 }

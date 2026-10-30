@@ -100,11 +100,13 @@ pub async fn start(
     }
     // No room for another turn is refused here, before anything is imported
     // or set aside — unless the words answer a pause, whose resume decides.
-    // In a transaction of its own, let go at once: the decision that counts
-    // is made again, under the lock, as the turn's row is written.
+    // `tx` has only read so far, so it is ended here to let the lock go at
+    // once — never a second connection beside it — and the decision that
+    // counts is made again, under the lock, as the turn's row is written.
     if last.as_ref().is_none_or(|last| last.state != "asking") {
-        let mut early = db::scoped(&state.pool, user).await?;
-        holds::admit(state, &mut early, user, false).await?;
+        holds::admit(state, &mut tx, user, false).await?;
+        tx.commit().await?;
+        tx = db::scoped(&state.pool, user).await?;
     }
     // Nothing is written yet, so `tx` is let go rather than held across the
     // import, which takes connections of its own.

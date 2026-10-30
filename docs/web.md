@@ -1613,8 +1613,10 @@ take them past it is refused before a byte is sent, and so is a chunk
 arriving once something else — a generation, a render — has filled the room
 meanwhile: `413`, saying how much they keep, of how much, and what the file
 needs. Decided under the user's lock, so two announcements at once cannot
-both take the last of it. A generation is never refused for it: it was paid
-for, and is kept.
+both take the last of it. The free tools that add files are held to it too —
+`stock_import` and `synth_bake` refuse in the same words — but a paid
+generation never is: it was paid for, and is kept. A render cannot be
+deleted; it frees its room by itself once unused for two days (*Renders*).
 
 **Thumbnails are a job** — the first handler the queue runs — drawn by
 `scorsese-render` (`frames::thumbnail`: a video's frame one second in, a
@@ -2219,15 +2221,19 @@ conversations (`chat_sessions`); a turn joins the newest unless it asks for a
 fresh one, and one turn runs at a time per conversation. **One user runs at
 most two at once**, every project and conversation together
 (`SCORSESE_USER_TURNS`; a turn paused on a question or a quote is not
-running): a third message, or an answer resuming a third, is `429` saying
-so. And since a call is charged only once it answers, **a call in flight
-holds what it may cost** — its input at the full rate, as if nothing were
-cached, and 4,096 tokens out, at most what the turn may still spend — until
-it is charged; a turn starting, or about to call, counts the balance less
-what the user's other turns hold. A turn alone is decided exactly as before;
-two at once cannot each spend the last dollar. A start refused for it is
-`402` saying the other messages may spend the rest, and a turn stopped for it
-says the same (`assistant::holds`). The system prompt asks
+running): a third message, or an answer resuming a third, is `409` saying
+so, and a woken continuation refused for it starts once one of their turns
+ends. And since a call is charged only once it answers, **a call in flight
+holds what it is likely to cost** — its text at four bytes a token and each
+picture at 1,600 tokens, at the full input rate as if nothing were cached,
+and 4,096 tokens out, at most what the turn may still spend — until it is
+charged; a turn starting, or about to call (its compaction's summary
+included), counts the balance less what the user's other turns hold. A turn
+alone is decided exactly as before; turns at once share the last dollar
+rather than each assuming all of it, crossing it by no more than what their
+calls cost past their holds. A start refused for it is `409` too, saying the
+other messages may spend the rest (never `402`, for which the panel offers
+credit), and a turn stopped for it says the same (`assistant::holds`). The system prompt asks
 for a short progress line before each step and one full summary at the end,
 and to lay a cut out as free sketches before spending on generation. Its words
 are shown as Markdown (#768) — rendered with raw HTML off and images shown as

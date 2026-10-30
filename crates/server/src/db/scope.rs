@@ -41,7 +41,7 @@
 //! designed voice, or how many of the shared account's voice slots are
 //! taken (`designs::owners` — the voice is the vendor's, not a row, so the
 //! policy cannot stand between it and the next user), and sweeping
-//! everybody's abandoned uploads (`library::upload` — what nobody has
+//! everybody's abandoned uploads (`library::room` — what nobody has
 //! touched for a day is a question about every user). Every
 //! call to it is a place a reviewer
 //! reads twice; it is short on purpose, so `grep privileged` stays a short

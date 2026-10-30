@@ -59,7 +59,7 @@ impl Storage {
 
     /// The same roots, each user keeping at most `quota`: their library,
     /// their kept renders and the uploads they have announced
-    /// (`library::upload`).
+    /// (`library::room`).
     pub fn with_quota(mut self, quota: Quota) -> Self {
         self.quota = quota;
         self
