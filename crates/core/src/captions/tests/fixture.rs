@@ -47,7 +47,11 @@ pub(super) fn project(label: &str) -> (PathBuf, Project) {
                     })
                     .collect(),
             };
-            std::fs::write(Words::beside(&audio).resolve(&dir), words.to_json()).unwrap();
+            std::fs::write(
+                Words::beside(&audio).resolve(&dir).expect("a project path"),
+                words.to_json(),
+            )
+            .unwrap();
         }
         project.assets.push(line);
     }

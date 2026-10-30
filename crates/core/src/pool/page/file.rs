@@ -111,7 +111,11 @@ pub fn write_page_file(
         path: pages,
         source,
     })?;
-    let file = path.resolve(project_root);
+    let file = path
+        .resolve(project_root)
+        .map_err(|_| PageFileError::NotAName {
+            name: name.to_owned(),
+        })?;
     let created = !file.exists();
     crate::write::atomically(&file, text).map_err(|source| PageFileError::Io {
         path: file.clone(),
@@ -123,7 +127,11 @@ pub fn write_page_file(
 /// The text of `pages/<name>`, exactly as it is on disk.
 pub fn read_page_file(project_root: &Path, name: &str) -> Result<String, PageFileError> {
     let path = page_file_path(name)?;
-    let file = path.resolve(project_root);
+    let file = path
+        .resolve(project_root)
+        .map_err(|_| PageFileError::NotAName {
+            name: name.to_owned(),
+        })?;
     match std::fs::read_to_string(&file) {
         Ok(text) => Ok(text),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {

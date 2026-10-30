@@ -18,6 +18,7 @@ fn bake_of(dir: &Path) -> String {
         .as_ref()
         .expect("baked media")
         .resolve(dir)
+        .expect("a project path")
         .display()
         .to_string()
 }

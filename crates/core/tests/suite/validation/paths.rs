@@ -80,7 +80,37 @@ fn a_script_naming_a_file_nobody_has_written_is_still_valid() {
 fn a_relative_path_resolves_under_the_project_root() {
     let root = std::path::Path::new("/tmp/demo.scor");
     let resolved = ProjectPath::new("assets/logo.png").resolve(root);
-    assert_eq!(resolved, root.join("assets").join("logo.png"));
+    assert_eq!(resolved, Ok(root.join("assets").join("logo.png")));
+}
+
+/// Containment is the type's, not each caller's: a path that breaks the rules
+/// never becomes a filesystem path, however it is spelled.
+#[test]
+fn a_path_that_breaks_the_rules_never_resolves() {
+    let root = std::path::Path::new("/tmp/demo.scor");
+    for (bad, problem) in [
+        ("../outside.png", PathProblem::ParentEscape),
+        ("assets/../../outside.png", PathProblem::ParentEscape),
+        ("/etc/passwd", PathProblem::Absolute),
+        ("C:/media/logo.png", PathProblem::Absolute),
+        ("assets\\logo.png", PathProblem::Backslash),
+        ("", PathProblem::Empty),
+    ] {
+        let refused = ProjectPath::new(bad).resolve(root).expect_err(bad);
+        assert_eq!(refused.problem, problem, "{bad}");
+        assert_eq!(refused.path, ProjectPath::new(bad), "{bad}");
+    }
+}
+
+#[test]
+fn a_refused_resolve_names_the_path_and_why() {
+    let refused = ProjectPath::new("../x.png")
+        .resolve(std::path::Path::new("/p.scor"))
+        .expect_err("escapes");
+    assert_eq!(
+        refused.to_string(),
+        "`../x.png` contains a `..` component and escapes the project root"
+    );
 }
 
 #[test]
@@ -89,5 +119,27 @@ fn each_problem_says_what_is_wrong_with_the_path() {
     assert_eq!(
         PathProblem::ParentEscape.to_string(),
         "contains a `..` component and escapes the project root"
+    );
+}
+
+/// What refuses an escaping path before anything touches the disk, and leaves
+/// the rest of validation to what runs next.
+#[test]
+fn the_path_check_reports_the_paths_and_nothing_else() {
+    let mut p = project();
+    p.assets.push(p.assets[0].clone());
+    assert!(p.validate().is_err(), "a repeated id is a problem");
+    assert_eq!(p.check_paths(), Ok(()), "and not a path one");
+
+    let escaping = ProjectPath::new("../logo.png");
+    asset_mut(&mut p, "logo").path = Some(escaping.clone());
+    let problems = p.check_paths().expect_err("the path escapes").into_vec();
+    assert_eq!(
+        problems,
+        [ValidationError::Asset(E::BadPath {
+            asset: asset_id("logo"),
+            path: escaping,
+            problem: PathProblem::ParentEscape,
+        })]
     );
 }

@@ -102,9 +102,14 @@ pub fn remove_assets(
 
         // A page is authored, not imported: dropping its row is collecting an
         // asset, deleting its file would be losing work. It stays in `pages/`,
-        // the way a recipe stays in `recipes/`.
-        if let Some(path) = asset.path.as_ref().filter(|_| asset.kind.is_media()) {
-            let file = path.resolve(project_root);
+        // the way a recipe stays in `recipes/`. A path out of the project
+        // names nothing of the project's to delete.
+        let file = asset
+            .path
+            .as_ref()
+            .filter(|_| asset.kind.is_media())
+            .and_then(|path| path.resolve(project_root).ok());
+        if let Some(file) = file {
             match fs::metadata(&file) {
                 Ok(metadata) => {
                     fs::remove_file(&file).map_err(|source| GcError::Undeletable {
@@ -132,7 +137,9 @@ fn remove_timings(asset: &Asset, project_root: &Path) -> Result<u64, GcError> {
     let Some(words) = Words::file_of(asset) else {
         return Ok(0);
     };
-    let file = words.resolve(project_root);
+    let Ok(file) = words.resolve(project_root) else {
+        return Ok(0);
+    };
     let Ok(metadata) = fs::metadata(&file) else {
         return Ok(0);
     };

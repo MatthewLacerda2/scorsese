@@ -122,8 +122,13 @@ fn probe_one(
     if reprobe == Reprobe::Skip && asset.media.is_some() {
         return ProbeOutcome::AlreadyKnown;
     }
-    let Some(file) = asset.path.as_ref().map(|path| path.resolve(project_root)) else {
+    let Some(path) = &asset.path else {
         return ProbeOutcome::Missing;
+    };
+    // Never looked for outside the project: validation names the path.
+    let file = match path.resolve(project_root) {
+        Ok(file) => file,
+        Err(refused) => return ProbeOutcome::Failed(refused.to_string()),
     };
     if !file.is_file() {
         return ProbeOutcome::Missing;

@@ -93,7 +93,7 @@ impl Brief {
     /// *has this been paid for*, and the current brief's file, never the
     /// asset's recorded `path`.
     pub fn realized(&self, root: &std::path::Path) -> bool {
-        self.output().resolve(root).is_file()
+        self.output().resolve(root).is_ok_and(|file| file.is_file())
     }
 }
 

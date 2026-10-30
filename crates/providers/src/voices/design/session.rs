@@ -125,7 +125,7 @@ pub(super) fn read(root: &Path, digest: &str) -> Option<Session> {
     session
         .candidates
         .iter()
-        .all(|sample| sample.path.resolve(root).is_file())
+        .all(|sample| sample.path.resolve(root).is_ok_and(|file| file.is_file()))
         .then_some(session)
 }
 
@@ -195,7 +195,10 @@ pub(super) fn write(
             index + 1,
             candidate.generated_voice_id
         ));
-        let file = path.resolve(root);
+        let file = path.resolve(root).map_err(|refused| DesignError::Write {
+            doing: format!("writing {path}"),
+            source: refused.into(),
+        })?;
         // Atomically, for the reason every write in this crate is: a truncated
         // sample is not a crash but something worse — a file that exists, so
         // the design reads as cached, and plays as noise.

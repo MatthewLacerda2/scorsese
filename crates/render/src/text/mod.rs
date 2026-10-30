@@ -197,17 +197,27 @@ impl Painter {
             // A file is one drawing and has no second table to reach for, so
             // the field is refused rather than quietly dropped. The message
             // says the thing to do instead, which is to name the italic file.
-            (FontChoice::File(path), _) if style.italic => {
-                return Err(RenderError::UnusableFont {
-                    asset: asset.id.to_string(),
-                    path: path.resolve(project_root),
-                    detail: "`italic` applies to a font scorsese ships, which carries its \
-                             drawn italic beside its upright where it has one. A font the \
-                             project carries is one file — name the italic file itself instead"
-                        .to_owned(),
-                });
+            (FontChoice::File(path), weight) => {
+                let file =
+                    path.resolve(project_root)
+                        .map_err(|refused| RenderError::UnusableFont {
+                            asset: asset.id.to_string(),
+                            path: PathBuf::from(path.as_str()),
+                            detail: refused.problem.to_string(),
+                        })?;
+                if style.italic {
+                    return Err(RenderError::UnusableFont {
+                        asset: asset.id.to_string(),
+                        path: file,
+                        detail: "`italic` applies to a font scorsese ships, which carries its \
+                                 drawn italic beside its upright where it has one. A font the \
+                                 project carries is one file — name the italic file itself \
+                                 instead"
+                            .to_owned(),
+                    });
+                }
+                Face::File(file, weight)
             }
-            (FontChoice::File(path), weight) => Face::File(path.resolve(project_root), weight),
         };
         if !self.fonts.contains_key(&key) {
             let font = open(&key, asset)?;

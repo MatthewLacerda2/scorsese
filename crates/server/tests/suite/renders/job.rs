@@ -107,8 +107,10 @@ async fn a_synthesised_sound_without_its_bake_is_refused_by_its_recipe(pool: PgP
     let (ana, cookie) = member(&pool, "ana@example.com").await;
     let project = card(|document| {
         let assets = document["assets"].as_array_mut().unwrap();
-        assets
-            .push(json!({ "id": "theme", "kind": "synth_audio", "recipe": "recipes/theme.json" }));
+        assets.push(
+            json!({ "id": "theme", "kind": "synth_audio", "recipe": "recipes/theme.json",
+                "state": "sketch" }),
+        );
         let tracks = document["tracks"].as_array_mut().unwrap();
         tracks.push(json!({ "id": "a1", "kind": "audio",
             "clips": [{ "id": "m", "asset": "theme", "start": 0, "duration": 6 }] }));

@@ -243,9 +243,10 @@ fn measure_one(probe: &Ffprobe, asset: &Asset, project_root: &Path) -> Result<Re
         .path
         .as_ref()
         .ok_or_else(|| "it has no media file".to_owned())?;
-    let media = probe
-        .probe(&path.resolve(project_root))
-        .map_err(|error| error.message)?;
+    let file = path
+        .resolve(project_root)
+        .map_err(|refused| refused.to_string())?;
+    let media = probe.probe(&file).map_err(|error| error.message)?;
     dimensions(media).ok_or_else(|| "the file reports no picture size".to_owned())
 }
 

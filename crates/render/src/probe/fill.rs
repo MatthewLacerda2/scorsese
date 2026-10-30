@@ -60,10 +60,14 @@ pub fn fill_media<'a>(
             .path
             .as_ref()
             .expect("only assets with a path are collected");
-        match probe.probe(&path.resolve(project_root)) {
+        let probed = path
+            .resolve(project_root)
+            .map_err(|refused| refused.to_string())
+            .and_then(|file| probe.probe(&file).map_err(|error| error.message));
+        match probed {
             Ok(media) => asset.media = Some(media),
-            Err(error) => {
-                failures.insert(id, error.message);
+            Err(why) => {
+                failures.insert(id, why);
             }
         }
     }
@@ -98,7 +102,8 @@ fn needs_probing(project: &Project, asset: &Asset, project_root: &Path) -> bool 
         && asset
             .path
             .as_ref()
-            .is_some_and(|path| path.resolve(project_root).is_file())
+            .and_then(|path| path.resolve(project_root).ok())
+            .is_some_and(|file| file.is_file())
         && shown_by_a_video_clip(project, &asset.id)
 }
 

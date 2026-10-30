@@ -159,11 +159,9 @@ fn naming(project: &Project) -> impl Iterator<Item = &ProjectPath> {
 /// pointing at it and lose the file with the folder.
 fn unkeepable(root: &Path, project: &Project) -> Result<(), String> {
     for path in naming(project) {
-        let written = path.check().is_ok()
-            && path
-                .resolve(root)
-                .symlink_metadata()
-                .is_ok_and(|meta| meta.is_file());
+        let written = path
+            .resolve(root)
+            .is_ok_and(|file| file.symlink_metadata().is_ok_and(|meta| meta.is_file()));
         if written && normal(path.as_str()).is_none() {
             return Err(format!(
                 "{path} cannot hold a script or a recipe on the server: it keeps those \
@@ -190,7 +188,9 @@ pub fn gather(root: &Path, project: &Project, laid: &ProjectFiles) -> Result<Pro
         let Some(key) = normal(&path) else {
             continue;
         };
-        let file = ProjectPath::new(key.as_str()).resolve(root);
+        let Ok(file) = ProjectPath::new(key.as_str()).resolve(root) else {
+            continue;
+        };
         if !file.symlink_metadata().is_ok_and(|meta| meta.is_file()) {
             continue;
         }
@@ -213,7 +213,11 @@ pub fn gather(root: &Path, project: &Project, laid: &ProjectFiles) -> Result<Pro
 /// Every regular file under `relative` in `root`, recursively, as
 /// project-relative paths. A link — to a file or a directory — is skipped.
 fn walk(root: &Path, relative: &str, into: &mut BTreeSet<String>) {
-    let Ok(entries) = std::fs::read_dir(ProjectPath::new(relative).resolve(root)) else {
+    let Some(entries) = ProjectPath::new(relative)
+        .resolve(root)
+        .ok()
+        .and_then(|directory| std::fs::read_dir(directory).ok())
+    else {
         return;
     };
     for entry in entries.flatten() {
@@ -237,7 +241,9 @@ fn walk(root: &Path, relative: &str, into: &mut BTreeSet<String>) {
 pub(crate) fn lay(files: &ProjectFiles, root: &Path) -> Result<(), MaterialiseError> {
     for (path, text) in files.iter() {
         let key = normal(path).ok_or_else(|| MaterialiseError::BadFile(path.to_owned()))?;
-        let file = ProjectPath::new(key.as_str()).resolve(root);
+        let file = ProjectPath::new(key.as_str())
+            .resolve(root)
+            .map_err(|_| MaterialiseError::BadFile(path.to_owned()))?;
         let made = file
             .parent()
             .map_or(Ok(()), std::fs::create_dir_all)

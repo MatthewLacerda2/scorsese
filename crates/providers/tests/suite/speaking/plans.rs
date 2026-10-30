@@ -24,7 +24,10 @@ fn a_rewritten_line_with_its_old_file_present_is_pending() {
         .asset(&id)
         .and_then(|asset| asset.path.clone())
         .expect("the old reading's path");
-    assert!(old.resolve(&dir).is_file(), "the old file is still on disk");
+    assert!(
+        old.resolve(&dir).expect("a project path").is_file(),
+        "the old file is still on disk"
+    );
     let asset = project.asset(&id).expect("the asset");
     assert_eq!(plan(&dir, asset), Plan::Submit, "it would be spoken");
     assert!(

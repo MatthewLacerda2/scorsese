@@ -31,7 +31,7 @@ fn a_name_nothing_answers_to_is_no_asset_and_names_no_surface() {
 fn a_page_whose_file_is_gone_is_unreadable() {
     let (dir, mut project) = new_project("page-read-gone");
     let written = write_page(&mut project, &dir, "title", "<p>Hi</p>").expect("written");
-    std::fs::remove_file(written.path.resolve(&dir)).expect("removed");
+    std::fs::remove_file(written.path.resolve(&dir).expect("a project path")).expect("removed");
 
     let refused = read_page(&project, &dir, &written.id).expect_err("refused");
 

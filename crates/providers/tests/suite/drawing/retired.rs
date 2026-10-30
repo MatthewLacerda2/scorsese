@@ -28,7 +28,7 @@ fn drawn(
 ) -> (std::path::PathBuf, Project, AssetId) {
     let (dir, mut project, id) = sketched(label, "a lighthouse at dusk");
     let path = ProjectPath::new(format!("generated/poster-{digest}.jpg"));
-    let file = path.resolve(&dir);
+    let file = path.resolve(&dir).expect("a project path");
     std::fs::create_dir_all(file.parent().expect("generated/")).expect("generated/");
     std::fs::write(&file, b"a picture paid for").expect("the picture");
     let asset = asset_mut(&mut project, &id);

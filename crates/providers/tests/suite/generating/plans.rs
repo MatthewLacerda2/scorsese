@@ -35,7 +35,10 @@ fn an_edited_brief_with_its_old_file_present_is_pending() {
         .asset(&id)
         .and_then(|asset| asset.path.clone())
         .expect("the old generation's path");
-    assert!(old.resolve(&dir).is_file(), "the old file is still on disk");
+    assert!(
+        old.resolve(&dir).expect("a project path").is_file(),
+        "the old file is still on disk"
+    );
     let asset = project.asset(&id).expect("the asset");
     assert_eq!(
         plan(&project, &dir, asset),
@@ -63,7 +66,8 @@ fn a_realised_brief_whose_file_was_deleted_is_pending_again() {
         .asset(&id)
         .and_then(|asset| asset.path.clone())
         .expect("the generation's path");
-    std::fs::remove_file(path.resolve(&dir)).expect("delete the generation");
+    std::fs::remove_file(path.resolve(&dir).expect("a project path"))
+        .expect("delete the generation");
 
     assert!(pending(&project, &dir), "a lost file is work again");
     std::fs::remove_dir_all(&dir).ok();

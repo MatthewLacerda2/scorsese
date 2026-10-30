@@ -26,7 +26,7 @@ use scorsese_core::{Asset, AssetId, AssetKind, AudioBlock, Project, ProjectPath,
 use scorsese_core::words::Words;
 
 use crate::credentials::Budget;
-use crate::generated::{self, Prompted, write};
+use crate::generated::{self, Prompted, place, write};
 use crate::prices;
 use crate::spending;
 
@@ -207,6 +207,9 @@ fn one(
         return Ok(Outcome::Cached { path });
     }
     let output = brief.output();
+    // Placed before it is paid for: an output named for an id that climbs
+    // is refused while refusing still costs nothing.
+    let (target, beside) = (place(root, &output)?, place(root, &Words::beside(&output))?);
 
     let estimate = prices::speech(brief.request.model, brief.characters())?;
     budget.check(estimate.cents)?;
@@ -226,10 +229,9 @@ fn one(
     // The timings before the audio: the audio being there is what says the
     // line is done, so once it is, whatever timings it came with are too.
     if let Some(words) = words {
-        let beside = Words::beside(&output).resolve(root);
         write(&beside, words.to_json().as_bytes())?;
     }
-    write(&output.resolve(root), &bytes)?;
+    write(&target, &bytes)?;
     spending::sent(project, root, id, &brief.digest(), estimate.cents)?;
     record(project, id, &output, &bytes, &brief)?;
     Ok(Outcome::Generated {

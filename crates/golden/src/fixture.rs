@@ -231,7 +231,8 @@ impl Fixture {
                 let carried = asset
                     .path
                     .as_ref()
-                    .is_some_and(|path| path.resolve(&self.directory).is_file());
+                    .and_then(|path| path.resolve(&self.directory).ok())
+                    .is_some_and(|file| file.is_file());
                 if !carried {
                     return Err(FixtureError::NoRecipe {
                         asset: asset.id.to_string(),

@@ -70,6 +70,17 @@ pub enum RenderError {
     )]
     NothingAudible,
 
+    /// A path the document gives that names no file inside the project, so it
+    /// is never opened. Validation refuses the same path in its own words; this
+    /// is the render's answer for a document nobody validated.
+    #[error("asset `{asset}`'s path {refused}")]
+    OutsideProject {
+        /// The asset whose path it is.
+        asset: String,
+        /// The path, and the rule it breaks.
+        refused: scorsese_core::UnresolvablePath,
+    },
+
     /// The assets table and the project directory disagree — a file deleted or
     /// renamed under a project that still expects it.
     #[error("asset `{asset}` points at {}, which is not there", path.display())]

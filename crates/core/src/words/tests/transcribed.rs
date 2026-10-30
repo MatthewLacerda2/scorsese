@@ -33,7 +33,11 @@ fn an_imported_recording_with_a_transcript_beside_it_has_words() {
     };
     for asset in [&sketch, &call] {
         let beside = Words::file_of(asset).unwrap();
-        std::fs::write(beside.resolve(&dir), heard.to_json()).unwrap();
+        std::fs::write(
+            beside.resolve(&dir).expect("a project path"),
+            heard.to_json(),
+        )
+        .unwrap();
         assert_eq!(Words::of(asset, &dir), Some(heard.clone()), "{}", asset.id);
     }
     assert!(Words::transcribable(AssetKind::Video));
@@ -78,7 +82,13 @@ fn a_transcribed_recording_says_its_word_at_an_instant() {
             end: 2.0,
         }],
     };
-    std::fs::write(Words::transcript(&take).resolve(&dir), heard.to_json()).unwrap();
+    std::fs::write(
+        Words::transcript(&take)
+            .resolve(&dir)
+            .expect("a project path"),
+        heard.to_json(),
+    )
+    .unwrap();
     let said = saying(&project, &dir, 1.75);
     let Some((_, Saying::Word(word))) = said.iter().find(|(clip, _)| clip.as_str() == "shot")
     else {
@@ -114,13 +124,21 @@ fn two_recordings_of_one_name_keep_two_transcripts() {
             end: 0.5,
         }],
     };
-    std::fs::write(transcript(&film).resolve(&dir), said("camera").to_json()).unwrap();
+    std::fs::write(
+        transcript(&film).resolve(&dir).expect("a project path"),
+        said("camera").to_json(),
+    )
+    .unwrap();
     assert_eq!(
         Words::of(&sound, &dir),
         None,
         "the sound is not transcribed"
     );
-    std::fs::write(transcript(&sound).resolve(&dir), said("recorder").to_json()).unwrap();
+    std::fs::write(
+        transcript(&sound).resolve(&dir).expect("a project path"),
+        said("recorder").to_json(),
+    )
+    .unwrap();
     assert_eq!(Words::of(&film, &dir), Some(said("camera")));
     assert_eq!(Words::of(&sound, &dir), Some(said("recorder")));
 

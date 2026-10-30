@@ -8,6 +8,7 @@ use crate::common;
 
 mod batch;
 mod cache;
+mod climbing;
 mod ledger;
 mod lifecycle;
 mod mock;

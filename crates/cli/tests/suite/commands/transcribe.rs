@@ -113,6 +113,7 @@ fn footage_is_heard_and_its_words_kept_beside_it_then_corrected() {
     assert!(
         Words::transcript(&ProjectPath::new("assets/take.mp4"))
             .resolve(&dir)
+            .expect("a project path")
             .is_file()
     );
 }

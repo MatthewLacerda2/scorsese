@@ -48,6 +48,12 @@ pub async fn ask(
     settings: Settings,
 ) -> Result<Asked, AskError> {
     let stored = projects::open(pool, user, id).await?;
+    // Asked of the document before a job is queued for it, so a project that
+    // does not validate is told so at once; the job asks again.
+    stored
+        .document
+        .validate()
+        .map_err(|problems| AskError::Invalid(format!("cannot render this project: {problems}")))?;
     let key = key(&stored.document, &settings).map_err(|e| AskError::Invalid(e.to_string()))?;
 
     let mut tx = db::scoped(pool, user).await?;

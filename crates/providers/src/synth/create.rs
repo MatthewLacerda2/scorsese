@@ -45,7 +45,7 @@ pub(super) fn start(
 ) -> Result<AssetId, SynthesisError> {
     let id = asset_id_for(project, name);
     let relative = ProjectPath::new(format!("{RECIPES_DIR}/{id}.json"));
-    let file = relative.resolve(project_root);
+    let file = super::place(project_root, &relative)?;
 
     let json = recipe.to_json().expect("a recipe serialises");
     if let Some(parent) = file.parent() {

@@ -63,16 +63,16 @@ pub fn read_page(
     let (AssetKind::Html, Some(path)) = (asset.kind, &asset.path) else {
         return Err(PageReadError::NotAPage { id: id.clone() });
     };
-    path.check().map_err(|problem| PageReadError::BadPath {
-        id: id.clone(),
-        path: path.clone(),
-        problem: problem.to_string(),
-    })?;
-    std::fs::read_to_string(path.resolve(project_root)).map_err(|source| {
-        PageReadError::Unreadable {
+    let file = path
+        .resolve(project_root)
+        .map_err(|refused| PageReadError::BadPath {
             id: id.clone(),
             path: path.clone(),
-            source,
-        }
+            problem: refused.problem.to_string(),
+        })?;
+    std::fs::read_to_string(file).map_err(|source| PageReadError::Unreadable {
+        id: id.clone(),
+        path: path.clone(),
+        source,
     })
 }

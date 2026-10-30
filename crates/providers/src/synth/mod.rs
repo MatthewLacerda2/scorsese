@@ -46,6 +46,8 @@ use scorsese_zimmer::level::{Cut, Layer, Profile};
 use scorsese_zimmer::song::PatchRef;
 use scorsese_zimmer::{Bake, Patch, SAMPLE_RATE, bake_excerpt_unless, bake_note, wav};
 
+use error::place;
+
 /// The vocabulary of an excerpt, re-exported.
 ///
 /// A caller asking for less of a recipe says so in the synthesiser's own
@@ -201,7 +203,7 @@ pub fn bake_asset_unless(
         placed,
     } = read_recipe(project, asset, project_root)?;
     let output = address::output(&digest, &named_patches(&recipe, project_root), &placed);
-    let on_disk = output.resolve(project_root);
+    let on_disk = place(project_root, &output)?;
 
     let baked = if on_disk.is_file() {
         Baked::Cached {
@@ -252,17 +254,15 @@ pub(super) fn read_recipe(
         .ok_or_else(|| SynthesisError::NoRecipe {
             id: asset.id.clone(),
         })?;
-    // Checked before it is opened, so a recipe can never reach outside the
-    // project — the same rule the render path holds media to.
-    relative
-        .check()
-        .map_err(|problem| SynthesisError::BadRecipePath {
+    // Resolved only inside the project, so a recipe can never reach outside
+    // it — the same rule the render path holds media to.
+    let file = relative
+        .resolve(project_root)
+        .map_err(|refused| SynthesisError::BadRecipePath {
             id: asset.id.clone(),
             path: relative.clone(),
-            problem,
+            problem: refused.problem,
         })?;
-
-    let file = relative.resolve(project_root);
     let bytes = std::fs::read(&file).map_err(|source| SynthesisError::Read {
         path: file.clone(),
         source,
@@ -355,11 +355,10 @@ fn read_patch(root: &Path, reference: &str) -> Result<String, String> {
                 .unwrap_or_else(|| format!(" (the kit has {})", kit::names()))
         ));
     }
-    let relative = ProjectPath::new(reference);
-    relative
-        .check()
-        .map_err(|problem| format!("path {problem}"))?;
-    std::fs::read_to_string(relative.resolve(root)).map_err(|error| error.to_string())
+    let file = ProjectPath::new(reference)
+        .resolve(root)
+        .map_err(|refused| format!("path {}", refused.problem))?;
+    std::fs::read_to_string(file).map_err(|error| error.to_string())
 }
 
 /// Every patch a song names by reference, in track order, with the digest of
@@ -422,7 +421,8 @@ fn record(project: &mut Project, id: &AssetId, baked: &Baked, project_root: &Pat
     asset.path = Some(baked.path().clone());
     asset.state = Some(GenerationState::Generated);
 
-    let Ok(wav) = std::fs::read(baked.path().resolve(project_root)) else {
+    let read = baked.path().resolve(project_root).ok();
+    let Some(wav) = read.and_then(|file| std::fs::read(file).ok()) else {
         return;
     };
     // Of the finished file, which is what `sha256` means everywhere else — the

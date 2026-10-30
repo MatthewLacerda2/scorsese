@@ -68,7 +68,7 @@ fn a_track_is_composed_priced_and_recorded() {
     let [(_, Outcome::Generated { path, .. })] = run.as_slice() else {
         panic!("{run:?}");
     };
-    assert!(path.resolve(&dir).is_file());
+    assert!(path.resolve(&dir).expect("a project path").is_file());
     let asset = &project.assets[0];
     assert_eq!(asset.state, Some(GenerationState::Generated));
     assert_eq!(asset.estimated_cost_cents, Some(10));

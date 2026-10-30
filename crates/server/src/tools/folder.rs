@@ -56,6 +56,12 @@ pub async fn lay_out(
     project: &Project,
     files: &ProjectFiles,
 ) -> Result<Folder, String> {
+    // Nothing is laid out from a document giving a path out of its folder.
+    // Only the paths: the rest of validation is the tool's own, as
+    // `Project::load` asks it locally — and a tool may be the repair.
+    project.check_paths().map_err(|problems| {
+        format!("the project names a path outside its folder, so nothing runs on it: {problems}")
+    })?;
     let named: Vec<String> = hashes(project).into_iter().map(str::to_owned).collect();
     let mut tx = db::scoped(pool, user).await.map_err(failed)?;
     let media = locate::by_hash(&mut tx, storage, user, &named)
@@ -81,8 +87,14 @@ pub async fn lay_out(
 
     let root = laid.root().to_path_buf();
     for (digest, source) in made {
-        if let Some(output) = briefs.get(&digest) {
-            link(&source, &output.resolve(&root))?;
+        // An output named for an id that climbs is no file of the folder's:
+        // nothing is linked for it, and the generation that would write there
+        // is refused the same way.
+        if let Some(target) = briefs
+            .get(&digest)
+            .and_then(|output| output.resolve(&root).ok())
+        {
+            link(&source, &target)?;
         }
     }
     Ok(Folder { laid })

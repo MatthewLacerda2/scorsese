@@ -30,7 +30,11 @@ fn describing_an_instant_names_the_word_being_said() {
         words: vec![word("A", 0.2, 0.4), word("line.", 0.5, 1.0)],
     };
     let beside = Words::beside(&ProjectPath::new("generated/vo.mp3"));
-    std::fs::write(beside.resolve(&dir), timed.to_json()).unwrap();
+    std::fs::write(
+        beside.resolve(&dir).expect("a project path"),
+        timed.to_json(),
+    )
+    .unwrap();
 
     // The line starts at 2 s: `line.` is heard from 2.5 s to 3 s.
     let (text, failed) = said(&call(
@@ -45,7 +49,7 @@ fn describing_an_instant_names_the_word_being_said() {
     assert!(text.contains("v1c is between words"), "{text}");
     assert_eq!(text.matches("v1c is").count(), 2, "silent at 1 s: {text}");
 
-    std::fs::remove_file(beside.resolve(&dir)).unwrap();
+    std::fs::remove_file(beside.resolve(&dir).expect("a project path")).unwrap();
     let (text, _) = said(&call(
         "project_describe",
         json!({ "project": dir, "at": "2.7s" }),

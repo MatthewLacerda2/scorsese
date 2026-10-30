@@ -105,8 +105,9 @@ pub enum MaterialiseError {
     #[error("{} already exists", .0.display())]
     Exists(PathBuf),
 
-    /// An asset's path is absolute or climbs out of the project. Refused
-    /// rather than linked: it would put a link outside the folder.
+    /// An asset's path or recipe is absolute or climbs out of the project.
+    /// Refused before anything is made: a link there would land outside the
+    /// folder, and a file read there would be somebody else's.
     #[error("asset {asset} has a path that is not project-relative: {path}")]
     BadPath {
         /// The asset.
@@ -144,6 +145,7 @@ pub fn materialise(
     at: &Path,
     media: &impl MediaSource,
 ) -> Result<Materialised, MaterialiseError> {
+    contained(project)?;
     let io = |path: &Path| {
         let path = path.to_path_buf();
         move |source| MaterialiseError::Io { path, source }
@@ -176,17 +178,11 @@ pub fn materialise(
         let (Some(path), Some(hash)) = (&asset.path, &asset.sha256) else {
             continue;
         };
-        if path.check().is_err() {
-            return Err(MaterialiseError::BadPath {
-                asset: asset.id.clone(),
-                path: path.clone(),
-            });
-        }
         let Some(source) = media.locate(hash) else {
             folder.missing.push(asset.id.clone());
             continue;
         };
-        let target = path.resolve(at);
+        let target = path.resolve(at).map_err(|_| bad(asset, path))?;
         // Two assets on one path are one file: the first link stands.
         if target.symlink_metadata().is_ok() {
             continue;
@@ -199,7 +195,7 @@ pub fn materialise(
         if let Some(file) = Words::file_of(asset)
             && let Some(words) = media.words(hash)
         {
-            let beside = file.resolve(at);
+            let beside = file.resolve(at).map_err(|_| bad(asset, &file))?;
             // Never through something already there: a link would carry the
             // write out of the folder.
             if beside.symlink_metadata().is_err() {
@@ -208,6 +204,27 @@ pub fn materialise(
         }
     }
     Ok(folder)
+}
+
+/// Refuse a document any of whose assets gives a path out of the project —
+/// hashed or not, a file or a recipe — before anything is made. One with no
+/// hash is never linked, but the renderer and every tool still read it.
+fn contained(project: &Project) -> Result<(), MaterialiseError> {
+    for asset in &project.assets {
+        for path in asset.path.iter().chain(&asset.recipe) {
+            if path.check().is_err() {
+                return Err(bad(asset, path));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn bad(asset: &scorsese_core::Asset, path: &ProjectPath) -> MaterialiseError {
+    MaterialiseError::BadPath {
+        asset: asset.id.clone(),
+        path: path.clone(),
+    }
 }
 
 #[cfg(unix)]

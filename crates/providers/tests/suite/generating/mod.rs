@@ -8,6 +8,7 @@
 use crate::common;
 
 mod cache;
+mod climbing;
 mod expiry;
 mod ledger;
 mod lifecycle;

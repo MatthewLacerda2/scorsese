@@ -98,10 +98,13 @@ fn apply(
         .filter(|text| !text.trim().is_empty())
     {
         let recipe = ProjectPath::new(recipe.clone());
-        recipe
-            .check()
-            .map_err(|problem| format!("`{recipe}` is not a usable recipe path: {problem}"))?;
-        if !recipe.resolve(root).is_file() {
+        let file = recipe.resolve(root).map_err(|refused| {
+            format!(
+                "`{recipe}` is not a usable recipe path: {}",
+                refused.problem
+            )
+        })?;
+        if !file.is_file() {
             return Err(format!(
                 "no recipe at `{recipe}` — nothing was changed. synth_new writes a \
                  starter one, and synth_write replaces an existing one"

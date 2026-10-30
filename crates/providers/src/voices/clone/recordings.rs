@@ -48,10 +48,14 @@ pub(super) fn gather(
                 });
             }
         };
-        let bytes = std::fs::read(path.resolve(root)).map_err(|source| CloneError::Unreadable {
+        let unreadable = |source| CloneError::Unreadable {
             path: path.to_string(),
             source,
-        })?;
+        };
+        let file = path
+            .resolve(root)
+            .map_err(|refused| unreadable(refused.into()))?;
+        let bytes = std::fs::read(file).map_err(unreadable)?;
         let file_name = path.as_str().rsplit('/').next().unwrap_or(path.as_str());
         gathered.recordings.push(Recording {
             file_name: file_name.to_owned(),

@@ -24,7 +24,11 @@ pub(super) fn spoken(label: &str, timed: bool) -> (std::path::PathBuf, Project) 
             }],
         };
         std::fs::create_dir_all(dir.join("generated.d")).unwrap();
-        std::fs::write(Words::beside(&audio).resolve(&dir), words.to_json()).unwrap();
+        std::fs::write(
+            Words::beside(&audio).resolve(&dir).expect("a project path"),
+            words.to_json(),
+        )
+        .unwrap();
     }
     let mut project = Project::new("words", Fps::THIRTY);
     project.assets.push(line);
@@ -103,7 +107,11 @@ fn an_expressive_line_read_back_has_no_tags() {
     };
     let audio = project.assets[0].path.clone().unwrap();
     std::fs::create_dir_all(dir.join("generated.d")).unwrap();
-    std::fs::write(Words::beside(&audio).resolve(&dir), tagged.to_json()).unwrap();
+    std::fs::write(
+        Words::beside(&audio).resolve(&dir).expect("a project path"),
+        tagged.to_json(),
+    )
+    .unwrap();
     let read = |project: &Project| Words::of(&project.assets[0], &dir).unwrap().words.len();
     assert_eq!(read(&project), 2, "the default model reads brackets aloud");
     project.assets[0].speech = Some(SpeechRequest {

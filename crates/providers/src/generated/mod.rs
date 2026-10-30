@@ -83,6 +83,21 @@ pub(crate) fn write(path: &Path, bytes: &[u8]) -> Result<(), WriteError> {
     })
 }
 
+/// [`write`] at a project path under `root`: refused, nothing written, when
+/// the path names no file inside the project — an output path is built from
+/// an asset id, and an id is whatever the document says.
+pub(crate) fn write_in(root: &Path, path: &ProjectPath, bytes: &[u8]) -> Result<(), WriteError> {
+    write(&place(root, path)?, bytes)
+}
+
+/// Where `path` is under `root`, as a [`WriteError`] when it is outside.
+pub(crate) fn place(root: &Path, path: &ProjectPath) -> Result<PathBuf, WriteError> {
+    path.resolve(root).map_err(|refused| WriteError {
+        path: PathBuf::from(path.as_str()),
+        source: refused.into(),
+    })
+}
+
 /// A generation that could not be written into `generated/` — each provider
 /// reports it as its own `Write` variant.
 #[derive(Debug)]

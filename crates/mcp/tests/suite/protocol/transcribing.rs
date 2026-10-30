@@ -14,7 +14,8 @@ use crate::protocol::{call, said};
 fn footage(label: &str, heard: bool) -> std::path::PathBuf {
     let dir = project(label);
     let take = ProjectPath::new("assets/take.mp4");
-    std::fs::write(take.resolve(&dir), b"footage").expect("write the footage");
+    std::fs::write(take.resolve(&dir).expect("a project path"), b"footage")
+        .expect("write the footage");
     let mut document = Project::load(&dir).expect("the fixture loads");
     document.assets.push(Asset::imported(
         AssetId::new("take"),
@@ -31,8 +32,13 @@ fn footage(label: &str, heard: bool) -> std::path::PathBuf {
         let words = Words {
             words: vec![said("Olha", 0.0), said("casa", 0.3), said("bê", 0.6)],
         };
-        std::fs::write(Words::transcript(&take).resolve(&dir), words.to_json())
-            .expect("write the transcript");
+        std::fs::write(
+            Words::transcript(&take)
+                .resolve(&dir)
+                .expect("a project path"),
+            words.to_json(),
+        )
+        .expect("write the transcript");
     }
     dir
 }

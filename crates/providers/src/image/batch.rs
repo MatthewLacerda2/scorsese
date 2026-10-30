@@ -86,7 +86,11 @@ fn order(
             )),
             Ok(brief) if brief.realized(root) => {
                 let output = brief.output();
-                let bytes = std::fs::read(output.resolve(root)).unwrap_or_default();
+                let bytes = output
+                    .resolve(root)
+                    .ok()
+                    .and_then(|file| std::fs::read(file).ok())
+                    .unwrap_or_default();
                 record(project, &id, &output, &bytes, Some(half(&brief)?));
                 done.push((id, Outcome::Cached { path: output }));
             }

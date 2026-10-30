@@ -11,6 +11,7 @@ mod captures;
 mod client_errors;
 mod common;
 mod config;
+mod contained;
 mod credits;
 mod editor;
 mod events;

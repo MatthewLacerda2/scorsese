@@ -221,7 +221,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("assets")).expect("as set up");
         let take = ProjectPath::new("assets/take.mp4");
-        std::fs::write(take.resolve(&dir), b"footage").expect("as set up");
+        std::fs::write(take.resolve(&dir).expect("a project path"), b"footage").expect("as set up");
         let words = Words {
             words: vec![Word {
                 text: "Corta!".into(),
@@ -229,7 +229,13 @@ mod tests {
                 end: 0.4,
             }],
         };
-        std::fs::write(Words::transcript(&take).resolve(&dir), words.to_json()).expect("as set up");
+        std::fs::write(
+            Words::transcript(&take)
+                .resolve(&dir)
+                .expect("a project path"),
+            words.to_json(),
+        )
+        .expect("as set up");
         let mut project = Project::new("t", Fps::THIRTY);
         project.assets.push(Asset::imported(
             AssetId::new("take"),

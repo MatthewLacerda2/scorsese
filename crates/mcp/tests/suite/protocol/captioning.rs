@@ -31,7 +31,11 @@ fn a_timed_line_becomes_captions_that_a_rerun_replaces() {
         ],
     };
     let beside = Words::beside(&ProjectPath::new("generated/vo.mp3"));
-    std::fs::write(beside.resolve(&dir), timed.to_json()).unwrap();
+    std::fs::write(
+        beside.resolve(&dir).expect("a project path"),
+        timed.to_json(),
+    )
+    .unwrap();
 
     // The second run names the rim's colour, as `scorsese caption --stroke`
     // can (#1288).

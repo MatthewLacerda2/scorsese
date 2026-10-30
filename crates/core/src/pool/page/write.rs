@@ -123,12 +123,13 @@ fn rewrite(asset: &Asset, project_root: &Path, html: &str) -> Result<PageWritten
         (AssetKind::Html, Some(path)) => path.clone(),
         (kind, _) => return Err(PageError::NotAPage { id, kind: *kind }),
     };
-    path.check().map_err(|problem| PageError::BadPath {
-        id: id.clone(),
-        path: path.as_str().to_owned(),
-        problem: problem.to_string(),
-    })?;
-    let file = path.resolve(project_root);
+    let file = path
+        .resolve(project_root)
+        .map_err(|refused| PageError::BadPath {
+            id: id.clone(),
+            path: path.as_str().to_owned(),
+            problem: refused.problem.to_string(),
+        })?;
     if let Some(parent) = file.parent() {
         std::fs::create_dir_all(parent).map_err(|source| PageError::Unwritable {
             path: parent.to_path_buf(),

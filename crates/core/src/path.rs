@@ -13,6 +13,12 @@ use serde::{Deserialize, Serialize};
 /// this type's `Deserialize`. That is deliberate: a project with three bad
 /// paths should report all three at once instead of aborting on the first.
 /// Construction is therefore infallible; [`ProjectPath::check`] is the rule.
+///
+/// **Containment is the type's, not each caller's.** [`ProjectPath::resolve`]
+/// applies [`ProjectPath::check`] itself, so a path that breaks the rules
+/// never becomes a filesystem path, whatever wrote it (an unvalidated
+/// document, a name built from an asset id) and whether or not its caller
+/// checked it first.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct ProjectPath(String);
@@ -60,11 +66,44 @@ impl ProjectPath {
         Ok(())
     }
 
-    /// Joins this path onto a project root to get a real filesystem path.
-    pub fn resolve(&self, project_root: &Path) -> PathBuf {
-        self.0
+    /// Joins this path onto a project root to get a real filesystem path —
+    /// or refuses, when it breaks the rules [`ProjectPath::check`] holds and
+    /// could name something outside `project_root`.
+    pub fn resolve(&self, project_root: &Path) -> Result<PathBuf, UnresolvablePath> {
+        self.check().map_err(|problem| UnresolvablePath {
+            path: self.clone(),
+            problem,
+        })?;
+        Ok(self
+            .0
             .split('/')
-            .fold(project_root.to_path_buf(), |acc, s| acc.join(s))
+            .fold(project_root.to_path_buf(), |acc, s| acc.join(s)))
+    }
+}
+
+/// A [`ProjectPath`] that [`ProjectPath::resolve`] refused: it names no file
+/// inside the project.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnresolvablePath {
+    /// The path as written.
+    pub path: ProjectPath,
+    /// The rule it breaks.
+    pub problem: PathProblem,
+}
+
+impl fmt::Display for UnresolvablePath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "`{}` {}", self.path, self.problem)
+    }
+}
+
+impl std::error::Error for UnresolvablePath {}
+
+/// For a caller whose failures are the filesystem's: a path that names no file
+/// in the project is, to it, input it cannot open.
+impl From<UnresolvablePath> for std::io::Error {
+    fn from(refused: UnresolvablePath) -> Self {
+        Self::new(std::io::ErrorKind::InvalidInput, refused)
     }
 }
 
