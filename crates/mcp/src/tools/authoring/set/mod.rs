@@ -94,10 +94,11 @@ fn on(kinds: &str, what: &str) -> String {
 struct Arguments {
     project: ProjectDir,
     /// The asset's id. One that exists is changed; one nothing answers to is
-    /// made, which takes `kind`. Left out with a `kind`, an id is derived from
-    /// the content (a caption's or a prompt's opening words, a shape's
-    /// outline, an icon's symbol) and suffixed until it is free; the reply
-    /// says which.
+    /// made, which takes `kind`; a new id holds only ASCII letters, digits,
+    /// `-`, `_` and `.`, never a leading `.`. Left out with a `kind`, an id
+    /// is derived from the content (a caption's or a prompt's opening words,
+    /// a shape's outline, an icon's symbol) and suffixed until it is free;
+    /// the reply says which.
     asset: Option<String>,
     /// What to make: `text`, `color`, `shape`, `icon`, or a free sketch of a
     /// `generated_video`, `generated_image` or `generated_audio`. Required to

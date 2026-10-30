@@ -25,7 +25,8 @@ struct GroupArguments {
     clips: Vec<String>,
     /// Id for the new group asset. Left out, it is `group`, or `group-2` and so
     /// on if that is taken. Name it for what it is — `pipeline-diagram` — since
-    /// it is how the group is found again.
+    /// it is how the group is found again: ASCII letters, digits, `-`, `_` and
+    /// `.`.
     asset: Option<String>,
     /// Id for the one clip that shows the group. Left out, it is `c-` followed
     /// by the asset's id.
