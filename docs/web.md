@@ -196,6 +196,9 @@ provider keys use, and is documented in `.env.example`:
 | `SCORSESE_FREE_MONTHLY` | The most every account may spend free in a calendar month, in dollars. Defaults to `12.00`. |
 | `SCORSESE_RECHARGE_BONUS` | The bonus credit on larger purchases, as tiers of whole reais and percent: `40:5,80:10`, or `none` (*Buying credits*). Defaults to `40:5,80:10`. Each tier starts higher and gives more than the last, at most `100`, or the server will not start. |
 | `SCORSESE_ELEVENLABS_CONCURRENCY` | How many ElevenLabs calls may be in flight at once, every kind of job together (*The job queue*): the plan's concurrent requests. Defaults to `3`, Starter's; Free allows `2`. A whole number above zero, or the server will not start. |
+| `SCORSESE_USER_TURNS` | How many assistant turns one account may have running at once, every project and conversation together (*Assistant turns*). Defaults to `2`: a person and a second tab. A whole number above zero, or the server will not start. |
+| `SCORSESE_USER_BATCH_STILLS` | How many half-price batched stills one account may have waiting on Google at once, of the 64 the server runs (*The job queue*); the rest of theirs wait in line. Defaults to `16`, a quarter of them. A whole number above zero, or the server will not start. |
+| `SCORSESE_USER_STORAGE` | How much one account may keep — its library, its kept renders and the uploads it has announced — as a size: `50GB`, `200GB` (*Library*). Defaults to `50GB`, two and a half of the largest upload. A size above zero, or the server will not start. |
 | `SCORSESE_ELEVENLABS_VOICE_SLOTS` | How many designed voices the ElevenLabs account holds, every user's together (*Designing a voice*). Defaults to `10`, Starter's. A whole number above zero, or the server will not start. |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | The Google OAuth client people sign in with (*Accounts*). Optional, with the next one: without all three, Google sign-in is off, the server says so in its log, and everything else is served. The secret is never printed. |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Stripe's secret key and the webhook endpoint's signing secret, for users buying credits (*Buying credits*). Optional, with the next one: without all three, buying is off, the server says so in its log, and a purchase is answered `503` "not configured". Both are secrets and never printed. |
@@ -1068,7 +1071,9 @@ together, so every ElevenLabs kind draws on one shared budget,
 `jobs::kinds::ELEVENLABS`, sized by `SCORSESE_ELEVENLABS_CONCURRENCY` (3,
 Starter's), and a kind runs only while both its own limit and its budget have
 room. Cloning a voice (#1263) runs as a `voice_keep` job and draws on it
-too; music and sound join it when they arrive.
+too; music and sound join it when they arrive. **A kind may also be capped
+per user** (`Registry::per_user`): the claim passes over the jobs of a user
+who already runs that many of it, and takes other users' instead.
 
 | kind | at once | why |
 | --- | --- | --- |
@@ -1079,7 +1084,7 @@ too; music and sound join it when they arrive.
 | `veo_shot` | 4 | minutes of waiting on Google, almost no machine |
 | `spoken_line` | the ElevenLabs budget | seconds, mostly network |
 | `still_image` | 4 | a Gemini still (#461): seconds, mostly network |
-| `batch_still` | 64 | a Gemini still in a half-price batch (#947): one order, then asking once a minute for up to a day — many at once, so a slot held for a day never makes the next person's still wait a day to be ordered |
+| `batch_still` | 64, at most 16 of one user's | a Gemini still in a half-price batch (#947): one order, then asking once a minute for up to a day — many at once, so a slot held for a day never makes the next person's still wait a day to be ordered, and a quarter of them per user (`SCORSESE_USER_BATCH_STILLS`), so one account's storyboard never holds the whole pool; the rest of theirs wait in line |
 | `voice_design` | the ElevenLabs budget | an ElevenLabs voice design (#572): seconds, mostly network |
 | `voice_keep` | 1, within the ElevenLabs budget | a designed candidate kept as a voice (#572), or a voice cloned from a user's recordings (#1263): one free call, one at a time so the voice-slot count it checks first is never raced |
 | `voice_forget` | 1, within the ElevenLabs budget | a kept voice deleted at ElevenLabs, then its row (#1381): one free call, freeing the voice slot it took |
@@ -1294,7 +1299,11 @@ goes `stuck` settles nothing and its reservation stays held, since Google may
 still be billing. A batched still reserves its half price, charged when its
 picture lands and released when its batch stops without one. The assistant is charged after each call rather than reserved for:
 its cost exists only once the tokens are counted, so a turn checks the balance
-is positive before starting and the call may dip a little below zero.
+is positive before starting and the call may dip a little below zero. A call
+in flight holds what it may cost until it is charged, and a turn — starting,
+or about to call — counts the balance less what the user's other turns hold,
+so turns at once share the last dollar rather than each spending it
+(*Assistant turns*).
 
 **The free allowance** (#1530, the maintainer, 2026-10-24): every account
 may spend **$4 a day, at most $12 a calendar month**, for nothing, both
@@ -1592,10 +1601,22 @@ and `sha256`. Chunks stay under Cloudflare's 100 MB request cap (the client's
 `chunkSize`); how far an upload got is the length of its file in the cache, so
 a dropped chunk resumes from whatever reached the disk. One writer per upload
 (`423` to a second); an upload untouched for a day is swept by the user's next
-announcement. The last `PATCH` names the new item in `Scorsese-Library-Item`.
+announcement, and everybody's every hour. The last `PATCH` names the new item in `Scorsese-Library-Item`.
 A tus client retries `409` by default — right for a misplaced chunk, wrong for
 "you already have this", whose body carries `item`; the web app's
 `onShouldRetry` stops on it.
+
+**Each user keeps at most 50 GB** (`SCORSESE_USER_STORAGE`): their library,
+their kept renders and every upload they have announced, counted at its
+announced length from the moment it is announced. An announcement that would
+take them past it is refused before a byte is sent, and so is a chunk
+arriving once something else — a generation, a render — has filled the room
+meanwhile: `413`, saying how much they keep, of how much, and what the file
+needs. Decided under the user's lock, so two announcements at once cannot
+both take the last of it. The free tools that add files are held to it too —
+`stock_import` and `synth_bake` refuse in the same words — but a paid
+generation never is: it was paid for, and is kept. A render cannot be
+deleted; it frees its room by itself once unused for two days (*Renders*).
 
 **Thumbnails are a job** — the first handler the queue runs — drawn by
 `scorsese-render` (`frames::thumbnail`: a video's frame one second in, a
@@ -1677,7 +1698,7 @@ local project keeps them, so a render's pages get `scorsese.words` and
 | `PATCH /api/uploads/{id}` | a member | the next chunk at `Upload-Offset`; the last admits the file |
 | `DELETE /api/uploads/{id}` | a member | abandon it |
 
-Not in v1: folders (#527), sharing across users, a quota per user.
+Not in v1: folders (#527), sharing across users.
 
 ## Renders
 
@@ -2197,7 +2218,22 @@ with it: call the project's model with the conversation and every tool
 `Toolbox::listing` serves, run the tools it asks for — in-process, as `Client::Assistant`, in
 order — send their results back, and loop until it answers. Each project has
 conversations (`chat_sessions`); a turn joins the newest unless it asks for a
-fresh one, and one turn runs at a time per conversation. The system prompt asks
+fresh one, and one turn runs at a time per conversation. **One user runs at
+most two at once**, every project and conversation together
+(`SCORSESE_USER_TURNS`; a turn paused on a question or a quote is not
+running): a third message, or an answer resuming a third, is `409` saying
+so, and a woken continuation refused for it starts once one of their turns
+ends. And since a call is charged only once it answers, **a call in flight
+holds what it is likely to cost** — its text at four bytes a token and each
+picture at 1,600 tokens, at the full input rate as if nothing were cached,
+and 4,096 tokens out, at most what the turn may still spend — until it is
+charged; a turn starting, or about to call (its compaction's summary
+included), counts the balance less what the user's other turns hold. A turn
+alone is decided exactly as before; turns at once share the last dollar
+rather than each assuming all of it, crossing it by no more than what their
+calls cost past their holds. A start refused for it is `409` too, saying the
+other messages may spend the rest (never `402`, for which the panel offers
+credit), and a turn stopped for it says the same (`assistant::holds`). The system prompt asks
 for a short progress line before each step and one full summary at the end,
 and to lay a cut out as free sketches before spending on generation. Its words
 are shown as Markdown (#768) — rendered with raw HTML off and images shown as
@@ -2659,7 +2695,7 @@ answering `200`.
 
 | route | who | what |
 | --- | --- | --- |
-| `POST /api/client-errors` | anyone | `{message, stack?, component_stack?, path?, language?, build?}` → `204`; the server writes one `client error: …` warning to its log, each field quoted and escaped, and keeps no table. At most 20 reports a minute from one address (the access record's, *Accounts*) or `429`; a body over 16 KB is `413`; the body is never sent back |
+| `POST /api/client-errors` | anyone | `{message, stack?, component_stack?, path?, language?, build?}` → `204`; the server writes one `client error: …` warning to its log, each field quoted and escaped, and keeps no table. At most 20 reports a minute from one address (the access record's, *Accounts*; an IPv6 one counted by its /64, as the A/B events count it) and 200 an hour from everyone, or `429` saying which, so no network can flood the host's log; a body over 16 KB is `413`; the body is never sent back |
 
 The browser trims a stack to its first lines and sends nothing about who is
 signed in: the path, the language and the build are what tell one crash from

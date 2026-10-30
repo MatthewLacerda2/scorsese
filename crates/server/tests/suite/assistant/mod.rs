@@ -9,6 +9,7 @@
 use crate::common;
 
 mod asking;
+mod at_once;
 mod attached;
 mod batching;
 mod changes;

@@ -6,7 +6,7 @@ use super::store::TurnView;
 use super::store::turns::{self, Beginning, Last};
 use super::store::{asking, hands};
 use super::turn::{self, Running};
-use super::{AssistantError, ask, attached, compact, effort, model, prompt, quote, wake};
+use super::{AssistantError, ask, attached, compact, effort, holds, model, prompt, quote, wake};
 use crate::credits::{dollars, ledger};
 use crate::db::{self, UserId};
 use crate::events::Event;
@@ -34,8 +34,10 @@ pub struct Opening {
 }
 
 /// Start a turn in `user`'s conversation about `project`: refused when the
-/// assistant is not configured, the balance is empty, or a turn is already
-/// running there. The turn as it began; the rest arrives on the event stream.
+/// assistant is not configured, the balance is empty — or spoken for by the
+/// user's other turns' calls in flight — a turn is already running there, or
+/// the user already runs as many as they may (`holds`). The turn as it
+/// began; the rest arrives on the event stream.
 ///
 /// When the conversation's last turn is paused on a question (#710), the
 /// words are its answer instead, and that turn resumes ([`ask::answer`]); on
@@ -95,6 +97,16 @@ pub async fn start(
         && (last.state == "running" || (last.state == "asking" && opening.woken))
     {
         return Err(AssistantError::Busy);
+    }
+    // No room for another turn is refused here, before anything is imported
+    // or set aside — unless the words answer a pause, whose resume decides.
+    // `tx` has only read so far, so it is ended here to let the lock go at
+    // once — never a second connection beside it — and the decision that
+    // counts is made again, under the lock, as the turn's row is written.
+    if last.as_ref().is_none_or(|last| last.state != "asking") {
+        holds::admit(state, &mut tx, user, false).await?;
+        tx.commit().await?;
+        tx = db::scoped(&state.pool, user).await?;
     }
     // Nothing is written yet, so `tx` is let go rather than held across the
     // import, which takes connections of its own.
@@ -185,6 +197,9 @@ pub async fn start(
         native: &first,
         record: &record,
     };
+    // Admitted under the user's lock, held until the row is committed — and
+    // taken last, after every call above that opens a connection of its own.
+    holds::admit(state, &mut tx, user, false).await?;
     let view = turns::begin(&mut tx, session, &beginning).await?;
     tx.commit().await?;
     // The old conversation's quote, set aside above, is spent by nobody now.

@@ -12,7 +12,9 @@
 //! **When it wakes.** The waker ([`watch`]) listens to the event bus. When a
 //! job reaches a final state — done, failed, cancelled, or stuck: given up on,
 //! so the assistant should hear of it too — or a turn ends, it looks at that
-//! conversation ([`check`]). A continuation starts only when the
+//! conversation ([`check`]); a turn ending also has it look at the person's
+//! other awaiting conversations, whose continuation may have been refused
+//! while they ran as many turns as they may (`holds`). A continuation starts only when the
 //! conversation's **last** turn is the one awaiting, every job it waits on has
 //! ended, and it ended by itself: a turn still running or asking is waited
 //! out (one at a time; its end is the next look), and one the person stopped
@@ -85,6 +87,9 @@ pub async fn watch(state: AppState, mut stop: signal::Receiver<bool>) {
             }
             Some(Some((user, Event::ChatTurn { turn, .. }))) if is_over(&turn.state) => {
                 check(&state, user, turn.id).await;
+                // A turn ending frees room another of the person's
+                // conversations may have been refused a continuation for.
+                others(&state, user, turn.id).await;
             }
             Some(Some(_)) => {}
         }
@@ -282,6 +287,12 @@ async fn check(state: &AppState, user: UserId, turn: i64) {
             match super::start(state, user, project, opening).await {
                 // Somebody got there first, or the work was told meanwhile.
                 Ok(_) | Err(AssistantError::Busy | AssistantError::Invalid(_)) => {}
+                // The person's other turns hold the room or the money: the
+                // note waits for their next message, which nothing went wrong
+                // to cause.
+                Err(error @ (AssistantError::AtOnce(_) | AssistantError::Held(_))) => {
+                    tracing::info!("assistant: not waking turn {turn}: {error}");
+                }
                 // An empty balance or a missing key: the note waits for the
                 // person's next message.
                 Err(error) => tracing::error!("assistant: waking turn {turn}: {error}"),
@@ -334,6 +345,33 @@ async fn due(state: &AppState, user: UserId, turn: i64) -> Result<Option<i64>, s
     .await?;
     tx.commit().await?;
     Ok((!pending).then_some(project))
+}
+
+/// Look at `user`'s other conversations awaiting work, besides the one turn
+/// `ended` was in: a continuation refused while they ran as many turns as
+/// they may (`holds`) is due once one ends, whichever project it was in.
+async fn others(state: &AppState, user: UserId, ended: i64) {
+    let awaiting = async {
+        let mut tx = db::scoped(&state.pool, user).await?;
+        let turns: Vec<i64> = sqlx::query_scalar(
+            "SELECT DISTINCT ON (session_id) id FROM chat_turns
+             WHERE awaiting AND session_id <> (SELECT session_id FROM chat_turns WHERE id = $1)
+             ORDER BY session_id, id DESC",
+        )
+        .bind(ended)
+        .fetch_all(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        Ok::<_, sqlx::Error>(turns)
+    };
+    match awaiting.await {
+        Ok(turns) => {
+            for turn in turns {
+                check(state, user, turn).await;
+            }
+        }
+        Err(error) => tracing::error!("assistant: looking for landed work: {error}"),
+    }
 }
 
 /// Look at every conversation with a turn awaiting work, whoever's.

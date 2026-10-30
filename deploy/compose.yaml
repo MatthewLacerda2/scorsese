@@ -144,6 +144,11 @@ services:
       SCORSESE_FREE_DAILY: ${SCORSESE_FREE_DAILY:-}
       SCORSESE_FREE_MONTHLY: ${SCORSESE_FREE_MONTHLY:-}
       SCORSESE_RECHARGE_BONUS: ${SCORSESE_RECHARGE_BONUS:-}
+      # How much of this machine one account may take: assistant turns and
+      # batched stills at once, and bytes kept. Blank is 2, 16 and 50GB.
+      SCORSESE_USER_TURNS: ${SCORSESE_USER_TURNS:-}
+      SCORSESE_USER_BATCH_STILLS: ${SCORSESE_USER_BATCH_STILLS:-}
+      SCORSESE_USER_STORAGE: ${SCORSESE_USER_STORAGE:-}
       # Sign in with Google (#952). All three, or sign-in is off and the
       # rest of the site still serves.
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}

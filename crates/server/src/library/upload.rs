@@ -17,9 +17,13 @@
 //! append. The guard is in memory, which is enough: there is one server, and a
 //! restart ends every request that held one.
 //!
-//! An upload nobody has touched for a day is abandoned. The next announcement
-//! by the same user sweeps theirs away, so no timer is needed and nothing
-//! crosses users.
+//! **An upload counts against its user's quota from its announcement**
+//! (`super::room`): one that would take them past it is refused before a
+//! byte is sent ([`LibraryError::Full`]), and so is a chunk arriving once
+//! something else — a generation, a render — has filled the room meanwhile.
+//!
+//! An upload nobody has touched for a day is abandoned. The user's next
+//! announcement sweeps theirs away, and `room::sweep` everybody's every hour.
 
 use std::collections::HashSet;
 use std::fmt::Display;
@@ -80,6 +84,12 @@ impl InFlight {
         let mut writing = self.0.lock().unwrap_or_else(PoisonError::into_inner);
         writing.insert(id).then(|| Writing(self.clone(), id))
     }
+
+    /// The uploads being written now.
+    pub(super) fn ids(&self) -> Vec<i64> {
+        let writing = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        writing.iter().copied().collect()
+    }
 }
 
 impl Drop for Writing {
@@ -128,11 +138,14 @@ impl Library {
             return Err(LibraryError::Duplicate { id, name });
         }
         let abandoned: Vec<(i64, String)> = sqlx::query_as(
-            "DELETE FROM uploads WHERE touched_at < now() - interval '1 day'
+            "DELETE FROM uploads
+             WHERE touched_at < now() - interval '1 day' AND NOT (id = ANY($1))
              RETURNING id, extension",
         )
+        .bind(self.uploading.ids())
         .fetch_all(&mut *tx)
         .await?;
+        self.room(&mut tx, announced.length, None).await?;
         let id: i64 = sqlx::query_scalar(
             "INSERT INTO uploads (user_id, name, kind, extension, sha256, length)
              VALUES (member_id(), $1, $2, $3, $4, $5) RETURNING id",
@@ -185,6 +198,11 @@ impl Library {
         if offset != at {
             return Err(LibraryError::Offset { expected: at });
         }
+        // Room may have been taken since it was announced: a generation, a
+        // render. Refused before a byte of the chunk is written.
+        let mut tx = db::scoped(&self.pool, user).await?;
+        self.room(&mut tx, length, Some(id)).await?;
+        tx.commit().await?;
         let mut file = tokio::fs::OpenOptions::new()
             .append(true)
             .create(true)
@@ -214,7 +232,12 @@ impl Library {
             at = after;
         }
         file.flush().await?;
-        self.touch(user, id).await?;
+        if !self.touch(user, id).await? {
+            // Swept while it was being written: nothing names these bytes.
+            drop(file);
+            let _ = std::fs::remove_file(&path);
+            return Err(LibraryError::NotFound);
+        }
         if let Some(failed) = failed {
             return Err(failed);
         }
@@ -259,13 +282,16 @@ impl Library {
         row.ok_or(LibraryError::NotFound)
     }
 
-    async fn touch(&self, user: UserId, id: i64) -> Result<(), LibraryError> {
+    /// Mark `user`'s upload `id` as touched now; whether it is still there.
+    async fn touch(&self, user: UserId, id: i64) -> Result<bool, LibraryError> {
         let mut tx = db::scoped(&self.pool, user).await?;
-        sqlx::query("UPDATE uploads SET touched_at = now() WHERE id = $1")
+        let touched = sqlx::query("UPDATE uploads SET touched_at = now() WHERE id = $1")
             .bind(id)
             .execute(&mut *tx)
-            .await?;
-        Ok(tx.commit().await?)
+            .await?
+            .rows_affected();
+        tx.commit().await?;
+        Ok(touched == 1)
     }
 
     async fn forget_upload(&self, user: UserId, id: i64) -> Result<(), LibraryError> {

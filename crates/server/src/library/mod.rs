@@ -53,6 +53,7 @@ mod generated;
 mod kind;
 pub mod locate;
 pub mod proxy;
+pub mod room;
 mod source;
 mod store;
 pub mod thumbnail;
@@ -66,6 +67,7 @@ pub use store::{Change, Filter};
 pub use upload::{Announced, Appended, MAX_UPLOAD_BYTES, Progress};
 
 use scorsese_core::MediaMetadata;
+use scorsese_core::bytes::format_bytes;
 use scorsese_render::Tools;
 use serde::Serialize;
 use sqlx::postgres::PgPool;
@@ -212,6 +214,27 @@ pub enum LibraryError {
     Offset {
         /// Where the next chunk has to start.
         expected: i64,
+    },
+
+    /// Keeping this would take the user past how much they may keep
+    /// ([`Storage::quota`](crate::storage::Storage::quota)): their library,
+    /// kept renders and the uploads they have announced.
+    #[error(
+        "your storage is full: you keep {} of the {} you may, counting your files, \
+         renders and unfinished uploads, and this file needs {}; delete files you no \
+         longer need to make room (a render frees its room by itself once unused for two \
+         days)",
+        format_bytes(*.used),
+        format_bytes(*.quota),
+        format_bytes(*.needed)
+    )]
+    Full {
+        /// What they keep now, in bytes.
+        used: u64,
+        /// What they may keep.
+        quota: u64,
+        /// What this file would add.
+        needed: u64,
     },
 
     /// The disk refused. The detail is for the log.

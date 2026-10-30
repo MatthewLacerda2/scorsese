@@ -50,10 +50,15 @@ pub(super) async fn keep(
         let Ok(file) = path.resolve(root) else {
             continue;
         };
-        let written = file.symlink_metadata().is_ok_and(|meta| meta.is_file());
-        if !written || known.contains(sha256.as_str()) {
+        let written = file.symlink_metadata().ok().filter(|meta| meta.is_file());
+        let Some(written) = written.filter(|_| !known.contains(sha256.as_str())) else {
             continue;
-        }
+        };
+        // Free, but it takes room like an upload (`library::room`).
+        library
+            .make_room(user, written.len())
+            .await
+            .map_err(|error| refused(&asset.id.to_string(), error))?;
         let arrival = Arrival {
             file,
             name: format!("{}.wav", asset.id),
@@ -76,6 +81,9 @@ fn refused(asset: &str, error: LibraryError) -> String {
     match error {
         LibraryError::Rejected(why) | LibraryError::Invalid(why) => {
             format!("the bake of `{asset}` could not be kept in your library: {why}")
+        }
+        LibraryError::Full { .. } => {
+            format!("the bake of `{asset}` could not be kept in your library: {error}")
         }
         other => super::database(other),
     }
