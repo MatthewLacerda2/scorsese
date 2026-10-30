@@ -2339,9 +2339,10 @@ and the browser shows the box's buttons only while the turn is `asking`. Every
 answer is kept in the turn's `quote_replies` — `{answer, micros, words}`, with
 `answer` one of `confirmed`, `declined`, `changed` or `withdrawn` and `words`
 the person's own on a change or a message written instead — and the
-transcript shows each as one line, their words under it. A quote is answered once. The box shows each quoted item with what it
-would send — the prompt, the line, the voice's description — read from the
-project's brief (or the call's `prompt`) when the quote is held
+transcript shows each as one line, their words under it. A quote is answered once. The box lists every brief the quote's token
+would pay for — the same ones a yes spends, kept with the token when the paid
+tool issues it (`quotes.items`) — each with what it would send (the prompt, the
+line, the voice's description) and its price, which add up to the box's total
 (`assistant::described`).
 
 **When the work lands, the assistant carries on** (#1441). Every job a yes
@@ -2481,9 +2482,9 @@ A turn (`TurnView`) carries its state — `running` (or `asking`, paused on a
 question), then `answered`, `refused`, `capped`, `stopped`, `failed` or
 `interrupted` (the server stopped under it) —
 its `answer`, the model, token totals, `charged_micros`, and `quote`
-(`{tool, items: [{subject, says, brief, description}], lines, micros,
-expires_at}` — `brief` is `prompt`, `line` or `voice`; `lines` is the total and
-any line no item claims; a quote held before #709 has no `items` and every
+(`{tool, items: [{subject, says, micros, brief, description}], lines, micros,
+expires_at}` — `brief` is `prompt`, `line` or `voice`, and the items' `micros`
+add up to the quote's; `lines` is the total and any line no item claims; a quote held before #709 has no `items` and every
 line in `lines`) with `quote_answer` (`null` while the box
 should show on an `asking` turn, then `confirmed`, `declined` — a change asked
 for included — or `withdrawn`) and `quote_replies`, every answer its quotes

@@ -87,7 +87,7 @@ mod voiced;
 pub use fetched::keep as keep_fetched;
 pub use folder::{Folder, lay_out};
 pub use log::Client;
-pub use quotes::Pending;
+pub use quotes::{BriefKind, Pending, QuoteItem};
 
 use std::path::Path;
 use std::sync::Arc;

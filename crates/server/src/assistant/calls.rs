@@ -190,7 +190,7 @@ async fn held(
         .filter(|line| !line.contains(&pending.token))
         .map(str::to_owned)
         .collect();
-    let (items, rest) = described::describe(state, user, &call.name, &call.input, &lines).await;
+    let (items, rest) = described::describe(&pending, &lines);
     let quote = QuoteView {
         tool: call.name.clone(),
         items,

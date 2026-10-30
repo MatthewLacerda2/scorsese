@@ -34,6 +34,7 @@ use super::effort;
 use super::model::{self, Choice};
 use crate::db::{self, Tx, UserId};
 use crate::http::AppState;
+pub use crate::tools::{BriefKind, QuoteItem};
 
 /// A turn as its owner sees it: in the conversation, and on the event stream.
 #[derive(Debug, Clone, PartialEq, Serialize, sqlx::FromRow)]
@@ -97,8 +98,9 @@ pub struct TurnView {
 pub struct QuoteView {
     /// The paid tool that quoted it, and that a yes calls again.
     pub tool: String,
-    /// Each thing the yes would pay for, with what it describes (#709).
-    /// Empty on a quote held before there were items.
+    /// Each thing the yes would pay for, with what it describes (#709): the
+    /// briefs its token covers, whose prices add up to `micros`. Empty on a
+    /// quote held before there were items.
     #[serde(default)]
     pub items: Vec<QuoteItem>,
     /// The rest of the quote in words: the total, and any line no item
@@ -205,33 +207,6 @@ pub struct CandidateView {
     pub page_url: String,
     /// The source's words for what is in it.
     pub tags: Vec<String>,
-}
-
-/// One thing a quote would pay for, as the box shows it: the line the paid
-/// tool priced it with, and the description that would be sent.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct QuoteItem {
-    /// What it is — an asset id, or `design` for a voice design.
-    pub subject: String,
-    /// What the paid tool said about it: the price, and how it got there.
-    pub says: String,
-    /// What `description` is.
-    pub brief: BriefKind,
-    /// The words that would be sent: a prompt, a line to speak, a voice's
-    /// description.
-    pub description: String,
-}
-
-/// What a quoted item's description is.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum BriefKind {
-    /// A generated shot's or still's prompt.
-    Prompt,
-    /// A narration line, spoken as written.
-    Line,
-    /// A designed voice's description.
-    Voice,
 }
 
 /// A project's current conversation: its newest session's turns, oldest

@@ -17,9 +17,9 @@ COPY . .
 # whole dependency tree. They live in BuildKit's cache and never in an image,
 # so the binary is copied out in the same step.
 ARG CARGO_BUILD_JOBS
-RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
-    --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    --mount=type=cache,target=/src/target,sharing=locked \
+RUN --mount=type=cache,id=scorsese-server-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=scorsese-server-cargo-git,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,id=scorsese-server-target,target=/src/target,sharing=locked \
     cargo build --release --locked --package scorsese-server \
     && cp target/release/scorsese-server /usr/local/bin/scorsese-server
 

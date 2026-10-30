@@ -1,90 +1,95 @@
-//! What a quote's box shows beside each price: the words that would be sent
-//! (#709), so the user never agrees to money without seeing what it buys.
+//! What a quote's box lists: every brief its token would pay for, with the
+//! words each would send (#709), so the user never agrees to money without
+//! seeing what it buys.
 //!
-//! A paid tool's reply prices each thing on a line of its own,
-//! `subject: price detail` — the shape every paid tool answers in, for every
-//! client. The description is looked up here, when the quote is held, from
-//! where the tool itself reads it: the project's brief for `generate`, the
-//! call's own `prompt` for `voice_design`. Nothing it finds is trusted for
-//! money — the token is bound to the briefs as quoted, so a brief edited
-//! after this read is refused at the yes and quoted again.
+//! The items are the token's own ([`Pending::items`]), written when the paid
+//! tool issued it from the quote the token is bound to — the same briefs a
+//! yes spends, priced as it takes them. Nothing here is read back from the
+//! reply's words: those only supply the rest of the box's lines (the total,
+//! a note), less each line that prices an item already listed.
 
-use scorsese_core::AudioBlock;
-use serde_json::Value;
+use super::store::QuoteItem;
+use crate::tools::Pending;
 
-use super::store::{BriefKind, QuoteItem};
-use crate::db::UserId;
-use crate::http::AppState;
-use crate::projects;
-
-/// `lines` — a quote from `tool`, called with `input` — as the box shows
-/// them: an item for each line about something with a description, and every
-/// other line (the total, a note) as it was.
-pub(super) async fn describe(
-    state: &AppState,
-    user: UserId,
-    tool: &str,
-    input: &Value,
-    lines: &[String],
-) -> (Vec<QuoteItem>, Vec<String>) {
-    let briefs = briefs(state, user, tool, input).await;
-    let mut items = Vec::new();
-    let mut rest = Vec::new();
-    for line in lines {
-        let found = line.split_once(": ").and_then(|(subject, says)| {
-            let (_, brief, description) = briefs.iter().find(|(id, ..)| id == subject)?;
-            Some(QuoteItem {
-                subject: subject.to_owned(),
-                says: says.to_owned(),
-                brief: *brief,
-                description: description.clone(),
-            })
-        });
-        match found {
-            Some(item) => items.push(item),
-            None => rest.push(line.clone()),
-        }
-    }
+/// `lines` — the reply of the call that issued `pending` — as the box shows
+/// them: an item for every brief the token covers, and every line not about
+/// one of them as it was.
+pub(super) fn describe(pending: &Pending, lines: &[String]) -> (Vec<QuoteItem>, Vec<String>) {
+    let items = pending.items.clone();
+    let rest = lines
+        .iter()
+        .filter(|line| !prices_an_item(&pending.items, line))
+        .cloned()
+        .collect();
     (items, rest)
 }
 
-/// Every subject `tool` could price, with what it would send. Empty when it
-/// cannot be read: the box then shows the quote's lines alone, as before.
-async fn briefs(
-    state: &AppState,
-    user: UserId,
-    tool: &str,
-    input: &Value,
-) -> Vec<(String, BriefKind, String)> {
-    let said = |field: &str| input.get(field).and_then(Value::as_str).map(str::to_owned);
-    match tool {
-        "voice_design" => said("prompt")
-            .map(|prompt| vec![("design".to_owned(), BriefKind::Voice, prompt)])
-            .unwrap_or_default(),
-        "generate" => {
-            let Some(project) = input.get("project").and_then(Value::as_i64) else {
-                return Vec::new();
-            };
-            let Ok(stored) = projects::open(&state.pool, user, project).await else {
-                return Vec::new();
-            };
-            stored
-                .document
-                .assets
-                .into_iter()
-                // Only the prompted kinds carry a prompt: validation refuses
-                // one on every other.
-                .filter_map(|asset| {
-                    // A track's prompt describes music, as a shot's does a
-                    // picture: only a line is spoken as written.
-                    let brief = match asset.audio_block() {
-                        Some(AudioBlock::Speech) => BriefKind::Line,
-                        _ => BriefKind::Prompt,
-                    };
-                    Some((asset.id.to_string(), brief, asset.prompt?))
-                })
-                .collect()
+/// Whether `line` is the paid tool's line about one of `items`.
+fn prices_an_item(items: &[QuoteItem], line: &str) -> bool {
+    line.split_once(": ")
+        .is_some_and(|(subject, _)| items.iter().any(|item| item.subject == subject))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tools::BriefKind;
+
+    fn item(subject: &str, micros: i64, brief: BriefKind, description: &str) -> QuoteItem {
+        QuoteItem {
+            subject: subject.to_owned(),
+            says: format!("would be generated for {micros}"),
+            micros,
+            brief,
+            description: description.to_owned(),
         }
-        _ => Vec::new(),
+    }
+
+    fn pending(items: Vec<QuoteItem>) -> Pending {
+        Pending {
+            token: "quote-1".to_owned(),
+            micros: items.iter().map(|item| item.micros).sum(),
+            expires_at: 900,
+            batch_micros: None,
+            items,
+        }
+    }
+
+    /// The reply names one of the two briefs the token covers; the box still
+    /// lists both, in the token's order, and they add up to its price.
+    #[test]
+    fn a_reply_naming_fewer_items_than_its_token_covers_lists_them_all() {
+        let hero = item("hero", 1_200_000, BriefKind::Prompt, "A red cape at dusk.");
+        let vo = item(
+            "vo",
+            300_000,
+            BriefKind::Line,
+            "Every city has a night editor.",
+        );
+        let pending = pending(vec![hero.clone(), vo.clone()]);
+        let lines = vec![
+            "vo: would be generated for 300000".to_owned(),
+            "About $1.00 at the providers' published rates — $1.50 from your credits.".to_owned(),
+        ];
+        let (items, rest) = describe(&pending, &lines);
+        assert_eq!(items, vec![hero, vo]);
+        let shown: i64 = items.iter().map(|item| item.micros).sum();
+        assert_eq!(shown, pending.micros);
+        assert_eq!(rest, lines[1..], "the item's line is not said twice");
+    }
+
+    /// A line about something the token does not cover — held back, not paid
+    /// for — stays a line, and nothing is listed for it.
+    #[test]
+    fn a_line_about_what_is_not_paid_for_stays_a_line() {
+        let hero = item("hero", 1_200_000, BriefKind::Prompt, "A red cape at dusk.");
+        let pending = pending(vec![hero.clone()]);
+        let lines = vec![
+            "hero: would be generated for 1200000".to_owned(),
+            "narrator: no voice chosen yet, so it is skipped".to_owned(),
+        ];
+        let (items, rest) = describe(&pending, &lines);
+        assert_eq!(items, vec![hero]);
+        assert_eq!(rest, lines[1..]);
     }
 }
