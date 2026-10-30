@@ -145,7 +145,7 @@ impl Bench {
         std::fs::write(root.join("pages/proof.html"), page).expect("the page");
         let fonts = cache::fonts(&root).expect("fonts");
         Self {
-            chrome: Chrome::discover().expect("the pinned browser (SCORSESE_CHROME)"),
+            chrome: crate::testing::chrome(),
             tools: Tools::discover().expect("ffmpeg"),
             root,
             fonts,

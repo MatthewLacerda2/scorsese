@@ -13,7 +13,9 @@
 # 1. SCORSESE_CHROME, when it is set. Used as named: an override that does not
 #    point at an executable fails here rather than falling past it to another
 #    build, for the reason crates/render/src/page/find.rs gives.
-# 2. A chrome-headless-shell on PATH, left for the tests to find themselves.
+# 2. A chrome-headless-shell on PATH, named in SCORSESE_CHROME: the server's
+#    capture dispatch (crates/server/src/captures/dispatch.rs) looks nowhere
+#    else.
 # 3. Otherwise tools/chromium/fetch, which prints the cached pinned build and
 #    downloads nothing when it is already there, and downloads and verifies it
 #    against tools/chromium/pin when it is not. Either way the browser is the
@@ -58,6 +60,7 @@ fi
 
 if on_path=$(command -v chrome-headless-shell 2>/dev/null); then
     require_pinned "$on_path"
+    export SCORSESE_CHROME=$on_path
     exec "$@"
 fi
 

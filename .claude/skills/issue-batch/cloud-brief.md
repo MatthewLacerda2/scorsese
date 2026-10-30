@@ -67,6 +67,12 @@ lines are missing, run it yourself
   web-gates` needs too. Reproduce the image's layout and run `bun run build`
   there. If Playwright's Chromium cannot be fetched either, point
   `E2E_CHROMIUM` at the container's headless shell (`web/README.md`).
+- **A headless browser** is the `playwright` MCP server (`.mcp.json`,
+  `web/README.md`'s *A browser for agents*), loaded without asking. It runs
+  `bun install` in `web/` and fetches Playwright's Chromium shell on its first
+  start, or uses the repo's pinned shell when that host is out of reach. When
+  its `browser_*` tools are missing, run `tools/playwright-mcp < /dev/null`
+  to read why; Playwright's own runner (`bunx playwright test`) still works.
 - A gate you cannot run (`make deploy` refused as a production deploy, `infra`
   refused the network) is named on the *Gates* line with the CI job that
   answers for it, never claimed green.
@@ -141,6 +147,9 @@ Survivors in code you wrote: fix, exclude with a reason, or file (`ci-merge`).
   Code](https://claude.com/claude-code)`.
 - Commits end with your session's `Co-Authored-By:` trailer. Push often: a dead
   container loses what is not pushed.
+- **After every push, `make pushed`**: it passes only when your last commit is
+  the branch's head on GitHub, which is the pull request's. Never report a
+  push, or ready the pull request, until it has passed.
 - **You cannot delete a branch** from the container. Name a throwaway branch
   you pushed in the human checklist, for the orchestrator to delete.
 - A decision the issue left open takes the default it, `CLAUDE.md` or Filmora 9

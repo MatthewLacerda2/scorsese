@@ -36,6 +36,9 @@ fn spool(name: &str, html: &str) -> (Spool, PathBuf) {
 }
 
 fn worker(spool: &Spool, deadline: fn(u64) -> Duration) -> Worker {
+    // The browser the worker's `capture-one` would find, found the same way:
+    // without one it is said now, not after a capture that never answers.
+    let _ = scorsese_render::testing::chrome();
     Worker {
         spool: spool.clone(),
         isolation: Isolation::Process {

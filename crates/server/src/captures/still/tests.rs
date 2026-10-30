@@ -10,6 +10,8 @@ use crate::renders::{Quota, RenderCache};
 /// A still's pages over a spool whose worker said it was there a moment ago,
 /// and a project laid out with one page; the folder the project is laid in.
 fn asking(label: &str) -> (StillPages, PathBuf) {
+    // Dispatch reads only SCORSESE_CHROME: without it nothing reaches a job.
+    scorsese_render::testing::require_chrome_env();
     let root = crate::scratch::dir(label);
     let spool = Spool::new(root.join("spool"));
     std::fs::create_dir_all(spool.root()).unwrap();

@@ -308,6 +308,9 @@ pre-commit: format size ## The fast half: what the pre-commit hook runs
 gates: APP := scoped
 gates: WEB := scoped
 gates: E2E := scoped
+# The gate is the whole suite: a `CRATES` given or exported narrows `test`
+# alone, never `gates`.
+gates: override CRATES :=
 gates: target-dir inventory $(GATES) ## Everything CI blocks on. Run this before opening a PR
 	@ran="$(filter-out web web-e2e app,$(GATES))"; \
 	if $(TOUCHES_WEB); then ran="$$ran web"; fi; \
@@ -437,14 +440,21 @@ docs: ## [gate] cargo doc with -D warnings: a broken intra-doc link is a failure
 # and verifies it once when it is not. So no export is needed first (#907). It
 # runs inside the recipe, never as a global `$(shell …)`, so only `make test`
 # and `make coverage` ever call fetch.
-test: ## [gate] The whole suite, golden renders and database included (needs ffmpeg, nextest, docker; fetches the pinned Chromium)
+#
+# `CRATES` narrows the run to the packages it names, through the same two
+# wrappers: `make test CRATES="scorsese-server scorsese-core"`. A bare `cargo
+# nextest run -p …` has neither, and the server's captures then fail for want
+# of a browser. A narrowed run is not the gate: the pixel-gate line below
+# says only whether the platform runs the goldens, not whether they ran.
+TEST_SCOPE = $(if $(strip $(CRATES)),$(addprefix -p ,$(CRATES)),--workspace)
+test: ## [gate] The whole suite, golden renders and database included (needs ffmpeg, nextest, docker; fetches the pinned Chromium). CRATES="a b" narrows it
 	@command -v ffmpeg >/dev/null 2>&1 || { \
 		echo "test: ffmpeg is not on PATH -- the render and golden tests need it." >&2; \
 		echo "      Install it from your package manager, or point SCORSESE_FFMPEG at a binary." >&2; \
 		exit 1; }
 	@$(NEXTEST_CHECK)
-	tools/with-chrome tools/with-postgres cargo nextest run --workspace --locked
-	cargo test --doc --workspace --locked
+	tools/with-chrome tools/with-postgres cargo nextest run $(TEST_SCOPE) --locked
+	cargo test --doc $(TEST_SCOPE) --locked
 # Last, so it is the line still on screen when the suite goes green. nextest
 # has already counted the skip; this is what makes it a sentence.
 	@$(PIXEL_GATE_RUNS) || echo "test: $(PIXEL_GATE_SKIPPED)"
@@ -700,6 +710,13 @@ checks: ## Unticked human checks in PRs merged since then, and issues with both 
 		exit 1; }
 	@$(PYTHON_CHECK)
 	@$(PYTHON) .github/scripts/human-checks.py --since "$(SINCE)"
+
+# Whether the branch's last commit is its head on origin, which is the pull
+# request's head: a coder runs it after every push, before calling it pushed.
+# `REPO` points it at another checkout (its test's).
+.PHONY: pushed
+pushed: ## After every push: is this branch's last commit its head on origin?
+	@cd "$(or $(REPO),.)" && "$(CURDIR)/tools/pushed"
 
 # Neither a gate nor a signal, because it is not about this code at all.
 # `make gates` answers "is this good?"; this answers "did anything check it?",
