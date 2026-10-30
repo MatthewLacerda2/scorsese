@@ -9,6 +9,7 @@ use crate::common;
 
 mod cancelled;
 mod choices;
+mod contained;
 mod evict;
 mod framed;
 mod job;

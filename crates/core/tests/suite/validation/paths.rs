@@ -80,7 +80,37 @@ fn a_script_naming_a_file_nobody_has_written_is_still_valid() {
 fn a_relative_path_resolves_under_the_project_root() {
     let root = std::path::Path::new("/tmp/demo.scor");
     let resolved = ProjectPath::new("assets/logo.png").resolve(root);
-    assert_eq!(resolved, root.join("assets").join("logo.png"));
+    assert_eq!(resolved, Ok(root.join("assets").join("logo.png")));
+}
+
+/// Containment is the type's, not each caller's: a path that breaks the rules
+/// never becomes a filesystem path, however it is spelled.
+#[test]
+fn a_path_that_breaks_the_rules_never_resolves() {
+    let root = std::path::Path::new("/tmp/demo.scor");
+    for (bad, problem) in [
+        ("../outside.png", PathProblem::ParentEscape),
+        ("assets/../../outside.png", PathProblem::ParentEscape),
+        ("/etc/passwd", PathProblem::Absolute),
+        ("C:/media/logo.png", PathProblem::Absolute),
+        ("assets\\logo.png", PathProblem::Backslash),
+        ("", PathProblem::Empty),
+    ] {
+        let refused = ProjectPath::new(bad).resolve(root).expect_err(bad);
+        assert_eq!(refused.problem, problem, "{bad}");
+        assert_eq!(refused.path, ProjectPath::new(bad), "{bad}");
+    }
+}
+
+#[test]
+fn a_refused_resolve_names_the_path_and_why() {
+    let refused = ProjectPath::new("../x.png")
+        .resolve(std::path::Path::new("/p.scor"))
+        .expect_err("escapes");
+    assert_eq!(
+        refused.to_string(),
+        "`../x.png` contains a `..` component and escapes the project root"
+    );
 }
 
 #[test]

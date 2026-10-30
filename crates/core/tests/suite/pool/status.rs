@@ -28,6 +28,28 @@ fn a_freshly_imported_asset_is_healthy_and_unused() {
     assert_eq!(only(&rows).clip_count, 0);
 }
 
+/// A path out of the project is never looked up, even when something is there:
+/// the answer would say what is on the disk beyond the folder.
+#[test]
+fn a_path_out_of_the_project_is_never_looked_at() {
+    let (dir, mut project) = imported("status-escape");
+    let outside = dir.with_extension("planted");
+    std::fs::write(&outside, b"beyond the folder").expect("plant");
+    let name = outside
+        .file_name()
+        .and_then(|name| name.to_str())
+        .expect("a name");
+    project.assets[0].path = Some(scorsese_core::ProjectPath::new(format!("../{name}")));
+    project.assets[0].media = None;
+
+    let rows = asset_status(&project, &dir, HashCheck::Verify);
+    std::fs::remove_file(&outside).ok();
+    let AssetHealth::Unreadable(why) = &only(&rows).health else {
+        panic!("not looked up: {:?}", only(&rows).health);
+    };
+    assert!(why.contains("escapes the project root"), "{why}");
+}
+
 #[test]
 fn a_deleted_file_is_reported_missing() {
     let (dir, project) = imported("status-missing");

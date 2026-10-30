@@ -102,6 +102,27 @@ fn a_path_outside_the_project_is_refused_and_leaves_nothing() {
     }
 }
 
+/// An asset with no hash is not linked, but the renderer still reads its path:
+/// so a path out of the project is refused whether or not it names a hash.
+#[test]
+fn a_path_outside_the_project_is_refused_without_a_hash_too() {
+    let at = scratch::dir("escape-unhashed").join("render.scor");
+    for bad in ["../outside.png", "/etc/passwd", "assets/../../x.png"] {
+        let mut project = Project::new("p", Fps::default());
+        project.assets = vec![Asset::imported(
+            AssetId::new("bad"),
+            AssetKind::Image,
+            ProjectPath::new(bad),
+        )];
+        let outcome = materialise(&project, &none(), &at, &|_: &str| None);
+        assert!(
+            matches!(outcome, Err(MaterialiseError::BadPath { .. })),
+            "{bad}: {outcome:?}"
+        );
+        assert!(!at.exists(), "{bad}: the folder was cleaned up");
+    }
+}
+
 #[test]
 fn the_document_cannot_be_written_through_a_link() {
     // An asset claiming `project.json` as its path gets no link: the document

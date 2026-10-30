@@ -71,6 +71,33 @@ fn a_partial_bake_refuses_an_asset_that_is_not_a_recipe() {
     std::fs::remove_dir_all(dir).ok();
 }
 
+/// A partial is named for its asset, and an id is whatever the document says:
+/// one that climbs never names a file outside the project.
+#[test]
+fn a_partial_bake_of_an_id_that_climbs_writes_nothing_outside() {
+    let (dir, mut project) = project("partial-climbs");
+    write(&dir, "recipes/tune.json", TUNE);
+    let name = format!(
+        "{}-escaped",
+        dir.file_stem()
+            .and_then(|stem| stem.to_str())
+            .expect("a name")
+    );
+    let id = synth_asset(
+        &mut project,
+        &format!("../../../{name}"),
+        "recipes/tune.json",
+    );
+    let outside = dir.parent().expect("a parent").join(format!("{name}.wav"));
+
+    let outcome = bake_partial(&project, &dir, &id, &Excerpt::default(), None);
+    let escaped = outside.exists();
+    std::fs::remove_file(&outside).ok();
+    std::fs::remove_dir_all(dir).ok();
+    assert!(!escaped, "a file was written outside the project");
+    assert!(outcome.is_err(), "{outcome:?}");
+}
+
 #[test]
 fn a_survey_reads_every_song_by_its_asset() {
     let (dir, mut project) = project("survey");
