@@ -824,7 +824,10 @@ OpenID Connect describes it:
    back-channel, with the verifier and the client's secret.
 3. The ID token names the Google account, the account is found, linked or
    made, and the browser gets **the session cookie below** and lands on
-   `next` when that is a path on this site, `/projects` otherwise. Anything
+   `next` when that is a path on this site, `/projects` otherwise: it starts
+   with one `/`, not `//` or `/\`, and holds no ASCII control character or
+   space anywhere (a browser drops a tab from a URL, so `/\t/x` is `//x`).
+   The web app's `safeNext` is the same rule. Anything
    that goes wrong lands on `/login?error=…` instead (`cancelled`, `expired`,
    `unverified`, `linked`, `unconfigured`, `failed`), which the page says in
    words; the server's log names the cause of a `failed`.
@@ -892,7 +895,7 @@ token cannot mint its own replacement.
 | --- | --- | --- |
 | `GET /api/auth/google` | anyone | `?next=` a path; `303` to Google with a flow cookie, or to `/login?error=unconfigured` |
 | `GET /api/auth/google/callback` | anyone | Google's `code` and `state`; `303` to `next` with the session cookie, or to `/login?error=…` |
-| `POST /api/logout` | a member | ends the session |
+| `POST /api/logout` | a member | ends the session; clears its cookies and, with `Clear-Site-Data: "cache"`, the browser's cache |
 | `GET /api/me` | a member | the account |
 | `GET /api/tokens` | a member | their tokens, never the values |
 | `POST /api/tokens` | a member, by session | `{name}` → `{id, token}`, shown once |
@@ -1130,7 +1133,11 @@ or the phase moved — never a row written per frame. A job read while it runs
 carries the same object as `progress`; any other job has `null`.
 In memory and allowed to drop: a reader that falls behind gets `resync`, and
 the answer to that, or to reconnecting, is to re-read `GET /api/jobs`. The
-stream ends when the server stops, and `EventSource` reconnects by itself.
+stream ends when the server stops, and when the credential it was opened
+with does: every 15 seconds it looks the session or token up again, so
+logging out, `user logout`, a revoked token or an expired session closes a
+stream already open, not only the requests after it. `EventSource`
+reconnects by itself, and the reconnect is authenticated afresh.
 
 | route | who | what |
 | --- | --- | --- |
@@ -1623,7 +1630,10 @@ colour sitting in the cache.
 
 **Opening a file streams it in ranges**: `Range: bytes=…` gets `206`, so a
 video plays and seeks without being fetched whole. A file never changes under
-its id, so it is sent `private, immutable`, tagged by its hash.
+its id, so it is tagged by its hash and sent `private, no-cache`: the
+browser keeps it but asks before every use, an authenticated request that
+answers `304` with no body while the copy is still the file. A signed-out
+browser opens nothing from its cache, and logout clears that cache too.
 
 **A file a project uses cannot be deleted**: `409` naming the projects, and
 the foreign key from `project_assets` holds it if two requests race. Removing

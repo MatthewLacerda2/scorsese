@@ -7,6 +7,7 @@
 
 use crate::common;
 
+mod caching;
 mod documents;
 mod download;
 mod fetched;

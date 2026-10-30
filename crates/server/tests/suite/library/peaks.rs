@@ -61,7 +61,7 @@ async fn the_worker_reads_a_sounds_peaks_and_they_are_served_to_keep(pool: PgPoo
     );
     assert!(
         read.header("cache-control")
-            .is_some_and(|kept| kept.contains("immutable")),
+            .is_some_and(|kept| kept == "private, no-cache"),
         "{:?}",
         read.header("cache-control")
     );
