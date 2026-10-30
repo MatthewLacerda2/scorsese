@@ -308,6 +308,9 @@ pre-commit: format size ## The fast half: what the pre-commit hook runs
 gates: APP := scoped
 gates: WEB := scoped
 gates: E2E := scoped
+# The gate is the whole suite: a `CRATES` given or exported narrows `test`
+# alone, never `gates`.
+gates: override CRATES :=
 gates: target-dir inventory $(GATES) ## Everything CI blocks on. Run this before opening a PR
 	@ran="$(filter-out web web-e2e app,$(GATES))"; \
 	if $(TOUCHES_WEB); then ran="$$ran web"; fi; \

@@ -14,7 +14,8 @@
 #    point at an executable fails here rather than falling past it to another
 #    build, for the reason crates/render/src/page/find.rs gives.
 # 2. A chrome-headless-shell on PATH, named in SCORSESE_CHROME: the server's
-#    capture worker looks nowhere else.
+#    capture dispatch (crates/server/src/captures/dispatch.rs) looks nowhere
+#    else.
 # 3. Otherwise tools/chromium/fetch, which prints the cached pinned build and
 #    downloads nothing when it is already there, and downloads and verifies it
 #    against tools/chromium/pin when it is not. Either way the browser is the

@@ -122,8 +122,8 @@ pub fn chrome() -> Chrome {
 }
 
 /// Panics, saying how to run it, unless [`CHROME_ENV`] names a browser: for a
-/// test whose capture runs in a binary that looks nowhere else (the server's
-/// capture worker).
+/// test whose capture goes through code that looks nowhere else (the server's
+/// capture dispatch).
 #[expect(
     clippy::disallowed_methods,
     reason = "SCORSESE_CHROME names a machine's own browser, not a secret"

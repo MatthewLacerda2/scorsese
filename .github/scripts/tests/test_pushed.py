@@ -60,6 +60,13 @@ class Pushed(unittest.TestCase):
         self.assertIn("origin has no branch infra-example", run.stderr)
         self.assertIn("git push -u origin infra-example", run.stderr)
 
+    def test_a_remote_that_cannot_be_asked_is_not_told_to_push(self) -> None:
+        self.git("remote", "set-url", "origin", str(self.dir / "gone.git"), cwd=self.clone)
+        run = self.pushed()
+        self.assertEqual(run.returncode, 2, run.stderr)
+        self.assertIn("could not ask origin about infra-example", run.stderr)
+        self.assertNotIn("Push it", run.stderr)
+
     def test_a_commit_after_the_push_is_refused(self) -> None:
         self.git("push", "--quiet", "-u", "origin", "infra-example", cwd=self.clone)
         self.commit("second, never pushed")

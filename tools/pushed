@@ -16,11 +16,19 @@ if ! branch=$(git symbolic-ref --quiet --short HEAD); then
 fi
 here=$(git rev-parse HEAD)
 
-if ! there=$(git ls-remote --exit-code "$remote" "refs/heads/$branch" | cut -f1); then
+# `--exit-code` answers 2 for a ref that is not there; anything else non-zero
+# is git failing to ask (network, credentials), which decides nothing.
+status=0
+listed=$(git ls-remote --exit-code "$remote" "refs/heads/$branch") || status=$?
+if [ "$status" -eq 2 ]; then
     echo "pushed: $remote has no branch $branch, so no pull request has this commit." >&2
     echo "  Push it: git push -u $remote $branch" >&2
     exit 1
+elif [ "$status" -ne 0 ]; then
+    echo "pushed: could not ask $remote about $branch (git said why, above): nothing is confirmed." >&2
+    exit 1
 fi
+there=$(printf '%s\n' "$listed" | cut -f1)
 
 if [ "$here" != "$there" ]; then
     echo "pushed: $branch is ${here:0:12} here but ${there:0:12} on $remote:" >&2

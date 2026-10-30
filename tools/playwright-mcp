@@ -43,4 +43,5 @@ elif ! (cd "$web" && node "$cli" install --only-shell chromium) >&2; then
     browser=(--executable-path "$("$here/chromium/fetch")")
 fi
 
-exec node "$cli" mcp --config "$web/playwright-mcp.json" "${browser[@]}" "$@"
+# The `+` form, because bash before 4.4 (macOS's) calls an empty array unbound.
+exec node "$cli" mcp --config "$web/playwright-mcp.json" ${browser[@]+"${browser[@]}"} "$@"
