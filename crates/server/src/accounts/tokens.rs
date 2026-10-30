@@ -83,6 +83,18 @@ pub async fn find(pool: &PgPool, bearer: &str) -> Result<Option<(UserId, i64)>, 
     Ok(row.map(|(user, id)| (UserId::from_row(user), id)))
 }
 
+/// Whether `user` still has token `id`: not revoked, and the account not
+/// deleted. Unlike [`find`], it notes no use.
+pub async fn holds(pool: &PgPool, user: UserId, id: i64) -> Result<bool, AccountError> {
+    let mut tx = db::scoped(pool, user).await?;
+    let held = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM api_tokens WHERE id = $1)")
+        .bind(id)
+        .fetch_one(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    Ok(held)
+}
+
 /// Remember which client `user`'s token `id` connects with: the `clientInfo`
 /// an MCP `initialize` named (#707). Its later tool calls are recorded with
 /// it; the next `initialize` replaces it.

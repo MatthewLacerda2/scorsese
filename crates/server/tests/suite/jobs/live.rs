@@ -1,6 +1,5 @@
 //! A job's owner hears every change to it as it happens, and nobody else does.
 
-use std::net::SocketAddr;
 use std::time::Duration;
 
 use futures_util::StreamExt;
@@ -10,11 +9,10 @@ use scorsese_server::http::{self, AppState};
 use scorsese_server::jobs::{Outcome, Queue, Registry, State};
 use serde_json::json;
 use sqlx::postgres::PgPool;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
 use tokio::time::timeout;
 
 use super::{ECHO, account, common, enqueue, members, start_worker, stop_worker};
+use common::stream::{listen, read_until};
 
 #[sqlx::test]
 async fn the_owner_hears_a_job_wait_run_and_finish(pool: PgPool) {
@@ -46,43 +44,6 @@ async fn the_owner_hears_a_job_wait_run_and_finish(pool: PgPool) {
     assert_eq!(states, [State::Waiting, State::Running, State::Done]);
 }
 
-/// `GET /api/events` as `bearer`: the connection, headers already read.
-async fn listen(address: SocketAddr, bearer: &str) -> TcpStream {
-    let mut stream = TcpStream::connect(address)
-        .await
-        .expect("the server is listening");
-    let request =
-        format!("GET /api/events HTTP/1.1\r\nHost: test\r\nAuthorization: Bearer {bearer}\r\n\r\n");
-    stream
-        .write_all(request.as_bytes())
-        .await
-        .expect("the request is written");
-    let head = read_until(&mut stream, "\r\n\r\n", Duration::from_secs(5)).await;
-    assert!(
-        head.expect("the stream answers")
-            .starts_with("HTTP/1.1 200")
-    );
-    stream
-}
-
-/// What `stream` says up to and including `marker`, or `None` if it has not
-/// said it within `patience`.
-async fn read_until(stream: &mut TcpStream, marker: &str, patience: Duration) -> Option<String> {
-    let mut seen = Vec::new();
-    let reading = async {
-        let mut byte = [0u8; 1];
-        while !String::from_utf8_lossy(&seen).contains(marker) {
-            stream
-                .read_exact(&mut byte)
-                .await
-                .expect("the stream stays open");
-            seen.push(byte[0]);
-        }
-    };
-    timeout(patience, reading).await.ok()?;
-    Some(String::from_utf8_lossy(&seen).into_owned())
-}
-
 #[sqlx::test]
 async fn jobs_and_their_stream_are_the_callers_alone(pool: PgPool) {
     let (ana, bia) = (
@@ -100,8 +61,8 @@ async fn jobs_and_their_stream_are_the_callers_alone(pool: PgPool) {
 
     let anonymous = common::request(address, "GET", "/api/events", &[], None).await;
     assert_eq!(anonymous.status, 401);
-    let mut ana_hears = listen(address, &ana_token).await;
-    let mut bia_hears = listen(address, &bia_token).await;
+    let mut ana_hears = listen(address, &format!("Authorization: Bearer {ana_token}")).await;
+    let mut bia_hears = listen(address, &format!("Authorization: Bearer {bia_token}")).await;
 
     let job = enqueue(&members, ana, ECHO, json!({})).await;
     state.jobs.announce(ana, &job);

@@ -13,6 +13,7 @@ mod common;
 mod config;
 mod credits;
 mod editor;
+mod events;
 mod google;
 mod isolation;
 mod jobs;

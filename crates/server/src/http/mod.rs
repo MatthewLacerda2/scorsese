@@ -92,6 +92,9 @@ pub struct AppState {
     /// The free allowance every account is given (#1530), as the pricing
     /// page states it.
     pub free: crate::credits::allowance::Allowance,
+    /// How often an open `GET /api/events` asks whether the credential it
+    /// was opened with still holds ([`events::RECHECK`]).
+    pub recheck: std::time::Duration,
 }
 
 impl AppState {
@@ -127,6 +130,7 @@ impl AppState {
             payments: None,
             daily: crate::accounts::access::Daily::default(),
             free: crate::credits::allowance::Allowance::NONE,
+            recheck: events::RECHECK,
             pool,
             jobs,
             events,
@@ -157,6 +161,13 @@ impl AppState {
     /// The same state, stating `free` as the allowance every account gets.
     pub fn with_free(mut self, free: crate::credits::allowance::Allowance) -> Self {
         self.free = free;
+        self
+    }
+
+    /// The same state, its open event streams rechecking their credential
+    /// every `recheck` — a test's, shorter than [`events::RECHECK`].
+    pub fn with_recheck(mut self, recheck: std::time::Duration) -> Self {
+        self.recheck = recheck;
         self
     }
 
