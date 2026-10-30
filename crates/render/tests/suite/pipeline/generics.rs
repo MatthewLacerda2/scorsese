@@ -6,7 +6,6 @@
 //! Needs the pinned browser, like `pages.rs` beside it.
 
 use scorsese_core::{Asset, AssetId, AssetKind, Clip, Fps, Frames, ProjectPath};
-use scorsese_render::page::Chrome;
 use scorsese_render::{Frame, Renderer};
 
 use crate::common::ffmpeg::tools;
@@ -60,7 +59,7 @@ fn a_page_s_generic_families_draw_in_the_faces_they_mean() {
             video_track("v2", vec![Clip::at("c2", "generics", 0, 10)]),
         ],
     );
-    let chrome = Chrome::discover().expect("the pinned browser (SCORSESE_CHROME)");
+    let chrome = scorsese_render::testing::chrome();
     let renderer = Renderer::new(&tools, settings(Fps::THIRTY)).with_chrome(chrome);
     let still = renderer.still(&project, &dir, Frames(5)).expect("composes");
 

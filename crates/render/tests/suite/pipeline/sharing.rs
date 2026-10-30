@@ -8,7 +8,6 @@
 use std::path::{Path, PathBuf};
 
 use scorsese_core::{Asset, AssetId, AssetKind, Clip, Fps, Project, ProjectPath};
-use scorsese_render::page::Chrome;
 use scorsese_render::{FrameRange, Note, RenderReport, Renderer};
 
 use crate::common::ffmpeg::{mean_rgb, tools};
@@ -49,7 +48,7 @@ fn twice(name: &str) -> (PathBuf, Project) {
 /// Renders all of `project` to `out`, with the pinned browser.
 fn render(project: &Project, dir: &Path, out: &str) -> RenderReport {
     let tools = tools();
-    let chrome = Chrome::discover().expect("the pinned browser (SCORSESE_CHROME)");
+    let chrome = scorsese_render::testing::chrome();
     Renderer::new(&tools, settings(Fps::THIRTY))
         .with_chrome(chrome)
         .render(project, dir, FrameRange::ALL, &dir.join(out))

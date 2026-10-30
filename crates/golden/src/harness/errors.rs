@@ -69,7 +69,11 @@ pub enum GoldenError {
     /// captured — almost always no browser (`SCORSESE_CHROME`). Fails rather
     /// than comparing, so a missing browser reads as itself and not as a page
     /// whose pixels moved.
-    #[error("golden fixture `{fixture}`: a page could not be captured: {reason}")]
+    #[error(
+        "golden fixture `{fixture}`: a page could not be captured: {reason}\n\
+         The goldens capture with the pinned browser that tools/with-chrome supplies: run them \
+         through `make test CRATES=\"scorsese-golden\"`, never a bare `cargo nextest run -p`"
+    )]
     PageNotCaptured {
         /// The fixture with the page.
         fixture: String,

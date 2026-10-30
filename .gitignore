@@ -81,3 +81,7 @@ deploy/terraform/*/.terraform/
 deploy/terraform/*/tf_local_override.tf
 *.tfstate
 *.tfstate.*
+
+# What the Playwright MCP server writes (`tools/playwright-mcp`): an agent's
+# page snapshots and screenshots, in the folder its client started in.
+.playwright-mcp/

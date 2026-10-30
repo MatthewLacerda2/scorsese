@@ -63,7 +63,7 @@ fn captured_at(chrome: &Chrome, raster: Resolution) -> (u64, u64) {
 
 #[test]
 fn a_page_is_captured_at_the_raster_down_to_a_540_short_side_and_at_that_below() {
-    let chrome = Chrome::discover().expect("the pinned browser (SCORSESE_CHROME)");
+    let chrome = scorsese_render::testing::chrome();
     let raster = |width, height| Resolution::new(width, height).expect("a raster");
     assert_eq!(captured_at(&chrome, raster(1280, 720)), (1280, 720));
     assert_eq!(

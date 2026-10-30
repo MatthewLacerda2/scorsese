@@ -12,9 +12,11 @@
 //! A test whose source is its own — a lavfi `sine` at ffmpeg's default eighth
 //! of full scale, a test pattern — hands its arguments to [`generate`].
 
+use std::ffi::OsString;
 use std::path::Path;
 
 use crate::Tools;
+use crate::page::{CHROME_ENV, Chrome};
 
 /// The binaries, or a panic saying what a test run needs on this machine.
 pub fn tools() -> Tools {
@@ -100,4 +102,61 @@ pub fn still(tools: &Tools, path: &Path, colour: &str, size: &str) {
             "1",
         ],
     );
+}
+
+/// What a test that captures pages says when it ran without the browser:
+/// `tools/with-chrome` names the pinned build in [`CHROME_ENV`], and `make
+/// test` runs through it, a run narrowed to a few crates included.
+pub const RUN_WITH_CHROME: &str = "this test captures pages with the pinned browser, which \
+     tools/with-chrome names in SCORSESE_CHROME. Run the crate's tests through `make test \
+     CRATES=\"<package>\"` (packages space-separated), which supplies it and a Postgres, \
+     never through a bare `cargo nextest run -p`";
+
+/// The browser a page test captures with, or a panic saying how to run it.
+#[track_caller]
+pub fn chrome() -> Chrome {
+    match Chrome::discover() {
+        Ok(chrome) => chrome,
+        Err(error) => panic!("{error}\n{RUN_WITH_CHROME}"),
+    }
+}
+
+/// Panics, saying how to run it, unless [`CHROME_ENV`] names a browser: for a
+/// test whose capture runs in a binary that looks nowhere else (the server's
+/// capture worker).
+#[expect(
+    clippy::disallowed_methods,
+    reason = "SCORSESE_CHROME names a machine's own browser, not a secret"
+)]
+#[track_caller]
+pub fn require_chrome_env() {
+    if let Err(how) = chrome_named(std::env::var_os(CHROME_ENV)) {
+        panic!("{how}");
+    }
+}
+
+fn chrome_named(named: Option<OsString>) -> Result<OsString, String> {
+    named
+        .filter(|named| !named.is_empty())
+        .ok_or_else(|| format!("{CHROME_ENV} is not set: {RUN_WITH_CHROME}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_run_without_the_browser_is_told_to_go_through_make_test() {
+        for unset in [None, Some(OsString::new())] {
+            let how = chrome_named(unset).expect_err("no browser named");
+            assert!(how.starts_with("SCORSESE_CHROME is not set: "), "{how}");
+            assert!(how.contains("make test CRATES=\"<package>\""), "{how}");
+        }
+    }
+
+    #[test]
+    fn a_named_browser_is_taken_as_named() {
+        let named = OsString::from("/opt/chrome-headless-shell");
+        assert_eq!(chrome_named(Some(named.clone())), Ok(named));
+    }
 }

@@ -248,6 +248,29 @@ what it is about.
   control. The assistant is faked in the browser with `page.route`; nothing
   here may call a provider.
 
+## A browser for agents
+
+Every Claude session in this repo gets Playwright's browser tools
+(`browser_navigate`, `browser_snapshot`, `browser_click`,
+`browser_take_screenshot`, …) from the `playwright` server in the repo's
+`.mcp.json`. It is `playwright mcp` from this folder's own `@playwright/test`,
+so it fetches no other Playwright and drives the same headless Chromium shell
+the flows use, with a profile kept in memory (`playwright-mcp.json`).
+`tools/playwright-mcp` starts it: it runs `bun install` here when
+`node_modules` is missing, and fetches the browser when it is not cached, or
+uses `E2E_CHROMIUM` when that names one. An interactive session asks once to
+trust the project's servers; a headless or cloud one loads them unasked.
+
+To look at a change, run the page as *Running it* says (`bun run dev`, and the
+server for anything past the landing page) and point `browser_navigate` at
+`http://localhost:5173`. A snapshot (the page's accessibility tree, with a ref
+for each element) is what a click or a fill names; a screenshot is for how it
+looks. They land in `.playwright-mcp/` where the session started, which git
+ignores.
+
+What the tools found is not a test. A behaviour worth keeping becomes a flow in
+`tests/e2e/` (*Which test, where*), which runs in the gate.
+
 ## Choices, and why
 
 - **knip for dead code.** It reads the Vite, Playwright and Bun configs for

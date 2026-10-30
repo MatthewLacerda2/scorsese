@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# The Playwright MCP server that gives an agent its browser tools (`.mcp.json`,
+# web/README.md's *A browser for agents*): `playwright mcp` from web/'s own
+# pinned Playwright, so no second copy of it is fetched, driving the headless
+# Chromium shell `make web-e2e` installs, its profile kept in memory
+# (web/playwright-mcp.json).
+#
+# MCP speaks over stdout, so everything this prints itself goes to stderr.
+#
+# What it needs, each fetched only when missing:
+#
+# 1. web/node_modules, by `bun install --frozen-lockfile`: bun.lock's pins.
+# 2. The browser, the first of:
+#    - E2E_CHROMIUM, when it names one;
+#    - Playwright's pinned headless shell, which `playwright install
+#      --only-shell chromium` fetches once into its cache;
+#    - the repo's own pinned chrome-headless-shell (tools/chromium/fetch), for
+#      a machine that cannot reach Playwright's download host.
+
+set -euo pipefail
+
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+web=$(cd "$here/../web" && pwd)
+cli=$web/node_modules/@playwright/test/cli.js
+
+# Where bun's installer puts it, for a session whose PATH predates it.
+PATH=$PATH:$HOME/.bun/bin
+# A cloud container's proxy re-signs TLS with this bundle (cloud-brief.md).
+if [ -z "${NODE_EXTRA_CA_CERTS:-}" ] && [ -r /root/.ccr/ca-bundle.crt ]; then
+    export NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt
+fi
+
+if [ ! -f "$cli" ]; then
+    echo "playwright-mcp: web/node_modules is missing; running bun install in web/" >&2
+    (cd "$web" && bun install --frozen-lockfile) >&2
+fi
+
+browser=()
+if [ -n "${E2E_CHROMIUM:-}" ]; then
+    browser=(--executable-path "$E2E_CHROMIUM")
+elif ! (cd "$web" && node "$cli" install --only-shell chromium) >&2; then
+    echo "playwright-mcp: Playwright's browser could not be fetched; using tools/chromium/fetch's" >&2
+    browser=(--executable-path "$("$here/chromium/fetch")")
+fi
+
+exec node "$cli" mcp --config "$web/playwright-mcp.json" "${browser[@]}" "$@"

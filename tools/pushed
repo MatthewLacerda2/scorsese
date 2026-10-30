@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Whether this branch's last commit is the one its pull request has: run after
+# every push (`make pushed`), and before saying it was pushed or readying it.
+#
+# A pull request's head is its branch on origin, so the question is asked of
+# git alone, and works where `gh` is missing or GitHub's GraphQL is refused.
+# Exits 0 when they agree, 1 with what to do otherwise.
+
+set -euo pipefail
+
+remote=${PUSHED_REMOTE:-origin}
+
+if ! branch=$(git symbolic-ref --quiet --short HEAD); then
+    echo "pushed: HEAD is detached -- check out the pull request's branch first." >&2
+    exit 1
+fi
+here=$(git rev-parse HEAD)
+
+if ! there=$(git ls-remote --exit-code "$remote" "refs/heads/$branch" | cut -f1); then
+    echo "pushed: $remote has no branch $branch, so no pull request has this commit." >&2
+    echo "  Push it: git push -u $remote $branch" >&2
+    exit 1
+fi
+
+if [ "$here" != "$there" ]; then
+    echo "pushed: $branch is ${here:0:12} here but ${there:0:12} on $remote:" >&2
+    echo "  the last commit has not reached the pull request. Push again, then run" >&2
+    echo "  this until it agrees; never report a push it has not confirmed." >&2
+    exit 1
+fi
+
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+    echo "pushed: (uncommitted changes to tracked files are not in it)" >&2
+fi
+echo "pushed: $branch at ${here:0:12} is the head on $remote"

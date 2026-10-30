@@ -4,7 +4,6 @@
 //! Needs the pinned browser, like `pages.rs` beside it.
 
 use scorsese_core::{Asset, AssetId, AssetKind, Clip, ClipId, Fps, Frames, Project, ProjectPath};
-use scorsese_render::page::Chrome;
 use scorsese_render::{Frame, Renderer};
 
 use crate::common::ffmpeg::tools;
@@ -64,7 +63,7 @@ fn a_page_follows_the_clip_it_reads_and_ignores_the_ones_it_does_not() {
             video_track("v2", vec![shown]),
         ],
     );
-    let chrome = Chrome::discover().expect("the pinned browser (SCORSESE_CHROME)");
+    let chrome = scorsese_render::testing::chrome();
     let renderer = Renderer::new(&tools, settings(Fps::THIRTY)).with_chrome(chrome.clone());
     let preview = Renderer::new(&tools, settings(Fps::THIRTY))
         .with_chrome(chrome)

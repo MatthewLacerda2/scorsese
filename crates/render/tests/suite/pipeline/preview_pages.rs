@@ -4,7 +4,7 @@
 //! Needs the pinned browser, like `pages.rs` beside it.
 
 use scorsese_core::{Asset, AssetId, AssetKind, Clip, Fps, Frames, ProjectPath};
-use scorsese_render::page::{self, Chrome};
+use scorsese_render::page;
 use scorsese_render::{Frame, Renderer};
 
 use crate::common::ffmpeg::tools;
@@ -64,7 +64,7 @@ fn a_preview_shows_the_card_until_the_capture_lands_and_then_the_page() {
             ),
         ],
     );
-    let chrome = Chrome::discover().expect("the pinned browser (SCORSESE_CHROME)");
+    let chrome = scorsese_render::testing::chrome();
     let preview = Renderer::new(&tools, settings(Fps::THIRTY)).without_capturing();
 
     let blind = preview.still(&project, &dir, Frames(5)).expect("composes");

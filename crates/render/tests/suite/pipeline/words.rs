@@ -6,7 +6,6 @@
 
 use scorsese_core::words::{Word, Words};
 use scorsese_core::{Asset, AssetId, AssetKind, Clip, Fps, Frames, ProjectPath};
-use scorsese_render::page::Chrome;
 use scorsese_render::{Frame, Renderer};
 
 use crate::common::ffmpeg::{generate, tools};
@@ -76,7 +75,7 @@ fn a_page_lights_on_the_word_where_the_clip_plays_it() {
             audio_track("a1", vec![vo]),
         ],
     );
-    let chrome = Chrome::discover().expect("the pinned browser (SCORSESE_CHROME)");
+    let chrome = scorsese_render::testing::chrome();
     let renderer = Renderer::new(&tools, settings(Fps::THIRTY)).with_chrome(chrome);
     let at = |frame: u64| {
         let still = renderer

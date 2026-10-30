@@ -26,6 +26,18 @@ is the smell — the server has none by design — so that logic moves a layer
 down and is tested there, as a unit, and the endpoint's test proves only that
 it is wired: what it allows and what it refuses.
 
+## Running part of the suite
+
+A run narrowed to some crates goes through `make test` too:
+
+    make test CRATES="scorsese-server scorsese-core"
+
+It gives the run what `make test` gives the whole suite, the pinned browser
+(`tools/with-chrome`) and a Postgres (`tools/with-postgres`). A bare `cargo
+nextest run -p` has neither, so the page captures, the server's included, and
+the database tests fail. Narrowed further, to one test, the wrappers go first:
+`tools/with-chrome tools/with-postgres cargo nextest run -p <crate> <filter>`.
+
 ## Test first
 
 Write the test, **watch it fail**, then write the code that makes it pass. A

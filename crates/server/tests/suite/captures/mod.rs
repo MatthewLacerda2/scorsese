@@ -36,6 +36,7 @@ fn spool(name: &str, html: &str) -> (Spool, PathBuf) {
 }
 
 fn worker(spool: &Spool, deadline: fn(u64) -> Duration) -> Worker {
+    scorsese_render::testing::require_chrome_env();
     Worker {
         spool: spool.clone(),
         isolation: Isolation::Process {

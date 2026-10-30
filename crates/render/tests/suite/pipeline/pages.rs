@@ -115,7 +115,7 @@ fn a_still_from_a_piece_of_the_page_is_the_still_from_the_whole() {
     let page = &mut project.tracks[1].clips[0];
     page.source_in = Frames(30);
     page.duration = Frames(90);
-    let chrome = Chrome::discover().expect("the pinned browser (SCORSESE_CHROME)");
+    let chrome = scorsese_render::testing::chrome();
     let renderer = Renderer::new(&tools, settings(Fps::THIRTY)).with_chrome(chrome.clone());
 
     let from_piece = renderer

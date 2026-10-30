@@ -10,6 +10,7 @@ use scorsese_server::captures::worker::{Isolation, Worker};
 
 /// A worker answering `spool` for the rest of the test, once it has said so.
 pub(crate) fn answering(spool: &Spool) {
+    scorsese_render::testing::require_chrome_env();
     let worker = Worker {
         spool: spool.clone(),
         isolation: Isolation::Process {
