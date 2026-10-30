@@ -31,7 +31,9 @@ written a paragraph. Its words are its system prompt
 
 One of the operator's machines hosts the service: Docker Compose,
 reached through a Cloudflare Tunnel. Users' renders and generations queue on
-its cores behind a concurrency limit per kind of job, and a power cut is an
+its cores behind a concurrency limit per kind of job, one account's share of
+it is bounded (`config::PerUser`: turns at once, batched stills, storage; a
+new shared capacity gets its per-user bound too), and a power cut is an
 outage for them too, so the job queue recovers on restart and backups leave the
 machine. Anything that executes a user's content there is isolated and offline,
 with no opt-out.

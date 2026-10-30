@@ -8,6 +8,7 @@ mod budget;
 mod claim;
 mod live;
 mod logged;
+mod per_user;
 mod recover;
 mod worker;
 

@@ -111,7 +111,10 @@
 //! is set for Sonnet 5.5 and scales with the turn's model's blended rate
 //! (`cost`, #1461), so a turn may do the same work on any model. The call
 //! that crosses either line has already been made and is charged; one call's
-//! cost is bounded by `max_tokens`.
+//! cost is bounded by `max_tokens`. A user runs at most a few turns at once
+//! ([`Assistant::at_once`]), and each call in flight holds what it may cost
+//! until it is charged, so turns at once share the balance rather than each
+//! crossing it (`holds`).
 //!
 //! ## Effort: the project's, `high` unless chosen
 //!
@@ -154,6 +157,7 @@ mod cost;
 mod described;
 mod effort;
 mod failure;
+mod holds;
 mod model;
 mod pictures;
 mod prompt;
@@ -199,12 +203,22 @@ pub use wake::watch;
 /// $2.00 did at ×1.1, $1.94 of cost against $1.82.
 pub const DEFAULT_TURN_CAP_MICROS: i64 = 3_500_000;
 
+/// How many turns one user may have running at once, every project and
+/// conversation together, when [`crate::config::USER_TURNS`] does not say:
+/// two, a person and a second tab. Turns paused on a question or a quote are
+/// not running and do not count.
+pub const DEFAULT_TURNS_AT_ONCE: usize = 2;
+
 /// The server's assistant: how it reaches each model, what a turn may cost,
-/// and which turns have been asked to stop. Cheap to clone.
+/// how many of one user's run at once and what their calls in flight hold
+/// (`holds`), and which turns have been asked to stop. Cheap to clone; clones
+/// share the holds and the stops.
 #[derive(Clone)]
 pub struct Assistant {
     connect: Connect,
     baseline_micros: i64,
+    at_once: usize,
+    holds: holds::Holds,
     stopping: stopping::Stopping,
 }
 
@@ -232,6 +246,20 @@ pub enum AssistantError {
     /// A turn is already running in this conversation.
     #[error("the assistant is still working on your last message; wait for it, or stop it")]
     Busy,
+    /// The user already has as many turns running as one may, every project
+    /// together (`holds`).
+    #[error(
+        "the assistant is already working on {0} of your messages, the most it takes at once; \
+         wait for one to finish, or stop it"
+    )]
+    AtOnce(usize),
+    /// What is left of the balance may be spent by the user's other turns'
+    /// calls in flight (`holds`).
+    #[error(
+        "your balance is {0}, and your other messages being worked on may spend it; wait for \
+         them to finish, or add credit"
+    )]
+    Held(String),
     /// Too many edits this minute: the seconds until one more can be made.
     #[error("too many edits this minute; try again in {0} seconds")]
     TooMany(u64),
@@ -263,8 +291,17 @@ impl Assistant {
         Self {
             connect: Connect::Environment,
             baseline_micros,
+            at_once: DEFAULT_TURNS_AT_ONCE,
+            holds: holds::Holds::default(),
             stopping: stopping::Stopping::default(),
         }
+    }
+
+    /// The same assistant, running at most `turns` turns of one user's at
+    /// once.
+    pub fn at_once(mut self, turns: usize) -> Self {
+        self.at_once = turns;
+        self
     }
 
     /// The same assistant answering every model from `chat` instead.

@@ -43,7 +43,9 @@
 //! ([`ledger::charge_assistant`]): its cost is exact only once the response
 //! has counted its tokens. Whoever runs a turn (#540) checks there is a
 //! positive balance before starting one; the call itself may take the balance
-//! a little below zero, which the next top-up absorbs.
+//! a little below zero, which the next top-up absorbs. A user's turns at once
+//! count what each other's calls in flight hold (`assistant::holds`), so they
+//! share that last dollar rather than each spending it.
 //!
 //! ## Per generation, and nothing else
 //!

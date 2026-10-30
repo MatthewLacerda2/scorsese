@@ -17,23 +17,40 @@
 //! append. The guard is in memory, which is enough: there is one server, and a
 //! restart ends every request that held one.
 //!
-//! An upload nobody has touched for a day is abandoned. The next announcement
-//! by the same user sweeps theirs away, so no timer is needed and nothing
-//! crosses users.
+//! **Each user keeps at most their quota**
+//! ([`Storage::quota`](crate::storage::Storage::quota)): their library, their
+//! kept renders and every upload they have announced, counted at its
+//! announced length from the moment it is announced. So an announcement that
+//! would take them past it is refused before a byte is sent
+//! ([`LibraryError::Full`]), and so is a chunk arriving once something else —
+//! a generation, a render — has filled the room meanwhile. Both are decided
+//! under the user's lock (`credits::ledger::lock`), so two announcements at
+//! once cannot both take the last of it. A generation is never refused for
+//! it: it was paid for, and is kept.
+//!
+//! An upload nobody has touched for a day is abandoned. The same user's next
+//! announcement sweeps theirs away, and [`sweep`] sweeps everybody's every
+//! hour, so an abandoned upload holds neither disk nor quota for long.
 
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
+use std::time::Duration;
 
 use futures_util::{Stream, StreamExt};
 use serde::Serialize;
 use tokio::io::AsyncWriteExt;
+use tokio::sync::watch;
 
 use scorsese_core::bytes::format_bytes;
 
 use super::{Arrival, Item, Kind, Library, LibraryError, store};
-use crate::db::{self, UserId};
+use crate::credits::ledger;
+use crate::db::{self, Tx, UserId};
+
+/// How often [`sweep`] looks for abandoned uploads.
+const SWEEP_EVERY: Duration = Duration::from_secs(60 * 60);
 
 /// The largest file an upload may announce: 20 GB, a long screen recording
 /// with room to spare. Decimal, as every size scorsese prints is (#1287).
@@ -79,6 +96,28 @@ impl InFlight {
     fn claim(&self, id: i64) -> Option<Writing> {
         let mut writing = self.0.lock().unwrap_or_else(PoisonError::into_inner);
         writing.insert(id).then(|| Writing(self.clone(), id))
+    }
+
+    /// The uploads being written now.
+    fn ids(&self) -> Vec<i64> {
+        let writing = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        writing.iter().copied().collect()
+    }
+}
+
+/// Sweep every user's abandoned uploads ([`Library::sweep_uploads`]) every
+/// hour, until `stop`.
+pub async fn sweep(library: Library, mut stop: watch::Receiver<bool>) {
+    loop {
+        match library.sweep_uploads().await {
+            Ok(0) => {}
+            Ok(swept) => tracing::info!("swept {swept} abandoned uploads"),
+            Err(error) => tracing::error!("the upload sweep failed: {error}"),
+        }
+        tokio::select! {
+            _ = stop.wait_for(|stopping| *stopping) => return,
+            () = tokio::time::sleep(SWEEP_EVERY) => {}
+        }
     }
 }
 
@@ -133,6 +172,7 @@ impl Library {
         )
         .fetch_all(&mut *tx)
         .await?;
+        self.room(&mut tx, announced.length, None).await?;
         let id: i64 = sqlx::query_scalar(
             "INSERT INTO uploads (user_id, name, kind, extension, sha256, length)
              VALUES (member_id(), $1, $2, $3, $4, $5) RETURNING id",
@@ -155,6 +195,64 @@ impl Library {
         }
         std::fs::File::create(file)?;
         Ok(id)
+    }
+
+    /// Refused as [`LibraryError::Full`] unless the user `tx` is scoped to has
+    /// room for `length` more bytes beside what they keep: their library,
+    /// their kept renders and their announced uploads, but for upload
+    /// `except` — the one the bytes are for. Takes the user's lock, held until
+    /// `tx` ends, so a decision and the row it lets in are one.
+    async fn room(
+        &self,
+        tx: &mut Tx,
+        length: i64,
+        except: Option<i64>,
+    ) -> Result<(), LibraryError> {
+        ledger::lock(tx).await?;
+        let used: i64 = sqlx::query_scalar(
+            "SELECT ((SELECT coalesce(sum(size_bytes), 0) FROM library_items)
+                   + (SELECT coalesce(sum(size), 0) FROM renders)
+                   + (SELECT coalesce(sum(length), 0) FROM uploads
+                      WHERE id IS DISTINCT FROM $1))::bigint",
+        )
+        .bind(except)
+        .fetch_one(&mut **tx)
+        .await?;
+        let (used, needed) = (used.unsigned_abs(), length.unsigned_abs());
+        let quota = self.storage.quota().get();
+        if used.saturating_add(needed) > quota {
+            return Err(LibraryError::Full {
+                used,
+                quota,
+                needed,
+            });
+        }
+        Ok(())
+    }
+
+    /// Abandon every user's upload nobody has touched for a day, and what of
+    /// it arrived — but one a request is writing right now; how many.
+    /// Privileged: what has been abandoned is a question about everybody
+    /// (`db::scope`'s list), and the files are removed as each row's owner's.
+    pub async fn sweep_uploads(&self) -> Result<usize, LibraryError> {
+        let writing: Vec<i64> = self.uploading.ids();
+        let mut tx = db::privileged(&self.pool).await?;
+        let abandoned: Vec<(i64, i64, String)> = sqlx::query_as(
+            "DELETE FROM uploads
+             WHERE touched_at < now() - interval '1 day' AND NOT (id = ANY($1))
+             RETURNING user_id, id, extension",
+        )
+        .bind(&writing)
+        .fetch_all(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        for (user, id, extension) in &abandoned {
+            let file = self
+                .storage
+                .upload_file(UserId::from_row(*user), *id, extension);
+            let _ = std::fs::remove_file(file);
+        }
+        Ok(abandoned.len())
     }
 
     /// How far `user`'s upload `id` has got.
@@ -185,6 +283,11 @@ impl Library {
         if offset != at {
             return Err(LibraryError::Offset { expected: at });
         }
+        // Room may have been taken since it was announced: a generation, a
+        // render. Refused before a byte of the chunk is written.
+        let mut tx = db::scoped(&self.pool, user).await?;
+        self.room(&mut tx, length, Some(id)).await?;
+        tx.commit().await?;
         let mut file = tokio::fs::OpenOptions::new()
             .append(true)
             .create(true)

@@ -21,6 +21,12 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::db::UserId;
+use crate::renders::Quota;
+
+/// How much one account may keep when [`crate::config::USER_STORAGE`] does
+/// not say: 50 GB, two and a half of the largest file an upload may be, and
+/// room for many projects' footage.
+pub const DEFAULT_QUOTA: Quota = Quota::bytes(50 * 1000 * 1000 * 1000);
 
 /// Each user's scratch folders, under their cache directory.
 const SCRATCH: &str = "scratch";
@@ -30,21 +36,38 @@ pub fn user_directory(root: &Path, user: UserId) -> PathBuf {
     root.join("users").join(user.get().to_string())
 }
 
-/// The two roots, and every path the server keeps a user's file at.
+/// The two roots, every path the server keeps a user's file at, and how much
+/// each user may keep.
 #[derive(Debug, Clone)]
 pub struct Storage {
     kept: PathBuf,
     cache: PathBuf,
+    quota: Quota,
 }
 
 impl Storage {
     /// Users' files kept under `kept` (`SCORSESE_STORAGE`), and what can be
-    /// rebuilt under `cache` (`SCORSESE_CACHE`).
+    /// rebuilt under `cache` (`SCORSESE_CACHE`), each user keeping at most
+    /// [`DEFAULT_QUOTA`].
     pub fn new(kept: impl Into<PathBuf>, cache: impl Into<PathBuf>) -> Self {
         Self {
             kept: kept.into(),
             cache: cache.into(),
+            quota: DEFAULT_QUOTA,
         }
+    }
+
+    /// The same roots, each user keeping at most `quota`: their library,
+    /// their kept renders and the uploads they have announced
+    /// (`library::upload`).
+    pub fn with_quota(mut self, quota: Quota) -> Self {
+        self.quota = quota;
+        self
+    }
+
+    /// How much each user may keep.
+    pub fn quota(&self) -> Quota {
+        self.quota
     }
 
     /// Create both roots, naming the one that could not be.

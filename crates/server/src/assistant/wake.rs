@@ -282,6 +282,12 @@ async fn check(state: &AppState, user: UserId, turn: i64) {
             match super::start(state, user, project, opening).await {
                 // Somebody got there first, or the work was told meanwhile.
                 Ok(_) | Err(AssistantError::Busy | AssistantError::Invalid(_)) => {}
+                // The person's other turns hold the room or the money: the
+                // note waits for their next message, which nothing went wrong
+                // to cause.
+                Err(error @ (AssistantError::AtOnce(_) | AssistantError::Held(_))) => {
+                    tracing::info!("assistant: not waking turn {turn}: {error}");
+                }
                 // An empty balance or a missing key: the note waits for the
                 // person's next message.
                 Err(error) => tracing::error!("assistant: waking turn {turn}: {error}"),

@@ -189,6 +189,12 @@ async fn summary(state: &AppState, turn: &mut Running, request: Request) -> Resu
     let request = Arc::new(request);
     let mut stopped = String::new();
     for _ in 0..2 {
+        // Held like any call of the turn's (`holds`); with nothing to spend,
+        // the turn goes on uncompacted and its next call stops it.
+        let held = super::holds::hold(state, turn.user, (turn.turn, turn.spent), &request)
+            .await
+            .map_err(|error| error.to_string())?
+            .map_err(|short| format!("not summarised: {short:?}"))?;
         let (reply, latency) = call(turn, &request).await?;
         let charge = Charge {
             turn: turn.turn,
@@ -201,6 +207,7 @@ async fn summary(state: &AppState, turn: &mut Running, request: Request) -> Resu
         let (charged, balance) = turns::charge(&state.pool, turn.user, &charge, &reply)
             .await
             .map_err(|error| error.to_string())?;
+        drop(held);
         turn.spent += charged;
         turn.balance = balance;
         let text = reply.text();
