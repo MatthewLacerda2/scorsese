@@ -1607,7 +1607,7 @@ answers `404 {"pending": true}` until it is drawn.
 sample of each fortieth, linear), at most 32,768 of them — a longer file
 merges neighbours and the rate falls — into
 `$SCORSESE_CACHE/users/<id>/peaks/`. A sound's tile carries a `peaks` URL;
-the timeline fetches it once per file, kept forever by the browser, and draws
+the timeline fetches it once per file (the browser keeps it, revalidated by its tag like every file), and draws
 the slice each clip plays from it, so a trim, a zoom or a scroll fetches
 nothing; one still being read is asked for again when its thumbnail job's
 `done` event arrives. A three-minute file is 7,204 bytes; an hour-long one 28,804, at 8

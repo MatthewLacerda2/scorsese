@@ -151,7 +151,7 @@ impl Speech {
 }
 
 /// Where a line in `voice_id` is spoken: the id percent-encoded, as every
-/// other call here sends one, so it stays a single path segment.
+/// other call here sends one, so no `/` or `?` in it changes the path.
 fn url(voice_id: &str) -> String {
     format!(
         "{BASE}/text-to-speech/{}/with-timestamps?output_format={OUTPUT_FORMAT}",
@@ -163,9 +163,10 @@ fn url(voice_id: &str) -> String {
 mod tests {
     use super::*;
 
-    /// The voice is one path segment whatever it holds, so the URL the vendor
-    /// receives names exactly the voice the ownership check was asked about:
-    /// a `/`, `..` or `?` in it cannot reach another voice or another route.
+    /// A `/` or `?` in the voice is encoded, so it cannot reach another voice
+    /// or another route. Encoding leaves `.` as it is, so an id of exactly
+    /// `..` would still be a dot segment: `scorsese_core::is_voice_id`, held
+    /// before any request is built, is what refuses that one.
     #[test]
     fn a_voice_id_stays_one_path_segment() {
         let speaks = |voice: &str| {

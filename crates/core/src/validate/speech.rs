@@ -40,7 +40,7 @@ pub(super) fn check(asset: &Asset, errors: &mut Vec<AssetProblem>) {
         });
     }
     match &request.voice_id {
-        Some(id) if id.is_empty() => found.push(SpeechProblem::BlankVoice {
+        Some(id) if id.trim().is_empty() => found.push(SpeechProblem::BlankVoice {
             asset: asset.id.clone(),
         }),
         Some(id) if !is_voice_id(id) => found.push(SpeechProblem::MalformedVoice {

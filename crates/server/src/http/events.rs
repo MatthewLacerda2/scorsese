@@ -41,19 +41,19 @@ pub async fn stream(
     Sse::new(stream).keep_alive(KeepAlive::default())
 }
 
-/// Done once `member`'s credential no longer holds, asked every `recheck`. A
-/// lookup that fails ends it too: a stream the database cannot vouch for is
-/// closed, and the reconnect is authenticated afresh.
+/// Done once `member`'s credential no longer holds, asked every `recheck`.
+///
+/// A lookup that fails is asked again at the next one, and never ends the
+/// stream: a reconnect during the same outage would be answered `500` by the
+/// extractor, and an `EventSource` answered anything but `200` gives up for
+/// good, leaving the page without live updates until it is reloaded.
 async fn lapsed(pool: PgPool, recheck: Duration, member: Member) {
     loop {
         tokio::time::sleep(recheck).await;
         match holds(&pool, &member).await {
             Ok(true) => {}
             Ok(false) => return,
-            Err(error) => {
-                tracing::warn!("rechecking a live stream's credential: {error}");
-                return;
-            }
+            Err(error) => tracing::warn!("rechecking a live stream's credential: {error}"),
         }
     }
 }

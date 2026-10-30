@@ -100,13 +100,15 @@ fn the_limit_counts_characters_and_not_bytes() {
 
 #[test]
 fn an_empty_voice_looks_chosen_and_is_not() {
-    let p = saying(|r| r.voice_id = Some(String::new()));
-    assert_only_problem(
-        &p,
-        E::Speech(S::BlankVoice {
-            asset: asset_id("vo-open"),
-        }),
-    );
+    for blank in ["", "   "] {
+        let p = saying(|r| r.voice_id = Some(blank.to_owned()));
+        assert_only_problem(
+            &p,
+            E::Speech(S::BlankVoice {
+                asset: asset_id("vo-open"),
+            }),
+        );
+    }
 }
 
 /// A voice id goes into the vendor's URL, so one that could be read as more

@@ -55,7 +55,7 @@ pub enum SpeechProblem {
         max: usize,
     },
 
-    /// A voice named by an empty string.
+    /// A voice named by an empty string, or one of nothing but spaces.
     ///
     /// Its own problem rather than being folded into *no voice chosen*, because
     /// the two are different mistakes. An absent voice is a sketch nobody has
@@ -72,7 +72,7 @@ pub enum SpeechProblem {
     /// ([`crate::is_voice_id`]): a space, a `/`, a `?`.
     #[error(
         "asset `{asset}` names voice `{voice}`, which is not a voice id: \
-         an id is letters and digits — copy it from voices"
+         an id is ASCII letters, digits, `-` and `_` — copy it from voices"
     )]
     MalformedVoice {
         /// The asset carrying it.

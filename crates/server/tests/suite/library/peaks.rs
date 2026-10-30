@@ -24,7 +24,7 @@ fn sound(directory: &Path) -> Vec<u8> {
 }
 
 #[sqlx::test]
-async fn the_worker_reads_a_sounds_peaks_and_they_are_served_to_keep(pool: PgPool) {
+async fn the_worker_reads_a_sounds_peaks_and_they_are_served_by_their_tag(pool: PgPool) {
     let files = common::files("peaks-drawn");
     let storage = files.storage.clone();
     let registry = kinds::registry(&files, Default::default());
