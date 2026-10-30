@@ -87,13 +87,13 @@ pub trait Library {
     fn one(&self, medium: Medium, id: u64) -> Result<Option<Candidate>, StockError>;
 
     /// The hosts its files are served from: a download goes only to one of
-    /// these or a subdomain of one, over https ([`fetchable`]), whatever page
+    /// these or a subdomain of one, over https (`fetchable`), whatever page
     /// named it.
     fn hosts(&self) -> &'static [&'static str];
 
     /// Downloads `url` into `to`, at most `limit` bytes. Answers how many
-    /// arrived. Called only once [`fetchable`] has passed `url`; a real
-    /// library follows a redirect only where [`fetchable`] passes it too.
+    /// arrived. Called only once `fetchable` has passed `url`; a real
+    /// library follows a redirect only where `fetchable` passes it too.
     fn download(&self, url: &str, limit: u64, to: &mut dyn Write) -> Result<u64, StockError>;
 }
 

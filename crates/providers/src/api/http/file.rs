@@ -33,7 +33,7 @@ pub fn stream_to(
 }
 
 /// [`stream_to`], following a redirect only to where `allowed` says it may
-/// go, and at most [`HOPS`] of them: a redirect anywhere else is refused as
+/// go, and at most `HOPS` of them: a redirect anywhere else is refused as
 /// the redirect it is, its body unread.
 pub fn stream_where(
     url: &str,
