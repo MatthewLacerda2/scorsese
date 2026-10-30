@@ -29,7 +29,7 @@ use scorsese_mcp::{PagesAhead, Part, Reply, Tool};
 use serde_json::Value;
 
 use super::surface::Serve;
-use super::{Caller, Refusal, bakes, database, fetched, folder, lay_out, log, project_id, voiced};
+use super::{Caller, Refusal, bakes, database, fetched, lay_out, log, project_id, voiced};
 use crate::captures::still::StillPages;
 use crate::jobs::blocking;
 use crate::projects::{self, ProjectError, files};
@@ -76,7 +76,8 @@ pub(super) async fn run(
         )
         .await?;
         let root = folder.root().to_path_buf();
-        folder::keep_stock_cache(&toolbox.storage, caller.user, &root)?;
+        let cache = toolbox.storage.stock(caller.user);
+        let kept_at = cache.clone();
         let mut local = arguments.clone();
         local["project"] = Value::String(root.to_string_lossy().into_owned());
         let before = stored.document.to_json().map_err(database)?;
@@ -91,7 +92,7 @@ pub(super) async fn run(
         let pages = pages.clone().map(|pages| pages as Arc<dyn PagesAhead>);
         let (outcome, after, gathered) =
             blocking("the tool crashed on the server; that is a bug", move || {
-                let tool = super::registered(name, stock.as_ref(), pages)
+                let tool = super::registered(name, stock.as_ref(), Some(&cache), pages)
                     .ok_or("the tool went missing")?;
                 let outcome = tool.call_cancellable(&local, &cancel);
                 let after = std::fs::read_to_string(root.join(PROJECT_FILE_NAME))
@@ -103,7 +104,7 @@ pub(super) async fn run(
             })
             .await??;
 
-        let outcome = hide(outcome, folder.root()).map_err(Refusal::Said);
+        let outcome = hide(outcome, folder.root(), &kept_at).map_err(Refusal::Said);
         let gathered = gathered.map_err(|why| format!("{why} — nothing was saved"))?;
         let document = after
             .filter(|(after, _)| *after != before)
@@ -195,12 +196,18 @@ fn held(serve: Serve, arguments: &Value) -> Result<(), String> {
     }
 }
 
-/// The reply, with the folder's path taken out of every word of it.
-fn hide(outcome: Result<Reply, String>, root: &std::path::Path) -> Result<Reply, String> {
-    let root = root.to_string_lossy().into_owned();
+/// The reply, with the folder's path taken out of every word of it, and the
+/// stock cache's said as the project's own `cache/stock` would be.
+fn hide(
+    outcome: Result<Reply, String>,
+    root: &std::path::Path,
+    cache: &std::path::Path,
+) -> Result<Reply, String> {
+    let (root, cache) = (root.to_string_lossy(), cache.to_string_lossy());
     let clean = |text: String| {
-        text.replace(&format!("{root}/"), "")
-            .replace(&root, "the project")
+        text.replace(&*cache, "cache/stock")
+            .replace(&format!("{root}/"), "")
+            .replace(&*root, "the project")
     };
     match outcome {
         Ok(reply) => Ok(Reply {

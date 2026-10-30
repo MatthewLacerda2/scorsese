@@ -212,7 +212,14 @@ pub fn bake_asset_unless(
         }
     } else {
         let bake = render(&recipe, &file, project_root, stop)?;
-        write(&on_disk, &bake.wav)?;
+        // Atomic, as [`write`] says, and never through a link out of the
+        // project.
+        scorsese_core::write::in_project(project_root, &output, &bake.wav).map_err(|source| {
+            SynthesisError::Write {
+                path: on_disk.clone(),
+                source,
+            }
+        })?;
         Baked::Rendered {
             bytes: bake.wav.len(),
             path: output,

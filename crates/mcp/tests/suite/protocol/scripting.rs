@@ -112,3 +112,54 @@ fn describing_a_project_surfaces_its_script_and_its_notes() {
     assert!(script_line < cut_line, "the script comes first: {text}");
     std::fs::remove_dir_all(dir).ok();
 }
+
+/// A folder of the project that is a link to somewhere else is never written
+/// through: the write is refused and the place it leads stays as it was.
+#[cfg(unix)]
+#[test]
+fn a_script_path_through_a_link_out_of_the_project_is_refused() {
+    let dir = project("script-linked");
+    let outside = crate::protocol::scratch::fresh("scorsese-mcp-script-outside", "");
+    std::fs::create_dir_all(&outside).expect("the outside folder");
+    std::os::unix::fs::symlink(&outside, dir.join("notes")).expect("the link");
+    let (text, failed) = said(&call(
+        "script_write",
+        json!({ "project": dir, "text": "planted", "path": "notes/brief.md" }),
+    ));
+    assert!(failed, "should have been refused: {text}");
+    assert!(text.contains("is a link"), "got {text}");
+    assert!(
+        !outside.join("brief.md").exists(),
+        "nothing went through it"
+    );
+    assert!(
+        !document(&dir).contains("\"script\""),
+        "the document names no script it does not have"
+    );
+    std::fs::remove_dir_all(dir).ok();
+    std::fs::remove_dir_all(outside).ok();
+}
+
+/// A script whose own file is a link is replaced by a file of the project's,
+/// never written through to what the link names.
+#[cfg(unix)]
+#[test]
+fn a_script_that_is_a_link_is_replaced_not_written_through() {
+    let dir = project("script-final-link");
+    let outside = crate::protocol::scratch::fresh("scorsese-mcp-script-target", "");
+    std::fs::create_dir_all(&outside).expect("the outside folder");
+    let target = outside.join("kept.md");
+    std::fs::write(&target, "untouched").expect("the target");
+    std::os::unix::fs::symlink(&target, dir.join("script.md")).expect("the link");
+    let (text, failed) = said(&call(
+        "script_write",
+        json!({ "project": dir, "text": "the brief" }),
+    ));
+    assert!(!failed, "{text}");
+    assert_eq!(std::fs::read_to_string(&target).unwrap(), "untouched");
+    let written = dir.join("script.md");
+    assert!(!written.symlink_metadata().unwrap().file_type().is_symlink());
+    assert_eq!(std::fs::read_to_string(written).unwrap(), "the brief");
+    std::fs::remove_dir_all(dir).ok();
+    std::fs::remove_dir_all(outside).ok();
+}

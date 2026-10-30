@@ -20,6 +20,11 @@
 //! than repeating the pattern: `project.json`, authored recipes and pages, and
 //! baked media.
 //!
+//! A file of the project is written through [`in_project`], which also
+//! refuses a folder on the way that is a link: on the web a project is laid
+//! out with links into a member's storage, and a write through one would land
+//! outside the project.
+//!
 //! Importing does not, and needs not: `pool` copies a file in under a name no
 //! asset points at yet and records it only once the copy is whole, so a copy
 //! cut short leaves a stray file nothing reads, never a half-written one a
@@ -29,6 +34,8 @@ use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+
+use crate::path::ProjectPath;
 
 /// Tells concurrent writers' scratch files apart. Two saves of one project —
 /// a drag in the GUI and an assistant's edit over MCP — must not land on each
@@ -87,6 +94,76 @@ pub fn scratch_beside(path: &Path, suffix: &str) -> io::Result<PathBuf> {
         WRITES.fetch_add(1, Ordering::Relaxed)
     ));
     Ok(directory.join(scratch))
+}
+
+/// Writes `contents` as the project file `path` under `root`, atomically
+/// ([`atomically`]), making the folders it needs — and never through a link.
+///
+/// A folder on the way that is a link is refused: what it leads to is not the
+/// project's, so nothing is written there. A file that is a link itself is
+/// replaced by the new file, as the rename always does, and what it named is
+/// left as it was. The real path written is the answer.
+///
+/// # Errors
+///
+/// If `path` names no file inside the project, a folder on the way is a link
+/// or a file, or the write fails as [`atomically`]'s does.
+pub fn in_project(
+    root: &Path,
+    path: &ProjectPath,
+    contents: impl AsRef<[u8]>,
+) -> io::Result<PathBuf> {
+    let file = parent_in_project(root, path)?;
+    atomically(&file, contents)?;
+    Ok(file)
+}
+
+/// The real path of the project file `path` under `root`, every folder above it
+/// made and none of them a link — what a writer that is not [`in_project`]
+/// asks before it writes.
+///
+/// # Errors
+///
+/// If `path` names no file inside the project, or a folder on the way is a
+/// link, a file, or cannot be made.
+pub fn parent_in_project(root: &Path, path: &ProjectPath) -> io::Result<PathBuf> {
+    let file = path.resolve(root)?;
+    let segments: Vec<&str> = path.as_str().split('/').collect();
+    let mut at = root.to_path_buf();
+    for (index, segment) in segments.iter().enumerate().take(segments.len() - 1) {
+        at.push(segment);
+        let shown = || segments[..=index].join("/");
+        match fs::symlink_metadata(&at) {
+            Ok(meta) if meta.file_type().is_symlink() => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!(
+                        "`{}` is a link, and nothing in a project is written through one",
+                        shown()
+                    ),
+                ));
+            }
+            Ok(meta) if meta.is_dir() => {}
+            Ok(_) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("`{}` is a file, not a folder", shown()),
+                ));
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => match fs::create_dir(&at) {
+                Ok(()) => {}
+                // Another writer made it in between: a folder is as good.
+                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
+                    if !fs::symlink_metadata(&at).is_ok_and(|meta| meta.is_dir()) {
+                        return Err(error);
+                    }
+                }
+                Err(error) => return Err(error),
+            },
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(file)
 }
 
 /// Fills the scratch file and makes sure it is really on the device.

@@ -130,6 +130,10 @@ impl Library for Fake {
         })
     }
 
+    fn hosts(&self) -> &'static [&'static str] {
+        &["cdn.example.invalid"]
+    }
+
     fn download(&self, url: &str, _: u64, to: &mut dyn Write) -> Result<u64, StockError> {
         let mut downloaded = self.downloaded.lock().expect("the test setup holds");
         downloaded.push(url.to_owned());

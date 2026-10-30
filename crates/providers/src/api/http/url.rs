@@ -39,6 +39,25 @@ pub(crate) fn query(pairs: &[(&str, Option<&str>)]) -> String {
     }
 }
 
+/// The host `url` names, lower case, read the way the transport reads it —
+/// `None` when it names none.
+pub(crate) fn host(url: &str) -> Option<String> {
+    let parsed: ureq::http::Uri = url.parse().ok()?;
+    parsed.host().map(str::to_ascii_lowercase)
+}
+
+/// The host of `url`, lower case, when `url` is plain https to it: no user
+/// name or password before the host and no port but 443. Read the way the
+/// transport reads it, so the host answered is the one that would be called.
+pub(crate) fn https_host(url: &str) -> Option<String> {
+    let parsed: ureq::http::Uri = url.parse().ok()?;
+    let authority = parsed.authority()?;
+    let plain = parsed.scheme_str() == Some("https")
+        && !authority.as_str().contains('@')
+        && parsed.port_u16().is_none_or(|port| port == 443);
+    plain.then(|| authority.host().to_ascii_lowercase())
+}
+
 /// Free text as a query value: trimmed, and `None` when that leaves nothing.
 pub(crate) fn filled(value: &Option<String>) -> Option<&str> {
     value

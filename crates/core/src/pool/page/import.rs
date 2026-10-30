@@ -67,9 +67,12 @@ fn copy_in(project_root: &Path, source: &Path) -> Result<String, ImportError> {
     })?;
     let file_name = unique_file_name(&pages_dir, source);
     let destination = pages_dir.join(&file_name);
-    fs::write(&destination, bytes).map_err(|error| ImportError::Unwritable {
-        path: destination.clone(),
-        source: error,
+    let relative = ProjectPath::new(format!("{PAGES_DIR}/{file_name}"));
+    crate::write::in_project(project_root, &relative, bytes).map_err(|error| {
+        ImportError::Unwritable {
+            path: destination.clone(),
+            source: error,
+        }
     })?;
     Ok(file_name)
 }

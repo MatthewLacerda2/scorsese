@@ -127,6 +127,10 @@ impl Library for Fake {
         Ok((id <= self.count).then(|| candidate(medium, id, false)))
     }
 
+    fn hosts(&self) -> &'static [&'static str] {
+        &["cdn.example.invalid"]
+    }
+
     fn download(&self, url: &str, _: u64, to: &mut dyn Write) -> Result<u64, StockError> {
         self.downloads.set(self.downloads.get() + 1);
         let bytes = match url {

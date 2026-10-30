@@ -1,9 +1,11 @@
 //! `stock_search` — find free stock media, and see it before choosing.
 
+use std::path::PathBuf;
+
 use schemars::JsonSchema;
 use scorsese_providers::stock::{
-    self, Candidate, Found, Library, Medium, Orientation, Query, cache_dir, footage,
-    labelled_previews, licence,
+    self, Candidate, Found, Library, Medium, Orientation, Query, footage, labelled_previews,
+    licence,
 };
 use scorsese_render::contact::{self, Look};
 use scorsese_render::{Tools, frames};
@@ -15,15 +17,18 @@ use crate::tools::scratch::Scratch;
 use crate::tools::{Costs, Part, Reply, Tool};
 
 /// Searching Pixabay, or LottieFiles for animations — or the one library
-/// it was built around ([`super::stocked_from`]).
+/// it was built around, keeping results where it was told ([`super::stocked`]).
 #[derive(Default)]
 pub(crate) struct Search {
     library: Option<super::Stock>,
+    cache: Option<PathBuf>,
 }
 
-impl From<Option<super::Stock>> for Search {
-    fn from(library: Option<super::Stock>) -> Self {
-        Self { library }
+impl Search {
+    /// One answering from `library` and keeping results in `cache`, each
+    /// when given.
+    pub(crate) fn new(library: Option<super::Stock>, cache: Option<PathBuf>) -> Self {
+        Self { library, cache }
     }
 }
 
@@ -137,7 +142,7 @@ impl Tool for Search {
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let arguments: Arguments = args::parse(arguments)?;
-        let cache = cache_dir(arguments.project.dir());
+        let cache = super::cache(self.cache.as_deref(), arguments.project.dir());
         if let Some(id) = arguments.look {
             let medium = super::medium(arguments.kind.as_deref())?;
             let library = super::library(self.library.as_ref(), medium)?;

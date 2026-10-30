@@ -19,7 +19,7 @@ use crate::api::lottiefiles::{Animation, LottieFiles};
 
 use super::PAGE_SIZE;
 use super::candidate::{Candidate, Medium, Rendition};
-use super::library::{Library, Page, Query, StockError, failed};
+use super::library::{Library, Page, Query, StockError, failed, fetch_failed};
 
 /// What this library is called wherever a message names it.
 const NAME: &str = "LottieFiles";
@@ -76,9 +76,15 @@ impl Library for LottieLibrary {
         Ok(found.as_ref().and_then(candidate))
     }
 
+    fn hosts(&self) -> &'static [&'static str] {
+        // `assets-v2.lottiefiles.com` and its siblings.
+        &["lottiefiles.com"]
+    }
+
     fn download(&self, url: &str, limit: u64, to: &mut dyn Write) -> Result<u64, StockError> {
         // LottieFiles' CDN is public: nothing is signed.
-        http::stream_to(url, limit, to, &mut |_, _| {}).map_err(|error| failed(NAME, &error, None))
+        http::stream_to(url, limit, to, &mut |_, _| {})
+            .map_err(|error| fetch_failed(NAME, url, &error))
     }
 }
 

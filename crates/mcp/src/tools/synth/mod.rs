@@ -271,7 +271,8 @@ impl Tool for Write {
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let arguments: WriteArguments = args::parse(arguments)?;
-        let (file, relative) = recipe_path(arguments.project.dir(), &arguments.recipe)?;
+        let dir = arguments.project.dir();
+        let (_, relative) = recipe_path(dir, &arguments.recipe)?;
         // Written as given; only a document with nothing in it is refused, the
         // way a missing one is.
         let document = arguments.document.as_str();
@@ -293,7 +294,7 @@ impl Tool for Write {
                      says `\"recipe\": \"song\"` or `\"recipe\": \"patch\"`."
                 )
             })?;
-            put(&file, &relative, document)?;
+            put(dir, &relative, document)?;
             return Ok(format!(
                 "{relative} written — a patch file. Every song that names it is stale \
                  now; synth_bake redoes them."
@@ -305,7 +306,7 @@ impl Tool for Write {
         let expanded = library::expand(document).map_err(|problem| {
             format!("refused, nothing written — {relative} would not parse: {problem}")
         })?;
-        put(&file, &relative, &expanded.json)?;
+        put(dir, &relative, &expanded.json)?;
         let copied = if expanded.copied.is_empty() {
             String::new()
         } else {
@@ -325,12 +326,9 @@ impl Tool for Write {
 }
 
 /// Writes a document that has passed its check, creating `recipes/` if it is
-/// the first.
-fn put(file: &std::path::Path, relative: &str, json: &str) -> Result<(), String> {
-    if let Some(parent) = file.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|error| format!("creating {}: {error}", parent.display()))?;
-    }
-    scorsese_core::write::atomically(file, json)
+/// the first — never through a link out of the project.
+fn put(dir: &std::path::Path, relative: &str, json: &str) -> Result<(), String> {
+    scorsese_core::write::in_project(dir, &ProjectPath::new(relative), json)
+        .map(drop)
         .map_err(|error| format!("writing {relative}: {error}"))
 }

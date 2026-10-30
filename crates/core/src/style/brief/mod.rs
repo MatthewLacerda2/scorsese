@@ -113,7 +113,8 @@ impl Start {
         let path = script
             .resolve(project_dir)
             .expect("the script's own name is a project path");
-        write::atomically(&path, brief).map_err(|source| SaveError::Io { path, source })?;
+        write::in_project(project_dir, &script, brief)
+            .map_err(|source| SaveError::Io { path, source })?;
         project.script = Some(script.clone());
         project.save(project_dir)?;
         Ok(Some(script))

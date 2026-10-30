@@ -5,6 +5,7 @@
 //! import into `assets/` all run against the fake in `fake.rs`.
 
 mod fake;
+mod hosts;
 mod importing;
 mod looking;
 mod lottie;

@@ -123,16 +123,13 @@ impl Tool for Write {
         let text = &arguments.text;
 
         let script = script_path(&project, arguments.path.as_deref());
-        let file = resolve(&script, dir)?;
+        resolve(&script, dir)?;
         // A script may be kept anywhere inside the project, and refusing to
         // start one at `notes/brief.md` because `notes/` is not there yet would
-        // be refusing over something the tool can simply do.
-        if let Some(parent) = file.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|error| format!("making {}: {error}", parent.display()))?;
-        }
-        scorsese_core::write::atomically(&file, text)
-            .map_err(|error| format!("writing {}: {error}", file.display()))?;
+        // be refusing over something the tool can simply do. Never through a
+        // link, though: what one leads to is not the project's.
+        scorsese_core::write::in_project(dir, &script, text)
+            .map_err(|error| format!("writing {script}: {error}"))?;
 
         // The field is set only after the bytes have landed. A document
         // pointing at a script that failed to write would be a project claiming

@@ -85,9 +85,13 @@ pub(crate) fn write(path: &Path, bytes: &[u8]) -> Result<(), WriteError> {
 
 /// [`write`] at a project path under `root`: refused, nothing written, when
 /// the path names no file inside the project — an output path is built from
-/// an asset id, and an id is whatever the document says.
+/// an asset id, and an id is whatever the document says — or a folder on the
+/// way is a link out of it.
 pub(crate) fn write_in(root: &Path, path: &ProjectPath, bytes: &[u8]) -> Result<(), WriteError> {
-    write(&place(root, path)?, bytes)
+    let file = place(root, path)?;
+    scorsese_core::write::in_project(root, path, bytes)
+        .map(drop)
+        .map_err(|source| WriteError { path: file, source })
 }
 
 /// Where `path` is under `root`, as a [`WriteError`] when it is outside.

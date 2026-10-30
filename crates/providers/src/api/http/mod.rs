@@ -28,7 +28,7 @@ mod url;
 pub use explain::{AT_ITS_LIMIT, scrubbed};
 pub use file::stream_to;
 pub use multipart::Form;
-pub(crate) use url::{encoded, filled, query};
+pub(crate) use url::{encoded, filled, host, https_host, query};
 
 /// How long to wait on a single request before giving up on it.
 ///
