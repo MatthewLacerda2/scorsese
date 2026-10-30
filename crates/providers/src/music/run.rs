@@ -6,7 +6,7 @@ use std::path::Path;
 use scorsese_core::{Asset, AssetId, AssetKind, AudioBlock, Project, ProjectPath};
 
 use crate::credentials::Budget;
-use crate::generated::{self, Prompted, write_in};
+use crate::generated::{self, Prompted, place, write};
 use crate::prices;
 use crate::spending;
 
@@ -139,6 +139,10 @@ fn one(
         let path = generated::found::<Tracks>(project, root, id, &brief)?;
         return Ok(Outcome::Cached { path });
     }
+    let output = brief.output();
+    // Placed before it is paid for: an output named for an id that climbs
+    // is refused while refusing still costs nothing.
+    let target = place(root, &output)?;
     let cents = quote(brief.seconds);
     budget.check(cents)?;
     spending::readable(root)?;
@@ -150,8 +154,7 @@ fn one(
             });
         }
     };
-    let output = brief.output();
-    write_in(root, &output, &bytes)?;
+    write(&target, &bytes)?;
     spending::sent(project, root, id, &brief.digest(), cents)?;
     generated::record(project, id, &output, &bytes, Some(cents));
     Ok(Outcome::Generated {

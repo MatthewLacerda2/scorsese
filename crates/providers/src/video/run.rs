@@ -212,6 +212,9 @@ fn submit(
     id: &AssetId,
     brief: &Brief,
 ) -> Result<Outcome, GenerationError> {
+    // Placed before it is paid for: an output named for an id that climbs
+    // is refused while refusing still costs nothing.
+    generated::place(root, &brief.output())?;
     let estimate = prices::estimate(&brief.request)?;
     budget.check(estimate.cents)?;
     spending::readable(root)?;

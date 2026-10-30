@@ -15,11 +15,11 @@
 //! answers to (submitted before this existed, or by the hosted server) is
 //! filed under the current brief, as it always was.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use scorsese_core::{AssetId, GENERATED_DIR, ProjectPath};
 
-use crate::generated::{WriteError, write};
+use crate::generated::{WriteError, place, write};
 
 /// The folder under `generated/` the sidecars live in.
 const TICKETS_DIR: &str = "tickets";
@@ -33,7 +33,7 @@ pub(crate) fn remember(
     digest: &str,
 ) -> Result<(), WriteError> {
     write(
-        &sidecar(root, id),
+        &place(root, &sidecar(id))?,
         format!("{operation}\n{digest}\n").as_bytes(),
     )
 }
@@ -41,7 +41,7 @@ pub(crate) fn remember(
 /// Where the video `operation` was bought for lands — `None` when nothing
 /// answering to that ticket was remembered.
 pub(crate) fn output(root: &Path, id: &AssetId, operation: &str) -> Option<ProjectPath> {
-    let text = std::fs::read_to_string(sidecar(root, id)).ok()?;
+    let text = std::fs::read_to_string(sidecar(id).resolve(root).ok()?).ok()?;
     let mut lines = text.lines();
     if lines.next()? != operation {
         return None;
@@ -55,10 +55,13 @@ pub(crate) fn output(root: &Path, id: &AssetId, operation: &str) -> Option<Proje
 
 /// Forgets the asset's ticket. Nothing to forget is not an error.
 pub(crate) fn forget(root: &Path, id: &AssetId) {
-    let _ = std::fs::remove_file(sidecar(root, id));
+    if let Ok(file) = sidecar(id).resolve(root) {
+        let _ = std::fs::remove_file(file);
+    }
 }
 
-/// The sidecar's file.
-fn sidecar(root: &Path, id: &AssetId) -> PathBuf {
-    root.join(GENERATED_DIR).join(TICKETS_DIR).join(id.as_str())
+/// The sidecar's file: named for the asset, so resolved like every other
+/// name made from an id, and never outside the project.
+fn sidecar(id: &AssetId) -> ProjectPath {
+    ProjectPath::new(format!("{GENERATED_DIR}/{TICKETS_DIR}/{id}"))
 }

@@ -1224,7 +1224,7 @@ updating. Local folders go through the same steps with `scorsese migrate`.
 | `GET /api/projects` | a member | their projects, newest write first, without documents |
 | `POST /api/projects` | a member | `{name, fps?, assets?}` → a new project, `201`, with the library files in `assets` imported; `400` for a blank name or a file the server refuses, and nothing is kept |
 | `GET /api/projects/{id}` | a member | the project, its `document` and `revision`, and `script_changed_at`: when its script last changed, in microseconds, or `null` (#1493) |
-| `PUT /api/projects/{id}` | a member | `{revision, document}` → `{revision}`; `409` if it moved on, `400` for a document this build does not read |
+| `PUT /api/projects/{id}` | a member | `{revision, document}` → `{revision}`; `409` if it moved on, `400` for a document this build does not read or one that does not validate, listing every problem in `Project::validate`'s words |
 | `PATCH /api/projects/{id}` | a member | `{name}` → `{revision}` |
 | `DELETE /api/projects/{id}` | a member | `204`; `404` for an id that is not theirs |
 
@@ -1733,7 +1733,7 @@ while its render streams.
 
 | route | who | what |
 | --- | --- | --- |
-| `POST /api/projects/{id}/renders` | a member | `{container?, video_codec?, audio_codec?, resolution?, platform?, fps?, range?, narration_bands?, loudness?}`, spelled and checked as MCP `render`'s arguments (`scorsese_render::RenderAsk`, #1070) → `200 {render}` when kept, `202 {job}` when queued or already on its way; `400` for a shape `docs/output-formats.md` does not allow, a picture setting (`resolution`, `platform`, `fps`) on sound only, or `resolution` beside `platform`. No `resolution` or `platform` is the project's frame with 1080 lines on its shorter side (`Resolution::of_project`); no `fps` is the project's own rate; no `range` is the whole timeline |
+| `POST /api/projects/{id}/renders` | a member | `{container?, video_codec?, audio_codec?, resolution?, platform?, fps?, range?, narration_bands?, loudness?}`, spelled and checked as MCP `render`'s arguments (`scorsese_render::RenderAsk`, #1070) → `200 {render}` when kept, `202 {job}` when queued or already on its way; `400` for a shape `docs/output-formats.md` does not allow, a picture setting (`resolution`, `platform`, `fps`) on sound only, or `resolution` beside `platform`, and for a project that does not validate. No `resolution` or `platform` is the project's frame with 1080 lines on its shorter side (`Resolution::of_project`); no `fps` is the project's own rate; no `range` is the whole timeline |
 | `GET /api/projects/{id}/renders` | a member | the project's kept renders, most recently used first |
 | `GET /api/renders/{id}/file` | a member | the file as an attachment, in HTTP ranges; counts as use |
 

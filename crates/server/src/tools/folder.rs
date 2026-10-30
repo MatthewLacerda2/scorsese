@@ -60,7 +60,7 @@ pub async fn lay_out(
     // Only the paths: the rest of validation is the tool's own, as
     // `Project::load` asks it locally — and a tool may be the repair.
     project.check_paths().map_err(|problems| {
-        format!("the project must be repaired before anything runs on it: {problems}")
+        format!("the project names a path outside its folder, so nothing runs on it: {problems}")
     })?;
     let named: Vec<String> = hashes(project).into_iter().map(str::to_owned).collect();
     let mut tx = db::scoped(pool, user).await.map_err(failed)?;
