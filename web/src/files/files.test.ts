@@ -48,4 +48,18 @@ test("after logging in, only a path on this site is followed", () => {
   expect(safeNext("https://evil.example")).toBe("/");
   expect(safeNext("//evil.example")).toBe("/");
   expect(safeNext("/\\evil.example")).toBe("/");
+  // A browser drops a tab or a newline from a URL, so `/\t/evil` is `//evil`;
+  // no control character or space is let through anywhere — the server's
+  // `landing` is the same rule.
+  for (const elsewhere of [
+    "/\t/evil.example",
+    "/\n/evil.example",
+    "/\r\n/evil.example",
+    "/ /evil.example",
+    "/library\u0000",
+    "/library\u007f",
+    "/library?q=a b",
+  ]) {
+    expect(safeNext(elsewhere)).toBe("/");
+  }
 });
