@@ -319,7 +319,7 @@ pub struct Services {
 /// dollar's rate kept fresh ([`payments::refresh`],
 /// where Stripe is configured), the render cache's weekly sweep
 /// ([`renders::evict::run`]) and the hourly sweep of abandoned uploads
-/// ([`library::upload::sweep`]) run beside them on the same pool. The render
+/// ([`library::room::sweep`]) run beside them on the same pool. The render
 /// cache's scratch folder is emptied first, while
 /// no render can be running.
 ///
@@ -365,7 +365,7 @@ pub async fn start(
         .payments
         .map(|payments| tokio::spawn(payments::refresh(payments, stopping.clone())));
     let sweep = tokio::spawn(renders::evict::run(pool.clone(), cache, stopping.clone()));
-    let uploads = tokio::spawn(library::upload::sweep(
+    let uploads = tokio::spawn(library::room::sweep(
         state.library.clone(),
         stopping.clone(),
     ));

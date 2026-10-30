@@ -97,3 +97,30 @@ async fn a_stock_file_s_source_rides_on_its_item(pool: PgPool) {
     let kept = library.source(ana, id).await.expect("the library answers");
     assert_eq!(kept, Some(source));
 }
+
+#[sqlx::test]
+async fn a_stock_file_past_the_quota_is_refused_in_plain_words(pool: PgPool) {
+    db::migrate(&pool).await.unwrap();
+    let files = common::files("fetched-full");
+    let tiny = scorsese_server::renders::Quota::bytes(10);
+    let members = common::members(&pool).await;
+    let queue = Queue::new(Events::new());
+    let library = Library::new(members, files.storage.with_quota(tiny), files.tools, queue);
+    let (ana, _) = member(&pool, "ana@example.com").await;
+    let scratch = common::scratch::dir("fetched-full-picture");
+    let picture = scratch.join("pixabay-8.png");
+    still(&common::tools(), &picture, "blue", "64x36");
+    let root = scratch.join("laid.scor");
+    let before =
+        Project::create(&root, Some("laid"), Fps::THIRTY, scorsese_core::Ratio::WIDE).unwrap();
+    let mut after = before.clone();
+    let probe = Ffprobe::new(common::tools());
+    import_path(&mut after, &root, &picture, None, &probe).unwrap();
+
+    let refused = keep_fetched(&library, ana, &before, &after, &root)
+        .await
+        .unwrap_err();
+    assert!(refused.contains("your storage is full"), "{refused}");
+    let sha256 = after.assets[0].sha256.clone().unwrap();
+    assert_eq!(held(&pool, &sha256).await, 0);
+}

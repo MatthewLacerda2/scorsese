@@ -17,40 +17,27 @@
 //! append. The guard is in memory, which is enough: there is one server, and a
 //! restart ends every request that held one.
 //!
-//! **Each user keeps at most their quota**
-//! ([`Storage::quota`](crate::storage::Storage::quota)): their library, their
-//! kept renders and every upload they have announced, counted at its
-//! announced length from the moment it is announced. So an announcement that
-//! would take them past it is refused before a byte is sent
-//! ([`LibraryError::Full`]), and so is a chunk arriving once something else —
-//! a generation, a render — has filled the room meanwhile. Both are decided
-//! under the user's lock (`credits::ledger::lock`), so two announcements at
-//! once cannot both take the last of it. A generation is never refused for
-//! it: it was paid for, and is kept.
+//! **An upload counts against its user's quota from its announcement**
+//! (`super::room`): one that would take them past it is refused before a
+//! byte is sent ([`LibraryError::Full`]), and so is a chunk arriving once
+//! something else — a generation, a render — has filled the room meanwhile.
 //!
-//! An upload nobody has touched for a day is abandoned. The same user's next
-//! announcement sweeps theirs away, and [`sweep`] sweeps everybody's every
-//! hour, so an abandoned upload holds neither disk nor quota for long.
+//! An upload nobody has touched for a day is abandoned. The user's next
+//! announcement sweeps theirs away, and `room::sweep` everybody's every hour.
 
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
-use std::time::Duration;
 
 use futures_util::{Stream, StreamExt};
 use serde::Serialize;
 use tokio::io::AsyncWriteExt;
-use tokio::sync::watch;
 
 use scorsese_core::bytes::format_bytes;
 
 use super::{Arrival, Item, Kind, Library, LibraryError, store};
-use crate::credits::ledger;
-use crate::db::{self, Tx, UserId};
-
-/// How often [`sweep`] looks for abandoned uploads.
-const SWEEP_EVERY: Duration = Duration::from_secs(60 * 60);
+use crate::db::{self, UserId};
 
 /// The largest file an upload may announce: 20 GB, a long screen recording
 /// with room to spare. Decimal, as every size scorsese prints is (#1287).
@@ -99,25 +86,9 @@ impl InFlight {
     }
 
     /// The uploads being written now.
-    fn ids(&self) -> Vec<i64> {
+    pub(super) fn ids(&self) -> Vec<i64> {
         let writing = self.0.lock().unwrap_or_else(PoisonError::into_inner);
         writing.iter().copied().collect()
-    }
-}
-
-/// Sweep every user's abandoned uploads ([`Library::sweep_uploads`]) every
-/// hour, until `stop`.
-pub async fn sweep(library: Library, mut stop: watch::Receiver<bool>) {
-    loop {
-        match library.sweep_uploads().await {
-            Ok(0) => {}
-            Ok(swept) => tracing::info!("swept {swept} abandoned uploads"),
-            Err(error) => tracing::error!("the upload sweep failed: {error}"),
-        }
-        tokio::select! {
-            _ = stop.wait_for(|stopping| *stopping) => return,
-            () = tokio::time::sleep(SWEEP_EVERY) => {}
-        }
     }
 }
 
@@ -167,9 +138,11 @@ impl Library {
             return Err(LibraryError::Duplicate { id, name });
         }
         let abandoned: Vec<(i64, String)> = sqlx::query_as(
-            "DELETE FROM uploads WHERE touched_at < now() - interval '1 day'
+            "DELETE FROM uploads
+             WHERE touched_at < now() - interval '1 day' AND NOT (id = ANY($1))
              RETURNING id, extension",
         )
+        .bind(self.uploading.ids())
         .fetch_all(&mut *tx)
         .await?;
         self.room(&mut tx, announced.length, None).await?;
@@ -195,64 +168,6 @@ impl Library {
         }
         std::fs::File::create(file)?;
         Ok(id)
-    }
-
-    /// Refused as [`LibraryError::Full`] unless the user `tx` is scoped to has
-    /// room for `length` more bytes beside what they keep: their library,
-    /// their kept renders and their announced uploads, but for upload
-    /// `except` — the one the bytes are for. Takes the user's lock, held until
-    /// `tx` ends, so a decision and the row it lets in are one.
-    async fn room(
-        &self,
-        tx: &mut Tx,
-        length: i64,
-        except: Option<i64>,
-    ) -> Result<(), LibraryError> {
-        ledger::lock(tx).await?;
-        let used: i64 = sqlx::query_scalar(
-            "SELECT ((SELECT coalesce(sum(size_bytes), 0) FROM library_items)
-                   + (SELECT coalesce(sum(size), 0) FROM renders)
-                   + (SELECT coalesce(sum(length), 0) FROM uploads
-                      WHERE id IS DISTINCT FROM $1))::bigint",
-        )
-        .bind(except)
-        .fetch_one(&mut **tx)
-        .await?;
-        let (used, needed) = (used.unsigned_abs(), length.unsigned_abs());
-        let quota = self.storage.quota().get();
-        if used.saturating_add(needed) > quota {
-            return Err(LibraryError::Full {
-                used,
-                quota,
-                needed,
-            });
-        }
-        Ok(())
-    }
-
-    /// Abandon every user's upload nobody has touched for a day, and what of
-    /// it arrived — but one a request is writing right now; how many.
-    /// Privileged: what has been abandoned is a question about everybody
-    /// (`db::scope`'s list), and the files are removed as each row's owner's.
-    pub async fn sweep_uploads(&self) -> Result<usize, LibraryError> {
-        let writing: Vec<i64> = self.uploading.ids();
-        let mut tx = db::privileged(&self.pool).await?;
-        let abandoned: Vec<(i64, i64, String)> = sqlx::query_as(
-            "DELETE FROM uploads
-             WHERE touched_at < now() - interval '1 day' AND NOT (id = ANY($1))
-             RETURNING user_id, id, extension",
-        )
-        .bind(&writing)
-        .fetch_all(&mut *tx)
-        .await?;
-        tx.commit().await?;
-        for (user, id, extension) in &abandoned {
-            let file = self
-                .storage
-                .upload_file(UserId::from_row(*user), *id, extension);
-            let _ = std::fs::remove_file(file);
-        }
-        Ok(abandoned.len())
     }
 
     /// How far `user`'s upload `id` has got.
@@ -317,7 +232,12 @@ impl Library {
             at = after;
         }
         file.flush().await?;
-        self.touch(user, id).await?;
+        if !self.touch(user, id).await? {
+            // Swept while it was being written: nothing names these bytes.
+            drop(file);
+            let _ = std::fs::remove_file(&path);
+            return Err(LibraryError::NotFound);
+        }
         if let Some(failed) = failed {
             return Err(failed);
         }
@@ -362,13 +282,16 @@ impl Library {
         row.ok_or(LibraryError::NotFound)
     }
 
-    async fn touch(&self, user: UserId, id: i64) -> Result<(), LibraryError> {
+    /// Mark `user`'s upload `id` as touched now; whether it is still there.
+    async fn touch(&self, user: UserId, id: i64) -> Result<bool, LibraryError> {
         let mut tx = db::scoped(&self.pool, user).await?;
-        sqlx::query("UPDATE uploads SET touched_at = now() WHERE id = $1")
+        let touched = sqlx::query("UPDATE uploads SET touched_at = now() WHERE id = $1")
             .bind(id)
             .execute(&mut *tx)
-            .await?;
-        Ok(tx.commit().await?)
+            .await?
+            .rows_affected();
+        tx.commit().await?;
+        Ok(touched == 1)
     }
 
     async fn forget_upload(&self, user: UserId, id: i64) -> Result<(), LibraryError> {

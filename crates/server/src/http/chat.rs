@@ -227,11 +227,12 @@ impl From<AssistantError> for ApiError {
         };
         match &error {
             AssistantError::NotConfigured(_) => refused(StatusCode::SERVICE_UNAVAILABLE),
-            AssistantError::NoCredit(_) | AssistantError::Held(_) => {
-                refused(StatusCode::PAYMENT_REQUIRED)
+            AssistantError::NoCredit(_) => refused(StatusCode::PAYMENT_REQUIRED),
+            // Not a lack of credit, which the panel would offer to top up:
+            // the person's other messages are what to wait for, as for Busy.
+            AssistantError::Busy | AssistantError::AtOnce(_) | AssistantError::Held(_) => {
+                Self::Conflict(error.to_string())
             }
-            AssistantError::AtOnce(_) => refused(StatusCode::TOO_MANY_REQUESTS),
-            AssistantError::Busy => Self::Conflict(error.to_string()),
             AssistantError::TooMany(seconds) => Self::TooMany {
                 message: error.to_string(),
                 retry_after: *seconds,

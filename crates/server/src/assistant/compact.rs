@@ -27,6 +27,7 @@ use scorsese_providers::chat::{
 };
 use serde_json::value::RawValue;
 
+use super::holds::Short;
 use super::store::compaction;
 use super::store::turns::{self, Charge};
 use super::turn::{RETRY_AFTER, Running};
@@ -118,24 +119,43 @@ pub(super) fn prepare(
     })
 }
 
-/// Make the compaction `turn` was started with, if any: summarise the
-/// conversation, and open the turn again from the summary alone. A failure
-/// is logged and leaves the turn as it was.
-pub(super) async fn compact(state: &AppState, turn: &mut Running) {
-    let Some(compacting) = turn.compacting.take() else {
-        return;
-    };
-    if let Err(error) = summarised(state, turn, compacting).await {
-        tracing::error!("assistant: turn {}: not compacted: {error}", turn.turn);
+/// Why a summary did not come back.
+enum Unsummarised {
+    /// Its call may not be made now (`holds`): the turn ends saying why,
+    /// rather than going on with the whole conversation.
+    Short(Short),
+    /// Something failed, in words for the log.
+    Failed(String),
+}
+
+impl<T: Into<String>> From<T> for Unsummarised {
+    fn from(why: T) -> Self {
+        Self::Failed(why.into())
     }
 }
 
-/// [`compact`], its failure in words for the log.
+/// Make the compaction `turn` was started with, if any: summarise the
+/// conversation, and open the turn again from the summary alone. A failure
+/// is logged and leaves the turn as it was; a summary that may not be paid
+/// for now is what the turn must end on instead.
+pub(super) async fn compact(state: &AppState, turn: &mut Running) -> Option<Short> {
+    let compacting = turn.compacting.take()?;
+    match summarised(state, turn, compacting).await {
+        Ok(()) => None,
+        Err(Unsummarised::Short(short)) => Some(short),
+        Err(Unsummarised::Failed(error)) => {
+            tracing::error!("assistant: turn {}: not compacted: {error}", turn.turn);
+            None
+        }
+    }
+}
+
+/// [`compact`], or why not.
 async fn summarised(
     state: &AppState,
     turn: &mut Running,
     compacting: Compacting,
-) -> Result<(), String> {
+) -> Result<(), Unsummarised> {
     let mut tools = prompt::tools(&state.tools, turn.veo);
     tools.extend(ask::functions());
     let request = Request {
@@ -185,16 +205,19 @@ fn opened_with(record: &[Message]) -> Option<(&str, Vec<Part>)> {
 /// Ask for the summary, charging each reply to the turn: its text, once the
 /// model has finished one. A reply that stopped anywhere else (on a tool,
 /// at its length) is not a summary, and is asked for once more.
-async fn summary(state: &AppState, turn: &mut Running, request: Request) -> Result<String, String> {
+async fn summary(
+    state: &AppState,
+    turn: &mut Running,
+    request: Request,
+) -> Result<String, Unsummarised> {
     let request = Arc::new(request);
     let mut stopped = String::new();
     for _ in 0..2 {
-        // Held like any call of the turn's (`holds`); with nothing to spend,
-        // the turn goes on uncompacted and its next call stops it.
+        // Held like any call of the turn's (`holds`).
         let held = super::holds::hold(state, turn.user, (turn.turn, turn.spent), &request)
             .await
             .map_err(|error| error.to_string())?
-            .map_err(|short| format!("not summarised: {short:?}"))?;
+            .map_err(Unsummarised::Short)?;
         let (reply, latency) = call(turn, &request).await?;
         let charge = Charge {
             turn: turn.turn,
@@ -216,7 +239,9 @@ async fn summary(state: &AppState, turn: &mut Running, request: Request) -> Resu
         }
         stopped = reply.stop.as_str().to_owned();
     }
-    Err(format!("no summary came back (it stopped on {stopped})"))
+    Err(Unsummarised::Failed(format!(
+        "no summary came back (it stopped on {stopped})"
+    )))
 }
 
 /// The server's note carrying `summary`: what the model reads in place of

@@ -102,10 +102,14 @@ pub(super) async fn run(state: AppState, turn: Running) {
 
 /// [`run`], inside its span.
 async fn run_named(state: AppState, mut turn: Running) {
-    compact::compact(&state, &mut turn).await;
-    let end = match drive(&state, &mut turn).await {
-        Ok(end) => end,
-        Err(failure) => End::Over("failed", failure),
+    // A summary its balance may not pay for now ends the turn there, rather
+    // than going on with a conversation past its size.
+    let end = match compact::compact(&state, &mut turn).await {
+        Some(short) => End::Over("capped", stopped_short(short)),
+        None => match drive(&state, &mut turn).await {
+            Ok(end) => end,
+            Err(failure) => End::Over("failed", failure),
+        },
     };
     state.assistant.stop_requested(turn.turn);
     match settle(&state, &turn, &end).await {

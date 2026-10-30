@@ -42,7 +42,7 @@ async fn a_person_runs_only_so_many_turns_at_once(pool: PgPool) {
     // Another project's conversation is no way round it.
     let another = project(&pool, ana, json!([])).await;
     let refused = send(address, &who, another, "and a trailer").await;
-    assert_eq!(refused.status, 429, "{}", refused.body);
+    assert_eq!(refused.status, 409, "{}", refused.body);
     assert!(
         refused.body.contains("at once"),
         "the limit is said: {}",
@@ -79,7 +79,7 @@ async fn a_call_in_flight_holds_what_it_may_cost(pool: PgPool) {
 
     let second = project(&pool, ana, json!([])).await;
     let refused = send(address, &who, second, "and a trailer").await;
-    assert_eq!(refused.status, 402, "{}", refused.body);
+    assert_eq!(refused.status, 409, "{}", refused.body);
     assert!(
         refused.body.contains("being worked on"),
         "why is said: {}",

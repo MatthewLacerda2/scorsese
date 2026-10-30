@@ -53,6 +53,7 @@ mod generated;
 mod kind;
 pub mod locate;
 pub mod proxy;
+pub mod room;
 mod source;
 mod store;
 pub mod thumbnail;
@@ -220,8 +221,9 @@ pub enum LibraryError {
     /// kept renders and the uploads they have announced.
     #[error(
         "your storage is full: you keep {} of the {} you may, counting your files, \
-         renders and unfinished uploads, and this file needs {}; delete files or renders \
-         you no longer need to make room",
+         renders and unfinished uploads, and this file needs {}; delete files you no \
+         longer need to make room (a render frees its room by itself once unused for two \
+         days)",
         format_bytes(*.used),
         format_bytes(*.quota),
         format_bytes(*.needed)

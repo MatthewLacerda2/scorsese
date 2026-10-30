@@ -43,10 +43,18 @@ pub async fn keep(
             continue;
         };
         let file = path.resolve(root);
-        let written = file.symlink_metadata().is_ok_and(|meta| meta.is_file());
-        if !written || known.contains(sha256.as_str()) {
+        let written = file.symlink_metadata().ok().filter(|meta| meta.is_file());
+        let Some(written) = written.filter(|_| !known.contains(sha256.as_str())) else {
             continue;
-        }
+        };
+        // Free, but it takes room like an upload (`library::room`).
+        library
+            .make_room(user, written.len())
+            .await
+            .map_err(|error| match error {
+                LibraryError::Full { .. } => error.to_string(),
+                other => super::database(other),
+            })?;
         let name = file.file_name().map_or_else(
             || asset.id.to_string(),
             |name| name.to_string_lossy().into_owned(),
