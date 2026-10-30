@@ -69,6 +69,8 @@ async fn a_still_of_a_page_is_captured_by_the_worker_and_shows_the_page(pool: Pg
 
 #[sqlx::test]
 async fn a_still_with_no_worker_says_so_and_never_starts_a_browser(pool: PgPool) {
+    // A server with no browser named says that first, before any worker.
+    scorsese_render::testing::require_chrome_env();
     let (address, _spool) = serving(&pool, "still-unanswered").await;
     let (ana, token) = member(&pool, "ana@example.com").await;
     let id = super::stored(&pool, ana, showing_a_page()).await;
