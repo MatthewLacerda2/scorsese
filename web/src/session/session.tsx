@@ -46,13 +46,27 @@ export function useLogout() {
 /**
  * Where to go after logging in: `next` when it is a path on this site, `/`
  * otherwise — never another origin, so a crafted login link cannot bounce a
- * user somewhere else (`//evil.example` is a URL to another host).
+ * user somewhere else (`//evil.example` is a URL to another host). No ASCII
+ * control character or space anywhere, either: a browser drops a tab or a
+ * newline from a URL, so `/\t/evil.example` is `//evil.example`. The server's
+ * `landing` is the same rule.
  */
 export function safeNext(next: string | null): string {
-  if (!next?.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) {
+  if (
+    !next?.startsWith("/") ||
+    next.startsWith("//") ||
+    next.startsWith("/\\") ||
+    [...next].some(isControlOrSpace)
+  ) {
     return "/";
   }
   return next;
+}
+
+/** An ASCII control character (U+0000–U+001F, U+007F) or a space. */
+function isControlOrSpace(character: string): boolean {
+  const code = character.charCodeAt(0);
+  return code <= 0x20 || code === 0x7f;
 }
 
 /** A route guard: renders the page when logged in, the login page when not. */

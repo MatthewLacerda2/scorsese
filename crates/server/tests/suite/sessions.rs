@@ -30,6 +30,9 @@ async fn a_session_lasts_until_logout(pool: PgPool) {
             "{name} {cleared:?}"
         );
     }
+    // And the browser's cache: a private file fetched before is not shown
+    // from it once nobody is signed in.
+    assert_eq!(out.header("clear-site-data"), Some("\"cache\""));
     let after = request(address, "GET", "/api/me", &[cookie.as_str()], None).await;
     assert_eq!(after.status, 401);
 }

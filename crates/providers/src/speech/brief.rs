@@ -28,7 +28,7 @@
 //! Nothing about *when* is in it. A timestamp inside a brief hash would make an
 //! unchanged line look edited and pay for it again.
 
-use scorsese_core::{Asset, AssetId, AssetKind, ProjectPath, SpeechRequest};
+use scorsese_core::{Asset, AssetId, AssetKind, ProjectPath, SpeechRequest, is_voice_id};
 
 use super::Incomplete;
 use crate::api::elevenlabs::OUTPUT_FORMAT;
@@ -93,6 +93,12 @@ impl Brief {
             .ok_or_else(|| Incomplete::NoVoice {
                 id: asset.id.clone(),
             })?;
+        if !is_voice_id(&voice_id) {
+            return Err(Incomplete::MalformedVoice {
+                id: asset.id.clone(),
+                voice: voice_id,
+            });
+        }
 
         Ok(Self {
             id: asset.id.clone(),

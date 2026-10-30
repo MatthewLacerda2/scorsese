@@ -204,8 +204,8 @@ pub async fn thumbnail(
 /// `GET /api/library/{id}/peaks`: a sound's levels over time (#1572), the
 /// bytes [`scorsese_render::audio::Peaks::to_bytes`] writes — a little-endian
 /// `f32` of levels per second, then a byte a level — or `404` while they are
-/// being read. Kept forever by the browser, as the file is: the timeline asks
-/// once per sound and draws every trim and zoom from it.
+/// being read. Kept by the browser and revalidated by its tag, as the file
+/// is: the timeline asks once per sound and draws every trim and zoom from it.
 pub async fn peaks(
     State(state): State<AppState>,
     member: Member,

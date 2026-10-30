@@ -35,7 +35,7 @@ pub use kind::{AssetKind, GenerationState};
 pub use music::{AudioBlock, MAX_MUSIC_SECONDS, MIN_MUSIC_SECONDS, MusicRequest};
 pub use sequence::{ImageSequence, SEQUENCE_FORMATS};
 pub use source::{Source, SourceProblem, StockLibrary};
-pub use speech::{LanguageIgnored, MAX_CHARACTERS, SpeechModel, SpeechRequest};
+pub use speech::{LanguageIgnored, MAX_CHARACTERS, SpeechModel, SpeechRequest, is_voice_id};
 pub use video::{
     Aspect, CHARACTERS_PER_PROMPT_TOKEN, ClipSeconds, LengthLock, MAX_PROMPT_CHARACTERS,
     MAX_PROMPT_TOKENS, MAX_REFERENCE_IMAGES, VideoModel, VideoRequest, VideoResolution,

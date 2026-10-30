@@ -11,16 +11,20 @@
 //! that do it bring a whole static-file server with them.
 //!
 //! A library file never changes under its id — it is named by its hash — so it
-//! is sent as cacheable forever, privately (it is one person's), tagged by the
-//! hash.
+//! is tagged by the hash, and kept by the browser privately (it is one
+//! person's) but **never reused without asking**: `no-cache` makes every use
+//! a request, which the handler's extractor authenticates first, answered
+//! `304` with no body when the copy held is still the file. So a signed-out
+//! browser, or one whose session was ended elsewhere, opens nothing from its
+//! cache, and an unchanged file still never crosses the network twice.
 
 use std::io::SeekFrom;
 use std::path::Path;
 
 use axum::body::Body;
 use axum::http::header::{
-    ACCEPT_RANGES, CACHE_CONTROL, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, ETAG, RANGE,
-    X_CONTENT_TYPE_OPTIONS,
+    ACCEPT_RANGES, CACHE_CONTROL, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, ETAG, IF_NONE_MATCH,
+    RANGE, X_CONTENT_TYPE_OPTIONS,
 };
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::Response;
@@ -31,6 +35,9 @@ use super::error::ApiError;
 
 /// How much of the file is read per piece of the response body.
 const PIECE: usize = 256 * 1024;
+
+/// Kept privately, and asked about again before every use.
+const CACHING: &str = "private, no-cache";
 
 /// A file to serve, and what to say about it.
 #[derive(Debug)]
@@ -67,6 +74,16 @@ pub(super) async fn serve(served: &Served<'_>, headers: &HeaderMap) -> Result<Re
         })?
         .len();
 
+    // Before the range, as RFC 9110 §13.2.2 orders the preconditions.
+    let tag = format!("\"{}\"", served.etag);
+    if held(headers, &tag) {
+        let mut response = Response::new(Body::empty());
+        *response.status_mut() = StatusCode::NOT_MODIFIED;
+        insert(&mut response, ETAG, &tag);
+        insert(&mut response, CACHE_CONTROL, CACHING);
+        return Ok(response);
+    }
+
     let asked = headers.get(RANGE).and_then(|value| value.to_str().ok());
     let (status, start, length) = match asked.map(|value| range(value, size)) {
         None | Some(Ask::Whole) => (StatusCode::OK, 0, size),
@@ -101,12 +118,8 @@ pub(super) async fn serve(served: &Served<'_>, headers: &HeaderMap) -> Result<Re
     insert(&mut response, CONTENT_TYPE, served.content_type);
     insert(&mut response, CONTENT_LENGTH, &length.to_string());
     insert(&mut response, ACCEPT_RANGES, "bytes");
-    insert(&mut response, ETAG, &format!("\"{}\"", served.etag));
-    insert(
-        &mut response,
-        CACHE_CONTROL,
-        "private, max-age=31536000, immutable",
-    );
+    insert(&mut response, ETAG, &tag);
+    insert(&mut response, CACHE_CONTROL, CACHING);
     insert(&mut response, X_CONTENT_TYPE_OPTIONS, "nosniff");
     if status == StatusCode::PARTIAL_CONTENT {
         let end = start + length - 1;
@@ -117,6 +130,18 @@ pub(super) async fn serve(served: &Served<'_>, headers: &HeaderMap) -> Result<Re
         );
     }
     Ok(response)
+}
+
+/// Whether `headers`' `If-None-Match` names `tag` (or `*`): the browser holds
+/// this file already. Compared weakly, as the header is.
+fn held(headers: &HeaderMap, tag: &str) -> bool {
+    headers
+        .get_all(IF_NONE_MATCH)
+        .iter()
+        .filter_map(|value| value.to_str().ok())
+        .flat_map(|value| value.split(','))
+        .map(str::trim)
+        .any(|named| named == "*" || named.strip_prefix("W/").unwrap_or(named) == tag)
 }
 
 fn insert(response: &mut Response, name: axum::http::HeaderName, value: &str) {

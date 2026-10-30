@@ -68,6 +68,18 @@ pub enum Incomplete {
         id: AssetId,
     },
 
+    /// A voice id with a character no voice id has
+    /// ([`scorsese_core::is_voice_id`]). Validation reports it too; this is
+    /// the check in front of the vendor's URL, so the id spoken in is always
+    /// the one an ownership check compared.
+    #[error("{id} names voice `{voice}`, which is not a voice id — copy one from voices")]
+    MalformedVoice {
+        /// The asset naming it.
+        id: AssetId,
+        /// The id as written.
+        voice: String,
+    },
+
     /// More characters than the vendor speaks in one request.
     ///
     /// Validation reports this too, and this is not a duplicate: validation is

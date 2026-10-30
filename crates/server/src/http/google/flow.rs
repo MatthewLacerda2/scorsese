@@ -100,12 +100,17 @@ pub fn clear_cookie() -> String {
 
 /// `next` when it is a path on this site, [`HOME`] otherwise — never another
 /// origin (`//evil.example` is a URL to another host), so a crafted sign-in
-/// link cannot bounce somebody elsewhere. The web app's `safeNext` is the
+/// link cannot bounce somebody elsewhere. No ASCII control character or space
+/// anywhere, either: a browser drops a tab or a newline from a URL, so
+/// `/\t/evil.example` is `//evil.example`. The web app's `safeNext` is the
 /// same rule.
 pub fn landing(next: Option<&str>) -> String {
     match next {
         Some(next)
-            if next.starts_with('/') && !next.starts_with("//") && !next.starts_with("/\\") =>
+            if next.starts_with('/')
+                && !next.starts_with("//")
+                && !next.starts_with("/\\")
+                && !next.bytes().any(|byte| byte <= b' ' || byte == 0x7f) =>
         {
             next.to_owned()
         }
@@ -157,6 +162,15 @@ mod tests {
             Some("https://evil.example"),
             Some("//evil.example"),
             Some("/\\evil"),
+            // A browser drops a tab or a newline from a URL, so `/\t/evil`
+            // is `//evil`, another host; nothing else is let through either.
+            Some("/\t/evil.example"),
+            Some("/\n/evil.example"),
+            Some("/\r\n/evil.example"),
+            Some("/ /evil.example"),
+            Some("/library\u{0}"),
+            Some("/library\u{7f}"),
+            Some("/library?q=a b"),
         ] {
             assert_eq!(landing(elsewhere), HOME, "{elsewhere:?}");
         }

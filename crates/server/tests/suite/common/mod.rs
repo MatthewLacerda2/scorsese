@@ -14,6 +14,7 @@ mod client;
 pub(crate) mod logged;
 #[path = "../../../../../tools/scratch.rs"]
 pub(crate) mod scratch;
+pub(crate) mod stream;
 mod teardown;
 
 pub(crate) use client::{Response, get, request, send};
@@ -49,6 +50,15 @@ pub(crate) fn files(label: &str) -> Files {
 /// production does, with users' files in `files`. Runs until the test ends,
 /// and lets go of the database then ([`teardown`]).
 pub(crate) async fn serve_with(pool: PgPool, files: Files) -> (SocketAddr, http::AppState) {
+    serve_shaped(pool, files, |state| state).await
+}
+
+/// [`serve_with`], its state first passed through `shape`.
+pub(crate) async fn serve_shaped(
+    pool: PgPool,
+    files: Files,
+    shape: impl FnOnce(http::AppState) -> http::AppState,
+) -> (SocketAddr, http::AppState) {
     let (listener, address) = listener().await;
     scorsese_server::db::migrate(&pool)
         .await
@@ -56,7 +66,7 @@ pub(crate) async fn serve_with(pool: PgPool, files: Files) -> (SocketAddr, http:
     let members = scorsese_server::db::member_pool(&pool)
         .await
         .expect("the member pool connects");
-    let state = http::AppState::new(members.clone(), files);
+    let state = shape(http::AppState::new(members.clone(), files));
     let router = http::router(state.clone());
     let server = tokio::spawn(http::serve(listener, router, std::future::pending()));
     release_at_teardown(&pool, &members, [server.abort_handle()]);
