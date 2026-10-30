@@ -19,6 +19,12 @@ pub(super) fn check(project: &Project) -> Vec<AssetProblem> {
                 id: asset.id.clone(),
             });
         }
+        if let Err(problem) = asset.id.check() {
+            errors.push(AssetProblem::BadAssetId {
+                id: asset.id.clone(),
+                problem,
+            });
+        }
         check_path(asset, &mut errors);
         check_recipe(asset, &mut errors);
         check_sha256(asset, &mut errors);

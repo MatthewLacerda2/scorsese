@@ -13,7 +13,9 @@
 
 use std::path::Path;
 
-use scorsese_core::{AssetId, AssetKind, GENERATED_DIR, GenerationState, Project, ProjectPath};
+use scorsese_core::{
+    AssetId, AssetKind, GENERATED_DIR, GenerationState, Project, ProjectPath, is_plain_name,
+};
 
 use super::batch::half;
 use super::{Batch, Brief, ImageError, ImageProvider, Outcome};
@@ -163,13 +165,11 @@ fn members(project: &Project, operation: &str) -> Vec<AssetId> {
 /// Where a key's picture lands, or `None` for a key that could not have been
 /// one of ours — it came back over the network, and must not name a path
 /// outside `generated/`.
+///
+/// A key is `<asset id>-<brief hash>`, so it holds an id's characters
+/// ([`is_plain_name`]); `batch` orders nothing whose id breaks the rule.
 fn path_of(key: &str) -> Option<ProjectPath> {
-    let plain = !key.is_empty()
-        && !key.starts_with('.')
-        && key
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'));
-    plain.then(|| ProjectPath::new(format!("{GENERATED_DIR}/{key}.jpg")))
+    is_plain_name(key).then(|| ProjectPath::new(format!("{GENERATED_DIR}/{key}.jpg")))
 }
 
 #[cfg(test)]

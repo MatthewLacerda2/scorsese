@@ -22,7 +22,9 @@
 //! is read by the strict path from then on. That keeps "this build understands
 //! v38" a statement about one version rather than about a range.
 
+mod carry;
 mod frame;
+mod ids;
 mod lanes;
 mod speech;
 mod stills;
@@ -151,6 +153,10 @@ pub(crate) const STEPS: &[Step] = &[
     Step {
         from: 54,
         apply: lanes::one_track_per_property,
+    },
+    Step {
+        from: 55,
+        apply: ids::rename_bad_ids,
     },
 ];
 
@@ -410,7 +416,9 @@ pub fn parse(json: &str) -> Result<(Project, Option<u32>), MigrateError> {
 
 /// Rewrites a `.scor` folder's `project.json` at this build's version.
 ///
-/// A folder already current is not touched at all. The write is the ordinary
+/// A folder already current is not touched at all. A paid file named for an
+/// asset the walk renamed is linked under its new name first
+/// ([`carry`]), so nothing bought is bought again. The write is the ordinary
 /// [`Project::save`], so it is atomic and refuses to land on a document that
 /// changed while this ran.
 pub fn folder(project_dir: &Path) -> Result<Option<u32>, MigrateError> {
@@ -419,6 +427,10 @@ pub fn folder(project_dir: &Path) -> Result<Option<u32>, MigrateError> {
     let json = String::from_utf8_lossy(&bytes);
     let (mut project, from) = parse(&json)?;
     if from.is_some() {
+        // Before the document is written: a folder whose files could not be
+        // carried is left at its old version, to be migrated again.
+        let before: Value = serde_json::from_str(&json).map_err(MigrateError::Parse)?;
+        carry::paid_outputs(project_dir, &carry::renamed(&before, &project))?;
         project.baseline = Baseline::of(&bytes);
         project.save(project_dir)?;
     }

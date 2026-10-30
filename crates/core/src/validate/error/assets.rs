@@ -1,7 +1,7 @@
 //! What the assets-table checks can find: identity, paths, and the fields a
 //! kind requires.
 
-use crate::asset::{AssetId, AssetKind, SourceProblem};
+use crate::asset::{AssetId, AssetIdProblem, AssetKind, SourceProblem};
 use crate::path::{PathProblem, ProjectPath};
 use crate::validate::error::{
     FillProblem, IconProblem, ImageProblem, MusicProblem, SequenceProblem, ShapeProblem,
@@ -18,6 +18,16 @@ pub enum AssetProblem {
     DuplicateAssetId {
         /// The id claimed twice.
         id: AssetId,
+    },
+
+    /// An id that is not a safe file name — it becomes one, in `generated/`,
+    /// `cache/` and `pages/`.
+    #[error("asset id `{id}` {problem}")]
+    BadAssetId {
+        /// The id as written.
+        id: AssetId,
+        /// Which rule it breaks.
+        problem: AssetIdProblem,
     },
 
     /// A path that would not survive `scp -r` — absolute, backslashed, or

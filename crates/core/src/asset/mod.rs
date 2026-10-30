@@ -4,6 +4,7 @@
 //! [`AssetId`] and never by path, so moving or regenerating a file is one
 //! edit in one place.
 
+mod id;
 pub(crate) mod image;
 pub(crate) mod kind;
 pub(crate) mod music;
@@ -26,6 +27,8 @@ use crate::stamp::Timestamp;
 use crate::text::TextStyle;
 use crate::time::{Fps, Frames};
 
+pub use id::{AssetId, AssetIdProblem, MAX_ASSET_ID_LENGTH, is_plain_name};
+pub(crate) use id::{tidy, unique};
 pub use image::{
     DEFAULT_IMAGE_RESOLUTION, DEFAULT_IMAGE_THINKING, ImageAspect, ImageRequest, ImageResolution,
     ImageThinking, ReferenceKind,
@@ -40,31 +43,6 @@ pub use video::{
     Aspect, CHARACTERS_PER_PROMPT_TOKEN, ClipSeconds, LengthLock, MAX_PROMPT_CHARACTERS,
     MAX_PROMPT_TOKENS, MAX_REFERENCE_IMAGES, VideoModel, VideoRequest, VideoResolution,
 };
-
-/// Identifies an asset within one project. Unique across the assets table.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct AssetId(String);
-
-impl AssetId {
-    /// Wraps a string as an id. Uniqueness is a property of the table, not of
-    /// the id, so it is [`crate::Project::validate`] that catches a repeat.
-    pub fn new(id: impl Into<String>) -> Self {
-        Self(id.into())
-    }
-
-    /// The id as written in `project.json`.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl fmt::Display for AssetId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // `pad` rather than `write_str`, so `{:<20}` in a table actually aligns.
-        f.pad(&self.0)
-    }
-}
 
 /// One row of the assets table.
 ///

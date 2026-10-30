@@ -1,4 +1,4 @@
-# `project.json` — schema v55
+# `project.json` — schema v56
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -40,6 +40,7 @@ carries forward) up to this one.
 | v52 → v53 | an imported file's stock `source` (#1237) | nothing: one optional block was added to `video` and `image` assets, absent in every v52 document and absent meaning a file the user brought. A `pixabay-<id>` file name is not read back into a `source`: the author and page were never stored, and half a record would read as the whole of one |
 | v53 → v54 | a generated track: the `music` block on `generated_audio` (#1264) | nothing: one optional block was added, absent in every v53 document, and a `generated_audio` asset without it is a line of narration exactly as it was — it passes through and only its version moves |
 | v54 → v55 | one keyframe track per property, except `volume`, whose tracks multiply (#1099) | each clip keeps only the **last** track on a property other than `volume` — the one the compositor drew — so nothing changes on screen; every `volume` track stays, and its tracks now multiply: a fade with a duck plays both, and so do two hand-written volume tracks on one clip (possible only through `project_write`), where the mixer used to play only the first |
+| v55 → v56 | an asset id is a safe file name: ASCII letters, digits, `-`, `_` and `.`, not starting with `.`, at most 128 characters | every id that breaks the rule is renamed — each run of characters it may not hold becomes one `-`, leading dots and hyphens and trailing hyphens go, it is cut to 128, `asset` when nothing is left, and `-2`, `-3`… when another asset already has the result (an id that keeps the rule is never the one renamed) — and every reference follows: clips (the timeline's and each group's), a shot's `first_image`, `last_image` and `reference_images`, a still's `reference_images` and `character_images`, a sequence's `stills`. Paths are left as written. `scorsese migrate` also links each paid file named for an old id (`generated/<old id>-<brief hash>.*`) at its new id's name, so nothing bought is bought again; on the web, outputs are linked by brief hash already |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -48,7 +49,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 55,
+  "schema_version": 56,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "aspect": "16:9",
@@ -200,7 +201,7 @@ re-importing or regenerating a file is one edit in one place.
 
 | Field | Required for | Meaning |
 | --- | --- | --- |
-| `id` | all | Unique within the project |
+| `id` | all | Unique within the project. It becomes a file name, so it holds only ASCII letters, digits, `-`, `_` and `.`, does not start with `.`, and is at most 128 characters: `shot-city`, `vo_02`, `logo.v2` |
 | `kind` | all | `video`, `image`, `audio`, `text`, `color`, `shape`, `icon`, `group`, `image_sequence`, `html`, `generated_video`, `generated_image`, `generated_audio`, `synth_audio` |
 | `path` | file-backed kinds | Relative to the project root; an `html` asset's ends in `.html` |
 | `sha256` | optional | 64 lowercase hex chars, of the file at `path` |
@@ -2874,7 +2875,7 @@ compositing-suite line.
 
 ```json project
 {
-  "schema_version": 55,
+  "schema_version": 56,
   "name": "wipe",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

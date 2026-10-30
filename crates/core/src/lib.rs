@@ -133,13 +133,13 @@ pub mod write;
 mod scratch;
 
 pub use asset::{
-    Aspect, Asset, AssetId, AssetKind, AudioBlock, CHARACTERS_PER_PROMPT_TOKEN, ClipSeconds,
-    DEFAULT_IMAGE_RESOLUTION, DEFAULT_IMAGE_THINKING, GenerationState, ImageAspect, ImageRequest,
-    ImageResolution, ImageSequence, ImageThinking, LanguageIgnored, LengthLock, MAX_CHARACTERS,
-    MAX_MUSIC_SECONDS, MAX_PROMPT_CHARACTERS, MAX_PROMPT_TOKENS, MAX_REFERENCE_IMAGES,
-    MIN_MUSIC_SECONDS, MediaMetadata, MusicRequest, ReferenceKind, SEQUENCE_FORMATS, Source,
-    SourceProblem, SpeechModel, SpeechRequest, StockLibrary, VideoModel, VideoRequest,
-    VideoResolution, is_voice_id,
+    Aspect, Asset, AssetId, AssetIdProblem, AssetKind, AudioBlock, CHARACTERS_PER_PROMPT_TOKEN,
+    ClipSeconds, DEFAULT_IMAGE_RESOLUTION, DEFAULT_IMAGE_THINKING, GenerationState, ImageAspect,
+    ImageRequest, ImageResolution, ImageSequence, ImageThinking, LanguageIgnored, LengthLock,
+    MAX_ASSET_ID_LENGTH, MAX_CHARACTERS, MAX_MUSIC_SECONDS, MAX_PROMPT_CHARACTERS,
+    MAX_PROMPT_TOKENS, MAX_REFERENCE_IMAGES, MIN_MUSIC_SECONDS, MediaMetadata, MusicRequest,
+    ReferenceKind, SEQUENCE_FORMATS, Source, SourceProblem, SpeechModel, SpeechRequest,
+    StockLibrary, VideoModel, VideoRequest, VideoResolution, is_plain_name, is_voice_id,
 };
 // The three verbs stay behind the module for [`pacing`]'s reason: a bare
 // `scorsese_core::add_asset` reads as an import, and `set_asset` says nothing
