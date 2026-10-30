@@ -24,6 +24,20 @@ use serde::{Deserialize, Serialize};
 /// from the API costs a round trip to say less.
 pub const MAX_CHARACTERS: usize = 40_000;
 
+/// Whether `id` can name a voice: one or more ASCII letters, digits, `-` or
+/// `_`.
+///
+/// The vendor's ids are letters and digits; `-` and `_` are let through for
+/// the ids tests and examples write. Every one of these characters is sent in
+/// a URL as it is, so the id an ownership check compares is exactly the one
+/// the vendor receives, and none can turn the id into another path.
+pub fn is_voice_id(id: &str) -> bool {
+    !id.is_empty()
+        && id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+}
+
 /// Which text-to-speech model a line is spoken by.
 ///
 /// Three, and no more. The vendor also publishes Turbo variants. Its own

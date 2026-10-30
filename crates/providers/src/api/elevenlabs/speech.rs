@@ -18,7 +18,7 @@ use base64::Engine;
 use serde::{Deserialize, Serialize};
 
 use super::{BASE, KEY_HEADER, OUTPUT_FORMAT};
-use crate::api::http::{Caller, HttpError};
+use crate::api::http::{Caller, HttpError, encoded};
 use crate::credentials::Secret;
 
 /// The most a spoken line's reply is allowed to be, in bytes.
@@ -141,13 +141,45 @@ impl Speech {
     /// answers `404` on the URL rather than a validation error about a field.
     /// See [`Refusal`](super::refusal::Refusal) for what is made of that.
     pub fn speak(&self, voice_id: &str, body: &Speak) -> Result<Timed, HttpError> {
-        let url = format!(
-            "{BASE}/text-to-speech/{voice_id}/with-timestamps?output_format={OUTPUT_FORMAT}"
-        );
+        let url = url(voice_id);
         let bytes = self.caller.post_bytes(&url, body, MAX_REPLY_BYTES)?;
         serde_json::from_slice(&bytes).map_err(|error| HttpError::Unreadable {
             url,
             message: error.to_string(),
         })
+    }
+}
+
+/// Where a line in `voice_id` is spoken: the id percent-encoded, as every
+/// other call here sends one, so it stays a single path segment.
+fn url(voice_id: &str) -> String {
+    format!(
+        "{BASE}/text-to-speech/{}/with-timestamps?output_format={OUTPUT_FORMAT}",
+        encoded(voice_id)
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The voice is one path segment whatever it holds, so the URL the vendor
+    /// receives names exactly the voice the ownership check was asked about:
+    /// a `/`, `..` or `?` in it cannot reach another voice or another route.
+    #[test]
+    fn a_voice_id_stays_one_path_segment() {
+        let speaks = |voice: &str| {
+            url(voice)
+                .strip_prefix(&format!("{BASE}/text-to-speech/"))
+                .map(str::to_owned)
+        };
+        assert_eq!(
+            speaks("EXAMPLEvoiceID012345").as_deref(),
+            Some("EXAMPLEvoiceID012345/with-timestamps?output_format=mp3_44100_128")
+        );
+        assert_eq!(
+            speaks("a/../theirs?x=").as_deref(),
+            Some("a%2F..%2Ftheirs%3Fx%3D/with-timestamps?output_format=mp3_44100_128")
+        );
     }
 }

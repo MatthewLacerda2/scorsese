@@ -575,6 +575,7 @@ default.
 | `language` on the `standard` model | that model **silently ignores** the field |
 | a `prompt` over 40,000 characters | the vendor speaks at most that many in one request, on any model |
 | an empty `voice_id` | it looks chosen and is not — leave it out instead |
+| a `voice_id` with anything but ASCII letters, digits, `-` and `_` | no voice id has one, and the id is sent in the vendor's URL as it is written |
 
 The first is the one worth reading twice, because it is the only refusal in
 this document that rejects a request the vendor would have **accepted**. The

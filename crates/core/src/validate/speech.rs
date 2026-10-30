@@ -9,7 +9,7 @@
 //! other place it could live. There is no error to catch, no failed run to
 //! read: the narration arrives, in the wrong language, having been paid for.
 
-use crate::asset::{Asset, AssetKind, MAX_CHARACTERS};
+use crate::asset::{Asset, AssetKind, MAX_CHARACTERS, is_voice_id};
 
 use super::error::{AssetProblem, SpeechProblem};
 use super::field::AssetField;
@@ -39,10 +39,15 @@ pub(super) fn check(asset: &Asset, errors: &mut Vec<AssetProblem>) {
             language: conflict.language,
         });
     }
-    if request.voice_id.as_ref().is_some_and(|id| id.is_empty()) {
-        found.push(SpeechProblem::BlankVoice {
+    match &request.voice_id {
+        Some(id) if id.is_empty() => found.push(SpeechProblem::BlankVoice {
             asset: asset.id.clone(),
-        });
+        }),
+        Some(id) if !is_voice_id(id) => found.push(SpeechProblem::MalformedVoice {
+            asset: asset.id.clone(),
+            voice: id.clone(),
+        }),
+        _ => {}
     }
     // Counted on the prompt rather than on the block, and so asked of every
     // narration whether it carries a `speech` block or not: an oversized line

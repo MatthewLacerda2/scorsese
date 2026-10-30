@@ -109,6 +109,24 @@ fn an_empty_voice_looks_chosen_and_is_not() {
     );
 }
 
+/// A voice id goes into the vendor's URL, so one that could be read as more
+/// than one path segment is refused before it gets there.
+#[test]
+fn a_voice_id_with_a_path_in_it_is_refused() {
+    for voice in ["a/../theirs", "voice?x=1", "two words", "voice\t"] {
+        let p = saying(|r| r.voice_id = Some(voice.to_owned()));
+        assert_only_problem(
+            &p,
+            E::Speech(S::MalformedVoice {
+                asset: asset_id("vo-open"),
+                voice: voice.to_owned(),
+            }),
+        );
+    }
+    let p = saying(|r| r.voice_id = Some("EXAMPLE_voice-ID012345".to_owned()));
+    assert!(p.validate().is_ok());
+}
+
 /// A sketch nobody has finished is a legitimate document. The refusal for a
 /// missing voice belongs at the moment of spending, not the moment of writing.
 #[test]

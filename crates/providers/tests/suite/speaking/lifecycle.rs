@@ -121,6 +121,28 @@ fn a_line_over_its_models_limit_is_never_sent() {
     }
 }
 
+/// A voice id that is not one — a `/` or a `?` in it — never reaches the
+/// vendor: the id spoken in is the id the ownership check was asked about.
+#[test]
+fn a_voice_id_that_is_not_one_is_never_sent() {
+    let (dir, mut project, id) = sketched("malformed", "who says this");
+    asset_mut(&mut project, &id).speech = Some(SpeechRequest {
+        voice_id: Some(String::from("mine/../theirs")),
+        ..SpeechRequest::default()
+    });
+    let provider = Mock::willing();
+
+    let run = generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a run");
+
+    assert!(
+        matches!(&run[0].1, Outcome::Incomplete { why } if why.contains("not a voice id")),
+        "{:?}",
+        run[0].1
+    );
+    assert_eq!(provider.requests(), 0);
+    std::fs::remove_dir_all(&dir).ok();
+}
+
 /// A voice of nothing but spaces looks chosen and is not.
 #[test]
 fn a_blank_voice_is_no_voice() {

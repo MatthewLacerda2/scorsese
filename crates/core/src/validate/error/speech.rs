@@ -67,4 +67,17 @@ pub enum SpeechProblem {
         /// The asset carrying it.
         asset: AssetId,
     },
+
+    /// A voice id with a character no voice id has
+    /// ([`crate::is_voice_id`]): a space, a `/`, a `?`.
+    #[error(
+        "asset `{asset}` names voice `{voice}`, which is not a voice id: \
+         an id is letters and digits — copy it from voices"
+    )]
+    MalformedVoice {
+        /// The asset carrying it.
+        asset: AssetId,
+        /// The id as written.
+        voice: String,
+    },
 }
