@@ -2342,8 +2342,10 @@ the person's own on a change or a message written instead — and the
 transcript shows each as one line, their words under it. A quote is answered once. The box lists every brief the quote's token
 would pay for — the same ones a yes spends, kept with the token when the paid
 tool issues it (`quotes.items`) — each with what it would send (the prompt, the
-line, the voice's description) and its price, which add up to the box's total
-(`assistant::described`).
+line, the voice's description) (`assistant::described`). Each item also carries
+its price in the API (`items[].micros`), and those add up to the quote's
+`micros`, the price for now; the box shows only that total, and the batch price
+beside it when one is offered.
 
 **When the work lands, the assistant carries on** (#1441). Every job a yes
 queues names that call (`jobs.tool_call_id`), and the yes marks its turn
