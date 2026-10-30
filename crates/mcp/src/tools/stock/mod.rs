@@ -25,6 +25,11 @@
 //! words, answering from one library given instead: how the hosted server
 //! hands them a fake in its tests, with no key and no network. Nothing here
 //! learns who is calling.
+//!
+//! **So is where results are kept.** Locally a project's `cache/stock`; the
+//! hosted server hands [`stocked`] a folder of its own per member, outside
+//! the project folder a call runs in, so nothing else a tool writes there can
+//! pose as a search's results.
 
 mod import;
 mod player;
@@ -33,6 +38,7 @@ mod search;
 pub(crate) use import::Import;
 pub(crate) use search::Search;
 
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use scorsese_providers::stock::{self, Library, Medium};
@@ -46,10 +52,25 @@ pub type Stock = Arc<dyn Library + Send + Sync>;
 /// `stock_search` and `stock_import`, exactly as the registry has them, but
 /// searching and importing every kind from `library`.
 pub fn stocked_from(library: &Stock) -> Vec<Box<dyn Tool>> {
+    stocked(Some(library), None)
+}
+
+/// `stock_search` and `stock_import`, exactly as the registry has them, but
+/// answering from `library` when one is given, and keeping what they find in
+/// `cache` when one is given rather than in the project's own `cache/stock`
+/// ([`stock::cache_dir`]) — where a caller keeps a cache that outlives the
+/// project folder, out of reach of anything else written there.
+pub fn stocked(library: Option<&Stock>, cache: Option<&Path>) -> Vec<Box<dyn Tool>> {
+    let cache = cache.map(Path::to_path_buf);
     vec![
-        Box::new(Search::from(Some(library.clone()))),
-        Box::new(Import::from(Some(library.clone()))),
+        Box::new(Search::new(library.cloned(), cache.clone())),
+        Box::new(Import::new(library.cloned(), cache)),
     ]
+}
+
+/// Where the stock tools keep results: `given`, or the project's own.
+fn cache(given: Option<&Path>, project: &Path) -> PathBuf {
+    given.map_or_else(|| stock::cache_dir(project), Path::to_path_buf)
 }
 
 /// The library `medium` is searched in: `given`, when the tools were built
@@ -101,6 +122,10 @@ mod tests {
 
         fn one(&self, _: Medium, _: u64) -> Result<Option<Candidate>, StockError> {
             Ok(None)
+        }
+
+        fn hosts(&self) -> &'static [&'static str] {
+            &[]
         }
 
         fn download(

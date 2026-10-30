@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use scorsese_core::{Imported, ProbeMedia, Project, Source, StockLibrary, import_path};
 
 use super::candidate::{Candidate, Medium, Rendition};
-use super::library::{Library, StockError};
+use super::library::{Library, StockError, fetchable};
 use super::search::find;
 
 /// The most a preview JPEG may be. They are tens of kilobytes.
@@ -23,13 +23,15 @@ const VIDEO_LIMIT: u64 = 4 * 1024 * 1024 * 1024;
 /// The most a chosen picture may be.
 const IMAGE_LIMIT: u64 = 256 * 1024 * 1024;
 
-/// Downloads `url` to `path`, whole or not at all.
+/// Downloads `url` to `path`, whole or not at all — once [`fetchable`] has
+/// passed it.
 fn download(
     library: &dyn Library,
     url: &str,
     limit: u64,
     path: &Path,
 ) -> Result<PathBuf, StockError> {
+    fetchable(library, url)?;
     let io = |source| StockError::Io {
         path: path.to_path_buf(),
         source,

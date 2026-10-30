@@ -146,5 +146,5 @@ pub use session::serve;
 pub use table::{BEGIN, END, regenerated, tool_table};
 pub use tools::{
     Ahead, Context, Costs, PagesAhead, Part, Reply, Stock, Tool, merged_stretches, registry,
-    still_with_pages_ahead, stocked_from,
+    still_with_pages_ahead, stocked, stocked_from,
 };

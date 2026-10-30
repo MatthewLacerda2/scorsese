@@ -89,7 +89,8 @@ impl Tool for Set {
         // makes "changed nothing" true rather than merely likely.
         let change = synth::set(&json, &setting)
             .map_err(|problem| format!("refused, nothing written — {relative}: {problem}"))?;
-        scorsese_core::write::atomically(&file, &change.document)
+        let path = scorsese_core::ProjectPath::new(relative.as_str());
+        scorsese_core::write::in_project(arguments.project.dir(), &path, &change.document)
             .map_err(|error| format!("writing {relative}: {error}"))?;
 
         let target = match track {

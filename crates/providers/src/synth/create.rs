@@ -48,18 +48,11 @@ pub(super) fn start(
     let file = super::place(project_root, &relative)?;
 
     let json = recipe.to_json().expect("a recipe serialises");
-    if let Some(parent) = file.parent() {
-        std::fs::create_dir_all(parent).map_err(|source| SynthesisError::Write {
-            path: parent.to_path_buf(),
-            source,
-        })?;
-    }
     // Atomic: a recipe is authored work, and a half-written one is the kind
-    // `recipes/` cannot afford to lose.
-    write::atomically(&file, json).map_err(|source| SynthesisError::Write {
-        path: file.clone(),
-        source,
-    })?;
+    // `recipes/` cannot afford to lose. Never through a link out of the
+    // project.
+    write::in_project(project_root, &relative, json)
+        .map_err(|source| SynthesisError::Write { path: file, source })?;
 
     project
         .assets

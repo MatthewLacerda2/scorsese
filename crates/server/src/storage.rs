@@ -120,9 +120,11 @@ impl Storage {
     /// Where `user`'s stock search results are cached between calls (#900).
     ///
     /// Pixabay asks for results to be kept 24 hours, and a laid-out folder's
-    /// own `cache/` is gone the moment its tool answers, so each folder's
-    /// stock cache is linked here. One per user, like everything else under
-    /// the cache, so what one person searched for is never in another's.
+    /// own `cache/` is gone the moment its tool answers, so the stock tools
+    /// are handed this folder instead — never linked into the project
+    /// folder, where any tool's write could pose as a search's results. One
+    /// per user, like everything else under the cache, so what one person
+    /// searched for is never in another's.
     pub fn stock(&self, user: UserId) -> PathBuf {
         user_directory(&self.cache, user).join("stock")
     }

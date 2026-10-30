@@ -106,18 +106,14 @@ pub fn write_page_file(
         let bytes = text.len();
         return Err(PageFileError::TooLarge { path, bytes });
     }
-    let pages = project_root.join(PAGES_DIR);
-    std::fs::create_dir_all(&pages).map_err(|source| PageFileError::Io {
-        path: pages,
-        source,
-    })?;
     let file = path
         .resolve(project_root)
         .map_err(|_| PageFileError::NotAName {
             name: name.to_owned(),
         })?;
     let created = !file.exists();
-    crate::write::atomically(&file, text).map_err(|source| PageFileError::Io {
+    // `pages/` made if needed, and never written through a link.
+    crate::write::in_project(project_root, &path, text).map_err(|source| PageFileError::Io {
         path: file.clone(),
         source,
     })?;

@@ -3,7 +3,7 @@
 use std::io::Write;
 use std::path::PathBuf;
 
-use crate::api::http::HttpError;
+use crate::api::http::{HttpError, host, https_host};
 use crate::credentials::{CredentialError, Secret};
 
 use super::candidate::{Candidate, Medium, Orientation};
@@ -86,9 +86,38 @@ pub trait Library {
     /// One result by its id, or `None` when there is none.
     fn one(&self, medium: Medium, id: u64) -> Result<Option<Candidate>, StockError>;
 
+    /// The hosts its files are served from: a download goes only to one of
+    /// these or a subdomain of one, over https (`fetchable`), whatever page
+    /// named it.
+    fn hosts(&self) -> &'static [&'static str];
+
     /// Downloads `url` into `to`, at most `limit` bytes. Answers how many
-    /// arrived.
+    /// arrived. Called only once `fetchable` has passed `url`; a real
+    /// library follows a redirect only where `fetchable` passes it too.
     fn download(&self, url: &str, limit: u64, to: &mut dyn Write) -> Result<u64, StockError>;
+}
+
+/// `url`, when it is one `library` may be asked to download: https, on one of
+/// its [`hosts`](Library::hosts) or a subdomain of one, on the usual port, and
+/// with no user name in it. Read the way the transport reads it, so what is
+/// checked is what would be called.
+///
+/// A cached page is a file on the disk, and what it says is never taken as
+/// the vendor's word for where a file is: this is asked before every download.
+pub(crate) fn fetchable(library: &dyn Library, url: &str) -> Result<(), StockError> {
+    let refused = || StockError::OffHost {
+        library: library.name(),
+        url: url.chars().take(200).collect(),
+    };
+    let host = https_host(url).ok_or_else(refused)?;
+    let theirs = library.hosts().iter().any(|own| {
+        host == *own
+            || host
+                .strip_suffix(own)
+                .and_then(|sub| sub.strip_suffix('.'))
+                .is_some_and(|sub| !sub.is_empty())
+    });
+    theirs.then_some(()).ok_or_else(refused)
 }
 
 /// Why a search, a preview or an import did not happen.
@@ -140,6 +169,19 @@ pub enum StockError {
     Still {
         /// The image's id.
         id: u64,
+    },
+
+    /// A download named somewhere that is not the library's own, or not over
+    /// https: never asked for.
+    #[error(
+        "{library} lists a file at {url}, which is not over https on one of {library}'s own \
+         hosts, so nothing was downloaded. Search again and import an id the results name."
+    )]
+    OffHost {
+        /// Whose result named it.
+        library: &'static str,
+        /// The address, cut short.
+        url: String,
     },
 
     /// The result has no file to download.
@@ -199,6 +241,35 @@ pub enum StockError {
     },
 }
 
+/// A download's transport error from `library`, in words that never carry
+/// what the server sent: the host, and its status, or that it could not be
+/// reached or the file broke off. A file host's error page is not a sentence
+/// for an agent.
+///
+/// The host is the one that failed, which after a redirect is not always the
+/// one first asked.
+pub(super) fn fetch_failed(library: &'static str, error: &HttpError) -> StockError {
+    if error.rate_limited() {
+        return StockError::RateLimited { library };
+    }
+    let (HttpError::Refused { url, .. }
+    | HttpError::Unreachable { url, .. }
+    | HttpError::Unreadable { url, .. }) = error;
+    let host = host(url).unwrap_or_else(|| String::from("its file host"));
+    let said = match error {
+        HttpError::Refused { status, .. } if (300..400).contains(status) => format!(
+            "{host} redirected a download off {library}'s own hosts, or too many times, so \
+             nothing was downloaded"
+        ),
+        HttpError::Refused { status, .. } => format!("{host} answered {status} to a download"),
+        HttpError::Unreachable { .. } => format!("{host} could not be reached for a download"),
+        HttpError::Unreadable { .. } => {
+            format!("a download from {host} broke off, or could not be kept on this machine")
+        }
+    };
+    StockError::Provider { library, said }
+}
+
 /// A transport error from `library` as the refusal it means, the way every
 /// library reads one: a 429 as [`StockError::RateLimited`], anything else in
 /// the words [`HttpError::explained`] gives it, `key` scrubbed out.
@@ -209,5 +280,109 @@ pub(super) fn failed(library: &'static str, error: &HttpError, key: Option<&Secr
     StockError::Provider {
         library,
         said: error.explained(key),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Answers nothing: only its hosts are asked.
+    struct Hosted;
+
+    impl Library for Hosted {
+        fn name(&self) -> &'static str {
+            "Hosted"
+        }
+
+        fn page(&self, _: &Query, _: u32) -> Result<Page, StockError> {
+            unreachable!("only the hosts are asked")
+        }
+
+        fn one(&self, _: Medium, _: u64) -> Result<Option<Candidate>, StockError> {
+            unreachable!("only the hosts are asked")
+        }
+
+        fn hosts(&self) -> &'static [&'static str] {
+            &["pixabay.com", "lottiefiles.com"]
+        }
+
+        fn download(&self, _: &str, _: u64, _: &mut dyn Write) -> Result<u64, StockError> {
+            unreachable!("only the hosts are asked")
+        }
+    }
+
+    #[test]
+    fn a_vendors_own_file_over_https_is_fetchable() {
+        for url in [
+            "https://cdn.pixabay.com/video/2020/05/13/39009-420224623_large.mp4",
+            "https://pixabay.com/get/TOKEN_1280.png",
+            "https://CDN.Pixabay.com:443/photo/x.jpg",
+            "https://assets-v2.lottiefiles.com/a/abc/x.json",
+        ] {
+            assert!(fetchable(&Hosted, url).is_ok(), "{url}");
+        }
+    }
+
+    #[test]
+    fn anything_else_is_refused() {
+        for url in [
+            "http://cdn.pixabay.com/video/x.mp4",
+            "https://cdn.pixabay.com.evil.invalid/x.mp4",
+            "https://notpixabay.com/x.mp4",
+            "https://.pixabay.com/x.mp4",
+            "https://cdn.pixabay.com@127.0.0.1/x.mp4",
+            "https://user:pass@cdn.pixabay.com/x.mp4",
+            "https://cdn.pixabay.com:8443/x.mp4",
+            "https://127.0.0.1/x.mp4",
+            "https://[::1]/x.mp4",
+            "file:///etc/passwd",
+            "cdn.pixabay.com/x.mp4",
+            "",
+        ] {
+            let refused = fetchable(&Hosted, url).expect_err(url).to_string();
+            assert!(
+                refused.contains("nothing was downloaded"),
+                "{url}: {refused}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_failed_download_never_says_what_the_server_sent() {
+        let url = "https://cdn.pixabay.com/video/x.mp4";
+        let refused = HttpError::Refused {
+            url: url.to_owned(),
+            status: 500,
+            body: String::from("<html>internal details</html>"),
+        };
+        let said = fetch_failed("Pixabay", &refused).to_string();
+        assert!(said.contains("cdn.pixabay.com answered 500"), "{said}");
+        assert!(!said.contains("internal details"), "{said}");
+        let unreachable = HttpError::Unreachable {
+            url: url.to_owned(),
+            message: String::from("dns error naming a resolver"),
+        };
+        let said = fetch_failed("Pixabay", &unreachable).to_string();
+        assert!(!said.contains("resolver"), "{said}");
+        let limited = HttpError::Refused {
+            url: url.to_owned(),
+            status: 429,
+            body: String::new(),
+        };
+        assert!(matches!(
+            fetch_failed("Pixabay", &limited),
+            StockError::RateLimited { .. }
+        ));
+        let moved = HttpError::Refused {
+            url: String::from("https://pixabay.com/get/x"),
+            status: 302,
+            body: String::new(),
+        };
+        let said = fetch_failed("Pixabay", &moved).to_string();
+        assert!(
+            said.contains("pixabay.com redirected a download off"),
+            "{said}"
+        );
     }
 }

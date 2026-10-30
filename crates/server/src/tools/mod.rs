@@ -59,6 +59,11 @@
 //! — and otherwise the registry's own resolution: Pixabay keyed from the one
 //! resolver, LottieFiles for animations.
 //!
+//! What they find is kept in the member's own stock cache
+//! (`Storage::stock`), handed to the tools as a folder of its own: never
+//! linked into the project folder a call runs in, where any tool's write
+//! could pose as a search's results.
+//!
 //! ## Every call is recorded
 //!
 //! In `tool_calls` (`log`), with who made it: the user's own client over web
@@ -84,6 +89,7 @@ pub use folder::{Folder, lay_out};
 pub use log::Client;
 pub use quotes::Pending;
 
+use std::path::Path;
 use std::sync::Arc;
 
 use scorsese_mcp::{Ahead, PagesAhead, Reply, Stock, Tool};
@@ -395,20 +401,21 @@ fn database(error: impl std::fmt::Display) -> String {
 }
 
 /// The registry's tools, by name — the stock ones answering from `stock`
-/// when it is given, and `still` drawing the pages `pages` captured. Never
-/// the registry's own `still`, which would start a browser in this container
-/// (#1434): without `pages`, a still draws every page as its card.
+/// when it is given and keeping results in `cache` when it is given, and
+/// `still` drawing the pages `pages` captured. Never the registry's own
+/// `still`, which would start a browser in this container (#1434): without
+/// `pages`, a still draws every page as its card.
 fn registered(
     name: &str,
     stock: Option<&Stock>,
+    cache: Option<&Path>,
     pages: Option<Arc<dyn PagesAhead>>,
 ) -> Option<Box<dyn Tool>> {
     if name == "still" {
         let pages = pages.unwrap_or_else(|| Arc::new(Uncaptured));
         return Some(scorsese_mcp::still_with_pages_ahead(pages));
     }
-    let stocked = stock.map(scorsese_mcp::stocked_from).unwrap_or_default();
-    stocked
+    scorsese_mcp::stocked(stock, cache)
         .into_iter()
         .chain(scorsese_mcp::registry())
         .find(|tool| tool.name() == name)

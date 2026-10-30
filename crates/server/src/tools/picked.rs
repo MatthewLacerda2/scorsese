@@ -20,11 +20,11 @@ use std::sync::Arc;
 
 use scorsese_mcp::{Reply, Stock};
 use scorsese_providers::credentials::{Provider, resolve};
-use scorsese_providers::stock::{self, Choice, Imports, Medium, PixabayLibrary, cache_dir};
+use scorsese_providers::stock::{self, Choice, Imports, Medium, PixabayLibrary};
 use scorsese_render::Ffprobe;
 use serde_json::json;
 
-use super::{Client, Toolbox, database, fetched, folder, lay_out, log};
+use super::{Client, Toolbox, database, fetched, lay_out, log};
 use crate::db::UserId;
 use crate::jobs::blocking;
 use crate::projects::{self, ProjectError};
@@ -131,14 +131,12 @@ impl Toolbox {
                     other => database(other),
                 })?;
             let folder = lay_out(&self.pool, &self.storage, user, &stored.document, &kept).await?;
-            let root = folder.root().to_path_buf();
-            folder::keep_stock_cache(&self.storage, user, &root)?;
+            let (root, cache) = (folder.root().to_path_buf(), self.storage.stock(user));
             let (mut document, probe) = (stored.document.clone(), Ffprobe::new(self.tools.clone()));
             let (library, picked) = (library.clone(), choices.to_vec());
             let (document, answers) = blocking(
                 "the import crashed on the server; that is a bug",
                 move || {
-                    let cache = cache_dir(&root);
                     let answers = stock::import(
                         &mut document,
                         &root,

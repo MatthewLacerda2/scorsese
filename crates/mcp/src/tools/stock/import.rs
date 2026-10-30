@@ -3,7 +3,9 @@
 use std::borrow::Cow;
 
 use schemars::{JsonSchema, Schema, SchemaGenerator};
-use scorsese_providers::stock::{self, Animations, Choice, Imports, Medium, cache_dir};
+use std::path::PathBuf;
+
+use scorsese_providers::stock::{self, Animations, Choice, Imports, Medium};
 use scorsese_render::{Budget, Ffprobe, Sizing};
 use serde::Deserialize;
 use serde_json::Value;
@@ -13,15 +15,19 @@ use crate::tools::inspect::{load, save};
 use crate::tools::{Costs, Reply, Tool};
 
 /// Importing from Pixabay, or a Lottie from LottieFiles — or from the one
-/// library it was built around ([`super::stocked_from`]).
+/// library it was built around, reading results where it was told
+/// ([`super::stocked`]).
 #[derive(Default)]
 pub(crate) struct Import {
     library: Option<super::Stock>,
+    cache: Option<PathBuf>,
 }
 
-impl From<Option<super::Stock>> for Import {
-    fn from(library: Option<super::Stock>) -> Self {
-        Self { library }
+impl Import {
+    /// One answering from `library` and reading results from `cache`, each
+    /// when given.
+    pub(crate) fn new(library: Option<super::Stock>, cache: Option<PathBuf>) -> Self {
+        Self { library, cache }
     }
 }
 
@@ -119,8 +125,9 @@ impl Tool for Import {
         let mut project = load(dir)?;
         let frame = Sizing::resolve(asked, &project, Budget::Delivery);
         let library = super::library(self.library.as_ref(), medium)?;
+        let cache = super::cache(self.cache.as_deref(), dir);
         if medium == Medium::Lottie {
-            let kept = stock::keep(dir, &cache_dir(dir), &*library, &ids);
+            let kept = stock::keep(dir, &cache, &*library, &ids);
             return kept_said(&Animations::new(&ids, kept));
         }
         let probe = Ffprobe::discover().map_err(|error| format!("{error}"))?;
@@ -129,7 +136,7 @@ impl Tool for Import {
         let answers = stock::import(
             &mut project,
             dir,
-            &cache_dir(dir),
+            &cache,
             &*library,
             &choices,
             frame,

@@ -90,19 +90,27 @@ pub fn write_page(
         return rewrite(asset, project_root, html);
     }
     let id = asset_id_for(project, name);
-    let pages = project_root.join(PAGES_DIR);
-    std::fs::create_dir_all(&pages).map_err(|source| PageError::Unwritable {
-        path: pages.clone(),
-        source,
-    })?;
     let own_name = format!("{id}.html");
+    let pages = project_root.join(PAGES_DIR);
+    // `pages/` made if needed, and refused if it is a link.
+    let own = ProjectPath::new(format!("{PAGES_DIR}/{own_name}"));
+    crate::write::parent_in_project(project_root, &own).map_err(|source| {
+        PageError::Unwritable {
+            path: pages.clone(),
+            source,
+        }
+    })?;
     // A file already holding exactly this page, and nobody's, is adopted
     // rather than forked past (#1054); anything else there is suffixed past.
     let file_name = if orphan_with(project, project_root, &own_name, html) {
         own_name
     } else {
         let file_name = unique_file_name(&pages, Path::new(&own_name));
-        land(&pages.join(&file_name), html)?;
+        land(
+            project_root,
+            &ProjectPath::new(format!("{PAGES_DIR}/{file_name}")),
+            html,
+        )?;
         file_name
     };
     let path = ProjectPath::new(format!("{PAGES_DIR}/{file_name}"));
@@ -123,20 +131,13 @@ fn rewrite(asset: &Asset, project_root: &Path, html: &str) -> Result<PageWritten
         (AssetKind::Html, Some(path)) => path.clone(),
         (kind, _) => return Err(PageError::NotAPage { id, kind: *kind }),
     };
-    let file = path
-        .resolve(project_root)
+    path.resolve(project_root)
         .map_err(|refused| PageError::BadPath {
             id: id.clone(),
             path: path.as_str().to_owned(),
             problem: refused.problem.to_string(),
         })?;
-    if let Some(parent) = file.parent() {
-        std::fs::create_dir_all(parent).map_err(|source| PageError::Unwritable {
-            path: parent.to_path_buf(),
-            source,
-        })?;
-    }
-    land(&file, html)?;
+    land(project_root, &path, html)?;
     Ok(PageWritten {
         id,
         path,
@@ -159,10 +160,12 @@ fn named(kind: AssetKind) -> String {
     format!("{article} `{word}`")
 }
 
-/// The bytes, all or nothing.
-fn land(file: &Path, html: &str) -> Result<(), PageError> {
-    crate::write::atomically(file, html).map_err(|source| PageError::Unwritable {
-        path: file.to_path_buf(),
-        source,
-    })
+/// The bytes, all or nothing, and never through a link out of the project.
+fn land(project_root: &Path, path: &ProjectPath, html: &str) -> Result<(), PageError> {
+    crate::write::in_project(project_root, path, html)
+        .map(drop)
+        .map_err(|source| PageError::Unwritable {
+            path: project_root.join(path.as_str()),
+            source,
+        })
 }

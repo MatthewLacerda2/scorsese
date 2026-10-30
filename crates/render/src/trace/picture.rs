@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use scorsese_compositor::Resolution;
 use scorsese_core::bytes::format_bytes;
 use scorsese_core::probe::ProbeMedia;
-use scorsese_core::{AssetId, AssetKind, GenerationState, PAGES_DIR, Project};
+use scorsese_core::{AssetId, AssetKind, GenerationState, PAGES_DIR, Project, ProjectPath};
 
 use super::{Traced, Tracing, trace};
 use crate::frames::{FrameError, raw_frame};
@@ -146,9 +146,12 @@ pub fn vectorize(
     let traced = trace(&rgba, width, height, tracing, name);
     let relative = format!("{PAGES_DIR}/{name}.svg");
     let file = project_root.join(&relative);
-    let written = std::fs::create_dir_all(project_root.join(PAGES_DIR))
-        .and_then(|()| scorsese_core::write::atomically(&file, &traced.svg));
-    written.map_err(|source| TraceError::Unwritable { file, source })?;
+    scorsese_core::write::in_project(
+        project_root,
+        &ProjectPath::new(relative.as_str()),
+        &traced.svg,
+    )
+    .map_err(|source| TraceError::Unwritable { file, source })?;
     Ok(Vectorized {
         traced,
         path: relative,

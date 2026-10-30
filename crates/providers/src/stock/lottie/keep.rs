@@ -16,7 +16,7 @@ use serde::Deserialize;
 use scorsese_core::PAGES_DIR;
 
 use super::super::candidate::{Candidate, Medium};
-use super::super::library::{Library, StockError};
+use super::super::library::{Library, StockError, fetchable};
 use super::super::search::find;
 
 /// The most a Lottie may be. Most are tens or hundreds of kilobytes; one
@@ -120,6 +120,7 @@ fn one(root: &Path, cache: &Path, library: &dyn Library, id: u64) -> Result<Kept
         medium: Medium::Lottie,
         id,
     })?;
+    fetchable(library, &json.url)?;
     let mut bytes = Vec::new();
     library.download(&json.url, LIMIT, &mut bytes)?;
     let shape: Shape = serde_json::from_slice(&bytes).map_err(|error| StockError::NotLottie {
@@ -136,8 +137,8 @@ fn one(root: &Path, cache: &Path, library: &dyn Library, id: u64) -> Result<Kept
             path: target.clone(),
             source,
         };
-        std::fs::create_dir_all(root.join(PAGES_DIR)).map_err(io)?;
-        scorsese_core::write::atomically(&target, &bytes).map_err(io)?;
+        let relative = scorsese_core::ProjectPath::new(path.as_str());
+        scorsese_core::write::in_project(root, &relative, &bytes).map_err(io)?;
     }
     Ok(Kept {
         outside: outside(&shape),
