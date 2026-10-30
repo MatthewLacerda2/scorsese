@@ -47,6 +47,25 @@ fn a_file_that_is_a_link_is_replaced_and_what_it_named_kept() {
     assert!(!meta.file_type().is_symlink());
 }
 
+/// A folder that cannot be made says why it cannot, not what the write
+/// after it would then have said.
+#[test]
+fn a_folder_that_cannot_be_made_is_the_error() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = common::temp_project_dir("in-project-unmakeable");
+    let shut = dir.join("shut");
+    std::fs::create_dir(&shut).unwrap();
+    std::fs::set_permissions(&shut, std::fs::Permissions::from_mode(0o555)).unwrap();
+    let refused = in_project(&dir, &ProjectPath::new("shut/inner/x.md"), "x");
+    std::fs::set_permissions(&shut, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let refused = refused.expect_err("a folder that cannot be made");
+    assert_eq!(
+        refused.kind(),
+        std::io::ErrorKind::PermissionDenied,
+        "{refused}"
+    );
+}
+
 #[test]
 fn a_path_out_of_the_project_or_through_a_file_is_refused() {
     let dir = common::temp_project_dir("in-project-refused");

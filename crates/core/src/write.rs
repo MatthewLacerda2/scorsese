@@ -150,17 +150,16 @@ pub fn parent_in_project(root: &Path, path: &ProjectPath) -> io::Result<PathBuf>
                     format!("`{}` is a file, not a folder", shown()),
                 ));
             }
-            Err(error) if error.kind() == io::ErrorKind::NotFound => match fs::create_dir(&at) {
-                Ok(()) => {}
-                // Another writer made it in between: a folder is as good.
-                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
+            // Not there, or not readable: made, or the reason it cannot be.
+            Err(_) => {
+                if let Err(error) = fs::create_dir(&at) {
+                    // A real folder another writer made in between is as good;
+                    // a link made in between is not one.
                     if !fs::symlink_metadata(&at).is_ok_and(|meta| meta.is_dir()) {
                         return Err(error);
                     }
                 }
-                Err(error) => return Err(error),
-            },
-            Err(error) => return Err(error),
+            }
         }
     }
     Ok(file)
