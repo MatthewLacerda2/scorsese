@@ -187,6 +187,17 @@ mod tests {
     }
 
     #[test]
+    fn a_plain_name_is_the_rule_without_its_cap() {
+        let long = "k".repeat(super::MAX_ASSET_ID_LENGTH + 70);
+        for plain in ["poster-abc", "a.b_C", long.as_str()] {
+            assert!(super::is_plain_name(plain), "{plain}");
+        }
+        for not in ["", ".env", "a/b", "a b", ".", "ç"] {
+            assert!(!super::is_plain_name(not), "{not:?}");
+        }
+    }
+
+    #[test]
     fn a_suffix_never_runs_past_the_cap() {
         let full = "a".repeat(super::MAX_ASSET_ID_LENGTH);
         let taken = [full.clone()];

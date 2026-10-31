@@ -17,6 +17,28 @@ fn read(root: &Path, relative: &str) -> Option<Vec<u8>> {
     std::fs::read(root.join(relative)).ok()
 }
 
+/// A brief's file name past its id: the hash in lowercase hex, then `.` and
+/// anything but a folder.
+#[test]
+fn a_brief_s_name_is_a_hash_then_an_extension() {
+    use super::is_brief_name;
+    assert!(is_brief_name(&format!("{DIGEST}.mp3.words.json")));
+    assert!(!is_brief_name(DIGEST), "no extension");
+    assert!(
+        !is_brief_name(&format!("{DIGEST}x.jpg")),
+        "no dot after the hash"
+    );
+    assert!(
+        !is_brief_name(&format!("{}.jpg", "g".repeat(64))),
+        "not hex"
+    );
+    assert!(
+        !is_brief_name(&format!("{}.jpg", DIGEST.to_uppercase())),
+        "not lowercase"
+    );
+    assert!(!is_brief_name(&format!("{DIGEST}.d/x.jpg")), "a folder");
+}
+
 /// A local folder whose paid files are named for ids the migration renames:
 /// each is linked at the name its new id gives it, so the next run finds its
 /// brief drawn and pays nothing. The file paid for stays where it was, byte

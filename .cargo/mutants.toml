@@ -855,6 +855,15 @@ exclude_re = [
     'mix\.rs:332:64: replace < with <= in sends',
     'mix\.rs:332:50: replace && with \|\| in sends',
     'mix\.rs:333:10: replace && with \|\| in sends',
+
+    # `asset::id::unique` counts suffixes from 2 to `limit + 2`, a range that
+    # proves one of them free because `taken` holds at most `limit` ids — and
+    # `wanted`, already refused, is one of them. `limit * 2` ends no earlier for
+    # any `limit` of 2 or more; at 1 it ends at `wanted-2`, which is free
+    # because the one id taken is `wanted`; at 0 nothing is taken and the
+    # function has returned `wanted` before the range. The same answer for every caller that
+    # keeps the contract: genuinely equivalent.
+    'asset/id\.rs:152:16: replace \+ with \* in unique',
 ]
 
 # ---------------------------------------------------------------------------
