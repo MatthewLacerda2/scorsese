@@ -5,6 +5,7 @@
 mod compacted;
 mod crowded;
 mod meanwhile;
+mod told;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
