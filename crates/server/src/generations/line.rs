@@ -7,12 +7,11 @@
 
 use std::sync::Arc;
 
-use scorsese_core::AssetId;
 use scorsese_providers::speech::Brief;
 use scorsese_render::Tools;
 
 use super::Vendors;
-use super::land::{Work, document};
+use super::land::Work;
 use crate::jobs::{Context, Handler, Job, Outcome, blocking};
 use crate::library::Kind;
 use crate::storage::Storage;
@@ -58,8 +57,8 @@ async fn line(work: &Work, vendors: &dyn Vendors) -> Outcome {
 /// The line's brief, from the document the job carries — refused if it is
 /// not the one that was quoted.
 fn gather(work: &Work) -> Result<Brief, String> {
-    let project = document(&work.payload)?;
-    let id = AssetId::new(work.payload.asset.clone());
+    let project = work.document()?;
+    let id = work.asset();
     let asset = project
         .asset(&id)
         .ok_or_else(|| format!("the project has no asset `{id}`"))?;

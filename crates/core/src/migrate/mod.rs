@@ -12,8 +12,10 @@
 //! ends of a step can be expressed in is the document itself.
 //!
 //! **One implementation, two callers.** The web server runs [`parse`] over
-//! every stored project when it starts on a new build, and `scorsese migrate`
-//! runs [`folder`] over a local `.scor` directory. Neither has a step of its
+//! every stored project when it starts on a new build — and
+//! [`parse_migrated`] over the document a queued job carries, when the job
+//! runs — and `scorsese migrate` runs [`folder`] over a local `.scor`
+//! directory. Neither has a step of its
 //! own; both would be the same code getting the same answer twice.
 //!
 //! **Migrating is not reading in place.** [`Project::from_json`] and
@@ -447,24 +449,37 @@ pub fn folder_then(
     let file = project_dir.join(PROJECT_FILE_NAME);
     let bytes = std::fs::read(&file).map_err(|source| MigrateError::Io { path: file, source })?;
     let json = String::from_utf8_lossy(&bytes);
-    let (mut project, from) = parse(&json)?;
-    let Some(from) = from else {
+    let (mut project, migrated) = parse_migrated(&json)?;
+    let Some(migrated) = migrated else {
         return Ok(None);
     };
     // Before the document is written: a folder whose files could not be
     // carried is left at its old version, to be migrated again.
-    let before: Value = serde_json::from_str(&json).map_err(MigrateError::Parse)?;
-    let renamed = carry::renamed(&before, &project);
-    carry::paid_outputs(project_dir, &renamed)?;
-    if !renamed.is_empty() {
-        follow(&renamed).map_err(MigrateError::Follow)?;
+    carry::paid_outputs(project_dir, &migrated.renamed)?;
+    if !migrated.renamed.is_empty() {
+        follow(&migrated.renamed).map_err(MigrateError::Follow)?;
     }
     project.baseline = Baseline::of(&bytes);
     project.save(project_dir)?;
-    Ok(Some(Migrated { from, renamed }))
+    Ok(Some(migrated))
 }
 
-/// What [`folder`] did to a folder that was behind.
+/// [`parse`], saying what the walk did: `None` when the document was current
+/// already, else the version it was at and each asset it renamed — for a
+/// caller that names an asset by id outside the document (a folder's ledger,
+/// a web job's payload).
+pub fn parse_migrated(json: &str) -> Result<(Project, Option<Migrated>), MigrateError> {
+    let (project, from) = parse(json)?;
+    let Some(from) = from else {
+        return Ok((project, None));
+    };
+    let before: Value = serde_json::from_str(json).map_err(MigrateError::Parse)?;
+    let renamed = carry::renamed(&before, &project);
+    Ok((project, Some(Migrated { from, renamed })))
+}
+
+/// What a walk did to a document that was behind ([`parse_migrated`],
+/// [`folder`]).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Migrated {
     /// The version it was at.

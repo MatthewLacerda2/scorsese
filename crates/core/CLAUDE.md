@@ -22,7 +22,8 @@ would break paying users. So:
   refusal, and the only way past the refusal is the migration.
 - **The server migrates every stored document** — projects — when it starts on a new build, before serving a
   request — a stored project is never read by code
-  that does not understand it.
+  that does not understand it. A job reads the document its payload carries
+  through the same walk (`migrate::parse_migrated`), and follows its renames.
 - **Local `.scor` folders are migrated by the same steps, through the CLI**:
   one command that rewrites a folder's `project.json` to this build's
   version. One implementation, two callers; the desktop and CLI user is the

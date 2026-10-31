@@ -107,3 +107,23 @@ fn a_folder_behind_is_rewritten_at_this_version_and_a_current_one_left_alone() {
     assert_eq!(written["schema_version"], SCHEMA_VERSION);
     assert!(folder(&dir).unwrap().is_none());
 }
+
+/// What a job's payload needs of a walk: the version it came from and each
+/// asset it renamed, old id first — and nothing for a current document.
+#[test]
+fn a_parse_says_which_assets_the_walk_renamed() {
+    let mut document = serde_json::to_value(Project::new("held", crate::Fps::THIRTY)).unwrap();
+    document["schema_version"] = Value::from(55);
+    document["assets"] = json!([
+        { "id": "kept", "kind": "image", "path": "assets/a.png" },
+        { "id": "hero shot", "kind": "image", "path": "assets/b.png" }
+    ]);
+    let (project, migrated) = parse_migrated(&document.to_string()).unwrap();
+    let migrated = migrated.expect("it was behind");
+    assert_eq!(migrated.from, 55);
+    let renamed = (AssetId::new("hero shot"), AssetId::new("hero-shot"));
+    assert_eq!(migrated.renamed, vec![renamed]);
+
+    let current = serde_json::to_string(&project).unwrap();
+    assert!(parse_migrated(&current).unwrap().1.is_none());
+}
