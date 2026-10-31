@@ -17,6 +17,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use scorsese_render::testing::generate;
+use scorsese_server::Files;
 use scorsese_server::generations::{Ear, Image, Music, Speech, Studio, Timing, Vendors, Video};
 use scorsese_server::http::AppState;
 use scorsese_server::jobs::elevenlabs::ElevenLabs;
@@ -54,6 +55,8 @@ pub(super) struct Mock {
     pub(super) hang: bool,
     /// The Whisper answers with this status, and what speaches says with it.
     pub(super) refuses: Option<u16>,
+    /// Veo cannot be reached, as on a server with no Gemini key.
+    pub(super) keyless_video: bool,
 }
 
 impl Mock {
@@ -76,6 +79,9 @@ impl Mock {
 
 impl Vendors for Mock {
     fn video(&self) -> Result<Video, String> {
+        if self.keyless_video {
+            return Err("no Gemini key is set".into());
+        }
         Ok(Box::new(self.clone()))
     }
 
@@ -122,15 +128,35 @@ pub(super) async fn serve_on(
     mock: &Mock,
     plan: ElevenLabs,
 ) -> (SocketAddr, AppState, watch::Sender<bool>) {
+    let (address, state, files) = serve_idle(pool).await;
+    let stop = work(pool, &state, &files, mock, plan);
+    (address, state, stop)
+}
+
+/// A server with no job worker yet, so a job it queues waits for [`work`]:
+/// its address, its state, and the files a worker needs.
+pub(super) async fn serve_idle(pool: &PgPool) -> (SocketAddr, AppState, Files) {
     let files = common::files("mcp-paid");
     let (address, state) = common::serve_with(pool.clone(), files.clone()).await;
+    (address, state, files)
+}
+
+/// A job worker for [`serve_idle`]'s server, reaching `mock` on `plan`: what
+/// keeps it running — dropping it stops the worker.
+pub(super) fn work(
+    pool: &PgPool,
+    state: &AppState,
+    files: &Files,
+    mock: &Mock,
+    plan: ElevenLabs,
+) -> watch::Sender<bool> {
     let timing = Timing {
         poll_every: Duration::from_millis(20),
         patience: Duration::from_secs(20),
         batch_every: Duration::from_millis(20),
         batch_patience: Duration::from_secs(20),
     };
-    let registry = kinds::with_vendors(&files, Arc::new(mock.clone()), timing, plan);
+    let registry = kinds::with_vendors(files, Arc::new(mock.clone()), timing, plan);
     let (stop, stopping) = watch::channel(false);
     let worker = tokio::spawn(jobs::work(
         state.pool.clone(),
@@ -139,7 +165,7 @@ pub(super) async fn serve_on(
         stopping,
     ));
     common::release_at_teardown(pool, &state.pool, [worker.abort_handle()]);
-    (address, state, stop)
+    stop
 }
 
 /// Wait until every job of `user`'s has finished; their states.

@@ -93,7 +93,11 @@ Revisit only if libraries get large.
 **A schema bump migrates every stored document.** The format rule in
 `crates/core/CLAUDE.md` (*A schema bump ships with a migration*) exists because of this
 page: the server runs the migration over stored projects when it starts on a
-new build, before it serves anything.
+new build, before it serves anything, and a job queued before the deploy (a
+render, a generation still in flight) reads the document it carries through
+the same walk. A generation job holding a ticket never needs its document
+again: it polls, lands by its brief's hash and is charged, even when the
+document will not migrate.
 
 ## Files
 

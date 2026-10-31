@@ -41,7 +41,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use scorsese_core::Project;
+use scorsese_core::{Project, migrate};
 use scorsese_render::{
     Cancel, FrameRange, Preview, Progress, RenderError, RenderSettings, Renderer, Tools,
 };
@@ -108,7 +108,9 @@ async fn render(
 ) -> Result<Value, String> {
     let payload: Payload = serde_json::from_value(job.payload.clone())
         .map_err(|error| format!("the job does not describe a render: {error}"))?;
-    let project = Project::from_json(&payload.document.to_string())
+    // Through the migration: a render queued before a deploy runs on the
+    // build after it.
+    let (project, _) = migrate::parse(&payload.document.to_string())
         .map_err(|error| format!("the project does not load: {error}"))?;
     // Whatever queued it: nothing is laid out or rendered from a document
     // that does not validate, which is what keeps its paths in its folder.

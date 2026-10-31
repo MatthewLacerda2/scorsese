@@ -107,3 +107,45 @@ fn a_folder_behind_is_rewritten_at_this_version_and_a_current_one_left_alone() {
     assert_eq!(written["schema_version"], SCHEMA_VERSION);
     assert!(folder(&dir).unwrap().is_none());
 }
+
+/// What a job's payload needs of a walk: the version it came from and each
+/// asset it renamed, old id first — and nothing for a current document.
+#[test]
+fn a_parse_says_which_assets_the_walk_renamed() {
+    let mut document = serde_json::to_value(Project::new("held", crate::Fps::THIRTY)).unwrap();
+    document["schema_version"] = Value::from(55);
+    document["assets"] = json!([
+        { "id": "kept", "kind": "image", "path": "assets/a.png" },
+        { "id": "hero shot", "kind": "image", "path": "assets/b.png" }
+    ]);
+    let (project, migrated) = parse_migrated(&document.to_string()).unwrap();
+    let migrated = migrated.expect("it was behind");
+    assert_eq!(migrated.from, 55);
+    let renamed = (AssetId::new("hero shot"), AssetId::new("hero-shot"));
+    assert_eq!(migrated.renamed, vec![renamed]);
+
+    let current = serde_json::to_string(&project).unwrap();
+    assert!(parse_migrated(&current).unwrap().1.is_none());
+}
+
+/// What else names an asset by id hears of a rename, and of nothing else.
+#[test]
+fn a_folder_s_follower_hears_only_of_renames() {
+    for (id, renamed) in [("hero shot", Some("hero-shot")), ("hero", None)] {
+        let dir = crate::scratch::fresh("scorsese-migrate-follow", ".scor");
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut document = serde_json::to_value(Project::new("x", crate::Fps::THIRTY)).unwrap();
+        document["schema_version"] = Value::from(55);
+        document["assets"] = json!([{ "id": id, "kind": "image", "path": "assets/a.png" }]);
+        std::fs::write(dir.join(PROJECT_FILE_NAME), document.to_string()).unwrap();
+        let mut heard = None;
+        folder_then(&dir, |renames| {
+            heard = Some(renames.to_vec());
+            Ok(())
+        })
+        .unwrap();
+        let expected = renamed.map(|new| vec![(AssetId::new(id), AssetId::new(new))]);
+        assert_eq!(heard, expected, "{id}");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+}

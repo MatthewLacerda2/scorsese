@@ -3,9 +3,9 @@
 
 use std::path::Path;
 
-use scorsese_core::{Asset, AssetId, Project};
+use scorsese_core::{Asset, Project};
 
-use super::land::{Work, document};
+use super::land::Work;
 use crate::jobs::blocking;
 use crate::projects::ProjectFiles;
 use crate::tools::lay_out;
@@ -19,7 +19,7 @@ impl Work {
         B: Send + 'static,
         F: FnOnce(&Project, &Path, &Asset) -> Result<B, String> + Send + 'static,
     {
-        let project = document(&self.payload)?;
+        let project = self.document()?;
         let folder = lay_out(
             self.context.pool(),
             &self.storage,
@@ -28,10 +28,7 @@ impl Work {
             &ProjectFiles::default(),
         )
         .await?;
-        let (root, asset) = (
-            folder.root().to_path_buf(),
-            AssetId::new(self.payload.asset.clone()),
-        );
+        let (root, asset) = (folder.root().to_path_buf(), self.asset());
         let brief = blocking("gathering the brief crashed; that is a bug", move || {
             let asset = project
                 .asset(&asset)

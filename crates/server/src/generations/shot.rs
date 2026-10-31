@@ -38,17 +38,18 @@ async fn shot(work: &Work, vendors: &dyn Vendors, timing: Timing) -> Outcome {
         Ok(paid) => paid,
         Err(done) => return done,
     };
-    let brief = match gather(work).await {
-        Ok(brief) => brief,
-        Err(why) => return work.refused(paid, why).await,
-    };
     let provider: Provider = match vendors.video() {
         Ok(provider) => Arc::from(provider),
-        Err(why) => return work.refused(paid, why).await,
+        Err(why) if work.job.ticket.is_none() => return work.refused(paid, why).await,
+        // Submitted already, so not a refusal: the shot is Google's and will
+        // be billed. The ticket stays in the row, and so does the reservation.
+        Err(why) => return Outcome::Stuck(format!("{why}; the ticket is kept in the job")),
     };
     let ticket = match &work.job.ticket {
+        // The brief is only ever sent once: a job holding a ticket asks after
+        // it, and never gathers it again.
         Some(ticket) => Ticket(ticket.clone()),
-        None => match submit(work, paid, &provider, brief).await {
+        None => match submit(work, paid, &provider).await {
             Ok(ticket) => ticket,
             Err(outcome) => return outcome,
         },
@@ -68,13 +69,13 @@ async fn gather(work: &Work) -> Result<Brief, String> {
     Ok(brief)
 }
 
-/// Hand the brief to Veo, and commit the ticket before anything else.
-async fn submit(
-    work: &Work,
-    paid: Paid,
-    provider: &Provider,
-    brief: Brief,
-) -> Result<Ticket, Outcome> {
+/// Gather the brief and hand it to Veo, and commit the ticket before anything
+/// else.
+async fn submit(work: &Work, paid: Paid, provider: &Provider) -> Result<Ticket, Outcome> {
+    let brief = match gather(work).await {
+        Ok(brief) => brief,
+        Err(why) => return Err(work.refused(paid, why).await),
+    };
     let sending = Arc::clone(provider);
     let submitted = blocking("submitting crashed", move || sending.submit(&brief)).await;
     let ticket = match submitted {

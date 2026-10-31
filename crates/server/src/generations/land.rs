@@ -1,9 +1,9 @@
 //! What every generation job does around the provider: find what pays for
 //! them, keep what came back, settle, and bring it into the project.
 
-use scorsese_core::Project;
 use scorsese_core::placing::Shortened;
 use scorsese_core::words::Words;
+use scorsese_core::{AssetId, Project, migrate};
 use scorsese_render::Tools;
 use serde_json::json;
 
@@ -19,7 +19,13 @@ use crate::storage::Storage;
 pub(super) struct Work {
     pub(super) job: Job,
     pub(super) context: Context,
+    /// Its payload, its `asset` the id [`Work::document`] gives it.
     pub(super) payload: Payload,
+    /// The document the payload carries, at this build's version — or why
+    /// this build cannot read it. Only gathering a brief reads it, which
+    /// happens before anything is sent: a job holding a ticket polls and
+    /// lands by the brief's hash without it.
+    document: Result<Project, String>,
     pub(super) library: Library,
     pub(super) storage: Storage,
     pub(super) tools: Tools,
@@ -27,14 +33,19 @@ pub(super) struct Work {
 
 impl Work {
     /// Read `job`'s payload, and gather what it works with.
+    ///
+    /// The document it carries is read through the migration, since a job
+    /// queued before a deploy runs on the build after it; an asset the walk
+    /// renamed is the job's asset by its new id from then on.
     pub(super) fn new(
         job: Job,
         context: Context,
         storage: Storage,
         tools: Tools,
     ) -> Result<Self, String> {
-        let payload: Payload = serde_json::from_value(job.payload.clone())
+        let mut payload: Payload = serde_json::from_value(job.payload.clone())
             .map_err(|error| format!("the job does not describe a generation: {error}"))?;
+        let document = carried(&mut payload);
         let library = Library::new(
             context.pool().clone(),
             storage.clone(),
@@ -45,6 +56,7 @@ impl Work {
             job,
             context,
             payload,
+            document,
             library,
             storage,
             tools,
@@ -93,6 +105,16 @@ impl Work {
             return Err(self.landed(&item).await);
         }
         Ok(paid)
+    }
+
+    /// The document the job carries, at this build's version.
+    pub(super) fn document(&self) -> Result<Project, String> {
+        self.document.clone()
+    }
+
+    /// The job's asset, by the id [`Work::document`] gives it.
+    pub(super) fn asset(&self) -> AssetId {
+        AssetId::new(self.payload.asset.clone())
     }
 
     /// The generation the library already holds for this brief.
@@ -214,10 +236,16 @@ pub(crate) fn refusal(why: String, settled: Result<(), String>) -> Outcome {
     }
 }
 
-/// The document a job carries, read.
-pub(super) fn document(payload: &Payload) -> Result<Project, String> {
-    Project::from_json(&payload.document.to_string())
-        .map_err(|error| format!("the project the job carries does not load: {error}"))
+/// The document `payload` carries, brought to this build's version, and
+/// `payload.asset` moved to the id the walk gave it.
+fn carried(payload: &mut Payload) -> Result<Project, String> {
+    let (project, migrated) = migrate::parse_migrated(&payload.document.to_string())
+        .map_err(|error| format!("the project the job carries does not load: {error}"))?;
+    let mut renamed = migrated.into_iter().flat_map(|migrated| migrated.renamed);
+    if let Some((_, new)) = renamed.find(|(old, _)| old.as_str() == payload.asset) {
+        payload.asset = new.as_str().to_owned();
+    }
+    Ok(project)
 }
 
 /// A failure on the server, logged and said without its detail.

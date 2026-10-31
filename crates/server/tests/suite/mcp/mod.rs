@@ -5,6 +5,7 @@
 use crate::common;
 
 mod batching;
+mod bumping;
 mod clients;
 mod cloning;
 mod composing;
