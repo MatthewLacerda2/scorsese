@@ -127,3 +127,25 @@ fn a_parse_says_which_assets_the_walk_renamed() {
     let current = serde_json::to_string(&project).unwrap();
     assert!(parse_migrated(&current).unwrap().1.is_none());
 }
+
+/// What else names an asset by id hears of a rename, and of nothing else.
+#[test]
+fn a_folder_s_follower_hears_only_of_renames() {
+    for (id, renamed) in [("hero shot", Some("hero-shot")), ("hero", None)] {
+        let dir = crate::scratch::fresh("scorsese-migrate-follow", ".scor");
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut document = serde_json::to_value(Project::new("x", crate::Fps::THIRTY)).unwrap();
+        document["schema_version"] = Value::from(55);
+        document["assets"] = json!([{ "id": id, "kind": "image", "path": "assets/a.png" }]);
+        std::fs::write(dir.join(PROJECT_FILE_NAME), document.to_string()).unwrap();
+        let mut heard = None;
+        folder_then(&dir, |renames| {
+            heard = Some(renames.to_vec());
+            Ok(())
+        })
+        .unwrap();
+        let expected = renamed.map(|new| vec![(AssetId::new(id), AssetId::new(new))]);
+        assert_eq!(heard, expected, "{id}");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+}

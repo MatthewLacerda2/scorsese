@@ -22,7 +22,9 @@ pub(super) struct Work {
     /// Its payload, its `asset` the id [`Work::document`] gives it.
     pub(super) payload: Payload,
     /// The document the payload carries, at this build's version — or why
-    /// this build cannot read it.
+    /// this build cannot read it. Only gathering a brief reads it, which
+    /// happens before anything is sent: a job holding a ticket polls and
+    /// lands by the brief's hash without it.
     document: Result<Project, String>,
     pub(super) library: Library,
     pub(super) storage: Storage,
@@ -88,16 +90,6 @@ impl Work {
             Ok(None) => return Err(self.settled().await),
             Err(error) => return Err(Outcome::Failed(database(error))),
         };
-        // A job holding a ticket has paid: one whose document this build
-        // cannot read is never settled as though nothing were spent.
-        if self.job.ticket.is_some()
-            && let Err(why) = &self.document
-        {
-            return Err(Outcome::Stuck(format!(
-                "{why}; the provider was already asked, so its ticket is kept and so is what \
-                 was reserved for it"
-            )));
-        }
         // Only before anything was sent: a job holding a ticket has already
         // paid, and asks after what it paid for. A still or a line never
         // holds one.

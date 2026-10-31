@@ -27,7 +27,9 @@
 //!    A shot that outlasts [`Timing::patience`], or a batch
 //!    [`Timing::batch_patience`], goes `stuck`, its reservation held, since
 //!    Google may still be billing — and so does a job holding a ticket whose
-//!    document will not migrate, or whose vendor this server cannot reach.
+//!    vendor this server cannot reach. A job holding a ticket never reads its
+//!    document again: it polls, and lands by the brief's hash, so one whose
+//!    document will not migrate is still delivered and charged.
 //! 4. **Adopted.** The user's project is opened as it is *now*, laid out with
 //!    their generations, and `scorsese_providers`' own `adopt` points each
 //!    asset whose current brief has a file at it — then it is measured and

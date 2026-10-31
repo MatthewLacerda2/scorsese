@@ -95,8 +95,9 @@ Revisit only if libraries get large.
 page: the server runs the migration over stored projects when it starts on a
 new build, before it serves anything, and a job queued before the deploy (a
 render, a generation still in flight) reads the document it carries through
-the same walk. A generation job holding a ticket whose document will not
-migrate goes `stuck` with its reservation held, never settled as free.
+the same walk. A generation job holding a ticket never needs its document
+again: it polls, lands by its brief's hash and is charged, even when the
+document will not migrate.
 
 ## Files
 

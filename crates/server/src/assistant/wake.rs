@@ -57,7 +57,7 @@ use crate::jobs::State;
 macro_rules! untold {
     ($turn:literal) => {
         concat!(
-            "SELECT j.id, j.kind, j.state, j.payload, j.error FROM jobs j
+            "SELECT j.id, j.kind, j.state, j.payload, j.result, j.error FROM jobs j
              JOIN tool_calls c ON c.id = j.tool_call_id
              WHERE c.client = 'user' AND c.turn_id = ",
             $turn,
@@ -169,6 +169,7 @@ struct Landed {
     #[sqlx(try_from = "String")]
     state: State,
     payload: Value,
+    result: Option<Value>,
     error: Option<String>,
 }
 
@@ -192,8 +193,16 @@ impl Landed {
     }
 
     /// One line of the note: what it was, for which asset, and how it ended.
+    ///
+    /// The asset is the one the job's result names, when it has one: a job
+    /// queued before a schema bump may have landed on an id the migration
+    /// gave it, which its payload does not know.
     fn line(&self) -> String {
-        let what = match self.payload.get("asset").and_then(Value::as_str) {
+        let asset = [self.result.as_ref(), Some(&self.payload)]
+            .into_iter()
+            .flatten()
+            .find_map(|said| said.get("asset").and_then(Value::as_str));
+        let what = match asset {
             Some(asset) => format!("{} `{asset}`", self.noun()),
             None => format!("the {}", self.noun()),
         };
@@ -201,7 +210,10 @@ impl Landed {
         match self.state {
             State::Done => format!("- {what}: made, and in the project or the library."),
             State::Cancelled => format!("- {what}: cancelled, so nothing was charged."),
-            State::Stuck => format!("- {what}: the provider took too long, so it was given up on."),
+            State::Stuck => format!(
+                "- {what}: stuck, with what was reserved for it held until the operator looks \
+                 into it; do not ask for it again. {why}"
+            ),
             _ => format!("- {what}: failed, and was not charged. {why}"),
         }
     }
