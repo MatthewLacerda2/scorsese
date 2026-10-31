@@ -16,6 +16,14 @@
 #      --only-shell chromium` fetches once into its cache;
 #    - the repo's own pinned chrome-headless-shell (tools/chromium/fetch), for
 #      a machine that cannot reach Playwright's download host.
+#
+# Every session gets its own: each one starts this script, so its own server
+# and its own browser, with the profile in memory and no --port (a port would
+# be one server for every session) and no --shared-browser-context. What it
+# writes (screenshots, snapshots) goes to a folder of its own under
+# .playwright-mcp/, so two sessions in one checkout never overwrite each
+# other's files. The one-time fetches above run under a lock, so two sessions
+# starting together on a fresh checkout fetch once.
 
 set -euo pipefail
 
@@ -28,6 +36,14 @@ PATH=$PATH:$HOME/.bun/bin
 # A cloud container's proxy re-signs TLS with this bundle (cloud-brief.md).
 if [ -z "${NODE_EXTRA_CA_CERTS:-}" ] && [ -r /root/.ccr/ca-bundle.crt ]; then
     export NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt
+fi
+
+root=$(cd "$here/.." && pwd)
+mkdir -p "$root/.playwright-mcp"
+# flock where there is one (Linux); macOS has none, and a lone session needs none.
+if command -v flock >/dev/null 2>&1; then
+    exec 9>"$root/.playwright-mcp/.setup.lock"
+    flock 9
 fi
 
 if [ ! -f "$cli" ]; then
@@ -43,5 +59,10 @@ elif ! (cd "$web" && node "$cli" install --only-shell chromium) >&2; then
     browser=(--executable-path "$("$here/chromium/fetch")")
 fi
 
+if command -v flock >/dev/null 2>&1; then
+    exec 9>&-
+fi
+output=$(mktemp -d "$root/.playwright-mcp/session-XXXXXX")
+
 # The `+` form, because bash before 4.4 (macOS's) calls an empty array unbound.
-exec node "$cli" mcp --config "$web/playwright-mcp.json" ${browser[@]+"${browser[@]}"} "$@"
+exec node "$cli" mcp --config "$web/playwright-mcp.json" --output-dir "$output" ${browser[@]+"${browser[@]}"} "$@"
