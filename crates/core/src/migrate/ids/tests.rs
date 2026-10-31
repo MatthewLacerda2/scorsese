@@ -111,8 +111,19 @@ fn every_reference_names_the_renamed_asset() {
     assert_eq!(member.asset, id("Pra-a-Nova"));
 }
 
-/// A renamed id that would run past the cap is cut short enough to take its
-/// suffix, and a document whose ids all keep the rule is left as it was.
+/// A rename never lands on an id that differs from another only in case: on a
+/// case-blind disk the two would name one file.
+#[test]
+fn a_rename_never_differs_from_another_id_only_in_case() {
+    let mut document = v55();
+    document["assets"][0]["id"] = json!("pra-a-nova");
+    document["assets"][8]["sequence"]["stills"][2] = json!("pra-a-nova");
+    let (project, _) = parse(&document.to_string()).expect("migrates");
+    assert_eq!(project.assets[3].id.as_str(), "Pra-a-Nova-2");
+}
+
+/// A renamed id that would run past the cap is cut in its middle, and a
+/// document whose ids all keep the rule is left as it was.
 #[test]
 fn a_long_id_is_cut_to_the_cap_and_a_good_document_is_untouched() {
     let long = format!("{} x", "a".repeat(200));
@@ -121,8 +132,12 @@ fn a_long_id_is_cut_to_the_cap_and_a_good_document_is_untouched() {
     document["assets"][8]["sequence"]["stills"][1] = json!(long);
     let (project, _) = parse(&document.to_string()).expect("migrates");
     project.validate().expect("and it validates");
-    let cut = &project.assets[5].id;
-    assert_eq!(cut.as_str(), "a".repeat(crate::MAX_ASSET_ID_LENGTH));
+    let cut = project.assets[5].id.as_str();
+    assert_eq!(cut.len(), crate::MAX_ASSET_ID_LENGTH);
+    assert!(
+        cut.starts_with(&"a".repeat(60)) && cut.ends_with("a-x"),
+        "{cut}"
+    );
 
     let good = json!({
         "schema_version": 55, "name": "Good", "timeline_fps": { "num": 30, "den": 1 },

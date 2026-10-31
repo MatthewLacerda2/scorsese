@@ -196,5 +196,9 @@ mod tests {
         let suffixed = asset_id_for(&project, &full);
         assert_eq!(suffixed.check(), Ok(()), "{suffixed}");
         assert!(suffixed.as_str().ends_with("-2"), "{suffixed}");
+        // A caller suffixing a long name itself gets a new id for each.
+        let stem = "page ".repeat(40);
+        let second = asset_id_for(&project, &format!("{stem}-2"));
+        assert_ne!(second, asset_id_for(&project, &format!("{stem}-3")));
     }
 }

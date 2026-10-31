@@ -36,6 +36,7 @@ use serde_json::Value;
 
 pub use frame::FRAMED;
 
+use crate::asset::AssetId;
 use crate::baseline::Baseline;
 use crate::project::{LoadError, PROJECT_FILE_NAME, Project, SCHEMA_VERSION, SaveError};
 
@@ -421,20 +422,35 @@ pub fn parse(json: &str) -> Result<(Project, Option<u32>), MigrateError> {
 /// ([`carry`]), so nothing bought is bought again. The write is the ordinary
 /// [`Project::save`], so it is atomic and refuses to land on a document that
 /// changed while this ran.
-pub fn folder(project_dir: &Path) -> Result<Option<u32>, MigrateError> {
+///
+/// `None` when the folder was current already. What else in the folder names
+/// an asset by id — the spending ledger, which is `scorsese_providers`' — is
+/// the caller's to bring along, from [`Migrated::renamed`].
+pub fn folder(project_dir: &Path) -> Result<Option<Migrated>, MigrateError> {
     let file = project_dir.join(PROJECT_FILE_NAME);
     let bytes = std::fs::read(&file).map_err(|source| MigrateError::Io { path: file, source })?;
     let json = String::from_utf8_lossy(&bytes);
     let (mut project, from) = parse(&json)?;
-    if from.is_some() {
-        // Before the document is written: a folder whose files could not be
-        // carried is left at its old version, to be migrated again.
-        let before: Value = serde_json::from_str(&json).map_err(MigrateError::Parse)?;
-        carry::paid_outputs(project_dir, &carry::renamed(&before, &project))?;
-        project.baseline = Baseline::of(&bytes);
-        project.save(project_dir)?;
-    }
-    Ok(from)
+    let Some(from) = from else {
+        return Ok(None);
+    };
+    // Before the document is written: a folder whose files could not be
+    // carried is left at its old version, to be migrated again.
+    let before: Value = serde_json::from_str(&json).map_err(MigrateError::Parse)?;
+    let renamed = carry::renamed(&before, &project);
+    carry::paid_outputs(project_dir, &renamed)?;
+    project.baseline = Baseline::of(&bytes);
+    project.save(project_dir)?;
+    Ok(Some(Migrated { from, renamed }))
+}
+
+/// What [`folder`] did to a folder that was behind.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Migrated {
+    /// The version it was at.
+    pub from: u32,
+    /// Each asset whose id changed on the way, old id first.
+    pub renamed: Vec<(AssetId, AssetId)>,
 }
 
 /// The chain itself, over any list of steps — so a test can run it over a

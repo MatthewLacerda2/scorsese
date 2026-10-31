@@ -14,6 +14,7 @@ mod lifecycle;
 mod mock;
 mod pricing;
 mod references;
+mod renamed;
 mod retired;
 mod says;
 mod stops;

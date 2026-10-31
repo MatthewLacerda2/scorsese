@@ -292,6 +292,32 @@ pub(crate) fn refused(root: &Path, id: &AssetId) -> Result<(), WriteError> {
     write(root, &lines)
 }
 
+/// Every line sent for an asset `renamed` lists, moved to its new id — what
+/// `scorsese migrate` does after a migration renames ids, so the takes an
+/// asset shows are still its own and a refund still finds its line. Nothing
+/// is written when no line names one. The error names the file.
+pub fn follow_renames(root: &Path, renamed: &[(AssetId, AssetId)]) -> std::io::Result<()> {
+    let said = |WriteError { path, source }| {
+        std::io::Error::new(source.kind(), format!("{}: {source}", path.display()))
+    };
+    let Some(mut lines) = load(root).map_err(said)? else {
+        return Ok(());
+    };
+    let mut moved = false;
+    for line in &mut lines {
+        let Line::Sent(sent) = line else { continue };
+        if let Some((_, new)) = renamed.iter().find(|(old, _)| *old == sent.asset) {
+            sent.asset = new.clone();
+            moved = true;
+        }
+    }
+    if moved {
+        write(root, &lines).map_err(said)
+    } else {
+        Ok(())
+    }
+}
+
 /// The ledger, as `lines`.
 fn write(root: &Path, lines: &[Line]) -> Result<(), WriteError> {
     let path = file(root);

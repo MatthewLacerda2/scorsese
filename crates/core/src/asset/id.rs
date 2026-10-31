@@ -102,26 +102,40 @@ fn allowed(c: char) -> bool {
 }
 
 /// `raw` made into an id that keeps the rule: each run of characters it may
-/// not hold becomes one `-`, leading dots and hyphens and trailing hyphens go,
-/// it is cut to [`MAX_ASSET_ID_LENGTH`], and nothing left is `asset`. Case is
-/// kept. An id that already keeps the rule comes back unchanged unless it
-/// holds a run of hyphens, which is one hyphen after.
+/// not hold becomes one `-` (none right after a `-`), leading dots and
+/// hyphens and trailing hyphens go, nothing left is `asset`, and a name longer
+/// than [`MAX_ASSET_ID_LENGTH`] is cut in its middle. Case is kept, and so is
+/// every character the rule allows: an id that keeps the rule comes back as
+/// it was.
 pub(crate) fn tidy(raw: &str) -> String {
     let mut tidied = String::with_capacity(raw.len());
     for c in raw.chars() {
-        let c = if allowed(c) { c } else { '-' };
-        if !(c == '-' && tidied.ends_with('-')) {
+        if allowed(c) {
             tidied.push(c);
+        } else if !tidied.ends_with('-') {
+            tidied.push('-');
         }
     }
-    let trimmed = tidied.trim_start_matches(['.', '-']);
-    // Every character left is ASCII, so any byte is a character boundary.
-    let cut = trimmed[..trimmed.len().min(MAX_ASSET_ID_LENGTH)].trim_end_matches('-');
-    if cut.is_empty() {
+    let trimmed = tidied.trim_start_matches(['.', '-']).trim_end_matches('-');
+    if trimmed.is_empty() {
         String::from("asset")
     } else {
-        cut.to_owned()
+        cut(trimmed)
     }
+}
+
+/// `name` at most [`MAX_ASSET_ID_LENGTH`] long, cut in its middle: its first
+/// half and its last, joined by `-`. The end of a name is what tells `take-2`
+/// from `take-3`, so a caller that suffixes a name itself still gets distinct
+/// ids.
+fn cut(name: &str) -> String {
+    if name.len() <= MAX_ASSET_ID_LENGTH {
+        return name.to_owned();
+    }
+    // Every character is ASCII by now, so any byte is a character boundary.
+    let head = &name[..MAX_ASSET_ID_LENGTH / 2];
+    let tail = &name[name.len() - (MAX_ASSET_ID_LENGTH / 2 - 1)..];
+    format!("{head}-{tail}")
 }
 
 /// `wanted` if `taken` refuses it not, or the first of `wanted-2`,
@@ -157,6 +171,19 @@ mod tests {
         assert_eq!(tidy("%%%"), "asset");
         assert_eq!(tidy("Shot_1.v2"), "Shot_1.v2");
         assert_eq!(tidy("end -"), "end");
+        assert_eq!(tidy("vo--1"), "vo--1", "hyphens already written stay");
+    }
+
+    /// A caller that suffixes a long name itself (`<stem>-2`, `<stem>-3`…)
+    /// still gets a different id for each: the cut keeps the name's end.
+    #[test]
+    fn a_long_name_is_cut_in_the_middle_so_its_end_survives() {
+        let stem = "x".repeat(200);
+        let second = tidy(&format!("{stem}-2"));
+        let third = tidy(&format!("{stem}-3"));
+        assert_eq!(second.len(), super::MAX_ASSET_ID_LENGTH);
+        assert!(second.ends_with("x-2"), "{second}");
+        assert_ne!(second, third);
     }
 
     #[test]

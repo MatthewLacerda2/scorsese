@@ -62,3 +62,28 @@ fn a_document_outside_the_range_is_refused_and_untouched() {
     }
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// A v55 id that is no safe file name is renamed, said, and followed in the
+/// spending ledger, so the take it shows is still counted as its own.
+#[test]
+fn a_renamed_id_is_said_and_followed_in_the_ledger() {
+    let dir = new_project("migrate-renamed");
+    let document = serde_json::json!({
+        "schema_version": 55, "name": "Renamed", "timeline_fps": { "num": 30, "den": 1 },
+        "assets": [{ "id": "take: 2", "kind": "color", "color": "#101820" }], "tracks": []
+    });
+    std::fs::write(dir.join(PROJECT_FILE_NAME), document.to_string()).unwrap();
+    let ledger = r#"[{ "asset": "take: 2", "brief": "abc", "estimated_cost_cents": 320 }]"#;
+    std::fs::write(dir.join("generations.json"), ledger).unwrap();
+
+    run_in(&dir, &["migrate"])
+        .ok()
+        .says("asset `take: 2` is now `take-2`");
+
+    let written = std::fs::read_to_string(dir.join("generations.json")).unwrap();
+    assert!(
+        written.contains("\"take-2\"") && !written.contains("take: 2"),
+        "{written}"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}

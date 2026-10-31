@@ -19,8 +19,8 @@ fn read(root: &Path, relative: &str) -> Option<Vec<u8>> {
 
 /// A local folder whose paid files are named for ids the migration renames:
 /// each is linked at the name its new id gives it, so the next run finds its
-/// brief drawn and pays nothing. The file paid for stays where it was, and
-/// the document still points at it.
+/// brief drawn and pays nothing. The file paid for stays where it was, byte
+/// for byte; the asset's path follows to the new name.
 #[test]
 fn a_renamed_asset_s_paid_files_are_found_under_its_new_name() {
     let dir = crate::scratch::fresh("scorsese-migrate-carry", ".scor");
@@ -41,7 +41,12 @@ fn a_renamed_asset_s_paid_files_are_found_under_its_new_name() {
     });
     std::fs::write(dir.join(PROJECT_FILE_NAME), document.to_string()).unwrap();
 
-    assert_eq!(folder(&dir).expect("migrates"), Some(55));
+    let done = folder(&dir).expect("migrates").expect("it was behind");
+    assert_eq!(done.from, 55);
+    let renamed: Vec<(&str, &str)> = (done.renamed.iter())
+        .map(|(old, new)| (old.as_str(), new.as_str()))
+        .collect();
+    assert_eq!(renamed, [("shot one", "shot-one"), ("a/b", "a-b")]);
 
     let carried = format!("generated/shot-one-{DIGEST}.jpg");
     assert_eq!(read(&dir, &carried).as_deref(), Some(&b"paid still"[..]));
@@ -59,7 +64,8 @@ fn a_renamed_asset_s_paid_files_are_found_under_its_new_name() {
     assert_eq!(project.assets[0].id.as_str(), "shot-one");
     assert_eq!(
         project.assets[0].path.as_ref().map(|p| p.as_str()),
-        Some(&*still)
+        Some(&*carried),
+        "the asset plays its file under the name its brief now gives it"
     );
     std::fs::remove_dir_all(&dir).ok();
 }

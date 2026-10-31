@@ -101,8 +101,9 @@ fn a_folder_behind_is_rewritten_at_this_version_and_a_current_one_left_alone() {
     let mut document = serde_json::to_value(&project).unwrap();
     document["schema_version"] = Value::from(SCHEMA_VERSION - 1);
     std::fs::write(&file, document.to_string()).unwrap();
-    assert_eq!(folder(&dir).unwrap(), Some(SCHEMA_VERSION - 1));
+    let done = folder(&dir).unwrap().expect("it was behind");
+    assert_eq!(done.from, SCHEMA_VERSION - 1);
     let written: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
     assert_eq!(written["schema_version"], SCHEMA_VERSION);
-    assert_eq!(folder(&dir).unwrap(), None);
+    assert!(folder(&dir).unwrap().is_none());
 }

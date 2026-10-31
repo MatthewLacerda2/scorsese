@@ -23,9 +23,9 @@ fn a_line_whose_clip_id_breaks_the_id_rule_still_captions_validly() {
     let (dir, mut project) = project("odd-line");
     let line = &mut project.tracks[0].clips[0];
     assert_eq!(line.id.as_str(), "nar", "the fixture's first line");
-    line.id = crate::ClipId::new("nar/open");
+    line.id = crate::ClipId::new("nar--b/open");
     caption(&mut project, &dir, &asked()).unwrap();
     assert!(project.validate().is_ok(), "{:?}", project.validate());
     let caption = &project.tracks.last().unwrap().clips[0];
-    assert_eq!(caption.asset.as_str(), "caption-nar-open-1");
+    assert_eq!(caption.asset.as_str(), "caption-nar--b-open-1");
 }

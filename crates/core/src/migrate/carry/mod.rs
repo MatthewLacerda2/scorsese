@@ -7,7 +7,7 @@
 //! [`super::ids`]) would be paid for twice unless its files answer to the new
 //! name as well. Each is linked there — a hard link, or a copy where the
 //! filesystem has none — and the file paid for stays where it was, byte for
-//! byte, with the asset's `path` still on it.
+//! byte; the asset's `path` names the link (the step moves it).
 //!
 //! Only the folder has files, so only [`super::folder`] carries them. The web
 //! server's stored projects need nothing: a folder is laid out for each tool,
@@ -28,21 +28,24 @@ const DIGEST_LENGTH: usize = 64;
 
 /// Each asset whose id the walk changed, as `before` named it and as `after`
 /// does. The walk keeps the table's order, so position pairs them.
-pub(super) fn renamed(before: &Value, after: &Project) -> Vec<(String, AssetId)> {
+pub(super) fn renamed(before: &Value, after: &Project) -> Vec<(AssetId, AssetId)> {
     let old = before.get("assets").and_then(Value::as_array);
     old.into_iter()
         .flatten()
         .zip(&after.assets)
         .filter_map(|(old, new)| {
             let old = old.get("id")?.as_str()?;
-            (old != new.id.as_str()).then(|| (old.to_owned(), new.id.clone()))
+            (old != new.id.as_str()).then(|| (AssetId::new(old), new.id.clone()))
         })
         .collect()
 }
 
 /// Links every file in `generated/` named for an old id and a brief hash at
 /// the same name under the new id. A name already taken is left as it is.
-pub(super) fn paid_outputs(root: &Path, renames: &[(String, AssetId)]) -> Result<(), MigrateError> {
+pub(super) fn paid_outputs(
+    root: &Path,
+    renames: &[(AssetId, AssetId)],
+) -> Result<(), MigrateError> {
     for (old, new) in renames {
         // An old id that climbs names nothing of the folder's.
         let Ok(stem) = ProjectPath::new(format!("{GENERATED_DIR}/{old}-")).resolve(root) else {
@@ -80,13 +83,21 @@ fn briefs(dir: &Path, prefix: &str) -> Vec<(PathBuf, String)> {
         .filter_map(|entry| {
             let name = entry.file_name().into_string().ok()?;
             let rest = name.strip_prefix(prefix)?;
-            let (digest, extension) = rest.split_at_checked(DIGEST_LENGTH)?;
+            is_brief_name(rest).then(|| (entry.path(), rest.to_owned()))
+        })
+        .collect()
+}
+
+/// Whether `rest`, a file name with its asset id taken off the front, is a
+/// brief's: a brief hash, then `.` and anything (`.jpg`, `.mp3.words.json`).
+pub(super) fn is_brief_name(rest: &str) -> bool {
+    rest.split_at_checked(DIGEST_LENGTH)
+        .is_some_and(|(digest, extension)| {
             let hashed = digest
                 .bytes()
                 .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte));
-            (hashed && extension.starts_with('.')).then(|| (entry.path(), rest.to_owned()))
+            hashed && extension.starts_with('.') && !extension.contains('/')
         })
-        .collect()
 }
 
 /// `target` made to hold `source`'s bytes: the same file where the
