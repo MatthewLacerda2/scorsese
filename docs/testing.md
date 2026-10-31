@@ -38,6 +38,11 @@ nextest run -p` has neither, so the page captures, the server's included, and
 the database tests fail. Narrowed further, to one test, the wrappers go first:
 `tools/with-chrome tools/with-postgres cargo nextest run -p <crate> <filter>`.
 
+A narrowed run proves the tests, not the gates. `make docs` builds the whole
+workspace's documentation in seconds and needs no test build, so it runs
+before readying whatever was narrowed: a doc comment linking a private item
+fails CI's docs step and nothing else.
+
 ## Test first
 
 Write the test, **watch it fail**, then write the code that makes it pass. A
