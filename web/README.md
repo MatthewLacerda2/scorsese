@@ -258,15 +258,20 @@ so it fetches no other Playwright and drives the same headless Chromium shell
 the flows use, with a profile kept in memory (`playwright-mcp.json`).
 `tools/playwright-mcp` starts it: it runs `bun install` here when
 `node_modules` is missing, and fetches the browser when it is not cached, or
-uses `E2E_CHROMIUM` when that names one. An interactive session asks once to
-trust the project's servers; a headless or cloud one loads them unasked.
+uses `E2E_CHROMIUM` when that names one. The project settings
+(`.claude/settings.json`, `enabledMcpjsonServers`) approve it, so no session
+asks.
+
+Each session has a browser of its own: it starts its own server, whose browser
+keeps its profile in memory, so two agents never share a page, a tab or a
+cookie, and two starting together on a fresh checkout fetch the browser once.
 
 To look at a change, run the page as *Running it* says (`bun run dev`, and the
 server for anything past the landing page) and point `browser_navigate` at
 `http://localhost:5173`. A snapshot (the page's accessibility tree, with a ref
 for each element) is what a click or a fill names; a screenshot is for how it
-looks. They land in `.playwright-mcp/` where the session started, which git
-ignores.
+looks. They land in a folder of the session's own under `.playwright-mcp/`
+(the path is in each reply), which git ignores.
 
 What the tools found is not a test. A behaviour worth keeping becomes a flow in
 `tests/e2e/` (*Which test, where*), which runs in the gate.
