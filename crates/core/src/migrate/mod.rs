@@ -387,6 +387,13 @@ pub enum MigrateError {
     /// The migrated document could not be written back.
     #[error(transparent)]
     Save(#[from] SaveError),
+    /// What else names a renamed asset could not follow it
+    /// ([`folder_then`]), so the document was left at its old version.
+    #[error(
+        "the folder names renamed assets elsewhere, and they could not follow: {0}; \
+         project.json is left as it was"
+    )]
+    Follow(#[source] std::io::Error),
 }
 
 /// Brings `document` forward to [`SCHEMA_VERSION`] in place.
@@ -425,8 +432,18 @@ pub fn parse(json: &str) -> Result<(Project, Option<u32>), MigrateError> {
 ///
 /// `None` when the folder was current already. What else in the folder names
 /// an asset by id — the spending ledger, which is `scorsese_providers`' — is
-/// the caller's to bring along, from [`Migrated::renamed`].
+/// [`folder_then`]'s caller's to bring along.
 pub fn folder(project_dir: &Path) -> Result<Option<Migrated>, MigrateError> {
+    folder_then(project_dir, |_| Ok(()))
+}
+
+/// [`folder`], with `follow` run over the renamed ids (old first) before the
+/// document is written, and only when there are some — so a folder whose
+/// ledger cannot follow is left at its old version, to be migrated again.
+pub fn folder_then(
+    project_dir: &Path,
+    follow: impl FnOnce(&[(AssetId, AssetId)]) -> std::io::Result<()>,
+) -> Result<Option<Migrated>, MigrateError> {
     let file = project_dir.join(PROJECT_FILE_NAME);
     let bytes = std::fs::read(&file).map_err(|source| MigrateError::Io { path: file, source })?;
     let json = String::from_utf8_lossy(&bytes);
@@ -439,6 +456,9 @@ pub fn folder(project_dir: &Path) -> Result<Option<Migrated>, MigrateError> {
     let before: Value = serde_json::from_str(&json).map_err(MigrateError::Parse)?;
     let renamed = carry::renamed(&before, &project);
     carry::paid_outputs(project_dir, &renamed)?;
+    if !renamed.is_empty() {
+        follow(&renamed).map_err(MigrateError::Follow)?;
+    }
     project.baseline = Baseline::of(&bytes);
     project.save(project_dir)?;
     Ok(Some(Migrated { from, renamed }))

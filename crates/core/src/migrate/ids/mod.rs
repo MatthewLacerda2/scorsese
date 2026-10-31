@@ -5,6 +5,7 @@ use std::collections::{HashMap, HashSet};
 use serde_json::Value;
 
 use crate::asset::{AssetId, tidy, unique};
+use crate::path::ProjectPath;
 use crate::project::GENERATED_DIR;
 
 /// v55 → v56: every asset id that breaks [`AssetId::check`]'s rule is renamed,
@@ -68,7 +69,11 @@ pub(in crate::migrate) fn rename_bad_ids(document: &mut Value) -> Result<(), Str
 /// `generated/<old>-<brief hash>.<ext>` follows the rename, since a run looks
 /// for an asset's take under its id and [`super::carry`] links the file there.
 /// Any other path — an imported file's, a page's — is left as written.
+///
+/// Only a path the folder can resolve moves — the one [`super::carry`] can
+/// link — so a path is never moved to a name with no file behind it.
 fn carried(path: &str, old: &str, new: &str) -> Option<String> {
+    ProjectPath::new(path).check().ok()?;
     let rest = path.strip_prefix(&format!("{GENERATED_DIR}/{old}-"))?;
     super::carry::is_brief_name(rest).then(|| format!("{GENERATED_DIR}/{new}-{rest}"))
 }

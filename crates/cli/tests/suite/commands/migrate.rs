@@ -63,6 +63,31 @@ fn a_document_outside_the_range_is_refused_and_untouched() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+/// The ledger is followed before the document is written: one that cannot be
+/// leaves the folder at its old version, to migrate again once it can, and a
+/// folder with nothing renamed never reads it at all.
+#[test]
+fn a_ledger_that_cannot_follow_leaves_the_folder_behind() {
+    let dir = new_project("migrate-ledger");
+    let file = dir.join(PROJECT_FILE_NAME);
+    std::fs::write(dir.join("generations.json"), "not json").unwrap();
+    for (id, migrates) in [("take: 2", false), ("take-2", true)] {
+        let document = serde_json::json!({
+            "schema_version": 55, "name": "Ledger", "timeline_fps": { "num": 30, "den": 1 },
+            "assets": [{ "id": id, "kind": "color", "color": "#101820" }], "tracks": []
+        });
+        std::fs::write(&file, document.to_string()).unwrap();
+
+        let run = run_in(&dir, &["migrate"]);
+
+        assert_eq!(run.failed, !migrates, "{id}: {}", run.output);
+        let written: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        assert_eq!(written["schema_version"] == 55, !migrates, "{id}");
+    }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
 /// A v55 id that is no safe file name is renamed, said, and followed in the
 /// spending ledger, so the take it shows is still counted as its own.
 #[test]

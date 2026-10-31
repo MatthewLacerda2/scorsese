@@ -21,10 +21,9 @@ fn migrated(dir: &Path, project: &Project) -> Project {
     let mut document = serde_json::to_value(project).expect("serialises");
     document["schema_version"] = serde_json::json!(55);
     std::fs::write(dir.join("project.json"), document.to_string()).expect("written");
-    let done = migrate::folder(dir)
-        .expect("migrates")
+    migrate::folder_then(dir, |renamed| follow_renames(dir, renamed))
+        .expect("migrates, the ledger following")
         .expect("it was behind");
-    follow_renames(dir, &done.renamed).expect("the ledger follows");
     Project::load(dir).expect("the migrated folder loads")
 }
 

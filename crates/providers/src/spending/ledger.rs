@@ -293,7 +293,8 @@ pub(crate) fn refused(root: &Path, id: &AssetId) -> Result<(), WriteError> {
 }
 
 /// Every line sent for an asset `renamed` lists, moved to its new id — what
-/// `scorsese migrate` does after a migration renames ids, so the takes an
+/// `scorsese migrate` does when a migration renames ids, before it writes the
+/// migrated document (`scorsese_core::migrate::folder_then`), so the takes an
 /// asset shows are still its own and a refund still finds its line. Nothing
 /// is written when no line names one. The error names the file.
 pub fn follow_renames(root: &Path, renamed: &[(AssetId, AssetId)]) -> std::io::Result<()> {

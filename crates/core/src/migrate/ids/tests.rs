@@ -111,6 +111,24 @@ fn every_reference_names_the_renamed_asset() {
     assert_eq!(member.asset, id("Pra-a-Nova"));
 }
 
+/// A paid output's path follows its renamed asset only when it is one the
+/// folder can resolve: one that is not (a backslash) has no file to link, so
+/// it is left as written and validation names it, rather than pointing at
+/// nothing.
+#[test]
+fn a_paid_path_moves_only_when_it_resolves() {
+    let digest = "0".repeat(64);
+    let mut document = v55();
+    document["assets"][1]["path"] = json!(format!("generated/shot one-{digest}.png"));
+    document["assets"][2]["id"] = json!("a\\b");
+    document["assets"][2]["path"] = json!(format!("generated/a\\b-{digest}.png"));
+    let mut migrated = document.clone();
+    super::rename_bad_ids(&mut migrated).expect("a step");
+    let moved = format!("generated/shot-one-2-{digest}.png");
+    assert_eq!(migrated["assets"][1]["path"], json!(moved));
+    assert_eq!(migrated["assets"][2]["path"], document["assets"][2]["path"]);
+}
+
 /// A rename never lands on an id that differs from another only in case: on a
 /// case-blind disk the two would name one file.
 #[test]

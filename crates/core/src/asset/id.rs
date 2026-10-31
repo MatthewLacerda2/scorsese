@@ -106,7 +106,7 @@ fn allowed(c: char) -> bool {
 /// hyphens and trailing hyphens go, nothing left is `asset`, and a name longer
 /// than [`MAX_ASSET_ID_LENGTH`] is cut in its middle. Case is kept, and so is
 /// every character the rule allows: an id that keeps the rule comes back as
-/// it was.
+/// it was, unless it starts or ends with `-` (`-intro` is `intro`).
 pub(crate) fn tidy(raw: &str) -> String {
     let mut tidied = String::with_capacity(raw.len());
     for c in raw.chars() {
