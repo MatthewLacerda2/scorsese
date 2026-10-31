@@ -46,6 +46,20 @@ async fn change_on(pool: &PgPool, model: &str) -> Vec<String> {
     let detail = exchange(address, &who, id, "make it").await;
     let items = &detail["turn"]["quote"]["items"];
     assert_eq!(items[0]["subject"], "hero", "{detail}");
+    let priced: Vec<i64> = items
+        .as_array()
+        .expect("the exchange went as scripted")
+        .iter()
+        .map(|item| item["micros"].as_i64().expect("each item has its price"))
+        .collect();
+    assert!(priced.iter().all(|micros| *micros > 0), "{items}");
+    assert_eq!(
+        priced.iter().sum::<i64>(),
+        detail["turn"]["quote"]["micros"]
+            .as_i64()
+            .expect("a quote has a price"),
+        "the items add up to what the yes takes: {detail}"
+    );
     assert_eq!(items[0]["brief"], "prompt");
     assert!(
         items[0]["description"]
@@ -147,4 +161,5 @@ async fn a_voice_designs_box_shows_the_voice_it_describes(pool: PgPool) {
     assert_eq!(item["subject"], "design", "{detail}");
     assert_eq!(item["brief"], "voice");
     assert_eq!(item["description"], voice);
+    assert_eq!(item["micros"], detail["turn"]["quote"]["micros"]);
 }

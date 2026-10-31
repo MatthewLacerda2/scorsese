@@ -24,12 +24,14 @@ const quote: QuoteView = {
     {
       subject: "pose-wide-senior",
       says: "$1.20: 1 still at $1.20",
+      micros: 1_200_000,
       brief: "prompt",
       description: "A senior on a park bench, wide.",
     },
     {
       subject: "rain-loop",
       says: "$0.12: 1 sound at $0.12",
+      micros: 120_000,
       brief: "prompt",
       description: "Soft rain on a tin roof.",
     },

@@ -24,21 +24,23 @@
 //! worth asking.
 
 mod offer;
+mod priced;
 mod spend;
 
 use scorsese_core::placing::Shortened;
-use scorsese_core::{AssetId, GenerationState, Project, Timestamp};
+use scorsese_core::{GenerationState, Project, Timestamp};
 use scorsese_mcp::Reply;
 use scorsese_providers::quote::{self, Item, Quote, generation};
 use serde_json::{Value, json};
 
 use super::surface::project_property;
 use super::{Caller, database, lay_out, project_id, quotes, voiced};
-use crate::credits::{Product, charge_for, dollars, from_cents, ledger};
+use crate::credits::{dollars, from_cents, ledger};
 use crate::db;
 use crate::generations::adopt;
 use crate::jobs::blocking;
 use crate::projects::{self, ProjectError, ProjectFiles};
+use priced::{covered, credits};
 
 /// How a client names it.
 pub(crate) const NAME: &str = "generate";
@@ -194,16 +196,17 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
     let pool = &toolbox.pool;
     let mut tx = db::scoped(pool, caller.user).await.map_err(database)?;
     let Some(token) = arguments.get("confirm").and_then(Value::as_str) else {
-        let micros = credits(&quote, &stored.document);
-        let issued = quotes::issue(&mut tx, &quote, micros, now, caller.call)
+        let items = covered(&quote, &stored.document);
+        let micros: i64 = items.iter().map(|item| item.micros).sum();
+        let issued = quotes::issue(&mut tx, &quote, &items, now, caller.call)
             .await
             .map_err(database)?;
         // The offer's own token, for the confirmation box to spend instead
         // when the person picks the batch; it is not said, so a model never
         // holds it.
         if let Some(offered) = &offered {
-            let micros = credits(offered, &stored.document);
-            quotes::issue(&mut tx, offered, micros, now, caller.call)
+            let items = covered(offered, &stored.document);
+            quotes::issue(&mut tx, offered, &items, now, caller.call)
                 .await
                 .map_err(database)?;
         }
@@ -324,21 +327,6 @@ fn said(quote: &Quote, project: &Project) -> Vec<String> {
         ));
     }
     lines
-}
-
-/// What `quote` takes from a balance, in micro-dollars: each charged item
-/// priced as the [`Product`] its asset in `project` makes, as its reservation
-/// will be (`credits::generations::start`).
-pub(super) fn credits(quote: &Quote, project: &Project) -> i64 {
-    quote
-        .items
-        .iter()
-        .filter_map(|item| {
-            let charge = item.charge.as_ref()?;
-            let asset = project.asset(&AssetId::new(item.subject.clone()))?;
-            Some(charge_for(Product::of(asset)?, charge.cents))
-        })
-        .sum()
 }
 
 #[cfg(test)]

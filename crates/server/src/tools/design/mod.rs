@@ -24,6 +24,7 @@ use scorsese_providers::quote::{Charge, Item, Quote, Spend};
 use scorsese_providers::voices::design::{Brief, PASSAGE, PROMPT, estimate};
 use serde_json::{Value, json};
 
+use super::quotes::{BriefKind, QuoteItem};
 use super::{Caller, database, quotes};
 use crate::credits::designs::Design;
 use crate::credits::generations::{Request, start};
@@ -183,7 +184,14 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
     let pool = &caller.toolbox.pool;
     let mut tx = db::scoped(pool, caller.user).await.map_err(database)?;
     let Some(token) = token else {
-        let issued = quotes::issue(&mut tx, &quote, charged, now, caller.call)
+        let items = [QuoteItem {
+            subject: "design".to_owned(),
+            says: estimate.says(),
+            micros: charged,
+            brief: BriefKind::Voice,
+            description: brief.prompt.clone(),
+        }];
+        let issued = quotes::issue(&mut tx, &quote, &items, now, caller.call)
             .await
             .map_err(database)?;
         let balance = ledger::spendable(&mut tx).await.map_err(database)?;

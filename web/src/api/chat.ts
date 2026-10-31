@@ -16,12 +16,14 @@ export type TurnState =
   | "failed"
   | "interrupted";
 
-/** `assistant::QuoteItem` — one thing a yes pays for, and what it would send. */
+/** `assistant::QuoteItem` — one brief a yes pays for, and what it would send. */
 export interface QuoteItem {
   /** An asset id, or `design` for a voice design. */
   subject: string;
   /** The price, and how it got there. */
   says: string;
+  /** What it takes from the balance, in micro-dollars: a quote's items add up to its `micros`. */
+  micros: number;
   /** What `description` is. */
   brief: "prompt" | "line" | "voice";
   description: string;

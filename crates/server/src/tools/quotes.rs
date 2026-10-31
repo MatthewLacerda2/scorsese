@@ -10,6 +10,12 @@
 //! a row rather than memory so a restart between the quote and the yes costs
 //! the yes nothing.
 //!
+//! **A token keeps what it covers** ([`QuoteItem`]): every brief it would pay
+//! for, with its price from the user's credits and the words it would send,
+//! written when it is issued from the same quote it is bound to. That is what
+//! the assistant's confirmation box lists, so the box shows exactly what its
+//! yes spends, item for item, and nothing read back from the reply's words.
+//!
 //! **Taking a token is deleting its row.** Of two calls confirming one token
 //! at once, one deletes it and the other finds nothing — spent at most once,
 //! the same guarantee the local store gets from removing a file.
@@ -18,29 +24,66 @@ use std::convert::Infallible;
 use std::sync::Mutex;
 
 use scorsese_providers::quote::{self, Issued, Quote, Quotes, Refused, Spend};
+use serde::{Deserialize, Serialize};
+use sqlx::types::Json;
 
 use crate::db::Tx;
 
+/// One brief a quote's token would pay for, as the confirmation box shows it:
+/// the line the paid tool priced it with, what it takes from the balance, and
+/// the words that would be sent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QuoteItem {
+    /// What it is — an asset id, or `design` for a voice design.
+    pub subject: String,
+    /// What the paid tool said about it: the price, and how it got there.
+    pub says: String,
+    /// What it takes from the balance, in micro-dollars: the token's
+    /// items add up to the token's whole price. Zero on a quote held before
+    /// items carried a price.
+    #[serde(default)]
+    pub micros: i64,
+    /// What `description` is.
+    pub brief: BriefKind,
+    /// The words that would be sent: a prompt, a line to speak, a voice's
+    /// description.
+    pub description: String,
+}
+
+/// What a quoted item's description is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BriefKind {
+    /// A generated shot's or still's prompt.
+    Prompt,
+    /// A narration line, spoken as written.
+    Line,
+    /// A designed voice's description.
+    Voice,
+}
+
 /// Issue a token for `quote` at `now`, kept in `tx`'s user's table with
-/// `micros`, what it takes from the balance, and naming the tool call `call`
-/// that asked for it.
+/// `items`, every brief of `quote`'s it would pay for, and naming the tool
+/// call `call` that asked for it. What it takes from the balance is the sum
+/// of the items' prices.
 pub(super) async fn issue(
     tx: &mut Tx,
     quote: &Quote,
-    micros: i64,
+    items: &[QuoteItem],
     now: i64,
     call: i64,
 ) -> Result<Issued, sqlx::Error> {
     let held = Held::default();
     let Ok(issued) = quote::issue(&held, quote, now);
+    let micros: i64 = items.iter().map(|item| item.micros).sum();
     sqlx::query("DELETE FROM quotes WHERE expires_at < $1")
         .bind(now)
         .execute(&mut **tx)
         .await?;
     sqlx::query(
         "INSERT INTO quotes (token, user_id, spend, digest, cents, micros, issued_at,
-                             expires_at, tool_call_id)
-         VALUES ($1, member_id(), $2, $3, $4, $5, $6, $7, $8)",
+                             expires_at, tool_call_id, items)
+         VALUES ($1, member_id(), $2, $3, $4, $5, $6, $7, $8, $9)",
     )
     .bind(&issued.token)
     .bind(issued.spend.as_str())
@@ -50,6 +93,7 @@ pub(super) async fn issue(
     .bind(issued.issued_at)
     .bind(issued.expires_at)
     .bind(call)
+    .bind(Json(items))
     .execute(&mut **tx)
     .await?;
     Ok(issued)
@@ -69,6 +113,9 @@ pub struct Pending {
     /// (#947) — `None` when the call offered none. Its token is
     /// `Toolbox::batch_offer`'s to find, at the yes.
     pub batch_micros: Option<i64>,
+    /// Every brief the token would pay for, in the order quoted; their
+    /// prices add up to `micros`.
+    pub items: Vec<QuoteItem>,
 }
 
 /// The quote tool call `call` issued, if it issued one still unspent.
@@ -77,8 +124,8 @@ pub struct Pending {
 /// for now ([`alternative`]). The offer is the one under `Spend::Batch` when
 /// the other is not; a call that quoted a batch itself issued only that.
 pub(super) async fn issued_by(tx: &mut Tx, call: i64) -> Result<Option<Pending>, sqlx::Error> {
-    let rows: Vec<(String, String, i64, i64)> = sqlx::query_as(
-        "SELECT token, spend, micros, expires_at FROM quotes WHERE tool_call_id = $1
+    let rows: Vec<(String, i64, i64, Json<Vec<QuoteItem>>)> = sqlx::query_as(
+        "SELECT token, micros, expires_at, items FROM quotes WHERE tool_call_id = $1
          ORDER BY spend = $2, token",
     )
     .bind(call)
@@ -86,12 +133,15 @@ pub(super) async fn issued_by(tx: &mut Tx, call: i64) -> Result<Option<Pending>,
     .fetch_all(&mut **tx)
     .await?;
     let mut rows = rows.into_iter();
-    Ok(rows.next().map(|(token, _, micros, expires_at)| Pending {
-        token,
-        micros,
-        expires_at,
-        batch_micros: rows.next().map(|(_, _, offered, _)| offered),
-    }))
+    Ok(rows
+        .next()
+        .map(|(token, micros, expires_at, items)| Pending {
+            token,
+            micros,
+            expires_at,
+            batch_micros: rows.next().map(|(_, offered, ..)| offered),
+            items: items.0,
+        }))
 }
 
 /// The half-price batch offered beside the quote `token` (#947): its token,
