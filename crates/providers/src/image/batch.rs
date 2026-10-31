@@ -74,6 +74,15 @@ fn order(
             done.push((id, Outcome::Incomplete { why: why.clone() }));
             continue;
         }
+        // A batched still lands under a key made of its id, so an id that is
+        // no file name is never ordered: its picture would be paid for and
+        // dropped. Validation refuses such an id; this keeps a document that
+        // skipped validation from paying for it.
+        if let Err(problem) = id.check() {
+            let why = format!("its asset id `{id}` {problem}, so its picture could not be kept");
+            done.push((id, Outcome::Incomplete { why }));
+            continue;
+        }
         let Some(asset) = project.asset(&id) else {
             continue;
         };

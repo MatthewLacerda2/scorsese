@@ -4,6 +4,7 @@
 use crate::common;
 
 mod framed;
+mod renamed;
 
 use scorsese_core::{Asset, AssetId, AssetKind, Fps, Project, SCHEMA_VERSION};
 use scorsese_server::ServerError;

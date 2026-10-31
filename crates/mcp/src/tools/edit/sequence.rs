@@ -22,8 +22,9 @@ pub(crate) struct Sequence;
 #[derive(Deserialize, JsonSchema)]
 struct Arguments {
     project: ProjectDir,
-    /// Id of the image_sequence asset to change, or the id to make one under. A
-    /// clip shows it by this id.
+    /// Id of the image_sequence asset to change, or the id to make one under:
+    /// ASCII letters, digits, `-`, `_` and `.`, never a leading `.`. A clip
+    /// shows it by this id.
     asset: Name,
     /// The image assets it plays, in order, by id — replacing the whole list.
     /// An id may appear more than once. Every one must be an imported image,

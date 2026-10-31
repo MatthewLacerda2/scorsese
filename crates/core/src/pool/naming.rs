@@ -2,8 +2,7 @@
 
 use std::path::Path;
 
-use crate::asset::{AssetId, AssetKind};
-use crate::ids::free;
+use crate::asset::{AssetId, AssetKind, tidy, unique};
 use crate::project::Project;
 
 const VIDEO: &[&str] = &[
@@ -93,16 +92,16 @@ pub(super) fn wanted_asset_id(source: &Path) -> AssetId {
             .unwrap_or("asset"),
     );
     let (stem, _) = split_extension(&name);
-    AssetId::new(if stem.is_empty() { "asset" } else { stem }.to_owned())
+    AssetId::new(tidy(stem))
 }
 
 /// An asset id derived from the file name, unique within the project. Ids are
 /// what a human types into `project.json`, so they stay legible rather than
-/// becoming hashes.
+/// becoming hashes — and they are file names too, so the stem is
+/// [`tidy`]-ed into one that keeps [`AssetId::check`]'s rule.
 pub(super) fn unique_asset_id(project: &Project, file_name: &str) -> AssetId {
     let (stem, _) = split_extension(file_name);
-    let base = if stem.is_empty() { "asset" } else { stem };
-    AssetId::new(free(base, project.assets.len(), |candidate| {
+    AssetId::new(unique(&tidy(stem), project.assets.len(), |candidate| {
         project.has_asset(&AssetId::new(candidate))
     }))
 }
@@ -179,5 +178,27 @@ mod tests {
         assert_eq!(unique_file_name(&pool, Path::new("Logo.png")), "logo-3.png");
         assert_eq!(unique_file_name(&pool, Path::new(".env")), ".env-2");
         assert_eq!(split_extension(".env"), (".env", None));
+    }
+
+    #[test]
+    fn a_minted_id_always_keeps_the_id_rule() {
+        let mut project = Project::new("T", crate::Fps::THIRTY);
+        let long = "long ".repeat(60);
+        for desired in [".env", "...", "  ", "Ça va? Oui!", "a/../b", long.as_str()] {
+            let id = asset_id_for(&project, desired);
+            assert_eq!(id.check(), Ok(()), "{desired:?} became {id}");
+        }
+        assert_eq!(wanted_asset_id(Path::new(".env")).as_str(), "env");
+        let full = "a".repeat(crate::MAX_ASSET_ID_LENGTH);
+        project
+            .assets
+            .push(crate::Asset::text(AssetId::new(&full), "x"));
+        let suffixed = asset_id_for(&project, &full);
+        assert_eq!(suffixed.check(), Ok(()), "{suffixed}");
+        assert!(suffixed.as_str().ends_with("-2"), "{suffixed}");
+        // A caller suffixing a long name itself gets a new id for each.
+        let stem = "page ".repeat(40);
+        let second = asset_id_for(&project, &format!("{stem}-2"));
+        assert_ne!(second, asset_id_for(&project, &format!("{stem}-3")));
     }
 }

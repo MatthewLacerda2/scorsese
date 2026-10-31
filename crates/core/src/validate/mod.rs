@@ -85,7 +85,8 @@ impl Project {
 
     /// The part of [`Project::validate`] that keeps the document inside its
     /// folder: every path it gives — the script, an asset's file, recipe or
-    /// font — obeys [`crate::ProjectPath::check`]. In validation's own words,
+    /// font — obeys [`crate::ProjectPath::check`], and every asset id, which
+    /// becomes a file name, obeys [`crate::AssetId::check`]. In validation's own words,
     /// for a caller that must refuse an escaping path before it touches the
     /// disk but leaves the rest of validation to what runs next — a write
     /// that measures media first, a folder laid out for a tool that may be

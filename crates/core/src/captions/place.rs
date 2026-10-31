@@ -203,7 +203,8 @@ fn place(project: &mut Project, timed: Vec<Chunk>, asked: &Captioning) -> Result
                 1
             }
         };
-        let id = format!("{PREFIX}{}-{n}", chunk.line);
+        // The line's clip id may hold anything; the caption's is an asset id.
+        let id = crate::asset::tidy(&format!("{PREFIX}{}-{n}", chunk.line));
         let taken = project.asset(&AssetId::new(id.as_str())).is_some()
             || project.every_clip().any(|(_, clip)| clip.id.as_str() == id);
         if taken {

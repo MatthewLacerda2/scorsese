@@ -96,15 +96,17 @@ pub enum ValidationError {
 }
 
 impl ValidationError {
-    /// A path that breaks [`crate::ProjectPath::check`]: one that could name
-    /// something outside the project — [`crate::Project::check_paths`]'s
-    /// subset.
+    /// A path that breaks [`crate::ProjectPath::check`], or an asset id that
+    /// breaks [`crate::AssetId::check`] and so is no safe file name: one that
+    /// could name something outside the project —
+    /// [`crate::Project::check_paths`]'s subset.
     pub fn is_path_problem(&self) -> bool {
         matches!(
             self,
             Self::BadScriptPath { .. }
                 | Self::Asset(
                     AssetProblem::BadPath { .. }
+                        | AssetProblem::BadAssetId { .. }
                         | AssetProblem::BadRecipePath { .. }
                         | AssetProblem::BadFontPath { .. }
                 )
