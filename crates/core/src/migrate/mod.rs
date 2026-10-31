@@ -426,7 +426,7 @@ pub fn parse(json: &str) -> Result<(Project, Option<u32>), MigrateError> {
 ///
 /// A folder already current is not touched at all. A paid file named for an
 /// asset the walk renamed is linked under its new name first
-/// ([`carry`]), so nothing bought is bought again. The write is the ordinary
+/// (`carry`), so nothing bought is bought again. The write is the ordinary
 /// [`Project::save`], so it is atomic and refuses to land on a document that
 /// changed while this ran.
 ///
