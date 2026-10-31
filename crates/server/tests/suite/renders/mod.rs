@@ -7,6 +7,7 @@
 
 use crate::common;
 
+mod bumped;
 mod cancelled;
 mod choices;
 mod contained;
