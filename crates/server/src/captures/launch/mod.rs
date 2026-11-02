@@ -145,7 +145,7 @@ impl Launch {
     /// The `docker run` capturing request `index` of the job at `job`, or why
     /// the job's folder is not one a capture may be given.
     pub fn command(&self, job: &Path, index: usize) -> Result<Command, String> {
-        let mut command = Command::new("docker");
+        let mut command = scorsese_render::tools::child("docker");
         command.args(self.arguments(job, index)?);
         Ok(command)
     }
@@ -296,7 +296,7 @@ fn plain(path: &Path) -> Option<&str> {
 
 /// Stops the capture container `name`: the launcher's deadline.
 pub fn kill(name: &str) {
-    let _ = Command::new("docker")
+    let _ = scorsese_render::tools::child("docker")
         .args(["kill", name])
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
@@ -309,7 +309,7 @@ pub fn ready() -> Result<(), String> {
     if !Path::new(SECCOMP).is_file() {
         return Err(format!("no seccomp profile at {SECCOMP}"));
     }
-    let image = Command::new("docker")
+    let image = scorsese_render::tools::child("docker")
         .args(["image", "inspect", "--format={{.Id}}", IMAGE])
         .output()
         .map_err(|error| format!("docker would not start: {error}"))?;
@@ -317,14 +317,14 @@ pub fn ready() -> Result<(), String> {
         let said = String::from_utf8_lossy(&image.stderr);
         return Err(format!("no {IMAGE} image to capture with: {}", said.trim()));
     }
-    let left = Command::new("docker")
+    let left = scorsese_render::tools::child("docker")
         .args(["ps", "--all", "--quiet", &format!("--filter=label={LABEL}")])
         .output()
         .map_err(|error| format!("docker would not start: {error}"))?;
     let left = String::from_utf8_lossy(&left.stdout);
     let left: Vec<&str> = left.split_whitespace().collect();
     if !left.is_empty() {
-        let _ = Command::new("docker")
+        let _ = scorsese_render::tools::child("docker")
             .args(["rm", "--force"])
             .args(&left)
             .stdout(std::process::Stdio::null())

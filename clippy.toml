@@ -16,9 +16,16 @@ allow-unwrap-in-tests = true
 # the environment — where ffmpeg or Chromium is, a test's `UPDATE_…` switch —
 # is one a reader should see the reason for, so each carries
 # `#[expect(clippy::disallowed_methods, reason = "…")]` at the site (#1224).
+#
+# Every child process starts through `scorsese_render::tools::child`, with a
+# cleared environment plus what a tool reads, so a child of the web app's
+# server never holds its keys (#1656). A child that is not the server's, such
+# as a test running the CLI it builds, says why at the site the same way.
 disallowed-methods = [
+    { path = "std::process::Command::new", reason = "start a child through scorsese_render::tools::child, which clears its environment; anything else says why with #[expect(clippy::disallowed_methods, reason = ...)]" },
     { path = "std::env::var", reason = "read a key through scorsese_providers::credentials; anything else says why with #[expect(clippy::disallowed_methods, reason = ...)]" },
     { path = "std::env::var_os", reason = "read a key through scorsese_providers::credentials; anything else says why with #[expect(clippy::disallowed_methods, reason = ...)]" },
     { path = "std::env::vars", reason = "read a key through scorsese_providers::credentials; anything else says why with #[expect(clippy::disallowed_methods, reason = ...)]" },
     { path = "std::env::vars_os", reason = "read a key through scorsese_providers::credentials; anything else says why with #[expect(clippy::disallowed_methods, reason = ...)]" },
 ]
+

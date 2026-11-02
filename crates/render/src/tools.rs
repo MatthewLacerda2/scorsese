@@ -5,9 +5,96 @@
 //! [`FFPROBE_ENV`] at its own copies (nothing bundles one yet: the supported
 //! path is a clone with ffmpeg installed). Everything above this file asks
 //! [`Tools`] for a command and never constructs one itself.
+//!
+//! It is also where every child process in the workspace is started
+//! ([`child`]): with a cleared environment plus the few variables a tool
+//! reads, so a child never holds the keys its parent does.
 
+use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 use std::process::Command;
+
+/// The variables a child keeps from its parent's environment, by name, and
+/// every `LC_` one ([`kept`]). Where tools are and how they behave — never a
+/// key. The web app's server holds its database password and every vendor's
+/// key in its environment, and a decoder bug in the ffmpeg reading a member's
+/// upload must reach none of them (#1656).
+const KEPT: &[&str] = &[
+    // Finding programs, and a home, a temporary folder, a locale and a clock.
+    "PATH",
+    "HOME",
+    "TMPDIR",
+    "TZ",
+    "LANG",
+    "LANGUAGE",
+    // Where a self-built ffmpeg finds its shared libraries.
+    "LD_LIBRARY_PATH",
+    "DYLD_LIBRARY_PATH",
+    "DYLD_FALLBACK_LIBRARY_PATH",
+    // Fonts and caches, which ffmpeg's text and Chromium read.
+    "FONTCONFIG_FILE",
+    "FONTCONFIG_PATH",
+    "XDG_CACHE_HOME",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME",
+    "XDG_DATA_DIRS",
+    "XDG_RUNTIME_DIR",
+    // What a Windows program cannot start without.
+    "SYSTEMROOT",
+    "SYSTEMDRIVE",
+    "WINDIR",
+    "TEMP",
+    "TMP",
+    "PATHEXT",
+    "COMSPEC",
+    "USERPROFILE",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "PROGRAMDATA",
+    // Where this workspace's own tools are, for a child that is this program
+    // (`scorsese-server capture-one`), and how much it logs.
+    FFMPEG_ENV,
+    FFPROBE_ENV,
+    crate::page::CHROME_ENV,
+    crate::page::NO_SANDBOX_ENV,
+    "RUST_LOG",
+    // The Docker client the capture launcher runs.
+    "DOCKER_HOST",
+    "DOCKER_CONFIG",
+    "DOCKER_CONTEXT",
+    "DOCKER_CERT_PATH",
+    "DOCKER_TLS_VERIFY",
+    // Where an instrumented child writes its coverage.
+    "LLVM_PROFILE_FILE",
+];
+
+/// A command for `program` that starts with an empty environment plus what
+/// the allow-list keeps from this process's. The one way a child process is
+/// started in this workspace: `std::process::Command::new` is a disallowed
+/// method everywhere else (`clippy.toml`). Variables set on the returned
+/// command with `env` still reach the child.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the one place a child is started, and its environment is read to be filtered"
+)]
+pub fn child(program: impl AsRef<OsStr>) -> Command {
+    let mut command = Command::new(program);
+    command.env_clear().envs(kept(std::env::vars_os()));
+    command
+}
+
+/// Those of `parent`'s variables a child keeps. Names are matched without
+/// regard to case, which is how Windows reads them (`Path` is `PATH`).
+fn kept(
+    parent: impl IntoIterator<Item = (OsString, OsString)>,
+) -> impl Iterator<Item = (OsString, OsString)> {
+    parent.into_iter().filter(|(name, _)| {
+        name.to_str().is_some_and(|name| {
+            let name = name.to_ascii_uppercase();
+            name.starts_with("LC_") || KEPT.contains(&name.as_str())
+        })
+    })
+}
 
 /// Overrides where ffmpeg is found, so a bundled build can point at its
 /// sidecar without changing any calling code.
@@ -49,12 +136,12 @@ impl Tools {
 
     /// A fresh `ffmpeg` command with no arguments.
     pub fn ffmpeg(&self) -> Command {
-        Command::new(&self.ffmpeg)
+        child(&self.ffmpeg)
     }
 
     /// A fresh `ffprobe` command with no arguments.
     pub fn ffprobe(&self) -> Command {
-        Command::new(&self.ffprobe)
+        child(&self.ffprobe)
     }
 
     /// What this ffmpeg calls itself, e.g. `n8.1.2` or `6.1.1-3ubuntu5`.
@@ -102,7 +189,7 @@ impl Tools {
     }
 
     fn run_version(&self, binary: &PathBuf, env: &'static str) -> Result<Vec<u8>, ToolsError> {
-        Command::new(binary)
+        child(binary)
             .arg("-version")
             .output()
             .map_err(|source| ToolsError::NotFound {
@@ -171,7 +258,86 @@ pub enum ToolsError {
 
 #[cfg(test)]
 mod tests {
-    use super::{lists_encoder, version_from};
+    use super::{Tools, child, kept, lists_encoder, version_from};
+    use std::ffi::OsString;
+
+    fn names(parent: &[&str]) -> Vec<String> {
+        let parent = parent
+            .iter()
+            .map(|name| (OsString::from(name), OsString::from("x")));
+        kept(parent)
+            .map(|(name, _)| name.into_string().unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn a_child_keeps_where_tools_are_and_nothing_else() {
+        assert_eq!(
+            names(&[
+                "PATH",
+                "LD_LIBRARY_PATH",
+                "DATABASE_URL",
+                "HOME",
+                "ANTHROPIC_API_KEY",
+                "LC_ALL",
+                "STRIPE_SECRET_KEY",
+                "SCORSESE_FFMPEG",
+                "SCORSESE_STORAGE",
+            ]),
+            [
+                "PATH",
+                "LD_LIBRARY_PATH",
+                "HOME",
+                "LC_ALL",
+                "SCORSESE_FFMPEG"
+            ]
+        );
+    }
+
+    #[test]
+    fn a_name_is_kept_whatever_its_case_as_windows_reads_it() {
+        assert_eq!(
+            names(&["Path", "SystemRoot", "path_x"]),
+            ["Path", "SystemRoot"]
+        );
+    }
+
+    /// What the helper clears is the parent's environment, never what the
+    /// caller sets on the command itself.
+    #[cfg(unix)]
+    #[test]
+    fn a_variable_set_on_the_command_still_reaches_the_child() {
+        let output = child("env").env("FONTS_HERE", "1").output().unwrap();
+        let seen = String::from_utf8(output.stdout).unwrap();
+        assert!(seen.contains("FONTS_HERE=1"), "{seen}");
+    }
+
+    /// What a child started as `ffmpeg` sees of its environment: `env` stands
+    /// in for the binary and prints it.
+    #[cfg(unix)]
+    fn environment_of_ffmpeg() -> String {
+        let output = Tools::at("env", "env").ffmpeg().output().unwrap();
+        String::from_utf8(output.stdout).unwrap()
+    }
+
+    /// Cargo sets `CARGO_MANIFEST_DIR` in every test's environment, so it
+    /// stands for a secret the parent holds (#1656): a decoder bug in ffmpeg
+    /// must not reach the server's keys.
+    #[cfg(unix)]
+    #[test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "checks the parent really holds the variable the child must not see"
+    )]
+    fn ffmpeg_does_not_inherit_the_parents_environment() {
+        assert!(std::env::var_os("CARGO_MANIFEST_DIR").is_some());
+        let seen = environment_of_ffmpeg();
+        assert!(
+            !seen.contains("CARGO_MANIFEST_DIR="),
+            "the child saw the parent's environment:\n{seen}"
+        );
+        assert!(seen.contains("PATH="), "the child lost PATH:\n{seen}");
+    }
 
     #[test]
     fn an_encoder_is_found_by_its_whole_name_and_nothing_else() {

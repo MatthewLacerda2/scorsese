@@ -113,6 +113,10 @@ fn extract(zip: &Path, into: &Path) -> Result<(), ChromiumError> {
 /// is cleared every time, and a failure to clear it is not an error: the
 /// launch that follows says what is wrong far better than a guess here.
 #[cfg(target_os = "macos")]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "macOS only, installing Chromium for a machine's own CLI or app; the web app's server never downloads one, and scorsese_render::tools::child is a layer up"
+)]
 fn unquarantine(folder: &Path) {
     let _ = std::process::Command::new("xattr")
         .args(["-dr", "com.apple.quarantine"])

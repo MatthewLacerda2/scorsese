@@ -99,6 +99,10 @@ const PROXY_VARIABLES: [&str; 6] = [
 ///   scratch directory. [`run_in_env`] points them at a test's own instead.
 /// - **No network**: requests go to [`DEAD_PROXY`] and are refused, while
 ///   loopback stays reachable for anything a test serves itself.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "runs the CLI this crate builds, never a child of the web app's server"
+)]
 pub(crate) fn sealed() -> Command {
     seal(Command::new(env!("CARGO_BIN_EXE_scorsese")))
 }
