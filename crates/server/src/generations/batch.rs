@@ -15,7 +15,8 @@
 //! price is per request, not per batch, so nothing is lost meanwhile.
 //!
 //! A batch that stops without answers (failed, cancelled or expired) bills
-//! nothing and is settled free, as a refused still is; one that outlasts
+//! nothing and is settled free, as a refused still is; an answer in words
+//! with no picture is billed, and charged its half (#1646); one that outlasts
 //! [`Timing::batch_patience`] goes `stuck` with its reservation held, since
 //! Google may still draw and bill it.
 
@@ -115,7 +116,7 @@ async fn wait(
                 // A batch of one: its one answer is this still's.
                 return match answers.into_iter().next() {
                     Some((_, Ok(bytes))) => work.keep(paid, bytes, Kind::Image).await,
-                    Some((_, Err(error))) => work.refused(paid, error.message).await,
+                    Some((_, Err(error))) => work.answered(paid, error, "a picture").await,
                     None => work.refused(paid, "the batch drew nothing".into()).await,
                 };
             }
