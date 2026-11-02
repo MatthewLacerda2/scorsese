@@ -16,6 +16,7 @@ mod live;
 mod offline;
 mod pricing;
 mod quoting;
+mod rates;
 mod speaking;
 mod stock;
 mod synthesis;
