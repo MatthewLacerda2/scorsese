@@ -9,7 +9,7 @@ use scorsese_providers::payments::{Checkout, Order, Session};
 /// Stripe as a test needs it: sessions it made, and their state.
 #[derive(Default)]
 pub(crate) struct Fake {
-    created: Mutex<Vec<Order>>,
+    pub(crate) created: Mutex<Vec<Order>>,
     sessions: Mutex<Vec<Session>>,
 }
 
