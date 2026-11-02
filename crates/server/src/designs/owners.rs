@@ -32,7 +32,7 @@
 //!
 //! Two limits, both checked before a voice is kept ([`no_slot`]): a user keeps
 //! at most their share — [`KEPT_FREE`] on an account that has never bought
-//! credit (no paid `payments` row), [`KEPT_BOUGHT`] once it has (#1655) — so
+//! credit (no paid `payments` row it kept), [`KEPT_BOUGHT`] once it has (#1655) — so
 //! free accounts cannot take every slot from the rest; and nobody keeps one
 //! once the account's slots are all taken. Both said in plain words, rather
 //! than as whatever the vendor answers a full account with. A share only
@@ -112,7 +112,9 @@ pub struct Slots {
     pub mine: i64,
     /// Every user's, together.
     pub everyone: i64,
-    /// Whether the user has ever bought credit: a paid `payments` row.
+    /// Whether the user has ever bought credit: a paid `payments` row they
+    /// did not withdraw (`payments::withdraw`), since money given back is
+    /// credit never bought.
     pub bought: bool,
 }
 
@@ -128,7 +130,11 @@ pub async fn slots(pool: &PgPool, user: UserId) -> Result<Slots, sqlx::Error> {
     let mut tx = db::privileged(pool).await?;
     let (mine, everyone, bought) = sqlx::query_as(
         "SELECT count(*) FILTER (WHERE user_id = $1), count(*),
-                EXISTS (SELECT 1 FROM payments WHERE user_id = $1 AND state = 'paid')
+                EXISTS (SELECT 1 FROM payments p
+                        WHERE p.user_id = $1 AND p.state = 'paid'
+                          AND NOT EXISTS (SELECT 1 FROM credit_entries c
+                                          WHERE c.payment_id = p.id
+                                            AND c.kind = 'withdrawal'))
          FROM designed_voices",
     )
     .bind(user.get())

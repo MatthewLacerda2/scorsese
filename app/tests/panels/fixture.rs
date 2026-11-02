@@ -15,7 +15,7 @@ use std::sync::LazyLock;
 use scorsese_core::{Fps, Project, SCHEMA_VERSION};
 use scorsese_providers::credentials::Settings;
 use scorsese_providers::voices::{
-    Availability, Catalogue, Filters, Page, Unusable, Voice, VoiceError,
+    Availability, Catalogue, Filters, Origin, Page, Unusable, Voice, VoiceError,
 };
 
 /// The machine every test window here is opened on: no keys, and **no
@@ -160,6 +160,11 @@ impl Catalogue for Fake {
         } else {
             Availability::Unusable(Unusable::Gone)
         })
+    }
+
+    /// Its own voice is a built-in, and nothing else is anything.
+    fn origin(&self, voice_id: &str) -> Result<Option<Origin>, VoiceError> {
+        Ok((voice_id == self.id).then_some(Origin::Builtin))
     }
 }
 

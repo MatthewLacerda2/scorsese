@@ -6,6 +6,7 @@ use std::sync::Arc;
 use scorsese_server::credits::command::{self, CreditCommand};
 use scorsese_server::credits::ledger::{self, Link};
 use scorsese_server::db::{self, UserId};
+use scorsese_server::designs::owners;
 use scorsese_server::payments::{settle, withdraw};
 use sqlx::postgres::PgPool;
 
@@ -37,6 +38,26 @@ async fn a_withdrawal_takes_back_what_is_left_bonus_included_once(pool: PgPool) 
     let mut tx = db::scoped(&pool, ana).await.unwrap();
     let again = withdraw::withdraw(&mut tx, &session, None).await;
     assert!(again.is_err(), "a purchase is withdrawn once: {again:?}");
+}
+
+/// A withdrawn purchase is credit never bought: the account's custom-voice
+/// share goes back to a free account's (#1655).
+#[sqlx::test]
+async fn a_withdrawn_purchase_no_longer_counts_as_bought(pool: PgPool) {
+    let (ana, session) = eighty_paid(&pool).await;
+    let slots = owners::slots(&pool, ana).await.unwrap();
+    assert!(
+        slots.bought && slots.share() == owners::KEPT_BOUGHT,
+        "{slots:?}"
+    );
+    let mut tx = db::scoped(&pool, ana).await.unwrap();
+    withdraw::withdraw(&mut tx, &session, None).await.unwrap();
+    tx.commit().await.unwrap();
+    let slots = owners::slots(&pool, ana).await.unwrap();
+    assert!(
+        !slots.bought && slots.share() == owners::KEPT_FREE,
+        "{slots:?}"
+    );
 }
 
 #[sqlx::test]

@@ -2230,8 +2230,8 @@ homes that outlive a call (`crate::designs`):
   row — counted from those rows (`designs::owners::slots`), since the
   operator's key lacks the `user_read` permission the vendor's live count
   needs. A `voice_keep` or `voice_clone` job checks before it asks the
-  vendor: a user who has never bought credit (no paid `payments` row) keeps
-  one, and one who has keeps three (#1655), so free accounts cannot take
+  vendor: a user who has never bought credit (no paid `payments` row, a
+  withdrawn purchase not counting) keeps one, and one who has keeps three (#1655), so free accounts cannot take
   every slot; and nobody keeps one once the account is full. A share only
   limits adding: a user over it keeps what they have. The free refusal says
   "free accounts keep one custom voice; buying credit lets you keep three". Either is refused in plain words, free, pointing
