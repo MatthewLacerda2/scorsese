@@ -115,6 +115,24 @@ pub(crate) fn holding(
         .find_map(|shelf| pieces::holding(&shelf, project_root, request, wanted))
 }
 
+/// The fresh capture of exactly `piece` on any of `slot`'s shelves, and its
+/// record: one part of a capture made a part a turn (`parts`', #1708), which
+/// only a file of exactly its frames can be joined from.
+pub(crate) fn exactly(
+    slot: &Path,
+    project_root: &Path,
+    request: &Request,
+    piece: &std::ops::Range<u64>,
+) -> Option<(PathBuf, Record)> {
+    if !trust::unlinked(&project_root.join(CACHE_DIR).join(PAGES), slot) {
+        return None;
+    }
+    shelves::all(slot).into_iter().find_map(|shelf| {
+        let (file, record) = pieces::files(&shelf, piece, request);
+        read_fresh(&file, &record, project_root, request).map(|record| (file, record))
+    })
+}
+
 /// A capture's record, if its frames are there and it still describes the
 /// project and `request`: every file loaded still hashes as it did, every file
 /// missed is still missing, and every clip the page read is where it was.

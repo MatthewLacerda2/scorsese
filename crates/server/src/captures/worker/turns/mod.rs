@@ -4,12 +4,16 @@
 //! every account. It used to take the oldest job and serve every page it
 //! asked for before looking again, so one render with many pages, or several
 //! renders in a row from one account, kept everybody else's pages — and so
-//! their renders and stills — waiting. Now **a turn is one page**: after each
-//! capture the worker picks again, and the turn goes to the account whose
-//! last turn was longest ago (one never served first), the oldest of its jobs
+//! their renders and stills — waiting. Now **a turn is one page**, or one
+//! part of a long one: after each capture the worker picks again, and the
+//! turn goes to the account whose last turn was longest ago (one never served first), the oldest of its jobs
 //! first. A still (`still-<call>`) competes the same way. A job is answered
 //! once its last page is captured; one withdrawn while it waits, or part way,
 //! is dropped and never answered.
+//!
+//! **A turn draws at most [`crate::captures::TURN`] frames** (#1708): a longer
+//! page is captured a part a turn (`Asked::parts`), its owner's later turns
+//! taking the next part, and its last joins them into one capture.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -17,7 +21,7 @@ use std::time::SystemTime;
 
 use super::super::launch::{self, Staged};
 use super::super::{ANSWER, ASK, Answer, Ask, PROJECT, publish, read};
-use super::{Isolation, Worker};
+use super::{Isolation, Part, Worker};
 
 /// What the worker is part way through: each job it has started, and when
 /// each owner last had a turn. A turn is one page, and goes to the owner whose
@@ -35,6 +39,9 @@ struct Started {
     ask: Ask,
     staged: Option<Staged>,
     answer: Answer,
+    /// Which part of the page it is on (`Asked::parts`, #1708): the next to
+    /// capture of the page after the last answered.
+    part: usize,
 }
 
 /// A job waiting for its answer, in the order it was asked.
@@ -128,8 +135,27 @@ impl Worker {
         let started = turns.started.get_mut(job).expect("started above");
         let index = started.answer.failed.len();
         if let Some(asked) = started.ask.requests.get(index) {
-            let captured = self.capture(job, index, asked, started.staged.as_ref());
-            started.answer.failed.push(captured.err());
+            // A turn is one part of a page (#1708): a page is answered once
+            // its last part is in, or as soon as one fails.
+            let done = match asked.parts() {
+                Ok(parts) => {
+                    let part = Part {
+                        frames: parts.get(started.part).cloned().unwrap_or_default(),
+                        first: started.part == 0,
+                        last: started.part + 1 >= parts.len(),
+                    };
+                    let captured = self.capture(job, index, asked, &part, started.staged.as_ref());
+                    (captured.is_err() || part.last).then_some(captured.err())
+                }
+                Err(why) => Some(Some(why)),
+            };
+            match done {
+                Some(failed) => {
+                    started.answer.failed.push(failed);
+                    started.part = 0;
+                }
+                None => started.part += 1,
+            }
         }
         if started.answer.failed.len() < started.ask.requests.len() {
             return true;
@@ -164,6 +190,7 @@ impl Worker {
             ask,
             staged,
             answer: Answer::default(),
+            part: 0,
         })
     }
 

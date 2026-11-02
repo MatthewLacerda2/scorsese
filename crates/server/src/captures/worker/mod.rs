@@ -3,9 +3,9 @@
 //!
 //! It watches the spool ([`super`]) for a job whose `ask.json` is there and
 //! whose `answer.json` is not, and captures the pages they ask for — one at a
-//! time, a page a turn and turns by owner ([`Turns`], #1634), each in a child
-//! process of its own process group, so that at the deadline it and
-//! everything it started are killed together. A job is answered once its last
+//! time, a page (or a part of a long one, #1708) a turn and turns by owner
+//! ([`Turns`], #1634), each in a child process of its own process group, so
+//! that at the deadline it and everything it started are killed together. A job is answered once its last
 //! page is captured. It never touches a database or a network.
 //!
 //! **How each capture is walled in** is its [`Isolation`]. The hosted service
@@ -15,6 +15,7 @@
 //! the tests, where the walls are not what is being tested.
 
 use std::io::Read;
+use std::ops::Range;
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Stdio};
@@ -25,7 +26,7 @@ mod turns;
 
 pub use turns::Turns;
 
-use super::{ASK, Asked, PROJECT, Spool};
+use super::{ASK, Asked, PROJECT, Spool, one};
 
 /// `scorsese-server capture-worker`
 #[derive(Debug, clap::Args)]
@@ -46,6 +47,15 @@ pub struct Args {
     /// else. Without it a page is served only files really in its project.
     #[arg(long)]
     pub library: Option<PathBuf>,
+}
+
+/// What one turn captures of a page (#1708): its part's frames, and whether
+/// it is the page's first part and its last.
+#[derive(Debug, Clone, Default)]
+pub(super) struct Part {
+    pub(super) frames: Range<u64>,
+    pub(super) first: bool,
+    pub(super) last: bool,
 }
 
 /// How often an idle worker looks for a job, and a busy one at its child.
@@ -119,23 +129,26 @@ impl Worker {
         self.waiting().into_iter().next().map(|job| job.path)
     }
 
-    /// One capture, in a child the deadline can kill; why it failed if it did.
-    /// In a container, `staged` is the job as copied, and what the capture
-    /// wrote is kept once its container is gone.
+    /// One part of a capture, in a child the deadline can kill; why it failed
+    /// if it did. In a container, `staged` is the job as copied, and what the
+    /// capture wrote is kept once its container is gone and it was the
+    /// page's last part, or failed: until then the parts stay in the
+    /// capture's own folder, where the next part's container finds them.
     fn capture(
         &self,
         job: &Path,
         index: usize,
         asked: &Asked,
+        part: &Part,
         staged: Option<&Staged>,
     ) -> Result<(), String> {
         // Past the render ceilings whoever asked (#1634): refused unstarted.
         asked.within_ceilings()?;
         // Every frame up to the last drawn, the ones run through without
         // drawing included: running ahead is cheaper than drawing, never free.
-        let frames = asked.frames()?.end;
+        let frames = part.frames.end;
         let limit = (self.deadline)(frames);
-        let mut command = self.command(job, index, staged)?;
+        let mut command = self.command(job, index, part, staged)?;
         let mut child = command
             .process_group(0)
             .stdin(Stdio::null())
@@ -172,12 +185,15 @@ impl Worker {
         // its capture is a browser still running somebody's page. A
         // container is not the client's child, so it is stopped by name.
         if let Isolation::Container(_) = self.isolation {
-            launch::kill(&Launch::name(job, index));
+            launch::kill(&Launch::name(job, index, part.frames.start));
         }
         kill_group(group);
         let _ = child.wait();
         let said = said.join().unwrap_or_default();
-        if let (Isolation::Container(launch), Some(staged)) = (&self.isolation, staged) {
+        let succeeded = status.is_some_and(|status| status.success());
+        if let (Isolation::Container(launch), Some(staged)) = (&self.isolation, staged)
+            && (part.last || !succeeded)
+        {
             launch.publish(staged, index)?;
         }
         match status {
@@ -193,16 +209,18 @@ impl Worker {
         }
     }
 
-    /// What runs capture `index` of the job at `job`.
+    /// What runs `part` of capture `index` of the job at `job`.
     fn command(
         &self,
         job: &Path,
         index: usize,
+        part: &Part,
         staged: Option<&Staged>,
     ) -> Result<Command, String> {
         match &self.isolation {
             Isolation::Container(launch) => {
-                launch.command(staged.ok_or("the job was not staged")?, index)
+                let staged = staged.ok_or("the job was not staged")?;
+                launch.command(staged, index, &part.frames, part.first)
             }
             Isolation::Process {
                 program,
@@ -217,7 +235,9 @@ impl Worker {
                     .arg("--ask")
                     .arg(job.join(ASK))
                     .arg("--index")
-                    .arg(index.to_string());
+                    .arg(index.to_string())
+                    .arg("--frames")
+                    .arg(one::frames_arg(&part.frames));
                 if !sandbox {
                     command.arg("--no-sandbox");
                 }

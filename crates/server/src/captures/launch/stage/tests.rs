@@ -54,7 +54,7 @@ fn a_link_in_the_way_of_a_media_file_refuses_the_job() {
 fn only_the_files_and_folders_a_capture_wrote_reach_the_page_cache() {
     let laid = Laid::new("publish");
     let staged = laid.stage().unwrap();
-    laid.launch.command(&staged, 0).unwrap();
+    laid.launch.command(&staged, 0, &(0..11), true).unwrap();
     let out = laid.launch.staging.join("out/job-1-0");
     std::fs::create_dir_all(out.join("pages/slot/told-none")).unwrap();
     std::fs::write(out.join("pages/slot/told-none/frames.mkv"), "frames").unwrap();
@@ -85,7 +85,7 @@ fn only_the_files_and_folders_a_capture_wrote_reach_the_page_cache() {
 fn keeping_a_capture_never_writes_through_a_link_in_the_page_cache() {
     let laid = Laid::new("publish-link");
     let staged = laid.stage().unwrap();
-    laid.launch.command(&staged, 0).unwrap();
+    laid.launch.command(&staged, 0, &(0..11), true).unwrap();
     let out = laid.launch.staging.join("out/job-1-0");
     std::fs::create_dir_all(out.join("pages")).unwrap();
     std::fs::write(out.join("pages/frames.mkv"), "frames").unwrap();
@@ -101,8 +101,8 @@ fn keeping_a_capture_never_writes_through_a_link_in_the_page_cache() {
 fn a_job_once_served_leaves_nothing_staged() {
     let laid = Laid::new("unstage");
     let staged = laid.stage().unwrap();
-    laid.launch.command(&staged, 0).unwrap();
-    laid.launch.command(&staged, 1).unwrap();
+    laid.launch.command(&staged, 0, &(0..11), true).unwrap();
+    laid.launch.command(&staged, 1, &(0..11), true).unwrap();
 
     laid.launch.unstage(&staged);
 
@@ -128,7 +128,7 @@ fn a_link_on_the_owners_own_folder_refuses_the_job() {
 fn a_record_is_kept_only_after_the_frames_it_vouches_for() {
     let laid = Laid::new("record-last");
     let staged = laid.stage().unwrap();
-    laid.launch.command(&staged, 0).unwrap();
+    laid.launch.command(&staged, 0, &(0..11), true).unwrap();
     let out = laid.launch.staging.join("out/job-1-0/pages/told-none");
     std::fs::create_dir_all(&out).unwrap();
     std::fs::write(out.join("frames.mkv"), "new frames").unwrap();
@@ -157,7 +157,7 @@ fn a_file_the_page_cache_already_holds_as_it_is_is_left_alone() {
     let inode = |name: &str| std::fs::metadata(fonts.join(name)).unwrap().ino();
     let (a, b) = (inode("a.ttf"), inode("b.ttf"));
     let staged = laid.stage().unwrap();
-    laid.launch.command(&staged, 0).unwrap();
+    laid.launch.command(&staged, 0, &(0..11), true).unwrap();
     let out = laid.launch.staging.join("out/job-1-0/pages/fonts");
     std::fs::create_dir_all(&out).unwrap();
     std::fs::write(out.join("a.ttf"), "face").unwrap();
@@ -171,4 +171,22 @@ fn a_file_the_page_cache_already_holds_as_it_is_is_left_alone() {
         std::fs::read_to_string(fonts.join("b.ttf")).unwrap(),
         "new!"
     );
+}
+
+#[test]
+fn a_later_part_finds_what_the_parts_before_it_wrote() {
+    // #1708: the last part joins the others, so they stay in the request's
+    // own folder from one part's container to the next; a first part starts
+    // that folder empty.
+    let laid = Laid::new("parts");
+    let staged = laid.stage().unwrap();
+    laid.launch.command(&staged, 0, &(0..1800), true).unwrap();
+    let out = laid.launch.staging.join("out/job-1-0");
+    std::fs::write(out.join("part"), "the first part").unwrap();
+    laid.launch
+        .command(&staged, 0, &(1800..2000), false)
+        .unwrap();
+    assert!(out.join("part").is_file(), "kept for the next part");
+    laid.launch.command(&staged, 0, &(0..1800), true).unwrap();
+    assert!(!out.join("part").exists(), "a first part starts empty");
 }

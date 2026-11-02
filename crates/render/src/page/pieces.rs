@@ -34,18 +34,20 @@ const MOST: usize = 4;
 /// Captures each of `pieces` of `request`, each by a browser of its own and all
 /// at once, into the one file `out` — adding each frame any of them draws to
 /// `drawn`, and all of them stopping once `cancel` is tripped (`capture::run`'s).
+/// The first piece measures its layout from frame `measured` on, the rest from
+/// their own first frame.
 pub(crate) fn capture_in(
     chrome: &Chrome,
     tools: &Tools,
     served: Served<'_>,
     request: &Request,
-    pieces: Vec<Range<u64>>,
+    (pieces, measured): (Vec<Range<u64>>, u64),
     (out, drawn, cancel): (&Path, &AtomicU64, &Cancel),
 ) -> Result<Heard, PageError> {
     if let [only] = &pieces[..] {
         let only = only.clone();
         let to = (out, drawn, cancel);
-        return capture::run(chrome, tools, served, request, (only, 0), to);
+        return capture::run(chrome, tools, served, request, (only, measured), to);
     }
     let files: Vec<PathBuf> = (0..pieces.len())
         .map(|i| with_suffix(out, &format!("{i}.mkv")))
@@ -57,9 +59,9 @@ pub(crate) fn capture_in(
             .enumerate()
             .map(|(i, (piece, file))| {
                 let piece = piece.clone();
-                // The first piece measures its layout from zero, the rest only
-                // their own stretch: see `capture::run`.
-                let measured = if i == 0 { 0 } else { piece.start };
+                // The first piece measures its layout from where it was
+                // asked to, the rest only their own stretch: see `capture::run`.
+                let measured = if i == 0 { measured } else { piece.start };
                 scope.spawn(move || {
                     let to = (file.as_path(), drawn, cancel);
                     capture::run(chrome, tools, served, request, (piece, measured), to)
@@ -75,6 +77,7 @@ pub(crate) fn capture_in(
         .into_iter()
         .collect::<Result<Vec<_>, _>>()
         .and_then(|heard| {
+            let files: Vec<&Path> = files.iter().map(PathBuf::as_path).collect();
             join(tools, request, &pieces, &files, out)?;
             Ok(merge(heard))
         });
@@ -118,19 +121,23 @@ pub(crate) fn split(request: &Request, frames: Range<u64>, ways: usize) -> Vec<R
 
 /// Joins the pieces' files into `out` without decoding them: each is told how
 /// long it lasts, to the millisecond it really does, so the one after it
-/// starts where a single capture would have put it.
-fn join(
+/// starts where a single capture would have put it. The files may be in any
+/// folder: parts captured in turns of their own sit on whichever shelf each
+/// one's page was told (`parts`', #1708).
+pub(crate) fn join(
     tools: &Tools,
     request: &Request,
     pieces: &[Range<u64>],
-    files: &[PathBuf],
+    files: &[&Path],
     out: &Path,
 ) -> Result<(), PageError> {
-    // Named as they sit beside the list, which is where ffmpeg looks: a path
-    // in a list is read from the list's folder, not from where ffmpeg runs.
+    // Absolute, and through the `file` protocol: a relative path in a list is
+    // read from the list's folder, not from where ffmpeg runs, and a name
+    // with a colon in it is never taken for another protocol.
     let mut list = String::new();
     for (piece, file) in pieces.iter().zip(files) {
-        let name = file.file_name().unwrap_or_default().to_string_lossy();
+        let name = input::url(file);
+        let name = name.to_string_lossy();
         let quoted = name.replace('\'', r"'\''");
         list.push_str(&format!("file '{quoted}'\n"));
         let ms = (request.millis_at(piece.end) - request.millis_at(piece.start)).round();
@@ -162,7 +169,7 @@ fn join(
 /// What every piece heard, as one capture would have said it: every file any
 /// of them loaded, every clip any of them read, and each warning once, in the
 /// order first heard.
-fn merge(heard: Vec<Heard>) -> Heard {
+pub(crate) fn merge(heard: Vec<Heard>) -> Heard {
     let mut loaded = BTreeMap::new();
     let mut warnings: Vec<String> = Vec::new();
     let mut read = Read::default();

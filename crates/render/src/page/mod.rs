@@ -46,6 +46,7 @@ mod icons;
 mod layout;
 mod missed;
 mod origin;
+mod parts;
 mod pieces;
 mod request;
 #[cfg(test)]
@@ -64,6 +65,7 @@ pub use cdp::CdpError;
 pub use holding::Holding;
 pub use missed::reasoned;
 pub use origin::SHIPPED_ORIGIN;
+pub use parts::parts;
 pub use request::Request;
 pub use supply::{Supply, supply};
 pub use told::Span;
@@ -252,6 +254,36 @@ pub fn capture_frames(
         request,
         frames,
         (&Browsers::new(browsers), &drawn, &Cancel::new()),
+    )
+}
+
+/// Part `index` of `parts` of `request` — what [`parts`] cut a stretch into
+/// for turns of their own (#1708) — captured as [`capture_frames`] captures a
+/// stretch, in one browser, unless a fresh capture of exactly that part is
+/// already there. Then, once every part is in, they are joined into the one
+/// capture of them all, which [`cached_frames`] finds as it would a capture
+/// drawn in one go: that capture, or `None` while a part is still to come.
+///
+/// The parts are kept as pieces of the slot until the join, which tidies them
+/// away. One gone before it — tidied, or stale since — leaves the join `None`
+/// for good, until that part is captured again.
+pub fn capture_part(
+    chrome: &Chrome,
+    tools: &Tools,
+    project_root: &Path,
+    follow: &[PathBuf],
+    request: &Request,
+    parts: &[Range<u64>],
+    index: usize,
+) -> Result<Option<Captured>, PageError> {
+    let drawn = AtomicU64::new(0);
+    Holding::default().capture_part(
+        chrome,
+        tools,
+        (project_root, follow),
+        request,
+        (parts, index),
+        (&drawn, &Cancel::new()),
     )
 }
 

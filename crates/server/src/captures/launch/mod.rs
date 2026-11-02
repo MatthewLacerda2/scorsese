@@ -45,6 +45,7 @@
 //! browser started.
 
 use std::ffi::OsString;
+use std::ops::Range;
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 
@@ -175,34 +176,52 @@ impl Launch {
         Spool::new(&self.spool)
     }
 
-    /// The name of the container capturing request `index` of the job at `job`.
-    pub fn name(job: &Path, index: usize) -> String {
+    /// The name of the container capturing the part from frame `start` of
+    /// request `index` of the job at `job`: one a part, so a part's container
+    /// never meets the one before it still being removed.
+    pub fn name(job: &Path, index: usize, start: u64) -> String {
         let job = job
             .file_name()
             .and_then(|name| name.to_str())
             .unwrap_or("job");
-        format!("scorsese-capture-{job}-{index}")
+        format!("scorsese-capture-{job}-{index}-{start}")
     }
 
-    /// The `docker run` capturing request `index` of `staged`, its `cache/`
-    /// an empty folder of its own.
-    pub fn command(&self, staged: &Staged, index: usize) -> Result<Command, String> {
+    /// The `docker run` capturing the part `frames` of request `index` of
+    /// `staged`. Its `cache/` is a folder of the request's own: emptied for
+    /// its `first` part, and kept from one part to the next, so the last part
+    /// finds the others there to join (#1708) — never another job's or
+    /// another request's.
+    pub fn command(
+        &self,
+        staged: &Staged,
+        index: usize,
+        frames: &Range<u64>,
+        first: bool,
+    ) -> Result<Command, String> {
         let out = self.out(staged, index);
-        let _ = std::fs::remove_dir_all(&out);
+        if first {
+            let _ = std::fs::remove_dir_all(&out);
+        }
         std::fs::create_dir_all(&out).map_err(|error| format!("staging the capture: {error}"))?;
         let mut command = scorsese_render::tools::child("docker");
-        command.args(self.arguments(staged, index)?);
+        command.args(self.arguments(staged, index, frames)?);
         Ok(command)
     }
 
-    fn arguments(&self, staged: &Staged, index: usize) -> Result<Vec<OsString>, String> {
+    fn arguments(
+        &self,
+        staged: &Staged,
+        index: usize,
+        frames: &Range<u64>,
+    ) -> Result<Vec<OsString>, String> {
         let job = self.spool.join(JOBS).join(&staged.name);
         let project = job.join(PROJECT);
         let (uid, gid) = self.user;
         let mut arguments: Vec<OsString> = vec![
             "run".into(),
             "--rm".into(),
-            format!("--name={}", Self::name(&job, index)).into(),
+            format!("--name={}", Self::name(&job, index, frames.start)).into(),
             format!("--label={LABEL}=1").into(),
             format!("--user={uid}:{gid}").into(),
             format!("--security-opt=seccomp={SECCOMP}").into(),
@@ -236,6 +255,8 @@ impl Launch {
             job.join(ASK).into_os_string(),
             "--index".into(),
             index.to_string().into(),
+            "--frames".into(),
+            super::one::frames_arg(frames).into(),
             "--follow".into(),
             library_of(&self.library, user).into_os_string(),
         ]);

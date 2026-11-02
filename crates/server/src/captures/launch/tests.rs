@@ -71,7 +71,7 @@ impl Laid {
 
     pub(super) fn arguments(&self) -> Result<Vec<String>, String> {
         let staged = self.stage()?;
-        let arguments = self.launch.arguments(&staged, 0)?;
+        let arguments = self.launch.arguments(&staged, 0, &(1800..2000))?;
         Ok(arguments
             .into_iter()
             .map(|argument| argument.into_string().unwrap())
@@ -146,6 +146,9 @@ fn the_command_is_the_services_own_whatever_the_job() {
             format!("{job}/ask.json"),
             "--index".into(),
             "0".into(),
+            // The part of the page this turn draws (#1708).
+            "--frames".into(),
+            "1800..2000".into(),
             // The owner's library, and only theirs: where its media links
             // lead (#857).
             "--follow".into(),
@@ -233,10 +236,10 @@ fn a_capture_never_runs_as_root() {
 }
 
 #[test]
-fn each_capture_is_named_by_its_job_and_place() {
+fn each_capture_is_named_by_its_job_its_place_and_its_part() {
     assert_eq!(
-        Launch::name(Path::new("/s/jobs/job-12"), 3),
-        "scorsese-capture-job-12-3"
+        Launch::name(Path::new("/s/jobs/job-12"), 3, 1800),
+        "scorsese-capture-job-12-3-1800"
     );
 }
 
