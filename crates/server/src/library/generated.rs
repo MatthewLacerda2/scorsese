@@ -21,6 +21,7 @@
 use scorsese_core::words::Words;
 use serde_json::Value;
 
+use super::room::Room;
 use super::{Arrival, Item, Kind, Library, LibraryError, store};
 use crate::db::{self, UserId};
 
@@ -72,17 +73,30 @@ impl Library {
     /// these bytes — two briefs that came out identical — the item they have is
     /// the answer rather than a refusal: output is not an upload somebody could
     /// have chosen not to send twice.
+    /// Its room is not asked: it was paid for, and is kept. A free bake goes
+    /// through [`Library::keep_bake`] instead.
     pub async fn keep_generated(
         &self,
         user: UserId,
         brief_hash: &str,
         arrival: Arrival,
     ) -> Result<Item, LibraryError> {
+        self.keep(user, brief_hash, arrival, Room::Settled).await
+    }
+
+    /// [`Library::keep_generated`], asking for its room when `room` says to.
+    pub(super) async fn keep(
+        &self,
+        user: UserId,
+        brief_hash: &str,
+        arrival: Arrival,
+        room: Room,
+    ) -> Result<Item, LibraryError> {
         let arrival = Arrival {
             brief_hash: Some(brief_hash.to_owned()),
             ..arrival
         };
-        match self.admit(user, arrival).await {
+        match self.admit_with(user, arrival, room).await {
             Err(LibraryError::Duplicate { id, .. }) => self.get(user, id).await,
             kept => kept,
         }
