@@ -1094,7 +1094,9 @@ A transcript is kept, corrections and all, as `<the file's whole name>.words.jso
 beside it: `transcribe` called again reads it back, and only `"again": true`
 hears the recording afresh, replacing it. A recording over two hours is
 refused before it is decoded. The call can be cancelled
-(`notifications/cancelled`), which stops the decode and the wait, and it holds
+(`notifications/cancelled`): that kills the decode at once, but a recording
+already with Whisper is waited out, its words thrown away, since Whisper
+finishes it either way; and it holds
 the project only for its last write, so other edits go ahead while it listens.
 
 ## Pacing: the same clips, spread differently
