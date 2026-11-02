@@ -31,6 +31,17 @@ fn a_song_one_beat_past_ten_minutes_is_refused_and_one_at_them_is_not() {
 }
 
 #[test]
+fn every_slot_of_the_arrangement_counts() {
+    let twice = |beats: f32| {
+        let mut song = lasting(beats);
+        song.arrangement.push("verse".into());
+        song.validate()
+    };
+    assert_eq!(twice(300.0), Ok(()));
+    assert!(twice(300.5).is_err(), "601 s over two slots");
+}
+
+#[test]
 fn a_loop_fit_cannot_ask_for_more_than_ten_minutes() {
     let mut fine = song();
     fine.fit = Some(Fit::lasting(600.0, FitMode::Loop));
@@ -57,4 +68,13 @@ fn a_note_placed_far_past_its_pattern_counts_toward_the_length() {
         .expect("the fixture's pattern");
     verse.notes = played(vec![note("bass", "E2", 1.0e6, 0.5)]);
     assert!(song.validate().is_err(), "a note a million beats in");
+
+    // Ten minutes of pattern, and a note held a quarter beat past them.
+    let mut song = lasting(600.0);
+    let verse = song
+        .patterns
+        .get_mut("verse")
+        .expect("the fixture's pattern");
+    verse.notes = played(vec![note("bass", "E2", 599.75, 0.5)]);
+    assert!(song.validate().is_err(), "a note ringing past the cap");
 }
