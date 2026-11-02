@@ -80,6 +80,36 @@ pub async fn pending(
     .await
 }
 
+/// Cancel the previews still waiting for `project` at `settings` under any
+/// key but `key` (#1648): pictures of documents the project has moved past,
+/// as [`outrun`]'s are. One the worker claimed meanwhile is running, not
+/// waiting, and [`outrun`] finds it. The jobs as they are now.
+pub async fn retire_waiting(
+    tx: &mut Tx,
+    project: i64,
+    settings: &Settings,
+    key: &str,
+) -> Result<Vec<JobView>, sqlx::Error> {
+    sqlx::query_as(
+        "UPDATE jobs SET state = 'cancelled', finished_at = now(),
+                error = 'a newer preview was asked for before it started'
+         WHERE kind = $4 AND state = 'waiting'
+           AND payload ->> 'project' = $1::text AND payload ->> 'key' <> $2
+           AND payload -> 'settings' = $3
+         RETURNING id, kind, state, attempts, result, error,
+                extract(epoch FROM created_at)::bigint AS created_at,
+                extract(epoch FROM started_at)::bigint AS started_at,
+                extract(epoch FROM finished_at)::bigint AS finished_at,
+                extract(epoch FROM interrupted_at)::bigint AS interrupted_at",
+    )
+    .bind(project)
+    .bind(key)
+    .bind(sqlx::types::Json(settings))
+    .bind(kinds::PREVIEW.name)
+    .fetch_all(&mut **tx)
+    .await
+}
+
 /// The previews running for `project` at `settings` under any key but `key`:
 /// pictures of documents the project has moved past, which a new preview at
 /// `key` makes worthless (#660).

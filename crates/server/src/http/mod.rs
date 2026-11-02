@@ -75,7 +75,8 @@ pub struct AppState {
     /// How many times each member's return page has asked after a payment
     /// lately (#1654).
     pub payment_confirms: limits::Limits,
-    /// How many renders and previews each user has asked for lately (#1648).
+    /// How many renders and previews each user has queued lately from the
+    /// web app (#1648).
     pub render_asks: limits::Limits,
     /// How many crash reports each address has sent lately (#1428), an
     /// IPv6 one counted by its /64 (`ab::network`).

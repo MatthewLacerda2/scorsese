@@ -103,6 +103,17 @@ fn kept(arguments: &Value) -> Value {
     }
 }
 
+/// Whether `arguments`, read back from a row, are [`kept`]'s cut rather than
+/// what the call was given.
+pub(super) fn is_cut(arguments: &Value) -> bool {
+    arguments.as_object().is_some_and(|fields| {
+        fields.len() == 3
+            && fields.get("cut") == Some(&Value::Bool(true))
+            && fields.get("bytes").is_some_and(Value::is_u64)
+            && fields.get("kept").is_some_and(Value::is_string)
+    })
+}
+
 /// Record the start of a call; its row's id.
 pub(super) async fn begin(
     pool: &PgPool,
@@ -213,6 +224,8 @@ mod tests {
         let cut = kept(&quoted);
         assert!(cut.to_string().len() <= KEPT, "{}", cut.to_string().len());
         assert_eq!(cut["cut"], true);
+        assert!(super::is_cut(&cut));
+        assert!(!super::is_cut(&quoted));
         assert_eq!(cut["bytes"], quoted.to_string().len());
         let wide = json!({ "text": "é".repeat(KEPT) });
         assert!(kept(&wide).to_string().len() <= KEPT);

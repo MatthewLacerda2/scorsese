@@ -24,28 +24,14 @@ use crate::projects;
 use crate::renders::request::{self, AskError, Asked};
 use crate::renders::{Ask, PreviewAsk, RenderView, Settings, store};
 
-/// How many renders and previews one member may ask for a minute, both routes
-/// together (#1648): the editor asks for a preview a second after each edit
-/// and again every four seconds while one is on its way, well within it.
+/// How many renders and previews one member may have queued a minute, both
+/// routes and every project together (#1648). Asking about one kept or on its
+/// way is not counted, so the editor's poll never is.
 pub const ASKS_PER_MINUTE: u32 = 120;
 
 /// The seconds a member with a full queue is told to wait before asking
 /// again: about how long the shortest render takes to start.
 const CROWDED_RETRY: u64 = 10;
-
-/// Count one ask of `member`'s, or refuse it past [`ASKS_PER_MINUTE`].
-fn counted(state: &AppState, member: &Member) -> Result<(), ApiError> {
-    state.render_asks.take(member.user, 1).map_err(|wait| {
-        let retry_after = wait.as_secs().max(1);
-        ApiError::TooMany {
-            message: format!(
-                "too many renders and previews asked for this minute; try again in \
-                 {retry_after} seconds"
-            ),
-            retry_after,
-        }
-    })
-}
 
 /// `POST /api/projects/{id}/renders`: the render of the project as it is now,
 /// in the shape asked for — kept (`200`) or on its way (`202`).
@@ -58,7 +44,6 @@ pub async fn request(
     Path(id): Path<i64>,
     Json(mut ask): Json<Ask>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    counted(&state, &member)?;
     // First, before the project is read: a shape we do not write is the
     // cheapest thing to refuse, as it is for `scorsese render`.
     let mut settings = Settings::from_ask(&ask).map_err(ApiError::BadRequest)?;
@@ -90,7 +75,6 @@ pub async fn preview(
     Path(id): Path<i64>,
     Json(mut ask): Json<PreviewAsk>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    counted(&state, &member)?;
     if ask.resolution.is_none() {
         ask.resolution = frame_size(&state, &member, id).await?;
     }
@@ -109,8 +93,8 @@ async fn answer(
         &state.pool,
         &state.jobs,
         &state.renders,
-        member.user,
-        id,
+        Some(&state.render_asks),
+        (member.user, id),
         settings,
     )
     .await
@@ -119,6 +103,10 @@ async fn answer(
         AskError::Crowded => ApiError::TooMany {
             message: AskError::Crowded.to_string(),
             retry_after: CROWDED_RETRY,
+        },
+        AskError::TooMany(retry_after) => ApiError::TooMany {
+            message: AskError::TooMany(retry_after).to_string(),
+            retry_after,
         },
         AskError::Project(error) => error.into(),
         AskError::Database(error) => error.into(),
