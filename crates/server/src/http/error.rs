@@ -92,6 +92,10 @@ impl From<LibraryError> for ApiError {
             // What tus answers a file past the server's size, and a 4xx a
             // client does not retry.
             LibraryError::Full { .. } => Self::refused(StatusCode::PAYLOAD_TOO_LARGE, &error, none),
+            // Not the user's to fix, and gone once the operator frees disk.
+            LibraryError::DiskLow(_) => {
+                Self::refused(StatusCode::INSUFFICIENT_STORAGE, &error, none)
+            }
             LibraryError::NoThumbnail | LibraryError::NoPeaks => {
                 Self::refused(StatusCode::NOT_FOUND, &error, json!({ "pending": false }))
             }

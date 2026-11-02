@@ -45,18 +45,10 @@ pub async fn keep(
         let Ok(file) = path.resolve(root) else {
             continue;
         };
-        let written = file.symlink_metadata().ok().filter(|meta| meta.is_file());
-        let Some(written) = written.filter(|_| !known.contains(sha256.as_str())) else {
+        let written = file.symlink_metadata().is_ok_and(|meta| meta.is_file());
+        if !written || known.contains(sha256.as_str()) {
             continue;
-        };
-        // Free, but it takes room like an upload (`library::room`).
-        library
-            .make_room(user, written.len())
-            .await
-            .map_err(|error| match error {
-                LibraryError::Full { .. } => error.to_string(),
-                other => super::database(other),
-            })?;
+        }
         let name = file.file_name().map_or_else(
             || asset.id.to_string(),
             |name| name.to_string_lossy().into_owned(),
@@ -74,11 +66,15 @@ pub async fn keep(
             brief_hash: None,
             words: None,
         };
-        let item = match library.admit(user, arrival).await {
+        // Free, but it takes room like an upload (`library::room`).
+        let item = match library.admit_free(user, arrival).await {
             Ok(item) => item.id,
             // The same bytes already in the library are the file the
             // document needs, under whatever name the user gave them.
             Err(LibraryError::Duplicate { id, .. }) => id,
+            Err(error @ (LibraryError::Full { .. } | LibraryError::DiskLow(_))) => {
+                return Err(error.to_string());
+            }
             Err(LibraryError::Rejected(why) | LibraryError::Invalid(why)) => {
                 return Err(format!(
                     "`{}` could not be kept in your library: {why}",

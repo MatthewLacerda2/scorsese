@@ -38,7 +38,6 @@
 //! `scorsese render` prints after its file, a synth bake played out of date
 //! among them (`renders::said`, #1289).
 
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use scorsese_core::{Project, migrate};
@@ -48,7 +47,7 @@ use scorsese_render::{
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use super::{RenderCache, RenderView, Settings, evict, preview, store};
+use super::{RenderCache, RenderView, Settings, evict, preview, room, store};
 use crate::captures::dispatch::Pages;
 use crate::db::{self, Says, UserId};
 use crate::jobs::{Context, Handler, Job, Outcome, blocking};
@@ -135,6 +134,10 @@ async fn render(
         return Ok(done(&view));
     }
 
+    // Nothing is written while the disk is below its floor, and its pages
+    // capture no more than the room left (#1647).
+    let spare = room::spare(context, storage, job.user).await?;
+
     let work = Scratch::new(cache.work(job.id));
     // Made here, not by the layout: a project showing a page is laid out in
     // the capture spool, and the render is still written in this folder.
@@ -172,6 +175,7 @@ async fn render(
         work: work.0.join("project.scor"),
         pages,
         kept,
+        spare,
     };
     let notes = blocking(
         "the render crashed on the server; that is a bug",
@@ -196,6 +200,7 @@ async fn render(
         }
         std::fs::rename(&out, &target).map_err(|error| error.to_string())?;
         let path = relative.to_string_lossy();
+        let bytes = size;
         let size = i64::try_from(size).unwrap_or(i64::MAX);
         let mut tx = context.scoped().await.map_err(database)?;
         match store::insert(
@@ -222,6 +227,13 @@ async fn render(
                 } else {
                     Vec::new()
                 };
+                // Decided in the transaction that keeps it, so renders
+                // finishing at once cannot both take the last room (#1647).
+                if let Err(refused) = room::within_quota(&mut tx, storage, job.user, bytes).await {
+                    // `tx` rolls back as it drops: no row, and no file.
+                    let _ = std::fs::remove_file(&target);
+                    return Err(refused);
+                }
                 tx.commit().await.map_err(database)?;
                 for file in replaced {
                     let _ = std::fs::remove_file(file);
@@ -261,6 +273,8 @@ struct Places {
     work: PathBuf,
     pages: Pages,
     kept: ProjectFiles,
+    /// The bytes its captures may write ([`room::spare`]).
+    spare: u64,
 }
 
 /// Lay the project out, have its pages captured, and render it to `out`;
@@ -311,16 +325,19 @@ fn produce(
     } else {
         Vec::new()
     };
-    let (renderer, failed) = if requests.is_empty() {
-        (renderer, HashMap::new())
+    // A capture too large for the disk is never asked for (#1647).
+    let (requests, mut failed) = room::capturable(requests, laid.root(), places.spare);
+    let renderer = if requests.is_empty() {
+        renderer
     } else {
         let captured = places.pages.capture(&requests, &drawn.cancel)?;
+        failed.extend(captured.failed);
         match captured.chrome {
             Some(chrome) => {
                 evict::pages::touch(laid.root(), &requests, chrome.version());
-                (renderer.with_chrome(chrome), captured.failed)
+                renderer.with_chrome(chrome)
             }
-            None => (renderer, captured.failed),
+            None => renderer,
         }
     };
     let report = renderer

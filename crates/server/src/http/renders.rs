@@ -84,6 +84,7 @@ async fn answer(
         &state.pool,
         &state.jobs,
         &state.renders,
+        state.library.storage(),
         member.user,
         id,
         settings,
@@ -92,6 +93,7 @@ async fn answer(
     .map_err(|error| match error {
         AskError::Invalid(why) => ApiError::BadRequest(why),
         AskError::Project(error) => error.into(),
+        AskError::Storage(error) => error.into(),
         AskError::Database(error) => error.into(),
     })?;
     Ok(match asked {

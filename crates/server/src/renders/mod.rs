@@ -79,6 +79,7 @@ pub mod job;
 mod preview;
 mod refused;
 pub mod request;
+mod room;
 mod said;
 pub mod settings;
 pub mod store;

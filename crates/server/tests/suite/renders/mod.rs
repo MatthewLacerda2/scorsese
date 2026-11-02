@@ -13,6 +13,7 @@ mod choices;
 mod contained;
 mod evict;
 mod framed;
+mod full;
 mod job;
 mod loudness;
 mod outrun;

@@ -12,6 +12,14 @@
 //! files — two `remove_dir_all`s, with nothing to hunt for — and what makes a
 //! stray path that escapes them easy to see in review.
 //!
+//! **Nothing is written while a disk is nearly full**
+//! ([`Storage::with_floor`], #1647): a quota is per account, and accounts are
+//! made freely, so the quotas together can promise more than the disk holds.
+//! Every write into the library, the renders and the page captures asks
+//! [`Storage::on_disk`] first, which refuses while either root's disk has
+//! less than the floor free. A paid generation is never refused: it was paid
+//! for, and is kept.
+//!
 //! The directories are named by id, never by email: an id is never reused and
 //! never changes, and an email is personal data that has no business in a
 //! path, a log line or a backup's file listing.
@@ -28,8 +36,60 @@ use crate::renders::Quota;
 /// room for many projects' footage.
 pub const DEFAULT_QUOTA: Quota = Quota::bytes(50 * 1000 * 1000 * 1000);
 
+/// How much disk must stay free when [`crate::config::DISK_FLOOR`] does not
+/// say: 10 GB, room for the writes already under way to finish.
+pub const DEFAULT_DISK_FLOOR: Quota = Quota::bytes(10 * 1000 * 1000 * 1000);
+
 /// Each user's scratch folders, under their cache directory.
 const SCRATCH: &str = "scratch";
+
+/// Why nothing more is written now: the disk is nearly full
+/// ([`Storage::on_disk`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error(
+    "the server is nearly out of disk space, so it is taking no new files for now; \
+     try again later"
+)]
+pub struct DiskLow {
+    /// Bytes free on the fuller disk.
+    pub free: u64,
+    /// Bytes that must stay free.
+    pub floor: u64,
+}
+
+/// Bytes under `path`, links not followed; none when it is missing.
+pub fn bytes_under(path: &Path) -> u64 {
+    let Ok(meta) = std::fs::symlink_metadata(path) else {
+        return 0;
+    };
+    if !meta.is_dir() {
+        return meta.len();
+    }
+    std::fs::read_dir(path).map_or(0, |entries| {
+        entries
+            .flatten()
+            .map(|entry| bytes_under(&entry.path()))
+            .sum()
+    })
+}
+
+/// Bytes free on the disk holding `path`, or the nearest folder above it
+/// that exists, as `df` says.
+fn free_bytes(path: &Path) -> Option<u64> {
+    let there = path.ancestors().find(|folder| folder.exists())?;
+    let output = scorsese_render::tools::child("df")
+        .args(["--output=avail", "-B1"])
+        .arg(there)
+        .output()
+        .ok()
+        .filter(|output| output.status.success())?;
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .nth(1)?
+        .trim()
+        .parse()
+        .ok()
+}
 
 /// The directory everything `user` owns under `root` lives in.
 pub fn user_directory(root: &Path, user: UserId) -> PathBuf {
@@ -43,6 +103,7 @@ pub struct Storage {
     kept: PathBuf,
     cache: PathBuf,
     quota: Quota,
+    floor: Quota,
 }
 
 impl Storage {
@@ -54,15 +115,56 @@ impl Storage {
             kept: kept.into(),
             cache: cache.into(),
             quota: DEFAULT_QUOTA,
+            floor: Quota::bytes(0),
         }
     }
 
     /// The same roots, each user keeping at most `quota`: their library,
-    /// their kept renders and the uploads they have announced
-    /// (`library::room`).
+    /// their kept renders, their page captures and the uploads they have
+    /// announced (`library::room`).
     pub fn with_quota(mut self, quota: Quota) -> Self {
         self.quota = quota;
         self
+    }
+
+    /// The same roots, refusing every write while either disk has less than
+    /// `floor` free ([`Storage::on_disk`]). [`Storage::new`] has none.
+    pub fn with_floor(mut self, floor: Quota) -> Self {
+        self.floor = floor;
+        self
+    }
+
+    /// Where `user`'s page captures are, every project's: the folder
+    /// [`crate::captures::Spool::pages`] keeps each project's in.
+    pub fn page_cache(&self, user: UserId) -> PathBuf {
+        crate::captures::Spool::new(self.cache.join(crate::captures::SPOOL_DIR)).user_pages(user)
+    }
+
+    /// Refused while the disk of either root has less than the floor free.
+    /// Blocking: it asks `df` ([`Storage::headroom`]).
+    pub fn on_disk(&self) -> Result<(), DiskLow> {
+        self.headroom().map(drop)
+    }
+
+    /// How many bytes may still be written before the fuller root's disk
+    /// reaches the floor; refused once it has. Unbounded with no floor.
+    /// Blocking: it asks `df`. A disk whose free space cannot be read is
+    /// said in the log and let through — a missing `df` must not stop every
+    /// upload.
+    pub fn headroom(&self) -> Result<u64, DiskLow> {
+        let floor = self.floor.get();
+        if floor == 0 {
+            return Ok(u64::MAX);
+        }
+        let mut headroom = u64::MAX;
+        for root in [&self.kept, &self.cache] {
+            match free_bytes(root) {
+                Some(free) if free < floor => return Err(DiskLow { free, floor }),
+                Some(free) => headroom = headroom.min(free - floor),
+                None => tracing::error!("could not read the free space under {}", root.display()),
+            }
+        }
+        Ok(headroom)
     }
 
     /// How much each user may keep.

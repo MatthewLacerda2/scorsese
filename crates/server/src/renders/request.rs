@@ -12,7 +12,9 @@ use super::job::Payload;
 use super::{RenderCache, RenderView, Settings, key, store};
 use crate::db::{self, UserId};
 use crate::jobs::{JobView, Queue, kinds, store as jobs};
+use crate::library::{LibraryError, room};
 use crate::projects::{self, ProjectError};
+use crate::storage::Storage;
 
 /// Where the render asked for is.
 #[derive(Debug, Clone, PartialEq)]
@@ -32,6 +34,9 @@ pub enum AskError {
     /// The project is not there, or does not read.
     #[error(transparent)]
     Project(#[from] ProjectError),
+    /// The member has no room left, or the disk none to spare.
+    #[error(transparent)]
+    Storage(#[from] LibraryError),
     /// The database refused.
     #[error("database: {0}")]
     Database(#[from] sqlx::Error),
@@ -43,6 +48,7 @@ pub async fn ask(
     pool: &PgPool,
     queue: &Queue,
     cache: &RenderCache,
+    storage: &Storage,
     user: UserId,
     id: i64,
     settings: Settings,
@@ -77,6 +83,19 @@ pub async fn ask(
         tx.commit().await?;
         // Asked again while it runs — the preview's poll: say how far it is.
         return Ok(Asked::Queued(queue.progressed(job)));
+    }
+    // A member with no room left is refused before anything is queued; what
+    // the render takes is checked again as it is kept (#1647).
+    room::headroom(storage).await?;
+    let used = room::kept(&mut tx, storage, user, None).await?;
+    let quota = storage.quota().get();
+    if used >= quota {
+        return Err(LibraryError::Full {
+            used,
+            quota,
+            needed: 0,
+        }
+        .into());
     }
     let outrun = if settings.preview.is_some() {
         store::outrun(&mut tx, id, &settings, &key).await?

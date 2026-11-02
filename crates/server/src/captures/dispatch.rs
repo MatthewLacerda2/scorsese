@@ -217,7 +217,7 @@ pub(super) fn worker_alive(spool: &Spool) -> bool {
     clippy::disallowed_methods,
     reason = "SCORSESE_CHROME names the capture worker's browser, not a secret"
 )]
-pub(super) fn browser() -> Result<Chrome, String> {
+pub(crate) fn browser() -> Result<Chrome, String> {
     let named = std::env::var_os(CHROME_ENV).ok_or_else(|| {
         format!(
             "this server has no page renderer ({CHROME_ENV} is not set), so pages are not drawn"

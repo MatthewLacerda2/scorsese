@@ -204,7 +204,8 @@ provider keys use, and is documented in `.env.example`:
 | `SCORSESE_ELEVENLABS_CONCURRENCY` | How many ElevenLabs calls may be in flight at once, every kind of job together (*The job queue*): the plan's concurrent requests. Defaults to `3`, Starter's; Free allows `2`. A whole number above zero, or the server will not start. |
 | `SCORSESE_USER_TURNS` | How many assistant turns one account may have running at once, every project and conversation together (*Assistant turns*). Defaults to `2`: a person and a second tab. A whole number above zero, or the server will not start. |
 | `SCORSESE_USER_BATCH_STILLS` | How many half-price batched stills one account may have waiting on Google at once, of the 64 the server runs (*The job queue*); the rest of theirs wait in line. Defaults to `16`, a quarter of them. A whole number above zero, or the server will not start. |
-| `SCORSESE_USER_STORAGE` | How much one account may keep — its library, its kept renders and the uploads it has announced — as a size: `50GB`, `200GB` (*Library*). Defaults to `50GB`, two and a half of the largest upload. A size above zero, or the server will not start. |
+| `SCORSESE_USER_STORAGE` | How much one account may keep — its library, its kept renders, its page captures and the uploads it has announced — as a size: `50GB`, `200GB` (*Library*). Defaults to `50GB`, two and a half of the largest upload. A size above zero, or the server will not start. |
+| `SCORSESE_DISK_FLOOR_GB` | How many gigabytes the disks under `SCORSESE_STORAGE` and `SCORSESE_CACHE` must keep free: `10`. Below it, every upload, free tool's file, render and page capture is refused `507` "the server is nearly out of disk space" (*Library*); a paid generation is still kept. Defaults to `10`; `0` sets no floor. A whole number, or the server will not start. Not passed by `deploy/compose.yaml` yet, so the stack runs on the default. |
 | `SCORSESE_ELEVENLABS_VOICE_SLOTS` | How many designed voices the ElevenLabs account holds, every user's together (*Designing a voice*). Defaults to `10`, Starter's. A whole number above zero, or the server will not start. |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | The Google OAuth client people sign in with (*Accounts*). Optional, with the next one: without all three, Google sign-in is off, the server says so in its log, and everything else is served. The secret is never printed. |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Stripe's secret key and the webhook endpoint's signing secret, for users buying credits (*Buying credits*). Optional, with the next one: without all three, buying is off, the server says so in its log, and a purchase is answered `503` "not configured". Both are secrets and never printed. |
@@ -1661,16 +1662,27 @@ minutes), and one that sends nothing for 60 seconds is ended `408` with what
 arrived kept, which the web app retries through `HEAD` and resumes.
 
 **Each user keeps at most 50 GB** (`SCORSESE_USER_STORAGE`): their library,
-their kept renders and every upload they have announced, counted at its
-announced length from the moment it is announced. An announcement that would
-take them past it is refused before a byte is sent, and so is a chunk
-arriving once something else — a generation, a render — has filled the room
-meanwhile: `413`, saying how much they keep, of how much, and what the file
-needs. Decided under the user's lock, so two announcements at once cannot
-both take the last of it. The free tools that add files are held to it too —
-`stock_import` and `synth_bake` refuse in the same words — but a paid
-generation never is: it was paid for, and is kept. A render cannot be
-deleted; it frees its room by itself once unused for two days (*Renders*).
+their kept renders, their page captures and every upload they have
+announced, counted at its announced length from the moment it is announced.
+An announcement that would take them past it is refused before a byte is
+sent, and so is a chunk arriving once something else — a generation, a
+render — has filled the room meanwhile: `413`, saying how much they keep, of
+how much, and what the file needs. Decided under the user's lock, in the
+transaction that writes what it lets in, so two at once cannot both take the
+last of it. The free tools that add files are held to it too —
+`stock_import` and `synth_bake` refuse in the same words — and so is a
+render or a preview: refused when asked for once nothing is left, and not
+kept when it would take them past it. A paid generation never is: it was paid
+for, and is kept. A render or a page capture cannot be deleted; it frees its
+room by itself once unused for two days (*Renders*).
+
+**Nothing is written while the disk is nearly full**
+(`SCORSESE_DISK_FLOOR_GB`, 10 GB): accounts are free to make, so their quotas
+together can promise more than the disk holds. Below the floor on either
+data disk, every upload, free tool's file, render and page capture is refused
+`507`, "the server is nearly out of disk space, so it is taking no new files
+for now"; a paid generation is still kept. The free space is `df`'s; a disk
+whose free space cannot be read is said in the log and let through.
 
 **Thumbnails are a job** — the first handler the queue runs — drawn by
 `scorsese-render` (`frames::thumbnail`: a video's frame one second in, a
@@ -1971,7 +1983,14 @@ not captured among them. A failed capture is never a failed render, so the
 notes are the only place it is said. If the launcher is not running at all,
 the render waits 30 s for a sign of it and then draws the cards, saying so.
 
-**Disk.** About 1.7 GB per minute of 1080p page clip, so page captures live
+**Disk.** About 1.7 GB per minute of 1080p page clip. **One capture may take
+at most 20 GB**, expected at frames × raster, a byte per two pixels — about
+ten minutes of 1080p30 — and one past it is never asked for: its clip shows
+its slug card, and the notes say it is too long to capture at that size. They
+also count against their owner's storage (*Library*), so a render's captures
+together take no more than the room its owner has left, nor than the disk
+has above its floor; frames already in the page cache take nothing. Page
+captures live
 under the renders' rule (#849, `crates/server/src/renders/evict/pages.rs`):
 they **count against `SCORSESE_RENDER_QUOTA`** with the renders, one quota for
 everything rebuildable, and on pressure or the weekly sweep every capture **not

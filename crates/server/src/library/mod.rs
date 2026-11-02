@@ -227,24 +227,22 @@ pub enum LibraryError {
 
     /// Keeping this would take the user past how much they may keep
     /// ([`Storage::quota`](crate::storage::Storage::quota)): their library,
-    /// kept renders and the uploads they have announced.
-    #[error(
-        "your storage is full: you keep {} of the {} you may, counting your files, \
-         renders and unfinished uploads, and this file needs {}; delete files you no \
-         longer need to make room (a render frees its room by itself once unused for two \
-         days)",
-        format_bytes(*.used),
-        format_bytes(*.quota),
-        format_bytes(*.needed)
-    )]
+    /// kept renders, page captures and the uploads they have announced.
+    #[error("{}", full(*.used, *.quota, *.needed))]
     Full {
         /// What they keep now, in bytes.
         used: u64,
         /// What they may keep.
         quota: u64,
-        /// What this file would add.
+        /// What this file would add; `0` when what is asked for has no size
+        /// yet — a render, refused because nothing is left.
         needed: u64,
     },
+
+    /// The disk is nearly full, so nothing more is written now
+    /// ([`Storage::on_disk`](crate::storage::Storage::on_disk)).
+    #[error(transparent)]
+    DiskLow(#[from] crate::storage::DiskLow),
 
     /// The disk refused. The detail is for the log.
     #[error("storage: {0}")]
@@ -257,6 +255,22 @@ pub enum LibraryError {
     /// The database refused or could not be reached.
     #[error("database: {0}")]
     Database(#[from] sqlx::Error),
+}
+
+/// Why the quota refuses: what is kept, of how much, and what is needed.
+fn full(used: u64, quota: u64, needed: u64) -> String {
+    let needs = if needed == 0 {
+        String::new()
+    } else {
+        format!(", and this file needs {}", format_bytes(needed))
+    };
+    format!(
+        "your storage is full: you keep {} of the {} you may, counting your files, renders, \
+         page captures and unfinished uploads{needs}; delete files you no longer need to make \
+         room (a render or a page capture frees its room by itself once unused for two days)",
+        format_bytes(used),
+        format_bytes(quota),
+    )
 }
 
 /// Why a file stays: the projects that use it, and what letting it go takes.

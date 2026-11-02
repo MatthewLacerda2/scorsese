@@ -175,7 +175,14 @@ impl Library {
         .bind(self.uploading.ids())
         .fetch_all(&mut *tx)
         .await?;
-        self.room(&mut tx, announced.length, None).await?;
+        super::room::room_for(
+            &mut tx,
+            &self.storage,
+            user,
+            announced.length.unsigned_abs(),
+            None,
+        )
+        .await?;
         let id: i64 = sqlx::query_scalar(
             "INSERT INTO uploads (user_id, name, kind, extension, sha256, length)
              VALUES (member_id(), $1, $2, $3, $4, $5) RETURNING id",
@@ -233,7 +240,14 @@ impl Library {
         // Room may have been taken since it was announced: a generation, a
         // render. Refused before a byte of the chunk is written.
         let mut tx = db::scoped(&self.pool, user).await?;
-        self.room(&mut tx, length, Some(id)).await?;
+        super::room::room_for(
+            &mut tx,
+            &self.storage,
+            user,
+            length.unsigned_abs(),
+            Some(id),
+        )
+        .await?;
         tx.commit().await?;
         let mut file = tokio::fs::OpenOptions::new()
             .append(true)
