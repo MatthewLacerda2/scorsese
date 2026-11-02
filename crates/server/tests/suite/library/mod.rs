@@ -22,6 +22,7 @@ mod peaks;
 mod playlists;
 mod proxies;
 mod quota;
+mod room;
 mod upload;
 
 use std::net::SocketAddr;

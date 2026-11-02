@@ -39,6 +39,17 @@ impl Library {
         Ok(tx.commit().await?)
     }
 
+    /// Admit a free tool's file.
+    pub async fn admit_free(
+        &self,
+        user: UserId,
+        arrival: super::Arrival,
+    ) -> Result<super::Item, LibraryError> {
+        let size = std::fs::metadata(&arrival.file)?.len();
+        self.make_room(user, size).await?;
+        self.admit(user, arrival).await
+    }
+
     /// Refused as [`LibraryError::Full`] unless the user `tx` is scoped to has
     /// room for `length` more bytes beside what they keep: their library,
     /// their kept renders and their announced uploads, but for upload

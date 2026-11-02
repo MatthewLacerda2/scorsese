@@ -43,6 +43,7 @@ pub struct Storage {
     kept: PathBuf,
     cache: PathBuf,
     quota: Quota,
+    floor: Quota,
 }
 
 impl Storage {
@@ -54,6 +55,7 @@ impl Storage {
             kept: kept.into(),
             cache: cache.into(),
             quota: DEFAULT_QUOTA,
+            floor: Quota::bytes(0),
         }
     }
 
@@ -63,6 +65,21 @@ impl Storage {
     pub fn with_quota(mut self, quota: Quota) -> Self {
         self.quota = quota;
         self
+    }
+
+    /// The same roots, refusing every write while either disk has less than
+    /// `floor` free.
+    pub fn with_floor(mut self, floor: Quota) -> Self {
+        self.floor = floor;
+        self
+    }
+
+    /// Where `user`'s page captures are, every project's.
+    pub fn page_cache(&self, user: UserId) -> PathBuf {
+        self.cache
+            .join(crate::captures::SPOOL_DIR)
+            .join("pages")
+            .join(user.get().to_string())
     }
 
     /// How much each user may keep.
