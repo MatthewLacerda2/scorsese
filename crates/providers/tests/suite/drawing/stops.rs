@@ -3,7 +3,7 @@
 
 use scorsese_core::{Asset, AssetId, AssetKind};
 use scorsese_providers::credentials::Budget;
-use scorsese_providers::image::{Outcome, generate};
+use scorsese_providers::image::{ImageError, Outcome, Stopped, generate};
 
 use crate::drawing::mock::Mock;
 use crate::drawing::sketched;
@@ -71,4 +71,45 @@ fn a_run_stopped_at_the_first_still_carries_nothing() {
         stopped.says()
     );
     std::fs::remove_dir_all(&dir).ok();
+}
+
+/// Only what was drawn or ordered is counted as paid for and kept; a billed
+/// refusal is named apart, and neither a cached still nor an unbilled
+/// refusal is either (#1695).
+#[test]
+fn a_stopped_run_names_only_its_billed_refusals_apart() {
+    let failed = |cents| Outcome::Failed {
+        message: String::from("no"),
+        estimated_cost_cents: cents,
+    };
+    let path = scorsese_core::ProjectPath::new("generated/still-abc.jpg");
+    let stopped = Stopped {
+        run: vec![
+            (
+                AssetId::new("cached"),
+                Outcome::Cached { path: path.clone() },
+            ),
+            (
+                AssetId::new("drawn"),
+                Outcome::Generated {
+                    path,
+                    bytes: 3,
+                    estimated_cost_cents: 6,
+                },
+            ),
+            (AssetId::new("free"), failed(0)),
+            (AssetId::new("billed"), failed(6)),
+        ],
+        unsent: Vec::new(),
+        error: ImageError::NoSuchAsset {
+            id: AssetId::new("gone"),
+        },
+    };
+
+    let says = stopped.says();
+    assert!(says.contains("1 still was paid for"), "{says}");
+    assert!(
+        says.contains("1 still was refused and billed anyway (billed);"),
+        "{says}"
+    );
 }
