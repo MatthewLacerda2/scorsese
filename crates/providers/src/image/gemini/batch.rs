@@ -19,9 +19,9 @@ use crate::api::gemini::batch::request::{
     Batch as Job, Content, Create, GenerationConfig, ImageConfig, InlineData, InputConfig, Keyed,
     Metadata, Part, Request, Requests, ThinkingConfig,
 };
-use crate::api::gemini::batch::response::{Operation, State};
+use crate::api::gemini::batch::response::{Answer, Operation, State};
 
-use super::super::{Batch, Brief};
+use super::super::{Batch, Brief, ProviderError};
 use super::size_of;
 
 /// The body that orders `briefs` as one job.
@@ -75,15 +75,23 @@ pub(super) fn read(job: &Operation) -> Batch {
         State::Succeeded => Batch::Finished(
             job.answers()
                 .iter()
-                .map(|answer| {
-                    let picture = answer.picture().and_then(|data| {
-                        STANDARD
-                            .decode(data)
-                            .map_err(|_| String::from("the picture was not valid base64"))
-                    });
-                    (answer.key().to_owned(), picture)
-                })
+                .map(|answer| (answer.key().to_owned(), picture(answer)))
                 .collect(),
         ),
     }
+}
+
+/// One answer's picture, decoded — or why there is none: the request's own
+/// error, which Google does not bill, or the model's words when it answered
+/// without a picture, which it does (#1646).
+fn picture(answer: &Answer) -> Result<Vec<u8>, ProviderError> {
+    if let Some(why) = answer.failed() {
+        return Err(ProviderError::new("Gemini", why));
+    }
+    let data = answer
+        .picture()
+        .map_err(|said| ProviderError::billed("Gemini", said))?;
+    STANDARD
+        .decode(data)
+        .map_err(|_| ProviderError::billed("Gemini", "the picture was not valid base64"))
 }

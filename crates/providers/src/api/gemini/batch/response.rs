@@ -173,6 +173,20 @@ impl Operation {
 }
 
 impl Answer {
+    /// Why the request was not answered at all: its own error, in Google's
+    /// words, or a reply with no answer in it. Nothing was drawn, so nothing
+    /// is billed — unlike an answer in words with no picture (#1646).
+    pub fn failed(&self) -> Option<&str> {
+        if let Some(error) = &self.error {
+            return Some(error.message.as_str());
+        }
+        let answered = self
+            .response
+            .as_ref()
+            .is_some_and(|reply| !reply.candidates.is_empty());
+        (!answered).then_some("the batch gave no answer for it")
+    }
+
     /// The picture it drew, base64 — the last one outside the thinking — or
     /// why there is none.
     pub fn picture(&self) -> Result<&str, String> {
@@ -244,6 +258,30 @@ mod tests {
         assert_eq!(answers[0].key(), "a");
         assert_eq!(answers[0].picture(), Ok("UE5H"));
         assert_eq!(answers[1].picture(), Err(String::from("refused")));
+        assert_eq!(
+            (answers[0].failed(), answers[1].failed()),
+            (None, Some("refused"))
+        );
+    }
+
+    /// An answer in words was answered, and is billed; one with no reply, or
+    /// a reply with no answer in it, was not (#1646).
+    #[test]
+    fn only_a_reply_with_an_answer_in_it_was_answered() {
+        let job = read(
+            r#"{"metadata": {"state": "BATCH_STATE_SUCCEEDED"},
+                "response": {"inlinedResponses": [
+                  {"metadata": {"key": "a"},
+                   "response": {"candidates": [{"content": {"parts": [{"text": "no"}]}}]}},
+                  {"metadata": {"key": "b"}},
+                  {"metadata": {"key": "c"}, "response": {"candidates": []}}]}}"#,
+        );
+        let failed: Vec<_> = job
+            .answers()
+            .iter()
+            .map(|answer| answer.failed().is_some())
+            .collect();
+        assert_eq!(failed, [false, true, true]);
     }
 
     #[test]

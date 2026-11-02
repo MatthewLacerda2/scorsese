@@ -53,8 +53,9 @@ pub enum Progress {
 /// Deliberately thin: the state machine above distinguishes *the provider
 /// refused this brief* from *the network is down* by what it does next, not by
 /// matching on a taxonomy this trait would have to keep in step with every
-/// vendor. The one distinction carried is [`lost`](Self::lost), because it
-/// decides whether asking again can ever help.
+/// vendor. Two distinctions are carried: [`lost`](Self::lost), because it
+/// decides whether asking again can ever help, and [`billed`](Self::billed),
+/// because it decides whether the call is paid for (#1646).
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("{provider}: {message}")]
 pub struct ProviderError {
@@ -67,6 +68,12 @@ pub struct ProviderError {
     /// one shot's outcome rather than stopping on it, because a ticket nobody
     /// can poll would otherwise stop every run in the project for ever (#1106).
     pub lost: bool,
+    /// The vendor completed the call, and bills it, but what came back is no
+    /// output scorsese can keep: a model that answered in words instead of a
+    /// picture, or a reply whose payload does not decode. Such a call is
+    /// charged as quoted, never released (#1646); `message` is what the
+    /// vendor said instead.
+    pub billed: bool,
 }
 
 impl ProviderError {
@@ -76,6 +83,7 @@ impl ProviderError {
             provider: provider.into(),
             message: message.to_string(),
             lost: false,
+            billed: false,
         }
     }
 
@@ -84,6 +92,15 @@ impl ProviderError {
     /// sentence rather than the vendor's page of JSON.
     pub fn http(provider: impl Into<String>, error: &HttpError) -> Self {
         Self::new(provider, error.explained(None))
+    }
+
+    /// A call `provider` completed and bills, which came back with no output,
+    /// saying `message` instead.
+    pub fn billed(provider: impl Into<String>, message: impl std::fmt::Display) -> Self {
+        Self {
+            billed: true,
+            ..Self::new(provider, message)
+        }
     }
 
     /// A ticket `provider` will never answer for, saying `message`.

@@ -49,7 +49,7 @@ export const pricing: Messages["pricing"] = {
       },
       {
         q: "E se uma geração falhar?",
-        a: "Geração que falha não é cobrada, e os créditos voltam para o seu saldo.",
+        a: "Geração que falha não é cobrada, e os créditos voltam para o seu saldo. Se o fornecedor concluiu o pedido mas não fez nada (por exemplo, o modelo respondeu em palavras em vez de uma imagem), ele nos cobra pela chamada, então ela é cobrada como orçado.",
       },
       {
         q: "Os créditos expiram?",

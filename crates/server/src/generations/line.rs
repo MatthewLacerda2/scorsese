@@ -52,7 +52,7 @@ async fn line(work: &Work, vendors: &dyn Vendors) -> Outcome {
             work.keep_timed(paid, spoken.audio, Kind::Audio, spoken.words)
                 .await
         }
-        Ok(Err(error)) => work.refused(paid, error.message).await,
+        Ok(Err(error)) => work.answered(paid, error, "a line").await,
         Err(why) => work.refused(paid, why).await,
     }
 }

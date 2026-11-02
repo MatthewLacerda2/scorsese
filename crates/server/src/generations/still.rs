@@ -48,7 +48,7 @@ async fn still(work: &Work, vendors: &dyn Vendors) -> Outcome {
     }
     match blocking("drawing crashed", move || provider.draw(&brief)).await {
         Ok(Ok(bytes)) => work.keep(paid, bytes, Kind::Image).await,
-        Ok(Err(error)) => work.refused(paid, error.message).await,
+        Ok(Err(error)) => work.answered(paid, error, "a picture").await,
         Err(why) => work.refused(paid, why).await,
     }
 }

@@ -31,6 +31,7 @@ mod stopping;
 mod studio;
 mod transcribing;
 mod transport;
+mod unmade;
 mod vendors;
 mod voicing;
 mod waiting;

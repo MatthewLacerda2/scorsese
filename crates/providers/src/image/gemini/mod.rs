@@ -12,7 +12,9 @@ use base64::engine::general_purpose::STANDARD;
 use scorsese_core::ImageResolution;
 
 use crate::api::gemini::request::{Create, GenerationConfig, Input, ResponseFormat};
+use crate::api::gemini::response::Interaction;
 use crate::api::gemini::{Gemini, MODEL};
+use crate::api::http::HttpError;
 use crate::credentials::Secret;
 
 use super::{Batch, Brief, ImageProvider, ProviderError};
@@ -38,27 +40,13 @@ impl ImageProvider for GeminiProvider {
     }
 
     fn draw(&self, brief: &Brief) -> Result<Vec<u8>, ProviderError> {
-        let reply = self
-            .gemini
-            .create(&create(brief))
-            .map_err(|error| ProviderError::http("Gemini", &error))?;
+        let reply = self.gemini.create(&create(brief)).map_err(unbilled)?;
         let Some(encoded) = reply.image() else {
-            // Answered, and drew nothing: almost always a refusal, and the
-            // words are why.
-            let said = reply.said();
-            let message = if said.is_empty() {
-                format!(
-                    "the model answered with no picture (status {})",
-                    reply.status.as_deref().unwrap_or("unknown")
-                )
-            } else {
-                said
-            };
-            return Err(ProviderError::new("Gemini", message));
+            return Err(undrawn(&reply));
         };
         STANDARD
             .decode(encoded)
-            .map_err(|_| ProviderError::new("Gemini", "the picture was not valid base64"))
+            .map_err(|_| ProviderError::billed("Gemini", "the picture was not valid base64"))
     }
 
     fn order(&self, briefs: &[&Brief]) -> Result<String, ProviderError> {
@@ -84,6 +72,33 @@ impl ImageProvider for GeminiProvider {
             .batch_status(operation)
             .map_err(|error| ProviderError::http("Gemini", &error))?;
         Ok(batch::read(&job))
+    }
+}
+
+/// A call that brought back no reply to read: unbilled — except a 2xx whose
+/// body does not parse, which Google answered and bills (#1646).
+fn unbilled(error: HttpError) -> ProviderError {
+    match error {
+        HttpError::Unreadable { .. } => ProviderError::billed("Gemini", error.explained(None)),
+        error => ProviderError::http("Gemini", &error),
+    }
+}
+
+/// An interaction that drew nothing: almost always a refusal, and the words
+/// are why. Google bills one it completed (#1646); one it reports in any
+/// other state, it did not finish.
+fn undrawn(reply: &Interaction) -> ProviderError {
+    let said = reply.said();
+    let status = reply.status.as_deref().unwrap_or("unknown");
+    let message = if said.is_empty() {
+        format!("the model answered with no picture (status {status})")
+    } else {
+        said
+    };
+    if status == "completed" {
+        ProviderError::billed("Gemini", message)
+    } else {
+        ProviderError::new("Gemini", message)
     }
 }
 
@@ -130,7 +145,7 @@ pub(crate) fn create(brief: &Brief) -> Create {
 mod tests {
     use scorsese_core::{AssetId, ImageRequest};
 
-    use super::{Brief, create};
+    use super::{Brief, create, unbilled, undrawn};
     use crate::api::http::{AT_ITS_LIMIT, HttpError};
     use crate::image::ProviderError;
     use crate::video::Still;
@@ -146,6 +161,32 @@ mod tests {
         };
         let error = ProviderError::http("Gemini", &refused);
         assert_eq!(error.to_string(), format!("Gemini: {AT_ITS_LIMIT}"));
+    }
+
+    /// A completed interaction that drew nothing is billed; one in any other
+    /// state, or a call that never answered, is not — but a 2xx that will not
+    /// parse was answered (#1646).
+    #[test]
+    fn only_an_answered_call_that_drew_nothing_is_billed() {
+        let reply = |json: &str| serde_json::from_str(json).expect("an interaction");
+        let words = r#"{"status": "completed", "steps": [{"type": "model_output",
+            "content": [{"type": "text", "text": "I can't draw that."}]}]}"#;
+        let completed = undrawn(&reply(words));
+        assert!(completed.billed && completed.message == "I can't draw that.");
+        assert!(!undrawn(&reply(r#"{"status": "failed", "steps": []}"#)).billed);
+        assert!(!undrawn(&reply("{}")).billed);
+        let url = String::from("https://generativelanguage.googleapis.com/v1beta/interactions");
+        let unreadable = HttpError::Unreadable {
+            url: url.clone(),
+            message: String::from("expected a value"),
+        };
+        assert!(unbilled(unreadable).billed);
+        let unreachable = HttpError::Refused {
+            url,
+            status: 503,
+            body: String::new(),
+        };
+        assert!(!unbilled(unreachable).billed);
     }
 
     /// Left out, Google matches the first reference picture's shape or draws a

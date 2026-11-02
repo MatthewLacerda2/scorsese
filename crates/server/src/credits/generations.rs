@@ -326,16 +326,25 @@ type Reserved = (
 pub enum Answer {
     /// It worked, and produced this library item (`Library::keep_generated`).
     Worked(Option<i64>),
-    /// It failed, and this is why — so it is free.
+    /// The provider failed, and this is why — so it is free.
     Failed(String),
+    /// The vendor completed the call, and bills it, but made nothing: this is
+    /// what it said instead. Charged as quoted, since the member accepted the
+    /// quote and the vendor bills the call (#1646).
+    Unmade(String),
 }
 
-/// Settle a generation: charged if it worked, released if the provider failed.
+/// Settle a generation: charged if it worked or the vendor billed a call that
+/// made nothing, released if the provider failed.
 pub async fn finish(tx: &mut Tx, paid: Paid, answer: &Answer) -> Result<(), CreditError> {
     let (state, item, error) = match answer {
         Answer::Worked(item) => {
             ledger::charge(tx, paid.reservation, paid.reservation.micros).await?;
             ("generated", *item, None)
+        }
+        Answer::Unmade(why) => {
+            ledger::charge(tx, paid.reservation, paid.reservation.micros).await?;
+            ("failed", None, Some(why.as_str()))
         }
         Answer::Failed(why) => {
             ledger::release(tx, paid.reservation).await?;

@@ -52,7 +52,7 @@ export const pricing: Messages["pricing"] = {
       },
       {
         q: "¿Y si una generación falla?",
-        a: "Una generación que falla no se cobra, y los créditos vuelven a tu saldo.",
+        a: "Una generación que falla no se cobra, y los créditos vuelven a tu saldo. Si el proveedor completó el pedido pero no hizo nada (por ejemplo, el modelo respondió con palabras en vez de una imagen), nos cobra la llamada, así que se cobra según lo cotizado.",
       },
       {
         q: "¿Los créditos vencen?",

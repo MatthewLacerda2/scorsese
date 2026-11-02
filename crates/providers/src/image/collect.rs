@@ -18,7 +18,7 @@ use scorsese_core::{
 };
 
 use super::batch::half;
-use super::{Batch, Brief, ImageError, ImageProvider, Outcome};
+use super::{Batch, Brief, ImageError, ImageProvider, Outcome, ProviderError};
 use crate::generated::{place, record, write};
 
 /// Asks after every batch a still waits in, and does what each answer calls
@@ -62,7 +62,10 @@ pub fn collect(
 }
 
 /// Writes every picture the job drew into `generated/`, under its key.
-fn keep(root: &Path, answers: &[(String, Result<Vec<u8>, String>)]) -> Result<(), ImageError> {
+fn keep(
+    root: &Path,
+    answers: &[(String, Result<Vec<u8>, ProviderError>)],
+) -> Result<(), ImageError> {
     for (key, picture) in answers {
         let (Some(path), Ok(bytes)) = (path_of(key), picture) else {
             continue;
@@ -80,7 +83,7 @@ fn land(
     project: &mut Project,
     root: &Path,
     id: &AssetId,
-    answers: &[(String, Result<Vec<u8>, String>)],
+    answers: &[(String, Result<Vec<u8>, ProviderError>)],
 ) -> Result<Outcome, ImageError> {
     let brief = project
         .asset(id)
@@ -105,7 +108,7 @@ fn land(
     }
     let key = brief.key();
     let message = match answers.iter().find(|(sent, _)| *sent == key) {
-        Some((_, Err(why))) => why.clone(),
+        Some((_, Err(why))) => why.message.clone(),
         Some((_, Ok(_))) => String::from("its picture could not be kept"),
         None => String::from(
             "its brief changed while it waited; the picture drawn from the old one is kept in \

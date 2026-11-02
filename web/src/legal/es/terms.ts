@@ -8,14 +8,14 @@ import { SELLER } from "@/legal/seller";
 export const TERMS_ES: LegalDocument = {
   title: "Términos de uso",
   updatedLabel: "Última actualización",
-  updated: "2026-10-25",
+  updated: "2026-11-02",
   summary: {
     heading: "En resumen",
     points: [
       "Sin mensualidad: compras créditos, de R$ 20 a R$ 5.000, y no vencen.",
       "Toda cuenta tiene US$ 4 gratis al día, hasta US$ 12 al mes, y las compras desde R$ 40 reciben un bono.",
       "Antes de cada generación de pago ves el precio y confirmas.",
-      "Una generación que falla no se cobra.",
+      "Una generación que falla no se cobra, salvo que el proveedor haya respondido y nos la haya cobrado sin hacer nada.",
       "Tienes 7 días para desistir de una compra y recibir de vuelta lo que no gastaste.",
       "Lo que subes y haces es tuyo, y el uso que le des es responsabilidad tuya.",
     ],
@@ -60,7 +60,7 @@ export const TERMS_ES: LegalDocument = {
     {
       heading: "Generaciones que fallan y resultados que no te gustan",
       blocks: [
-        "Si una generación falla, por error nuestro o del proveedor, no se cobra y los créditos vuelven a tu saldo.",
+        "Si una generación falla, por error nuestro o del proveedor, no se cobra y los créditos vuelven a tu saldo. Si el proveedor completó el pedido pero no hizo nada (por ejemplo, el modelo respondió con palabras en vez de dibujar una imagen), nos cobra la llamada, así que se cobra según lo cotizado, y el trabajo te dice lo que respondió el modelo.",
         "Una generación que se hizo pero no quedó a tu gusto se cobra con normalidad, porque el proveedor nos la cobra igual. Puedes revisar cada cobro en tu historial de gastos.",
       ],
     },
