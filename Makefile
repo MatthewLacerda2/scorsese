@@ -720,8 +720,9 @@ pushed: ## After every push: is this branch's last commit its head on origin?
 
 # The description checks `make mergeable` and the queue apply before reading
 # any run (closing keywords, `Re-blessed`, the `Independent review` level),
-# asked over REST from the same function they call, so it works in a cloud
-# container and cannot drift from them (#1701). No push and no run: ask it
+# asked over REST through the same function they call, so it works in a cloud
+# container and judges as they do (#1701); REST alone cannot see an issue
+# linked only in the sidebar. No push and no run: ask it
 # after every description edit, and last before readying.
 .PHONY: described
 described: ## Would the queue take this PR's description and comments? make described PR=1702

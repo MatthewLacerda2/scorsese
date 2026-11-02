@@ -93,6 +93,20 @@ class FromAPullRequest(unittest.TestCase):
         body = "Closes #7\nNo regression test on base: only real speakers show the click.\n"
         self.assertEqual(self.local(repo(self, MISSES), body, ("bug",)), 0)
 
+    def test_a_checkout_that_is_not_the_pull_requests_head_is_refused(self) -> None:
+        answers = {"repos/o/r/pulls/9": {"body": "Closes #7", "head": {"sha": "0" * 40}}}
+        with mock.patch.object(regression_local, "repository", return_value="o/r"), \
+                mock.patch.object(regression, "on_base") as ran:
+            code = Local.local(self, repo(self, CATCHES), "9", gh=lambda _api, path: answers[path])
+        self.assertEqual(code, 2)
+        ran.assert_not_called()
+
+    def test_github_out_of_reach_is_cannot_ask_not_a_refusal(self) -> None:
+        def down(_api, _path):
+            raise regression_local.Unreachable("network: GitHub unreachable")
+        with mock.patch.object(regression_local, "repository", return_value="o/r"):
+            self.assertEqual(Local.local(self, repo(self, CATCHES), "9", gh=down), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -16,6 +16,7 @@ Pure but for [`local`].
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Callable
@@ -25,6 +26,34 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import closing  # noqa: E402
 import regression  # noqa: E402
 from described import github, repository  # noqa: E402
+
+Unreachable = github()[1]
+
+def asked(number: str, gh: Callable | None, head: Path, base: str):
+    """Pull request `number`, the `bug` issues it closes, and its base: `BASE`
+    or the merge-base with `origin/<base>`. `None` for the pull request when
+    this checkout's `HEAD` is not its head, which would judge other code."""
+    if gh is None:
+        gh, _, _ = github()
+    repo = repository()
+    pull = gh("api", f"repos/{repo}/pulls/{number}")
+    sha = (pull.get("head") or {}).get("sha")
+    here = regression.git("rev-parse", "HEAD", cwd=head).strip()
+    if sha and sha != here:
+        print(f"regression: #{number}'s head is {sha[:12]}, this checkout is at {here[:12]}:"
+              " check out its branch and push what is committed first.", file=sys.stderr)
+        return None, [], base
+    fixed = regression.bugs(closing.closed_by(gh, repo, {"body": pull.get("body") or ""}))
+    if not base:
+        ref = (pull.get("base") or {}).get("ref", "main")
+        regression.git("fetch", "--quiet", "origin", ref, cwd=head)
+        base = regression.git("merge-base", f"origin/{ref}", "HEAD", cwd=head).strip()
+        tip = regression.git("rev-parse", f"origin/{ref}", cwd=head).strip()
+        if base != tip:
+            print(f"note: the branch is behind origin/{ref}; CI judges its tip, so"
+                  " rebase first for CI's answer.")
+    return pull, fixed, base
+
 
 USAGE = "usage: regression_local.py [PULL_REQUEST_NUMBER], with BASE=<commit> or a number"
 
@@ -53,15 +82,14 @@ def local(argv: list[str], gh: Callable | None = None) -> int:
     fixed: list[int] = []
     body = ""
     if argv:
-        gh = gh or github()[0]
-        repo = os.environ.get("REPO") or repository()
-        pull = gh("api", f"repos/{repo}/pulls/{argv[0]}")
+        try:
+            pull, fixed, base = asked(argv[0], gh, head, base)
+        except (Unreachable, subprocess.CalledProcessError) as failed:
+            print(f"regression: could not ask: {failed}. Nothing was decided.", file=sys.stderr)
+            return 2
+        if pull is None:
+            return 2
         body = pull.get("body") or ""
-        fixed = regression.bugs(closing.closed_by(gh, repo, {"body": body}))
-        if not base:
-            ref = (pull.get("base") or {}).get("ref", "main")
-            regression.git("fetch", "--quiet", "origin", ref, cwd=head)
-            base = regression.git("merge-base", f"origin/{ref}", "HEAD", cwd=head).strip()
     found = regression.targets(regression.changed(head, base), lambda p: (head / p).exists())
     if argv:
         refused = regression.owed(fixed, body, found)

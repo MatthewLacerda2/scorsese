@@ -50,7 +50,7 @@ one is `changes` and `CI ok` passing with every other job skipped, which
 
 **The description's checks are `described.py`'s** (#1701): asked before any
 run, and the same function `make described` asks before a pull request is
-readied, so the two cannot drift.
+readied, so the two judge alike (REST alone misses a sidebar-only link).
 
 **A passing run is not the last word: the description is** (#1229). A head
 branch `N-…` whose description does not close #N is handed back, and a
