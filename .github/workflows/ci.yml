@@ -650,7 +650,7 @@ jobs:
       # `.claude/hooks/session-start.sh`): `terraform fmt`'s output has changed
       # between releases, so a floating one could turn `infra` red here and
       # green there (#1370). `test_tool_pins.py` holds the two together.
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: 1.16.6
           terraform_wrapper: false
