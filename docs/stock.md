@@ -46,7 +46,8 @@ generated only where it must be, often for the price of its narration.
    order. **Look at the sheet**: tags alone pick the wrong shot. For a video,
    `look: <id>` shows five frames across the whole shot before anything is
    imported.
-2. **`stock_import`** (`scorsese stock import`) — one id or several, and the
+2. **`stock_import`** (`scorsese stock import`) — one id or several (at most 20
+   to the tool), and the
    render `resolution` (default the project's own `aspect` at delivery size,
    1920x1080 for 16:9 and 1080x1920 for 9:16). The smallest file that fills that
    frame without being enlarged is downloaded, by its measured size — Pixabay's

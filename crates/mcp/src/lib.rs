@@ -145,6 +145,6 @@ pub use renderer::fetch_on_first_use;
 pub use session::serve;
 pub use table::{BEGIN, END, regenerated, tool_table};
 pub use tools::{
-    Ahead, Context, Costs, PagesAhead, Part, Reply, Stock, Tool, merged_stretches, registry,
-    still_with_pages_ahead, stocked, stocked_from,
+    Ahead, Context, Costs, Libraries, PagesAhead, Part, Reply, Stock, Tool, merged_stretches,
+    registry, still_with_pages_ahead, stocked, stocked_by, stocked_from,
 };

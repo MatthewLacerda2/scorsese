@@ -87,12 +87,12 @@ pub(super) async fn run(
         // `&dyn` cannot cross into the blocking pool; the registry hands out
         // a fresh one by name.
         let (name, cancel) = (tool.name(), caller.cancel.clone());
-        let stock = toolbox.stock.clone();
+        let stock = toolbox.libraries(caller.user);
         let (opened_with, laid) = (stored.document.clone(), kept.clone());
         let pages = pages.clone().map(|pages| pages as Arc<dyn PagesAhead>);
         let (outcome, after, gathered) =
             blocking("the tool crashed on the server; that is a bug", move || {
-                let tool = super::registered(name, stock.as_ref(), Some(&cache), pages)
+                let tool = super::registered(name, Some(stock), Some(&cache), pages)
                     .ok_or("the tool went missing")?;
                 let outcome = tool.call_cancellable(&local, &cancel);
                 let after = std::fs::read_to_string(root.join(PROJECT_FILE_NAME))

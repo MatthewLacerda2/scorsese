@@ -50,6 +50,7 @@ impl Toolbox {
         choices: &[Choice],
         frame: (u32, u32),
     ) -> Result<String, String> {
+        stock::within_one_import(choices.len())?;
         let (lotties, footage): (Vec<Choice>, Vec<Choice>) =
             choices.iter().partition(|one| one.medium == Medium::Lottie);
         let mut answers = Vec::new();
@@ -99,7 +100,7 @@ impl Toolbox {
         let id = log::begin(&self.pool, user, client, TOOL, &arguments)
             .await
             .map_err(database)?;
-        let outcome = match self.footage() {
+        let outcome = match self.footage(user) {
             Ok(library) => self.imported(user, project, choices, frame, library).await,
             Err(why) => Err(why),
         };
@@ -177,16 +178,18 @@ impl Toolbox {
 }
 
 impl Toolbox {
-    /// The library a pick of footage or a photo is imported from: the
-    /// toolbox's own when it was given one, and otherwise Pixabay, keyed from
-    /// the one resolver. Why there is none, in words for the model, which
-    /// tells the person.
-    fn footage(&self) -> Result<Stock, String> {
+    /// The library `user`'s pick of footage or a photo is imported from,
+    /// within their share of it (`share`): the toolbox's own when it was
+    /// given one, and otherwise Pixabay, keyed from the one resolver. Why
+    /// there is none, in words for the model, which tells the person.
+    fn footage(&self, user: UserId) -> Result<Stock, String> {
         if let Some(library) = &self.stock {
-            return Ok(library.clone());
+            return Ok(self.shares.of(user, library.clone()));
         }
         match resolve(Provider::Pixabay) {
-            Ok(key) => Ok(Arc::new(PixabayLibrary::new(&key.secret))),
+            Ok(key) => Ok(self
+                .shares
+                .of(user, Arc::new(PixabayLibrary::new(&key.secret)))),
             Err(error) => {
                 tracing::error!("stock import: {error}");
                 Err(format!(

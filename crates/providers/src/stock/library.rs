@@ -139,7 +139,9 @@ pub enum StockError {
         said: String,
     },
 
-    /// Past the vendor's rate limit — 100 requests a minute for Pixabay.
+    /// Past the vendor's rate limit — 100 requests a minute for Pixabay ("By
+    /// default, you can make up to 100 requests per 60 seconds",
+    /// pixabay.com/api/docs, read 2026-11-02).
     #[error(
         "{library} has had too many requests this minute (its limit is 100 a minute). \
          Wait a minute and ask again; results already found are cached for 24 hours."
@@ -147,6 +149,22 @@ pub enum StockError {
     RateLimited {
         /// Who said so.
         library: &'static str,
+    },
+
+    /// Past this caller's share of a library that many callers reach on one
+    /// key or one address: asked of a hosted server's member (#1652), never
+    /// by the library itself.
+    #[error(
+        "you have asked {library} {most} times this minute, your share of it on this server; \
+         try again in {seconds} seconds. Results already found are cached for 24 hours."
+    )]
+    Share {
+        /// Who was not asked.
+        library: &'static str,
+        /// The requests one caller may make a minute.
+        most: u32,
+        /// How long until the next may go.
+        seconds: u64,
     },
 
     /// Nothing answers to that id.

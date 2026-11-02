@@ -513,8 +513,8 @@ dropped in — probed, hashed, and the asset id `pixabay-<id>` unless the reply
 says it was renamed. Which file: the smallest Pixabay has that **fills the
 render size without being enlarged**, by measured width and height, never by
 Pixabay's rendition names; the largest there is when none does, and the reply
-says so. Several ids import in one call, and one that fails costs none of the
-others.
+says so. Up to 20 ids import in one call (each is a request on the key), and
+one that fails costs none of the others.
 
 **Free, but not offline.** Footage and photos need `PIXABAY_API_KEY` and a
 network; neither tool quotes. Results are cached in `cache/stock/` for 24 hours,

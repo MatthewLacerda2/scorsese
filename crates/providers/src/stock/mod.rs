@@ -48,6 +48,10 @@
 //! played by a page, not placed on the timeline, so [`keep`] writes its JSON
 //! under `pages/` for a page to load, and [`import`] refuses one.
 //!
+//! **One import names at most [`MOST_PER_IMPORT`] ids** ([`within_one_import`]):
+//! each is a request on the vendor's key, which a hosted server shares
+//! between every member (#1652).
+//!
 //! # The trait is the test seam
 //!
 //! [`Library`] is what everything above talks to, downloads included, so a
@@ -90,6 +94,21 @@ pub const fn licence(medium: Medium) -> &'static str {
         Medium::Video | Medium::Image => LICENCE,
         Medium::Lottie => LOTTIE_LICENCE,
     }
+}
+
+/// The most ids one import may name: each is a request on the vendor's key.
+pub const MOST_PER_IMPORT: usize = 20;
+
+/// Refuses an import of `count` ids when it is more than [`MOST_PER_IMPORT`],
+/// in words for whoever asked, before anything is asked of the library.
+pub fn within_one_import(count: usize) -> Result<(), String> {
+    if count <= MOST_PER_IMPORT {
+        return Ok(());
+    }
+    Err(format!(
+        "{count} ids is too many for one import: name at most {MOST_PER_IMPORT}, and import \
+         the rest in another call"
+    ))
 }
 
 /// The library `medium` is searched in: LottieFiles for animations, which
