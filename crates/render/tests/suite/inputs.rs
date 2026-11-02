@@ -70,18 +70,26 @@ fn an_hls_playlist_named_as_media_is_refused_by_the_probe() {
     assert!(probed.is_err(), "{probed:?}");
 }
 
-/// A name that is a numbered pattern is a sequence of other files to the
-/// demuxer that reads a picture, never the one picture.
+/// A name that is a numbered pattern is the one picture so named, never the
+/// sequence `card1.jpg`, `card2.jpg` beside it; a `%` that is no pattern is
+/// only part of a name.
 #[test]
-fn a_picture_named_as_a_numbered_pattern_is_refused_by_the_probe() {
+fn a_picture_named_as_a_numbered_pattern_is_read_as_itself() {
     let tools = tools();
     let dir = scratch::dir("probed-pattern");
     scorsese_render::testing::still(&tools, &dir.join("card1.jpg"), "red", "16x16");
-    std::fs::copy(dir.join("card1.jpg"), dir.join("card%d.jpg")).expect("the copy writes");
-    let probed = Ffprobe::new(tools).probe(&dir.join("card%d.jpg"));
+    // Written under plain names and renamed: ffmpeg's own output reads a
+    // pattern too.
+    scorsese_render::testing::still(&tools, &dir.join("big.jpg"), "red", "24x24");
+    scorsese_render::testing::still(&tools, &dir.join("small.jpg"), "red", "8x8");
+    std::fs::rename(dir.join("big.jpg"), dir.join("card%d.jpg")).expect("it renames");
+    std::fs::rename(dir.join("small.jpg"), dir.join("50% off.jpg")).expect("it renames");
+    let probe = Ffprobe::new(tools);
+    let pattern = probe.probe(&dir.join("card%d.jpg"));
+    let percent = probe.probe(&dir.join("50% off.jpg"));
     std::fs::remove_dir_all(&dir).ok();
-    let error = probed.expect_err("a pattern is not a picture");
-    assert!(error.listing, "{error}");
+    assert_eq!(pattern.expect("the picture probes").width, Some(24));
+    assert_eq!(percent.expect("the picture probes").width, Some(8));
 }
 
 #[test]
@@ -99,7 +107,12 @@ fn media_still_probes_through_the_whitelist() {
     let dir = scratch::dir("probed-media");
     let file = dir.join("shot.mp4");
     colour_video(&tools, &file, "red", "64x64", 1);
-    let probed = Ffprobe::new(tools).probe(&file);
+    let animated = dir.join("sticker.png");
+    let sticker = ["-f", "lavfi", "-i", "testsrc=s=32x32:d=0.3", "-f", "apng"];
+    scorsese_render::testing::generate(&tools, &animated, &sticker);
+    let probe = Ffprobe::new(tools);
+    let (probed, sticker) = (probe.probe(&file), probe.probe(&animated));
     std::fs::remove_dir_all(&dir).ok();
     assert_eq!(probed.expect("media probes").width, Some(64));
+    assert_eq!(sticker.expect("an animated png probes").width, Some(32));
 }

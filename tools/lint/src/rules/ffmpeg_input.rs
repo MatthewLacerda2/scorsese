@@ -4,7 +4,9 @@
 //! A bare `-i <path>` lets ffmpeg read the name as a URL (`concat:a|b`) and
 //! the file as a playlist naming others; the helper whitelists the file
 //! protocol and the media formats. Under the `src/` of the crates that run
-//! ffmpeg — render, providers, server — a `"-i"` string literal is flagged.
+//! ffmpeg — render, providers, server — a `"-i"` string literal is flagged,
+//! and so is an `.ffprobe()` command in a file that never calls the helper:
+//! ffprobe takes its input as a bare argument too, with no `-i` to find.
 //! An input that is not a file (a lavfi graph, a pipe of raw frames this
 //! program writes) is excused inline with its reason.
 
@@ -51,7 +53,12 @@ fn literals(line: &str) -> Vec<String> {
     found
 }
 
-/// Every `"-i"` in a source file of a crate that runs ffmpeg that no allow
+/// What the helper's callers write: a file that does neither builds no input
+/// through it.
+const HELPER: [&str; 3] = ["input::media(", "input::own(", "input::piped_media("];
+
+/// Every `"-i"`, and every `.ffprobe()` in a file that never calls the
+/// helper, in a source file of a crate that runs ffmpeg that no allow
 /// excuses.
 pub fn check(path: &Path, text: &str) -> Vec<Finding> {
     if !READ.iter().any(|folder| path.starts_with(folder))
@@ -59,23 +66,27 @@ pub fn check(path: &Path, text: &str) -> Vec<Finding> {
     {
         return Vec::new();
     }
+    let helped = HELPER.iter().any(|call| text.contains(call));
     let lines: Vec<&str> = text.lines().collect();
     lines
         .iter()
         .enumerate()
         .filter(|(index, line)| {
             !is_comment(line)
-                && literals(line).iter().any(|literal| literal == "-i")
+                && (literals(line).iter().any(|literal| literal == "-i")
+                    || (!helped && line.contains(".ffprobe()")))
                 && !allowed(&lines, *index, RULE)
         })
         .map(|(index, _)| Finding {
             path: path.to_path_buf(),
             line: Some(index + 1),
             rule: RULE,
-            message: "name a file to ffmpeg with `scorsese_render::tools::input::media` (or \
-                      `own` for a file this program wrote in a format it forces), never a bare \
-                      `-i`; an input that is no file at all is allowed inline with what it is"
-                .into(),
+            message:
+                "name a file to ffmpeg or ffprobe with `scorsese_render::tools::input::media` \
+                      (or `own` for a file this program wrote in a format it forces), never a \
+                      bare `-i` or path; an input that is no file at all is allowed inline with \
+                      what it is"
+                    .into(),
         })
         .collect()
 }

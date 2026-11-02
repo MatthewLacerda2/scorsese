@@ -121,11 +121,11 @@ mod tests {
         assert_eq!(media_type, "image/jpeg");
         let sent = scratch.join("sent.jpg");
         std::fs::write(&sent, STANDARD.decode(data).expect("base64")).expect("it writes");
-        let probed = ffmpeg
-            .ffprobe()
+        let mut probe = ffmpeg.ffprobe();
+        probe
             .args(["-v", "error", "-select_streams", "v:0", "-show_entries"])
-            .args(["stream=width,height", "-of", "csv=p=0"])
-            .arg(&sent)
+            .args(["stream=width,height", "-of", "csv=p=0"]);
+        let probed = scorsese_render::tools::input::media(&mut probe, &sent)
             .output()
             .expect("ffprobe runs");
         std::fs::remove_dir_all(&scratch).ok();

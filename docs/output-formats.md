@@ -1,9 +1,12 @@
 # Output formats
 
-What a render *imports* is not what it *delivers*. Decoding is
-format-agnostic and costs nothing — the decode pipe says `-i <file>` and asks
-for raw RGBA back, so wmv, avi, mov, mkv and mp4 all import and sit on a
-timeline with no code that knows what any of them are.
+What a render *imports* is not what it *delivers*. Decoding costs nothing —
+the decode pipe names the file and asks for raw RGBA back, so wmv, avi, mov,
+mkv and mp4 all import and sit on a timeline with no code that knows what any
+of them are. What it does hold a file to is the list of demuxers an importable
+file may be read with (`scorsese_render::tools::input::MEDIA_FORMATS`): a
+playlist or a list of other files saved under a media extension is refused at
+import, and fails to decode if placed in a project anyway.
 
 One exception, and it is about *stills* rather than containers: holding one
 picture for a clip's length is an ffmpeg option, and the cheap way to say it —

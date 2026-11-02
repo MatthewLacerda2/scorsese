@@ -18,7 +18,6 @@ pub(super) struct Report {
 #[derive(Debug, Default, Deserialize)]
 struct Format {
     duration: Option<String>,
-    format_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -63,16 +62,6 @@ impl Report {
                 .and_then(parse_number)
                 .map(|rate| rate as u32),
         }
-    }
-
-    /// Whether `file` was read as a numbered pattern of pictures: the
-    /// `image2` demuxer reads a name with a `%` in it as `card%d.jpg`, the
-    /// files `card0.jpg`, `card1.jpg` beside it, never as the one picture.
-    pub(super) fn is_pattern(&self, file: &std::path::Path) -> bool {
-        self.format.format_name.as_deref() == Some("image2")
-            && file
-                .file_name()
-                .is_some_and(|name| name.to_string_lossy().contains('%'))
     }
 
     fn stream(&self, kind: &str) -> Option<&Stream> {

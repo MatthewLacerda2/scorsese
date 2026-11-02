@@ -29,12 +29,11 @@ pub const PROTOCOLS: &str = "file,pipe";
 /// demuxer with several (`mov` is `mov,mp4,m4a,3gp,3g2,mj2`).
 ///
 /// Never a format that opens other inputs: `hls`, `dash` and `concat` are
-/// what this list keeps out. `image2` reads one picture unless its file's
-/// name is a numbered pattern, which an imported name never is
-/// (`scorsese_core::pool` keeps a name to letters, digits, `-`, `_` and `.`)
-/// and the probe refuses ([`crate::Ffprobe`]).
+/// what this list keeps out. `image2` reads a sequence when its file's name
+/// is a numbered pattern (`card%d.jpg`), so [`media`] tells it to read such a
+/// name as the one picture it is.
 pub const MEDIA_FORMATS: &str = "mov,matroska,webm,avi,mpeg,mpegts,mpegvideo,m4v,h264,hevc,\
-                                 asf,flv,ogg,image2,image2pipe,png_pipe,jpeg_pipe,webp_pipe,\
+                                 asf,flv,ogg,image2,image2pipe,apng,png_pipe,jpeg_pipe,webp_pipe,\
                                  gif,gif_pipe,bmp_pipe,tiff_pipe,mp3,wav,w64,aac,flac,aiff";
 
 /// The demuxers that open further inputs named inside a file: what a file
@@ -47,7 +46,37 @@ pub const LISTING_FORMATS: [&str; 3] = ["hls", "dash", "concat"];
 /// `-i`. Works for ffprobe too, which takes `-i` the same way.
 pub fn media<'c>(command: &'c mut Command, file: &Path) -> &'c mut Command {
     command.args(["-format_whitelist", MEDIA_FORMATS]);
+    // `-pattern_type` is `image2`'s own option, and an error to any other
+    // demuxer: given only where `image2` is the one that reads the file.
+    if crate::pipe::reads_through_image2(file) && is_numbered_pattern(file) {
+        command.args(["-pattern_type", "none"]);
+    }
     own(command, file)
+}
+
+/// Whether `image2` would read `file`'s name as a numbered sequence: a `%`,
+/// optional digits, then `d`, as `av_get_frame_filename` reads one. `%%` is a
+/// literal percent sign, and `50% off.jpg` no pattern at all.
+fn is_numbered_pattern(file: &Path) -> bool {
+    let Some(name) = file.file_name() else {
+        return false;
+    };
+    let name = name.to_string_lossy();
+    let mut chars = name.chars();
+    while let Some(c) = chars.next() {
+        if c != '%' {
+            continue;
+        }
+        let mut rest = chars.clone().skip_while(char::is_ascii_digit);
+        match chars.clone().next() {
+            Some('%') => {
+                chars.next();
+            }
+            _ if rest.next() == Some('d') => return true,
+            _ => {}
+        }
+    }
+    false
 }
 
 /// Adds `file` to `command` as its next input through [`PROTOCOLS`] only,
@@ -134,6 +163,26 @@ mod tests {
             // lint: allow(ffmpeg-input) what the helper is expected to write
             ["-protocol_whitelist", "pipe", "-i", "pipe:0"]
         );
+    }
+
+    #[test]
+    fn a_numbered_pattern_is_told_from_a_percent_sign() {
+        for name in ["card%d.jpg", "card%03d.png", "a%%b%2d.jpg"] {
+            assert!(super::is_numbered_pattern(Path::new(name)), "{name}");
+        }
+        for name in ["50% off.jpg", "card%%d.jpg", "100%.png", "plain.jpg"] {
+            assert!(!super::is_numbered_pattern(Path::new(name)), "{name}");
+        }
+    }
+
+    #[test]
+    fn a_pattern_is_read_as_one_picture_only_where_image2_reads_it() {
+        let mut command = crate::tools::Tools::at("ffmpeg", "ffprobe").ffmpeg();
+        media(&mut command, Path::new("card%d.jpg"));
+        assert_eq!(arguments(&command)[2..4], ["-pattern_type", "none"]);
+        let mut command = crate::tools::Tools::at("ffmpeg", "ffprobe").ffmpeg();
+        media(&mut command, Path::new("clip%d.mp4"));
+        assert!(!arguments(&command).contains(&"-pattern_type".to_owned()));
     }
 
     #[test]

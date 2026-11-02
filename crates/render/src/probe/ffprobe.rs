@@ -64,9 +64,6 @@ impl ProbeMedia for Ffprobe {
         let report: Report = serde_json::from_slice(&output.stdout).map_err(|error| {
             ProbeError::new(file, format!("unreadable ffprobe output: {error}"))
         })?;
-        if report.is_pattern(file) {
-            return Err(ProbeError::listing(file));
-        }
         Ok(report.into_metadata())
     }
 }

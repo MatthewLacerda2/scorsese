@@ -36,6 +36,17 @@ fn a_bare_input_in_a_crate_that_runs_ffmpeg_is_flagged_on_its_line() {
 }
 
 #[test]
+fn ffprobe_in_a_file_that_never_calls_the_helper_is_flagged() {
+    let bare = "fn a() {\n    let c = tools.ffprobe().arg(file);\n}\n";
+    let [finding] = &check(Path::new(RENDER), bare)[..] else {
+        panic!("expected one finding");
+    };
+    assert_eq!(finding.line, Some(2));
+    let helped = "fn a() {\n    let mut c = tools.ffprobe();\n    input::media(&mut c, file);\n}\n";
+    assert!(check(Path::new(RENDER), helped).is_empty());
+}
+
+#[test]
 fn an_input_elsewhere_or_in_a_comment_or_a_longer_literal_passes() {
     let input = "fn a() { command.arg(\"-i\"); }\n";
     assert!(check(Path::new("crates/render/tests/suite/x.rs"), input).is_empty());
