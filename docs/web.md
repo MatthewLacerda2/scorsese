@@ -927,7 +927,7 @@ token cannot mint its own replacement.
 | `POST /api/logout` | a member | ends the session; clears its cookies and, with `Clear-Site-Data: "cache"`, the browser's cache |
 | `GET /api/me` | a member | the account |
 | `GET /api/tokens` | a member | their tokens, never the values |
-| `POST /api/tokens` | a member, by session | `{name}` → `{id, token}`, shown once |
+| `POST /api/tokens` | a member, by session | `{name}` → `{id, token}`, shown once; `400` for a name past 100 characters or a 51st token (#1648) |
 | `DELETE /api/tokens/{id}` | a member | `404` for an id that is not theirs |
 
 ### Sign in with Google: the client
@@ -1868,7 +1868,7 @@ while its render streams.
 
 | route | who | what |
 | --- | --- | --- |
-| `POST /api/projects/{id}/renders` | a member | `{container?, video_codec?, audio_codec?, resolution?, platform?, fps?, range?, narration_bands?, loudness?}`, spelled and checked as MCP `render`'s arguments (`scorsese_render::RenderAsk`, #1070) → `200 {render}` when kept, `202 {job}` when queued or already on its way; `400` for a shape `docs/output-formats.md` does not allow, a picture setting (`resolution`, `platform`, `fps`) on sound only, or `resolution` beside `platform`, and for a project that does not validate. No `resolution` or `platform` is the project's frame with 1080 lines on its shorter side (`Resolution::of_project`); no `fps` is the project's own rate; no `range` is the whole timeline |
+| `POST /api/projects/{id}/renders` | a member | `{container?, video_codec?, audio_codec?, resolution?, platform?, fps?, range?, narration_bands?, loudness?}`, spelled and checked as MCP `render`'s arguments (`scorsese_render::RenderAsk`, #1070) → `200 {render}` when kept, `202 {job}` when queued or already on its way; `400` for a shape `docs/output-formats.md` does not allow, a picture setting (`resolution`, `platform`, `fps`) on sound only, or `resolution` beside `platform`, and for a project that does not validate; `429` with ten renders and previews of theirs already waiting (a preview queued first cancels this project's waiting previews of earlier revisions at its settings, so an edit's never fill it), or past 120 renders and previews queued a minute, both routes together — asking about one kept or on its way is never counted (#1648). No `resolution` or `platform` is the project's frame with 1080 lines on its shorter side (`Resolution::of_project`); no `fps` is the project's own rate; no `range` is the whole timeline |
 | `GET /api/projects/{id}/renders` | a member | the project's kept renders, most recently used first |
 | `GET /api/renders/{id}/file` | a member | the file as an attachment, in HTTP ranges; counts as use |
 
@@ -1896,9 +1896,11 @@ things differ, all in `renders::preview`:
   originals, as a finished render always does.
 - **Superseded, then stopped.** When a preview's turn comes it checks the
   project still hashes to its key; if the project has moved on it finishes at
-  once, `{"superseded": true}`, having rendered nothing — a waiting job retires
-  itself, with no race with the claim. One already *running* is stopped when
-  the next preview of the project is asked for (#660), and ends `cancelled`.
+  once, `{"superseded": true}`, having rendered nothing. When the next preview
+  of the project at the same settings is queued, those still waiting are
+  cancelled in the same transaction (#1648) — one the worker claimed meanwhile
+  is running, not waiting — and one already *running* is stopped (#660); both
+  end `cancelled`.
   So edits faster than renders cost a frame of an old render at most, and the
   editor asks again for the revision it is on.
 - **One kept per shape.** A finished preview replaces the project's earlier
@@ -2327,7 +2329,8 @@ one file is one transcript in every project using it; every layout of a
 project writes them beside the asset as `<its whole name>.words.json`, where
 the registry's tools read them. Called again, `transcribe` answers with the
 kept words numbered rather than hearing the file afresh, unless `again`;
-`transcript_fix` corrects a word on the row, keeping its times. **A generated
+`transcript_fix` corrects a word on the row, keeping its times, its new text
+at most 100 characters (#1648). **A generated
 line is refused by both**, though it is a plain sound in a project it was
 imported into: its row's words are the timings paid for with it.
 
@@ -2354,7 +2357,9 @@ ended and its words (not its pictures), with `client` `external` for web MCP,
 quote the assistant showed them, and `editor` for an edit made by hand in the
 web editor (*The editor*); `assistant` and `user` name their chat turn and their
 place in it. Each reply's estimated size in tokens, and an external call's
-client, are kept too (*Assistant turns*, *What is recorded*). A paid generation's audit row names the call that asked for it,
+client, are kept too (*Assistant turns*, *What is recorded*): arguments up to
+16 KiB of JSON, longer ones as their beginning in `{cut: true, bytes, kept}`,
+and a client's name and version cut to 200 characters (#1648). A paid generation's audit row names the call that asked for it,
 so *prompt → turn → tool call → generation → credits* reads back whole.
 
 **Rate limit:** 120 tool calls a minute per user, the rest `429` with
@@ -2660,7 +2665,7 @@ fixed until measured usage (#707) says otherwise.
 | `GET /api/projects/{id}/chat` | a member | `{project, session, turns, model, models, effort}`: the newest conversation's turns, oldest first; the project's model; every model offered as `{id, label, vendor, unavailable, cache_seconds, cost}`; the project's effort |
 | `PUT /api/projects/{id}/chat/model` | a member | `{model}` → the model as listed; from the next turn the project runs on it. `400` for a model not offered |
 | `PUT /api/projects/{id}/chat/effort` | a member | `{effort}` → `{effort}`; from the next turn the project runs at it. `low`, `medium`, `high` or `xhigh`; `400` for anything else |
-| `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?, attachments?}` → `202` with the turn, at the project's effort; `attachments` are library ids (at most 20, #1534): the media among them are imported once the turn may start, under the editor's per-minute edit limit, and the model is told in a note which files came with the message and shown, beside the words, up to 8 pictures and each document's text up to 50,000 characters (#1562, *The editor*); `400` for one not in their library or an empty prompt, `402` no credit, `409` a turn is running, `429` past the edit limit, `503` not configured — a message refused before its turn begins imports nothing; one losing a race to another tab's message at the turn's beginning may leave its files imported, and resending is harmless |
+| `POST /api/projects/{id}/chat` | a member | `{prompt, fresh?, attachments?}` → `202` with the turn, at the project's effort; `attachments` are library ids (at most 20, #1534): the media among them are imported once the turn may start, under the editor's per-minute edit limit, and the model is told in a note which files came with the message and shown, beside the words, up to 8 pictures and each document's text up to 50,000 characters (#1562, *The editor*); `400` for one not in their library or an empty prompt, `402` no credit, `409` a turn is running, `429` past the edit limit, `503` not configured; `400` for a prompt past 32,000 characters, and `413` for a body past 512 KiB, unread (#1648), as for `…/quote`'s `change` and `…/answer`'s `answer` — a message refused before its turn begins imports nothing; one losing a race to another tab's message at the turn's beginning may leave its files imported, and resending is harmless |
 | `GET /api/chat/turns/{id}` | a member | `{turn, tools}`: the turn and the log of every tool call it made, in order |
 | `POST /api/chat/turns/{id}/stop` | a member | `202`; the turn stops before its next step — at once, its question set aside, when it is `asking`. `409` if it is neither |
 | `POST /api/chat/turns/{id}/quote` | a member | `{confirm: true\|false, change?}` → `{spent, refused, turn, note}`; `turn` is the one the quote paused, carrying on with the answer as the quoting call's result (#1440); `change` with `confirm: true` is `400`, and so is any answer on a turn not paused on a quote |

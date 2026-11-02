@@ -158,20 +158,22 @@ pub(super) async fn alternative(tx: &mut Tx, token: &str) -> Result<Option<Strin
     .await
 }
 
-/// The arguments of the `tool` call that issued `token`, while it is unspent.
+/// The arguments of the `tool` call that issued `token`, while it is unspent
+/// — `None` too when they were too long to keep whole (`log::kept`).
 pub(super) async fn asked(
     tx: &mut Tx,
     token: &str,
     tool: &str,
 ) -> Result<Option<serde_json::Value>, sqlx::Error> {
-    sqlx::query_scalar(
+    let asked: Option<serde_json::Value> = sqlx::query_scalar(
         "SELECT t.arguments FROM quotes q JOIN tool_calls t ON t.id = q.tool_call_id
          WHERE q.token = $1 AND t.tool = $2",
     )
     .bind(token)
     .bind(tool)
     .fetch_optional(&mut **tx)
-    .await
+    .await?;
+    Ok(asked.filter(|arguments| !super::log::is_cut(arguments)))
 }
 
 /// Forget `token` unspent — a quote the user said no to — and the batch

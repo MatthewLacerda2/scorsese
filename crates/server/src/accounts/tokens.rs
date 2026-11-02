@@ -44,22 +44,42 @@ pub struct Issued {
     pub token: String,
 }
 
-/// Issue a new token for `user`, named `name`.
+/// The longest name a token may have, in characters (#1648).
+pub const LONGEST_NAME: usize = 100;
+
+/// The most tokens one user may hold at once (#1648).
+pub const MOST: i64 = 50;
+
+/// The longest client name or version an `initialize` is remembered by, in
+/// characters (#1648): a longer one is cut to it.
+pub const LONGEST_CLIENT: usize = 200;
+
+/// Issue a new token for `user`, named `name`: refused past
+/// [`LONGEST_NAME`] characters, or when they already hold [`MOST`].
 pub async fn issue(pool: &PgPool, user: UserId, name: &str) -> Result<Issued, AccountError> {
     let name = name.trim();
     if name.is_empty() {
         return Err(AccountError::UnnamedToken);
     }
+    if name.chars().count() > LONGEST_NAME {
+        return Err(AccountError::LongTokenName);
+    }
     let minted = secret::mint(secret::TOKEN_PREFIX)?;
     let mut tx = db::scoped(pool, user).await?;
-    let id: i64 = sqlx::query_scalar(
+    // Counted under the user's lock, so issues at once cannot each see room
+    // for one more.
+    crate::credits::ledger::lock(&mut tx).await?;
+    let id: Option<i64> = sqlx::query_scalar(
         "INSERT INTO api_tokens (user_id, name, token_hash)
-         VALUES (member_id(), $1, $2) RETURNING id",
+         SELECT member_id(), $1, $2 WHERE (SELECT count(*) FROM api_tokens) < $3
+         RETURNING id",
     )
     .bind(name)
     .bind(minted.digest)
-    .fetch_one(&mut *tx)
+    .bind(MOST)
+    .fetch_optional(&mut *tx)
     .await?;
+    let id = id.ok_or(AccountError::TooManyTokens)?;
     tx.commit().await?;
     Ok(Issued {
         id,
@@ -97,7 +117,8 @@ pub async fn holds(pool: &PgPool, user: UserId, id: i64) -> Result<bool, Account
 
 /// Remember which client `user`'s token `id` connects with: the `clientInfo`
 /// an MCP `initialize` named (#707). Its later tool calls are recorded with
-/// it; the next `initialize` replaces it.
+/// it; the next `initialize` replaces it. Each is cut to [`LONGEST_CLIENT`]
+/// characters: it is a label, and the handshake is owed its answer anyway.
 pub async fn introduce(
     pool: &PgPool,
     user: UserId,
@@ -105,11 +126,14 @@ pub async fn introduce(
     name: Option<&str>,
     version: Option<&str>,
 ) -> Result<(), sqlx::Error> {
+    let cut = |label: Option<&str>| {
+        label.map(|label| label.chars().take(LONGEST_CLIENT).collect::<String>())
+    };
     let mut tx = db::scoped(pool, user).await?;
     sqlx::query("UPDATE api_tokens SET client_name = $2, client_version = $3 WHERE id = $1")
         .bind(id)
-        .bind(name)
-        .bind(version)
+        .bind(cut(name))
+        .bind(cut(version))
         .execute(&mut *tx)
         .await?;
     tx.commit().await

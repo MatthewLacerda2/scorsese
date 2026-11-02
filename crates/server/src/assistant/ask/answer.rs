@@ -54,6 +54,7 @@ pub async fn answer(
     answering: Answering,
 ) -> Result<TurnView, AssistantError> {
     let words = answering.words.trim();
+    crate::assistant::bounded(words)?;
     let words = (!words.is_empty()).then(|| words.to_owned());
     if words.is_none() && answering.picked.is_none() {
         return Err(AssistantError::Invalid("say what your answer is".into()));

@@ -58,6 +58,7 @@ pub async fn start(
     opening: Opening,
 ) -> Result<TurnView, AssistantError> {
     let mut prompt = opening.prompt.trim().to_owned();
+    super::bounded(&prompt)?;
     if prompt.is_empty() && !opening.woken {
         return Err(AssistantError::Invalid(
             "say what you would like done".into(),

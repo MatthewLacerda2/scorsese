@@ -24,6 +24,15 @@ use crate::projects;
 use crate::renders::request::{self, AskError, Asked};
 use crate::renders::{Ask, PreviewAsk, RenderView, Settings, store};
 
+/// How many renders and previews one member may have queued a minute, both
+/// routes and every project together (#1648). Asking about one kept or on its
+/// way is not counted, so the editor's poll never is.
+pub const ASKS_PER_MINUTE: u32 = 120;
+
+/// The seconds a member with a full queue is told to wait before asking
+/// again: about how long the shortest render takes to start.
+const CROWDED_RETRY: u64 = 10;
+
 /// `POST /api/projects/{id}/renders`: the render of the project as it is now,
 /// in the shape asked for — kept (`200`) or on its way (`202`).
 ///
@@ -85,13 +94,21 @@ async fn answer(
         &state.jobs,
         &state.renders,
         state.library.storage(),
-        member.user,
-        id,
+        Some(&state.render_asks),
+        (member.user, id),
         settings,
     )
     .await
     .map_err(|error| match error {
         AskError::Invalid(why) => ApiError::BadRequest(why),
+        AskError::Crowded => ApiError::TooMany {
+            message: AskError::Crowded.to_string(),
+            retry_after: CROWDED_RETRY,
+        },
+        AskError::TooMany(retry_after) => ApiError::TooMany {
+            message: AskError::TooMany(retry_after).to_string(),
+            retry_after,
+        },
         AskError::Project(error) => error.into(),
         AskError::Storage(error) => error.into(),
         AskError::Database(error) => error.into(),

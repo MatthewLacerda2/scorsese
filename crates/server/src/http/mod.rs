@@ -75,6 +75,9 @@ pub struct AppState {
     /// How many times each member's return page has asked after a payment
     /// lately (#1654).
     pub payment_confirms: limits::Limits,
+    /// How many renders and previews each user has queued lately from the
+    /// web app (#1648).
+    pub render_asks: limits::Limits,
     /// How many crash reports each address has sent lately (#1428), an
     /// IPv6 one counted by its /64 (`ab::network`).
     pub reports: limits::Limits<Option<std::net::IpAddr>>,
@@ -137,6 +140,7 @@ impl AppState {
             limits: limits::Limits::new(mcp::CALLS_PER_MINUTE),
             payment_starts: limits::Limits::new(payments::STARTS_PER_MINUTE),
             payment_confirms: limits::Limits::new(payments::CONFIRMS_PER_MINUTE),
+            render_asks: limits::Limits::new(renders::ASKS_PER_MINUTE),
             reports: limits::Limits::new(client_errors::REPORTS_PER_MINUTE),
             reports_total: limits::Limits::over(
                 client_errors::HOUR,

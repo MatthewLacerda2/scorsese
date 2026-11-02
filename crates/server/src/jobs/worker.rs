@@ -59,7 +59,7 @@ impl Queue {
     }
 
     /// Tell `user` that `job` changed.
-    pub(super) fn tell(&self, user: UserId, job: JobView) {
+    pub(crate) fn tell(&self, user: UserId, job: JobView) {
         self.events.send(user, Event::Job(job));
     }
 

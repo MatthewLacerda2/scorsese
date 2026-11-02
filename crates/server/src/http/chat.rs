@@ -17,6 +17,12 @@ use crate::assistant::{
     TurnView,
 };
 
+/// The largest body a message, an answer or a quote's change may come in
+/// (#1648): room for [`assistant::LONGEST_PROMPT`] characters each written
+/// as JSON's longest escape, twelve bytes for a pair of `\u` halves, and
+/// the attachments beside them. A longer body is refused before it is read.
+pub const CAP: usize = 512 * 1024;
+
 /// `POST /api/projects/{id}/chat`'s body.
 #[derive(Debug, Deserialize)]
 pub struct Send {

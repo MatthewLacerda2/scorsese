@@ -94,6 +94,9 @@ pub async fn answer(
             "say what you would like changed".into(),
         ));
     }
+    if let Answer::Change(text) = &answer {
+        super::bounded(text.trim())?;
+    }
     let mut tx = db::scoped(&state.pool, user).await?;
     let paused = asking::paused(&mut tx, id).await?;
     let Some((paused, (token, quote))) =

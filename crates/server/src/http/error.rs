@@ -122,7 +122,9 @@ impl From<AccountError> for ApiError {
             | AccountError::NoSuchAccount(_)
             | AccountError::LinkedElsewhere(_)
             | AccountError::SubTaken(_)
-            | AccountError::UnnamedToken => Self::BadRequest(error.to_string()),
+            | AccountError::UnnamedToken
+            | AccountError::LongTokenName
+            | AccountError::TooManyTokens => Self::BadRequest(error.to_string()),
             AccountError::Crypto(_) | AccountError::Files { .. } | AccountError::Database(_) => {
                 tracing::error!("{error}");
                 Self::Internal

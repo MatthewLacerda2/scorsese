@@ -136,8 +136,9 @@ pub(in super::super) async fn render(
         &toolbox.queue,
         &toolbox.renders,
         &toolbox.storage,
-        caller.user,
-        project,
+        // Web MCP counts each call already (`http::mcp`).
+        None,
+        (caller.user, project),
         settings,
     )
     .await
@@ -146,6 +147,7 @@ pub(in super::super) async fn render(
         AskError::Storage(error @ (LibraryError::Full { .. } | LibraryError::DiskLow(_))) => {
             error.to_string()
         }
+        AskError::Crowded => AskError::Crowded.to_string(),
         AskError::Project(ProjectError::NotFound) => "there is no such project of yours".into(),
         other => database(other),
     })?;

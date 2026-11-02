@@ -9,11 +9,13 @@
 //!   finish, and a preview of a revision the project has moved past is a
 //!   picture of a document that no longer exists. So when a preview's turn
 //!   comes, it first checks the project still hashes to its key, and if not it
-//!   finishes at once without rendering. Nothing cancels a waiting job; it
-//!   retires itself, which needs no race with the claim. One already
-//!   *running* is stopped when the next preview is queued
-//!   ([`super::request::ask`], #660) — it is recorded `cancelled` — and the
-//!   editor asks again for the revision it is on.
+//!   finishes at once without rendering. When the next preview is queued
+//!   ([`super::request::ask`]), the project's waiting ones at its settings are
+//!   cancelled in the same transaction (#1648), so an edit's previews never
+//!   fill the member's queue, and one already *running* is stopped (#660);
+//!   both are recorded `cancelled`, and the editor asks again for the
+//!   revision it is on. One a project moved past by other means — an edit
+//!   with no preview asked for — still retires itself when its turn comes.
 //! - **Proxies.** A reduced quality reads each heavy video's proxy where one is
 //!   made, and queues the making of any that are missing
 //!   ([`crate::library::proxy`]).

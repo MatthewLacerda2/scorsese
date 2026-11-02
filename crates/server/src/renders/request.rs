@@ -10,11 +10,19 @@ use sqlx::postgres::PgPool;
 
 use super::job::Payload;
 use super::{RenderCache, RenderView, Settings, key, store};
+use crate::credits::ledger;
 use crate::db::{self, UserId};
+use crate::http::limits::Limits;
 use crate::jobs::{JobView, Queue, kinds, store as jobs};
 use crate::library::{LibraryError, room};
 use crate::projects::{self, ProjectError};
 use crate::storage::Storage;
+
+/// The most renders and previews one member may have waiting at once
+/// (#1648), every project together. A preview queued cancels the project's
+/// waiting previews of earlier revisions at its settings first, so an edit's
+/// previews never fill the queue.
+pub const MOST_WAITING: i64 = 10;
 
 /// Where the render asked for is.
 #[derive(Debug, Clone, PartialEq)]
@@ -31,6 +39,16 @@ pub enum AskError {
     /// The project does not render in that shape, and the message says why.
     #[error("{0}")]
     Invalid(String),
+    /// The member already has [`MOST_WAITING`] renders and previews waiting.
+    #[error(
+        "you already have {MOST_WAITING} renders and previews waiting, the most one may; \
+         wait for one to start, or cancel one"
+    )]
+    Crowded,
+    /// Too many renders and previews were queued this minute: the seconds
+    /// until one more may be.
+    #[error("too many renders and previews asked for this minute; try again in {0} seconds")]
+    TooMany(u64),
     /// The project is not there, or does not read.
     #[error(transparent)]
     Project(#[from] ProjectError),
@@ -43,14 +61,16 @@ pub enum AskError {
 }
 
 /// The render of `user`'s project `id` as it is now, in `settings`' shape —
-/// kept, on its way, or queued now and announced on `queue`.
+/// kept, on its way, or queued now and announced on `queue`. A new job is
+/// counted against `asks` when given: asking again about one kept or on its
+/// way, as the editor's poll does, is never refused.
 pub async fn ask(
     pool: &PgPool,
     queue: &Queue,
     cache: &RenderCache,
     storage: &Storage,
-    user: UserId,
-    id: i64,
+    asks: Option<&Limits>,
+    (user, id): (UserId, i64),
     settings: Settings,
 ) -> Result<Asked, AskError> {
     let stored = projects::open(pool, user, id).await?;
@@ -97,11 +117,30 @@ pub async fn ask(
         }
         .into());
     }
-    let outrun = if settings.preview.is_some() {
-        store::outrun(&mut tx, id, &settings, &key).await?
+    // Counted under the user's lock, so asks at once cannot each see room
+    // for one more.
+    ledger::lock(&mut tx).await?;
+    let (retired, outrun) = if settings.preview.is_some() {
+        (
+            store::retire_waiting(&mut tx, id, &settings, &key).await?,
+            store::outrun(&mut tx, id, &settings, &key).await?,
+        )
     } else {
-        Vec::new()
+        (Vec::new(), Vec::new())
     };
+    let waiting: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM jobs WHERE state = 'waiting' AND kind = ANY($1)")
+            .bind([kinds::RENDER.name, kinds::PREVIEW.name])
+            .fetch_one(&mut *tx)
+            .await?;
+    // Refused, the transaction rolls back, and what it retired waits on.
+    if waiting >= MOST_WAITING {
+        return Err(AskError::Crowded);
+    }
+    if let Some(asks) = asks {
+        asks.take(user, 1)
+            .map_err(|wait| AskError::TooMany(wait.as_secs().max(1)))?;
+    }
     let payload = Payload {
         project: id,
         key,
@@ -112,6 +151,9 @@ pub async fn ask(
     let payload = serde_json::to_value(&payload).map_err(|e| AskError::Invalid(e.to_string()))?;
     let job = jobs::enqueue(&mut tx, kind, &payload).await?;
     tx.commit().await?;
+    for view in retired {
+        queue.tell(user, view);
+    }
     queue.announce(user, &job);
     // A preview still drawing an earlier revision is stopped (#660): the
     // editor is waiting for this one, and previews run one at a time.
