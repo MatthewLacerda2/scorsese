@@ -1868,7 +1868,7 @@ while its render streams.
 
 | route | who | what |
 | --- | --- | --- |
-| `POST /api/projects/{id}/renders` | a member | `{container?, video_codec?, audio_codec?, resolution?, platform?, fps?, range?, narration_bands?, loudness?}`, spelled and checked as MCP `render`'s arguments (`scorsese_render::RenderAsk`, #1070) → `200 {render}` when kept, `202 {job}` when queued or already on its way; `400` for a shape `docs/output-formats.md` does not allow, a picture setting (`resolution`, `platform`, `fps`) on sound only, or `resolution` beside `platform`, and for a project that does not validate; `429` with ten renders and previews of theirs already waiting (a preview of this project at the same settings not counted: the next revision's retires it), or past 120 renders and previews asked for a minute, both routes together (#1648). No `resolution` or `platform` is the project's frame with 1080 lines on its shorter side (`Resolution::of_project`); no `fps` is the project's own rate; no `range` is the whole timeline |
+| `POST /api/projects/{id}/renders` | a member | `{container?, video_codec?, audio_codec?, resolution?, platform?, fps?, range?, narration_bands?, loudness?}`, spelled and checked as MCP `render`'s arguments (`scorsese_render::RenderAsk`, #1070) → `200 {render}` when kept, `202 {job}` when queued or already on its way; `400` for a shape `docs/output-formats.md` does not allow, a picture setting (`resolution`, `platform`, `fps`) on sound only, or `resolution` beside `platform`, and for a project that does not validate; `429` with ten renders and previews of theirs already waiting (a preview queued first cancels this project's waiting previews of earlier revisions at its settings, so an edit's never fill it), or past 120 renders and previews queued a minute, both routes together — asking about one kept or on its way is never counted (#1648). No `resolution` or `platform` is the project's frame with 1080 lines on its shorter side (`Resolution::of_project`); no `fps` is the project's own rate; no `range` is the whole timeline |
 | `GET /api/projects/{id}/renders` | a member | the project's kept renders, most recently used first |
 | `GET /api/renders/{id}/file` | a member | the file as an attachment, in HTTP ranges; counts as use |
 
@@ -1896,9 +1896,11 @@ things differ, all in `renders::preview`:
   originals, as a finished render always does.
 - **Superseded, then stopped.** When a preview's turn comes it checks the
   project still hashes to its key; if the project has moved on it finishes at
-  once, `{"superseded": true}`, having rendered nothing — a waiting job retires
-  itself, with no race with the claim. One already *running* is stopped when
-  the next preview of the project is asked for (#660), and ends `cancelled`.
+  once, `{"superseded": true}`, having rendered nothing. When the next preview
+  of the project at the same settings is queued, those still waiting are
+  cancelled in the same transaction (#1648) — one the worker claimed meanwhile
+  is running, not waiting — and one already *running* is stopped (#660); both
+  end `cancelled`.
   So edits faster than renders cost a frame of an old render at most, and the
   editor asks again for the revision it is on.
 - **One kept per shape.** A finished preview replaces the project's earlier
