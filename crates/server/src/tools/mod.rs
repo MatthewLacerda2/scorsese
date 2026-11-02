@@ -99,6 +99,8 @@ use std::path::Path;
 use std::sync::Arc;
 
 use scorsese_mcp::{Ahead, Libraries, PagesAhead, Reply, Stock, Tool};
+use scorsese_providers::credentials::{Provider, resolve};
+use scorsese_providers::voices::{Catalogue, ElevenLabsVoices};
 use scorsese_render::{Cancel, Tools};
 use serde_json::Value;
 use sqlx::postgres::PgPool;
@@ -124,7 +126,13 @@ pub struct Toolbox {
     stock: Option<Stock>,
     /// How much of each stock library each member has used this minute.
     shares: share::Shares,
+    /// Where a voice's origin is asked (`voiced`), when not ElevenLabs keyed
+    /// from the one resolver — a test's.
+    voices: Option<Voices>,
 }
+
+/// A voice catalogue a call can move to a blocking thread.
+pub type Voices = Arc<dyn Catalogue + Send + Sync>;
 
 impl Toolbox {
     /// Tools answering from `pool` (the member pool), with users' files in
@@ -146,7 +154,24 @@ impl Toolbox {
             renders,
             stock: None,
             shares: share::Shares::default(),
+            voices: None,
         }
+    }
+
+    /// The same tools asking `voices` where a voice comes from instead of
+    /// ElevenLabs — a test's, which needs no key and no network.
+    pub fn voiced_from(mut self, voices: Voices) -> Self {
+        self.voices = Some(voices);
+        self
+    }
+
+    /// Where a voice's origin is asked, or why it cannot be.
+    fn catalogue(&self) -> Result<Voices, String> {
+        if let Some(voices) = &self.voices {
+            return Ok(voices.clone());
+        }
+        let key = resolve(Provider::ElevenLabs).map_err(|error| error.to_string())?;
+        Ok(Arc::new(ElevenLabsVoices::new(&key.secret)))
     }
 
     /// The same tools searching and importing stock media of every kind from

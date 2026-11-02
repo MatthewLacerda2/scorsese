@@ -37,10 +37,11 @@
 //! its webhook arrives (`payments::settle` — Stripe carries no user; the
 //! crediting runs scoped as the owner), and writing the access record
 //! (`accounts::access` — a table that outlives the account by law, so no
-//! member may read it), and asking whether a voice id is another user's
-//! designed voice, or how many of the shared account's voice slots are
-//! taken (`designs::owners` — the voice is the vendor's, not a row, so the
-//! policy cannot stand between it and the next user), and sweeping
+//! member may read it), and asking whose designed voice a voice id is, or
+//! how many of the shared account's voice slots are taken and whether the
+//! caller ever bought credit, which sets their share (`designs::owners` — the
+//! voice is the vendor's, not a row, so the policy cannot stand between it
+//! and the next user), and sweeping
 //! everybody's abandoned uploads (`library::room` — what nobody has
 //! touched for a day is a question about every user). Every
 //! call to it is a place a reviewer

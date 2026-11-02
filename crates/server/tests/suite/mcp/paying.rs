@@ -26,6 +26,25 @@ pub(super) async fn fund(pool: &PgPool, user: UserId, dollars: i64) {
     tx.commit().await.expect("the top-up commits");
 }
 
+/// A Stripe payment of `user`'s that arrived, as the webhook leaves it: what
+/// makes theirs an account that has bought credit (#1655).
+pub(super) async fn bought(pool: &PgPool, user: UserId) {
+    let mut tx = db::privileged(pool)
+        .await
+        .expect("a privileged scope opens");
+    sqlx::query(
+        "INSERT INTO payments (user_id, stripe_session, brl_centavos, credit_micros,
+                               brl_per_usd, rate_source, state, paid_at)
+         VALUES ($1, $2, 5000, 10000000, '5.0', 'awesomeapi', 'paid', now())",
+    )
+    .bind(user.get())
+    .bind(format!("cs_test_{}", user.get()))
+    .execute(&mut *tx)
+    .await
+    .expect("a paid payment is recorded");
+    tx.commit().await.expect("the payment commits");
+}
+
 /// The token a quote names.
 pub(super) fn token(quote: &str) -> String {
     quote

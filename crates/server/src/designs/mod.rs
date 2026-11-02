@@ -23,9 +23,9 @@
 //!   operator's ElevenLabs account and any project of theirs may name it, so
 //!   it is the user's, not a project's. Each row points at the design that
 //!   holds the description and the seed.
-//! - **A kept voice is its maker's alone** ([`owners`], #687): every user's
-//!   voices sit in the same vendor account, so `generate` and `voices`
-//!   refuse a voice another user's ledger names.
+//! - **A kept voice is its maker's alone** ([`owners`], #687, #1655): every
+//!   user's voices sit in the same vendor account, so `generate` and `voices`
+//!   take a custom voice only from the caller's own ledger.
 //! - **A kept voice can be forgotten** ([`forget`], #1381): deleted at the
 //!   vendor, then its row, so the account's voice slots are given back — by
 //!   the user, or for them when their account is deleted.

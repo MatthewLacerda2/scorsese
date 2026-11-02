@@ -61,11 +61,12 @@ pub mod clone;
 pub mod design;
 mod elevenlabs;
 mod error;
+mod origin;
 mod refusal;
 mod run;
 
 pub use cache::{REFRESH_AFTER_DAYS, cache_dir};
-pub use catalogue::{Availability, Catalogue, More, Page, Unusable, Voice};
+pub use catalogue::{Availability, Catalogue, More, Origin, Page, Unusable, Voice};
 pub use elevenlabs::ElevenLabsVoices;
 pub use error::VoiceError;
 pub use run::{Answer, Freshness, builtin, cached, check, library, require};

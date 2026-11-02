@@ -65,8 +65,9 @@ async fn serving(
     let members = scorsese_server::db::member_pool(pool)
         .await
         .expect("the test setup holds");
-    let mut state =
-        http::AppState::new(members.clone(), common::files("assistant")).with_assistant(assistant);
+    let mut state = http::AppState::new(members.clone(), common::files("assistant"))
+        .with_assistant(assistant)
+        .voiced_from(common::voices());
     if let Some(library) = stock {
         state = state.stocked_from(library);
     }

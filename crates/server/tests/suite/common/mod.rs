@@ -16,9 +16,11 @@ pub(crate) mod logged;
 pub(crate) mod scratch;
 pub(crate) mod stream;
 mod teardown;
+mod voices;
 
 pub(crate) use client::{Response, get, request, send};
 pub(crate) use teardown::{members, release_at_teardown};
+pub(crate) use voices::{unreachable, voices};
 
 /// A listener on a port the OS picked, and the address it ended up on.
 pub(crate) async fn listener() -> (TcpListener, SocketAddr) {
@@ -66,7 +68,7 @@ pub(crate) async fn serve_shaped(
     let members = scorsese_server::db::member_pool(&pool)
         .await
         .expect("the member pool connects");
-    let state = shape(http::AppState::new(members.clone(), files));
+    let state = shape(http::AppState::new(members.clone(), files).voiced_from(voices()));
     let router = http::router(state.clone());
     let server = tokio::spawn(http::serve(listener, router, std::future::pending()));
     release_at_teardown(&pool, &members, [server.abort_handle()]);

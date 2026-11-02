@@ -24,12 +24,12 @@ use crate::api::elevenlabs::voices::{self, Filters, Listing, Voices};
 use crate::api::http::HttpError;
 use crate::credentials::Secret;
 
-use super::catalogue::{Availability, Catalogue, More, Page, Unusable, Voice};
+use super::catalogue::{Availability, Catalogue, More, Origin, Page, Unusable, Voice};
 use super::error::VoiceError;
 use super::refusal::{NO_VOICE, failure, plan_limited, refused, unusable};
 
 /// What this catalogue is called wherever a message names it.
-const NAME: &str = "ElevenLabs";
+pub(super) const NAME: &str = "ElevenLabs";
 
 /// The voice listings, as a catalogue.
 #[derive(Debug, Clone)]
@@ -76,6 +76,12 @@ impl Catalogue for ElevenLabsVoices {
 
     fn one(&self, voice_id: &str) -> Result<Availability, VoiceError> {
         availability(voice_id, self.voices.one(voice_id), || {
+            self.voices.in_library(voice_id)
+        })
+    }
+
+    fn origin(&self, voice_id: &str) -> Result<Option<Origin>, VoiceError> {
+        super::origin::origin(voice_id, self.voices.one(voice_id), || {
             self.voices.in_library(voice_id)
         })
     }

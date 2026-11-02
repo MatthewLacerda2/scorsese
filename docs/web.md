@@ -2205,13 +2205,20 @@ homes that outlive a call (`crate::designs`):
   operator's ElevenLabs account and any project may name it, so it belongs to
   the user, not a project; each row points at the design holding the
   description and seed that made it;
-- **a kept voice is its maker's alone** (#687). Every user's voices sit in the
-  same vendor account and a `voice_id` is only a string, so row-level security
-  cannot reach them: `generate` refuses a line read in a voice another user's
-  `designed_voices` names, before quoting it, and `voices` refuses to `check`
-  one. The listings need no filter — they are the built-in set and the Voice
-  Library, and designed voices are in neither — and built-in and Library voices
-  stay open to everyone;
+- **a custom voice is its maker's alone** (#687, #1655). Every user's voices
+  sit in the same vendor account and a `voice_id` is only a string, so
+  row-level security cannot reach them. It is an allow-list, applied where
+  `generate` would narrate with a voice (before quoting) and where `voices`
+  would `check` one: a voice the caller's own `designed_voices` names is
+  theirs, one another user's names is refused at once, and any other is asked
+  of ElevenLabs (`voices::Catalogue::origin`: `GET /v1/voices/{id}`, and the
+  Voice Library searched for the exact id) and goes through only as a
+  built-in (`premade`) or Library voice. So a custom voice in the account that
+  no row names — made outside the web app, or whose row is gone — is refused
+  to everyone, and a vendor that cannot be asked refuses the call rather than
+  guess. An id nothing answers to goes through, to fail unpaid as before. The
+  listings need no filter — they are the built-in set and the Voice Library,
+  and the account's custom voices are in neither;
 - **a kept voice takes one of the account's voice slots** (#1261), shared by
   every user: 10 on Starter, `SCORSESE_ELEVENLABS_VOICE_SLOTS`. ElevenLabs'
   own page settles which voices count: "Voices saved from the Voice Library do
@@ -2222,9 +2229,12 @@ homes that outlive a call (`crate::designs`):
   itself, is free of slots, and what takes one is exactly a `designed_voices`
   row — counted from those rows (`designs::owners::slots`), since the
   operator's key lacks the `user_read` permission the vendor's live count
-  needs. A `voice_keep` job checks before it asks the vendor: a user keeps at
-  most three, so the first few cannot take every slot, and nobody keeps one
-  once the account is full. Either is refused in plain words, free, pointing
+  needs. A `voice_keep` or `voice_clone` job checks before it asks the
+  vendor: a user who has never bought credit (no paid `payments` row, a
+  withdrawn purchase not counting) keeps one, and one who has keeps three (#1655), so free accounts cannot take
+  every slot; and nobody keeps one once the account is full. A share only
+  limits adding: a user over it keeps what they have. The free refusal says
+  "free accounts keep one custom voice; buying credit lets you keep three". Either is refused in plain words, free, pointing
   at the voices the user has, at `forget`, and at Library voices.
 - **A kept voice is forgotten at the vendor, not only in the count** (#1381).
   `forget` with one of the user's own voice ids queues a `voice_forget` job:

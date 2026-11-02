@@ -216,6 +216,24 @@ pub enum Availability {
     Unusable(Unusable),
 }
 
+/// Where a voice comes from, as far as who may narrate with it goes (#1655).
+///
+/// One account's key is shared by everyone a hosted server serves, so what
+/// the account holds is not, by being there, everyone's to use: a voice
+/// designed or cloned in it is somebody's. This is the one fact that decides
+/// it, read from the vendor rather than from anything a project says.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Origin {
+    /// One of the vendor's built-in voices, which every account has.
+    Builtin,
+    /// Published in the Voice Library, for anyone to narrate with — whether
+    /// or not the account has saved it yet.
+    Library,
+    /// Held by the account and neither of those: a voice designed or cloned
+    /// in it.
+    Custom,
+}
+
 /// Somewhere the voices can be listed.
 pub trait Catalogue {
     /// The built-in voices — the small set an account has without doing
@@ -241,6 +259,13 @@ pub trait Catalogue {
     /// person checking an id wants to be told, and a generation about to spend
     /// money wants to be stopped.
     fn one(&self, voice_id: &str) -> Result<Availability, VoiceError>;
+
+    /// Where `voice_id` comes from, or `None` when nothing answers to it.
+    ///
+    /// A failure to ask — a timeout, a key without the scope — is an `Err`,
+    /// never a guess: a caller deciding who may use a voice refuses rather
+    /// than guessing *built-in*.
+    fn origin(&self, voice_id: &str) -> Result<Option<Origin>, VoiceError>;
 
     /// What this catalogue is called, for a message somebody reads.
     fn name(&self) -> &'static str;

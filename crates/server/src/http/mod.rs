@@ -174,6 +174,13 @@ impl AppState {
         self
     }
 
+    /// The same state with its tools asking `voices` where a voice comes from
+    /// — a test's, which needs no key and no network.
+    pub fn voiced_from(mut self, voices: crate::tools::Voices) -> Self {
+        self.tools = self.tools.voiced_from(voices);
+        self
+    }
+
     /// The same state, selling credits through `payments`.
     pub fn with_payments(mut self, payments: Option<crate::payments::Payments>) -> Self {
         self.payments = payments;
