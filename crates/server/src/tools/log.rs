@@ -226,6 +226,16 @@ mod tests {
         assert_eq!(cut["cut"], true);
         assert!(super::is_cut(&cut));
         assert!(!super::is_cut(&quoted));
+        // Arguments that only look like one are what the call was given.
+        for given in [
+            json!({ "cut": true, "bytes": 1, "kept": "x", "project": 1 }),
+            json!({ "cut": false, "bytes": 1, "kept": "x" }),
+            json!({ "cut": true, "bytes": "1", "kept": "x" }),
+            json!({ "cut": true, "bytes": 1, "kept": 1 }),
+            json!({ "cut": true, "bytes": 1, "note": "x" }),
+        ] {
+            assert!(!super::is_cut(&given), "{given}");
+        }
         assert_eq!(cut["bytes"], quoted.to_string().len());
         let wide = json!({ "text": "é".repeat(KEPT) });
         assert!(kept(&wide).to_string().len() <= KEPT);
