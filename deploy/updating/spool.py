@@ -11,7 +11,7 @@ from .host import Refusal
 
 
 class Spool:
-    """The `capture-spool` volume, made again in step 5 when it points elsewhere."""
+    """The `capture-data` volume, made again in step 5 when it points elsewhere."""
 
     def moved_spool(self) -> str:
         """The spool volume's name when SCORSESE_DATA has moved since it was made, else "".
@@ -34,21 +34,33 @@ class Spool:
         return name
 
     def respool(self, name: str) -> None:
-        """Remove capture-launcher and the volume `name`, so `up` makes both again.
+        """Remove capture-launcher, the captures it left, and the volume `name`, so `up`
+        makes the volume and the launcher again.
 
-        The volume holds nothing of its own; only capture-launcher mounts it.
+        The volume holds nothing of its own. The launcher mounts it, and so does each
+        capture container it starts (a media file each), which outlives the launcher's
+        removal: `docker run --rm` is the daemon's, not the client's.
         """
         if not name:
             return
         if not self.opts.dry_run:
             self.stage = "respooling"
-        steps = (self.compose_args(["rm", "--stop", "--force", "capture-launcher"]),
-                 ["docker", "volume", "rm", name])
-        for args in steps:
-            if self.opts.dry_run:
-                self.say("would run: " + " ".join(args))
-                continue
-            done = self.host.run(args, cwd=self.deploy)
-            if not done.ok:
-                raise Refusal(f"`{' '.join(args)}` failed, so the stack was not restarted:\n"
-                              + (done.err or done.out).strip())
+        self.respool_step(self.compose_args(["rm", "--stop", "--force", "capture-launcher"]))
+        listed = ["docker", "ps", "--quiet", "--all", f"--filter=label={stack.CAPTURE_LABEL}"]
+        if self.opts.dry_run:
+            self.say(f"would run: docker rm --force <every container labelled {stack.CAPTURE_LABEL}>")
+        else:
+            left = self.host.run(listed).out.split()
+            if left:
+                self.respool_step(["docker", "rm", "--force", *left])
+        self.respool_step(["docker", "volume", "rm", name])
+
+    def respool_step(self, args) -> None:
+        """Run `args`, or say it would; a failure stops the update before `up`."""
+        if self.opts.dry_run:
+            self.say("would run: " + " ".join(args))
+            return
+        done = self.host.run(args, cwd=self.deploy)
+        if not done.ok:
+            raise Refusal(f"`{' '.join(args)}` failed, so the stack was not restarted:\n"
+                          + (done.err or done.out).strip())

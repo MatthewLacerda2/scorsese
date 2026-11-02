@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Stdio};
 use std::time::{Duration, Instant};
 
-use super::launch::{self, Launch};
+use super::launch::{self, Launch, Staged};
 use super::{ANSWER, ASK, Answer, Ask, Asked, PROJECT, Spool, publish, read};
 
 /// `scorsese-server capture-worker`
@@ -116,7 +116,12 @@ impl Worker {
         let waiting = std::fs::read_dir(self.spool.jobs())
             .ok()?
             .filter_map(|entry| {
-                let path = entry.ok()?.path();
+                let entry = entry.ok()?;
+                // A job is a folder of its own, never a link to one.
+                if !entry.file_type().ok()?.is_dir() {
+                    return None;
+                }
+                let path = entry.path();
                 let name = path.file_name()?.to_str()?;
                 let number: i64 = name
                     .strip_prefix("job-")
@@ -140,25 +145,48 @@ impl Worker {
             let _ = publish(&job.join(ANSWER), &Answer::default());
             return;
         };
+        let staged = match &self.isolation {
+            Isolation::Container(launch) => match launch.stage(job, &ask) {
+                Ok(staged) => Some(staged),
+                Err(why) => {
+                    let failed = vec![Some(why); ask.requests.len()];
+                    let _ = publish(&job.join(ANSWER), &Answer { failed });
+                    return;
+                }
+            },
+            Isolation::Process { .. } => None,
+        };
         let mut answer = Answer::default();
         for (index, asked) in ask.requests.iter().enumerate() {
             if !job.join(ASK).is_file() {
-                return;
+                break;
             }
-            answer.failed.push(self.capture(job, index, asked).err());
+            let captured = self.capture(job, index, asked, staged.as_ref());
+            answer.failed.push(captured.err());
         }
-        if job.is_dir() {
+        if let (Isolation::Container(launch), Some(staged)) = (&self.isolation, &staged) {
+            launch.unstage(staged);
+        }
+        if job.is_dir() && answer.failed.len() == ask.requests.len() {
             let _ = publish(&job.join(ANSWER), &answer);
         }
     }
 
     /// One capture, in a child the deadline can kill; why it failed if it did.
-    fn capture(&self, job: &Path, index: usize, asked: &Asked) -> Result<(), String> {
+    /// In a container, `staged` is the job as copied, and what the capture
+    /// wrote is kept once its container is gone.
+    fn capture(
+        &self,
+        job: &Path,
+        index: usize,
+        asked: &Asked,
+        staged: Option<&Staged>,
+    ) -> Result<(), String> {
         // Every frame up to the last drawn, the ones run through without
         // drawing included: running ahead is cheaper than drawing, never free.
         let frames = asked.frames()?.end;
         let limit = (self.deadline)(frames);
-        let mut command = self.command(job, index)?;
+        let mut command = self.command(job, index, staged)?;
         let mut child = command
             .process_group(0)
             .stdin(Stdio::null())
@@ -193,6 +221,9 @@ impl Worker {
         kill_group(group);
         let _ = child.wait();
         let said = said.join().unwrap_or_default();
+        if let (Isolation::Container(launch), Some(staged)) = (&self.isolation, staged) {
+            launch.publish(staged, index)?;
+        }
         match status {
             Some(status) if status.success() => Ok(()),
             Some(status) => Err(failure(&said, status)),
@@ -206,9 +237,16 @@ impl Worker {
     }
 
     /// What runs capture `index` of the job at `job`.
-    fn command(&self, job: &Path, index: usize) -> Result<Command, String> {
+    fn command(
+        &self,
+        job: &Path,
+        index: usize,
+        staged: Option<&Staged>,
+    ) -> Result<Command, String> {
         match &self.isolation {
-            Isolation::Container(launch) => launch.command(job, index),
+            Isolation::Container(launch) => {
+                launch.command(staged.ok_or("the job was not staged")?, index)
+            }
             Isolation::Process {
                 program,
                 sandbox,

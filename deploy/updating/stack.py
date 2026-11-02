@@ -47,10 +47,14 @@ BUILT = (
 )
 TAG = "SCORSESE_IMAGE_TAG"
 
-# The volume that points capture-launcher at the capture spool (compose.yaml,
-# `capture-spool`). It keeps the folder it was made with, so after
+# The volume that points capture-launcher at the service's data, spool and library (compose.yaml,
+# `capture-data`). It keeps the folder it was made with, so after
 # SCORSESE_DATA moves it must be made again, which `up` only asks at a terminal.
-SPOOL = "capture-spool"
+SPOOL = "capture-data"
+
+# The label every page-capture container carries (crates/server/src/captures/launch,
+# `LABEL`). Each mounts the data volume, so the volume cannot go while one runs.
+CAPTURE_LABEL = "org.scorsese.capture"
 
 Compose = Callable[[Sequence[str]], Result]
 
@@ -140,7 +144,7 @@ def not_ready(entries: Sequence[dict], names: Sequence[str] = ()) -> List[str]:
 
 
 def spool(config_json: str) -> Tuple[str, str]:
-    """The spool volume's name and the folder it should point at, from `config --format json`."""
+    """The data volume's name and the folder it should point at, from `config --format json`."""
     try:
         volume = json.loads(config_json)["volumes"][SPOOL]
         return volume["name"], volume["driver_opts"]["device"]

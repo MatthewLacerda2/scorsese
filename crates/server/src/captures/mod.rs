@@ -8,8 +8,11 @@
 //! all, no capability, a read-only root, Chromium's own sandbox on
 //! ([`scorsese_render::page::Chrome::sandboxed`]) with the one seccomp rule
 //! #773 found it needs, #773's caps on CPU, memory and processes — and
-//! **nothing mounted but its own job**: the project, read-only, the media
-//! files that project links to, read-only, and its page cache.
+//! **nothing mounted but its own job**: a copy of the project, read-only, the
+//! media files that project links to, read-only, and an empty `cache/` of its
+//! own, which the launcher keeps in the project's page cache once the capture
+//! is over. None of it is a path the server could change after the launcher
+//! looked ([`launch`], #1636).
 //!
 //! ## How the server asks: a spool, and a launcher holding the socket
 //!
@@ -30,7 +33,9 @@
 //!   written by the launcher the same way.
 //! - `pages/<user>/<project>/`: each project's page cache, the `cache/` its
 //!   captures land in. Per user and per project, so a user's captured frames
-//!   are never another's.
+//!   are never another's. In the launcher's containers a capture never writes
+//!   here itself: the launcher copies in what it wrote once it is over
+//!   ([`launch::Launch::publish`], #1677).
 //! - `worker.alive`: when the launcher last looked, so a server whose launcher
 //!   is not running says so rather than waiting forever.
 //!
@@ -233,12 +238,11 @@ pub struct Answer {
     pub failed: Vec<Option<String>>,
 }
 
-/// Writes `value` to `path` whole: beside it first, then moved into place.
+/// Writes `value` to `path` whole: beside it first, in a file nothing else
+/// was at, then moved into place.
 fn publish(path: &Path, value: &impl Serialize) -> std::io::Result<()> {
-    let partial = path.with_extension("partial");
     let bytes = serde_json::to_vec_pretty(value).map_err(std::io::Error::other)?;
-    std::fs::write(&partial, bytes)?;
-    std::fs::rename(&partial, path)
+    scorsese_core::write::atomically(path, bytes)
 }
 
 /// Reads the JSON at `path`, if it is there and whole.

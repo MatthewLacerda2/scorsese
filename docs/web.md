@@ -597,7 +597,7 @@ commit the stack runs, which is the way back, then:
    dump, or under `--wait` waits again and takes a fresh one.
 5. **Restarts** on the new build: checks whether `SCORSESE_DATA` has moved
    (below) before changing anything, moves `latest` to each new image, drops
-   the commit's tag, makes the `capture-spool` volume again if it moved, then
+   the commit's tag, makes the `capture-data` volume again if it moved, then
    `docker compose up --detach`. A server that never turns healthy fails here,
    with its last lines and the way back.
 6. **Waits for every service to be healthy**, ten minutes by default
@@ -648,13 +648,15 @@ labels the image, so the next update knows what runs), and restore the dump
 grows over time; `docker buildx du` shows it.
 
 **If `SCORSESE_DATA` has moved** since the last `up`, the volume
-`capture-spool` still points at the old folder. `deploy/update` sees it and
-removes `capture-launcher` and the volume before `up`, which makes both again;
-the volume only points `capture-launcher` at `cache/captures`, so this deletes
-nothing (`deploy/compose.yaml` has why the spool is a volume, #861). A hand
-`docker compose up` asks instead whether to recreate it, warning that data will
-be lost: answer yes. Answered no, or run without a terminal, it keeps the old
-path, and every page capture waits out its 30 s and draws a slug card.
+`capture-data` still points at the old folder. `deploy/update` sees it and
+removes `capture-launcher`, any capture it left running, and the volume
+before `up`, which makes the launcher and the volume again;
+the volume only points `capture-launcher` and its captures at the data folder,
+so this deletes nothing (`deploy/compose.yaml` has why it is a volume, #861,
+#1636). A hand `docker compose up` asks instead whether to recreate it, warning
+that data will be lost: answer yes. Answered no, or run without a terminal, it
+keeps the old path, and every page capture waits out its 30 s and draws a slug
+card.
 
 ### Backups
 
@@ -1868,25 +1870,49 @@ processes. The image bakes the pinned `chrome-headless-shell`
 (`tools/chromium/pin`) and `SCORSESE_CHROME` names it; the server never
 downloads one.
 
-**What a capture can see** is its own job and nothing else: the job's folder,
-read-only; the media files its project links to, one by one, read-only; and its
-project's page cache, the one place it may write. Each is mounted at the path
-the server laid it out with, so the project's links resolve inside. Another
-user's library is not filtered out, it is simply not there. Every linked file
-must also be the job's owner's (`library/users/<owner>/`), so even a server bug
-cannot hand one user's file to another's page; a job that links to anything
-else is refused, and the render's notes say why. The capture is told that
-folder too (`capture-one --follow`, #857): a page's request for its own
-`../assets/photo.png` follows the link there, while a link leading anywhere
-else (`/etc/passwd`, or on from the library) is refused as it is locally.
+**What a capture can see** is its own job and nothing else: a copy of the
+job's folder, read-only; the media files its project links to, one by one,
+read-only; and an empty folder of its own as the project's `cache/`, the one
+place it may write. Each is mounted at the path the server laid it out with, so
+the project's links resolve inside. Another user's library is not filtered
+out, it is simply not there. Every linked file must also be the job's owner's
+(`library/users/<owner>/`), so even a server bug cannot hand one user's file to
+another's page; a job that links to anything else is refused, and the render's
+notes say why. The capture is told that folder too (`capture-one --follow`,
+#857): a page's request for its own `../assets/photo.png` follows the link
+there, while a link leading anywhere else (`/etc/passwd`, or on from the
+library) is refused as it is locally.
+
+**No capture mount is a path the server can change** (#1636). The Docker
+daemon looks a bind's source up again, on the host, when it makes the
+container, by which time a server that has been taken over could have swapped
+a checked file for a link to any file on the host, or the page cache for any
+folder, writable. So the launcher binds nothing:
+
+- It **copies the job** into `capture-staging`, a volume only it mounts, each
+  file read from a handle opened without following links, so what it checks is
+  what it copies. A job folder, project or file that is a link, a FIFO or a
+  device is refused; a link is kept only when it is one of the owner's media.
+- The **media** are `volume-subpath`s of `capture-data` (the data folder as a
+  volume), which the daemon resolves inside the volume itself, refusing a link
+  out of it. That takes **Docker 26 and Compose 2.27** or later; the launcher
+  refuses to start on an older daemon.
+- The capture **never mounts the page cache** (#1677). It writes into a folder
+  of its own in `capture-staging`, and once its container is gone the launcher
+  copies the files and folders it left, never a link, into the project's page
+  cache. So no capture still running can change a file after the server has
+  checked it. The server asks only for the pages the cache does not already
+  hold, since each capture starts from an empty folder.
 
 **What a capture wrote is not trusted** (#1643). The server reads and sweeps
 that page cache without following any link in it: a link where a capture's
 folder, frames or record belongs is a cache miss, a record naming a file
 outside the project or inside its cache is one too, the server replaces a
 link left where the kept `pages/` folder belongs, and the idle sweep removes a
-link itself, never what it leads to. The checks are by path, so a capture still
-running can swap a link in after one (#1677).
+link itself, never what it leads to. The checks are by path, which holds
+because no capture writes the page cache itself: the launcher copies in what
+it left once it is over (#1677). `capture-worker`, which runs captures as
+plain processes, still writes it in place.
 
 **Who starts them: `capture-launcher`.** Starting a container takes the Docker
 socket, which is root on the host, and the server is the one container the

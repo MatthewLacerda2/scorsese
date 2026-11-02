@@ -42,7 +42,11 @@ FROM debian:trixie-slim AS launcher
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends docker-cli \
     && rm -rf /var/lib/apt/lists/* \
-    && docker --version
+    && docker --version \
+    # The `capture-staging` volume's mount point. A new volume takes its owner
+    # and mode on first mount, and the launcher runs as the host user, not
+    # root, so it is writable by anyone, sticky as /tmp is (compose.yaml).
+    && mkdir --mode=1777 /staging
 COPY --from=build /usr/local/bin/scorsese-server /usr/local/bin/scorsese-server
 USER nobody
 CMD ["scorsese-server", "capture-launcher", "--help"]

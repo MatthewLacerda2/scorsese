@@ -98,6 +98,27 @@ impl Held {
     }
 }
 
+/// Tidies the slot `slot` of `request`'s page under `project_root` as a run
+/// that captured onto each of its shelves would once over: the pieces no
+/// shelf needs, and the shelves past the most a slot keeps. For a capture made
+/// elsewhere and kept here after (the web's launcher, #1636), whose own run
+/// tidied only the folder it wrote in.
+pub(crate) fn tidy(project_root: &Path, request: &Request, slot: &Path) {
+    let written = shelves::all(slot)
+        .into_iter()
+        .map(|shelf| Written {
+            project_root: project_root.to_owned(),
+            slot: slot.to_owned(),
+            shelf,
+            request: request.clone(),
+        })
+        .collect();
+    drop(Held {
+        files: Vec::new(),
+        written,
+    });
+}
+
 impl Drop for Held {
     /// The holds let go, then the tidy: the pieces each written shelf no
     /// longer needs, and the shelves past the most a slot keeps — none of them
@@ -245,6 +266,31 @@ mod tests {
         shelf(&mut Held::default(), "told-later");
         assert!(!shelves[1].is_file(), "the oldest, once nobody holds it");
         assert!(!shelves[2].is_file(), "and the next, now past the most");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_capture_copied_in_from_elsewhere_is_tidied_on_asking() {
+        let (root, slot) = project("copied");
+        let trimmed = capture(&mut Held::default(), &root, (&slot, "told-none"), 9..31);
+        // The whole page arrives as a copy, by no run here (#1636).
+        let elsewhere = root.join("elsewhere");
+        let whole = capture(
+            &mut Held::default(),
+            &root,
+            (&elsewhere, "told-none"),
+            0..31,
+        );
+        let shelf = slot.join("told-none");
+        for file in [super::super::FRAMES, super::super::RECORD] {
+            std::fs::copy(elsewhere.join("told-none").join(file), shelf.join(file)).unwrap();
+        }
+        assert!(trimmed.is_file() && whole.is_file());
+
+        tidy(&root, &request(), &slot);
+
+        assert!(!trimmed.is_file(), "the whole page holds its frames");
+        assert!(shelf.join(super::super::FRAMES).is_file());
         let _ = std::fs::remove_dir_all(&root);
     }
 

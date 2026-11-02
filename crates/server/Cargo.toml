@@ -19,6 +19,7 @@ axum = { version = "0.8.9", default-features = false, features = ["http1", "json
 clap = { version = "4.6.4", features = ["derive"] }
 futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
 getrandom = "0.4.3"
+libc = "0.2.191"
 scorsese-core = { version = "0.1.0", path = "../core" }
 scorsese-mcp = { version = "0.1.0", path = "../mcp" }
 scorsese-providers = { version = "0.1.0", path = "../providers" }

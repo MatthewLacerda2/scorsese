@@ -10,7 +10,7 @@ import unittest
 from .scripted import APPLIED, DUMPED, GIT, IDLE, PS, Result, Scripted, update
 
 MOVED = (["volume", "inspect"],
-         Result(0, '{"device":"/old/scor/cache/captures","o":"bind","type":"none"}\n'))
+         Result(0, '{"device":"/old/scor","o":"bind","type":"none"}\n'))
 REAL = [(["pull"], Result(0)), APPLIED, IDLE, (["backup backup"], DUMPED),
         (["ps --all"], Result(0, PS))]
 
@@ -24,18 +24,27 @@ class Moved(unittest.TestCase):
         host = Scripted([MOVED] + GIT + REAL)
         code, out, err = update(host)
         self.assertEqual(code, 0, err)
-        self.assertIn("points at /old/scor/cache/captures, not /srv/scor/cache/captures", out)
+        self.assertIn("points at /old/scor, not /srv/scor", out)
         rm, vol, up = (ran(host, s) for s in ("rm --stop --force capture-launcher",
-                                              "volume rm scorsese_capture-spool", "up --detach"))
+                                              "volume rm scorsese_capture-data", "up --detach"))
         self.assertTrue(rm and vol and up, host.ran)
         self.assertLess(rm[0], vol[0])
         self.assertLess(vol[0], up[0])
+
+    def test_a_capture_still_running_goes_before_the_volume(self):
+        left = (["ps --quiet --all", "label=org.scorsese.capture"], Result(0, "abc123\n"))
+        host = Scripted([MOVED, left] + GIT + REAL)
+        code, _, err = update(host)
+        self.assertEqual(code, 0, err)
+        capture, vol = ran(host, "rm --force abc123"), ran(host, "volume rm")
+        self.assertTrue(capture and vol, host.ran)
+        self.assertLess(capture[0], vol[0])
 
     def test_a_dry_run_says_so_and_removes_nothing(self):
         host = Scripted([MOVED] + GIT + [APPLIED, IDLE, (["ps --all"], Result(0, PS))])
         code, out, err = update(host, "--dry-run")
         self.assertEqual(code, 0, err)
-        self.assertIn("would run: docker volume rm scorsese_capture-spool", out)
+        self.assertIn("would run: docker volume rm scorsese_capture-data", out)
         self.assertFalse(ran(host, "volume rm") or ran(host, "rm --stop"))
 
     def test_a_failed_removal_stops_before_up_and_says_where_things_are(self):
@@ -71,7 +80,7 @@ class Unmoved(unittest.TestCase):
         bare = (["config", "--format json"], Result(0, '{"name": "scorsese", "volumes": {}}'))
         code, _, err = update(Scripted([bare] + GIT + REAL))
         self.assertEqual(code, 1)
-        self.assertIn("does not describe the `capture-spool` volume", err)
+        self.assertIn("does not describe the `capture-data` volume", err)
 
     def test_a_config_it_cannot_read_refuses_before_any_retag(self):
         broken = (["config", "--format json"], Result(1, err="yaml: line 3: bad"))

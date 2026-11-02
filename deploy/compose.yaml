@@ -242,7 +242,7 @@ services:
       options:
         tag: scorsese-capture-launcher
     # Healthy, because the server makes the spool before it answers, and the
-    # spool is mounted when this starts (`capture-spool` at the bottom); and
+    # spool is mounted when this starts (`capture-data` at the bottom); and
     # the server's build makes the image every capture runs, which the
     # launcher checks for when it starts.
     depends_on:
@@ -250,15 +250,20 @@ services:
         condition: service_healthy
     restart: unless-stopped
     # Where things are is said here, by the operator, never by a job: the
-    # paths the server sees, the host's path for the same folder (a mount's
-    # source is the host's), and who the captures run as.
+    # paths the server sees, the volumes a capture's mounts are made from
+    # (`capture-data` and `capture-staging` at the bottom), and who the
+    # captures run as. No capture mount is a bind: the daemon would look its
+    # source up again on the host, where the server can have swapped it for a
+    # link since the launcher looked (#1636).
     command:
       - scorsese-server
       - capture-launcher
       - --spool=/data/cache/captures
       - --library=/data/library
       - --data=/data
-      - --host-data=${SCORSESE_DATA}
+      - --data-volume=scorsese_capture-data
+      - --staging=/staging
+      - --staging-volume=scorsese_capture-staging
       - --user=${SCORSESE_UID}:${SCORSESE_GID}
     # A PID 1 that reaps the Docker clients a deadline kills.
     init: true
@@ -287,20 +292,26 @@ services:
         read_only: true
       # The library, read-only, to check each file a job's project links to
       # is its owner's before mounting that file and no other.
-      - type: bind
-        source: ${SCORSESE_DATA}/library
+      - type: volume
+        source: capture-data
         target: /data/library
         read_only: true
-        bind:
-          create_host_path: false
+        volume:
+          nocopy: true
+          subpath: library
       # The spool: each job's project, each project's page cache, and the
-      # answers. A volume, not a bind like the two above — `capture-spool`
-      # below has why.
+      # answers. `capture-data` below has why it is a volume.
       - type: volume
-        source: capture-spool
+        source: capture-data
         target: /data/cache/captures
         volume:
           nocopy: true
+          subpath: cache/captures
+      # What only this container writes: each job as copied, and what each
+      # capture writes before it is kept in the page cache.
+      - type: volume
+        source: capture-staging
+        target: /staging
 
   web:
     build:
@@ -389,6 +400,9 @@ services:
       SCORSESE_BACKUP_REMOTE: ${SCORSESE_BACKUP_REMOTE:?set SCORSESE_BACKUP_REMOTE in deploy/.env}
       SCORSESE_BACKUP_EVERY_HOURS: ${SCORSESE_BACKUP_EVERY_HOURS:?set SCORSESE_BACKUP_EVERY_HOURS in deploy/.env}
       SCORSESE_BACKUP_KEEP_DAYS: ${SCORSESE_BACKUP_KEEP_DAYS:?set SCORSESE_BACKUP_KEEP_DAYS in deploy/.env}
+      # The most the library's replaced and deleted files may take, in MB
+      # (#1657); blank is 50000.
+      SCORSESE_BACKUP_REPLACED_MAX_MB: ${SCORSESE_BACKUP_REPLACED_MAX_MB:-50000}
       RCLONE_CONFIG: /config/rclone/rclone.conf
       # rclone writes a cache and, for OAuth remotes, refreshed tokens; the
       # host user has no home directory inside this image.
@@ -419,15 +433,24 @@ networks:
 volumes:
   postgres-data:
 
-  # The capture spool, $SCORSESE_DATA/cache/captures, bind-mounted into
-  # capture-launcher and nothing else. The server makes that folder when it
-  # starts, so on a host it has never run on the folder is not there yet — and
-  # Compose creates every container before it starts any. A bind is checked
-  # when its container is created, so the launcher's failed and took the
-  # update down with it (#861); a volume is mounted when its container starts,
-  # which `depends_on` puts after the server is healthy and the folder made.
-  # The folder stays the host user's: neither Docker nor Compose creates it
-  # (`create_host_path` would, as root, and the server could not write in it).
+  # The service's data folder, $SCORSESE_DATA, as a volume for
+  # capture-launcher and the captures it starts, never the server, which binds
+  # it. The launcher mounts two subpaths of it, the spool read-write and the
+  # library read-only; each capture mounts its media one file a
+  # `volume-subpath` (Docker 26 or later). A subpath is resolved by the daemon
+  # inside the volume, refusing a link out of it, where a bind's source is
+  # looked up again on the host when the container is made, by which time the
+  # server may have swapped it for a link to anything (#1636).
+  #
+  # Why a volume and not a bind for the spool too: the server makes
+  # `cache/captures` when it starts, so on a host it has never run on the
+  # folder is not there yet — and Compose creates every container before it
+  # starts any. A bind is checked when its container is created, so the
+  # launcher's failed and took the update down with it (#861); a subpath is
+  # mounted when its container starts, which `depends_on` puts after the server
+  # is healthy and the folder made. The folder stays the host user's: neither
+  # Docker nor Compose creates it (`create_host_path` would, as root, and the
+  # server could not write in it).
   #
   # The volume only names the folder, so `docker compose down --volumes`
   # leaves what is in it alone. It remembers the path it was made with,
@@ -435,9 +458,20 @@ volumes:
   # answer is yes — its warning that data will be lost is about volumes that
   # hold their own, and this one holds none. deploy/update makes it again
   # itself rather than leave the question to a terminal (docs/web.md, "Updating").
-  capture-spool:
+  capture-data:
+    name: scorsese_capture-data
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: ${SCORSESE_DATA}/cache/captures
+      device: ${SCORSESE_DATA}
+
+  # What capture-launcher alone writes (#1636): each job copied out of the
+  # spool, and the folder each capture writes into, kept in the project's page
+  # cache once the capture's container is gone. Docker's own storage, so no
+  # folder on the way to it is the server's to change. Its first mount takes
+  # the image's `/staging` (world-writable, sticky), so the launcher, which is
+  # not root, can write in it. Rebuildable: the launcher empties it when it
+  # starts.
+  capture-staging:
+    name: scorsese_capture-staging

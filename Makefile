@@ -527,7 +527,7 @@ deny: ## [gate] Supply chain, both workspaces: advisories, bans, sources, licens
 #   bind's source must exist when Compose *creates* the container, before
 #   anything has started, so a folder the server makes is not there yet on a
 #   new host and the whole `up` fails partway (#861). Such a folder is mounted
-#   as a volume instead, which is resolved at start: `capture-spool`.
+#   as a volume instead, which is resolved at start: `capture-data`.
 #
 # It does not build the images. That is a Rust release build and a Bun build
 # inside Docker, minutes and gigabytes, to re-prove what `test` and `web`
@@ -551,7 +551,7 @@ deploy: ## [gate] deploy/compose.yaml parses, and .env.example documents what it
 	done; \
 	[ -z "$$missing" ] || { \
 		echo "deploy: compose.yaml binds folders under SCORSESE_DATA that docs/web.md's first-time setup does not make:$$missing" >&2; \
-		echo "deploy: a bind's source must exist before anything starts; mount a folder the server makes as a volume, like capture-spool (#861)" >&2; \
+		echo "deploy: a bind's source must exist before anything starts; mount a folder the server makes as a volume, like capture-data (#861)" >&2; \
 		exit 1; }
 	@env=$$(mktemp) && trap 'rm -f "$$env"' EXIT && \
 		sed -E '/^(COMPOSE_PROFILES|CLOUDFLARE_TUNNEL_TOKEN)=/!s/=$$/=placeholder/' \

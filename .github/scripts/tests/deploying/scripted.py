@@ -83,10 +83,10 @@ def update(host, *argv, env=ENV, deploy=None):
 
 
 # What `docker compose config` says of the spool volume, made from ENV's SCORSESE_DATA.
-CONFIG = Result(0, '{"name": "scorsese", "volumes": {"capture-spool": {"name": '
-                   '"scorsese_capture-spool", "driver": "local", "driver_opts": {"type": "none", '
-                   '"o": "bind", "device": "/srv/scor/cache/captures"}}}}\n')
-SPOOL_MADE = Result(0, '{"device":"/srv/scor/cache/captures","o":"bind","type":"none"}\n')
+CONFIG = Result(0, '{"name": "scorsese", "volumes": {"capture-data": {"name": '
+                   '"scorsese_capture-data", "driver": "local", "driver_opts": {"type": "none", '
+                   '"o": "bind", "device": "/srv/scor"}}}}\n')
+SPOOL_MADE = Result(0, '{"device":"/srv/scor","o":"bind","type":"none"}\n')
 
 # The stack runs dddd, as its server image's label says, and declares two services.
 RUNNING = [(["ps", "--quiet", "server"], Result(0, "c0ffee\n")),
