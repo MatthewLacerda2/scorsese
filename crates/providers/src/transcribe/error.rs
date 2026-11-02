@@ -70,7 +70,7 @@ pub enum TranscribeError {
     Unreadable(String),
     /// A language that is not a code.
     #[error(
-        "`{0}` is not a language code: give one like `pt` or `en`, or leave it out to have it detected"
+        "`{0}` is not a language Whisper knows: give a code like `pt` or `en`, or leave it out to have it detected"
     )]
     Language(String),
     /// No asset is so called.

@@ -2314,9 +2314,12 @@ Whisper large-v3-turbo int8 baked into its image (`deploy/whisper/`) — over
 the `whisper` network, which is internal: the container has no way out and
 nothing reaches it but the server (`SCORSESE_WHISPER_URL`). One job at a time,
 on two cores, so a render always has the rest; its owner stops it with `jobs`'
-`cancel`, which kills the decode and closes the request's connection, sent or
-still sending, so nothing waits on its reply or holds its WAV, and an answer
-that lands with the stop is not kept. A recording longer than two hours
+`cancel`, which kills the decode and shows the job stopped at once; a
+request already with Whisper is let run out, its answer not kept, and holds
+the slot until Whisper lets it go (`Context::hold_slot_until`), since Whisper
+finishes it either way and the next job would only wait on it. A member has
+at most three waiting (`kinds::TRANSCRIPTIONS_WAITING`), in a language
+Whisper knows (`Language`), and a fourth is refused with a sentence (#1651). A recording longer than two hours
 (`transcribe::LONGEST`) is refused by the call, from the item's stored probe,
 before anything is queued, so one job holds the slot for a bounded time. What
 the container says when it fails (a model missing, a body too large, busy) is

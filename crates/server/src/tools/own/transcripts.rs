@@ -164,6 +164,7 @@ fn said(error: LibraryError) -> String {
     match error {
         LibraryError::NotFound => "that file is not in your library".to_owned(),
         LibraryError::Invalid(why) => why,
+        waiting @ LibraryError::Waiting(_) => waiting.to_string(),
         other => database(other),
     }
 }

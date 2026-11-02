@@ -205,6 +205,13 @@ pub enum LibraryError {
     #[error("{0}")]
     Invalid(String),
 
+    /// The member already has this many transcriptions waiting (#1651).
+    #[error(
+        "you have {0} transcriptions waiting already; one more can be asked once one of them \
+         has started, or stop one with `jobs`"
+    )]
+    Waiting(usize),
+
     /// Another request is writing this upload right now. Try again shortly.
     #[error("this upload is being written by another request; try again shortly")]
     Busy,

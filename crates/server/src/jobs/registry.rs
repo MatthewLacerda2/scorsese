@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::future::Future;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 
 use futures_util::future::BoxFuture;
 use scorsese_render::{Cancel, Progress};
@@ -109,6 +109,20 @@ pub struct Context {
     user: UserId,
     cancel: Cancel,
     progress: Progress,
+    lingering: Lingering,
+}
+
+/// What a job's handler left running when it returned, its kind's slot held
+/// until it ends ([`Context::hold_slot_until`]).
+#[derive(Clone, Default)]
+pub(super) struct Lingering(Arc<Mutex<Vec<BoxFuture<'static, ()>>>>);
+
+impl Lingering {
+    /// Waits until everything left running has ended.
+    pub(super) async fn out(&self) {
+        let left = std::mem::take(&mut *self.0.lock().unwrap_or_else(PoisonError::into_inner));
+        futures_util::future::join_all(left).await;
+    }
 }
 
 impl Context {
@@ -126,7 +140,27 @@ impl Context {
             user: job.user,
             cancel,
             progress,
+            lingering: Lingering::default(),
         }
+    }
+
+    /// What the worker waits out once the outcome is recorded.
+    pub(super) fn lingering(&self) -> Lingering {
+        self.lingering.clone()
+    }
+
+    /// Keeps the job's slot taken after its outcome is recorded, until `work`
+    /// ends: work the handler had to let run out that still uses what the
+    /// slot rations — a stopped transcription's request, which the Whisper
+    /// server finishes either way. The job shows its outcome at once; the
+    /// next of its kind starts only after.
+    pub fn hold_slot_until(&self, work: impl Future<Output = ()> + Send + 'static) {
+        let mut lingering = self
+            .lingering
+            .0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        lingering.push(Box::pin(work));
     }
 
     /// Tripped when the job's owner asks it to stop, or the worker is
