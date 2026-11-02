@@ -1,10 +1,11 @@
 //! A member's in-request tool calls are bounded (#1649): at most three run at
 //! once, and none runs past its deadline.
 //!
-//! The calls are `stock_search`es against a library that holds every search
+//! The calls (`timing`, `dropped`) are `stock_search`es against a library that holds every search
 //! until the test lets it go, so a call is "running" for exactly as long as
 //! the test says, with no vendor and nothing big.
 
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
@@ -14,11 +15,12 @@ use scorsese_server::accounts::users;
 use scorsese_server::db::UserId;
 use scorsese_server::http::AppState;
 use scorsese_server::projects;
-use scorsese_server::tools::Client;
-use serde_json::json;
 use sqlx::postgres::PgPool;
 
 use crate::common;
+
+mod dropped;
+mod timing;
 
 /// How many searches have reached the library, and whether they may answer.
 #[derive(Default)]
@@ -75,8 +77,9 @@ impl Library for Held {
     }
 }
 
-/// A member with one project, and tools searching `gate`'s library.
-async fn held(pool: &PgPool, label: &str, gate: &Arc<Gate>) -> (AppState, UserId, i64) {
+/// A member with one project, tools searching `gate`'s library, and where
+/// their projects are laid out to run tools on.
+async fn held(pool: &PgPool, label: &str, gate: &Arc<Gate>) -> (AppState, UserId, i64, PathBuf) {
     let members = common::members(pool).await;
     let ana = users::create(pool, "ana@example.com")
         .await
@@ -86,9 +89,15 @@ async fn held(pool: &PgPool, label: &str, gate: &Arc<Gate>) -> (AppState, UserId
         .await
         .expect("the project")
         .id;
-    let state =
-        AppState::new(members, common::files(label)).stocked_from(Arc::new(Held(gate.clone())));
-    (state, ana, id)
+    let files = common::files(label);
+    let scratch = files
+        .storage
+        .scratch(ana)
+        .parent()
+        .expect("a scratch folder is in the member's scratch directory")
+        .to_path_buf();
+    let state = AppState::new(members, files).stocked_from(Arc::new(Held(gate.clone())));
+    (state, ana, id, scratch)
 }
 
 /// Waits until `gate` has seen `n` searches arrive, for a few seconds.
@@ -104,49 +113,16 @@ async fn arrived(gate: &Gate, n: usize) {
     }
 }
 
-#[sqlx::test]
-async fn a_fourth_call_at_once_waits_for_one_of_the_three(pool: PgPool) {
-    let gate = Arc::new(Gate::default());
-    let (state, ana, id) = held(&pool, "bounded-at-once", &gate).await;
-    // A query each: an answer the stock cache holds never reaches the library.
-    let calls: Vec<_> = (0..4)
-        .map(|n| {
-            let state = state.clone();
-            let search = json!({ "project": id, "query": format!("sea {n}") });
-            tokio::spawn(async move {
-                let client = Client::External { token: None };
-                state.tools.call(ana, client, "stock_search", &search).await
-            })
-        })
-        .collect();
+/// Opens the gate when dropped.
+struct Opens(Arc<Gate>);
 
-    arrived(&gate, 3).await;
-    tokio::time::sleep(Duration::from_millis(300)).await;
-    assert_eq!(gate.entered(), 3, "the fourth waits for a permit");
-
-    gate.open();
-    for call in calls {
-        let answered = call.await.expect("the call ends");
-        assert!(answered.is_ok(), "{:?}", answered.err());
+impl Drop for Opens {
+    fn drop(&mut self) {
+        self.0.open();
     }
-    assert_eq!(gate.entered(), 4, "and runs once one is free");
 }
 
-#[sqlx::test]
-async fn a_call_past_its_deadline_ends_saying_so(pool: PgPool) {
-    let gate = Arc::new(Gate::default());
-    let (mut state, ana, id) = held(&pool, "bounded-deadline", &gate).await;
-    state.tools = state.tools.clone().bounded(3, Duration::from_millis(300));
-    let search = json!({ "project": id, "query": "sea" });
-    let client = Client::External { token: None };
-
-    let asked = Instant::now();
-    let answered = state.tools.call(ana, client, "stock_search", &search).await;
-    let said = answered.err().expect("refused past its deadline");
-    assert!(said.contains("stopped"), "{said}");
-    assert!(
-        asked.elapsed() < Duration::from_secs(10),
-        "answered at the deadline"
-    );
-    gate.open();
+/// How many projects are laid out under `scratch` right now.
+fn laid_out(scratch: &Path) -> usize {
+    std::fs::read_dir(scratch).map_or(0, Iterator::count)
 }

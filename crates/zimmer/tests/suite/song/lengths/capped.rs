@@ -52,11 +52,28 @@ fn a_loop_fit_cannot_ask_for_more_than_ten_minutes() {
 }
 
 #[test]
-fn a_loop_cut_at_ten_minutes_is_not_counted_by_its_whole_passes() {
-    // Seven seconds a pass: 86 passes are 602 s, cut to 600.
+fn a_loop_is_measured_by_the_whole_passes_it_renders_before_its_cut() {
+    // Seven seconds a pass: 86 passes render 602 s before the cut to 600.
     let mut song = lasting(7.0);
     song.fit = Some(Fit::lasting(600.0, FitMode::Loop));
+    let said = song.validate().expect_err("602 s rendered").to_string();
+    assert!(said.contains("602"), "{said}");
+    // 85 passes are 595 s, and a fit inside them is fine.
+    song.fit = Some(Fit::lasting(595.0, FitMode::Loop));
     assert_eq!(song.validate(), Ok(()));
+}
+
+#[test]
+fn a_loop_counts_the_last_pass_as_far_as_its_last_note_rings() {
+    // 85 passes of 7 s are 595 s, and the last note holds 6 s past its pass.
+    let mut song = lasting(7.0);
+    let verse = song
+        .patterns
+        .get_mut("verse")
+        .expect("the fixture's pattern");
+    verse.notes = played(vec![note("bass", "E2", 6.5, 6.0)]);
+    song.fit = Some(Fit::lasting(595.0, FitMode::Loop));
+    assert!(song.validate().is_err(), "601 s rendered");
 }
 
 #[test]
