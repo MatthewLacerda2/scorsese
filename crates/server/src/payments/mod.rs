@@ -176,7 +176,7 @@ pub enum PaymentError {
     /// A refund or dispute names a payment intent not found yet among the
     /// purchases credited before intents were kept, and some are left to
     /// ask Stripe about: Stripe is to send the event again
-    /// ([`intents::owner`]).
+    /// (`intents::owner`).
     #[error("still looking for the purchase this payment intent belongs to; send it again")]
     Backfilling,
     /// There is no payment of the caller's by that session.
