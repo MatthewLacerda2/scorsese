@@ -28,7 +28,7 @@ use crate::http::limits::Limits;
 /// How many requests one member may send each stock library a minute: under
 /// a third of Pixabay's 100, so three members at their busiest still leave
 /// room for everyone else.
-pub const REQUESTS_PER_MINUTE: u32 = 30;
+pub(super) const REQUESTS_PER_MINUTE: u32 = 30;
 
 /// How many requests each member has sent each library this minute.
 #[derive(Debug, Clone)]
