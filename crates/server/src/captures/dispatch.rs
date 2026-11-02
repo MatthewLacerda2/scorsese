@@ -88,6 +88,10 @@ impl Pages {
                 return Ok(none_captured(requests, NOT_RUNNING, Some(chrome)));
             }
         };
+        if let Err(error) = pages_folder(&self.cache) {
+            let why = format!("the page cache could not be read: {error}");
+            return Ok(none_captured(requests, &why, Some(chrome)));
+        }
         let failed = requests
             .iter()
             .zip(answer.failed)
@@ -98,6 +102,18 @@ impl Pages {
             failed,
         })
     }
+}
+
+/// The folder of the page cache `kept` that holds its captures, made if it is
+/// missing. A capture writes `kept`, so a link it left in this folder's place
+/// is removed, never followed (#1643): the render reads captures through it.
+pub(super) fn pages_folder(kept: &Path) -> std::io::Result<PathBuf> {
+    let pages = kept.join(scorsese_render::page::CACHE_PAGES);
+    if pages.is_symlink() {
+        std::fs::remove_file(&pages)?;
+    }
+    std::fs::create_dir_all(&pages)?;
+    Ok(pages)
 }
 
 /// Replaces the `cache/` of the project laid out at `folder` with a link to

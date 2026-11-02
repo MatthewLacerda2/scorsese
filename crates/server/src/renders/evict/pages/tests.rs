@@ -174,4 +174,11 @@ fn a_link_in_the_page_cache_goes_itself_and_its_target_survives() {
     assert!(pages_target.join("old/frames.mkv").is_file());
     assert!(pages_target.join("told-none/frames.mkv").is_file());
     assert!(!folder.exists(), "the project held no slot, so it goes");
+
+    // A project deleted with its `pages/` a link counts nothing behind it.
+    let folder = cache.captures().root().join("pages/7/11");
+    std::fs::create_dir_all(&folder).unwrap();
+    symlink(&pages_target, folder.join(SLOTS)).unwrap();
+    assert_eq!(gone(&folder).captures, 0);
+    assert!(pages_target.join("old/frames.mkv").is_file());
 }

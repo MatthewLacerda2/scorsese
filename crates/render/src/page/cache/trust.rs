@@ -3,6 +3,10 @@
 //! On the web a capture container writes its project's page cache, so a link
 //! or a record there may lead anywhere. Whatever reads the cache reads it as a
 //! miss rather than follow one out.
+//!
+//! `cache/pages/` itself is the caller's: whoever lays the project out may
+//! link it, or `cache/`, wherever the project's captures are kept, and keeps a
+//! capture from replacing it. Everything below it is the capture's.
 
 use std::path::{Component, Path};
 
@@ -14,8 +18,7 @@ pub(super) fn is_plain_file(path: &Path) -> bool {
 }
 
 /// Whether every folder and file from `base` down to `path` is there and none
-/// is a link. `base` itself may be one: whoever lays the project out links its
-/// `cache/` where it likes.
+/// is a link; `base` itself may be one.
 pub(super) fn unlinked(base: &Path, path: &Path) -> bool {
     let Ok(below) = path.strip_prefix(base) else {
         return false;
@@ -134,7 +137,7 @@ mod tests {
     }
 
     #[test]
-    fn a_slot_shelf_or_pages_folder_that_is_a_link_holds_nothing() {
+    fn a_slot_or_shelf_that_is_a_link_holds_nothing() {
         let (root, outside) = beside("linked-folders");
         let slot = slot(&root, &request(), "154");
         let key = slot.file_name().unwrap().to_owned();
@@ -157,9 +160,12 @@ mod tests {
         link(&slot, &outside.join("slot"));
         assert_eq!(find(), None, "a slot that is a link");
 
-        captured(&outside.join("pages").join(&key).join("told-none"), &[]);
-        link(&pages, &outside.join("pages"));
-        assert_eq!(find(), None, "a pages folder that is a link");
+        // `pages/` is the caller's: a web still links it to the project's kept
+        // captures, and keeps a capture from replacing it.
+        let kept = outside.join("kept");
+        captured(&kept.join(&key).join("told-none"), &[]);
+        link(&pages, &kept);
+        assert!(find().is_some(), "a pages folder the caller linked");
         let _ = std::fs::remove_dir_all(root.parent().unwrap());
     }
 }

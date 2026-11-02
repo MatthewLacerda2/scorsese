@@ -113,6 +113,10 @@ impl PagesAhead for StillPages {
         match waited {
             Ok(Waited::Answered(answer)) => {
                 let _ = std::fs::remove_dir_all(&job);
+                if let Err(error) = dispatch::pages_folder(&self.cache) {
+                    let why = format!("the page cache could not be read: {error}");
+                    return failed(Some(chrome), wanted, &why);
+                }
                 let failed = missing
                     .iter()
                     .zip(answer.failed)
@@ -211,8 +215,7 @@ fn read_cache(root: &Path, kept: &Path) -> std::io::Result<()> {
     // The page cache is what a job's `cache/` links to, so its captures are
     // in the same folder under it that they are under `cache/`.
     let here = root.join(CACHE_DIR).join(page::CACHE_PAGES);
-    let there = kept.join(page::CACHE_PAGES);
-    std::fs::create_dir_all(&there)?;
+    let there = dispatch::pages_folder(kept)?;
     if here.symlink_metadata().is_ok() {
         std::fs::remove_dir_all(&here)?;
     }

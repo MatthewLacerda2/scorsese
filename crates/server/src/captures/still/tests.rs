@@ -96,3 +96,29 @@ fn a_still_waits_no_longer_than_its_patience() {
     assert!(deadline(29_000) > PATIENCE);
     assert_eq!(patience(&[of(28_990..29_000)]), PATIENCE);
 }
+
+#[test]
+fn a_link_a_capture_left_for_the_kept_pages_folder_is_removed_not_read() {
+    let root = crate::scratch::dir("still-planted-pages");
+    let (kept, project, outside) = (
+        root.join("kept"),
+        root.join("project"),
+        root.join("outside"),
+    );
+    std::fs::create_dir_all(&kept).unwrap();
+    std::fs::create_dir_all(outside.join("slot")).unwrap();
+    std::fs::create_dir_all(&project).unwrap();
+    std::os::unix::fs::symlink(&outside, kept.join(page::CACHE_PAGES)).unwrap();
+
+    read_cache(&project, &kept).unwrap();
+
+    let pages = kept.join(page::CACHE_PAGES);
+    assert!(pages.is_dir() && !pages.is_symlink(), "a folder of its own");
+    assert!(outside.join("slot").is_dir(), "what it led to is untouched");
+    let read = project.join(CACHE_DIR).join(page::CACHE_PAGES);
+    assert_eq!(
+        std::fs::read_link(&read).unwrap(),
+        std::path::absolute(&pages).unwrap()
+    );
+    assert_eq!(std::fs::read_dir(&read).unwrap().count(), 0);
+}

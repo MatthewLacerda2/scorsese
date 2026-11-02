@@ -106,7 +106,7 @@ pub(crate) fn holding(
     request: &Request,
     wanted: &std::ops::Range<u64>,
 ) -> Option<(PathBuf, u64, Record)> {
-    if !trust::unlinked(&project_root.join(CACHE_DIR), slot) {
+    if !trust::unlinked(&project_root.join(CACHE_DIR).join(PAGES), slot) {
         return None;
     }
     shelves::all(slot)
@@ -119,8 +119,8 @@ pub(crate) fn holding(
 /// missed is still missing, and every clip the page read is where it was.
 ///
 /// Frames or a record that is a link, or a record naming a file a page could
-/// not have been served, is a miss, and nothing it points at is opened
-/// ([`trust`]).
+/// not have been served, is a miss ([`trust`]). The checks are by path, so a
+/// link swapped in after them is still followed (#1677).
 pub(super) fn read_fresh(
     frames: &Path,
     record: &Path,

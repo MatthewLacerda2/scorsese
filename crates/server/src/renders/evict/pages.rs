@@ -152,10 +152,17 @@ pub(super) fn idle(folder: &Path) -> Evicted {
     evicted
 }
 
-/// Remove a whole project folder, everything in it counted.
+/// Remove a whole project folder, everything in it counted; a `pages/` that
+/// is a link holds none of its captures.
 pub(super) fn gone(folder: &Path) -> Evicted {
+    let slots = folder.join(SLOTS);
+    let slots = if is_link(&slots) {
+        Vec::new()
+    } else {
+        entries(&slots)
+    };
     let evicted = Evicted {
-        captures: entries(&folder.join(SLOTS))
+        captures: slots
             .iter()
             .filter(|slot| slot.file_name().is_some_and(|name| name != FONTS))
             .count() as u64,
