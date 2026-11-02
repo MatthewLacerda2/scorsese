@@ -1987,7 +1987,10 @@ the render waits 30 s for a sign of it and then draws the cards, saying so.
 at most 20 GB**, expected at frames × raster, a byte per two pixels — about
 ten minutes of 1080p30 — and one past it is never asked for: its clip shows
 its slug card, and the notes say it is too long to capture at that size. They
-also count against their owner's storage (*Library*). Page captures live
+also count against their owner's storage (*Library*), so a render's captures
+together take no more than the room its owner has left, nor than the disk
+has above its floor; frames already in the page cache take nothing. Page
+captures live
 under the renders' rule (#849, `crates/server/src/renders/evict/pages.rs`):
 they **count against `SCORSESE_RENDER_QUOTA`** with the renders, one quota for
 everything rebuildable, and on pressure or the weekly sweep every capture **not

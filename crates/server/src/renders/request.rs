@@ -86,6 +86,7 @@ pub async fn ask(
     }
     // A member with no room left is refused before anything is queued; what
     // the render takes is checked again as it is kept (#1647).
+    room::headroom(storage).await?;
     let used = room::kept(&mut tx, storage, user, None).await?;
     let quota = storage.quota().get();
     if used >= quota {

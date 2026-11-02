@@ -141,22 +141,30 @@ impl Storage {
     }
 
     /// Refused while the disk of either root has less than the floor free.
+    /// Blocking: it asks `df` ([`Storage::headroom`]).
+    pub fn on_disk(&self) -> Result<(), DiskLow> {
+        self.headroom().map(drop)
+    }
+
+    /// How many bytes may still be written before the fuller root's disk
+    /// reaches the floor; refused once it has. Unbounded with no floor.
     /// Blocking: it asks `df`. A disk whose free space cannot be read is
     /// said in the log and let through — a missing `df` must not stop every
     /// upload.
-    pub fn on_disk(&self) -> Result<(), DiskLow> {
+    pub fn headroom(&self) -> Result<u64, DiskLow> {
         let floor = self.floor.get();
         if floor == 0 {
-            return Ok(());
+            return Ok(u64::MAX);
         }
+        let mut headroom = u64::MAX;
         for root in [&self.kept, &self.cache] {
             match free_bytes(root) {
                 Some(free) if free < floor => return Err(DiskLow { free, floor }),
-                Some(_) => {}
+                Some(free) => headroom = headroom.min(free - floor),
                 None => tracing::error!("could not read the free space under {}", root.display()),
             }
         }
-        Ok(())
+        Ok(headroom)
     }
 
     /// How much each user may keep.

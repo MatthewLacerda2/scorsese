@@ -42,28 +42,33 @@ pub(super) enum Room {
     Settled,
 }
 
+/// How many bytes may still be written before the disk reaches its floor
+/// ([`Storage::headroom`]); refused as [`LibraryError::DiskLow`] once it has.
+pub(crate) async fn headroom(storage: &Storage) -> Result<u64, LibraryError> {
+    let storage = storage.clone();
+    let headroom = crate::jobs::blocking("measuring the disk crashed", move || storage.headroom())
+        .await
+        .map_err(LibraryError::Tools)?;
+    Ok(headroom?)
+}
+
 /// What `user` keeps now, in bytes: their library, their kept renders, their
 /// page captures and their announced uploads, but for upload `except`.
 ///
-/// Refused as [`LibraryError::DiskLow`] first while the disk is below its
-/// floor, since whatever asks is about to write. Takes `user`'s lock
-/// (`credits::ledger::lock`), held until `tx` ends, so a decision made on
-/// this and the row it lets in are one.
+/// Takes `user`'s lock (`credits::ledger::lock`), held until `tx` ends, so a
+/// decision made on this and the row it lets in are one.
 pub(crate) async fn kept(
     tx: &mut Tx,
     storage: &Storage,
     user: UserId,
     except: Option<i64>,
 ) -> Result<u64, LibraryError> {
-    let (disk, pages) = {
-        let storage = storage.clone();
-        crate::jobs::blocking("measuring the disk crashed", move || {
-            (storage.on_disk(), bytes_under(&storage.page_cache(user)))
-        })
-        .await
-        .map_err(LibraryError::Tools)?
-    };
-    disk?;
+    let folder = storage.page_cache(user);
+    let pages = crate::jobs::blocking("measuring the page captures crashed", move || {
+        bytes_under(&folder)
+    })
+    .await
+    .map_err(LibraryError::Tools)?;
     ledger::lock(tx).await?;
     let used: i64 = sqlx::query_scalar(
         "SELECT ((SELECT coalesce(sum(size_bytes), 0) FROM library_items)
@@ -78,7 +83,9 @@ pub(crate) async fn kept(
 }
 
 /// Refused as [`LibraryError::Full`] unless `user` has room for `needed`
-/// more bytes beside what they keep ([`kept`], whose lock it takes).
+/// more bytes beside what they keep ([`kept`], whose lock it takes) — and as
+/// [`LibraryError::DiskLow`] first while the disk is below its floor, since
+/// whatever asks is about to write.
 pub(crate) async fn room_for(
     tx: &mut Tx,
     storage: &Storage,
@@ -86,6 +93,7 @@ pub(crate) async fn room_for(
     needed: u64,
     except: Option<i64>,
 ) -> Result<(), LibraryError> {
+    headroom(storage).await?;
     let used = kept(tx, storage, user, except).await?;
     let quota = storage.quota().get();
     if used.saturating_add(needed) > quota {

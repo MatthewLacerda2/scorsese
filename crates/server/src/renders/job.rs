@@ -134,8 +134,9 @@ async fn render(
         return Ok(done(&view));
     }
 
-    // Nothing is written while the disk is below its floor (#1647).
-    room::on_disk(storage).await?;
+    // Nothing is written while the disk is below its floor, and its pages
+    // capture no more than the room left (#1647).
+    let spare = room::spare(context, storage, job.user).await?;
 
     let work = Scratch::new(cache.work(job.id));
     // Made here, not by the layout: a project showing a page is laid out in
@@ -174,6 +175,7 @@ async fn render(
         work: work.0.join("project.scor"),
         pages,
         kept,
+        spare,
     };
     let notes = blocking(
         "the render crashed on the server; that is a bug",
@@ -228,7 +230,7 @@ async fn render(
                 // Decided in the transaction that keeps it, so renders
                 // finishing at once cannot both take the last room (#1647).
                 if let Err(refused) = room::within_quota(&mut tx, storage, job.user, bytes).await {
-                    drop(tx);
+                    // `tx` rolls back as it drops: no row, and no file.
                     let _ = std::fs::remove_file(&target);
                     return Err(refused);
                 }
@@ -271,6 +273,8 @@ struct Places {
     work: PathBuf,
     pages: Pages,
     kept: ProjectFiles,
+    /// The bytes its captures may write ([`room::spare`]).
+    spare: u64,
 }
 
 /// Lay the project out, have its pages captured, and render it to `out`;
@@ -322,7 +326,7 @@ fn produce(
         Vec::new()
     };
     // A capture too large for the disk is never asked for (#1647).
-    let (requests, mut failed) = room::split(requests, room::CAPTURE_BUDGET);
+    let (requests, mut failed) = room::capturable(requests, laid.root(), places.spare);
     let renderer = if requests.is_empty() {
         renderer
     } else {
