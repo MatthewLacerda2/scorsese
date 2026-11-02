@@ -1,18 +1,19 @@
 //! A kept voice takes one of the shared ElevenLabs account's voice slots
-//! (#1261): a user keeps at most their share, nobody keeps one once the
+//! (#1261): a user keeps at most their share — one on an account that never
+//! bought credit, three once it has (#1655) — nobody keeps one once the
 //! account is full, and either is said in plain words before the vendor is
 //! asked.
 
 use std::net::SocketAddr;
 
 use scorsese_server::db::UserId;
-use scorsese_server::designs::owners::KEPT_PER_USER;
+use scorsese_server::designs::owners::{KEPT_BOUGHT, KEPT_FREE};
 use scorsese_server::http::AppState;
 use scorsese_server::jobs::elevenlabs::ElevenLabs;
 use serde_json::json;
 use sqlx::postgres::PgPool;
 
-use super::paying::fund;
+use super::paying::{bought, fund};
 use super::vendors::{Mock, serve_on, settled};
 use super::voicing::design_and_keep;
 use super::{call, member};
@@ -45,19 +46,47 @@ async fn a_user_keeps_no_more_than_their_share(pool: PgPool) {
     let (address, state, _worker) = serve_on(&pool, &mock, ElevenLabs::default()).await;
     let (ana, hers) = member(&pool, "ana@example.com").await;
     fund(&pool, ana, 10).await;
+    bought(&pool, ana).await;
     design_and_keep(address, &state, ana, &hers).await;
     let ana = (ana, hers.as_str());
     for chosen in ["gen-2", "gen-3"] {
         assert_eq!(keep(&pool, (address, &state), ana, chosen).await, None);
     }
     assert_eq!(mock.kept(), 3);
-    assert_eq!(KEPT_PER_USER, 3);
+    assert_eq!(KEPT_BOUGHT, 3);
 
     let why = keep(&pool, (address, &state), ana, "gen-1").await;
     let why = why.expect("a fourth voice is refused");
     assert!(why.contains("already keep 3"), "{why}");
     assert!(why.contains("Voice Library"), "{why}");
     assert_eq!(mock.kept(), 3, "the vendor was never asked");
+}
+
+#[sqlx::test]
+async fn an_account_that_never_bought_credit_keeps_one_voice(pool: PgPool) {
+    let mock = Mock::default();
+    let (address, state, _worker) = serve_on(&pool, &mock, ElevenLabs::default()).await;
+    let (ana, hers) = member(&pool, "ana@example.com").await;
+    fund(&pool, ana, 10).await;
+    design_and_keep(address, &state, ana, &hers).await;
+    assert_eq!(mock.kept(), 1);
+    assert_eq!(KEPT_FREE, 1);
+
+    let why = keep(&pool, (address, &state), (ana, &hers), "gen-2").await;
+    let why = why.expect("a second voice on a free account is refused");
+    assert!(
+        why.contains("free accounts keep one custom voice; buying credit lets you keep three"),
+        "{why}"
+    );
+    assert_eq!(mock.kept(), 1, "the vendor was never asked");
+
+    // Buying credit lifts the share to three, and nothing kept was lost.
+    bought(&pool, ana).await;
+    assert_eq!(
+        keep(&pool, (address, &state), (ana, &hers), "gen-2").await,
+        None
+    );
+    assert_eq!(mock.kept(), 2);
 }
 
 #[sqlx::test]
@@ -72,6 +101,7 @@ async fn nobody_keeps_a_voice_once_the_account_is_full(pool: PgPool) {
     let (bob, his) = member(&pool, "bob@example.com").await;
     fund(&pool, ana, 10).await;
     fund(&pool, bob, 10).await;
+    bought(&pool, bob).await;
     design_and_keep(address, &state, ana, &hers).await;
     design_and_keep(address, &state, bob, &his).await;
 
