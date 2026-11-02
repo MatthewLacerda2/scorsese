@@ -99,15 +99,19 @@ pub fn deadline(frames: u64) -> Duration {
     BASE + PER_FRAME * u32::try_from(frames).unwrap_or(u32::MAX)
 }
 
-/// The most frames one turn of the launcher draws (#1708): a minute at 30 fps,
-/// which [`deadline`] gives ~31 minutes. A longer stretch is captured a part a
-/// turn ([`Asked::parts`]), so one account's long page never holds the one
-/// capture slot for hours while everybody else's pages wait.
+/// The most frames one turn of the launcher draws (#1708): a minute at 30 fps.
+/// A longer stretch is captured a part a turn ([`Asked::parts`]), with other
+/// accounts' turns between, so one account's long page no longer holds the
+/// one capture slot from its first frame to its last. A later part still runs
+/// the page from its first frame to its own without drawing, and is held to
+/// [`deadline`] of its last frame, so its turn is longer than its drawing
+/// (#1722).
 pub const TURN: u64 = 1_800;
 
 /// How long the launcher may take over all of `wanted`, each turn held to
-/// its own [`deadline`]: what a render waiting on them is granted on top of
-/// its own (#1634).
+/// its own [`deadline`] — every frame up to its part's last, the ones run
+/// through included: what a render waiting on them is granted on top of its
+/// own (#1634).
 pub fn bound(wanted: &[Wanted]) -> Duration {
     wanted
         .iter()

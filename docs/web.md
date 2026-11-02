@@ -2034,7 +2034,8 @@ the account whose last turn was longest ago first and its oldest job first
 within it, a still competing the same way, so one render with many pages
 never holds everybody else's behind all of them. **A long page is a part a
 turn** (#1708): no turn draws more than `captures::TURN` frames, so a longer
-stretch is captured in parts, each run ahead to its first frame, with other
+stretch is captured in parts, each run ahead to its first frame (so a late
+part's turn still runs through the page before it, #1722), with other
 accounts' turns between them; its last part joins them into the one capture
 a render reads (`scorsese_render::page::capture_part`). A job is answered once
 its last page is captured; one withdrawn part way is dropped. The frames land in `captures/pages/<user>/<project>/`, the project's own

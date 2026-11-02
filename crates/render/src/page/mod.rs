@@ -264,9 +264,11 @@ pub fn capture_frames(
 /// capture of them all, which [`cached_frames`] finds as it would a capture
 /// drawn in one go: that capture, or `None` while a part is still to come.
 ///
-/// The parts are kept as pieces of the slot until the join, which tidies them
-/// away. One gone before it — tidied, or stale since — leaves the join `None`
-/// for good, until that part is captured again.
+/// The parts are kept as pieces of the slot until the join, whose tidy drops
+/// those on the joined capture's shelf; a part whose page read less than the
+/// others sits on a shelf of its own and stays until that shelf is retired
+/// (#1722). One gone before the join — tidied, or stale since — leaves it
+/// `None` for good, until that part is captured again.
 pub fn capture_part(
     chrome: &Chrome,
     tools: &Tools,

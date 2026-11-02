@@ -3,7 +3,8 @@
 //! The web's capture launcher has one slot every account shares, so no turn
 //! may draw more than so many frames: a longer stretch is cut into parts,
 //! each captured as a piece of the slot — run ahead to its first frame, as
-//! any piece is (`capture`'s) — with other pages captured between them. Once
+//! any piece is (`capture`'s), so a later part's turn runs through every
+//! frame before it too — with other pages captured between them. Once
 //! the last part is in, they are joined into the one capture a single turn
 //! would have drawn, the way pieces drawn at once are (`pieces`'), so a
 //! render reads them as one.
@@ -14,8 +15,8 @@ use super::request::Request;
 
 /// `frames` of `request` cut for turns of at most `most` frames drawn: the
 /// stretch a capture of them draws ([`super::capture_frames`]'s), in
-/// consecutive parts that each start on a whole millisecond
-/// ([`Request::step`]), so they join without moving a frame. A part is a
+/// consecutive parts that each start on a whole millisecond, so they join
+/// without moving a frame. A part is a
 /// whole number of steps long, so one step when `most` is shorter.
 pub fn parts(request: &Request, frames: Range<u64>, most: u64) -> Vec<Range<u64>> {
     let span = super::piece(request, frames);
@@ -58,8 +59,9 @@ mod tests {
     fn a_stretch_no_longer_than_a_turn_is_one_part() {
         let page = request(Fps::new(10, 1).unwrap(), 179.9);
         assert_eq!(page.frames(), 1800);
-        assert_eq!(parts(&page, 0..1800, 1800), [0..1800]);
-        assert_eq!(parts(&page, 40..45, 1800), [40..45]);
+        for frames in [0..1800, 40..45] {
+            assert_eq!(parts(&page, frames.clone(), 1800), [frames]);
+        }
     }
 
     #[test]
