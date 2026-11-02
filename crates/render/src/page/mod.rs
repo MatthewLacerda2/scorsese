@@ -142,6 +142,16 @@ pub fn cached_frames(
     })
 }
 
+/// Drops what the cache of `request`'s page no longer needs: the pieces a
+/// whole capture or a wider one has made redundant, and the shelves past the
+/// most a slot keeps — never a file a run in this process still holds. A
+/// capture tidies after itself; one made in another folder and copied in
+/// (the web's capture containers, #1636) is tidied by whoever copied it.
+pub fn tidy_cache(project_root: &Path, request: &Request, chrome_version: &str) {
+    let slot = cache::slot(project_root, request, chrome_version);
+    cache::tidy(project_root, request, &slot);
+}
+
 /// `frames`, inside the page's own.
 fn within(request: &Request, frames: Range<u64>) -> Range<u64> {
     let end = frames.end.min(request.frames());

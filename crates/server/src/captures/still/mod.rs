@@ -117,6 +117,7 @@ impl PagesAhead for StillPages {
                     let why = format!("the page cache could not be read: {error}");
                     return failed(Some(chrome), wanted, &why);
                 }
+                dispatch::tidy(project_root, &missing, &chrome);
                 let failed = missing
                     .iter()
                     .zip(answer.failed)

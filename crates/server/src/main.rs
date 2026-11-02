@@ -115,7 +115,7 @@ fn capture_worker(args: &scorsese_server::captures::worker::Args) -> ExitCode {
 /// Capture pages from the spool until stopped, each in a container of its own.
 fn capture_launcher(args: &scorsese_server::captures::launch::Args) -> ExitCode {
     let launch = scorsese_server::captures::launch::Launch::from_args(args);
-    if let Err(error) = scorsese_server::captures::launch::ready() {
+    if let Err(error) = launch.ready() {
         tracing::error!("{error}");
         return ExitCode::FAILURE;
     }

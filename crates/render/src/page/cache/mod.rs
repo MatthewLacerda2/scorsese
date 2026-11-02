@@ -55,7 +55,7 @@ mod shelves;
 mod trust;
 
 pub(crate) use fontconfig::fonts;
-pub(crate) use held::{Held, Place};
+pub(crate) use held::{Held, Place, tidy};
 pub(crate) use pieces::files;
 pub(crate) use shelves::shelf;
 
@@ -119,8 +119,9 @@ pub(crate) fn holding(
 /// missed is still missing, and every clip the page read is where it was.
 ///
 /// Frames or a record that is a link, or a record naming a file a page could
-/// not have been served, is a miss ([`trust`]). The checks are by path, so a
-/// link swapped in after them is still followed (#1677).
+/// not have been served, is a miss ([`trust`]). The checks are by path: on
+/// the web no capture writes the cache while it is read, since the launcher
+/// copies a capture in once it is over (#1677).
 pub(super) fn read_fresh(
     frames: &Path,
     record: &Path,

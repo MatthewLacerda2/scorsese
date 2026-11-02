@@ -2,8 +2,10 @@
 //! A still asks the same way ([`super::still`]), through the helpers here.
 //!
 //! The job has laid its project out in its spool folder ([`Pages::folder`]).
-//! This points that folder's `cache/` at the project's page cache, writes the
-//! ask, and waits for the worker's answer — or for the job to be cancelled,
+//! This points that folder's `cache/` at the project's page cache, asks for
+//! each page that cache does not already hold — a capture in its container
+//! starts from an empty `cache/` of its own ([`super::launch`]), so one asked
+//! for is one drawn — and waits for the worker's answer — or for the job to be cancelled,
 //! or for the worker to be plainly not running. The render then draws every
 //! page from that cache and never starts a browser itself
 //! ([`scorsese_render::Renderer::without_capturing`]).
@@ -13,8 +15,9 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use scorsese_core::CACHE_DIR;
+use scorsese_mcp::merged_stretches;
 use scorsese_render::Cancel;
-use scorsese_render::page::{CHROME_ENV, Chrome, Wanted};
+use scorsese_render::page::{CHROME_ENV, Chrome, Wanted, cached_frames, tidy_cache};
 
 use super::{ANSWER, ASK, Answer, Ask, Asked, PROJECT, Spool, publish, read};
 
@@ -75,24 +78,42 @@ impl Pages {
             let why = format!("the page cache could not be prepared: {error}");
             return Ok(none_captured(requests, &why, Some(chrome)));
         }
+        let folder = self.folder();
+        // Each capture starts from an empty `cache/` of its own, so two
+        // stretches of one page that overlap are asked as one: the second
+        // could not reuse the first's frames.
+        let missing = merged_stretches(
+            requests
+                .iter()
+                .filter(|one| {
+                    let frames = one.frames.clone();
+                    cached_frames(&folder, &one.request, chrome.version(), frames).is_none()
+                })
+                .cloned()
+                .collect(),
+        );
+        if missing.is_empty() {
+            return Ok(none_captured([], "", Some(chrome)));
+        }
         let ask = Ask {
-            requests: requests.iter().map(Asked::from).collect(),
+            requests: missing.iter().map(Asked::from).collect(),
         };
         if let Err(error) = publish(&self.job_folder().join(ASK), &ask) {
             let why = format!("the page renderer could not be asked: {error}");
-            return Ok(none_captured(requests, &why, Some(chrome)));
+            return Ok(none_captured(&missing, &why, Some(chrome)));
         }
         let answer = match wait(&self.spool, &self.job_folder(), cancel, None)? {
             Waited::Answered(answer) => answer,
             Waited::Quiet | Waited::Gone | Waited::Late => {
-                return Ok(none_captured(requests, NOT_RUNNING, Some(chrome)));
+                return Ok(none_captured(&missing, NOT_RUNNING, Some(chrome)));
             }
         };
         if let Err(error) = pages_folder(&self.cache) {
             let why = format!("the page cache could not be read: {error}");
-            return Ok(none_captured(requests, &why, Some(chrome)));
+            return Ok(none_captured(&missing, &why, Some(chrome)));
         }
-        let failed = requests
+        tidy(&folder, &missing, &chrome);
+        let failed = missing
             .iter()
             .zip(answer.failed)
             .filter_map(|(wanted, why)| Some((wanted.request.page.clone(), why?)))
@@ -125,6 +146,15 @@ pub(super) fn share_cache(folder: &Path, kept: &Path) -> std::io::Result<()> {
         std::fs::remove_dir(&cache)?;
     }
     std::os::unix::fs::symlink(std::path::absolute(kept)?, &cache)
+}
+
+/// Tidies the page cache of the project laid out at `folder` after `asked`
+/// was captured: a capture kept by the launcher was tidied only in its own
+/// folder ([`super::launch::Launch::publish`]).
+pub(super) fn tidy(folder: &Path, asked: &[Wanted], chrome: &Chrome) {
+    for one in asked {
+        tidy_cache(folder, &one.request, chrome.version());
+    }
 }
 
 /// How waiting for the worker's answer ended, short of a cancel.
@@ -196,11 +226,15 @@ pub(super) fn browser() -> Result<Chrome, String> {
     Chrome::at(named).map_err(|error| error.to_string())
 }
 
-fn none_captured(requests: &[Wanted], why: &str, chrome: Option<Chrome>) -> Captured {
+fn none_captured<'a>(
+    requests: impl IntoIterator<Item = &'a Wanted>,
+    why: &str,
+    chrome: Option<Chrome>,
+) -> Captured {
     Captured {
         chrome,
         failed: requests
-            .iter()
+            .into_iter()
             .map(|wanted| (wanted.request.page.clone(), why.to_owned()))
             .collect(),
     }
