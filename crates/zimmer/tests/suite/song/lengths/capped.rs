@@ -95,3 +95,17 @@ fn a_note_placed_far_past_its_pattern_counts_toward_the_length() {
     verse.notes = played(vec![note("bass", "E2", 599.75, 0.5)]);
     assert!(song.validate().is_err(), "a note ringing past the cap");
 }
+
+#[test]
+fn a_note_ringing_past_a_later_slot_counts_from_where_that_slot_starts() {
+    // Two 300-beat slots; the verse's last note holds a beat past its end.
+    let mut song = lasting(300.0);
+    song.arrangement.push("verse".into());
+    let verse = song
+        .patterns
+        .get_mut("verse")
+        .expect("the fixture's pattern");
+    verse.notes = played(vec![note("bass", "E2", 299.5, 1.5)]);
+    let said = song.validate().expect_err("601 s rendered").to_string();
+    assert!(said.contains("601"), "{said}");
+}

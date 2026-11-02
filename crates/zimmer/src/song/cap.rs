@@ -29,9 +29,10 @@ pub const MAX_SONG_SECONDS: f32 = 600.0;
 /// [`MAX_SONG_SECONDS`]. Called last by `validate`, on a song otherwise valid.
 pub(super) fn check(song: &Song, key: Option<&Key>) -> Result<(), SynthError> {
     let (clock, passes) = plan(song);
+    // The last pass reaches at least to its own end: each slot's furthest
+    // layer is at least as long as the slot.
     let before = song.arrangement_beats() * passes.saturating_sub(1) as f32;
-    let played = song.arrangement_beats() * passes as f32;
-    let reached = clock.seconds(played.max(before + last_beat(song, key)?));
+    let reached = clock.seconds(before + last_beat(song, key)?);
     let seconds = fitted(song).map_or(reached, |(_, target)| reached.max(target));
     if seconds.is_finite() && seconds <= MAX_SONG_SECONDS {
         return Ok(());
