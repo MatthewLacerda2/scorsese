@@ -70,7 +70,11 @@ fn the_edges_of_a_figure_are_legal_and_the_step_past_them_is_not() {
             dur,
             ..arped("Dm7", Some(Arp::Up), Some(1.0), None)
         };
-        playing(vec![long.into()]).validate()
+        // Fast enough that 4096 beats is under the ten minutes a song may
+        // last, so the figure's own cap is the one met.
+        let mut song = playing(vec![long.into()]);
+        song.bpm = 480.0;
+        song.validate()
     };
     assert!(
         of_length(4096.0).is_ok(),

@@ -76,6 +76,7 @@
 //! my project?" has one answer.
 
 mod bakes;
+mod bound;
 mod design;
 mod fetched;
 mod folder;
@@ -90,6 +91,7 @@ mod stored;
 mod surface;
 mod voiced;
 
+pub use bound::{AT_ONCE, DEADLINE};
 pub use fetched::keep as keep_fetched;
 pub use folder::{Folder, lay_out};
 pub use log::Client;
@@ -129,6 +131,9 @@ pub struct Toolbox {
     /// Where a voice's origin is asked (`voiced`), when not ElevenLabs keyed
     /// from the one resolver — a test's.
     voices: Option<Voices>,
+    /// How many of a member's registry tool calls run at once, and for how
+    /// long (`bound`).
+    bounds: bound::Bounds,
 }
 
 /// A voice catalogue a call can move to a blocking thread.
@@ -155,6 +160,7 @@ impl Toolbox {
             stock: None,
             shares: share::Shares::default(),
             voices: None,
+            bounds: bound::Bounds::new(AT_ONCE, DEADLINE),
         }
     }
 
@@ -178,6 +184,14 @@ impl Toolbox {
     /// its limits as set.
     pub fn with_library(mut self, library: Library) -> Self {
         self.library = library;
+        self
+    }
+
+    /// The same tools, with at most `at_once` of a member's registry tool
+    /// calls running at a time and each stopped past `deadline` — a test's,
+    /// which cannot wait [`DEADLINE`].
+    pub fn bounded(mut self, at_once: usize, deadline: std::time::Duration) -> Self {
+        self.bounds = bound::Bounds::new(at_once, deadline);
         self
     }
 
@@ -319,7 +333,10 @@ impl Toolbox {
         };
         let outcome = match entry {
             surface::Entry::Shared(tool, serve) => {
-                stored::run(&caller, tool.as_ref(), serve, arguments).await
+                // Before anything is opened: a call waiting for a permit holds
+                // nothing else.
+                let permit = self.bounds.permit(user).await;
+                stored::run(&caller, tool.as_ref(), serve, arguments, permit).await
             }
             surface::Entry::Own(own) => own.call(&caller, arguments).await.map_err(Refusal::Said),
         };

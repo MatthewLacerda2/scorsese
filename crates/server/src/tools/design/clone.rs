@@ -6,7 +6,7 @@
 
 use scorsese_core::{AssetId, AssetKind};
 use scorsese_mcp::Reply;
-use scorsese_providers::voices::clone::{CONSENT, check};
+use scorsese_providers::voices::clone::{CONSENT, check, distinct, too_much};
 use serde_json::{Value, json};
 
 use super::super::{Caller, database, project_id};
@@ -52,7 +52,8 @@ pub(crate) fn schema() -> Value {
                                 shows them: recordings you uploaded of the one person whose \
                                 voice it is, speaking clearly, with no music, reverb or \
                                 background noise. About one to two minutes in all is what \
-                                ElevenLabs recommends; more than three adds little."
+                                ElevenLabs recommends; more than three adds little, \
+                                and more than 25 recordings or ten minutes is refused."
             },
             "name": {
                 "type": "string",
@@ -132,10 +133,12 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
     .into())
 }
 
-/// The library files the named assets of the caller's project are — refused
-/// unless each is an uploaded audio file of theirs.
+/// The library files the named assets of the caller's project are, each
+/// once — refused unless each is an uploaded audio file of theirs, and unless
+/// together they are no more than a clone takes (`too_much`), by what the
+/// library and the project already say of them.
 async fn recordings(caller: &Caller<'_>, arguments: &Value) -> Result<Vec<Recorded>, String> {
-    let ids: Vec<AssetId> = arguments
+    let named: Vec<AssetId> = arguments
         .get("assets")
         .and_then(Value::as_array)
         .map(|ids| {
@@ -145,6 +148,7 @@ async fn recordings(caller: &Caller<'_>, arguments: &Value) -> Result<Vec<Record
                 .collect()
         })
         .unwrap_or_default();
+    let ids = distinct(&named);
     if ids.is_empty() {
         return Err(
             "a voice is cloned from recordings of it: name at least one audio asset of \
@@ -160,7 +164,8 @@ async fn recordings(caller: &Caller<'_>, arguments: &Value) -> Result<Vec<Record
     let mut tx = db::scoped(&caller.toolbox.pool, caller.user)
         .await
         .map_err(database)?;
-    let mut recorded = Vec::with_capacity(ids.len());
+    let mut recorded: Vec<Recorded> = Vec::with_capacity(ids.len());
+    let (mut bytes, mut seconds) = (0u64, Some(0.0));
     for id in &ids {
         let asset = stored.document.asset(id).ok_or_else(|| {
             format!("there is no asset {id} in this project, so nothing was sent")
@@ -175,15 +180,25 @@ async fn recordings(caller: &Caller<'_>, arguments: &Value) -> Result<Vec<Record
             (AssetKind::Audio, Some(hash)) => hash,
             _ => return Err(not_one()),
         };
-        let item: Option<(i64, String, String)> = sqlx::query_as(
-            "SELECT id, extension, name FROM library_items
+        let item: Option<(i64, String, String, i64)> = sqlx::query_as(
+            "SELECT id, extension, name, size_bytes FROM library_items
              WHERE sha256 = $1 AND kind = 'audio' AND brief_hash IS NULL",
         )
         .bind(hash)
         .fetch_optional(&mut *tx)
         .await
         .map_err(database)?;
-        let (item, extension, name) = item.ok_or_else(not_one)?;
+        let (item, extension, name, size) = item.ok_or_else(not_one)?;
+        // Two assets of one file are one recording.
+        if recorded.iter().any(|already| already.sha256 == *hash) {
+            continue;
+        }
+        bytes += u64::try_from(size).unwrap_or(0);
+        let more = asset
+            .media
+            .as_ref()
+            .and_then(|media| media.duration_seconds);
+        seconds = seconds.zip(more).map(|(sum, more): (f64, f64)| sum + more);
         recorded.push(Recorded {
             item,
             sha256: hash.clone(),
@@ -192,7 +207,10 @@ async fn recordings(caller: &Caller<'_>, arguments: &Value) -> Result<Vec<Record
         });
     }
     tx.commit().await.map_err(database)?;
-    Ok(recorded)
+    match too_much(recorded.len(), bytes, seconds) {
+        Some(why) => Err(why),
+        None => Ok(recorded),
+    }
 }
 
 /// Forget the caller's cloned voice `voice`: queued, free — the same job a

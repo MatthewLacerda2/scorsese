@@ -67,6 +67,11 @@ pub enum CloneError {
         kind: String,
     },
 
+    /// More recordings, or more of them, than a clone is made from
+    /// (`recordings::too_much`): refused before a file is read.
+    #[error("{0}")]
+    TooMuch(String),
+
     /// A recording whose file could not be read.
     #[error("could not read the recording {path}: {source}. Nothing was sent.")]
     Unreadable {

@@ -9,7 +9,7 @@
 //! raced — by a keep or by another clone. The payloads tell the two apart
 //! ([`Keeping`]). Free, as locally: creating a clone is not billed.
 
-use scorsese_providers::voices::clone::{Recording, Request, media_type};
+use scorsese_providers::voices::clone::{Recording, Request, media_type, too_much};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sqlx::types::Json;
@@ -94,23 +94,7 @@ pub(super) async fn clone(
     if let Some(why) = owners::no_slot(slots, voice_slots) {
         return Err(why);
     }
-    let mut recordings = Vec::with_capacity(payload.recordings.len());
-    for recorded in &payload.recordings {
-        let file = storage.library_file(user, &recorded.sha256, &recorded.extension);
-        let bytes = tokio::fs::read(&file).await.map_err(|error| {
-            tracing::error!("reading a recording to clone: {error}");
-            format!(
-                "the recording \"{}\" is no longer in your library — nothing was created",
-                recorded.name
-            )
-        })?;
-        let file_name = format!("{}.{}", recorded.sha256, recorded.extension);
-        recordings.push(Recording {
-            media_type: media_type(&file_name).to_owned(),
-            file_name,
-            bytes,
-        });
-    }
+    let recordings = read(storage, user, &payload.recordings).await?;
     let request = Request {
         name: payload.name.clone(),
         description: payload.description.clone(),
@@ -144,6 +128,50 @@ pub(super) async fn clone(
         "cloned": true,
         "requires_verification": made.requires_verification,
     }))
+}
+
+/// `recorded`'s files, each file once, refused before any is read if together
+/// they are more than a clone takes — a payload is the tool's, checked when
+/// it was queued, but the files are what is read.
+async fn read(
+    storage: &Storage,
+    user: UserId,
+    recorded: &[Recorded],
+) -> Result<Vec<Recording>, String> {
+    let mut once: Vec<&Recorded> = Vec::with_capacity(recorded.len());
+    for recorded in recorded {
+        if !once.iter().any(|already| already.sha256 == recorded.sha256) {
+            once.push(recorded);
+        }
+    }
+    let mut bytes = 0u64;
+    for recorded in &once {
+        let file = storage.library_file(user, &recorded.sha256, &recorded.extension);
+        bytes += tokio::fs::metadata(&file)
+            .await
+            .map_or(0, |found| found.len());
+    }
+    if let Some(why) = too_much(once.len(), bytes, None) {
+        return Err(why);
+    }
+    let mut recordings = Vec::with_capacity(once.len());
+    for recorded in once {
+        let file = storage.library_file(user, &recorded.sha256, &recorded.extension);
+        let bytes = tokio::fs::read(&file).await.map_err(|error| {
+            tracing::error!("reading a recording to clone: {error}");
+            format!(
+                "the recording \"{}\" is no longer in your library — nothing was created",
+                recorded.name
+            )
+        })?;
+        let file_name = format!("{}.{}", recorded.sha256, recorded.extension);
+        recordings.push(Recording {
+            media_type: media_type(&file_name).to_owned(),
+            file_name,
+            bytes,
+        });
+    }
+    Ok(recordings)
 }
 
 /// A failure on the server, logged and said without its detail.
