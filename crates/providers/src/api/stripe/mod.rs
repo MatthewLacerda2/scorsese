@@ -1,14 +1,16 @@
 //! Stripe's Checkout Sessions: the hosted page a user pays for credits on
 //! (#548), and the webhook events that say how it went.
 //!
-//! Two calls and one event. A session is **created** with the amount and
+//! Three calls and one event. A session is **created** with the amount and
 //! where to come back to, and the browser is sent to its `url`; a session is
 //! **retrieved** by id when the browser comes back, in case the webhook has
-//! not arrived yet; and an **event** carries a session to the webhook when it
-//! completes or expires.
+//! not arrived yet; an open session is **expired** when its buyer starts
+//! another purchase, so a member has one open at a time; and an **event**
+//! carries a session to the webhook when it completes or expires.
 //!
 //! What is particular to this vendor, checked against
 //! <https://docs.stripe.com/api/checkout/sessions/create>,
+//! <https://docs.stripe.com/api/checkout/sessions/expire> (2026-11-02),
 //! <https://docs.stripe.com/api/checkout/sessions/object> and
 //! <https://docs.stripe.com/webhooks> on 2026-10-14:
 //!
@@ -24,6 +26,8 @@
 //!   `payment_status` is `paid`, `unpaid` or `no_payment_required`.** Only
 //!   `paid` means the money arrived: a session can be `complete` and `unpaid`
 //!   while a delayed method settles, and `async_payment_succeeded` follows.
+//! - **Only an `open` session can be expired**; expiring one answers the
+//!   session, now `expired`, and any other is answered with an error.
 //! - `success_url` may carry `{CHECKOUT_SESSION_ID}`, which Stripe replaces
 //!   with the session's id when it sends the browser back.
 
@@ -144,6 +148,12 @@ pub fn create(key: &Secret, create: &Create<'_>) -> Result<Session, HttpError> {
 pub fn retrieve(key: &Secret, id: &str) -> Result<Session, HttpError> {
     let id = crate::api::http::encoded(id);
     caller(key).get(&format!("{BASE}/checkout/sessions/{id}"))
+}
+
+/// Expire the open session `id`, so it can no longer be paid.
+pub fn expire(key: &Secret, id: &str) -> Result<Session, HttpError> {
+    let id = crate::api::http::encoded(id);
+    caller(key).post_form(&format!("{BASE}/checkout/sessions/{id}/expire"), &[])
 }
 
 #[cfg(test)]

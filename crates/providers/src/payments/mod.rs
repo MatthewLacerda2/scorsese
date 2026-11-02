@@ -46,6 +46,10 @@ pub trait Checkout: Send + Sync {
 
     /// The session `id` as it is now.
     fn retrieve(&self, id: &str) -> Result<Session, HttpError>;
+
+    /// Expire the open session `id`: it can no longer be paid. Refused by
+    /// Stripe for a session that is not open.
+    fn expire(&self, id: &str) -> Result<Session, HttpError>;
 }
 
 /// Stripe itself, with the account's secret key.
@@ -79,6 +83,10 @@ impl Checkout for Stripe {
 
     fn retrieve(&self, id: &str) -> Result<Session, HttpError> {
         stripe::retrieve(&self.key, id)
+    }
+
+    fn expire(&self, id: &str) -> Result<Session, HttpError> {
+        stripe::expire(&self.key, id)
     }
 }
 
