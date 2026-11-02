@@ -64,6 +64,17 @@ pub enum AccountError {
     #[error("a token needs a name, so it can be told apart when revoking it")]
     UnnamedToken,
 
+    /// A token's name is longer than [`tokens::LONGEST_NAME`] characters.
+    #[error("a token's name is at most {} characters", tokens::LONGEST_NAME)]
+    LongTokenName,
+
+    /// The user already holds [`tokens::MOST`] tokens.
+    #[error(
+        "you already have {} tokens, the most one may hold; revoke one first",
+        tokens::MOST
+    )]
+    TooManyTokens,
+
     /// The operating system could not supply randomness.
     #[error("could not generate a secret: {0}")]
     Crypto(String),

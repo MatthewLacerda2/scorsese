@@ -49,6 +49,10 @@ word heard where nothing was said. Every number is the one shown before this cal
 with the transcript numbered afresh. The corrections belong to the library file, so every \
 project using it reads them.";
 
+/// The longest a corrected word may be, in characters (#1648): the
+/// transcript lives on the library row, outside the storage quota.
+const LONGEST_WORD: usize = 100;
+
 /// `transcribe`'s arguments.
 pub(super) fn transcribe_schema() -> Value {
     json!({
@@ -100,6 +104,7 @@ pub(super) fn fix_schema() -> Value {
                         },
                         "text": {
                             "type": "string",
+                            "maxLength": LONGEST_WORD,
                             "description": "What it says instead, punctuation included. \
                                             Empty drops the word."
                         }
@@ -227,11 +232,16 @@ pub(super) async fn fix(caller: &Caller<'_>, arguments: &Value) -> Result<Reply,
             let word = fix.get("word").and_then(Value::as_u64);
             let text = fix.get("text").and_then(Value::as_str);
             match (word, text) {
+                (Some(_), Some(text)) if text.chars().count() > LONGEST_WORD => Err(format!(
+                    "word {} is given {} characters; a word is at most {LONGEST_WORD} characters",
+                    word.unwrap_or_default(),
+                    text.chars().count()
+                )),
                 (Some(word), Some(text)) => Ok(Fix {
                     word: usize::try_from(word).unwrap_or(usize::MAX),
                     text: text.to_owned(),
                 }),
-                _ => Err("each fix is {word, text}: the word's number and what it says"),
+                _ => Err("each fix is {word, text}: the word's number and what it says".to_owned()),
             }
         })
         .collect::<Result<Vec<_>, _>>()?;

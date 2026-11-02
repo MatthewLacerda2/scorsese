@@ -14,6 +14,12 @@ use crate::db::{self, UserId};
 use crate::jobs::{JobView, Queue, kinds, store as jobs};
 use crate::projects::{self, ProjectError};
 
+/// The most renders and previews one member may have waiting at once
+/// (#1648), every project together. A preview of the project at the shape
+/// being asked for is not counted: a new revision's preview makes it
+/// worthless, and it retires when its turn comes.
+pub const MOST_WAITING: i64 = 10;
+
 /// Where the render asked for is.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Asked {
@@ -29,6 +35,12 @@ pub enum AskError {
     /// The project does not render in that shape, and the message says why.
     #[error("{0}")]
     Invalid(String),
+    /// The member already has [`MOST_WAITING`] renders and previews waiting.
+    #[error(
+        "you already have {MOST_WAITING} renders and previews waiting, the most one may; \
+         wait for one to start, or cancel one"
+    )]
+    Crowded,
     /// The project is not there, or does not read.
     #[error(transparent)]
     Project(#[from] ProjectError),
@@ -83,6 +95,19 @@ pub async fn ask(
     } else {
         Vec::new()
     };
+    let waiting: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM jobs WHERE state = 'waiting' AND kind = ANY($1)
+           AND NOT (kind = $2 AND payload ->> 'project' = $3::text AND payload -> 'settings' = $4)",
+    )
+    .bind([kinds::RENDER.name, kinds::PREVIEW.name])
+    .bind(kinds::PREVIEW.name)
+    .bind(id)
+    .bind(sqlx::types::Json(&settings))
+    .fetch_one(&mut *tx)
+    .await?;
+    if waiting >= MOST_WAITING {
+        return Err(AskError::Crowded);
+    }
     let payload = Payload {
         project: id,
         key,

@@ -6,6 +6,9 @@
 //! footage, and either can be drawn again; what both weigh in tokens is
 //! kept as an estimate (`size`, #707). An external call carries the API token
 //! it came in on, and the client that token's last MCP `initialize` named.
+//!
+//! A call's arguments are kept up to [`KEPT`] bytes of JSON (#1648); longer
+//! ones are kept as their beginning, in an object that says it was cut.
 
 use scorsese_mcp::Reply;
 use serde_json::Value;
@@ -69,6 +72,37 @@ impl Client {
     }
 }
 
+/// The most bytes of a call's arguments, written as compact JSON, a row keeps.
+pub(super) const KEPT: usize = 16 * 1024;
+
+/// `arguments` as a row keeps them: whole up to [`KEPT`] bytes, and past it
+/// `{"cut": true, "bytes": N, "kept": "<their beginning>"}`, itself within
+/// [`KEPT`] bytes.
+fn kept(arguments: &Value) -> Value {
+    let text = arguments.to_string();
+    if text.len() <= KEPT {
+        return arguments.clone();
+    }
+    let marker = |end: usize| {
+        let mut end = end.min(text.len());
+        while !text.is_char_boundary(end) {
+            end -= 1;
+        }
+        serde_json::json!({ "cut": true, "bytes": text.len(), "kept": &text[..end] })
+    };
+    // Escaping grows the beginning kept, so it is shortened by what the
+    // marker overshoots until it fits; each pass shrinks it.
+    let mut end = KEPT;
+    loop {
+        let cut = marker(end);
+        let over = cut.to_string().len().saturating_sub(KEPT);
+        if over == 0 {
+            return cut;
+        }
+        end = end.saturating_sub(over);
+    }
+}
+
 /// Record the start of a call; its row's id.
 pub(super) async fn begin(
     pool: &PgPool,
@@ -94,7 +128,7 @@ pub(super) async fn begin(
     .bind(client.as_str())
     .bind(tool)
     .bind(project)
-    .bind(arguments)
+    .bind(kept(arguments))
     .bind(client.turn())
     .bind(client.token())
     .fetch_one(&mut *tx)
@@ -157,5 +191,30 @@ pub(super) async fn saved(pool: &PgPool, user: UserId, id: i64, revision: i64) {
     };
     if let Err(error) = written.await {
         tracing::error!("could not record what tool call {id} saved: {error}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::{KEPT, kept};
+
+    #[test]
+    fn arguments_within_the_bound_are_kept_whole() {
+        let small = json!({ "project": 1, "text": "hi" });
+        assert_eq!(kept(&small), small);
+    }
+
+    #[test]
+    fn a_cut_of_escaped_text_still_fits() {
+        // Every quote doubles when the text is kept as a string.
+        let quoted = json!({ "text": "\"".repeat(KEPT) });
+        let cut = kept(&quoted);
+        assert!(cut.to_string().len() <= KEPT, "{}", cut.to_string().len());
+        assert_eq!(cut["cut"], true);
+        assert_eq!(cut["bytes"], quoted.to_string().len());
+        let wide = json!({ "text": "é".repeat(KEPT) });
+        assert!(kept(&wide).to_string().len() <= KEPT);
     }
 }
