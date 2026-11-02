@@ -16,16 +16,27 @@ use super::{call, member};
 /// theirs: the project, and the asset id.
 async fn recorded(
     pool: &PgPool,
+    serving: (SocketAddr, &AppState),
+    member: (UserId, &str),
+) -> (i64, String) {
+    recorded_as(pool, serving, member, 15).await
+}
+
+/// [`recorded`], its library row saying it is `size` bytes.
+async fn recorded_as(
+    pool: &PgPool,
     (address, state): (SocketAddr, &AppState),
     (user, who): (UserId, &str),
+    size: i64,
 ) -> (i64, String) {
     let sha = scorsese_core::hash_bytes(b"ID3 a recording");
     let item: i64 = sqlx::query_scalar(
         "INSERT INTO library_items (user_id, sha256, name, kind, extension, size_bytes, media)
-         VALUES ($1, $2, 'me reading.mp3', 'audio', 'mp3', 15, '{}') RETURNING id",
+         VALUES ($1, $2, 'me reading.mp3', 'audio', 'mp3', $3, '{}') RETURNING id",
     )
     .bind(user.get())
     .bind(&sha)
+    .bind(size)
     .fetch_one(pool)
     .await
     .expect("the upload's row");
@@ -100,5 +111,38 @@ async fn only_ones_own_uploaded_recording_is_cloned_from(pool: PgPool) {
     let missing = json!({ "project": project, "assets": ["nobody"], "name": "A", "consent": true });
     let (said, refused) = call(address, &hers, "voice_clone", missing).await;
     assert!(refused && said.contains("no asset nobody"), "{said}");
+    assert_eq!(mock.cloned(), 0, "the vendor was never asked");
+}
+
+#[sqlx::test]
+async fn a_recording_named_twice_is_cloned_from_once(pool: PgPool) {
+    let mock = Mock::default();
+    let (address, state, _worker) = serve(&pool, &mock).await;
+    let (ana, hers) = member(&pool, "ana@example.com").await;
+    let (project, asset) = recorded(&pool, (address, &state), (ana, &hers)).await;
+    let twice = json!({
+        "project": project, "assets": [asset, asset], "name": "Ana", "consent": true
+    });
+
+    let (said, refused) = call(address, &hers, "voice_clone", twice).await;
+    assert!(!refused, "{said}");
+    settled(&state, ana).await;
+    assert_eq!(mock.cloned(), 1);
+    let (listed, _) = call(address, &hers, "voice_clone", json!({ "list": true })).await;
+    assert_eq!(listed.matches("me reading.mp3").count(), 1, "{listed}");
+}
+
+#[sqlx::test]
+async fn more_recording_than_a_clone_takes_is_refused_before_it_is_read(pool: PgPool) {
+    let mock = Mock::default();
+    let (address, state, _worker) = serve(&pool, &mock).await;
+    let (ana, hers) = member(&pool, "ana@example.com").await;
+    // The row says a gigabyte; the file is fifteen bytes, and never read.
+    let (project, asset) = recorded_as(&pool, (address, &state), (ana, &hers), 1 << 30).await;
+    let asked = json!({ "project": project, "assets": [asset], "name": "Ana", "consent": true });
+
+    let (said, refused) = call(address, &hers, "voice_clone", asked).await;
+    assert!(refused && said.contains("MB"), "{said}");
+    settled(&state, ana).await;
     assert_eq!(mock.cloned(), 0, "the vendor was never asked");
 }
