@@ -78,6 +78,16 @@ fn ffmpeg_is_spawned_only_by_the_command_builder() {
     );
     assert!(rules("crates/render/src/tools.rs", spawn).is_empty());
     assert!(rules("crates/server/src/a.rs", "Command::new(\"docker\")\n").is_empty());
+    // `tools::child` starts any program, but ffmpeg through it would skip the
+    // `SCORSESE_FFMPEG` a bundled build points at its own (#1656).
+    assert_eq!(
+        rules(
+            "crates/server/src/a.rs",
+            "tools::child(\"ffprobe\").arg(p)\n"
+        ),
+        ["ffmpeg"]
+    );
+    assert!(rules("crates/server/src/a.rs", "tools::child(\"docker\")\n").is_empty());
 }
 
 #[test]

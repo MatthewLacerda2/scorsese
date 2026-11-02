@@ -27,6 +27,10 @@ const KEPT: &[&str] = &[
     "TZ",
     "LANG",
     "LANGUAGE",
+    // Where a self-built ffmpeg finds its shared libraries.
+    "LD_LIBRARY_PATH",
+    "DYLD_LIBRARY_PATH",
+    "DYLD_FALLBACK_LIBRARY_PATH",
     // Fonts and caches, which ffmpeg's text and Chromium read.
     "FONTCONFIG_FILE",
     "FONTCONFIG_PATH",
@@ -271,6 +275,7 @@ mod tests {
         assert_eq!(
             names(&[
                 "PATH",
+                "LD_LIBRARY_PATH",
                 "DATABASE_URL",
                 "HOME",
                 "ANTHROPIC_API_KEY",
@@ -279,7 +284,13 @@ mod tests {
                 "SCORSESE_FFMPEG",
                 "SCORSESE_STORAGE",
             ]),
-            ["PATH", "HOME", "LC_ALL", "SCORSESE_FFMPEG"]
+            [
+                "PATH",
+                "LD_LIBRARY_PATH",
+                "HOME",
+                "LC_ALL",
+                "SCORSESE_FFMPEG"
+            ]
         );
     }
 

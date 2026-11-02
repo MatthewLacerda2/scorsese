@@ -93,7 +93,12 @@ pub const FENCES: &[Fence] = &[
                (`scorsese_render::tools::Tools`)",
         inside: "",
         except: &["crates/render/src/tools.rs"],
-        words: &["Command::new(\"ffmpeg\"", "Command::new(\"ffprobe\""],
+        words: &[
+            "Command::new(\"ffmpeg\"",
+            "Command::new(\"ffprobe\"",
+            "child(\"ffmpeg\"",
+            "child(\"ffprobe\"",
+        ],
         unless_then: &[],
     },
     Fence {
