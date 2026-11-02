@@ -170,14 +170,6 @@ impl Toolbox {
         self
     }
 
-    /// The same tools, with at most `at_once` of a member's registry tool
-    /// calls running at a time and each stopped past `deadline` — a test's,
-    /// which cannot wait [`DEADLINE`].
-    pub fn bounded(mut self, at_once: usize, deadline: std::time::Duration) -> Self {
-        self.bounds = bound::Bounds::new(at_once, deadline);
-        self
-    }
-
     /// The same tools searching and importing stock media of every kind from
     /// `library` instead of Pixabay and LottieFiles — a test's, which needs no
     /// key and no network.
