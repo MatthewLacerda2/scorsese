@@ -49,8 +49,8 @@ async fn a_language_whisper_does_not_know_is_refused(pool: PgPool) {
     assert!(all.iter().all(|job| job.kind != "transcribe"), "{all:?}");
 }
 
-/// Behind the one running, a member may have three waiting; a fourth is
-/// refused with a sentence, while the same one asked again is still handed
+/// Behind the one running, a member may have three waiting by default; a
+/// fourth is refused with a sentence, or queued where the setting says four, while the same one asked again is still handed
 /// back and another member still queues.
 #[sqlx::test]
 async fn a_fourth_waiting_transcription_is_refused(pool: PgPool) {
@@ -75,6 +75,10 @@ async fn a_fourth_waiting_transcription_is_refused(pool: PgPool) {
         .await
         .expect_err("a fourth waiting");
     assert!(error.to_string().contains("waiting"), "{error}");
+    // The share is the server's setting (`SCORSESE_USER_TRANSCRIPTIONS`).
+    let roomier = state.library.clone().transcriptions_waiting(4);
+    let fourth = roomier.transcribe(ana, &ask(item, "de")).await;
+    queued.push(fourth.expect("a fourth, where four may wait").id);
     let again = state.library.transcribe(ana, &ask(item, "en")).await;
     assert_eq!(again.expect("handed back").id, queued[1]);
 
@@ -93,7 +97,7 @@ async fn a_fourth_waiting_transcription_is_refused(pool: PgPool) {
     for job in queued.iter().rev() {
         call(address, &who, "jobs", json!({ "cancel": job })).await;
     }
-    assert_eq!(settled(&state, ana).await, vec!["cancelled"; 4]);
+    assert_eq!(settled(&state, ana).await, vec!["cancelled"; 5]);
 }
 
 /// Stopped, a transcription shows stopped at once; the next one starts only
