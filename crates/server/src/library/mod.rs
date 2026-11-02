@@ -85,6 +85,8 @@ pub struct Library {
     tools: Tools,
     queue: Queue,
     uploading: upload::InFlight,
+    /// How many transcriptions one member may have waiting.
+    transcriptions: usize,
 }
 
 impl Library {
@@ -98,7 +100,15 @@ impl Library {
             tools,
             queue,
             uploading: upload::InFlight::default(),
+            transcriptions: crate::jobs::kinds::DEFAULT_TRANSCRIPTIONS_PER_USER,
         }
+    }
+
+    /// The same library, letting a member have at most `most` transcriptions
+    /// waiting ([`crate::config::PerUser::transcriptions`]).
+    pub fn transcriptions_waiting(mut self, most: usize) -> Self {
+        self.transcriptions = most;
+        self
     }
 
     /// Where the files are.
