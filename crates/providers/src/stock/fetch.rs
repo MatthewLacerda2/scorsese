@@ -3,7 +3,7 @@
 
 use std::path::{Path, PathBuf};
 
-use scorsese_core::write::{folder_below, fresh_beside};
+use scorsese_core::write::fresh_beside;
 use scorsese_core::{Imported, ProbeMedia, Project, Source, StockLibrary, import_path};
 
 use super::candidate::{Candidate, Medium, Rendition};
