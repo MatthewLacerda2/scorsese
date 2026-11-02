@@ -254,6 +254,7 @@ async fn run(pool: PgPool, handler: Arc<dyn super::Handler>, job: Job, queue: Qu
     let cancel = queue.running.flag(job.id);
     let readout = queue.running.progress(job.id);
     let context = Context::new(pool.clone(), queue.clone(), &job, cancel, readout.clone());
+    let lingering = context.lingering();
     let running = {
         let job = job.clone();
         async move { handler.run(job, context).await }
@@ -278,4 +279,7 @@ async fn run(pool: PgPool, handler: Arc<dyn super::Handler>, job: Job, queue: Qu
     // After the record: a cancel that reads the job as still running and
     // makes its flag again is forgotten by the next line or by its own.
     queue.running.forget(job.id);
+    // The slot is freed when this task ends, so only after what the handler
+    // left running has (`Context::hold_slot_until`).
+    lingering.out().await;
 }

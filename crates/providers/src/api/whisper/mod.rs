@@ -19,8 +19,6 @@
 //!   a `404` with `{"detail": …}`.
 //! - Silence is no error: `{"text": "", "words": []}`.
 
-use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use serde::Deserialize;
@@ -102,16 +100,10 @@ impl Transcriptions {
         &self.url
     }
 
-    /// Sends `request` and waits for its words, for as long as `within`; the
-    /// connection closed once `stopped` is set, sent or not.
-    pub fn transcribe(
-        &self,
-        request: Request<'_>,
-        within: Duration,
-        stopped: &Arc<AtomicBool>,
-    ) -> Result<Verbose, HttpError> {
+    /// Sends `request` and waits for its words, for as long as `within`.
+    pub fn transcribe(&self, request: Request<'_>, within: Duration) -> Result<Verbose, HttpError> {
         self.caller
-            .post_multipart_until(&self.url, &request.form(), within, stopped)
+            .post_multipart_within(&self.url, &request.form(), within)
     }
 }
 
