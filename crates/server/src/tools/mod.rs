@@ -76,6 +76,7 @@
 //! my project?" has one answer.
 
 mod bakes;
+mod bound;
 mod design;
 mod fetched;
 mod folder;
@@ -90,6 +91,7 @@ mod stored;
 mod surface;
 mod voiced;
 
+pub use bound::{AT_ONCE, DEADLINE};
 pub use fetched::keep as keep_fetched;
 pub use folder::{Folder, lay_out};
 pub use log::Client;
@@ -99,8 +101,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use scorsese_mcp::{Ahead, Libraries, PagesAhead, Reply, Stock, Tool};
-use scorsese_providers::credentials::{Provider, resolve};
-use scorsese_providers::voices::{Catalogue, ElevenLabsVoices};
+use scorsese_providers::voices::Catalogue;
 use scorsese_render::{Cancel, Tools};
 use serde_json::Value;
 use sqlx::postgres::PgPool;
@@ -129,6 +130,9 @@ pub struct Toolbox {
     /// Where a voice's origin is asked (`voiced`), when not ElevenLabs keyed
     /// from the one resolver — a test's.
     voices: Option<Voices>,
+    /// How many of a member's registry tool calls run at once, and for how
+    /// long (`bound`).
+    bounds: bound::Bounds,
 }
 
 /// A voice catalogue a call can move to a blocking thread.
@@ -155,23 +159,8 @@ impl Toolbox {
             stock: None,
             shares: share::Shares::default(),
             voices: None,
+            bounds: bound::Bounds::new(AT_ONCE, DEADLINE),
         }
-    }
-
-    /// The same tools asking `voices` where a voice comes from instead of
-    /// ElevenLabs — a test's, which needs no key and no network.
-    pub fn voiced_from(mut self, voices: Voices) -> Self {
-        self.voices = Some(voices);
-        self
-    }
-
-    /// Where a voice's origin is asked, or why it cannot be.
-    fn catalogue(&self) -> Result<Voices, String> {
-        if let Some(voices) = &self.voices {
-            return Ok(voices.clone());
-        }
-        let key = resolve(Provider::ElevenLabs).map_err(|error| error.to_string())?;
-        Ok(Arc::new(ElevenLabsVoices::new(&key.secret)))
     }
 
     /// The same tools, with users' files in `library` — the same storage,
@@ -319,7 +308,14 @@ impl Toolbox {
         };
         let outcome = match entry {
             surface::Entry::Shared(tool, serve) => {
-                stored::run(&caller, tool.as_ref(), serve, arguments).await
+                // Before anything is opened: a call waiting for a permit holds
+                // nothing else.
+                match self.bounds.permit(user, &caller.cancel).await {
+                    Some(permit) => {
+                        stored::run(&caller, tool.as_ref(), serve, arguments, permit).await
+                    }
+                    None => Err(stored::CANCELLED.to_owned().into()),
+                }
             }
             surface::Entry::Own(own) => own.call(&caller, arguments).await.map_err(Refusal::Said),
         };

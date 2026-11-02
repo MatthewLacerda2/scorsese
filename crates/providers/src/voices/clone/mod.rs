@@ -38,11 +38,12 @@ mod run;
 
 pub use error::CloneError;
 pub use ledger::{Cloned, LEDGER_FILE, Source, read as cloned};
-pub use recordings::{advice, media_type};
+pub use recordings::{advice, distinct, media_type, too_much};
 pub use run::{Ask, Done, FORGOTTEN, Made, check, clone, forget};
 
 pub use crate::api::elevenlabs::cloning::{
-    AddRequest as Request, ENOUGH_SECONDS, RECOMMENDED_SECONDS, Recording, TERMS, USE_POLICY,
+    AddRequest as Request, ENOUGH_SECONDS, MAX_RECORDING_BYTES, MAX_RECORDING_SECONDS,
+    MAX_RECORDINGS, RECOMMENDED_SECONDS, Recording, TERMS, USE_POLICY,
 };
 
 /// What every surface says about consent, word for word.

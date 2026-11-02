@@ -35,8 +35,8 @@ struct Arguments {
     /// The ids of the imported audio assets to clone from: recordings of the
     /// one person whose voice it is, speaking clearly, with no music, reverb
     /// or background noise. About one to two minutes in all is what
-    /// ElevenLabs recommends; more than three adds little. Import the
-    /// recordings first.
+    /// ElevenLabs recommends; more than three adds little, and more than 25
+    /// recordings or ten minutes is refused. Import the recordings first.
     assets: Option<Vec<String>>,
     /// What to call the voice. The only name it will be recognisable by in
     /// the user's ElevenLabs account, so say whose voice it is.
