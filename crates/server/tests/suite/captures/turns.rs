@@ -80,6 +80,7 @@ fn served(log: &Path) -> Vec<String> {
 fn a_long_page_is_captured_a_turn_of_frames_at_a_time() {
     let root = scratch::fresh("scorsese-captures-turns", "");
     let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("a scratch folder");
     let spool = Spool::new(root.join("spool"));
     let (worker, log) = logging_worker(&spool, &root);
     // 2,000 frames, and a second of somebody else's page asked just after.
