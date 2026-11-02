@@ -10,7 +10,7 @@
 //! 2. **A session** ([`begin`]): the quote the person saw, with the rate **locked**
 //!    into a `payments` row, and a Checkout Session at Stripe for exactly
 //!    those reais, expiring in [`EXPIRES_AFTER_SECONDS`] — one open at a
-//!    time per member (`payments::open`). The browser goes to
+//!    time per member ([`open`]). The browser goes to
 //!    Stripe's page; the card, the bank and (once Stripe invites the account)
 //!    Pix are Stripe's business from there.
 //! 3. **Crediting** ([`settle::settle`]), exactly once, keyed on the session
@@ -45,7 +45,7 @@
 mod begin;
 pub mod bonus;
 mod cards;
-mod open;
+pub mod open;
 mod refresh;
 pub mod settle;
 pub mod withdraw;
@@ -93,6 +93,8 @@ pub struct Payments {
     pub origin: String,
     /// The bonus credit larger purchases add (#1537).
     pub bonus: Bonus,
+    /// Purchases being started, one at a time per member (#1654).
+    pub starting: open::Starting,
 }
 
 impl std::fmt::Debug for Payments {
@@ -126,6 +128,7 @@ impl Payments {
             webhook_secret: Secret::new(webhook.trim()),
             origin,
             bonus,
+            starting: open::Starting::default(),
         }))
     }
 }
