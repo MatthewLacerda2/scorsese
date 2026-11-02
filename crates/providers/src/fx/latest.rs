@@ -67,7 +67,7 @@ impl Latest {
 
     /// Read the rate again and check it. When it agrees with the PTAX, or
     /// with the rate kept last, it replaces the one kept; otherwise the one
-    /// kept stays, and why is returned for the log. Blocking: up to three
+    /// kept stays, and why is returned for the log. Blocking: one or two
     /// HTTPS calls.
     pub fn refresh(&self) -> Result<Rate, RefreshError> {
         let rate = self.rates.usd_brl()?;

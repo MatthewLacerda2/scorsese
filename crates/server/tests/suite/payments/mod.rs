@@ -84,6 +84,7 @@ async fn serve_with(
         webhook_secret: Secret::new(SECRET),
         origin: "https://scorsese.example".into(),
         bonus,
+        starting: Default::default(),
     });
     let state =
         http::AppState::new(members.clone(), common::files("payments")).with_payments(payments);

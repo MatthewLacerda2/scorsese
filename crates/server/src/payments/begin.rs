@@ -5,7 +5,7 @@ use scorsese_providers::payments::{Order, SESSION_ID};
 use serde::Serialize;
 use sqlx::postgres::PgPool;
 
-use super::open::{self, Open};
+use super::open::Open;
 use super::{
     Bonus, EXPIRES_AFTER_SECONDS, MAXIMUM_CENTAVOS, MINIMUM_CENTAVOS, PaymentError, Payments,
 };
@@ -102,12 +102,10 @@ pub async fn begin(
     if shown.is_some_and(|shown| shown != quote.brl_per_usd) {
         return Err(PaymentError::RateMoved(Box::new(quote)));
     }
-    let mut tx = db::scoped(pool, user).await?;
-    open::lock(&mut tx).await?;
-    if let Some(open) = Open::newest(&mut tx).await?
+    let _turn = payments.starting.lock(user).await;
+    if let Some(open) = Open::newest(pool, user).await?
         && let Some(begun) = open.reuse_or_close(pool, payments, &quote).await?
     {
-        tx.commit().await?;
         return Ok(begun);
     }
     let cent = i64::try_from(MICROS_PER_CENT).unwrap_or(1);
@@ -137,6 +135,7 @@ pub async fn begin(
         .clone()
         .ok_or_else(|| PaymentError::NoPage(session.id.clone()))?;
 
+    let mut tx = db::scoped(pool, user).await?;
     sqlx::query(
         "INSERT INTO payments (user_id, stripe_session, brl_centavos, credit_micros,
                                bonus_micros, brl_per_usd, rate_source)

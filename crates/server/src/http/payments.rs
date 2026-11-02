@@ -25,8 +25,9 @@ use crate::payments::{Begun, PaymentError, Payments, Quote, begin};
 pub const STARTS_PER_MINUTE: u32 = 5;
 
 /// Times one member's return page may ask after a payment a minute: it asks
-/// every three seconds while the payment is open, twenty a minute.
-pub const CONFIRMS_PER_MINUTE: u32 = 30;
+/// every three seconds while the payment is open, twenty a minute, and again
+/// on focus, so this leaves room for a second tab.
+pub const CONFIRMS_PER_MINUTE: u32 = 60;
 
 /// An amount of reais, in centavos.
 #[derive(Debug, Deserialize)]
