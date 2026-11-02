@@ -32,7 +32,7 @@
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::path::ProjectPath;
@@ -136,17 +136,62 @@ pub fn in_project(
 /// link, a file, or cannot be made.
 pub fn parent_in_project(root: &Path, path: &ProjectPath) -> io::Result<PathBuf> {
     let file = path.resolve(root)?;
-    let segments: Vec<&str> = path.as_str().split('/').collect();
-    let mut at = root.to_path_buf();
-    for (index, segment) in segments.iter().enumerate().take(segments.len() - 1) {
-        at.push(segment);
-        let shown = || segments[..=index].join("/");
+    let folders = Path::new(path.as_str())
+        .parent()
+        .unwrap_or_else(|| Path::new(""));
+    folder_below(root, folders)?;
+    Ok(file)
+}
+
+/// The folder `relative` under `base`, made if it is not there — and none of
+/// the folders from `base` down to it a link: what a writer that is not
+/// handed a [`ProjectPath`] asks before it writes (a cache folder, a scratch
+/// shelf). The real path of the folder is the answer.
+///
+/// `base` is the caller's, and has to exist already: it may be a link itself,
+/// wherever whoever laid the folder out keeps it. Each folder below it is looked at, never followed: one that is a link or a
+/// file is refused, a missing one is made, and a real folder another writer
+/// made in between is as good. So nothing placed below `base` beforehand can
+/// lead a write out of it.
+///
+/// # Errors
+///
+/// If `base` is not a folder, `relative` is not a plain path below it
+/// (absolute, or climbing with `..`), a folder on the way is a link or a file, or a folder cannot be
+/// made.
+pub fn folder_below(base: &Path, relative: &Path) -> io::Result<PathBuf> {
+    if !fs::metadata(base)?.is_dir() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotADirectory,
+            format!("{} is not a folder", base.display()),
+        ));
+    }
+    let mut at = base.to_path_buf();
+    let mut shown = PathBuf::new();
+    for part in relative.components() {
+        let Component::Normal(name) = part else {
+            if part == Component::CurDir {
+                continue;
+            }
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!(
+                    "`{}` is not a folder below {}",
+                    relative.display(),
+                    base.display()
+                ),
+            ));
+        };
+        at.push(name);
+        shown.push(name);
+        // Shown with `/` on every platform, as a project path is.
+        let shown = || shown.to_string_lossy().replace('\\', "/");
         match fs::symlink_metadata(&at) {
             Ok(meta) if meta.file_type().is_symlink() => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     format!(
-                        "`{}` is a link, and nothing in a project is written through one",
+                        "`{}` is a link, and nothing is written through one",
                         shown()
                     ),
                 ));
@@ -170,7 +215,7 @@ pub fn parent_in_project(root: &Path, path: &ProjectPath) -> io::Result<PathBuf>
             }
         }
     }
-    Ok(file)
+    Ok(at)
 }
 
 /// How many taken scratch names [`fresh_beside`] passes over before it gives

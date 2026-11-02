@@ -12,6 +12,7 @@ use std::time::{Duration, SystemTime};
 
 use serde::{Deserialize, Serialize};
 
+use scorsese_core::write::folder_below;
 use scorsese_core::{CACHE_DIR, Timestamp};
 
 use crate::diskcache;
@@ -48,9 +49,12 @@ impl Cached {
     }
 }
 
+/// The name of the folder pages are kept in.
+const PAGES: &str = "pages";
+
 /// The folder pages are kept in.
 fn pages(cache: &Path) -> PathBuf {
-    cache.join("pages")
+    cache.join(PAGES)
 }
 
 /// The cached page for `key`, if a fresh, readable one is there. Anything
@@ -72,6 +76,14 @@ pub(crate) fn write(cache: &Path, key: &str, page: &Page) -> Result<(), StockErr
         candidates: page.candidates.clone(),
         total: page.total,
     };
+    // The folder made first, so a link at it is refused rather than followed
+    // (#1698): the cache folder is the caller's, nothing below it is.
+    std::fs::create_dir_all(cache)
+        .and_then(|()| folder_below(cache, Path::new(PAGES)))
+        .map_err(|source| StockError::Io {
+            path: pages(cache),
+            source,
+        })?;
     diskcache::write(&pages(cache), key, &cached)
         .map_err(|(path, source)| StockError::Io { path, source })
 }
