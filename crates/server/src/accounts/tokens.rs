@@ -66,7 +66,9 @@ pub async fn issue(pool: &PgPool, user: UserId, name: &str) -> Result<Issued, Ac
     }
     let minted = secret::mint(secret::TOKEN_PREFIX)?;
     let mut tx = db::scoped(pool, user).await?;
-    // Counted in the insert itself, so the count and the row are one step.
+    // Counted under the user's lock, so issues at once cannot each see room
+    // for one more.
+    crate::credits::ledger::lock(&mut tx).await?;
     let id: Option<i64> = sqlx::query_scalar(
         "INSERT INTO api_tokens (user_id, name, token_hash)
          SELECT member_id(), $1, $2 WHERE (SELECT count(*) FROM api_tokens) < $3

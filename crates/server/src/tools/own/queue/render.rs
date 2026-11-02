@@ -136,8 +136,9 @@ pub(in super::super) async fn render(
         &toolbox.queue,
         &toolbox.renders,
         &toolbox.storage,
-        caller.user,
-        project,
+        // Web MCP counts each call already (`http::mcp`).
+        None,
+        (caller.user, project),
         settings,
     )
     .await

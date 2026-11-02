@@ -1,7 +1,7 @@
 //! How much one member may ask of the render queue (#1648): at most ten
-//! renders and previews waiting at once, and at most so many asks a minute.
-//! Previews of the project being edited, at the shape on screen, are not
-//! counted: each new revision's makes the last one worthless.
+//! renders and previews waiting at once, and at most so many queued a
+//! minute. A new preview cancels the project's waiting ones at its shape, so
+//! an edit's previews never fill the queue.
 
 use scorsese_server::projects;
 use serde_json::json;
@@ -72,20 +72,25 @@ async fn the_previews_of_an_edit_never_crowd_out_the_next_one(pool: PgPool) {
     // The tenth waiting job: a preview of the cut as it is.
     let previews = format!("/api/projects/{id}/previews");
     let shape = json!({ "resolution": "64x64", "quality": "half" });
-    let (status, body) = call(address, &cookie, "POST", &previews, Some(shape.clone())).await;
-    assert_eq!(status, 202, "{body}");
+    let (status, first) = call(address, &cookie, "POST", &previews, Some(shape.clone())).await;
+    assert_eq!(status, 202, "{first}");
 
-    // An edit, and the preview of it: the one before retires when its turn
-    // comes, so it does not count against this one.
+    // An edit, and the preview of it: the one before is cancelled, so the
+    // queue never fills with pictures of revisions gone by.
+    let mut asked = vec![first["job"]["id"].as_i64().unwrap()];
     for color in ["#112233", "#445566"] {
-        let open = projects::open(&pool, ana, id).await.unwrap();
-        let edited = card(|document| document["assets"][0]["color"] = json!(color));
-        projects::save(&pool, ana, id, open.summary.revision, &edited)
-            .await
-            .unwrap();
+        edit(&pool, ana, id, color).await;
         let (status, body) = call(address, &cookie, "POST", &previews, Some(shape.clone())).await;
         assert_eq!(status, 202, "{color}: {body}");
+        asked.push(body["job"]["id"].as_i64().unwrap());
     }
+    let states: Vec<String> =
+        sqlx::query_scalar("SELECT state FROM jobs WHERE id = ANY($1) ORDER BY id")
+            .bind(&asked)
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+    assert_eq!(states, ["cancelled", "cancelled", "waiting"]);
 
     // A preview at another shape is another job, and the queue is full.
     let other = json!({ "resolution": "32x32", "quality": "half" });
@@ -93,8 +98,17 @@ async fn the_previews_of_an_edit_never_crowd_out_the_next_one(pool: PgPool) {
     assert_eq!(status, 429, "{body}");
 }
 
+/// Save `user`'s project `id` with its card painted `color`.
+async fn edit(pool: &PgPool, user: scorsese_server::db::UserId, id: i64, color: &str) {
+    let open = projects::open(pool, user, id).await.unwrap();
+    let edited = card(|document| document["assets"][0]["color"] = json!(color));
+    projects::save(pool, user, id, open.summary.revision, &edited)
+        .await
+        .unwrap();
+}
+
 #[sqlx::test]
-async fn asking_is_limited_per_minute(pool: PgPool) {
+async fn queueing_is_limited_per_minute_and_asking_again_never_is(pool: PgPool) {
     let address = common::serve(pool.clone()).await;
     let (ana, cookie) = member(&pool, "ana@example.com").await;
     let id = stored(&pool, ana, &card(|_| {})).await;
@@ -102,16 +116,19 @@ async fn asking_is_limited_per_minute(pool: PgPool) {
     let previews = format!("/api/projects/{id}/previews");
     let shape = json!({ "resolution": "64x64", "quality": "half" });
     // The same render asked again and again, as the editor's poll asks:
-    // nothing new is queued, but each ask is counted, on both routes alike.
-    for n in 0..120 {
-        let (path, body) = if n % 2 == 0 {
-            (&renders, json!({}))
-        } else {
-            (&previews, shape.clone())
-        };
-        let (status, said) = call(address, &cookie, "POST", path, Some(body)).await;
+    // nothing new is queued, and nothing is counted.
+    for n in 0..130 {
+        let (status, said) = call(address, &cookie, "POST", &renders, Some(json!({}))).await;
         assert_eq!(status, 202, "ask {n}: {said}");
     }
+    // A new preview after each edit: each one queued is counted, both routes
+    // together — the render above was the first.
+    for n in 1..120 {
+        edit(&pool, ana, id, &format!("#{n:06x}")).await;
+        let (status, said) = call(address, &cookie, "POST", &previews, Some(shape.clone())).await;
+        assert_eq!(status, 202, "preview {n}: {said}");
+    }
+    edit(&pool, ana, id, "#ffffff").await;
     let (status, body) = call(address, &cookie, "POST", &previews, Some(shape)).await;
     assert_eq!(status, 429, "{body}");
     assert!(
