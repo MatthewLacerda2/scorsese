@@ -173,8 +173,8 @@ mod tests {
         let start = Instant::now();
         let ana = user(1);
         let budget = budget(OPUS);
-        pace.sent_at(ana, OPUS, start, 1);
-        pace.sent_at(ana, OPUS, start + Duration::from_secs(10), 1);
+        pace.sent_at(ana, OPUS, start, 10);
+        pace.sent_at(ana, OPUS, start + Duration::from_secs(10), 20);
         pace.sent_at(ana, OPUS, start + Duration::from_secs(20), budget);
         // The two small calls aging out leave the large one: still past it.
         assert_eq!(
@@ -216,6 +216,25 @@ mod tests {
         assert!(
             !pace.wait(ana, OPUS, || true).await,
             "stopped, not waited out"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_wait_looks_for_a_stop_about_once_a_second_never_in_a_spin() {
+        let pace = Pace::default();
+        let ana = user(1);
+        pace.sent_at(ana, OPUS, Instant::now(), budget(OPUS));
+        let looked = std::cell::Cell::new(0);
+        let began = Instant::now();
+        let stopped = || {
+            looked.set(looked.get() + 1);
+            looked.get() > 1
+        };
+        assert!(!pace.wait(ana, OPUS, stopped).await);
+        assert_eq!(looked.get(), 2);
+        assert!(
+            began.elapsed() >= HEARD_WITHIN / 2,
+            "it slept between looks"
         );
     }
 }

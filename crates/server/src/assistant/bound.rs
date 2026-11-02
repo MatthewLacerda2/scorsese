@@ -189,6 +189,24 @@ mod tests {
     }
 
     #[test]
+    fn the_system_prompt_and_every_part_of_each_tool_are_the_prefix() {
+        let tool = scorsese_providers::chat::Tool {
+            name: "n".repeat(400),
+            description: "d".repeat(800),
+            schema: serde_json::json!("s".repeat(1_598)),
+        };
+        let request = Request {
+            model: Model::DEFAULT,
+            system: "x".repeat(1_200),
+            tools: vec![tool],
+            messages: Vec::new(),
+            max_tokens: MAX_TOKENS,
+        };
+        // 1,200 + 400 + 800 + 1,600 (the schema's JSON, quotes and all).
+        assert_eq!(input_of(&request), input(1_000, 0));
+    }
+
+    #[test]
     fn a_picture_is_held_as_a_picture_and_never_as_its_base64() {
         let message = |json: String| {
             serde_json::value::RawValue::from_string(json).expect("the test's JSON holds")
