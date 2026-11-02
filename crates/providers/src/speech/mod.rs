@@ -67,8 +67,9 @@ pub enum Outcome {
         /// Where it is, project-relative.
         path: ProjectPath,
     },
-    /// Spoken on this run and written into `generated/`. **This is the outcome
-    /// that spent money.**
+    /// Spoken on this run and written into `generated/`. **This outcome spent
+    /// money**, as does a billed [`Outcome::Failed`]:
+    /// [`Outcome::spent_cents`] says which.
     Generated {
         /// Where it landed, project-relative.
         path: ProjectPath,
@@ -87,8 +88,10 @@ pub enum Outcome {
         /// What it is still missing, in the words [`Incomplete`] puts it.
         why: String,
     },
-    /// The provider took the line and refused it. Nothing was written, and the
-    /// asset is left exactly as it was so the brief can be edited and retried.
+    /// The provider took the line and refused it. No audio was written, and
+    /// the asset is left exactly as it was so the brief can be edited and
+    /// retried; a refusal the vendor bills is in the ledger at its quote all
+    /// the same.
     Failed {
         /// The provider's own sentence, which is the part worth reading.
         message: String,

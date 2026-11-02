@@ -8,7 +8,7 @@
 use scorsese_core::AssetId;
 
 use super::{Outcome, SpeechError};
-use crate::generated::{Counted, tell};
+use crate::generated::{Counted, tell_billed};
 
 /// Why a run of narration stopped, with every line it reached before it did.
 pub type Stopped = crate::Stopped<Vec<(AssetId, Outcome)>, SpeechError>;
@@ -23,13 +23,20 @@ const LINES: Counted = Counted {
 
 impl Stopped {
     /// The run in one sentence: what stopped it, how many lines were spoken
-    /// and which were not.
+    /// and which were not — and any refused that the vendor billed anyway.
     pub fn says(&self) -> String {
         let spoken = self
             .run
             .iter()
-            .filter(|(_, outcome)| outcome.spent_cents() > 0)
+            .filter(|(_, outcome)| matches!(outcome, Outcome::Generated { .. }))
             .count();
-        tell(&self.error, spoken, &self.unsent, &LINES)
+        let billed: Vec<&AssetId> = self
+            .run
+            .iter()
+            .filter(|(_, outcome)| matches!(outcome, Outcome::Failed { .. }))
+            .filter(|(_, outcome)| outcome.spent_cents() > 0)
+            .map(|(id, _)| id)
+            .collect();
+        tell_billed(&self.error, spoken, &self.unsent, &billed, &LINES)
     }
 }

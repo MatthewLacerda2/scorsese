@@ -64,6 +64,15 @@ fn a_billed_call_that_spoke_nothing_is_charged_and_counts_against_the_ceiling() 
     let (_, outcome) = &stopped.run[0];
     assert_eq!(outcome.spent_cents(), cents, "{outcome:?}");
     assert!(outcome.says().contains('$'), "{}", outcome.says());
+    let says = stopped.says();
+    assert!(
+        says.contains("0 lines were spoken"),
+        "nothing is kept: {says}"
+    );
+    assert!(
+        says.contains("1 line was refused and billed anyway (vo)"),
+        "{says}"
+    );
     std::fs::remove_dir_all(&dir).ok();
 }
 

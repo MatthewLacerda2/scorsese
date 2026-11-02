@@ -94,6 +94,27 @@ pub(crate) fn tell(error: &dyn Display, made: usize, unsent: &[AssetId], kind: &
     )
 }
 
+/// [`tell`], and then the refusals the vendor billed anyway (#1695): paid for,
+/// kept nowhere, and paid again if they are sent again — so never in `made`.
+pub(crate) fn tell_billed(
+    error: &dyn Display,
+    made: usize,
+    unsent: &[AssetId],
+    billed: &[&AssetId],
+    kind: &Counted,
+) -> String {
+    let told = tell(error, made, unsent, kind);
+    if billed.is_empty() {
+        return told;
+    }
+    let ids: Vec<String> = billed.iter().map(ToString::to_string).collect();
+    format!(
+        "{told} {} refused and billed anyway ({}); sending it again is paid for again.",
+        kind.count(billed.len()),
+        ids.join(", ")
+    )
+}
+
 /// Which of `ids` a run would have sent — what a stopped run never reached.
 pub(crate) fn unsent<K: Prompted>(
     project: &Project,

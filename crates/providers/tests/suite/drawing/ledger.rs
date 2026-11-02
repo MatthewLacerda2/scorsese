@@ -141,7 +141,16 @@ fn a_billed_call_that_drew_nothing_is_charged_and_counts_against_the_ceiling() {
     let (_, outcome) = &stopped.run[0];
     assert_eq!(outcome.spent_cents(), 6, "{outcome:?}");
     assert!(outcome.says().contains("$0.06"), "{}", outcome.says());
-    assert!(stopped.says().contains("ceiling"), "{}", stopped.says());
+    let says = stopped.says();
+    assert!(says.contains("ceiling"), "{says}");
+    assert!(
+        says.contains("0 stills were paid for"),
+        "nothing is kept: {says}"
+    );
+    assert!(
+        says.contains("1 still was refused and billed anyway (poster)"),
+        "{says}"
+    );
     std::fs::remove_dir_all(&dir).ok();
 }
 

@@ -77,8 +77,9 @@ pub enum Outcome {
         /// Where it is, project-relative.
         path: ProjectPath,
     },
-    /// Drawn on this run and written into `generated/`. **This is the outcome
-    /// that spent money.**
+    /// Drawn on this run and written into `generated/`. **This outcome spent
+    /// money**, as do [`Outcome::Ordered`] and a billed [`Outcome::Failed`]:
+    /// [`Outcome::spent_cents`] says which.
     Generated {
         /// Where it landed, project-relative.
         path: ProjectPath,
@@ -94,7 +95,8 @@ pub enum Outcome {
         why: String,
     },
     /// The vendor took the brief and drew nothing. The asset is left as it was
-    /// so the prompt can be edited and tried again.
+    /// so the prompt can be edited and tried again; a refusal the vendor
+    /// bills is in the ledger at its quote all the same.
     Failed {
         /// The vendor's own sentence, which is the part worth reading.
         message: String,

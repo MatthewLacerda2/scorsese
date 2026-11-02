@@ -62,8 +62,9 @@ pub struct Spending {
     pub superseded: Superseded,
 }
 
-/// Takes that were paid for and then replaced — a shot bought again with a
-/// new prompt, its first take still in `generated/`.
+/// Takes that were paid for and that no asset shows — a shot bought again
+/// with a new prompt, its first take still in `generated/`, or a call the
+/// vendor billed that brought back nothing to keep.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Superseded {
     /// How many.

@@ -25,7 +25,7 @@ use scorsese_core::{AssetId, GenerationState, Project, ProjectPath, hash_bytes};
 pub use prompted::Plan;
 pub(crate) use prompted::{Prompted, adopt, found, ids, pending, plan};
 pub use stopped::Stopped;
-pub(crate) use stopped::{Counted, tell, unsent};
+pub(crate) use stopped::{Counted, tell, tell_billed, unsent};
 
 /// Points the asset at what is now on disk, clears any ticket, and says what
 /// it was calculated to cost.
