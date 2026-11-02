@@ -232,6 +232,9 @@ export const HISTORY_KINDS = [
   "top_up",
   "bonus",
   "withdrawal",
+  "dispute",
+  "dispute_won",
+  "purchase_refunded",
   "refund",
   "adjustment",
 ] as const;

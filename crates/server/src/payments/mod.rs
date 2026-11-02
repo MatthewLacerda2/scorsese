@@ -22,6 +22,10 @@
 //! 4. **Withdrawing** ([`withdraw`]), within 7 days, by the operator: what is
 //!    left of the purchase, its bonus included, is taken back, and the reais
 //!    to refund are printed for Stripe's Dashboard.
+//! 5. **Taken back by Stripe** ([`reversed`]): a purchase disputed with the
+//!    card's bank, or refunded from Stripe's Dashboard, takes its credits
+//!    back by Stripe's webhook, found by the payment intent kept when it was
+//!    credited ([`intents`]).
 //!
 //! ## Money
 //!
@@ -29,7 +33,8 @@
 //! stored as the text its source sent ([`scorsese_providers::fx`]): no float
 //! holds any of it (`docs/web.md`, *Money*). Credits are the reais divided by
 //! the rate, floored; Stripe's fee is absorbed, not passed on. A top-up only
-//! ever adds to the balance.
+//! ever adds to the balance; taking a purchase back — a withdrawal, a
+//! dispute, a refund — is an entry of its own.
 //!
 //! ## The rate is kept, not fetched per purchase
 //!
@@ -45,8 +50,10 @@
 mod begin;
 pub mod bonus;
 mod cards;
+pub mod intents;
 pub mod open;
 mod refresh;
+pub mod reversed;
 pub mod settle;
 pub mod withdraw;
 
@@ -166,6 +173,12 @@ pub enum PaymentError {
     /// A call made off the async runtime never came back.
     #[error("a call to Stripe or a rate source was cut off")]
     Interrupted,
+    /// A refund or dispute names a payment intent not found yet among the
+    /// purchases credited before intents were kept, and some are left to
+    /// ask Stripe about: Stripe is to send the event again
+    /// ([`intents::owner`]).
+    #[error("still looking for the purchase this payment intent belongs to; send it again")]
+    Backfilling,
     /// There is no payment of the caller's by that session.
     #[error("no such payment")]
     NotFound,

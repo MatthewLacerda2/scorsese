@@ -170,7 +170,8 @@ pub(super) async fn spend(
             .map_err(|error| match error {
                 CreditError::Insufficient { .. }
                 | CreditError::PaidOnly { .. }
-                | CreditError::FreeUsedUp { .. } => error.to_string(),
+                | CreditError::FreeUsedUp { .. }
+                | CreditError::Owed { .. } => error.to_string(),
                 other => database(other),
             })?;
         queued.push((one.asset.clone(), job));

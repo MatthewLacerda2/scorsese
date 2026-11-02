@@ -146,7 +146,12 @@ async fn a_paid_amount_that_disagrees_or_an_unknown_session_credits_nothing(pool
     paid["id"] = "cs_test_elsewhere".into();
     let body = event("checkout.session.completed", &paid);
     assert_eq!(deliver(address, &body, SECRET, now()).await.status, 200);
-    let other = event("charge.refunded", &serde_json::json!({ "id": "ch_1" }));
+    // A refund of a charge that belongs to no payment intent is not ours.
+    let charge = serde_json::json!({
+        "id": "ch_1", "object": "charge", "amount": 100, "amount_refunded": 100,
+        "currency": "brl", "payment_intent": null,
+    });
+    let other = event("charge.refunded", &charge);
     assert_eq!(deliver(address, &other, SECRET, now()).await.status, 200);
 
     assert_eq!(balance(&pool, ana).await, 0);

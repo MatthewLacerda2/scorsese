@@ -71,7 +71,7 @@ async fn a_dispute_takes_once_and_a_won_one_gives_back_exactly_that(pool: PgPool
     assert!(
         read.rows[0]
             .memo
-            .starts_with("dispute settled in your favour")
+            .starts_with("Dispute settled in your favour")
     );
 }
 
@@ -89,5 +89,14 @@ async fn a_win_delivered_before_its_dispute_leaves_the_purchase_whole(pool: PgPo
     let (address, ana) = fifty_paid(&pool, false).await;
     disputed(address, "evt_dispute_2", CLOSED, "won").await;
     disputed(address, "evt_dispute_1", OPENED, "needs_response").await;
+    assert_eq!(balance(&pool, ana).await, FIFTY_AT_4_99);
+}
+
+#[sqlx::test]
+async fn an_inquiry_closed_without_becoming_a_dispute_gives_back_what_it_took(pool: PgPool) {
+    let (address, ana) = fifty_paid(&pool, false).await;
+    disputed(address, "evt_dispute_1", OPENED, "warning_needs_response").await;
+    assert_eq!(balance(&pool, ana).await, 0);
+    disputed(address, "evt_dispute_2", CLOSED, "warning_closed").await;
     assert_eq!(balance(&pool, ana).await, FIFTY_AT_4_99);
 }

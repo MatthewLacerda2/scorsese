@@ -17,6 +17,7 @@ use super::AppState;
 use super::auth::Member;
 use super::error::ApiError;
 use super::limits::Limits;
+use crate::payments::reversed::{self, Reversal, Reversed};
 use crate::payments::settle::{self, Payment, Settled};
 use crate::payments::{Begun, PaymentError, Payments, Quote, begin};
 
@@ -85,7 +86,8 @@ pub async fn confirm(
     ))
 }
 
-/// `POST /api/payments/stripe/webhook`: Stripe telling us how a session went.
+/// `POST /api/payments/stripe/webhook`: Stripe telling us how a session went,
+/// or that a paid one was later disputed or refunded ([`reversed`]).
 ///
 /// Public — Stripe has no session cookie — and so believed only when the
 /// `Stripe-Signature` header signs the raw body. Answered `200` for anything
@@ -108,19 +110,41 @@ pub async fn webhook(
     )
     .map_err(|error| ApiError::BadRequest(error.to_string()))?;
     let happened = Happened::of(&event).map_err(|error| ApiError::BadRequest(error.to_string()))?;
-    let session = match &happened {
-        Happened::Settled(session) | Happened::Expired(session) => session,
+    let reversal = match &happened {
+        Happened::Settled(session) | Happened::Expired(session) => {
+            settled(&state, &event.id, session).await?;
+            return Ok(Json(json!({ "received": event.kind })));
+        }
+        Happened::Disputed(dispute) => Reversal::Disputed(dispute),
+        Happened::DisputeClosed(dispute) => Reversal::Closed(dispute),
+        Happened::Refunded(charge) => Reversal::Refunded(charge),
         Happened::Other => return Ok(Json(json!({ "received": event.kind }))),
     };
-    let settled = settle::settle(&state.pool, session).await?;
-    if settled == Settled::Unknown {
+    let reversed = reversed::reverse(&state.pool, payments, &event.id, reversal).await?;
+    if reversed == Reversed::Unknown {
         tracing::warn!(
-            "Stripe event {} names session {}, which is no payment here",
+            "Stripe event {} ({}) names a payment intent no purchase here was paid through",
             event.id,
-            session.id
+            event.kind
         );
     }
     Ok(Json(json!({ "received": event.kind })))
+}
+
+/// Settle `session`, as Stripe event `event` says it went.
+async fn settled(
+    state: &AppState,
+    event: &str,
+    session: &scorsese_providers::payments::Session,
+) -> Result<(), ApiError> {
+    let settled = settle::settle(&state.pool, session).await?;
+    if settled == Settled::Unknown {
+        tracing::warn!(
+            "Stripe event {event} names session {}, which is no payment here",
+            session.id
+        );
+    }
+    Ok(())
 }
 
 /// One more of `what` for `member` under `limits`, or `429` saying when.
@@ -168,6 +192,10 @@ impl From<PaymentError> for ApiError {
                 message: error.to_string(),
                 detail: json!({ "quote": quote }),
             },
+            PaymentError::Backfilling => {
+                tracing::warn!("{error}");
+                refused(StatusCode::SERVICE_UNAVAILABLE)
+            }
             PaymentError::Stripe(_) | PaymentError::NoPage(_) => {
                 tracing::warn!("{error}");
                 refused(StatusCode::BAD_GATEWAY)

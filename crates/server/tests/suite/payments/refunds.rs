@@ -8,7 +8,7 @@ use sqlx::postgres::PgPool;
 
 use super::FIFTY_AT_4_99;
 use super::bonus::entries;
-use super::charges::{INTENT, fifty_paid, refunded, spend};
+use super::charges::{INTENT, disputed, fifty_paid, refunded, spend};
 use super::{balance, top_ups};
 
 #[sqlx::test]
@@ -74,4 +74,45 @@ async fn a_purchase_credited_before_intents_were_kept_is_found_by_its_session(po
     let (address, ana) = fifty_paid(&pool, true).await;
     refunded(address, "evt_refund_1", INTENT, 5_000).await;
     assert_eq!(balance(&pool, ana).await, 0);
+}
+
+#[sqlx::test]
+async fn a_purchase_refunded_in_stripe_is_not_withdrawn_again(pool: PgPool) {
+    let (address, ana) = fifty_paid(&pool, false).await;
+    refunded(address, "evt_refund_1", INTENT, 2_500).await;
+    let session: String = sqlx::query_scalar("SELECT stripe_session FROM payments")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let mut tx = db::scoped(&pool, ana).await.unwrap();
+    let again = withdraw::withdraw(&mut tx, &session, None).await;
+    let refused = again.expect_err("Stripe took it back already").to_string();
+    assert!(
+        refused.contains("refunded or disputed in Stripe"),
+        "{refused}"
+    );
+}
+
+#[sqlx::test]
+async fn an_inquiry_closed_by_a_full_refund_gives_nothing_back(pool: PgPool) {
+    let (address, ana) = fifty_paid(&pool, false).await;
+    disputed(
+        address,
+        "evt_1",
+        "charge.dispute.created",
+        "warning_needs_response",
+    )
+    .await;
+    refunded(address, "evt_2", INTENT, 5_000).await;
+    disputed(address, "evt_3", "charge.dispute.closed", "warning_closed").await;
+    assert_eq!(balance(&pool, ana).await, 0);
+}
+
+#[sqlx::test]
+async fn a_dispute_won_after_a_half_refund_gives_back_half(pool: PgPool) {
+    let (address, ana) = fifty_paid(&pool, false).await;
+    disputed(address, "evt_1", "charge.dispute.created", "needs_response").await;
+    refunded(address, "evt_2", INTENT, 2_500).await;
+    disputed(address, "evt_3", "charge.dispute.closed", "won").await;
+    assert_eq!(balance(&pool, ana).await, FIFTY_AT_4_99 / 2);
 }

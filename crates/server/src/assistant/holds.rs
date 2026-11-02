@@ -103,6 +103,8 @@ pub(super) enum Short {
     Held(i64),
     /// A reply was cut short at what was left, this much after it.
     Cut(i64),
+    /// A dispute left the paid balance this far below zero (#1637).
+    Owed(i64),
 }
 
 impl Short {
@@ -113,6 +115,7 @@ impl Short {
                 AssistantError::NoCredit(crate::credits::dollars(balance))
             }
             Self::Held(balance) => AssistantError::Held(crate::credits::dollars(balance)),
+            Self::Owed(balance) => AssistantError::Owed(balance),
         }
     }
 
@@ -133,6 +136,7 @@ impl Short {
                  it. Send this again once they finish, or add credit.",
                 crate::credits::dollars(balance)
             ),
+            Self::Owed(balance) => format!("Stopped: {}.", crate::credits::owed(balance)),
         }
     }
 }
@@ -149,6 +153,9 @@ async fn decide(
     cost: i64,
 ) -> Result<Result<i64, Short>, sqlx::Error> {
     ledger::lock(tx).await?;
+    if let Some(balance) = ledger::owed(tx).await? {
+        return Ok(Err(Short::Owed(balance)));
+    }
     let spendable = ledger::spendable(tx).await?;
     let cost = cost.max(1);
     if spendable < cost {

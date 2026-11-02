@@ -14,6 +14,7 @@ mod attached;
 mod batching;
 mod changes;
 mod compaction;
+mod disputed;
 mod effort;
 mod free_ceiling;
 mod logged;

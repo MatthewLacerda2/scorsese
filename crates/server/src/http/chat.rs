@@ -227,7 +227,7 @@ impl From<AssistantError> for ApiError {
         };
         match &error {
             AssistantError::NotConfigured(_) => refused(StatusCode::SERVICE_UNAVAILABLE),
-            AssistantError::NoCredit(_) | AssistantError::FreeUsedUp => {
+            AssistantError::NoCredit(_) | AssistantError::FreeUsedUp | AssistantError::Owed(_) => {
                 refused(StatusCode::PAYMENT_REQUIRED)
             }
             // Not a lack of credit, which the panel would offer to top up:

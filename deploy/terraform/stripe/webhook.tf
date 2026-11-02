@@ -3,7 +3,8 @@ variable "public_origin" {
   type        = string
 }
 
-# The three events crates/server's payments webhook acts on; anything else it
+# The events crates/server's payments webhook acts on: a session paid or
+# expired, and a paid one later disputed or refunded (#1637). Anything else it
 # would answer 200 and ignore, so Stripe is not asked to send it.
 resource "stripe_webhook_endpoint" "payments" {
   url         = "${trimsuffix(var.public_origin, "/")}/api/payments/stripe/webhook"
@@ -12,6 +13,9 @@ resource "stripe_webhook_endpoint" "payments" {
     "checkout.session.completed",
     "checkout.session.async_payment_succeeded",
     "checkout.session.expired",
+    "charge.dispute.created",
+    "charge.dispute.closed",
+    "charge.refunded",
   ]
 }
 
