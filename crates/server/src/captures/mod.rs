@@ -97,6 +97,16 @@ pub fn deadline(frames: u64) -> Duration {
     BASE + PER_FRAME * u32::try_from(frames).unwrap_or(u32::MAX)
 }
 
+/// How long the launcher may take over all of `wanted`, each capture held to
+/// its own [`deadline`]: what a render waiting on them is granted on top of
+/// its own (#1634).
+pub fn bound(wanted: &[Wanted]) -> Duration {
+    wanted
+        .iter()
+        .map(|one| deadline(one.frames.end))
+        .fold(Duration::ZERO, Duration::saturating_add)
+}
+
 /// The spool both containers mount, at the same path in each.
 #[derive(Debug, Clone)]
 pub struct Spool {
@@ -212,6 +222,16 @@ impl Asked {
         Ok(self.frames.clone().unwrap_or(whole))
     }
 
+    /// Whether this capture is within the ceilings (#1634), whoever asked
+    /// for it — a render, a preview or a still: the render ceilings' raster
+    /// and rate, and every frame its clock runs through, the undrawn ones
+    /// included, within `ceilings::LONGEST_PAGE`.
+    pub fn within_ceilings(&self) -> Result<(), String> {
+        crate::ceilings::picture(self.width, self.height)?;
+        crate::ceilings::rate(self.fps)?;
+        crate::ceilings::page_clock(self.frames()?.end, self.fps)
+    }
+
     /// The request again, or why it is not one.
     pub fn request(&self) -> Result<Request, String> {
         Ok(Request {
@@ -292,6 +312,47 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(asked.frames(), Ok(0..21));
+    }
+
+    #[test]
+    fn a_capture_past_the_render_ceilings_is_refused() {
+        let asked = |width, fps, frames: std::ops::Range<u64>| Asked {
+            page: "pages/title.html".into(),
+            width,
+            height: 2160,
+            fps,
+            duration: 4.0 * 3600.0,
+            clips: BTreeMap::new(),
+            words: BTreeMap::new(),
+            frames: Some(frames),
+        };
+        let three_hours = 3 * 3600 * 60;
+        let whole = asked(3840, Fps::SIXTY, 0..three_hours).within_ceilings();
+        assert_eq!(whole, Ok(()));
+        assert!(asked(3841, Fps::SIXTY, 0..1).within_ceilings().is_err());
+        let fast = Fps::new(120, 1).unwrap();
+        assert!(asked(3840, fast, 0..1).within_ceilings().is_err());
+        // Run through without drawing still counts: the clock does the work.
+        let late = asked(3840, Fps::SIXTY, three_hours - 1..three_hours + 1);
+        assert!(late.within_ceilings().unwrap_err().contains("own clock"));
+    }
+
+    #[test]
+    fn captures_waited_on_are_bound_by_each_ones_deadline() {
+        let request = Request {
+            page: "pages/title.html".into(),
+            resolution: Resolution::new(64, 36).unwrap(),
+            fps: Fps::PAL,
+            duration: 100.0,
+            clips: BTreeMap::new(),
+            words: BTreeMap::new(),
+        };
+        let wanted = [
+            Wanted::new(request.clone(), 0..10),
+            Wanted::new(request, 50..60),
+        ];
+        assert_eq!(bound(&wanted), Duration::from_secs(60 + 10 + 60 + 60));
+        assert_eq!(bound(&[]), Duration::ZERO);
     }
 
     #[test]

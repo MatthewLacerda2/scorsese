@@ -104,6 +104,10 @@ pub async fn ask(
         // Asked again while it runs — the preview's poll: say how far it is.
         return Ok(Asked::Queued(queue.progressed(job)));
     }
+    // Before anything is queued — and after a kept or running one is found,
+    // which costs the machine nothing more: it takes renders only so big and
+    // so long (#1634), whichever surface asked.
+    crate::ceilings::render(&stored.document, &settings).map_err(AskError::Invalid)?;
     // A member with no room left is refused before anything is queued; what
     // the render takes is checked again as it is kept (#1647).
     room::headroom(storage).await?;

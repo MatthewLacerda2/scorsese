@@ -80,7 +80,11 @@ async fn make(
     }
     let source = storage.library_file(job.user, &item.sha256, &item.extension);
     let tools = tools.clone();
-    tokio::task::spawn_blocking(move || preview::make(&tools, &source, &out))
+    // Its deadline grows with the video (#1634), and a stop kills the
+    // transcode rather than leaving it to run on.
+    context.measure(item.media.duration_seconds.unwrap_or(0.0));
+    let cancel = context.cancel().clone();
+    tokio::task::spawn_blocking(move || preview::make_unless(&tools, &source, &out, &cancel))
         .await
         .map_err(|error| error.to_string())?
         .map_err(|error| {

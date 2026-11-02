@@ -60,6 +60,8 @@ pub(super) async fn run(
     arguments: &Value,
     permit: Arc<OwnedSemaphorePermit>,
 ) -> Result<Reply, Refusal> {
+    // No bigger a picture than the shared machine draws (#1634).
+    super::surface::ceilinged::within(tool.name(), arguments).map_err(Refusal::Said)?;
     let deadline = caller.toolbox.bounds.deadline();
     let until = Instant::now() + deadline;
     let id = project_id(arguments)?;

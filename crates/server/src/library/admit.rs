@@ -171,7 +171,13 @@ fn read(tools: &Tools, file: &Path, kind: Kind) -> Result<Measured, LibraryError
     let sha256 = hash_file(file)?;
     let size = file.metadata()?.len();
     let media = match kind.asset_kind() {
-        Some(asset) if kind.is_media() => probe(tools, file, kind, asset)?,
+        Some(asset) if kind.is_media() => {
+            let media = probe(tools, file, kind, asset)?;
+            if matches!(kind, Kind::Video | Kind::Audio) {
+                plays_briefly(tools, file)?;
+            }
+            media
+        }
         _ => text(file, kind)?,
     };
     let media = serde_json::to_string(&media)
@@ -211,6 +217,17 @@ fn probe(
             ))
         }
     })
+}
+
+/// Hold a video or a sound to playing at most `ceilings::LONGEST_FILE`, by
+/// every length its probe gives (#1634): the byte cap does not bound the
+/// decode, and a small file can play for a very long time.
+fn plays_briefly(tools: &Tools, file: &Path) -> Result<(), LibraryError> {
+    let lengths = Ffprobe::new(tools.clone()).lengths(file).map_err(|error| {
+        tracing::warn!("refusing an upload: {error}");
+        LibraryError::Rejected("this file could not be measured; is it damaged?".to_owned())
+    })?;
+    crate::ceilings::playing(&lengths).map_err(LibraryError::Rejected)
 }
 
 /// Hold a page or a document to being text (UTF-8) of at most its kind's

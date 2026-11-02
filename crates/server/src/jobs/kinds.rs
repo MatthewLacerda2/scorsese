@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use super::elevenlabs::ElevenLabs;
-use super::{Budget, Kind, Registry};
+use super::{Allowance, Budget, Kind, Registry};
 use crate::Files;
 use crate::designs;
 use crate::generations::{self, Keys, Timing, Vendors};
@@ -163,6 +163,41 @@ pub fn stoppable(name: &str) -> bool {
     STOPPABLE.iter().any(|kind| kind.name == name)
 }
 
+/// How long a render, a preview or a proxy may run (#1634): ten minutes, and
+/// ten seconds more for every second of picture it makes — several times
+/// what a 1080p render takes on the deploy machine, never close to it.
+pub const DRAWING: Allowance = Allowance {
+    base: Duration::from_secs(10 * 60),
+    per_second: Duration::from_secs(10),
+};
+
+/// How long a transcription may run: five minutes, and two seconds more for
+/// every second of sound heard — Whisper's measured minute of two cores per
+/// half-minute of speech, with room.
+pub const HEARING: Allowance = Allowance {
+    base: Duration::from_secs(5 * 60),
+    per_second: Duration::from_secs(2),
+};
+
+/// How long a thumbnail may run: two minutes, whatever the file.
+pub const DRAWING_A_THUMBNAIL: Allowance = Allowance {
+    base: Duration::from_secs(2 * 60),
+    per_second: Duration::ZERO,
+};
+
+/// What a job of the kind called `name` is, in its owner's words — for the
+/// sentence a job stopped at its deadline fails with.
+pub fn called(name: &str) -> &'static str {
+    match name {
+        "render" => "render",
+        "preview" => "preview",
+        "proxy" => "preview proxy",
+        "thumbnail" => "thumbnail",
+        "transcribe" => "transcription",
+        _ => "job",
+    }
+}
+
 /// How long a provider job polls before it is [`Stuck`](super::Outcome::Stuck).
 ///
 /// Fifteen minutes. `scorsese_providers::video::WAIT_FOR` is five, and that is
@@ -216,6 +251,13 @@ pub fn with_vendors(
     Registry::new()
         .budget(ELEVENLABS, elevenlabs.concurrency)
         .per_user(BATCH_STILL, DEFAULT_BATCH_STILLS_PER_USER)
+        // The local kinds stop at their deadlines (#1634); the vendors' keep
+        // their patience instead.
+        .allowance(RENDER, DRAWING)
+        .allowance(PREVIEW, DRAWING)
+        .allowance(PROXY, DRAWING)
+        .allowance(TRANSCRIBE, HEARING)
+        .allowance(THUMBNAIL, DRAWING_A_THUMBNAIL)
         .register(
             THUMBNAIL,
             thumbnail::handler(files.storage.clone(), files.tools.clone()),

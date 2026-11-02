@@ -2,13 +2,15 @@
 
 use std::collections::HashMap;
 use std::future::Future;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
+use std::time::Duration;
 
 use futures_util::future::BoxFuture;
 use scorsese_render::{Cancel, Progress};
 use sqlx::postgres::PgPool;
 
-use super::{Budget, Job, Kind, Outcome, Queue, store};
+use super::{Allowance, Budget, Job, Kind, Outcome, Queue, store};
 use crate::db::{self, Tx, UserId};
 
 /// The work one kind of job does.
@@ -45,6 +47,7 @@ pub struct Registry {
     entries: Vec<(Kind, Arc<dyn Handler>)>,
     budgets: HashMap<Budget, usize>,
     per_user: HashMap<&'static str, usize>,
+    allowances: HashMap<&'static str, Allowance>,
 }
 
 impl Registry {
@@ -71,6 +74,18 @@ impl Registry {
     pub fn per_user(mut self, kind: Kind, most: usize) -> Self {
         self.per_user.insert(kind.name, most);
         self
+    }
+
+    /// Stop a job of `kind` once it has run past `allowance` for its work
+    /// ([`Allowance`], #1634), and fail it.
+    pub fn allowance(mut self, kind: Kind, allowance: Allowance) -> Self {
+        self.allowances.insert(kind.name, allowance);
+        self
+    }
+
+    /// How long a job of the kind called `name` may run, if it is bounded.
+    pub(super) fn allowance_of(&self, name: &str) -> Option<Allowance> {
+        self.allowances.get(name).copied()
     }
 
     /// Each kind one user may run only so many of at once, and how many.
@@ -110,6 +125,7 @@ pub struct Context {
     cancel: Cancel,
     progress: Progress,
     lingering: Lingering,
+    work: Work,
 }
 
 /// What a job's handler left running when it returned, its kind's slot held
@@ -125,13 +141,56 @@ impl Lingering {
     }
 }
 
+/// How much work a running job said it is ([`Context::measure`]), and the
+/// time it was granted on top for work another process bounds
+/// ([`Work::extend`]), shared with the worker's timer.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct Work {
+    seconds: Arc<AtomicU64>,
+    extra_millis: Arc<AtomicU64>,
+}
+
+impl Work {
+    /// The seconds last measured; none until the job says.
+    pub(super) fn seconds(&self) -> f64 {
+        f64::from_bits(self.seconds.load(Ordering::Relaxed))
+    }
+
+    /// The time granted on top of the allowance.
+    pub(super) fn extra(&self) -> Duration {
+        Duration::from_millis(self.extra_millis.load(Ordering::Relaxed))
+    }
+
+    /// Grants the job `more` time on top of its allowance, for work bounded
+    /// by a deadline of its own elsewhere: the page captures a render waits
+    /// on, each held to `captures::deadline` by the launcher.
+    pub(crate) fn extend(&self, more: Duration) {
+        let millis = u64::try_from(more.as_millis()).unwrap_or(u64::MAX);
+        let _ = self
+            .extra_millis
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |was| {
+                Some(was.saturating_add(millis))
+            });
+    }
+
+    /// Records `seconds` of work; a negative or unreadable count as none.
+    pub(super) fn set(&self, seconds: f64) {
+        let seconds = if seconds.is_finite() {
+            seconds.max(0.0)
+        } else {
+            0.0
+        };
+        self.seconds.store(seconds.to_bits(), Ordering::Relaxed);
+    }
+}
+
 impl Context {
     pub(super) fn new(
         pool: PgPool,
         queue: Queue,
         job: &Job,
-        cancel: Cancel,
-        progress: Progress,
+        (cancel, progress): (Cancel, Progress),
+        work: Work,
     ) -> Self {
         Self {
             pool,
@@ -141,6 +200,7 @@ impl Context {
             cancel,
             progress,
             lingering: Lingering::default(),
+            work,
         }
     }
 
@@ -161,6 +221,20 @@ impl Context {
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
         lingering.push(Box::pin(work));
+    }
+
+    /// Say how long this job's work is, in seconds — of picture rendered, of
+    /// sound heard: what a kind with an [`Allowance`] is given more time for
+    /// (#1634). Call it once the work is known and before it starts; until
+    /// then the job has its allowance's base alone.
+    pub fn measure(&self, seconds: f64) {
+        self.work.set(seconds);
+    }
+
+    /// What the worker's timer reads, for blocking work that grants itself
+    /// more time as it learns how much it waits on ([`Work::extend`]).
+    pub(crate) fn work(&self) -> Work {
+        self.work.clone()
     }
 
     /// Tripped when the job's owner asks it to stop, or the worker is

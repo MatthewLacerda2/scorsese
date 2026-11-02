@@ -103,7 +103,9 @@
 //! the record of every paid generation; [`payments`] is how they pay in,
 //! through Stripe. [`renders`] is the finished videos the
 //! queue makes from stored projects, kept for download under a quota, and
-//! [`captures`] how their web pages are drawn in a container of their own.
+//! [`captures`] how their web pages are drawn in a container of their own;
+//! [`ceilings`] is how big and how long a render, a capture or an uploaded
+//! file may be on the shared machine.
 //! [`tools`] is scorsese's tool surface for one user — what web MCP serves and
 //! the built-in assistant calls — and [`generations`] the paid jobs its
 //! `generate` queues; [`designs`] the voices its `voice_design` designs and
@@ -118,6 +120,7 @@ pub mod ab;
 pub mod accounts;
 pub mod assistant;
 pub mod captures;
+pub mod ceilings;
 pub mod config;
 pub mod credits;
 pub mod db;

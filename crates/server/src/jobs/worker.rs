@@ -12,9 +12,11 @@ use tokio::sync::{Notify, watch};
 use tokio::task::{Id, JoinSet};
 use tracing::Instrument;
 
+use super::registry::Work;
 use super::stop::Running;
 use super::{
-    Budget, Context, Job, JobView, Kind, Outcome, ProgressView, Registry, progress, store,
+    Allowance, Budget, Context, Job, JobView, Kind, Outcome, ProgressView, Registry, deadline,
+    kinds, progress, store,
 };
 use crate::db::UserId;
 use crate::events::{Event, Events};
@@ -207,7 +209,9 @@ async fn claim_what_fits(
         running.started(kind);
         let span =
             tracing::error_span!("job", id = job.id, kind = %job.kind, user = job.user.get());
-        let handle = tasks.spawn(run(pool.clone(), handler, job, queue.clone()).instrument(span));
+        let allowance = registry.allowance_of(kind.name);
+        let running = run(pool.clone(), handler, job, queue.clone(), allowance);
+        let handle = tasks.spawn(running.instrument(span));
         kinds_of.insert(handle.id(), kind);
     }
 }
@@ -250,10 +254,25 @@ impl Slots {
 }
 
 /// Run one job to its end and record how it ended.
-async fn run(pool: PgPool, handler: Arc<dyn super::Handler>, job: Job, queue: Queue) {
+///
+/// A kind with an [`Allowance`] runs against its deadline ([`deadline`]).
+async fn run(
+    pool: PgPool,
+    handler: Arc<dyn super::Handler>,
+    job: Job,
+    queue: Queue,
+    allowance: Option<Allowance>,
+) {
     let cancel = queue.running.flag(job.id);
     let readout = queue.running.progress(job.id);
-    let context = Context::new(pool.clone(), queue.clone(), &job, cancel, readout.clone());
+    let work = Work::default();
+    let context = Context::new(
+        pool.clone(),
+        queue.clone(),
+        &job,
+        (cancel.clone(), readout.clone()),
+        work.clone(),
+    );
     let lingering = context.lingering();
     let running = {
         let job = job.clone();
@@ -262,9 +281,15 @@ async fn run(pool: PgPool, handler: Arc<dyn super::Handler>, job: Job, queue: Qu
     // A panic is a bug in a handler, and it must not leave the row `running`
     // until the next restart, nor take the worker down with it.
     let running = AssertUnwindSafe(running).catch_unwind();
-    let outcome = progress::watch(running, &queue, job.user, job.id, readout)
-        .await
-        .unwrap_or_else(|_| Outcome::Failed("the job crashed on the server; that is a bug".into()));
+    let watched = progress::watch(running, &queue, job.user, job.id, readout);
+    let outcome = match allowance {
+        Some(allowance) => {
+            let what = kinds::called(&job.kind);
+            deadline::kept(watched, allowance, &work, &cancel, what).await
+        }
+        None => watched.await,
+    }
+    .unwrap_or_else(|_| Outcome::Failed("the job crashed on the server; that is a bug".into()));
     match &outcome {
         Outcome::Failed(why) => tracing::warn!("failed: {why}"),
         Outcome::Stuck(why) => tracing::warn!("stuck: {why}"),

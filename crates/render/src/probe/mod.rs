@@ -6,3 +6,4 @@ mod report;
 
 pub use ffprobe::Ffprobe;
 pub use fill::fill_media;
+pub use report::Lengths;

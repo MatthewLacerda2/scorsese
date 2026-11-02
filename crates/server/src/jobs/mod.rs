@@ -123,6 +123,7 @@
 //! carries it too ([`Queue::progressed`]).
 
 mod blocking;
+mod deadline;
 pub mod elevenlabs;
 pub mod kinds;
 mod progress;
@@ -133,9 +134,12 @@ mod worker;
 
 pub use blocking::blocking;
 pub use progress::ProgressView;
+pub(crate) use registry::Work;
 pub use registry::{Context, Handler, Registry, UNSIZED};
 pub use stop::{CancelError, cancel};
 pub use worker::{Queue, work};
+
+use std::time::Duration;
 
 use serde::Serialize;
 use serde_json::Value;
@@ -159,6 +163,34 @@ pub struct Kind {
     /// The budget this kind shares with others, if any: then at most as many
     /// of all its kinds together run at once as the budget's size.
     pub budget: Option<Budget>,
+}
+
+/// How long a job of a local kind may run (#1634): [`Allowance::base`], and
+/// [`Allowance::per_second`] more for each second of the work it measured
+/// ([`Context::measure`]) — of picture rendered, of sound heard. Kept by a
+/// timer in the worker, never by the job's own clock: past it the job is
+/// stopped as its owner's stop would stop it, and fails, never tried again.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Allowance {
+    /// What any job of the kind gets, whatever its size.
+    pub base: Duration,
+    /// What each second of its work adds.
+    pub per_second: Duration,
+}
+
+impl Allowance {
+    /// How long a job whose work is `seconds` long may run.
+    pub fn of(self, seconds: f64) -> Duration {
+        let seconds = if seconds.is_finite() {
+            seconds.max(0.0)
+        } else {
+            0.0
+        };
+        self.base.saturating_add(
+            Duration::try_from_secs_f64(self.per_second.as_secs_f64() * seconds)
+                .unwrap_or(Duration::MAX),
+        )
+    }
 }
 
 /// Slots several kinds share — a vendor's concurrency limit, which counts

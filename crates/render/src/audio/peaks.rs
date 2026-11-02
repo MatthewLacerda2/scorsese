@@ -8,6 +8,7 @@
 
 use std::path::Path;
 
+use crate::cancel::Cancel;
 use crate::error::RenderError;
 use crate::tools::Tools;
 
@@ -74,20 +75,33 @@ impl Peaks {
 /// Decodes `file` and reads it as [`PEAKS_PER_SECOND`] levels a second, at
 /// most [`MOST_PEAKS`] of them.
 pub fn peaks(tools: &Tools, file: &Path) -> Result<Peaks, RenderError> {
+    peaks_unless(tools, file, &Cancel::new())
+}
+
+/// [`peaks`], unless `cancel` is tripped first: then the decode is killed and
+/// the answer is [`RenderError::Stopped`] — for a server that bounds how long
+/// one may take.
+pub fn peaks_unless(tools: &Tools, file: &Path, cancel: &Cancel) -> Result<Peaks, RenderError> {
     let channels = read::channels(tools, file);
     let window = (ANALYSIS_RATE / PEAKS_PER_SECOND) as usize * channels;
     let mut levels = Vec::new();
     let (mut loudest, mut taken) = (0.0_f32, 0);
-    read::decode(tools, file, channels, |run| {
-        for sample in run {
-            loudest = loudest.max(sample.abs());
-            taken += 1;
-            if taken == window {
-                levels.push(level(loudest));
-                (loudest, taken) = (0.0, 0);
+    read::decode_unless(
+        tools,
+        file,
+        channels,
+        |run| {
+            for sample in run {
+                loudest = loudest.max(sample.abs());
+                taken += 1;
+                if taken == window {
+                    levels.push(level(loudest));
+                    (loudest, taken) = (0.0, 0);
+                }
             }
-        }
-    })?;
+        },
+        cancel,
+    )?;
     if taken > 0 {
         levels.push(level(loudest));
     }

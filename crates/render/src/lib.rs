@@ -259,7 +259,7 @@ pub use format::{AudioCodec, Container, FormatError, OutputFormat, VideoCodec};
 pub use layout::{Absence, Layout, Overhang, Placement, Region, Unplaced};
 pub use plan::{FrameRange, FrameRangeError, Plan, PlanError, Showing};
 pub use preview::{Preview, Proxies, Quality};
-pub use probe::{Ffprobe, fill_media};
+pub use probe::{Ffprobe, Lengths, fill_media};
 pub use progress::{Phase, Progress, Reading};
 pub use properties::{ANIMATABLE, Unknown, unknown_in};
 pub use report::{Note, RenderReport, StandIn, Told};

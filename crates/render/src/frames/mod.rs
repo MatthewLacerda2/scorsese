@@ -29,7 +29,7 @@ use crate::tools::{Tools, input};
 
 pub use shrunk::{JPEG, MODEL_EDGE, file_for_a_model, for_a_model};
 pub use stills::{Still, stills};
-pub use thumbnail::{THUMBNAIL_SIZE, Thumbnail, thumbnail};
+pub use thumbnail::{THUMBNAIL_SIZE, Thumbnail, thumbnail, thumbnail_unless};
 
 /// Decodes one frame of a video file by index.
 pub fn extract(
@@ -161,6 +161,13 @@ pub enum FrameError {
         /// What the operating system said.
         #[source]
         source: std::io::Error,
+    },
+    /// Stopped through a [`crate::Cancel`] before it was drawn
+    /// ([`thumbnail_unless`]); ffmpeg was killed.
+    #[error("stopped while {} was drawn", file.display())]
+    Stopped {
+        /// The file being drawn.
+        file: PathBuf,
     },
     /// ffmpeg ran and refused the file — an unreadable PNG, or a codec it
     /// cannot open.

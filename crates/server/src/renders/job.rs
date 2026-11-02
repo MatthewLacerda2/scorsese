@@ -41,19 +41,18 @@
 use std::path::{Path, PathBuf};
 
 use scorsese_core::{Project, migrate};
-use scorsese_render::{
-    Cancel, FrameRange, Preview, Progress, RenderError, RenderSettings, Renderer, Tools,
-};
+use scorsese_render::Tools;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+use super::produce::{Drawn, Places, produce};
 use super::{RenderCache, RenderView, Settings, evict, preview, room, store};
 use crate::captures::dispatch::Pages;
 use crate::db::{self, Says, UserId};
 use crate::jobs::{Context, Handler, Job, Outcome, blocking};
 use crate::library::locate::{self, Located};
 use crate::projects::ProjectFiles;
-use crate::projects::media::{hashes, materialise};
+use crate::projects::media::hashes;
 use crate::storage::Storage;
 
 /// What a render job carries: which project, the document as it was when the
@@ -116,6 +115,10 @@ async fn render(
     project
         .validate()
         .map_err(|problems| format!("cannot render this project: {problems}"))?;
+    // Asked again of the job, which may have been queued before them (#1634).
+    crate::ceilings::render(&project, &payload.settings)?;
+    let frames = crate::ceilings::rendered(&project, &payload.settings)?;
+    context.measure(project.timeline_fps.seconds(scorsese_core::Frames(frames)));
     let settings = payload.settings.render(&project)?;
     let range = payload.settings.range()?;
     let quality = payload.settings.quality()?;
@@ -170,6 +173,7 @@ async fn render(
         preview: previewing,
         cancel: context.cancel().clone(),
         progress: context.progress().clone(),
+        work: context.work(),
     };
     let places = Places {
         work: work.0.join("project.scor"),
@@ -252,98 +256,6 @@ async fn render(
     let mut done = done(&view);
     done["notes"] = json!(notes);
     Ok(done)
-}
-
-/// What the file is drawn as: the settings, and — for a preview only — the
-/// quality and proxies. A finished render's `preview` is `None`, so it is
-/// rendered with no [`Preview`] and reads every original. `cancel` stops it,
-/// and `progress` says how far it has got.
-struct Drawn {
-    settings: RenderSettings,
-    /// The frames asked for: the whole timeline unless a range was (#1070).
-    range: FrameRange,
-    preview: Option<Preview>,
-    cancel: Cancel,
-    progress: Progress,
-}
-
-/// Where a job lays its project out: the scratch folder, or — for a project
-/// showing a page — the spool, where the capture launcher can see it.
-struct Places {
-    work: PathBuf,
-    pages: Pages,
-    kept: ProjectFiles,
-    /// The bytes its captures may write ([`room::spare`]).
-    spare: u64,
-}
-
-/// Lay the project out, have its pages captured, and render it to `out`;
-/// what the render said ([`super::said`]). Blocking: a render is minutes of CPU, and waiting
-/// on captures minutes more, so it runs off the server's async threads.
-fn produce(
-    tools: &Tools,
-    project: &Project,
-    places: &Places,
-    media: &Located,
-    drawn: Drawn,
-    out: &Path,
-) -> Result<Vec<String>, String> {
-    let rendering = |error: RenderError| match error {
-        // Already a whole sentence: how far it got, and that nothing was kept.
-        RenderError::Cancelled { .. } => error.to_string(),
-        other => format!("rendering: {other}"),
-    };
-    // Never a browser in this container: pages come from the capture
-    // container's cache, or show their cards.
-    let renderer = Renderer::new(tools, drawn.settings)
-        .with_cancel(drawn.cancel.clone())
-        .with_progress(drawn.progress)
-        .without_capturing();
-    let renderer = match drawn.preview {
-        Some(preview) => renderer.with_preview(preview),
-        None => renderer,
-    };
-    // Whether it shows a page decides where it is laid out; what each page is
-    // told is asked of the laid-out folder, which holds the word timings the
-    // render will read too (#886).
-    let shows_pages = !renderer
-        .page_captures(project, &places.work)
-        .map_err(rendering)?
-        .is_empty();
-    let at = if shows_pages {
-        places.pages.folder()
-    } else {
-        places.work.clone()
-    };
-    let laid = materialise(project, &places.kept, &at, media)
-        .map_err(|error| format!("laying the project out: {error}"))?;
-    super::refused::unrenderable(project, &laid)?;
-    let requests = if shows_pages {
-        renderer
-            .page_captures(project, laid.root())
-            .map_err(rendering)?
-    } else {
-        Vec::new()
-    };
-    // A capture too large for the disk is never asked for (#1647).
-    let (requests, mut failed) = room::capturable(requests, laid.root(), places.spare);
-    let renderer = if requests.is_empty() {
-        renderer
-    } else {
-        let captured = places.pages.capture(&requests, &drawn.cancel)?;
-        failed.extend(captured.failed);
-        match captured.chrome {
-            Some(chrome) => {
-                evict::pages::touch(laid.root(), &requests, chrome.version());
-                renderer.with_chrome(chrome)
-            }
-            None => renderer,
-        }
-    };
-    let report = renderer
-        .render(project, laid.root(), drawn.range, out)
-        .map_err(rendering)?;
-    Ok(super::said::said(report, project, laid.root(), &failed))
 }
 
 /// Where each of the owner's library files `project` names is, by hash —
