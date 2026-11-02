@@ -45,7 +45,7 @@ use std::time::Duration;
 use sqlx::migrate::{MigrateError, Migrator};
 use sqlx::postgres::{PgPool, PgPoolOptions};
 
-pub use scope::{Tx, UserId, member_pool, privileged, scoped};
+pub use scope::{Tx, UserId, act_for, member_pool, privileged, scoped};
 
 use crate::config::Config;
 

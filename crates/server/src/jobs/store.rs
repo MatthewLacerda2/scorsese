@@ -10,7 +10,8 @@
 use serde_json::Value;
 use sqlx::postgres::PgPool;
 
-use super::{Job, JobView, Kind, MAX_ATTEMPTS, Outcome, kinds};
+use super::{Job, JobView, Kind, MAX_ATTEMPTS, Outcome, State, kinds};
+use crate::credits::{CreditError, given_up};
 use crate::db::{self, Tx, UserId};
 
 /// The columns a [`JobView`] is read from. A macro rather than a constant so
@@ -120,7 +121,7 @@ pub async fn claim_within(
              ORDER BY (SELECT count(*) FROM jobs r
                        WHERE r.user_id = j.user_id AND r.state = 'running'), id
              LIMIT 1 FOR UPDATE SKIP LOCKED)
-         RETURNING user_id, payload, ticket, ",
+         RETURNING user_id, payload, ticket, sent_at IS NOT NULL AS sent, ",
         view!()
     ))
     .bind(kinds)
@@ -137,6 +138,7 @@ pub async fn claim_within(
             payload: row.payload,
             attempts: row.view.attempts,
             ticket: row.ticket,
+            sent: row.sent,
         };
         (job, row.view)
     }))
@@ -148,6 +150,7 @@ struct ClaimRow {
     user_id: i64,
     payload: Value,
     ticket: Option<String>,
+    sent: bool,
     #[sqlx(flatten)]
     view: JobView,
 }
@@ -163,6 +166,16 @@ pub(super) async fn keep_ticket(
     sqlx::query("UPDATE jobs SET ticket = $2, ticket_at = now() WHERE id = $1")
         .bind(id)
         .bind(ticket)
+        .execute(&mut *tx)
+        .await?;
+    tx.commit().await
+}
+
+/// Commit to job `id`'s row, as its owner, that its vendor is being called.
+pub(super) async fn sending(pool: &PgPool, user: UserId, id: i64) -> Result<(), sqlx::Error> {
+    let mut tx = db::scoped(pool, user).await?;
+    sqlx::query("UPDATE jobs SET sent_at = now() WHERE id = $1")
+        .bind(id)
         .execute(&mut *tx)
         .await?;
     tx.commit().await
@@ -219,7 +232,9 @@ pub(super) async fn finish(
 
 /// Every job a dead process left running, put back in line — or given up on
 /// after [`MAX_ATTEMPTS`], unless it is of a [`kinds::PATIENT`] kind and holds
-/// its ticket. Each is stamped `interrupted_at`.
+/// its ticket. Each is stamped `interrupted_at`. A paid generation given up on
+/// is settled in the same transaction, as its owner
+/// ([`given_up::settle`]), since no handler runs for it again.
 ///
 /// Only correct while no other worker is running, which the worker's advisory
 /// lock guarantees before it calls this.
@@ -233,13 +248,23 @@ pub async fn recover(pool: &PgPool) -> Result<Vec<(UserId, JobView)>, sqlx::Erro
             error = CASE WHEN attempts < $1 OR (ticket IS NOT NULL AND kind = ANY($2)) THEN NULL
                          ELSE 'interrupted ' || attempts || ' times, so not tried again' END,
             finished_at = CASE WHEN attempts < $1 OR (ticket IS NOT NULL AND kind = ANY($2)) THEN NULL ELSE now() END
-         WHERE state = 'running' RETURNING user_id, ",
+         WHERE state = 'running'
+         RETURNING user_id, sent_at IS NOT NULL AS sent, payload ->> 'brief' AS brief, ",
         view!()
     ))
     .bind(MAX_ATTEMPTS)
     .bind(patient)
     .fetch_all(&mut *tx)
     .await?;
+    for row in rows.iter().filter(|row| row.view.state == State::Failed) {
+        db::act_for(&mut tx, UserId::from_row(row.user_id)).await?;
+        given_up::settle(&mut tx, row.view.id, row.sent, row.brief.as_deref())
+            .await
+            .map_err(|error| match error {
+                CreditError::Database(error) => error,
+                other => sqlx::Error::Protocol(other.to_string()),
+            })?;
+    }
     tx.commit().await?;
     Ok(rows
         .into_iter()
@@ -247,10 +272,13 @@ pub async fn recover(pool: &PgPool) -> Result<Vec<(UserId, JobView)>, sqlx::Erro
         .collect())
 }
 
-/// A recovered row: whose, and what they see.
+/// A recovered row: whose, whether it was sent and for what, and what they
+/// see.
 #[derive(sqlx::FromRow)]
 struct Recovered {
     user_id: i64,
+    sent: bool,
+    brief: Option<String>,
     #[sqlx(flatten)]
     view: JobView,
 }

@@ -83,7 +83,10 @@ impl Work {
 
     /// What pays for this job — or, when nothing is left to pay for, the
     /// job's answer: what the library holds once an earlier run settled it,
-    /// or what it already held for this brief, released free.
+    /// or what it already held for this brief, released free. A job an
+    /// earlier run already sent ([`Job::sent`](crate::jobs::Job::sent)) and
+    /// holding no ticket is never sent again: charged if what came back was
+    /// kept, released if not.
     pub(super) async fn begin(&self) -> Result<Paid, Outcome> {
         let paid = match paying(&self.context, &self.job).await {
             Ok(Some(paid)) => paid,
@@ -93,18 +96,41 @@ impl Work {
         // Only before anything was sent: a job holding a ticket has already
         // paid, and asks after what it paid for. A still or a line never
         // holds one.
-        if self.job.ticket.is_none()
-            && let Ok(Some(item)) = self.made().await
-        {
-            if let Err(why) = self
-                .settle(paid, &Answer::Failed("already in your library".into()))
-                .await
-            {
-                return Err(Outcome::Failed(why));
-            }
-            return Err(self.landed(&item).await);
+        if self.job.ticket.is_some() {
+            return Ok(paid);
         }
-        Ok(paid)
+        let made = match self.made().await {
+            Ok(made) => made,
+            Err(why) if self.job.sent => return Err(Outcome::Failed(why)),
+            Err(_) => None,
+        };
+        let Some(item) = made else {
+            if !self.job.sent {
+                return Ok(paid);
+            }
+            let why = "the server stopped while the provider was answering".to_owned();
+            return Err(self.refused(paid, why).await);
+        };
+        // Sent by this job, so what is kept is what it bought; otherwise
+        // another job got there first, and nothing needs sending.
+        let answer = if self.job.sent {
+            Answer::Worked(Some(item.id))
+        } else {
+            Answer::Failed("already in your library".into())
+        };
+        if let Err(why) = self.settle(paid, &answer).await {
+            return Err(Outcome::Failed(why));
+        }
+        Err(self.landed(&item).await)
+    }
+
+    /// Commit that the provider is being called, just before the call — or,
+    /// when that cannot be kept, settle `paid` free and make no call.
+    pub(super) async fn sending(&self, paid: Paid) -> Result<(), Outcome> {
+        match self.context.sending().await {
+            Ok(()) => Ok(()),
+            Err(error) => Err(self.refused(paid, database(error)).await),
+        }
     }
 
     /// The document the job carries, at this build's version.

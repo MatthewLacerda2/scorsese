@@ -1,9 +1,8 @@
 //! A Gemini still as a job (#461): one call, the picture on the same
 //! connection.
 //!
-//! [`line`](super::line)'s shape — no ticket, nothing to poll, so a job
-//! interrupted mid-call is simply run again and the brief-hash lookup at its
-//! start keeps a still that did land from being paid for twice — with
+//! [`line`](super::line)'s shape — no ticket, nothing to poll, so marked sent
+//! before the call and never sent again after a stop — with
 //! [`shot`](super::shot)'s gathering, because a still's brief hashes the bytes
 //! of the pictures it names, and those are the user's files laid out.
 
@@ -44,6 +43,9 @@ async fn still(work: &Work, vendors: &dyn Vendors) -> Outcome {
         Ok(provider) => provider,
         Err(why) => return work.refused(paid, why).await,
     };
+    if let Err(done) = work.sending(paid).await {
+        return done;
+    }
     match blocking("drawing crashed", move || provider.draw(&brief)).await {
         Ok(Ok(bytes)) => work.keep(paid, bytes, Kind::Image).await,
         Ok(Err(error)) => work.refused(paid, error.message).await,

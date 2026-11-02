@@ -76,6 +76,7 @@ async fn submit(work: &Work, paid: Paid, provider: &Provider) -> Result<Ticket, 
         Ok(brief) => brief,
         Err(why) => return Err(work.refused(paid, why).await),
     };
+    work.sending(paid).await?;
     let sending = Arc::clone(provider);
     let submitted = blocking("submitting crashed", move || sending.submit(&brief)).await;
     let ticket = match submitted {
