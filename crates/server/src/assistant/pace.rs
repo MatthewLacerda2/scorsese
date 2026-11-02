@@ -46,7 +46,11 @@ pub(super) const fn budget(model: Model) -> u64 {
 /// model: when each answered, and how many tokens counted. Cheap to clone;
 /// clones share it.
 #[derive(Clone, Default)]
-pub(super) struct Pace(Arc<Mutex<HashMap<(UserId, Model), VecDeque<(Instant, u64)>>>>);
+pub(super) struct Pace(Arc<Mutex<HashMap<(UserId, Model), Sent>>>);
+
+/// One member's calls on one model in the last minute, oldest first: when
+/// each answered, and the input tokens it counted.
+type Sent = VecDeque<(Instant, u64)>;
 
 impl Pace {
     /// Wait until `user` is under their budget on `model`.
