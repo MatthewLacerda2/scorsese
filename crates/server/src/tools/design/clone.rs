@@ -6,7 +6,7 @@
 
 use scorsese_core::{AssetId, AssetKind};
 use scorsese_mcp::Reply;
-use scorsese_providers::voices::clone::{CONSENT, check, distinct, too_much};
+use scorsese_providers::voices::clone::{CONSENT, MAX_RECORDINGS, check, distinct, too_much};
 use serde_json::{Value, json};
 
 use super::super::{Caller, database, project_id};
@@ -133,14 +133,26 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
     .into())
 }
 
+/// How many asset ids `voice_clone` reads at all, repeats included: room for
+/// an id named more than once, never a request's worth of them.
+const NAMED_AT_MOST: usize = 4 * MAX_RECORDINGS;
+
 /// The library files the named assets of the caller's project are, each
 /// once — refused unless each is an uploaded audio file of theirs, and unless
 /// together they are no more than a clone takes (`too_much`), by what the
 /// library and the project already say of them.
 async fn recordings(caller: &Caller<'_>, arguments: &Value) -> Result<Vec<Recorded>, String> {
-    let named: Vec<AssetId> = arguments
-        .get("assets")
-        .and_then(Value::as_array)
+    let named = arguments.get("assets").and_then(Value::as_array);
+    // Refused before anything is gathered: a request body can name a great
+    // many ids, and gathering them runs on the server's async threads.
+    let given = named.map_or(0, Vec::len);
+    if given > NAMED_AT_MOST {
+        return Err(format!(
+            "{given} asset ids is far more than a clone is made from: at most \
+             {MAX_RECORDINGS} recordings. Nothing was sent."
+        ));
+    }
+    let named: Vec<AssetId> = named
         .map(|ids| {
             ids.iter()
                 .filter_map(Value::as_str)
@@ -156,6 +168,10 @@ async fn recordings(caller: &Caller<'_>, arguments: &Value) -> Result<Vec<Record
                     sent."
                 .to_owned(),
         );
+    }
+    // Before any lookup: one query per id would follow.
+    if let Some(why) = too_much(ids.len(), 0, None) {
+        return Err(why);
     }
     let project = project_id(arguments)?;
     let stored = projects::open(&caller.toolbox.pool, caller.user, project)

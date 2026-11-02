@@ -12,9 +12,11 @@
 //!   one while its thread runs.
 //! - **A deadline of [`DEADLINE`]** from when the call starts running: past
 //!   it the tool is told to stop and the caller is answered with a refusal
-//!   saying so ([`within`]). The tool is handed a stop of its own, never the
-//!   caller's: the caller's may be a whole assistant turn's, which a deadline
-//!   on one call must not stop. The caller's is forwarded to it.
+//!   saying so ([`within`]). The tool is handed the call's own cancel — one
+//!   per call, on web MCP and in the assistant alike — so the deadline trips
+//!   that one, and a Stop, a hang-up or the deadline all reach the tool
+//!   through it. A call whose request is dropped while its tool runs trips it
+//!   on the way out ([`Unheard`]).
 //!
 //! One semaphore is kept per member who has called, for the life of the
 //! process: an entry is a few words, and members are accounts.
@@ -92,34 +94,59 @@ impl Bounds {
     }
 }
 
-/// How often a running call looks at whether its caller stopped it, or its
-/// deadline passed.
+/// How often a call waiting for a permit looks at whether its caller
+/// stopped it.
 const LOOK: Duration = Duration::from_millis(50);
 
-/// `working`'s answer, if it comes by `until` — tripping `stop` once `asked`
-/// is, or once `until` passes. Past `until`, `working` is handed back
-/// unfinished, for whoever must outlast it.
-pub(super) async fn within<F: Future + Unpin>(
-    mut working: F,
+/// Why a call's work was not answered by its deadline.
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum Late {
+    /// The deadline passed with the work still running.
+    Overran,
+    /// The caller stopped it, and it had not ended by the deadline.
+    Stopped,
+}
+
+/// `working`'s answer, if it comes by `until`; past `until`, `cancel` is
+/// tripped and the work is left to end on its own, answered as [`Late`].
+pub(super) async fn within<F: Future>(
+    working: F,
     until: Instant,
-    asked: &Cancel,
-    stop: &Cancel,
-) -> Result<F::Output, F> {
-    loop {
-        if asked.is_cancelled() {
-            stop.cancel();
+    cancel: &Cancel,
+) -> Result<F::Output, Late> {
+    tokio::select! {
+        // Work that is done by the deadline is answered, never thrown away.
+        biased;
+        done = working => Ok(done),
+        () = tokio::time::sleep_until(until) => {
+            let stopped = cancel.is_cancelled();
+            cancel.cancel();
+            Err(if stopped { Late::Stopped } else { Late::Overran })
         }
-        let next = (Instant::now() + LOOK).min(until);
-        tokio::select! {
-            // Work that is done by the deadline is answered, never thrown away.
-            biased;
-            done = &mut working => return Ok(done),
-            () = tokio::time::sleep_until(next) => {
-                if Instant::now() >= until {
-                    stop.cancel();
-                    return Err(working);
-                }
-            }
+    }
+}
+
+/// Trips the call's cancel if dropped before [`Unheard::heard`]: a request
+/// dropped — the client hung up, the proxy gave up — while its tool runs
+/// tells the tool to stop, since nobody will read its answer.
+pub(super) struct Unheard(Option<Cancel>);
+
+impl Unheard {
+    /// Armed with the call's own cancel.
+    pub(super) fn new(cancel: &Cancel) -> Self {
+        Self(Some(cancel.clone()))
+    }
+
+    /// The answer reached the caller: nothing to stop.
+    pub(super) fn heard(mut self) {
+        self.0 = None;
+    }
+}
+
+impl Drop for Unheard {
+    fn drop(&mut self) {
+        if let Some(cancel) = self.0.take() {
+            cancel.cancel();
         }
     }
 }
@@ -133,6 +160,10 @@ pub(super) fn overran(deadline: Duration) -> String {
     )
 }
 
+/// What a call stopped while its tool ran is answered with: the deadline
+/// covers the tool's own work, never a save, so nothing was saved.
+pub(super) const STOPPED: &str = "stopped while it ran, as asked, so nothing was saved";
+
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
@@ -140,7 +171,7 @@ mod tests {
     use scorsese_render::Cancel;
     use tokio::time::Instant;
 
-    use super::{Bounds, overran, within};
+    use super::{Bounds, Late, Unheard, overran, within};
     use crate::db::UserId;
 
     #[tokio::test]
@@ -185,33 +216,37 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn work_past_its_deadline_is_stopped_and_handed_back() {
-        let (asked, stop) = (Cancel::new(), Cancel::new());
+    async fn work_past_its_deadline_is_stopped_and_answered_late() {
+        let cancel = Cancel::new();
         let until = Instant::now() + Duration::from_millis(60);
-        let never = Box::pin(std::future::pending::<()>());
-        assert!(within(never, until, &asked, &stop).await.is_err());
-        assert!(stop.is_cancelled(), "told to stop");
-        assert!(!asked.is_cancelled(), "the caller's own is left alone");
+        let never = std::future::pending::<()>();
+        assert_eq!(within(never, until, &cancel).await, Err(Late::Overran));
+        assert!(cancel.is_cancelled(), "told to stop");
 
-        let stop = Cancel::new();
-        let quick = Box::pin(async { 7 });
+        let cancel = Cancel::new();
         let later = Instant::now() + Duration::from_secs(5);
-        assert_eq!(within(quick, later, &asked, &stop).await.ok(), Some(7));
-        assert!(!stop.is_cancelled());
+        assert_eq!(within(async { 7 }, later, &cancel).await, Ok(7));
+        assert!(!cancel.is_cancelled());
     }
 
     #[tokio::test]
-    async fn a_caller_stopping_is_passed_on() {
-        let (asked, stop) = (Cancel::new(), Cancel::new());
-        asked.cancel();
-        let until = Instant::now() + Duration::from_secs(5);
-        let stopping = stop.clone();
-        let obeys = Box::pin(async move {
-            while !stopping.is_cancelled() {
-                tokio::time::sleep(Duration::from_millis(5)).await;
-            }
-        });
-        assert!(within(obeys, until, &asked, &stop).await.is_ok());
+    async fn work_stopped_that_runs_on_is_answered_as_stopped_not_overran() {
+        let cancel = Cancel::new();
+        cancel.cancel();
+        let until = Instant::now() + Duration::from_millis(60);
+        let ignores = std::future::pending::<()>();
+        assert_eq!(within(ignores, until, &cancel).await, Err(Late::Stopped));
+    }
+
+    #[test]
+    fn a_call_dropped_unheard_trips_its_cancel_and_one_heard_does_not() {
+        let cancel = Cancel::new();
+        drop(Unheard::new(&cancel));
+        assert!(cancel.is_cancelled());
+
+        let cancel = Cancel::new();
+        Unheard::new(&cancel).heard();
+        assert!(!cancel.is_cancelled());
     }
 
     #[test]
