@@ -37,7 +37,9 @@ use scorsese_core::frame::even;
 
 use crate::settings::Resolution;
 
-pub use proxy::{PROXY_SHORT_SIDE, Proxies, ProxyError, file_name, folder, make, worth_making};
+pub use proxy::{
+    PROXY_SHORT_SIDE, Proxies, ProxyError, file_name, folder, make, make_unless, worth_making,
+};
 
 /// How much of the delivery raster a preview draws.
 ///

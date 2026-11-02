@@ -64,11 +64,33 @@ impl Report {
         }
     }
 
+    /// How long the container and each stream say the file plays.
+    pub(super) fn lengths(&self) -> Lengths {
+        Lengths {
+            container: self.format.duration.as_deref().and_then(parse_number),
+            streams: self
+                .streams
+                .iter()
+                .filter_map(|stream| stream.duration.as_deref().and_then(parse_number))
+                .collect(),
+        }
+    }
+
     fn stream(&self, kind: &str) -> Option<&Stream> {
         self.streams
             .iter()
             .find(|stream| stream.codec_type.as_deref() == Some(kind))
     }
+}
+
+/// How long a file says it plays, in seconds: its container's word and each
+/// stream's, apart, since a damaged or crafted file can disagree with itself.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Lengths {
+    /// The container's duration, if it gives one.
+    pub container: Option<f64>,
+    /// Each stream's that gives one, in the file's order.
+    pub streams: Vec<f64>,
 }
 
 fn parse_number(raw: &str) -> Option<f64> {
@@ -109,4 +131,30 @@ fn carries_alpha(pix_fmt: &str) -> bool {
 /// which is not a frame rate and becomes `None`.
 fn parse_rate(raw: &str) -> Option<Fps> {
     raw.parse().ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_files_lengths_are_the_containers_and_each_streams_apart() {
+        let report: Report = serde_json::from_str(
+            r#"{ "format": { "duration": "12.5" }, "streams": [
+                { "codec_type": "video", "duration": "12.4" },
+                { "codec_type": "audio", "duration": "9000.0" },
+                { "codec_type": "data" }
+            ] }"#,
+        )
+        .unwrap();
+        assert_eq!(
+            report.lengths(),
+            Lengths {
+                container: Some(12.5),
+                streams: vec![12.4, 9000.0],
+            }
+        );
+        let silent: Report = serde_json::from_str(r#"{ "streams": [] }"#).unwrap();
+        assert_eq!(silent.lengths(), Lengths::default());
+    }
 }

@@ -21,9 +21,9 @@
 
 use std::path::{Path, PathBuf};
 
-use scorsese_render::Tools;
-use scorsese_render::audio::peaks;
-use scorsese_render::frames::{Thumbnail, thumbnail};
+use scorsese_render::audio::peaks_unless;
+use scorsese_render::frames::{Thumbnail, thumbnail_unless};
+use scorsese_render::{Cancel, Tools};
 use serde_json::{Value, json};
 
 use super::{Kind, Library, LibraryError, store};
@@ -94,17 +94,26 @@ async fn draw(
     let levels = (item.kind == Kind::Audio).then(|| storage.peaks(job.user, &item.sha256));
     let tools = tools.clone();
     let job = job.id;
+    // A stop at its deadline (#1634) kills the decode.
+    let cancel = context.cancel().clone();
     crate::jobs::blocking("drawing crashed", move || {
-        write(&tools, &source, what, &out, job)?;
-        levels.map_or(Ok(()), |levels| read_peaks(&tools, &source, &levels, job))
+        write(&tools, &source, what, &out, (job, &cancel))?;
+        levels.map_or(Ok(()), |levels| {
+            read_peaks(&tools, &source, &levels, (job, &cancel))
+        })
     })
     .await??;
     Ok(json!({ "item": id }))
 }
 
 /// Read a sound's peaks into `out`, by way of a file beside it as a picture is.
-fn read_peaks(tools: &Tools, source: &Path, out: &Path, job: i64) -> Result<(), String> {
-    let read = peaks(tools, source).map_err(|error| {
+fn read_peaks(
+    tools: &Tools,
+    source: &Path,
+    out: &Path,
+    (job, cancel): (i64, &Cancel),
+) -> Result<(), String> {
+    let read = peaks_unless(tools, source, cancel).map_err(|error| {
         tracing::error!("{error}");
         "the sound's peaks could not be read".to_owned()
     })?;
@@ -125,10 +134,11 @@ fn write(
     source: &Path,
     what: Thumbnail,
     out: &Path,
-    job: i64,
+    (job, cancel): (i64, &Cancel),
 ) -> Result<(), String> {
     let drawing = out.with_extension(format!("drawing-{job}.{}", what.extension()));
-    thumbnail(tools, source, what, &drawing).map_err(|error| {
+    thumbnail_unless(tools, source, what, &drawing, cancel).map_err(|error| {
+        let _ = std::fs::remove_file(&drawing);
         tracing::error!("{error}");
         "the thumbnail could not be drawn".to_owned()
     })?;

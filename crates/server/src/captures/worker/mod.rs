@@ -2,10 +2,11 @@
 //! command that runs it without containers.
 //!
 //! It watches the spool ([`super`]) for a job whose `ask.json` is there and
-//! whose `answer.json` is not, oldest first, and captures each page it asks
-//! for — one at a time, each in a child process of its own process group, so
-//! that at the deadline it and everything it started are killed together.
-//! Then it answers, and looks again. It never touches a database or a network.
+//! whose `answer.json` is not, and captures the pages they ask for — one at a
+//! time, a page a turn and turns by owner ([`Turns`], #1634), each in a child
+//! process of its own process group, so that at the deadline it and
+//! everything it started are killed together. A job is answered once its last
+//! page is captured. It never touches a database or a network.
 //!
 //! **How each capture is walled in** is its [`Isolation`]. The hosted service
 //! runs the loop as `capture-launcher`, where each capture is a container of
@@ -20,7 +21,11 @@ use std::process::{Command, ExitStatus, Stdio};
 use std::time::{Duration, Instant};
 
 use super::launch::{self, Launch, Staged};
-use super::{ANSWER, ASK, Answer, Ask, Asked, PROJECT, Spool, publish, read};
+mod turns;
+
+pub use turns::Turns;
+
+use super::{ASK, Asked, PROJECT, Spool};
 
 /// `scorsese-server capture-worker`
 #[derive(Debug, clap::Args)]
@@ -98,78 +103,20 @@ impl Worker {
         }
     }
 
-    /// Works until the process is stopped.
+    /// Works until the process is stopped, a page a turn ([`Turns`]).
     pub fn run(&self) -> ! {
+        let mut turns = Turns::default();
         loop {
             self.beat();
-            match self.next() {
-                Some(job) => self.serve(&job),
-                None => std::thread::sleep(TICK),
+            if !self.take_turn(&mut turns) {
+                std::thread::sleep(TICK);
             }
         }
     }
 
-    /// The oldest job waiting for an answer, if one is: a render's
-    /// (`job-<n>`) or a still's (`still-<call>`, #1434), in the order they
-    /// were asked.
+    /// The oldest job waiting for an answer, if one is.
     pub fn next(&self) -> Option<PathBuf> {
-        let waiting = std::fs::read_dir(self.spool.jobs())
-            .ok()?
-            .filter_map(|entry| {
-                let entry = entry.ok()?;
-                // A job is a folder of its own, never a link to one.
-                if !entry.file_type().ok()?.is_dir() {
-                    return None;
-                }
-                let path = entry.path();
-                let name = path.file_name()?.to_str()?;
-                let number: i64 = name
-                    .strip_prefix("job-")
-                    .or_else(|| name.strip_prefix("still-"))?
-                    .parse()
-                    .ok()?;
-                let ask = path.join(ASK);
-                let ready = ask.is_file() && !path.join(ANSWER).exists();
-                let asked = std::fs::metadata(&ask).and_then(|meta| meta.modified());
-                ready.then_some(((asked.ok()?, number), path))
-            });
-        waiting
-            .min_by_key(|(order, _)| *order)
-            .map(|(_, path)| path)
-    }
-
-    /// Captures what the job at `job` asks for, and answers it. A job its
-    /// server withdrew while it ran — the folder gone — gets no answer.
-    pub fn serve(&self, job: &Path) {
-        let Some(ask) = read::<Ask>(&job.join(ASK)) else {
-            let _ = publish(&job.join(ANSWER), &Answer::default());
-            return;
-        };
-        let staged = match &self.isolation {
-            Isolation::Container(launch) => match launch.stage(job, &ask) {
-                Ok(staged) => Some(staged),
-                Err(why) => {
-                    let failed = vec![Some(why); ask.requests.len()];
-                    let _ = publish(&job.join(ANSWER), &Answer { failed });
-                    return;
-                }
-            },
-            Isolation::Process { .. } => None,
-        };
-        let mut answer = Answer::default();
-        for (index, asked) in ask.requests.iter().enumerate() {
-            if !job.join(ASK).is_file() {
-                break;
-            }
-            let captured = self.capture(job, index, asked, staged.as_ref());
-            answer.failed.push(captured.err());
-        }
-        if let (Isolation::Container(launch), Some(staged)) = (&self.isolation, &staged) {
-            launch.unstage(staged);
-        }
-        if job.is_dir() && answer.failed.len() == ask.requests.len() {
-            let _ = publish(&job.join(ANSWER), &answer);
-        }
+        self.waiting().into_iter().next().map(|job| job.path)
     }
 
     /// One capture, in a child the deadline can kill; why it failed if it did.
@@ -182,6 +129,8 @@ impl Worker {
         asked: &Asked,
         staged: Option<&Staged>,
     ) -> Result<(), String> {
+        // Past the render ceilings whoever asked (#1634): refused unstarted.
+        asked.within_ceilings()?;
         // Every frame up to the last drawn, the ones run through without
         // drawing included: running ahead is cheaper than drawing, never free.
         let frames = asked.frames()?.end;
@@ -202,9 +151,16 @@ impl Worker {
         });
         let group = child.id();
         let started = Instant::now();
+        let mut withdrawn = false;
         let status = loop {
             match child.try_wait() {
                 Ok(Some(status)) => break Some(status),
+                // Withdrawn by the server — its job stopped, by its owner or
+                // at its deadline (#1634): nobody is waiting for the page.
+                Ok(None) if !job.join(ASK).is_file() => {
+                    withdrawn = true;
+                    break None;
+                }
                 Ok(None) if started.elapsed() < limit => {
                     self.beat();
                     std::thread::sleep(TICK);
@@ -227,6 +183,7 @@ impl Worker {
         match status {
             Some(status) if status.success() => Ok(()),
             Some(status) => Err(failure(&said, status)),
+            None if withdrawn => Err("withdrawn while it was captured".to_owned()),
             None => Err(format!(
                 "the page was stopped after {} seconds, the most a capture of {frames} frames \
                  may take; a page whose clock never settles, or that does a lot of work each \

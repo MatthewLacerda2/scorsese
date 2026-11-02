@@ -7,7 +7,7 @@ use scorsese_core::probe::{ProbeError, ProbeMedia};
 
 use crate::tools::{Tools, input};
 
-use super::report::Report;
+use super::report::{Lengths, Report};
 
 /// Probes media by running `ffprobe`.
 ///
@@ -32,8 +32,16 @@ impl Ffprobe {
     }
 }
 
-impl ProbeMedia for Ffprobe {
-    fn probe(&self, file: &Path) -> Result<MediaMetadata, ProbeError> {
+impl Ffprobe {
+    /// How long `file` says it plays, container and streams apart, for a
+    /// caller that must not trust one file's word for its own length (the
+    /// web app's uploads, #1634).
+    pub fn lengths(&self, file: &Path) -> Result<Lengths, ProbeError> {
+        Ok(self.report(file)?.lengths())
+    }
+
+    /// ffprobe's report on `file`.
+    fn report(&self, file: &Path) -> Result<Report, ProbeError> {
         let mut command = self.tools.ffprobe();
         command.args([
             "-v",
@@ -61,10 +69,14 @@ impl ProbeMedia for Ffprobe {
             return Err(ProbeError::new(file, message));
         }
 
-        let report: Report = serde_json::from_slice(&output.stdout).map_err(|error| {
-            ProbeError::new(file, format!("unreadable ffprobe output: {error}"))
-        })?;
-        Ok(report.into_metadata())
+        serde_json::from_slice(&output.stdout)
+            .map_err(|error| ProbeError::new(file, format!("unreadable ffprobe output: {error}")))
+    }
+}
+
+impl ProbeMedia for Ffprobe {
+    fn probe(&self, file: &Path) -> Result<MediaMetadata, ProbeError> {
+        Ok(self.report(file)?.into_metadata())
     }
 }
 

@@ -15,6 +15,7 @@
 use std::path::Path;
 use std::process::Stdio;
 
+use crate::cancel::Cancel;
 use crate::tools::{Tools, input};
 
 use super::{FrameError, stderr_of};
@@ -55,6 +56,19 @@ pub fn thumbnail(
     what: Thumbnail,
     out: &Path,
 ) -> Result<(), FrameError> {
+    thumbnail_unless(tools, source, what, out, &Cancel::new())
+}
+
+/// [`thumbnail`], unless `cancel` is tripped first: then ffmpeg is killed and
+/// the answer is [`FrameError::Stopped`] — for a server that bounds how long
+/// one may take. A waveform reads its whole sound.
+pub fn thumbnail_unless(
+    tools: &Tools,
+    source: &Path,
+    what: Thumbnail,
+    out: &Path,
+    cancel: &Cancel,
+) -> Result<(), FrameError> {
     let io = |source| FrameError::Io {
         file: out.to_path_buf(),
         source,
@@ -87,14 +101,16 @@ pub fn thumbnail(
             ]);
         }
     }
-    let output = command
+    command
         .args(["-frames:v", "1", "-update", "1"])
         .arg(out)
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .output()
-        .map_err(io)?;
+        .stdout(Stdio::null());
+    let Some(output) = crate::pipe::output_unless(&mut command, cancel).map_err(io)? else {
+        return Err(FrameError::Stopped {
+            file: source.to_path_buf(),
+        });
+    };
     // ffmpeg can exit cleanly having written nothing — a seek past the end
     // finds no frame — so success is the file, not the status alone.
     if output.status.success() && out.metadata().is_ok_and(|meta| meta.len() > 0) {

@@ -9,6 +9,7 @@ use crate::common;
 
 mod bumped;
 mod cancelled;
+mod ceilings;
 mod choices;
 mod contained;
 mod crowded;

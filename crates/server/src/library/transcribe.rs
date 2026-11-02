@@ -270,6 +270,14 @@ async fn hear(
     {
         return Err(too_long(seconds));
     }
+    // Its deadline grows with the sound (#1634), up to the longest heard.
+    context.measure(
+        item.media
+            .duration_seconds
+            .map_or(LONGEST.as_secs_f64(), |seconds| {
+                seconds.min(LONGEST.as_secs_f64())
+            }),
+    );
     let ear = vendors.whisper()?;
     let source = storage.library_file(job.user, &item.sha256, &item.extension);
     let tools = tools.clone();

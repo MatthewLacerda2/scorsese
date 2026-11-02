@@ -34,6 +34,7 @@ use std::process::{Output, Stdio};
 
 use scorsese_core::{Asset, AssetKind, CACHE_DIR, MediaMetadata, Project};
 
+use crate::cancel::Cancel;
 use crate::tools::{Tools, input};
 
 /// The short side of a proxy, in pixels: the half-quality raster of a 1080p
@@ -138,6 +139,12 @@ pub enum ProxyError {
         /// What the system said.
         source: std::io::Error,
     },
+    /// Stopped through a [`Cancel`] before it was made ([`make_unless`]).
+    #[error("stopped while a proxy of {} was made", file.display())]
+    Stopped {
+        /// The source.
+        file: PathBuf,
+    },
     /// ffmpeg failed to transcode the source.
     #[error("making a proxy of {}: {message}", file.display())]
     Ffmpeg {
@@ -161,6 +168,18 @@ pub enum ProxyError {
 /// decoder's cheap path asked for: a desktop preview seeks for every frame it
 /// shows, and a seek costs the frames since the last keyframe.
 pub fn make(tools: &Tools, source: &Path, out: &Path) -> Result<(), ProxyError> {
+    make_unless(tools, source, out, &Cancel::new())
+}
+
+/// [`make`], unless `cancel` is tripped first: then ffmpeg is killed,
+/// nothing is left at `out` or beside it, and the answer is
+/// [`ProxyError::Stopped`] — for a server that bounds how long one may take.
+pub fn make_unless(
+    tools: &Tools,
+    source: &Path,
+    out: &Path,
+    cancel: &Cancel,
+) -> Result<(), ProxyError> {
     let io = |file: &Path| {
         let file = file.to_path_buf();
         move |source| ProxyError::Io { file, source }
@@ -193,11 +212,14 @@ pub fn make(tools: &Tools, source: &Path, out: &Path) -> Result<(), ProxyError> 
         .args(["-fps_mode", "passthrough", "-movflags", "+faststart"])
         .arg(&making)
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .output()
-        .map_err(io(&making));
-    let placed = output.and_then(|output| placed(output, source, &making, out));
+        .stdout(Stdio::null());
+    let waited = crate::pipe::output_unless(output, cancel).map_err(io(&making));
+    let placed = waited.and_then(|output| match output {
+        Some(output) => placed(output, source, &making, out),
+        None => Err(ProxyError::Stopped {
+            file: source.to_path_buf(),
+        }),
+    });
     let _ = std::fs::remove_dir_all(&folder);
     placed
 }

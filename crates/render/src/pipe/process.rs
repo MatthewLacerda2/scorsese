@@ -15,7 +15,7 @@ use crate::error::{RenderError, Stage};
 const KEPT: usize = 16 * 1024;
 
 /// How often [`Process::finish_unless`] looks at its cancel while it waits.
-const POLL: Duration = Duration::from_millis(20);
+pub(super) const POLL: Duration = Duration::from_millis(20);
 
 /// An ffmpeg child that is reaped however the render that spawned it ends, and
 /// whose stderr is read as it is written.

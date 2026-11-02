@@ -54,7 +54,7 @@ pub use loudness::Lift;
 pub use loudness::target::{LoudnessTarget, LoudnessTargetError};
 pub use measure::measure;
 pub use mix::{CHANNELS, Mix, Ramp};
-pub use peaks::{MOST_PEAKS, PEAKS_PER_SECOND, Peaks, peaks};
+pub use peaks::{MOST_PEAKS, PEAKS_PER_SECOND, Peaks, peaks, peaks_unless};
 pub use speech::{SPEECH_RATE, speech};
 pub use wave::{Findings, WaveError, Waveform, waveform};
 // The four `zimmer` types this crate's own signatures are written in — a

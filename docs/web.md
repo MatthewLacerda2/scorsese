@@ -213,6 +213,27 @@ provider keys use, and is documented in `.env.example`:
 | `SCORSESE_PUBLIC_ORIGIN` | Where browsers reach the site, `https://scorseseestudio.com`: what Google sends a sign-in back to, at `/api/auth/google/callback`, and where Stripe sends a buyer back to. `https://` and a host, or `http://localhost` / `http://127.0.0.1`; anything else stops the server from starting. |
 | `SCORSESE_ASSISTANT_MODEL` | **Retired** (#705): the model is each project's choice now. Set to anything, it stops the server from starting, so a setting that no longer means anything cannot pass for one that does. |
 
+**What one request may ask of the machine** (#1634) is bounded beside those
+per-account shares, by defaults in code with no setting
+(`crates/server/src/ceilings.rs`, `jobs::kinds`); the CLI, the MCP server and
+the desktop app keep none of them. Each refusal says the limit and what to do.
+
+- **A render or a preview** is at most 3840x2160 either way up, 60 frames a
+  second and 60 minutes long (the range asked for, else the timeline), refused
+  `400` before it is queued; so is a page capture, whoever asks for it, and a
+  `still` sized `WIDTHxHEIGHT`.
+- **A local job** stops at a deadline that grows with its work, kept by a timer
+  in the worker: a render, preview or proxy 10 minutes plus 10 s a second of
+  picture, a transcription 5 minutes plus 2 s a second of sound, a thumbnail 2
+  minutes. It is stopped as its owner's stop would stop it (ffmpeg and the
+  capture it waits on with it) and fails, never tried again.
+- **An uploaded video or sound** plays at most 3 hours by its probe; one that
+  gives no length, or whose stream runs far past its container, is refused
+  too, and its bytes removed. Stock and bakes are held the same way.
+- **The page-capture slot** is shared a page a turn: the next goes to the
+  account whose last turn was longest ago, its oldest job first (*Page
+  captures*).
+
 **Schema migrations** are embedded in the binary and run at startup, before the
 first request. Files in `crates/server/migrations/` are numbered
 `NNNN_name.sql` without gaps, only go forward, and are never edited once merged
@@ -2000,7 +2021,11 @@ compose runs neither.
 lays the project out under `$SCORSESE_CACHE/captures/jobs/job-<id>/`, writes
 `ask.json`, and waits for `answer.json`. The launcher takes one capture at a
 time, which is the captures' concurrency limit: one capture keeps ~3.6 cores
-busy. The frames land in `captures/pages/<user>/<project>/`, the project's own
+busy. **A turn is one page** (#1634): after each the launcher picks again,
+the account whose last turn was longest ago first and its oldest job first
+within it, a still competing the same way, so one render with many pages
+never holds everybody else's behind all of them. A job is answered once its
+last page is captured; one withdrawn part way is dropped. The frames land in `captures/pages/<user>/<project>/`, the project's own
 page cache, so a second render of an unchanged page reuses them and one user's
 captures are never another's. The render then draws pages only from there and
 never starts a browser itself.

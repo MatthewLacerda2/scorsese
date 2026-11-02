@@ -77,6 +77,7 @@
 pub mod evict;
 pub mod job;
 mod preview;
+mod produce;
 mod refused;
 pub mod request;
 mod room;

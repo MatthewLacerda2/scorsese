@@ -32,6 +32,7 @@ use std::process::Stdio;
 
 use scorsese_core::probe::ProbeMedia;
 
+use crate::cancel::Cancel;
 use crate::error::{RenderError, Stage};
 use crate::pipe::{ALIGN_TO_FILE_CLOCK, Process, SAMPLE_FORMAT};
 use crate::probe::Ffprobe;
@@ -84,7 +85,19 @@ pub(crate) fn decode(
     tools: &Tools,
     file: &Path,
     channels: usize,
+    take: impl FnMut(&[f32]),
+) -> Result<(), RenderError> {
+    decode_unless(tools, file, channels, take, &Cancel::new())
+}
+
+/// [`decode`], unless `cancel` is tripped first: then ffmpeg is killed and the
+/// answer is [`RenderError::Stopped`], with some of the samples taken.
+pub(crate) fn decode_unless(
+    tools: &Tools,
+    file: &Path,
+    channels: usize,
     mut take: impl FnMut(&[f32]),
+    cancel: &Cancel,
 ) -> Result<(), RenderError> {
     let subject = file.display().to_string();
     let mut command = tools.ffmpeg();
@@ -109,7 +122,13 @@ pub(crate) fn decode(
     // Taken charge of before anything can fail, so a read that breaks off
     // reaps ffmpeg rather than leaving it behind (#1084).
     let child = Process::new(child);
-    read_all(&mut stdout, channels, &mut take)?;
+    read_all(&mut stdout, channels, &mut take, cancel).map_err(|error| match error {
+        // Dropping `child` kills it.
+        RenderError::Cancelled { .. } => RenderError::Stopped {
+            file: subject.clone(),
+        },
+        other => other,
+    })?;
     // Waited on only after the pipe has run dry: ffmpeg blocks writing into a
     // full pipe, so a process we stopped reading from would never exit.
     child.finish(Stage::Measure, &subject)
@@ -133,12 +152,16 @@ fn read_all(
     source: &mut impl Read,
     channels: usize,
     take: &mut impl FnMut(&[f32]),
+    cancel: &Cancel,
 ) -> Result<(), RenderError> {
     let frame = size_of::<f32>() * channels;
     let mut bytes = vec![0_u8; CHUNK.max(frame)];
     let mut carried = 0;
     let mut samples = Vec::with_capacity(bytes.len() / size_of::<f32>());
     loop {
+        if cancel.is_cancelled() {
+            return Err(RenderError::Cancelled { written: 0, of: 0 });
+        }
         let read = source
             .read(&mut bytes[carried..])
             .map_err(|source| RenderError::Pipe {
