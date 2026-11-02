@@ -44,7 +44,7 @@ async fn track(work: &Work, vendors: &dyn Vendors) -> Outcome {
     }
     match blocking("composing crashed", move || provider.compose(&brief)).await {
         Ok(Ok(bytes)) => work.keep(paid, bytes, Kind::Audio).await,
-        Ok(Err(error)) => work.refused(paid, error.message).await,
+        Ok(Err(error)) => work.answered(paid, error, "a track").await,
         Err(why) => work.refused(paid, why).await,
     }
 }

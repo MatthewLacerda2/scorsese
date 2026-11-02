@@ -4,11 +4,13 @@
 use scorsese_core::placing::Shortened;
 use scorsese_core::words::Words;
 use scorsese_core::{AssetId, Project, migrate};
+use scorsese_providers::video::ProviderError;
 use scorsese_render::Tools;
 use serde_json::json;
 
 use super::Payload;
 use super::adopt::adopt;
+use crate::credits::dollars;
 use crate::credits::generations::{self, Answer, Paid};
 use crate::db::{self, Says};
 use crate::jobs::{Context, Job, Outcome};
@@ -166,6 +168,21 @@ impl Work {
         refusal(why, settled)
     }
 
+    /// A provider's error, settled as it bills: charged as quoted when the
+    /// vendor completed the call and made nothing ([`ProviderError::billed`]),
+    /// with what it said instead of `what` it was asked for; otherwise a
+    /// refusal, free.
+    pub(super) async fn answered(&self, paid: Paid, error: ProviderError, what: &str) -> Outcome {
+        if !error.billed {
+            return self.refused(paid, error.message).await;
+        }
+        let said = unmade(&error, what, paid.reservation.micros);
+        match self.settle(paid, &Answer::Unmade(said.clone())).await {
+            Ok(()) => Outcome::Failed(said),
+            Err(error) => Outcome::Failed(error),
+        }
+    }
+
     /// Keep `bytes` in the library under this brief, charge `paid`, and bring
     /// the file into the project.
     pub(super) async fn keep(&self, paid: Paid, bytes: Vec<u8>, kind: Kind) -> Outcome {
@@ -260,6 +277,17 @@ pub(crate) fn refusal(why: String, settled: Result<(), String>) -> Outcome {
         Ok(()) => Outcome::Failed(format!("{why} — nothing was charged")),
         Err(error) => Outcome::Failed(error),
     }
+}
+
+/// What a billed call that made nothing says: who answered without `what`,
+/// in their words, and what the call was charged.
+fn unmade(error: &ProviderError, what: &str, micros: i64) -> String {
+    let said = error.message.trim().trim_end_matches('.');
+    format!(
+        "{} answered without {what}: {said}. You were charged {} for the call.",
+        error.provider,
+        dollars(micros)
+    )
 }
 
 /// The document `payload` carries, brought to this build's version, and

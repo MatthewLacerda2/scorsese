@@ -142,7 +142,9 @@ document will not migrate.
   stays even when it covers everything (*Credits*, *The free allowance*).
 - A generation the provider **failed** is free; one that **worked** is
   charged, liked or not. Users can audit every charge themselves — that is what
-  makes the second half acceptable.
+  makes the second half acceptable. A call the vendor **completed and bills**
+  but that made nothing (a model that answered in words instead of a picture)
+  is charged as quoted, and the job says what the model said (#1646).
 - A tool that spends money **quotes first and spends only on confirmation**
   (#538), in the tool surface itself, so the built-in assistant, a user's own
   MCP client and the local server all get the same guard.
@@ -1301,11 +1303,17 @@ prices it, takes a lock on the user's own row (so two spends at once cannot
 both see the last dollar), and reserves — or refuses, writing nothing, when the
 balance cannot cover it. When the provider answers, `finish` releases the
 reservation and, if the generation **worked**, charges it — liked or not. A
-generation the provider **failed** nets to zero: free. A unique index allows
+generation the provider **failed** nets to zero: free. A call the vendor
+completed and bills but that made nothing — the provider's error marked
+`billed`: Gemini answering in words with no picture, a picture or a line that
+does not decode — is charged as quoted (`Answer::Unmade`), its row `failed`,
+and the job ends saying what the vendor said and what was charged (#1646). A
+Veo shot its filters kept back is not billed by Google, so it stays free. A unique index allows
 one release per reservation, so nothing is settled twice. A Veo or batch job that
 goes `stuck` settles nothing and its reservation stays held, since Google may
 still be billing. A batched still reserves its half price, charged when its
-picture lands and released when its batch stops without one. The assistant is charged after each call rather than reserved for:
+picture lands or its answer is words with no picture, and released when its
+batch stops without one or the request itself errs. The assistant is charged after each call rather than reserved for:
 its cost exists only once the tokens are counted, so a turn checks the balance
 is positive before starting and the call may dip a little below zero. A call
 in flight holds what it may cost until it is charged, and a turn — starting,
