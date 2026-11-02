@@ -115,7 +115,7 @@ async fn wait(
                 // A batch of one: its one answer is this still's.
                 return match answers.into_iter().next() {
                     Some((_, Ok(bytes))) => work.keep(paid, bytes, Kind::Image).await,
-                    Some((_, Err(why))) => work.refused(paid, why).await,
+                    Some((_, Err(error))) => work.refused(paid, error.message).await,
                     None => work.refused(paid, "the batch drew nothing".into()).await,
                 };
             }

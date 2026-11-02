@@ -1,5 +1,7 @@
 //! The mock Gemini: a still drawn now, or ordered in a batch that finishes
-//! with it at the first asking — or stops, when the mock says so.
+//! with it at the first asking — or stops, when the mock says so. Told to
+//! [`say`](Mock::say) something, it answers in those words and draws nothing;
+//! told to [`fail`](Mock::fail), it errors as the vendor does.
 
 use std::sync::atomic::Ordering;
 
@@ -19,7 +21,7 @@ fn still() -> Vec<u8> {
 impl ImageProvider for Mock {
     fn draw(&self, _: &Brief) -> Result<Vec<u8>, ProviderError> {
         self.drawn.fetch_add(1, Ordering::SeqCst);
-        Ok(still())
+        self.unmade().map_or_else(|| Ok(still()), Err)
     }
 
     fn name(&self) -> &'static str {
@@ -35,7 +37,18 @@ impl ImageProvider for Mock {
         let key = operation.trim_start_matches("batches/mock-").to_owned();
         Ok(match &self.stop {
             Some(why) => Batch::Stopped(why.clone()),
-            None => Batch::Finished(vec![(key, Ok(still()))]),
+            None => Batch::Finished(vec![(key, self.unmade().map_or_else(|| Ok(still()), Err))]),
         })
+    }
+}
+
+impl Mock {
+    /// Why nothing is made, when the mock is told to make nothing.
+    pub(super) fn unmade(&self) -> Option<ProviderError> {
+        match (&self.say, &self.fail) {
+            (Some(words), _) => Some(ProviderError::billed("mock image", words)),
+            (None, Some(why)) => Some(ProviderError::new("mock image", why)),
+            (None, None) => None,
+        }
     }
 }

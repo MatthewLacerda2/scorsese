@@ -52,8 +52,9 @@ pub enum Batch {
     /// Waiting or drawing.
     Running,
     /// Every answer is in: each key the job was sent with, and its picture or
-    /// why there is none.
-    Finished(Vec<(String, Result<Vec<u8>, String>)>),
+    /// why there is none — [`billed`](ProviderError::billed) when the model
+    /// answered without one, since the request is paid for all the same.
+    Finished(Vec<(String, Result<Vec<u8>, ProviderError>)>),
     /// Stopped without answers — failed, cancelled, or expired unfinished —
     /// in the vendor's words. Nothing was drawn and nothing is billed.
     Stopped(String),

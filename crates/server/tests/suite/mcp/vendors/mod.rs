@@ -36,6 +36,12 @@ pub(super) struct Mock {
     pub(super) lose: Option<String>,
     /// Why a batch stops without drawing, instead of finishing.
     pub(super) stop: Option<String>,
+    /// What Gemini or ElevenLabs answers in words, completing the call and
+    /// making nothing — billed as the vendor bills it (#1646).
+    pub(super) say: Option<String>,
+    /// The vendor's own error, instead of a still: a call it did not
+    /// complete, so not billed.
+    pub(super) fail: Option<String>,
     pub(super) ordered: Arc<AtomicUsize>,
     pub(super) spoken: Arc<AtomicUsize>,
     pub(super) composed: Arc<AtomicUsize>,

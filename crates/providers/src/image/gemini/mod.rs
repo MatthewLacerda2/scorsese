@@ -44,7 +44,7 @@ impl ImageProvider for GeminiProvider {
             .map_err(|error| ProviderError::http("Gemini", &error))?;
         let Some(encoded) = reply.image() else {
             // Answered, and drew nothing: almost always a refusal, and the
-            // words are why.
+            // words are why. Google bills the call all the same (#1646).
             let said = reply.said();
             let message = if said.is_empty() {
                 format!(
@@ -54,11 +54,11 @@ impl ImageProvider for GeminiProvider {
             } else {
                 said
             };
-            return Err(ProviderError::new("Gemini", message));
+            return Err(ProviderError::billed("Gemini", message));
         };
         STANDARD
             .decode(encoded)
-            .map_err(|_| ProviderError::new("Gemini", "the picture was not valid base64"))
+            .map_err(|_| ProviderError::billed("Gemini", "the picture was not valid base64"))
     }
 
     fn order(&self, briefs: &[&Brief]) -> Result<String, ProviderError> {
