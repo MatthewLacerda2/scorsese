@@ -19,14 +19,14 @@ use crate::tools::{Costs, Reply, Tool};
 /// ([`super::stocked`]).
 #[derive(Default)]
 pub(crate) struct Import {
-    library: Option<super::Stock>,
+    library: Option<super::Libraries>,
     cache: Option<PathBuf>,
 }
 
 impl Import {
     /// One answering from `library` and reading results from `cache`, each
     /// when given.
-    pub(crate) fn new(library: Option<super::Stock>, cache: Option<PathBuf>) -> Self {
+    pub(crate) fn new(library: Option<super::Libraries>, cache: Option<PathBuf>) -> Self {
         Self { library, cache }
     }
 }
@@ -97,8 +97,8 @@ impl Tool for Import {
          its JSON is written to pages/lottie-<id>.json, and an html page \
          plays it with the shipped lottie-web, driven from the page's clock \
          (`guide pages`, section *A Lottie animation*) — write that page with \
-         page_write and place_clip the page. Pass a list of ids to bring \
-         several in at once; one that fails costs none of the others."
+         page_write and place_clip the page. Pass a list of up to 20 ids \
+         to bring several in at once; one that fails costs none of the others."
     }
 
     fn costs(&self) -> Costs {
@@ -118,6 +118,7 @@ impl Tool for Import {
             Ids::Many(ids) if ids.is_empty() => return Err("`id` is required".to_owned()),
             Ids::Many(ids) => ids,
         };
+        stock::within_one_import(ids.len())?;
         let asked = args::given(arguments.resolution.as_deref())
             .map(str::parse::<Sizing>)
             .transpose()

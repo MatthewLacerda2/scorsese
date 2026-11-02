@@ -1,5 +1,5 @@
 //! A stock library that answers from memory and remembers what it was asked
-//! to download.
+//! to download, and how often it was asked anything.
 
 use std::io::Write;
 use std::sync::{Arc, Mutex};
@@ -22,6 +22,8 @@ pub(crate) const LOTTIES: [u64; 2] = [7, 8];
 pub(crate) struct Fake {
     pngs: Vec<Vec<u8>>,
     downloaded: Mutex<Vec<String>>,
+    /// How many searches and lookups by id reached it.
+    asked: Mutex<usize>,
 }
 
 impl Fake {
@@ -35,7 +37,19 @@ impl Fake {
         Arc::new(Self {
             pngs: pngs.into(),
             downloaded: Mutex::default(),
+            asked: Mutex::default(),
         })
+    }
+
+    /// How many searches and lookups by id reached it: the requests a vendor
+    /// would count against its key.
+    pub(crate) fn asked(&self) -> usize {
+        *self.asked.lock().expect("the test setup holds")
+    }
+
+    /// Count one request.
+    fn ask(&self) {
+        *self.asked.lock().expect("the test setup holds") += 1;
     }
 
     /// Every URL downloaded, in order.
@@ -115,6 +129,7 @@ impl Library for Fake {
     }
 
     fn page(&self, query: &Query, _: u32) -> Result<Page, StockError> {
+        self.ask();
         let candidates: Vec<Candidate> = match query.medium {
             Medium::Lottie => LOTTIES.into_iter().map(animation).collect(),
             _ => (1..=3).map(picture).collect(),
@@ -124,6 +139,7 @@ impl Library for Fake {
     }
 
     fn one(&self, medium: Medium, id: u64) -> Result<Option<Candidate>, StockError> {
+        self.ask();
         Ok(match medium {
             Medium::Lottie => LOTTIES.contains(&id).then(|| animation(id)),
             _ => (1..=3).contains(&id).then(|| picture(id)),

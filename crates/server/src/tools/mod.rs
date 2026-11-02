@@ -59,6 +59,11 @@
 //! — and otherwise the registry's own resolution: Pixabay keyed from the one
 //! resolver, LottieFiles for animations.
 //!
+//! Whichever library it is, a member reaches it **within their share**
+//! (`share`): the operator's one Pixabay key, and the server's one address
+//! LottieFiles sees, are every member's, so each member's searches and
+//! lookups are counted before they go out (#1652).
+//!
 //! What they find is kept in the member's own stock cache
 //! (`Storage::stock`), handed to the tools as a folder of its own: never
 //! linked into the project folder a call runs in, where any tool's write
@@ -79,6 +84,7 @@ mod log;
 mod own;
 mod picked;
 mod quotes;
+mod share;
 mod size;
 mod stored;
 mod surface;
@@ -92,7 +98,7 @@ pub use quotes::{BriefKind, Pending, QuoteItem};
 use std::path::Path;
 use std::sync::Arc;
 
-use scorsese_mcp::{Ahead, PagesAhead, Reply, Stock, Tool};
+use scorsese_mcp::{Ahead, Libraries, PagesAhead, Reply, Stock, Tool};
 use scorsese_render::{Cancel, Tools};
 use serde_json::Value;
 use sqlx::postgres::PgPool;
@@ -116,6 +122,8 @@ pub struct Toolbox {
     /// The one library every stock search and import answers from, when not
     /// each medium's own — the module doc's *Stock*.
     stock: Option<Stock>,
+    /// How much of each stock library each member has used this minute.
+    shares: share::Shares,
 }
 
 impl Toolbox {
@@ -137,6 +145,7 @@ impl Toolbox {
             queue,
             renders,
             stock: None,
+            shares: share::Shares::default(),
         }
     }
 
@@ -400,14 +409,15 @@ fn database(error: impl std::fmt::Display) -> String {
     db::user_facing("tool call", Says::TryAgain, error)
 }
 
-/// The registry's tools, by name — the stock ones answering from `stock`
-/// when it is given and keeping results in `cache` when it is given, and
+/// The registry's tools, by name — the stock ones finding their libraries
+/// with `stock` when it is given and keeping results in `cache` when it is
+/// given, and
 /// `still` drawing the pages `pages` captured. Never the registry's own
 /// `still`, which would start a browser in this container (#1434): without
 /// `pages`, a still draws every page as its card.
 fn registered(
     name: &str,
-    stock: Option<&Stock>,
+    stock: Option<Libraries>,
     cache: Option<&Path>,
     pages: Option<Arc<dyn PagesAhead>>,
 ) -> Option<Box<dyn Tool>> {
@@ -415,7 +425,11 @@ fn registered(
         let pages = pages.unwrap_or_else(|| Arc::new(Uncaptured));
         return Some(scorsese_mcp::still_with_pages_ahead(pages));
     }
-    scorsese_mcp::stocked(stock, cache)
+    let stocked = match stock {
+        Some(libraries) => scorsese_mcp::stocked_by(libraries, cache),
+        None => scorsese_mcp::stocked(None, cache),
+    };
+    stocked
         .into_iter()
         .chain(scorsese_mcp::registry())
         .find(|tool| tool.name() == name)

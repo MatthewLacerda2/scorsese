@@ -24,6 +24,9 @@ pub(crate) fn run(dir: &Path, action: StockAction) -> Result<()> {
     // Opened first because the cache and the assets live inside it.
     let mut project = super::open(dir)?;
     let cache = cache_dir(dir);
+    if let StockAction::Import { ids, .. } = &action {
+        stock::within_one_import(ids.len()).map_err(anyhow::Error::msg)?;
+    }
     match action {
         StockAction::Search {
             look: Some(id),

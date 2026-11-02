@@ -20,14 +20,14 @@ use crate::tools::{Costs, Part, Reply, Tool};
 /// it was built around, keeping results where it was told ([`super::stocked`]).
 #[derive(Default)]
 pub(crate) struct Search {
-    library: Option<super::Stock>,
+    library: Option<super::Libraries>,
     cache: Option<PathBuf>,
 }
 
 impl Search {
     /// One answering from `library` and keeping results in `cache`, each
     /// when given.
-    pub(crate) fn new(library: Option<super::Stock>, cache: Option<PathBuf>) -> Self {
+    pub(crate) fn new(library: Option<super::Libraries>, cache: Option<PathBuf>) -> Self {
         Self { library, cache }
     }
 }

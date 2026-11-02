@@ -26,6 +26,10 @@
 //! hands them a fake in its tests, with no key and no network. Nothing here
 //! learns who is calling.
 //!
+//! [`stocked_by`] goes one step further and takes **where each medium's
+//! library comes from**: how the hosted server counts each member's requests
+//! against their share of the one key every member reaches (#1652).
+//!
 //! **So is where results are kept.** Locally a project's `cache/stock`; the
 //! hosted server hands [`stocked`] a folder of its own per member, outside
 //! the project folder a call runs in, so nothing else a tool writes there can
@@ -49,6 +53,10 @@ use super::Tool;
 /// own ([`stocked_from`]).
 pub type Stock = Arc<dyn Library + Send + Sync>;
 
+/// Where the stock tools find the library each medium is searched in
+/// ([`stocked_by`]), or why there is none, in words for whoever asked.
+pub type Libraries = Arc<dyn Fn(Medium) -> Result<Stock, String> + Send + Sync>;
+
 /// `stock_search` and `stock_import`, exactly as the registry has them, but
 /// searching and importing every kind from `library`.
 pub fn stocked_from(library: &Stock) -> Vec<Box<dyn Tool>> {
@@ -61,10 +69,23 @@ pub fn stocked_from(library: &Stock) -> Vec<Box<dyn Tool>> {
 /// ([`stock::cache_dir`]) — where a caller keeps a cache that outlives the
 /// project folder, out of reach of anything else written there.
 pub fn stocked(library: Option<&Stock>, cache: Option<&Path>) -> Vec<Box<dyn Tool>> {
+    let libraries = library
+        .cloned()
+        .map(|library| -> Libraries { Arc::new(move |_| Ok(library.clone())) });
+    pair(libraries, cache)
+}
+
+/// [`stocked`], each medium's library found by `libraries`.
+pub fn stocked_by(libraries: Libraries, cache: Option<&Path>) -> Vec<Box<dyn Tool>> {
+    pair(Some(libraries), cache)
+}
+
+/// The pair, finding libraries with `libraries` when given.
+fn pair(libraries: Option<Libraries>, cache: Option<&Path>) -> Vec<Box<dyn Tool>> {
     let cache = cache.map(Path::to_path_buf);
     vec![
-        Box::new(Search::new(library.cloned(), cache.clone())),
-        Box::new(Import::new(library.cloned(), cache)),
+        Box::new(Search::new(libraries.clone(), cache.clone())),
+        Box::new(Import::new(libraries, cache)),
     ]
 }
 
@@ -73,12 +94,12 @@ fn cache(given: Option<&Path>, project: &Path) -> PathBuf {
     given.map_or_else(|| stock::cache_dir(project), Path::to_path_buf)
 }
 
-/// The library `medium` is searched in: `given`, when the tools were built
-/// around one, and otherwise Pixabay, keyed from the one resolver, or
-/// LottieFiles, which needs no key.
-fn library(given: Option<&Stock>, medium: Medium) -> Result<Stock, String> {
+/// The library `medium` is searched in: the one `given` finds, when the
+/// tools were built with one, and otherwise Pixabay, keyed from the one
+/// resolver, or LottieFiles, which needs no key.
+fn library(given: Option<&Libraries>, medium: Medium) -> Result<Stock, String> {
     match given {
-        Some(library) => Ok(library.clone()),
+        Some(libraries) => libraries(medium),
         None => stock::library(medium)
             .map(Arc::from)
             .map_err(|error| format!("{error}")),
