@@ -3,7 +3,7 @@
 
 use scorsese_providers::api::http::HttpError;
 use scorsese_providers::live::Verdict;
-use scorsese_providers::live::image::{png_cents, png_step, still_cents};
+use scorsese_providers::live::image::{png_step, spent_cents, still_cents};
 
 use super::image::{JPEG_2K, PNG, drawn};
 use super::refused;
@@ -86,30 +86,36 @@ fn a_rejected_key_fails_the_run() {
 }
 
 /// A picture of either kind was drawn, and billed, and so was a 2xx reply
-/// that would not parse, as the still and ElevenLabs count it; a refusal or
-/// the model's words alone were not.
+/// that would not parse, as the still and ElevenLabs count it, and a
+/// completed answer in words alone (#1646); a refusal, or words from an
+/// interaction that did not complete, were not.
 #[test]
 fn the_probe_is_counted_spent_whenever_the_vendor_drew() {
     let unreadable = HttpError::Unreadable {
         url: String::from("https://vendor.invalid/"),
         message: String::from("expected value at line 1"),
     };
-    assert_eq!(png_cents(&Err(unreadable)), still_cents());
-    assert_eq!(png_cents(&Ok(drawn(PNG_1K))), still_cents());
-    assert_eq!(png_cents(&Ok(drawn(JPEG_2K))), still_cents());
+    assert_eq!(spent_cents(&Err(unreadable)), still_cents());
+    assert_eq!(spent_cents(&Ok(drawn(PNG_1K))), still_cents());
+    assert_eq!(spent_cents(&Ok(drawn(JPEG_2K))), still_cents());
     assert_eq!(
-        png_cents(&Err(refused(400, "Supported values: 'image/jpeg'"))),
+        spent_cents(&Err(refused(400, "Supported values: 'image/jpeg'"))),
         0
     );
     let words: scorsese_providers::api::gemini::response::Interaction = serde_json::from_str(
         r#"{"steps": [{"type": "model_output", "content": [{"type": "text", "text": "I can't."}]}]}"#,
     )
     .unwrap();
-    assert_eq!(png_cents(&Ok(words)), 0);
+    assert_eq!(spent_cents(&Ok(words)), 0);
+    let declined: scorsese_providers::api::gemini::response::Interaction = serde_json::from_str(
+        r#"{"status": "completed", "steps": [{"type": "model_output", "content": [{"type": "text", "text": "I can't."}]}]}"#,
+    )
+    .unwrap();
+    assert_eq!(spent_cents(&Ok(declined)), still_cents());
     let empty: scorsese_providers::api::gemini::response::Interaction =
         serde_json::from_str(r#"{"status": "completed", "steps": []}"#).unwrap();
     assert_eq!(
-        png_cents(&Ok(empty)),
+        spent_cents(&Ok(empty)),
         still_cents(),
         "neither picture nor words is billed"
     );

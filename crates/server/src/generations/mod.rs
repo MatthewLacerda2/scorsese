@@ -27,7 +27,9 @@
 //!    and its asset by the id the migration gave it.
 //! 3. **Settled.** A generation that worked is kept with
 //!    `Library::keep_generated` and charged; one the provider refused is free
-//!    ([`credits::generations::finish`](crate::credits::generations::finish)).
+//!    ([`credits::generations::finish`](crate::credits::generations::finish)),
+//!    unless the vendor completed and bills the call that made nothing
+//!    (`ProviderError::billed`): that is charged as quoted (#1646).
 //!    A shot that outlasts [`Timing::patience`], or a batch
 //!    [`Timing::batch_patience`], goes `stuck`, its reservation held, since
 //!    Google may still be billing — and so does a job holding a ticket whose

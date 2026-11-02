@@ -55,8 +55,9 @@ second call with confirm set to the token spends, and only on exactly the briefs
 one in between and the call is refused and must be quoted again. Spending reserves the price \
 and queues each brief as a job; the call answers at once with the job ids, and `jobs` says \
 when each is done. A finished generation lands in your library and in the project on its own. \
-A brief the provider refuses costs nothing; one that works is charged whether or not it is \
-kept. A brief you already generated, in this project or another, is never paid for again; \
+A brief the provider refuses or fails costs nothing; one that works is charged whether or not it is \
+kept, and so is one the provider answered without making it (a model that replies in words \
+and draws nothing), since the provider bills that call — the finished job says what it said. A brief you already generated, in this project or another, is never paid for again; \
 a line with no voice chosen yet, or a still whose reference_images name a generated_image \
 not yet generated, is reported and skipped until a later call. A shot or line that comes \
 out shorter than a clip laid out over its sketch shortens that clip to it, and the finished \

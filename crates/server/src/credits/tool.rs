@@ -25,7 +25,7 @@ pub const DESCRIPTION: &str = "List what the signed-in user has spent and paid i
 still, spoken line, voice design, assistant turn, top-up, recharge bonus, withdrawn purchase, \
 purchase disputed or refunded in Stripe, refund and adjustment, newest first, and the balance \
 that can be spent now. Read-only and free. A generation the provider failed shows as free; one that \
-worked is charged whether or not it was kept. Amounts are in US dollars, the currency the ledger is kept in. Filter by project, kind or a \
+worked is charged whether or not it was kept, and so is one the provider answered without making it, which it bills. Amounts are in US dollars, the currency the ledger is kept in. Filter by project, kind or a \
 range of days, and the answer includes what everything matched adds up to: ask with since and \
 until to answer \"what did I spend this week?\".";
 

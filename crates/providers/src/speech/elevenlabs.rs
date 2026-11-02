@@ -138,4 +138,16 @@ mod tests {
         assert_eq!(words(SpeechModel::Expressive), ["Hi."]);
         assert_eq!(words(SpeechModel::Fast), ["[sighs]", "Hi."]);
     }
+
+    /// ElevenLabs answered and bills the line, so audio that does not decode
+    /// is a billed call that made nothing (#1646).
+    #[test]
+    fn audio_that_does_not_decode_was_billed() {
+        let garbled = Timed {
+            audio_base64: String::from("not base64!"),
+            alignment: None,
+        };
+        let error = spoken(&garbled, SpeechModel::Fast).expect_err("no audio");
+        assert!(error.billed, "{error}");
+    }
 }
