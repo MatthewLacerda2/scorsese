@@ -149,3 +149,26 @@ fn every_cached_listing_is_readable_without_a_key() {
 fn a_project_with_nothing_cached_says_so_without_failing() {
     assert!(cached(&root("voices-none")).is_empty());
 }
+
+/// A `.scor` received from someone else may carry `cache/voices` as a link
+/// (#1715): the listing is still answered, and nothing is written where the
+/// link leads.
+#[cfg(unix)]
+#[test]
+fn a_cache_folder_that_is_a_link_is_never_written_through() {
+    let dir = root("voices-linked");
+    let outside = root("voices-linked-outside");
+    std::fs::create_dir_all(dir.join("cache")).expect("the cache folder");
+    std::os::unix::fs::symlink(&outside, dir.join("cache/voices")).expect("a link");
+    let before = std::fs::read_dir(&outside).expect("outside").count();
+    let fake = Fake::listing(vec![voice("v1", "Ana")]);
+
+    let listed = builtin(&dir, &fake, false).expect("the listing");
+
+    assert_eq!(listed.voices, vec![voice("v1", "Ana")]);
+    assert_eq!(
+        std::fs::read_dir(&outside).expect("outside").count(),
+        before,
+        "a listing was written through the link"
+    );
+}

@@ -110,3 +110,23 @@ fn expired_records_are_swept_on_the_next_issue() {
     assert_eq!(left, 1, "the expired record is gone");
     std::fs::remove_dir_all(dir).ok();
 }
+
+/// A `.scor` received from someone else may carry `cache/quotes` as a link
+/// (#1715): no token is issued through it, and where it leads is untouched.
+#[cfg(unix)]
+#[test]
+fn a_quotes_folder_that_is_a_link_is_never_written_through() {
+    let (dir, quote, store) = quoted("token-linked");
+    let (outside, _) = crate::common::project("token-linked-outside");
+    std::fs::create_dir_all(dir.join("cache")).expect("the cache folder");
+    std::os::unix::fs::symlink(&outside, dir.join("cache/quotes")).expect("a link");
+    let before = std::fs::read_dir(&outside).expect("outside").count();
+
+    assert!(issue(&store, &quote, NOW).is_err(), "issued through a link");
+    assert_eq!(
+        std::fs::read_dir(&outside).expect("outside").count(),
+        before
+    );
+    std::fs::remove_dir_all(dir).ok();
+    std::fs::remove_dir_all(outside).ok();
+}
