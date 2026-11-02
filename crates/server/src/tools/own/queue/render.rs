@@ -146,6 +146,7 @@ pub(in super::super) async fn render(
         AskError::Storage(error @ (LibraryError::Full { .. } | LibraryError::DiskLow(_))) => {
             error.to_string()
         }
+        AskError::Crowded => AskError::Crowded.to_string(),
         AskError::Project(ProjectError::NotFound) => "there is no such project of yours".into(),
         other => database(other),
     })?;

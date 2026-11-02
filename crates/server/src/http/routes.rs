@@ -118,13 +118,13 @@ pub fn table() -> Vec<Route> {
         // The assistant (#540): a project's conversation and its model (#705),
         // a turn's log, stopping one, and answering it.
         Route::new(M::GET, "/projects/{id}/chat", chat::conversation),
-        Route::new(M::POST, "/projects/{id}/chat", chat::send),
+        Route::new(M::POST, "/projects/{id}/chat", chat::send).capped(chat::CAP),
         Route::new(M::PUT, "/projects/{id}/chat/model", chat::choose_model),
         Route::new(M::PUT, "/projects/{id}/chat/effort", chat::choose_effort),
         Route::new(M::GET, "/chat/turns/{id}", chat::turn),
         Route::new(M::POST, "/chat/turns/{id}/stop", chat::stop),
-        Route::new(M::POST, "/chat/turns/{id}/quote", chat::quote),
-        Route::new(M::POST, "/chat/turns/{id}/answer", chat::answer),
+        Route::new(M::POST, "/chat/turns/{id}/quote", chat::quote).capped(chat::CAP),
+        Route::new(M::POST, "/chat/turns/{id}/answer", chat::answer).capped(chat::CAP),
         // The web editor's tools.
         Route::new(M::POST, "/projects/{id}/tools/{name}", editor::call),
         // The browser's crash reports (#1428), signed in or not.

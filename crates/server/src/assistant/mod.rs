@@ -210,6 +210,23 @@ pub use wake::watch;
 /// $2.00 did at ×1.1, $1.94 of cost against $1.82.
 pub const DEFAULT_TURN_CAP_MICROS: i64 = 3_500_000;
 
+/// The longest message the assistant takes, in characters (#1648): a prompt,
+/// an answer to its question or a change to its quote. A message is stored
+/// three times over in its turn's row.
+pub const LONGEST_PROMPT: usize = 32_000;
+
+/// `words`, refused past [`LONGEST_PROMPT`] characters.
+pub(crate) fn bounded(words: &str) -> Result<(), AssistantError> {
+    let counted = words.chars().count();
+    if counted > LONGEST_PROMPT {
+        return Err(AssistantError::Invalid(format!(
+            "your message is {counted} characters; the assistant takes at most \
+             {LONGEST_PROMPT} characters at once"
+        )));
+    }
+    Ok(())
+}
+
 /// How many turns one user may have running at once, every project and
 /// conversation together, when [`crate::config::USER_TURNS`] does not say:
 /// two, a person and a second tab. Turns paused on a question or a quote are
