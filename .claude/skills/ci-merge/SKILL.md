@@ -32,8 +32,10 @@ tried locally but **can never be a merge gate**.
 ## Before marking a pull request ready
 
 `make gates` must be green. It runs every gate CI blocks on but `regression
-test`, which builds the base and runs in CI alone (`docs/testing.md`); `make
-help` lists them. `make setup`, once per clone, installs the pre-commit hook (formatting and
+test`, which builds the base: `make regression PR=N` runs that one, for a
+`bug` fix. Then `make described PR=N`, last, after the final description edit:
+the queue's description checks, which need no push and no run. `make help`
+lists them all. `make setup`, once per clone, installs the pre-commit hook (formatting and
 the lint) and the worktrees' shared compile cache.
 
 The web, web-e2e and app gates are the only conditional ones: each reports
@@ -200,15 +202,10 @@ and no run because the branch conflicts with `main`, which reads exactly like a
 broken workflow file (an invalid workflow still produces a `startup_failure`
 run; no run at all means conflict, and the fix is the rebase).
 
-Before reading any run it also refuses, and says what to write:
-
-- a pull request closing an issue labelled `planning` or `human`, or whose
-  closing keyword points at a pull request or a closed issue;
-- a modified golden reference or app snapshot not named under a `Re-blessed`
-  heading with a reason (`docs/golden-renders.md`, *Re-blessing*);
-- a change to a risky path without an `Independent review` comment at the
-  area's level (`independent-review`) — run it before the `queue` label, since
-  a hand-back is only retaken after a push.
+Before reading any run it also asks `make described`'s questions (what the
+pull request closes, `Re-blessed`, the `Independent review` level), the same
+function, and says what to write. Run the review before the `queue` label,
+since a hand-back is only retaken after a push.
 
 The `planning` label says the work is not ready. Claude never removes it on its
 own; the user may tell it to remove the label and do the work. `make checks`

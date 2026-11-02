@@ -48,6 +48,10 @@ one is `changes` and `CI ok` passing with every other job skipped, which
 [`judge`] reads like any run that built something. So a missing run is #153 or
 #429 whatever the diff, and is waited on or refused like one.
 
+**The description's checks are `described.py`'s** (#1701): asked before any
+run, and the same function `make described` asks before a pull request is
+readied, so the two cannot drift.
+
 **A passing run is not the last word: the description is** (#1229). A head
 branch `N-…` whose description does not close #N is handed back, and a
 missing **Gates** line is warned about — `protocol.py` has why, and both are

@@ -24,14 +24,14 @@ open, stand down: no branch, a comment saying which should go first, and stop.
 
 **Test first** (`docs/testing.md`): write the test and watch it fail, then the
 code. For a bug, the branch's first commit is the test that reproduces it.
-`make gates` cannot run CI's `regression test` job: a bug no `bun test` or
-Rust test can reproduce (layout a Playwright flow proves) takes its
-`No regression test on base: <why>` line in the description before ready.
 
 ## Ready means finished, and then the branch is not yours
 
 - Never wait on CI: it runs once you mark the pull request ready, and the merge
-  queue waits for it. Your proof is `make gates`, run here.
+  queue waits for it. Your proof is `make gates`, run here, then **`make
+  regression PR=N`** for a `bug` fix (CI's `regression test` job, which `make
+  gates` cannot run) and **`make described PR=N`** last, after the final
+  description edit: each prints the refusal the queue would.
 - A branch that changes a path `independent-review` names gets that review
   **before** you ready it, by that skill: you dispatch the reviewer, answer
   its findings, re-run the gates and post its comment.
