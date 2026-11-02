@@ -21,6 +21,7 @@ mod pages;
 mod paying;
 mod pricing;
 mod recipes;
+mod recovering;
 mod seeing;
 mod settling;
 mod shooting;

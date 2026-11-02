@@ -82,6 +82,7 @@ async fn order(work: &Work, paid: Paid, provider: &Provider) -> Result<String, O
         Ok(brief) => brief,
         Err(why) => return Err(work.refused(paid, why).await),
     };
+    work.sending(paid).await?;
     let ordering = Arc::clone(provider);
     let ordered = blocking("ordering crashed", move || ordering.order(&[&brief])).await;
     let ticket = match ordered {

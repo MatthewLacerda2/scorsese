@@ -1,9 +1,9 @@
 //! An ElevenLabs line as a job: one call, the audio on the same connection.
 //!
 //! No ticket and no polling — speech is never in flight
-//! (`scorsese_providers::speech`) — so a job interrupted mid-call is simply
-//! run again, and the brief-hash lookup at its start is what keeps a line
-//! that did land from being paid for twice.
+//! (`scorsese_providers::speech`) — so a job is marked sent just before the
+//! call, and one stopped after that is never sent again: charged if the line
+//! was kept, released if not (`Work::begin`, #1645).
 
 use std::sync::Arc;
 
@@ -42,6 +42,9 @@ async fn line(work: &Work, vendors: &dyn Vendors) -> Outcome {
         Ok(provider) => provider,
         Err(why) => return work.refused(paid, why).await,
     };
+    if let Err(done) = work.sending(paid).await {
+        return done;
+    }
     match blocking("speaking crashed", move || provider.speak(&brief)).await {
         // The timings ride on the audio's library item (#886), and are laid
         // out beside it wherever the project is.

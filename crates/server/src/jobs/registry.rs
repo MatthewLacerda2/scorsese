@@ -170,4 +170,11 @@ impl Context {
     pub async fn keep_ticket(&self, ticket: &str) -> Result<(), sqlx::Error> {
         store::keep_ticket(&self.pool, self.user, self.job, ticket).await
     }
+
+    /// Commit to the job's row that its vendor is about to be called — call
+    /// it just before the call, and make no call when it fails. After a stop
+    /// the job comes back with [`Job::sent`], and is never sent again.
+    pub async fn sending(&self) -> Result<(), sqlx::Error> {
+        store::sending(&self.pool, self.user, self.job).await
+    }
 }

@@ -91,15 +91,7 @@ impl UserId {
 /// commands and the tests use. Both settings end with the transaction.
 pub async fn scoped(pool: &PgPool, user: UserId) -> Result<Tx, sqlx::Error> {
     let mut tx = pool.begin().await?;
-    // One round trip for both settings; `set_config('role', …, true)` is
-    // `SET LOCAL ROLE` in a form that takes a bound parameter beside it.
-    sqlx::query(
-        "SELECT set_config('role', 'scorsese_member', true),
-                set_config('scorsese.member', $1, true)",
-    )
-    .bind(user.0.to_string())
-    .execute(&mut *tx)
-    .await?;
+    act_for(&mut tx, user).await?;
     Ok(tx)
 }
 
@@ -111,6 +103,24 @@ pub async fn privileged(pool: &PgPool) -> Result<Tx, sqlx::Error> {
     let mut tx = pool.begin().await?;
     tx.execute("SET LOCAL ROLE NONE").await?;
     Ok(tx)
+}
+
+/// Act for `user` from here on in `tx`: what follows is bound as in a
+/// [`scoped`] transaction. Besides opening one, it is for a [`privileged`]
+/// transaction that must then act for each user it touched, in turn and
+/// atomically with its cross-user write — the job worker's crash recovery
+/// (`jobs::store::recover`).
+pub async fn act_for(tx: &mut Tx, user: UserId) -> Result<(), sqlx::Error> {
+    // One round trip for both settings; `set_config('role', …, true)` is
+    // `SET LOCAL ROLE` in a form that takes a bound parameter beside it.
+    sqlx::query(
+        "SELECT set_config('role', 'scorsese_member', true),
+                set_config('scorsese.member', $1, true)",
+    )
+    .bind(user.0.to_string())
+    .execute(&mut **tx)
+    .await
+    .map(drop)
 }
 
 /// A pool on the same database as `pool` whose connections may read nothing

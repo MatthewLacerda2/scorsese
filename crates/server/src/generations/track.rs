@@ -1,7 +1,6 @@
 //! An ElevenLabs Music track as a job (#1264): [`line`](super::line)'s
-//! shape — one call, the audio on the same connection, no ticket — so a job
-//! interrupted mid-call is simply run again, and the brief-hash lookup at its
-//! start keeps a track that did land from being paid for twice.
+//! shape — one call, the audio on the same connection, no ticket — so marked
+//! sent before the call and never sent again after a stop.
 
 use std::sync::Arc;
 
@@ -40,6 +39,9 @@ async fn track(work: &Work, vendors: &dyn Vendors) -> Outcome {
         Ok(provider) => provider,
         Err(why) => return work.refused(paid, why).await,
     };
+    if let Err(done) = work.sending(paid).await {
+        return done;
+    }
     match blocking("composing crashed", move || provider.compose(&brief)).await {
         Ok(Ok(bytes)) => work.keep(paid, bytes, Kind::Audio).await,
         Ok(Err(error)) => work.refused(paid, error.message).await,

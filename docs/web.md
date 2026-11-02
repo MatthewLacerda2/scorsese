@@ -2149,7 +2149,8 @@ homes that outlive a call (`crate::designs`):
 
 Every verb that reaches the vendor is a job. A design is paid, and a job interrupted after the
 reservation is run again and settles it, where a call cut off mid-way would
-leave the money held; keeping is free, but it reaches the same vendor, so the
+leave the money held; one stopped after the studio was asked is never asked
+again, and is released (#1645). Keeping is free, but it reaches the same vendor, so the
 vendor stays behind one seam (`generations::Vendors::studio`) a test replaces.
 `keep`, `forget` and `list` take no token.
 

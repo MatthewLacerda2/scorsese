@@ -17,7 +17,11 @@
 //!    was quoted. A shot's ticket — or a batched still's batch job name — is
 //!    committed to the job's row and the audit row the moment Google accepts;
 //!    a job that comes back from a crash with a ticket **polls and never
-//!    submits** (`jobs`, *Veo: never pay twice*). A job queued before a deploy
+//!    submits** (`jobs`, *Veo: never pay twice*). Every job is marked sent
+//!    just before its call ([`Job::sent`](crate::jobs::Job::sent), #1645): one
+//!    that comes back from a stop sent and holding no ticket is never sent
+//!    again — charged if what came back was kept, released if not. A job
+//!    queued before a deploy
 //!    runs on the build after it, so its document is read through the same
 //!    migration the stored projects went through (`scorsese_core::migrate`),
 //!    and its asset by the id the migration gave it.

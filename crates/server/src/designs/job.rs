@@ -5,7 +5,9 @@
 //! so answer with what that run kept — then, if the user already has this
 //! design, release it, since nothing needs sending; otherwise ask the studio,
 //! keep the three samples in the library, and record the candidates and the
-//! charge in one transaction. A studio that refuses settles it free.
+//! charge in one transaction. A studio that refuses settles it free, and so
+//! does a stop after the studio was asked and before that transaction: the
+//! job comes back sent ([`Job::sent`]) and is never sent again.
 
 use std::sync::Arc;
 
@@ -77,6 +79,11 @@ async fn design(work: &Work, payload: &DesignPayload, vendors: &dyn Vendors) -> 
             Err(why) => Outcome::Failed(why),
         };
     }
+    if work.job.sent {
+        // Sent by an earlier run that kept nothing: never sent again.
+        let why = "the server stopped while the studio was answering".to_owned();
+        return work.refused(paid, why).await;
+    }
     let brief = match Brief::new(
         &payload.prompt,
         &payload.passage,
@@ -95,6 +102,9 @@ async fn design(work: &Work, payload: &DesignPayload, vendors: &dyn Vendors) -> 
         Ok(studio) => studio,
         Err(why) => return work.refused(paid, why).await,
     };
+    if let Err(error) = work.context.sending().await {
+        return work.refused(paid, database(error)).await;
+    }
     let designed = blocking("designing crashed", move || studio.candidates(&brief)).await;
     let came = match designed {
         Ok(Ok(came)) if !came.is_empty() => came,
