@@ -5,13 +5,14 @@
 `pg_dump` and a `date` that answers whatever day the test says it is, and the
 script's `/data` pointed at a temporary folder. What it holds:
 
-- the policy's days are the script's: `POLICY_DAYS` is what the privacy page
-  promises, and a keep past it (less one backup interval) refuses to start;
+- a keep past the policy's `POLICY_DAYS` (less one backup interval), or of 0,
+  refuses to start (`test_backup_policy.py` holds the days to the privacy page);
 - a library file deleted the hour after a backup is gone from the remote by
   the thirtieth day, and still there three days before;
 - a folder of replaced files a failed sync left is never written into, since
   a second move of the same path would overwrite the first;
-- `library-replaced` past its size bound loses its oldest folders first.
+- `library-replaced` past its size bound loses its oldest folders first, never
+  the one the run filled; and no local dump outlives the keep.
 
 Needs `rclone` and GNU `date`; skipped without rclone except in CI, where a
 missing one is a failure, not a pass.
@@ -20,22 +21,16 @@ missing one is a failure, not a pass.
 from __future__ import annotations
 
 import os
-import re
 import shutil
 import stat
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "deploy" / "backup" / "backup"
-LEGAL = ROOT / "web" / "src" / "legal"
-# How each language names a backup's days: pt-BR is the binding text.
-BACKUP_DAYS = {
-    "pt-BR": r"cópias? de segurança\b[^.\"]*?\b(\d+) dias",
-    "en": r"backups?\b[^.\"]*?\b(\d+) days",
-}
 DAY = 86400
 HOUR = 3600
 # 2026-01-01T04:00:00Z, the first night of every test.
@@ -44,10 +39,6 @@ START = 1767240000
 RCLONE = shutil.which("rclone")
 DATE = shutil.which("date")
 
-
-def policy_days(language: str, text: str) -> set[int]:
-    """Every number of days the privacy page gives a backup."""
-    return {int(n) for n in re.findall(BACKUP_DAYS[language], text)}
 
 
 @unittest.skipUnless(RCLONE or os.environ.get("CI"), "rclone is not installed")
@@ -109,19 +100,13 @@ class Backup(unittest.TestCase):
         root = self.remote / "library-replaced"
         return sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.is_file())
 
-    def test_the_policy_is_the_privacy_pages(self):
-        days = re.search(r"^POLICY_DAYS=(\d+)$", SCRIPT.read_text(encoding="utf-8"), re.M)
-        self.assertIsNotNone(days, "deploy/backup/backup sets no POLICY_DAYS")
-        for language in BACKUP_DAYS:
-            text = (LEGAL / language / "privacy.ts").read_text(encoding="utf-8")
-            self.assertEqual(policy_days(language, text), {int(days.group(1))}, language)
-
     def test_a_keep_past_the_policy_refuses_to_start(self):
         # 30 days plus up to a day before the next run would see it: 31.
         done = self.run_backup(START, SCORSESE_BACKUP_KEEP_DAYS="30")
         self.assertNotEqual(done.returncode, 0, done.stdout)
         self.assertIn("SCORSESE_BACKUP_KEEP_DAYS", done.stderr)
         self.assertFalse((self.data / "backups").exists(), "it started before refusing")
+        self.assertNotEqual(self.run_backup(START, SCORSESE_BACKUP_KEEP_DAYS="0").returncode, 0)
         # backup-loop's check at start refuses it too.
         self.assertNotEqual(self.run_backup(START, "--check", SCORSESE_BACKUP_KEEP_DAYS="30").returncode, 0)
 
@@ -181,22 +166,23 @@ class Backup(unittest.TestCase):
         contents = [(self.remote / "library-replaced" / p).read_bytes()[:1] for p in kept]
         # The copies replaced on the second and third nights: those of the first and second.
         self.assertEqual(contents, [bytes([1]), bytes([2])])
+        # A night that alone replaces more than the bound keeps what it replaced.
+        clip.write_bytes(b"4" * 1_500_000)
+        self.backup(START + 4 * DAY, SCORSESE_BACKUP_REPLACED_MAX_MB="1")
+        clip.write_bytes(b"5")
+        self.backup(START + 5 * DAY, SCORSESE_BACKUP_REPLACED_MAX_MB="1")
+        kept = self.replaced()
+        self.assertEqual(len(kept), 1, kept)
+        self.assertEqual((self.remote / "library-replaced" / kept[0]).stat().st_size, 1_500_000)
 
-
-class PolicyDays(unittest.TestCase):
-    def test_it_reads_the_backup_sentences(self):
-        text = (
-            '"in a backup that is redone periodically and kept for 30 days.",'
-            '"one that keeps you signed in for up to 30 days",'
-            '"backups that still hold your data expire within 31 days."'
-        )
-        self.assertEqual(policy_days("en", text), {30, 31})
-        text = (
-            '"numa cópia de segurança, refeita periodicamente e mantida por 30 dias.",'
-            '"um que mantém você conectado por até 30 dias",'
-            '"as cópias de segurança que ainda tiverem os seus dados expiram em até 31 dias."'
-        )
-        self.assertEqual(policy_days("pt-BR", text), {30, 31})
+    def test_a_local_dump_past_the_keep_is_deleted(self):
+        old = self.data / "backups" / "db" / "scorsese-20251101T040000Z.dump"
+        old.parent.mkdir(parents=True)
+        old.write_text("dump", encoding="utf-8")
+        then = time.time() - 30 * DAY
+        os.utime(old, (then, then))
+        self.backup(START)
+        self.assertFalse(old.exists(), "a local dump outlived the keep")
 
 
 if __name__ == "__main__":

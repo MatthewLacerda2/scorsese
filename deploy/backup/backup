@@ -17,7 +17,7 @@ set -eu
 
 # What the privacy page promises (web/src/legal): backups are kept this many
 # days, and those holding a closed account's data expire within as many.
-# test_backup.py holds the two together.
+# test_backup_policy.py holds the two together.
 POLICY_DAYS=30
 
 remote=${SCORSESE_BACKUP_REMOTE%/}
@@ -34,6 +34,11 @@ for value in "$keep_days" "$every_hours" "$replaced_max_mb"; do
 		;;
 	esac
 done
+# A keep of 0 would delete tonight's dump and net the moment they land.
+if [ "$keep_days" -lt 1 ]; then
+	echo "backup: SCORSESE_BACKUP_KEEP_DAYS=0 keeps no backup at all; set it to at least 1" >&2
+	exit 1
+fi
 # Something kept for keep_days is deleted at the first run after that, up to
 # one interval later; so keep_days plus an interval must fit in the policy.
 if [ $((keep_days * 24 + every_hours)) -gt $((POLICY_DAYS * 24)) ]; then
@@ -57,6 +62,8 @@ pg_dump --format custom --file "$dumps/scorsese-$when.dump.partial"
 mv "$dumps/scorsese-$when.dump.partial" "$dumps/scorsese-$when.dump"
 rm -f "$dumps"/*.partial
 ls -1t "$dumps"/*.dump | tail -n "+$((keep_local + 1))" | xargs -r rm -f --
+# And never past the keep, which a long interval would otherwise allow.
+find "$dumps" -name '*.dump' -mmin "+$((keep_days * 1440))" -exec rm -f -- {} +
 echo "backup: database dumped to $dumps/scorsese-$when.dump"
 
 rclone copy "$dumps" "$remote/db" --include "*.dump"
@@ -72,12 +79,13 @@ rclone mkdir "$remote/library-replaced"
 folders=$(rclone lsf --dirs-only "$remote/library-replaced")
 # What this sync finds deleted was deleted after the last sync that got
 # through began, so the folder is named after then and its age is the
-# deletion's at the most (#1657). Before the first such sync, the last good
-# backup's time, which a sync also preceded. A folder a failed sync left under
+# deletion's at the most (#1657). Before the first such sync, an interval
+# before the last good backup ended, which its sync began after. A folder a failed sync left under
 # that name is not written into: a second move of the same path would
 # overwrite the first. A second earlier keeps the age an upper bound.
 synced=/data/backups/last-sync
-since=$(cat "$synced" 2>/dev/null || date -u -r /data/backups/last-success +%s 2>/dev/null || echo "$started")
+since=$(cat "$synced" 2>/dev/null ||
+	echo $(($(date -u -r /data/backups/last-success +%s 2>/dev/null || echo "$started") - every_hours * 3600)))
 case $since in '' | *[!0-9]*) since=$started ;; esac
 while printf '%s\n' "$folders" | grep -qx "$(name "$since")/"; do
 	since=$((since - 1))
@@ -110,7 +118,9 @@ for folder in $folders; do
 done
 
 # Then bounded in size, oldest folders first, so a library's churn cannot grow
-# the backup without end (#1657). Each line is `<bytes>;<folder>/<path>`.
+# the backup without end (#1657). Never tonight's: a mass deletion past the
+# bound is what the net is for, so the bound is the limit plus one night.
+# Each line is `<bytes>;<folder>/<path>`.
 files=$(rclone lsf -R --files-only --format sp --separator ';' "$remote/library-replaced")
 sizes=$(printf '%s\n' "$files" | awk '
 	{ i = index($0, ";"); split(substr($0, i + 1), path, "/"); bytes[path[1]] += substr($0, 1, i - 1) }
@@ -122,8 +132,9 @@ done <<END
 $sizes
 END
 limit=$((replaced_max_mb * 1000000))
+tonight=$(name "$since")
 while [ "$total" -gt "$limit" ] && read -r folder bytes; do
-	ours "$folder" || continue
+	ours "$folder" && [ "$folder" != "$tonight" ] || continue
 	rclone purge "$remote/library-replaced/$folder"
 	total=$((total - bytes))
 	echo "backup: pruned library-replaced/$folder, past SCORSESE_BACKUP_REPLACED_MAX_MB=$replaced_max_mb"
