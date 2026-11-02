@@ -39,6 +39,9 @@ is green, so one failing there is one the laid-over files broke. A target
 builds the whole binary, so a laid-over file that does not compile on the base
 leaves every module of its crate unjudged.
 
+`regression_local.py` is both steps from a checkout (`make regression`,
+#1701), so a coder sees the reproducing test fail on the base before readying.
+
 Pure but for [`run_target`], [`lay_over`], [`labelled`], [`write_output`] and `main`.
 """
 
@@ -177,7 +180,7 @@ def verdict(fixed: list[int], results: dict[Target, str]) -> list[str]:
     """`run`'s refusal: no laid-over target failed on the base."""
     if any(outcome == FAILED for outcome in results.values()):
         return []
-    numbers = ", ".join(f"#{n}" for n in fixed)
+    numbers = ", ".join(f"#{n}" for n in fixed) or "the bug"
     lines = [f"no changed test fails on the base, so nothing shows {numbers} fixed."]
     lines += [f"{t} {'passes on the base' if o == PASSED else JUDGED}." for t, o in sorted(results.items())]
     return lines + [HOW]

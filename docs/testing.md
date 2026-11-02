@@ -64,7 +64,8 @@ a pull request ready*.
 A pull request that closes an issue labelled `bug` must add or change a test
 that **fails on the base**. CI's `regression test` job checks it, and `CI ok`
 waits for it; `.github/scripts/regression.py` is the whole decision, and its
-module doc the detail.
+module doc the detail. `make regression PR=N` runs the same job here, before
+readying.
 
 - **Which pull requests.** Those whose description closes (`Closes #N`, the
   keywords `make mergeable` reads) an issue labelled `bug` when the run starts.
