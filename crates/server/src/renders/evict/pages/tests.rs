@@ -79,6 +79,18 @@ fn a_partial_goes_whatever_its_age_and_a_slot_with_only_one_goes_too() {
 }
 
 #[test]
+fn a_project_gone_counts_its_slots_and_every_byte() {
+    let cache = cache("gone");
+    let folder = slot(&cache, 9, "a", 1);
+    fonts(&folder);
+
+    let evicted = gone(&folder);
+
+    assert_eq!((evicted.captures, evicted.bytes), (1, 115));
+    assert!(!folder.exists());
+}
+
+#[test]
 fn a_folder_is_held_by_a_pin_or_a_jobs_link_and_otherwise_not() {
     let cache = cache("held");
     let linked = slot(&cache, 1, "a", 49);
