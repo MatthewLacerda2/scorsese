@@ -62,4 +62,9 @@ export type ServerEvent =
   /** A paid tool's quote, waiting for the user's yes or no. */
   | { type: "chat_quote"; turn: number; quote: QuoteView }
   /** Messages were dropped (or the stream reconnected): re-read what is shown. */
-  | { type: "resync" };
+  | { type: "resync" }
+  /**
+   * The stream's last message: closed for a newer one of the user's (eight
+   * at most). `app/events.ts` reopens it only when the page is looked at.
+   */
+  | { type: "displaced" };

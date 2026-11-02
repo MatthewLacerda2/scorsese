@@ -14,6 +14,19 @@ import { shouldRetry } from "./duplicate";
 /** Chunks stay well under Cloudflare's 100 MB request cap. */
 const CHUNK_BYTES = 50 * 1024 * 1024;
 
+/**
+ * Files sent at once: the server takes four chunks of one account at a time
+ * and answers a fifth `429` (`crates/server/src/library/upload.rs`).
+ */
+const AT_ONCE = 4;
+
+/**
+ * How long tus waits before each retry: Uppy's first four, then ten seconds
+ * at a time for ten minutes, so a chunk waiting its turn behind four from
+ * another tab (a `429`) does not fail while they finish.
+ */
+const RETRY_DELAYS = [100, 1000, 3000, 5000, ...Array<number>(60).fill(10_000)];
+
 /** What each file carries: the server reads `name` and `sha256` from it. */
 interface UploadMeta {
   name: string;
@@ -28,6 +41,8 @@ export function createUploader(): Uploader {
   return new Uppy<UploadMeta, Record<string, never>>({ autoProceed: true }).use(Tus, {
     endpoint: api.uploads.endpoint,
     chunkSize: CHUNK_BYTES,
+    limit: AT_ONCE,
+    retryDelays: RETRY_DELAYS,
     // Only what the server reads; Uppy would otherwise send every field it
     // keeps (type, relative path…) in `Upload-Metadata`.
     allowedMetaFields: ["name", "sha256"],

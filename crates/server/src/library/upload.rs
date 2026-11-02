@@ -17,6 +17,12 @@
 //! append. The guard is in memory, which is enough: there is one server, and a
 //! restart ends every request that held one.
 //!
+//! **Each request holds a connection, so each user holds few.** At most
+//! [`MOST_WRITING`] of a user's chunks arrive at once, the next refused as
+//! [`LibraryError::Crowded`]; and a chunk that sends nothing for the `idle`
+//! [`Library::append`] is given ends as [`LibraryError::Stalled`], keeping
+//! what arrived, so the client resumes it from there.
+//!
 //! **An upload counts against its user's quota from its announcement**
 //! (`super::room`): one that would take them past it is refused before a
 //! byte is sent ([`LibraryError::Full`]), and so is a chunk arriving once
@@ -25,10 +31,11 @@
 //! An upload nobody has touched for a day is abandoned. The user's next
 //! announcement sweeps theirs away, and `room::sweep` everybody's every hour.
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
+use std::time::Duration;
 
 use futures_util::{Stream, StreamExt};
 use serde::Serialize;
@@ -42,6 +49,9 @@ use crate::db::{self, UserId};
 /// The largest file an upload may announce: 20 GB, a long screen recording
 /// with room to spare. Decimal, as every size scorsese prints is (#1287).
 pub const MAX_UPLOAD_BYTES: i64 = 20 * 1000 * 1000 * 1000;
+
+/// How many of one user's chunks may arrive at once.
+pub const MOST_WRITING: usize = 4;
 
 /// What an upload says it will be, before any of its bytes are sent.
 #[derive(Debug, Clone)]
@@ -72,23 +82,43 @@ pub enum Appended {
     Finished(Box<Item>),
 }
 
-/// The uploads being written right now.
+/// The uploads being written right now, and whose they are.
 #[derive(Debug, Clone, Default)]
-pub(super) struct InFlight(Arc<Mutex<HashSet<i64>>>);
+pub(super) struct InFlight(Arc<Mutex<HashMap<i64, UserId>>>);
 
 /// Held while one request writes an upload; letting go frees it.
 struct Writing(InFlight, i64);
 
 impl InFlight {
-    fn claim(&self, id: i64) -> Option<Writing> {
+    /// Hold `user`'s upload `id` for a chunk: refused while another request
+    /// writes it, or while `user` has [`MOST_WRITING`] chunks arriving.
+    fn claim_chunk(&self, user: UserId, id: i64) -> Result<Writing, LibraryError> {
         let mut writing = self.0.lock().unwrap_or_else(PoisonError::into_inner);
-        writing.insert(id).then(|| Writing(self.clone(), id))
+        if writing.contains_key(&id) {
+            return Err(LibraryError::Busy);
+        }
+        if writing.values().filter(|whose| **whose == user).count() >= MOST_WRITING {
+            return Err(LibraryError::Crowded(MOST_WRITING));
+        }
+        writing.insert(id, user);
+        Ok(Writing(self.clone(), id))
+    }
+
+    /// Hold `user`'s upload `id` to abandon it: refused only while another
+    /// request writes it.
+    fn claim(&self, user: UserId, id: i64) -> Result<Writing, LibraryError> {
+        let mut writing = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        if writing.contains_key(&id) {
+            return Err(LibraryError::Busy);
+        }
+        writing.insert(id, user);
+        Ok(Writing(self.clone(), id))
     }
 
     /// The uploads being written now.
     pub(super) fn ids(&self) -> Vec<i64> {
         let writing = self.0.lock().unwrap_or_else(PoisonError::into_inner);
-        writing.iter().copied().collect()
+        writing.keys().copied().collect()
     }
 }
 
@@ -178,13 +208,15 @@ impl Library {
     }
 
     /// Append `body` to `user`'s upload `id`, which must have received exactly
-    /// `offset` bytes so far. The last chunk admits the file.
+    /// `offset` bytes so far, ending it once it sends nothing for `idle`. The
+    /// last chunk admits the file.
     pub async fn append<S, B, E>(
         &self,
         user: UserId,
         id: i64,
         offset: i64,
         body: S,
+        idle: Duration,
     ) -> Result<Appended, LibraryError>
     where
         S: Stream<Item = Result<B, E>> + Unpin,
@@ -192,7 +224,7 @@ impl Library {
         E: Display,
     {
         let (name, kind, extension, sha256, length) = self.upload(user, id).await?;
-        let _writing = self.uploading.claim(id).ok_or(LibraryError::Busy)?;
+        let _writing = self.uploading.claim_chunk(user, id)?;
         let path = self.storage.upload_file(user, id, &extension);
         let mut at = received(&path);
         if offset != at {
@@ -210,7 +242,12 @@ impl Library {
             .await?;
         let mut body = body;
         let mut failed = None;
-        while let Some(chunk) = body.next().await {
+        loop {
+            let Ok(next) = tokio::time::timeout(idle, body.next()).await else {
+                failed = Some(LibraryError::Stalled);
+                break;
+            };
+            let Some(chunk) = next else { break };
             let chunk = match chunk {
                 Ok(chunk) => chunk,
                 Err(error) => {
@@ -264,7 +301,7 @@ impl Library {
     /// Abandon `user`'s upload `id` and whatever of it arrived.
     pub async fn cancel_upload(&self, user: UserId, id: i64) -> Result<(), LibraryError> {
         let (_, _, extension, _, _) = self.upload(user, id).await?;
-        let _writing = self.uploading.claim(id).ok_or(LibraryError::Busy)?;
+        let _writing = self.uploading.claim(user, id)?;
         self.forget_upload(user, id).await?;
         let _ = std::fs::remove_file(self.storage.upload_file(user, id, &extension));
         Ok(())
