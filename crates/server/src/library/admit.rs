@@ -18,6 +18,7 @@ use scorsese_core::{AssetKind, ImportError, MediaMetadata};
 use scorsese_render::{Ffprobe, Tools};
 use serde_json::json;
 
+use super::room::{Room, room_for};
 use super::store::{self, ItemRow, item_columns};
 use super::{Item, Kind, Library, LibraryError};
 use crate::db::{self, UserId};
@@ -56,9 +57,23 @@ impl Library {
     ///
     /// [`LibraryError::Duplicate`] when the user already has these bytes,
     /// [`LibraryError::Rejected`] when they are not what they claim.
+    /// Its room is not asked: an upload's announcement took it, and paid
+    /// output is kept whatever it takes. A free tool's file goes through
+    /// [`Library::admit_free`] instead.
     pub async fn admit(&self, user: UserId, arrival: Arrival) -> Result<Item, LibraryError> {
+        self.admit_with(user, arrival, Room::Settled).await
+    }
+
+    /// [`Library::admit`], asking for its room in the transaction that admits
+    /// it when `room` says to.
+    pub(super) async fn admit_with(
+        &self,
+        user: UserId,
+        arrival: Arrival,
+        room: Room,
+    ) -> Result<Item, LibraryError> {
         let file = arrival.file.clone();
-        let outcome = self.admit_file(user, arrival).await;
+        let outcome = self.admit_file(user, arrival, room).await;
         if outcome.is_err() {
             // Whatever did not get in is not kept: a half-checked file is not
             // anything the user can find again.
@@ -67,7 +82,12 @@ impl Library {
         outcome
     }
 
-    async fn admit_file(&self, user: UserId, arrival: Arrival) -> Result<Item, LibraryError> {
+    async fn admit_file(
+        &self,
+        user: UserId,
+        arrival: Arrival,
+        room: Room,
+    ) -> Result<Item, LibraryError> {
         let measured = {
             let (tools, file, kind) = (self.tools.clone(), arrival.file.clone(), arrival.kind);
             crate::jobs::blocking("reading the upload crashed", move || {
@@ -89,6 +109,10 @@ impl Library {
         let mut tx = db::scoped(&self.pool, user).await?;
         if let Some((id, name)) = store::holding(&mut tx, &measured.sha256).await? {
             return Err(LibraryError::Duplicate { id, name });
+        }
+        // After the duplicate check, so bytes already kept never need room.
+        if room == Room::Asked {
+            room_for(&mut tx, &self.storage, user, measured.size, None).await?;
         }
         let row: ItemRow = sqlx::query_as(concat!(
             "INSERT INTO library_items

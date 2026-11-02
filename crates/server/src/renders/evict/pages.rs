@@ -221,14 +221,7 @@ fn is_partial(file: &Path) -> bool {
 
 /// Bytes under `path`, links not followed.
 fn size(path: &Path) -> u64 {
-    let Ok(meta) = std::fs::symlink_metadata(path) else {
-        return 0;
-    };
-    if meta.is_dir() {
-        entries(path).iter().map(|entry| size(entry)).sum()
-    } else {
-        meta.len()
-    }
+    crate::storage::bytes_under(path)
 }
 
 /// Whether `path` is a link, wherever it leads.

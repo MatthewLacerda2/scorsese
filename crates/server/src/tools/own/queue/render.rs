@@ -8,6 +8,7 @@ use serde_json::{Value, json};
 use super::super::super::surface::project_property;
 use super::super::super::{Caller, database, project_id};
 use super::state;
+use crate::library::LibraryError;
 use crate::projects::{self, ProjectError};
 use crate::renders::request::{AskError, Asked, ask};
 use crate::renders::{Ask, Settings};
@@ -134,6 +135,7 @@ pub(in super::super) async fn render(
         &toolbox.pool,
         &toolbox.queue,
         &toolbox.renders,
+        &toolbox.storage,
         caller.user,
         project,
         settings,
@@ -141,6 +143,9 @@ pub(in super::super) async fn render(
     .await
     .map_err(|error| match error {
         AskError::Invalid(why) => why,
+        AskError::Storage(error @ (LibraryError::Full { .. } | LibraryError::DiskLow(_))) => {
+            error.to_string()
+        }
         AskError::Project(ProjectError::NotFound) => "there is no such project of yours".into(),
         other => database(other),
     })?;

@@ -124,10 +124,12 @@ impl Spool {
 
     /// Where `user`'s project `project` keeps its captures.
     pub fn pages(&self, user: UserId, project: i64) -> PathBuf {
-        self.root
-            .join(PAGES)
-            .join(user.get().to_string())
-            .join(project.to_string())
+        self.user_pages(user).join(project.to_string())
+    }
+
+    /// Where every one of `user`'s projects keeps its captures.
+    pub fn user_pages(&self, user: UserId) -> PathBuf {
+        self.root.join(PAGES).join(user.get().to_string())
     }
 
     /// The folder of the still asked for by tool call `call` (#1434): beside

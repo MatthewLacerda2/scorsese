@@ -3,12 +3,16 @@
 //!
 //! **Each user keeps at most their quota**
 //! ([`Storage::quota`](crate::storage::Storage::quota)): their library, their
-//! kept renders and every upload they have announced, counted at its
-//! announced length from the moment it is announced (`upload`). Every
-//! decision is made under the user's lock (`credits::ledger::lock`), so two
-//! that race cannot both take the last of it. The free tools that add a file
-//! — a stock import, a bake — ask first ([`Library::make_room`]); a paid
-//! generation never does: it was paid for, and is kept.
+//! kept renders, their page captures and every upload they have announced,
+//! counted at its announced length from the moment it is announced
+//! (`upload`). Every decision is made under the user's lock
+//! (`credits::ledger::lock`), in the transaction that writes the row it lets
+//! in, so two that race cannot both take the last of it. The free tools that
+//! add a file — a stock import, a bake — are admitted that way
+//! ([`Library::admit_free`], [`Library::keep_bake`]), and so is a render
+//! (`renders::job`); a paid generation never asks: it was paid for, and is
+//! kept. Every one of them is refused while the disk is below its floor
+//! ([`Storage::on_disk`]).
 //!
 //! **An upload nobody has touched for a day is abandoned.** The same user's
 //! next announcement sweeps theirs away, and [`sweep`] sweeps everybody's
@@ -20,67 +24,98 @@ use std::time::Duration;
 
 use tokio::sync::watch;
 
-use super::{Library, LibraryError};
+use super::{Arrival, Item, Library, LibraryError};
 use crate::credits::ledger;
 use crate::db::{self, Tx, UserId};
+use crate::storage::{Storage, bytes_under};
 
 /// How often [`sweep`] looks for abandoned uploads.
 const SWEEP_EVERY: Duration = Duration::from_secs(60 * 60);
 
+/// Whether admitting a file asks for its room ([`Library::admit_free`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Room {
+    /// Asked in the transaction that admits it: a free tool's file.
+    Asked,
+    /// Already settled: an upload, whose announcement took its room, or paid
+    /// output, which is kept whatever it takes.
+    Settled,
+}
+
+/// What `user` keeps now, in bytes: their library, their kept renders, their
+/// page captures and their announced uploads, but for upload `except`.
+///
+/// Refused as [`LibraryError::DiskLow`] first while the disk is below its
+/// floor, since whatever asks is about to write. Takes `user`'s lock
+/// (`credits::ledger::lock`), held until `tx` ends, so a decision made on
+/// this and the row it lets in are one.
+pub(crate) async fn kept(
+    tx: &mut Tx,
+    storage: &Storage,
+    user: UserId,
+    except: Option<i64>,
+) -> Result<u64, LibraryError> {
+    let (disk, pages) = {
+        let storage = storage.clone();
+        crate::jobs::blocking("measuring the disk crashed", move || {
+            (storage.on_disk(), bytes_under(&storage.page_cache(user)))
+        })
+        .await
+        .map_err(LibraryError::Tools)?
+    };
+    disk?;
+    ledger::lock(tx).await?;
+    let used: i64 = sqlx::query_scalar(
+        "SELECT ((SELECT coalesce(sum(size_bytes), 0) FROM library_items)
+               + (SELECT coalesce(sum(size), 0) FROM renders)
+               + (SELECT coalesce(sum(length), 0) FROM uploads
+                  WHERE id IS DISTINCT FROM $1))::bigint",
+    )
+    .bind(except)
+    .fetch_one(&mut **tx)
+    .await?;
+    Ok(used.unsigned_abs().saturating_add(pages))
+}
+
+/// Refused as [`LibraryError::Full`] unless `user` has room for `needed`
+/// more bytes beside what they keep ([`kept`], whose lock it takes).
+pub(crate) async fn room_for(
+    tx: &mut Tx,
+    storage: &Storage,
+    user: UserId,
+    needed: u64,
+    except: Option<i64>,
+) -> Result<(), LibraryError> {
+    let used = kept(tx, storage, user, except).await?;
+    let quota = storage.quota().get();
+    if used.saturating_add(needed) > quota {
+        return Err(LibraryError::Full {
+            used,
+            quota,
+            needed,
+        });
+    }
+    Ok(())
+}
+
 impl Library {
-    /// Refused as [`LibraryError::Full`] unless `user` has room for a file of
-    /// `bytes` beside what they keep — for a free tool's file (a stock
-    /// import, a bake) about to be admitted. A paid generation is never asked:
-    /// it was paid for, and is kept.
-    pub async fn make_room(&self, user: UserId, bytes: u64) -> Result<(), LibraryError> {
-        let mut tx = db::scoped(&self.pool, user).await?;
-        self.room(&mut tx, i64::try_from(bytes).unwrap_or(i64::MAX), None)
-            .await?;
-        Ok(tx.commit().await?)
+    /// Check `arrival`, a free tool's file (a stock import), and make it
+    /// `user`'s item — refused as [`LibraryError::Full`] unless they have
+    /// room for it, decided in the transaction that admits it.
+    pub async fn admit_free(&self, user: UserId, arrival: Arrival) -> Result<Item, LibraryError> {
+        self.admit_with(user, arrival, Room::Asked).await
     }
 
-    /// Admit a free tool's file.
-    pub async fn admit_free(
+    /// [`Library::keep_generated`] for a free bake: refused as
+    /// [`LibraryError::Full`] unless `user` has room for it, decided in the
+    /// transaction that admits it.
+    pub async fn keep_bake(
         &self,
         user: UserId,
-        arrival: super::Arrival,
-    ) -> Result<super::Item, LibraryError> {
-        let size = std::fs::metadata(&arrival.file)?.len();
-        self.make_room(user, size).await?;
-        self.admit(user, arrival).await
-    }
-
-    /// Refused as [`LibraryError::Full`] unless the user `tx` is scoped to has
-    /// room for `length` more bytes beside what they keep: their library,
-    /// their kept renders and their announced uploads, but for upload
-    /// `except` — the one the bytes are for. Takes the user's lock, held until
-    /// `tx` ends, so a decision and the row it lets in are one.
-    pub(super) async fn room(
-        &self,
-        tx: &mut Tx,
-        length: i64,
-        except: Option<i64>,
-    ) -> Result<(), LibraryError> {
-        ledger::lock(tx).await?;
-        let used: i64 = sqlx::query_scalar(
-            "SELECT ((SELECT coalesce(sum(size_bytes), 0) FROM library_items)
-                   + (SELECT coalesce(sum(size), 0) FROM renders)
-                   + (SELECT coalesce(sum(length), 0) FROM uploads
-                      WHERE id IS DISTINCT FROM $1))::bigint",
-        )
-        .bind(except)
-        .fetch_one(&mut **tx)
-        .await?;
-        let (used, needed) = (used.unsigned_abs(), length.unsigned_abs());
-        let quota = self.storage.quota().get();
-        if used.saturating_add(needed) > quota {
-            return Err(LibraryError::Full {
-                used,
-                quota,
-                needed,
-            });
-        }
-        Ok(())
+        brief_hash: &str,
+        arrival: Arrival,
+    ) -> Result<Item, LibraryError> {
+        self.keep(user, brief_hash, arrival, Room::Asked).await
     }
 
     /// Abandon every user's upload nobody has touched for a day, and what of

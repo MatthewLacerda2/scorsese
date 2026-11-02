@@ -1,6 +1,6 @@
 //! What the server is told by the environment it is started in.
 //!
-//! Nineteen things, and four of them are secrets. The database URL carries a
+//! Twenty things, and four of them are secrets. The database URL carries a
 //! password, the Google OAuth client has a secret and Stripe has two, so all
 //! are held as a [`Secret`] — printing a [`Config`] prints nothing of them, and no error
 //! below ever repeats their values.
@@ -97,9 +97,15 @@ pub const USER_TURNS: &str = "SCORSESE_USER_TURNS";
 /// at once ([`PerUser::batch_stills`]); the rest wait in line.
 pub const USER_BATCH_STILLS: &str = "SCORSESE_USER_BATCH_STILLS";
 
-/// How much one account may keep, e.g. `50GB`: its library, its kept renders
-/// and the uploads it has announced ([`PerUser::storage`]).
+/// How much one account may keep, e.g. `50GB`: its library, its kept renders,
+/// its page captures and the uploads it has announced ([`PerUser::storage`]).
 pub const USER_STORAGE: &str = "SCORSESE_USER_STORAGE";
+
+/// How many gigabytes the disk under [`STORAGE`] and [`CACHE`] must keep
+/// free, e.g. `10`; below it, every write into the library, renders and
+/// captures is refused (`storage`, #1647). `0` sets no floor. Defaults to
+/// [`DEFAULT_DISK_FLOOR`](crate::storage::DEFAULT_DISK_FLOOR).
+pub const DISK_FLOOR: &str = "SCORSESE_DISK_FLOOR_GB";
 
 /// The Google OAuth client's id, `….apps.googleusercontent.com` (#952).
 pub const GOOGLE_CLIENT_ID: &str = "GOOGLE_OAUTH_CLIENT_ID";
@@ -151,6 +157,8 @@ pub struct Config {
     pub elevenlabs: ElevenLabs,
     /// How much of the shared machine one account may take.
     pub per_user: PerUser,
+    /// How much disk must stay free for anything more to be written.
+    pub disk_floor: Quota,
     /// Sign in with Google, when [`GOOGLE_CLIENT_ID`], [`GOOGLE_CLIENT_SECRET`]
     /// and [`PUBLIC_ORIGIN`] are all set. `None` serves everything else and
     /// answers a sign-in with "not configured" — a development stack without
@@ -274,6 +282,15 @@ pub enum ConfigError {
         value: String,
     },
 
+    /// The disk floor is not a whole number of gigabytes.
+    #[error(
+        "{DISK_FLOOR} must be a whole number of gigabytes like 10, or 0 for none, and {value:?} is not"
+    )]
+    Floor {
+        /// What the variable held.
+        value: String,
+    },
+
     /// The per-turn cap is not an amount of dollars above zero.
     #[error(
         "{ASSISTANT_TURN_CAP} must be dollars above zero like {}, and {value:?} is not",
@@ -344,6 +361,18 @@ impl Config {
         let free = Allowance::from_environment(environment)?;
         let elevenlabs = ElevenLabs::from_environment(environment)?;
         let per_user = PerUser::from_environment(environment)?;
+        let disk_floor = match environment.get(DISK_FLOOR) {
+            Some(gigabytes) => gigabytes
+                .trim()
+                .parse::<u64>()
+                .ok()
+                .and_then(|gigabytes| gigabytes.checked_mul(1_000_000_000))
+                .map(Quota::bytes)
+                .ok_or_else(|| ConfigError::Floor {
+                    value: gigabytes.to_owned(),
+                })?,
+            None => crate::storage::DEFAULT_DISK_FLOOR,
+        };
         let google = Google::from_environment(environment)?;
         let payments = Payments::from_environment(environment)?;
 
@@ -357,6 +386,7 @@ impl Config {
             free,
             elevenlabs,
             per_user,
+            disk_floor,
             google,
             payments,
         })
@@ -364,10 +394,12 @@ impl Config {
 }
 
 impl Config {
-    /// Where users' files go, kept and cached, and how much each may keep,
-    /// as these settings say.
+    /// Where users' files go, kept and cached, how much each may keep and
+    /// how much disk must stay free, as these settings say.
     pub fn files(&self) -> Storage {
-        Storage::new(&self.storage, &self.cache).with_quota(self.per_user.storage)
+        Storage::new(&self.storage, &self.cache)
+            .with_quota(self.per_user.storage)
+            .with_floor(self.disk_floor)
     }
 }
 
@@ -382,8 +414,8 @@ pub struct PerUser {
     pub turns: usize,
     /// Batched stills waiting on Google at once ([`USER_BATCH_STILLS`]).
     pub batch_stills: usize,
-    /// Bytes kept: the library, kept renders and announced uploads
-    /// ([`USER_STORAGE`]).
+    /// Bytes kept: the library, kept renders, page captures and announced
+    /// uploads ([`USER_STORAGE`]).
     pub storage: Quota,
 }
 

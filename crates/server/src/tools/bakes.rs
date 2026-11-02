@@ -50,15 +50,10 @@ pub(super) async fn keep(
         let Ok(file) = path.resolve(root) else {
             continue;
         };
-        let written = file.symlink_metadata().ok().filter(|meta| meta.is_file());
-        let Some(written) = written.filter(|_| !known.contains(sha256.as_str())) else {
+        let written = file.symlink_metadata().is_ok_and(|meta| meta.is_file());
+        if !written || known.contains(sha256.as_str()) {
             continue;
-        };
-        // Free, but it takes room like an upload (`library::room`).
-        library
-            .make_room(user, written.len())
-            .await
-            .map_err(|error| refused(&asset.id.to_string(), error))?;
+        }
         let arrival = Arrival {
             file,
             name: format!("{}.wav", asset.id),
@@ -68,8 +63,9 @@ pub(super) async fn keep(
             brief_hash: Some(address.to_owned()),
             words: None,
         };
+        // Free, but it takes room like an upload (`library::room`).
         library
-            .keep_generated(user, address, arrival)
+            .keep_bake(user, address, arrival)
             .await
             .map_err(|error| refused(&asset.id.to_string(), error))?;
     }
@@ -82,7 +78,7 @@ fn refused(asset: &str, error: LibraryError) -> String {
         LibraryError::Rejected(why) | LibraryError::Invalid(why) => {
             format!("the bake of `{asset}` could not be kept in your library: {why}")
         }
-        LibraryError::Full { .. } => {
+        LibraryError::Full { .. } | LibraryError::DiskLow(_) => {
             format!("the bake of `{asset}` could not be kept in your library: {error}")
         }
         other => super::database(other),

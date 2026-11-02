@@ -36,7 +36,9 @@ async fn library_of(pool: &PgPool, label: &str, quota: u64, floor: u64) -> Libra
 fn picture(directory: &Path, colour: &str) -> (Arrival, u64) {
     let file = directory.join(format!("{colour}.png"));
     still(&common::tools(), &file, colour, "64x36");
-    let size = std::fs::metadata(&file).unwrap().len();
+    let size = std::fs::metadata(&file)
+        .expect("the picture is there")
+        .len();
     let arrival = Arrival {
         file,
         name: format!("{colour}.png"),

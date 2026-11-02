@@ -65,6 +65,7 @@ async fn a_database_it_cannot_reach_is_a_startup_error() {
         free: Default::default(),
         elevenlabs: Default::default(),
         per_user: Default::default(),
+        disk_floor: scorsese_server::renders::Quota::bytes(0),
         google: None,
         payments: None,
     };

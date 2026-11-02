@@ -74,12 +74,12 @@
 //! A count in memory rather than a column: it describes this process's open
 //! files, which a crash closes, and a column would need clearing after one.
 
-mod budget;
 pub mod evict;
 pub mod job;
 mod preview;
 mod refused;
 pub mod request;
+mod room;
 mod said;
 pub mod settings;
 pub mod store;
