@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use axum::extract::State;
 use axum::response::sse::{self, KeepAlive, Sse};
-use futures_util::{Stream, StreamExt, future};
+use futures_util::{FutureExt, Stream, StreamExt, future};
 use sqlx::postgres::PgPool;
 use tokio::sync::oneshot;
 
@@ -16,6 +16,7 @@ use super::AppState;
 use super::auth::{Member, Via};
 use crate::accounts::{AccountError, sessions, tokens};
 use crate::db::UserId;
+use crate::events::Event;
 
 /// How often an open stream asks whether its credential still holds.
 pub const RECHECK: Duration = Duration::from_secs(15);
@@ -36,16 +37,24 @@ pub const MOST_STREAMS: usize = 8;
 /// extractor that refuses a credential gone.
 ///
 /// One user holds at most [`MOST_STREAMS`] at once ([`Streams`]): opening
-/// one more ends their oldest, the tab they are least likely to be looking at.
+/// one more ends their oldest, the tab they are least likely to be looking at,
+/// with [`Event::Displaced`] as its last message.
 pub async fn stream(
     State(state): State<AppState>,
     member: Member,
 ) -> Sse<impl Stream<Item = Result<sse::Event, Infallible>>> {
     let events = state.events.subscribe(member.user);
     let (held, displaced) = state.streams.open(member.user);
+    let displaced = displaced.shared();
     let lapsed = Box::pin(lapsed(state.pool, state.recheck, member));
-    let ended = future::select(lapsed, displaced);
-    let stream = events.take_until(ended).map(move |event| {
+    let live = events.take_until(future::select(lapsed, displaced.clone()));
+    // Said last, and only when displaced: not when the credential lapsed or
+    // the server is stopping.
+    let farewell = futures_util::stream::once(future::lazy(move |_| {
+        displaced.peek().map(|_| Event::Displaced)
+    }))
+    .filter_map(future::ready);
+    let stream = live.chain(farewell).map(move |event| {
         let _held = &held;
         // An enum of plain data serialises; there is no error to report.
         let data = serde_json::to_string(&event).unwrap_or_default();

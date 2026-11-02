@@ -95,6 +95,11 @@ pub enum Event {
     },
     /// Events were dropped before this reader saw them: re-read what is shown.
     Resync,
+    /// The last message of a `GET /api/events` stream closed because its
+    /// user opened one more than they may hold: open it again only when the
+    /// page is looked at, or two pages would close each other's in turn.
+    /// Never sent on the bus.
+    Displaced,
 }
 
 /// The server's event bus: [`send`](Events::send) to one user,

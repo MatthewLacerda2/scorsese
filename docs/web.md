@@ -1150,7 +1150,10 @@ with does: every 15 seconds it looks the session or token up again, so
 logging out, `user logout`, a revoked token or an expired session closes a
 stream already open, not only the requests after it. `EventSource`
 reconnects by itself, and the reconnect is authenticated afresh. One user
-holds at most 8 streams open (a tab each); opening a ninth closes their oldest.
+holds at most 8 streams open (a tab each); opening a ninth closes their
+oldest, whose last message is `displaced`: that page reopens its stream when
+it is next shown, never at once, so two pages cannot close each other's in
+turn.
 
 | route | who | what |
 | --- | --- | --- |
@@ -1613,9 +1616,9 @@ A tus client retries `409` by default — right for a misplaced chunk, wrong for
 
 **A `PATCH` holds a connection, so one user holds few**: at most 4 of theirs
 arrive at once, a fifth answered `429` (the web app sends 4 files at a time,
-and Uppy pauses and retries a `429`), and one that sends nothing for 60
-seconds is ended `408` with what arrived kept, which the web app retries
-through `HEAD` and resumes.
+and retries a `429` from another tab or device every ten seconds for ten
+minutes), and one that sends nothing for 60 seconds is ended `408` with what
+arrived kept, which the web app retries through `HEAD` and resumes.
 
 **Each user keeps at most 50 GB** (`SCORSESE_USER_STORAGE`): their library,
 their kept renders and every upload they have announced, counted at its

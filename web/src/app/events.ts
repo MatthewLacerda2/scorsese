@@ -9,6 +9,11 @@
 // or a server restart — may have missed anything, so every listener is handed
 // a `resync`, the same instruction the server sends a reader that fell behind:
 // re-read what you show.
+//
+// One account holds at most eight streams; a ninth closes the oldest, whose
+// last message is `displaced`. That page does not reconnect at once — two
+// pages would close each other's streams in turn — but when it is next shown,
+// and resyncs then.
 
 import { useEffect, useRef } from "react";
 import { api } from "@/api";
@@ -44,9 +49,26 @@ function open() {
     } catch {
       return;
     }
+    if (event.type === "displaced") {
+      stream.close();
+      if (source === stream) source = null;
+      return;
+    }
     deliver(event);
   };
   return stream;
+}
+
+/** Reopen a displaced stream once its page is shown again. */
+function reopenWhenShown() {
+  if (document.visibilityState !== "visible") return;
+  if (source || listeners.size === 0) return;
+  source = open();
+  deliver({ type: "resync" });
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", reopenWhenShown);
 }
 
 /**

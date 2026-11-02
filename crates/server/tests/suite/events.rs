@@ -10,7 +10,7 @@ use sqlx::postgres::PgPool;
 
 use crate::common;
 use common::request;
-use common::stream::{ends, listen};
+use common::stream::{ends, listen, read_until};
 
 /// How often the server under test asks whether a stream's credential holds.
 const RECHECK: Duration = Duration::from_millis(100);
@@ -83,6 +83,8 @@ async fn a_ninth_stream_closes_the_users_oldest(pool: PgPool) {
     assert!(!first, "eight streams are allowed");
 
     let _ninth = listen(address, &ana).await;
+    let told = read_until(&mut ana_streams[0], r#"{"type":"displaced"}"#, PATIENCE).await;
+    assert!(told.is_some(), "the oldest is told why it closes");
     assert!(
         ends(&mut ana_streams[0], PATIENCE).await,
         "the oldest closes"

@@ -46,6 +46,11 @@ test("a chunk the server ended for sending nothing is retried", () => {
   expect(shouldRetry(response(408, { error: "stalled" }), () => false)).toBe(true);
 });
 
+test("a chunk refused while four others are arriving waits its turn", () => {
+  // Uppy's own 429 handling gives up after four pauses per uploader.
+  expect(shouldRetry(response(429, { error: "crowded" }), () => false)).toBe(true);
+});
+
 test("a duplicate found by hash reads like the server's refusal", () => {
   expect(alreadyHave({ id: 5, name: "intro" }, en.files.uploads.alreadyHave)).toEqual({
     item: 5,

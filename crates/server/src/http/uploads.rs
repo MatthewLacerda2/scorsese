@@ -29,7 +29,7 @@
 //! and is also "you already have this file", whose body carries the `item`. The
 //! web app's `onShouldRetry` stops on the latter. A `429` is a user already
 //! sending [`MOST_WRITING`](crate::library::MOST_WRITING) chunks at once, which
-//! Uppy answers by pausing and retrying; a `408` is a chunk that sent nothing
+//! the web app retries for up to ten minutes; a `408` is a chunk that sent nothing
 //! for [`IDLE`], ended with what arrived kept, which the web app retries
 //! through `HEAD` like a `409`.
 
