@@ -18,3 +18,13 @@ export function seeVersion(testId: string, version: string) {
     }
   }
 }
+
+/**
+ * Drop the visitor cookie so the next read sees none. An `Expires` in the past,
+ * not `Max-Age=0`: happy-dom keeps a cookie that expires in the millisecond it
+ * was set, and a test that clears right after `seeVersion` would still see it.
+ */
+export function forgetVisitor() {
+  // biome-ignore lint/suspicious/noDocumentCookie: the cookie is read synchronously on first paint, which the async Cookie Store API cannot serve.
+  document.cookie = `${VISITOR_COOKIE}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+}

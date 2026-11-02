@@ -3,6 +3,7 @@
 
 import { expect, test } from "bun:test";
 import { render } from "@testing-library/react";
+import { forgetVisitor } from "@/test/visitor";
 import type { AbTest } from "./tests";
 import { sendPrompt, useLandingTests } from "./useLandingTests";
 import { VISITOR_COOKIE } from "./visitor";
@@ -15,8 +16,7 @@ function Landing() {
 }
 
 test("no running test, no cookie and no beacon", () => {
-  // biome-ignore lint/suspicious/noDocumentCookie: the cookie is read synchronously on first paint, which the async Cookie Store API cannot serve.
-  document.cookie = `${VISITOR_COOKIE}=; Path=/; Max-Age=0`;
+  forgetVisitor();
   let beacons = 0;
   navigator.sendBeacon = () => {
     beacons += 1;
