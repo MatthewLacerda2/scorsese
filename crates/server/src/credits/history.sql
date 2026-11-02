@@ -37,8 +37,8 @@ WITH keyed AS (
                 WHEN e.voice_design_id IS NOT NULL THEN 'voice_design'
                 WHEN e.kind IN ('charge', 'reservation') THEN 'assistant'
                 ELSE e.kind END AS kind,
-           CASE WHEN e.kind IN ('top_up', 'bonus', 'refund') THEN 'credited'
-                WHEN e.kind = 'withdrawal' THEN 'withdrawn'
+           CASE WHEN e.kind IN ('top_up', 'bonus', 'refund', 'dispute_won') THEN 'credited'
+                WHEN e.kind IN ('withdrawal', 'dispute', 'purchase_refunded') THEN 'withdrawn'
                 WHEN e.kind <> 'reservation' OR s.charged THEN 'charged'
                 WHEN s.released THEN 'free'
                 ELSE 'pending' END AS status,

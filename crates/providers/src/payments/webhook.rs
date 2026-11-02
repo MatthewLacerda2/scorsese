@@ -13,7 +13,7 @@
 use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
 
-use crate::api::stripe::{Event, Session};
+use crate::api::stripe::{Charge, Dispute, Event, Session};
 use crate::credentials::Secret;
 
 /// How far a delivery's timestamp may be from now: five minutes, the
@@ -102,6 +102,13 @@ pub enum Happened {
     Settled(Session),
     /// A session expired unpaid.
     Expired(Session),
+    /// A paid charge was disputed with the card's bank (#1637).
+    Disputed(Dispute),
+    /// A dispute closed, its status saying how.
+    DisputeClosed(Dispute),
+    /// Some or all of a charge was refunded, from Stripe's Dashboard or by
+    /// the operator after a withdrawal.
+    Refunded(Charge),
     /// Anything else, which is answered and ignored.
     Other,
 }
@@ -109,15 +116,18 @@ pub enum Happened {
 impl Happened {
     /// What `event` means.
     pub fn of(event: &Event) -> Result<Self, WebhookError> {
-        let session = || {
-            serde_json::from_value::<Session>(event.data.object.clone())
+        fn object<T: serde::de::DeserializeOwned>(event: &Event) -> Result<T, WebhookError> {
+            serde_json::from_value(event.data.object.clone())
                 .map_err(|error| WebhookError::Unreadable(error.to_string()))
-        };
+        }
         Ok(match event.kind.as_str() {
             "checkout.session.completed" | "checkout.session.async_payment_succeeded" => {
-                Self::Settled(session()?)
+                Self::Settled(object(event)?)
             }
-            "checkout.session.expired" => Self::Expired(session()?),
+            "checkout.session.expired" => Self::Expired(object(event)?),
+            "charge.dispute.created" => Self::Disputed(object(event)?),
+            "charge.dispute.closed" => Self::DisputeClosed(object(event)?),
+            "charge.refunded" => Self::Refunded(object(event)?),
             _ => Self::Other,
         })
     }
@@ -230,9 +240,46 @@ mod tests {
         .unwrap();
         assert!(matches!(Happened::of(&expired), Ok(Happened::Expired(_))));
         let other: Event = serde_json::from_str(
-            r#"{"id": "evt_3", "type": "charge.refunded", "data": {"object": {"id": "ch_1"}}}"#,
+            r#"{"id": "evt_3", "type": "charge.captured", "data": {"object": {"id": "ch_1"}}}"#,
         )
         .unwrap();
         assert_eq!(Happened::of(&other).unwrap(), Happened::Other);
+    }
+
+    #[test]
+    fn a_refund_and_a_dispute_name_their_payment() {
+        let refunded: Event = serde_json::from_str(
+            r#"{"id": "evt_4", "type": "charge.refunded", "data": {"object": {"id": "ch_1",
+                "object": "charge", "amount": 5000, "amount_refunded": 2500,
+                "currency": "brl", "payment_intent": "pi_1", "refunded": false}}}"#,
+        )
+        .unwrap();
+        let Ok(Happened::Refunded(charge)) = Happened::of(&refunded) else {
+            panic!("a refund is read as one");
+        };
+        assert_eq!(charge.payment_intent.as_deref(), Some("pi_1"));
+        assert_eq!((charge.amount, charge.amount_refunded), (5_000, 2_500));
+        for (kind, closed) in [
+            ("charge.dispute.created", false),
+            ("charge.dispute.closed", true),
+        ] {
+            let body = format!(
+                r#"{{"id": "evt_5", "type": "{kind}", "data": {{"object": {{"id": "dp_1",
+                    "object": "dispute", "amount": 5000, "charge": "ch_1", "currency": "brl",
+                    "payment_intent": "pi_1", "reason": "fraudulent", "status": "won"}}}}}}"#
+            );
+            let event: Event = serde_json::from_str(&body).unwrap();
+            match Happened::of(&event).unwrap() {
+                Happened::Disputed(dispute) if !closed => assert_eq!(dispute.charge, "ch_1"),
+                Happened::DisputeClosed(dispute) if closed => assert_eq!(dispute.status, "won"),
+                other => panic!("{kind} read as {other:?}"),
+            }
+        }
+        // A refund with no amount is not one.
+        let broken: Event = serde_json::from_str(
+            r#"{"id": "evt_6", "type": "charge.refunded", "data": {"object": {"id": "ch_1"}}}"#,
+        )
+        .unwrap();
+        assert!(Happened::of(&broken).is_err());
     }
 }

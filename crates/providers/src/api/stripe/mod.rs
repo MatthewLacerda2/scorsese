@@ -6,7 +6,8 @@
 //! **retrieved** by id when the browser comes back, in case the webhook has
 //! not arrived yet; an open session is **expired** when its buyer starts
 //! another purchase, so a member has one open at a time; and an **event**
-//! carries a session to the webhook when it completes or expires.
+//! carries a session to the webhook when it completes or expires, or a
+//! [`Charge`] or [`Dispute`] when a paid one is refunded or disputed later.
 //!
 //! What is particular to this vendor, checked against
 //! <https://docs.stripe.com/api/checkout/sessions/create>,
@@ -30,6 +31,14 @@
 //!   session, now `expired`, and any other is answered with an error.
 //! - `success_url` may carry `{CHECKOUT_SESSION_ID}`, which Stripe replaces
 //!   with the session's id when it sends the browser back.
+//! - **A refund or a dispute names a charge and its `payment_intent`, never
+//!   the session** (<https://docs.stripe.com/api/charges/object>,
+//!   <https://docs.stripe.com/api/disputes/object>, read 2026-11-02): a
+//!   paid session's own `payment_intent` is what ties them to a purchase.
+//!   A charge's `amount_refunded` is everything refunded of it so far, so a
+//!   second partial refund's event carries the sum. A dispute's `status`
+//!   ends `won` (the merchant's favour), `lost`, `warning_closed` (an
+//!   inquiry that never became a dispute) or `prevented`.
 
 use serde::{Deserialize, Serialize};
 
@@ -107,6 +116,43 @@ pub struct Session {
     /// The ISO currency, lowercase.
     #[serde(default)]
     pub currency: Option<String>,
+    /// The payment behind it, `pi_…`: set once it is paid.
+    #[serde(default)]
+    pub payment_intent: Option<String>,
+}
+
+/// A charge, as a `charge.refunded` event carries it: only the part read.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct Charge {
+    /// `ch_…`.
+    pub id: String,
+    /// The payment it belongs to, `pi_…`, if it belongs to one.
+    #[serde(default)]
+    pub payment_intent: Option<String>,
+    /// What was charged, in the smallest unit.
+    pub amount: i64,
+    /// Everything refunded of it so far, in the smallest unit.
+    pub amount_refunded: i64,
+    /// The ISO currency, lowercase.
+    pub currency: String,
+}
+
+/// A dispute, as a `charge.dispute.*` event carries it: only the part read.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct Dispute {
+    /// `dp_…` or `du_…`.
+    pub id: String,
+    /// The disputed charge, `ch_…`.
+    pub charge: String,
+    /// The disputed payment, `pi_…`, if the charge belongs to one.
+    #[serde(default)]
+    pub payment_intent: Option<String>,
+    /// What is disputed, in the smallest unit.
+    pub amount: i64,
+    /// The ISO currency, lowercase.
+    pub currency: String,
+    /// `needs_response`, `under_review`, `won`, `lost`, …
+    pub status: String,
 }
 
 /// A webhook event: only the part read.

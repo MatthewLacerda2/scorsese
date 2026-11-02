@@ -81,6 +81,9 @@ pub async fn answer(
         (Some(keys), true) => Some(pick::chosen(&question, keys).map_err(AssistantError::Invalid)?),
     };
     let mut running = resuming(state, &mut tx, user, id, &paused).await?;
+    if let Some(balance) = ledger::owed(&mut tx).await? {
+        return Err(AssistantError::Owed(balance));
+    }
     let balance = running.balance;
     if balance <= 0 {
         return Err(AssistantError::short(&mut tx, balance).await?);

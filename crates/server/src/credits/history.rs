@@ -36,6 +36,9 @@ pub const KINDS: &[&str] = &[
     "top_up",
     "bonus",
     "withdrawal",
+    "dispute",
+    "dispute_won",
+    "purchase_refunded",
     "refund",
     "adjustment",
 ];
@@ -72,7 +75,8 @@ pub struct Row {
     /// One of [`KINDS`].
     pub kind: String,
     /// `charged`, `free` (the provider failed), `pending`, `credited`, or
-    /// `withdrawn` (a purchase taken back within its 7 days).
+    /// `withdrawn` (a purchase taken back: within its 7 days, or by a
+    /// dispute or a refund in Stripe, #1637).
     pub status: String,
     /// The project it was spent on, if any. Kept when the project is deleted.
     pub project_id: Option<i64>,

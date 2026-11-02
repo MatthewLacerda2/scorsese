@@ -37,6 +37,22 @@ pub struct Withdrawn {
     pub paid_centavos: i64,
 }
 
+/// A purchase as a withdrawal reads it, under its row lock.
+#[derive(sqlx::FromRow)]
+struct Purchase {
+    id: i64,
+    state: String,
+    brl_centavos: i64,
+    credit_micros: i64,
+    bonus_micros: i64,
+    /// Paid within the window before the day it was asked for.
+    within: bool,
+    /// Withdrawn already.
+    withdrawn: bool,
+    /// Refunded or disputed in Stripe already (`super::reversed`).
+    reversed: bool,
+}
+
 /// Withdraw the caller's purchase by Checkout `session`: take back what is
 /// left of it, bonus included, as one `withdrawal` entry, and say what to
 /// refund. `requested` is the day the customer asked, `YYYY-MM-DD` in
@@ -44,7 +60,8 @@ pub struct Withdrawn {
 /// the day they paid, however late the operator gets to it.
 ///
 /// Refused for a purchase not paid, asked for more than [`WITHIN_DAYS`] days
-/// after it was paid, withdrawn already — and while a generation of theirs is
+/// after it was paid, withdrawn already, refunded or disputed in Stripe
+/// already ([`super::reversed`]) — and while a generation of theirs is
 /// still waiting on its provider, since what it holds may yet come back and
 /// is not spent. `tx` is scoped as the purchase's owner.
 pub async fn withdraw(
@@ -53,7 +70,7 @@ pub async fn withdraw(
     requested: Option<&str>,
 ) -> Result<Withdrawn, CreditError> {
     let balance = ledger::locked_balance(tx).await?;
-    let row: Option<(i64, String, i64, i64, i64, bool, bool)> = sqlx::query_as(
+    let row: Option<Purchase> = sqlx::query_as(
         "WITH asked AS (
              SELECT COALESCE($3::date, (now() AT TIME ZONE 'America/Sao_Paulo')::date) AS day
          )
@@ -61,9 +78,12 @@ pub async fn withdraw(
                 COALESCE((paid_at AT TIME ZONE 'America/Sao_Paulo')::date
                              BETWEEN asked.day - $2 AND asked.day
                          AND asked.day <= (now() AT TIME ZONE 'America/Sao_Paulo')::date,
-                         false),
+                         false) AS within,
                 EXISTS (SELECT 1 FROM credit_entries
-                        WHERE payment_id = payments.id AND kind = 'withdrawal')
+                        WHERE payment_id = payments.id AND kind = 'withdrawal') AS withdrawn,
+                refunded_centavos > 0
+                    OR EXISTS (SELECT 1 FROM credit_entries
+                               WHERE payment_id = payments.id AND kind = 'dispute') AS reversed
          FROM payments, asked WHERE stripe_session = $1 FOR UPDATE OF payments",
     )
     .bind(session)
@@ -71,7 +91,17 @@ pub async fn withdraw(
     .bind(requested)
     .fetch_optional(&mut **tx)
     .await?;
-    let Some((id, state, centavos, credit, bonus, within, withdrawn)) = row else {
+    let Some(Purchase {
+        id,
+        state,
+        brl_centavos: centavos,
+        credit_micros: credit,
+        bonus_micros: bonus,
+        within,
+        withdrawn,
+        reversed,
+    }) = row
+    else {
         return Err(CreditError::Invalid(format!(
             "they have no purchase by session {session}"
         )));
@@ -84,6 +114,12 @@ pub async fn withdraw(
     if withdrawn {
         return Err(CreditError::Invalid(format!(
             "purchase {session} was withdrawn already"
+        )));
+    }
+    if reversed {
+        return Err(CreditError::Invalid(format!(
+            "purchase {session} was refunded or disputed in Stripe already, and that took its \
+             credit back; look at it in Stripe's Dashboard"
         )));
     }
     if !within {

@@ -440,7 +440,7 @@ lives*, below).
 | `google/project.tf` | the `scorseseestudio` Google Cloud project (deletion-protected), the billing account it is charged to, and the APIs enabled on it |
 | `google/billing.tf` | a monthly budget on the project, R$5 (about US$1; the billing account is in reais, and a budget must be in its account's currency), emailing the billing admins at 50% and 100%. It warns; it stops nothing |
 | `google/state.tf` | the bucket every configuration's state lives in: `us-central1` (Always Free), private, versioned, impossible to destroy by accident (`prevent_destroy`, no `force_destroy`) |
-| `stripe/webhook.tf` | the webhook endpoint for credit purchases (*Buying credits*): `<SCORSESE_PUBLIC_ORIGIN>/api/payments/stripe/webhook` and the three events it acts on, and its signing secret as a sensitive output |
+| `stripe/webhook.tf` | the webhook endpoint for credit purchases (*Buying credits*): `<SCORSESE_PUBLIC_ORIGIN>/api/payments/stripe/webhook` and the six events it acts on, and its signing secret as a sensitive output |
 | `github/repository.tf` | the `MatthewLacerda2/scorsese` repository's settings: squash merges only, a merged branch deleted, no wiki or projects, Dependabot alerts and security updates on, secret scanning and push protection on. Imported, never created, and impossible to destroy by accident (`prevent_destroy`, and `archive_on_destroy` behind it) |
 | `github/ruleset.tf` | `main`'s ruleset: a change arrives as a squashed pull request with `CI ok` green on `main`'s tip, no review required, no deletion or force-push, nobody bypasses it |
 | `tf` | runs one configuration with its credentials and its state: `tf cloudflare plan`, `tf google apply`, `tf stripe secret`, `tf github plan`; and, once, `tf google bootstrap` and `tf <name> migrate` (*Moving the state into the bucket*) |
@@ -1306,6 +1306,9 @@ deleting the account, which is how a user's rows leave.
 | `allowance` | ± | what the free allowance paid of a spend (+), or gave back to the allowance when the generation failed (−) |
 | `bonus` | + | the bonus credit a larger purchase adds, beside its top-up (*Buying credits*) |
 | `withdrawal` | − | what was left of a purchase withdrawn within its 7 days, its bonus included (*Buying credits*) |
+| `dispute` | − | a purchase disputed with the card's bank: all of it, its bonus included, past zero if it was spent (*Buying credits*) |
+| `dispute_won` | + | exactly what a `dispute` took, given back when the dispute is won |
+| `purchase_refunded` | − | the share of what was left of a purchase that a refund made in Stripe's Dashboard returns, never past zero |
 
 **Pricing** is the provider's cost times its kind's multiplier, rounded up to
 the micro-dollar, and that is all a user pays: **there is no monthly fee**
@@ -1552,7 +1555,10 @@ transaction. It is paid credit like the rest: it buys a Veo shot.
 session id (unique), the reais in centavos, the credits and the bonus in micro-dollars, the
 rate **as its source sent it** and which source, the state (`open`, `paid`,
 `expired`) and when it was paid. Per-user like every table. The `top_up`,
-`bonus` and `withdrawal` it causes carry its `payment_id`.
+`bonus`, `withdrawal`, `dispute`, `dispute_won` and `purchase_refunded` it
+causes carry its `payment_id`. It also keeps the session's **payment
+intent** once paid (unique), how its dispute closed, and the most of it
+Stripe has said is refunded.
 
 **Crediting is exactly once, keyed on the session id**, with two ways in that
 both call `payments::settle::settle`:
@@ -1562,8 +1568,10 @@ both call `payments::settle::settle`:
   `STRIPE_WEBHOOK_SECRET` within five minutes. It acts on
   `checkout.session.completed` and `checkout.session.async_payment_succeeded`
   (credited when the session says `paid`, in BRL, for exactly the centavos
-  asked) and `checkout.session.expired`; anything else signed is answered
-  `200` and ignored.
+  asked) and `checkout.session.expired`, and on a paid purchase taken back
+  later: `charge.dispute.created`, `charge.dispute.closed` and
+  `charge.refunded` (*Taken back by Stripe*, below); anything else signed is
+  answered `200` and ignored.
 - **The return page**, whose `POST /api/payments/{session}/confirm`
   retrieves the session from Stripe while the payment is still open — which
   covers a webhook that is late or never comes.
@@ -1581,12 +1589,12 @@ was asked credits nothing and is logged for the operator to look at in Stripe.
 | `GET /api/payments/quote` | a member | `?centavos=`: the credits they buy and the bonus on them, the rate and its source, and the limits |
 | `POST /api/payments` | a member | `{"centavos", "brl_per_usd"}`: a Checkout Session at the rate shown — its `url` to send the browser to, and its `session` (the open one, for the same purchase); `409` with `quote` when the rate moved; `429` past 5 a minute |
 | `POST /api/payments/{session}/confirm` | a member | their payment by session, credited first if Stripe says it is paid; `429` past 60 a minute |
-| `POST /api/payments/stripe/webhook` | Stripe, signed | how a session went |
+| `POST /api/payments/stripe/webhook` | Stripe, signed | how a session went, or that a paid one was disputed or refunded |
 
 **Configuration**: `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` beside
 `SCORSESE_PUBLIC_ORIGIN`, in `deploy/.env` (the table under *`crates/server`*).
 The webhook endpoint at `<origin>/api/payments/stripe/webhook`, listening for
-the three events above, is Terraform's (`deploy/terraform/stripe`, #1256):
+the six events above, is Terraform's (`deploy/terraform/stripe`, #1256):
 `make infra-apply` makes it and `deploy/terraform/tf stripe secret` writes its
 signing secret into `deploy/.env` (*Infrastructure, as code*). The code runs
 on **test keys** (`sk_test_…`); switching to live keys waits for #547 (terms,
@@ -1607,7 +1615,47 @@ less — as one `withdrawal` entry, and prints the reais to refund in Stripe's
 Dashboard. The bonus counts as spent in the same share as the rest: a purchase
 left whole gives back all its bonus and all its reais, one half spent half of
 each. The money itself goes back by hand in Stripe's Dashboard. Foreign
-customers and other currencies wait for demand.
+customers and other currencies wait for demand. A purchase already refunded
+or disputed in Stripe is refused: Stripe's own event took its credit back.
+
+**Taken back by Stripe** (#1637, the maintainer's rules of 2026-10-31,
+`payments::reversed`). A refund or a dispute names a charge's payment
+intent, not the session, so the intent is kept when the session is credited;
+a purchase credited before that is found the first time an event names an
+intent no row has, by retrieving the paid sessions with none from Stripe,
+newest first, each once (`payments::intents`); Stripe failing to answer is
+an error status, so Stripe sends the event again. An intent no purchase here was paid through is
+answered `200` and logged, never retried.
+
+- **A dispute takes back the whole purchase, its bonus included, even past
+  zero**, less what a withdrawal or refund took of it already, as one
+  `dispute` entry. While a dispute leaves the paid balance below zero the
+  account spends nothing: no generation, no assistant turn, and **the free
+  allowance pays for nothing either** (`ledger::owed`). Each is refused with
+  "your balance is −$4.20 because a payment was disputed; add credit to keep
+  generating", the assistant's with `402`. A purchase that brings the paid
+  balance back to zero or above lets spending resume, a lost dispute's
+  included. A balance below zero for any other reason (an assistant call
+  that overran it, after the debt was paid off) stops nothing the allowance
+  can pay for.
+- **A dispute won gives back exactly what it took**, as `dispute_won`; one
+  lost or otherwise closed changes nothing more. An inquiry takes the same
+  when it opens, and one that closes `warning_closed` (it never became a
+  dispute, and Stripe took nothing) gives it back as a win does. A closing
+  delivered before its opening is kept on the payment, and the opening then
+  takes nothing.
+- **A refund made in Stripe's Dashboard takes back what a withdrawal
+  would**: what is left of the purchase (never past zero), in the share of
+  the reais not refunded before that this refund returns, as a
+  `purchase_refunded` entry. A charge's `amount_refunded` is everything
+  refunded so far, so the payment keeps the most seen and a late or repeated
+  event finds nothing new. The reais a withdrawal said to refund count as
+  refunded already, so the refund that carries it out takes nothing more.
+
+Each entry carries a sentence the owner reads in their history (*R$ 50,00
+purchase of 30 Oct disputed with your card's bank: its $9.80 of credit taken
+back*) and the Stripe event that wrote it, which a unique index holds to one
+entry; every decision is made under the owner's lock and the payment's row.
 
 ## Library
 

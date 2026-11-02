@@ -67,6 +67,7 @@
 pub mod adjust;
 pub mod allowance;
 pub mod command;
+pub mod debt;
 pub mod designs;
 pub mod examples;
 pub mod generations;
@@ -179,6 +180,15 @@ pub fn dollars(micros: impl Into<i128>) -> String {
 /// assistant's say the same.
 pub const FREE_USED_UP: &str = "today's free credit for everyone is used up; it comes back tomorrow, or add credit to keep going";
 
+/// What a person is told when a dispute's debt stops them spending
+/// ([`CreditError::Owed`]), wherever it stops them.
+pub fn owed(balance: i64) -> String {
+    format!(
+        "your balance is {} because a payment was disputed; add credit to keep generating",
+        dollars(balance)
+    )
+}
+
 /// Why spending or recording credits did not happen.
 #[derive(Debug, thiserror::Error)]
 pub enum CreditError {
@@ -224,6 +234,13 @@ pub enum CreditError {
         balance: i64,
         /// What the spend would have reserved.
         needed: i64,
+    },
+    /// A dispute left the paid balance below zero (#1637): nothing is spent,
+    /// free or paid, until a purchase brings it back. Nothing was spent.
+    #[error("{}", owed(*balance))]
+    Owed {
+        /// What the paid balance is: below zero.
+        balance: i64,
     },
     /// A reservation that does not exist, or was already settled.
     #[error("reservation {0} is not open: it does not exist or was already settled")]

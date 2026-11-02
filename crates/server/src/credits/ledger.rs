@@ -10,6 +10,8 @@ use scorsese_providers::prices::Checked;
 use scorsese_providers::prices::chat::{self, Usage};
 use serde_json::json;
 
+pub use super::debt::owed;
+use super::debt::owed_at;
 use super::{CreditError, Product, allowance, price};
 use crate::db::Tx;
 
@@ -73,6 +75,9 @@ pub async fn balance(tx: &mut Tx) -> Result<i64, sqlx::Error> {
 /// the split (#1530).
 pub async fn spendable(tx: &mut Tx) -> Result<i64, sqlx::Error> {
     let paid = balance(tx).await?;
+    if owed_at(tx, paid).await?.is_some() {
+        return Ok(paid);
+    }
     Ok(paid + allowance::left(tx).await?.left_micros)
 }
 
@@ -96,6 +101,9 @@ pub(crate) async fn lock(tx: &mut Tx) -> Result<(), sqlx::Error> {
 pub async fn cover(tx: &mut Tx, micros: i64, funds: Funds) -> Result<i64, CreditError> {
     lock(tx).await?;
     let paid = balance(tx).await?;
+    if let Some(balance) = owed_at(tx, paid).await? {
+        return Err(CreditError::Owed { balance });
+    }
     if funds == Funds::PaidOnly {
         if paid >= micros {
             return Ok(0);
@@ -374,8 +382,10 @@ pub async fn refund(tx: &mut Tx, micros: i64, reason: &str) -> Result<(), Credit
     .await
 }
 
-/// One entry that is not a spend: `micros` signed as its kind is.
-async fn insert_credit(
+/// One entry that is not a spend: `micros` signed as its kind is, linked to
+/// `payment` when it is about one — what a dispute or a refund in Stripe
+/// writes (`payments::reversed`), held to one per Stripe event by an index.
+pub(crate) async fn insert_credit(
     tx: &mut Tx,
     kind: &str,
     micros: i64,

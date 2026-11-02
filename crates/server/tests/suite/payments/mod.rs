@@ -6,11 +6,15 @@
 use crate::common;
 
 mod bonus;
+mod charges;
 mod confirm;
+mod debts;
+mod disputes;
 mod fake;
 mod open;
 mod prices;
 mod rate;
+mod refunds;
 mod start;
 mod webhook;
 mod withdraw;

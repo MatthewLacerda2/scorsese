@@ -17,7 +17,7 @@ use crate::api::http::HttpError;
 use crate::api::stripe::{self, Create};
 use crate::credentials::Secret;
 
-pub use crate::api::stripe::{SESSION_ID, Session};
+pub use crate::api::stripe::{Charge, Dispute, SESSION_ID, Session};
 
 /// What a Checkout Session is for: one charge in reais.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -116,6 +116,7 @@ mod tests {
             payment_status: payment_status.into(),
             amount_total: Some(amount),
             currency: Some(currency.into()),
+            payment_intent: Some("pi_test_1".into()),
         }
     }
 

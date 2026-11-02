@@ -12,7 +12,7 @@ use super::common::{self, Response};
 use super::{FIFTY_AT_4_99, Fake, SECRET, balance, bought, member, serve, top_ups};
 
 /// A delivery of `kind` about `session`, as Stripe would send it.
-fn event(kind: &str, session: &serde_json::Value) -> Vec<u8> {
+pub(super) fn event(kind: &str, session: &serde_json::Value) -> Vec<u8> {
     serde_json::json!({
         "id": "evt_1", "object": "event", "type": kind,
         "data": { "object": session },
@@ -22,7 +22,7 @@ fn event(kind: &str, session: &serde_json::Value) -> Vec<u8> {
 }
 
 /// POST `body` to the webhook, signed at `at` (seconds) under `secret`.
-async fn deliver(address: SocketAddr, body: &[u8], secret: &str, at: i64) -> Response {
+pub(super) async fn deliver(address: SocketAddr, body: &[u8], secret: &str, at: i64) -> Response {
     let signature = sign(&Secret::new(secret), at, body);
     let header = format!("Stripe-Signature: t={at},v1={signature}");
     common::send(
@@ -35,7 +35,7 @@ async fn deliver(address: SocketAddr, body: &[u8], secret: &str, at: i64) -> Res
     .await
 }
 
-fn now() -> i64 {
+pub(super) fn now() -> i64 {
     scorsese_core::Timestamp::unix_now().expect("the clock is past 1970")
 }
 
@@ -146,7 +146,12 @@ async fn a_paid_amount_that_disagrees_or_an_unknown_session_credits_nothing(pool
     paid["id"] = "cs_test_elsewhere".into();
     let body = event("checkout.session.completed", &paid);
     assert_eq!(deliver(address, &body, SECRET, now()).await.status, 200);
-    let other = event("charge.refunded", &serde_json::json!({ "id": "ch_1" }));
+    // A refund of a charge that belongs to no payment intent is not ours.
+    let charge = serde_json::json!({
+        "id": "ch_1", "object": "charge", "amount": 100, "amount_refunded": 100,
+        "currency": "brl", "payment_intent": null,
+    });
+    let other = event("charge.refunded", &charge);
     assert_eq!(deliver(address, &other, SECRET, now()).await.status, 200);
 
     assert_eq!(balance(&pool, ana).await, 0);

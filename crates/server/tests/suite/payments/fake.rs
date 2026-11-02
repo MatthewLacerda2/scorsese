@@ -51,17 +51,19 @@ impl Checkout for Fake {
     fn create(&self, order: &Order) -> Result<Session, HttpError> {
         let mut created = self.created.lock().expect("no test panics holding it");
         created.push(order.clone());
-        let session = Session {
-            id: format!("cs_test_{}", created.len()),
-            url: Some(format!(
-                "https://checkout.stripe.com/c/pay/{}",
-                created.len()
-            )),
-            status: Some("open".into()),
-            payment_status: "unpaid".into(),
-            amount_total: Some(order.centavos),
-            currency: Some("brl".into()),
-        };
+        // Written as Stripe's JSON, so a field the server reads later is a
+        // line here, and a server that does not read it ignores it.
+        let n = created.len();
+        let session: Session = serde_json::from_value(serde_json::json!({
+            "id": format!("cs_test_{n}"),
+            "url": format!("https://checkout.stripe.com/c/pay/{n}"),
+            "status": "open",
+            "payment_status": "unpaid",
+            "amount_total": order.centavos,
+            "currency": "brl",
+            "payment_intent": format!("pi_test_{n}"),
+        }))
+        .expect("a session reads from Stripe's JSON");
         self.sessions
             .lock()
             .expect("no test panics holding it")

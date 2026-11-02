@@ -4,7 +4,7 @@ use scorsese_providers::payments::{self, Session};
 use serde::Serialize;
 use sqlx::postgres::PgPool;
 
-use super::{PaymentError, Payments};
+use super::{PaymentError, Payments, intents};
 use crate::credits::ledger;
 use crate::db::{self, Tx, UserId};
 
@@ -40,7 +40,9 @@ pub struct Payment {
 
 /// Credit `session`'s payment if Stripe says it is paid, or mark it expired
 /// if it expired — once, however many times and from however many places
-/// this is called. Both the webhook and the return page come here.
+/// this is called. Both the webhook and the return page come here. A paid
+/// session's payment intent is kept on the payment, for a later refund or
+/// dispute to find it by ([`intents`]).
 ///
 /// The payment's owner is found first, by session id, outside any user's
 /// scope — the one cross-user read here, because a webhook carries no user.
@@ -70,13 +72,17 @@ pub async fn settle(pool: &PgPool, session: &Session) -> Result<Settled, Payment
         return Ok(Settled::Unknown);
     };
     let settled = match state.as_str() {
-        "paid" => Settled::Already,
+        "paid" => {
+            intents::keep(&mut tx, id, session).await?;
+            Settled::Already
+        }
         "open" if payments::paid(session, centavos) => {
             ledger::top_up_paid(&mut tx, micros, id).await?;
             if bonus > 0 {
                 ledger::bonus(&mut tx, bonus, id).await?;
             }
             mark(&mut tx, id, "paid").await?;
+            intents::keep(&mut tx, id, session).await?;
             Settled::Credited
         }
         "open" if payments::expired(session) => {

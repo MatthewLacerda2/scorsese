@@ -256,6 +256,10 @@ pub enum AssistantError {
     /// left: every account together has spent the day's (#1658).
     #[error("{}", crate::credits::FREE_USED_UP)]
     FreeUsedUp,
+    /// A dispute left the paid balance below zero, this much (#1637):
+    /// nothing runs, free or paid, until a purchase brings it back.
+    #[error("{}", crate::credits::owed(*.0))]
+    Owed(i64),
     /// A turn is already running in this conversation.
     #[error("the assistant is still working on your last message; wait for it, or stop it")]
     Busy,
