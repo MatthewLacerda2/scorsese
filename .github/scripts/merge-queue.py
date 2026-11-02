@@ -257,13 +257,9 @@ def take(
     # close what it closes, or re-blesses a reference it does not explain,
     # would be ten minutes spent on a refusal (#1221, #1217), and so would one
     # that needs an independent review it has not had (#1498).
-    changed = mergeable.reblessed.evidence(mergeable.gh, repo, pull)
-    refused = (
-        mergeable.closing.refusal(mergeable.closing.closed_by(mergeable.gh, repo, pull))
-        or mergeable.reblessed.refusal(changed, pull.get("body") or "")
-        or mergeable.reviewed.refusal(
-            mergeable.reviewed.evidence(mergeable.gh, repo, pull, changed.get("files") or []), pull
-        )
+    # The same function `make described` asks before readying (#1701).
+    refused = mergeable.described.refusal(
+        mergeable.described.gather(mergeable.gh, repo, pull)
     )
     if refused:
         talk.say(f"#{number}: {refused[0]}", *refused[1:])

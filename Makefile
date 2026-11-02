@@ -718,6 +718,31 @@ checks: ## Unticked human checks in PRs merged since then, and issues with both 
 pushed: ## After every push: is this branch's last commit its head on origin?
 	@cd "$(or $(REPO),.)" && "$(CURDIR)/tools/pushed"
 
+# The description checks `make mergeable` and the queue apply before reading
+# any run (closing keywords, `Re-blessed`, the `Independent review` level),
+# asked over REST from the same function they call, so it works in a cloud
+# container and cannot drift from them (#1701). No push and no run: ask it
+# after every description edit, and last before readying.
+.PHONY: described
+described: ## Would the queue take this PR's description and comments? make described PR=1702
+	@test -n "$(PR)" || { \
+		echo "described: which pull request? e.g. make described PR=1702" >&2; \
+		exit 1; }
+	@$(PYTHON_CHECK)
+	@$(PYTHON) .github/scripts/described.py $(PR)
+
+# CI's `regression test` job, here: a bug fix's changed tests laid over the
+# base in a scratch worktree (removed afterwards) and run there, so a coder sees
+# its reproducing test fail on the base before readying (#1701). It needs a
+# clean tree, and builds the base once.
+.PHONY: regression
+regression: ## A bug fix's tests run on its base, as CI's regression job (builds the base once; clean tree). make regression PR=1702, or BASE=<sha>
+	@test -n "$(PR)$(BASE)" || { \
+		echo "regression: against what? e.g. make regression PR=1702, or BASE=<sha>" >&2; \
+		exit 1; }
+	@$(PYTHON_CHECK)
+	@$(if $(BASE),BASE=$(BASE) )$(PYTHON) .github/scripts/regression_local.py $(PR)
+
 # Neither a gate nor a signal, because it is not about this code at all.
 # `make gates` answers "is this good?"; this answers "did anything check it?",
 # which is a question about GitHub and can only be asked once a pull request

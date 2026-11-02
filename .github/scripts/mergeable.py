@@ -86,28 +86,14 @@ import time
 from pathlib import Path
 
 _spec = importlib.util.spec_from_file_location(
-    "protocol", Path(__file__).resolve().parent / "protocol.py"
+    "described", Path(__file__).resolve().parent / "described.py"
 )
-protocol = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(protocol)
-
-_spec = importlib.util.spec_from_file_location(
-    "closing", Path(__file__).resolve().parent / "closing.py"
-)
-closing = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(closing)
-
-_spec = importlib.util.spec_from_file_location(
-    "reblessed", Path(__file__).resolve().parent / "reblessed.py"
-)
-reblessed = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(reblessed)
-
-_spec = importlib.util.spec_from_file_location(
-    "reviewed", Path(__file__).resolve().parent / "reviewed.py"
-)
-reviewed = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(reviewed)
+described = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(described)
+# The description's checks, one module each, as `described` loaded them: one
+# object apiece, so a test patching `mergeable.reblessed` patches the queue's.
+protocol, closing = described.protocol, described.closing
+reblessed, reviewed = described.reblessed, described.reviewed
 
 # The workflow that gates a merge. A run of anything else — a scheduled job, a
 # future workflow — is not the one being asked about, and counting it would be
@@ -365,11 +351,8 @@ def judge(
             " makes no claim to pass; mark it ready and let CI answer.",
         ]
 
-    refused = closing.refusal(pull.get("closes") or {})
-    refused = refused or reblessed.refusal(
-        pull.get("reblessed") or {}, pull.get("body") or ""
-    )
-    refused = refused or reviewed.refusal(pull.get("reviewed") or {}, pull)
+    # `make described` asks this same function before readying (#1701).
+    refused = described.refusal(pull)
     if refused:
         return False, refused
 
@@ -435,20 +418,9 @@ def judge(
             f"{len(runs)} runs exist for this commit; none failed, and this is"
             " the one that built it."
         )
-    return described(pull, lines)
-
-
-def described(pull: dict, lines: list[str]) -> tuple[bool, list[str]]:
-    """A passing verdict, unless the description breaks the protocol.
-
-    Asked only once CI has passed, so a red run is still the first thing a
-    refusal names. A branch named for an issue whose description does not
-    close it is handed back; a missing Gates line is a warning (`protocol.py`).
-    """
-    refusal = protocol.closing(pull)
-    if refusal:
-        return False, refusal
-    return True, lines + protocol.gates(pull)
+    # Asked only once CI has passed, so a red run is still the first thing a
+    # refusal names.
+    return described.passing(pull, lines)
 
 
 def main() -> int:
@@ -484,9 +456,7 @@ def answer(number: str) -> int:
         "author",
     )
     sha = pull["headRefOid"]
-    pull["closes"] = closing.closed_by(gh, repo, pull)
-    pull["reblessed"] = reblessed.evidence(gh, repo, pull)
-    pull["reviewed"] = reviewed.evidence(gh, repo, pull, pull["reblessed"]["files"])
+    described.gather(gh, repo, pull)
 
     listed = gh("api", f"repos/{repo}/actions/runs?head_sha={sha}&per_page=100")
     runs = runs_for(listed.get("workflow_runs", []), sha)
