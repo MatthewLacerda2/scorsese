@@ -4,6 +4,41 @@
 //! or a record there may lead anywhere. Whatever reads the cache reads it as a
 //! miss rather than follow one out.
 
+use std::path::{Component, Path};
+
+use scorsese_core::CACHE_DIR;
+
+/// Whether `path` is a file itself, not a link to one.
+pub(super) fn is_plain_file(path: &Path) -> bool {
+    std::fs::symlink_metadata(path).is_ok_and(|meta| meta.is_file())
+}
+
+/// Whether every folder and file from `base` down to `path` is there and none
+/// is a link. `base` itself may be one: whoever lays the project out links its
+/// `cache/` where it likes.
+pub(super) fn unlinked(base: &Path, path: &Path) -> bool {
+    let Ok(below) = path.strip_prefix(base) else {
+        return false;
+    };
+    let mut at = base.to_path_buf();
+    below.components().all(|part| {
+        at.push(part);
+        matches!(part, Component::Normal(_))
+            && std::fs::symlink_metadata(&at).is_ok_and(|meta| !meta.file_type().is_symlink())
+    })
+}
+
+/// Whether a record's `path` names a file a page could have been served: one
+/// under the project root that neither climbs out of it nor lies in its
+/// cache, which only captures write.
+pub(super) fn in_project(path: &str) -> bool {
+    let path = Path::new(path);
+    !path.starts_with(CACHE_DIR)
+        && path
+            .components()
+            .all(|part| matches!(part, Component::Normal(_)))
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;

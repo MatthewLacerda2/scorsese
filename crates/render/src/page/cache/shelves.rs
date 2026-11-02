@@ -41,8 +41,9 @@ pub(super) fn all(slot: &Path) -> Vec<PathBuf> {
     let mut shelves: Vec<PathBuf> = read
         .flatten()
         .filter(|entry| entry.file_name().to_string_lossy().starts_with("told-"))
+        // A link is no shelf, wherever it leads (#1643).
+        .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
         .map(|entry| entry.path())
-        .filter(|path| path.is_dir())
         .collect();
     shelves.sort();
     shelves

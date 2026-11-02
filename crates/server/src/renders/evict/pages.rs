@@ -113,9 +113,21 @@ pub(super) fn total(cache: &RenderCache) -> u64 {
 
 /// Remove every slot idle longer than [`IDLE`] and every leftover partial in
 /// `folder`, then the folder itself if no slot is left.
+///
+/// A capture writes this folder, so a link in it is removed itself and never
+/// followed (#1643): a `pages/` that is one holds no slot, and a slot that is
+/// one is no capture.
 pub(super) fn idle(folder: &Path) -> Evicted {
     let mut evicted = Evicted::default();
-    for slot in entries(&folder.join(SLOTS)) {
+    let slots = folder.join(SLOTS);
+    if is_link(&slots) {
+        let _ = std::fs::remove_file(&slots);
+    }
+    for slot in entries(&slots) {
+        if is_link(&slot) {
+            let _ = std::fs::remove_file(&slot);
+            continue;
+        }
         if slot.file_name().is_some_and(|name| name == FONTS) {
             continue;
         }
@@ -169,14 +181,14 @@ fn last_used(slot: &Path) -> Option<Duration> {
     entries(slot)
         .into_iter()
         .flat_map(|entry| {
-            if entry.is_dir() {
+            if is_dir(&entry) {
                 entries(&entry)
             } else {
                 vec![entry]
             }
         })
         .filter(|file| is_capture(file))
-        .filter_map(|file| std::fs::metadata(file).ok()?.modified().ok())
+        .filter_map(|file| std::fs::symlink_metadata(file).ok()?.modified().ok())
         .max()
         .map(|at| SystemTime::now().duration_since(at).unwrap_or_default())
 }
@@ -210,6 +222,16 @@ fn size(path: &Path) -> u64 {
     } else {
         meta.len()
     }
+}
+
+/// Whether `path` is a link, wherever it leads.
+fn is_link(path: &Path) -> bool {
+    std::fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_symlink())
+}
+
+/// Whether `path` is a folder itself, not a link to one.
+fn is_dir(path: &Path) -> bool {
+    std::fs::symlink_metadata(path).is_ok_and(|meta| meta.is_dir())
 }
 
 fn entries(path: &Path) -> Vec<PathBuf> {

@@ -106,6 +106,9 @@ pub(crate) fn holding(
     request: &Request,
     wanted: &std::ops::Range<u64>,
 ) -> Option<(PathBuf, u64, Record)> {
+    if !trust::unlinked(&project_root.join(CACHE_DIR), slot) {
+        return None;
+    }
     shelves::all(slot)
         .into_iter()
         .find_map(|shelf| pieces::holding(&shelf, project_root, request, wanted))
@@ -114,21 +117,27 @@ pub(crate) fn holding(
 /// A capture's record, if its frames are there and it still describes the
 /// project and `request`: every file loaded still hashes as it did, every file
 /// missed is still missing, and every clip the page read is where it was.
+///
+/// Frames or a record that is a link, or a record naming a file a page could
+/// not have been served, is a miss, and nothing it points at is opened
+/// ([`trust`]).
 pub(super) fn read_fresh(
     frames: &Path,
     record: &Path,
     project_root: &Path,
     request: &Request,
 ) -> Option<Record> {
-    if !frames.is_file() {
+    if !trust::is_plain_file(frames) || !trust::is_plain_file(record) {
         return None;
     }
     let record: Record = serde_json::from_slice(&std::fs::read(record).ok()?).ok()?;
     let unchanged = record.loaded.iter().all(|(path, hash)| {
         let now = if super::origin::record_key(path).is_some() {
             super::origin::shipped_hash(path)
-        } else {
+        } else if trust::in_project(path) {
             hash_file(&project_root.join(path)).ok()
+        } else {
+            return false;
         };
         &now == hash
     });
