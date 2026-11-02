@@ -40,8 +40,9 @@ async fn the_return_page_credits_a_paid_session_the_webhook_has_not(pool: PgPool
 async fn the_webhook_and_the_return_page_racing_credit_once(pool: PgPool) {
     let fake = Arc::new(Fake::default());
     let address = serve(&pool, Some(fake.clone()), Some("4.99")).await;
-    let (ana, bearer) = member(&pool, "ana@example.com").await;
+    // A member each round: one member may start only so many a minute.
     for round in 0..8 {
+        let (ana, bearer) = member(&pool, &format!("ana{round}@example.com")).await;
         let session = bought(address, &bearer, 5_000).await;
         let paid = fake.pay(&session);
         let path = format!("/api/payments/{session}/confirm");
@@ -54,9 +55,9 @@ async fn the_webhook_and_the_return_page_racing_credit_once(pool: PgPool) {
         hook.unwrap();
         also.unwrap();
         assert_eq!(page.status, 200, "{}", page.body);
-        assert_eq!(top_ups(&pool, ana).await, round + 1, "round {round}");
+        assert_eq!(top_ups(&pool, ana).await, 1, "round {round}");
+        assert_eq!(balance(&pool, ana).await, FIFTY_AT_4_99, "round {round}");
     }
-    assert_eq!(balance(&pool, ana).await, 8 * FIFTY_AT_4_99);
 }
 
 #[sqlx::test]

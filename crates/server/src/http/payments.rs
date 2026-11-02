@@ -1,6 +1,9 @@
 //! Buying credits (#548): the quote a person sees as they type, the Checkout
 //! Session they are sent to, the return page's confirmation, and Stripe's
 //! webhook. [`crate::payments`] has the flow and why it is shaped so.
+//!
+//! The two routes that call Stripe as a member are limited per member
+//! (#1654): each call there spends the operator's live key.
 
 use axum::Json;
 use axum::body::Bytes;
@@ -13,8 +16,17 @@ use serde_json::json;
 use super::AppState;
 use super::auth::Member;
 use super::error::ApiError;
+use super::limits::Limits;
 use crate::payments::settle::{self, Payment, Settled};
 use crate::payments::{Begun, PaymentError, Payments, Quote, begin};
+
+/// Purchases one member may start a minute: a few attempts and changes of
+/// mind, not a loop.
+pub const STARTS_PER_MINUTE: u32 = 5;
+
+/// Times one member's return page may ask after a payment a minute: it asks
+/// every three seconds while the payment is open, twenty a minute.
+pub const CONFIRMS_PER_MINUTE: u32 = 30;
 
 /// An amount of reais, in centavos.
 #[derive(Debug, Deserialize)]
@@ -51,6 +63,7 @@ pub async fn start(
     Json(purchase): Json<Purchase>,
 ) -> Result<Json<Begun>, ApiError> {
     let payments = configured(&state)?;
+    limited(&state.payment_starts, &member, "purchases started")?;
     let shown = purchase.brl_per_usd.as_deref();
     Ok(Json(
         begin(&state.pool, payments, member.user, purchase.centavos, shown).await?,
@@ -65,6 +78,7 @@ pub async fn confirm(
     Path(session): Path<String>,
 ) -> Result<Json<Payment>, ApiError> {
     let payments = configured(&state)?;
+    limited(&state.payment_confirms, &member, "payment checks")?;
     Ok(Json(
         settle::confirm(&state.pool, payments, member.user, &session).await?,
     ))
@@ -106,6 +120,19 @@ pub async fn webhook(
         );
     }
     Ok(Json(json!({ "received": event.kind })))
+}
+
+/// One more of `what` for `member` under `limits`, or `429` saying when.
+fn limited(limits: &Limits, member: &Member, what: &str) -> Result<(), ApiError> {
+    limits
+        .take(member.user, 1)
+        .map_err(|wait| ApiError::TooMany {
+            message: format!(
+                "too many {what} this minute; try again in {} seconds",
+                wait.as_secs().max(1)
+            ),
+            retry_after: wait.as_secs(),
+        })
 }
 
 /// The server's Stripe, or `503` where none is configured.

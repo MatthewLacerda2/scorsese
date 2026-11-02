@@ -1488,12 +1488,21 @@ that, or with none read, they are refused with `503` and **no session is
 created**: a rate is never guessed. A rate outside 2 to 8 reais a dollar
 (inclusive, on the exact decimal: 8.01 is out) is treated as no answer: a real
 rate has sat near 5 for years, and a wider band only lets a garbage figure sell
-credits at a wild price. **A purchase names the rate it was shown**, and is
+credits at a wild price. **No one source is believed alone** (#1654): a new
+rate is kept only when the PTAX (or, when the PTAX cannot be read or is the
+rate itself, the rate kept last) agrees with it **within 3%**; otherwise the
+last rate stays, the disagreement is logged, and ten minutes of it refuses
+purchases like a failed read. **A purchase names the rate it was shown**, and is
 refused with `409` and the quote at the rate now when it has moved, so the
 rate locked on the payment is always the one the person saw.
 **Credits are the reais divided by that rate, floored** to the micro-dollar,
 and Stripe's fee is absorbed rather than added. The session expires after 31
-minutes (Stripe's least is 30, measured on its clock). AwesomeAPI's keyless
+minutes (Stripe's least is 30, measured on its clock). **A member has at
+most one open session** (#1654): a purchase started while one is open is
+that session when it asks for the same reais at the same rate and bonus, and
+otherwise expires it at Stripe before making another. Starting purchases is
+limited to 5 a minute per member and the return page's confirmation to 30,
+each answered `429` past it: both spend the operator's Stripe key. AwesomeAPI's keyless
 quota is small — a cloud machine was answered `429` the day this was written
 — which is what the fallback is for.
 
@@ -1538,8 +1547,8 @@ was asked credits nothing and is logged for the operator to look at in Stripe.
 | --- | --- | --- |
 | `GET /api/prices` | anyone | what the pricing page shows (#1538): the examples (a still at the default size, a 200-character line from the fast voice to the expressive one, 40 s of music, 8 s of Veo at the default quality, each the provider's estimate times its multiplier), the free allowance, and the recharge cards — the least purchase and each bonus tier's first amount, each with its quote at the rate kept now (`null` while none is fresh; the page never waits on a rate source) — or `recharge: null` where Stripe is not configured |
 | `GET /api/payments/quote` | a member | `?centavos=`: the credits they buy and the bonus on them, the rate and its source, and the limits |
-| `POST /api/payments` | a member | `{"centavos", "brl_per_usd"}`: a Checkout Session at the rate shown — its `url` to send the browser to, and its `session`; `409` with `quote` when the rate moved |
-| `POST /api/payments/{session}/confirm` | a member | their payment by session, credited first if Stripe says it is paid |
+| `POST /api/payments` | a member | `{"centavos", "brl_per_usd"}`: a Checkout Session at the rate shown — its `url` to send the browser to, and its `session` (the open one, for the same purchase); `409` with `quote` when the rate moved; `429` past 5 a minute |
+| `POST /api/payments/{session}/confirm` | a member | their payment by session, credited first if Stripe says it is paid; `429` past 30 a minute |
 | `POST /api/payments/stripe/webhook` | Stripe, signed | how a session went |
 
 **Configuration**: `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` beside
