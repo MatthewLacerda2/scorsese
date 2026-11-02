@@ -6,7 +6,9 @@
 //! [`Song::validate`] refuses each before a sample exists, by working out
 //! where the last thing in the piece ends — the arrangement, played as many
 //! times as its `fit` asks, a note that rings past its pattern, and a target
-//! a `fit` pads to — at the tempo it is played at.
+//! a `fit` pads to — at the tempo it is played at. A `loop` fit is cut to its
+//! target, so it is measured by that target, or by one pass if a pass is
+//! longer: the passes before the cut are each shorter than the target.
 //!
 //! A note's own release and its effect tail are already bounded where a note
 //! is (`NoteTooLong`), so they are not counted here.
@@ -16,6 +18,7 @@ use std::collections::HashMap;
 use super::Song;
 use super::key::Key;
 use super::shape::{fitted, plan};
+use super::timing::FitMode;
 use crate::error::SynthError;
 
 /// The longest a song may be rendered, in seconds: ten minutes, longer than
@@ -27,10 +30,13 @@ pub const MAX_SONG_SECONDS: f32 = 600.0;
 /// [`MAX_SONG_SECONDS`]. Called last by `validate`, on a song otherwise valid.
 pub(super) fn check(song: &Song, key: Option<&Key>) -> Result<(), SynthError> {
     let (clock, passes) = plan(song);
-    let mut seconds = clock.seconds(last_beat(song, passes, key)?);
-    if let Some((_, target)) = fitted(song) {
-        seconds = seconds.max(target);
-    }
+    let seconds = match fitted(song) {
+        Some((fit, target)) if fit.mode == FitMode::Loop => {
+            target.max(clock.seconds(last_beat(song, 1, key)?))
+        }
+        Some((_, target)) => target.max(clock.seconds(last_beat(song, passes, key)?)),
+        None => clock.seconds(last_beat(song, passes, key)?),
+    };
     if seconds.is_finite() && seconds <= MAX_SONG_SECONDS {
         return Ok(());
     }
