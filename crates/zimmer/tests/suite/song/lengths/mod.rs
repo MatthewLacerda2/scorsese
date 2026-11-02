@@ -6,6 +6,7 @@
 //! wrong length.
 
 mod anchors;
+mod capped;
 mod fitting;
 mod levels;
 mod resolving;

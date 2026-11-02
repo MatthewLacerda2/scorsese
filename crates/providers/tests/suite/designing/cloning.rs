@@ -8,7 +8,7 @@ use super::common::{project, write};
 use super::fake::Fake;
 
 /// A project holding one recording of `seconds`, `take`, at `assets/take.mp3`.
-fn recorded(label: &str, seconds: f64) -> (std::path::PathBuf, Project) {
+pub(super) fn recorded(label: &str, seconds: f64) -> (std::path::PathBuf, Project) {
     let (dir, mut project) = project(label);
     write(&dir, "assets/take.mp3", "ID3 a recording");
     let mut asset = Asset::imported(
@@ -28,7 +28,7 @@ fn recorded(label: &str, seconds: f64) -> (std::path::PathBuf, Project) {
     (dir, project)
 }
 
-fn ask(assets: &[&str], consent: bool) -> Ask {
+pub(super) fn ask(assets: &[&str], consent: bool) -> Ask {
     Ask {
         assets: assets.iter().map(|id| AssetId::new(*id)).collect(),
         name: String::from("My voice"),
