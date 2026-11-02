@@ -119,3 +119,25 @@ async fn a_call_that_costs_more_than_is_left_is_never_sent(pool: PgPool) {
     assert!(refused.body.contains("add credit"), "{}", refused.body);
     assert!(script.requests().is_empty(), "nothing was sent");
 }
+
+/// A reply cut short because what was left paid for no more of it ends the
+/// turn with the out-of-credit sentence, not as a reply past its length
+/// (#1653): a dollar pays for far less than a whole reply on Opus 5.5.
+#[sqlx::test]
+async fn a_reply_cut_short_by_the_balance_says_to_add_credit(pool: PgPool) {
+    let cut = super::script::reply(
+        scorsese_providers::chat::Part::Text {
+            text: "Half of".into(),
+        },
+        scorsese_providers::chat::Stop::MaxTokens,
+    );
+    let script = Script::new(vec![cut]);
+    let (address, _) = super::scripted(&pool, &script).await;
+    let (ana, who) = member(&pool, "ana@example.com", 1).await;
+    let id = project(&pool, ana, json!([])).await;
+    let detail = exchange(address, &who, id, "make an intro").await;
+    assert_eq!(detail["turn"]["state"], "capped", "{detail}");
+    let answer = detail["turn"]["answer"].as_str().unwrap();
+    assert!(answer.contains("Add credit"), "{answer}");
+    assert_eq!(script.requests().len(), 1);
+}

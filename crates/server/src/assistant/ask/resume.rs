@@ -33,7 +33,7 @@ pub(in crate::assistant) async fn resuming(
     let client = state.assistant.chat(model)?;
     // Running again is running: refused while the user runs as many as they
     // may, under the lock `tx` holds until the resume is committed.
-    holds::admit(state, tx, user, true).await?;
+    holds::admit(state, tx, user, model, true).await?;
     let balance = ledger::spendable(tx).await?;
     // The paused turn is its conversation's last: nothing starts after it
     // while it waits, since a new message is its answer.

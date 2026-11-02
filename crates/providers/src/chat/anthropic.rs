@@ -10,7 +10,7 @@ use serde_json::value::RawValue;
 use super::{Chat, ChatError, Effort, Message, Part, Reply, Request, ResultPart, Streamed};
 use crate::api::anthropic::content::{self, Block, ImageSource};
 use crate::api::anthropic::request::{self as wire, MessageContent, Role};
-use crate::chat::claude::{self, Anthropic, Claude, MAX_TOKENS, Response, Settings};
+use crate::chat::claude::{self, Anthropic, Claude, Response, Settings};
 
 impl Chat for Anthropic {
     fn reply(
@@ -28,7 +28,7 @@ pub fn laid_out(request: &Request) -> wire::Request {
     let settings = Settings {
         model: request.model.id().to_owned(),
         effort: wired(Effort::BASELINE),
-        max_tokens: MAX_TOKENS,
+        max_tokens: request.max_tokens,
     };
     let tools = request
         .tools

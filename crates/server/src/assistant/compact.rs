@@ -163,6 +163,7 @@ async fn summarised(
         system: prompt::SYSTEM.to_owned(),
         tools,
         messages: compacting.request,
+        max_tokens: chat::MAX_TOKENS,
     };
     let summary = summary(state, turn, request).await?;
     let mut notes = compacting.notes;
@@ -208,17 +209,18 @@ fn opened_with(record: &[Message]) -> Option<(&str, Vec<Part>)> {
 async fn summary(
     state: &AppState,
     turn: &mut Running,
-    request: Request,
+    mut request: Request,
 ) -> Result<String, Unsummarised> {
-    let request = Arc::new(request);
     let mut stopped = String::new();
     for _ in 0..2 {
+        state.assistant.pace.wait(turn.user, turn.model).await;
         // Held like any call of the turn's (`holds`).
         let held = super::holds::hold(state, turn.user, (turn.turn, turn.spent), &request)
             .await
             .map_err(|error| error.to_string())?
             .map_err(Unsummarised::Short)?;
-        let (reply, latency) = call(turn, &request).await?;
+        request.max_tokens = held.most;
+        let (reply, latency) = call(turn, &Arc::new(request.clone())).await?;
         let charge = Charge {
             turn: turn.turn,
             project: turn.project,
@@ -230,6 +232,10 @@ async fn summary(
         let (charged, balance) = turns::charge(&state.pool, turn.user, &charge, &reply)
             .await
             .map_err(|error| error.to_string())?;
+        state
+            .assistant
+            .pace
+            .sent(turn.user, turn.model, &reply.usage);
         drop(held);
         turn.spent += charged;
         turn.balance = balance;

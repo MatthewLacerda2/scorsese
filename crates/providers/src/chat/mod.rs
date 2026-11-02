@@ -70,7 +70,7 @@ use serde_json::Value;
 use serde_json::value::RawValue;
 
 pub use crate::prices::chat::Usage;
-pub use claude::{ClaudeError, Stop, Streamed};
+pub use claude::{ClaudeError, MAX_TOKENS, Stop, Streamed};
 pub use model::{Model, Vendor};
 pub use record::{Call, Message, Part, ResultPart};
 
@@ -165,6 +165,10 @@ pub struct Request {
     /// The conversation so far, each message frozen in **this model's**
     /// wire ([`replay`], [`freeze`]).
     pub messages: Vec<Box<RawValue>>,
+    /// The most the reply may be, thinking included: [`MAX_TOKENS`], or less
+    /// when that is all the caller can pay for. It is no part of the cached
+    /// prefix, so it may change from call to call.
+    pub max_tokens: u32,
 }
 
 impl Request {
