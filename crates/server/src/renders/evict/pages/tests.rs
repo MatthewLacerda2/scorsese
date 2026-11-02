@@ -133,3 +133,45 @@ fn a_slot_of_pieces_ages_by_its_newest_on_any_shelf_and_goes_whole() {
     );
     assert!(!folder.join("pages/used/part-90-120.7.partial.mkv").exists());
 }
+
+#[test]
+fn a_link_in_the_page_cache_goes_itself_and_its_target_survives() {
+    let cache = cache("links");
+    let outside = cache.root.join("outside");
+    // A folder outside the cache shaped like idle slots, which a sweep that
+    // followed a link to it would delete.
+    let victim = |name: &str| {
+        let dir = outside.join(name);
+        let at = SystemTime::now() - Duration::from_secs(49 * 60 * 60);
+        for file in ["told-none/frames.mkv", "old/frames.mkv"] {
+            std::fs::create_dir_all(dir.join(file).parent().unwrap()).unwrap();
+            std::fs::write(dir.join(file), [0; 3]).unwrap();
+            let file = std::fs::File::options().append(true).open(dir.join(file));
+            file.unwrap().set_modified(at).unwrap();
+        }
+        dir
+    };
+    // A slot that is a link to a folder outside the cache.
+    let folder = slot(&cache, 9, "used", 1);
+    let slot_target = victim("slot");
+    symlink(&slot_target, folder.join("pages/linked")).unwrap();
+    let evicted = idle(&folder);
+    assert!(
+        std::fs::symlink_metadata(folder.join("pages/linked")).is_err(),
+        "the link itself goes"
+    );
+    assert!(slot_target.join("told-none/frames.mkv").is_file());
+    assert!(slot_target.join("old/frames.mkv").is_file());
+    assert!(folder.join("pages/used/frames.mkv").is_file());
+    assert_eq!(evicted.captures, 0, "a link is no capture");
+
+    // A `pages/` that is a link: nothing behind it is a slot of this project.
+    let folder = cache.captures().root().join("pages/7/10");
+    std::fs::create_dir_all(&folder).unwrap();
+    let pages_target = victim("pages");
+    symlink(&pages_target, folder.join(SLOTS)).unwrap();
+    idle(&folder);
+    assert!(pages_target.join("old/frames.mkv").is_file());
+    assert!(pages_target.join("told-none/frames.mkv").is_file());
+    assert!(!folder.exists(), "the project held no slot, so it goes");
+}

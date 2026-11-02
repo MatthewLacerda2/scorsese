@@ -52,6 +52,7 @@ mod fontconfig;
 mod held;
 mod pieces;
 mod shelves;
+mod trust;
 
 pub(crate) use fontconfig::fonts;
 pub(crate) use held::{Held, Place};
