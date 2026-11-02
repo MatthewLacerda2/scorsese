@@ -27,7 +27,11 @@
 //! another request is writing the upload, which a retry is the answer to; `409`
 //! is a chunk at the wrong offset, which the client answers by asking `HEAD` —
 //! and is also "you already have this file", whose body carries the `item`. The
-//! web app's `onShouldRetry` stops on the latter.
+//! web app's `onShouldRetry` stops on the latter. A `429` is a user already
+//! sending [`MOST_WRITING`](crate::library::MOST_WRITING) chunks at once, which
+//! Uppy answers by pausing and retrying; a `408` is a chunk that sent nothing
+//! for [`IDLE`], ended with what arrived kept, which the web app retries
+//! through `HEAD` like a `409`.
 
 use axum::body::Body;
 use axum::extract::{Path, State};
@@ -45,7 +49,9 @@ use crate::library::{Announced, Appended, MAX_UPLOAD_BYTES};
 /// The one tus version spoken.
 const VERSION: &str = "1.0.0";
 
-/// How long a `PATCH` may send nothing before it is ended.
+/// How long a `PATCH` may send nothing before it is ended with `408`, what
+/// arrived kept: a stalled connection gives its place back
+/// ([`crate::library::MOST_WRITING`]), and the client resumes from `HEAD`.
 pub const IDLE: std::time::Duration = std::time::Duration::from_secs(60);
 
 /// The header naming the library item the last chunk made.
@@ -124,7 +130,13 @@ pub async fn append(
     };
     let appended = state
         .library
-        .append(member.user, id, offset, body.into_data_stream())
+        .append(
+            member.user,
+            id,
+            offset,
+            body.into_data_stream(),
+            state.upload_idle,
+        )
         .await;
     tus(match appended {
         Ok(Appended::Partial(progress)) => {

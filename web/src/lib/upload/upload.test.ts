@@ -41,6 +41,11 @@ test("tus never retries a duplicate, and defers to its default otherwise", () =>
   expect(asked).toBe(3);
 });
 
+test("a chunk the server ended for sending nothing is retried", () => {
+  // A 4xx tus would give up on; the upload resumes from `HEAD` instead.
+  expect(shouldRetry(response(408, { error: "stalled" }), () => false)).toBe(true);
+});
+
 test("a duplicate found by hash reads like the server's refusal", () => {
   expect(alreadyHave({ id: 5, name: "intro" }, en.files.uploads.alreadyHave)).toEqual({
     item: 5,

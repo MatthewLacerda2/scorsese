@@ -64,7 +64,7 @@ pub use admit::Arrival;
 pub use generated::{Made, Unkept};
 pub use kind::{Kind, MAX_DOCUMENT_BYTES};
 pub use store::{Change, Filter};
-pub use upload::{Announced, Appended, MAX_UPLOAD_BYTES, Progress};
+pub use upload::{Announced, Appended, MAX_UPLOAD_BYTES, MOST_WRITING, Progress};
 
 use scorsese_core::MediaMetadata;
 use scorsese_core::bytes::format_bytes;
@@ -208,6 +208,15 @@ pub enum LibraryError {
     /// Another request is writing this upload right now. Try again shortly.
     #[error("this upload is being written by another request; try again shortly")]
     Busy,
+
+    /// The user already has [`MOST_WRITING`] chunks arriving at once.
+    #[error("you are already sending {0} uploads at once; try again once one finishes")]
+    Crowded(usize),
+
+    /// A chunk that sent nothing for too long: what arrived is kept, and the
+    /// upload resumes from there.
+    #[error("the upload sent nothing for too long; resume it from where it got to")]
+    Stalled,
 
     /// A chunk that does not start where the upload got to.
     #[error("the upload has {expected} bytes so far, and this chunk does not start there")]

@@ -44,11 +44,14 @@ export interface TusResponse {
 }
 
 /**
- * Whether tus should retry after `response`: never for a duplicate, and
- * whatever the default (`fallback`) decides for everything else.
+ * Whether tus should retry after `response`: never for a duplicate, always
+ * for a `408` (a chunk the server ended for sending nothing, kept as far as it
+ * got, which tus resumes from `HEAD`), and whatever the default (`fallback`)
+ * decides for everything else.
  */
 export function shouldRetry(response: TusResponse | null, fallback: () => boolean): boolean {
   if (response && duplicateOf(response.getStatus(), response.getBody())) return false;
+  if (response?.getStatus() === 408) return true;
   return fallback();
 }
 

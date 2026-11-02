@@ -98,6 +98,9 @@ pub struct AppState {
     /// How often an open `GET /api/events` asks whether the credential it
     /// was opened with still holds ([`events::RECHECK`]).
     pub recheck: std::time::Duration,
+    /// Every user's open `GET /api/events` streams, at most
+    /// [`events::MOST_STREAMS`] each.
+    pub streams: events::Streams,
     /// How long an upload `PATCH` may send nothing before it is ended
     /// ([`uploads::IDLE`]).
     pub upload_idle: std::time::Duration,
@@ -142,6 +145,7 @@ impl AppState {
             free: crate::credits::allowance::Allowance::NONE,
             recheck: events::RECHECK,
             upload_idle: uploads::IDLE,
+            streams: events::Streams::default(),
             pool,
             jobs,
             events,

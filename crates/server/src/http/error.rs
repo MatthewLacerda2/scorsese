@@ -82,6 +82,13 @@ impl From<LibraryError> for ApiError {
                 Self::refused(StatusCode::CONFLICT, &error, json!({ "offset": expected }))
             }
             LibraryError::Busy => Self::refused(StatusCode::LOCKED, &error, none),
+            // Uppy pauses its uploads and retries on a 429.
+            LibraryError::Crowded(_) => Self::TooMany {
+                message: error.to_string(),
+                retry_after: 1,
+            },
+            // The web app's uploader retries a 408 by asking `HEAD` again.
+            LibraryError::Stalled => Self::refused(StatusCode::REQUEST_TIMEOUT, &error, none),
             // What tus answers a file past the server's size, and a 4xx a
             // client does not retry.
             LibraryError::Full { .. } => Self::refused(StatusCode::PAYLOAD_TOO_LARGE, &error, none),
