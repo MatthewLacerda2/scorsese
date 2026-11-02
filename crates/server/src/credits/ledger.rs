@@ -90,25 +90,42 @@ pub(crate) async fn lock(tx: &mut Tx) -> Result<(), sqlx::Error> {
 }
 
 /// Take the user's lock, then fail unless `funds` cover `micros`; the part
-/// of it the free allowance pays, spent first.
+/// of it the free allowance pays, spent first. When the allowance may pay
+/// any of it, the lock on everyone's free spend is taken too
+/// ([`allowance`]).
 pub async fn cover(tx: &mut Tx, micros: i64, funds: Funds) -> Result<i64, CreditError> {
     lock(tx).await?;
     let paid = balance(tx).await?;
-    let left = allowance::left(tx).await?.left_micros;
-    // A shot the free allowance would have covered says why it does not.
-    if funds == Funds::PaidOnly && paid < micros && paid.saturating_add(left) >= micros {
-        return Err(CreditError::PaidOnly {
-            paid,
+    if funds == Funds::PaidOnly {
+        if paid >= micros {
+            return Ok(0);
+        }
+        // A shot the free allowance would have covered says why it does not.
+        let left = allowance::left(tx).await?.left_micros;
+        if paid.saturating_add(left) >= micros {
+            return Err(CreditError::PaidOnly {
+                paid,
+                needed: micros,
+            });
+        }
+        return Err(CreditError::Insufficient {
+            balance: paid,
             needed: micros,
         });
     }
-    let free = match funds {
-        Funds::Any => left,
-        Funds::PaidOnly => 0,
-    };
+    let (own, everyones) = allowance::own_and_everyones(tx).await?;
+    let free = own.min(everyones);
     if paid.saturating_add(free) < micros {
+        let balance = paid.saturating_add(free);
+        // A spend the user's own allowance would have covered says why.
+        if paid.saturating_add(own) >= micros {
+            return Err(CreditError::FreeUsedUp {
+                balance,
+                needed: micros,
+            });
+        }
         return Err(CreditError::Insufficient {
-            balance: paid.saturating_add(free),
+            balance,
             needed: micros,
         });
     }
@@ -246,7 +263,8 @@ pub async fn charge_assistant(
         "prompt": call.prompt,
     });
     lock(tx).await?;
-    let free = allowance::left(tx).await?.left_micros.min(charged);
+    let (own, everyones) = allowance::own_and_everyones(tx).await?;
+    let free = own.min(everyones).min(charged);
     let entry = sqlx::query_scalar(
         "INSERT INTO credit_entries (user_id, kind, amount_micros, project_id, memo, detail,
                                      chat_turn_id)

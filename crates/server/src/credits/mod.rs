@@ -204,6 +204,23 @@ pub enum CreditError {
         /// What the shot would have reserved.
         needed: i64,
     },
+    /// A spend the user's own free allowance would have covered, refused
+    /// because every account together has spent the day's free ceiling
+    /// (#1658). Nothing was spent.
+    #[error(
+        "today's free credit for everyone is used up; it comes back tomorrow, or add credit \
+         to keep going. Your balance is {}, and this needs {} — nothing was sent to the \
+         provider.",
+        dollars(*balance),
+        dollars(*needed)
+    )]
+    FreeUsedUp {
+        /// What could be spent: the paid balance and what was left of the
+        /// ceiling.
+        balance: i64,
+        /// What the spend would have reserved.
+        needed: i64,
+    },
     /// A reservation that does not exist, or was already settled.
     #[error("reservation {0} is not open: it does not exist or was already settled")]
     NotOpen(i64),

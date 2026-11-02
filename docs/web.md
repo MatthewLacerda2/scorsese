@@ -137,7 +137,8 @@ document will not migrate.
   the operator can still record one by hand.
 - **Every account gets free credit** (#1530): $4 a Brasília day, at most $12
   a calendar month (`SCORSESE_FREE_DAILY`, `SCORSESE_FREE_MONTHLY`), spent
-  before the paid balance, paying users included. It is never deposited and
+  before the paid balance, paying users included, and at most $20 a day for
+  every account together (`SCORSESE_FREE_TOTAL_DAILY`, #1658). It is never deposited and
   never on a **Veo shot**, which only paid credit buys; the quote-and-ask
   stays even when it covers everything (*Credits*, *The free allowance*).
 - A generation the provider **failed** is free; one that **worked** is
@@ -198,6 +199,7 @@ provider keys use, and is documented in `.env.example`:
 | `SCORSESE_ASSISTANT_TURN_CAP` | The most one assistant turn on Sonnet 5.5 may cost a user, in dollars: `2.50`. Defaults to `3.50`. Every other model's cap scales from it with its rates (*Assistant turns*, *Money*): at `3.50`, about `7.00` on Opus 5.5 and `17.50` on Fable 5.1. |
 | `SCORSESE_FREE_DAILY` | What every account may spend free each Brasília day, in dollars: `4.00`. Defaults to `4.00`; `0` gives nothing away (*Credits*, *The free allowance*). |
 | `SCORSESE_FREE_MONTHLY` | The most every account may spend free in a calendar month, in dollars. Defaults to `12.00`. |
+| `SCORSESE_FREE_TOTAL_DAILY` | The most every account together may spend free each Brasília day, in dollars. Defaults to `20.00`; once spent, free spend pauses for everyone until the next day, and paid credit is not affected. |
 | `SCORSESE_RECHARGE_BONUS` | The bonus credit on larger purchases, as tiers of whole reais and percent: `40:5,80:10`, or `none` (*Buying credits*). Defaults to `40:5,80:10`. Each tier starts higher and gives more than the last, at most `100`, or the server will not start. |
 | `SCORSESE_ELEVENLABS_CONCURRENCY` | How many ElevenLabs calls may be in flight at once, every kind of job together (*The job queue*): the plan's concurrent requests. Defaults to `3`, Starter's; Free allows `2`. A whole number above zero, or the server will not start. |
 | `SCORSESE_USER_TURNS` | How many assistant turns one account may have running at once, every project and conversation together (*Assistant turns*). Defaults to `2`: a person and a second tab. A whole number above zero, or the server will not start. |
@@ -1332,8 +1334,8 @@ so turns at once share the last dollar rather than each spending it
 may spend **$4 a day, at most $12 a calendar month**, for nothing, both
 counted in **Brasília time** (`America/Sao_Paulo`: the day turns at 00:00
 there, the month on the 1st). Real dollars, for reach; paying users keep it.
-The figures are configuration (`SCORSESE_FREE_DAILY`, `SCORSESE_FREE_MONTHLY`),
-which the server writes to the one-row `free_allowance` table as it starts, so
+The figures are configuration (`SCORSESE_FREE_DAILY`, `SCORSESE_FREE_MONTHLY`,
+`SCORSESE_FREE_TOTAL_DAILY`), which the server writes to the one-row `free_allowance` table as it starts, so
 the ledger reads them in SQL; a database no server has started holds zero.
 `credits::allowance` carries the argument:
 
@@ -1342,7 +1344,17 @@ the ledger reads them in SQL; a database no server has started holds zero.
   `allowance` entry settling it. Nothing unspent is ever granted, so nothing
   expires, paid credit still never does, and a balance is still the sum of
   the entries: the **paid balance**. What is left free now is the less of
-  the day's and the month's figure minus the grants of that day and month.
+  the day's and the month's figure minus the grants of that day and month,
+  and never more than what is left of the day's ceiling for everyone.
+- **One ceiling for everyone** (#1658): all accounts together are granted at
+  most `SCORSESE_FREE_TOTAL_DAILY` a Brasília day, so free spend cannot grow
+  with the number of accounts. Once it is spent, a spend the user's own
+  allowance would have covered is refused with *today's free credit for
+  everyone is used up; it comes back tomorrow, or add credit to keep going*,
+  and an assistant call is paid from the paid balance. A spend that may be
+  granted takes one server-wide lock after the user's own, so the check and
+  the grant are one decision; the sum is read through a database function
+  that crosses users and answers only the total.
 - **Free first, then paid**, decided under the same lock as a reservation, so
   two spends at once cannot both use the last free dollar.
 - **Never a Veo shot.** A shot is reserved and charged from the paid balance
