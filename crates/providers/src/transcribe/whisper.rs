@@ -1,6 +1,8 @@
 //! The server behind a trait.
 
 use std::str::FromStr;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::Duration;
 
@@ -49,9 +51,9 @@ pub struct Heard {
 /// Somewhere speech can be heard.
 pub trait Transcriber {
     /// Hears `wav`, in `language` when one is forced — or, once `stop` says
-    /// so, throws the answer away: [`TranscribeError::Stopped`], returned
-    /// when the hearing has let the request go, so a caller rationing it
-    /// knows when it is free.
+    /// so, gives it up: [`TranscribeError::Stopped`]. A transcriber that
+    /// waits a stopped request out says so where it is made
+    /// ([`Whisper::waiting_out`]).
     fn transcribe(
         &self,
         wav: Vec<u8>,
@@ -104,35 +106,55 @@ impl FromStr for Language {
 pub struct Whisper {
     api: Transcriptions,
     address: String,
+    waits_out: bool,
 }
 
 impl Whisper {
-    /// The server at `address` (`http://host:port`).
+    /// The server at `address` (`http://host:port`); a stop returns at once
+    /// and closes the request's connection, sent or still sending.
     pub fn new(address: &str) -> Self {
         Self {
             api: Transcriptions::new(address),
             address: address.to_owned(),
+            waits_out: false,
+        }
+    }
+
+    /// [`Whisper::new`], but a stop after the request is sent returns only
+    /// once the server has let it go — answered, refused or closed it, its
+    /// answer thrown away. The server finishes what it began on its own
+    /// cores whether or not the connection is closed, so whoever rations it
+    /// (the web app's one transcription slot, #1651) holds it until then.
+    pub fn waiting_out(address: &str) -> Self {
+        Self {
+            waits_out: true,
+            ..Self::new(address)
         }
     }
 }
 
 impl Transcriber for Whisper {
     /// The request runs on a thread of its own, waited on until it answers;
-    /// `stop` is looked at every tenth of a second. Stopped, its answer is
-    /// thrown away, but the call returns only once the server has let the
-    /// request go — answered, refused or closed it: the server finishes what
-    /// it began on its own two cores (`deploy/compose.yaml`) whether or not
-    /// the connection is closed, so the connection is kept and whoever
-    /// rations the server (a job's slot) holds it until then.
+    /// `stop` is looked at before it is sent and every tenth of a second
+    /// after. Stopped before it is sent, nothing is sent. Stopped after, its
+    /// answer is thrown away: by default the call returns at once and the
+    /// thread's request ends within a tenth of a second, the connection
+    /// closed and the WAV dropped with the thread; [`Whisper::waiting_out`]
+    /// instead returns once the server has let the request go.
     fn transcribe(
         &self,
         wav: Vec<u8>,
         language: Option<&Language>,
         stop: &dyn Fn() -> bool,
     ) -> Result<Heard, TranscribeError> {
+        if stop() {
+            return Err(TranscribeError::Stopped);
+        }
         let within = within(wav.len());
         let forced = language.map(|code| code.as_str().to_owned());
         let api = self.api.clone();
+        let stopped = Arc::new(AtomicBool::new(false));
+        let sending = Arc::clone(&stopped);
         let (answer, answered) = mpsc::channel();
         std::thread::spawn(move || {
             let request = Request {
@@ -140,12 +162,16 @@ impl Transcriber for Whisper {
                 model: MODEL,
                 language: forced.as_deref(),
             };
-            let _ = answer.send(api.transcribe(request, within));
+            let _ = answer.send(api.transcribe(request, within, &sending));
         });
         let reply = loop {
             if stop() {
-                // Waits out the request, bounded by `within` as it is.
-                let _ = answered.recv();
+                if self.waits_out {
+                    // Bounded by `within`, as the request is.
+                    let _ = answered.recv();
+                } else {
+                    stopped.store(true, Ordering::SeqCst);
+                }
                 return Err(TranscribeError::Stopped);
             }
             match answered.recv_timeout(LISTEN_FOR_STOP) {
