@@ -45,7 +45,8 @@ test("a displaced stream reopens when its page is next shown, and resyncs", () =
   setVisibility("hidden");
   const mounted = render(<Listening heard={heard} />);
   expect(FakeSource.opened).toHaveLength(1);
-  const first = FakeSource.opened[0];
+  const [first] = FakeSource.opened;
+  if (!first) throw new Error("no stream opened");
 
   act(() => first.say({ type: "displaced" }));
   expect(first.closed).toBe(true);
