@@ -18,6 +18,14 @@
 //!   audio without any reverb, artifacts, or background noise of any kind is
 //!   recommended", and "Avoid recording more than 3 minutes, this will yield
 //!   little improvement" — [`RECOMMENDED_SECONDS`], [`ENOUGH_SECONDS`].
+//! - **No ceiling** (re-read 2026-11-02): neither page states a maximum
+//!   number of files, size or length, and the help centre's "How many voice
+//!   samples should I upload" says "We don't have any set rules when it comes
+//!   to number of samples or length", adding that more than 2–3 minutes
+//!   "will yield little improvement". So the ceilings a clone is held to are
+//!   ours — [`MAX_RECORDINGS`], [`MAX_RECORDING_SECONDS`],
+//!   [`MAX_RECORDING_BYTES`] — each far past what the vendor says helps, and
+//!   there only so a request cannot be read into memory without end.
 //! - **Consent**: the vendor's own app asks a person to "confirm that you
 //!   have the right and consent to clone the voice" before saving one; its
 //!   terms are [`TERMS`] and [`USE_POLICY`]. The API takes no such field, so
@@ -41,6 +49,18 @@ pub const RECOMMENDED_SECONDS: std::ops::RangeInclusive<f64> = 60.0..=120.0;
 /// Past this many seconds of recording, the vendor says, more "will yield
 /// little improvement".
 pub const ENOUGH_SECONDS: f64 = 180.0;
+
+/// The most recordings one clone is made from. The vendor sets none (the
+/// module doc); a person reading for one to three minutes makes a handful.
+pub const MAX_RECORDINGS: usize = 25;
+
+/// The most speech one clone is made from, in seconds: ten minutes, over
+/// three times what the vendor says still helps ([`ENOUGH_SECONDS`]).
+pub const MAX_RECORDING_SECONDS: f64 = 600.0;
+
+/// The most bytes one clone sends, its recordings together: 200 MB, ten
+/// minutes of uncompressed CD-quality stereo with room to spare.
+pub const MAX_RECORDING_BYTES: u64 = 200 * 1024 * 1024;
 
 /// ElevenLabs' terms of use, which cloning a voice is bound by.
 pub const TERMS: &str = "https://elevenlabs.io/terms-of-use";

@@ -18,18 +18,29 @@
 //! opened or when it is saved — is [`Refusal::Moved`], the conflict rule the
 //! projects API keeps (#534).
 //!
+//! **The call holds one of the member's permits throughout, and has a
+//! deadline** (`super::bound`): the permit goes into the blocking work, so it
+//! is let go only when that work has ended, and the work is waited on only
+//! until the deadline, after which the tool is told to stop and the caller is
+//! told why. The deadline covers the tool's own work, never a save in
+//! flight, so a call stopped by it has saved nothing.
+//!
 //! The folder's own path never reaches the caller. It is where this machine
 //! happened to put a copy for a moment — meaningless to a client, and a
 //! detail of the server nobody outside it needs.
 
 use std::sync::Arc;
 
+use tokio::sync::OwnedSemaphorePermit;
+use tokio::time::Instant;
+
 use scorsese_core::{PROJECT_FILE_NAME, Project, ProjectPath};
 use scorsese_mcp::{PagesAhead, Part, Reply, Tool};
+use scorsese_render::Cancel;
 use serde_json::Value;
 
 use super::surface::Serve;
-use super::{Caller, Refusal, bakes, database, fetched, lay_out, log, project_id, voiced};
+use super::{Caller, Refusal, bakes, bound, database, fetched, lay_out, log, project_id, voiced};
 use crate::captures::still::StillPages;
 use crate::jobs::blocking;
 use crate::projects::{self, ProjectError, files};
@@ -37,13 +48,17 @@ use crate::projects::{self, ProjectError, files};
 /// How many times a call is run again on a project that moved under it.
 const ATTEMPTS: usize = 3;
 
-/// Run `tool` for `caller` on the project `arguments` names.
+/// Run `tool` for `caller` on the project `arguments` names, holding
+/// `permit` until its work has ended.
 pub(super) async fn run(
     caller: &Caller<'_>,
     tool: &dyn Tool,
     serve: Serve,
     arguments: &Value,
+    permit: Arc<OwnedSemaphorePermit>,
 ) -> Result<Reply, Refusal> {
+    let deadline = caller.toolbox.bounds.deadline();
+    let until = Instant::now() + deadline;
     let id = project_id(arguments)?;
     held(serve, arguments)?;
     if tool.name() == "voices" {
@@ -86,23 +101,36 @@ pub(super) async fn run(
         // off the server's async threads. Every tool is `Send + Sync`, but a
         // `&dyn` cannot cross into the blocking pool; the registry hands out
         // a fresh one by name.
-        let (name, cancel) = (tool.name(), caller.cancel.clone());
+        let (name, stop) = (tool.name(), Cancel::new());
+        let cancel = stop.clone();
         let stock = toolbox.libraries(caller.user);
         let (opened_with, laid) = (stored.document.clone(), kept.clone());
         let pages = pages.clone().map(|pages| pages as Arc<dyn PagesAhead>);
+        let held = permit.clone();
+        let working = blocking("the tool crashed on the server; that is a bug", move || {
+            let _held = held;
+            let tool = super::registered(name, Some(stock), Some(&cache), pages)
+                .ok_or("the tool went missing")?;
+            let outcome = tool.call_cancellable(&local, &cancel);
+            let after = std::fs::read_to_string(root.join(PROJECT_FILE_NAME))
+                .ok()
+                .and_then(|after| Project::from_json(&after).ok().map(|read| (after, read)));
+            let reading = after.as_ref().map_or(&opened_with, |(_, read)| read);
+            let gathered = files::gather(&root, reading, &laid);
+            Ok::<_, String>((outcome, after, gathered))
+        });
         let (outcome, after, gathered) =
-            blocking("the tool crashed on the server; that is a bug", move || {
-                let tool = super::registered(name, Some(stock), Some(&cache), pages)
-                    .ok_or("the tool went missing")?;
-                let outcome = tool.call_cancellable(&local, &cancel);
-                let after = std::fs::read_to_string(root.join(PROJECT_FILE_NAME))
-                    .ok()
-                    .and_then(|after| Project::from_json(&after).ok().map(|read| (after, read)));
-                let reading = after.as_ref().map_or(&opened_with, |(_, read)| read);
-                let gathered = files::gather(&root, reading, &laid);
-                Ok::<_, String>((outcome, after, gathered))
-            })
-            .await??;
+            match bound::within(Box::pin(working), until, &caller.cancel, &stop).await {
+                Ok(worked) => worked??,
+                Err(working) => {
+                    // Its folder outlasts the work still running in it.
+                    tokio::spawn(async move {
+                        let _ = working.await;
+                        drop(folder);
+                    });
+                    return Err(bound::overran(deadline).into());
+                }
+            };
 
         let outcome = hide(outcome, folder.root(), &kept_at).map_err(Refusal::Said);
         let gathered = gathered.map_err(|why| format!("{why} — nothing was saved"))?;

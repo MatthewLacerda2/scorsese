@@ -59,7 +59,8 @@ impl Song {
         self.check_automation()?;
         self.check_feel()?;
         super::timing::check(self)?;
-        super::anchor::check(self)
+        super::anchor::check(self)?;
+        super::cap::check(self, key.as_ref())
     }
 
     /// Who is keyed from whom.
