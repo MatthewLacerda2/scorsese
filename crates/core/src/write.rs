@@ -228,11 +228,14 @@ pub fn fresh_dir_beside(path: &Path, suffix: &str) -> io::Result<PathBuf> {
 ///
 /// If what was there cannot be removed, or the folder cannot be made.
 pub fn remade_dir(path: &Path) -> io::Result<()> {
-    match fs::symlink_metadata(path) {
-        Ok(meta) if meta.is_dir() => fs::remove_dir_all(path)?,
-        Ok(_) => fs::remove_file(path)?,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-        Err(error) => return Err(error),
+    // Nothing there, or nothing that can be looked at: `create_dir` says
+    // which.
+    if let Ok(meta) = fs::symlink_metadata(path) {
+        if meta.is_dir() {
+            fs::remove_dir_all(path)?;
+        } else {
+            fs::remove_file(path)?;
+        }
     }
     fs::create_dir(path)
 }

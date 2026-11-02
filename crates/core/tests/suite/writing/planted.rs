@@ -122,10 +122,16 @@ fn a_remade_folder_clears_what_was_there_and_follows_no_link() {
     std::fs::write(left.join("mix.pcm"), "a killed render's").unwrap();
     symlink(outside.join("kept.txt"), left.join("partial")).unwrap();
 
+    let file = dir.join(".cut.mp4.partial");
+    std::fs::write(&file, "an older build's").unwrap();
+    let missing = dir.join(".new.mp4.rendering");
+
     remade_dir(&linked).expect("a folder in the link's place");
     remade_dir(&left).expect("the leftover cleared");
+    remade_dir(&file).expect("a folder in the file's place");
+    remade_dir(&missing).expect("a folder where there was none");
 
-    for made in [&linked, &left] {
+    for made in [&linked, &left, &file, &missing] {
         let meta = std::fs::symlink_metadata(made).unwrap();
         assert!(meta.is_dir() && !meta.file_type().is_symlink());
         assert_eq!(std::fs::read_dir(made).unwrap().count(), 0);
