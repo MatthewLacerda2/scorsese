@@ -193,6 +193,14 @@ mod tests {
 
         assert_eq!(kept.len(), 1);
         assert_eq!(kept[0].request.page, "pages/short.html");
+        // Exactly the budget is within it.
+        let (kept, _) = split(
+            vec![wanted("pages/one.html", 1)],
+            1_036_800,
+            u64::MAX,
+            |_| false,
+        );
+        assert_eq!(kept.len(), 1);
         let why = &refused["pages/long.html"];
         assert!(why.contains("too long to capture"), "{why}");
     }
