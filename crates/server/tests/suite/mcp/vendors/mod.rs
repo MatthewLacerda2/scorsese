@@ -13,7 +13,7 @@ mod whisper;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use scorsese_render::testing::generate;
@@ -53,6 +53,9 @@ pub(super) struct Mock {
     pub(super) deaf: bool,
     /// The Whisper listens until it is stopped.
     pub(super) hang: bool,
+    /// Stopped while it hangs, the Whisper still lets the request go only
+    /// once this is set, as a real one finishes what it began.
+    pub(super) late: Option<Arc<AtomicBool>>,
     /// The Whisper answers with this status, and what speaches says with it.
     pub(super) refuses: Option<u16>,
     /// Veo cannot be reached, as on a server with no Gemini key.
