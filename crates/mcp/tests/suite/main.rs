@@ -6,5 +6,6 @@
 mod described;
 mod neutral;
 mod protocol;
+mod stocking;
 mod table;
 mod unknown;
