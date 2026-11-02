@@ -45,6 +45,9 @@ use crate::captures::still::StillPages;
 use crate::jobs::blocking;
 use crate::projects::{self, ProjectError, files};
 
+/// What a call stopped before its tool ran is answered with.
+pub(super) const CANCELLED: &str = "cancelled before it ran, so nothing was changed";
+
 /// How many times a call is run again on a project that moved under it.
 const ATTEMPTS: usize = 3;
 
@@ -72,9 +75,11 @@ pub(super) async fn run(
     let attempts = if caller.at.is_some() { 1 } else { ATTEMPTS };
     for _ in 0..attempts {
         if caller.cancel.is_cancelled() {
-            return Err("cancelled before it ran, so nothing was changed"
-                .to_owned()
-                .into());
+            return Err(CANCELLED.to_owned().into());
+        }
+        // A retry is a new run of the tool, which the deadline covers too.
+        if Instant::now() >= until {
+            return Err(bound::overran(deadline).into());
         }
         let (stored, kept) = projects::open_with_files(&toolbox.pool, caller.user, id)
             .await

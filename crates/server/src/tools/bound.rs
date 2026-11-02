@@ -54,8 +54,13 @@ impl Bounds {
         }
     }
 
-    /// One of `user`'s permits, once one is free.
-    pub(super) async fn permit(&self, user: UserId) -> Arc<OwnedSemaphorePermit> {
+    /// One of `user`'s permits, once one is free — or `None` once `asked` is
+    /// tripped while it waits, so a Stop reaches a call still in line.
+    pub(super) async fn permit(
+        &self,
+        user: UserId,
+        asked: &Cancel,
+    ) -> Option<Arc<OwnedSemaphorePermit>> {
         let semaphore = {
             let mut held = self
                 .held
@@ -65,11 +70,20 @@ impl Bounds {
                 .or_insert_with(|| Arc::new(Semaphore::new(self.at_once)))
                 .clone()
         };
-        let permit = semaphore
-            .acquire_owned()
-            .await
-            .expect("a member's semaphore is never closed");
-        Arc::new(permit)
+        let mut acquiring = Box::pin(semaphore.acquire_owned());
+        loop {
+            if asked.is_cancelled() {
+                return None;
+            }
+            tokio::select! {
+                biased;
+                permit = &mut acquiring => {
+                    let permit = permit.expect("a member's semaphore is never closed");
+                    return Some(Arc::new(permit));
+                }
+                () = tokio::time::sleep(LOOK) => {}
+            }
+        }
     }
 
     /// How long one call may run.
@@ -97,6 +111,8 @@ pub(super) async fn within<F: Future + Unpin>(
         }
         let next = (Instant::now() + LOOK).min(until);
         tokio::select! {
+            // Work that is done by the deadline is answered, never thrown away.
+            biased;
             done = &mut working => return Ok(done),
             () = tokio::time::sleep_until(next) => {
                 if Instant::now() >= until {
@@ -130,15 +146,42 @@ mod tests {
     #[tokio::test]
     async fn a_member_past_their_permits_waits_and_another_does_not() {
         let bounds = Bounds::new(2, Duration::from_secs(1));
-        let (ana, bob) = (UserId::from_row(1), UserId::from_row(2));
-        let held = [bounds.permit(ana).await, bounds.permit(ana).await];
-        let third = tokio::time::timeout(Duration::from_millis(50), bounds.permit(ana)).await;
+        let (ana, bob, asked) = (UserId::from_row(1), UserId::from_row(2), Cancel::new());
+        let held = [
+            bounds.permit(ana, &asked).await,
+            bounds.permit(ana, &asked).await,
+        ];
+        let wait = Duration::from_millis(200);
+        let third = tokio::time::timeout(wait, bounds.permit(ana, &asked)).await;
         assert!(third.is_err(), "ana's third waits");
-        let other = tokio::time::timeout(Duration::from_millis(50), bounds.permit(bob)).await;
-        assert!(other.is_ok(), "bob has permits of his own");
+        let other = tokio::time::timeout(wait, bounds.permit(bob, &asked)).await;
+        assert!(
+            other.is_ok_and(|it| it.is_some()),
+            "bob has permits of his own"
+        );
         drop(held);
-        let freed = tokio::time::timeout(Duration::from_millis(50), bounds.permit(ana)).await;
-        assert!(freed.is_ok(), "a permit let go is ana's again");
+        let freed = tokio::time::timeout(wait, bounds.permit(ana, &asked)).await;
+        assert!(
+            freed.is_ok_and(|it| it.is_some()),
+            "a permit let go is ana's again"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_call_stopped_while_it_waits_for_a_permit_stops_waiting() {
+        let bounds = Bounds::new(1, Duration::from_secs(1));
+        let (ana, asked) = (UserId::from_row(1), Cancel::new());
+        let _held = bounds.permit(ana, &Cancel::new()).await;
+        let stopping = asked.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(30)).await;
+            stopping.cancel();
+        });
+        let waited = tokio::time::timeout(Duration::from_secs(5), bounds.permit(ana, &asked)).await;
+        assert!(
+            waited.is_ok_and(|it| it.is_none()),
+            "stopped, not given one"
+        );
     }
 
     #[tokio::test]

@@ -41,6 +41,14 @@ fn a_loop_fit_cannot_ask_for_more_than_ten_minutes() {
 }
 
 #[test]
+fn a_loop_cut_at_ten_minutes_is_not_counted_by_its_whole_passes() {
+    // Seven seconds a pass: 86 passes are 602 s, cut to 600.
+    let mut song = lasting(7.0);
+    song.fit = Some(Fit::lasting(600.0, FitMode::Loop));
+    assert_eq!(song.validate(), Ok(()));
+}
+
+#[test]
 fn a_note_placed_far_past_its_pattern_counts_toward_the_length() {
     let mut song = lasting(4.0);
     let verse = song
