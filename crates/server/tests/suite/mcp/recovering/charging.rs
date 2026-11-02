@@ -38,8 +38,10 @@ async fn a_kept_line_given_up_on_is_charged_once(pool: PgPool) {
         .bind(MAX_ATTEMPTS)
         .execute(&pool)
         .await
-        .unwrap();
-    store::recover(&state.pool).await.unwrap();
+        .expect("the database answers");
+    store::recover(&state.pool)
+        .await
+        .expect("the database answers");
     assert_eq!(settled(&state, ana).await, vec!["failed"]);
     charged_once(&pool, &mock, ana).await;
 }
@@ -63,7 +65,7 @@ async fn stopped_before_the_charge(pool: &PgPool, mock: &Mock) -> (AppState, Fil
         .bind(GATE)
         .fetch_one(pool)
         .await
-        .unwrap()
+        .expect("the database answers")
     };
     for _ in 0..400 {
         if waiting().await > 0 {
@@ -75,15 +77,15 @@ async fn stopped_before_the_charge(pool: &PgPool, mock: &Mock) -> (AppState, Fil
     let kept: i64 = sqlx::query_scalar("SELECT count(*) FROM library_items")
         .fetch_one(pool)
         .await
-        .unwrap();
+        .expect("the database answers");
     assert!(kept >= 1, "the line is kept before it is charged");
 
     // The server stops with the line kept and its charge not committed.
-    first.send(true).unwrap();
+    first.send(true).expect("the worker listens");
     tokio::time::sleep(Duration::from_millis(200)).await;
     gate.execute(sqlx::query("SELECT pg_advisory_unlock($1)").bind(GATE))
         .await
-        .unwrap();
+        .expect("the database answers");
     (state, files, ana)
 }
 
@@ -94,7 +96,7 @@ async fn charged_once(pool: &PgPool, mock: &Mock, ana: UserId) {
         sqlx::query_scalar("SELECT amount_micros FROM credit_entries WHERE kind = 'charge'")
             .fetch_all(pool)
             .await
-            .unwrap();
+            .expect("the database answers");
     assert_eq!(charges.len(), 1, "charged once: {charges:?}");
     assert_eq!(balance(pool, ana).await, FUNDED + charges[0]);
 }
@@ -106,16 +108,16 @@ async fn gate_charges(pool: &PgPool) -> sqlx::PgConnection {
          BEGIN PERFORM pg_advisory_xact_lock_shared(1645); RETURN NEW; END $$",
     )
     .await
-    .unwrap();
+    .expect("the database answers");
     pool.execute(
         "CREATE TRIGGER gate_charge BEFORE INSERT ON credit_entries
          FOR EACH ROW WHEN (NEW.kind = 'charge') EXECUTE FUNCTION gate_charge()",
     )
     .await
-    .unwrap();
-    let mut held = pool.acquire().await.unwrap().detach();
+    .expect("the database answers");
+    let mut held = pool.acquire().await.expect("the database answers").detach();
     held.execute(sqlx::query("SELECT pg_advisory_lock($1)").bind(GATE))
         .await
-        .unwrap();
+        .expect("the database answers");
     held
 }

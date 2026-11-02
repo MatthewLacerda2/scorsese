@@ -36,10 +36,15 @@ async fn a_job_given_up_on_lets_go_of_its_reservation(pool: PgPool) {
         .bind(MAX_ATTEMPTS)
         .execute(&pool)
         .await
-        .unwrap();
-    store::recover(&state.pool).await.unwrap();
+        .expect("the database answers");
+    store::recover(&state.pool)
+        .await
+        .expect("the database answers");
 
-    let view = store::get(&state.pool, ana, job).await.unwrap().unwrap();
+    let view = store::get(&state.pool, ana, job)
+        .await
+        .expect("the database answers")
+        .expect("the database answers");
     assert_eq!(format!("{:?}", view.state), "Failed");
     assert!(!open(&pool, ana, job).await, "released with the give-up");
     assert_eq!(balance(&pool, ana).await, FUNDED, "nothing was charged");
@@ -59,7 +64,7 @@ async fn a_line_stopped_mid_call_is_never_spoken_again_and_ends_released(pool: P
     until("the line is asked for", || mock.spoken() == 1).await;
 
     // The server stops with the call out; ElevenLabs answers into nothing.
-    first.send(true).unwrap();
+    first.send(true).expect("the worker listens");
     tokio::time::sleep(Duration::from_millis(200)).await;
     mock.hold.store(false, Ordering::SeqCst);
     let _second = work(&pool, &state, &files, &mock, ElevenLabs::default());
@@ -87,21 +92,25 @@ pub(super) async fn only_job(pool: &PgPool) -> i64 {
     sqlx::query_scalar("SELECT id FROM jobs WHERE kind = 'spoken_line'")
         .fetch_one(pool)
         .await
-        .unwrap()
+        .expect("the database answers")
 }
 
 /// Whether job `job` still holds a reservation of `user`'s.
 pub(super) async fn open(pool: &PgPool, user: UserId, job: i64) -> bool {
-    let mut tx = db::scoped(pool, user).await.unwrap();
-    let paid = generations::for_job(&mut tx, job).await.unwrap();
-    tx.commit().await.unwrap();
+    let mut tx = db::scoped(pool, user).await.expect("the database answers");
+    let paid = generations::for_job(&mut tx, job)
+        .await
+        .expect("the database answers");
+    tx.commit().await.expect("the database answers");
     paid.is_some()
 }
 
 /// `user`'s paid balance.
 pub(super) async fn balance(pool: &PgPool, user: UserId) -> i64 {
-    let mut tx = db::scoped(pool, user).await.unwrap();
-    let balance = ledger::balance(&mut tx).await.unwrap();
-    tx.commit().await.unwrap();
+    let mut tx = db::scoped(pool, user).await.expect("the database answers");
+    let balance = ledger::balance(&mut tx)
+        .await
+        .expect("the database answers");
+    tx.commit().await.expect("the database answers");
     balance
 }
