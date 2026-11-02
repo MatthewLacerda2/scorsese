@@ -19,6 +19,7 @@ mod manage;
 mod midi;
 mod pages;
 mod peaks;
+mod playlists;
 mod proxies;
 mod quota;
 mod upload;

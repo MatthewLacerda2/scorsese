@@ -77,6 +77,7 @@ mod tests {
     fn photographic(ffmpeg: &Tools) -> Vec<u8> {
         let out = ffmpeg
             .ffmpeg()
+            // lint: allow(ffmpeg-input) a lavfi graph, not a file
             .args(["-nostdin", "-v", "error", "-f", "lavfi", "-i"])
             .arg("mandelbrot=s=1280x720,noise=alls=12:allf=t")
             .args(["-frames:v", "1", "-c:v", "png", "-f", "image2pipe", "-"])
@@ -139,6 +140,7 @@ mod tests {
         let ffmpeg = Tools::discover().expect("ffmpeg is on PATH");
         let out = ffmpeg
             .ffmpeg()
+            // lint: allow(ffmpeg-input) a lavfi graph, not a file
             .args(["-nostdin", "-v", "error", "-f", "lavfi", "-i"])
             .arg("testsrc=s=1600x1200")
             .args(["-frames:v", "1", "-c:v", "tiff", "-compression_algo", "raw"])

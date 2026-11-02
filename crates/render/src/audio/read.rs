@@ -35,7 +35,7 @@ use scorsese_core::probe::ProbeMedia;
 use crate::error::{RenderError, Stage};
 use crate::pipe::{ALIGN_TO_FILE_CLOCK, Process, SAMPLE_FORMAT};
 use crate::probe::Ffprobe;
-use crate::tools::Tools;
+use crate::tools::{Tools, input};
 
 /// The rate a file is analysed at, whatever it was recorded at.
 ///
@@ -88,10 +88,8 @@ pub(crate) fn decode(
 ) -> Result<(), RenderError> {
     let subject = file.display().to_string();
     let mut command = tools.ffmpeg();
-    command
-        .args(["-nostdin", "-v", "error"])
-        .arg("-i")
-        .arg(file)
+    command.args(["-nostdin", "-v", "error"]);
+    input::media(&mut command, file)
         .args(["-af", ALIGN_TO_FILE_CLOCK])
         .args(["-vn", "-ar", &ANALYSIS_RATE.to_string()])
         .args(["-ac", &channels.to_string()])

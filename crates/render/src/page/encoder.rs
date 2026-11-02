@@ -35,9 +35,10 @@ impl Encoder {
                 "-framerate",
                 &rate,
             ])
-            .args([
-                "-c:v", "png", "-i", "-", "-c:v", "ffv1", "-pix_fmt", "bgra", "-f", "matroska",
-            ])
+            .args(["-c:v", "png"])
+            // lint: allow(ffmpeg-input) the browser's screenshots this program pipes, in the format it names
+            .args(["-i", "-"])
+            .args(["-c:v", "ffv1", "-pix_fmt", "bgra", "-f", "matroska"])
             .arg(out)
             .stdin(Stdio::piped())
             .stdout(Stdio::null())

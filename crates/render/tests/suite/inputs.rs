@@ -18,7 +18,7 @@ use common::scratch;
 fn list_named_as_media(dir: &Path) -> std::path::PathBuf {
     colour_video(&tools(), &dir.join("shot.mp4"), "red", "64x64", 1);
     let list = dir.join("list.mp4");
-    std::fs::write(&list, "ffconcat version 1.0\nfile shot.mp4\n").unwrap();
+    std::fs::write(&list, "ffconcat version 1.0\nfile shot.mp4\n").expect("the list writes");
     list
 }
 
@@ -38,7 +38,7 @@ fn a_name_that_reads_as_a_protocol_opens_only_the_file_so_named() {
     probe.args(["stream=width", "-of", "csv=p=0"]);
     let output = input::media(&mut probe, Path::new("concat:a.mp4|b.mp4"))
         .output()
-        .unwrap();
+        .expect("ffprobe runs");
     std::fs::remove_dir_all(&dir).ok();
     let said = String::from_utf8_lossy(&output.stdout);
     assert!(
@@ -64,7 +64,7 @@ fn an_hls_playlist_named_as_media_is_refused_by_the_probe() {
     colour_video(&tools(), &dir.join("shot.mp4"), "red", "64x64", 1);
     let playlist = dir.join("playlist.mp4");
     let lines = "#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXTINF:1,\nshot.mp4\n#EXT-X-ENDLIST\n";
-    std::fs::write(&playlist, lines).unwrap();
+    std::fs::write(&playlist, lines).expect("the playlist writes");
     let probed = Ffprobe::new(tools()).probe(&playlist);
     std::fs::remove_dir_all(&dir).ok();
     assert!(probed.is_err(), "{probed:?}");
@@ -77,7 +77,7 @@ fn a_picture_named_as_a_numbered_pattern_is_refused_by_the_probe() {
     let tools = tools();
     let dir = scratch::dir("probed-pattern");
     scorsese_render::testing::still(&tools, &dir.join("card1.jpg"), "red", "16x16");
-    std::fs::copy(dir.join("card1.jpg"), dir.join("card%d.jpg")).unwrap();
+    std::fs::copy(dir.join("card1.jpg"), dir.join("card%d.jpg")).expect("the copy writes");
     let probed = Ffprobe::new(tools).probe(&dir.join("card%d.jpg"));
     std::fs::remove_dir_all(&dir).ok();
     let error = probed.expect_err("a pattern is not a picture");
@@ -88,7 +88,7 @@ fn a_picture_named_as_a_numbered_pattern_is_refused_by_the_probe() {
 fn a_list_named_as_media_placed_in_a_project_fails_to_decode() {
     let dir = scratch::dir("decoded-list");
     let list = list_named_as_media(&dir);
-    let decoded = extract(&tools(), &list, 0, Resolution::new(64, 64).unwrap());
+    let decoded = extract(&tools(), &list, 0, Resolution::new(64, 64).expect("a size"));
     std::fs::remove_dir_all(&dir).ok();
     assert!(decoded.is_err(), "the list's shot was decoded");
 }

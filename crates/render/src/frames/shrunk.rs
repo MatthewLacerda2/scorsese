@@ -11,13 +11,12 @@
 //! Through ffmpeg like every other picture here, over pipes, so nothing is
 //! left on disk.
 
-use std::ffi::OsStr;
 use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
 
 use super::{FrameError, stderr_of};
-use crate::tools::Tools;
+use crate::tools::{Tools, input};
 
 /// The longest edge, in pixels, a picture for a model keeps. Anthropic's own
 /// guidance: larger images are scaled down to it before the model reads them.
@@ -42,7 +41,7 @@ pub fn for_a_model(tools: &Tools, picture: &[u8]) -> Result<Vec<u8>, FrameError>
         file: file.to_path_buf(),
         source,
     };
-    let mut child = shrinking(tools, "-".as_ref(), MODEL_EDGE)
+    let mut child = shrinking(tools, None, MODEL_EDGE)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -70,7 +69,7 @@ pub fn for_a_model(tools: &Tools, picture: &[u8]) -> Result<Vec<u8>, FrameError>
 /// most `edge`. Read by its path, never piped: a piped uncompressed TIFF past
 /// a few megabytes is found to hold no picture at all.
 pub fn file_for_a_model(tools: &Tools, file: &Path, edge: u32) -> Result<Vec<u8>, FrameError> {
-    let output = shrinking(tools, file.as_os_str(), edge)
+    let output = shrinking(tools, Some(file), edge)
         .stdin(Stdio::null())
         .output()
         .map_err(|source| FrameError::Io {
@@ -80,9 +79,9 @@ pub fn file_for_a_model(tools: &Tools, file: &Path, edge: u32) -> Result<Vec<u8>
     shrunk(file, output)
 }
 
-/// ffmpeg reading the picture `input` and writing it to stdout as a JPEG no
+/// ffmpeg reading the picture in `file`, or on stdin when there is none, and writing it to stdout as a JPEG no
 /// longer than `edge`.
-fn shrinking(tools: &Tools, input: &OsStr, edge: u32) -> Command {
+fn shrinking(tools: &Tools, file: Option<&Path>, edge: u32) -> Command {
     // JPEG has no alpha, and dropping it shows whatever colour a transparent
     // pixel happens to hold, black as often as not: a transparent Lottie
     // preview went dark. So the picture is laid over white first, where a
@@ -93,20 +92,22 @@ fn shrinking(tools: &Tools, input: &OsStr, edge: u32) -> Command {
          [white][picture]overlay"
     );
     let mut command = tools.ffmpeg();
-    command
-        .args(["-nostdin", "-v", "error", "-i"])
-        .arg(input)
-        .args([
-            "-frames:v",
-            "1",
-            "-vf",
-            &fit,
-            "-c:v",
-            "mjpeg",
-            "-q:v",
-            QUALITY,
-        ])
-        .args(["-f", "image2pipe", "-"]);
+    command.args(["-nostdin", "-v", "error"]);
+    match file {
+        Some(file) => input::media(&mut command, file),
+        None => input::piped_media(&mut command),
+    }
+    .args([
+        "-frames:v",
+        "1",
+        "-vf",
+        &fit,
+        "-c:v",
+        "mjpeg",
+        "-q:v",
+        QUALITY,
+    ])
+    .args(["-f", "image2pipe", "-"]);
     command
 }
 

@@ -36,7 +36,7 @@ use scorsese_core::probe::{ProbeError, ProbeMedia};
 
 use crate::frames::FrameError;
 use crate::probe::Ffprobe;
-use crate::tools::Tools;
+use crate::tools::{Tools, input};
 use scorsese_compositor::Frame;
 
 pub use pictures::pictures;
@@ -141,9 +141,8 @@ fn decode(
     command
         .args(["-nostdin", "-v", "error"])
         .arg("-ss")
-        .arg(format!("{at_seconds:.3}"))
-        .arg("-i")
-        .arg(file)
+        .arg(format!("{at_seconds:.3}"));
+    input::media(&mut command, file)
         .args(["-frames:v", "1"])
         .args([
             "-vf",

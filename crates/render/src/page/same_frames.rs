@@ -83,10 +83,9 @@ const GLOW: &str = r##"<!doctype html>
 
 /// One hash per frame of a capture's file, in order.
 fn hashes(tools: &Tools, file: &Path) -> Vec<String> {
-    let out = tools
-        .ffmpeg()
-        .args(["-v", "error", "-i"])
-        .arg(file)
+    let mut command = tools.ffmpeg();
+    command.args(["-v", "error"]);
+    let out = crate::tools::input::media(&mut command, file)
         .args(["-f", "framemd5", "-"])
         .output()
         .expect("ffmpeg runs");

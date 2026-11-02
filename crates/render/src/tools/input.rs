@@ -46,6 +46,7 @@ pub const LISTING_FORMATS: [&str; 3] = ["hls", "dash", "concat"];
 /// protocol. Input options (`-ss`, `-loop`) go before it, as before any
 /// `-i`. Works for ffprobe too, which takes `-i` the same way.
 pub fn media<'c>(command: &'c mut Command, file: &Path) -> &'c mut Command {
+    command.args(["-format_whitelist", MEDIA_FORMATS]);
     own(command, file)
 }
 
@@ -54,7 +55,11 @@ pub fn media<'c>(command: &'c mut Command, file: &Path) -> &'c mut Command {
 /// command already forces (`-f f32le` for a mix this program wrote, `-f
 /// concat` for a list it wrote). Media from anywhere else takes [`media`].
 pub fn own<'c>(command: &'c mut Command, file: &Path) -> &'c mut Command {
-    command.arg("-i").arg(file)
+    command
+        .args(["-protocol_whitelist", PROTOCOLS])
+        // lint: allow(ffmpeg-input) the one place a file input is built
+        .arg("-i")
+        .arg(url(file))
 }
 
 /// Adds stdin to `command` as a media input, held to [`MEDIA_FORMATS`]:
@@ -103,6 +108,7 @@ mod tests {
                 MEDIA_FORMATS,
                 "-protocol_whitelist",
                 PROTOCOLS,
+                // lint: allow(ffmpeg-input) what the helper is expected to write
                 "-i",
                 &named
             ]
@@ -125,6 +131,7 @@ mod tests {
         let arguments = arguments(&command);
         assert_eq!(
             arguments[2..],
+            // lint: allow(ffmpeg-input) what the helper is expected to write
             ["-protocol_whitelist", "pipe", "-i", "pipe:0"]
         );
     }

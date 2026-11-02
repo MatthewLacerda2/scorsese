@@ -16,7 +16,7 @@ use crate::cancel::Cancel;
 use crate::error::{RenderError, Stage};
 use crate::pipe::{ALIGN_TO_FILE_CLOCK, Process};
 use crate::probe::Ffprobe;
-use crate::tools::Tools;
+use crate::tools::{Tools, input};
 
 /// The rate speech is sent at: what Whisper hears.
 pub const SPEECH_RATE: u32 = 16_000;
@@ -58,10 +58,8 @@ pub fn speech(
         });
     }
     let mut command = tools.ffmpeg();
-    command
-        .args(["-nostdin", "-v", "error"])
-        .arg("-i")
-        .arg(file)
+    command.args(["-nostdin", "-v", "error"]);
+    input::media(&mut command, file)
         .args(["-t", &format!("{longest:.3}")])
         .args(["-vn", "-af", ALIGN_TO_FILE_CLOCK])
         .args(["-ac", "1", "-ar", &SPEECH_RATE.to_string()])

@@ -17,7 +17,7 @@ use scorsese_core::{AssetId, AssetKind, GenerationState, PAGES_DIR, Project, Pro
 use super::{Traced, Tracing, trace};
 use crate::frames::{FrameError, raw_frame};
 use crate::probe::Ffprobe;
-use crate::tools::Tools;
+use crate::tools::{Tools, input};
 
 /// A picture larger than this across or down is traced at this size. Twice a
 /// generated image's own, and more than any drawing needs on a 1080p board.
@@ -181,10 +181,13 @@ pub fn read(tools: &Tools, file: &Path) -> Result<(Vec<u8>, usize, usize), Trace
     };
     let size = Resolution::new(width, height).map_err(|error| unreadable(error.to_string()))?;
     let mut command = tools.ffmpeg();
-    command
-        .args(["-nostdin", "-v", "error", "-i"])
-        .arg(file)
-        .args(["-frames:v", "1", "-vf", &format!("scale={width}:{height}")]);
+    command.args(["-nostdin", "-v", "error"]);
+    input::media(&mut command, file).args([
+        "-frames:v",
+        "1",
+        "-vf",
+        &format!("scale={width}:{height}"),
+    ]);
     let frame = raw_frame(command, file, size)?;
     Ok((frame.bytes().to_vec(), width as usize, height as usize))
 }

@@ -24,6 +24,7 @@ use std::process::{ChildStdin, Command};
 use scorsese_core::Fps;
 
 use crate::plan::Shot;
+use crate::tools::input;
 
 /// Which file each of `count` output frames shows, starting where `shot`
 /// does: `files` are the shot's stills in the sequence's order.
@@ -73,22 +74,19 @@ fn positions(
 
 /// Points `command` at a list arriving on stdin, ahead of `-i`.
 ///
-/// `file` and `pipe` are the two protocols the list needs: the stills are
-/// files, named absolutely, and the list itself is the pipe. `-safe 0` because
+/// `file` and `pipe` are the two protocols the list needs ([`input::PROTOCOLS`]):
+/// the stills are files, named absolutely, and the list itself is the pipe.
+/// Each still is held to the media formats, as any other input is, which the
+/// list's own demuxer passes on to every file it opens. `-safe 0` because
 /// an absolute path is what "unsafe" means to the demuxer.
 pub(super) fn input(command: &mut Command) {
-    command.args([
-        "-protocol_whitelist",
-        "file,pipe",
-        "-f",
-        "concat",
-        "-safe",
-        "0",
-        "-i",
-        "pipe:0",
-        "-fps_mode",
-        "passthrough",
-    ]);
+    let formats = format!("concat,{}", input::MEDIA_FORMATS);
+    command
+        .args(["-protocol_whitelist", input::PROTOCOLS])
+        .args(["-format_whitelist", &formats])
+        .args(["-f", "concat", "-safe", "0"])
+        // lint: allow(ffmpeg-input) the list arrives on stdin; each still in it is named `file:`
+        .args(["-i", "pipe:0", "-fps_mode", "passthrough"]);
 }
 
 /// The list as ffmpeg's `concat` demuxer reads it: every file once per frame

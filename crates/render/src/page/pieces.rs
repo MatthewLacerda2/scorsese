@@ -21,7 +21,7 @@ use super::request::Request;
 use super::told::Read;
 use crate::cancel::Cancel;
 use crate::error::Stage;
-use crate::tools::Tools;
+use crate::tools::{Tools, input};
 
 /// The fewest seconds of page a piece of its own is worth: below it, starting
 /// another browser and running it ahead costs more than the frames it draws.
@@ -138,12 +138,11 @@ fn join(
     }
     let listed = with_suffix(out, "list");
     std::fs::write(&listed, list)?;
-    let child = tools
-        .ffmpeg()
-        .args([
-            "-nostdin", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i",
-        ])
-        .arg(&listed)
+    let mut command = tools.ffmpeg();
+    command.args([
+        "-nostdin", "-v", "error", "-y", "-f", "concat", "-safe", "0",
+    ]);
+    let child = input::own(&mut command, &listed)
         .args(["-c", "copy", "-f", "matroska"])
         .arg(out)
         .stdin(Stdio::null())
