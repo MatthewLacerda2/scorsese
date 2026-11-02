@@ -1856,6 +1856,14 @@ folder too (`capture-one --follow`, #857): a page's request for its own
 `../assets/photo.png` follows the link there, while a link leading anywhere
 else (`/etc/passwd`, or on from the library) is refused as it is locally.
 
+**What a capture wrote is not trusted** (#1643). The server reads and sweeps
+that page cache without following any link in it: a link where a capture's
+folder, frames or record belongs is a cache miss, a record naming a file
+outside the project or inside its cache is one too, the server replaces a
+link left where the kept `pages/` folder belongs, and the idle sweep removes a
+link itself, never what it leads to. The checks are by path, so a capture still
+running can swap a link in after one (#1677).
+
 **Who starts them: `capture-launcher`.** Starting a container takes the Docker
 socket, which is root on the host, and the server is the one container the
 internet talks to. So the socket goes to a sidecar that holds nothing else: no
