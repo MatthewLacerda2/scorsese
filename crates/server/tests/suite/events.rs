@@ -68,3 +68,28 @@ async fn a_stream_ends_when_its_token_is_revoked(pool: PgPool) {
     let still = ends(&mut kept_hears, RECHECK * 5).await;
     assert!(!still, "a token that holds keeps its stream");
 }
+
+#[sqlx::test]
+async fn a_ninth_stream_closes_the_users_oldest(pool: PgPool) {
+    let address = serve(&pool).await;
+    let ana = signed_in(&pool, "ana@example.com").await;
+    let bia = signed_in(&pool, "bia@example.com").await;
+    let mut bia_hears = listen(address, &bia).await;
+    let mut ana_streams = Vec::new();
+    for _ in 0..8 {
+        ana_streams.push(listen(address, &ana).await);
+    }
+    let first = ends(&mut ana_streams[0], RECHECK * 5).await;
+    assert!(!first, "eight streams are allowed");
+
+    let _ninth = listen(address, &ana).await;
+    assert!(
+        ends(&mut ana_streams[0], PATIENCE).await,
+        "the oldest closes"
+    );
+    for stream in &mut ana_streams[1..] {
+        assert!(!ends(stream, RECHECK).await, "the others stay open");
+    }
+    let still = ends(&mut bia_hears, RECHECK).await;
+    assert!(!still, "another user's stream is not theirs to close");
+}

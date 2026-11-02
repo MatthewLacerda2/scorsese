@@ -45,6 +45,9 @@ use crate::library::{Announced, Appended, MAX_UPLOAD_BYTES};
 /// The one tus version spoken.
 const VERSION: &str = "1.0.0";
 
+/// How long a `PATCH` may send nothing before it is ended.
+pub const IDLE: std::time::Duration = std::time::Duration::from_secs(60);
+
 /// The header naming the library item the last chunk made.
 pub const LIBRARY_ITEM: &str = "scorsese-library-item";
 

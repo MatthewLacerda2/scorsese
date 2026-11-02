@@ -98,6 +98,9 @@ pub struct AppState {
     /// How often an open `GET /api/events` asks whether the credential it
     /// was opened with still holds ([`events::RECHECK`]).
     pub recheck: std::time::Duration,
+    /// How long an upload `PATCH` may send nothing before it is ended
+    /// ([`uploads::IDLE`]).
+    pub upload_idle: std::time::Duration,
 }
 
 impl AppState {
@@ -138,6 +141,7 @@ impl AppState {
             daily: crate::accounts::access::Daily::default(),
             free: crate::credits::allowance::Allowance::NONE,
             recheck: events::RECHECK,
+            upload_idle: uploads::IDLE,
             pool,
             jobs,
             events,
@@ -175,6 +179,13 @@ impl AppState {
     /// every `recheck` — a test's, shorter than [`events::RECHECK`].
     pub fn with_recheck(mut self, recheck: std::time::Duration) -> Self {
         self.recheck = recheck;
+        self
+    }
+
+    /// The same state, ending an upload `PATCH` that sends nothing for
+    /// `idle` — a test's, shorter than [`uploads::IDLE`].
+    pub fn with_upload_idle(mut self, idle: std::time::Duration) -> Self {
+        self.upload_idle = idle;
         self
     }
 

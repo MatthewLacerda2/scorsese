@@ -14,6 +14,7 @@ mod fetched;
 mod files;
 mod formats;
 mod generated;
+mod held;
 mod manage;
 mod midi;
 mod pages;
