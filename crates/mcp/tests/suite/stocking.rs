@@ -63,11 +63,11 @@ fn an_import_of_more_than_twenty_ids_asks_nothing() {
 
     let ids: Vec<u64> = (1..=20).collect();
     let arguments = json!({ "project": dir.to_string_lossy(), "id": ids, "kind": "image" });
-    let _ = import.call(&arguments);
+    let said = import.call(&arguments).err().unwrap_or_default();
     assert_eq!(
         counting.asked.load(Ordering::SeqCst),
         20,
-        "20 ids are each asked"
+        "20 ids are each asked: {said}"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }

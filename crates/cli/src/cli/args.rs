@@ -356,7 +356,7 @@ pub(crate) enum StockAction {
     /// asset: an html page loads it with the shipped lottie-web
     /// (`scorsese guide pages`).
     Import {
-        /// The ids a search named. Several import at once; one that fails
+        /// The ids a search named. Up to 20 import at once; one that fails
         /// costs none of the others.
         #[arg(required = true)]
         ids: Vec<u64>,
