@@ -51,7 +51,7 @@ export const pricing = {
       },
       {
         q: "What if a generation fails?",
-        a: "A generation that fails is not charged, and the credits go back to your balance.",
+        a: "A generation that fails is not charged, and the credits go back to your balance. If the supplier completed the request but made nothing (say, the model answered in words instead of a picture), it charges us for the call, so it is charged as quoted.",
       },
       {
         q: "Do credits expire?",

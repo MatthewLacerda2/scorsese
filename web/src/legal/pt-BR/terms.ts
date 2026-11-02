@@ -1,6 +1,7 @@
 // The terms of use in Portuguese, the binding text (`document.ts`). What they
 // promise about money is what the code does: the price shown before a
-// generation (`credits::Product`), failed generations released, credits that
+// generation (`credits::Product`), failed generations released (a completed
+// call that made nothing is charged as quoted), credits that
 // never expire, R$ 20 to R$ 5.000 per purchase (`payments`), the free
 // allowance (`credits::allowance`), the recharge bonus and what a withdrawal
 // takes back of it (`payments::bonus`, `payments::withdraw`). A change to any
@@ -12,14 +13,14 @@ import { SELLER } from "@/legal/seller";
 export const TERMS_PT: LegalDocument = {
   title: "Termos de uso",
   updatedLabel: "Última atualização",
-  updated: "2026-10-25",
+  updated: "2026-11-02",
   summary: {
     heading: "Em resumo",
     points: [
       "Sem mensalidade: você compra créditos, de R$ 20 a R$ 5.000, e eles não expiram.",
       "Toda conta tem US$ 4 grátis por dia, até US$ 12 por mês, e compras a partir de R$ 40 ganham bônus.",
       "Antes de cada geração paga você vê o preço e confirma.",
-      "Geração que falha não é cobrada.",
+      "Geração que falha não é cobrada, a não ser que o fornecedor tenha respondido e nos cobrado por ela sem fazer nada.",
       "Você tem 7 dias para desistir de uma compra e receber de volta o que não gastou.",
       "O que você envia e faz é seu, e o uso que você faz é responsabilidade sua.",
     ],
@@ -64,7 +65,7 @@ export const TERMS_PT: LegalDocument = {
     {
       heading: "Gerações que falham e resultados que não agradam",
       blocks: [
-        "Se uma geração falhar, por erro nosso ou do fornecedor, ela não é cobrada e os créditos voltam para o seu saldo.",
+        "Se uma geração falhar, por erro nosso ou do fornecedor, ela não é cobrada e os créditos voltam para o seu saldo. Se o fornecedor concluiu o pedido mas não fez nada (por exemplo, o modelo respondeu em palavras em vez de desenhar uma imagem), ele nos cobra pela chamada, então ela é cobrada como orçado, e o trabalho mostra o que o modelo disse.",
         "Uma geração que foi feita mas não ficou do seu gosto é cobrada normalmente, porque o fornecedor nos cobra por ela do mesmo jeito. Você pode conferir cada cobrança no seu histórico de gastos.",
       ],
     },

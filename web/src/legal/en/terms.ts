@@ -7,14 +7,14 @@ import { SELLER } from "@/legal/seller";
 export const TERMS_EN: LegalDocument = {
   title: "Terms of use",
   updatedLabel: "Last updated",
-  updated: "2026-10-25",
+  updated: "2026-11-02",
   summary: {
     heading: "In short",
     points: [
       "No subscription: you buy credits, from R$ 20 to R$ 5,000, and they never expire.",
       "Every account gets US$ 4 free a day, up to US$ 12 a month, and purchases from R$ 40 earn a bonus.",
       "Before every paid generation you see the price and confirm.",
-      "A generation that fails is not charged.",
+      "A generation that fails is not charged, unless the supplier answered and charged us for it without making anything.",
       "You have 7 days to cancel a purchase and get back what you have not spent.",
       "What you upload and make is yours, and how you use it is your responsibility.",
     ],
@@ -59,7 +59,7 @@ export const TERMS_EN: LegalDocument = {
     {
       heading: "Generations that fail and results you do not like",
       blocks: [
-        "If a generation fails, through our fault or the supplier's, it is not charged and the credits return to your balance.",
+        "If a generation fails, through our fault or the supplier's, it is not charged and the credits return to your balance. If the supplier completed the request but made nothing (for example, the model answered in words instead of drawing a picture), it charges us for the call, so it is charged as quoted, and the job tells you what the model said.",
         "A generation that was made but did not turn out to your taste is charged as usual, because the supplier charges us for it all the same. You can check every charge in your spending history.",
       ],
     },
