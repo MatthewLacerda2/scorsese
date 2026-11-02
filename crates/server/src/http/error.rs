@@ -89,6 +89,7 @@ impl From<LibraryError> for ApiError {
             },
             // The web app's uploader retries a 408 by asking `HEAD` again.
             LibraryError::Stalled => Self::refused(StatusCode::REQUEST_TIMEOUT, &error, none),
+            LibraryError::Waiting(_) => Self::refused(StatusCode::TOO_MANY_REQUESTS, &error, none),
             // What tus answers a file past the server's size, and a 4xx a
             // client does not retry.
             LibraryError::Full { .. } => Self::refused(StatusCode::PAYLOAD_TOO_LARGE, &error, none),
