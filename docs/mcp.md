@@ -513,8 +513,8 @@ dropped in — probed, hashed, and the asset id `pixabay-<id>` unless the reply
 says it was renamed. Which file: the smallest Pixabay has that **fills the
 render size without being enlarged**, by measured width and height, never by
 Pixabay's rendition names; the largest there is when none does, and the reply
-says so. Several ids import in one call, and one that fails costs none of the
-others.
+says so. Up to 20 ids import in one call (each is a request on the key), and
+one that fails costs none of the others.
 
 **Free, but not offline.** Footage and photos need `PIXABAY_API_KEY` and a
 network; neither tool quotes. Results are cached in `cache/stock/` for 24 hours,
@@ -1094,9 +1094,7 @@ A transcript is kept, corrections and all, as `<the file's whole name>.words.jso
 beside it: `transcribe` called again reads it back, and only `"again": true`
 hears the recording afresh, replacing it. A recording over two hours is
 refused before it is decoded. The call can be cancelled
-(`notifications/cancelled`): that kills the decode at once, but a recording
-already with Whisper is waited out, its words thrown away, since Whisper
-finishes it either way; and it holds
+(`notifications/cancelled`), which stops the decode and the wait, and it holds
 the project only for its last write, so other edits go ahead while it listens.
 
 ## Pacing: the same clips, spread differently
