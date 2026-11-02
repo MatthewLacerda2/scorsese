@@ -4,8 +4,9 @@ use crate::common;
 
 use std::time::Duration;
 
-use scorsese_providers::credentials::Secret;
+use scorsese_providers::credentials::Environment;
 use scorsese_server::accounts::{tokens, users};
+use scorsese_server::config::{BIND, CACHE, DATABASE_URL, STORAGE};
 use scorsese_server::jobs::Registry;
 use scorsese_server::{Config, ServerError, db, http};
 use sqlx::postgres::PgPool;
@@ -55,20 +56,29 @@ const NOWHERE: &str = "postgres://nobody@127.0.0.1:1/nothing";
 
 #[tokio::test]
 async fn a_database_it_cannot_reach_is_a_startup_error() {
-    let config = Config {
-        database_url: Secret::new(NOWHERE),
-        storage: std::env::temp_dir().join("scorsese-server-never-created"),
-        cache: std::env::temp_dir().join("scorsese-server-cache-never-created"),
-        render_quota: scorsese_server::renders::Quota::bytes(1),
-        bind: "127.0.0.1:0".parse().unwrap(),
-        assistant_turn_cap: 1,
-        free: Default::default(),
-        elevenlabs: Default::default(),
-        per_user: Default::default(),
-        disk_floor: scorsese_server::renders::Quota::bytes(0),
-        google: None,
-        payments: None,
-    };
+    // Read from settings, not written out field by field, so a field a
+    // later branch adds does not stop this file building on its base.
+    let mut config = Config::from_environment(&Environment::of([
+        (DATABASE_URL, NOWHERE.to_owned()),
+        (
+            STORAGE,
+            std::env::temp_dir()
+                .join("scorsese-server-never-created")
+                .display()
+                .to_string(),
+        ),
+        (
+            CACHE,
+            std::env::temp_dir()
+                .join("scorsese-server-cache-never-created")
+                .display()
+                .to_string(),
+        ),
+        (BIND, "127.0.0.1:0".to_owned()),
+    ]))
+    .expect("the settings are whole");
+    config.render_quota = scorsese_server::renders::Quota::bytes(1);
+    config.assistant_turn_cap = 1;
     let outcome = timeout(STOP, scorsese_server::run(config, std::future::pending()))
         .await
         .expect("an unreachable database fails promptly");

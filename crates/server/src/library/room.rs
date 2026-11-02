@@ -167,3 +167,82 @@ pub async fn sweep(library: Library, mut stop: watch::Receiver<bool>) {
         }
     }
 }
+
+/// The race (#1647) needs [`Library::admit_free`], which the suite cannot
+/// name while CI's regression job builds it on a base without it; the
+/// suite's `library::room` reproduces the rest through what the base has.
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use scorsese_render::testing::{still, tools};
+    use sqlx::postgres::PgPool;
+
+    use super::super::{Arrival, Kind, Library, LibraryError};
+    use crate::accounts::users;
+    use crate::db;
+    use crate::events::Events;
+    use crate::jobs::Queue;
+    use crate::renders::Quota;
+    use crate::storage::Storage;
+
+    /// A picture of `colour` under `directory`, as a free tool would have
+    /// left it, and its size.
+    fn picture(directory: &Path, colour: &str) -> (Arrival, u64) {
+        let file = directory.join(format!("{colour}.png"));
+        still(&tools(), &file, colour, "64x36");
+        let size = std::fs::metadata(&file)
+            .expect("the picture is there")
+            .len();
+        let arrival = Arrival {
+            file,
+            name: format!("{colour}.png"),
+            kind: Kind::Image,
+            extension: "png".to_owned(),
+            announced: None,
+            brief_hash: None,
+            words: None,
+        };
+        (arrival, size)
+    }
+
+    #[sqlx::test]
+    async fn two_free_files_racing_for_the_last_room_land_one(pool: PgPool) {
+        db::migrate(&pool).await.expect("the migrations apply");
+        let root = std::env::temp_dir().join(format!(
+            "scorsese-quota-race-{}-{}",
+            std::process::id(),
+            pool.connect_options().get_database().unwrap_or_default()
+        ));
+        let media = root.join("media");
+        std::fs::create_dir_all(&media).unwrap();
+        let (red, red_size) = picture(&media, "red");
+        let (blue, blue_size) = picture(&media, "blue");
+        let members = db::member_pool(&pool)
+            .await
+            .expect("the member pool connects");
+        // Room for either, not for both.
+        let storage = Storage::new(root.join("kept"), root.join("cache"))
+            .with_quota(Quota::bytes(red_size + blue_size - 1));
+        let library = Library::new(members.clone(), storage, tools(), Queue::new(Events::new()));
+        let ana = users::create(&pool, "ana@example.com")
+            .await
+            .expect("the account is created");
+
+        let keep = |arrival: Arrival| {
+            let library = library.clone();
+            async move { library.admit_free(ana, arrival).await }
+        };
+        let (first, second) = tokio::join!(keep(red), keep(blue));
+        members.close().await;
+        let _ = std::fs::remove_dir_all(&root);
+
+        let landed = [&first, &second].iter().filter(|kept| kept.is_ok()).count();
+        assert_eq!(landed, 1, "{first:?} {second:?}");
+        let refused = [first, second].into_iter().find_map(Result::err);
+        assert!(
+            matches!(refused, Some(LibraryError::Full { .. })),
+            "{refused:?}"
+        );
+    }
+}
