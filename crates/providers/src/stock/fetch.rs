@@ -23,8 +23,16 @@ const VIDEO_LIMIT: u64 = 4 * 1024 * 1024 * 1024;
 /// The most a chosen picture may be.
 const IMAGE_LIMIT: u64 = 256 * 1024 * 1024;
 
-/// Downloads `url` to `path`, whole or not at all — once [`fetchable`] has
-/// passed it.
+/// The file `name` in the stock cache's folder `folder`, that folder made —
+/// and neither it nor anything on the way a link, which a `.scor` received
+/// from someone else may carry (#1698): [`super::cache::unlinked`] makes
+/// the cache folder, and everything below it is looked at, never followed.
+fn cached(cache: &Path, folder: &str, name: &str) -> Result<PathBuf, StockError> {
+    Ok(super::cache::unlinked(cache, folder)?.join(name))
+}
+
+/// Downloads `url` to `path` — a file [`cached`] answered — whole or not at
+/// all, once [`fetchable`] has passed it.
 fn download(
     library: &dyn Library,
     url: &str,
@@ -36,9 +44,6 @@ fn download(
         path: path.to_path_buf(),
         source,
     };
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(io)?;
-    }
     // Into a sibling first, so a download that dies halfway never leaves a
     // file that looks whole under the name a later call reuses — one this
     // call made, so a link already waiting beside it is never written through.
@@ -67,9 +72,8 @@ pub fn previews(
             if one.preview_url.is_empty() {
                 return None;
             }
-            let path = cache
-                .join("previews")
-                .join(format!("{}-{}.jpg", one.medium.word(), one.id));
+            let name = format!("{}-{}.jpg", one.medium.word(), one.id);
+            let path = cached(cache, "previews", &name).ok()?;
             if path.is_file() {
                 return Some(path);
             }
@@ -117,9 +121,7 @@ pub fn footage(
         medium,
         id,
     })?;
-    let path = cache
-        .join("looks")
-        .join(format!("{}-{id}.mp4", medium.word()));
+    let path = cached(cache, "looks", &format!("{}-{id}.mp4", medium.word()))?;
     let path = if path.is_file() {
         path
     } else {
@@ -211,7 +213,7 @@ fn one(
         library,
         &rendition.url,
         limit,
-        &cache.join("downloads").join(name),
+        &cached(cache, "downloads", &name)?,
     )?;
     let imported = import_path(project, root, &path, Some(kind), probe);
     // Copied into assets/ or refused: either way the download is done with.

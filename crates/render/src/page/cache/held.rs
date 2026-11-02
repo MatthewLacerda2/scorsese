@@ -81,7 +81,7 @@ impl Held {
     ) -> std::io::Result<()> {
         let mut held = held();
         let (file, record) = place.files;
-        std::fs::create_dir_all(place.shelf)?;
+        super::made(place.project_root, place.shelf)?;
         std::fs::rename(partial, file)?;
         keep(record, place.record)?;
         *held.entry(file.to_owned()).or_default() += 1;
@@ -171,7 +171,9 @@ mod tests {
     use scorsese_compositor::Resolution;
     use scorsese_core::{Fps, hash_bytes};
 
-    use super::super::files;
+    use scorsese_core::CACHE_DIR;
+
+    use super::super::{PAGES, files};
     use super::*;
     use crate::page::told::Told;
 
@@ -193,7 +195,8 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
         std::fs::write(root.join("page.html"), "page").unwrap();
-        (root.clone(), root.join("slot"))
+        let slot = root.join(CACHE_DIR).join(PAGES).join("slot");
+        (root, slot)
     }
 
     /// Captures `piece` onto `shelf` of `slot` for `run`, as a capture would.
@@ -274,7 +277,7 @@ mod tests {
         let (root, slot) = project("copied");
         let trimmed = capture(&mut Held::default(), &root, (&slot, "told-none"), 9..31);
         // The whole page arrives as a copy, by no run here (#1636).
-        let elsewhere = root.join("elsewhere");
+        let elsewhere = slot.with_file_name("elsewhere");
         let whole = capture(
             &mut Held::default(),
             &root,

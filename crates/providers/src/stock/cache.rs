@@ -12,6 +12,7 @@ use std::time::{Duration, SystemTime};
 
 use serde::{Deserialize, Serialize};
 
+use scorsese_core::write::folder_below;
 use scorsese_core::{CACHE_DIR, Timestamp};
 
 use crate::diskcache;
@@ -25,6 +26,34 @@ pub const FRESH_FOR: Duration = Duration::from_secs(24 * 60 * 60);
 /// Where a project's stock cache lives inside it.
 pub fn cache_dir(root: &Path) -> PathBuf {
     root.join(CACHE_DIR).join("stock")
+}
+
+/// The folder `folder` of the stock cache `cache`, made, and neither it nor
+/// the cache folder itself a link (#1698): a `.scor` received from someone
+/// else may carry one at `cache/stock` or below, and nothing a search or a
+/// download keeps is written where it leads. What is above the cache folder
+/// is the caller's — nothing hands the stock tools a linked one (the web's is
+/// a folder of its own per user, never linked into a project).
+///
+/// # Errors
+///
+/// If the cache folder or `folder` is a link or a file, or cannot be made.
+pub(crate) fn unlinked(cache: &Path, folder: &str) -> Result<PathBuf, StockError> {
+    let io = |source| StockError::Io {
+        path: cache.join(folder),
+        source,
+    };
+    if std::fs::symlink_metadata(cache).is_ok_and(|meta| meta.file_type().is_symlink()) {
+        return Err(io(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!(
+                "{} is a link, and nothing is written through one",
+                cache.display()
+            ),
+        )));
+    }
+    std::fs::create_dir_all(cache).map_err(io)?;
+    folder_below(cache, Path::new(folder)).map_err(io)
 }
 
 /// One page of one query, as it was when it was read.
@@ -48,9 +77,12 @@ impl Cached {
     }
 }
 
+/// The name of the folder pages are kept in.
+const PAGES: &str = "pages";
+
 /// The folder pages are kept in.
 fn pages(cache: &Path) -> PathBuf {
-    cache.join("pages")
+    cache.join(PAGES)
 }
 
 /// The cached page for `key`, if a fresh, readable one is there. Anything
@@ -72,6 +104,7 @@ pub(crate) fn write(cache: &Path, key: &str, page: &Page) -> Result<(), StockErr
         candidates: page.candidates.clone(),
         total: page.total,
     };
+    unlinked(cache, PAGES)?;
     diskcache::write(&pages(cache), key, &cached)
         .map_err(|(path, source)| StockError::Io { path, source })
 }
