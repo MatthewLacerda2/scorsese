@@ -28,6 +28,7 @@ export function visitorCode(): string {
   if (made) return made;
   const code = crypto.randomUUID();
   made = code;
+  // biome-ignore lint/suspicious/noDocumentCookie: the cookie is read synchronously on first paint, which the async Cookie Store API cannot serve.
   document.cookie = `${VISITOR_COOKIE}=${code}; Path=/; Max-Age=${YEAR}; SameSite=Lax; Secure`;
   return code;
 }

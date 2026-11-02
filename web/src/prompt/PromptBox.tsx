@@ -37,7 +37,7 @@ export interface Attached {
 export type PromptSubmit = (
   text: string,
   attached: Attached,
-) => string | undefined | void | Promise<unknown>;
+) => string | undefined | Promise<unknown>;
 
 export function PromptBox({
   onSubmit,
@@ -99,7 +99,6 @@ export function PromptBox({
           onChange={(event) => setText(event.target.value)}
           onKeyDown={onKeyDown}
           placeholder={typed}
-          // biome-ignore lint/a11y/noAutofocus: the box is the whole point of the screen it is on.
           autoFocus={autoFocus}
           aria-label={t.label}
           rows={2}

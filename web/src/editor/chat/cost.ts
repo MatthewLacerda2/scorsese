@@ -25,7 +25,7 @@ export function colour(at: number): string {
 }
 
 /** The bar in words, for a screen reader. */
-export function describe(at: number, t: Messages["chat"]["cost"]): string {
+export function inWords(at: number, t: Messages["chat"]["cost"]): string {
   if (at <= 0) return t.cheapest;
   if (at >= 1) return t.dearest;
   if (at < 1 / 3) return t.inexpensive;

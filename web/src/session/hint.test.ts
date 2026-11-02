@@ -7,17 +7,22 @@ import { forgetSignedInHint, HINT_COOKIE, signedInHint } from "@/session/hint";
 afterEach(forgetSignedInHint);
 
 test("no hint, no session assumed", () => {
+  // biome-ignore lint/suspicious/noDocumentCookie: the cookie is read synchronously on first paint, which the async Cookie Store API cannot serve.
   document.cookie = "scorsese_signed_in_elsewhere=1; Path=/";
   expect(signedInHint()).toBe(false);
+  // biome-ignore lint/suspicious/noDocumentCookie: the cookie is read synchronously on first paint, which the async Cookie Store API cannot serve.
   document.cookie = "scorsese_signed_in_elsewhere=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
 });
 
 test("the server's hint is read, among other cookies, and forgetting it drops it", () => {
+  // biome-ignore lint/suspicious/noDocumentCookie: the cookie is read synchronously on first paint, which the async Cookie Store API cannot serve.
   document.cookie = "theme=dark; Path=/";
+  // biome-ignore lint/suspicious/noDocumentCookie: the cookie is read synchronously on first paint, which the async Cookie Store API cannot serve.
   document.cookie = `${HINT_COOKIE}=1; Path=/; Secure; SameSite=Strict`;
   expect(signedInHint()).toBe(true);
   forgetSignedInHint();
   expect(signedInHint()).toBe(false);
   expect(document.cookie).toContain("theme=dark");
+  // biome-ignore lint/suspicious/noDocumentCookie: the cookie is read synchronously on first paint, which the async Cookie Store API cannot serve.
   document.cookie = "theme=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
 });

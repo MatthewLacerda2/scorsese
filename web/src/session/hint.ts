@@ -23,5 +23,6 @@ export function signedInHint(): boolean {
  */
 export function forgetSignedInHint() {
   if (typeof document === "undefined") return;
+  // biome-ignore lint/suspicious/noDocumentCookie: the cookie is read synchronously on first paint, which the async Cookie Store API cannot serve.
   document.cookie = `${HINT_COOKIE}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Strict`;
 }

@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
   "files": {
     // lint/fixtures holds files the house rules must flag; src/lint/houseRules.test.ts
     // lints them with lint/fixtures/rules.jsonc instead.

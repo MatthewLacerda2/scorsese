@@ -41,8 +41,11 @@ test("every route the front-end names is in docs/web.md", () => {
 test("a row's parameters and a literal's are written alike", () => {
   const md = "| `GET /api/library/{id}/file` | a member | x |\n| `POST /api/x` y |\n";
   expect(documented(md)).toEqual([{ method: "GET", path: "/api/library/{}/file" }]);
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: the string is the source text under test, not a template.
   expect(pathOf("`/library/${id}/file`")).toBe("/library/{}/file");
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: the string is the source text under test, not a template.
   expect(pathOf("`/credits/history${query({ ...filter })}`")).toBe("/credits/history");
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: the string is the source text under test, not a template.
   expect(pathOf("`/payments/${encodeURIComponent(s)}/confirm`")).toBe("/payments/{}/confirm");
   expect(pathOf('"/library/7/file?download=1"')).toBe("/library/7/file");
 });
