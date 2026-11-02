@@ -62,7 +62,7 @@ static WRITES: AtomicU64 = AtomicU64::new(0);
 /// If the scratch file cannot be written or renamed. In that case `path` still
 /// holds whatever it held before, and no scratch file is left beside it.
 pub fn atomically(path: &Path, contents: impl AsRef<[u8]>) -> io::Result<()> {
-    let (scratch, file) = fresh_scratch(path)?;
+    let (scratch, file) = fresh_beside(path, "part")?;
     let written = fill(file, contents.as_ref()).and_then(|()| fs::rename(&scratch, path));
     if written.is_err() {
         // The previous document survives a failed write; it must not have to
@@ -77,6 +77,10 @@ pub fn atomically(path: &Path, contents: impl AsRef<[u8]>) -> io::Result<()> {
 /// number no other call in it has had, and `suffix`. What a file is written
 /// under before it is renamed into place — beside it, because a rename is only
 /// atomic within one filesystem.
+///
+/// A name, and one anyone can guess: something may already sit at it, a link
+/// included. A writer makes it through [`fresh_beside`] or
+/// [`fresh_dir_beside`], never with a call that follows what is there.
 ///
 /// # Errors
 ///
@@ -169,25 +173,84 @@ pub fn parent_in_project(root: &Path, path: &ProjectPath) -> io::Result<PathBuf>
     Ok(file)
 }
 
-/// How many taken scratch names [`fresh_scratch`] passes over before it gives
+/// How many taken scratch names [`fresh_beside`] passes over before it gives
 /// up: far more than writers ever collide, few enough that a directory filled
 /// with planted names ends in an error rather than a spin.
 const SCRATCH_ATTEMPTS: usize = 64;
 
-/// A scratch file beside `path` that did not exist until this call made it.
+/// A scratch file beside `path`, named as [`scratch_beside`] names one, that
+/// did not exist until this call made it — opened for writing.
 ///
 /// `create_new` is `O_CREAT | O_EXCL`, which refuses any entry at the name —
 /// a link included, dangling or not — rather than following it. A taken name
-/// is passed over for the next one.
-fn fresh_scratch(path: &Path) -> io::Result<(PathBuf, File)> {
-    for _ in 0..SCRATCH_ATTEMPTS {
-        let scratch = scratch_beside(path, "part")?;
-        match OpenOptions::new()
+/// is passed over for the next one, so nothing placed beside `path`
+/// beforehand is ever written through or truncated.
+///
+/// # Errors
+///
+/// If `path` names no file, the file cannot be made, or every name tried was
+/// taken.
+pub fn fresh_beside(path: &Path, suffix: &str) -> io::Result<(PathBuf, File)> {
+    fresh(path, suffix, |scratch| {
+        OpenOptions::new()
             .write(true)
             .create_new(true)
-            .open(&scratch)
-        {
-            Ok(file) => return Ok((scratch, file)),
+            .open(scratch)
+    })
+}
+
+/// A scratch folder beside `path`, named as [`scratch_beside`] names one, that
+/// did not exist until this call made it — for a writer that cannot be handed
+/// an open file (ffmpeg names its own output): whatever it writes inside
+/// lands in a folder nobody else placed anything in.
+///
+/// `create_dir` refuses any entry at the name, a link included, and a taken
+/// name is passed over for the next one.
+///
+/// # Errors
+///
+/// If `path` names no file, the folder cannot be made, or every name tried was
+/// taken.
+pub fn fresh_dir_beside(path: &Path, suffix: &str) -> io::Result<PathBuf> {
+    fresh(path, suffix, |scratch| fs::create_dir(scratch)).map(|(scratch, ())| scratch)
+}
+
+/// The folder `path`, empty and made by this call — for a scratch folder with
+/// a fixed name, which the next run clears rather than leaving one more beside
+/// it when a run is killed before its tidy.
+///
+/// Whatever is at `path` goes first, never followed: a link or a file is
+/// removed itself, and a folder with everything in it (links removed, not
+/// what they lead to). `create_dir` then refuses anything placed there in
+/// between, so the folder is always one this call made.
+///
+/// # Errors
+///
+/// If what was there cannot be removed, or the folder cannot be made.
+pub fn remade_dir(path: &Path) -> io::Result<()> {
+    // Nothing there, or nothing that can be looked at: `create_dir` says
+    // which.
+    if let Ok(meta) = fs::symlink_metadata(path) {
+        if meta.is_dir() {
+            fs::remove_dir_all(path)?;
+        } else {
+            fs::remove_file(path)?;
+        }
+    }
+    fs::create_dir(path)
+}
+
+/// The first of [`scratch_beside`]'s names for `path` that `make` makes
+/// without finding it taken.
+fn fresh<T>(
+    path: &Path,
+    suffix: &str,
+    make: impl Fn(&Path) -> io::Result<T>,
+) -> io::Result<(PathBuf, T)> {
+    for _ in 0..SCRATCH_ATTEMPTS {
+        let scratch = scratch_beside(path, suffix)?;
+        match make(&scratch) {
+            Ok(made) => return Ok((scratch, made)),
             Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
             Err(error) => return Err(error),
         }

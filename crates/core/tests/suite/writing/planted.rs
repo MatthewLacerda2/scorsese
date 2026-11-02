@@ -4,9 +4,11 @@
 #![cfg(unix)]
 
 use std::os::unix::fs::symlink;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use scorsese_core::write::{atomically, scratch_beside};
+use scorsese_core::write::{
+    atomically, fresh_beside, fresh_dir_beside, remade_dir, scratch_beside,
+};
 
 use crate::common;
 
@@ -22,21 +24,7 @@ fn a_link_at_the_scratch_name_is_neither_written_nor_truncated() {
     std::fs::write(&target, "the victim's own bytes").unwrap();
     let file = dir.join("project.json");
 
-    // The counter's current number, read off the name it hands out; the next
-    // ones are what `atomically` will try.
-    let seen = scratch_beside(&file, "part").unwrap();
-    let seen = seen.file_name().unwrap().to_string_lossy().into_owned();
-    let (stem, number) = seen
-        .strip_suffix(".part")
-        .and_then(|s| s.rsplit_once('-'))
-        .expect("<name>.<pid>-<n>.part");
-    let number: u64 = number.parse().unwrap();
-    let planted: Vec<PathBuf> = (1..=PLANTED)
-        .map(|k| dir.join(format!("{stem}-{}.part", number + k)))
-        .collect();
-    for link in &planted {
-        symlink(&target, link).unwrap();
-    }
+    plant(&file, "part", &target);
 
     atomically(&file, "{}\n").expect("the document still lands");
 
@@ -61,4 +49,95 @@ fn a_scratch_that_cannot_be_made_is_the_error_itself() {
     let dir = common::temp_project_dir("write-planted-missing");
     let refused = atomically(&dir.join("missing/project.json"), "{}\n").expect_err("no folder");
     assert_eq!(refused.kind(), std::io::ErrorKind::NotFound, "{refused}");
+}
+
+/// The next `PLANTED` scratch names `suffix` would be given beside `file`,
+/// each a link to `target`: the counter's current number is read off the name
+/// it hands out, and the ones after it are what a writer will try.
+fn plant(file: &Path, suffix: &str, target: &Path) -> Vec<PathBuf> {
+    let seen = scratch_beside(file, suffix).expect("a scratch name");
+    let seen = seen
+        .file_name()
+        .expect("a name")
+        .to_string_lossy()
+        .into_owned();
+    let (stem, number) = seen
+        .strip_suffix(&format!(".{suffix}"))
+        .and_then(|s| s.rsplit_once('-'))
+        .expect("<name>.<pid>-<n>.<suffix>");
+    let number: u64 = number.parse().expect("a number");
+    let dir = file.parent().expect("a folder");
+    (1..=PLANTED)
+        .map(|k| {
+            let link = dir.join(format!("{stem}-{}.{suffix}", number + k));
+            symlink(target, &link).expect("a link");
+            link
+        })
+        .collect()
+}
+
+#[test]
+fn a_fresh_folder_is_never_a_link_already_there() {
+    let dir = common::temp_project_dir("write-planted-folder");
+    let outside = common::temp_project_dir("write-planted-folder-outside");
+    let planted = plant(&dir.join("part-0-30"), "capturing", &outside);
+
+    let made = fresh_dir_beside(&dir.join("part-0-30"), "capturing").expect("a folder");
+
+    assert!(!planted.contains(&made), "{}", made.display());
+    let meta = std::fs::symlink_metadata(&made).unwrap();
+    assert!(meta.is_dir() && !meta.file_type().is_symlink());
+    assert_eq!(std::fs::read_dir(&made).unwrap().count(), 0, "made empty");
+    assert_eq!(std::fs::read_dir(&outside).unwrap().count(), 0);
+}
+
+#[test]
+fn a_fresh_file_is_never_a_link_already_there() {
+    let dir = common::temp_project_dir("write-planted-file");
+    let outside = common::temp_project_dir("write-planted-file-outside");
+    let target = outside.join("victim.jpg");
+    std::fs::write(&target, "the victim's own bytes").unwrap();
+    let preview = dir.join("image-1.jpg");
+    plant(&preview, "part", &target);
+
+    let (made, mut file) = fresh_beside(&preview, "part").expect("a file");
+    std::io::Write::write_all(&mut file, b"a preview").unwrap();
+
+    assert_eq!(std::fs::read(&made).unwrap(), b"a preview");
+    assert_eq!(
+        std::fs::read_to_string(&target).unwrap(),
+        "the victim's own bytes"
+    );
+}
+
+#[test]
+fn a_remade_folder_clears_what_was_there_and_follows_no_link() {
+    let dir = common::temp_project_dir("write-remade");
+    let outside = common::temp_project_dir("write-remade-outside");
+    std::fs::write(outside.join("kept.txt"), "kept").unwrap();
+    let linked = dir.join(".cut.mp4.rendering");
+    symlink(&outside, &linked).unwrap();
+    let left = dir.join(".cut.mp4.scorsese-audio");
+    std::fs::create_dir(&left).unwrap();
+    std::fs::write(left.join("mix.pcm"), "a killed render's").unwrap();
+    symlink(outside.join("kept.txt"), left.join("partial")).unwrap();
+
+    let file = dir.join(".cut.mp4.partial");
+    std::fs::write(&file, "an older build's").unwrap();
+    let missing = dir.join(".new.mp4.rendering");
+
+    remade_dir(&linked).expect("a folder in the link's place");
+    remade_dir(&left).expect("the leftover cleared");
+    remade_dir(&file).expect("a folder in the file's place");
+    remade_dir(&missing).expect("a folder where there was none");
+
+    for made in [&linked, &left, &file, &missing] {
+        let meta = std::fs::symlink_metadata(made).unwrap();
+        assert!(meta.is_dir() && !meta.file_type().is_symlink());
+        assert_eq!(std::fs::read_dir(made).unwrap().count(), 0);
+    }
+    assert_eq!(
+        std::fs::read_to_string(outside.join("kept.txt")).unwrap(),
+        "kept"
+    );
 }

@@ -120,11 +120,11 @@ pub enum RenderError {
         detail: String,
     },
 
-    /// The mix is written to scratch before the encoder reads it back, so a
-    /// full or read-only working directory surfaces here first.
-    #[error("could not write the mix to {}: {source}", path.display())]
+    /// A render writes its encode and its mix to scratch beside the output
+    /// first, so a full, missing or read-only output folder surfaces here.
+    #[error("could not write the render's scratch at {}: {source}", path.display())]
     Scratch {
-        /// The scratch file that could not be written.
+        /// The scratch file or folder that could not be written.
         path: PathBuf,
         /// The filesystem's own complaint.
         #[source]

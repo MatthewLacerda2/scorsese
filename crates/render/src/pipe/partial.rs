@@ -15,25 +15,29 @@ use crate::error::RenderError;
 /// alike; a failure in it should cost the new render, not the old one.
 ///
 /// Beside `out` rather than in a scratch directory because a rename is only
-/// atomic within one filesystem. The extension does not matter: every muxer
-/// here is pinned with `-f`. Dropped without [`Partial::deliver`], the file
-/// is removed — whatever stopped the render, nothing half-written is left.
+/// atomic within one filesystem — inside a hidden folder this render made
+/// ([`hidden_folder`]), so nothing placed beside `out` beforehand (a link,
+/// #1672) is where ffmpeg writes. The extension does not matter: every muxer
+/// here is pinned with `-f`. Dropped, the folder is removed — whatever stopped
+/// the render, nothing half-written is left; and a render killed before then
+/// leaves it for the next render to `out` to clear.
 #[derive(Debug)]
 pub(crate) struct Partial {
+    folder: PathBuf,
     path: PathBuf,
     out: PathBuf,
 }
 
 impl Partial {
-    /// Where a render to `out` writes while it works: `.{name}.partial`.
-    pub(crate) fn beside(out: &Path) -> Self {
-        let name = out
-            .file_name()
-            .map_or_else(|| "render".into(), |name| name.to_string_lossy());
-        Self {
-            path: out.with_file_name(format!(".{name}.partial")),
+    /// Where a render to `out` writes while it works: `partial`, in a
+    /// `.{name}.rendering` folder beside it.
+    pub(crate) fn beside(out: &Path) -> Result<Self, RenderError> {
+        let folder = hidden_folder(out, "rendering")?;
+        Ok(Self {
+            path: folder.join("partial"),
+            folder,
             out: out.to_owned(),
-        }
+        })
     }
 
     /// The file ffmpeg is told to write.
@@ -58,8 +62,27 @@ impl Partial {
 
 impl Drop for Partial {
     fn drop(&mut self) {
-        // After a delivery there is nothing at `path`, and this is a no-op.
-        let _ = std::fs::remove_file(&self.path);
+        // After a delivery the folder is empty; otherwise it holds the
+        // half-written file.
+        let _ = std::fs::remove_dir_all(&self.folder);
+    }
+}
+
+/// The scratch folder `.{name}.{tag}` beside `out`, hidden, named after it,
+/// and made by this call ([`scorsese_core::write::remade_dir`]): what a
+/// killed render to `out` left there is cleared, and nothing placed there is
+/// written through.
+pub(crate) fn hidden_folder(out: &Path, tag: &str) -> Result<PathBuf, RenderError> {
+    let name = out
+        .file_name()
+        .map_or_else(|| "render".into(), |name| name.to_string_lossy());
+    let folder = out.with_file_name(format!(".{name}.{tag}"));
+    match scorsese_core::write::remade_dir(&folder) {
+        Ok(()) => Ok(folder),
+        Err(source) => Err(RenderError::Scratch {
+            path: folder,
+            source,
+        }),
     }
 }
 
@@ -76,9 +99,15 @@ mod tests {
 
     #[test]
     fn it_is_hidden_beside_the_output() {
-        let partial = Partial::beside(Path::new("renders/cut.mp4"));
-        assert_eq!(partial.path(), Path::new("renders/.cut.mp4.partial"));
-        assert_eq!(partial.out(), Path::new("renders/cut.mp4"));
+        let dir = dir("hidden");
+        let out = dir.join("cut.mp4");
+        let partial = Partial::beside(&out).expect("a folder");
+        let folder = partial.path().parent().expect("a folder");
+        assert_eq!(folder.parent(), Some(dir.as_path()));
+        let name = folder.file_name().expect("a name").to_string_lossy();
+        assert_eq!(name, ".cut.mp4.rendering");
+        assert_eq!(partial.out(), out);
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
@@ -86,7 +115,7 @@ mod tests {
         let dir = dir("deliver");
         let out = dir.join("cut.mp4");
         std::fs::write(&out, b"old").expect("the previous cut");
-        let partial = Partial::beside(&out);
+        let partial = Partial::beside(&out).expect("a folder");
         std::fs::write(partial.path(), b"new").expect("the new cut");
 
         partial.deliver().expect("delivered");
@@ -101,7 +130,7 @@ mod tests {
         let dir = dir("abandon");
         let out = dir.join("cut.mp4");
         std::fs::write(&out, b"old").expect("the previous cut");
-        let partial = Partial::beside(&out);
+        let partial = Partial::beside(&out).expect("a folder");
         std::fs::write(partial.path(), b"half").expect("half a cut");
 
         drop(partial);

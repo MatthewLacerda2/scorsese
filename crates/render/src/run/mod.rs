@@ -277,10 +277,8 @@ impl<'a> Renderer<'a> {
         // before the rehearsal, so the room a codec needs comes out of the
         // peaks rather than out of the target.
         let (trim, mut lift) = match mix {
-            Some(mix) => {
-                audio::loudness::deliver(self.tools, &self.settings, mix, out, &self.cancel)
-                    .map_err(stopped_at(of))?
-            }
+            Some(mix) => audio::loudness::deliver(self.tools, &self.settings, mix, &self.cancel)
+                .map_err(stopped_at(of))?,
             None => (None, None),
         };
 

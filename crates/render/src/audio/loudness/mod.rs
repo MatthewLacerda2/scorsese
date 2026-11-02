@@ -154,11 +154,10 @@ pub(crate) fn deliver(
     tools: &Tools,
     settings: &RenderSettings,
     mix: &Path,
-    out: &Path,
     cancel: &Cancel,
 ) -> Result<(Option<Trim>, Option<Lift>), RenderError> {
     let Some(target) = settings.loudness else {
-        return Ok((headroom::fit(tools, settings, mix, out, cancel)?, None));
+        return Ok((headroom::fit(tools, settings, mix, cancel)?, None));
     };
     let rate = settings.sample_rate.hz();
     let scratch = |path: &Path| {
@@ -174,14 +173,11 @@ pub(crate) fn deliver(
         delivered_lufs: None,
     };
     let Some(mixed) = lift.mixed_lufs else {
-        return Ok((
-            headroom::fit(tools, settings, mix, out, cancel)?,
-            Some(lift),
-        ));
+        return Ok((headroom::fit(tools, settings, mix, cancel)?, Some(lift)));
     };
     // The untouched mix, kept so that every attempt starts from what the
     // author balanced rather than from the last attempt's limiting.
-    let original = Original(super::scratch_beside(out, "scorsese-unraised.pcm"));
+    let original = Original(super::beside_mix(mix, "unraised.pcm"));
     std::fs::rename(mix, &original.0).map_err(scratch(mix))?;
     let mut trim = None;
     for round in 0..ROUNDS {
@@ -194,7 +190,7 @@ pub(crate) fn deliver(
             lift.ceiling_dbtp,
             cancel,
         )?;
-        trim = headroom::fit(tools, settings, mix, out, cancel)?;
+        trim = headroom::fit(tools, settings, mix, cancel)?;
         match trim {
             Some(room) if round + 1 < ROUNDS => lift.ceiling_dbtp -= room.trimmed_db,
             _ => break,

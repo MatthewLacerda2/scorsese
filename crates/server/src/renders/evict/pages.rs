@@ -20,9 +20,9 @@
 //! - **Held** folders are never touched at all: one a job of this process has
 //!   pinned ([`super::hold`]), and one a job folder's `cache/` links to. While a
 //!   job holds a project no capture of it is idle, and none half-written.
-//! - **A leftover `<stem>.<pid>.partial.mkv`** (`frames.…` or a piece's
-//!   `part-….`) in a folder nobody holds is a capture killed at its deadline,
-//!   and goes whatever its age.
+//! - **A leftover `part-<first>-<end>.<pid>-<n>.capturing/`**, the folder a
+//!   capture writes in until its frames are placed (#1672), in a folder nobody
+//!   holds is a capture killed at its deadline, and goes whatever its age.
 //! - A project left with no slot loses its folder, shipped fonts and all; the
 //!   next capture writes them again.
 
@@ -44,6 +44,8 @@ const FRAMES: &str = "frames.mkv";
 const RECORD: &str = "capture.json";
 /// A piece's frames and record start with this, inside a slot.
 const PART: &str = "part-";
+/// A capture's scratch folder, inside a slot, ends with this.
+const CAPTURING: &str = ".capturing";
 
 /// Mark every capture `requests` reuses as used now: the whole page's or the
 /// piece holding the frames each asks for, whichever the render will read
@@ -132,9 +134,13 @@ pub(super) fn idle(folder: &Path) -> Evicted {
             continue;
         }
         let used = last_used(&slot);
-        for partial in entries(&slot).into_iter().filter(|file| is_partial(file)) {
+        for partial in entries(&slot).into_iter().filter(|entry| is_partial(entry)) {
             evicted.bytes += size(&partial);
-            let _ = std::fs::remove_file(partial);
+            if is_dir(&partial) {
+                remove(&partial);
+            } else {
+                let _ = std::fs::remove_file(partial);
+            }
         }
         if used.is_none_or(|age| age >= IDLE) {
             evicted.bytes += size(&slot);
@@ -183,10 +189,11 @@ pub(super) fn tidy(folder: &Path) {
 
 /// How long ago the slot's capture was last used: the newest of the frames,
 /// records and pieces on its shelves. `None` when it has none — a capture that
-/// never finished.
+/// never finished, whose frames in its scratch folder are none of these.
 fn last_used(slot: &Path) -> Option<Duration> {
     entries(slot)
         .into_iter()
+        .filter(|entry| !is_partial(entry))
         .flat_map(|entry| {
             if is_dir(&entry) {
                 entries(&entry)
@@ -209,14 +216,13 @@ fn is_capture(file: &Path) -> bool {
         })
 }
 
-/// `<stem>.<pid>.partial.mkv`, a capture or a piece cut short.
-fn is_partial(file: &Path) -> bool {
-    file.file_name()
+/// `part-<first>-<end>.<pid>-<n>.capturing`, the scratch folder of a capture
+/// cut short.
+fn is_partial(entry: &Path) -> bool {
+    entry
+        .file_name()
         .and_then(|name| name.to_str())
-        .is_some_and(|name| {
-            (name.starts_with("frames.") || name.starts_with(PART))
-                && name.ends_with(".partial.mkv")
-        })
+        .is_some_and(|name| name.starts_with(PART) && name.ends_with(CAPTURING))
 }
 
 /// Bytes under `path`, links not followed.

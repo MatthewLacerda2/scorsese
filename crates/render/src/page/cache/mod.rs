@@ -149,7 +149,9 @@ pub(super) fn read_fresh(
 /// last, so a capture cut short leaves one that is not [`fresh`].
 pub(crate) fn keep(file: &Path, record: &Record) -> std::io::Result<()> {
     let bytes = serde_json::to_vec_pretty(record).expect("a record always serialises");
-    std::fs::write(file, bytes)
+    // Through a fresh scratch and a rename: a link already at the record's
+    // name is replaced, never written through (#1672).
+    scorsese_core::write::atomically(file, bytes)
 }
 
 #[cfg(test)]

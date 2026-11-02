@@ -30,7 +30,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
+use std::process::{Output, Stdio};
 
 use scorsese_core::{Asset, AssetKind, CACHE_DIR, MediaMetadata, Project};
 
@@ -152,6 +152,9 @@ pub enum ProxyError {
 ///
 /// Written beside `out` and renamed into place, so a proxy is never read
 /// half-made — a preview that checks for the file and finds it can decode it.
+/// Inside a folder this call made ([`scorsese_core::write::remade_dir`]), so
+/// nothing placed in the project's cache beforehand (a link, #1672) is where
+/// ffmpeg writes.
 ///
 /// H.264, because the default delivery already requires `libx264`
 /// (`docs/output-formats.md`), with a keyframe every fifteen frames and the
@@ -165,7 +168,9 @@ pub fn make(tools: &Tools, source: &Path, out: &Path) -> Result<(), ProxyError> 
     if let Some(parent) = out.parent() {
         std::fs::create_dir_all(parent).map_err(io(parent))?;
     }
-    let making = out.with_extension("making.mp4");
+    let folder = out.with_extension("making");
+    scorsese_core::write::remade_dir(&folder).map_err(io(&folder))?;
+    let making = folder.join("proxy.mp4");
     let side = PROXY_SHORT_SIDE;
     // The short side brought down to `side` and the long one kept in shape —
     // decided after ffmpeg has turned a phone's rotated picture upright, which
@@ -191,9 +196,16 @@ pub fn make(tools: &Tools, source: &Path, out: &Path) -> Result<(), ProxyError> 
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .output()
-        .map_err(io(&making))?;
+        .map_err(io(&making));
+    let placed = output.and_then(|output| placed(output, source, &making, out));
+    let _ = std::fs::remove_dir_all(&folder);
+    placed
+}
+
+/// What ffmpeg's `output` came to: the proxy at `making` put in `out`'s place,
+/// or why it was not made.
+fn placed(output: Output, source: &Path, making: &Path, out: &Path) -> Result<(), ProxyError> {
     if !output.status.success() {
-        let _ = std::fs::remove_file(&making);
         let message = String::from_utf8_lossy(&output.stderr).trim().to_owned();
         return Err(ProxyError::Ffmpeg {
             file: source.to_path_buf(),
@@ -204,7 +216,10 @@ pub fn make(tools: &Tools, source: &Path, out: &Path) -> Result<(), ProxyError> 
             },
         });
     }
-    std::fs::rename(&making, out).map_err(io(out))
+    std::fs::rename(making, out).map_err(|error| ProxyError::Io {
+        file: out.to_path_buf(),
+        source: error,
+    })
 }
 
 #[cfg(test)]

@@ -69,8 +69,16 @@ pub use scorsese_zimmer::level::{Loudness, Meter, Profile, Profiler};
 /// Removed when dropped: it is scratch, it can be large, and a render that
 /// fails part way through should not leave it behind. The output file is the
 /// deliverable; this never is.
+///
+/// It sits in a folder of its own beside the output, `.{name}.scorsese-audio`,
+/// made for this render ([`scorsese_core::write::remade_dir`]) with every
+/// other scratch file the delivery writes: nothing placed beside the output
+/// beforehand — a link, #1672 — is ever where a mix or a rehearsal is
+/// written, and a render killed before its tidy leaves the folder for the
+/// next render to the same output to clear.
 #[derive(Debug)]
 pub struct Mixdown {
+    folder: PathBuf,
     path: PathBuf,
 }
 
@@ -84,7 +92,7 @@ impl Mixdown {
 
 impl Drop for Mixdown {
     fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.path);
+        let _ = std::fs::remove_dir_all(&self.folder);
     }
 }
 
@@ -118,9 +126,10 @@ pub(crate) fn mixdown_unless(
         return Ok(None);
     }
 
-    let mixdown = Mixdown {
-        path: scratch_beside(out, "scorsese-mix.pcm"),
-    };
+    let mixdown = crate::pipe::hidden_folder(out, "scorsese-audio").map(|folder| Mixdown {
+        path: folder.join("mix.pcm"),
+        folder,
+    })?;
     let file = File::create(&mixdown.path).map_err(|source| RenderError::Scratch {
         path: mixdown.path.clone(),
         source,
@@ -261,12 +270,8 @@ fn audio_file(
     }
 }
 
-/// A scratch file beside the output, hidden, and named after it so two
-/// concurrent renders never collide. `tag` says which scratch file it is.
-fn scratch_beside(out: &Path, tag: &str) -> PathBuf {
-    let name = out
-        .file_name()
-        .map(|name| name.to_string_lossy().into_owned())
-        .unwrap_or_else(|| "render".to_owned());
-    out.with_file_name(format!(".{name}.{tag}"))
+/// The scratch file `name` beside the mix at `mix`: inside the folder the
+/// mixdown made, so it is never something placed there beforehand.
+fn beside_mix(mix: &Path, name: &str) -> PathBuf {
+    mix.with_file_name(name)
 }

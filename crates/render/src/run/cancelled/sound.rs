@@ -144,7 +144,7 @@ fn a_cancel_stops_the_loudness_target_before_its_next_pass_over_the_mix() {
         .expect("something to mix");
     let tripped = Cancel::new();
     tripped.cancel();
-    let delivered = deliver(&tools, &settings, mixed.0.path(), &out, &tripped);
+    let delivered = deliver(&tools, &settings, mixed.0.path(), &tripped);
     let stopped = matches!(delivered, Err(RenderError::Cancelled { .. }));
     drop(mixed);
     let left = left_in(&root);
