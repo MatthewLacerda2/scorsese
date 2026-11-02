@@ -160,6 +160,14 @@ impl AppState {
         self
     }
 
+    /// The same state, letting a member have at most `most` transcriptions
+    /// waiting, through the library and the tools alike.
+    pub fn with_transcriptions_waiting(mut self, most: usize) -> Self {
+        self.library = self.library.transcriptions_waiting(most);
+        self.tools = self.tools.with_library(self.library.clone());
+        self
+    }
+
     /// The same state with its tools searching and importing stock media from
     /// `library` alone — a test's, which needs no key and no network.
     pub fn stocked_from(mut self, library: scorsese_mcp::Stock) -> Self {

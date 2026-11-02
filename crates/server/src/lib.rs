@@ -233,9 +233,11 @@ pub async fn run(
         .per_user(jobs::kinds::BATCH_STILL, per_user.batch_stills);
     let assistant = assistant::Assistant::new(config.assistant_turn_cap).at_once(per_user.turns);
     tracing::info!(
-        "each account may run {} assistant turns and {} batched stills at once, and keep {}",
+        "each account may run {} assistant turns and {} batched stills at once, have {} \
+         transcriptions waiting, and keep {}",
         per_user.turns,
         per_user.batch_stills,
+        per_user.transcriptions,
         scorsese_core::bytes::format_bytes(per_user.storage.get())
     );
     match &config.google {
@@ -268,6 +270,7 @@ pub async fn run(
         google: config.google,
         payments: config.payments,
         free: config.free,
+        transcriptions: per_user.transcriptions,
     };
     start(
         pool, listener, files, registry, assistant, services, shutdown,
@@ -291,7 +294,7 @@ pub struct Files {
 /// optional: `None` is a server that answers what needs it with "not
 /// configured" and serves everything else — and what it gives away, nothing
 /// unless told.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Services {
     /// Sign in with Google (#952).
     pub google: Option<http::google::Google>,
@@ -299,6 +302,20 @@ pub struct Services {
     pub payments: Option<payments::Payments>,
     /// The free allowance every account is given (#1530).
     pub free: credits::allowance::Allowance,
+    /// How many transcriptions one account may have waiting
+    /// ([`config::PerUser::transcriptions`]).
+    pub transcriptions: usize,
+}
+
+impl Default for Services {
+    fn default() -> Self {
+        Self {
+            google: None,
+            payments: None,
+            free: credits::allowance::Allowance::default(),
+            transcriptions: jobs::kinds::DEFAULT_TRANSCRIPTIONS_PER_USER,
+        }
+    }
 }
 
 /// Migrate, then serve on `listener` with users' files in `files`, the
@@ -359,7 +376,8 @@ pub async fn start(
         .with_assistant(assistant)
         .with_google(services.google)
         .with_payments(services.payments.clone())
-        .with_free(services.free);
+        .with_free(services.free)
+        .with_transcriptions_waiting(services.transcriptions);
     let (stop, stopping) = watch::channel(false);
     let rate = services
         .payments

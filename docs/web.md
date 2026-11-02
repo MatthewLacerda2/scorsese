@@ -202,6 +202,7 @@ provider keys use, and is documented in `.env.example`:
 | `SCORSESE_ELEVENLABS_CONCURRENCY` | How many ElevenLabs calls may be in flight at once, every kind of job together (*The job queue*): the plan's concurrent requests. Defaults to `3`, Starter's; Free allows `2`. A whole number above zero, or the server will not start. |
 | `SCORSESE_USER_TURNS` | How many assistant turns one account may have running at once, every project and conversation together (*Assistant turns*). Defaults to `2`: a person and a second tab. A whole number above zero, or the server will not start. |
 | `SCORSESE_USER_BATCH_STILLS` | How many half-price batched stills one account may have waiting on Google at once, of the 64 the server runs (*The job queue*); the rest of theirs wait in line. Defaults to `16`, a quarter of them. A whole number above zero, or the server will not start. |
+| `SCORSESE_USER_TRANSCRIPTIONS` | How many transcriptions one account may have waiting for the one transcription slot (*Transcription*); one more is refused with a sentence. Defaults to `3`. A whole number above zero, or the server will not start. |
 | `SCORSESE_USER_STORAGE` | How much one account may keep — its library, its kept renders and the uploads it has announced — as a size: `50GB`, `200GB` (*Library*). Defaults to `50GB`, two and a half of the largest upload. A size above zero, or the server will not start. |
 | `SCORSESE_ELEVENLABS_VOICE_SLOTS` | How many designed voices the ElevenLabs account holds, every user's together (*Designing a voice*). Defaults to `10`, Starter's. A whole number above zero, or the server will not start. |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | The Google OAuth client people sign in with (*Accounts*). Optional, with the next one: without all three, Google sign-in is off, the server says so in its log, and everything else is served. The secret is never printed. |
@@ -2166,7 +2167,7 @@ on two cores, so a render always has the rest; its owner stops it with `jobs`'
 request already with Whisper is let run out, its answer not kept, and holds
 the slot until Whisper lets it go (`Context::hold_slot_until`), since Whisper
 finishes it either way and the next job would only wait on it. A member has
-at most three waiting (`kinds::TRANSCRIPTIONS_WAITING`), in a language
+at most three waiting (`SCORSESE_USER_TRANSCRIPTIONS`), in a language
 Whisper knows (`Language`), and a fourth is refused with a sentence (#1651). A recording longer than two hours
 (`transcribe::LONGEST`) is refused by the call, from the item's stored probe,
 before anything is queued, so one job holds the slot for a bounded time. What
