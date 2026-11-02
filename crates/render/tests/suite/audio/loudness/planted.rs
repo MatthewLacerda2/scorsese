@@ -12,11 +12,14 @@ use scorsese_render::{Container, FrameRange, OutputFormat, RenderSettings, Rende
 use super::headroom::{LEVEL, tone};
 use crate::audio::picture;
 use crate::common::ffmpeg::tools;
+use crate::common::planting;
 use crate::common::scratch;
 use crate::common::{audio_track, project, video_track};
 
-/// A link waiting at a name the mix or its rehearsal used to be written under
-/// beside the output is left as it was, and the delivery still lands (#1672).
+/// A link waiting beside the output at a name the mix, its rehearsal or the
+/// encode was written under on main, or at the next names of the folders they
+/// are written in now, is left as it was, and the delivery still lands
+/// (#1672).
 #[test]
 fn a_link_beside_the_output_is_never_written_through() {
     let tools = tools();
@@ -32,16 +35,20 @@ fn a_link_beside_the_output_is_never_written_through() {
         ],
     );
     let out = dir.join("out.mp4");
-    let planted: Vec<PathBuf> = [
+    let mut planted: Vec<PathBuf> = [
         "scorsese-mix.pcm",
         "scorsese-rehearsal",
         "scorsese-unraised.pcm",
+        "partial",
     ]
     .iter()
     .map(|tag| dir.join(format!(".out.mp4.{tag}")))
     .collect();
     for link in &planted {
         std::os::unix::fs::symlink(&victim, link).unwrap();
+    }
+    for tag in ["scorsese-audio", "rendering"] {
+        planted.extend(planting::plant(&dir.join(".out.mp4"), tag, &[], &outside));
     }
     let before: Vec<PathBuf> = std::fs::read_dir(&dir)
         .unwrap()
@@ -58,6 +65,11 @@ fn a_link_beside_the_output_is_never_written_through() {
     assert!(
         std::fs::read(&victim).unwrap() == b"the victim's own bytes",
         "the link's target was written through"
+    );
+    assert_eq!(
+        std::fs::read_dir(&outside).unwrap().count(),
+        1,
+        "nothing was written through a linked folder"
     );
     assert!(measure(&tools, &out).is_ok(), "the delivery still lands");
     let left: Vec<PathBuf> = std::fs::read_dir(&dir)

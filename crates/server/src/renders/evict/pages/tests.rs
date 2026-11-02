@@ -66,14 +66,17 @@ fn a_project_left_with_no_slot_loses_its_folder_and_an_empty_user_too() {
 fn a_partial_goes_whatever_its_age_and_a_slot_with_only_one_goes_too() {
     let cache = cache("partial");
     let folder = slot(&cache, 9, "used", 1);
-    std::fs::write(folder.join("pages/used/frames.41.partial.mkv"), [0; 7]).unwrap();
-    std::fs::create_dir_all(folder.join("pages/killed")).unwrap();
-    std::fs::write(folder.join("pages/killed/frames.42.partial.mkv"), [0; 3]).unwrap();
+    let used = folder.join("pages/used/part-0-31.41-0.capturing");
+    std::fs::create_dir_all(&used).unwrap();
+    std::fs::write(used.join("frames.mkv"), [0; 7]).unwrap();
+    let killed = folder.join("pages/killed/part-0-31.42-0.capturing");
+    std::fs::create_dir_all(&killed).unwrap();
+    std::fs::write(killed.join("frames.mkv"), [0; 3]).unwrap();
 
     let evicted = idle(&folder);
 
     assert_eq!((evicted.captures, evicted.bytes), (1, 10));
-    assert!(!folder.join("pages/used/frames.41.partial.mkv").exists());
+    assert!(!used.exists());
     assert!(folder.join("pages/used/frames.mkv").is_file());
     assert!(!folder.join("pages/killed").exists(), "it never finished");
 }
@@ -133,7 +136,7 @@ fn a_slot_of_pieces_ages_by_its_newest_on_any_shelf_and_goes_whole() {
     aged("used", "told-none/part-0-30.mkv", 49);
     aged("used", "told-1a2b/part-60-90.mkv", 1);
     aged("used", "told-1a2b/part-60-90.json", 1);
-    aged("used", "part-90-120.7.partial.mkv", 0);
+    aged("used", "part-90-120.7-0.capturing/frames.mkv", 0);
 
     let evicted = idle(&folder);
 
@@ -143,7 +146,7 @@ fn a_slot_of_pieces_ages_by_its_newest_on_any_shelf_and_goes_whole() {
         folder.join("pages/used/told-none/part-0-30.mkv").is_file(),
         "whole or not at all"
     );
-    assert!(!folder.join("pages/used/part-90-120.7.partial.mkv").exists());
+    assert!(!folder.join("pages/used/part-90-120.7-0.capturing").exists());
 }
 
 #[test]

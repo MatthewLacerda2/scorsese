@@ -58,7 +58,7 @@ impl Encoder {
         mix: Option<&Path>,
         out: &Path,
     ) -> Result<Self, RenderError> {
-        let partial = super::Partial::beside(out);
+        let partial = super::Partial::beside(out)?;
         let mut command = tools.ffmpeg();
         command
             .args(["-nostdin", "-v", "error", "-y"])
@@ -218,7 +218,7 @@ pub(crate) fn encode_mix(
     out: &Path,
     cancel: &Cancel,
 ) -> Result<(), RenderError> {
-    let partial = super::Partial::beside(out);
+    let partial = super::Partial::beside(out)?;
     let mut command = tools.ffmpeg();
     command.args(["-nostdin", "-v", "error", "-y"]);
     mix_input(&mut command, settings, mix);

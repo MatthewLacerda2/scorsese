@@ -72,7 +72,7 @@ pub use scorsese_zimmer::level::{Loudness, Meter, Profile, Profiler};
 ///
 /// It sits in a folder of its own beside the output, made for this render
 /// ([`scorsese_core::write::fresh_dir_beside`]), with every other scratch file
-/// the delivery writes ([`beside_mix`]): nothing placed beside the output
+/// the delivery writes: nothing placed beside the output
 /// beforehand — a link, #1672 — is ever where a mix or a rehearsal is written.
 #[derive(Debug)]
 pub struct Mixdown {
@@ -124,7 +124,7 @@ pub(crate) fn mixdown_unless(
         return Ok(None);
     }
 
-    let mixdown = scratch_folder(out).map(|folder| Mixdown {
+    let mixdown = crate::pipe::hidden_folder(out, "scorsese-audio").map(|folder| Mixdown {
         path: folder.join("mix.pcm"),
         folder,
     })?;
@@ -266,23 +266,6 @@ fn audio_file(
             Ok(None)
         }
     }
-}
-
-/// A scratch folder beside the output, hidden, named after it, and made by
-/// this call — so two concurrent renders never collide, and nothing already
-/// beside the output is written through.
-fn scratch_folder(out: &Path) -> Result<PathBuf, RenderError> {
-    let name = out
-        .file_name()
-        .map(|name| name.to_string_lossy().into_owned())
-        .unwrap_or_else(|| "render".to_owned());
-    let hidden = out.with_file_name(format!(".{name}"));
-    scorsese_core::write::fresh_dir_beside(&hidden, "scorsese-audio").map_err(|source| {
-        RenderError::Scratch {
-            path: hidden,
-            source,
-        }
-    })
 }
 
 /// The scratch file `name` beside the mix at `mix`: inside the folder the

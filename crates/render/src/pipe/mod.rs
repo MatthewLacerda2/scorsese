@@ -17,6 +17,6 @@ pub(crate) use audio::{ALIGN_TO_FILE_CLOCK, AudioDecoder, AudioSource, SAMPLE_FO
 pub(crate) use decode::{Decoder, Fitting, Source, reads_through_image2};
 pub(crate) use encode::{Encoder, encode_mix};
 pub(crate) use listed::frames as listed_frames;
-pub(crate) use partial::Partial;
+pub(crate) use partial::{Partial, hidden_folder};
 pub(crate) use process::{Process, finish, finish_unless};
 pub(crate) use resized::{Fitter, Pending};

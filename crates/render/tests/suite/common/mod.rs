@@ -3,6 +3,8 @@
 pub(crate) mod audio;
 pub(crate) mod ffmpeg;
 pub(crate) mod plans;
+#[cfg(unix)]
+pub(crate) mod planting;
 pub(crate) mod prompts;
 #[path = "../../../../../tools/scratch.rs"]
 pub(crate) mod scratch;

@@ -1997,7 +1997,7 @@ everything rebuildable, and on pressure or the weekly sweep every capture **not
 used in 48 hours** goes. A capture is used when it is made and again whenever a
 render reuses it (the server stamps its frames). A project's folder is never
 touched while a render job holds it, and the sweep also removes the folder of a
-project or account that no longer exists, and any `frames.<pid>.partial.mkv`
+project or account that no longer exists, and any `part-….capturing` folder
 a capture killed at its deadline left. Clearing `captures/pages/` by hand is
 still safe: the next render captures again.
 

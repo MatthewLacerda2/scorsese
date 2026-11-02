@@ -7,7 +7,7 @@
 #![cfg(unix)]
 
 use std::collections::BTreeMap;
-use std::os::unix::fs::symlink;
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use scorsese_core::Fps;
@@ -15,11 +15,8 @@ use scorsese_render::Resolution;
 use scorsese_render::page::{self, Request};
 
 use crate::common::ffmpeg::tools;
+use crate::common::planting;
 use crate::common::scratch;
-
-/// How many of the next scratch names get a link: more than one capture
-/// takes, so a name another call in this process took does not slip past.
-const PLANTED: u64 = 16;
 
 fn request(fps: Fps, duration: f64) -> Request {
     Request {
@@ -32,31 +29,14 @@ fn request(fps: Fps, duration: f64) -> Request {
     }
 }
 
-/// A link to `victim` at each of the next names a capture of `frames` into
-/// `slot` would write before its frames land — the partial file, and the
-/// pieces and the list a capture in pieces writes beside it.
-fn plant(slot: &Path, frames: std::ops::Range<u64>, victim: &Path) -> Vec<PathBuf> {
+/// Links at each of the next names a capture of `frames` into `slot` writes
+/// before its frames land: to `victim` where it wrote on main (the partial
+/// file, and the pieces and the list a capture in pieces writes beside it),
+/// and to `outside` where it writes now (its scratch folder).
+fn plant(slot: &Path, frames: Range<u64>, victim: &Path, outside: &Path) -> Vec<PathBuf> {
     let stem = slot.join(format!("part-{}-{}", frames.start, frames.end));
-    let seen = scorsese_core::write::scratch_beside(&stem, "partial.mkv").expect("a scratch name");
-    let seen = seen
-        .file_name()
-        .expect("a name")
-        .to_string_lossy()
-        .into_owned();
-    let (name, number) = seen
-        .strip_suffix(".partial.mkv")
-        .and_then(|s| s.rsplit_once('-'))
-        .expect("<name>.<pid>-<n>.partial.mkv");
-    let number: u64 = number.parse().expect("a number");
-    let mut planted = Vec::new();
-    for k in 1..=PLANTED {
-        let partial = format!("{name}-{}.partial.mkv", number + k);
-        for sibling in ["", ".list", ".0.mkv", ".1.mkv"] {
-            let link = slot.join(format!("{partial}{sibling}"));
-            symlink(victim, &link).expect("a link");
-            planted.push(link);
-        }
-    }
+    let mut planted = planting::plant(&stem, "partial.mkv", &[".list", ".0.mkv", ".1.mkv"], victim);
+    planted.extend(planting::plant(&stem, "capturing", &[], outside));
     planted
 }
 
@@ -82,7 +62,7 @@ fn captured_past_links(label: &str, request: &Request, browsers: usize) {
     let shelf = first.file.parent().expect("a shelf").to_path_buf();
     let slot = shelf.parent().expect("a slot").to_path_buf();
     std::fs::remove_dir_all(&shelf).expect("the shelf goes");
-    let planted = plant(&slot, frames.clone(), &victim);
+    let planted = plant(&slot, frames.clone(), &victim, &outside);
 
     let again = page::capture_frames(&chrome, &tools, &dir, &[], request, frames, browsers)
         .expect("captured past the links");
@@ -90,6 +70,11 @@ fn captured_past_links(label: &str, request: &Request, browsers: usize) {
     assert!(
         std::fs::read(&victim).expect("the victim") == b"the victim's own bytes",
         "the link's target was written through"
+    );
+    assert_eq!(
+        std::fs::read_dir(&outside).expect("outside").count(),
+        1,
+        "nothing was written through a linked folder"
     );
     let landed = std::fs::symlink_metadata(&again.file).expect("the frames");
     assert!(
