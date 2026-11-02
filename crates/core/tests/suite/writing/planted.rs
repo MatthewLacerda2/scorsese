@@ -53,18 +53,22 @@ fn a_scratch_that_cannot_be_made_is_the_error_itself() {
 /// each a link to `target`: the counter's current number is read off the name
 /// it hands out, and the ones after it are what a writer will try.
 fn plant(file: &Path, suffix: &str, target: &Path) -> Vec<PathBuf> {
-    let seen = scratch_beside(file, suffix).unwrap();
-    let seen = seen.file_name().unwrap().to_string_lossy().into_owned();
+    let seen = scratch_beside(file, suffix).expect("a scratch name");
+    let seen = seen
+        .file_name()
+        .expect("a name")
+        .to_string_lossy()
+        .into_owned();
     let (stem, number) = seen
         .strip_suffix(&format!(".{suffix}"))
         .and_then(|s| s.rsplit_once('-'))
         .expect("<name>.<pid>-<n>.<suffix>");
-    let number: u64 = number.parse().unwrap();
-    let dir = file.parent().unwrap();
+    let number: u64 = number.parse().expect("a number");
+    let dir = file.parent().expect("a folder");
     (1..=PLANTED)
         .map(|k| {
             let link = dir.join(format!("{stem}-{}.{suffix}", number + k));
-            symlink(target, &link).unwrap();
+            symlink(target, &link).expect("a link");
             link
         })
         .collect()

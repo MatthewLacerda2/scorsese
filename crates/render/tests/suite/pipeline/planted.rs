@@ -37,19 +37,23 @@ fn request(fps: Fps, duration: f64) -> Request {
 /// pieces and the list a capture in pieces writes beside it.
 fn plant(slot: &Path, frames: std::ops::Range<u64>, victim: &Path) -> Vec<PathBuf> {
     let stem = slot.join(format!("part-{}-{}", frames.start, frames.end));
-    let seen = scorsese_core::write::scratch_beside(&stem, "partial.mkv").unwrap();
-    let seen = seen.file_name().unwrap().to_string_lossy().into_owned();
+    let seen = scorsese_core::write::scratch_beside(&stem, "partial.mkv").expect("a scratch name");
+    let seen = seen
+        .file_name()
+        .expect("a name")
+        .to_string_lossy()
+        .into_owned();
     let (name, number) = seen
         .strip_suffix(".partial.mkv")
         .and_then(|s| s.rsplit_once('-'))
         .expect("<name>.<pid>-<n>.partial.mkv");
-    let number: u64 = number.parse().unwrap();
+    let number: u64 = number.parse().expect("a number");
     let mut planted = Vec::new();
     for k in 1..=PLANTED {
         let partial = format!("{name}-{}.partial.mkv", number + k);
         for sibling in ["", ".list", ".0.mkv", ".1.mkv"] {
             let link = slot.join(format!("{partial}{sibling}"));
-            symlink(victim, &link).unwrap();
+            symlink(victim, &link).expect("a link");
             planted.push(link);
         }
     }
@@ -64,36 +68,36 @@ fn captured_past_links(label: &str, request: &Request, browsers: usize) {
     let tools = tools();
     let dir = scratch::dir(label);
     let outside = scratch::dir(&format!("{label}-outside"));
-    std::fs::create_dir_all(dir.join("pages")).unwrap();
+    std::fs::create_dir_all(dir.join("pages")).expect("pages/");
     std::fs::write(
         dir.join("pages/flat.html"),
         "<style>div { position: absolute; inset: 0; background: #00f }</style><div></div>",
     )
-    .unwrap();
+    .expect("a page");
     let victim = outside.join("victim.txt");
-    std::fs::write(&victim, "the victim's own bytes").unwrap();
+    std::fs::write(&victim, "the victim's own bytes").expect("a victim");
     let frames = 0..request.frames();
 
     let first = page::capture(&chrome, &tools, &dir, request).expect("captured");
-    let shelf = first.file.parent().unwrap().to_path_buf();
-    let slot = shelf.parent().unwrap().to_path_buf();
-    std::fs::remove_dir_all(&shelf).unwrap();
+    let shelf = first.file.parent().expect("a shelf").to_path_buf();
+    let slot = shelf.parent().expect("a slot").to_path_buf();
+    std::fs::remove_dir_all(&shelf).expect("the shelf goes");
     let planted = plant(&slot, frames.clone(), &victim);
 
     let again = page::capture_frames(&chrome, &tools, &dir, &[], request, frames, browsers)
         .expect("captured past the links");
 
     assert!(
-        std::fs::read(&victim).unwrap() == b"the victim's own bytes",
+        std::fs::read(&victim).expect("the victim") == b"the victim's own bytes",
         "the link's target was written through"
     );
-    let landed = std::fs::symlink_metadata(&again.file).unwrap();
+    let landed = std::fs::symlink_metadata(&again.file).expect("the frames");
     assert!(
         landed.is_file() && landed.len() > 0,
         "the frames still land"
     );
     let left: Vec<String> = std::fs::read_dir(&slot)
-        .unwrap()
+        .expect("the slot")
         .flatten()
         .map(|entry| entry.path())
         .filter(|path| !planted.contains(path) && !path.starts_with(&shelf))
