@@ -20,6 +20,7 @@ mod midi;
 mod pages;
 mod peaks;
 mod playlists;
+mod plays;
 mod proxies;
 mod quota;
 mod room;
