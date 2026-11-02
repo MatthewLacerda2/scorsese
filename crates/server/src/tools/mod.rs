@@ -101,8 +101,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use scorsese_mcp::{Ahead, Libraries, PagesAhead, Reply, Stock, Tool};
-use scorsese_providers::credentials::{Provider, resolve};
-use scorsese_providers::voices::{Catalogue, ElevenLabsVoices};
+use scorsese_providers::voices::Catalogue;
 use scorsese_render::{Cancel, Tools};
 use serde_json::Value;
 use sqlx::postgres::PgPool;
@@ -162,22 +161,6 @@ impl Toolbox {
             voices: None,
             bounds: bound::Bounds::new(AT_ONCE, DEADLINE),
         }
-    }
-
-    /// The same tools asking `voices` where a voice comes from instead of
-    /// ElevenLabs — a test's, which needs no key and no network.
-    pub fn voiced_from(mut self, voices: Voices) -> Self {
-        self.voices = Some(voices);
-        self
-    }
-
-    /// Where a voice's origin is asked, or why it cannot be.
-    fn catalogue(&self) -> Result<Voices, String> {
-        if let Some(voices) = &self.voices {
-            return Ok(voices.clone());
-        }
-        let key = resolve(Provider::ElevenLabs).map_err(|error| error.to_string())?;
-        Ok(Arc::new(ElevenLabsVoices::new(&key.secret)))
     }
 
     /// The same tools, with at most `at_once` of a member's registry tool
