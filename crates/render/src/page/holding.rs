@@ -81,7 +81,7 @@ impl Holding {
             return Err(PageError::Cancelled);
         }
         let slot = cache::slot(project_root, request, chrome.version());
-        std::fs::create_dir_all(&slot)?;
+        cache::made(project_root, &slot)?;
         let fonts = cache::fonts(project_root)?;
         // Written beside and moved into place, so an interrupted capture never
         // leaves frames that look finished — inside a folder this capture

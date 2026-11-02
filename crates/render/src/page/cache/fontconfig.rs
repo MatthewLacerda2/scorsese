@@ -38,7 +38,7 @@ const GENERICS: [(&str, &str); 4] = [
 /// on another thread never reads one cut short (#1085).
 pub(crate) fn fonts(project_root: &Path) -> std::io::Result<PathBuf> {
     let folder = project_root.join(CACHE_DIR).join(PAGES).join("fonts");
-    std::fs::create_dir_all(&folder)?;
+    super::made(project_root, &folder)?;
     for face in super::super::fonts::faces() {
         let file = folder.join(&face.file);
         let current = std::fs::metadata(&file).map(|m| m.len()).ok();

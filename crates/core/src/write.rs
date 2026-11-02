@@ -23,12 +23,14 @@
 //! A file of the project is written through [`in_project`], which also
 //! refuses a folder on the way that is a link: on the web a project is laid
 //! out with links into a member's storage, and a write through one would land
-//! outside the project.
+//! outside the project. A folder a writer is not handed as a project path —
+//! a cache's — is made through [`folder_below`], which holds to the same
+//! line below a base the caller trusts.
 //!
-//! Importing does not, and needs not: `pool` copies a file in under a name no
-//! asset points at yet and records it only once the copy is whole, so a copy
-//! cut short leaves a stray file nothing reads, never a half-written one a
-//! project does.
+//! Importing goes through neither, and needs not: `pool` copies a file in
+//! under a name no asset points at yet and records it only once the copy is
+//! whole, so a copy cut short leaves a stray file nothing reads, never a
+//! half-written one a project does.
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
