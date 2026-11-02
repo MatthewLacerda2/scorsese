@@ -14,7 +14,7 @@ use scorsese_core::Speed;
 use crate::audio::CHANNELS;
 use crate::error::{RenderError, Stage};
 use crate::settings::RenderSettings;
-use crate::tools::Tools;
+use crate::tools::{Tools, input};
 
 /// The raw sample format we ask ffmpeg for and hand back to it.
 ///
@@ -82,7 +82,7 @@ impl AudioDecoder {
         if open > 0.0 {
             command.arg("-ss").arg(format!("{open:.6}"));
         }
-        command.arg("-i").arg(&source.file);
+        input::media(&mut command, &source.file);
         command
             .arg("-af")
             .arg(audio_filter(source.seek_seconds - open, source.speed, rate));

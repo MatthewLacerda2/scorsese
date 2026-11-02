@@ -9,6 +9,11 @@
 //! It is also where every child process in the workspace is started
 //! ([`child`]): with a cleared environment plus the few variables a tool
 //! reads, so a child never holds the keys its parent does.
+//!
+//! And it is where a file is named to them as an input ([`input`]): through
+//! the file protocol alone, never read as a URL or a list of other files.
+
+pub mod input;
 
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;

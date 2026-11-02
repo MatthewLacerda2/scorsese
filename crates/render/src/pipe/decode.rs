@@ -9,7 +9,7 @@ use super::resized::{Fitter, Pending};
 
 use crate::error::{RenderError, Stage};
 use crate::settings::RenderSettings;
-use crate::tools::Tools;
+use crate::tools::{Tools, input};
 use scorsese_compositor::{Frame, PIXEL_FORMAT, Resolution};
 use scorsese_core::{Crop, SEQUENCE_FORMATS, Speed};
 
@@ -159,7 +159,7 @@ impl Decoder {
                     .arg("-ss")
                     .arg(format!("{:.6}", source.seek_seconds));
             }
-            command.arg("-i").arg(&source.file);
+            input::media(&mut command, &source.file);
         }
         if source.still && source.seek_seconds > 0.0 && !reads_through_image2(&source.file) {
             into_animation(&mut command, source.seek_seconds);

@@ -25,7 +25,7 @@ use std::process::Stdio;
 use scorsese_compositor::{Frame, PIXEL_FORMAT};
 
 use crate::settings::Resolution;
-use crate::tools::Tools;
+use crate::tools::{Tools, input};
 
 pub use shrunk::{JPEG, MODEL_EDGE, file_for_a_model, for_a_model};
 pub use stills::{Still, stills};
@@ -39,9 +39,8 @@ pub fn extract(
     resolution: Resolution,
 ) -> Result<Frame, FrameError> {
     let mut command = tools.ffmpeg();
-    command
-        .args(["-nostdin", "-v", "error", "-i"])
-        .arg(file)
+    command.args(["-nostdin", "-v", "error"]);
+    input::media(&mut command, file)
         .args(["-vf", &format!("select=eq(n\\,{index})")])
         .args(["-frames:v", "1"]);
     raw_frame(command, file, resolution)
@@ -50,7 +49,8 @@ pub fn extract(
 /// Reads a PNG back as a frame.
 pub fn read_png(tools: &Tools, file: &Path, resolution: Resolution) -> Result<Frame, FrameError> {
     let mut command = tools.ffmpeg();
-    command.args(["-nostdin", "-v", "error", "-i"]).arg(file);
+    command.args(["-nostdin", "-v", "error"]);
+    input::media(&mut command, file);
     raw_frame(command, file, resolution)
 }
 
@@ -67,6 +67,7 @@ pub fn write_png(tools: &Tools, file: &Path, frame: &Frame) -> Result<(), FrameE
         .args(["-nostdin", "-v", "error", "-y"])
         .args(["-f", "rawvideo", "-pix_fmt", PIXEL_FORMAT])
         .args(["-s", &frame.resolution().to_string()])
+        // lint: allow(ffmpeg-input) raw frames this program writes, in the format it names
         .args(["-i", "-", "-frames:v", "1"])
         .arg(file)
         .stdin(Stdio::piped())

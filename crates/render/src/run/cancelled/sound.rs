@@ -29,6 +29,7 @@ fn tones(tools: &Tools, label: &str) -> (Project, PathBuf) {
     crate::testing::generate(
         tools,
         &root.join("assets/tone.wav"),
+        // lint: allow(ffmpeg-input) a lavfi graph, not a file
         &["-f", "lavfi", "-i", "sine=d=3"],
     );
     let tone = Asset::imported(

@@ -10,7 +10,7 @@ use crate::audio::CHANNELS;
 use crate::cancel::Cancel;
 use crate::error::{RenderError, Stage};
 use crate::settings::RenderSettings;
-use crate::tools::Tools;
+use crate::tools::{Tools, input};
 use scorsese_compositor::{Frame, PIXEL_FORMAT};
 
 /// The pixel format every encoder here is handed. 4:2:0 8-bit is what all
@@ -68,6 +68,7 @@ impl Encoder {
                 "-r",
                 &format!("{}/{}", settings.fps.num(), settings.fps.den()),
             ])
+            // lint: allow(ffmpeg-input) raw frames this program writes, in the format it names
             .args(["-i", "-"]);
         if let Some(mix) = mix {
             mix_input(&mut command, settings, mix);
@@ -242,9 +243,8 @@ fn mix_input(command: &mut Command, settings: &RenderSettings, mix: &Path) {
     command
         .args(["-f", SAMPLE_FORMAT])
         .args(["-ar", &settings.sample_rate.hz().to_string()])
-        .args(["-ac", &CHANNELS.to_string()])
-        .arg("-i")
-        .arg(mix);
+        .args(["-ac", &CHANNELS.to_string()]);
+    input::own(command, mix);
 }
 
 /// Asks for the audio codec the container is written with, and the bitrate

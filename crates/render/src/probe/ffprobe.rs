@@ -5,7 +5,7 @@ use std::path::Path;
 use scorsese_core::MediaMetadata;
 use scorsese_core::probe::{ProbeError, ProbeMedia};
 
-use crate::tools::Tools;
+use crate::tools::{Tools, input};
 
 use super::report::Report;
 
@@ -34,23 +34,24 @@ impl Ffprobe {
 
 impl ProbeMedia for Ffprobe {
     fn probe(&self, file: &Path) -> Result<MediaMetadata, ProbeError> {
-        let output = self
-            .tools
-            .ffprobe()
-            .args([
-                "-v",
-                "error",
-                "-print_format",
-                "json",
-                "-show_format",
-                "-show_streams",
-            ])
-            .arg(file)
+        let mut command = self.tools.ffprobe();
+        command.args([
+            "-v",
+            "error",
+            "-print_format",
+            "json",
+            "-show_format",
+            "-show_streams",
+        ]);
+        let output = input::media(&mut command, file)
             .output()
             .map_err(|error| ProbeError::new(file, error.to_string()))?;
 
         if !output.status.success() {
             let message = String::from_utf8_lossy(&output.stderr);
+            if refused_listing(&message) {
+                return Err(ProbeError::listing(file));
+            }
             let message = message.trim();
             let message = if message.is_empty() {
                 "ffprobe reported no detail"
@@ -64,5 +65,36 @@ impl ProbeMedia for Ffprobe {
             ProbeError::new(file, format!("unreadable ffprobe output: {error}"))
         })?;
         Ok(report.into_metadata())
+    }
+}
+
+/// Whether ffprobe's complaint is the whitelist refusing a demuxer that opens
+/// other inputs: it names the demuxer it picked as `[concat @ 0x…]` before
+/// `Format not on whitelist`.
+fn refused_listing(stderr: &str) -> bool {
+    stderr.lines().any(|line| {
+        line.contains("not on whitelist")
+            && line
+                .strip_prefix('[')
+                .and_then(|rest| rest.split_once(" @"))
+                .is_some_and(|(format, _)| input::LISTING_FORMATS.contains(&format))
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::refused_listing;
+
+    #[test]
+    fn a_listing_is_told_from_any_other_refused_format() {
+        assert!(refused_listing(
+            "[concat @ 0x55e] Format not on whitelist 'mov,matroska'\nlist.mp4: Invalid argument\n"
+        ));
+        assert!(refused_listing("[hls @ 0x1] Format not on whitelist 'mov'"));
+        assert!(!refused_listing(
+            "[nut @ 0x1] Format not on whitelist 'mov'"
+        ));
+        assert!(!refused_listing("[concat @ 0x1] Unsafe file name 'x'"));
+        assert!(!refused_listing("moov atom not found"));
     }
 }

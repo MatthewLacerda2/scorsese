@@ -34,7 +34,7 @@ use std::process::Stdio;
 
 use scorsese_core::{Asset, AssetKind, CACHE_DIR, MediaMetadata, Project};
 
-use crate::tools::Tools;
+use crate::tools::{Tools, input};
 
 /// The short side of a proxy, in pixels: the half-quality raster of a 1080p
 /// film, so a proxy is never enlarged by a preview at half or below.
@@ -172,10 +172,9 @@ pub fn make(tools: &Tools, source: &Path, out: &Path) -> Result<(), ProxyError> 
     // is why it is an expression rather than a size worked out here.
     let scale =
         format!("scale='if(gte(iw,ih),-2,min({side},iw))':'if(gte(iw,ih),min({side},ih),-2)'");
-    let output = tools
-        .ffmpeg()
-        .args(["-nostdin", "-v", "error", "-y", "-i"])
-        .arg(source)
+    let mut command = tools.ffmpeg();
+    command.args(["-nostdin", "-v", "error", "-y"]);
+    let output = input::media(&mut command, source)
         .args(["-map", "0:v:0", "-an", "-sn", "-dn", "-vf", &scale])
         .args([
             "-c:v",

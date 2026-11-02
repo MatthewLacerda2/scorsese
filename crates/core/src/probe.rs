@@ -27,6 +27,10 @@ pub struct ProbeError {
     pub path: PathBuf,
     /// The prober's own account of what went wrong, passed through verbatim.
     pub message: String,
+    /// Whether the file is a playlist or a list naming other files (an HLS
+    /// playlist, an ffconcat list) rather than media itself: refused, never
+    /// opened, so its contents never decide what else is read.
+    pub listing: bool,
 }
 
 impl ProbeError {
@@ -35,6 +39,19 @@ impl ProbeError {
         Self {
             path: path.into(),
             message: message.into(),
+            listing: false,
+        }
+    }
+
+    /// The failure for a file that is a playlist or a list of other files.
+    pub fn listing(path: impl Into<PathBuf>) -> Self {
+        Self {
+            listing: true,
+            ..Self::new(
+                path,
+                "this file is a playlist or a list of other files, not media; \
+                 import the file itself",
+            )
         }
     }
 }

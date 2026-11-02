@@ -13,6 +13,7 @@ mod contact;
 mod describing;
 mod filling;
 mod formats;
+mod inputs;
 mod layouts;
 mod pipeline;
 mod plan;

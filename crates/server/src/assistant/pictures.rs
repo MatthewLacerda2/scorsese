@@ -77,6 +77,7 @@ mod tests {
     fn photographic(ffmpeg: &Tools) -> Vec<u8> {
         let out = ffmpeg
             .ffmpeg()
+            // lint: allow(ffmpeg-input) a lavfi graph, not a file
             .args(["-nostdin", "-v", "error", "-f", "lavfi", "-i"])
             .arg("mandelbrot=s=1280x720,noise=alls=12:allf=t")
             .args(["-frames:v", "1", "-c:v", "png", "-f", "image2pipe", "-"])
@@ -120,11 +121,11 @@ mod tests {
         assert_eq!(media_type, "image/jpeg");
         let sent = scratch.join("sent.jpg");
         std::fs::write(&sent, STANDARD.decode(data).expect("base64")).expect("it writes");
-        let probed = ffmpeg
-            .ffprobe()
+        let mut probe = ffmpeg.ffprobe();
+        probe
             .args(["-v", "error", "-select_streams", "v:0", "-show_entries"])
-            .args(["stream=width,height", "-of", "csv=p=0"])
-            .arg(&sent)
+            .args(["stream=width,height", "-of", "csv=p=0"]);
+        let probed = scorsese_render::tools::input::media(&mut probe, &sent)
             .output()
             .expect("ffprobe runs");
         std::fs::remove_dir_all(&scratch).ok();
@@ -139,6 +140,7 @@ mod tests {
         let ffmpeg = Tools::discover().expect("ffmpeg is on PATH");
         let out = ffmpeg
             .ffmpeg()
+            // lint: allow(ffmpeg-input) a lavfi graph, not a file
             .args(["-nostdin", "-v", "error", "-f", "lavfi", "-i"])
             .arg("testsrc=s=1600x1200")
             .args(["-frames:v", "1", "-c:v", "tiff", "-compression_algo", "raw"])

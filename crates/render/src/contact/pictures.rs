@@ -15,7 +15,7 @@ use scorsese_compositor::{Frame, Resolution};
 
 use super::ContactError;
 use super::sample::{CELL_LONGEST_SIDE, MAX_FRAMES};
-use crate::tools::Tools;
+use crate::tools::{Tools, input};
 
 /// The cell's shorter side: a 16:9 cell on the longest one.
 const CELL_SHORTER_SIDE: u32 = CELL_LONGEST_SIDE * 9 / 16;
@@ -52,9 +52,8 @@ pub fn pictures(
 fn fitted(tools: &Tools, file: &Path, cell: Resolution) -> Result<Frame, ContactError> {
     let (width, height) = (cell.width(), cell.height());
     let mut command = tools.ffmpeg();
-    command
-        .args(["-nostdin", "-v", "error", "-i"])
-        .arg(file)
+    command.args(["-nostdin", "-v", "error"]);
+    input::media(&mut command, file)
         .args(["-frames:v", "1"])
         .args([
             "-vf",

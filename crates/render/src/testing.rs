@@ -67,6 +67,7 @@ pub fn tone(tools: &Tools, path: &Path, hz: u32, amplitude: &str, seconds: f64) 
     generate(
         tools,
         path,
+        // lint: allow(ffmpeg-input) a lavfi graph, not a file
         &["-f", "lavfi", "-i", &tone_graph(hz, amplitude, seconds)],
     );
 }
@@ -80,6 +81,7 @@ pub fn colour_video(tools: &Tools, path: &Path, colour: &str, size: &str, second
         &[
             "-f",
             "lavfi",
+            // lint: allow(ffmpeg-input) a lavfi graph, not a file
             "-i",
             &format!("color=c={colour}:s={size}:d={seconds}:r=30"),
             "-pix_fmt",
@@ -96,6 +98,7 @@ pub fn still(tools: &Tools, path: &Path, colour: &str, size: &str) {
         &[
             "-f",
             "lavfi",
+            // lint: allow(ffmpeg-input) a lavfi graph, not a file
             "-i",
             &format!("color=c={colour}:s={size}"),
             "-frames:v",

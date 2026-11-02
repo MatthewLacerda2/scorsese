@@ -171,6 +171,11 @@ fn probe(
             "this was sent as {} but has {found}",
             article(kind)
         )),
+        ImportError::Probe(error) if error.listing => LibraryError::Rejected(format!(
+            "this file is a playlist, not {}; upload the {} itself",
+            article(kind),
+            kind.label()
+        )),
         other => {
             // The prober's own words name the server's paths; they are
             // for the log, not for the person uploading.

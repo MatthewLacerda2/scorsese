@@ -15,7 +15,7 @@
 use std::path::Path;
 use std::process::Stdio;
 
-use crate::tools::Tools;
+use crate::tools::{Tools, input};
 
 use super::{FrameError, stderr_of};
 
@@ -73,18 +73,15 @@ pub fn thumbnail(
     command.args(["-nostdin", "-v", "error", "-y"]);
     match what {
         Thumbnail::Frame { at_seconds } => {
-            command
-                .args(["-ss", &format!("{:.3}", at_seconds.max(0.0))])
-                .arg("-i")
-                .arg(source)
-                .args(["-vf", &fit, "-q:v", "4"]);
+            command.args(["-ss", &format!("{:.3}", at_seconds.max(0.0))]);
+            input::media(&mut command, source).args(["-vf", &fit, "-q:v", "4"]);
         }
         Thumbnail::Picture => {
-            command.arg("-i").arg(source).args(["-vf", &fit]);
+            input::media(&mut command, source).args(["-vf", &fit]);
         }
         Thumbnail::Waveform => {
             let height = side * 3 / 8;
-            command.arg("-i").arg(source).args([
+            input::media(&mut command, source).args([
                 "-filter_complex",
                 &format!("showwavespic=s={side}x{height}:split_channels=0:colors=0x8a8f98"),
             ]);
