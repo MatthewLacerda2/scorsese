@@ -9,44 +9,43 @@
 //! over makes no more of them.
 //!
 //! Two starts racing for one member are serialized by [`Starting`], a lock
-//! in this process held from reading the open session to writing the new
-//! one. It holds no database connection: each read and write is its own short
+//! per member in this process (the deploy runs one server), held from
+//! reading the open session to writing the new one; other members never
+//! wait on it. It holds no database connection: each read and write is its own short
 //! transaction, so a slow Stripe never keeps a connection from the pool.
 
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex as StdMutex, PoisonError};
 
 use scorsese_providers::api::http::HttpError;
 use scorsese_providers::payments::{Checkout, Session};
 use sqlx::postgres::PgPool;
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::{Mutex, OwnedMutexGuard};
 
 use super::settle::settle;
 use super::{Begun, EXPIRES_AFTER_SECONDS, PaymentError, Payments, Quote};
 use crate::db::{self, UserId};
 
-/// How many locks members share. Two members on one only wait for each
-/// other's start; the set stays this size however many members there are.
-const LANES: usize = 64;
-
 /// How young an open session must be to be handed back: ten minutes, so the
 /// person sent to it has at least twenty of its thirty-one to pay in.
 pub const REUSED_WITHIN_SECONDS: i64 = 10 * 60;
 
-/// Purchases being started, one at a time per member.
-#[derive(Clone)]
-pub struct Starting(Arc<[Mutex<()>]>);
-
-impl Default for Starting {
-    fn default() -> Self {
-        Self((0..LANES).map(|_| Mutex::new(())).collect())
-    }
-}
+/// Purchases being started, one at a time per member: a lock each, for
+/// the members starting one now. A member's lock is dropped from the map
+/// once nobody holds or waits on it, so the map is as large as the starts in
+/// flight.
+#[derive(Clone, Default)]
+pub struct Starting(Arc<StdMutex<HashMap<UserId, Arc<Mutex<()>>>>>);
 
 impl Starting {
     /// Wait for, and hold, `user`'s turn to start a purchase.
-    pub(super) async fn lock(&self, user: UserId) -> MutexGuard<'_, ()> {
-        let lane = usize::try_from(user.get().rem_euclid(LANES as i64)).unwrap_or(0);
-        self.0[lane].lock().await
+    pub(super) async fn lock(&self, user: UserId) -> OwnedMutexGuard<()> {
+        let lock = {
+            let mut members = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+            members.retain(|_, lock| Arc::strong_count(lock) > 1);
+            members.entry(user).or_default().clone()
+        };
+        lock.lock_owned().await
     }
 }
 
@@ -103,7 +102,21 @@ impl Open {
         quote: &Quote,
     ) -> Result<Option<Begun>, PaymentError> {
         let retrieve = |checkout: &dyn Checkout, id: &str| checkout.retrieve(id);
-        let current = call(payments, &self.stripe_session, retrieve).await?;
+        let current = match call(payments, &self.stripe_session, retrieve).await {
+            Ok(current) => current,
+            // Stripe does not know it (another key or account since): it
+            // takes no payment, and does not hold up a new one.
+            Err(PaymentError::Stripe(HttpError::Refused { status, body, .. }))
+                if (400..500).contains(&status) =>
+            {
+                tracing::warn!(
+                    "open payment {} is refused by Stripe ({status}: {body}); starting a new one",
+                    self.stripe_session
+                );
+                return Ok(None);
+            }
+            Err(error) => return Err(error),
+        };
         let open = is_open(&current);
         if open
             && self.sells(quote)
