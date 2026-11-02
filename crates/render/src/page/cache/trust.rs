@@ -213,6 +213,13 @@ mod tests {
         assert!(super::made(&root, &slot.join("told-none")).is_err());
         std::os::unix::fs::symlink(&outside, pages.join("fonts")).unwrap();
         assert!(super::super::fonts(&root).is_err());
+        std::fs::remove_file(pages.join("fonts")).unwrap();
+        std::fs::create_dir(pages.join("fonts")).unwrap();
+        std::os::unix::fs::symlink(&outside, pages.join("fonts/.cache")).unwrap();
+        assert!(
+            super::super::fonts(&root).is_err(),
+            "fontconfig's own cache"
+        );
         let landed: Vec<_> = std::fs::read_dir(&outside).unwrap().collect();
         assert_eq!(landed.len(), 1, "only the secret: {landed:?}");
         assert!(super::made(&root, &root.join("elsewhere")).is_err());

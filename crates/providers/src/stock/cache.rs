@@ -28,6 +28,34 @@ pub fn cache_dir(root: &Path) -> PathBuf {
     root.join(CACHE_DIR).join("stock")
 }
 
+/// The folder `folder` of the stock cache `cache`, made, and neither it nor
+/// the cache folder itself a link (#1698): a `.scor` received from someone
+/// else may carry one at `cache/stock` or below, and nothing a search or a
+/// download keeps is written where it leads. What is above the cache folder
+/// is the caller's — nothing hands the stock tools a linked one (the web's is
+/// a folder of its own per user, never linked into a project).
+///
+/// # Errors
+///
+/// If the cache folder or `folder` is a link or a file, or cannot be made.
+pub(crate) fn unlinked(cache: &Path, folder: &str) -> Result<PathBuf, StockError> {
+    let io = |source| StockError::Io {
+        path: cache.join(folder),
+        source,
+    };
+    if std::fs::symlink_metadata(cache).is_ok_and(|meta| meta.file_type().is_symlink()) {
+        return Err(io(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!(
+                "{} is a link, and nothing is written through one",
+                cache.display()
+            ),
+        )));
+    }
+    std::fs::create_dir_all(cache).map_err(io)?;
+    folder_below(cache, Path::new(folder)).map_err(io)
+}
+
 /// One page of one query, as it was when it was read.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct Cached {
@@ -76,14 +104,7 @@ pub(crate) fn write(cache: &Path, key: &str, page: &Page) -> Result<(), StockErr
         candidates: page.candidates.clone(),
         total: page.total,
     };
-    // The folder made first, so a link at it is refused rather than followed
-    // (#1698): the cache folder is the caller's, nothing below it is.
-    std::fs::create_dir_all(cache)
-        .and_then(|()| folder_below(cache, Path::new(PAGES)))
-        .map_err(|source| StockError::Io {
-            path: pages(cache),
-            source,
-        })?;
+    unlinked(cache, PAGES)?;
     diskcache::write(&pages(cache), key, &cached)
         .map_err(|(path, source)| StockError::Io { path, source })
 }

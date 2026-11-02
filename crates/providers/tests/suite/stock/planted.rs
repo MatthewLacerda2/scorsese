@@ -95,3 +95,26 @@ fn a_cache_folder_that_is_a_link_is_never_written_through() {
         "nothing lands where a link leads: {landed:?}"
     );
 }
+
+/// The stock cache folder itself a link (#1698): nothing is kept where it
+/// leads.
+#[test]
+fn a_stock_cache_that_is_a_link_is_never_written_through() {
+    let (root, _) = project("stock-linked-cache");
+    let outside = scratch("stock-linked-cache-outside");
+    std::fs::create_dir_all(&outside).unwrap();
+    let cache = cache_dir(&root);
+    std::fs::create_dir_all(cache.parent().unwrap()).unwrap();
+    symlink(&outside, &cache).unwrap();
+    let library = Fake::with(10);
+
+    let found = search(&cache, &library, &query("cat"), 1).unwrap();
+    let shown = labelled_previews(&cache, &library, &found.candidates);
+
+    assert!(shown.is_empty(), "no preview through a link: {shown:?}");
+    let landed: Vec<_> = std::fs::read_dir(&outside).unwrap().collect();
+    assert!(
+        landed.is_empty(),
+        "nothing lands where it leads: {landed:?}"
+    );
+}

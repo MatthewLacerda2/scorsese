@@ -25,17 +25,10 @@ const IMAGE_LIMIT: u64 = 256 * 1024 * 1024;
 
 /// The file `name` in the stock cache's folder `folder`, that folder made —
 /// and neither it nor anything on the way a link, which a `.scor` received
-/// from someone else may carry (#1698): the cache folder itself is the
-/// caller's, everything below it is looked at, never followed.
+/// from someone else may carry (#1698): [`super::cache::unlinked`] makes
+/// the cache folder, and everything below it is looked at, never followed.
 fn cached(cache: &Path, folder: &str, name: &str) -> Result<PathBuf, StockError> {
-    let io = |source| StockError::Io {
-        path: cache.join(folder),
-        source,
-    };
-    std::fs::create_dir_all(cache).map_err(io)?;
-    Ok(folder_below(cache, Path::new(folder))
-        .map_err(io)?
-        .join(name))
+    Ok(super::cache::unlinked(cache, folder)?.join(name))
 }
 
 /// Downloads `url` to `path` — a file [`cached`] answered — whole or not at
