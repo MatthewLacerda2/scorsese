@@ -12,7 +12,8 @@
 //!
 //! **Free, and a job**, as a render is: it costs the machine minutes, so it
 //! queues ([`kinds::TRANSCRIBE`], one at a time) and its owner can stop it.
-//! A member has at most [`kinds::TRANSCRIPTIONS_WAITING`] waiting, and only in
+//! A member has at most [`PerUser::transcriptions`](crate::config::PerUser)
+//! waiting, and only in
 //! a language Whisper knows, so one account cannot fill the line. A stop
 //! kills the decode and shows the job stopped at once; a request already with
 //! Whisper is let run out, its answer thrown away, and holds the slot until
@@ -119,7 +120,7 @@ impl Library {
     /// running, which is the job handed back. The member's row is locked for
     /// the checks and the insert, so two asking at once queue one job. A
     /// language Whisper does not know is [`LibraryError::Invalid`]; a member
-    /// with [`kinds::TRANSCRIPTIONS_WAITING`] waiting already is
+    /// with [`Library::transcriptions_waiting`] waiting already is
     /// [`LibraryError::Waiting`].
     pub async fn transcribe(
         &self,
@@ -165,8 +166,8 @@ impl Library {
                 .bind(kinds::TRANSCRIBE.name)
                 .fetch_one(&mut *tx)
                 .await?;
-        if waiting >= kinds::TRANSCRIPTIONS_WAITING as i64 {
-            return Err(LibraryError::Waiting(kinds::TRANSCRIPTIONS_WAITING));
+        if waiting >= i64::try_from(self.transcriptions).unwrap_or(i64::MAX) {
+            return Err(LibraryError::Waiting(self.transcriptions));
         }
         let payload =
             serde_json::to_value(payload).map_err(|e| LibraryError::Invalid(e.to_string()))?;

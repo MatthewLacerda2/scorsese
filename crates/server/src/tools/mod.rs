@@ -149,6 +149,13 @@ impl Toolbox {
         }
     }
 
+    /// The same tools, with users' files in `library` — the same storage,
+    /// its limits as set.
+    pub fn with_library(mut self, library: Library) -> Self {
+        self.library = library;
+        self
+    }
+
     /// The same tools searching and importing stock media of every kind from
     /// `library` instead of Pixabay and LottieFiles — a test's, which needs no
     /// key and no network.
