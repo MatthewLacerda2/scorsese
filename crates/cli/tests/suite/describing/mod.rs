@@ -29,6 +29,10 @@ fn project(label: &str) -> PathBuf {
     dir
 }
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "runs the CLI this crate builds, never a child of the web app's server"
+)]
 fn describe(dir: &PathBuf, arguments: &[&str]) -> (bool, String) {
     let output = Command::new(env!("CARGO_BIN_EXE_scorsese"))
         .arg("describe")

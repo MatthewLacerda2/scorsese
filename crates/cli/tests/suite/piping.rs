@@ -9,6 +9,10 @@ use std::process::{Command, Stdio};
 
 /// Runs `scorsese` with `arguments` into a pipe nobody reads, and returns its
 /// exit code and whatever it said on stderr.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "runs the CLI this crate builds, never a child of the web app's server"
+)]
 fn into_a_closed_pipe(arguments: &[&str]) -> (Option<i32>, String) {
     let (reader, writer) = std::io::pipe().expect("open a pipe");
     drop(reader);

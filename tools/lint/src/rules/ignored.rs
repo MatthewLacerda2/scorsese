@@ -38,6 +38,10 @@ const REDIRECTS: [&str; 6] = [
 /// operator's own repository as bare (2026-10-15, the first commit after
 /// #1282), and a `check-ignore` that inherited them would ask that repository
 /// rather than `root`.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the repository's own lint asking git, never a child of the web app's server"
+)]
 pub fn git() -> Command {
     let mut command = Command::new("git");
     for name in REDIRECTS {

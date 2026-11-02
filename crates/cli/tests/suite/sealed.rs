@@ -15,6 +15,10 @@ use common::{capture, document, documents, seal, sealed};
 use scorsese_providers::credentials::Provider;
 
 #[test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "runs the CLI this crate builds, never a child of the web app's server"
+)]
 fn a_key_exported_in_the_testers_shell_never_reaches_a_run() {
     let mut shell = Command::new(env!("CARGO_BIN_EXE_scorsese"));
     for provider in Provider::ALL {

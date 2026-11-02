@@ -33,6 +33,10 @@ fn wedged_on_purpose() {
 /// A budget of one second against a sleep of two minutes is what makes a pass
 /// here mean something: it cannot be the run merely finishing on its own.
 #[test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "runs this test binary again, never a child of the web app's server"
+)]
 fn the_watchdog_stops_a_run_that_will_not_finish() {
     let binary = std::env::current_exe().expect("the test binary knows its own path");
     let run = Command::new(binary)

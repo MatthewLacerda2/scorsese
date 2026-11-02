@@ -113,6 +113,11 @@ services:
     # The host user, so files it writes under SCORSESE_DATA are the
     # maintainer's to read, back up and restore, not root's.
     user: "${SCORSESE_UID:?set SCORSESE_UID in deploy/.env}:${SCORSESE_GID:?set SCORSESE_GID in deploy/.env}"
+    # A PID 1 that reaps the ffmpeg and ffprobe children a cancelled or
+    # killed job leaves, and forwards SIGTERM.
+    init: true
+    # Its children see none of this: each starts with a cleared environment
+    # plus what a tool reads (`scorsese_render::tools::child`, #1656).
     environment:
       DATABASE_URL: postgres://scorsese:${POSTGRES_PASSWORD}@postgres:5432/scorsese
       SCORSESE_STORAGE: /data/library

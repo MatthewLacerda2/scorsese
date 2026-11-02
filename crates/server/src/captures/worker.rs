@@ -214,7 +214,7 @@ impl Worker {
                 sandbox,
                 library,
             } => {
-                let mut command = Command::new(program);
+                let mut command = scorsese_render::tools::child(program);
                 command
                     .arg("capture-one")
                     .arg("--project")
@@ -263,7 +263,7 @@ fn failure(said: &str, status: ExitStatus) -> String {
 /// which takes a negative pid for a group: the standard library signals one
 /// process, and this workspace forbids the `unsafe` a raw `kill(2)` takes.
 fn kill_group(group: u32) {
-    let _ = Command::new("/bin/sh")
+    let _ = scorsese_render::tools::child("/bin/sh")
         .arg("-c")
         .arg(r#"kill -KILL "-$0" 2>/dev/null"#)
         .arg(group.to_string())
@@ -276,7 +276,7 @@ mod tests {
 
     #[test]
     fn a_failure_is_the_last_thing_the_capture_said() {
-        let status = Command::new("/bin/sh")
+        let status = scorsese_render::tools::child("/bin/sh")
             .args(["-c", "exit 1"])
             .status()
             .unwrap();

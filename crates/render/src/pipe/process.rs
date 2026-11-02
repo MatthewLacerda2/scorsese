@@ -283,13 +283,13 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn a_child_flooding_stderr_still_reaches_its_stdout() {
-        use std::process::{Command, Stdio};
+        use std::process::Stdio;
         use std::sync::mpsc;
 
         let script = "head -c 1000000 /dev/zero | tr '\\0' x >&2; echo done; exit 3";
         let (sent, arrived) = mpsc::channel();
         std::thread::spawn(move || {
-            let mut child = Command::new("/bin/sh")
+            let mut child = crate::tools::child("/bin/sh")
                 .args(["-c", script])
                 .stdin(Stdio::null())
                 .stdout(Stdio::piped())
@@ -319,9 +319,9 @@ mod tests {
     #[cfg(unix)]
     fn fed_until_it_breaks(script: &str) -> RenderError {
         use std::io::Write;
-        use std::process::{Command, Stdio};
+        use std::process::Stdio;
 
-        let mut child = Command::new("/bin/sh")
+        let mut child = crate::tools::child("/bin/sh")
             .args(["-c", script])
             .stdin(Stdio::piped())
             .stdout(Stdio::null())

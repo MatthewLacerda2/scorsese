@@ -9,7 +9,7 @@
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::{ChildStdin, Command, Stdio};
+use std::process::{ChildStdin, Stdio};
 use std::sync::mpsc;
 
 use serde_json::Value;
@@ -155,7 +155,7 @@ impl Chrome {
     )]
     pub fn at(binary: impl Into<PathBuf>) -> Result<Self, ChromeError> {
         let binary = binary.into();
-        let output = Command::new(&binary)
+        let output = crate::tools::child(&binary)
             .arg("--version")
             .output()
             .map_err(|source| ChromeError::NotFound {
@@ -228,7 +228,7 @@ impl Chrome {
     /// renumbers them `3<&0 4>&1`, and `exec`s the browser in its own place.
     #[cfg(unix)]
     pub(crate) fn launch(&self, fonts: &Path, scale: f64) -> Result<Launched, ChromeError> {
-        let mut child = Command::new("/bin/sh")
+        let mut child = crate::tools::child("/bin/sh")
             .arg("-c")
             .arg(r#"exec "$0" "$@" 3<&0 4>&1 </dev/null >/dev/null"#)
             .arg(&self.binary)

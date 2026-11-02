@@ -15,6 +15,10 @@ use scorsese_guide as guide;
 
 /// Runs `scorsese guide` with these arguments: whether it succeeded, and what
 /// it printed on standard output.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "runs the CLI this crate builds, never a child of the web app's server"
+)]
 fn run(arguments: &[&str]) -> (bool, String) {
     let output = Command::new(env!("CARGO_BIN_EXE_scorsese"))
         .arg("guide")
@@ -53,6 +57,10 @@ fn a_style_id_is_a_section_of_the_styles_guide() {
 }
 
 #[test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "runs the CLI this crate builds, never a child of the web app's server"
+)]
 fn a_guide_that_is_not_there_fails_and_says_what_is() {
     let output = Command::new(env!("CARGO_BIN_EXE_scorsese"))
         .args(["guide", "tutorial"])

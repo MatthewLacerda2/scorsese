@@ -9,7 +9,8 @@
 //! command builder ([`tools::Tools`]). No ad-hoc `Command::new("ffmpeg")`
 //! anywhere else, ever. ffmpeg is an external binary on PATH, or wherever
 //! `SCORSESE_FFMPEG` points a bundled build — this crate is the one place that
-//! indirection lives.
+//! indirection lives. So does every other child process: [`tools::child`]
+//! starts each with a cleared environment, so none holds its parent's keys.
 //!
 //! A render is four steps, in order:
 //!
