@@ -10,7 +10,11 @@ use super::{Mock, made};
 
 impl SpeechProvider for Mock {
     fn speak(&self, _: &Brief) -> Result<Spoken, ProviderError> {
-        self.spoken.fetch_add(1, Ordering::SeqCst);
+        if self.spoken.fetch_add(1, Ordering::SeqCst) == 0 {
+            while self.hold.load(Ordering::SeqCst) {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        }
         Ok(Spoken {
             audio: made("line.mp3", &["-f", "lavfi", "-i", "sine=duration=1"]),
             words: Some(timed("Every city has a night editor.")),

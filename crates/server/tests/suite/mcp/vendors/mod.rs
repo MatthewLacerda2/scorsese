@@ -13,7 +13,7 @@ mod whisper;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use scorsese_render::testing::generate;
@@ -57,6 +57,9 @@ pub(super) struct Mock {
     pub(super) refuses: Option<u16>,
     /// Veo cannot be reached, as on a server with no Gemini key.
     pub(super) keyless_video: bool,
+    /// While set, the first line asked for is not answered: a call the
+    /// server is stopped in the middle of (#1645).
+    pub(super) hold: Arc<AtomicBool>,
 }
 
 impl Mock {
