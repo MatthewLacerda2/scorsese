@@ -16,7 +16,7 @@ use crate::library::{announce, announce_as, member, patch, video};
 const LARGEST: usize = 20_000_000_000;
 
 /// A hash made of one repeated hex digit.
-fn hash(digit: char) -> String {
+pub(super) fn hash(digit: char) -> String {
     digit.to_string().repeat(64)
 }
 
