@@ -82,6 +82,7 @@ impl From<LibraryError> for ApiError {
                 Self::refused(StatusCode::CONFLICT, &error, json!({ "offset": expected }))
             }
             LibraryError::Busy => Self::refused(StatusCode::LOCKED, &error, none),
+            LibraryError::Waiting(_) => Self::refused(StatusCode::TOO_MANY_REQUESTS, &error, none),
             // What tus answers a file past the server's size, and a 4xx a
             // client does not retry.
             LibraryError::Full { .. } => Self::refused(StatusCode::PAYLOAD_TOO_LARGE, &error, none),
