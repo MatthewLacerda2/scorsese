@@ -3,12 +3,12 @@
 //! A song is rendered into one buffer, allocated whole, so its length is its
 //! memory: nothing else in a document stops a pattern of a million beats, a
 //! `loop` fit a million seconds long, or a note placed a million beats in.
-//! [`Song::validate`] refuses each before a sample exists, by working out
-//! where the last thing in one pass of the arrangement ends — a note that
-//! rings past its pattern included — at the tempo it is played at, and taking
-//! the target of a `fit` when it is longer. More passes than one exist only
-//! under a `fit`, and they come to its target: a `loop` is cut there, a
-//! `stretch` lands there, and each pass before is shorter than it.
+//! [`Song::validate`] refuses each before a sample exists, by measuring the
+//! buffer the render allocates: the passes the render plays (`shape::plan`)
+//! at the tempo it plays them, the last pass as far as its last note reaches,
+//! and the target of a `fit` when it pads past them. A `loop` renders whole
+//! passes and is cut to its target afterwards, so it is measured by those
+//! passes: 7 s passes looped to 600 s render 602 s, and are refused.
 //!
 //! A note's own release and its effect tail are already bounded where a note
 //! is (`NoteTooLong`), so they are not counted here.
@@ -28,9 +28,11 @@ pub const MAX_SONG_SECONDS: f32 = 600.0;
 /// Refused when `song`, read in `key`, would render past
 /// [`MAX_SONG_SECONDS`]. Called last by `validate`, on a song otherwise valid.
 pub(super) fn check(song: &Song, key: Option<&Key>) -> Result<(), SynthError> {
-    let (clock, _) = plan(song);
-    let once = clock.seconds(last_beat(song, key)?);
-    let seconds = fitted(song).map_or(once, |(_, target)| once.max(target));
+    let (clock, passes) = plan(song);
+    let before = song.arrangement_beats() * passes.saturating_sub(1) as f32;
+    let played = song.arrangement_beats() * passes as f32;
+    let reached = clock.seconds(played.max(before + last_beat(song, key)?));
+    let seconds = fitted(song).map_or(reached, |(_, target)| reached.max(target));
     if seconds.is_finite() && seconds <= MAX_SONG_SECONDS {
         return Ok(());
     }

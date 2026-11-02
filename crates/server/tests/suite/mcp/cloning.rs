@@ -146,3 +146,23 @@ async fn more_recording_than_a_clone_takes_is_refused_before_it_is_read(pool: Pg
     settled(&state, ana).await;
     assert_eq!(mock.cloned(), 0, "the vendor was never asked");
 }
+
+#[sqlx::test]
+async fn more_ids_than_a_clone_takes_are_refused_before_one_is_looked_up(pool: PgPool) {
+    let mock = Mock::default();
+    let (address, state, _worker) = serve(&pool, &mock).await;
+    let (ana, hers) = member(&pool, "ana@example.com").await;
+    let (project, _) = recorded(&pool, (address, &state), (ana, &hers)).await;
+    // None of these exists: a lookup would refuse the first as missing.
+    let many: Vec<String> = (0..26).map(|n| format!("nobody-{n}")).collect();
+    let asked = json!({ "project": project, "assets": many, "name": "A", "consent": true });
+    let (said, refused) = call(address, &hers, "voice_clone", asked).await;
+    assert!(refused && said.contains("26 recordings"), "{said}");
+
+    // Repeats are counted as named, past a few times the cap.
+    let repeated = vec!["nobody"; 101];
+    let asked = json!({ "project": project, "assets": repeated, "name": "A", "consent": true });
+    let (said, refused) = call(address, &hers, "voice_clone", asked).await;
+    assert!(refused && said.contains("101 asset ids"), "{said}");
+    assert_eq!(mock.cloned(), 0, "the vendor was never asked");
+}

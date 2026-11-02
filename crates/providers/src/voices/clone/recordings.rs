@@ -1,6 +1,8 @@
 //! The recordings a clone is made from: a project's own audio assets, read
 //! off disk and named for what they are.
 
+use std::collections::HashSet;
+use std::hash::Hash;
 use std::path::Path;
 
 use scorsese_core::{Asset, AssetId, AssetKind, Project, ProjectPath};
@@ -106,15 +108,10 @@ pub(super) fn gather(
 }
 
 /// `ids` in the order first named, each once: a recording named twice is
-/// sent once.
-pub fn distinct<T: Clone + PartialEq>(ids: &[T]) -> Vec<T> {
-    let mut once: Vec<T> = Vec::with_capacity(ids.len());
-    for id in ids {
-        if !once.contains(id) {
-            once.push(id.clone());
-        }
-    }
-    once
+/// sent once. Linear in `ids`, however many repeat.
+pub fn distinct<T: Clone + Eq + Hash>(ids: &[T]) -> Vec<T> {
+    let mut seen: HashSet<&T> = HashSet::with_capacity(ids.len());
+    ids.iter().filter(|id| seen.insert(*id)).cloned().collect()
 }
 
 /// Why `count` recordings of `bytes` together, running `seconds` where every
