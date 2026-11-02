@@ -54,7 +54,7 @@ impl Holding {
     /// before its next frame (#1088).
     ///
     /// A capture that stops, for that or any other reason, leaves `cache/` as
-    /// it found it: its partial file is removed, and the slot with it if that
+    /// it found it: its scratch folder is removed, and the slot with it if that
     /// left it empty.
     pub fn capture_frames(
         &mut self,
@@ -84,14 +84,17 @@ impl Holding {
         std::fs::create_dir_all(&slot)?;
         let fonts = cache::fonts(project_root)?;
         // Written beside and moved into place, so an interrupted capture never
-        // leaves frames that look finished — under a name of this capture's
-        // own, so two renders of one project capturing the same page cannot
-        // interleave, whether two processes or two threads of one. Which shelf
-        // it goes on is known only once the page has said what it read.
-        let partial = scorsese_core::write::scratch_beside(
+        // leaves frames that look finished — inside a folder this capture
+        // made, so two renders of one project capturing the same page cannot
+        // interleave, whether two processes or two threads of one, and so
+        // nothing placed in the cache beforehand (a link, #1672) is where
+        // ffmpeg writes. Which shelf it goes on is known only once the page
+        // has said what it read.
+        let capturing = scorsese_core::write::fresh_dir_beside(
             &slot.join(format!("part-{}-{}", piece.start, piece.end)),
-            "partial.mkv",
+            "capturing",
         )?;
+        let partial = capturing.join("frames.mkv");
         let served = capture::Served {
             project_root,
             follow,
@@ -129,9 +132,11 @@ impl Holding {
                 warnings: record.warnings,
             })
         });
+        // Placed, the frames have left it; stopped, they are hundreds of
+        // megabytes nothing would ever read or tidy. Either way the folder
+        // and whatever pieces are still in it go.
+        let _ = std::fs::remove_dir_all(&capturing);
         if placed.is_err() {
-            // Hundreds of megabytes of frames nothing would ever read or tidy.
-            let _ = std::fs::remove_file(&partial);
             // Only succeeds on an empty folder: a slot this capture made and
             // nothing else has used.
             let _ = std::fs::remove_dir(&slot);

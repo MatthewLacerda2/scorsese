@@ -1,9 +1,9 @@
 //! Bringing files down: a preview to look at, a small rendition to look
 //! through, and the chosen file itself, imported.
 
-use std::fs::File;
 use std::path::{Path, PathBuf};
 
+use scorsese_core::write::fresh_beside;
 use scorsese_core::{Imported, ProbeMedia, Project, Source, StockLibrary, import_path};
 
 use super::candidate::{Candidate, Medium, Rendition};
@@ -40,11 +40,11 @@ fn download(
         std::fs::create_dir_all(parent).map_err(io)?;
     }
     // Into a sibling first, so a download that dies halfway never leaves a
-    // file that looks whole under the name a later call reuses.
-    let partial = path.with_extension("part");
-    let written = File::create(&partial)
-        .map_err(io)
-        .and_then(|mut file| library.download(url, limit, &mut file));
+    // file that looks whole under the name a later call reuses — one this
+    // call made, so a link already waiting beside it is never written through.
+    let (partial, mut file) = fresh_beside(path, "part").map_err(io)?;
+    let written = library.download(url, limit, &mut file);
+    drop(file);
     if let Err(error) = written {
         let _ = std::fs::remove_file(&partial);
         return Err(error);
