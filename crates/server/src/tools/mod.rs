@@ -76,6 +76,7 @@
 //! my project?" has one answer.
 
 mod bakes;
+mod bound;
 mod design;
 mod fetched;
 mod folder;
@@ -90,6 +91,7 @@ mod stored;
 mod surface;
 mod voiced;
 
+pub use bound::{AT_ONCE, DEADLINE};
 pub use fetched::keep as keep_fetched;
 pub use folder::{Folder, lay_out};
 pub use log::Client;
@@ -124,6 +126,9 @@ pub struct Toolbox {
     stock: Option<Stock>,
     /// How much of each stock library each member has used this minute.
     shares: share::Shares,
+    /// How many of a member's registry tool calls run at once, and for how
+    /// long (`bound`).
+    bounds: bound::Bounds,
 }
 
 impl Toolbox {
@@ -146,7 +151,16 @@ impl Toolbox {
             renders,
             stock: None,
             shares: share::Shares::default(),
+            bounds: bound::Bounds::new(AT_ONCE, DEADLINE),
         }
+    }
+
+    /// The same tools, with at most `at_once` of a member's registry tool
+    /// calls running at a time and each stopped past `deadline` — a test's,
+    /// which cannot wait [`DEADLINE`].
+    pub fn bounded(mut self, at_once: usize, deadline: std::time::Duration) -> Self {
+        self.bounds = bound::Bounds::new(at_once, deadline);
+        self
     }
 
     /// The same tools searching and importing stock media of every kind from
@@ -287,7 +301,10 @@ impl Toolbox {
         };
         let outcome = match entry {
             surface::Entry::Shared(tool, serve) => {
-                stored::run(&caller, tool.as_ref(), serve, arguments).await
+                // Before anything is opened: a call waiting for a permit holds
+                // nothing else.
+                let permit = self.bounds.permit(user).await;
+                stored::run(&caller, tool.as_ref(), serve, arguments, permit).await
             }
             surface::Entry::Own(own) => own.call(&caller, arguments).await.map_err(Refusal::Said),
         };
