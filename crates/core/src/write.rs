@@ -30,7 +30,7 @@
 //! cut short leaves a stray file nothing reads, never a half-written one a
 //! project does.
 
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -53,13 +53,17 @@ static WRITES: AtomicU64 = AtomicU64::new(0);
 /// The parent directory has to exist already: this replaces a document, it
 /// does not build the project around it.
 ///
+/// The scratch file is always one this call made: anything already at its
+/// name, a link included, is passed over for the next name, so nothing placed
+/// in the directory beforehand is ever written through or truncated.
+///
 /// # Errors
 ///
 /// If the scratch file cannot be written or renamed. In that case `path` still
 /// holds whatever it held before, and no scratch file is left beside it.
 pub fn atomically(path: &Path, contents: impl AsRef<[u8]>) -> io::Result<()> {
-    let scratch = scratch_beside(path, "part")?;
-    let written = fill(&scratch, contents.as_ref()).and_then(|()| fs::rename(&scratch, path));
+    let (scratch, file) = fresh_scratch(path)?;
+    let written = fill(file, contents.as_ref()).and_then(|()| fs::rename(&scratch, path));
     if written.is_err() {
         // The previous document survives a failed write; it must not have to
         // survive alongside the debris of one.
@@ -165,9 +169,40 @@ pub fn parent_in_project(root: &Path, path: &ProjectPath) -> io::Result<PathBuf>
     Ok(file)
 }
 
+/// How many taken scratch names [`fresh_scratch`] passes over before it gives
+/// up: far more than writers ever collide, few enough that a directory filled
+/// with planted names ends in an error rather than a spin.
+const SCRATCH_ATTEMPTS: usize = 64;
+
+/// A scratch file beside `path` that did not exist until this call made it.
+///
+/// `create_new` is `O_CREAT | O_EXCL`, which refuses any entry at the name —
+/// a link included, dangling or not — rather than following it. A taken name
+/// is passed over for the next one.
+fn fresh_scratch(path: &Path) -> io::Result<(PathBuf, File)> {
+    for _ in 0..SCRATCH_ATTEMPTS {
+        let scratch = scratch_beside(path, "part")?;
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&scratch)
+        {
+            Ok(file) => return Ok((scratch, file)),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
+            Err(error) => return Err(error),
+        }
+    }
+    Err(io::Error::new(
+        io::ErrorKind::AlreadyExists,
+        format!(
+            "no free name to write {} under: {SCRATCH_ATTEMPTS} were taken",
+            path.display()
+        ),
+    ))
+}
+
 /// Fills the scratch file and makes sure it is really on the device.
-fn fill(scratch: &Path, contents: &[u8]) -> io::Result<()> {
-    let mut file = File::create(scratch)?;
+fn fill(mut file: File, contents: &[u8]) -> io::Result<()> {
     file.write_all(contents)?;
     // The rename is what publishes the document; this is what makes it *there*.
     // Without it, a crash between the two can publish a file whose bytes never
