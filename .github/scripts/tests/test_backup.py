@@ -8,7 +8,9 @@ script's `/data` pointed at a temporary folder. What it holds:
 - the policy's days are the script's: `POLICY_DAYS` is what the privacy page
   promises, and a keep past it (less one backup interval) refuses to start;
 - a library file deleted the hour after a backup is gone from the remote by
-  the thirtieth day, and still there on the twenty-eighth;
+  the thirtieth day, and still there three days before;
+- a folder of replaced files a failed sync left is never written into, since
+  a second move of the same path would overwrite the first;
 - `library-replaced` past its size bound loses its oldest folders first.
 
 Needs `rclone` and GNU `date`; skipped without rclone except in CI, where a
@@ -28,7 +30,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "deploy" / "backup" / "backup"
-PRIVACY = ROOT / "web" / "src" / "legal" / "en" / "privacy.ts"
+LEGAL = ROOT / "web" / "src" / "legal"
+# How each language names a backup's days: pt-BR is the binding text.
+BACKUP_DAYS = {
+    "pt-BR": r"cópias? de segurança\b[^.\"]*?\b(\d+) dias",
+    "en": r"backups?\b[^.\"]*?\b(\d+) days",
+}
 DAY = 86400
 HOUR = 3600
 # 2026-01-01T04:00:00Z, the first night of every test.
@@ -38,9 +45,9 @@ RCLONE = shutil.which("rclone")
 DATE = shutil.which("date")
 
 
-def policy_days(text: str) -> set[int]:
+def policy_days(language: str, text: str) -> set[int]:
     """Every number of days the privacy page gives a backup."""
-    return {int(n) for n in re.findall(r"backups?\b[^.\"]*?\b(\d+) days", text)}
+    return {int(n) for n in re.findall(BACKUP_DAYS[language], text)}
 
 
 @unittest.skipUnless(RCLONE or os.environ.get("CI"), "rclone is not installed")
@@ -61,11 +68,8 @@ class Backup(unittest.TestCase):
         self.script = self.tmp / "backup"
         self.script.write_text(text.replace("/data/", f"{self.data}/"), encoding="utf-8")
         self.script.chmod(0o755)
-        self._tool(
-            bin_ / "pg_dump",
-            # pg_dump --format custom --file <path>
-            'while [ $# -gt 1 ]; do shift; done; echo dump > "$1"\n',
-        )
+        # pg_dump --format custom --file <path>
+        self._tool(bin_ / "pg_dump", 'while [ $# -gt 1 ]; do shift; done; echo dump > "$1"\n')
         # Asked for "now" (no -d, no -r), it answers the test's clock.
         self._tool(
             bin_ / "date",
@@ -87,9 +91,9 @@ class Backup(unittest.TestCase):
         path.write_text("#!/bin/sh\n" + body, encoding="utf-8")
         path.chmod(path.stat().st_mode | stat.S_IXUSR)
 
-    def run_backup(self, now: int, **env: str) -> subprocess.CompletedProcess[str]:
+    def run_backup(self, now: int, *args: str, **env: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [str(self.script)],
+            [str(self.script), *args],
             env={**self.env, **env, "BACKUP_TEST_NOW": str(now)},
             capture_output=True,
             text=True,
@@ -108,7 +112,9 @@ class Backup(unittest.TestCase):
     def test_the_policy_is_the_privacy_pages(self):
         days = re.search(r"^POLICY_DAYS=(\d+)$", SCRIPT.read_text(encoding="utf-8"), re.M)
         self.assertIsNotNone(days, "deploy/backup/backup sets no POLICY_DAYS")
-        self.assertEqual(policy_days(PRIVACY.read_text(encoding="utf-8")), {int(days.group(1))})
+        for language in BACKUP_DAYS:
+            text = (LEGAL / language / "privacy.ts").read_text(encoding="utf-8")
+            self.assertEqual(policy_days(language, text), {int(days.group(1))}, language)
 
     def test_a_keep_past_the_policy_refuses_to_start(self):
         # 30 days plus up to a day before the next run would see it: 31.
@@ -116,29 +122,51 @@ class Backup(unittest.TestCase):
         self.assertNotEqual(done.returncode, 0, done.stdout)
         self.assertIn("SCORSESE_BACKUP_KEEP_DAYS", done.stderr)
         self.assertFalse((self.data / "backups").exists(), "it started before refusing")
+        # backup-loop's check at start refuses it too.
+        self.assertNotEqual(self.run_backup(START, "--check", SCORSESE_BACKUP_KEEP_DAYS="30").returncode, 0)
+
+    def test_the_check_alone_backs_nothing_up(self):
+        done = self.run_backup(START, "--check")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertFalse((self.data / "backups").exists())
 
     def test_a_keep_within_the_policy_starts(self):
         self.backup(START, SCORSESE_BACKUP_KEEP_DAYS="29", SCORSESE_BACKUP_EVERY_HOURS="24")
         self.backup(START + DAY, SCORSESE_BACKUP_KEEP_DAYS="29", SCORSESE_BACKUP_EVERY_HOURS="12")
 
     def test_a_deleted_file_is_gone_by_day_30(self):
+        # A backup every three days, kept the most that allows: 27 days.
+        every = {"SCORSESE_BACKUP_EVERY_HOURS": "72", "SCORSESE_BACKUP_KEEP_DAYS": "27"}
         (self.library / "member").mkdir()
         (self.library / "member" / "clip.mp4").write_text("footage", encoding="utf-8")
-        self.backup(START)
-        # Deleted the hour after that night's backup: the thirty days start here.
+        self.backup(START, **every)
+        # Deleted the hour after that backup: the thirty days start here.
         deleted = START + HOUR
         (self.library / "member" / "clip.mp4").unlink()
-        night = 1
-        while START + night * DAY < deleted + 30 * DAY:
-            self.backup(START + night * DAY)
-            if night == 28:
+        day = 3
+        while START + day * DAY < deleted + 30 * DAY:
+            self.backup(START + day * DAY, **every)
+            if day == 27:
                 self.assertTrue(
                     any(p.endswith("member/clip.mp4") for p in self.replaced()),
                     "the safety net let go of it early",
                 )
-            night += 1
+            day += 3
         self.assertEqual(self.replaced(), [], "a deleted file outlived the policy's 30 days")
         self.assertFalse((self.remote / "library" / "member" / "clip.mp4").exists())
+
+    def test_a_folder_a_failed_sync_left_is_not_written_into(self):
+        clip = self.library / "clip.bin"
+        clip.write_bytes(b"1")
+        self.backup(START)
+        # The next night's sync moved the first copy aside, then failed.
+        left = self.remote / "library-replaced" / "20260101T040000Z"
+        left.mkdir(parents=True)
+        (left / "clip.bin").write_bytes(b"0")
+        clip.write_bytes(b"2")
+        self.backup(START + 2 * DAY)
+        self.assertEqual((left / "clip.bin").read_bytes(), b"0")
+        self.assertEqual(self.replaced(), ["20260101T035959Z/clip.bin", "20260101T040000Z/clip.bin"])
 
     def test_replaced_files_past_the_bound_purge_the_oldest_first(self):
         clip = self.library / "clip.bin"
@@ -162,7 +190,13 @@ class PolicyDays(unittest.TestCase):
             '"one that keeps you signed in for up to 30 days",'
             '"backups that still hold your data expire within 31 days."'
         )
-        self.assertEqual(policy_days(text), {30, 31})
+        self.assertEqual(policy_days("en", text), {30, 31})
+        text = (
+            '"numa cópia de segurança, refeita periodicamente e mantida por 30 dias.",'
+            '"um que mantém você conectado por até 30 dias",'
+            '"as cópias de segurança que ainda tiverem os seus dados expiram em até 31 dias."'
+        )
+        self.assertEqual(policy_days("pt-BR", text), {30, 31})
 
 
 if __name__ == "__main__":

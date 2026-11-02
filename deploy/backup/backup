@@ -1,6 +1,7 @@
 #!/bin/sh
 # One backup: dump the database, then copy the dump and the library off the
 # machine. docs/web.md, "Backups", has what lands where and how to restore it.
+# `backup --check` checks the settings and stops there (backup-loop, at start).
 #
 # Two things are backed up and nothing else:
 # - the database, as a pg_dump custom-format file (restored with pg_restore);
@@ -9,13 +10,41 @@
 #
 # The remote side keeps what the local side lets go of: dumps for
 # SCORSESE_BACKUP_KEEP_DAYS, and every library file a sync would have deleted
-# or overwritten, under library-replaced/<when>, for as long. So a bug that
-# deletes users' files is not faithfully mirrored into the backup that night.
+# or overwritten, under library-replaced/<since>, for as long and within
+# SCORSESE_BACKUP_REPLACED_MAX_MB. So a bug that deletes users' files is not
+# faithfully mirrored into the backup that night.
 set -eu
+
+# What the privacy page promises (web/src/legal): backups are kept this many
+# days, and those holding a closed account's data expire within as many.
+# test_backup.py holds the two together.
+POLICY_DAYS=30
 
 remote=${SCORSESE_BACKUP_REMOTE%/}
 keep_days=$SCORSESE_BACKUP_KEEP_DAYS
-when=$(date -u +%Y%m%dT%H%M%SZ)
+every_hours=$SCORSESE_BACKUP_EVERY_HOURS
+# The default is the server's per-member storage quota (50 GB): the net holds
+# at most one full member's worth of replaced files.
+replaced_max_mb=${SCORSESE_BACKUP_REPLACED_MAX_MB:-50000}
+for value in "$keep_days" "$every_hours" "$replaced_max_mb"; do
+	case $value in
+	'' | *[!0-9]*)
+		echo "backup: '$value' is not a whole number (SCORSESE_BACKUP_KEEP_DAYS, _EVERY_HOURS, _REPLACED_MAX_MB)" >&2
+		exit 1
+		;;
+	esac
+done
+# Something kept for keep_days is deleted at the first run after that, up to
+# one interval later; so keep_days plus an interval must fit in the policy.
+if [ $((keep_days * 24 + every_hours)) -gt $((POLICY_DAYS * 24)) ]; then
+	echo "backup: SCORSESE_BACKUP_KEEP_DAYS=$keep_days with SCORSESE_BACKUP_EVERY_HOURS=$every_hours keeps backups past the privacy policy's $POLICY_DAYS days; set it to at most $(((POLICY_DAYS * 24 - every_hours) / 24))" >&2
+	exit 1
+fi
+[ "${1:-}" != --check ] || exit 0
+
+started=$(date -u +%s)
+name() { date -u -d "@$1" +%Y%m%dT%H%M%SZ; }
+when=$(name "$started")
 dumps=/data/backups/db
 # The newest dumps stay on this machine too: restoring from one is minutes,
 # not a download. Off-machine is the point; this is only the fast path.
@@ -35,32 +64,72 @@ rclone delete "$remote/db" --min-age "${keep_days}d"
 echo "backup: dumps copied to $remote/db"
 
 mkdir -p /data/library
-rclone sync /data/library "$remote/library" --backup-dir "$remote/library-replaced/$when"
+# Made first: on the first nights nothing has been replaced yet, and listing a
+# folder that does not exist is an error that would end the backup here.
+# Listed into a variable rather than piped into a loop: a failed listing in a
+# pipeline is swallowed, and under set -e this one must end the run.
+rclone mkdir "$remote/library-replaced"
+folders=$(rclone lsf --dirs-only "$remote/library-replaced")
+# What this sync finds deleted was deleted after the last sync that got
+# through began, so the folder is named after then and its age is the
+# deletion's at the most (#1657). Before the first such sync, the last good
+# backup's time, which a sync also preceded. A folder a failed sync left under
+# that name is not written into: a second move of the same path would
+# overwrite the first. A second earlier keeps the age an upper bound.
+synced=/data/backups/last-sync
+since=$(cat "$synced" 2>/dev/null || date -u -r /data/backups/last-success +%s 2>/dev/null || echo "$started")
+case $since in '' | *[!0-9]*) since=$started ;; esac
+while printf '%s\n' "$folders" | grep -qx "$(name "$since")/"; do
+	since=$((since - 1))
+done
+rclone sync /data/library "$remote/library" --backup-dir "$remote/library-replaced/$(name "$since")"
+echo "$started" >"$synced"
+
 # Pruned by folder, and the folder's name is the age (#830). A file's own time
 # is when it was first uploaded, which a replacement keeps, so pruning by file
 # age dropped a 40-day-old file the night after it was replaced. And deleting
 # files then their emptied folders failed on any folder still holding a young
 # file, which ended every run from the first one with something to keep.
-# Made first: on the first nights nothing has been replaced yet, and listing a
-# folder that does not exist is an error that would end the backup here.
-rclone mkdir "$remote/library-replaced"
-# Same shape as $when, so the two compare as plain numbers once the T and Z go.
-cutoff=$(date -u -d "@$(($(date -u +%s) - keep_days * 86400))" +%Y%m%dT%H%M%SZ)
-# Listed into a variable rather than piped into the loop: a failed listing in
-# a pipeline is swallowed, and under set -e this one must end the run.
+cutoff=$(name $((started - keep_days * 86400)))
 folders=$(rclone lsf --dirs-only "$remote/library-replaced")
+ours() {
+	# Only a folder this script named is pruned; anything else is left alone.
+	case $1 in
+	[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z) ;;
+	*) return 1 ;;
+	esac
+}
 for folder in $folders; do
 	folder=${folder%/}
-	# Only a folder this script named is pruned; anything else is left alone.
-	case $folder in
-	[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z) ;;
-	*) continue ;;
-	esac
+	ours "$folder" || continue
+	# Same shape as $cutoff, so the two compare as plain numbers once the T and Z go.
 	if [ "$(echo "$folder" | tr -d TZ)" -lt "$(echo "$cutoff" | tr -d TZ)" ]; then
 		rclone purge "$remote/library-replaced/$folder"
 		echo "backup: pruned library-replaced/$folder"
 	fi
 done
+
+# Then bounded in size, oldest folders first, so a library's churn cannot grow
+# the backup without end (#1657). Each line is `<bytes>;<folder>/<path>`.
+files=$(rclone lsf -R --files-only --format sp --separator ';' "$remote/library-replaced")
+sizes=$(printf '%s\n' "$files" | awk '
+	{ i = index($0, ";"); split(substr($0, i + 1), path, "/"); bytes[path[1]] += substr($0, 1, i - 1) }
+	END { for (folder in bytes) printf "%s %.0f\n", folder, bytes[folder] }' | sort)
+total=0
+while read -r folder bytes; do
+	ours "$folder" && total=$((total + bytes))
+done <<END
+$sizes
+END
+limit=$((replaced_max_mb * 1000000))
+while [ "$total" -gt "$limit" ] && read -r folder bytes; do
+	ours "$folder" || continue
+	rclone purge "$remote/library-replaced/$folder"
+	total=$((total - bytes))
+	echo "backup: pruned library-replaced/$folder, past SCORSESE_BACKUP_REPLACED_MAX_MB=$replaced_max_mb"
+done <<END
+$sizes
+END
 echo "backup: library synced to $remote/library"
 
 # Written last, so it only ever records a backup that got all the way off the

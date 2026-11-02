@@ -665,10 +665,20 @@ retried an hour later. Each run:
   (keeping the newest three there, for a fast restore), and copies the dumps to
   `<remote>/db`, where they are kept `SCORSESE_BACKUP_KEEP_DAYS`;
 - syncs `library/` to `<remote>/library`, and moves every remote file the sync
-  would delete or overwrite into `<remote>/library-replaced/<when>` for the same
-  number of days, counted from `<when>` (when it was replaced, not when it was
-  uploaded) — so a bug that deletes users' files is not faithfully
-  mirrored into the backup that night.
+  would delete or overwrite into `<remote>/library-replaced/<since>` for the
+  same number of days, counted from `<since>`: when the last sync that got
+  through began, so the earliest it can have been replaced or deleted, not
+  when it was uploaded — so a bug that deletes users' files is not faithfully
+  mirrored into the backup that night. `library-replaced` as a whole is held
+  to `SCORSESE_BACKUP_REPLACED_MAX_MB` (default 50000, one member's 50 GB
+  storage quota), purging its oldest folders first.
+
+**Nothing outlives the privacy policy's 30 days** (`web/src/legal`): backups
+are kept 30 days, and those holding a closed account's data expire within 30.
+Something kept `SCORSESE_BACKUP_KEEP_DAYS` is purged at the first run after,
+up to one interval later, so the container refuses to start (`backup --check`)
+when the keep plus `SCORSESE_BACKUP_EVERY_HOURS` is past 30 days: 29 days at a
+daily backup.
 
 The container's health is the backups': **unhealthy** once the last good one is
 older than two intervals. `docker compose ps` is where to look, and
@@ -700,7 +710,7 @@ also delete what the backup does not have):
     docker compose run --rm backup sh -c \
       'rclone copy "$SCORSESE_BACKUP_REMOTE/library" /data/library'
 
-A file deleted or overwritten since is under `library-replaced/<when>/` on the
+A file deleted or overwritten since is under `library-replaced/<since>/` on the
 remote, by the same path. Then:
 
     docker compose start server backup

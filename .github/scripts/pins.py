@@ -53,6 +53,12 @@ PINS = (
         re.compile(r"install-action@cargo-mutants\b|^\s*tool:.*\bcargo-mutants\b", re.M),
         re.compile(r"^\s*tool:.*\bcargo-mutants@([^\s,\"']+)", re.M),
     ),
+    Pin(
+        "rclone",
+        "RCLONE",
+        re.compile(r"downloads\.rclone\.org/"),
+        re.compile(r"downloads\.rclone\.org/v([^/\s]+)/"),
+    ),
 )
 
 

@@ -25,7 +25,7 @@ if str(SCRIPTS) not in sys.path:
 from pins import HOOK, WORKFLOWS, disagreements, hook_pins  # noqa: E402
 
 # The hook's pins as the cases below assume them.
-HOOK_PINS = {"TERRAFORM": "1.16.6", "DENY": "0.20.2", "NEXTEST": "0.9.146", "MUTANTS": "27.1.0"}
+HOOK_PINS = {"TERRAFORM": "1.16.6", "DENY": "0.20.2", "NEXTEST": "0.9.146", "MUTANTS": "27.1.0", "RCLONE": "1.68.2"}
 
 
 class ToolPins(unittest.TestCase):
@@ -53,6 +53,7 @@ class ToolPins(unittest.TestCase):
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-mutants@27.0.0
+      - run: curl -o r.zip https://downloads.rclone.org/v1.60.1/rclone-v1.60.1-linux-amd64.zip
 """
         self.assertEqual(
             disagreements(HOOK_PINS, {"ci.yml": workflow}),
@@ -61,6 +62,7 @@ class ToolPins(unittest.TestCase):
                 "ci.yml installs cargo-deny 0.19.0; the hook pins 0.20.2",
                 "ci.yml installs cargo-nextest with no version; the hook pins 0.9.146",
                 "ci.yml installs cargo-mutants 27.0.0; the hook pins 27.1.0",
+                "ci.yml installs rclone 1.60.1; the hook pins 1.68.2",
             ],
         )
 
@@ -78,6 +80,7 @@ class ToolPins(unittest.TestCase):
         with:
           tool: cargo-nextest@0.9.146
       - run: cargo nextest run && cargo mutants
+      - run: curl -o r.zip https://downloads.rclone.org/v1.68.2/rclone-v1.68.2-linux-amd64.zip
 """
         hook = {k: v for k, v in HOOK_PINS.items() if k != "DENY"}
         self.assertEqual(disagreements(HOOK_PINS, {"ci.yml": workflow}), [])
@@ -104,6 +107,7 @@ class ToolPins(unittest.TestCase):
                 "no workflow installs cargo-deny: is PINS's pattern for it stale?",
                 "no workflow installs cargo-nextest: is PINS's pattern for it stale?",
                 "no workflow installs cargo-mutants: is PINS's pattern for it stale?",
+                "no workflow installs rclone: is PINS's pattern for it stale?",
             ],
         )
 

@@ -9,6 +9,9 @@
 set -eu
 
 every=$SCORSESE_BACKUP_EVERY_HOURS
+# Settings that would keep backups past the privacy policy stop the container
+# here, where `docker compose ps` shows it restarting, not an hour later.
+backup --check
 
 while true; do
     if [ -z "$(find /data/backups/last-success -mmin "-$((every * 60))" 2>/dev/null)" ]; then
