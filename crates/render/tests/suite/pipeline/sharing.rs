@@ -140,7 +140,7 @@ fn two_renders_of_one_project_capture_on_two_threads() {
                 .flatten()
         })
         .map(|file| file.file_name().to_string_lossy().into_owned())
-        .filter(|name| name.contains("partial"))
+        .filter(|name| name.contains("partial") || name.ends_with(".capturing"))
         .collect();
     assert_eq!(
         partials,

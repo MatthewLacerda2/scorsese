@@ -97,7 +97,7 @@ fn a_cancel_mid_capture_stops_within_a_second_and_keeps_nothing_of_it() {
         .into_iter()
         .filter(|file| file.extension().is_some_and(|ext| ext == "mkv"))
         .collect();
-    let left = (out.exists(), root.join(".out.mp4.partial").exists());
+    let left = (out.exists(), root.join(".out.mp4.rendering").exists());
     std::fs::remove_dir_all(&root).ok();
 
     assert!(

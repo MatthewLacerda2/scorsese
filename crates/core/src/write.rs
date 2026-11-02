@@ -215,6 +215,28 @@ pub fn fresh_dir_beside(path: &Path, suffix: &str) -> io::Result<PathBuf> {
     fresh(path, suffix, |scratch| fs::create_dir(scratch)).map(|(scratch, ())| scratch)
 }
 
+/// The folder `path`, empty and made by this call — for a scratch folder with
+/// a fixed name, which the next run clears rather than leaving one more beside
+/// it when a run is killed before its tidy.
+///
+/// Whatever is at `path` goes first, never followed: a link or a file is
+/// removed itself, and a folder with everything in it (links removed, not
+/// what they lead to). `create_dir` then refuses anything placed there in
+/// between, so the folder is always one this call made.
+///
+/// # Errors
+///
+/// If what was there cannot be removed, or the folder cannot be made.
+pub fn remade_dir(path: &Path) -> io::Result<()> {
+    match fs::symlink_metadata(path) {
+        Ok(meta) if meta.is_dir() => fs::remove_dir_all(path)?,
+        Ok(_) => fs::remove_file(path)?,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error),
+    }
+    fs::create_dir(path)
+}
+
 /// The first of [`scratch_beside`]'s names for `path` that `make` makes
 /// without finding it taken.
 fn fresh<T>(

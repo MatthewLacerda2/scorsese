@@ -60,3 +60,38 @@ fn a_source_ffmpeg_cannot_read_is_refused_and_leaves_nothing() {
     );
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// A link waiting where a proxy is made — the name it was written under on
+/// main, or the folder it is written in now — is left as it was, and the proxy
+/// still lands (#1672): a `.scor` received from someone else can carry one in
+/// its cache.
+#[cfg(unix)]
+#[test]
+fn a_link_where_a_proxy_is_made_is_left_as_it_was() {
+    let tools = tools();
+    let dir = scratch::dir("proxy-planted");
+    let outside = scratch::dir("proxy-planted-outside");
+    let victim = outside.join("victim.txt");
+    std::fs::write(&victim, "the victim's own bytes").expect("a victim");
+    let source = dir.join("source.mp4");
+    let graph = "testsrc=s=1280x720:d=0.2:r=30";
+    generate(
+        &tools,
+        &source,
+        &["-f", "lavfi", "-i", graph, "-pix_fmt", "yuv420p"],
+    );
+    let out = dir.join(preview::file_name("planted"));
+    std::os::unix::fs::symlink(&victim, out.with_extension("making.mp4")).expect("a link");
+    std::os::unix::fs::symlink(&outside, out.with_extension("making")).expect("a link");
+
+    preview::make(&tools, &source, &out).expect("the proxy is made");
+
+    assert!(
+        std::fs::read(&victim).expect("the victim") == b"the victim's own bytes",
+        "the link's target was written through"
+    );
+    assert_eq!(std::fs::read_dir(&outside).expect("outside").count(), 1);
+    assert_eq!(inspect(&tools, &out).width, 960, "the proxy still lands");
+    std::fs::remove_dir_all(&dir).ok();
+    std::fs::remove_dir_all(&outside).ok();
+}

@@ -6,7 +6,9 @@
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 
-use scorsese_core::write::{atomically, fresh_beside, fresh_dir_beside, scratch_beside};
+use scorsese_core::write::{
+    atomically, fresh_beside, fresh_dir_beside, remade_dir, scratch_beside,
+};
 
 use crate::common;
 
@@ -105,5 +107,31 @@ fn a_fresh_file_is_never_a_link_already_there() {
     assert_eq!(
         std::fs::read_to_string(&target).unwrap(),
         "the victim's own bytes"
+    );
+}
+
+#[test]
+fn a_remade_folder_clears_what_was_there_and_follows_no_link() {
+    let dir = common::temp_project_dir("write-remade");
+    let outside = common::temp_project_dir("write-remade-outside");
+    std::fs::write(outside.join("kept.txt"), "kept").unwrap();
+    let linked = dir.join(".cut.mp4.rendering");
+    symlink(&outside, &linked).unwrap();
+    let left = dir.join(".cut.mp4.scorsese-audio");
+    std::fs::create_dir(&left).unwrap();
+    std::fs::write(left.join("mix.pcm"), "a killed render's").unwrap();
+    symlink(outside.join("kept.txt"), left.join("partial")).unwrap();
+
+    remade_dir(&linked).expect("a folder in the link's place");
+    remade_dir(&left).expect("the leftover cleared");
+
+    for made in [&linked, &left] {
+        let meta = std::fs::symlink_metadata(made).unwrap();
+        assert!(meta.is_dir() && !meta.file_type().is_symlink());
+        assert_eq!(std::fs::read_dir(made).unwrap().count(), 0);
+    }
+    assert_eq!(
+        std::fs::read_to_string(outside.join("kept.txt")).unwrap(),
+        "kept"
     );
 }

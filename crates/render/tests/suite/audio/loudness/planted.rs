@@ -12,14 +12,12 @@ use scorsese_render::{Container, FrameRange, OutputFormat, RenderSettings, Rende
 use super::headroom::{LEVEL, tone};
 use crate::audio::picture;
 use crate::common::ffmpeg::tools;
-use crate::common::planting;
 use crate::common::scratch;
 use crate::common::{audio_track, project, video_track};
 
 /// A link waiting beside the output at a name the mix, its rehearsal or the
-/// encode was written under on main, or at the next names of the folders they
-/// are written in now, is left as it was, and the delivery still lands
-/// (#1672).
+/// encode was written under on main, or at the folders they are written in
+/// now, is left as it was, and the delivery still lands (#1672).
 #[test]
 fn a_link_beside_the_output_is_never_written_through() {
     let tools = tools();
@@ -48,7 +46,9 @@ fn a_link_beside_the_output_is_never_written_through() {
         std::os::unix::fs::symlink(&victim, link).unwrap();
     }
     for tag in ["scorsese-audio", "rendering"] {
-        planted.extend(planting::plant(&dir.join(".out.mp4"), tag, &[], &outside));
+        let link = dir.join(format!(".out.mp4.{tag}"));
+        std::os::unix::fs::symlink(&outside, &link).unwrap();
+        planted.push(link);
     }
     let before: Vec<PathBuf> = std::fs::read_dir(&dir)
         .unwrap()

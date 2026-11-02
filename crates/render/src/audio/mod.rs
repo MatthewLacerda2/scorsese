@@ -70,10 +70,12 @@ pub use scorsese_zimmer::level::{Loudness, Meter, Profile, Profiler};
 /// fails part way through should not leave it behind. The output file is the
 /// deliverable; this never is.
 ///
-/// It sits in a folder of its own beside the output, made for this render
-/// ([`scorsese_core::write::fresh_dir_beside`]), with every other scratch file
-/// the delivery writes: nothing placed beside the output
-/// beforehand — a link, #1672 — is ever where a mix or a rehearsal is written.
+/// It sits in a folder of its own beside the output, `.{name}.scorsese-audio`,
+/// made for this render ([`scorsese_core::write::remade_dir`]) with every
+/// other scratch file the delivery writes: nothing placed beside the output
+/// beforehand — a link, #1672 — is ever where a mix or a rehearsal is
+/// written, and a render killed before its tidy leaves the folder for the
+/// next render to the same output to clear.
 #[derive(Debug)]
 pub struct Mixdown {
     folder: PathBuf,

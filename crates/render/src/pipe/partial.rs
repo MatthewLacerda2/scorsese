@@ -19,7 +19,8 @@ use crate::error::RenderError;
 /// ([`hidden_folder`]), so nothing placed beside `out` beforehand (a link,
 /// #1672) is where ffmpeg writes. The extension does not matter: every muxer
 /// here is pinned with `-f`. Dropped, the folder is removed — whatever stopped
-/// the render, nothing half-written is left.
+/// the render, nothing half-written is left; and a render killed before then
+/// leaves it for the next render to `out` to clear.
 #[derive(Debug)]
 pub(crate) struct Partial {
     folder: PathBuf,
@@ -28,8 +29,8 @@ pub(crate) struct Partial {
 }
 
 impl Partial {
-    /// Where a render to `out` writes while it works: `partial`, in a fresh
-    /// `.{name}.<pid>-<n>.rendering` folder beside it.
+    /// Where a render to `out` writes while it works: `partial`, in a
+    /// `.{name}.rendering` folder beside it.
     pub(crate) fn beside(out: &Path) -> Result<Self, RenderError> {
         let folder = hidden_folder(out, "rendering")?;
         Ok(Self {
@@ -67,19 +68,22 @@ impl Drop for Partial {
     }
 }
 
-/// A scratch folder beside `out`, hidden, named after it and `tag`, and made
-/// by this call ([`scorsese_core::write::fresh_dir_beside`]) — so two
-/// concurrent renders never collide, and nothing already beside `out` is
+/// The scratch folder `.{name}.{tag}` beside `out`, hidden, named after it,
+/// and made by this call ([`scorsese_core::write::remade_dir`]): what a
+/// killed render to `out` left there is cleared, and nothing placed there is
 /// written through.
 pub(crate) fn hidden_folder(out: &Path, tag: &str) -> Result<PathBuf, RenderError> {
     let name = out
         .file_name()
         .map_or_else(|| "render".into(), |name| name.to_string_lossy());
-    let hidden = out.with_file_name(format!(".{name}"));
-    scorsese_core::write::fresh_dir_beside(&hidden, tag).map_err(|source| RenderError::Scratch {
-        path: hidden,
-        source,
-    })
+    let folder = out.with_file_name(format!(".{name}.{tag}"));
+    match scorsese_core::write::remade_dir(&folder) {
+        Ok(()) => Ok(folder),
+        Err(source) => Err(RenderError::Scratch {
+            path: folder,
+            source,
+        }),
+    }
 }
 
 #[cfg(test)]
@@ -101,10 +105,7 @@ mod tests {
         let folder = partial.path().parent().expect("a folder");
         assert_eq!(folder.parent(), Some(dir.as_path()));
         let name = folder.file_name().expect("a name").to_string_lossy();
-        assert!(
-            name.starts_with(".cut.mp4.") && name.ends_with(".rendering"),
-            "{name}"
-        );
+        assert_eq!(name, ".cut.mp4.rendering");
         assert_eq!(partial.out(), out);
         std::fs::remove_dir_all(&dir).ok();
     }
