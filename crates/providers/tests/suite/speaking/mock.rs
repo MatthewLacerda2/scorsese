@@ -19,6 +19,9 @@ pub(crate) enum Answer {
     Timed(Vec<u8>, Words),
     /// Refuses, saying this.
     Refuses(String),
+    /// Completes the call, bills it and hands back nothing usable, saying
+    /// this ([`ProviderError::billed`]).
+    Bills(String),
 }
 
 /// A provider whose every answer was decided in advance.
@@ -65,6 +68,7 @@ impl SpeechProvider for Mock {
             Some(Answer::Speaks(bytes)) => (bytes, None),
             Some(Answer::Timed(bytes, words)) => (bytes, Some(words)),
             Some(Answer::Refuses(message)) => return Err(ProviderError::new("mock", message)),
+            Some(Answer::Bills(message)) => return Err(ProviderError::billed("mock", message)),
             None => (b"MP3".to_vec(), None),
         };
         Ok(Spoken { audio, words })

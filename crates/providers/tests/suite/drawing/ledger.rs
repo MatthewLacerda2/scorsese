@@ -115,3 +115,50 @@ fn an_unreadable_ledger_stops_a_still_before_it_is_drawn_or_ordered() {
     assert!(provider.ordered.borrow().is_empty(), "nothing ordered");
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// A completed call that drew nothing is billed (#1695): its take is in the
+/// ledger, it counts against the run's ceiling, and the run says what it cost.
+#[test]
+fn a_billed_call_that_drew_nothing_is_charged_and_counts_against_the_ceiling() {
+    let (dir, mut project, id) = sketched("ledger-billed", "a lighthouse at dusk");
+    project.assets.push(Asset::sketch(
+        AssetId::new("harbour"),
+        AssetKind::GeneratedImage,
+        "a harbour",
+    ));
+    let provider = Mock::billing("I can't draw that.");
+
+    // A default still is 6 cents: 11 admits the first and not a second.
+    let stopped = generate(&mut project, &dir, &provider, Budget::new(11, 0))
+        .expect_err("the billed take leaves no room for a second");
+
+    assert_eq!(provider.requests(), 1, "the second was never sent");
+    let lines = history(&project, &dir);
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert_eq!(lines[0].asset, id);
+    assert_eq!(lines[0].estimated_cost_cents, 6);
+    assert!(!lines[0].refused, "charged, not released");
+    let (_, outcome) = &stopped.run[0];
+    assert_eq!(outcome.spent_cents(), 6, "{outcome:?}");
+    assert!(outcome.says().contains("$0.06"), "{}", outcome.says());
+    assert!(stopped.says().contains("ceiling"), "{}", stopped.says());
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A refusal the vendor does not bill leaves no line and spends nothing.
+#[test]
+fn an_unbilled_refusal_is_not_charged() {
+    let (dir, mut project, _) = sketched("ledger-unbilled", "a lighthouse at dusk");
+    let run = generate(
+        &mut project,
+        &dir,
+        &Mock::refusing("blocked"),
+        Budget::new(11, 0),
+    )
+    .expect("refused");
+
+    assert!(history(&project, &dir).is_empty());
+    assert_eq!(run[0].1.spent_cents(), 0);
+    assert!(!run[0].1.says().contains('$'), "{}", run[0].1.says());
+    std::fs::remove_dir_all(&dir).ok();
+}

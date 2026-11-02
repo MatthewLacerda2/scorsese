@@ -9,6 +9,9 @@ use scorsese_providers::image::{Batch, Brief, ImageProvider, ProviderError};
 #[derive(Debug, Default)]
 pub(crate) struct Mock {
     refusal: Option<String>,
+    /// Whether the refusal is one the vendor bills: a completed call that drew
+    /// nothing ([`ProviderError::billed`]).
+    billed: bool,
     /// Every brief handed over, in order.
     pub(crate) drawn: RefCell<Vec<Brief>>,
     /// Every batch ordered: the keys each was sent with, its name its place.
@@ -32,6 +35,15 @@ impl Mock {
         }
     }
 
+    /// A provider that completes every call, bills it and draws nothing,
+    /// saying this instead — Gemini answering in words.
+    pub(crate) fn billing(message: &str) -> Self {
+        Self {
+            billed: true,
+            ..Self::refusing(message)
+        }
+    }
+
     /// How many briefs have been handed over.
     pub(crate) fn requests(&self) -> usize {
         self.drawn.borrow().len()
@@ -42,6 +54,7 @@ impl ImageProvider for Mock {
     fn draw(&self, brief: &Brief) -> Result<Vec<u8>, ProviderError> {
         self.drawn.borrow_mut().push(brief.clone());
         match &self.refusal {
+            Some(message) if self.billed => Err(ProviderError::billed("Mock", message)),
             Some(message) => Err(ProviderError::new("Mock", message)),
             None => Ok(b"PNG".to_vec()),
         }
