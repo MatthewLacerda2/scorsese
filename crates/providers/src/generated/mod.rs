@@ -64,6 +64,17 @@ pub(crate) fn record(
     }
 }
 
+/// How a refusal reads after an asset's id, `cents` being what it was
+/// charged: a call the vendor completed and bills says so, with the figure,
+/// so nobody reads a paid refusal as a free one (#1695).
+pub(crate) fn refused(message: &str, cents: u64) -> String {
+    if cents == 0 {
+        return format!("refused — {message}");
+    }
+    let cost = crate::prices::dollars(crate::prices::from_cents(cents), 2);
+    format!("refused, and billed as quoted ({cost}) — {message}")
+}
+
 /// Writes a generation, atomically, creating `generated/` if it is the first.
 ///
 /// Atomic because the cache depends on it: a generation is named for the hash

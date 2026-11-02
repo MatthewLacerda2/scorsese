@@ -98,6 +98,11 @@ pub enum Outcome {
     Failed {
         /// The vendor's own sentence, which is the part worth reading.
         message: String,
+        /// What this run was charged for it, in US cents: the quote, when the
+        /// vendor completed the call and bills it
+        /// ([`billed`](ProviderError::billed)); zero for one it does not, and
+        /// for a batch, which was charged when it was ordered.
+        estimated_cost_cents: u64,
     },
     /// Ordered in a batch on this run, its ticket written into the document.
     /// **This outcome spent money too** — half of [`Outcome::Generated`]'s,
@@ -131,7 +136,8 @@ impl Outcome {
     }
 
     /// What this outcome is expected to have cost, in US cents — zero for
-    /// everything that spent nothing, a cache hit and a collection included.
+    /// everything that spent nothing, a cache hit and a collection included,
+    /// and the quote for a refusal the vendor billed.
     pub fn spent_cents(&self) -> u64 {
         match self {
             Self::Generated {
@@ -139,6 +145,10 @@ impl Outcome {
                 ..
             }
             | Self::Ordered {
+                estimated_cost_cents,
+                ..
+            }
+            | Self::Failed {
                 estimated_cost_cents,
                 ..
             } => *estimated_cost_cents,
@@ -153,7 +163,10 @@ impl Outcome {
             Self::Cached { path } => format!("already drawn — {path}"),
             Self::Generated { path, bytes, .. } => format!("drawn — {path} ({bytes} bytes)"),
             Self::Incomplete { why } => format!("not yet — {why}"),
-            Self::Failed { message } => format!("refused — {message}"),
+            Self::Failed {
+                message,
+                estimated_cost_cents,
+            } => crate::generated::refused(message, *estimated_cost_cents),
             Self::Ordered {
                 operation,
                 estimated_cost_cents,

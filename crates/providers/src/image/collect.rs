@@ -45,6 +45,7 @@ pub fn collect(
                         id,
                         Outcome::Failed {
                             message: why.clone(),
+                            estimated_cost_cents: 0,
                         },
                     ));
                 }
@@ -121,7 +122,11 @@ fn land(
 /// [`release`], reported as a refusal in `message`'s words.
 fn released(project: &mut Project, id: &AssetId, message: String) -> Outcome {
     release(project, id);
-    Outcome::Failed { message }
+    // Charged when it was ordered, never again here.
+    Outcome::Failed {
+        message,
+        estimated_cost_cents: 0,
+    }
 }
 
 /// Takes the ticket away and puts the state back: stale when an older drawing

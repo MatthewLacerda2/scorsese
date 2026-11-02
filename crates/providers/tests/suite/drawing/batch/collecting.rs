@@ -65,7 +65,8 @@ fn a_batch_that_stopped_puts_the_still_back_and_the_run_does_not_draw_it() {
         vec![(
             id.clone(),
             Outcome::Failed {
-                message: String::from("the batch expired")
+                message: String::from("the batch expired"),
+                estimated_cost_cents: 0,
             }
         )]
     );
@@ -91,7 +92,7 @@ fn a_still_edited_while_it_waited_keeps_the_old_picture_and_goes_back_to_a_sketc
 
     let run = generate(&mut project, &dir, &provider, Budget::unlimited(0)).expect("a run");
 
-    assert!(matches!(&run[0].1, Outcome::Failed { message } if message.contains("changed")));
+    assert!(matches!(&run[0].1, Outcome::Failed { message, .. } if message.contains("changed")));
     assert!(
         dir.join(format!("generated/{old}.jpg")).is_file(),
         "paid for, kept"
