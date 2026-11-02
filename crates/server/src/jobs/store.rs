@@ -241,7 +241,7 @@ pub(super) async fn finish(
 pub async fn recover(pool: &PgPool) -> Result<Vec<(UserId, JobView)>, sqlx::Error> {
     let patient: Vec<&str> = kinds::PATIENT.iter().map(|kind| kind.name).collect();
     let mut tx = db::privileged(pool).await?;
-    let rows: Vec<Recovered> = sqlx::query_as(concat!(
+    let mut rows: Vec<Recovered> = sqlx::query_as(concat!(
         "UPDATE jobs SET interrupted_at = now(),
             state = CASE WHEN attempts < $1 OR (ticket IS NOT NULL AND kind = ANY($2)) THEN 'waiting'
                          WHEN ticket IS NOT NULL THEN 'stuck' ELSE 'failed' END,
@@ -256,14 +256,29 @@ pub async fn recover(pool: &PgPool) -> Result<Vec<(UserId, JobView)>, sqlx::Erro
     .bind(patient)
     .fetch_all(&mut *tx)
     .await?;
-    for row in rows.iter().filter(|row| row.view.state == State::Failed) {
+    for row in rows
+        .iter_mut()
+        .filter(|row| row.view.state == State::Failed)
+    {
         db::act_for(&mut tx, UserId::from_row(row.user_id)).await?;
-        given_up::settle(&mut tx, row.view.id, row.sent, row.brief.as_deref())
+        let charged = given_up::settle(&mut tx, row.view.id, row.sent, row.brief.as_deref())
             .await
             .map_err(|error| match error {
                 CreditError::Database(error) => error,
                 other => sqlx::Error::Protocol(other.to_string()),
             })?;
+        if let Some(item) = charged {
+            // Charged, so the failure says what was bought and where it is.
+            row.view.error = sqlx::query_scalar(
+                "UPDATE jobs SET error = error || ' — what came back is kept in your library \
+                 as item ' || $2 || ', and was charged; generate again to bring it into the \
+                 project, free' WHERE id = $1 RETURNING error",
+            )
+            .bind(row.view.id)
+            .bind(item)
+            .fetch_one(&mut *tx)
+            .await?;
+        }
     }
     tx.commit().await?;
     Ok(rows

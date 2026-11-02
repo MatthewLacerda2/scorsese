@@ -64,7 +64,8 @@
 //! times is not tried again: it fails — or, holding a ticket, goes `stuck`.
 //! A paid generation it fails is settled in the same transaction
 //! (`credits::given_up`): charged if it was sent and what came
-//! back was kept, released otherwise, so no reservation outlives its job.
+//! back was kept, released otherwise, so a job given up on keeps no
+//! reservation.
 //! A graceful stop takes the same path: the worker stops claiming and drops
 //! what it was running, and the next start recovers it. One path for both
 //! means the crash path runs on every deploy rather than only on bad days.

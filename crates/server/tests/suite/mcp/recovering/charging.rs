@@ -39,9 +39,11 @@ async fn a_kept_line_given_up_on_is_charged_once(pool: PgPool) {
         .execute(&pool)
         .await
         .expect("the database answers");
-    store::recover(&state.pool)
+    let recovered = store::recover(&state.pool)
         .await
         .expect("the database answers");
+    let said = recovered[0].1.error.clone().unwrap_or_default();
+    assert!(said.contains("kept in your library"), "{said}");
     assert_eq!(settled(&state, ana).await, vec!["failed"]);
     charged_once(&pool, &mock, ana).await;
 }
