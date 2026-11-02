@@ -3,6 +3,7 @@
 
 use crate::common;
 
+mod bounded;
 mod framed;
 mod renamed;
 
