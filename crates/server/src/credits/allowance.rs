@@ -24,8 +24,20 @@
 //! longer counts against its day. Otherwise failing generations on purpose
 //! would turn free credit into paid credit.
 //!
+//! **Every account together spends at most so much a Brasília day** (#1658),
+//! or the operator's free spend would grow with the number of accounts. What
+//! each account has left is never more than what is left of that pot, so
+//! once it is spent free spend pauses for everyone until the next day; paid
+//! credit is not affected. A spend that is to be granted takes one lock for
+//! the whole server after the user's own ([`lock_everyone`]), so the check
+//! and the grant are one decision and two members cannot together pass it.
+//! Only a spend the user's own allowance would pay any of takes it. The pot
+//! is read through `free_granted_by_everyone` (migration
+//! `0050_free_for_everyone.sql`), which sums every account's grants past
+//! row-level security and answers only the sum.
+//!
 //! The figures are the server's configuration (`SCORSESE_FREE_DAILY`,
-//! `SCORSESE_FREE_MONTHLY`), written to the one-row `free_allowance` table
+//! `SCORSESE_FREE_MONTHLY`, `SCORSESE_FREE_TOTAL_DAILY`), written to the one-row `free_allowance` table
 //! each time the server starts ([`set`]), so the ledger reads them where it
 //! reads everything else.
 
@@ -34,7 +46,7 @@ use scorsese_providers::prices::parse_dollars;
 use serde::Serialize;
 use sqlx::postgres::PgPool;
 
-use crate::config::{ConfigError, FREE_DAILY, FREE_MONTHLY};
+use crate::config::{ConfigError, FREE_DAILY, FREE_MONTHLY, FREE_TOTAL_DAILY};
 use crate::db::Tx;
 
 /// What every account is given for nothing.
@@ -44,6 +56,9 @@ pub struct Allowance {
     pub daily_micros: i64,
     /// The most a calendar month may take from it, in micro-dollars.
     pub monthly_micros: i64,
+    /// The most every account together may take from it in a Brasília
+    /// day, in micro-dollars.
+    pub total_daily_micros: i64,
 }
 
 impl Allowance {
@@ -52,22 +67,30 @@ impl Allowance {
     pub const NONE: Self = Self {
         daily_micros: 0,
         monthly_micros: 0,
+        total_daily_micros: 0,
     };
 
-    /// The maintainer's figures (2026-10-24): $4 a day, $12 a month.
+    /// The maintainer's figures: $4 a day, $12 a month (2026-10-24), and
+    /// $20 a day for everyone together (2026-11-02).
     pub const DEFAULT: Self = Self {
         daily_micros: 4_000_000,
         monthly_micros: 12_000_000,
+        total_daily_micros: 20_000_000,
     };
 }
 
 impl Allowance {
-    /// What [`FREE_DAILY`] and [`FREE_MONTHLY`] say, each [`Self::DEFAULT`]'s
-    /// figure when unset.
+    /// What [`FREE_DAILY`], [`FREE_MONTHLY`] and [`FREE_TOTAL_DAILY`] say,
+    /// each [`Self::DEFAULT`]'s figure when unset.
     pub fn from_environment(environment: &Environment) -> Result<Self, ConfigError> {
         Ok(Self {
             daily_micros: dollars(environment, FREE_DAILY, Self::DEFAULT.daily_micros)?,
             monthly_micros: dollars(environment, FREE_MONTHLY, Self::DEFAULT.monthly_micros)?,
+            total_daily_micros: dollars(
+                environment,
+                FREE_TOTAL_DAILY,
+                Self::DEFAULT.total_daily_micros,
+            )?,
         })
     }
 }
@@ -96,8 +119,9 @@ impl Default for Allowance {
 /// What is left of a user's allowance at a moment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, sqlx::FromRow)]
 pub struct Free {
-    /// What may still be spent for nothing, in micro-dollars: the less of
-    /// what is left of the day and of the month, never below zero.
+    /// What may still be spent for nothing, in micro-dollars: the least of
+    /// what is left of the day, of the month and of everyone's day, never
+    /// below zero.
     pub left_micros: i64,
     /// When it next grows, in seconds since 1970: the next midnight in
     /// Brasília, or the 1st of the next month once the month's is spent;
@@ -112,10 +136,30 @@ pub struct Free {
 /// Give every account `allowance` from now on. The server's own login does
 /// this as it starts; a member may not.
 pub async fn set(pool: &PgPool, allowance: Allowance) -> Result<(), sqlx::Error> {
-    sqlx::query("UPDATE free_allowance SET daily_micros = $1, monthly_micros = $2")
-        .bind(allowance.daily_micros.max(0))
-        .bind(allowance.monthly_micros.max(0))
-        .execute(pool)
+    sqlx::query(
+        "UPDATE free_allowance
+         SET daily_micros = $1, monthly_micros = $2, total_daily_micros = $3",
+    )
+    .bind(allowance.daily_micros.max(0))
+    .bind(allowance.monthly_micros.max(0))
+    .bind(allowance.total_daily_micros.max(0))
+    .execute(pool)
+    .await
+    .map(drop)
+}
+
+/// The key of the lock [`lock_everyone`] takes: one for the whole server,
+/// apart from the job worker's.
+const EVERYONE_LOCK: i64 = 1658;
+
+/// Take the lock on everyone's free spend, held until the transaction ends,
+/// so what is left of the day's ceiling is read and granted as one decision.
+/// Taken after the user's own lock ([`ledger::lock`](super::ledger)), never
+/// before it.
+pub(super) async fn lock_everyone(tx: &mut Tx) -> Result<(), sqlx::Error> {
+    sqlx::query("SELECT pg_advisory_xact_lock($1)")
+        .bind(EVERYONE_LOCK)
+        .execute(&mut **tx)
         .await
         .map(drop)
 }
@@ -131,12 +175,47 @@ pub async fn left_at(tx: &mut Tx, at: i64) -> Result<Free, sqlx::Error> {
     read(tx, Some(at)).await
 }
 
-/// One reading of the allowance, at `at` or now.
+/// What is left of the user's own allowance, the day's ceiling for
+/// everyone aside, and what is left of that ceiling, now. The spend that
+/// grants from them has taken [`lock_everyone`] first.
+pub(super) async fn own_and_everyones(tx: &mut Tx) -> Result<(i64, i64), sqlx::Error> {
+    let own = own(tx, None).await?;
+    if own.left_micros == 0 {
+        return Ok((0, 0));
+    }
+    lock_everyone(tx).await?;
+    Ok((own.left_micros, everyones(tx, None).await?))
+}
+
+/// One reading of the allowance, at `at` or now: the user's own, never more
+/// than what is left of everyone's.
 async fn read(tx: &mut Tx, at: Option<i64>) -> Result<Free, sqlx::Error> {
+    let mut free = own(tx, at).await?;
+    if free.left_micros > 0 {
+        free.left_micros = free.left_micros.min(everyones(tx, at).await?);
+    }
+    Ok(free)
+}
+
+/// The user's own allowance at `at` or now, everyone's ceiling aside.
+async fn own(tx: &mut Tx, at: Option<i64>) -> Result<Free, sqlx::Error> {
     sqlx::query_as(include_str!("allowance.sql"))
         .bind(at)
         .fetch_one(&mut **tx)
         .await
+}
+
+/// What is left of everyone's ceiling for the Brasília day holding `at` or
+/// now, never below zero.
+async fn everyones(tx: &mut Tx, at: Option<i64>) -> Result<i64, sqlx::Error> {
+    sqlx::query_scalar(
+        "SELECT greatest(0, a.total_daily_micros - free_granted_by_everyone(
+                    COALESCE(to_timestamp($1::bigint), now())))::bigint
+         FROM free_allowance a",
+    )
+    .bind(at)
+    .fetch_one(&mut **tx)
+    .await
 }
 
 /// Grant `micros` of the allowance to the spend `settles` — a reservation or
@@ -192,10 +271,16 @@ mod tests {
     }
 
     #[test]
-    fn the_allowance_is_four_a_day_and_twelve_a_month_unless_told_otherwise() {
+    fn the_allowance_is_four_a_day_twelve_a_month_and_twenty_for_everyone_unless_told_otherwise() {
         assert_eq!(with(vec![]).unwrap(), Allowance::DEFAULT);
-        let told = with(vec![(FREE_DAILY, "$2.50"), (FREE_MONTHLY, "0")]).unwrap();
+        let told = with(vec![
+            (FREE_DAILY, "$2.50"),
+            (FREE_MONTHLY, "0"),
+            (FREE_TOTAL_DAILY, "100"),
+        ])
+        .unwrap();
         assert_eq!(told.daily_micros, 2_500_000);
+        assert_eq!(told.total_daily_micros, 100_000_000);
         assert_eq!(told.monthly_micros, 0, "zero gives nothing away");
         for nonsense in ["-1", "four", "1e3"] {
             let error = with(vec![(FREE_DAILY, nonsense)]).unwrap_err();

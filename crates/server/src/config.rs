@@ -79,6 +79,11 @@ pub const FREE_DAILY: &str = "SCORSESE_FREE_DAILY";
 /// e.g. `12.00`. Defaults to $12.
 pub const FREE_MONTHLY: &str = "SCORSESE_FREE_MONTHLY";
 
+/// The most every account together may spend free each Brasília day, in
+/// dollars, e.g. `20.00`; once spent, free spend pauses for everyone until
+/// the next day (`credits::allowance`, #1658). Defaults to $20.
+pub const FREE_TOTAL_DAILY: &str = "SCORSESE_FREE_TOTAL_DAILY";
+
 /// The bonus credit on larger recharges, as tiers of whole reais and
 /// percent, e.g. `40:5,80:10`, or `none` (`payments::bonus`, #1537).
 /// Defaults to +5% from R$ 40 and +10% from R$ 80.
