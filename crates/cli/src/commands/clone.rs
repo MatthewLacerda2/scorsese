@@ -22,7 +22,8 @@ use scorsese_providers::voices::design::ElevenLabsStudio;
 pub(crate) struct Options {
     /// An imported audio asset to clone from; repeat for more. About one
     /// to two minutes of clear speech in all is what ElevenLabs
-    /// recommends, and more than three adds little.
+    /// recommends, and more than three adds little; more than 25
+    /// recordings or ten minutes is refused.
     #[arg(long = "asset", value_name = "ASSET_ID", conflicts_with_all = ["list", "forget"])]
     pub(crate) assets: Vec<String>,
     /// What to call the voice in your ElevenLabs account — say whose it is.

@@ -7,7 +7,10 @@ use scorsese_core::{AssetId, AssetKind, Project};
 
 use super::error::CloneError;
 use super::ledger::Source;
-use super::{ENOUGH_SECONDS, RECOMMENDED_SECONDS, Recording};
+use super::{
+    ENOUGH_SECONDS, MAX_RECORDING_BYTES, MAX_RECORDING_SECONDS, MAX_RECORDINGS,
+    RECOMMENDED_SECONDS, Recording,
+};
 
 /// What a clone sends, and what the ledger says it was sent from.
 #[derive(Debug, Clone, PartialEq)]
@@ -21,21 +24,22 @@ pub(super) struct Gathered {
 }
 
 /// The assets `ids` of `project`, at `root`, as recordings — refused unless
-/// each is an imported audio asset whose file can be read.
+/// each is an imported audio asset whose file can be read, and unless together
+/// they are no more than a clone takes ([`too_much`]), which is asked before
+/// any file is read. An id named twice is one recording.
 pub(super) fn gather(
     root: &Path,
     project: &Project,
     ids: &[AssetId],
 ) -> Result<Gathered, CloneError> {
+    let ids = distinct(ids);
     if ids.is_empty() {
         return Err(CloneError::NoRecordings);
     }
-    let mut gathered = Gathered {
-        recordings: Vec::with_capacity(ids.len()),
-        sources: Vec::with_capacity(ids.len()),
-        seconds: Some(0.0),
-    };
-    for id in ids {
+    let mut named = Vec::with_capacity(ids.len());
+    let mut seconds = Some(0.0);
+    let mut bytes = 0u64;
+    for id in &ids {
         let asset = project
             .asset(id)
             .ok_or_else(|| CloneError::NoSuchAsset { asset: id.clone() })?;
@@ -48,6 +52,29 @@ pub(super) fn gather(
                 });
             }
         };
+        let more = asset
+            .media
+            .as_ref()
+            .and_then(|media| media.duration_seconds);
+        seconds = seconds.zip(more).map(|(sum, more): (f64, f64)| sum + more);
+        // What the file says it holds, where it can be asked without reading
+        // it; a file that cannot be found is refused when it is read.
+        bytes += path
+            .resolve(root)
+            .ok()
+            .and_then(|file| std::fs::metadata(file).ok())
+            .map_or(0, |found| found.len());
+        named.push((id, asset, path));
+    }
+    if let Some(why) = too_much(ids.len(), bytes, seconds) {
+        return Err(CloneError::TooMuch(why));
+    }
+    let mut gathered = Gathered {
+        recordings: Vec::with_capacity(named.len()),
+        sources: Vec::with_capacity(named.len()),
+        seconds,
+    };
+    for (id, asset, path) in named {
         let unreadable = |source| CloneError::Unreadable {
             path: path.to_string(),
             source,
@@ -63,17 +90,55 @@ pub(super) fn gather(
             bytes,
         });
         gathered.sources.push(Source {
-            asset: id.clone(),
+            asset: (*id).clone(),
             path: path.clone(),
             sha256: asset.sha256.clone(),
         });
-        let seconds = asset
-            .media
-            .as_ref()
-            .and_then(|media| media.duration_seconds);
-        gathered.seconds = gathered.seconds.zip(seconds).map(|(sum, more)| sum + more);
     }
     Ok(gathered)
+}
+
+/// `ids` in the order first named, each once: a recording named twice is
+/// sent once.
+pub fn distinct<T: Clone + PartialEq>(ids: &[T]) -> Vec<T> {
+    let mut once: Vec<T> = Vec::with_capacity(ids.len());
+    for id in ids {
+        if !once.contains(id) {
+            once.push(id.clone());
+        }
+    }
+    once
+}
+
+/// Why `count` recordings of `bytes` together, running `seconds` where every
+/// one was probed, are more than a clone is made from — [`MAX_RECORDINGS`],
+/// [`MAX_RECORDING_BYTES`], [`MAX_RECORDING_SECONDS`] — or `None` when they
+/// are not. Asked before a file is read, on every surface.
+pub fn too_much(count: usize, bytes: u64, seconds: Option<f64>) -> Option<String> {
+    let enough = "ElevenLabs says more than two or three minutes of speech adds little";
+    if count > MAX_RECORDINGS {
+        return Some(format!(
+            "{count} recordings is more than a clone is made from: at most {MAX_RECORDINGS}. \
+             {enough}, so pick the clearest. Nothing was sent."
+        ));
+    }
+    if bytes > MAX_RECORDING_BYTES {
+        return Some(format!(
+            "the recordings come to {} MB, more than the {} MB a clone is made from. {enough}, \
+             so send less of it, or as MP3. Nothing was sent.",
+            bytes.div_ceil(1024 * 1024),
+            MAX_RECORDING_BYTES / (1024 * 1024)
+        ));
+    }
+    match seconds {
+        Some(seconds) if seconds > MAX_RECORDING_SECONDS => Some(format!(
+            "the recordings run {:.1} minutes, more than the {:.0} a clone is made from. \
+             {enough}, so send less of it. Nothing was sent.",
+            seconds / 60.0,
+            MAX_RECORDING_SECONDS / 60.0
+        )),
+        _ => None,
+    }
 }
 
 /// What an audio file is, by its name — what the form says each part is.

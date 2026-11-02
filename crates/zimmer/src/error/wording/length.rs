@@ -1,5 +1,5 @@
 //! What a note's length, and a song's length and level fields, are refused
-//! with: `duration`, a note too long to render, `fit`, `fade`, `tail` and
+//! with: `duration`, a note too long to render, `fit`, `fade`, `tail`, a song too long to render and
 //! `anchors`.
 //!
 //! Out of [`super`] because that file is at the size gate, and this is the
@@ -18,7 +18,7 @@ use crate::error::SynthError;
 
 impl SynthError {
     /// The words for a length or level refusal. Only ever called from
-    /// [`SynthError::say`] with one of the nine variants it names.
+    /// [`SynthError::say`] with one of the ten variants it names.
     pub(super) fn say_length(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::BadDuration { duration, .. } => write!(
@@ -72,7 +72,11 @@ impl SynthError {
                 f,
                 "song: `tail: wrap` would fold {overhang:.2} s of ring-out onto a {length:.2} s loop, and it would still be ringing the next time round — shorten the release or the effect tail, or lengthen the arrangement"
             ),
-            // `say` hands over only the nine above, and a new variant cannot
+            Self::SongTooLong { seconds, limit } => write!(
+                f,
+                "song: it would render {seconds:.0} s, and a song renders at most {limit} s (ten minutes) — shorten its arrangement or its `fit`, or bake it as two songs"
+            ),
+            // `say` hands over only the ten above, and a new variant cannot
             // reach here without being added to its list first. Should one
             // ever arrive regardless, it is still an error being described:
             // say what it is plainly rather than panic inside a `Display`.

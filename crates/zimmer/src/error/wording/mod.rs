@@ -17,7 +17,7 @@
 //! match here still names each of them, in the one arm that hands them over,
 //! so a new variant still does not compile until it has a home. What the
 //! compiler cannot check is that `length`'s match has an arm for every name
-//! in that list — which is why the list is nine names long and the words sit
+//! in that list — which is why the list is ten names long and the words sit
 //! right beside it, rather than a whole group of thirty being moved.
 
 mod length;
@@ -330,7 +330,8 @@ impl SynthError {
             | Self::BadFade { .. }
             | Self::StretchTooFar { .. }
             | Self::WrapWith { .. }
-            | Self::WrapOverhang { .. } => self.say_length(f),
+            | Self::WrapOverhang { .. }
+            | Self::SongTooLong { .. } => self.say_length(f),
 
             // ────────────────────────────────────────────────────────────────────
             // The caller's resolver — the one refusal this crate does not make itself.

@@ -164,7 +164,7 @@ pub(crate) fn stretch_ratio(song: &Song, fit: Fit, seconds: f32) -> Option<f32> 
 /// starts, so the only reader that meets one is a question asked of the
 /// document without rendering it — where its sections fall, say — and the
 /// honest answer there is the song as written.
-fn fitted(song: &Song) -> Option<(Fit, f32)> {
+pub(super) fn fitted(song: &Song) -> Option<(Fit, f32)> {
     let fit = song.fit?;
     Some((fit, fit.seconds?))
 }

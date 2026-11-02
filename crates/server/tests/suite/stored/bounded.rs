@@ -29,11 +29,11 @@ struct Gate {
 
 impl Gate {
     fn entered(&self) -> usize {
-        self.state.lock().unwrap().0
+        self.state.lock().expect("the gate").0
     }
 
     fn open(&self) {
-        self.state.lock().unwrap().1 = true;
+        self.state.lock().expect("the gate").1 = true;
         self.moved.notify_all();
     }
 }
@@ -47,11 +47,11 @@ impl Library for Held {
     }
 
     fn page(&self, _: &Query, _: u32) -> Result<Page, StockError> {
-        let mut state = self.0.state.lock().unwrap();
+        let mut state = self.0.state.lock().expect("the gate");
         state.0 += 1;
         self.0.moved.notify_all();
         while !state.1 {
-            state = self.0.moved.wait(state).unwrap();
+            state = self.0.moved.wait(state).expect("the gate");
         }
         Ok(Page {
             candidates: Vec::new(),
@@ -78,9 +78,14 @@ impl Library for Held {
 /// A member with one project, and tools searching `gate`'s library.
 async fn held(pool: &PgPool, label: &str, gate: &Arc<Gate>) -> (AppState, UserId, i64) {
     let members = common::members(pool).await;
-    let ana = users::create(pool, "ana@example.com").await.unwrap();
+    let ana = users::create(pool, "ana@example.com")
+        .await
+        .expect("the member");
     let project = Project::new("p", Fps::default());
-    let id = projects::create(&members, ana, &project).await.unwrap().id;
+    let id = projects::create(&members, ana, &project)
+        .await
+        .expect("the project")
+        .id;
     let state =
         AppState::new(members, common::files(label)).stocked_from(Arc::new(Held(gate.clone())));
     (state, ana, id)
@@ -103,10 +108,11 @@ async fn arrived(gate: &Gate, n: usize) {
 async fn a_fourth_call_at_once_waits_for_one_of_the_three(pool: PgPool) {
     let gate = Arc::new(Gate::default());
     let (state, ana, id) = held(&pool, "bounded-at-once", &gate).await;
-    let search = json!({ "project": id, "query": "sea" });
+    // A query each: an answer the stock cache holds never reaches the library.
     let calls: Vec<_> = (0..4)
-        .map(|_| {
-            let (state, search) = (state.clone(), search.clone());
+        .map(|n| {
+            let state = state.clone();
+            let search = json!({ "project": id, "query": format!("sea {n}") });
             tokio::spawn(async move {
                 let client = Client::External { token: None };
                 state.tools.call(ana, client, "stock_search", &search).await
@@ -120,8 +126,27 @@ async fn a_fourth_call_at_once_waits_for_one_of_the_three(pool: PgPool) {
 
     gate.open();
     for call in calls {
-        let answered = call.await.unwrap();
+        let answered = call.await.expect("the call ends");
         assert!(answered.is_ok(), "{:?}", answered.err());
     }
     assert_eq!(gate.entered(), 4, "and runs once one is free");
+}
+
+#[sqlx::test]
+async fn a_call_past_its_deadline_ends_saying_so(pool: PgPool) {
+    let gate = Arc::new(Gate::default());
+    let (mut state, ana, id) = held(&pool, "bounded-deadline", &gate).await;
+    state.tools = state.tools.clone().bounded(3, Duration::from_millis(300));
+    let search = json!({ "project": id, "query": "sea" });
+    let client = Client::External { token: None };
+
+    let asked = Instant::now();
+    let answered = state.tools.call(ana, client, "stock_search", &search).await;
+    let said = answered.err().expect("refused past its deadline");
+    assert!(said.contains("stopped"), "{said}");
+    assert!(
+        asked.elapsed() < Duration::from_secs(10),
+        "answered at the deadline"
+    );
+    gate.open();
 }

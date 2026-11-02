@@ -762,6 +762,16 @@ pub enum SynthError {
         length: f32,
     },
 
+    /// A song that would render past the longest a song may be
+    /// (`song::MAX_SONG_SECONDS`): its buffer is allocated whole, so its
+    /// length is the memory a bake takes.
+    SongTooLong {
+        /// How long it would render, in seconds.
+        seconds: f32,
+        /// The longest a song may be, in seconds.
+        limit: f32,
+    },
+
     // ────────────────────────────────────────────────────────────────────
     // The caller's resolver — the one refusal this crate does not make itself.
     // ────────────────────────────────────────────────────────────────────

@@ -2103,6 +2103,11 @@ A song's natural length is whatever its notes add up to, plus the ring-out.
 When the picture decides the length instead, say so — all three fields are
 optional, and absent means the song is as long as it is.
 
+**A song renders at most ten minutes**, however that length is asked for: a
+long arrangement, a `fit` that loops or pads past it, or a note placed far
+past its pattern are refused before anything renders. A longer bed is two
+songs, one after the other on the track.
+
 ```json fields
   "fit": { "seconds": 43.0, "mode": "loop" },
   "fade": { "in_seconds": 1.5, "out_seconds": 3.0 },
