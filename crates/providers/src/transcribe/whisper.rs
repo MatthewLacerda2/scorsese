@@ -48,8 +48,10 @@ pub struct Heard {
 
 /// Somewhere speech can be heard.
 pub trait Transcriber {
-    /// Hears `wav`, in `language` when one is forced — or gives up waiting,
-    /// [`TranscribeError::Stopped`], as soon as `stop` says so.
+    /// Hears `wav`, in `language` when one is forced — or, once `stop` says
+    /// so, throws the answer away: [`TranscribeError::Stopped`], returned
+    /// when the hearing has let the request go, so a caller rationing it
+    /// knows when it is free.
     fn transcribe(
         &self,
         wav: Vec<u8>,
