@@ -2105,8 +2105,10 @@ optional, and absent means the song is as long as it is.
 
 **A song renders at most ten minutes**, however that length is asked for: a
 long arrangement, a `fit` that loops or pads past it, or a note placed far
-past its pattern are refused before anything renders. A longer bed is two
-songs, one after the other on the track.
+past its pattern are refused before anything renders. A `loop` renders whole
+passes before it is cut, so 7 s passes looped to 600 s render 602 s and are
+refused: fit a little shorter. A longer bed is two songs, one after the other
+on the track.
 
 ```json fields
   "fit": { "seconds": 43.0, "mode": "loop" },

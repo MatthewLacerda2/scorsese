@@ -19,11 +19,12 @@
 //! projects API keeps (#534).
 //!
 //! **The call holds one of the member's permits throughout, and has a
-//! deadline** (`super::bound`): the permit goes into the blocking work, so it
-//! is let go only when that work has ended, and the work is waited on only
-//! until the deadline, after which the tool is told to stop and the caller is
-//! told why. The deadline covers the tool's own work, never a save in
-//! flight, so a call stopped by it has saved nothing.
+//! deadline** (`super::bound`): the permit and the folder go into the
+//! blocking work, so they are let go only when that work has ended, and the
+//! work is waited on only until the deadline, after which the tool is told to
+//! stop and the caller is told why. A request dropped while the tool runs
+//! tells it to stop too. The deadline covers the tool's own work, never a
+//! save in flight, so a call stopped by it has saved nothing.
 //!
 //! The folder's own path never reaches the caller. It is where this machine
 //! happened to put a copy for a moment — meaningless to a client, and a
@@ -36,7 +37,6 @@ use tokio::time::Instant;
 
 use scorsese_core::{PROJECT_FILE_NAME, Project, ProjectPath};
 use scorsese_mcp::{PagesAhead, Part, Reply, Tool};
-use scorsese_render::Cancel;
 use serde_json::Value;
 
 use super::surface::Serve;
@@ -106,14 +106,16 @@ pub(super) async fn run(
         // off the server's async threads. Every tool is `Send + Sync`, but a
         // `&dyn` cannot cross into the blocking pool; the registry hands out
         // a fresh one by name.
-        let (name, stop) = (tool.name(), Cancel::new());
-        let cancel = stop.clone();
+        let (name, cancel) = (tool.name(), caller.cancel.clone());
         let stock = toolbox.libraries(caller.user);
         let (opened_with, laid) = (stored.document.clone(), kept.clone());
         let pages = pages.clone().map(|pages| pages as Arc<dyn PagesAhead>);
-        let held = permit.clone();
+        // The work holds the permit and the folder it runs in until it ends,
+        // even when nobody waits for it any more.
+        let (held, folder) = (permit.clone(), Arc::new(folder));
+        let working_in = folder.clone();
         let working = blocking("the tool crashed on the server; that is a bug", move || {
-            let _held = held;
+            let _held = (held, working_in);
             let tool = super::registered(name, Some(stock), Some(&cache), pages)
                 .ok_or("the tool went missing")?;
             let outcome = tool.call_cancellable(&local, &cancel);
@@ -124,18 +126,14 @@ pub(super) async fn run(
             let gathered = files::gather(&root, reading, &laid);
             Ok::<_, String>((outcome, after, gathered))
         });
-        let (outcome, after, gathered) =
-            match bound::within(Box::pin(working), until, &caller.cancel, &stop).await {
-                Ok(worked) => worked??,
-                Err(working) => {
-                    // Its folder outlasts the work still running in it.
-                    tokio::spawn(async move {
-                        let _ = working.await;
-                        drop(folder);
-                    });
-                    return Err(bound::overran(deadline).into());
-                }
-            };
+        let unheard = bound::Unheard::new(&caller.cancel);
+        let ran = bound::within(working, until, &caller.cancel).await;
+        unheard.heard();
+        let (outcome, after, gathered) = match ran {
+            Ok(worked) => worked??,
+            Err(bound::Late::Overran) => return Err(bound::overran(deadline).into()),
+            Err(bound::Late::Stopped) => return Err(bound::STOPPED.to_owned().into()),
+        };
 
         let outcome = hide(outcome, folder.root(), &kept_at).map_err(Refusal::Said);
         let gathered = gathered.map_err(|why| format!("{why} — nothing was saved"))?;

@@ -2326,9 +2326,9 @@ counted. One `stock_import`, or one pick, names at most 20 ids.
 stored project (`still`, `look`, `synth_bake`, …) runs inside the request, so
 a member's fourth waits for one of their three to end, and one still running
 after two minutes is told to stop and answered that it was. Every client
-counts together — web MCP, the assistant, the editor — and a call whose
-caller gave up keeps its place until its work has actually stopped
-(`tools::bound`).
+counts together — web MCP, the assistant, the editor. A call whose caller
+gave up (a Stop, a hang-up) is told to stop at once, and keeps its place and
+its folder until its work has actually stopped (`tools::bound`).
 
 **The web editor (#545) calls the same path**: a thin JSON route over the
 toolbox for a browser session (*The editor*), so no edit is written twice —
