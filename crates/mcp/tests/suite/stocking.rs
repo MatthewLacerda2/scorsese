@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use scorsese_core::{Fps, Project};
-use scorsese_mcp::{Stock, stocked_from};
+use scorsese_mcp::{Libraries, Stock, stocked_by, stocked_from};
 use scorsese_providers::stock::{Candidate, Library, Medium, Page, Query, StockError};
 use serde_json::json;
 
@@ -69,5 +69,32 @@ fn an_import_of_more_than_twenty_ids_asks_nothing() {
         20,
         "20 ids are each asked: {said}"
     );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// The pair built with `stocked_by` asks it for each medium's library, and
+/// answers from what it gives.
+#[test]
+fn stocked_by_asks_for_the_medium_of_the_call() {
+    let dir = std::env::temp_dir().join(format!("scorsese-stocked-by-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    Project::new("stocked-by", Fps::THIRTY).save(&dir).unwrap();
+    let counting = Arc::new(Counting::default());
+    let asked_for = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let (given, seen) = (counting.clone(), asked_for.clone());
+    let libraries: Libraries = Arc::new(move |medium| {
+        seen.lock().unwrap().push(medium);
+        Ok(given.clone() as Stock)
+    });
+    let tools = stocked_by(libraries, None);
+    let names: Vec<&str> = tools.iter().map(|tool| tool.name()).collect();
+    assert_eq!(names, ["stock_search", "stock_import"]);
+
+    let project = dir.to_string_lossy();
+    let search = json!({ "project": project, "query": "wave", "kind": "lottie" });
+    tools[0].call(&search).expect("the library answers");
+    assert_eq!(*asked_for.lock().unwrap(), [Medium::Lottie]);
+    assert_eq!(counting.asked.load(Ordering::SeqCst), 1);
     std::fs::remove_dir_all(&dir).unwrap();
 }
