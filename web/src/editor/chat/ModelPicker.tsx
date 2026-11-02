@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useT } from "@/i18n/I18nProvider";
-import { colour, describe, position } from "./cost";
+import { colour, inWords, position } from "./cost";
 import { warnsBeforeSwitching } from "./switching";
 import { problem } from "./transcript";
 
@@ -105,7 +105,7 @@ export function ModelPicker({ projectId, model, models, turns }: Props) {
 function CostBar({ cost, models }: { cost: number; models: ModelChoice[] }) {
   const t = useT();
   const at = position(cost, models);
-  const words = describe(at, t.chat.cost);
+  const words = inWords(at, t.chat.cost);
   return (
     <Badge
       variant="outline"

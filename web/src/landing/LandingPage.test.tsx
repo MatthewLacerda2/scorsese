@@ -100,6 +100,7 @@ test("/ draws the landing page before the session answers, and leaves once it sa
 });
 
 test("signed in here before, / waits on the session and never draws the landing page (#1246)", async () => {
+  // biome-ignore lint/suspicious/noDocumentCookie: the cookie is read synchronously on first paint, which the async Cookie Store API cannot serve.
   document.cookie = `${HINT_COOKIE}=1; Path=/`;
   const answer = heldSession();
   visit("/");
@@ -112,6 +113,7 @@ test("signed in here before, / waits on the session and never draws the landing 
 });
 
 test("a hint the session no longer stands behind costs the wait, then is dropped", async () => {
+  // biome-ignore lint/suspicious/noDocumentCookie: the cookie is read synchronously on first paint, which the async Cookie Store API cannot serve.
   document.cookie = `${HINT_COOKIE}=1; Path=/`;
   const answer = heldSession();
   visit("/");

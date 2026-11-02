@@ -44,7 +44,7 @@ export function reporter(
     if (sent >= most) return;
     sent += 1;
     try {
-      send(describe(error, componentStack)).catch(() => {});
+      send(describeCrash(error, componentStack)).catch(() => {});
     } catch {
       // Reporting a crash must never be the next one.
     }
@@ -70,7 +70,7 @@ export function listenForCrashes(target: Window = window, report: Report = repor
 }
 
 /** The report for `error`, every field cut to size. */
-function describe(error: unknown, componentStack?: string | null): ClientError {
+function describeCrash(error: unknown, componentStack?: string | null): ClientError {
   const thrown = error instanceof Error ? error : null;
   return {
     message: cut(thrown ? `${thrown.name}: ${thrown.message}` : String(error)),

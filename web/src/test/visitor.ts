@@ -12,6 +12,7 @@ export function seeVersion(testId: string, version: string) {
   for (let at = 0; ; at += 1) {
     const code = `00000000-0000-4000-8000-${String(at).padStart(12, "0")}`;
     if (draw(code, test) === version) {
+      // biome-ignore lint/suspicious/noDocumentCookie: the cookie is read synchronously on first paint, which the async Cookie Store API cannot serve.
       document.cookie = `${VISITOR_COOKIE}=${code}; Path=/`;
       return;
     }
