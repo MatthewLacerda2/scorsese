@@ -214,3 +214,40 @@ fn each_capture_is_named_by_its_job_and_place() {
         "scorsese-capture-job-12-3"
     );
 }
+
+#[test]
+fn a_job_folder_that_is_a_link_is_refused() {
+    let laid = Laid::new("linked-job");
+    let elsewhere = laid.root.join("elsewhere");
+    std::fs::rename(&laid.job, &elsewhere).unwrap();
+    symlink(&elsewhere, &laid.job).unwrap();
+    assert!(laid.arguments().is_err());
+}
+
+#[test]
+fn no_mount_is_a_host_path_the_server_could_change() {
+    // The daemon resolves a bind's source again, on the host, after the
+    // launcher's checks: anything under SCORSESE_DATA could be a link by then
+    // (#1636). Every mount is a volume's, resolved inside the volume.
+    let laid = Laid::new("no-binds");
+    let arguments = laid.arguments().unwrap();
+    let mounts: Vec<&String> = arguments
+        .iter()
+        .filter(|argument| argument.starts_with("--mount="))
+        .collect();
+    assert!(!mounts.is_empty());
+    for mount in mounts {
+        assert!(!mount.contains("type=bind"), "{mount}");
+    }
+}
+
+#[test]
+fn a_capture_never_mounts_the_page_cache_the_server_reads() {
+    // A capture still running could otherwise swap a link in after the
+    // server's checks of what it wrote (#1677).
+    let laid = Laid::new("no-pages");
+    let arguments = laid.arguments().unwrap();
+    for mount in arguments.iter().filter(|a| a.starts_with("--mount=")) {
+        assert!(!mount.contains("captures/pages"), "{mount}");
+    }
+}
