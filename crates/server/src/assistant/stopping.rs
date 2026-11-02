@@ -35,6 +35,12 @@ impl Stopping {
         }
     }
 
+    /// Whether `turn` was asked to stop, remembering the ask for the step
+    /// that hears it.
+    pub(super) fn pending(&self, turn: i64) -> bool {
+        lock(&self.asked).contains(&turn)
+    }
+
     /// Whether `turn` was asked to stop; forgets the ask.
     pub(super) fn requested(&self, turn: i64) -> bool {
         lock(&self.asked).remove(&turn)

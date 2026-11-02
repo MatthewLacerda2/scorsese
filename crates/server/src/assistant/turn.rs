@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use scorsese_providers::chat::{
-    self, Chat, ChatError, Effort, Message, Model, Part, Reply, Request, Stop,
+    self, Chat, ChatError, Effort, MAX_TOKENS, Message, Model, Part, Reply, Request, Stop,
 };
 use serde_json::value::RawValue;
 use tracing::Instrument;
@@ -105,7 +105,7 @@ async fn run_named(state: AppState, mut turn: Running) {
     // A summary its balance may not pay for now ends the turn there, rather
     // than going on with a conversation past its size.
     let end = match compact::compact(&state, &mut turn).await {
-        Some(short) => End::Over("capped", stopped_short(short)),
+        Some(short) => End::Over("capped", short.ended()),
         None => match drive(&state, &mut turn).await {
             Ok(end) => end,
             Err(failure) => End::Over("failed", failure),
@@ -168,13 +168,18 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
                 ),
             ));
         }
+        // A Stop ends the wait, and is heard at the top of the loop.
+        if !assistant.paced(turn.user, turn.model, turn.turn).await {
+            continue;
+        }
         let mut messages = turn.history.clone();
         messages.extend(turn.messages.iter().cloned());
-        let request = Request {
+        let mut request = Request {
             model: turn.model,
             system: prompt::SYSTEM.to_owned(),
             tools: tools.clone(),
             messages,
+            max_tokens: MAX_TOKENS,
         };
         // The level is the conversation's own (`Effort::change`): what the
         // turn recorded, or its messages are not what the start wrote.
@@ -185,8 +190,9 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
             .map_err(|error| error.to_string())?
         {
             Ok(held) => held,
-            Err(short) => return Ok(End::Over("capped", stopped_short(short))),
+            Err(short) => return Ok(End::Over("capped", short.ended())),
         };
+        request.max_tokens = held.most;
         let (reply, latency) = ask(state, turn, request).await.map_err(|error| {
             tracing::error!("assistant: turn {}: {error}", turn.turn);
             super::failure::unreached(&error)
@@ -203,6 +209,8 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
             .await
             .map_err(|error| error.to_string())?;
         spent += charged;
+        assistant.pace.sent(turn.user, turn.model, &reply.usage);
+        let most = held.most;
         drop(held);
         announce(state, turn, now).await;
         match &reply.stop {
@@ -263,6 +271,10 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
                     "refused",
                     format!("{} declined this request: {why}", turn.model.label()),
                 ));
+            }
+            // Cut short by what was left, not by the reply's own limit.
+            Stop::MaxTokens if most < MAX_TOKENS => {
+                return Ok(End::Over("capped", Short::Cut(now).ended()));
             }
             Stop::MaxTokens => {
                 return Ok(End::Over(
@@ -344,21 +356,6 @@ async fn settle_held(state: &AppState, turn: &mut Running, answer: Part) -> Resu
     let native = chat::freeze(turn.model, &results).map_err(|e| e.to_string())?;
     turn.messages.pop();
     keep(state, turn, native, results).await
-}
-
-/// What a turn that may not make its next call ends saying.
-fn stopped_short(short: Short) -> String {
-    match short {
-        Short::Spent(balance) => format!(
-            "Stopped: your balance is {}. Add credit to carry on.",
-            dollars(balance)
-        ),
-        Short::Held(balance) => format!(
-            "Stopped: your balance is {}, and your other messages being worked on may spend \
-             it. Send this again once they finish, or add credit.",
-            dollars(balance)
-        ),
-    }
 }
 
 /// Tell the browser what the turn has cost so far, and the balance.

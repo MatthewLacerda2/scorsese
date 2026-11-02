@@ -4,7 +4,9 @@
 
 use std::collections::HashMap;
 
-use scorsese_providers::chat::{Effort, Kept, Message, Model, Request, anthropic, freeze, replay};
+use scorsese_providers::chat::{
+    Effort, Kept, MAX_TOKENS, Message, Model, Request, anthropic, freeze, replay,
+};
 use serde_json::json;
 
 /// A request on `model` carrying `messages`, each frozen for it.
@@ -17,6 +19,7 @@ fn request(model: Model, messages: &[Message]) -> Request {
             .iter()
             .map(|m| freeze(model, m).expect("a message freezes"))
             .collect(),
+        max_tokens: MAX_TOKENS,
     }
 }
 
@@ -42,6 +45,22 @@ fn the_top_level_setting_is_the_baseline_whatever_the_turn_runs_at() {
         json!({"role": "system", "content": [], "output_config": {"effort": "low"}})
     );
     assert_eq!(request.effort(), Effort::Low);
+}
+
+/// The reply's bound is the request's own (#1653): a call the balance can
+/// pay only part of asks for a shorter reply, and nothing else moves.
+#[test]
+fn the_bound_on_a_reply_is_the_one_the_request_names() {
+    let mut request = request(Model::ClaudeOpus55, &[Message::user("nudge it")]);
+    let whole = serde_json::to_value(anthropic::laid_out(&request)).expect("a request serialises");
+    assert_eq!(whole["max_tokens"], json!(MAX_TOKENS));
+    request.max_tokens = 5_000;
+    let short = serde_json::to_value(anthropic::laid_out(&request)).expect("a request serialises");
+    assert_eq!(short["max_tokens"], json!(5_000));
+    assert_eq!(
+        short["messages"], whole["messages"],
+        "the cached prefix is untouched"
+    );
 }
 
 #[test]

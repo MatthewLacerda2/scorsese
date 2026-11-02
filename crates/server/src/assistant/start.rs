@@ -104,7 +104,7 @@ pub async fn start(
     // once — never a second connection beside it — and the decision that
     // counts is made again, under the lock, as the turn's row is written.
     if last.as_ref().is_none_or(|last| last.state != "asking") {
-        holds::admit(state, &mut tx, user, false).await?;
+        holds::admit(state, &mut tx, user, model, false).await?;
         tx.commit().await?;
         tx = db::scoped(&state.pool, user).await?;
     }
@@ -199,7 +199,7 @@ pub async fn start(
     };
     // Admitted under the user's lock, held until the row is committed — and
     // taken last, after every call above that opens a connection of its own.
-    holds::admit(state, &mut tx, user, false).await?;
+    holds::admit(state, &mut tx, user, model, false).await?;
     let view = turns::begin(&mut tx, session, &beginning).await?;
     tx.commit().await?;
     // The old conversation's quote, set aside above, is spent by nobody now.

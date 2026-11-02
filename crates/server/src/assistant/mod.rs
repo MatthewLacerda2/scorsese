@@ -104,17 +104,22 @@
 //! it, so a cache hit is cheaper for the user too — at cost × 1.8
 //! (`credits::Product::Assistant`), against the turn
 //! (`credits::ledger::charge_assistant`). Not reserved for: the cost exists
-//! only once counted. So a turn is **refused up front at a balance of zero or
-//! less** — the balance the assistant knows, paid credit and the free
-//! allowance together (`credits::ledger::spendable`, #1530) — and stops between calls once the balance runs out or the turn has
-//! cost the operator's **per-turn cap** ([`Assistant::cap_micros`]). The cap
-//! is set for Sonnet 5.5 and scales with the turn's model's blended rate
-//! (`cost`, #1461), so a turn may do the same work on any model. The call
-//! that crosses either line has already been made and is charged; one call's
-//! cost is bounded by `max_tokens`. A user runs at most a few turns at once
-//! ([`Assistant::at_once`]), and each call in flight holds what it may cost
-//! until it is charged, so turns at once share the balance rather than each
-//! crossing it (`holds`).
+//! only once counted. So each call is **made only when what is left pays for
+//! its input and a short reply**, and **its reply is bounded by what is left**
+//! (`holds`, #1653) — the balance the assistant knows, paid credit and the
+//! free allowance together (`credits::ledger::spendable`, #1530). A turn that
+//! cannot pay for one ends with the out-of-credit sentence, and one that has
+//! cost the operator's **per-turn cap** ([`Assistant::cap_micros`]) stops
+//! between calls. The cap is set for Sonnet 5.5 and scales with the turn's
+//! model's blended rate (`cost`, #1461), so a turn may do the same work on any
+//! model; the call that crosses it has already been made and is charged. A
+//! user runs at most a few turns at once ([`Assistant::at_once`]), and each
+//! call in flight holds what it may cost until it is charged, so turns at
+//! once share the balance rather than each crossing it (`holds`).
+//!
+//! Every call goes out on the operator's one key, so members share its rate
+//! limits: each has a budget of input tokens a minute per model, past which
+//! their next call waits (`pace`).
 //!
 //! ## Effort: the project's, `high` unless chosen
 //!
@@ -151,6 +156,7 @@
 
 mod ask;
 mod attached;
+mod bound;
 mod calls;
 mod compact;
 mod cost;
@@ -159,6 +165,7 @@ mod effort;
 mod failure;
 mod holds;
 mod model;
+mod pace;
 mod pictures;
 mod prompt;
 mod quote;
@@ -211,14 +218,16 @@ pub const DEFAULT_TURNS_AT_ONCE: usize = 2;
 
 /// The server's assistant: how it reaches each model, what a turn may cost,
 /// how many of one user's run at once and what their calls in flight hold
-/// (`holds`), and which turns have been asked to stop. Cheap to clone; clones
-/// share the holds and the stops.
+/// (`holds`), what input each sent in the last minute (`pace`), and which
+/// turns have been asked to stop. Cheap to clone; clones share the holds,
+/// the pace and the stops.
 #[derive(Clone)]
 pub struct Assistant {
     connect: Connect,
     baseline_micros: i64,
     at_once: usize,
     holds: holds::Holds,
+    pace: pace::Pace,
     stopping: stopping::Stopping,
 }
 
@@ -293,6 +302,7 @@ impl Assistant {
             baseline_micros,
             at_once: DEFAULT_TURNS_AT_ONCE,
             holds: holds::Holds::default(),
+            pace: pace::Pace::default(),
             stopping: stopping::Stopping::default(),
         }
     }
@@ -366,6 +376,13 @@ impl Assistant {
             Connect::Unconfigured => false,
             Connect::Environment => resolve(model.vendor().provider()).is_ok(),
         }
+    }
+
+    /// Wait until `user` is under their input budget on `model` (`pace`):
+    /// `false` as soon as `turn` is asked to stop instead.
+    async fn paced(&self, user: crate::db::UserId, model: Model, turn: i64) -> bool {
+        let stopping = &self.stopping;
+        self.pace.wait(user, model, || stopping.pending(turn)).await
     }
 
     /// Whether `turn` was asked to stop; forgets the ask.

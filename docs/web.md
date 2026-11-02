@@ -1320,8 +1320,9 @@ one release per reservation, so nothing is settled twice. A Veo or batch job tha
 goes `stuck` settles nothing and its reservation stays held, since Google may
 still be billing. A batched still reserves its half price, charged when its
 picture lands and released when its batch stops without one. The assistant is charged after each call rather than reserved for:
-its cost exists only once the tokens are counted, so a turn checks the balance
-is positive before starting and the call may dip a little below zero. A call
+its cost exists only once the tokens are counted, so each call is made only
+when the balance pays for its input and a short reply, and its reply is cut to
+what the balance pays for (#1653). A call
 in flight holds what it may cost until it is charged, and a turn — starting,
 or about to call — counts the balance less what the user's other turns hold,
 so turns at once share the last dollar rather than each spending it
@@ -2465,16 +2466,29 @@ Claude's five-minute and one-hour cache writes, cache reads, each at its own rat
 `prices::chat`, so a cache hit is cheaper for the user too — times 1.8, as one `charge` entry naming the turn
 (`credit_entries.chat_turn_id`); the spending history folds a turn's calls into
 one row. Not reserved for, since the cost exists only once counted: a turn is
-**refused up front (`402`) at a balance of zero or less** (paid credit and the
-free allowance together, *Credits*), and stops between
-calls once the balance runs out or the turn reaches the operator's cap
+**refused up front (`402`) when the balance cannot pay for a short reply** (paid
+credit and the free allowance together, *Credits*), each call is **made only
+when the balance pays for its input and a short reply** (4,096 tokens), its
+input priced at the most it can cost — written to the cache, as a call that
+finds nothing cached writes it — and
+**its `max_tokens` is cut to what the balance pays for** after its input
+(#1653): a turn that cannot pay ends with the out-of-credit sentence, the
+conversation kept. It also stops between calls once the turn reaches the operator's cap
 (`SCORSESE_ASSISTANT_TURN_CAP`, default $3.50: the cap is on what the user
 is charged, so it rose with the multiplier, #1247). That figure is Sonnet
 5.5's; every other model's cap is it times the model's blended rate over
 Sonnet's, nine input tokens to one output as the picker's bar weighs them
 (#1461) — about $7 on Opus 5.5 and $17.50 on Fable 5.1 — so one turn may do
-the same amount of work whichever model runs it. The call that crosses either
-line was already made and is charged; one call is bounded by `max_tokens`.
+the same amount of work whichever model runs it. The call that crosses the cap
+was already made and is charged.
+
+**Rate limits are shared.** Every call goes out on the operator's one key, so
+every member draws on the organisation's per-minute limits. Each member has a
+budget of input tokens a minute per model — a quarter of Anthropic's Start-tier
+limit for it, counting what that limit counts (input not read from the cache):
+500,000 on Opus 5.5 and Sonnet 5.5, 125,000 on Fable 5.1 — and a member past it
+waits, at most a minute, before their next call, while everyone else's go out
+(`assistant::pace`).
 
 **Caching** is where the money is, since every call resends the conversation.
 On Claude, one breakpoint on the system prompt caches the tools and the prompt
