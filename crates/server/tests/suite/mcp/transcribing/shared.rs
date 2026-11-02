@@ -11,6 +11,7 @@ use scorsese_server::library::transcribe::Payload;
 use serde_json::json;
 use sqlx::postgres::PgPool;
 
+use super::footage;
 use super::stopped::{imported, running};
 use crate::mcp::vendors::{Mock, serve, settled};
 use crate::mcp::{call, member};
@@ -78,7 +79,14 @@ async fn a_fourth_waiting_transcription_is_refused(pool: PgPool) {
     assert_eq!(again.expect("handed back").id, queued[1]);
 
     let (bea, bea_who) = member(&pool, "bea@example.com").await;
-    let (_, _, theirs) = imported(&pool, &state, bea, address, &bea_who).await;
+    let (_, sha) = footage(&pool, &state, bea).await;
+    let theirs: i64 =
+        sqlx::query_scalar("SELECT id FROM library_items WHERE sha256 = $1 AND user_id = $2")
+            .bind(&sha)
+            .bind(bea.get())
+            .fetch_one(&pool)
+            .await
+            .expect("held");
     let theirs = state.library.transcribe(bea, &ask(theirs, "de")).await;
     let theirs = theirs.expect("another member queues");
     call(address, &bea_who, "jobs", json!({ "cancel": theirs.id })).await;
@@ -106,9 +114,16 @@ async fn a_stopped_transcription_holds_the_slot_until_whisper_lets_go(pool: PgPo
     running(&state, ana).await;
     let next = state.library.transcribe(ana, &ask(item, "en")).await;
     let next = next.expect("queued");
+    // Past the decode, which a stop kills at once: with Whisper.
+    let asking = Instant::now();
+    while mock.heard.load(Ordering::SeqCst) == 0 {
+        assert!(asking.elapsed() < Duration::from_secs(10), "never asked");
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
 
     let stopped = Instant::now();
-    call(address, &who, "jobs", json!({ "cancel": first.id })).await;
+    let (said, refused) = call(address, &who, "jobs", json!({ "cancel": first.id })).await;
+    assert!(!refused, "{said}");
     let state_of = |id: i64| {
         let pool = state.pool.clone();
         async move {

@@ -11,9 +11,13 @@
 //! transcript in every project that uses it, corrections included.
 //!
 //! **Free, and a job**, as a render is: it costs the machine minutes, so it
-//! queues ([`kinds::TRANSCRIBE`], one at a time) and its owner can stop it. A
-//! stop kills the decode and closes the request's connection, and an answer
-//! that lands with it is thrown away.
+//! queues ([`kinds::TRANSCRIBE`], one at a time) and its owner can stop it.
+//! A member has at most [`kinds::TRANSCRIPTIONS_WAITING`] waiting, and only in
+//! a language Whisper knows, so one account cannot fill the line. A stop
+//! kills the decode and shows the job stopped at once; a request already with
+//! Whisper is let run out, its answer thrown away, and holds the slot until
+//! then ([`Context::hold_slot_until`]): Whisper finishes it either way, and
+//! the next job would only wait on it while holding the slot.
 //!
 //! **Only an upload is heard.** A generated line brought from the library is
 //! a plain sound in the project using it, but its row's words are the
@@ -112,14 +116,26 @@ impl Library {
 
     /// Queues the hearing of `user`'s item, unless one asked the same —
     /// the same language, or both detecting it — is already waiting or
-    /// running, which is the job handed back. The item's row is locked for
-    /// the check and the insert, so two asking at once queue one job.
+    /// running, which is the job handed back. The member's row is locked for
+    /// the checks and the insert, so two asking at once queue one job. A
+    /// language Whisper does not know is [`LibraryError::Invalid`]; a member
+    /// with [`kinds::TRANSCRIPTIONS_WAITING`] waiting already is
+    /// [`LibraryError::Waiting`].
     pub async fn transcribe(
         &self,
         user: UserId,
         payload: &Payload,
     ) -> Result<JobView, LibraryError> {
+        if let Some(code) = &payload.language {
+            code.parse::<Language>()
+                .map_err(|error| LibraryError::Invalid(error.to_string()))?;
+        }
         let mut tx = crate::db::scoped(&self.pool, user).await?;
+        // The member's row, first, as the credit ledger takes it: two asking
+        // at once count the waiting and queue one after the other.
+        sqlx::query("SELECT 1 FROM users WHERE id = (SELECT member_id()) FOR UPDATE")
+            .execute(&mut *tx)
+            .await?;
         let mine: Option<i64> =
             sqlx::query_scalar("SELECT id FROM library_items WHERE id = $1 FOR UPDATE")
                 .bind(payload.item)
@@ -144,6 +160,14 @@ impl Library {
                 .await?
                 .ok_or(LibraryError::NotFound);
         }
+        let waiting: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM jobs WHERE kind = $1 AND state = 'waiting'")
+                .bind(kinds::TRANSCRIBE.name)
+                .fetch_one(&mut *tx)
+                .await?;
+        if waiting >= kinds::TRANSCRIPTIONS_WAITING as i64 {
+            return Err(LibraryError::Waiting(kinds::TRANSCRIPTIONS_WAITING));
+        }
         let payload =
             serde_json::to_value(payload).map_err(|e| LibraryError::Invalid(e.to_string()))?;
         let job = jobs::enqueue(&mut tx, kinds::TRANSCRIBE, &payload).await?;
@@ -152,6 +176,9 @@ impl Library {
         Ok(job)
     }
 }
+
+/// How often a running hearing looks for a stop.
+const LISTEN_FOR_STOP: std::time::Duration = std::time::Duration::from_millis(100);
 
 /// What [`Held`] is read from: the id, the words, whether it was generated
 /// and how long it lasts.
@@ -245,17 +272,29 @@ async fn hear(
     let ear = vendors.whisper()?;
     let source = storage.library_file(job.user, &item.sha256, &item.extension);
     let tools = tools.clone();
-    // A stop kills the decode and closes the request's connection, so the blocking work
-    // ends with the job and never runs on behind the next one.
+    // A stop kills the decode; a request already with Whisper runs out, and
+    // holds the slot until it has, so the next job never waits on it inside it.
     let cancel: Cancel = context.cancel().clone();
     let job_id = job.id;
-    let heard = tokio::task::spawn_blocking(move || {
+    let mut hearing = tokio::task::spawn_blocking(move || {
         let wav = decode(&tools, &source, &cancel)?;
         ear.transcribe(wav, language.as_ref(), &|| cancel.is_cancelled())
             .map_err(|error| plainly(job_id, error))
-    })
-    .await
-    .map_err(|error| error.to_string())??;
+    });
+    let heard = loop {
+        tokio::select! {
+            heard = &mut hearing => break heard.map_err(|error| error.to_string())??,
+            () = tokio::time::sleep(LISTEN_FOR_STOP) => {
+                if context.cancel().is_cancelled() {
+                    // Shown stopped now; the slot is held until Whisper lets go.
+                    context.hold_slot_until(async move {
+                        let _ = hearing.await;
+                    });
+                    return Err("stopped".to_owned());
+                }
+            }
+        }
+    };
     // An answer that landed as the stop came is not kept.
     if context.cancel().is_cancelled() {
         return Err("stopped".to_owned());

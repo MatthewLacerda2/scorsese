@@ -1,8 +1,6 @@
 //! The server behind a trait.
 
 use std::str::FromStr;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::Duration;
 
@@ -60,8 +58,22 @@ pub trait Transcriber {
     ) -> Result<Heard, TranscribeError>;
 }
 
-/// A language Whisper is told the speech is in: an ISO 639-1 code like `pt`,
-/// or one of the few three-letter ones it knows (`haw`, `yue`).
+/// Every language Whisper large-v3 knows, by the code it is told it as: its
+/// tokenizer's `LANGUAGES`, in that order. A code of the right shape it does
+/// not know answers `500` after the request has been queued behind others,
+/// so it is refused here instead.
+const KNOWN: [&str; 100] = [
+    "en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl", "ar", "sv", "it",
+    "id", "hi", "fi", "vi", "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no", "th", "ur",
+    "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk", "te", "fa", "lv", "bn", "sr", "az", "sl", "kn",
+    "et", "mk", "br", "eu", "is", "hy", "ne", "mn", "bs", "kk", "sq", "sw", "gl", "mr", "pa", "si",
+    "km", "sn", "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu", "am", "yi", "lo", "uz", "fo",
+    "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl", "mg", "as", "tt", "haw", "ln",
+    "ha", "ba", "jw", "su", "yue",
+];
+
+/// A language Whisper is told the speech is in: one of the codes it knows,
+/// mostly ISO 639-1 like `pt`, and a few three-letter ones (`haw`, `yue`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Language(String);
 
@@ -77,7 +89,7 @@ impl FromStr for Language {
 
     fn from_str(text: &str) -> Result<Self, Self::Err> {
         let code = text.trim().to_ascii_lowercase();
-        if (2..=3).contains(&code.len()) && code.bytes().all(|b| b.is_ascii_lowercase()) {
+        if KNOWN.contains(&code.as_str()) {
             Ok(Self(code))
         } else {
             Err(TranscribeError::Language(text.to_owned()))
@@ -103,12 +115,13 @@ impl Whisper {
 }
 
 impl Transcriber for Whisper {
-    /// The request runs on a thread of its own, waited on until it answers or
-    /// `stop` says so. Stopped, the thread's request ends too, within a tenth
-    /// of a second, whether its body is still going up or its reply is being
-    /// waited on: the connection closed, the WAV dropped with the thread.
-    /// What the server was already working out it finishes on its own two
-    /// cores (`deploy/compose.yaml`).
+    /// The request runs on a thread of its own, waited on until it answers;
+    /// `stop` is looked at every tenth of a second. Stopped, its answer is
+    /// thrown away, but the call returns only once the server has let the
+    /// request go — answered, refused or closed it: the server finishes what
+    /// it began on its own two cores (`deploy/compose.yaml`) whether or not
+    /// the connection is closed, so the connection is kept and whoever
+    /// rations the server (a job's slot) holds it until then.
     fn transcribe(
         &self,
         wav: Vec<u8>,
@@ -118,20 +131,19 @@ impl Transcriber for Whisper {
         let within = within(wav.len());
         let forced = language.map(|code| code.as_str().to_owned());
         let api = self.api.clone();
-        let stopped = Arc::new(AtomicBool::new(false));
         let (answer, answered) = mpsc::channel();
-        let sending = Arc::clone(&stopped);
         std::thread::spawn(move || {
             let request = Request {
                 wav,
                 model: MODEL,
                 language: forced.as_deref(),
             };
-            let _ = answer.send(api.transcribe(request, within, &sending));
+            let _ = answer.send(api.transcribe(request, within));
         });
         let reply = loop {
             if stop() {
-                stopped.store(true, Ordering::SeqCst);
+                // Waits out the request, bounded by `within` as it is.
+                let _ = answered.recv();
                 return Err(TranscribeError::Stopped);
             }
             match answered.recv_timeout(LISTEN_FOR_STOP) {
