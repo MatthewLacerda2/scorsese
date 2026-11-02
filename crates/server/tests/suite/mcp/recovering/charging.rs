@@ -62,7 +62,8 @@ async fn stopped_before_the_charge(pool: &PgPool, mock: &Mock) -> (AppState, Fil
     let waiting = || async {
         sqlx::query_scalar::<_, i64>(
             "SELECT count(*) FROM pg_locks
-             WHERE locktype = 'advisory' AND objid = $1 AND NOT granted",
+             WHERE locktype = 'advisory' AND objid = $1 AND NOT granted
+               AND database = (SELECT oid FROM pg_database WHERE datname = current_database())",
         )
         .bind(GATE)
         .fetch_one(pool)
