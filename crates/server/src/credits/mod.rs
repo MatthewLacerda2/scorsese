@@ -174,6 +174,11 @@ pub fn dollars(micros: impl Into<i128>) -> String {
     scorsese_providers::prices::dollars(micros, 2)
 }
 
+/// What a spend is told once every account together has spent the day's
+/// free ceiling (`allowance`, #1658): the generation's refusal and the
+/// assistant's say the same.
+pub const FREE_USED_UP: &str = "today's free credit for everyone is used up; it comes back tomorrow, or add credit to keep going";
+
 /// Why spending or recording credits did not happen.
 #[derive(Debug, thiserror::Error)]
 pub enum CreditError {
@@ -202,6 +207,22 @@ pub enum CreditError {
         /// What the paid balance was.
         paid: i64,
         /// What the shot would have reserved.
+        needed: i64,
+    },
+    /// A spend the user's own free allowance would have covered, refused
+    /// because every account together has spent the day's free ceiling
+    /// (#1658). Nothing was spent.
+    #[error(
+        "{FREE_USED_UP}. Your balance is {}, and this needs {} — nothing was sent to the \
+         provider.",
+        dollars(*balance),
+        dollars(*needed)
+    )]
+    FreeUsedUp {
+        /// What could be spent: the paid balance and what was left of the
+        /// ceiling.
+        balance: i64,
+        /// What the spend would have reserved.
         needed: i64,
     },
     /// A reservation that does not exist, or was already settled.

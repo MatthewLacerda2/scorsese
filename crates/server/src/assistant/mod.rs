@@ -252,6 +252,10 @@ pub enum AssistantError {
     /// The balance is zero or less.
     #[error("your balance is {0}; add credit to use the assistant")]
     NoCredit(String),
+    /// Nothing to spend, though the user's own free allowance has some
+    /// left: every account together has spent the day's (#1658).
+    #[error("{}", crate::credits::FREE_USED_UP)]
+    FreeUsedUp,
     /// A turn is already running in this conversation.
     #[error("the assistant is still working on your last message; wait for it, or stop it")]
     Busy,
@@ -284,6 +288,21 @@ pub enum AssistantError {
     /// The database refused.
     #[error("the database refused: {0}")]
     Database(#[from] sqlx::Error),
+}
+
+impl AssistantError {
+    /// Why a turn may not spend `balance`, zero or less: the day's free
+    /// ceiling for everyone, when the user's own allowance has something
+    /// left, or no credit.
+    pub(crate) async fn short(tx: &mut crate::db::Tx, balance: i64) -> Result<Self, Self> {
+        Ok(
+            if crate::credits::allowance::used_up_for_everyone(tx).await? {
+                Self::FreeUsedUp
+            } else {
+                Self::NoCredit(crate::credits::dollars(balance))
+            },
+        )
+    }
 }
 
 impl Default for Assistant {

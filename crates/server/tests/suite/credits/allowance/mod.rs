@@ -3,6 +3,8 @@
 //! and never turned into paid credit by a generation that fails.
 
 mod calendar;
+mod everyone;
+mod everyone_said;
 mod failing;
 mod spending;
 mod veo;
@@ -13,11 +15,8 @@ use scorsese_server::db::{self, UserId};
 use serde_json::Value;
 use sqlx::postgres::PgPool;
 
-/// The maintainer's figures: $4 a day, $12 a month.
-const FOUR_A_DAY: Allowance = Allowance {
-    daily_micros: 4_000_000,
-    monthly_micros: 12_000_000,
-};
+/// The maintainer's figures: $4 a day, $12 a month, $20 a day for everyone.
+const FOUR_A_DAY: Allowance = Allowance::DEFAULT;
 
 /// A spoken line quoted at `cents`, which costs the user `cents` × 1.8.
 pub(super) fn line(cents: u64, settings: &Value) -> Request<'_> {

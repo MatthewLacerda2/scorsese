@@ -47,6 +47,12 @@
 //! reads twice; it is short on purpose, so `grep privileged` stays a short
 //! list.
 //!
+//! The other way around is a `SECURITY DEFINER` function, which runs as the
+//! tables' owner inside a member's own transaction. There is one, and it
+//! answers a sum, never a row: `free_granted_by_everyone`, what every account
+//! together was granted free in a day (`credits::allowance` — the ceiling is
+//! the operator's, and is decided under the member's own lock).
+//!
 //! **This guards against mistakes, not against SQL injection.** `SET ROLE
 //! NONE` is open to any role, so code that can run arbitrary SQL can leave
 //! the scope. Queries here bind their values; that is the defence against
