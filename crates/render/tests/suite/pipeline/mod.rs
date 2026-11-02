@@ -27,6 +27,7 @@ mod narration_bands;
 mod output;
 mod pages;
 mod partial;
+mod planted;
 mod preview_pages;
 mod rerender;
 mod retiming;

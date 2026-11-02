@@ -10,5 +10,6 @@ mod importing;
 mod looking;
 mod lottie;
 mod origin;
+mod planted;
 mod reporting;
 mod searching;

@@ -23,7 +23,7 @@ use crate::common::scratch;
 use crate::common::{audio_track, project, video_track};
 
 /// −1 dBFS, as a sample value: the ceiling a bake's own limiter holds to.
-const LEVEL: f64 = 0.891;
+pub(super) const LEVEL: f64 = 0.891;
 
 /// Decibels a decoded peak may sit away from where it is expected. The codec is
 /// not ours and nor is the resample on the way back out.
@@ -31,7 +31,7 @@ const SLACK: f64 = 0.5;
 
 /// A stereo tone peaking at `amplitude`, square when `square` and sine
 /// otherwise.
-fn tone(tools: &Tools, root: &Path, square: bool, amplitude: f64) -> Asset {
+pub(super) fn tone(tools: &Tools, root: &Path, square: bool, amplitude: f64) -> Asset {
     let wave = if square {
         format!("{amplitude}*sgn(sin(2*PI*220*t))")
     } else {
