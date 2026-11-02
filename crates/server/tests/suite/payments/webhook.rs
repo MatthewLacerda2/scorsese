@@ -12,7 +12,7 @@ use super::common::{self, Response};
 use super::{FIFTY_AT_4_99, Fake, SECRET, balance, bought, member, serve, top_ups};
 
 /// A delivery of `kind` about `session`, as Stripe would send it.
-fn event(kind: &str, session: &serde_json::Value) -> Vec<u8> {
+pub(super) fn event(kind: &str, session: &serde_json::Value) -> Vec<u8> {
     serde_json::json!({
         "id": "evt_1", "object": "event", "type": kind,
         "data": { "object": session },
@@ -22,7 +22,7 @@ fn event(kind: &str, session: &serde_json::Value) -> Vec<u8> {
 }
 
 /// POST `body` to the webhook, signed at `at` (seconds) under `secret`.
-async fn deliver(address: SocketAddr, body: &[u8], secret: &str, at: i64) -> Response {
+pub(super) async fn deliver(address: SocketAddr, body: &[u8], secret: &str, at: i64) -> Response {
     let signature = sign(&Secret::new(secret), at, body);
     let header = format!("Stripe-Signature: t={at},v1={signature}");
     common::send(
@@ -35,7 +35,7 @@ async fn deliver(address: SocketAddr, body: &[u8], secret: &str, at: i64) -> Res
     .await
 }
 
-fn now() -> i64 {
+pub(super) fn now() -> i64 {
     scorsese_core::Timestamp::unix_now().expect("the clock is past 1970")
 }
 
