@@ -5,7 +5,7 @@
 //! ledger names it, so one in the account that nobody's ledger names is
 //! refused to everyone, while built-in and Voice Library voices stay open.
 //!
-//! The voice catalogue every test server is given (`common::Voices`) calls
+//! The voice catalogue every test server is given (`common::voices`) calls
 //! an id starting `custom-` or `voice-of-` a custom voice in the account,
 //! one starting `library-` a Voice Library voice, and any other a built-in.
 
@@ -152,4 +152,19 @@ async fn built_in_and_library_voices_are_open_to_every_member(pool: PgPool) {
             );
         }
     }
+}
+
+#[sqlx::test]
+async fn a_voice_that_cannot_be_checked_is_refused(pool: PgPool) {
+    let files = super::common::files("unchecked");
+    let (address, _state) = super::common::serve_shaped(pool.clone(), files, |state| {
+        state.voiced_from(super::common::unreachable())
+    })
+    .await;
+    let (ana, hers) = member(&pool, "ana@example.com").await;
+    fund(&pool, ana, 10).await;
+    let project = super::stored(&pool, ana, read_in("voice-one")).await;
+    let (said, refused) = call(address, &hers, "generate", json!({ "project": project })).await;
+    assert!(refused && said.contains("could not be checked"), "{said}");
+    assert!(!said.contains("confirm: \""), "no token for it: {said}");
 }

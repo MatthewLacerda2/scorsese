@@ -6,14 +6,16 @@
 //! another's could narrate with it, or look it up and read the description it
 //! was designed from. Row-level security cannot stop that, because the voice
 //! is not a row — it is the vendor's. So the rule is applied where a voice id
-//! is used (`generate`) or asked about (`voices` with `check`): a voice in
-//! *another* user's `designed_voices` is refused. Built-in and Voice Library
-//! voices are in nobody's ledger, so they stay open to everyone, and a user's
-//! own designed voices are theirs to use.
+//! is used (`generate`) or asked about (`voices` with `check`), and it is an
+//! **allow-list** (#1655): a voice in the caller's own `designed_voices` is
+//! theirs; one in *another* user's is refused at once; and any other is asked
+//! of the vendor (`Catalogue::origin`), which lets built-in and Voice Library
+//! voices through and refuses a custom voice the account holds that nobody's
+//! ledger names — one made outside the web app, or whose row is gone.
 //!
 //! Telling "another user's" from "nobody's" means reading past the caller's
 //! own rows, so this is one of [`privileged`](crate::db::privileged)'s short
-//! list. It answers which ids are someone else's and nothing about them.
+//! list. It answers which ids are whose and nothing about them.
 //!
 //! ## Voice slots (#1261)
 //!
@@ -29,28 +31,36 @@
 //! needs, and nothing should depend on it.
 //!
 //! Two limits, both checked before a voice is kept ([`no_slot`]): a user keeps
-//! at most [`KEPT_PER_USER`], so one person cannot take every slot from the
-//! rest, and nobody keeps one once the account's slots are all taken — said in
-//! plain words, rather than as whatever the vendor answers a full account
-//! with. Counting everyone's rows is cross-user, which is why it is here.
+//! at most their share — [`KEPT_FREE`] on an account that has never bought
+//! credit (no paid `payments` row), [`KEPT_BOUGHT`] once it has (#1655) — so
+//! free accounts cannot take every slot from the rest; and nobody keeps one
+//! once the account's slots are all taken. Both said in plain words, rather
+//! than as whatever the vendor answers a full account with. A share only
+//! limits adding: a user over it keeps what they have. Counting everyone's
+//! rows is cross-user, which is why it is here.
 
 use sqlx::postgres::PgPool;
 
 use crate::db::{self, UserId};
 
-/// Which of `voices` a user other than `user` designed and kept.
-pub async fn others(
-    pool: &PgPool,
-    user: UserId,
-    voices: &[String],
-) -> Result<Vec<String>, sqlx::Error> {
+/// Which of `voices` the ledger names, and whose.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Named {
+    /// Those `user` designed or cloned and keeps.
+    pub mine: Vec<String>,
+    /// Those another user keeps.
+    pub others: Vec<String>,
+}
+
+/// Which of `voices` `user` keeps, and which another user does.
+pub async fn named(pool: &PgPool, user: UserId, voices: &[String]) -> Result<Named, sqlx::Error> {
     if voices.is_empty() {
-        return Ok(Vec::new());
+        return Ok(Named::default());
     }
     let mut tx = db::privileged(pool).await?;
-    let found = sqlx::query_scalar(
-        "SELECT DISTINCT voice_id FROM designed_voices
-         WHERE voice_id = ANY($1) AND user_id <> $2
+    let found: Vec<(String, bool)> = sqlx::query_as(
+        "SELECT DISTINCT voice_id, user_id = $2 FROM designed_voices
+         WHERE voice_id = ANY($1)
          ORDER BY voice_id",
     )
     .bind(voices)
@@ -58,7 +68,15 @@ pub async fn others(
     .fetch_all(&mut *tx)
     .await?;
     tx.commit().await?;
-    Ok(found)
+    let mut named = Named::default();
+    for (voice, mine) in found {
+        if mine {
+            named.mine.push(voice);
+        } else {
+            named.others.push(voice);
+        }
+    }
+    Ok(named)
 }
 
 /// The refusal for narrating with, or asking about, `voice`: another user's.
@@ -70,9 +88,22 @@ pub fn refusal(voice: &str) -> String {
     )
 }
 
-/// The most voices one user keeps at once: a share of the account's slots,
-/// so the first few people cannot take them all.
-pub const KEPT_PER_USER: i64 = 3;
+/// The refusal for `voice`: a custom voice in the account that no ledger of
+/// the caller's names (#1655).
+pub fn not_kept(voice: &str) -> String {
+    format!(
+        "voice {voice} is not one you can use: it is a custom voice you did not design or \
+         clone here, and a custom voice is only its maker's. Choose a voice from voices, or \
+         make your own with voice_design or voice_clone."
+    )
+}
+
+/// The most voices a user who has never bought credit keeps at once.
+pub const KEPT_FREE: i64 = 1;
+
+/// The most voices a user who has bought credit keeps at once: a share of
+/// the account's slots, so the first few people cannot take them all.
+pub const KEPT_BOUGHT: i64 = 3;
 
 /// How many voice slots are taken: by one user, and by everyone.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -81,19 +112,34 @@ pub struct Slots {
     pub mine: i64,
     /// Every user's, together.
     pub everyone: i64,
+    /// Whether the user has ever bought credit: a paid `payments` row.
+    pub bought: bool,
 }
 
-/// The voice slots `user` and everybody take now.
+impl Slots {
+    /// How many voices the user may keep at once.
+    pub fn share(&self) -> i64 {
+        if self.bought { KEPT_BOUGHT } else { KEPT_FREE }
+    }
+}
+
+/// The voice slots `user` and everybody take now, and the user's share.
 pub async fn slots(pool: &PgPool, user: UserId) -> Result<Slots, sqlx::Error> {
     let mut tx = db::privileged(pool).await?;
-    let (mine, everyone) = sqlx::query_as(
-        "SELECT count(*) FILTER (WHERE user_id = $1), count(*) FROM designed_voices",
+    let (mine, everyone, bought) = sqlx::query_as(
+        "SELECT count(*) FILTER (WHERE user_id = $1), count(*),
+                EXISTS (SELECT 1 FROM payments WHERE user_id = $1 AND state = 'paid')
+         FROM designed_voices",
     )
     .bind(user.get())
     .fetch_one(&mut *tx)
     .await?;
     tx.commit().await?;
-    Ok(Slots { mine, everyone })
+    Ok(Slots {
+        mine,
+        everyone,
+        bought,
+    })
 }
 
 /// Why no voice can be kept, with `slots` taken of the account's `of`: the
@@ -104,7 +150,14 @@ pub fn no_slot(slots: Slots, of: usize) -> Option<String> {
                    list), forget one you no longer need (voice_design or voice_clone with \
                    forget) to free its slot, or choose one from voices: a built-in or Voice \
                    Library voice takes no slot. Nothing was created or charged.";
-    if slots.mine >= KEPT_PER_USER {
+    if !slots.bought && slots.mine >= KEPT_FREE {
+        Some(format!(
+            "you already keep {} {} you designed or cloned: free accounts keep one custom \
+             voice; buying credit lets you keep three. {instead}",
+            slots.mine,
+            if slots.mine == 1 { "voice" } else { "voices" }
+        ))
+    } else if slots.mine >= slots.share() {
         Some(format!(
             "you already keep {} voices you designed or cloned, the most one account keeps \
              here. {instead}",
@@ -125,17 +178,40 @@ mod tests {
     use super::*;
 
     fn taken(mine: i64, everyone: i64) -> Slots {
-        Slots { mine, everyone }
+        Slots {
+            mine,
+            everyone,
+            bought: true,
+        }
+    }
+
+    fn free(mine: i64, everyone: i64) -> Slots {
+        Slots {
+            bought: false,
+            ..taken(mine, everyone)
+        }
     }
 
     #[test]
     fn room_under_both_limits() {
-        assert_eq!(no_slot(taken(KEPT_PER_USER - 1, 9), 10), None);
+        assert_eq!(no_slot(taken(KEPT_BOUGHT - 1, 9), 10), None);
+        assert_eq!(no_slot(free(KEPT_FREE - 1, 9), 10), None);
+    }
+
+    #[test]
+    fn a_free_account_keeps_one() {
+        let why = no_slot(free(KEPT_FREE, 1), 10).unwrap();
+        assert!(why.contains("already keep 1 voice you"), "{why}");
+        assert!(why.contains("buying credit lets you keep three"), "{why}");
+        // Over its share — kept before #1655 — it adds no more, and is told why.
+        let why = no_slot(free(3, 3), 10).unwrap();
+        assert!(why.contains("already keep 3 voices you"), "{why}");
+        assert!(why.contains("free accounts keep one"), "{why}");
     }
 
     #[test]
     fn a_user_with_their_share_keeps_no_more() {
-        let why = no_slot(taken(KEPT_PER_USER, KEPT_PER_USER), 10).unwrap();
+        let why = no_slot(taken(KEPT_BOUGHT, KEPT_BOUGHT), 10).unwrap();
         assert!(why.contains("already keep 3"), "{why}");
         assert!(why.contains("Nothing was created"), "{why}");
         assert!(why.contains("voice_clone with"), "{why}");

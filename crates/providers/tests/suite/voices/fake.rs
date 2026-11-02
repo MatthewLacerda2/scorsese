@@ -7,7 +7,9 @@
 use std::cell::RefCell;
 
 use scorsese_providers::video::ProviderError;
-use scorsese_providers::voices::{Availability, Catalogue, Filters, More, Page, Voice, VoiceError};
+use scorsese_providers::voices::{
+    Availability, Catalogue, Filters, More, Origin, Page, Voice, VoiceError,
+};
 
 /// A catalogue that answers exactly what it was told to.
 pub(crate) struct Fake {
@@ -96,6 +98,13 @@ impl Catalogue for Fake {
             voices: self.answer()?,
             more: self.more,
         })
+    }
+
+    fn origin(&self, _voice_id: &str) -> Result<Option<Origin>, VoiceError> {
+        Err(VoiceError::Provider(ProviderError::new(
+            "fake",
+            "origins are the server's to ask",
+        )))
     }
 
     fn one(&self, _voice_id: &str) -> Result<Availability, VoiceError> {

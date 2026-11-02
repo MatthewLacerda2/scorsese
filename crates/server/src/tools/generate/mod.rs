@@ -170,13 +170,14 @@ pub(crate) async fn call(caller: &Caller<'_>, arguments: &Value) -> Result<Reply
         .into_iter()
         .filter(|one| still_charged(one.brief()))
         .collect();
-    // Another user's designed voice is refused before anything is quoted
-    // (#687): it is in the account every user shares, but it is not theirs.
+    // A custom voice the caller does not keep is refused before anything is
+    // quoted (#687, #1655): it is in the account every user shares, but it is
+    // not theirs.
     let voices: Vec<String> = charged
         .iter()
         .filter_map(|one| one.voice().map(ToOwned::to_owned))
         .collect();
-    voiced::unused_by_others(caller, &voices).await?;
+    voiced::usable(caller, &voices).await?;
 
     let mut lines = said(&quote, &stored.document);
     if let Some(offered) = &offered {
