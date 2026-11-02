@@ -104,3 +104,13 @@ async fn an_open_session_near_its_end_is_not_handed_back(pool: PgPool) {
         .unwrap();
     assert_eq!(states, ["expired", "open"]);
 }
+
+#[sqlx::test]
+async fn an_open_session_stripe_does_not_know_holds_nothing_up(pool: PgPool) {
+    let fake = Arc::new(Fake::default());
+    let address = serve(&pool, Some(fake.clone()), Some("5")).await;
+    let (_, bearer) = member(&pool, "ana@example.com").await;
+    bought(address, &bearer, 5_000).await;
+    fake.forget();
+    assert_eq!(bought(address, &bearer, 5_000).await, "cs_test_2");
+}

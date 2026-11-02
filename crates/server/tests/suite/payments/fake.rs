@@ -30,6 +30,15 @@ impl Fake {
         session.clone()
     }
 
+    /// Forget every session, as Stripe does once its key is another
+    /// account's.
+    pub(crate) fn forget(&self) {
+        self.sessions
+            .lock()
+            .expect("no test panics holding it")
+            .clear();
+    }
+
     pub(crate) fn created(&self) -> usize {
         self.created
             .lock()
@@ -63,7 +72,11 @@ impl Checkout for Fake {
     fn retrieve(&self, id: &str) -> Result<Session, HttpError> {
         let sessions = self.sessions.lock().expect("no test panics holding it");
         let session = sessions.iter().find(|s| s.id == id);
-        Ok(session.expect("only a session it made is read").clone())
+        session.cloned().ok_or_else(|| HttpError::Refused {
+            url: format!("https://api.stripe.com/v1/checkout/sessions/{id}"),
+            status: 404,
+            body: "No such checkout.session".into(),
+        })
     }
 
     fn expire(&self, id: &str) -> Result<Session, HttpError> {

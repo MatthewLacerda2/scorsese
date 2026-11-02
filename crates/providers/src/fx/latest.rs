@@ -10,9 +10,11 @@
 //!
 //! A rate read is kept only when a second figure agrees with it
 //! ([`Rate::agrees_with`]): the PTAX when the rate is AwesomeAPI's and the
-//! PTAX can be read, the rate kept last otherwise. With neither (a server's
-//! first read, while the PTAX is down) the band [`Rate::parse`] holds it to
-//! is the only check. A rate that disagrees is not kept, so one source
+//! PTAX can be read, the rate kept otherwise while it is still fresh enough
+//! to sell at. With neither (a server's first read, or a read after
+//! [`USABLE_FOR`] without one, while the PTAX is down) the band
+//! [`Rate::parse`] holds it to is the only check, so an old rate never locks
+//! out a new one. A rate that disagrees is not kept, so one source
 //! answering wrong cannot move the price; past [`USABLE_FOR`] of
 //! disagreement a purchase is refused, as it is when no source answers.
 
@@ -66,7 +68,8 @@ impl Latest {
     }
 
     /// Read the rate again and check it. When it agrees with the PTAX, or
-    /// with the rate kept last, it replaces the one kept; otherwise the one
+    /// with the rate kept while that is still [`current`](Self::current),
+    /// it replaces the one kept; otherwise the one
     /// kept stays, and why is returned for the log. Blocking: one or two
     /// HTTPS calls.
     pub fn refresh(&self) -> Result<Rate, RefreshError> {
@@ -75,22 +78,13 @@ impl Latest {
             Source::Awesome => self.rates.ptax(),
             Source::Ptax => None,
         };
-        if let Some(check) = ptax.or_else(|| self.last())
+        if let Some(check) = ptax.or_else(|| self.current())
             && !rate.agrees_with(&check)
         {
             return Err(RefreshError::Disagrees { rate, check });
         }
         self.keep(rate.clone(), Instant::now());
         Ok(rate)
-    }
-
-    /// The rate kept last, however old.
-    fn last(&self) -> Option<Rate> {
-        self.last
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .as_ref()
-            .map(|(_, rate)| rate.clone())
     }
 
     /// The rate kept, if it was read at most [`USABLE_FOR`] ago.
@@ -231,12 +225,41 @@ mod tests {
         assert_eq!(alone.refresh().unwrap().brl_per_usd, "5.30");
     }
 
+    /// The PTAX standing in for AwesomeAPI, and answering its own check.
+    struct PtaxOnly(&'static str);
+
+    impl Rates for PtaxOnly {
+        fn usd_brl(&self) -> Result<Rate, FxError> {
+            Ok(Rate::parse(self.0, Source::Ptax).unwrap())
+        }
+
+        fn ptax(&self) -> Option<Rate> {
+            Some(Rate::parse(self.0, Source::Ptax).unwrap())
+        }
+    }
+
     #[test]
-    fn the_ptax_standing_in_is_checked_against_the_rate_kept() {
-        let latest = Latest::new(Arc::new(Flaky(AtomicBool::new(false))));
-        latest.keep(Rate::parse("6.00", Source::Ptax).unwrap(), Instant::now());
+    fn the_ptax_standing_in_is_checked_against_the_rate_kept_not_itself() {
+        let latest = Latest::new(Arc::new(PtaxOnly("5.30")));
+        latest.keep(
+            Rate::parse("6.00", Source::Awesome).unwrap(),
+            Instant::now(),
+        );
         let error = latest.refresh().unwrap_err();
         assert!(matches!(error, RefreshError::Disagrees { .. }), "{error}");
         assert_eq!(latest.current().unwrap().brl_per_usd, "6.00");
+    }
+
+    #[test]
+    fn a_rate_kept_too_long_ago_to_sell_at_checks_nothing() {
+        let latest = Latest::new(Arc::new(Both("5.30", None)));
+        let eleven_minutes_ago = Instant::now()
+            .checked_sub(Duration::from_secs(11 * 60))
+            .unwrap();
+        latest.keep(
+            Rate::parse("2.50", Source::Awesome).unwrap(),
+            eleven_minutes_ago,
+        );
+        assert_eq!(latest.refresh().unwrap().brl_per_usd, "5.30");
     }
 }
