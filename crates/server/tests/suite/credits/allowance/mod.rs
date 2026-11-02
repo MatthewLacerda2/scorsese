@@ -4,6 +4,7 @@
 
 mod calendar;
 mod everyone;
+mod everyone_said;
 mod failing;
 mod spending;
 mod veo;

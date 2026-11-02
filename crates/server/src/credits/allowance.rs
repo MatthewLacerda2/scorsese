@@ -29,7 +29,7 @@
 //! each account has left is never more than what is left of that pot, so
 //! once it is spent free spend pauses for everyone until the next day; paid
 //! credit is not affected. A spend that is to be granted takes one lock for
-//! the whole server after the user's own ([`lock_everyone`]), so the check
+//! the whole server after the user's own (`lock_everyone`), so the check
 //! and the grant are one decision and two members cannot together pass it.
 //! Only a spend the user's own allowance would pay any of takes it. The pot
 //! is read through `free_granted_by_everyone` (migration
@@ -176,8 +176,10 @@ pub async fn left_at(tx: &mut Tx, at: i64) -> Result<Free, sqlx::Error> {
 }
 
 /// What is left of the user's own allowance, the day's ceiling for
-/// everyone aside, and what is left of that ceiling, now. The spend that
-/// grants from them has taken [`lock_everyone`] first.
+/// everyone aside, and what is left of that ceiling, now. When the user's
+/// own is above zero it takes [`lock_everyone`] before reading the ceiling,
+/// so the caller grants under it; otherwise it answers `(0, 0)` without the
+/// lock. The caller holds the user's own lock already.
 pub(super) async fn own_and_everyones(tx: &mut Tx) -> Result<(i64, i64), sqlx::Error> {
     let own = own(tx, None).await?;
     if own.left_micros == 0 {
@@ -185,6 +187,19 @@ pub(super) async fn own_and_everyones(tx: &mut Tx) -> Result<(i64, i64), sqlx::E
     }
     lock_everyone(tx).await?;
     Ok((own.left_micros, everyones(tx, None).await?))
+}
+
+/// What is left of the user's own allowance now, the day's ceiling for
+/// everyone aside: what a refusal explains itself by.
+pub(super) async fn own_left(tx: &mut Tx) -> Result<i64, sqlx::Error> {
+    Ok(own(tx, None).await?.left_micros)
+}
+
+/// Whether the user's own allowance has something left that the day's
+/// ceiling for everyone keeps them from: what a refused assistant turn says
+/// instead of "no credit".
+pub async fn used_up_for_everyone(tx: &mut Tx) -> Result<bool, sqlx::Error> {
+    Ok(own_left(tx).await? > 0 && everyones(tx, None).await? == 0)
 }
 
 /// One reading of the allowance, at `at` or now: the user's own, never more

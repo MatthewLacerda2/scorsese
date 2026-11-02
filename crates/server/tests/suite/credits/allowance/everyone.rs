@@ -17,7 +17,9 @@ use super::{FOUR_A_DAY, epoch, free, free_at, line, spent_free_at};
 
 /// Give every account $4 a day, all of them together at most `dollars` a day.
 async fn ceiling(pool: &PgPool, dollars: i64) {
-    allowance::set(pool, FOUR_A_DAY).await.unwrap();
+    allowance::set(pool, FOUR_A_DAY)
+        .await
+        .expect("the allowance is set");
     sqlx::query("UPDATE free_allowance SET total_daily_micros = $1")
         .bind(dollars * 1_000_000)
         .execute(pool)

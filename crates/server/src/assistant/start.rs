@@ -7,7 +7,7 @@ use super::store::turns::{self, Beginning, Last};
 use super::store::{asking, hands};
 use super::turn::{self, Running};
 use super::{AssistantError, ask, attached, compact, effort, holds, model, prompt, quote, wake};
-use crate::credits::{dollars, ledger};
+use crate::credits::ledger;
 use crate::db::{self, UserId};
 use crate::events::Event;
 use crate::http::AppState;
@@ -79,7 +79,7 @@ pub async fn start(
     let client = state.assistant.chat(model)?;
     let balance = ledger::spendable(&mut tx).await?;
     if balance <= 0 {
-        return Err(AssistantError::NoCredit(dollars(balance)));
+        return Err(AssistantError::short(&mut tx, balance).await?);
     }
     let veo = ledger::balance(&mut tx).await? > 0;
     // The conversation joined and its last turn, read before anything is

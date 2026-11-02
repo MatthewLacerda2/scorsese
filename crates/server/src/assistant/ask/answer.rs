@@ -11,7 +11,7 @@ use crate::assistant::AssistantError;
 use crate::assistant::attached::Attached;
 use crate::assistant::store::{QuestionView, TurnView, asking, hands, view};
 use crate::assistant::turn::{self, Resumed};
-use crate::credits::{dollars, ledger};
+use crate::credits::ledger;
 use crate::db::{self, UserId};
 use crate::events::Event;
 use crate::http::AppState;
@@ -83,7 +83,7 @@ pub async fn answer(
     let mut running = resuming(state, &mut tx, user, id, &paused).await?;
     let balance = running.balance;
     if balance <= 0 {
-        return Err(AssistantError::NoCredit(dollars(balance)));
+        return Err(AssistantError::short(&mut tx, balance).await?);
     }
     let asked = running
         .record
