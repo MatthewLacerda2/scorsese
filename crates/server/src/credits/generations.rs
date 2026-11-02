@@ -326,7 +326,7 @@ type Reserved = (
 pub enum Answer {
     /// It worked, and produced this library item (`Library::keep_generated`).
     Worked(Option<i64>),
-    /// It failed, and this is why — so it is free.
+    /// The provider failed, and this is why — so it is free.
     Failed(String),
     /// The vendor completed the call, and bills it, but made nothing: this is
     /// what it said instead. Charged as quoted, since the member accepted the

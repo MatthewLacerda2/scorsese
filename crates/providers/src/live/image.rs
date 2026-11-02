@@ -134,27 +134,28 @@ fn png_body() -> Create {
 pub(super) fn check(key: &Secret, tap: &Tap) -> (Vec<Step>, u64) {
     let gemini = Gemini::new(key).tapped(tap);
     let mut steps = vec![model_step(gemini.model())];
-    let step = picture_step(gemini.create(&body()));
-    let mut spent = match step.verdict {
-        // A shape change was billed before we failed to read it.
-        Verdict::Ok | Verdict::ShapeChanged { .. } => still_cents(),
-        _ => 0,
-    };
-    steps.push(step);
+    let answer = gemini.create(&body());
+    let mut spent = spent_cents(&answer);
+    steps.push(picture_step(answer));
     let answer = gemini.create(&png_body());
-    spent += png_cents(&answer);
+    spent += spent_cents(&answer);
     steps.push(png_step(answer));
     (steps, spent)
 }
 
-/// What the PNG probe spent, in cents: a reply the vendor drew is billed,
-/// counted as the still's step counts it — a picture of either kind, a 2xx
-/// body that would not parse, or a reply with neither picture nor words. A
-/// refusal, or the model's words alone, was not.
-pub fn png_cents(answer: &Result<Interaction, HttpError>) -> u64 {
+/// What one drawing spent, in cents: a reply the vendor answered is billed —
+/// a picture of either kind, a 2xx body that would not parse, a completed
+/// interaction that answered in words alone, as the web charges it (#1646),
+/// or a reply with neither picture nor words. A refusal was not, nor words
+/// from an interaction that did not complete.
+pub fn spent_cents(answer: &Result<Interaction, HttpError>) -> u64 {
     let billed = match answer {
         Err(error) => matches!(error, HttpError::Unreadable { .. }),
-        Ok(reply) => reply.image().is_some() || reply.said().is_empty(),
+        Ok(reply) => {
+            reply.image().is_some()
+                || reply.said().is_empty()
+                || reply.status.as_deref() == Some("completed")
+        }
     };
     if billed { still_cents() } else { 0 }
 }

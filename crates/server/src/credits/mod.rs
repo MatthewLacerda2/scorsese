@@ -31,7 +31,9 @@
 //!    Refused means nothing was sent to the provider and nothing is recorded.
 //! 2. **Settle** once the provider answers. A release gives the reservation
 //!    back; if the generation **worked**, a charge takes the price. So a
-//!    **failure is free** and a success is charged, liked or not (#527).
+//!    **failure is free** and a success is charged, liked or not (#527) —
+//!    and so is a call the vendor completed and bills that made nothing
+//!    (`generations::Answer::Unmade`, #1646).
 //!    A unique index allows one release per reservation, so nothing is
 //!    settled twice — the ledger's own form of "never pay twice".
 //!

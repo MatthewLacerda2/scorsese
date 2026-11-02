@@ -214,7 +214,10 @@ impl Landed {
                 "- {what}: stuck, with what was reserved for it held until the operator looks \
                  into it; do not ask for it again. {why}"
             ),
-            _ => format!("- {what}: failed, and was not charged. {why}"),
+            // The reason says what the failure cost: a refusal says nothing
+            // was charged, a billed call that made nothing what it was
+            // charged (#1646).
+            _ => format!("- {what}: failed. {why}"),
         }
     }
 }
