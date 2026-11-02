@@ -2468,7 +2468,9 @@ Claude's five-minute and one-hour cache writes, cache reads, each at its own rat
 one row. Not reserved for, since the cost exists only once counted: a turn is
 **refused up front (`402`) when the balance cannot pay for a short reply** (paid
 credit and the free allowance together, *Credits*), each call is **made only
-when the balance pays for its input and a short reply** (4,096 tokens), and
+when the balance pays for its input and a short reply** (4,096 tokens), its
+input priced at the most it can cost — written to the cache, as a call that
+finds nothing cached writes it — and
 **its `max_tokens` is cut to what the balance pays for** after its input
 (#1653): a turn that cannot pay ends with the out-of-credit sentence, the
 conversation kept. It also stops between calls once the turn reaches the operator's cap

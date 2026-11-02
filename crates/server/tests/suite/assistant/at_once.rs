@@ -68,10 +68,11 @@ async fn a_call_in_flight_holds_what_it_may_cost(pool: PgPool) {
     let (address, _) = super::scripted(&pool, &script).await;
     let (ana, who) = member(&pool, "ana@example.com", 0).await;
     // Enough for one call, not for two at once: a first call on Opus 5.5 is
-    // held for about $0.41 (its system prompt and tools uncached, and a short
-    // reply), and a turn needs about $0.15 left after that to start (#1653).
+    // held for about $0.67 (its system prompt and tools written to the cache,
+    // and a short reply), and a turn needs about $0.15 left after that to
+    // start (#1653).
     let mut tx = db::scoped(&pool, ana).await.unwrap();
-    ledger::top_up(&mut tx, 480_000).await.unwrap();
+    ledger::top_up(&mut tx, 740_000).await.unwrap();
     tx.commit().await.unwrap();
 
     let first = project(&pool, ana, json!([])).await;

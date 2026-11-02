@@ -155,9 +155,6 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
     let mut spent = turn.spent;
     let mut revision = calls::revision(state, turn.user, turn.project).await;
     loop {
-        // The member's share of the model's rate limits (`pace`): waited for
-        // before the Stop it may have outlasted is heard.
-        assistant.pace.wait(turn.user, turn.model).await;
         if assistant.stop_requested(turn.turn) {
             return Ok(End::Over("stopped", "Stopped, as you asked.".into()));
         }
@@ -170,6 +167,10 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
                     dollars(spent)
                 ),
             ));
+        }
+        // A Stop ends the wait, and is heard at the top of the loop.
+        if !assistant.paced(turn.user, turn.model, turn.turn).await {
+            continue;
         }
         let mut messages = turn.history.clone();
         messages.extend(turn.messages.iter().cloned());
@@ -273,7 +274,7 @@ async fn drive(state: &AppState, turn: &mut Running) -> Result<End, String> {
             }
             // Cut short by what was left, not by the reply's own limit.
             Stop::MaxTokens if most < MAX_TOKENS => {
-                return Ok(End::Over("capped", Short::Spent(now).ended()));
+                return Ok(End::Over("capped", Short::Cut(now).ended()));
             }
             Stop::MaxTokens => {
                 return Ok(End::Over(

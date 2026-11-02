@@ -120,6 +120,31 @@ async fn a_call_that_costs_more_than_is_left_is_never_sent(pool: PgPool) {
     assert!(script.requests().is_empty(), "nothing was sent");
 }
 
+/// A turn that starts, since what is left pays for a short reply, ends
+/// before its first call when it does not pay for that call's input too
+/// (#1653): thirty cents is not Opus 5.5's system prompt and tools written to
+/// the cache. The conversation is kept.
+#[sqlx::test]
+async fn a_turn_ends_before_a_call_its_balance_cannot_pay_for(pool: PgPool) {
+    let script = Script::new(vec![answers("never")]);
+    let (address, _) = super::scripted(&pool, &script).await;
+    let (ana, who) = member(&pool, "ana@example.com", 0).await;
+    let mut tx = scorsese_server::db::scoped(&pool, ana).await.unwrap();
+    scorsese_server::credits::ledger::top_up(&mut tx, 300_000)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    let id = project(&pool, ana, json!([])).await;
+    let detail = exchange(address, &who, id, "make an intro").await;
+    assert_eq!(detail["turn"]["state"], "capped", "{detail}");
+    let answer = detail["turn"]["answer"].as_str().unwrap();
+    assert!(answer.contains("Add credit"), "{answer}");
+    assert!(script.requests().is_empty(), "nothing was sent");
+    let chat = format!("/api/projects/{id}/chat");
+    let kept = common::request(address, "GET", &chat, &[&who], None).await;
+    assert_eq!(kept.json()["turns"][0]["prompt"], "make an intro");
+}
+
 /// A reply cut short because what was left paid for no more of it ends the
 /// turn with the out-of-credit sentence, not as a reply past its length
 /// (#1653): a dollar pays for far less than a whole reply on Opus 5.5.

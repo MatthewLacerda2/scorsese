@@ -213,7 +213,13 @@ async fn summary(
 ) -> Result<String, Unsummarised> {
     let mut stopped = String::new();
     for _ in 0..2 {
-        state.assistant.pace.wait(turn.user, turn.model).await;
+        if !state
+            .assistant
+            .paced(turn.user, turn.model, turn.turn)
+            .await
+        {
+            return Err(Unsummarised::Failed("stopped while waiting".into()));
+        }
         // Held like any call of the turn's (`holds`).
         let held = super::holds::hold(state, turn.user, (turn.turn, turn.spent), &request)
             .await

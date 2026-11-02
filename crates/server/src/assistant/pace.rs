@@ -17,7 +17,7 @@
 //!
 //! In memory, like the holds: there is one server, and a restart forgets a
 //! minute nobody needs remembered. A wait is a minute at most, and a Stop
-//! asked for during it is heard when it ends.
+//! asked for during it ends it within [`HEARD_WITHIN`].
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, PoisonError};
@@ -29,6 +29,9 @@ use crate::db::UserId;
 
 /// How long a call's input counts against the member's budget.
 const WINDOW: Duration = Duration::from_secs(60);
+
+/// The longest a wait goes without looking whether its turn was stopped.
+const HEARD_WITHIN: Duration = Duration::from_secs(1);
 
 /// How many uncached input tokens one member may send `model` in a minute:
 /// a quarter of the organisation's limit for it on Anthropic's lowest
@@ -53,16 +56,31 @@ pub(super) struct Pace(Arc<Mutex<HashMap<(UserId, Model), Sent>>>);
 type Sent = VecDeque<(Instant, u64)>;
 
 impl Pace {
-    /// Wait until `user` is under their budget on `model`.
-    pub(super) async fn wait(&self, user: UserId, model: Model) {
+    /// Wait until `user` is under their budget on `model`: `true` then, or
+    /// `false` as soon as `stopped` says the turn waiting was stopped.
+    pub(super) async fn wait(
+        &self,
+        user: UserId,
+        model: Model,
+        stopped: impl Fn() -> bool,
+    ) -> bool {
+        let mut told = false;
         while let Some(until) = self.free_at(user, model, Instant::now()) {
-            tracing::info!(
-                user = user.get(),
-                "assistant: past the input budget on {}; waiting",
-                model.label()
-            );
-            tokio::time::sleep_until(until.into()).await;
+            if stopped() {
+                return false;
+            }
+            if !told {
+                tracing::info!(
+                    user = user.get(),
+                    "assistant: past the input budget on {}; waiting",
+                    model.label()
+                );
+                told = true;
+            }
+            let next = until.min(Instant::now() + HEARD_WITHIN);
+            tokio::time::sleep_until(next.into()).await;
         }
+        true
     }
 
     /// Count a call of `user`'s on `model` that answered with `usage`.
@@ -187,5 +205,17 @@ mod tests {
         pace.sent(ana, OPUS, &usage);
         let sent = pace.0.lock().unwrap();
         assert_eq!(sent[&(ana, OPUS)].iter().map(|(_, t)| t).sum::<u64>(), 60);
+    }
+
+    #[tokio::test]
+    async fn a_stop_ends_the_wait_and_a_member_under_budget_never_waits() {
+        let pace = Pace::default();
+        let ana = user(1);
+        assert!(pace.wait(ana, OPUS, || true).await, "nothing sent, no wait");
+        pace.sent_at(ana, OPUS, Instant::now(), budget(OPUS));
+        assert!(
+            !pace.wait(ana, OPUS, || true).await,
+            "stopped, not waited out"
+        );
     }
 }

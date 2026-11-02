@@ -156,6 +156,7 @@
 
 mod ask;
 mod attached;
+mod bound;
 mod calls;
 mod compact;
 mod cost;
@@ -375,6 +376,13 @@ impl Assistant {
             Connect::Unconfigured => false,
             Connect::Environment => resolve(model.vendor().provider()).is_ok(),
         }
+    }
+
+    /// Wait until `user` is under their input budget on `model` (`pace`):
+    /// `false` as soon as `turn` is asked to stop instead.
+    async fn paced(&self, user: crate::db::UserId, model: Model, turn: i64) -> bool {
+        let stopping = &self.stopping;
+        self.pace.wait(user, model, || stopping.pending(turn)).await
     }
 
     /// Whether `turn` was asked to stop; forgets the ask.
