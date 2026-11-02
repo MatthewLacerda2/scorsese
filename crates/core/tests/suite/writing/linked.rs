@@ -6,7 +6,7 @@
 use std::os::unix::fs::symlink;
 
 use scorsese_core::ProjectPath;
-use scorsese_core::write::in_project;
+use scorsese_core::write::{in_project, parent_in_project};
 
 use crate::common;
 
@@ -48,20 +48,23 @@ fn a_file_that_is_a_link_is_replaced_and_what_it_named_kept() {
 }
 
 /// A folder that cannot be made says why it cannot, not what the write
-/// after it would then have said.
+/// after it would then have said. A name longer than any filesystem takes is
+/// refused whoever runs the test, root included, where a folder's mode does
+/// not bind.
 #[test]
 fn a_folder_that_cannot_be_made_is_the_error() {
-    use std::os::unix::fs::PermissionsExt;
     let dir = common::temp_project_dir("in-project-unmakeable");
-    let shut = dir.join("shut");
-    std::fs::create_dir(&shut).unwrap();
-    std::fs::set_permissions(&shut, std::fs::Permissions::from_mode(0o555)).unwrap();
-    let refused = in_project(&dir, &ProjectPath::new("shut/inner/x.md"), "x");
-    std::fs::set_permissions(&shut, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let refused = refused.expect_err("a folder that cannot be made");
+    let path = ProjectPath::new(format!("{}/x.md", "n".repeat(256)));
+    let unmade = parent_in_project(&dir, &path).expect_err("a folder that cannot be made");
+    assert_eq!(
+        unmade.kind(),
+        std::io::ErrorKind::InvalidFilename,
+        "{unmade}"
+    );
+    let refused = in_project(&dir, &path, "x").expect_err("a folder that cannot be made");
     assert_eq!(
         refused.kind(),
-        std::io::ErrorKind::PermissionDenied,
+        std::io::ErrorKind::InvalidFilename,
         "{refused}"
     );
 }
