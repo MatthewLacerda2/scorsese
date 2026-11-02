@@ -163,7 +163,8 @@ impl Vendors for Keys {
 
     fn whisper(&self) -> Result<Ear, String> {
         let address = transcribe::address().map_err(|error| error.to_string())?;
-        Ok(Box::new(Whisper::new(&address)))
+        // A stopped job holds the one slot until Whisper lets its request go.
+        Ok(Box::new(Whisper::waiting_out(&address)))
     }
 }
 

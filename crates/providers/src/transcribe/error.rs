@@ -68,9 +68,9 @@ pub enum TranscribeError {
     /// It answered with something that is not a transcription.
     #[error("the Whisper server answered with something unreadable: {0}")]
     Unreadable(String),
-    /// A language that is not a code.
+    /// A language that is not one of the codes Whisper knows.
     #[error(
-        "`{0}` is not a language code: give one like `pt` or `en`, or leave it out to have it detected"
+        "`{0}` is not a language Whisper knows: give a code like `pt` or `en`, or leave it out to have it detected"
     )]
     Language(String),
     /// No asset is so called.

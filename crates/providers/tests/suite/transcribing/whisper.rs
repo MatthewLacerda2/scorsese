@@ -6,6 +6,7 @@ use std::net::TcpListener;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
+use std::time::Duration;
 
 use scorsese_providers::transcribe::{Language, TranscribeError, Transcriber, Whisper};
 
@@ -17,14 +18,21 @@ pub(super) fn serve(
     status: &'static str,
     body: &'static str,
 ) -> (String, thread::JoinHandle<String>) {
-    serve_telling(status, body, Arc::default())
+    serve_when(
+        status,
+        body,
+        Arc::default(),
+        Arc::new(AtomicBool::new(true)),
+    )
 }
 
-/// [`serve`], setting `answered` once its answer is written.
-pub(super) fn serve_telling(
+/// [`serve`], setting `asked` once the whole request is read and answering
+/// only once `go` is set: a handshake a test orders a stop against.
+pub(super) fn serve_when(
     status: &'static str,
     body: &'static str,
-    answered: Arc<AtomicBool>,
+    asked: Arc<AtomicBool>,
+    go: Arc<AtomicBool>,
 ) -> (String, thread::JoinHandle<String>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("as set up");
     let address = format!("http://{}", listener.local_addr().expect("as set up"));
@@ -46,6 +54,10 @@ pub(super) fn serve_telling(
         }
         let mut sent = vec![0; length];
         reader.read_exact(&mut sent).expect("as set up");
+        asked.store(true, Ordering::SeqCst);
+        while !go.load(Ordering::SeqCst) {
+            thread::sleep(Duration::from_millis(5));
+        }
         let reply = format!(
             "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\
              Connection: close\r\n\r\n{body}",
@@ -55,7 +67,6 @@ pub(super) fn serve_telling(
             .get_mut()
             .write_all(reply.as_bytes())
             .expect("as set up");
-        answered.store(true, Ordering::SeqCst);
         head + &String::from_utf8_lossy(&sent)
     });
     (address, handle)
@@ -133,11 +144,12 @@ fn a_refusal_carries_what_the_server_said() {
 }
 
 #[test]
-fn a_language_is_a_code_whisper_knows_the_shape_of() {
+fn a_language_is_a_code_whisper_knows() {
     let code = |text: &str| text.parse::<Language>().map(|l| l.as_str().to_owned());
     assert_eq!(code(" PT ").expect("as set up"), "pt");
     assert_eq!(code("haw").expect("as set up"), "haw");
-    for wrong in ["Portuguese", "p", "pt-BR", ""] {
+    assert_eq!(code("yue").expect("as set up"), "yue");
+    for wrong in ["Portuguese", "p", "pt-BR", "", "xx", "abc", "zz"] {
         let error = code(wrong).expect_err("refused");
         assert!(
             error.to_string().contains("like `pt` or `en`"),

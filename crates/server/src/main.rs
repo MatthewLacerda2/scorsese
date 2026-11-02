@@ -8,6 +8,7 @@
 //! and act on the same database.
 
 use std::process::ExitCode;
+use std::time::Duration;
 
 use clap::Parser;
 use scorsese_providers::credentials::Environment;
@@ -16,8 +17,31 @@ use scorsese_server::generations::Keys;
 use scorsese_server::operator::{self, Cli, Command};
 use scorsese_server::{Config, ServerError};
 
-#[tokio::main]
-async fn main() -> ExitCode {
+/// How long blocking work still running at exit is given before the process
+/// goes anyway: a stopped transcription's request is waited out until Whisper
+/// lets it go (`library::transcribe`), which would otherwise hold a graceful
+/// stop until the container is killed.
+const SHUTDOWN_GRACE: Duration = Duration::from_secs(5);
+
+fn main() -> ExitCode {
+    let runtime = match tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+    {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            // lint: allow(server-print) there is no runtime, so no log, to say it in
+            eprintln!("scorsese-server: the async runtime would not start: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let code = runtime.block_on(start());
+    runtime.shutdown_timeout(SHUTDOWN_GRACE);
+    code
+}
+
+/// Everything `main` does, on the runtime.
+async fn start() -> ExitCode {
     scorsese_server::logs::init();
     let command = Cli::parse().command.unwrap_or(Command::Serve);
     // The capture containers' commands read no environment but the log's

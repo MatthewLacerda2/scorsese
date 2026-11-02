@@ -85,6 +85,8 @@ pub struct Library {
     tools: Tools,
     queue: Queue,
     uploading: upload::InFlight,
+    /// How many transcriptions one member may have waiting.
+    transcriptions: usize,
 }
 
 impl Library {
@@ -98,7 +100,15 @@ impl Library {
             tools,
             queue,
             uploading: upload::InFlight::default(),
+            transcriptions: crate::jobs::kinds::DEFAULT_TRANSCRIPTIONS_PER_USER,
         }
+    }
+
+    /// The same library, letting a member have at most `most` transcriptions
+    /// waiting ([`crate::config::PerUser::transcriptions`]).
+    pub fn transcriptions_waiting(mut self, most: usize) -> Self {
+        self.transcriptions = most;
+        self
     }
 
     /// Where the files are.
@@ -204,6 +214,13 @@ pub enum LibraryError {
     /// A name, a size or a hash that is not one.
     #[error("{0}")]
     Invalid(String),
+
+    /// The member already has this many transcriptions waiting (#1651).
+    #[error(
+        "you have {0} transcriptions waiting already; one more can be asked once one of them \
+         has started, or stop one with `jobs`"
+    )]
+    Waiting(usize),
 
     /// Another request is writing this upload right now. Try again shortly.
     #[error("this upload is being written by another request; try again shortly")]

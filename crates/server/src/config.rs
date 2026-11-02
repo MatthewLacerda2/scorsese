@@ -97,6 +97,10 @@ pub const USER_TURNS: &str = "SCORSESE_USER_TURNS";
 /// at once ([`PerUser::batch_stills`]); the rest wait in line.
 pub const USER_BATCH_STILLS: &str = "SCORSESE_USER_BATCH_STILLS";
 
+/// How many transcriptions one account may have waiting for the one
+/// transcription slot ([`PerUser::transcriptions`]); one more is refused.
+pub const USER_TRANSCRIPTIONS: &str = "SCORSESE_USER_TRANSCRIPTIONS";
+
 /// How much one account may keep, e.g. `50GB`: its library, its kept renders,
 /// its page captures and the uploads it has announced ([`PerUser::storage`]).
 pub const USER_STORAGE: &str = "SCORSESE_USER_STORAGE";
@@ -405,8 +409,8 @@ impl Config {
 
 /// How much of the one shared machine a single account may take at once
 /// (`docs/web.md`, *Running the service*): each a default nobody should need to
-/// touch. A turn or an upload past its limit is refused in plain words; a
-/// batched still past it waits in line.
+/// touch. A turn, a transcription or an upload past its limit is refused in
+/// plain words; a batched still past it waits in line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PerUser {
     /// Assistant turns running at once, every conversation together
@@ -414,6 +418,8 @@ pub struct PerUser {
     pub turns: usize,
     /// Batched stills waiting on Google at once ([`USER_BATCH_STILLS`]).
     pub batch_stills: usize,
+    /// Transcriptions waiting for the one slot ([`USER_TRANSCRIPTIONS`]).
+    pub transcriptions: usize,
     /// Bytes kept: the library, kept renders, page captures and announced
     /// uploads ([`USER_STORAGE`]).
     pub storage: Quota,
@@ -424,6 +430,7 @@ impl Default for PerUser {
         Self {
             turns: crate::assistant::DEFAULT_TURNS_AT_ONCE,
             batch_stills: crate::jobs::kinds::DEFAULT_BATCH_STILLS_PER_USER,
+            transcriptions: crate::jobs::kinds::DEFAULT_TRANSCRIPTIONS_PER_USER,
             storage: crate::storage::DEFAULT_QUOTA,
         }
     }
@@ -446,6 +453,7 @@ impl PerUser {
         Ok(Self {
             turns: count(environment, USER_TURNS, defaults.turns)?,
             batch_stills: count(environment, USER_BATCH_STILLS, defaults.batch_stills)?,
+            transcriptions: count(environment, USER_TRANSCRIPTIONS, defaults.transcriptions)?,
             storage,
         })
     }

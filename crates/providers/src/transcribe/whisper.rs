@@ -50,8 +50,10 @@ pub struct Heard {
 
 /// Somewhere speech can be heard.
 pub trait Transcriber {
-    /// Hears `wav`, in `language` when one is forced — or gives up waiting,
-    /// [`TranscribeError::Stopped`], as soon as `stop` says so.
+    /// Hears `wav`, in `language` when one is forced — or, once `stop` says
+    /// so, gives it up: [`TranscribeError::Stopped`]. A transcriber that
+    /// waits a stopped request out says so where it is made
+    /// ([`Whisper::waiting_out`]).
     fn transcribe(
         &self,
         wav: Vec<u8>,
@@ -60,8 +62,22 @@ pub trait Transcriber {
     ) -> Result<Heard, TranscribeError>;
 }
 
-/// A language Whisper is told the speech is in: an ISO 639-1 code like `pt`,
-/// or one of the few three-letter ones it knows (`haw`, `yue`).
+/// Every language Whisper large-v3 knows, by the code it is told it as: its
+/// tokenizer's `LANGUAGES`, in that order. A code of the right shape it does
+/// not know answers `500` after the request has been queued behind others,
+/// so it is refused here instead.
+const KNOWN: [&str; 100] = [
+    "en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl", "ar", "sv", "it",
+    "id", "hi", "fi", "vi", "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no", "th", "ur",
+    "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk", "te", "fa", "lv", "bn", "sr", "az", "sl", "kn",
+    "et", "mk", "br", "eu", "is", "hy", "ne", "mn", "bs", "kk", "sq", "sw", "gl", "mr", "pa", "si",
+    "km", "sn", "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu", "am", "yi", "lo", "uz", "fo",
+    "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl", "mg", "as", "tt", "haw", "ln",
+    "ha", "ba", "jw", "su", "yue",
+];
+
+/// A language Whisper is told the speech is in: one of the codes it knows,
+/// mostly ISO 639-1 like `pt`, and a few three-letter ones (`haw`, `yue`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Language(String);
 
@@ -77,7 +93,7 @@ impl FromStr for Language {
 
     fn from_str(text: &str) -> Result<Self, Self::Err> {
         let code = text.trim().to_ascii_lowercase();
-        if (2..=3).contains(&code.len()) && code.bytes().all(|b| b.is_ascii_lowercase()) {
+        if KNOWN.contains(&code.as_str()) {
             Ok(Self(code))
         } else {
             Err(TranscribeError::Language(text.to_owned()))
@@ -90,37 +106,56 @@ impl FromStr for Language {
 pub struct Whisper {
     api: Transcriptions,
     address: String,
+    waits_out: bool,
 }
 
 impl Whisper {
-    /// The server at `address` (`http://host:port`).
+    /// The server at `address` (`http://host:port`); a stop returns at once
+    /// and closes the request's connection, sent or still sending.
     pub fn new(address: &str) -> Self {
         Self {
             api: Transcriptions::new(address),
             address: address.to_owned(),
+            waits_out: false,
+        }
+    }
+
+    /// [`Whisper::new`], but a stop after the request is sent returns only
+    /// once the server has let it go — answered, refused or closed it, its
+    /// answer thrown away. The server finishes what it began on its own
+    /// cores whether or not the connection is closed, so whoever rations it
+    /// (the web app's one transcription slot, #1651) holds it until then.
+    pub fn waiting_out(address: &str) -> Self {
+        Self {
+            waits_out: true,
+            ..Self::new(address)
         }
     }
 }
 
 impl Transcriber for Whisper {
-    /// The request runs on a thread of its own, waited on until it answers or
-    /// `stop` says so. Stopped, the thread's request ends too, within a tenth
-    /// of a second, whether its body is still going up or its reply is being
-    /// waited on: the connection closed, the WAV dropped with the thread.
-    /// What the server was already working out it finishes on its own two
-    /// cores (`deploy/compose.yaml`).
+    /// The request runs on a thread of its own, waited on until it answers;
+    /// `stop` is looked at before it is sent and every tenth of a second
+    /// after. Stopped before it is sent, nothing is sent. Stopped after, its
+    /// answer is thrown away: by default the call returns at once and the
+    /// thread's request ends within a tenth of a second, the connection
+    /// closed and the WAV dropped with the thread; [`Whisper::waiting_out`]
+    /// instead returns once the server has let the request go.
     fn transcribe(
         &self,
         wav: Vec<u8>,
         language: Option<&Language>,
         stop: &dyn Fn() -> bool,
     ) -> Result<Heard, TranscribeError> {
+        if stop() {
+            return Err(TranscribeError::Stopped);
+        }
         let within = within(wav.len());
         let forced = language.map(|code| code.as_str().to_owned());
         let api = self.api.clone();
         let stopped = Arc::new(AtomicBool::new(false));
-        let (answer, answered) = mpsc::channel();
         let sending = Arc::clone(&stopped);
+        let (answer, answered) = mpsc::channel();
         std::thread::spawn(move || {
             let request = Request {
                 wav,
@@ -131,7 +166,12 @@ impl Transcriber for Whisper {
         });
         let reply = loop {
             if stop() {
-                stopped.store(true, Ordering::SeqCst);
+                if self.waits_out {
+                    // Bounded by `within`, as the request is.
+                    let _ = answered.recv();
+                } else {
+                    stopped.store(true, Ordering::SeqCst);
+                }
                 return Err(TranscribeError::Stopped);
             }
             match answered.recv_timeout(LISTEN_FOR_STOP) {

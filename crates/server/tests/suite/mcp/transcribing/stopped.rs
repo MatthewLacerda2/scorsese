@@ -41,7 +41,10 @@ pub(super) async fn imported(
 }
 
 /// The jobs of `user` once one is running.
-async fn running(state: &scorsese_server::http::AppState, user: scorsese_server::db::UserId) {
+pub(super) async fn running(
+    state: &scorsese_server::http::AppState,
+    user: scorsese_server::db::UserId,
+) {
     for _ in 0..400 {
         let all = jobs::store::list(&state.pool, user).await.expect("listed");
         if all

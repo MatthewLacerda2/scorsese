@@ -143,6 +143,12 @@ pub const TRANSCRIBE: Kind = Kind {
     budget: None,
 };
 
+/// How many [`TRANSCRIBE`]s one member may have waiting when
+/// [`crate::config::USER_TRANSCRIPTIONS`] does not say (#1651): the one slot
+/// is shared by everybody, so one more is refused with a sentence rather than
+/// queued (`Library::transcribe`).
+pub const DEFAULT_TRANSCRIPTIONS_PER_USER: usize = 3;
+
 /// The kinds whose owner may stop them (#660): the three that take the
 /// machine's cores for as long as a project, or a recording, is long.
 ///
