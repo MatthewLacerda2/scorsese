@@ -1,9 +1,9 @@
 // The privacy policy in Portuguese, the binding text (`document.ts`; LGPD). It
 // is a list of facts about the deployment: what the server keeps, which
 // vendor each request goes to, the session cookie's 30 days
-// (`accounts::sessions::LIFETIME_DAYS`) and the backups' 30
-// (`SCORSESE_BACKUP_KEEP_DAYS`). A change to any of those, or a new vendor, is
-// a change to this text and to `updated`.
+// (`accounts::sessions::LIFETIME_DAYS`) and the backups' 30 (`POLICY_DAYS` in
+// `deploy/backup/backup`, which refuses a keep past it). A change to any of
+// those, or a new vendor, is a change to this text and to `updated`.
 
 import type { LegalDocument } from "@/legal/document";
 import { SELLER } from "@/legal/seller";

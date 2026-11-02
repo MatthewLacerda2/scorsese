@@ -29,8 +29,8 @@ cd "${CLAUDE_PROJECT_DIR:-$(dirname "$0")/../..}" || exit 0
 # The versions CI and the brief pin. cargo-deny must be 0.19 or newer: older
 # releases cannot parse the advisory database's CVSS 4.0 entries. cargo-mutants
 # is the version `.github/workflows/mutation-sweep.yml` runs.
-# `.github/scripts/tests/test_tool_pins.py` holds NEXTEST, DENY, MUTANTS and
-# TERRAFORM to the versions the workflows install (#1370, #1226): bump a
+# `.github/scripts/tests/test_tool_pins.py` holds NEXTEST, DENY, MUTANTS,
+# TERRAFORM and RCLONE to the versions the workflows install (#1370, #1226): bump a
 # workflow's `tool:` with its line here.
 NEXTEST=0.9.146
 DENY=0.20.2
@@ -43,6 +43,11 @@ MUTANTS=27.1.0
 # together.
 TERRAFORM=1.16.6
 TERRAFORM_SHA256=38034b38d03096399a7a1264a14561a8029b2b496fd1f169452656e53968f1b7
+# rclone for the `scripts` gate's backup test (#1657), the release's own zip
+# checked against rclone's SHA256SUMS. Bump it with its SHA-256 and the
+# `signal renderers` job's URL and digest in ci.yml.
+RCLONE=1.68.2
+RCLONE_SHA256=0e6fa18051e67fc600d803a2dcb10ddedb092247fc6eee61be97f64ec080a13c
 
 SUDO=
 [ "$(id -u)" -eq 0 ] || SUDO=sudo
@@ -125,6 +130,19 @@ terraform_() {
     echo "terraform $TERRAFORM"
 }
 
+rclone_() {
+    if "$BIN/rclone" version 2>/dev/null | grep -qF "v$RCLONE"; then echo "rclone $RCLONE"; return; fi
+    local tmp
+    tmp=$(mktemp -d)
+    curl -sSfL -o "$tmp/rclone.zip" "https://downloads.rclone.org/v$RCLONE/rclone-v$RCLONE-linux-amd64.zip" \
+        && echo "$RCLONE_SHA256  $tmp/rclone.zip" | sha256sum -c --quiet \
+        && unzip -q -o -j "$tmp/rclone.zip" "*/rclone" -d "$tmp" \
+        && install -m 755 "$tmp/rclone" "$BIN/rclone" \
+        || { rm -rf "$tmp"; echo "install it: https://rclone.org/downloads/ (rclone $RCLONE)"; return 1; }
+    rm -rf "$tmp"
+    echo "rclone $RCLONE"
+}
+
 postgres() {
     # The image's native Postgres 16, not `tools/with-postgres`' docker
     # container: no daemon to start, no image to pull, and so no Docker Hub
@@ -194,6 +212,7 @@ step nextest nextest
 step deny deny
 step mutants mutants
 step terraform terraform_
+step rclone rclone_
 step postgres postgres
 step disk disk
 step bun bun_

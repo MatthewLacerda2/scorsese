@@ -624,6 +624,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # rclone for the backup's test (`test_backup.py`, #1657), which fails
+      # here rather than skip without it. The release's own zip, checked
+      # against rclone's SHA256SUMS; the version is the session hook's
+      # (`RCLONE`), which `test_tool_pins.py` holds to this one.
+      - name: rclone
+        timeout-minutes: 3
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/rclone.zip" https://downloads.rclone.org/v1.68.2/rclone-v1.68.2-linux-amd64.zip
+          echo "0e6fa18051e67fc600d803a2dcb10ddedb092247fc6eee61be97f64ec080a13c  $RUNNER_TEMP/rclone.zip" | sha256sum -c
+          unzip -q -j "$RUNNER_TEMP/rclone.zip" '*/rclone' -d "$RUNNER_TEMP/bin"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
       - name: Test
         run: python3 -m unittest discover --start-directory .github/scripts/tests --verbose
 
