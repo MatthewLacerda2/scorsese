@@ -132,7 +132,11 @@ impl Transport for Stoppable<Box<dyn Transport>> {
         self.body.transmit_output(amount, timeout)
     }
 
+    /// The per-read limit is applied here, over the whole wait: each slice
+    /// is a read of its own underneath, and a limit applied per slice would
+    /// never be reached.
     fn await_input(&mut self, timeout: NextTimeout) -> Result<bool, ureq::Error> {
+        let timeout = timeout.for_read();
         let until = timeout.not_zero().map(|wait| Instant::now() + *wait);
         loop {
             if self.stopped.load(Ordering::SeqCst) {
@@ -146,7 +150,7 @@ impl Transport for Stoppable<Box<dyn Transport>> {
             let last = left.is_some_and(|left| left <= LISTEN_FOR_STOP);
             let waiting = NextTimeout {
                 after: slice.into(),
-                reason: timeout.reason,
+                ..timeout
             };
             match self.body.await_input(waiting) {
                 Err(ureq::Error::Timeout(_)) if !last => {}

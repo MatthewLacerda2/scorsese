@@ -172,3 +172,65 @@ fn a_stop_after_the_upload_closes_the_connection() {
     let closed = server.join().expect("as set up");
     assert!(closed.duration_since(stop) < Duration::from_secs(5));
 }
+
+/// A connection that never answers: like ureq's own transports, each wait
+/// is cut to the per-read limit, runs its full length and times out, and
+/// it keeps every timeout it was handed.
+#[derive(Debug)]
+struct Silent(Arc<std::sync::Mutex<Vec<NextTimeout>>>);
+
+impl Transport for Silent {
+    fn buffers(&mut self) -> &mut dyn Buffers {
+        unreachable!("nothing is read from a connection that never answers")
+    }
+
+    fn transmit_output(&mut self, _: usize, _: NextTimeout) -> Result<(), ureq::Error> {
+        unreachable!("nothing is sent")
+    }
+
+    fn await_input(&mut self, timeout: NextTimeout) -> Result<bool, ureq::Error> {
+        self.0.lock().expect("as set up").push(timeout);
+        let timeout = timeout.for_read();
+        std::thread::sleep(*timeout.after);
+        Err(ureq::Error::Timeout(timeout.reason))
+    }
+
+    fn is_open(&mut self) -> bool {
+        true
+    }
+}
+
+/// Listening for a stop in short slices keeps the request's own limits: a
+/// per-read timeout ends the wait as itself, and every slice still carries
+/// both per-operation limits to the connection underneath.
+#[test]
+fn listening_for_a_stop_keeps_the_per_read_and_per_write_timeouts() {
+    let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mut connection = Stoppable {
+        body: Box::new(Silent(Arc::clone(&seen))) as Box<dyn Transport>,
+        stopped: Arc::new(AtomicBool::new(false)),
+    };
+    let per_read = Duration::from_millis(250);
+    let per_write = Duration::from_millis(300);
+    let start = Instant::now();
+    let waited = connection.await_input(NextTimeout {
+        after: Duration::from_secs(10).into(),
+        reason: ureq::Timeout::Global,
+        per_read: Some(per_read.into()),
+        per_write: Some(per_write.into()),
+    });
+    assert!(
+        matches!(waited, Err(ureq::Error::Timeout(ureq::Timeout::PerRead))),
+        "{waited:?}"
+    );
+    assert!(
+        start.elapsed() < Duration::from_secs(5),
+        "ended at the per-read limit"
+    );
+    let seen = seen.lock().expect("as set up");
+    assert!(seen.len() > 1, "the wait was listened to in slices");
+    for slice in seen.iter() {
+        assert_eq!(slice.per_read, Some(per_read.into()));
+        assert_eq!(slice.per_write, Some(per_write.into()));
+    }
+}
