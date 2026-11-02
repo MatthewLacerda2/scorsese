@@ -100,11 +100,13 @@ async fn the_previews_of_an_edit_never_crowd_out_the_next_one(pool: PgPool) {
 
 /// Save `user`'s project `id` with its card painted `color`.
 async fn edit(pool: &PgPool, user: scorsese_server::db::UserId, id: i64, color: &str) {
-    let open = projects::open(pool, user, id).await.unwrap();
+    let open = projects::open(pool, user, id)
+        .await
+        .expect("the project opens");
     let edited = card(|document| document["assets"][0]["color"] = json!(color));
     projects::save(pool, user, id, open.summary.revision, &edited)
         .await
-        .unwrap();
+        .expect("the edit is saved");
 }
 
 #[sqlx::test]
