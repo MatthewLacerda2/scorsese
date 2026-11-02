@@ -119,3 +119,30 @@ async fn a_bad_bearer_is_refused_even_beside_a_good_cookie(pool: PgPool) {
         assert_eq!(response.status, 401, "{bearer}");
     }
 }
+
+#[sqlx::test]
+async fn a_token_name_is_at_most_a_hundred_characters(pool: PgPool) {
+    let address = common::serve(pool.clone()).await;
+    let ana = member(&pool, "ana@example.com").await;
+    issue(address, &ana, &"é".repeat(100)).await;
+    let body = json!({ "name": "é".repeat(101) });
+    let refused = request(address, "POST", "/api/tokens", &[ana.as_str()], Some(&body)).await;
+    assert_eq!(refused.status, 400, "{}", refused.body);
+    assert!(refused.body.contains("100 characters"), "{}", refused.body);
+}
+
+#[sqlx::test]
+async fn a_user_holds_at_most_fifty_tokens(pool: PgPool) {
+    let address = common::serve(pool.clone()).await;
+    let ana = member(&pool, "ana@example.com").await;
+    for n in 0..50 {
+        issue(address, &ana, &format!("token {n}")).await;
+    }
+    let body = json!({ "name": "one more" });
+    let refused = request(address, "POST", "/api/tokens", &[ana.as_str()], Some(&body)).await;
+    assert_eq!(refused.status, 400, "{}", refused.body);
+    assert!(refused.body.contains("50 tokens"), "{}", refused.body);
+    // Somebody else's count is their own.
+    let bea = member(&pool, "bea@example.com").await;
+    issue(address, &bea, "laptop").await;
+}

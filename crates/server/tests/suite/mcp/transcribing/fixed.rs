@@ -56,3 +56,30 @@ async fn fixes_made_at_once_are_all_kept(pool: PgPool) {
         .collect();
     assert_eq!(texts, ["fixed"; 8], "{kept}");
 }
+
+#[sqlx::test]
+async fn a_corrected_word_is_at_most_a_hundred_characters(pool: PgPool) {
+    let mock = Mock::default();
+    let (address, state, _worker) = serve(&pool, &mock).await;
+    let (ana, who) = member(&pool, "ana@example.com").await;
+    let (id, asset, item) = imported(&pool, &state, ana, address, &who).await;
+    sqlx::query("UPDATE library_items SET words = $2 WHERE id = $1")
+        .bind(item)
+        .bind(eight())
+        .execute(&pool)
+        .await
+        .expect("transcribed");
+    let fix = |text: String| json!({ "project": id, "asset": asset, "fixes": [{ "word": 1, "text": text }] });
+
+    let (said, refused) = call(address, &who, "transcript_fix", fix("é".repeat(100))).await;
+    assert!(!refused, "a hundred characters is a word: {said}");
+    let (said, refused) = call(address, &who, "transcript_fix", fix("é".repeat(101))).await;
+    assert!(refused, "{said}");
+    assert!(said.contains("100 characters"), "{said}");
+    let kept: Value = sqlx::query_scalar("SELECT words FROM library_items WHERE id = $1")
+        .bind(item)
+        .fetch_one(&pool)
+        .await
+        .expect("the row");
+    assert_eq!(kept["words"][0]["text"], "é".repeat(100), "{kept}");
+}
