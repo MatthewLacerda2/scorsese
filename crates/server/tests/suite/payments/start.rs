@@ -145,11 +145,16 @@ async fn a_server_without_stripe_says_so(pool: PgPool) {
 }
 
 #[sqlx::test]
-async fn two_purchases_are_two_sessions(pool: PgPool) {
+async fn two_purchases_are_two_sessions_and_the_first_is_expired(pool: PgPool) {
     let fake = Arc::new(Fake::default());
     let address = serve(&pool, Some(fake.clone()), Some("5")).await;
     let (_, bearer) = member(&pool, "ana@example.com").await;
     assert_eq!(bought(address, &bearer, 2_000).await, "cs_test_1");
     assert_eq!(bought(address, &bearer, 500_000).await, "cs_test_2");
     assert_eq!(fake.created(), 2);
+    let states: Vec<String> = sqlx::query_scalar("SELECT state FROM payments ORDER BY id")
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+    assert_eq!(states, ["expired", "open"], "one open session at a time");
 }

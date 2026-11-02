@@ -70,6 +70,11 @@ pub struct AppState {
     pub tools: Toolbox,
     /// How many tool calls each user has made lately, over web MCP.
     pub limits: limits::Limits,
+    /// How many purchases each member has started lately (#1654).
+    pub payment_starts: limits::Limits,
+    /// How many times each member's return page has asked after a payment
+    /// lately (#1654).
+    pub payment_confirms: limits::Limits,
     /// How many crash reports each address has sent lately (#1428), an
     /// IPv6 one counted by its /64 (`ab::network`).
     pub reports: limits::Limits<Option<std::net::IpAddr>>,
@@ -130,6 +135,8 @@ impl AppState {
             renders: files.renders,
             tools,
             limits: limits::Limits::new(mcp::CALLS_PER_MINUTE),
+            payment_starts: limits::Limits::new(payments::STARTS_PER_MINUTE),
+            payment_confirms: limits::Limits::new(payments::CONFIRMS_PER_MINUTE),
             reports: limits::Limits::new(client_errors::REPORTS_PER_MINUTE),
             reports_total: limits::Limits::over(
                 client_errors::HOUR,

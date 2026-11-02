@@ -5,6 +5,7 @@ use scorsese_providers::payments::{Order, SESSION_ID};
 use serde::Serialize;
 use sqlx::postgres::PgPool;
 
+use super::open::Open;
 use super::{
     Bonus, EXPIRES_AFTER_SECONDS, MAXIMUM_CENTAVOS, MINIMUM_CENTAVOS, PaymentError, Payments,
 };
@@ -83,7 +84,9 @@ pub struct Begun {
 
 /// Start a purchase of `centavos` for `user`, who was `shown` a rate: quote
 /// it, open a Checkout Session for it at Stripe, and record the payment with
-/// its rate and its bonus locked.
+/// its rate and its bonus locked. While the user's last session is open, it
+/// is that session for the same purchase, and is expired before a new one is
+/// made for another (`payments::open`).
 ///
 /// When there is no rate to sell at, or it is not the one `shown`, Stripe is
 /// never called and nothing is written. A session Stripe made whose row then fails to be written is never
@@ -98,6 +101,12 @@ pub async fn begin(
     let quote = payments.quote(centavos).await?;
     if shown.is_some_and(|shown| shown != quote.brl_per_usd) {
         return Err(PaymentError::RateMoved(Box::new(quote)));
+    }
+    let _turn = payments.starting.lock(user).await;
+    if let Some(open) = Open::newest(pool, user).await?
+        && let Some(begun) = open.reuse_or_close(pool, payments, &quote).await?
+    {
+        return Ok(begun);
     }
     let cent = i64::try_from(MICROS_PER_CENT).unwrap_or(1);
     let whole = |micros: i64| dollars(micros - micros % cent);

@@ -6,6 +6,12 @@
 //! Bank's PTAX selling rate (`api::rates`) — and **never guessed**: when
 //! neither answers, [`Rates::usd_brl`] fails and no payment is started.
 //!
+//! **No one source is believed alone** (#1654). A new rate is kept only when
+//! a second figure agrees with it within [`AGREEMENT_PERCENT`]: the PTAX
+//! ([`Rates::ptax`]), or, when the PTAX cannot be read or is the rate itself,
+//! the rate kept last ([`Latest::refresh`]). A disagreeing rate is not kept,
+//! and the last one stays until it is too old to sell at.
+//!
 //! **No float touches money.** A rate is kept as the text it arrived as
 //! (`"5.0096"`), which is what the server stores beside the payment, and the
 //! arithmetic in [`Rate::micros_for`] is integer: the decimal's digits over
@@ -17,7 +23,11 @@ use crate::api::rates;
 
 mod latest;
 
-pub use latest::{Latest, REFRESH_EVERY, USABLE_FOR};
+pub use latest::{Latest, REFRESH_EVERY, RefreshError, USABLE_FOR};
+
+/// How far, in percent of the figure it is checked against, a new rate may
+/// be from it and still be kept.
+pub const AGREEMENT_PERCENT: u128 = 3;
 
 /// Where a rate came from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -86,6 +96,20 @@ impl Rate {
         (digits > 0).then_some((digits, places))
     }
 
+    /// Whether this rate is within [`AGREEMENT_PERCENT`] of `check`,
+    /// compared on the exact decimals.
+    pub fn agrees_with(&self, check: &Self) -> bool {
+        let (Some((rate, rate_places)), Some((check, check_places))) =
+            (self.decimal(), check.decimal())
+        else {
+            return false;
+        };
+        // Both over the same power of ten: at most 12 places, so no overflow.
+        let rate = rate * 10u128.pow(check_places);
+        let check = check * 10u128.pow(rate_places);
+        rate.abs_diff(check) * 100 <= check * AGREEMENT_PERCENT
+    }
+
     /// The credits `centavos` buy at this rate, in micro-dollars, floored:
     /// `R$ 50,00` at `4.99` is `$10.020040`.
     pub fn micros_for(&self, centavos: i64) -> Option<i64> {
@@ -117,6 +141,12 @@ pub struct FxError {
 pub trait Rates: Send + Sync {
     /// What a dollar costs in reais now.
     fn usd_brl(&self) -> Result<Rate, FxError>;
+
+    /// The Central Bank's PTAX, to check a rate from another source
+    /// against; `None` when it cannot be read.
+    fn ptax(&self) -> Option<Rate> {
+        None
+    }
 }
 
 /// AwesomeAPI, then the PTAX of the last week.
@@ -132,16 +162,25 @@ impl Rates for Live {
             },
             Err(error) => error.to_string(),
         };
-        let today = civil::today().unwrap_or(0);
-        let ptax = match rates::ptax_selling(&bcb_date(today - 7), &bcb_date(today)) {
-            Ok(Some(text)) => match Rate::parse(&text, Source::Ptax) {
-                Some(rate) => return Ok(rate),
-                None => format!("answered an implausible rate {text:?}"),
-            },
-            Ok(None) => "had no bulletin in the last week".to_owned(),
-            Err(error) => error.to_string(),
-        };
-        Err(FxError { awesome, ptax })
+        match ptax_selling() {
+            Ok(rate) => Ok(rate),
+            Err(ptax) => Err(FxError { awesome, ptax }),
+        }
+    }
+
+    fn ptax(&self) -> Option<Rate> {
+        ptax_selling().ok()
+    }
+}
+
+/// The PTAX selling rate of the last week, or why there is none.
+fn ptax_selling() -> Result<Rate, String> {
+    let today = civil::today().unwrap_or(0);
+    match rates::ptax_selling(&bcb_date(today - 7), &bcb_date(today)) {
+        Ok(Some(text)) => Rate::parse(&text, Source::Ptax)
+            .ok_or_else(|| format!("answered an implausible rate {text:?}")),
+        Ok(None) => Err("had no bulletin in the last week".to_owned()),
+        Err(error) => Err(error.to_string()),
     }
 }
 
@@ -205,5 +244,16 @@ mod tests {
         assert_eq!(bcb_date(20_740), "10-14-2026");
         assert_eq!(bcb_date(20_740 - 7), "10-07-2026");
         assert_eq!(bcb_date(11_016), "02-29-2000");
+    }
+
+    #[test]
+    fn agreement_is_within_three_percent_of_the_check_on_the_exact_decimal() {
+        let check = rate("5.00");
+        for text in ["5", "5.15", "4.85", "5.1500000", "5.0096"] {
+            assert!(rate(text).agrees_with(&check), "{text:?}");
+        }
+        for text in ["5.1501", "4.8499", "2.00", "8"] {
+            assert!(!rate(text).agrees_with(&check), "{text:?}");
+        }
     }
 }
