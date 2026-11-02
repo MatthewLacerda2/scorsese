@@ -171,7 +171,34 @@ pub enum ToolsError {
 
 #[cfg(test)]
 mod tests {
-    use super::{lists_encoder, version_from};
+    use super::{Tools, lists_encoder, version_from};
+
+    /// What a child started as `ffmpeg` sees of its environment: `env` stands
+    /// in for the binary and prints it.
+    #[cfg(unix)]
+    fn environment_of_ffmpeg() -> String {
+        let output = Tools::at("env", "env").ffmpeg().output().unwrap();
+        String::from_utf8(output.stdout).unwrap()
+    }
+
+    /// Cargo sets `CARGO_MANIFEST_DIR` in every test's environment, so it
+    /// stands for a secret the parent holds (#1656): a decoder bug in ffmpeg
+    /// must not reach the server's keys.
+    #[cfg(unix)]
+    #[test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "checks the parent really holds the variable the child must not see"
+    )]
+    fn ffmpeg_does_not_inherit_the_parents_environment() {
+        assert!(std::env::var_os("CARGO_MANIFEST_DIR").is_some());
+        let seen = environment_of_ffmpeg();
+        assert!(
+            !seen.contains("CARGO_MANIFEST_DIR="),
+            "the child saw the parent's environment:\n{seen}"
+        );
+        assert!(seen.contains("PATH="), "the child lost PATH:\n{seen}");
+    }
 
     #[test]
     fn an_encoder_is_found_by_its_whole_name_and_nothing_else() {
