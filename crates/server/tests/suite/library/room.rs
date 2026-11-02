@@ -1,91 +1,34 @@
-//! What else the quota holds (#1647): a free file decided and admitted in one
-//! transaction, a user's page captures counted, and every write refused while
-//! the disk is below its floor.
+//! What else the quota holds (#1647): a user's page captures counted, and
+//! every write refused while the disk is below its floor. Written against
+//! names the base already had, so CI's regression job can build it there;
+//! the race between two free files is `library::room`'s own test.
 
-use std::path::Path;
-
-use scorsese_render::testing::still;
-use scorsese_server::db;
-use scorsese_server::events::Events;
-use scorsese_server::jobs::Queue;
-use scorsese_server::library::{Arrival, Kind, Library, LibraryError};
+use scorsese_providers::credentials::Environment;
+use scorsese_server::captures::{SPOOL_DIR, Spool};
+use scorsese_server::config::{CACHE, DATABASE_URL, STORAGE};
 use scorsese_server::renders::Quota;
+use scorsese_server::storage::Storage;
+use scorsese_server::{Config, Files};
 use sqlx::postgres::PgPool;
 
 use crate::common;
 use crate::library::quota::hash;
 use crate::library::{announce_as, member};
 
-/// A library whose every user may keep `quota` bytes, below the disk floor
-/// `floor`, with its files under `label`.
-async fn library_of(pool: &PgPool, label: &str, quota: u64, floor: u64) -> Library {
-    db::migrate(pool).await.expect("the migrations apply");
-    let files = common::files(label);
-    Library::new(
-        common::members(pool).await,
-        files
-            .storage
-            .with_quota(Quota::bytes(quota))
-            .with_floor(Quota::bytes(floor)),
-        files.tools,
-        Queue::new(Events::new()),
-    )
-}
-
-/// A picture of `colour` under `directory`, as a free tool would have left it.
-fn picture(directory: &Path, colour: &str) -> (Arrival, u64) {
-    let file = directory.join(format!("{colour}.png"));
-    still(&common::tools(), &file, colour, "64x36");
-    let size = std::fs::metadata(&file)
-        .expect("the picture is there")
-        .len();
-    let arrival = Arrival {
-        file,
-        name: format!("{colour}.png"),
-        kind: Kind::Image,
-        extension: "png".to_owned(),
-        announced: None,
-        brief_hash: None,
-        words: None,
-    };
-    (arrival, size)
-}
-
-#[sqlx::test]
-async fn two_free_files_racing_for_the_last_room_land_one(pool: PgPool) {
-    let scratch = common::scratch::dir("quota-race-media");
-    let (red, red_size) = picture(&scratch, "red");
-    let (blue, blue_size) = picture(&scratch, "blue");
-    // Room for either, not for both.
-    let library = library_of(&pool, "quota-race", red_size + blue_size - 1, 0).await;
-    let (ana, _) = member(&pool, "ana@example.com").await;
-
-    let keep = |arrival: Arrival| {
-        let library = library.clone();
-        async move { library.admit_free(ana, arrival).await }
-    };
-    let (first, second) = tokio::join!(keep(red), keep(blue));
-
-    let landed = [&first, &second].iter().filter(|kept| kept.is_ok()).count();
-    assert_eq!(landed, 1, "{first:?} {second:?}");
-    let refused = [first, second].into_iter().find_map(Result::err);
-    assert!(
-        matches!(refused, Some(LibraryError::Full { .. })),
-        "{refused:?}"
-    );
-}
-
 #[sqlx::test]
 async fn the_page_cache_counts_toward_the_quota(pool: PgPool) {
-    let files = common::files("quota-pages");
+    let root = common::scratch::dir("quota-pages");
+    let cache = root.join("cache");
     let (ana, who) = member(&pool, "ana@example.com").await;
     let quota = 10_000;
-    let pages = files.storage.page_cache(ana).join("7").join("pages");
+    let pages = Spool::new(cache.join(SPOOL_DIR))
+        .pages(ana, 7)
+        .join("pages");
     std::fs::create_dir_all(&pages).unwrap();
     std::fs::write(pages.join("frames.mkv"), vec![0; 4_000]).unwrap();
-    let files = scorsese_server::Files {
-        storage: files.storage.with_quota(Quota::bytes(quota)),
-        ..files
+    let files = Files {
+        storage: Storage::new(root.join("kept"), cache).with_quota(Quota::bytes(quota)),
+        ..common::files("quota-pages-tools")
     };
     let (address, _) = common::serve_with(pool.clone(), files).await;
 
@@ -98,11 +41,21 @@ async fn the_page_cache_counts_toward_the_quota(pool: PgPool) {
 
 #[sqlx::test]
 async fn below_the_disk_floor_an_upload_is_refused(pool: PgPool) {
-    let files = common::files("quota-floor");
-    let files = scorsese_server::Files {
-        // No disk has this much free.
-        storage: files.storage.with_floor(Quota::bytes(u64::MAX)),
-        ..files
+    let root = common::scratch::dir("quota-floor");
+    let config = Config::from_environment(&Environment::of([
+        (
+            DATABASE_URL,
+            "postgres://nobody@127.0.0.1:1/nothing".to_owned(),
+        ),
+        (STORAGE, root.join("kept").display().to_string()),
+        (CACHE, root.join("cache").display().to_string()),
+        // A billion gigabytes: no disk has this much free.
+        ("SCORSESE_DISK_FLOOR_GB", "1000000000".to_owned()),
+    ]))
+    .expect("the settings are whole");
+    let files = Files {
+        storage: config.files(),
+        ..common::files("quota-floor-tools")
     };
     let (address, _) = common::serve_with(pool.clone(), files).await;
     let (_, who) = member(&pool, "ana@example.com").await;

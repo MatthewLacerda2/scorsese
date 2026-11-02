@@ -470,3 +470,33 @@ fn directory(
     }
     Ok(path)
 }
+
+/// The disk floor's default and its unit (#1647); the suite's `config::floor`
+/// holds the refusal, written against names the base had.
+#[cfg(test)]
+mod tests {
+    use scorsese_providers::credentials::Environment;
+
+    use super::{CACHE, Config, DATABASE_URL, DISK_FLOOR, STORAGE};
+
+    fn floor(value: Option<&str>) -> u64 {
+        let mut pairs = vec![
+            (DATABASE_URL, "postgres://scorsese@db/scorsese"),
+            (STORAGE, "/srv/scorsese"),
+            (CACHE, "/srv/cache"),
+        ];
+        pairs.extend(value.map(|value| (DISK_FLOOR, value)));
+        Config::from_environment(&Environment::of(pairs))
+            .expect("the settings are whole")
+            .disk_floor
+            .get()
+    }
+
+    #[test]
+    fn the_disk_floor_is_ten_gigabytes_unless_set() {
+        assert_eq!(DISK_FLOOR, "SCORSESE_DISK_FLOOR_GB");
+        assert_eq!(floor(None), 10_000_000_000);
+        assert_eq!(floor(Some("25")), 25_000_000_000);
+        assert_eq!(floor(Some("0")), 0);
+    }
+}
