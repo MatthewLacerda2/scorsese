@@ -53,3 +53,12 @@ fn a_link_at_the_scratch_name_is_neither_written_nor_truncated() {
         "the document is a file of its own, not the link"
     );
 }
+
+/// Only a taken name is passed over: any other failure is the answer at
+/// once, as it was.
+#[test]
+fn a_scratch_that_cannot_be_made_is_the_error_itself() {
+    let dir = common::temp_project_dir("write-planted-missing");
+    let refused = atomically(&dir.join("missing/project.json"), "{}\n").expect_err("no folder");
+    assert_eq!(refused.kind(), std::io::ErrorKind::NotFound, "{refused}");
+}

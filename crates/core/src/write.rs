@@ -180,7 +180,6 @@ const SCRATCH_ATTEMPTS: usize = 64;
 /// a link included, dangling or not — rather than following it. A taken name
 /// is passed over for the next one.
 fn fresh_scratch(path: &Path) -> io::Result<(PathBuf, File)> {
-    let mut taken = None;
     for _ in 0..SCRATCH_ATTEMPTS {
         let scratch = scratch_beside(path, "part")?;
         match OpenOptions::new()
@@ -189,11 +188,17 @@ fn fresh_scratch(path: &Path) -> io::Result<(PathBuf, File)> {
             .open(&scratch)
         {
             Ok(file) => return Ok((scratch, file)),
-            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => taken = Some(error),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
             Err(error) => return Err(error),
         }
     }
-    Err(taken.unwrap_or_else(|| io::Error::from(io::ErrorKind::AlreadyExists)))
+    Err(io::Error::new(
+        io::ErrorKind::AlreadyExists,
+        format!(
+            "no free name to write {} under: {SCRATCH_ATTEMPTS} were taken",
+            path.display()
+        ),
+    ))
 }
 
 /// Fills the scratch file and makes sure it is really on the device.
