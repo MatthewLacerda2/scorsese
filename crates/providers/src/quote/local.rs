@@ -56,10 +56,9 @@ impl ProjectQuotes {
     /// quotes somebody is actually deciding on rather than every one ever made.
     /// A record that cannot be read is left alone: it will be refused if it is
     /// ever handed in, and deleting what cannot be understood is not tidying.
+    /// Only ever called once [`Quotes::put`] has made the folder, refusing a
+    /// link there, so it never reads or removes where one leads.
     fn sweep(&self, now: i64) {
-        if self.linked() {
-            return;
-        }
         let Ok(entries) = std::fs::read_dir(&self.dir) else {
             return;
         };

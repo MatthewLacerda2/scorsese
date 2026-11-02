@@ -130,3 +130,24 @@ fn a_quotes_folder_that_is_a_link_is_never_written_through() {
     std::fs::remove_dir_all(dir).ok();
     std::fs::remove_dir_all(outside).ok();
 }
+
+/// A token kept before `cache/quotes` became a link is not read or spent
+/// through it (#1715): redeeming it is refused as unknown, and the record
+/// where the link leads is left as it was.
+#[cfg(unix)]
+#[test]
+fn a_token_behind_a_linked_quotes_folder_is_never_spent_through_it() {
+    let (dir, quote, store) = quoted("token-relinked");
+    let issued = issue(&store, &quote, NOW).expect("issue");
+    let (outside, _) = crate::common::project("token-relinked-outside");
+    let moved = outside.join("quotes");
+    std::fs::rename(dir.join("cache/quotes"), &moved).expect("moved out");
+    std::os::unix::fs::symlink(&moved, dir.join("cache/quotes")).expect("a link");
+
+    let again = redeem(&store, &issued.token, &quote, NOW);
+
+    assert!(matches!(again, Err(Refused::Unknown { .. })), "{again:?}");
+    assert_eq!(std::fs::read_dir(&moved).expect("outside").count(), 1);
+    std::fs::remove_dir_all(dir).ok();
+    std::fs::remove_dir_all(outside).ok();
+}
