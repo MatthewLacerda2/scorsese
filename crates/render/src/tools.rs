@@ -65,7 +65,7 @@ const KEPT: &[&str] = &[
 ];
 
 /// A command for `program` that starts with an empty environment plus what
-/// [`KEPT`] lets through from this process's. The one way a child process is
+/// the allow-list keeps from this process's. The one way a child process is
 /// started in this workspace: `std::process::Command::new` is a disallowed
 /// method everywhere else (`clippy.toml`). Variables set on the returned
 /// command with `env` still reach the child.
