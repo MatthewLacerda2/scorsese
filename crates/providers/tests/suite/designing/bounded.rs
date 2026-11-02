@@ -21,6 +21,19 @@ fn a_recording_named_twice_is_read_and_sent_once() {
 }
 
 #[test]
+fn two_assets_of_one_file_are_one_recording() {
+    let studio = Fake::offering(&[]);
+    let (dir, mut project) = recorded("clone-one-file", 90.0);
+    let mut again = project.assets[0].clone();
+    again.id = AssetId::new("again");
+    project.assets.push(again);
+
+    clone(&dir, &project, &studio, &ask(&["take", "again"], true)).expect("the clone");
+
+    assert_eq!(studio.cloned.borrow()[0].recordings.len(), 1);
+}
+
+#[test]
 fn more_recordings_or_more_speech_than_a_clone_takes_is_refused_before_reading() {
     let studio = Fake::offering(&[]);
     let (dir, mut project) = recorded("clone-too-many", 90.0);
@@ -30,6 +43,7 @@ fn more_recordings_or_more_speech_than_a_clone_takes_is_refused_before_reading()
         let mut copy = take.clone();
         copy.id = AssetId::new(format!("take{n}"));
         copy.path = Some(ProjectPath::new(format!("assets/missing{n}.mp3")));
+        copy.sha256 = Some(format!("{n:064}"));
         project.assets.push(copy);
         named.push(format!("take{n}"));
     }

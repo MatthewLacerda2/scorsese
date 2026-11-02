@@ -335,8 +335,12 @@ impl Toolbox {
             surface::Entry::Shared(tool, serve) => {
                 // Before anything is opened: a call waiting for a permit holds
                 // nothing else.
-                let permit = self.bounds.permit(user).await;
-                stored::run(&caller, tool.as_ref(), serve, arguments, permit).await
+                match self.bounds.permit(user, &caller.cancel).await {
+                    Some(permit) => {
+                        stored::run(&caller, tool.as_ref(), serve, arguments, permit).await
+                    }
+                    None => Err(stored::CANCELLED.to_owned().into()),
+                }
             }
             surface::Entry::Own(own) => own.call(&caller, arguments).await.map_err(Refusal::Said),
         };

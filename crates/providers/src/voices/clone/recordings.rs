@@ -3,7 +3,7 @@
 
 use std::path::Path;
 
-use scorsese_core::{AssetId, AssetKind, Project};
+use scorsese_core::{Asset, AssetId, AssetKind, Project, ProjectPath};
 
 use super::error::CloneError;
 use super::ledger::Source;
@@ -26,7 +26,8 @@ pub(super) struct Gathered {
 /// The assets `ids` of `project`, at `root`, as recordings — refused unless
 /// each is an imported audio asset whose file can be read, and unless together
 /// they are no more than a clone takes ([`too_much`]), which is asked before
-/// any file is read. An id named twice is one recording.
+/// any file is read. An id named twice, or two assets of one file (one path,
+/// or one content hash), is one recording.
 pub(super) fn gather(
     root: &Path,
     project: &Project,
@@ -52,6 +53,12 @@ pub(super) fn gather(
                 });
             }
         };
+        let same = |(_, other, at): &(&AssetId, &Asset, &ProjectPath)| {
+            *at == path || (asset.sha256.is_some() && other.sha256 == asset.sha256)
+        };
+        if named.iter().any(same) {
+            continue;
+        }
         let more = asset
             .media
             .as_ref()
@@ -66,7 +73,7 @@ pub(super) fn gather(
             .map_or(0, |found| found.len());
         named.push((id, asset, path));
     }
-    if let Some(why) = too_much(ids.len(), bytes, seconds) {
+    if let Some(why) = too_much(named.len(), bytes, seconds) {
         return Err(CloneError::TooMuch(why));
     }
     let mut gathered = Gathered {
