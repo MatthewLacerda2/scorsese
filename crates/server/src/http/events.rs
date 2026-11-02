@@ -25,7 +25,7 @@ pub const RECHECK: Duration = Duration::from_secs(15);
 pub const MOST_STREAMS: usize = 8;
 
 /// The caller's live stream. Each message's data is one JSON
-/// [`Event`](crate::events::Event) with a `type`. A comment every fifteen
+/// [`Event`] with a `type`. A comment every fifteen
 /// seconds keeps a quiet stream from being closed as idle by what sits in
 /// between — nginx, the tunnel.
 ///
