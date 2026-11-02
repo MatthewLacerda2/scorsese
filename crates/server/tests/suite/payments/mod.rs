@@ -7,6 +7,7 @@ use crate::common;
 
 mod bonus;
 mod confirm;
+mod open;
 mod prices;
 mod rate;
 mod start;
