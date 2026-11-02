@@ -12,6 +12,7 @@ mod asking;
 mod at_once;
 mod attached;
 mod batching;
+mod bounded;
 mod changes;
 mod compaction;
 mod effort;
