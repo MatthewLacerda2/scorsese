@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use scorsese_providers::transcribe::{Language, TranscribeError, Transcriber, Whisper};
 
 use super::run::never;
-use super::whisper::{serve, serve_telling};
+use super::whisper::{serve, serve_when};
 
 /// Each status says what it means, and only a forced language's `500` is
 /// put down to the language.
@@ -35,40 +35,63 @@ fn a_refusal_says_what_its_status_means() {
     assert!(!refused("404 Not Found", pt()).contains("language"));
 }
 
-/// Stopped while the server is still listening, it answers at once; and an
-/// answer landing as the stop comes is not kept either.
+/// Stopped while the server is still working, it stops waiting on the
+/// caller's behalf but returns only once the server has let the request go —
+/// the server finishes what it began whether or not the connection is closed,
+/// so whoever rations it (a job's slot) holds it until then.
 #[test]
-fn a_stop_ends_the_wait_and_an_answer_after_it_is_dropped() {
+fn a_stop_returns_once_the_server_has_let_the_request_go() {
     let listener = TcpListener::bind("127.0.0.1:0").expect("as set up");
     let address = format!("http://{}", listener.local_addr().expect("as set up"));
-    // Takes the request and never answers.
-    let _silent = thread::spawn(move || {
-        let (stream, _) = listener.accept().expect("as set up");
-        thread::sleep(Duration::from_secs(30));
-        drop(stream);
-    });
+    let let_go = Arc::new(AtomicBool::new(false));
+    // Takes the request, works on it past the stop, then lets it go unanswered.
+    let working = {
+        let let_go = Arc::clone(&let_go);
+        thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("as set up");
+            thread::sleep(Duration::from_millis(800));
+            let_go.store(true, Ordering::SeqCst);
+            drop(stream);
+        })
+    };
     let asked = Instant::now();
     let error = Whisper::new(&address)
         .transcribe(b"RIFF".to_vec(), None, &|| {
-            asked.elapsed() > Duration::from_millis(300)
+            asked.elapsed() > Duration::from_millis(100)
         })
         .expect_err("stopped");
     assert!(matches!(error, TranscribeError::Stopped), "{error:?}");
     assert!(
-        asked.elapsed() < Duration::from_secs(5),
-        "{:?}",
+        let_go.load(Ordering::SeqCst),
+        "returned after {:?}, while the server still worked",
         asked.elapsed()
     );
+    working.join().expect("as set up");
+}
 
-    let answered = Arc::new(AtomicBool::new(false));
-    let (address, server) = serve_telling(
+/// An answer the server sends after the stop is waited for, and dropped. The
+/// handshake is ordered: the stop is seen before the answer is written.
+#[test]
+fn a_stop_ends_the_wait_and_an_answer_after_it_is_dropped() {
+    let (asked, seen) = (
+        Arc::new(AtomicBool::new(false)),
+        Arc::new(AtomicBool::new(false)),
+    );
+    let (address, server) = serve_when(
         "200 OK",
         include_str!("../../../fixtures/whisper/transcription.json"),
-        Arc::clone(&answered),
+        Arc::clone(&asked),
+        Arc::clone(&seen),
     );
     let error = Whisper::new(&address)
-        .transcribe(b"RIFF".to_vec(), None, &|| answered.load(Ordering::SeqCst))
-        .expect_err("stopped as it answered");
+        .transcribe(b"RIFF".to_vec(), None, &|| {
+            let stop = asked.load(Ordering::SeqCst);
+            if stop {
+                seen.store(true, Ordering::SeqCst);
+            }
+            stop
+        })
+        .expect_err("stopped before it answered");
     server.join().expect("as set up");
     assert!(matches!(error, TranscribeError::Stopped), "{error:?}");
 }

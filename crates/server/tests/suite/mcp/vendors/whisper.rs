@@ -25,6 +25,12 @@ impl Transcriber for Mock {
                 assert!(asked.elapsed() < Duration::from_secs(20), "never stopped");
                 std::thread::sleep(Duration::from_millis(10));
             }
+            if let Some(late) = &self.late {
+                while !late.load(Ordering::SeqCst) {
+                    assert!(asked.elapsed() < Duration::from_secs(20), "never let go");
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+            }
             return Err(TranscribeError::Stopped);
         }
         if self.deaf {
