@@ -173,6 +173,12 @@ impl Operation {
 }
 
 impl Answer {
+    /// Why the request itself failed, in Google's words — not an answer at
+    /// all, so nothing was drawn.
+    pub fn failed(&self) -> Option<&str> {
+        self.error.as_ref().map(|error| error.message.as_str())
+    }
+
     /// The picture it drew, base64 — the last one outside the thinking — or
     /// why there is none.
     pub fn picture(&self) -> Result<&str, String> {

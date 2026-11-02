@@ -15,6 +15,9 @@ impl SpeechProvider for Mock {
                 std::thread::sleep(std::time::Duration::from_millis(10));
             }
         }
+        if let Some(words) = &self.say {
+            return Err(ProviderError::billed("mock speech", words));
+        }
         Ok(Spoken {
             audio: made("line.mp3", &["-f", "lavfi", "-i", "sine=duration=1"]),
             words: Some(timed("Every city has a night editor.")),

@@ -75,11 +75,13 @@ fn body_of(brief: &Brief) -> Speak {
 /// The line out of the vendor's reply: the MP3 decoded, and the characters'
 /// timings folded into words — without the audio tags `model` takes as
 /// directions (#1061). A reply whose timings do not add up still gives its
-/// audio, without them — the line was paid for either way.
+/// audio, without them — the line was paid for either way; one whose audio
+/// does not decode is [`billed`](ProviderError::billed) for the same reason
+/// (#1646).
 fn spoken(timed: &Timed, model: SpeechModel) -> Result<Spoken, ProviderError> {
-    let audio = timed
-        .audio()
-        .ok_or_else(|| ProviderError::new(NAME, "the audio came back as something not base64"))?;
+    let audio = timed.audio().ok_or_else(|| {
+        ProviderError::billed(NAME, "the audio came back as something not base64")
+    })?;
     let words = timed
         .alignment
         .as_ref()
