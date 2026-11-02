@@ -174,6 +174,11 @@ pub fn dollars(micros: impl Into<i128>) -> String {
     scorsese_providers::prices::dollars(micros, 2)
 }
 
+/// What a spend is told once every account together has spent the day's
+/// free ceiling (`allowance`, #1658): the generation's refusal and the
+/// assistant's say the same.
+pub const FREE_USED_UP: &str = "today's free credit for everyone is used up; it comes back tomorrow, or add credit to keep going";
+
 /// Why spending or recording credits did not happen.
 #[derive(Debug, thiserror::Error)]
 pub enum CreditError {
@@ -208,8 +213,7 @@ pub enum CreditError {
     /// because every account together has spent the day's free ceiling
     /// (#1658). Nothing was spent.
     #[error(
-        "today's free credit for everyone is used up; it comes back tomorrow, or add credit \
-         to keep going. Your balance is {}, and this needs {} — nothing was sent to the \
+        "{FREE_USED_UP}. Your balance is {}, and this needs {} — nothing was sent to the \
          provider.",
         dollars(*balance),
         dollars(*needed)

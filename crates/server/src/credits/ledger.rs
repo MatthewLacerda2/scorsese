@@ -100,8 +100,9 @@ pub async fn cover(tx: &mut Tx, micros: i64, funds: Funds) -> Result<i64, Credit
         if paid >= micros {
             return Ok(0);
         }
-        // A shot the free allowance would have covered says why it does not.
-        let left = allowance::left(tx).await?.left_micros;
+        // A shot the user's free allowance would have covered says why it
+        // does not, whatever is left of everyone's.
+        let left = allowance::own_left(tx).await?;
         if paid.saturating_add(left) >= micros {
             return Err(CreditError::PaidOnly {
                 paid,

@@ -1351,7 +1351,8 @@ the ledger reads them in SQL; a database no server has started holds zero.
   with the number of accounts. Once it is spent, a spend the user's own
   allowance would have covered is refused with *today's free credit for
   everyone is used up; it comes back tomorrow, or add credit to keep going*,
-  and an assistant call is paid from the paid balance. A spend that may be
+  and so is an assistant turn with nothing else to spend; a call made
+  within a turn is paid from the paid balance. A spend that may be
   granted takes one server-wide lock after the user's own, so the check and
   the grant are one decision; the sum is read through a database function
   that crosses users and answers only the total.
