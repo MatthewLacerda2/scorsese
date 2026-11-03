@@ -22,6 +22,16 @@ fn a_loadable_skill_passes() {
 }
 
 #[test]
+fn a_user_invoked_skill_passes() {
+    // `disable-model-invocation` keeps a skill out of Claude's context until
+    // the user runs it: a key Claude Code reads, not one this rule rejects.
+    assert!(
+        wrong("name: ci-merge\ndescription: Merge a branch.\ndisable-model-invocation: true")
+            .is_empty()
+    );
+}
+
+#[test]
 fn a_skill_with_no_frontmatter_is_flagged() {
     let found = frontmatter_findings("# A skill\n", "ci-merge");
     assert_eq!(found.len(), 1);
