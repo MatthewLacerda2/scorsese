@@ -17,8 +17,8 @@ fn timed(label: &str) -> std::path::PathBuf {
         r#""prompt": "a line", "state": "sketch""#,
         r#""prompt": "a line", "state": "generated", "path": "generated/vo.mp3""#,
     );
-    std::fs::write(dir.join("project.json"), spoken).unwrap();
-    std::fs::write(dir.join("generated/vo.mp3"), b"MP3").unwrap();
+    std::fs::write(dir.join("project.json"), spoken).expect("the document");
+    std::fs::write(dir.join("generated/vo.mp3"), b"MP3").expect("the line");
     let word = |text: &str, start, end| Word {
         text: text.into(),
         start,
@@ -36,7 +36,7 @@ fn timed(label: &str) -> std::path::PathBuf {
         beside.resolve(&dir).expect("a project path"),
         timed.to_json(),
     )
-    .unwrap();
+    .expect("its timings");
     dir
 }
 
