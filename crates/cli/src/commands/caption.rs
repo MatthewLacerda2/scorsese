@@ -28,10 +28,11 @@ pub(crate) struct Options {
     /// Montserrat when not given.
     #[arg(long)]
     font: Option<String>,
-    /// How heavy, 1 to 1000. 800 when not given.
+    /// How heavy, 1 to 1000. 900 when not given (800 with `--text`).
     #[arg(long)]
     weight: Option<u16>,
-    /// How big, as a fraction of the frame's height. 0.031 when not given.
+    /// How big, as a fraction of the frame's height. 0.038 when not given
+    /// (0.031 with `--text`).
     #[arg(long)]
     size: Option<f64>,
     /// The words' colour, `#rrggbb` or `#rrggbbaa`. White when not given.
@@ -48,6 +49,10 @@ pub(crate) struct Options {
     /// 0.2, the lower third, when not given.
     #[arg(long)]
     lift: Option<f64>,
+    /// One text clip per caption, whole in one colour, instead of the page
+    /// that lights the word being said.
+    #[arg(long)]
+    text: bool,
 }
 
 /// Writes the narration's words as captions on one video track.
@@ -57,6 +62,7 @@ pub(crate) struct Options {
 pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
     let mut project = super::open(project_dir)?;
     let mut asked = look::Choices {
+        text: options.text,
         narration: options.narration.iter().map(TrackId::new).collect(),
         max_chars: Some(options.max_chars),
         font: options.font.clone().map(FontChoice::from),
@@ -91,8 +97,18 @@ fn describe(report: &Captioned, track: &TrackId) {
         println!("{line} — skipped, transcribed footage at volume 0 throughout");
     }
     let made: usize = report.lines.iter().map(|(_, n)| n).sum();
+    let what = match &report.page {
+        Some(page) => format!("one page, `{page}`, lighting each word as it is said"),
+        None => "ordinary text clips, yours to edit".to_owned(),
+    };
     println!(
-        "{made} caption(s) on track `{track}`, {} replaced — ordinary text clips, yours to edit",
+        "{made} caption(s) on track `{track}`, {} replaced — {what}",
         report.replaced
     );
+    if report.page.is_some() && cfg!(windows) {
+        println!(
+            "pages are not drawn on Windows yet: it shows as a card here; `--text` \
+             captions that draw on this machine"
+        );
+    }
 }

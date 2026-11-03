@@ -19,8 +19,14 @@ fn a_stroke_is_a_colour_or_none() {
 fn choices_lay_over_the_default_look() {
     let track = TrackId::new("captions");
     let plain = Choices::default().captioning(track.clone(), 30.0);
-    assert_eq!(plain.style, caption::style());
+    assert_eq!(plain.style, caption::page::style());
     assert_eq!(plain.lift, caption::LIFT);
+    let text = Choices {
+        text: true,
+        ..Choices::default()
+    }
+    .captioning(track.clone(), 30.0);
+    assert_eq!(text.style, caption::style());
 
     let chosen = Choices {
         stroke: Some(Stroke(None)),
@@ -32,5 +38,5 @@ fn choices_lay_over_the_default_look() {
     assert_eq!(chosen.style.stroke, None);
     assert_eq!(chosen.chunking.max_chars, 12);
     assert_eq!(chosen.style.weight, None, "a file is whatever weight it is");
-    assert_eq!(chosen.style.color, caption::style().color);
+    assert_eq!(chosen.style.color, caption::page::style().color);
 }

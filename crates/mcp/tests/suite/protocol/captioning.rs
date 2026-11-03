@@ -8,9 +8,10 @@ use serde_json::{Value, json};
 
 use crate::protocol::{call, said};
 
-#[test]
-fn a_timed_line_becomes_captions_that_a_rerun_replaces() {
-    let dir = project("captioning");
+/// A project whose line `vo`, played by clip `v1c` from 2 s, says "Stop. Read
+/// this." with its timings beside it.
+fn timed(label: &str) -> std::path::PathBuf {
+    let dir = project(label);
     let document = document(&dir);
     let spoken = document.replace(
         r#""prompt": "a line", "state": "sketch""#,
@@ -36,12 +37,18 @@ fn a_timed_line_becomes_captions_that_a_rerun_replaces() {
         timed.to_json(),
     )
     .unwrap();
+    dir
+}
+
+#[test]
+fn a_timed_line_becomes_captions_that_a_rerun_replaces() {
+    let dir = timed("captioning");
 
     // The second run names the rim's colour, as `scorsese caption --stroke`
     // can (#1288).
     for asked in [
-        json!({ "project": dir }),
-        json!({ "project": dir, "stroke": "#ff0000" }),
+        json!({ "project": dir, "look": "text" }),
+        json!({ "project": dir, "look": "text", "stroke": "#ff0000" }),
     ] {
         let (text, failed) = said(&call("caption_narration", asked));
         assert!(!failed, "{text}");
@@ -72,5 +79,29 @@ fn a_timed_line_becomes_captions_that_a_rerun_replaces() {
     assert_eq!(first["text"], "Stop.");
     assert_eq!(first["style"]["font"], "montserrat");
     assert_eq!(first["style"]["stroke"], "#ff0000");
+    std::fs::remove_dir_all(dir).ok();
+}
+
+#[test]
+fn by_default_the_captions_are_one_page_lighting_the_word_said() {
+    let dir = timed("captioning-page");
+    let (text, failed) = said(&call("caption_narration", json!({ "project": dir })));
+    assert!(!failed, "{text}");
+    assert!(text.contains("one page, `caption-page-captions`"), "{text}");
+    let document: Value = read(&dir);
+    let track = document["tracks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|track| track["id"] == "captions")
+        .expect("the captions' track was made");
+    let clips = track["clips"].as_array().unwrap();
+    assert_eq!(clips.len(), 1, "one clip plays the page");
+    assert_eq!(clips[0]["asset"], "caption-page-captions");
+    let page = std::fs::read_to_string(dir.join("pages/caption-page-captions.html")).unwrap();
+    assert!(
+        page.contains(r#"[["v1c/stop","Stop."]],[["v1c/read","Read"],["v1c/this","this."]]"#),
+        "{page}"
+    );
     std::fs::remove_dir_all(dir).ok();
 }
