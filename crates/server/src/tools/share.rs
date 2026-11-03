@@ -18,10 +18,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use scorsese_mcp::{Libraries, Stock};
-use scorsese_providers::stock::{self, Candidate, Library, Medium, Page, Query, StockError};
+use scorsese_mcp::Stock;
+use scorsese_providers::stock::{Candidate, Library, Medium, Page, Query, StockError};
 
-use super::Toolbox;
 use crate::db::UserId;
 use crate::http::limits::Limits;
 
@@ -114,24 +113,6 @@ impl Shares {
             inner: library,
             user,
             shares: self.clone(),
-        })
-    }
-}
-
-impl Toolbox {
-    /// Where `user`'s stock tools find each medium's library: the toolbox's
-    /// own when it was given one, and otherwise each medium's
-    /// (`stock::library`), every one within `user`'s share.
-    pub(super) fn libraries(&self, user: UserId) -> Libraries {
-        let (given, shares) = (self.stock.clone(), self.shares.clone());
-        Arc::new(move |medium| {
-            let library = match &given {
-                Some(library) => library.clone(),
-                None => stock::library(medium)
-                    .map(Arc::from)
-                    .map_err(|error| format!("{error}"))?,
-            };
-            Ok(shares.of(user, library))
         })
     }
 }
