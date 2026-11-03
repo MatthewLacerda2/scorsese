@@ -57,10 +57,10 @@ server and use them on local `.scor` folders with their own keys, for free.
 The hosted web app is a **convenience layer** over the same `core`, `render`
 and `providers`, for people who would rather not install a toolchain or learn
 what an API key is. It **must do everything the app does** and follows it,
-never leads: a capability only the app has is a gap to file; one only the web
-has is a design error. Accounts, credits and the library are web-only by
-nature; credits charge for what a third party bills us, nothing we run
-ourselves. Content executed there is isolated and offline, with no opt-out.
+never leads: an editing capability only the app has is a gap to file; one only
+the web has is a design error. Accounts, credits and the library are web-only;
+credits charge what a third party bills us, never what we run. On the web,
+anything executing a user's content is isolated and offline, with no opt-out.
 
 **Who each surface is for**, which decides how much it explains and does:
 
