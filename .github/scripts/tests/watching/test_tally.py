@@ -73,7 +73,7 @@ class Carrying(unittest.TestCase):
 
     def test_main_hands_the_watch_its_labels_file_and_a_dry_run_none(self):
         def started(*argv):
-            with mock.patch.object(queue.mergeable, "gh", return_value={"nameWithOwner": "o/r"}), \
+            with mock.patch.object(queue.mergeable.pulls, "repository", return_value="o/r"), \
                 mock.patch.object(queue.lock, "acquire"), \
                 mock.patch.object(queue, "run_watch", return_value=[]) as run, \
                 mock.patch("builtins.print"):

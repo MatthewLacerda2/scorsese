@@ -38,8 +38,8 @@ def not_rest(source: str) -> list[str]:
         else:
             continue
         if sub is not None and sub != "api":
-            found.append(f"line {node.lineno}: gh {sub}")
-    return found
+            found.append((node.lineno, sub))
+    return [f"line {line}: gh {sub}" for line, sub in sorted(found)]
 
 
 class RestOnly(unittest.TestCase):

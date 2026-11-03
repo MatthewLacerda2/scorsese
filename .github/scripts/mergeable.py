@@ -3,7 +3,7 @@
 
 Exits 0 when CI genuinely ran on the head commit and passed, and non-zero with
 a reason otherwise. It is the last thing the merge routine does before
-`gh pr merge`, and it exists because "the checks look green" and "the checks
+the merge call, and it exists because "the checks look green" and "the checks
 ran" are not the same claim.
 
 The failure it was written for is #153. Push to a draft pull request and mark
@@ -50,7 +50,11 @@ one is `changes` and `CI ok` passing with every other job skipped, which
 
 **The description's checks are `described.py`'s** (#1701): asked before any
 run, and the same function `make described` asks before a pull request is
-readied, so the two judge alike (REST alone misses a sidebar-only link).
+readied, so the two judge alike.
+
+**It asks GitHub over REST only** (#1724): a cloud container's proxy refuses
+GraphQL, and `pulls.py` maps REST's answers onto the GraphQL field
+names [`judge`] reads.
 
 **A passing run is not the last word: the description is** (#1229). A head
 branch `N-…` whose description does not close #N is handed back, and a
@@ -98,6 +102,7 @@ _spec.loader.exec_module(described)
 # object apiece, so a test patching `mergeable.reblessed` patches the queue's.
 protocol, closing = described.protocol, described.closing
 reblessed, reviewed = described.reblessed, described.reviewed
+pulls = described.pulls
 
 # The workflow that gates a merge. A run of anything else — a scheduled job, a
 # future workflow — is not the one being asked about, and counting it would be
@@ -330,7 +335,7 @@ def judge(
 ) -> tuple[bool, list[str]]:
     """Whether this pull request may be merged, and why not when it may not.
 
-    Pure, and the whole of the decision. `pull` is `gh pr view --json`, `runs`
+    Pure, and the whole of the decision. `pull` is [`pulls.view`], `runs`
     is every [`WORKFLOW`] run recorded against the head commit, and `jobs` maps
     a run's id to its jobs. `pull["closes"]`, when present, is [`closing.closed_by`]: an
     issue it closes that is labelled `planning` or `human`, or a keyword
@@ -442,23 +447,8 @@ def main() -> int:
 
 def answer(number: str) -> int:
     """Ask GitHub about pull request `number`, print the verdict, return 0 or 1."""
-    repo = gh("repo", "view", "--json", "nameWithOwner")["nameWithOwner"]
-    pull = gh(
-        "pr",
-        "view",
-        number,
-        "--json",
-        # `mergeable` and `mergeStateStatus` are only ever read when there is
-        # no run to judge, and they are what makes that answer specific rather
-        # than a guess (#429).
-        "isDraft,headRefOid,number,mergeable,mergeStateStatus,"
-        # Read only once CI has passed: the description's protocol (#1229).
-        # `closingIssuesReferences`: what the PR closes, judged before any run
-        # (#1221).
-        "headRefName,body,closingIssuesReferences,"
-        # Who opened it: Dependabot needs no independent review (#1498).
-        "author",
-    )
+    repo = pulls.repository()
+    pull = pulls.view(gh, repo, number)
     sha = pull["headRefOid"]
     described.gather(gh, repo, pull)
 

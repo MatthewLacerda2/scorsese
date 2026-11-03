@@ -92,6 +92,14 @@ class Merging(unittest.TestCase):
                 self.assertIn("unknown", " ".join(lines))
                 self.assertNotIn("refused", " ".join(lines))
 
+    def test_the_record_asked_after_a_failure_is_rest_shaped(self):
+        rest = '{"number": 490, "state": "closed", "merged": true, "merged_at": "2026-11-03T00:00:00Z"}'
+        answered = subprocess.CompletedProcess([], 0, rest, "")
+        with mock.patch.object(queue.merge.subprocess, "run", return_value=answered) as run:
+            record = queue.merge.merge_record("o/r", 490)
+        self.assertEqual(run.call_args.args[0], ["gh", "api", "repos/o/r/pulls/490"])
+        self.assertTrue(queue.landed(record))
+
     def test_ancestry_is_not_how_a_squash_is_recognised(self):
         # `--squash` makes a new commit, so the head is never on `main`; a
         # record that says merged is the whole of the evidence.
@@ -108,17 +116,27 @@ class Taking(unittest.TestCase):
         quiet.start()
         self.addCleanup(quiet.stop)
 
-    def take(self, merge_stderr: str, record: dict | None):
+    def take(self, merge_stderr: str, record: dict | None, fresh: str = SHA, sent=None):
         opts = queue.parse(["490", "--poll", "0"])
-        failed = subprocess.CompletedProcess([], 1, "", merge_stderr)
+        failed = subprocess.CompletedProcess([], 1 if merge_stderr else 0, "", merge_stderr)
         with mock.patch.object(queue.talk, "look", return_value=READY), \
             mock.patch.object(queue.talk, "git"), \
-            mock.patch.object(queue.rebase, "advance", return_value=(SHA, [])), \
+            mock.patch.object(queue.rebase, "advance", return_value=(fresh, [])), \
             mock.patch.object(queue.ci, "wait_for", return_value=(queue.GO, ["CI passed"])), \
-            mock.patch.object(queue.subprocess, "run", return_value=failed), \
+            mock.patch.object(queue.subprocess, "run", return_value=failed) as run, \
             mock.patch.object(queue.merge, "merge_record", return_value=record) as asked, \
             mock.patch("builtins.print"):
-            return queue.take("o/r", 490, opts), asked
+            taken = queue.take("o/r", 490, opts)
+        if sent is not None:
+            sent.extend(call.args[0] for call in run.call_args_list)
+        return taken, asked
+
+    def test_the_merge_is_a_rest_put_pinned_to_the_head_ci_passed_on(self):
+        sent, rebased = [], "d" * 40
+        (_, state, _), _ = self.take("", None, fresh=rebased, sent=sent)
+        self.assertEqual(state, queue.MERGED)
+        self.assertEqual(sent, [queue.mergeable.pulls.merge_call("o/r", 490, rebased)])
+        self.assertIn(f"sha={rebased}", sent[0])
 
     def test_a_502_that_merged_is_reported_merged(self):
         (_, state, _), _ = self.take(Merging.BAD_GATEWAY, {"state": "MERGED"})

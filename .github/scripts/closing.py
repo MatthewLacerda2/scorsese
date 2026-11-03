@@ -13,10 +13,11 @@ The same pass refuses a closing keyword that points at a pull request or at an
 issue already closed: a typo'd number closes nothing GitHub will tell anybody
 about, and the issue that was meant stays open after the merge.
 
-Which issues a pull request closes is read two ways and joined, because each
-misses something: GitHub's `closingIssuesReferences` holds the issues linked
-in the sidebar too, and never a pull request or a number it could not resolve;
-the body is where a keyword pointing at the wrong thing is still visible.
+Which issues a pull request closes is read from its body, by the keyword rule
+GitHub applies ([`in_body`]): the merge path asks REST only (`pulls.py`), and
+REST has no `closingIssuesReferences`, so an issue linked only in the sidebar
+is not seen. The body is also where a keyword pointing at the wrong thing is
+still visible. A `closingIssuesReferences` handed in is joined to it.
 
 Pure but for [`closed_by`], which asks GitHub over REST (`issues/N` answers for
 a pull request number too, and says so with a `pull_request` key).
@@ -37,9 +38,14 @@ KEYWORD = re.compile(
 )
 
 
+def in_body(body: str) -> list[int]:
+    """Every issue number a description's closing keywords name, once each."""
+    return sorted({int(found) for found in KEYWORD.findall(body or "")})
+
+
 def referenced(pull: dict) -> list[int]:
     """Every issue number this pull request closes, by keyword or by link."""
-    numbers = {int(found) for found in KEYWORD.findall(pull.get("body") or "")}
+    numbers = set(in_body(pull.get("body") or ""))
     numbers |= {
         ref["number"]
         for ref in pull.get("closingIssuesReferences") or []

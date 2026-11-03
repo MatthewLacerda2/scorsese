@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 import time
 
-from . import numbering, talk
+from . import mergeable, numbering, talk
 from .numbering import MIGRATIONS, SCHEMA_FILE, SYNTH_FILE
 
 
@@ -151,7 +151,7 @@ def on_tip(sha: str, root: str) -> bool:
 
 
 def bot_head(
-    number: int, head: str, root: str, opts: argparse.Namespace
+    repo: str, number: int, head: str, root: str, opts: argparse.Namespace
 ) -> tuple[str | None, list[str]]:
     """Dependabot's own rebase, waited for: a head on `main`'s tip, or why not.
 
@@ -164,14 +164,14 @@ def bot_head(
         return head, []
     # Not `mergeable.gh`: if the comment fails, the wait below still answers.
     subprocess.run(
-        ["gh", "pr", "comment", str(number), "--body", BOT_REBASE],
+        mergeable.pulls.comment_call(repo, number, BOT_REBASE),
         capture_output=True,
         check=False,
     )
     began = time.monotonic()
     while time.monotonic() - began < opts.deadline * 60:
         time.sleep(opts.poll)
-        seen = talk.look(number).get("headRefOid", "")
+        seen = talk.look(repo, number).get("headRefOid", "")
         if seen != head and on_tip(seen, root):
             return seen, []
         talk.say(f"#{number}: waiting for Dependabot to rebase {head[:7]}.")

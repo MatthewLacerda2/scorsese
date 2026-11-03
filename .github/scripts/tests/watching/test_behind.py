@@ -101,9 +101,9 @@ class Deciding(unittest.TestCase):
             clock[0] += 600
             return number, queue.MERGED, "why"
 
-        gh = lambda *args: listing if "--label" in args else []  # noqa: E731
         opts = queue.parse(["--watch", "--for", "20"])
-        with mock.patch.object(queue.mergeable, "gh", side_effect=gh), \
+        with mock.patch.object(watch, "waiting", return_value=listing), \
+            mock.patch.object(watch, "everything", return_value=[]), \
             mock.patch.object(queue, "take", side_effect=take) as took, \
             mock.patch.object(watch, "clashing", return_value=set()), \
             mock.patch.object(watch, "against_main", return_value={1: ["x.rs"]}), \

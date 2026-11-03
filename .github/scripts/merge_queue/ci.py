@@ -54,7 +54,7 @@ def wait_for(
     began = time.monotonic()
     rerun: set[int] = set()
     while True:
-        pull = talk.look(number)
+        pull = talk.look(repo, number)
         waited = time.monotonic() - began
         state, lines = verdict.head_state(
             pull.get("headRefOid", ""), sha, before, waited
@@ -71,7 +71,7 @@ def wait_for(
             if state == RERUN:
                 run = verdict.never_judged(runs, jobs)[0]
                 state, lines = rerun_failed(
-                    run, [f"#{number}: {lines[0]}", *lines[1:]]
+                    repo, run, [f"#{number}: {lines[0]}", *lines[1:]]
                 )
                 if state != WAIT:
                     return state, lines
@@ -91,7 +91,7 @@ def wait_for(
         time.sleep(poll)
 
 
-def rerun_failed(run: dict, lines: list[str]) -> tuple[str, list[str]]:
+def rerun_failed(repo: str, run: dict, lines: list[str]) -> tuple[str, list[str]]:
     """Re-run `run`'s failed jobs, the one retry [`not_judged`] allows.
 
     A refusal from GitHub is not a verdict on the code either, so it ends the
@@ -99,7 +99,7 @@ def rerun_failed(run: dict, lines: list[str]) -> tuple[str, list[str]]:
     """
     talk.say(*lines)
     done = subprocess.run(
-        ["gh", "run", "rerun", str(run["id"]), "--failed"],
+        mergeable.pulls.rerun_call(repo, run["id"]),
         capture_output=True,
         text=True,
         check=False,

@@ -10,7 +10,7 @@ import json
 import subprocess
 import time
 
-from . import talk
+from . import mergeable, talk
 from .states import GO, STOP, WAIT
 
 
@@ -55,7 +55,7 @@ def settled(pull: dict | None, waited: float) -> tuple[str, list[str]]:
     ]
 
 
-def merge_record(number: int) -> dict | None:
+def merge_record(repo: str, number: int) -> dict | None:
     """The pull request's merge fields, or `None` if GitHub did not answer.
 
     Not [`look`]: that goes through `mergeable.gh`, which spends minutes
@@ -64,7 +64,7 @@ def merge_record(number: int) -> dict | None:
     window.
     """
     done = subprocess.run(
-        ["gh", "pr", "view", str(number), "--json", "state,mergedAt"],
+        ["gh", "api", f"repos/{repo}/pulls/{number}"],
         capture_output=True,
         text=True,
         check=False,
@@ -72,16 +72,16 @@ def merge_record(number: int) -> dict | None:
     if done.returncode != 0:
         return None
     try:
-        return json.loads(done.stdout)
-    except json.JSONDecodeError:
+        return mergeable.pulls.from_rest(json.loads(done.stdout))
+    except (json.JSONDecodeError, AttributeError):
         return None
 
 
-def confirm(number: int, poll: float) -> tuple[str, list[str]]:
+def confirm(repo: str, number: int, poll: float) -> tuple[str, list[str]]:
     """Ask, until [`settled`] says something other than *wait*."""
     began = time.monotonic()
     while True:
-        state, lines = settled(merge_record(number), time.monotonic() - began)
+        state, lines = settled(merge_record(repo, number), time.monotonic() - began)
         if state != WAIT:
             return state, lines
         talk.say(f"#{number}: {lines[0]}")

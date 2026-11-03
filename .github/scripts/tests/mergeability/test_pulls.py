@@ -101,8 +101,8 @@ class Asking(unittest.TestCase):
         other = shaped(number=2, labels=[{"name": "bug"}])
         self.assertEqual([p["number"] for p in pulls.labelled([shaped(), other], "queue")], [1723])
 
-    def test_the_repository_is_the_origin_remote(self):
-        for url in ("https://github.com/o/r.git", "git@github.com:o/r.git",
+    def test_owner_and_name_from_any_remote_spelling(self):
+        for url in ("https://github.com/o/r", "https://github.com/o/r.git", "git@github.com:o/r.git",
                     "http://local_proxy@127.0.0.1:1234/git/o/r"):
             with self.subTest(url=url):
                 self.assertEqual(pulls.owner_and_name(url), "o/r")
