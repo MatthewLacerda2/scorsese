@@ -27,6 +27,12 @@ plan, asks for everything at once, and writes a line where it would have
 written a paragraph. Its words are its system prompt
 (`crates/server/src/assistant/prompt.rs`) and the tool descriptions.
 
+## What the web charges
+
+The web charges for what a third party bills us, and for nothing we run
+ourselves: paid provider calls at cost times the multiplier, never rendering,
+captures, local synthesis, transcription or storage (docs/web.md, *Credits*).
+
 ## Its machine is shared with users
 
 One of the operator's machines hosts the service: Docker Compose,
