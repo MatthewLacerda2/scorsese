@@ -113,6 +113,24 @@ async fn footage_is_heard_by_a_free_job_then_read_back_corrected_and_captioned(p
     let (said, refused) = call(address, &who, "caption_narration", json!({ "project": id })).await;
     assert!(!refused, "{said}");
     assert!(said.starts_with("1 caption(s) from 1 line(s)"), "{said}");
+    // By default one page lighting the word said, kept with the project.
+    let (captioned, kept) = scorsese_server::projects::open_with_files(&pool, ana, id)
+        .await
+        .expect("the project");
+    assert!(
+        captioned
+            .document
+            .has_asset(&scorsese_core::AssetId::new("caption-page-captions")),
+        "the page"
+    );
+    let page = kept
+        .get("pages/caption-page-captions.html")
+        .expect("the page is kept");
+    assert!(page.contains(r#"["take/dia","dia!"]"#), "{page}");
+
+    let text = json!({ "project": id, "look": "text" });
+    let (said, refused) = call(address, &who, "caption_narration", text).await;
+    assert!(!refused, "{said}");
     let captioned = document(&pool, ana, id).await.document;
     let caption = captioned
         .assets
