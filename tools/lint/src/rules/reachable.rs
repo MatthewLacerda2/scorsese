@@ -4,15 +4,16 @@
 //! rustc compiles only the files a `mod` declaration names, so a test file no
 //! module declares is never built and never run, while the size gate still
 //! counts it as a test. So each suite root (`crates/<crate>/tests/suite/main.rs`,
-//! and `app/tests/panels/main.rs`) is walked through its `mod x;`
+//! and each `app/tests/<binary>/main.rs`) is walked through its `mod x;`
 //! declarations, the way rustc resolves them: `x.rs` or `x/mod.rs` beside a
 //! `main.rs` or `mod.rs`, under a directory named after any other file, and
 //! `#[path = "…"]` relative to the declaring file's own directory. Every
 //! `.rs` under a suite that no walk reaches is flagged. A file reached from
 //! another crate's suite counts as reached: it is compiled there.
 //!
-//! The parse is by line: a `mod x;` inside an inline `mod y { … }` is not
-//! followed, and the file it names is flagged; none exists today.
+//! The parse is by line and reads only unindented declarations: a `mod x;`
+//! inside an inline `mod y { … }` is not followed, and the file it names is
+//! flagged; none exists today.
 //!
 //! An exception, for a file brought in some other way (`include!`), is a
 //! `lint: allow(unreachable-test) <why>` comment in the run of comment lines
@@ -35,7 +36,7 @@ fn suite_dir(path: &Path) -> Option<PathBuf> {
         ["crates", krate, "tests", "suite", ..] => {
             Some(["crates", krate, "tests", "suite"].iter().collect())
         }
-        ["app", "tests", "panels", ..] => Some(["app", "tests", "panels"].iter().collect()),
+        ["app", "tests", binary, _, ..] => Some(["app", "tests", binary].iter().collect()),
         _ => None,
     }
 }
@@ -75,7 +76,13 @@ fn is_mod_rs(path: &Path) -> bool {
 }
 
 /// The `#[path = "…"]` value of one attribute's text, if it is one.
+/// A `#[cfg_attr(<predicate>, path = "…")]` counts too: rustc compiles that
+/// file on the platforms it names.
 fn path_attribute(attribute: &str) -> Option<&str> {
+    let attribute = match attribute.strip_prefix("cfg_attr(") {
+        Some(inner) => inner.strip_suffix(')')?.rsplit(',').next()?.trim(),
+        None => attribute,
+    };
     let value = attribute
         .strip_prefix("path")?
         .trim_start()
@@ -85,13 +92,20 @@ fn path_attribute(attribute: &str) -> Option<&str> {
 }
 
 /// The outline modules `text` declares: each `mod x;` with its `#[path]`,
-/// whether on its own line or on the attribute lines directly above.
+/// whether on its own line or on the attribute lines directly above. An
+/// indented line is inside an inline module or an item and declares nothing
+/// at the file's top level, so it is not read: a file only such a line names
+/// is flagged rather than wrongly counted as reached.
 fn declarations(text: &str) -> Vec<(String, Option<String>)> {
     let mut found = Vec::new();
     let mut pending: Option<String> = None;
     for line in text.lines() {
         let mut rest = line.trim();
         if is_comment(rest) || rest.is_empty() {
+            continue;
+        }
+        if line.starts_with(char::is_whitespace) {
+            pending = None;
             continue;
         }
         while let Some(after) = rest.strip_prefix("#[") {
@@ -114,7 +128,7 @@ fn declarations(text: &str) -> Vec<(String, Option<String>)> {
 
 /// The name in `[pub[(…)]] mod name;`, if the line is one.
 fn outline_module(line: &str) -> Option<&str> {
-    let mut rest = line;
+    let mut rest = line.split("//").next().unwrap_or(line).trim_end();
     if let Some(after) = rest.strip_prefix("pub") {
         rest = after.trim_start();
         if let Some(scoped) = rest.strip_prefix('(') {
