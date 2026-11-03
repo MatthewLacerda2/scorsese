@@ -534,7 +534,12 @@ def issue_labels(
             number = ref.get("number")
             if number is None or number in known:
                 continue
-            found = mergeable.gh("api", f"repos/{repo}/issues/{number}")
+            try:
+                found = mergeable.gh("api", f"repos/{repo}/issues/{number}")
+            except mergeable.Answered:
+                # No such issue: no rank, and its own turn's closing check
+                # refuses the number; one typo never stops the watch.
+                found = {}
             known[number] = mergeable.closing.labels(found)
     return known
 

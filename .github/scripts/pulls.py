@@ -44,6 +44,7 @@ def from_rest(rest: dict) -> dict:
     """`repos/{repo}/pulls/N`, or one entry of the listing, in GraphQL's field names."""
     head, base = rest.get("head") or {}, rest.get("base") or {}
     body = rest.get("body") or ""
+    repo = (base.get("repo") or {}).get("full_name", "")
     state = "MERGED" if rest.get("merged") else str(rest.get("state") or "").upper()
     return {
         "number": rest.get("number"),
@@ -59,7 +60,7 @@ def from_rest(rest: dict) -> dict:
         "mergedAt": rest.get("merged_at"),
         "mergeable": MERGEABLE.get(rest.get("mergeable"), "UNKNOWN"),
         "mergeStateStatus": str(rest.get("mergeable_state") or "unknown").upper(),
-        "closingIssuesReferences": [{"number": n} for n in closing.in_body(body)],
+        "closingIssuesReferences": [{"number": n} for n in closing.in_body(body, repo)],
     }
 
 

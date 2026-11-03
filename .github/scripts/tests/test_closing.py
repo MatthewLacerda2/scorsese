@@ -51,6 +51,21 @@ class Referenced(unittest.TestCase):
         }
         self.assertEqual(closing.referenced(pull), [1, 2, 3, 6])
 
+    def test_this_repositorys_url_and_qualified_number_close_too(self) -> None:
+        # GitHub closes these as it closes `#N`; another repository's are not ours.
+        body = ("Closes https://github.com/o/r/issues/7\nFixes o/r#8\nresolves O/R#9\n"
+                "Closes other/repo#10\nFixes https://github.com/other/repo/issues/11")
+        self.assertEqual(closing.in_body(body, "o/r"), [7, 8, 9])
+        self.assertEqual(closing.in_body(body), [])
+
+    def test_the_merge_path_asks_about_them(self) -> None:
+        asked = []
+        pull = {"body": "Closes https://github.com/o/r/issues/1800"}
+        closing.closed_by(lambda _api, path: asked.append(path) or {}, "o/r", pull)
+        self.assertEqual(asked, ["repos/o/r/issues/1800"])
+        rest = {"body": "Fixes o/r#8", "base": {"repo": {"full_name": "o/r"}}}
+        self.assertEqual(mergeable.pulls.from_rest(rest)["closingIssuesReferences"], [{"number": 8}])
+
     def test_a_link_inside_markdown_is_not_a_keyword(self) -> None:
         # How Dependabot quotes an upstream changelog: a link, never `#N` bare.
         pull = {"body": "Fixes [#123](https://github.com/x/y/issues/123)"}

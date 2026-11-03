@@ -169,6 +169,11 @@ class Unreachable(Exception):
     """
 
 
+class Answered(SystemExit):
+    """GitHub answered a question with a failure (a 404, a 422): fatal, as
+    `sys.exit` with the message, unless a caller can go on without the answer."""
+
+
 def transport(stderr: str) -> bool:
     """Whether a failed `gh` call failed *in transit* rather than being answered.
 
@@ -192,7 +197,7 @@ def gh(*args: str) -> object:
 
     A failure in transit (see [`transport`]) is retried after each of
     [`RETRY_DELAYS`], then raised as [`Unreachable`]. Any other failure is an
-    answer, and is fatal at once, as it always was.
+    answer, and is fatal at once, as it always was ([`Answered`]).
 
     Only ever used for questions. The queue's merge call does not come through
     here: retrying a merge that may already have happened is how one gets
@@ -208,7 +213,7 @@ def gh(*args: str) -> object:
             return json.loads(done.stdout)
         failure = done.stderr.strip()
         if not transport(failure):
-            sys.exit(f"mergeable: {command}: {failure}")
+            raise Answered(f"mergeable: {command}: {failure}")
         if delay is None:
             raise Unreachable(
                 f"network: GitHub unreachable after {attempt} tries of"

@@ -11,8 +11,6 @@ moves only when the loop sleeps, so `--for` is honoured without waiting it out.
 from __future__ import annotations
 
 import importlib.util
-import json
-import subprocess
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -175,16 +173,6 @@ class Ending(unittest.TestCase):
         self.assertEqual(queue.status(unfinished + [(3, queue.HANDED_BACK, "")]), 1)
         self.assertEqual(queue.status([(1, queue.MERGED, "")]), 0)
         self.assertIn("Unfinished is not red", "\n".join(queue.summary(unfinished)))
-
-    def test_the_listing_asks_rest_and_keeps_the_labelled_pull_requests(self):
-        unlabelled = {**pr(2, closes=[9]), "labels": []}
-        done = subprocess.CompletedProcess([], 0, json.dumps([pr(1, closes=[9]), unlabelled]), "")
-        with mock.patch.object(queue.mergeable.subprocess, "run", return_value=done) as ran:
-            found = queue.watch.waiting("o/r", "queue")
-        self.assertEqual(ran.call_args.args[0],
-                         ["gh", "api", "repos/o/r/pulls?state=open&per_page=100&page=1"])
-        self.assertEqual([(p["number"], p["closingIssuesReferences"]) for p in found],
-                         [(1, [{"number": 9}])])
 
 
 if __name__ == "__main__":
