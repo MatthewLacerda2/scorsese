@@ -1,0 +1,9 @@
+{
+  "description": "The captions caption_narration writes by default (#1550): one page lighting the word being said, read from a transcript carried beside the voice (assets/voice.wav.words.json). The page and the captions track are exactly what a re-run of the tool writes over this project, which `captions::a_rerun_writes_the_fixture_unchanged` holds. The bed is dark above and white below a seam through the caption line, so the black rim is what keeps the lower half of the white letters readable. Frame 6: ONTEM, alone, lit yellow. Frame 21: O PRESIDENTE LULA, presidente lit, the name kept with the word before it. Frame 36: the same caption, the light moved to LULA. Frame 54: VISITOU, the next caption. Wrong letters, a missing rim, the light on the wrong word or LULA in a caption of its own are each a real failure.",
+  "media": {
+    "bed": "color=c=white:s=270x105:d=2.5:r=30,pad=270:480:0:375:color=0x204060",
+    "voice": "sine=f=220:d=2.5"
+  },
+  "render": { "resolution": "270x480", "fps": "30" },
+  "frames": [6, 21, 36, 54]
+}

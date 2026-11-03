@@ -1,0 +1,29 @@
+{
+  "words": [
+    {
+      "text": "Ontem,",
+      "start": 0.1,
+      "end": 0.4
+    },
+    {
+      "text": "o",
+      "start": 0.5,
+      "end": 0.6
+    },
+    {
+      "text": "presidente",
+      "start": 0.6,
+      "end": 1.0
+    },
+    {
+      "text": "Lula",
+      "start": 1.0,
+      "end": 1.4
+    },
+    {
+      "text": "visitou",
+      "start": 1.6,
+      "end": 2.0
+    }
+  ]
+}

@@ -3,6 +3,7 @@
 //! Each module is what used to be a test binary of its own; one binary
 //! links once instead of once per file.
 
+mod captions;
 mod comparing;
 mod failing;
 mod goldens;
