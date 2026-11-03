@@ -21,9 +21,9 @@
 use std::collections::BTreeSet;
 
 use egui::{RichText, Ui};
-use scorsese_core::{AssetId, AssetKind, ClipId, Frames, Project, TrackId};
+use scorsese_core::{AssetId, ClipId, Frames, Project, TrackId};
 
-use super::one::kind_name;
+use super::one::name;
 use super::time;
 
 /// Several selected clips, read out of the document in one pass.
@@ -36,9 +36,9 @@ pub(super) struct Several {
     count: usize,
     /// The asset every one of them shows, when they all show the same one.
     asset: Option<AssetId>,
-    /// What they are, when they agree on the kind even if not on the asset —
+    /// What they are called, when they agree on it even if not on the asset —
     /// "four text clips" is a useful thing to know about a run of titles.
-    kind: Option<AssetKind>,
+    what: Option<&'static str>,
     /// The track they all sit on, when it is one track.
     track: Option<TrackId>,
     /// How many tracks they are spread over, for when it is not one.
@@ -62,11 +62,11 @@ impl Several {
         Some(Self {
             count: found.len(),
             asset: agreed(found.iter().map(|(_, clip)| Some(clip.asset.clone()))),
-            kind: agreed(
-                found
-                    .iter()
-                    .map(|(_, clip)| project.asset(&clip.asset).map(|asset| asset.kind)),
-            ),
+            what: agreed(found.iter().map(|(_, clip)| {
+                project
+                    .asset(&clip.asset)
+                    .map(|asset| name(asset.kind, asset.audio_block()))
+            })),
             track: (tracks.len() == 1).then(|| first.0.id.clone()),
             tracks: tracks.len(),
             span: (
@@ -121,10 +121,10 @@ fn where_they_are(several: &Several) -> String {
 /// asset, the kind when it is not — and nothing at all when a selection is a
 /// title, a shot and a piece of music, because "mixed" is not information.
 fn what_they_are(several: &Several) -> Option<String> {
-    match (&several.asset, several.kind) {
-        (Some(asset), Some(kind)) => Some(format!("all {asset} · {}", kind_name(kind))),
+    match (&several.asset, several.what) {
+        (Some(asset), Some(what)) => Some(format!("all {asset} · {what}")),
         (Some(asset), None) => Some(format!("all {asset}")),
-        (None, Some(kind)) => Some(format!("all {}", kind_name(kind))),
+        (None, Some(what)) => Some(format!("all {what}")),
         (None, None) => None,
     }
 }
@@ -167,7 +167,7 @@ mod tests {
         assert_eq!(what_they_are(&both).as_deref(), Some("all shot · video"));
 
         let across = Several::of(&project(), &selection(&["c1", "c3"])).expect("both are there");
-        assert!(across.asset.is_none() && across.kind.is_none());
+        assert!(across.asset.is_none() && across.what.is_none());
         assert_eq!(what_they_are(&across), None);
         assert_eq!(where_they_are(&across), "across 2 tracks");
     }
