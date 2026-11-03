@@ -78,6 +78,7 @@
 //! in it.
 
 pub(crate) mod bands;
+pub(crate) mod defects;
 pub(crate) mod diff;
 pub(crate) mod gain;
 pub(crate) mod integrated;
@@ -88,6 +89,7 @@ pub(crate) mod peaks;
 pub(crate) mod profile;
 
 pub use bands::{BandMeter, Bands};
+pub use defects::{Defect, DefectFinder, Defects, Tally, WORST};
 pub use diff::{BandsDifference, Difference};
 pub use gain::{db_to_gain, db_to_gain_f32, gain_to_db, gain_to_db_f32};
 pub use integrated::Integrated;
