@@ -135,13 +135,13 @@ fn outline_module(line: &str) -> Option<&str> {
             rest = scoped.split_once(')')?.1.trim_start();
         }
     }
-    let name = rest
-        .strip_prefix("mod ")?
-        .trim()
-        .strip_suffix(';')?
-        .trim_end();
-    let bare = name.trim_start_matches("r#");
-    (!bare.is_empty() && bare.chars().all(|c| c.is_alphanumeric() || c == '_')).then_some(name)
+    // A name that is no identifier names no file, so the lookup refuses it.
+    Some(
+        rest.strip_prefix("mod ")?
+            .trim()
+            .strip_suffix(';')?
+            .trim_end(),
+    )
 }
 
 /// The files `file`'s declarations name that are in `files`.

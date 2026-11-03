@@ -11,7 +11,7 @@ fn path_attributes_and_both_module_layouts_are_followed() {
     let tree = [
         (
             "crates/cli/tests/suite/main.rs",
-            "mod help;\npub(crate) mod common;\n#[cfg(unix)] mod nested;\nmod r#type;\n",
+            "mod help;\npub(crate) mod common;\nmod the_rest;\n#[cfg(unix)] mod nested;\nmod r#type;\n",
         ),
         // A `#[path]` in a file that is not a `mod.rs` is relative to its own
         // directory, not to the module directory it would otherwise use.
@@ -22,7 +22,7 @@ fn path_attributes_and_both_module_layouts_are_followed() {
         ("crates/cli/tests/suite/help/walk.rs", TEST),
         (
             "crates/cli/tests/suite/common/mod.rs",
-            "#[path = \"../../../../../tools/scratch.rs\"]\nmod scratch;\n#[path = \"shared.rs\"] mod renamed;\n",
+            "#[path = \"../../../../../tools/scratch.rs\"]\nmod scratch;\n#[path = \"shared.rs\"]\n// Renamed.\nmod renamed;\n",
         ),
         ("crates/cli/tests/suite/common/shared.rs", TEST),
         ("tools/scratch.rs", TEST),
@@ -31,6 +31,7 @@ fn path_attributes_and_both_module_layouts_are_followed() {
         ("crates/cli/tests/suite/nested.rs", "mod deeper;\n"),
         ("crates/cli/tests/suite/nested/deeper.rs", TEST),
         ("crates/cli/tests/suite/type.rs", TEST),
+        ("crates/cli/tests/suite/the_rest.rs", TEST),
         // Data, not modules.
         ("crates/core/tests/fixtures/make.rs", TEST),
         ("crates/compositor/tests/fonts/x.rs", TEST),
