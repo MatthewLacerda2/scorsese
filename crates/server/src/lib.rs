@@ -21,8 +21,9 @@
 //! ## axum and sqlx
 //!
 //! **axum** because it is the tokio project's own framework: the runtime sqlx
-//! needs anyway, `tower` middleware for the auth and rate limiting later
-//! issues add, and no macros between a handler and what it is — a handler is
+//! needs anyway, `tower-http`'s `TraceLayer` for the request log
+//! (auth is an extractor and rate limiting is hand-written, neither is
+//! middleware), and no macros between a handler and what it is — a handler is
 //! an `async fn`. **sqlx** because it is SQL rather than a query DSL — a table
 //! here is read in the language it was written in — with migrations built in
 //! and embedded in the binary ([`db`]), and a test harness (`#[sqlx::test]`)
