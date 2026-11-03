@@ -7,9 +7,9 @@ use crate::keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
 use crate::text::Reveal;
 use crate::timeline::{Anchor, AnchorY, Clip, ClipId, Track, TrackId, TrackKind};
 use crate::words::Words;
-use crate::{Asset, AssetId, AssetKind, Frames, Project};
+use crate::{Asset, AssetId, AssetKind, Frames, Project, write_page};
 
-use super::{Captioning, Chunk, PREFIX, TOOL, chunks, time};
+use super::{Captioning, Chunk, Look, PREFIX, PageHtml, TOOL, chunks, time};
 
 /// What one run of captioning did.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -23,6 +23,9 @@ pub struct Captioned {
     pub silenced: Vec<ClipId>,
     /// How many captions from an earlier run were taken away first.
     pub replaced: usize,
+    /// The page the captions were written as, for [`Look::Page`] — `None`
+    /// when there were none to write, or they are text.
+    pub page: Option<AssetId>,
 }
 
 /// Why a run wrote nothing.
@@ -47,6 +50,9 @@ pub enum CaptionError {
     /// An id a caption needs is held by something the run did not write.
     #[error("`{0}` is already taken by something that is not a caption")]
     Taken(String),
+    /// The captions' page could not be written.
+    #[error("the captions' page could not be written: {0}")]
+    Unwritable(String),
 }
 
 /// Writes captions for every timed narration line in `project`, read from the
@@ -81,7 +87,11 @@ pub fn caption(
             None => report.untimed.push(clip.id.clone()),
         }
     }
-    place(&mut next, time(all, asked.chunking), asked)?;
+    let timed = time(all, asked.chunking);
+    match asked.look {
+        Look::Text => place(&mut next, timed, asked)?,
+        Look::Page(html) => report.page = page(&mut next, root, timed, asked, html)?,
+    }
     *project = next;
     Ok(report)
 }
@@ -146,8 +156,9 @@ fn silenced(clip: &Clip, volume: Option<&PropertyPath>) -> bool {
     })
 }
 
-/// Takes away every caption an earlier run wrote, and the caption assets
-/// nothing shows any more. Returns how many clips went.
+/// Takes away every caption an earlier run wrote, and the text caption assets
+/// nothing shows any more — a caption page is kept, for the next page run to
+/// rewrite in place. Returns how many clips went.
 fn withdraw(project: &mut Project) -> usize {
     let mut gone = 0;
     for track in &mut project.tracks {
@@ -171,9 +182,8 @@ fn is_ours(id: &str) -> bool {
     id.starts_with(PREFIX)
 }
 
-/// Puts each caption on the captions' track, making the track if need be.
-fn place(project: &mut Project, timed: Vec<Chunk>, asked: &Captioning) -> Result<(), CaptionError> {
-    let fps = project.timeline_fps;
+/// The captions' track, made on top if the project has none so called.
+fn track(project: &mut Project, asked: &Captioning) -> Result<usize, CaptionError> {
     let index = match project.tracks.iter().position(|t| t.id == asked.track) {
         Some(index) if project.tracks[index].kind != TrackKind::Video => {
             return Err(CaptionError::NotVideo(asked.track.clone()));
@@ -186,6 +196,13 @@ fn place(project: &mut Project, timed: Vec<Chunk>, asked: &Captioning) -> Result
             project.tracks.len() - 1
         }
     };
+    Ok(index)
+}
+
+/// Puts each caption on the captions' track, making the track if need be.
+fn place(project: &mut Project, timed: Vec<Chunk>, asked: &Captioning) -> Result<(), CaptionError> {
+    let fps = project.timeline_fps;
+    let index = track(project, asked)?;
     let mut counts: Vec<(ClipId, usize)> = Vec::new();
     for chunk in timed {
         let start = fps.frames(chunk.start);
@@ -224,6 +241,64 @@ fn place(project: &mut Project, timed: Vec<Chunk>, asked: &Captioning) -> Result
     }
     project.tracks[index].sort_clips();
     Ok(())
+}
+
+/// Writes the captions as one page, `caption-page-<track>`, and plays it with
+/// one clip from the first caption's arrival to the last one's leaving. The
+/// page already there under that id is rewritten, not forked.
+fn page(
+    project: &mut Project,
+    root: &Path,
+    timed: Vec<Chunk>,
+    asked: &Captioning,
+    html: PageHtml,
+) -> Result<Option<AssetId>, CaptionError> {
+    let fps = project.timeline_fps;
+    let index = track(project, asked)?;
+    let shown: Vec<Chunk> = timed
+        .into_iter()
+        .filter(|chunk| fps.frames(chunk.end) > fps.frames(chunk.start))
+        .collect();
+    let (Some(first), Some(last)) = (
+        shown.first().map(|chunk| fps.frames(chunk.start)),
+        shown.iter().map(|chunk| fps.frames(chunk.end)).max(),
+    ) else {
+        return Ok(None);
+    };
+    let id = crate::asset::tidy(&format!("{PREFIX}page-{}", asked.track));
+    let held = project
+        .asset(&AssetId::new(id.as_str()))
+        .is_some_and(|asset| asset.kind != AssetKind::Html)
+        || project.every_clip().any(|(_, clip)| clip.id.as_str() == id);
+    if held {
+        return Err(CaptionError::Taken(id));
+    }
+    let clip = Clip::new(
+        ClipId::new(id.as_str()),
+        AssetId::new(id.as_str()),
+        first,
+        Frames(last.get() - first.get()),
+    );
+    let track = &project.tracks[index];
+    if let Some(other) = track.first_overlap(&clip) {
+        return Err(CaptionError::Overlap {
+            caption: clip.id,
+            clip: other.id.clone(),
+            track: track.id.clone(),
+        });
+    }
+    let written = write_page(project, root, &id, &html(asked, &shown))
+        .map_err(|error| CaptionError::Unwritable(error.to_string()))?;
+    if let Some(asset) = project.assets.iter_mut().find(|a| a.id == written.id) {
+        asset.note = Some(format!(
+            "The captions on track `{}`, written by the captioning tool. Running \
+             it again rewrites this page; rename it to keep an edit.",
+            asked.track
+        ));
+    }
+    project.tracks[index].clips.push(clip);
+    project.tracks[index].sort_clips();
+    Ok(Some(written.id))
 }
 
 /// The text a caption shows, in the run's style, arriving whole.
