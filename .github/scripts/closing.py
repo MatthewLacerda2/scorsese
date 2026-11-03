@@ -13,10 +13,12 @@ The same pass refuses a closing keyword that points at a pull request or at an
 issue already closed: a typo'd number closes nothing GitHub will tell anybody
 about, and the issue that was meant stays open after the merge.
 
-Which issues a pull request closes is read two ways and joined, because each
-misses something: GitHub's `closingIssuesReferences` holds the issues linked
-in the sidebar too, and never a pull request or a number it could not resolve;
-the body is where a keyword pointing at the wrong thing is still visible.
+Which issues a pull request closes is read from its body, by the keyword rule
+GitHub applies ([`in_body`]: `#N`, `owner/name#N` and the issue's URL, the last
+two only for this repository): the merge path asks REST only (`pulls.py`), and
+REST has no `closingIssuesReferences`, so an issue linked only in the sidebar
+is not seen. The body is also where a keyword pointing at the wrong thing is
+still visible. A `closingIssuesReferences` handed in is joined to it.
 
 Pure but for [`closed_by`], which asks GitHub over REST (`issues/N` answers for
 a pull request number too, and says so with a `pull_request` key).
@@ -29,17 +31,33 @@ import re
 # The labels that mean *do not start* (`CLAUDE.md`, *Stage labels*).
 STAGES = ("planning", "human")
 
-# GitHub's closing keywords, then `#N` in this repository. GitHub matches them
-# anywhere in a description, quoted or negated alike, so
-# this does too: a PR meaning to leave an issue open writes `refs #N`.
+# GitHub's closing keywords, then an issue: `#N`, `owner/name#N`, or
+# `https://github.com/owner/name/issues/N`; the repository is captured, empty
+# for `#N`. GitHub matches them anywhere in a description, quoted or negated
+# alike, so this does too: a PR meaning to leave an issue open writes `refs #N`.
 KEYWORD = re.compile(
-    r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+#(\d+)\b", re.IGNORECASE
+    r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+"
+    r"(?:https://github\.com/([\w.-]+/[\w.-]+)/issues/|([\w.-]+/[\w.-]+)?#)(\d+)\b",
+    re.IGNORECASE,
 )
 
 
-def referenced(pull: dict) -> list[int]:
+def in_body(body: str, repo: str = "") -> list[int]:
+    """Every issue of `repo` a description's closing keywords name, once each.
+
+    A reference naming its repository counts only when it names `repo`: another
+    repository's issue is not this one's number.
+    """
+    return sorted({
+        int(number)
+        for url, named, number in KEYWORD.findall(body or "")
+        if not (url or named) or (url or named).lower() == repo.lower()
+    })
+
+
+def referenced(pull: dict, repo: str = "") -> list[int]:
     """Every issue number this pull request closes, by keyword or by link."""
-    numbers = {int(found) for found in KEYWORD.findall(pull.get("body") or "")}
+    numbers = set(in_body(pull.get("body") or "", repo))
     numbers |= {
         ref["number"]
         for ref in pull.get("closingIssuesReferences") or []
@@ -101,4 +119,4 @@ def both_stages(issues: list[dict]) -> list[str]:
 
 def closed_by(gh, repo: str, pull: dict) -> dict[int, dict]:
     """GitHub's answer for every number [`referenced`] finds, through `gh`."""
-    return {number: gh("api", f"repos/{repo}/issues/{number}") for number in referenced(pull)}
+    return {number: gh("api", f"repos/{repo}/issues/{number}") for number in referenced(pull, repo)}

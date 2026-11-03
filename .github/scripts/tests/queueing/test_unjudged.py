@@ -125,7 +125,9 @@ class WaitFor(unittest.TestCase):
         (state, _), gh = self.polled([stale, stale, live, green])
         self.assertEqual(state, queue.GO)
         gh.assert_called_once()
-        self.assertEqual(gh.call_args.args[0], ["gh", "run", "rerun", str(RUN["id"]), "--failed"])
+        self.assertEqual(gh.call_args.args[0], [
+            "gh", "api", "-X", "POST", f"repos/o/r/actions/runs/{RUN['id']}/rerun-failed-jobs",
+        ])
 
     def test_a_refused_re_run_is_unfinished_not_red(self):
         run, jobs = recorded()

@@ -2,8 +2,8 @@
 """The watch loop in `merge-queue.py`, with GitHub and the clock replaced (#690).
 
 `gh` is replaced at `mergeable.gh` — the one door every question goes through —
-and answers each `pr list` with the next listing in a script, so a test reads
-as *what GitHub showed, poll by poll*. `take` is replaced by the outcome a real
+and answers each REST listing of open pull requests with the next in a script,
+so a test reads as *what GitHub showed, poll by poll*. `take` is replaced by the outcome a real
 branch would have had: its per-branch steps are `queueing/test_queue.py`'s. Time
 moves only when the loop sleeps, so `--for` is honoured without waiting it out.
 """
@@ -11,8 +11,6 @@ moves only when the loop sleeps, so `--for` is honoured without waiting it out.
 from __future__ import annotations
 
 import importlib.util
-import json
-import subprocess
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -24,14 +22,16 @@ _spec.loader.exec_module(queue)
 
 
 def pr(number: int, *labels: str, head=None, closes=()):
+    """One open pull request labelled `queue`, as REST lists it."""
     return {
         "number": number,
-        "isDraft": False,
-        "headRefOid": head or f"{number:040x}",
-        "baseRefName": "main",
-        "createdAt": f"2026-10-03T10:{number % 60:02d}:00Z",
-        "labels": [{"name": name} for name in labels],
-        "closingIssuesReferences": [{"number": n} for n in closes],
+        "state": "open",
+        "draft": False,
+        "head": {"sha": head or f"{number:040x}", "ref": f"b{number}"},
+        "base": {"ref": "main"},
+        "created_at": f"2026-10-03T10:{number % 60:02d}:00Z",
+        "labels": [{"name": name} for name in ("queue", *labels)],
+        "body": "".join(f"Closes #{n}\n" for n in closes),
     }
 
 
@@ -47,15 +47,14 @@ class Watching(unittest.TestCase):
         last = [listings[-1]]
         taken = []
 
-        def gh(*args):
-            if args[:2] == ("pr", "list") and "--label" not in args:
-                return []  # the board (#819): `test_board.py`'s
-            if args[:2] == ("pr", "list"):
+        def gh(api, path):
+            if path.startswith("repos/o/r/pulls?state=open&"):
                 last[0] = next(polls, last[0])
                 return last[0]
-            if args[:2] == ("issue", "view"):
-                return {"labels": [{"name": n} for n in (issues or {}).get(int(args[2]), [])]}
-            raise AssertionError(f"unexpected gh {args}")
+            if path.startswith("repos/o/r/issues/"):
+                number = int(path.rsplit("/", 1)[1])
+                return {"labels": [{"name": n} for n in (issues or {}).get(number, [])]}
+            raise AssertionError(f"unexpected gh {api} {path}")
 
         def take(repo, number, opts, heads=None, tick=None):
             taken.append(number)
@@ -70,6 +69,7 @@ class Watching(unittest.TestCase):
 
         opts = queue.parse(["--watch", "--for", "60", *extra])
         with mock.patch.object(queue.mergeable, "gh", side_effect=gh), \
+            mock.patch.object(queue.watch, "everything", return_value=[]), \
             mock.patch.object(queue, "take", side_effect=take), \
             mock.patch.object(queue.watch, "clashing", side_effect=lambda *_: clashes), \
             mock.patch.object(queue.watch, "against_main", return_value={}), \
@@ -173,15 +173,6 @@ class Ending(unittest.TestCase):
         self.assertEqual(queue.status(unfinished + [(3, queue.HANDED_BACK, "")]), 1)
         self.assertEqual(queue.status([(1, queue.MERGED, "")]), 0)
         self.assertIn("Unfinished is not red", "\n".join(queue.summary(unfinished)))
-
-    def test_the_listing_asks_for_ready_labelled_pull_requests(self):
-        done = subprocess.CompletedProcess([], 0, json.dumps([]), "")
-        with mock.patch.object(queue.mergeable.subprocess, "run", return_value=done) as ran:
-            queue.watch.waiting("queue")
-        command = ran.call_args.args[0]
-        self.assertEqual(command[:3], ["gh", "pr", "list"])
-        self.assertIn("queue", command)
-        self.assertIn("closingIssuesReferences", command[-1])
 
 
 if __name__ == "__main__":

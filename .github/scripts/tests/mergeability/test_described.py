@@ -63,7 +63,7 @@ def github(pull: dict, files: list[str] = (), comments: list[str] = (),
 
 def ask(pull: dict, **facts) -> tuple[bool, list[str]]:
     gh = github(pull, **facts)
-    shaped = described.gather(gh, REPO, described.from_rest(gh("api", f"repos/{REPO}/pulls/1702")))
+    shaped = described.gather(gh, REPO, described.pulls.view(gh, REPO, 1702))
     return described.check(shaped)
 
 
@@ -132,7 +132,7 @@ class Command(unittest.TestCase):
         out = io.StringIO()
         with mock.patch.object(described, "github",
                                   return_value=(github(pull, **facts), Offline, 3)), \
-                mock.patch.object(described, "repository", return_value=REPO), \
+                mock.patch.object(described.pulls, "repository", return_value=REPO), \
                 redirect_stdout(out), redirect_stderr(out):
             code = described.main(["1702"])
         return code, out.getvalue()
@@ -149,15 +149,6 @@ class Command(unittest.TestCase):
     def test_it_asks_for_a_number(self):
         with redirect_stderr(io.StringIO()):
             self.assertEqual(described.main([]), 2)
-
-
-class Repository(unittest.TestCase):
-    def test_owner_and_name_from_any_remote_spelling(self):
-        for url in ("https://github.com/MatthewLacerda2/scorsese",
-                    "https://github.com/MatthewLacerda2/scorsese.git",
-                    "git@github.com:MatthewLacerda2/scorsese.git",
-                    "http://local_proxy@127.0.0.1:1234/git/MatthewLacerda2/scorsese"):
-            self.assertEqual(described.owner_and_name(url), REPO, url)
 
 
 if __name__ == "__main__":

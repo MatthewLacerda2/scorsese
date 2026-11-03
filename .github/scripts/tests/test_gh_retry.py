@@ -75,6 +75,9 @@ class Retrying(unittest.TestCase):
     def test_a_404_is_an_answer_and_is_asked_once(self):
         stopped, run, slept = ask(done(1, stderr=NOT_FOUND))
         self.assertIsInstance(stopped, SystemExit)
+        # Its own class, so the one caller that may go on without it can say so.
+        self.assertIsInstance(stopped, mergeable.Answered)
+        self.assertIn("Could not resolve", str(stopped.code))
         self.assertNotIsInstance(stopped, mergeable.Unreachable)
         self.assertEqual(run.call_count, 1)
         slept.assert_not_called()

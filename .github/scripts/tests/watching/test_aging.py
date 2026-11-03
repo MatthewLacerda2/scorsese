@@ -71,9 +71,7 @@ class Watching(unittest.TestCase):
         stream = iter(range(10, 30))
         line = [pr(1), pr(2)]
 
-        def gh(*args):
-            if "--label" not in args:
-                return []  # the board (#819): `test_board.py`'s
+        def waiting(*_):  # the board (#819) is `test_board.py`'s
             if not any(p["number"] >= 10 for p in line):
                 line.append(pr(next(stream)))
             return list(line)
@@ -89,7 +87,8 @@ class Watching(unittest.TestCase):
             return {frozenset((1, 2))} if {1, 2} <= present else set()
 
         opts = queue.parse(["--watch", "--for", "60"])
-        with mock.patch.object(queue.mergeable, "gh", side_effect=gh), \
+        with mock.patch.object(watch, "waiting", side_effect=waiting), \
+            mock.patch.object(watch, "everything", return_value=[]), \
             mock.patch.object(queue, "take", side_effect=take), \
             mock.patch.object(watch, "clashing", side_effect=clashing), \
             mock.patch.object(watch, "against_main", return_value={}), \
@@ -107,9 +106,7 @@ class Watching(unittest.TestCase):
         stream = iter(range(10, 30))
         line = [pr(1), pr(2)]
 
-        def gh(*args):
-            if "--label" not in args:
-                return []
+        def waiting(*_):
             if not any(p["number"] >= 10 for p in line):
                 line.append(pr(next(stream)))
             return list(line)
@@ -126,7 +123,8 @@ class Watching(unittest.TestCase):
 
         opts = queue.parse(["--watch", "--for", "5"])
         with tempfile.TemporaryDirectory() as root, \
-            mock.patch.object(queue.mergeable, "gh", side_effect=gh), \
+            mock.patch.object(watch, "waiting", side_effect=waiting), \
+            mock.patch.object(watch, "everything", return_value=[]), \
             mock.patch.object(queue, "take", side_effect=take), \
             mock.patch.object(watch, "clashing", side_effect=clashing), \
             mock.patch.object(watch, "against_main", return_value={}), \

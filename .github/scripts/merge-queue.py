@@ -116,7 +116,11 @@ failure — a 5xx, a timeout, a reset connection — says nothing about the merg
 and the pull request is asked whether it merged before anything is concluded
 ([`mergeable.transport`], [`landed`]). A **refusal** GitHub reasoned about — a
 409, "not mergeable", a protected branch — is a real no, and is handed back with
-no second call.
+no second call. The merge names the head CI passed on, so a head that moved
+since is a 409, never a merge of what nothing checked.
+
+Every call is REST (`gh api`, shaped by `pulls.py`): a cloud container's proxy
+refuses GraphQL, and the queue runs there too (#1724).
 
 Every *question* the queue asks goes through `mergeable.gh`, which retries a
 failure in transit for a few minutes before calling GitHub unreachable. An
@@ -244,7 +248,7 @@ def take(
     by — the one it found, or the one it pushed. The watch keeps it so that a
     branch handed back is not taken again until somebody pushes a new head.
     """
-    pull = talk.look(number)
+    pull = talk.look(repo, number)
     if heads is not None:
         heads[number] = pull.get("headRefOid", "")
     if pull.get("state") != "OPEN":
@@ -272,7 +276,7 @@ def take(
     began = time.monotonic()
     if watch.is_bot(pull):
         talk.say(f"#{number} ({branch}): Dependabot's branch; it rebases itself.")
-        fresh, refused = rebase.bot_head(number, head, opts.root, opts)
+        fresh, refused = rebase.bot_head(repo, number, head, opts.root, opts)
     else:
         talk.say(f"#{number} ({branch}): rebasing {head[:7]} onto origin/main.")
         fresh, refused = rebase.advance(branch, head, opts.root)
@@ -298,8 +302,9 @@ def take(
     if opts.no_merge:
         return number, GREEN, lines[0]
 
+    # Pinned to the head CI was watched on: GitHub refuses a head that moved.
     done = subprocess.run(
-        ["gh", "pr", "merge", str(number), "--squash"],
+        mergeable.pulls.merge_call(repo, number, fresh),
         capture_output=True,
         text=True,
         check=False,
@@ -311,7 +316,7 @@ def take(
             talk.say(f"#{number}: {blocked}")
             return number, HANDED_BACK, blocked
         talk.say(f"#{number}: the merge call failed in transit: {failure}")
-        state, after = merge.confirm(number, opts.poll)
+        state, after = merge.confirm(repo, number, opts.poll)
         talk.say(f"#{number}: {after[0]}", *after[1:])
         if state != GO:
             return number, HANDED_BACK, after[0]
@@ -370,7 +375,7 @@ def run_watch(
     merges: dict[frozenset[str], bool] = {}
     behind_main: dict[frozenset[str], list[str] | None] = {}
     passes = tally.load(tally_path) if tally_path else {}
-    board = watch.Board(opts.since)
+    board = watch.Board(repo, opts.since)
     stop_taking = time.monotonic() + opts.watch_for * 60
 
     def tick() -> None:
@@ -390,12 +395,12 @@ def run_watch(
     try:
         while True:
             tick()
-            pulls = watch.waiting(opts.label)
+            pulls = watch.waiting(repo, opts.label)
             if time.monotonic() >= stop_taking:
                 for number in watch.in_line(pulls, dropped):
                     record(number, UNFINISHED, "still in line when the watch ended.")
                 return results
-            labels = watch.issue_labels(pulls, issues)
+            labels = watch.issue_labels(repo, pulls, issues)
             paths = watch.against_main(watch.contenders(pulls, dropped), opts.root, behind_main)
             for number, why in watch.behind(pulls, dropped, paths):
                 # Its turn could only end in this hand-back; have it now (#1345).
@@ -443,16 +448,13 @@ def main(argv: list[str] | None = None) -> int:
     except lock.Held as busy:
         talk.say(str(busy), "Nothing was attempted.")
         return LOCKED_STATUS
-    try:
-        repo = mergeable.gh("repo", "view", "--json", "nameWithOwner")
-    except mergeable.Unreachable as outage:
-        talk.say(str(outage), "Nothing was attempted. Run it again once GitHub answers.")
-        return mergeable.UNREACHABLE_STATUS
+    # From `origin`, not GitHub: nothing to be unreachable about yet.
+    repo = mergeable.pulls.repository(opts.root)
     if opts.watch:
         kept = None if opts.no_merge else tally.path_for(opts.root, opts.label)
-        results = run_watch(repo["nameWithOwner"], opts, kept)
+        results = run_watch(repo, opts, kept)
     else:
-        results = run_queue(repo["nameWithOwner"], opts)
+        results = run_queue(repo, opts)
 
     print()
     for line in report.summary(results):

@@ -22,16 +22,9 @@ def git(*args: str, cwd: str | None = None) -> subprocess.CompletedProcess:
     )
 
 
-def look(number: int) -> dict:
-    """The pull request, in the fields every step below reads."""
-    return mergeable.gh(
-        "pr",
-        "view",
-        str(number),
-        "--json",
-        "isDraft,headRefOid,headRefName,number,state,mergeable,mergeStateStatus,author,"
-        "baseRefName,body,closingIssuesReferences",
-    )
+def look(repo: str, number: int) -> dict:
+    """The pull request, in the fields every step below reads (`pulls.from_rest`)."""
+    return mergeable.pulls.view(mergeable.gh, repo, number)
 
 
 def say(line: str, *rest: str) -> None:

@@ -100,10 +100,11 @@ The operator works on more than one machine, so measure the one you are on:
 
 **Where a branch runs.**
 
-- **Local:** the orchestrator and every merge; anything needing the operator's
-  files or keys (`make live-check` spends money and never runs in the cloud); a
-  real display, GPU or speakers; anything macOS-specific; a measurement that
-  decides something (and nothing else compiles beside it).
+- **Either:** the orchestrator and every merge.
+- **Local:** anything needing the operator's files or keys (`make live-check`
+  spends money and never runs in the cloud); a real display, GPU or speakers;
+  anything macOS-specific; a measurement that decides something (and nothing
+  else compiles beside it).
 - **Cloud:** everything else whose proof is `make gates`. The container has
   Postgres and can start `dockerd`, so `crates/server` and `deploy/` work there,
   and it is x86_64 Linux like CI, so it is where a new golden fixture is blessed
@@ -165,8 +166,8 @@ the same routine.
 
 ## Running a mixed batch: the orchestrator's loop
 
-The orchestrator is the batch's own session, local. It writes no feature code:
-it picks work, briefs coders, reviews and merges.
+The orchestrator is the batch's own session, local or cloud. It writes no
+feature code: it picks work, briefs coders, reviews and merges.
 
 **One background watch.** Start the queue as a background command with its
 output in a file, and a `Monitor` on its events:
@@ -269,11 +270,11 @@ ground moved, and re-scope or close any the batch made moot (never a
 The batch is done when the main checkout runs what merged. Once nothing is
 compiling:
 
-1. Remove the worktree and local branch of every pull request whose `gh pr view
-   N --json state` is `MERGED` — not its exit code, which is 0 for an open one,
-   and not `git branch --merged`, which misses squashes — and of any branch with
-   no commits beyond `main` and no agent standing in it. Unmerged work is only
-   ever deleted by the user.
+1. Remove the worktree and local branch of every pull request whose `gh api
+   'repos/{owner}/{repo}/pulls/N' --jq .merged` is `true` — not its exit code,
+   which is 0 for an open one, and not `git branch --merged`, which misses
+   squashes — and of any branch with no commits beyond `main` and no agent
+   standing in it. Unmerged work is only ever deleted by the user.
 2. When the operator asked for a deploy, `make finish-batch` on `main`: it
    pulls, rebuilds the local tools and updates the web app, each half whatever
    the other did. Otherwise `git pull --ff-only`, then `make local-tools`.

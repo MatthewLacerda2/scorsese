@@ -25,7 +25,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import closing  # noqa: E402
 import regression  # noqa: E402
-from described import github, repository  # noqa: E402
+from described import github  # noqa: E402
+from pulls import repository  # noqa: E402
 
 Unreachable = github()[1]
 

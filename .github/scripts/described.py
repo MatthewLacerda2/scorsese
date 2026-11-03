@@ -20,17 +20,14 @@ push and no run, so it costs nothing to ask after every edit, draft or not.
 
     python3 .github/scripts/described.py 1702
 
-It reads GitHub over REST only (`gh api`), which a cloud container can reach
-when GraphQL cannot. REST has no `closingIssuesReferences`, so an issue linked
-only in the sidebar is not seen here; the queue, over GraphQL, sees it too.
+It reads GitHub over REST only (`gh api`, shaped by `pulls.py`), as the queue
+and `make mergeable` do, so all three judge alike in a cloud container.
 
-Pure but for [`gather`]'s `gh`, [`github`], [`repository`] and `main`.
+Pure but for [`gather`]'s `gh`, [`github`] and `main`.
 """
 
 from __future__ import annotations
 
-import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -38,26 +35,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import closing  # noqa: E402
 import protocol  # noqa: E402
+import pulls  # noqa: E402
 import reblessed  # noqa: E402
 import reviewed  # noqa: E402
-
-# Owner and name at the end of any spelling of a GitHub remote: https, ssh, or
-# the cloud container's proxy (`…/git/<owner>/<name>`).
-REMOTE = re.compile(r"[/:]([^/:]+)/([^/]+?)(?:\.git)?/?$")
-
-
-def from_rest(rest: dict) -> dict:
-    """`repos/{repo}/pulls/N` reshaped to the `gh pr view --json` fields the
-    checks read, so both readers hand them the same dictionary."""
-    head = rest.get("head") or {}
-    return {
-        "number": rest.get("number"),
-        "isDraft": bool(rest.get("draft")),
-        "headRefOid": head.get("sha", ""),
-        "headRefName": head.get("ref", ""),
-        "body": rest.get("body") or "",
-        "author": {"login": (rest.get("user") or {}).get("login", "")},
-    }
 
 
 def gather(gh, repo: str, pull: dict) -> dict:
@@ -101,21 +81,6 @@ def check(pull: dict) -> tuple[bool, list[str]]:
     return passing(pull, ["the description says what the merge path asks."])
 
 
-def owner_and_name(url: str) -> str:
-    """`owner/name` from a git remote's URL."""
-    match = REMOTE.search(url.strip())
-    if not match:
-        sys.exit(f"described: cannot read a GitHub repository from the remote {url!r}.")
-    return f"{match.group(1)}/{match.group(2)}"
-
-
-def repository() -> str:
-    """This checkout's repository, from `origin`: no GraphQL call."""
-    url = subprocess.run(["git", "remote", "get-url", "origin"], capture_output=True,
-                         text=True, check=True).stdout
-    return owner_and_name(url)
-
-
 def github():
     """`mergeable.gh`: its retries in transit, its exit on an answer."""
     import importlib.util
@@ -134,8 +99,8 @@ def main(argv: list[str]) -> int:
     number = argv[0]
     gh, unreachable, status = github()
     try:
-        repo = repository()
-        pull = gather(gh, repo, from_rest(gh("api", f"repos/{repo}/pulls/{number}")))
+        repo = pulls.repository()
+        pull = gather(gh, repo, pulls.view(gh, repo, number))
     except unreachable as outage:
         print(f"described: #{number}: {outage}", file=sys.stderr)
         print("  Nothing was decided. Ask again once GitHub answers.", file=sys.stderr)

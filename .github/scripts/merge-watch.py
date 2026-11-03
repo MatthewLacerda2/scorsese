@@ -6,8 +6,8 @@ GitHub every poll which pull requests are cleared to merge, and takes the best
 one. Everything that happens *to* a pull request once taken — rebase, push,
 wait for a run to exist on the new head, `mergeable`, merge, hand back — is the
 queue's [`take`], unchanged. This module only decides *which one, and whether
-at all*, and every function in it is pure except [`waiting`] and
-[`issue_labels`], which ask.
+at all*, and every function in it is pure except [`waiting`],
+[`issue_labels`] and [`everything`], which ask, over REST (#1724).
 
 ## Why a list was not enough
 
@@ -32,7 +32,7 @@ cannot be the trigger. Two signals were weighed:
   review API, which the agents' GitHub tools reach awkwardly.
 - **A label, [`QUEUE_LABEL`].** One call to add, visible on the pull request
   and in any listing, removable to pull a branch back out, and readable in the
-  same `gh pr list` that finds the candidates. It lives in `.github/labels.json`
+  same listing that finds the candidates. It lives in `.github/labels.json`
   like every other label.
 
 So the label. Its meaning is narrow: *a human or the orchestrator has read
@@ -77,9 +77,9 @@ never count to three. A `--no-merge` watch keeps it in memory only.
 in line** ([`against_main`], [`behind`]). Its turn could only end in that
 hand-back, so it is better had now, with the files named, than after a wait.
 The watch asks git (`merge-tree` of its head against `origin/main`, fetched
-each poll, remembered per pair of heads) and GitHub (`mergeable:
-CONFLICTING`); either is enough. Dependabot is left out: its turn asks it to
-rebase itself.
+each poll, remembered per pair of heads), and GitHub's `mergeable:
+CONFLICTING` when a listing carries it (REST's does not, `pulls.py`); either
+is enough. Dependabot is left out: its turn asks it to rebase itself.
 
 It **fails open**: a pair `merge-tree` cannot answer about — an object that
 would not fetch, an old git — counts as no conflict, so the worst case is
@@ -194,8 +194,8 @@ PRIORITY = {
 }
 UNRANKED = len(set(PRIORITY.values()))
 
-# How `gh` names Dependabot as a pull request's author: `gh pr list/view --json
-# author` says `app/dependabot`; the REST API and the web say `dependabot[bot]`.
+# How GitHub names Dependabot as a pull request's author: REST and the web say
+# `dependabot[bot]`, GraphQL `app/dependabot`.
 BOTS = ("app/dependabot", "dependabot[bot]", "dependabot")
 
 # How long a watch takes new pull requests, in minutes, by default. With the
@@ -515,24 +515,14 @@ def budget_error(watch_for: float, deadline: float) -> str | None:
     return None
 
 
-def waiting(label: str = QUEUE_LABEL) -> list[dict]:
+def waiting(repo: str, label: str = QUEUE_LABEL) -> list[dict]:
     """Every open pull request carrying the go-ahead, in the fields the watch reads."""
-    return mergeable.gh(
-        "pr",
-        "list",
-        "--state",
-        "open",
-        "--label",
-        label,
-        "--limit",
-        "100",
-        "--json",
-        "number,isDraft,headRefOid,baseRefName,createdAt,author,labels,closingIssuesReferences,"
-        "mergeable",
-    )
+    return mergeable.pulls.labelled(mergeable.pulls.open_pulls(mergeable.gh, repo), label)
 
 
-def issue_labels(pulls: list[dict], known: dict[int, list[str]]) -> dict[int, list[str]]:
+def issue_labels(
+    repo: str, pulls: list[dict], known: dict[int, list[str]]
+) -> dict[int, list[str]]:
     """Fill `known` with the labels of every issue these pull requests close.
 
     Asked once per issue per watch: an issue's type label does not change
@@ -544,8 +534,13 @@ def issue_labels(pulls: list[dict], known: dict[int, list[str]]) -> dict[int, li
             number = ref.get("number")
             if number is None or number in known:
                 continue
-            found = mergeable.gh("issue", "view", str(number), "--json", "labels")
-            known[number] = [label.get("name", "") for label in found.get("labels", [])]
+            try:
+                found = mergeable.gh("api", f"repos/{repo}/issues/{number}")
+            except mergeable.Answered:
+                # No such issue: no rank, and its own turn's closing check
+                # refuses the number; one typo never stops the watch.
+                found = {}
+            known[number] = mergeable.closing.labels(found)
     return known
 
 
@@ -616,12 +611,9 @@ def resume(opts) -> str:
     return f"{EVENT} resume: {command}"
 
 
-def everything() -> list[dict]:
+def everything(repo: str) -> list[dict]:
     """Every open pull request, labelled or not, in the fields the board reads."""
-    return mergeable.gh(
-        "pr", "list", "--state", "open", "--limit", "200",
-        "--json", "number,isDraft,createdAt",
-    )
+    return mergeable.pulls.open_pulls(mergeable.gh, repo)
 
 
 class Board:
@@ -631,11 +623,11 @@ class Board:
     reported closed.
     """
 
-    def __init__(self, since: datetime | None = None, lister=None) -> None:
+    def __init__(self, repo: str, since: datetime | None = None, lister=None) -> None:
         self.since = since
         self.seen: dict[int, bool] | None = None
         self.landed: set[int] = set()
-        self.lister = lister or everything
+        self.lister = lister or (lambda: everything(repo))
 
     def poll(self) -> list[str]:
         """Ask GitHub once, and return what changed since the last good answer.

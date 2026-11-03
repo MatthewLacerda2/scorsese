@@ -115,7 +115,7 @@ class Asking(unittest.TestCase):
             mock.patch.object(queue.subprocess, "run") as called, \
             mock.patch.object(queue.time, "sleep"), \
             mock.patch("builtins.print"):
-            return queue.bot_head(801, SHA, ".", opts), called
+            return queue.bot_head("o/r", 801, SHA, ".", opts), called
 
     def test_a_branch_already_on_main_is_not_commented_on(self):
         (fresh, notes), called = self.bot_head([True])
@@ -125,7 +125,10 @@ class Asking(unittest.TestCase):
     def test_a_branch_behind_main_is_asked_to_rebase_and_waited_for(self):
         (fresh, _), called = self.bot_head([False, True])
         self.assertEqual(fresh, REBASED)
-        self.assertIn(queue.BOT_REBASE, called.call_args.args[0])
+        self.assertEqual(called.call_args.args[0], [
+            "gh", "api", "-X", "POST", "repos/o/r/issues/801/comments",
+            "-f", f"body={queue.BOT_REBASE}",
+        ])
 
     def test_a_head_that_has_not_moved_is_not_taken_for_the_rebase(self):
         opts = queue.parse(["801", "--poll", "0", "--deadline", "0.0001"])
@@ -133,7 +136,7 @@ class Asking(unittest.TestCase):
             mock.patch.object(queue.talk, "look", return_value=PULL), \
             mock.patch.object(queue.subprocess, "run"), \
             mock.patch("builtins.print"):
-            fresh, notes = queue.bot_head(801, SHA, ".", opts)
+            fresh, notes = queue.bot_head("o/r", 801, SHA, ".", opts)
         self.assertIsNone(fresh)
         self.assertIn("did not rebase", notes[0])
 

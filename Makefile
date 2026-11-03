@@ -720,10 +720,9 @@ pushed: ## After every push: is this branch's last commit its head on origin?
 
 # The description checks `make mergeable` and the queue apply before reading
 # any run (closing keywords, `Re-blessed`, the `Independent review` level),
-# asked over REST through the same function they call, so it works in a cloud
-# container and judges as they do (#1701); REST alone cannot see an issue
-# linked only in the sidebar. No push and no run: ask it
-# after every description edit, and last before readying.
+# asked over REST through the same function they call, so it judges as they
+# do (#1701). No push and no run: ask it after every description edit, and
+# last before readying.
 .PHONY: described
 described: ## Would the queue take this PR's description and comments? make described PR=1702
 	@test -n "$(PR)" || { \
@@ -747,7 +746,7 @@ regression: ## A bug fix's tests run on its base, as CI's regression job (builds
 # Neither a gate nor a signal, because it is not about this code at all.
 # `make gates` answers "is this good?"; this answers "did anything check it?",
 # which is a question about GitHub and can only be asked once a pull request
-# exists. It is the last step before `gh pr merge` — see #153 for the failure
+# exists. It is the last step before the merge — see #153 for the failure
 # that made it necessary, and the script's own docstring for why branch
 # protection is not the fix it looks like.
 mergeable: ## Did CI really run on this PR's head? make mergeable PR=171

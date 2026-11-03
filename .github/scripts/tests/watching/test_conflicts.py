@@ -158,11 +158,8 @@ class Watching(unittest.TestCase):
             clock[0] += 120
             return number, queue.MERGED, "why"
 
-        def gh(*args):
-            # Only the `queue` listing walks the script; the board (#819) is empty.
-            return next(listings, []) if "--label" in args else []
-
-        with mock.patch.object(queue.mergeable, "gh", side_effect=gh), \
+        with mock.patch.object(watch, "waiting", side_effect=lambda *_: next(listings, [])), \
+            mock.patch.object(watch, "everything", return_value=[]), \
             mock.patch("builtins.print"), \
             mock.patch.object(watch, "clashing", return_value={pair(1, 2), pair(1, 3)}), \
             mock.patch.object(watch, "against_main", return_value={}), \

@@ -80,7 +80,7 @@ class Polling(unittest.TestCase):
                 raise answer
             return answer
 
-        seen = watch.Board(lister=lister)
+        seen = watch.Board("o/r", lister=lister)
         said = [seen.poll() for _ in range(4)]
         # Neither the outage nor the garbled answer reads as everything
         # closing, and the next good listing is compared with the last good one.
@@ -120,11 +120,6 @@ class Loop(unittest.TestCase):
         ])
         queued = iter([[pr(1, False, "2026-10-06T12:00:00Z", "queue")]])
 
-        def gh(*args):
-            if "--label" in args:
-                return next(queued, [])
-            return next(boards, [pr(3)])
-
         def take(repo, number, opts, heads=None, tick=None):
             tick()
             tick()
@@ -132,7 +127,8 @@ class Loop(unittest.TestCase):
             return number, queue.MERGED, "CI passed on its head."
 
         opts = queue.parse(["--watch", "--for", "10"])
-        with mock.patch.object(queue.mergeable, "gh", side_effect=gh), \
+        with mock.patch.object(watch, "waiting", side_effect=lambda *_: next(queued, [])), \
+            mock.patch.object(watch, "everything", side_effect=lambda *_: next(boards, [pr(3)])), \
             mock.patch.object(queue, "take", side_effect=take), \
             mock.patch.object(watch, "clashing", return_value=set()), \
             mock.patch.object(watch, "against_main", return_value={}), \
@@ -150,7 +146,7 @@ class Loop(unittest.TestCase):
 
     def test_main_ends_on_the_resume_line(self):
         printed = []
-        with mock.patch.object(queue.mergeable, "gh", return_value={"nameWithOwner": "o/r"}), \
+        with mock.patch.object(queue.mergeable.pulls, "repository", return_value="o/r"), \
             mock.patch.object(queue.lock, "acquire"), \
             mock.patch.object(queue, "run_watch", return_value=[(4, queue.UNFINISHED, "still in line.")]), \
             mock.patch("builtins.print", side_effect=lambda *a, **k: printed.append(" ".join(map(str, a)))):
