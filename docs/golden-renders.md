@@ -43,7 +43,8 @@ asset's `path` in `project.json`, so it is written down once.
 
 A fixture may also carry an `assets/` directory of its own, which the harness
 copies into the scratch project verbatim. That is for the files ffmpeg cannot
-conjure, and there is exactly one kind of them today: a **font**. A face is not
+conjure: a **font**, and a **transcript** (`page_captions` carries the
+words its voice says, `assets/voice.wav.words.json`). A face is not
 footage — it is the same bytes on every machine, and no `lavfi` source will
 ever produce one — so a fixture testing that a project can bring its own font
 has no other way to say so. `weight` is the fixture that does. The rule above
@@ -548,7 +549,7 @@ look at. It is never legitimate as a way to get a text fixture green again.
 
 ## The browser, which draws the pages
 
-The `page_*` fixtures (`page_alpha`, `page_anime`, `page_css`, `page_font`,
+The `page_*` fixtures (`page_alpha`, `page_anime`, `page_captions`, `page_css`, `page_font`,
 `page_raf`, `page_speed`) render `html` clips, so a third program sits upstream of
 their pixels: the pinned `chrome-headless-shell` (`tools/chromium/pin`) that
 captures each page (#775). It is held still the same way ffmpeg and the faces

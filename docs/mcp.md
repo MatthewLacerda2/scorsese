@@ -1033,9 +1033,20 @@ duck_music  { "project": "teaser.scor", "music": "score",
 `caption_narration` puts the narration's own words on screen, timed from the
 word timings saved when each line was generated, or heard in footage by
 `transcribe` (below): each line is cut into short
-pieces at its sentences, commas and pauses, and each piece arrives whole on its
-first spoken word. What it writes is ordinary `text` assets and clips on one
-video track, so any of them can be changed afterwards like any other caption.
+pieces at its sentences, commas and pauses.
+
+**By default the captions are one page** lighting the word being said: white
+heavy upper-case type rimmed in black, up to three words at a time, broken at
+every punctuation mark and at a half-second pause, a name kept in one caption
+with the word before it (`presidente Lula`), the word being said in yellow.
+It is an ordinary page, `pages/caption-page-<track>.html` (asset
+`caption-page-<track>`), played by one clip from the first caption to the last,
+and it reads `scorsese.words`. Pages are not drawn on Windows yet, which the
+reply says there. **`look: "text"`** writes the older look instead: one
+ordinary `text` asset and clip per caption, about two lines whole in one
+colour, arriving on its first spoken word, each changeable afterwards like any
+other caption.
+
 **It is safe to re-run** after a line is regenerated or moved: it replaces only
 the captions it wrote. A clip without word timings on a track named in
 `narration` is named and skipped, and so, when no track is named, is a
@@ -1055,11 +1066,12 @@ Everything it takes has a default, chosen so the plain call reads well on a
 |---|---|---|
 | `track` | the video track the captions go on, made on top when there is none | `captions` |
 | `narration` | the track ids whose speaking clips (lines, videos, sounds) are captioned | every generated line on an audio track, and every transcribed recording not at volume 0 throughout |
-| `max_chars` | the most characters one caption holds | 36, about two lines at the default size in 9:16 |
+| `look` | `page`, the word being said lit, or `text`, one text clip per caption | `page` |
+| `max_chars` | the most characters one caption holds | 36, about two lines at the text look's size in 9:16 |
 | `font` | a face this build ships, or a font file inside the project | `montserrat` |
-| `weight` | how heavy, 1 to 1000 | 800 |
-| `size` | how big, as a fraction of the frame's height | 0.031 |
-| `color` | the words' colour, `#rrggbb` or `#rrggbbaa` | white |
+| `weight` | how heavy, 1 to 1000 | 900 (`text`: 800) |
+| `size` | how big, as a fraction of the frame's height | 0.038 (`text`: 0.031) |
+| `color` | the words' colour, `#rrggbb` or `#rrggbbaa`; the word being said is yellow | white |
 | `stroke` | the rim outside each letter, `#rrggbb`, or `none` | black |
 | `lift` | how far up from the frame's bottom edge, as a fraction of its height | 0.2, the lower third |
 
