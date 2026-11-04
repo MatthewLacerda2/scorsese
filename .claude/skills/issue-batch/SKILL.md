@@ -31,12 +31,12 @@ PRS="a b c"`), since the watch takes every labelled one.
 
 ## How many agents at once
 
-- **Cloud coders: about ten in flight.** The default home for writing a branch:
-  it brings its own CPU, memory and disk. Ten paces the token spend and what
-  one orchestrator can brief and read; size it from what is actually running.
-- **Local coders: at most two.** For what needs this machine (*Where a branch
-  runs*). The queue merges one per CI run however many are written, and this
-  machine also hosts the web app.
+- **At most five agents write code at once**, cloud and local together. More
+  buy conflicts and rebases, and the queue drains them no faster. Cloud is the
+  default home for a branch: it brings its own CPU, memory and disk. At most
+  two of the five are local, for what needs this machine (*Where a branch
+  runs*), which also hosts the web app. `independent-review` reviewers do not
+  count.
 - **Agents that only read and think: no limit.** Research, review, planning:
   no worktree, no `target/`.
 
