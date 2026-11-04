@@ -10,7 +10,7 @@ use super::{RATE, found, steady, tone};
 
 #[test]
 fn two_clicks_close_together_are_two_clicks() {
-    for apart in [0.010, 0.020] {
+    for apart in [0.006, 0.009, 0.010, 0.020, 1679.0 / 48_000.0] {
         let mut signal = tone(440.0, 0.4, 2.0, steady);
         for at in [1.0, 1.0 + apart] {
             signal[(at * f64::from(RATE)) as usize] += 0.3;
@@ -27,16 +27,18 @@ fn two_clicks_close_together_are_two_clicks() {
 /// splice repeats the last one and reads as part of the waveform.
 #[test]
 fn a_splice_at_every_buffer_is_a_click_at_every_buffer() {
-    let whole = tone(470.0, 0.4, 3.5, steady);
-    let signal: Vec<f32> = whole
-        .chunks(512 + 37)
-        .flat_map(|buffer| buffer.iter().take(512).copied())
-        .collect();
-    let defects = found(1, &signal);
-    let buffers = signal.len() / 512;
-    assert!(
-        defects.clicks.count >= buffers * 3 / 4,
-        "{} clicks in {buffers} buffers: {defects:?}",
-        defects.clicks.count
-    );
+    for size in [256, 512] {
+        let whole = tone(470.0, 0.4, 3.5, steady);
+        let signal: Vec<f32> = whole
+            .chunks(size + 37)
+            .flat_map(|buffer| buffer.iter().take(size).copied())
+            .collect();
+        let defects = found(1, &signal);
+        let buffers = signal.len() / size;
+        assert!(
+            defects.clicks.count >= buffers * 3 / 4,
+            "{} clicks in {buffers} buffers of {size}",
+            defects.clicks.count
+        );
+    }
 }

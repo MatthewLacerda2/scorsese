@@ -135,7 +135,7 @@ pub fn draw(wave: &Wave<'_>, font: &Font) -> Result<Frame, ResolutionError> {
         bars(&mut frame, x as u32, *one);
     }
     for mark in wave.marks {
-        for x in marked(mark, wave.seconds) {
+        for x in marked(mark, wave) {
             column(&mut frame, x, MARK_ROWS, MARK);
         }
     }
@@ -151,18 +151,16 @@ pub fn draw(wave: &Wave<'_>, font: &Font) -> Result<Frame, ResolutionError> {
     Ok(frame)
 }
 
-/// The columns a mark covers, at least one, on the same time axis as the
-/// stamps under the picture: zero at the left edge, the file's end at the
-/// right.
-fn marked(mark: &Mark, seconds: f64) -> std::ops::Range<u32> {
-    if seconds <= 0.0 {
+/// The columns a mark covers, at least one: the columns whose slices hold
+/// its moments. A file cut into fewer columns than the width is marked on
+/// the columns it has, so a mark always sits over the wave it points at.
+fn marked(mark: &Mark, wave: &Wave<'_>) -> std::ops::Range<u32> {
+    let drawn = wave.columns.len().min(COLUMNS);
+    if wave.seconds <= 0.0 || drawn == 0 {
         return 0..0;
     }
-    let x = |at: f64| {
-        (at / seconds * f64::from(WIDTH - 1))
-            .round()
-            .clamp(0.0, f64::from(WIDTH - 1)) as u32
-    };
+    let last = drawn as f64 - 1.0;
+    let x = |at: f64| (at / wave.seconds * drawn as f64).floor().clamp(0.0, last) as u32;
     let from = x(mark.from_seconds);
     from..x(mark.to_seconds).max(from) + 1
 }

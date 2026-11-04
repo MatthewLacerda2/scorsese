@@ -174,14 +174,19 @@ impl DefectFinder {
     }
 
     /// Joins the same defect seen in several channels into one, and keeps the
-    /// worst.
+    /// worst. Two in one channel are never joined, however close: that
+    /// channel's own finder already decided they are two.
     fn tally(&self, mut found: Vec<Defect>) -> Tally {
         found.sort_by(|a, b| a.from_seconds.total_cmp(&b.from_seconds));
         let mut joined: Vec<(Defect, Vec<usize>)> = Vec::new();
         for one in found {
             let channel = one.channel.unwrap_or(0);
             match joined.last_mut() {
-                Some((last, channels)) if one.from_seconds < last.to_seconds => {
+                // Only the same defect seen in another channel is joined: a
+                // channel's own finder has already kept its defects apart.
+                Some((last, channels))
+                    if one.from_seconds < last.to_seconds && !channels.contains(&channel) =>
+                {
                     last.to_seconds = last.to_seconds.max(one.to_seconds);
                     if one.size_db > last.size_db {
                         last.at_seconds = one.at_seconds;

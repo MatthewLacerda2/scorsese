@@ -169,7 +169,9 @@ impl Clicks {
             ((Some(a), Some(b)), (Some(c), Some(d))) => {
                 (a - c).abs() <= tolerance && (b - d).abs() <= tolerance
             }
-            _ => true,
+            // A jump without the waveform either side yet is nobody's twin:
+            // a twin is a claim, and an unseen one must not cancel a click.
+            _ => false,
         }
     }
 

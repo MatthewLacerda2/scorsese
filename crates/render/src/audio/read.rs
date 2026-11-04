@@ -21,10 +21,13 @@
 //! meter, whose true-peak reconstruction is per-channel and needs the real
 //! interleave to mean anything.
 //!
-//! What stays true is that a **report is one table**: nothing here measures the
-//! channels separately or prints a row per channel. Loudness and spectral
-//! balance are questions about the file, and the finding — this stretch is
-//! quiet, this one is muddy — is the same finding in both channels.
+//! What stays true is that a **report is one table**: nothing here prints a
+//! row per channel. Loudness and spectral balance are questions about the
+//! file, and the finding — this stretch is quiet, this one is muddy — is the
+//! same finding in both channels. The one exception is a defect between
+//! samples (`scorsese_zimmer::level::DefectFinder`): a click or a dropout
+//! is often in one channel only, so it is found per channel and names the
+//! channel it is in.
 
 use std::io::Read;
 use std::path::Path;
