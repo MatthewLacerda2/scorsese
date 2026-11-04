@@ -33,7 +33,7 @@ pub(super) fn page(file: &str) -> String {
     )
 }
 
-/// The page, captured: it must draw the animation and say nothing.
+/// The page, captured at two times: the animation must move and the page say nothing.
 #[cfg(test)]
 mod tests {
     use scorsese_core::{
@@ -69,14 +69,17 @@ mod tests {
 
         let tools = Tools::discover().unwrap();
         let settings = RenderSettings::new(Resolution::new(160, 90).unwrap(), Fps::THIRTY);
-        let (frame, notes) = Renderer::new(&tools, settings)
-            .still_noted(&project, &dir, Frames(30))
-            .unwrap();
+        let renderer = Renderer::new(&tools, settings);
+        let (first, notes) = renderer.still_noted(&project, &dir, Frames(0)).unwrap();
         assert!(notes.is_empty(), "{notes:?}");
-        let bytes = frame.bytes();
-        assert!(
-            bytes.chunks_exact(4).any(|pixel| pixel[3] > 0),
-            "the animation is drawn"
+        let (later, notes) = renderer.still_noted(&project, &dir, Frames(30)).unwrap();
+        assert!(notes.is_empty(), "{notes:?}");
+        // An empty page captures the same opaque frame at every time, so only
+        // an animation that plays makes the two differ.
+        assert_ne!(
+            first.bytes(),
+            later.bytes(),
+            "the animation moves between frame 0 and frame 30"
         );
         let _ = std::fs::remove_dir_all(&dir);
     }
