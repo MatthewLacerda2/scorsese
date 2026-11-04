@@ -70,3 +70,43 @@ fn a_staircase_is_measured_to_a_fraction_of_a_block() {
         }
     }
 }
+
+/// A staircase is placed at its first step, a period after half a second,
+/// to within half a period.
+#[test]
+fn a_staircase_is_placed_at_its_first_step() {
+    for samples in [600.0, 800.0] {
+        let defects = found(1, &staircase(samples, even(1.0)));
+        let run = &defects.zipper.worst[0];
+        let period = samples / f64::from(RATE);
+        let first = 0.5 + period;
+        assert!((run.at_seconds - first).abs() < period / 2.0, "{run:?}");
+        assert!((run.from_seconds - first).abs() < period / 2.0, "{run:?}");
+    }
+}
+
+/// Steps that alternate in size, 1.5 dB then 0.6, repeat most strongly at
+/// twice their period; the staircase is still found at its own.
+#[test]
+fn alternating_steps_are_found_at_their_own_period() {
+    let alternating = |n: f64| -(1.5 * (n / 2.0).ceil() + 0.6 * (n / 2.0).floor()).min(60.0);
+    let defects = found(1, &staircase(800.0, alternating));
+    assert_eq!(defects.zipper.count, 1, "{defects:?}");
+    let run = &defects.zipper.worst[0];
+    let period = run.period_seconds.expect("a period") * f64::from(RATE);
+    assert!((period - 800.0).abs() < 4.0, "{run:?}");
+}
+
+/// Wherever a period falls between two blocks, it is read to an eighth of a
+/// block: three samples. Every period across one block, a sample apart.
+#[test]
+fn a_period_between_blocks_is_read_to_an_eighth_of_one() {
+    for samples in 792..=816 {
+        let samples = f64::from(samples);
+        let defects = found(1, &staircase(samples, even(1.0)));
+        assert_eq!(defects.zipper.count, 1, "{samples}: {defects:?}");
+        let run = &defects.zipper.worst[0];
+        let period = run.period_seconds.expect("a period") * f64::from(RATE);
+        assert!((period - samples).abs() < 3.0, "{samples}: {run:?}");
+    }
+}
