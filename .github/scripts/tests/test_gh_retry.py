@@ -91,8 +91,24 @@ class Retrying(unittest.TestCase):
             with self.subTest(failure=failure):
                 self.assertTrue(mergeable.transport(failure))
 
+    def test_a_connection_closed_before_an_answer_is_transit(self):
+        # Go's net/http, verbatim, when the connection closes before a
+        # response: it stopped the queue on 2026-11-04 (#1741).
+        for failure in (
+            'Get "https://api.github.com/repos/o/r/actions/runs?head_sha=d995": EOF',
+            'Put "https://api.github.com/repos/o/r/pulls/1/merge": EOF\n',
+        ):
+            with self.subTest(failure=failure):
+                self.assertTrue(mergeable.transport(failure))
+
     def test_a_4xx_that_means_something_is_not_transit(self):
-        for failure in (NOT_FOUND, "HTTP 404: Not Found", "HTTP 422: Validation Failed"):
+        for failure in (
+            NOT_FOUND,
+            "HTTP 404: Not Found",
+            "HTTP 422: Validation Failed",
+            "HTTP 422: body ends at EOF (https://api.github.com/repos/o/r/issues)",
+            'HTTP 422: field "x": EOF reached',
+        ):
             with self.subTest(failure=failure):
                 self.assertFalse(mergeable.transport(failure))
 
