@@ -133,6 +133,9 @@ UNKNOWN = "UNKNOWN"
 # `gh`'s own "error connecting to" when it never reached GitHub at all. A 429
 # is GitHub asking to be asked later, which is transit and not a verdict.
 TRANSPORT_STATUS = re.compile(r"(status code:|HTTP)\s*(5\d\d|429)\b", re.IGNORECASE)
+# Go's net/http when the connection closes before any response: the request,
+# then `: EOF` at the end of its line (`Get "<url>": EOF`, #1741).
+TRANSPORT_EOF = re.compile(r'"\s*:\s*EOF\s*$', re.MULTILINE)
 TRANSPORT_WORDS = (
     "timeout",
     "timed out",
@@ -187,8 +190,10 @@ def transport(stderr: str) -> bool:
     (#495) it means reporting a merge as refused rather than as done.
     """
     lowered = stderr.lower()
-    return bool(TRANSPORT_STATUS.search(stderr)) or any(
-        word in lowered for word in TRANSPORT_WORDS
+    return (
+        bool(TRANSPORT_STATUS.search(stderr))
+        or bool(TRANSPORT_EOF.search(stderr))
+        or any(word in lowered for word in TRANSPORT_WORDS)
     )
 
 
