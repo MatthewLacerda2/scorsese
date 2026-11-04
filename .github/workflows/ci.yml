@@ -156,6 +156,7 @@ jobs:
     permissions:
       contents: read
       actions: read  # the earlier runs and their jobs (proved_tree.py)
+      pull-requests: read  # the pull request merged as the pushed commit (proved_tree.py)
     outputs:
       code: ${{ steps.proved.outputs.proved == 'true' && 'false' || steps.diff.outputs.code || 'true' }}
       proved: ${{ steps.proved.outputs.proved == 'true' }}
