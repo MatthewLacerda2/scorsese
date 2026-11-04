@@ -85,3 +85,23 @@ fn the_end_of_the_signal_does_not_rejudge_a_jump() {
     let defects = found(1, &signal);
     assert_eq!(defects.clicks.count, 0, "{defects:?}");
 }
+
+/// The two samples after a jump are its own: a step of 0.3 that rises 0.1
+/// more two samples on and 0.05 more three after that is one click, sized
+/// against the 0.05, the first jump that is not its own.
+#[test]
+fn the_two_samples_after_a_jump_are_its_own() {
+    let at = RATE as usize / 4;
+    let mut signal = vec![0.0; RATE as usize / 2];
+    signal[at..].fill(0.3);
+    signal[at + 2..].fill(0.4);
+    signal[at + 5..].fill(0.45);
+    let defects = found(1, &signal);
+    assert_eq!(defects.clicks.count, 1, "{defects:?}");
+    let click = &defects.clicks.worst[0];
+    assert_eq!(click.at_seconds, 0.25, "{click:?}");
+    assert!(
+        (click.size_db - 20.0 * 6f64.log10()).abs() < 0.01,
+        "{click:?}"
+    );
+}
