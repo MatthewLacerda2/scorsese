@@ -244,10 +244,10 @@ pub(super) async fn grant(tx: &mut Tx, settles: i64, micros: i64) -> Result<(), 
         "INSERT INTO credit_entries (user_id, kind, amount_micros, settles, project_id,
                                      veo_generation_id, speech_generation_id,
                                      image_generation_id, voice_design_id, music_generation_id,
-                                     chat_turn_id, memo)
+                                     sound_generation_id, chat_turn_id, memo)
          SELECT member_id(), 'allowance', $2, id, project_id, veo_generation_id,
                 speech_generation_id, image_generation_id, voice_design_id,
-                music_generation_id, chat_turn_id, memo
+                music_generation_id, sound_generation_id, chat_turn_id, memo
          FROM credit_entries WHERE id = $1",
     )
     .bind(settles)
@@ -264,10 +264,11 @@ pub(super) async fn give_back(tx: &mut Tx, reservation: i64) -> Result<(), sqlx:
     sqlx::query(
         "INSERT INTO credit_entries (user_id, kind, amount_micros, settles, project_id,
                                      speech_generation_id, image_generation_id,
-                                     voice_design_id, music_generation_id, memo)
+                                     voice_design_id, music_generation_id,
+                                     sound_generation_id, memo)
          SELECT member_id(), 'allowance', -amount_micros, settles, project_id,
                 speech_generation_id, image_generation_id, voice_design_id,
-                music_generation_id, memo
+                music_generation_id, sound_generation_id, memo
          FROM credit_entries
          WHERE settles = $1 AND kind = 'allowance' AND amount_micros > 0",
     )

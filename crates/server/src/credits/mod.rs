@@ -68,6 +68,7 @@
 
 pub mod adjust;
 pub mod allowance;
+mod calls;
 pub mod command;
 pub mod debt;
 pub mod designs;
@@ -77,6 +78,9 @@ pub mod given_up;
 pub mod history;
 pub mod ledger;
 pub mod lines;
+pub mod shots;
+pub mod sounds;
+pub mod stills;
 pub mod tool;
 pub mod tracks;
 mod usage;
@@ -97,6 +101,8 @@ pub enum Product {
     SpokenLine,
     /// An ElevenLabs Music track (#1264).
     MusicTrack,
+    /// An ElevenLabs sound effect (#1265).
+    SoundEffect,
     /// An ElevenLabs voice design.
     VoiceDesign,
     /// One call to the assistant's model.
@@ -107,7 +113,7 @@ impl Product {
     /// What a generated asset is sold as, or `None` for a kind the user is
     /// never charged for: everything that is not prompted
     /// (`AssetKind::is_prompted`). A voice design makes no asset, so no asset
-    /// is one. A `generated_audio` asset is a line or a track by the block it
+    /// is one. A `generated_audio` asset is a line, a track or a sound by the block it
     /// carries (`Asset::audio_block`).
     pub fn of(asset: &Asset) -> Option<Self> {
         match asset.kind {
@@ -115,6 +121,7 @@ impl Product {
             AssetKind::GeneratedImage => Some(Self::Still),
             AssetKind::GeneratedAudio => match asset.audio_block() {
                 Some(AudioBlock::Music) => Some(Self::MusicTrack),
+                Some(AudioBlock::Sound) => Some(Self::SoundEffect),
                 _ => Some(Self::SpokenLine),
             },
             AssetKind::Video
@@ -148,6 +155,7 @@ impl Product {
             Self::Still
             | Self::SpokenLine
             | Self::MusicTrack
+            | Self::SoundEffect
             | Self::VoiceDesign
             | Self::Assistant => 180,
         }
@@ -289,6 +297,20 @@ mod tests {
         );
         track.music = Some(scorsese_core::MusicRequest::default());
         assert_eq!(Product::of(&track), Some(Product::MusicTrack));
+    }
+
+    /// A `generated_audio` asset with a `sound` block is a sound effect,
+    /// sold at a third party's multiplier (#1265).
+    #[test]
+    fn a_sound_is_sold_as_one() {
+        let mut sound = Asset::sketch(
+            scorsese_core::AssetId::new("slam"),
+            AssetKind::GeneratedAudio,
+            "a door slams",
+        );
+        sound.sound = Some(scorsese_core::SoundRequest::default());
+        assert_eq!(Product::of(&sound), Some(Product::SoundEffect));
+        assert_eq!(Product::SoundEffect.percent(), 180);
     }
 
     /// A charge is the cents in micro-dollars, marked up and rounded up.

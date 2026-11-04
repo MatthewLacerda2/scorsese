@@ -1,6 +1,6 @@
 //! The audit of every paid generation: `veo_generations`,
-//! `image_generations`, `speech_generations`, `music_generations` (#1264)
-//! and `voice_designs` (#572, [`designs`]), each row bound to the reservation
+//! `image_generations`, `speech_generations`, `music_generations` (#1264),
+//! `sound_generations` (#1265) and `voice_designs` (#572, [`designs`]), each row bound to the reservation
 //! that pays for it.
 //!
 //! For debugging, disputes and improving the platform — and for the user, who
@@ -16,66 +16,18 @@
 use super::designs::{self, Design};
 use super::ledger::{self, Funds, Link, Reservation};
 use super::lines;
+use super::shots;
+use super::sounds;
+use super::stills;
 use super::tracks;
 use super::{CreditError, Product, charge_for, from_cents};
 use crate::db::Tx;
 
 pub use super::lines::Line;
+pub use super::shots::Shot;
+pub use super::sounds::Sound;
+pub use super::stills::Still;
 pub use super::tracks::Track;
-
-/// A Veo shot about to be submitted, with everything its price depends on.
-#[derive(Debug, Clone)]
-pub struct Shot<'a> {
-    /// The project it is for.
-    pub project: Option<i64>,
-    /// The assistant tool call that asked for it (#540).
-    pub tool_call: Option<i64>,
-    /// The job that runs it.
-    pub job: Option<i64>,
-    /// `standard`, `fast` or `lite`.
-    pub model: &'a str,
-    /// `720p`, `1080p` or `4k`.
-    pub resolution: &'a str,
-    /// Seconds of finished video.
-    pub seconds: u32,
-    /// `16:9` or `9:16`.
-    pub aspect: &'a str,
-    /// The prompt handed to Google.
-    pub prompt: &'a str,
-    /// The brief's hash — the one its output is named after.
-    pub brief_hash: &'a str,
-    /// `scorsese_providers::prices::estimate`'s cents: the quoted figure.
-    pub estimated_cents: u64,
-}
-
-/// A still about to be drawn (#461).
-#[derive(Debug, Clone)]
-pub struct Still<'a> {
-    /// The project it is for.
-    pub project: Option<i64>,
-    /// The assistant tool call that asked for it.
-    pub tool_call: Option<i64>,
-    /// The job that runs it.
-    pub job: Option<i64>,
-    /// `nano_banana_2.1`, the only image model since #1308; older rows name
-    /// the one they were drawn by.
-    pub model: &'a str,
-    /// `1K`, `2K` or `4K` (`0.5K` on older rows).
-    pub resolution: &'a str,
-    /// `16:9`, `1:1`, ...
-    pub aspect: &'a str,
-    /// How many reference pictures go with the prompt.
-    pub references: usize,
-    /// The prompt handed to Google.
-    pub prompt: &'a str,
-    /// The brief's hash — the one its output is named after.
-    pub brief_hash: &'a str,
-    /// `scorsese_providers::prices::image`'s cents: the quoted figure — or
-    /// `image_in_batch`'s, half of it, when `batch` is set.
-    pub estimated_cents: u64,
-    /// Ordered in a half-price batch (#947) rather than drawn now.
-    pub batch: bool,
-}
 
 /// Which audit row a generation is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -90,6 +42,8 @@ pub enum Generation {
     Design(i64),
     /// A row of `music_generations`.
     Track(i64),
+    /// A row of `sound_generations`.
+    Sound(i64),
 }
 
 /// A generation recorded and paid for, waiting on its provider.
@@ -114,6 +68,8 @@ pub enum Request<'a> {
     Design(Design<'a>),
     /// A music track.
     Track(Track<'a>),
+    /// A sound effect.
+    Sound(Sound<'a>),
 }
 
 /// Price, reserve and record a generation — or refuse, writing nothing, when
@@ -125,6 +81,7 @@ pub async fn start(tx: &mut Tx, request: &Request<'_>) -> Result<Paid, CreditErr
         Request::Still(still) => (Product::Still, still.estimated_cents, still.project),
         Request::Design(design) => (Product::VoiceDesign, design.estimated_cents, design.project),
         Request::Track(track) => (Product::MusicTrack, track.estimated_cents, track.project),
+        Request::Sound(sound) => (Product::SoundEffect, sound.estimated_cents, sound.project),
     };
     let charged = charge_for(product, cents);
     let funds = if product == Product::VeoShot {
@@ -136,11 +93,8 @@ pub async fn start(tx: &mut Tx, request: &Request<'_>) -> Result<Paid, CreditErr
     let cost = i64::try_from(from_cents(cents)).unwrap_or(i64::MAX);
     let (generation, memo, link) = match request {
         Request::Shot(shot) => {
-            let id = insert_shot(tx, shot, cost).await?;
-            let memo = format!(
-                "Veo shot: {}s of {} at {}",
-                shot.seconds, shot.model, shot.resolution
-            );
+            let id = shots::insert(tx, shot, cost).await?;
+            let memo = shots::memo(shot);
             let link = Link {
                 project,
                 veo: Some(id),
@@ -159,12 +113,8 @@ pub async fn start(tx: &mut Tx, request: &Request<'_>) -> Result<Paid, CreditErr
             (Generation::Line(id), memo, link)
         }
         Request::Still(still) => {
-            let id = insert_still(tx, still, cost).await?;
-            let order = if still.batch { ", in a batch" } else { "" };
-            let memo = format!(
-                "Generated still: {} {} in {}{order}",
-                still.resolution, still.aspect, still.model
-            );
+            let id = stills::insert(tx, still, cost).await?;
+            let memo = stills::memo(still);
             let link = Link {
                 project,
                 image: Some(id),
@@ -191,56 +141,21 @@ pub async fn start(tx: &mut Tx, request: &Request<'_>) -> Result<Paid, CreditErr
             };
             (Generation::Track(id), memo, link)
         }
+        Request::Sound(sound) => {
+            let id = sounds::insert(tx, sound, cost).await?;
+            let link = Link {
+                project,
+                sound: Some(id),
+                ..Link::default()
+            };
+            (Generation::Sound(id), sounds::memo(sound), link)
+        }
     };
     let reservation = ledger::reserve(tx, charged, &memo, link).await?;
     Ok(Paid {
         generation,
         reservation,
     })
-}
-
-/// The audit row of a shot.
-async fn insert_shot(tx: &mut Tx, shot: &Shot<'_>, cost: i64) -> Result<i64, sqlx::Error> {
-    sqlx::query_scalar(
-        "INSERT INTO veo_generations (user_id, project_id, tool_call_id, job_id, model,
-             resolution, seconds, aspect, prompt, brief_hash, estimated_cost_micros)
-         VALUES (member_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id",
-    )
-    .bind(shot.project)
-    .bind(shot.tool_call)
-    .bind(shot.job)
-    .bind(shot.model)
-    .bind(shot.resolution)
-    .bind(i32::try_from(shot.seconds).unwrap_or(i32::MAX))
-    .bind(shot.aspect)
-    .bind(shot.prompt)
-    .bind(shot.brief_hash)
-    .bind(cost)
-    .fetch_one(&mut **tx)
-    .await
-}
-
-/// The audit row of a still.
-async fn insert_still(tx: &mut Tx, still: &Still<'_>, cost: i64) -> Result<i64, sqlx::Error> {
-    sqlx::query_scalar(
-        "INSERT INTO image_generations (user_id, project_id, tool_call_id, job_id, model,
-             resolution, aspect, references_sent, prompt, brief_hash, estimated_cost_micros,
-             batch)
-         VALUES (member_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id",
-    )
-    .bind(still.project)
-    .bind(still.tool_call)
-    .bind(still.job)
-    .bind(still.model)
-    .bind(still.resolution)
-    .bind(still.aspect)
-    .bind(i32::try_from(still.references).unwrap_or(i32::MAX))
-    .bind(still.prompt)
-    .bind(still.brief_hash)
-    .bind(cost)
-    .bind(still.batch)
-    .fetch_one(&mut **tx)
-    .await
 }
 
 /// Record Google's ticket on a shot's or a batched still's audit row — its
@@ -255,7 +170,10 @@ pub async fn keep_ticket(
     let (query, id) = match generation {
         Generation::Shot(id) => ("UPDATE veo_generations SET ticket = $2 WHERE id = $1", id),
         Generation::Still(id) => ("UPDATE image_generations SET ticket = $2 WHERE id = $1", id),
-        Generation::Line(_) | Generation::Design(_) | Generation::Track(_) => return Ok(()),
+        Generation::Line(_)
+        | Generation::Design(_)
+        | Generation::Track(_)
+        | Generation::Sound(_) => return Ok(()),
     };
     sqlx::query(query)
         .bind(id)
@@ -275,16 +193,18 @@ pub async fn keep_ticket(
 pub async fn for_job(tx: &mut Tx, job: i64) -> Result<Option<Paid>, sqlx::Error> {
     let row: Option<Reserved> = sqlx::query_as(
         "SELECT e.veo_generation_id, e.speech_generation_id, e.image_generation_id,
-                e.voice_design_id, e.music_generation_id, e.id, -e.amount_micros
+                e.voice_design_id, e.music_generation_id, e.sound_generation_id, e.id,
+                -e.amount_micros
          FROM credit_entries e
          LEFT JOIN veo_generations v ON v.id = e.veo_generation_id
          LEFT JOIN speech_generations s ON s.id = e.speech_generation_id
          LEFT JOIN image_generations i ON i.id = e.image_generation_id
          LEFT JOIN voice_designs d ON d.id = e.voice_design_id
          LEFT JOIN music_generations m ON m.id = e.music_generation_id
+         LEFT JOIN sound_generations x ON x.id = e.sound_generation_id
          WHERE e.kind = 'reservation'
            AND (v.job_id = $1 OR s.job_id = $1 OR i.job_id = $1 OR d.job_id = $1
-                OR m.job_id = $1)
+                OR m.job_id = $1 OR x.job_id = $1)
            AND NOT EXISTS (SELECT 1 FROM credit_entries r
                            WHERE r.settles = e.id AND r.kind = 'release')",
     )
@@ -292,14 +212,15 @@ pub async fn for_job(tx: &mut Tx, job: i64) -> Result<Option<Paid>, sqlx::Error>
     .fetch_optional(&mut **tx)
     .await?;
     Ok(
-        row.and_then(|(shot, line, still, design, track, entry, micros)| {
-            let generation = match (shot, line, still, design, track) {
+        row.and_then(|(shot, line, still, design, track, sound, entry, micros)| {
+            let generation = match (shot, line, still, design, track, sound) {
                 (Some(id), ..) => Generation::Shot(id),
                 (None, Some(id), ..) => Generation::Line(id),
                 (None, None, Some(id), ..) => Generation::Still(id),
-                (None, None, None, Some(id), _) => Generation::Design(id),
-                (None, None, None, None, Some(id)) => Generation::Track(id),
-                (None, None, None, None, None) => return None,
+                (None, None, None, Some(id), ..) => Generation::Design(id),
+                (None, None, None, None, Some(id), _) => Generation::Track(id),
+                (None, None, None, None, None, Some(id)) => Generation::Sound(id),
+                (None, None, None, None, None, None) => return None,
             };
             Some(Paid {
                 generation,
@@ -309,9 +230,10 @@ pub async fn for_job(tx: &mut Tx, job: i64) -> Result<Option<Paid>, sqlx::Error>
     )
 }
 
-/// An open reservation's row: the shot, line, still, design or track it pays
-/// for — one of the five — then its entry and what it holds.
+/// An open reservation's row: the shot, line, still, design, track or sound
+/// it pays for — one of the six — then its entry and what it holds.
 type Reserved = (
+    Option<i64>,
     Option<i64>,
     Option<i64>,
     Option<i64>,
@@ -374,6 +296,11 @@ pub async fn finish(tx: &mut Tx, paid: Paid, answer: &Answer) -> Result<(), Cred
         ),
         Generation::Track(id) => (
             "UPDATE music_generations SET state = $2, library_item_id = $3, error = $4,
+                 finished_at = now() WHERE id = $1",
+            id,
+        ),
+        Generation::Sound(id) => (
+            "UPDATE sound_generations SET state = $2, library_item_id = $3, error = $4,
                  finished_at = now() WHERE id = $1",
             id,
         ),

@@ -1,7 +1,8 @@
 //! The paid generation jobs (#539): a Veo shot, a Gemini still (#461) — drawn
-//! now, or ordered in a half-price batch (#947) — an ElevenLabs line and an
-//! ElevenLabs Music track (#1264), made by the job queue for one user, paid
-//! from their credits, kept in their library.
+//! now, or ordered in a half-price batch (#947) — an ElevenLabs line, an
+//! ElevenLabs Music track (#1264) and an ElevenLabs sound effect (#1265),
+//! made by the job queue for one user, paid from their credits, kept in their
+//! library.
 //!
 //! A job is enqueued by web `generate` once the user has confirmed a quote,
 //! in the same transaction that reserves its price
@@ -53,6 +54,7 @@ mod gather;
 mod land;
 mod line;
 mod shot;
+mod sound;
 mod still;
 mod track;
 
@@ -61,6 +63,7 @@ use std::time::Duration;
 use scorsese_providers::credentials::{Provider, resolve};
 use scorsese_providers::image::{GeminiProvider, ImageProvider};
 use scorsese_providers::music::{ElevenLabsComposer, MusicProvider};
+use scorsese_providers::sound::{ElevenLabsSounds, SoundProvider};
 use scorsese_providers::speech::{ElevenLabsProvider, SpeechProvider};
 use scorsese_providers::transcribe::{self, Transcriber, Whisper};
 use scorsese_providers::video::{POLL_EVERY, VeoProvider, VideoProvider};
@@ -73,6 +76,7 @@ pub use batch::handler as batch_handler;
 pub(crate) use land::{paying, refusal};
 pub use line::handler as line_handler;
 pub use shot::handler as shot_handler;
+pub use sound::handler as sound_handler;
 pub use still::handler as still_handler;
 pub use track::handler as track_handler;
 
@@ -106,6 +110,9 @@ pub type Speech = Box<dyn SpeechProvider + Send + Sync>;
 /// A music provider a job can own and move between threads (#1264).
 pub type Music = Box<dyn MusicProvider + Send + Sync>;
 
+/// A sound-effects provider a job can own and move between threads (#1265).
+pub type Sound = Box<dyn SoundProvider + Send + Sync>;
+
 /// Where voices are designed (#572), owned and moved between threads.
 pub type Studio = Box<dyn DesignStudio + Send + Sync>;
 
@@ -120,6 +127,8 @@ pub trait Vendors: Send + Sync + 'static {
     fn speech(&self) -> Result<Speech, String>;
     /// ElevenLabs Music, or why it cannot be reached.
     fn music(&self) -> Result<Music, String>;
+    /// ElevenLabs' sound effects, or why they cannot be reached.
+    fn sound(&self) -> Result<Sound, String>;
     /// Gemini's image model, or why it cannot be reached.
     fn image(&self) -> Result<Image, String>;
     /// ElevenLabs' voice design, or why it cannot be reached
@@ -151,6 +160,11 @@ impl Vendors for Keys {
     fn music(&self) -> Result<Music, String> {
         let key = resolve(Provider::ElevenLabs).map_err(|error| error.to_string())?;
         Ok(Box::new(ElevenLabsComposer::new(&key.secret)))
+    }
+
+    fn sound(&self) -> Result<Sound, String> {
+        let key = resolve(Provider::ElevenLabs).map_err(|error| error.to_string())?;
+        Ok(Box::new(ElevenLabsSounds::new(&key.secret)))
     }
 
     fn image(&self) -> Result<Image, String> {

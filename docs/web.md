@@ -129,7 +129,7 @@ document will not migrate.
   (*Buying credits*).
 - Credits are paid up front and **never expire**. Every paid generation —
   Veo shots, Gemini stills (one at a time or batched), ElevenLabs lines, music
-  tracks and voice designs — and the assistant are charged at **cost times a multiplier
+  tracks, sound effects and voice designs — and the assistant are charged at **cost times a multiplier
   per kind** (`credits::Product`: ×1.5 on a Veo shot, ×1.8 on the rest;
   *Credits*, *Pricing* has why), and **nothing else: there is no monthly fee**
   (#1243). Users top up themselves through Stripe (*Buying credits*, #548), a
@@ -1419,7 +1419,10 @@ prompt, brief hash, operation ticket, state, estimated cost, error),
 brief hash, state, estimated cost, error — #461; and since #947 `batch` and
 the batch job's name as `ticket`, which only a batched still has: one drawn now
 comes back on the call), `speech_generations` (model, voice, text, characters,
-settings, estimated cost, error) and `voice_designs` (description, passage,
+settings, estimated cost, error), `music_generations` (model, prompt, seconds,
+instrumental, brief hash, state, estimated cost, error — #1264),
+`sound_generations` (model, prompt, length in milliseconds, loop, brief hash,
+state, estimated cost, error — #1265) and `voice_designs` (description, passage,
 characters, seed, guidance, brief hash, state, the three candidates once it
 worked, estimated cost, error — #572, *Web MCP*) hold one row per paid generation, bound to the ledger entries that paid
 for it. Each carries a nullable `tool_call_id`, keyed to the tool call that
@@ -1435,7 +1438,7 @@ maintainer, 2026-10-13):
 | kind | multiplier |
 | --- | --- |
 | Veo shot | ×1.5 |
-| still (drawn now or batched), spoken line, music track, voice design, assistant call | ×1.8 |
+| still (drawn now or batched), spoken line, music track, sound effect, voice design, assistant call | ×1.8 |
 
 **The charging rule: the web charges for what a third party bills us, and for
 nothing we run ourselves.** Paid provider calls (Veo, Gemini, ElevenLabs, the

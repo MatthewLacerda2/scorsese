@@ -27,6 +27,7 @@ mod settling;
 mod shooting;
 mod shortening;
 mod slots;
+mod sounding;
 mod stopping;
 mod studio;
 mod transcribing;

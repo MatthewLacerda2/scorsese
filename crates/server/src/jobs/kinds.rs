@@ -60,6 +60,14 @@ pub const MUSIC_TRACK: Kind = Kind {
     budget: Some(ELEVENLABS),
 };
 
+/// An ElevenLabs sound effect (#1265). Seconds of sound, made in seconds,
+/// and all network, like a track.
+pub const SOUND_EFFECT: Kind = Kind {
+    name: "sound_effect",
+    limit: VENDOR_BOUND,
+    budget: Some(ELEVENLABS),
+};
+
 /// A Gemini still (#461). Seconds, mostly network, like a line.
 pub const STILL_IMAGE: Kind = Kind {
     name: "still_image",
@@ -227,8 +235,8 @@ pub const PATIENT: [Kind; 1] = [BATCH_STILL];
 /// the server's environment ([`Keys`]).
 ///
 /// [`THUMBNAIL`] (#535), [`RENDER`] (#541), [`VEO_SHOT`] and [`SPOKEN_LINE`]
-/// (#539, `crate::generations`), [`MUSIC_TRACK`] (#1264), [`STILL_IMAGE`] (#461), [`BATCH_STILL`]
-/// (#947), [`PREVIEW`] and [`PROXY`] (#542),
+/// (#539, `crate::generations`), [`MUSIC_TRACK`] (#1264), [`SOUND_EFFECT`]
+/// (#1265), [`STILL_IMAGE`] (#461), [`BATCH_STILL`] (#947), [`PREVIEW`] and [`PROXY`] (#542),
 /// [`VOICE_DESIGN`] and [`VOICE_KEEP`] (#572, `crate::designs`) and
 /// [`VOICE_FORGET`] (#1381) and [`TRANSCRIBE`] (#1549) have theirs.
 /// A kind nothing registers is never claimed, so a job of that kind waits
@@ -328,6 +336,14 @@ pub fn with_vendors(
         .register(
             MUSIC_TRACK,
             generations::track_handler(
+                files.storage.clone(),
+                files.tools.clone(),
+                Arc::clone(&vendors),
+            ),
+        )
+        .register(
+            SOUND_EFFECT,
+            generations::sound_handler(
                 files.storage.clone(),
                 files.tools.clone(),
                 Arc::clone(&vendors),
