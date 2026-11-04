@@ -182,6 +182,8 @@ exits. Each `watch:` line is an event to act on. The last is `watch: resume:
 it expires. Exit status 5 means another queue holds the lock: never start a
 second. Stop a watch by the PID you hold, never `pkill -f`, since every
 repository the operator batches runs the same script.
+A restart of the machine or container stops the watch silently: check its log
+tail and start the same watch again.
 
 For each pull request that turns ready:
 

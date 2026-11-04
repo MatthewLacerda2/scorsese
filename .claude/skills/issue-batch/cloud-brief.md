@@ -53,6 +53,9 @@ lines are missing, run it yourself
 
 - A call past ten minutes moves to the background and you are woken when it
   ends. Wait for it; don't end your turn with the branch half-proven.
+- **A run on GitHub's runners never wakes you** (`make mutants-remote`, a CI
+  run): never end your turn waiting for one. The mutation signal never holds
+  a branch, so ready it without the result and post the result on the issue.
 - **Run each heavy gate once, into a log, and read the log** (`make test >
   target/test.log 2>&1; echo exit=$?`, then `grep`), never again just to see a
   summary you piped away.
@@ -103,6 +106,9 @@ not name (`docs/golden-renders.md`, *Re-blessing*).
   (with its migration step), `SYNTH_VERSION`, a SQL migration's `NNNN_`.
   Renumber if a sibling's lands first.
 - `docs/project-format.md` is parsed by tests: editing it is a code change.
+- **Room under a size cap is never made by rewording a rule** beside yours:
+  every other sentence of `CLAUDE.md` or a skill stays word for word, and the
+  room comes from your own sentence or a word that carries no rule.
 - **A change meant not to change behaviour is proven by comparison**: capture
   the output first (`tools/list`, a generated table, frames) and show it
   identical after.
