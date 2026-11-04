@@ -21,9 +21,11 @@
 
 use super::Found;
 
-/// The periods looked for, in blocks of half a millisecond: 4 ms (a 250 Hz
-/// control rate) to 64 ms (a game at 16 frames a second).
-const SHORTEST: usize = 8;
+/// The periods looked for, in blocks of half a millisecond: 5 ms (a gain set
+/// every 256-sample buffer at 48 kHz) to 64 ms (a game at 16 frames a
+/// second). Not shorter: a note's release read at one cycle of its own pitch
+/// steps down once a cycle, and above 200 Hz a cycle is under 5 ms.
+const SHORTEST: usize = 10;
 const LONGEST: usize = 128;
 /// A stretch, in blocks, and how far the next one starts after it.
 const STRETCH: usize = 1024;

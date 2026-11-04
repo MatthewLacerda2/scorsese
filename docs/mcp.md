@@ -2378,7 +2378,7 @@ section with `sections`, and a comparison with `against`.
 **Defects between samples come with the levels**: clicks (one jump far above
 every jump around it), dropouts (sound gone for 1 to 40 ms inside sound that
 goes on either side) and stepped gain (a level moving in flat steps at a
-regular period, from 4 to 64 ms — a gain set once per game frame and held).
+regular period, from 5 to 64 ms — a gain set once per game frame and held).
 Each is a count and its worst five by time, channel and size — `3.420 s to
 3.940 s left steps 4.1 dB every 16.7 ms (60 Hz)` — and each is marked in amber
 above the wave. The levels line says when there are none, and `against` compares

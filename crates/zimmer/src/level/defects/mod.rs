@@ -15,7 +15,7 @@
 //!   sentences is longer than any dropout.
 //! - **Stepped gain** ("zipper") is a level that moves in flat steps at a
 //!   regular period — a gain set once per game frame and held — instead of
-//!   smoothly, reported with the period found ([`zipper`]), from 4 ms to
+//!   smoothly, reported with the period found ([`zipper`]), from 5 ms to
 //!   64 ms and from a quarter of a decibel a step.
 //!
 //! **Stepped gain errs toward silence.** It is read off the sound's envelope
