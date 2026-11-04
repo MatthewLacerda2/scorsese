@@ -7,6 +7,7 @@ mod page;
 mod reveal;
 mod speaking;
 mod spoken;
+mod tracks;
 
 use crate::ClipId;
 use crate::captions::{Chunking, chunks, time};
