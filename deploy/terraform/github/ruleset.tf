@@ -36,11 +36,14 @@ resource "github_repository_ruleset" "main" {
         # GitHub Actions, so no other app can post a `CI ok` that counts.
         integration_id = 15368
       }
-      # The branch must hold `main`'s tip, so `CI ok` judged the tree that
-      # lands. It costs nothing: every merge goes through `make queue`, which
-      # rebases onto `main` and waits for the run on that head (Dependabot's
-      # branch rebases itself, and the queue waits for it to).
-      strict_required_status_checks_policy = true
+      # Not strict: a branch need not hold `main`'s tip (#1757). Every merge
+      # goes through `make queue`, which holds the rule this would: alone, it
+      # rebases onto `main` and waits for the run on that head; in a merge
+      # train, CI runs on the group's tree on `main` and the queue compares
+      # `main`'s tree with it after landing. Strict, GitHub refuses every
+      # member of a train but the first, so the queue merges one at a time
+      # while this is true (`merge_queue/rails.py`'s `landable`).
+      strict_required_status_checks_policy = false
     }
   }
 }

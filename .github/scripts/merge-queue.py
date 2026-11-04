@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """`merge-queue.py N M ...` — do the waiting that serialized merging costs.
 
-Merging stays serialized, one branch at a time, because Rust is compiled: two
-pull requests can each be green alone and break `main` together. Nothing here
-proposes otherwise. What this automates is **who sits through the ten minutes**
+Merging stays serialized because Rust is compiled: two pull requests can each
+be green alone and break `main` together, so every tree that lands is a tree
+CI ran. A list goes one branch at a time; a watch may take up to four
+together as a **merge train**, one run on their combined tree (#1757,
+`merge_queue/yard.py`), which keeps the same rule. What this automates is **who sits through the ten minutes**
 — rebase the branch, force-push it, wait for the run on the rebased head, ask
 [`mergeable.judge`], merge, take the next one, repeat. A batch on 2026-08-29
 paid that loop twenty-three times by hand, and the agent that paid it was
@@ -96,7 +98,7 @@ to save disk is the same class of mistake as rebasing one.
 
 Decided in #495, and stated here once. A queue can be a *train* — each car
 built on the one before, so a derailment strands everything behind it — or a
-list of **independent entries**. This one is the second, by construction:
+list of **independent entries**. Turns are the second, by construction:
 every branch is rebased onto `main` as `main` is *at its own turn*, and CI
 judges that tree. Whatever happened to the entry before — merged, red,
 conflicted, or a merge whose outcome is still unknown — the next one is tested
@@ -104,7 +106,9 @@ against the real `main` and not against a guess about it. So nothing a
 hand-back leaves behind can make a later merge unsound, and stopping would only
 turn one branch's problem into every branch's wait, in exactly the unattended
 run the queue exists for. Each hand-back is named in the summary, and the exit
-status is non-zero if there was any.
+status is non-zero if there was any. The watch's merge trains (#1757) are the
+first kind made safe: a red train strands nobody, because it is halved and
+each half retested on the real `main`, and a half of one is an ordinary turn.
 
 ## GitHub's answer about a state is not always the state
 
@@ -143,7 +147,9 @@ deadline, never handed back as red.
 requests carrying the `queue` label, takes them in `CLAUDE.md`'s label
 priority and then by age, and stops taking new ones after `--for` minutes so
 it fits the harness's two-hour cap. Every guarantee above holds per pull
-request, because each one taken goes through the same [`take`]. Which one, why
+request, because each one taken alone goes through the same [`take`], and a
+train's members are judged by the same functions before they ride
+(`merge_queue/yard.py`, which says how a group keeps them). Which one, why
 a label, and how a hand-back is kept from being retried every poll are
 `merge-watch.py`'s module doc (#690).
 
@@ -189,7 +195,9 @@ summary and exit status), `numbering` (#729's collisions), `lock` (one queue
 at a time per repository, #1346), `tally` (the aging tally between watches,
 #1423), `talk` (git,
 GitHub's view of the pull request, and the queue's output), `options` (the
-command line) and `states` (the words they share). Each calls another's
+command line) and `states` (the words they share). The merge train (#1757) is
+`yard` (its rounds, and the design), `train` (the chain of trees), `group`
+(who rides), `rails` (its branch, run and the ruleset) and `landing`. Each calls another's
 functions through the module (`ci.wait_for(…)`), never by imported name, so a
 test replaces a function where it is defined and every caller sees it.
 """
@@ -208,12 +216,12 @@ HERE = str(Path(__file__).resolve().parent)
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-from merge_queue import ci, lock, merge, mergeable, options, rebase, report, talk, tally, verdict, watch  # noqa: E402,F401
+from merge_queue import ci, lock, merge, mergeable, options, rebase, report, talk, tally, verdict, watch, yard  # noqa: E402,F401
 from merge_queue.numbering import migration_number, numbering, schema_version  # noqa: E402,F401
 from merge_queue.options import DEADLINE_MINUTES, POLL_SECONDS, parse, since  # noqa: E402,F401
 from merge_queue.states import (  # noqa: E402,F401
-    GO, GREEN, HANDED_BACK, LATE, LOCKED_STATUS, MERGED, NOT_REACHED, RERUN, STOP,
-    UNFINISHED, UNFINISHED_STATUS, UNJUDGED, UNREACHABLE, WAIT,
+    GO, GREEN, HANDED_BACK, LATE, LOCKED_STATUS, MERGED, MISMATCH_STATUS, NOT_REACHED, REQUEUED, RERUN,
+    STOP, STOPPED, UNFINISHED, UNFINISHED_STATUS, UNJUDGED, UNREACHABLE, WAIT,
 )
 from merge_queue.verdict import RUN_APPEARS_SECONDS, head_state, progress  # noqa: E402,F401
 from merge_queue.ci import wait_for  # noqa: E402,F401
@@ -239,6 +247,7 @@ def take(
     opts: argparse.Namespace,
     heads: dict[int, str] | None = None,
     tick=None,
+    retaken: bool = False,
 ) -> tuple[int, str, str]:
     """One pull request, from where it is to merged or handed back.
 
@@ -302,24 +311,19 @@ def take(
     if opts.no_merge:
         return number, GREEN, lines[0]
 
+    # `main`'s ruleset is not strict (#1757), so GitHub would merge a head that
+    # no longer holds `main`'s tip: a merge that landed late, or one by hand,
+    # would put a tree no run tested on `main`. Rebased and waited for again,
+    # once; a second move is unfinished, nothing decided.
+    if not rebase.on_main(fresh, opts.root):
+        if retaken:
+            return number, UNFINISHED, "`main` moved again while its run ran; queue it again."
+        talk.say(f"#{number}: `main` moved while its run ran; rebasing onto it again.")
+        return take(repo, number, opts, heads, tick, retaken=True)
     # Pinned to the head CI was watched on: GitHub refuses a head that moved.
-    done = subprocess.run(
-        mergeable.pulls.merge_call(repo, number, fresh),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if done.returncode != 0:
-        failure = done.stderr.strip()
-        if not mergeable.transport(failure):
-            blocked = f"CI passed but the merge was refused: {failure}"
-            talk.say(f"#{number}: {blocked}")
-            return number, HANDED_BACK, blocked
-        talk.say(f"#{number}: the merge call failed in transit: {failure}")
-        state, after = merge.confirm(repo, number, opts.poll)
-        talk.say(f"#{number}: {after[0]}", *after[1:])
-        if state != GO:
-            return number, HANDED_BACK, after[0]
+    state, why = merge.squash(repo, number, fresh, opts.poll)
+    if state != MERGED:
+        return number, HANDED_BACK, why
     talk.say(f"#{number}: merged.")
     return number, MERGED, lines[0]
 
@@ -349,7 +353,10 @@ def run_queue(repo: str, opts: argparse.Namespace) -> list[tuple[int, str, str]]
 
 
 def run_watch(
-    repo: str, opts: argparse.Namespace, tally_path: Path | None = None
+    repo: str,
+    opts: argparse.Namespace,
+    tally_path: Path | None = None,
+    trains: yard.Yard | None = None,
 ) -> list[tuple[int, str, str]]:
     """Take cleared pull requests as they appear, until `--for` runs out.
 
@@ -368,6 +375,10 @@ def run_watch(
 
     Every result is also said as it happens, as one [`watch.outcome`] line,
     and the board's changes as [`watch.transitions`] lines between polls.
+
+    With `trains` (`main` passes [`yard.open_yard`]'s), each pick may take up
+    to four together on one run instead ([`ride`]); the module doc of
+    `merge_queue/yard.py` is that design.
     """
     results: list[tuple[int, str, str]] = []
     dropped: dict[int, str] = {}
@@ -419,10 +430,22 @@ def run_watch(
             note = watch.reordered(pulls, dropped, labels, clashes, passes)
             if note:
                 talk.say(note)
-            number = pull["number"]
+            members, train = [pull], None
+            if trains is not None:
+                line = [p for p in pulls if watch.eligible(p, dropped)]
+                members, train, notes = trains.form(watch.ordered(line, labels, clashes, passes))
+                for said in notes:
+                    talk.tell(said)
+            pull, number = members[0], members[0]["number"]
             watch.count_passes(passes, pulls, dropped, number)
+            for member in members[1:]:
+                passes.pop(member["number"], None)  # one take: no pass for its members
             if tally_path:
                 tally.save(tally_path, passes)
+            if train is not None:
+                if ride(trains, train, members, record, dropped, tick):
+                    return results
+                continue
             heads: dict[int, str] = {}
             try:
                 outcome = take(repo, number, opts, heads, tick)
@@ -441,6 +464,29 @@ def run_watch(
         return results
 
 
+def ride(trains, train, members, record, dropped, tick) -> bool:
+    """One train through [`yard.Yard.ride`], each result recorded and its head
+    dropped as a take's is; a member back in line is said and stays in line.
+    Whether the watch must stop: GitHub unreachable, or `main` not the train's."""
+    listed = ", ".join(f"#{p['number']}" for p in members)
+    talk.tell(f"{watch.EVENT} taking {listed} together.")
+    heads = {p["number"]: p.get("headRefOid", "") for p in members}
+    try:
+        rode = trains.ride(train, tick)
+    except mergeable.Unreachable as outage:
+        talk.say(f"#{members[0]['number']}: {outage}")
+        record(members[0]["number"], UNREACHABLE, str(outage))
+        return True
+    for number, state, why in rode:
+        if state == REQUEUED:
+            talk.tell(f"{watch.EVENT} #{number} goes back in line: {why}")
+            continue
+        record(number, state, why)
+        if number:
+            dropped[number] = heads[number]
+    return any(state in (STOPPED, UNREACHABLE) for _, state, _ in rode)
+
+
 def main(argv: list[str] | None = None) -> int:
     opts = options.parse(sys.argv[1:] if argv is None else argv)
     try:
@@ -452,7 +498,7 @@ def main(argv: list[str] | None = None) -> int:
     repo = mergeable.pulls.repository(opts.root)
     if opts.watch:
         kept = None if opts.no_merge else tally.path_for(opts.root, opts.label)
-        results = run_watch(repo, opts, kept)
+        results = run_watch(repo, opts, kept, trains=yard.open_yard(repo, opts))
     else:
         results = run_queue(repo, opts)
 

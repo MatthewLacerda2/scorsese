@@ -33,6 +33,9 @@ def say(line: str, *rest: str) -> None:
         print(f"  {extra}", flush=True)
 
 
-def tell(line: str) -> None:
-    """An event line, already carrying [`watch.EVENT`]: printed as it is."""
+def tell(line: str, *rest: str) -> None:
+    """An event line, already carrying [`watch.EVENT`]: printed as it is, any
+    further lines indented beneath it, as [`say`] does."""
     print(line, flush=True)
+    for extra in rest:
+        print(f"  {extra}", flush=True)

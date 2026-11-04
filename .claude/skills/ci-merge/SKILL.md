@@ -108,8 +108,8 @@ rebase is always re-run.
     make queue WATCH=1            # a batch: whatever is cleared, as it is cleared
     make queue PRS="486 488 489"  # a fixed list, in the order given
 
-Reach for it whenever more than one branch is finished at once. It merges one at
-a time, re-fetching `main` between each; it asks `mergeable` about every branch
+Reach for it whenever more than one branch is finished at once. A list merges one
+at a time, re-fetching `main` between each; it asks `mergeable` about every branch
 before merging it; and it stops on anything it cannot do safely:
 
 - **Any conflict at all** — the branch is handed back with the conflicting
@@ -143,6 +143,13 @@ same five steps:
   taken starts it over. **Dependabot goes after
   all of them.** One that **conflicts with `main`** is handed back at once with
   the files named. A list run keeps the order it was given.
+- **The watch merges in trains** of up to four: pull requests whose own heads are
+  cleared, tested by one CI run on `main` with each applied in order, then
+  squash-merged in that order, each pinned to its head, and `main`'s tree held
+  to the tree tested (exit 6 when not: look at `main` first). A red train is
+  halved and retested; a member that conflicts with the train, takes its
+  number, or changes the merge path, CI, a lockfile or only Markdown goes alone.
+  `merge_queue/yard.py`'s module doc is the design.
 - **One queue at a time.** A second run on the same clone refuses with exit
   status 5, naming the holder's pid: follow the running watch's log, or stop
   that pid first. A `git fetch` of your own in the main checkout can collide

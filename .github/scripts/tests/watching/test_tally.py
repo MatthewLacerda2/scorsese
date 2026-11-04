@@ -75,6 +75,7 @@ class Carrying(unittest.TestCase):
         def started(*argv):
             with mock.patch.object(queue.mergeable.pulls, "repository", return_value="o/r"), \
                 mock.patch.object(queue.lock, "acquire"), \
+                mock.patch.object(queue.yard, "open_yard", return_value=None), \
                 mock.patch.object(queue, "run_watch", return_value=[]) as run, \
                 mock.patch("builtins.print"):
                 queue.main(["--watch", *argv])

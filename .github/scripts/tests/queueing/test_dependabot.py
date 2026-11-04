@@ -86,6 +86,7 @@ class Branch(unittest.TestCase):
             mock.patch.object(queue.talk, "git"), \
             mock.patch.object(queue.rebase, "advance") as rebased, \
             mock.patch.object(queue.rebase, "bot_head", return_value=bot_head), \
+            mock.patch.object(queue.rebase, "on_main", return_value=True), \
             mock.patch.object(queue.ci, "wait_for", return_value=(queue.GO, ["CI passed"])) as waited, \
             mock.patch.object(queue.subprocess, "run", return_value=merged), \
             mock.patch("builtins.print"):

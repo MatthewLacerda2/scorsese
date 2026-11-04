@@ -18,8 +18,9 @@ the tooling or a better model has made unnecessary.
 ## The queue is the bottleneck
 
 Coding parallelises; merging does not. Rust is compiled, so merges are
-serialized, one CI run each, and every branch behind another pays a rebase per
-merge ahead of it — N(N−1)/2 over shared code. What matters is that the queue
+serialized, and every branch behind another pays a rebase per merge ahead of
+it — N(N−1)/2 over shared code. **The watch merges in trains**: up to four
+ready pull requests on one CI run of their combined tree (`ci-merge`). What matters is that the queue
 never idles and nothing rebases twice, not how many branches are being written.
 
 **The merge queue is `make queue WATCH=1`** (`ci-merge` has how it orders,
