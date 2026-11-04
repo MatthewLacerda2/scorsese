@@ -95,3 +95,49 @@ fn a_link_where_a_proxy_is_made_is_left_as_it_was() {
     std::fs::remove_dir_all(&dir).ok();
     std::fs::remove_dir_all(&outside).ok();
 }
+
+/// A `.scor` received from someone else may carry its proxies folder as a
+/// link (#1715): the proxy is refused, and what the link leads to — a folder
+/// named like the scratch one, a file named like the proxy — is left as it
+/// was, neither removed nor overwritten.
+#[cfg(unix)]
+#[test]
+fn a_proxies_folder_that_is_a_link_is_never_written_through() {
+    let tools = tools();
+    let dir = scratch::dir("proxy-linked");
+    let outside = scratch::dir("proxy-linked-outside");
+    let source = dir.join("source.mp4");
+    generate(
+        &tools,
+        &source,
+        &[
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=s=1280x720:d=0.2:r=30",
+            "-pix_fmt",
+            "yuv420p",
+        ],
+    );
+    let name = preview::file_name("linked");
+    let kept = outside.join(std::path::Path::new(&name).with_extension("making"));
+    std::fs::create_dir_all(&kept).expect("a folder outside");
+    std::fs::write(kept.join("own.txt"), "kept").expect("a file outside");
+    std::fs::write(outside.join(&name), "the victim's own bytes").expect("a victim");
+    std::fs::create_dir_all(dir.join("cache")).expect("the cache folder");
+    std::os::unix::fs::symlink(&outside, dir.join("cache/proxies")).expect("a link");
+    let out = preview::folder(&dir).join(&name);
+
+    preview::make(&tools, &source, &out).expect_err("made through a link");
+
+    assert_eq!(
+        std::fs::read(kept.join("own.txt")).expect("the folder outside"),
+        b"kept"
+    );
+    assert_eq!(
+        std::fs::read(outside.join(&name)).expect("the victim"),
+        b"the victim's own bytes"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+    std::fs::remove_dir_all(&outside).ok();
+}

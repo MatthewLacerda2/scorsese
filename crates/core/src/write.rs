@@ -23,9 +23,10 @@
 //! A file of the project is written through [`in_project`], which also
 //! refuses a folder on the way that is a link: on the web a project is laid
 //! out with links into a member's storage, and a write through one would land
-//! outside the project. A writer not handed a project path — the page and
-//! stock caches — makes its folders through [`folder_below`], which holds to
-//! the same line below a base the caller trusts.
+//! outside the project. A writer not handed a project path — the page,
+//! stock, voices, quotes and proxy caches — makes its folders through
+//! [`folder_below`], which holds to the same line below a base the caller
+//! trusts.
 //!
 //! Importing goes through neither, and needs not: `pool` copies a file in
 //! under a name no asset points at yet and records it only once the copy is

@@ -161,7 +161,7 @@ pub enum ProxyError {
 /// half-made — a preview that checks for the file and finds it can decode it.
 /// Inside a folder this call made ([`scorsese_core::write::remade_dir`]), so
 /// nothing placed in the project's cache beforehand (a link, #1672) is where
-/// ffmpeg writes.
+/// ffmpeg writes; and `out`'s folder is refused if it is a link (#1715).
 ///
 /// H.264, because the default delivery already requires `libx264`
 /// (`docs/output-formats.md`), with a keyframe every fifteen frames and the
@@ -184,9 +184,8 @@ pub fn make_unless(
         let file = file.to_path_buf();
         move |source| ProxyError::Io { file, source }
     };
-    if let Some(parent) = out.parent() {
-        std::fs::create_dir_all(parent).map_err(io(parent))?;
-    }
+    let parent = out.parent().unwrap_or_else(|| Path::new(""));
+    unlinked(parent).map_err(io(parent))?;
     let folder = out.with_extension("making");
     scorsese_core::write::remade_dir(&folder).map_err(io(&folder))?;
     let making = folder.join("proxy.mp4");
@@ -222,6 +221,25 @@ pub fn make_unless(
     });
     let _ = std::fs::remove_dir_all(&folder);
     placed
+}
+
+/// Makes `folder`, the one a proxy is written in, with every folder above it —
+/// and refuses it if it is a link (#1715): a `.scor` received from someone
+/// else may carry `cache/proxies` as one, and a proxy made there would remove
+/// and overwrite files where it leads. What is above it is the caller's: on
+/// the web a project's `cache/` is a link to where its captures are kept.
+fn unlinked(folder: &Path) -> std::io::Result<()> {
+    let (Some(above), Some(name)) = (folder.parent(), folder.file_name()) else {
+        return std::fs::create_dir_all(folder);
+    };
+    // A relative folder of one component sits below the working directory.
+    let above = if above.as_os_str().is_empty() {
+        Path::new(".")
+    } else {
+        above
+    };
+    std::fs::create_dir_all(above)?;
+    scorsese_core::write::folder_below(above, Path::new(name)).map(drop)
 }
 
 /// What ffmpeg's `output` came to: the proxy at `making` put in `out`'s place,

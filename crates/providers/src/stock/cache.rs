@@ -105,7 +105,7 @@ pub(crate) fn write(cache: &Path, key: &str, page: &Page) -> Result<(), StockErr
         total: page.total,
     };
     unlinked(cache, PAGES)?;
-    diskcache::write(&pages(cache), key, &cached)
+    diskcache::write(cache, PAGES, key, &cached)
         .map_err(|(path, source)| StockError::Io { path, source })
 }
 

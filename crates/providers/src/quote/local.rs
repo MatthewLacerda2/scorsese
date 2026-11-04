@@ -22,15 +22,26 @@ pub const QUOTES_DIR: &str = "quotes";
 /// The tokens of one project.
 #[derive(Debug, Clone)]
 pub struct ProjectQuotes {
+    /// The project's `cache/`: the caller's, which may be a link.
+    cache: PathBuf,
     dir: PathBuf,
 }
 
 impl ProjectQuotes {
     /// The store for the project at `root`.
     pub fn new(root: &Path) -> Self {
+        let cache = root.join(CACHE_DIR);
         Self {
-            dir: root.join(CACHE_DIR).join(QUOTES_DIR),
+            dir: cache.join(QUOTES_DIR),
+            cache,
         }
+    }
+
+    /// Whether `cache/quotes` is a link: a `.scor` received from someone else
+    /// may carry one (#1715), and no token is kept, read or removed where it
+    /// leads.
+    fn linked(&self) -> bool {
+        std::fs::symlink_metadata(&self.dir).is_ok_and(|meta| meta.file_type().is_symlink())
     }
 
     /// Where one token's record lives. Only ever asked of a well-formed token,
@@ -45,6 +56,8 @@ impl ProjectQuotes {
     /// quotes somebody is actually deciding on rather than every one ever made.
     /// A record that cannot be read is left alone: it will be refused if it is
     /// ever handed in, and deleting what cannot be understood is not tidying.
+    /// Only ever called once [`Quotes::put`] has made the folder, refusing a
+    /// link there, so it never reads or removes where one leads.
     fn sweep(&self, now: i64) {
         let Ok(entries) = std::fs::read_dir(&self.dir) else {
             return;
@@ -65,14 +78,14 @@ impl Quotes for ProjectQuotes {
     type Error = io::Error;
 
     fn put(&self, issued: &Issued) -> io::Result<()> {
+        crate::diskcache::folder(&self.cache, QUOTES_DIR)?;
         self.sweep(issued.issued_at);
-        std::fs::create_dir_all(&self.dir)?;
         let json = serde_json::to_vec_pretty(issued).map_err(io::Error::other)?;
         scorsese_core::write::atomically(&self.file(&issued.token), json)
     }
 
     fn take(&self, token: &str) -> io::Result<Option<Issued>> {
-        if !well_formed(token) {
+        if !well_formed(token) || self.linked() {
             return Ok(None);
         }
         let path = self.file(token);
