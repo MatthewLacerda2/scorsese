@@ -23,6 +23,9 @@ export const TESTS: readonly AbTest[] = [
   // The line under the first screen's headline (#1593): `a` the promise the
   // heading test (#1554) chose, `b` that no editing of one's own is needed.
   { id: "hero-subtitle", versions: ["a", "b"], running: true },
+  // The first screen's layout, `hero.layout` (#1555): `a` has the film strip
+  // along its bottom, `b` the prompt box alone, the strip starting below it.
+  { id: "hero-strip", versions: ["a", "b"], running: false },
 ];
 
 /**

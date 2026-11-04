@@ -70,7 +70,7 @@ export function LandingPage({ signIn = false }: { signIn?: boolean }) {
       <div className="grain" aria-hidden />
       <Header onSignIn={openSignIn} />
       <main>
-        <Hero onPrompt={signInWith} version={shown["hero-subtitle"]} />
+        <Hero onPrompt={signInWith} version={shown["hero-subtitle"]} layout={shown["hero-strip"]} />
         <ScrollIn>
           <HowItWorks />
         </ScrollIn>

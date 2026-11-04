@@ -2979,7 +2979,8 @@ posterior with a uniform prior (`crates/server/src/ab/decide.rs`).
 `web/src/ab/tests.ts`: an id, its versions (the first is the current page) and
 whether it is `running`. The list may hold tests waiting their turn, and
 `tests.test.ts` refuses one with two running. The server knows none of them.
-The order of the next ones: the heading (#1554), then the film strip (#1555).
+The order: the line under the headline (`hero-subtitle`, #1593) runs, then
+the film strip on the first screen (`hero-strip`, #1555).
 
 **Adding a test** is an entry in that list and the versions in the landing's
 code: `useLandingTests` gives the page each running test's version (and
