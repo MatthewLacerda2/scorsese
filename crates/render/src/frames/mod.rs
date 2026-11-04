@@ -54,14 +54,15 @@ pub fn read_png(tools: &Tools, file: &Path, resolution: Resolution) -> Result<Fr
     raw_frame(command, file, resolution)
 }
 
-/// Writes a frame out as a PNG, creating the directory if needed.
+/// Writes a frame out as a PNG, creating the directory if needed — through a
+/// scratch name and renamed over `file` ([`in_place`]), so a link at `file`
+/// is replaced, never written through.
 pub fn write_png(tools: &Tools, file: &Path, frame: &Frame) -> Result<(), FrameError> {
-    if let Some(parent) = file.parent() {
-        std::fs::create_dir_all(parent).map_err(|source| FrameError::Io {
-            file: parent.to_path_buf(),
-            source,
-        })?;
-    }
+    in_place(file, |drawing| encode_png(tools, drawing, frame))
+}
+
+/// ffmpeg encoding `frame` as the PNG `file`, over whatever is there.
+fn encode_png(tools: &Tools, file: &Path, frame: &Frame) -> Result<(), FrameError> {
     let mut child = tools
         .ffmpeg()
         .args(["-nostdin", "-v", "error", "-y"])
@@ -103,6 +104,35 @@ pub fn write_png(tools: &Tools, file: &Path, frame: &Frame) -> Result<(), FrameE
             message: stderr_of(&output.stderr),
         })
     }
+}
+
+/// Writes the file `out` by way of `draw`, which is handed the name to have
+/// ffmpeg write instead: one inside a folder beside `out` that this call made
+/// ([`scorsese_core::write::fresh_dir_beside`]), renamed over `out` once
+/// drawn. ffmpeg's `-y` follows a link at the name it is given; nothing is
+/// ever at this one, and the rename replaces a link at `out` rather than
+/// writing where it leads (#1737). The folder `out` is in is made if it is
+/// not there; whether it may be a link is the caller's to ask first
+/// ([`scorsese_core::write::in_cache`]).
+///
+/// The scratch name keeps `out`'s, since ffmpeg picks the encoder from it.
+fn in_place(
+    out: &Path,
+    draw: impl FnOnce(&Path) -> Result<(), FrameError>,
+) -> Result<(), FrameError> {
+    let io = |source| FrameError::Io {
+        file: out.to_path_buf(),
+        source,
+    };
+    if let Some(parent) = out.parent().filter(|parent| !parent.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent).map_err(io)?;
+    }
+    let folder = scorsese_core::write::fresh_dir_beside(out, "drawing").map_err(io)?;
+    // `fresh_dir_beside` refuses a path that names no file.
+    let drawing = folder.join(out.file_name().unwrap_or_default());
+    let drawn = draw(&drawing).and_then(|()| std::fs::rename(&drawing, out).map_err(io));
+    let _ = std::fs::remove_dir_all(&folder);
+    drawn
 }
 
 /// Runs a command expected to emit exactly one raw RGBA frame on stdout.
