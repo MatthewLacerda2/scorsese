@@ -131,13 +131,13 @@ fn found(tools: Option<&Tools>, job: &Job) -> Option<Peaks> {
         .and_then(|bytes| Peaks::from_bytes(&bytes));
     read_back.or_else(|| {
         let read = peaks(tools?, &job.source).ok()?;
-        if folder.is_ok() {
-            if let Err(error) = scorsese_core::write::atomically(&job.out, read.to_bytes()) {
-                eprintln!(
-                    "the waveform of {} is not kept: {error}",
-                    job.source.display()
-                );
-            }
+        if folder.is_ok()
+            && let Err(error) = scorsese_core::write::atomically(&job.out, read.to_bytes())
+        {
+            eprintln!(
+                "the waveform of {} is not kept: {error}",
+                job.source.display()
+            );
         }
         Some(read)
     })
