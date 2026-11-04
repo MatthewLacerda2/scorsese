@@ -22,6 +22,8 @@
 //! - [`ffmpeg_input`] — every file ffmpeg reads is named through render's
 //!   input helper, never a bare `-i` (#1635).
 //! - [`binaries`] — each crate links one integration-test binary (#1128).
+//! - [`reachable`] — every file under a crate's test suite is a module its
+//!   `main.rs` reaches (#1615).
 //! - [`agent_docs`] — every `CLAUDE.md` and skill within its line cap, a
 //!   skill's frontmatter loadable, and no history cited in either.
 //!
@@ -39,6 +41,7 @@ pub mod ignored;
 pub mod markers;
 pub mod prefix;
 pub mod printing;
+pub mod reachable;
 pub mod schema;
 pub mod shebang;
 pub mod skips;
@@ -87,6 +90,11 @@ pub fn check_tree(root: &Path) -> io::Result<Vec<Finding>> {
     findings.extend(shebang::check(root));
     findings.extend(boundary::check_root(root)?);
     findings.extend(agent_docs::check(root));
+    let sources: Vec<(&Path, &str)> = texts
+        .iter()
+        .map(|(file, text)| (file.path.as_path(), text.as_str()))
+        .collect();
+    findings.extend(reachable::check(&sources));
     let current = texts
         .iter()
         .find(|(file, _)| file.path == Path::new(schema::DEFINED_IN))

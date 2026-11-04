@@ -42,6 +42,7 @@ fn the_tree_is_walked_and_its_findings_ordered() {
         fs::write(path, text).expect("write");
     };
     write("crates/a/src/lib.rs", "//! A crate.\npub mod b;\n");
+    write("crates/a/tests/suite/main.rs", "mod t;\n");
     write(
         "crates/a/tests/suite/t.rs",
         "#[test]\n#[ignore]\nfn t() {}\n",
