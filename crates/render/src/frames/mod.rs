@@ -54,9 +54,9 @@ pub fn read_png(tools: &Tools, file: &Path, resolution: Resolution) -> Result<Fr
     raw_frame(command, file, resolution)
 }
 
-/// Writes a frame out as a PNG, creating the directory if needed — through a
-/// scratch name and renamed over `file` ([`in_place`]), so a link at `file`
-/// is replaced, never written through.
+/// Writes a frame out as a PNG, creating the directory if needed — drawn in a
+/// fresh folder beside `file` and renamed over it, so a link at `file` is
+/// replaced, never written through.
 pub fn write_png(tools: &Tools, file: &Path, frame: &Frame) -> Result<(), FrameError> {
     in_place(file, |drawing| encode_png(tools, drawing, frame))
 }
