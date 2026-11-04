@@ -29,12 +29,16 @@
 //! per-section rows behind `sections`, and a field-by-field comparison behind
 //! `against`. The default stays lean because a reply is re-read on every model
 //! call after it, and the picture is already most of its weight.
+//!
+//! **And the defects between samples** (#1620): clicks, dropouts and stepped
+//! gain, a line per kind found and one line when there are none, marked on
+//! the picture too, and counted against the other file under `against`.
 
 use std::path::Path;
 
 use schemars::JsonSchema;
 use scorsese_render::audio::reference::{self, Reference};
-use scorsese_render::audio::{Waveform, measure, waveform};
+use scorsese_render::audio::{Waveform, examine, measure, waveform};
 use scorsese_render::{Tools, say};
 use serde::Deserialize;
 use serde_json::Value;
@@ -56,7 +60,8 @@ struct Arguments {
     /// table. A rendered video works too; its sound is what is read.
     file: String,
     /// Compare with this file, field by field: mean, peak, crest, balance,
-    /// width and length, each with how far it moved. Usually the version the
+    /// width and length, each with how far it moved, and how many clicks,
+    /// dropouts and steps each has. Usually the version the
     /// first one was meant to replace — the previous bake, or the render that
     /// sounded right. Relative to the project, or absolute.
     against: Option<String>,
@@ -94,7 +99,10 @@ impl Tool for Hear {
          of speech from 3.7 seconds of silence, and this can. It answers: is it \
          silent, is it clipped, does it start late or end early, is it the \
          length it should be, where are the pauses, and how loud and how bright \
-         it is. Give `against` to compare two files field by field — the form \
+         it is, and the clicks, dropouts and stepped gain (zipper) in it — \
+         each with its time, channel and size, the worst marked above the \
+         wave — which is what \"it sounds choppy\" measures as. Give \
+         `against` to compare two files field by field — the form \
          that answers \"did my change land?\", since an absolute level is hard \
          to judge and a difference is not — and `sections` for one row of \
          levels per section, and `like` to hold it against a reference \
@@ -137,7 +145,7 @@ impl Tool for Hear {
         let mut text = said(&wave);
         text.push_str(&levels(
             &tools,
-            &file,
+            &wave,
             other.as_deref(),
             arguments.sections,
             like,
@@ -155,13 +163,17 @@ impl Tool for Hear {
 /// call has just read is cheap next to the picture it already pays for.
 fn levels(
     tools: &Tools,
-    file: &Path,
+    wave: &Waveform,
     other: Option<&Path>,
     sections: bool,
     like: Option<&Reference>,
 ) -> Result<String, String> {
+    let file = wave.file.as_path();
     let profile = measure(tools, file).map_err(|error| format!("{error}"))?;
     let mut text = format!("\nlevels  {}", say::summary(&profile));
+    for line in say::defects(&wave.defects) {
+        text.push_str(&format!("\n{line}"));
+    }
     if sections {
         for row in say::sections(&profile) {
             text.push_str(&format!("\n  {row}"));
@@ -175,7 +187,7 @@ fn levels(
         }
     }
     if let Some(other) = other {
-        let previous = measure(tools, other).map_err(|error| format!("{error}"))?;
+        let (previous, before) = examine(tools, other).map_err(|error| format!("{error}"))?;
         text.push_str(&format!(
             "\n\n{}  vs  {}",
             say::name(file),
@@ -184,6 +196,10 @@ fn levels(
         for row in say::comparison(&profile, &previous) {
             text.push_str(&format!("\n  {row}"));
         }
+        text.push_str(&format!(
+            "\n  {}",
+            say::defects_compared(&wave.defects, &before)
+        ));
     }
     Ok(text)
 }

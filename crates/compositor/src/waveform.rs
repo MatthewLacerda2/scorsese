@@ -53,6 +53,12 @@ const CLIPPED: Rgba = Rgba::opaque(0xe0, 0x5a, 0x50);
 /// The silence line down the middle, the full-scale rules at the edges, and the
 /// axis ticks.
 const RULE: Rgba = Rgba::opaque(0x3a, 0x40, 0x4a);
+/// A defect's mark above the wave: amber, apart from every colour of the wave
+/// itself, so a mark is never read as part of the sound.
+const MARK: Rgba = Rgba::opaque(0xf0, 0xb4, 0x3c);
+/// The rows a mark takes: the strip between the caption and the wave's top
+/// rule, which nothing else draws in.
+const MARK_ROWS: std::ops::Range<u32> = WAVE_TOP - 6..WAVE_TOP;
 /// Captions and axis labels.
 const INK: Rgba = Rgba::opaque(0xc8, 0xcf, 0xd8);
 
@@ -84,6 +90,19 @@ pub struct Wave<'a> {
     pub seconds: f64,
     /// One line along the top: what this is a picture of, and how it came out.
     pub caption: &'a str,
+    /// Moments to point at above the wave — a click, a dropout, a run of
+    /// stepped gain — each said in words beside the picture as well.
+    pub marks: &'a [Mark],
+}
+
+/// A stretch of the file to point at, in seconds. An instant is a mark whose
+/// two ends agree, and is drawn one column wide.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Mark {
+    /// Where it starts.
+    pub from_seconds: f64,
+    /// Where it ends.
+    pub to_seconds: f64,
 }
 
 /// How many columns a waveform picture has, and so how many slices to cut a
@@ -115,6 +134,11 @@ pub fn draw(wave: &Wave<'_>, font: &Font) -> Result<Frame, ResolutionError> {
     for (x, one) in wave.columns.iter().take(COLUMNS).enumerate() {
         bars(&mut frame, x as u32, *one);
     }
+    for mark in wave.marks {
+        for x in marked(mark, wave.seconds) {
+            column(&mut frame, x, MARK_ROWS, MARK);
+        }
+    }
 
     label(&mut frame, wave.caption, font, 6.0, TextAlign::Left);
     for (align, at) in [
@@ -125,6 +149,22 @@ pub fn draw(wave: &Wave<'_>, font: &Font) -> Result<Frame, ResolutionError> {
         label(&mut frame, &stamp(at), font, 226.0, align);
     }
     Ok(frame)
+}
+
+/// The columns a mark covers, at least one, on the same time axis as the
+/// stamps under the picture: zero at the left edge, the file's end at the
+/// right.
+fn marked(mark: &Mark, seconds: f64) -> std::ops::RangeInclusive<u32> {
+    if seconds <= 0.0 {
+        return 1..=0;
+    }
+    let x = |at: f64| {
+        (at / seconds * f64::from(WIDTH - 1))
+            .round()
+            .clamp(0.0, f64::from(WIDTH - 1)) as u32
+    };
+    let from = x(mark.from_seconds);
+    from..=x(mark.to_seconds).max(from)
 }
 
 /// The row a silent sample sits on.

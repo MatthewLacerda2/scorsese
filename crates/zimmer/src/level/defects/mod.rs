@@ -15,7 +15,17 @@
 //!   sentences is longer than any dropout.
 //! - **Stepped gain** ("zipper") is a level that moves in flat steps at a
 //!   regular period — a gain set once per game frame and held — instead of
-//!   smoothly, reported with the period found ([`envelope`]).
+//!   smoothly, reported with the period found ([`zipper`]), from 4 ms to
+//!   64 ms and from a quarter of a decibel a step.
+//!
+//! **Stepped gain errs toward silence.** It is read off the sound's envelope
+//! ([`quadrature`]), so a steady tone, a chord or noise shows a staircase
+//! clearly, but a sound whose envelope pulses on its own — a voice, a note
+//! rich in harmonics — is not judged at all: its pulse and a staircase cannot
+//! be told apart there, and a measurement that invented staircases in every
+//! narration line would be worse than none. Nor is a step period shorter than
+//! about two cycles of the sound, which holds too little of it to have a
+//! level. To check a fix for stepped gain, measure a steady sound through it.
 //!
 //! **A signal, never a gate**, like the rest of `level`: a hard cut in an edit
 //! is a click on purpose, and a gated drum is a dropout on purpose. What this
@@ -23,11 +33,13 @@
 //! that a fix can be measured against.
 //!
 //! **Fed a run at a time** and never holding the signal: the click search
-//! keeps a window of 50 ms per channel, and the other two keep one energy per
-//! half millisecond, which is a two-thousandth of the samples.
+//! keeps a window of 50 ms per channel, and the other two keep two energies
+//! per half millisecond, a sixth of the samples' own size.
 
 mod clicks;
 mod envelope;
+mod quadrature;
+mod zipper;
 
 use clicks::Clicks;
 use envelope::Envelope;

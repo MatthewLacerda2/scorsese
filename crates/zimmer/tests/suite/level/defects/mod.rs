@@ -41,7 +41,7 @@ pub(super) fn interleaved(left: &[f32], right: &[f32]) -> Vec<f32> {
 }
 
 /// A deterministic white noise, so the assertion is the same on every run.
-fn noise(amplitude: f32, samples: usize) -> Vec<f32> {
+pub(super) fn noise(amplitude: f32, samples: usize) -> Vec<f32> {
     let mut state: u32 = 0x1234_5678;
     (0..samples)
         .map(|_| {

@@ -13,6 +13,7 @@
 //! hear, and who is scrubbing.
 
 mod compare;
+mod defects;
 mod delivery;
 mod grid;
 mod layers;
@@ -25,6 +26,7 @@ use std::path::Path;
 use scorsese_zimmer::level::Loudness;
 
 pub use compare::comparison;
+pub use defects::{defects, defects_compared};
 pub use delivery::{delivery, notes, report, written};
 pub use grid::grid;
 pub use layers::layers;

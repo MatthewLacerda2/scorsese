@@ -4,7 +4,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use scorsese_render::audio::reference::Reference;
-use scorsese_render::{Tools, audio::measure, say};
+use scorsese_render::{Tools, audio::examine, say};
 
 /// Measures `file`, and prints how it came out — optionally against another.
 ///
@@ -19,11 +19,15 @@ use scorsese_render::{Tools, audio::measure, say};
 /// sitting outside the project as a bake inside it.
 pub(crate) fn run(file: &Path, against: Option<&Path>, like: Option<&Reference>) -> Result<()> {
     let tools = Tools::discover()?;
-    let profile = measure(&tools, file).with_context(|| format!("measuring {}", file.display()))?;
+    let (profile, defects) =
+        examine(&tools, file).with_context(|| format!("measuring {}", file.display()))?;
 
     println!("{}", say::headline(&say::name(file), &profile));
     for row in say::sections(&profile) {
         println!("  {row}");
+    }
+    for line in say::defects(&defects) {
+        println!("  {line}");
     }
     if let Some(reference) = like {
         println!();
@@ -33,12 +37,13 @@ pub(crate) fn run(file: &Path, against: Option<&Path>, like: Option<&Reference>)
     let Some(other) = against else {
         return Ok(());
     };
-    let previous =
-        measure(&tools, other).with_context(|| format!("measuring {}", other.display()))?;
+    let (previous, before) =
+        examine(&tools, other).with_context(|| format!("measuring {}", other.display()))?;
     println!();
     println!("{}  vs  {}", say::name(file), say::name(other));
     for row in say::comparison(&profile, &previous) {
         println!("  {row}");
     }
+    println!("  {}", say::defects_compared(&defects, &before));
     Ok(())
 }

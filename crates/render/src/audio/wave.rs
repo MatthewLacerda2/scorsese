@@ -23,9 +23,9 @@
 use std::path::{Path, PathBuf};
 
 use scorsese_compositor::text::Font;
-use scorsese_compositor::waveform::{self, COLUMNS, Column, Wave};
+use scorsese_compositor::waveform::{self, COLUMNS, Column, Mark, Wave};
 use scorsese_compositor::{Frame, ResolutionError};
-use scorsese_zimmer::level::gain_to_db;
+use scorsese_zimmer::level::{DefectFinder, Defects, gain_to_db};
 
 use crate::error::RenderError;
 use crate::say;
@@ -77,6 +77,9 @@ pub struct Waveform {
     pub seconds: f64,
     /// What the picture shows, as numbers a client with no vision can read.
     pub findings: Findings,
+    /// Clicks, dropouts and stepped gain: the worst of each are marked above
+    /// the wave, and [`say::defects`] says them in words.
+    pub defects: Defects,
 }
 
 impl Findings {
@@ -135,11 +138,17 @@ pub fn waveform(tools: &Tools, file: &Path) -> Result<Waveform, WaveError> {
     let seconds = (samples.len() / channels) as f64 / f64::from(ANALYSIS_RATE);
     let columns = slice(&samples, channels);
     let findings = summarise(&columns, seconds);
+    // Found on the samples already in hand rather than on a second decode:
+    // the marks and the words beside them are then about the same signal.
+    let mut finder = DefectFinder::new(channels, ANALYSIS_RATE);
+    finder.feed(&samples);
+    let defects = finder.finish();
     let image = waveform::draw(
         &Wave {
             columns: &columns,
             seconds,
             caption: &caption(file, seconds, findings),
+            marks: &marks(&defects),
         },
         Font::sans(),
     )?;
@@ -148,7 +157,20 @@ pub fn waveform(tools: &Tools, file: &Path) -> Result<Waveform, WaveError> {
         file: file.to_path_buf(),
         seconds,
         findings,
+        defects,
     })
+}
+
+/// Where the worst of each kind of defect are, to point at on the picture.
+fn marks(defects: &Defects) -> Vec<Mark> {
+    [&defects.clicks, &defects.dropouts, &defects.zipper]
+        .into_iter()
+        .flat_map(|tally| &tally.worst)
+        .map(|one| Mark {
+            from_seconds: one.from_seconds,
+            to_seconds: one.to_seconds,
+        })
+        .collect()
 }
 
 /// Why a waveform could not be made.

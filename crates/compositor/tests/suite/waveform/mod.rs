@@ -8,7 +8,7 @@
 //! arithmetic done by hand rather than measured off a render.
 
 use scorsese_compositor::text::Font;
-use scorsese_compositor::waveform::{self, COLUMNS, Column, Wave};
+use scorsese_compositor::waveform::{self, COLUMNS, Column, Mark, Wave};
 use scorsese_compositor::{BYTES_PER_PIXEL, Frame};
 
 /// The rules the wave area is drawn between, and the line silence sits on.
@@ -24,6 +24,8 @@ const PEAK: (u8, u8, u8, u8) = (0x3f, 0x7d, 0xad, 255);
 const BODY: (u8, u8, u8, u8) = (0x9e, 0xd8, 0xff, 255);
 const CLIPPED: (u8, u8, u8, u8) = (0xe0, 0x5a, 0x50, 255);
 const RULE: (u8, u8, u8, u8) = (0x3a, 0x40, 0x4a, 255);
+
+mod marks;
 
 /// The rows that hold the axis labels and nothing else: the wave area's bottom
 /// rule is row 216 and the three ticks under it reach row 221.
@@ -49,11 +51,17 @@ fn drawn(peak: f32, rms: f32) -> Frame {
 }
 
 fn picture(columns: &[Column]) -> Frame {
+    marked(columns, &[])
+}
+
+/// A four-second picture of `columns` with `marks` above it.
+fn marked(columns: &[Column], marks: &[Mark]) -> Frame {
     waveform::draw(
         &Wave {
             columns,
             seconds: 4.0,
             caption: "narration",
+            marks,
         },
         Font::sans(),
     )
