@@ -105,3 +105,17 @@ fn by_default_the_captions_are_one_page_lighting_the_word_said() {
     );
     std::fs::remove_dir_all(dir).ok();
 }
+
+/// A face the page could not load is refused before anything is written, as
+/// a text caption's is by `check`.
+#[test]
+fn a_face_nothing_ships_is_refused_for_the_page_too() {
+    let dir = timed("captioning-face");
+    let asked = json!({ "project": dir, "font": "no-such-face" });
+    let (text, failed) = said(&call("caption_narration", asked));
+    assert!(failed, "{text}");
+    assert!(text.contains("no-such-face"), "{text}");
+    let page = dir.join("pages/caption-page-captions.html");
+    assert!(!page.exists(), "nothing written");
+    std::fs::remove_dir_all(dir).ok();
+}

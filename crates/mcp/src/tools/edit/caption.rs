@@ -4,9 +4,10 @@ use std::fmt::Display;
 use std::str::FromStr;
 
 use schemars::JsonSchema;
-use scorsese_core::captions::{Captioned, Captioning, Chunking, caption};
+use scorsese_core::captions::{Captioned, Captioning, Chunking, Look, caption};
 use scorsese_core::{FontChoice, PropertyPath, TrackId};
 use scorsese_render::audio::path;
+use scorsese_render::face_problems;
 use scorsese_render::picture::caption as look;
 use serde::Deserialize;
 use serde_json::Value;
@@ -31,8 +32,8 @@ struct Arguments {
     /// throughout.
     narration: Option<Vec<String>>,
     #[schemars(description = format!(
-        "The most characters one caption holds, about two lines at the default \
-         size in 9:16. Default {}.",
+        "The most characters one caption holds, about two lines in the text look \
+         in 9:16; the page look also stops at three words. Default {}.",
         Chunking::DEFAULT.max_chars
     ))]
     max_chars: Option<u32>,
@@ -104,9 +105,18 @@ impl Tool for CaptionNarration {
         let dir = arguments.project.dir();
         let mut project = load(dir)?;
         let asked = asked(&arguments, project.timeline_fps.as_f64())?;
+        if matches!(asked.look, Look::Page(_)) {
+            let problems = face_problems(&project, dir, &asked.style);
+            if !problems.is_empty() {
+                return Err(format!(
+                    "refused, nothing written — {}",
+                    problems.join("; ")
+                ));
+            }
+        }
         let report = caption(&mut project, dir, &asked).map_err(|error| error.to_string())?;
         save(&project, dir)?;
-        Ok(said(&report, &asked.track).into())
+        Ok(said(&report, &asked).into())
     }
 }
 
@@ -146,10 +156,12 @@ where
 }
 
 /// What the run reads as.
-fn said(report: &Captioned, track: &TrackId) -> String {
+fn said(report: &Captioned, asked: &Captioning) -> String {
+    let track = &asked.track;
     let made: usize = report.lines.iter().map(|(_, n)| n).sum();
-    let what = match &report.page {
-        Some(page) => format!(
+    let what = match (&report.page, asked.look) {
+        (None, Look::Page(_)) => "no page written, with nothing to caption".to_owned(),
+        (Some(page), _) => format!(
             "one page, `{page}`, lighting each word as it is said, played by one \
              clip{}",
             if cfg!(windows) {
@@ -160,7 +172,7 @@ fn said(report: &Captioned, track: &TrackId) -> String {
                 ""
             }
         ),
-        None => "ordinary text clips, editable and deletable".to_owned(),
+        (None, Look::Text) => "ordinary text clips, editable and deletable".to_owned(),
     };
     let mut lines = vec![format!(
         "{made} caption(s) from {} line(s) on track `{track}`{} — {what}",

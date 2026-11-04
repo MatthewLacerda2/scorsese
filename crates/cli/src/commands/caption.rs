@@ -3,9 +3,10 @@
 use std::path::Path;
 
 use anyhow::Result;
-use scorsese_core::captions::{Captioned, Chunking, caption};
+use scorsese_core::captions::{Captioned, Captioning, Chunking, Look, caption};
 use scorsese_core::{FontChoice, PropertyPath, Rgba, TrackId};
 use scorsese_render::audio::path;
+use scorsese_render::face_problems;
 use scorsese_render::picture::caption as look;
 
 /// What `scorsese caption` takes. Every look has a default, so a bare
@@ -20,8 +21,8 @@ pub(crate) struct Options {
     /// video or sound on any track.
     #[arg(long)]
     narration: Vec<String>,
-    /// The most characters one caption holds — about two lines at the
-    /// default size in 9:16.
+    /// The most characters one caption holds — about two lines in the text
+    /// look in 9:16; the page look also stops at three words.
     #[arg(long, default_value_t = Chunking::DEFAULT.max_chars)]
     max_chars: usize,
     /// The face: a name this build ships, or a font file inside the project.
@@ -79,14 +80,21 @@ pub(crate) fn run(project_dir: &Path, options: &Options) -> Result<()> {
         project.timeline_fps.as_f64(),
     );
     asked.volume = Some(PropertyPath::new(path::VOLUME));
+    if matches!(asked.look, Look::Page(_)) {
+        let problems = face_problems(&project, project_dir, &asked.style);
+        if !problems.is_empty() {
+            anyhow::bail!("nothing written — {}", problems.join("; "));
+        }
+    }
 
     let report = caption(&mut project, project_dir, &asked)?;
     super::save(&project, project_dir)?;
-    describe(&report, &asked.track);
+    describe(&report, &asked);
     Ok(())
 }
 
-fn describe(report: &Captioned, track: &TrackId) {
+fn describe(report: &Captioned, asked: &Captioning) {
+    let track = &asked.track;
     for (line, n) in &report.lines {
         println!("{line} — {n} caption(s)");
     }
@@ -97,9 +105,10 @@ fn describe(report: &Captioned, track: &TrackId) {
         println!("{line} — skipped, transcribed footage at volume 0 throughout");
     }
     let made: usize = report.lines.iter().map(|(_, n)| n).sum();
-    let what = match &report.page {
-        Some(page) => format!("one page, `{page}`, lighting each word as it is said"),
-        None => "ordinary text clips, yours to edit".to_owned(),
+    let what = match (&report.page, asked.look) {
+        (Some(page), _) => format!("one page, `{page}`, lighting each word as it is said"),
+        (None, Look::Page(_)) => "no page written, with nothing to caption".to_owned(),
+        (None, Look::Text) => "ordinary text clips, yours to edit".to_owned(),
     };
     println!(
         "{made} caption(s) on track `{track}`, {} replaced — {what}",

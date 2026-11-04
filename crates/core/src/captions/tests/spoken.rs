@@ -42,8 +42,8 @@ fn a_name_and_the_word_before_it_are_never_split() {
     );
     assert_eq!(
         texts("then Luiz Inácio Lula da Silva spoke", Chunking::WORDS),
-        ["then Luiz Inácio Lula da Silva", "spoke"],
-        "a name longer than the bound is a caption of its own, not cut"
+        ["then", "Luiz Inácio Lula", "da Silva spoke"],
+        "a name is never longer than the bound"
     );
 }
 
@@ -81,7 +81,7 @@ fn a_caption_keeps_its_words_named_as_a_page_looks_them_up() {
 fn a_particle_keeps_a_surname_with_its_name() {
     assert_eq!(
         texts("o presidente Lula da Silva falou", Chunking::WORDS),
-        ["o", "presidente Lula da Silva", "falou"]
+        ["o presidente", "Lula da Silva", "falou"]
     );
 }
 
@@ -123,5 +123,30 @@ fn a_particle_outside_a_name_is_an_ordinary_word() {
     assert_eq!(
         texts("ele falou da Bahia hoje", Chunking::WORDS),
         ["ele falou", "da Bahia hoje"]
+    );
+}
+
+/// Title Case and capitals are not one long name (#1735's review).
+#[test]
+fn a_line_in_capitals_or_title_case_is_cut_as_any_other() {
+    assert_eq!(
+        texts("THIS IS THE BEST DEAL EVER.", Chunking::WORDS),
+        ["THIS IS THE", "BEST DEAL EVER."]
+    );
+    assert_eq!(
+        texts("Watch How We Built This House", Chunking::WORDS),
+        ["Watch How We", "Built This House"]
+    );
+}
+
+#[test]
+fn the_pronoun_with_punctuation_is_still_the_pronoun() {
+    assert_eq!(
+        texts("my friend and I. Tired", Chunking::WORDS),
+        ["my friend and", "I.", "Tired"]
+    );
+    assert_eq!(
+        texts("we went to Plan B", Chunking::WORDS),
+        ["we went", "to Plan B"]
     );
 }

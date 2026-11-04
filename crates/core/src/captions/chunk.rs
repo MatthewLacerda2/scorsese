@@ -37,8 +37,8 @@ pub struct Chunking {
     /// Whether a name stays in one caption: a run of capitalised words (the
     /// pronoun `I` is not one), a particle between two of them (`da` in
     /// `Lula da Silva`), and the word just before the run
-    /// (`presidente Lula`). A name longer than [`Chunking::max_words`] is a
-    /// caption of its own rather than cut.
+    /// (`presidente Lula`) when the two fit. A name is never longer than
+    /// [`Chunking::max_words`], so a line in Title Case is cut as any other.
     pub names: bool,
 }
 
@@ -146,26 +146,58 @@ const SENTENCE: &[char] = &['.', '!', '?', '…'];
 const CLAUSE: &[char] = &[',', ';', ':'];
 
 /// The words in the pieces a caption never splits: each word alone, or with
-/// [`Chunking::names`] a name with the word before it. Nothing joins across a
-/// pause or a punctuation mark.
+/// [`Chunking::names`] a name — at most [`Chunking::max_words`] long — with
+/// the word before it when both fit. Nothing joins across a pause or a
+/// punctuation mark.
 fn units(words: &[Placed], chunking: Chunking) -> Vec<Vec<&Placed>> {
     let mut units: Vec<Vec<&Placed>> = Vec::new();
-    for (i, word) in words.iter().enumerate() {
-        let joins = chunking.names
+    let mut i = 0;
+    while i < words.len() {
+        let name = chunking.names && named(&words[i]);
+        let end = if name {
+            name_end(words, i, chunking)
+        } else {
+            i + 1
+        };
+        let run: Vec<&Placed> = words[i..end].iter().collect();
+        // The word before a name travels with it (`presidente Lula`) when it
+        // stands alone and the two fit in one caption.
+        let binds = name
             && i > 0
-            && joinable(&words[i - 1], word, chunking)
-            && (named(word)
-                || (short(word)
-                    && words
-                        .get(i + 1)
-                        .is_some_and(|next| named(next) && joinable(word, next, chunking))
-                    && named(&words[i - 1])));
+            && joinable(&words[i - 1], &words[i], chunking)
+            && run.len() < chunking.max_words;
         match units.last_mut() {
-            Some(unit) if joins => unit.push(word),
-            _ => units.push(vec![word]),
+            Some(before) if binds && before.len() == 1 => before.extend(run),
+            _ => units.push(run),
         }
+        i = end;
     }
     units
+}
+
+/// Where the name starting at `start` ends: the capitalised words after it,
+/// and a particle between two of them, while nothing breaks between and the
+/// name stays within [`Chunking::max_words`] — so a line in Title Case is cut
+/// like any other.
+fn name_end(words: &[Placed], start: usize, chunking: Chunking) -> usize {
+    let mut end = start + 1;
+    while end < words.len()
+        && end - start < chunking.max_words
+        && joinable(&words[end - 1], &words[end], chunking)
+    {
+        let word = &words[end];
+        let carried = named(word)
+            || (short(word)
+                && end + 1 - start < chunking.max_words
+                && words
+                    .get(end + 1)
+                    .is_some_and(|next| named(next) && joinable(word, next, chunking)));
+        if !carried {
+            break;
+        }
+        end += 1;
+    }
+    end
 }
 
 /// Whether nothing between `before` and `after` breaks a caption: no
@@ -174,12 +206,18 @@ fn joinable(before: &Placed, after: &Placed, chunking: Chunking) -> bool {
     after.start - before.end < chunking.pause && !ends(before, SENTENCE) && !ends(before, CLAUSE)
 }
 
-/// Whether `word` is written capitalised, as a name is: its first letter
-/// upper case, and not the pronoun `I` (`I'm`, `I'll`).
+/// Whether `word` is written as a name is: its first letter upper case and a
+/// lower-case letter after it (`Lula`, not a shouted `IS`), and not the
+/// pronoun `I` (`I,`, `I'm`, `I’ll`). A single capital letter (`Plan B`) is
+/// one.
 fn named(word: &Placed) -> bool {
-    let letters = word.text.trim_start_matches(|c: char| !c.is_alphanumeric());
+    let letters = word.text.trim_matches(|c: char| !c.is_alphanumeric());
     let pronoun = letters == "I" || letters.starts_with("I'") || letters.starts_with("I’");
-    letters.chars().next().is_some_and(char::is_uppercase) && !pronoun
+    let mut alphabetic = letters.chars().filter(|c| c.is_alphabetic());
+    let capital = alphabetic.next().is_some_and(char::is_uppercase);
+    let mut rest = alphabetic.peekable();
+    let cased = rest.peek().is_none() || rest.any(char::is_lowercase);
+    capital && cased && !pronoun
 }
 
 /// Whether `word` is a particle that sits inside a name between two

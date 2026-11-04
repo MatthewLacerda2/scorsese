@@ -625,14 +625,17 @@ asked `again`. It goes when the asset is collected. Nothing in `project.json`
 changes for this either.
 
 **Anything timed to the voice reads them, never an ear or a silence
-detector.** `caption_narration` (`scorsese caption`) turns them into captions:
-each line cut at its sentences, commas and pauses into pieces of about two
-lines, each an ordinary `text` clip arriving whole on its first spoken word
-and leaving when the next arrives. It writes them on a video track of their
-own (`captions` unless named) as assets and clips called
-`caption-<narration clip>-<n>`, which is how a re-run finds and replaces its
-own work after a line is regenerated or moved — and why a hand edit to one is
-kept by renaming it. A transcribed recording is captioned the same way,
+detector.** `caption_narration` (`scorsese caption`) turns them into captions.
+By default they are one page lighting the word being said, up to three words
+at a time: an `html` asset `caption-page-<track>` at
+`pages/caption-page-<track>.html`, played by one clip of that name on a video
+track of their own (`captions` unless named), reading `scorsese.words`. With
+`look: "text"` (`--text`) each line is cut at its sentences, commas and pauses
+into pieces of about two lines, each an ordinary `text` clip arriving whole on
+its first spoken word and leaving when the next arrives, its asset and clip
+called `caption-<narration clip>-<n>`. Those names are how a re-run finds and
+replaces its own work after a line is regenerated or moved — and why a hand
+edit to a caption or the page is kept by renaming it. A transcribed recording is captioned the same way,
 whatever track its clip is on. Pages read the same timings as `scorsese.words`
 ([pages.md](pages.md), `guide pages`), and `project_describe` names the word being said at an
 instant.
