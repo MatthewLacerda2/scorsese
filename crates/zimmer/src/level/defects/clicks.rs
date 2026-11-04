@@ -58,7 +58,8 @@ pub(super) struct Clicks {
     /// twice [`REACH`] and the jump being judged.
     recent: VecDeque<f32>,
     /// The samples those jumps land on, and the three before the first:
-    /// `samples[k + 3]` is the sample `recent[k]` lands on.
+    /// `samples[k + 3]` is the sample `recent[k]` lands on. Before the
+    /// signal, the first sample is held.
     samples: VecDeque<f32>,
     /// Which sample [`Clicks::recent`]'s first jump lands on.
     first: u64,
@@ -88,6 +89,8 @@ impl Clicks {
         self.fed += 1;
         self.samples.push_back(sample);
         let Some(previous) = self.previous.replace(sample) else {
+            // The first sample, held for the three before the first jump.
+            self.samples.extend([sample; 2]);
             return;
         };
         self.recent.push_back((sample - previous).abs());
