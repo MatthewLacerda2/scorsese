@@ -44,6 +44,10 @@ fn the_default_reply_is_the_picture_and_one_line_of_levels() {
     assert_eq!(levels.len(), 1, "one summary line: {text}");
     assert!(levels[0].contains("mean"), "a mean level: {text}");
     assert_eq!(text.lines().count(), 2, "nothing else by default: {text}");
+    assert!(
+        levels[0].ends_with("no clicks, dropouts or stepped gain"),
+        "a clean file says so on the same line: {text}"
+    );
     assert!(!text.contains(" vs "), "no comparison unasked: {text}");
     std::fs::remove_dir_all(dir).ok();
 }

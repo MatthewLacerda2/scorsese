@@ -10,6 +10,7 @@
 use crate::common;
 
 mod bands;
+mod defects;
 mod diff;
 mod integrated;
 mod meter;

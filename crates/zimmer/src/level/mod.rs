@@ -47,6 +47,12 @@
 //! actually needs, and the form in which two of the three defects above were
 //! ever visible.
 //!
+//! **Some defects live between samples.** A click, a 10 ms dropout and a fade
+//! that arrives as a staircase of gain steps all average away inside any
+//! window long enough to measure loudness over, and they are what a listener
+//! calls "choppy". [`DefectFinder`] reads them a moment at a time, each with
+//! its time, channel and size.
+//!
 //! ## The one piece of this that is not a report
 //!
 //! The `intersample` module reconstructs the waveform *between* two samples,
@@ -78,6 +84,7 @@
 //! in it.
 
 pub(crate) mod bands;
+pub(crate) mod defects;
 pub(crate) mod diff;
 pub(crate) mod gain;
 pub(crate) mod integrated;
@@ -88,6 +95,7 @@ pub(crate) mod peaks;
 pub(crate) mod profile;
 
 pub use bands::{BandMeter, Bands};
+pub use defects::{Defect, DefectFinder, Defects, Tally, WORST};
 pub use diff::{BandsDifference, Difference};
 pub use gain::{db_to_gain, db_to_gain_f32, gain_to_db, gain_to_db_f32};
 pub use integrated::Integrated;

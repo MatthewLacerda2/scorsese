@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use scorsese_render::audio::waveform;
-use scorsese_render::{Tools, frames};
+use scorsese_render::{Tools, frames, say};
 
 /// Draws the waveform of `file` and writes it to `out`.
 pub(crate) fn run(file: &Path, out: Option<PathBuf>) -> Result<()> {
@@ -34,6 +34,9 @@ pub(crate) fn run(file: &Path, out: Option<PathBuf>) -> Result<()> {
     // sentence that did not help.
     for note in wave.findings.says() {
         println!("  {note}");
+    }
+    for line in say::defects(&wave.defects) {
+        println!("  {line}");
     }
     Ok(())
 }

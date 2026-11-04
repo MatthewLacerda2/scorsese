@@ -24,7 +24,7 @@
 
 use std::path::Path;
 
-use scorsese_zimmer::level::{Cut, Profile, Profiler};
+use scorsese_zimmer::level::{Cut, DefectFinder, Defects, Profile, Profiler};
 
 use crate::error::RenderError;
 use crate::tools::Tools;
@@ -34,6 +34,19 @@ use super::read::{self, ANALYSIS_RATE};
 /// How `file` came out, over its whole length and section by section.
 pub fn measure(tools: &Tools, file: &Path) -> Result<Profile, RenderError> {
     profile(tools, file, Vec::new())
+}
+
+/// How `file` came out, and the clicks, dropouts and stepped gain in it, from
+/// one decode.
+pub fn examine(tools: &Tools, file: &Path) -> Result<(Profile, Defects), RenderError> {
+    let channels = read::channels(tools, file);
+    let mut profiler = Profiler::new(channels, ANALYSIS_RATE);
+    let mut finder = DefectFinder::new(channels, ANALYSIS_RATE);
+    read::decode(tools, file, channels, |samples| {
+        profiler.feed(samples);
+        finder.feed(samples);
+    })?;
+    Ok((profiler.finish(), finder.finish()))
 }
 
 /// How `file` came out, cut where `sections` says rather than on the clock.

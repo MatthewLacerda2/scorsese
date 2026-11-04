@@ -13,6 +13,7 @@
 use crate::common;
 
 mod clock;
+mod defects;
 mod embedded;
 mod hearing;
 mod loudness;

@@ -52,7 +52,7 @@ pub use headroom::{DELIVERY_CEILING_DBTP, Trim};
 pub use level::{Levels, SoundLevels};
 pub use loudness::Lift;
 pub use loudness::target::{LoudnessTarget, LoudnessTargetError};
-pub use measure::measure;
+pub use measure::{examine, measure};
 pub use mix::{CHANNELS, Mix, Ramp};
 pub use peaks::{MOST_PEAKS, PEAKS_PER_SECOND, Peaks, peaks, peaks_unless};
 pub use speech::{SPEECH_RATE, speech};
