@@ -33,7 +33,7 @@ fn clip(id: &str, asset: &str, start: u64, duration: u64) -> Clip {
 /// music bed `under` on a track of its own playing under both.
 fn project(label: &str) -> (PathBuf, Project) {
     let dir = temp_project_dir(label);
-    std::fs::create_dir_all(dir.join("generated")).unwrap();
+    std::fs::create_dir_all(dir.join("generated")).expect("create generated/");
     let mut project = Project::new("captions", Fps::THIRTY);
     let line = generated("vo-1");
     let words = Words {
@@ -46,8 +46,12 @@ fn project(label: &str) -> (PathBuf, Project) {
             })
             .collect(),
     };
-    let beside = Words::beside(line.path.as_ref().unwrap());
-    std::fs::write(beside.resolve(&dir).unwrap(), words.to_json()).unwrap();
+    let beside = Words::beside(line.path.as_ref().expect("a generated line has a path"));
+    std::fs::write(
+        beside.resolve(&dir).expect("a project path"),
+        words.to_json(),
+    )
+    .expect("write the timings");
     let mut bed = generated("score");
     bed.music = Some(MusicRequest::default());
     project.assets.extend([line, generated("vo-2"), bed]);
@@ -80,7 +84,7 @@ fn asked(narration: &[&str]) -> Captioning {
 fn a_generated_track_is_neither_captioned_nor_reported_untimed() {
     for named in [&[][..], &["a1", "score"][..]] {
         let (dir, mut project) = project("generated-music");
-        let report = caption(&mut project, &dir, &asked(named)).unwrap();
+        let report = caption(&mut project, &dir, &asked(named)).expect("captioned");
         assert_eq!(report.lines, [(ClipId::new("nar"), 1)], "{named:?}");
         assert_eq!(report.untimed, [ClipId::new("nar-2")], "{named:?}");
     }
