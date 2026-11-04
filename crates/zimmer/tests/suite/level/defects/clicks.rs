@@ -95,3 +95,43 @@ fn a_twin_matches_either_side_to_a_twentieth_of_the_jump() {
         );
     }
 }
+
+/// A sawtooth whose last period is exactly the 35 ms reach, 1680 samples,
+/// and which stops at the top of a ramp after its last reset: that reset has
+/// its only twin the whole reach behind it, and is not a click. It opens with
+/// shorter periods, since a twin a whole reach *ahead* is not yet seen whole.
+#[test]
+fn a_twin_the_whole_reach_behind_is_a_twin() {
+    let periods = [1_600, 1_600, 1_680, 1_680];
+    let mut signal: Vec<f32> = periods
+        .iter()
+        .flat_map(|&period| (0..period).map(move |i| i as f32 / period as f32 * 0.8 - 0.4))
+        .collect();
+    signal.extend((0..800).map(|i| i as f32 / 1_680.0 * 0.8 - 0.4));
+    signal.extend(std::iter::repeat_n(
+        signal[signal.len() - 1],
+        RATE as usize / 10,
+    ));
+    let defects = found(1, &signal);
+    assert_eq!(defects.clicks.count, 0, "{defects:?}");
+}
+
+/// The waveform a twin is matched on is three samples before the jump and two
+/// after, not one more or one fewer: here the second jump's waveform matches
+/// the first's there, and differs two before it.
+#[test]
+fn a_twin_is_matched_three_before_and_two_after() {
+    let mut signal = two_jumps(0.0, 20.0);
+    let q = RATE as usize / 4 + 480;
+    signal[q - 2..q].fill(5.0);
+    let first = 0.25;
+    let defects = found(1, &signal);
+    assert!(
+        defects
+            .clicks
+            .worst
+            .iter()
+            .all(|click| (click.at_seconds - first).abs() > 0.001),
+        "{defects:?}"
+    );
+}
