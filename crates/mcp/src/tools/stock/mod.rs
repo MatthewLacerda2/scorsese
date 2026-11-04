@@ -66,7 +66,7 @@ pub fn stocked_from(library: &Stock) -> Vec<Box<dyn Tool>> {
 /// `stock_search` and `stock_import`, exactly as the registry has them, but
 /// answering from `library` when one is given, and keeping what they find in
 /// `cache` when one is given rather than in the project's own `cache/stock`
-/// ([`stock::cache_dir`]) — where a caller keeps a cache that outlives the
+/// ([`stock::project_cache`]) — where a caller keeps a cache that outlives the
 /// project folder, out of reach of anything else written there.
 pub fn stocked(library: Option<&Stock>, cache: Option<&Path>) -> Vec<Box<dyn Tool>> {
     let libraries = library
@@ -89,9 +89,14 @@ fn pair(libraries: Option<Libraries>, cache: Option<&Path>) -> Vec<Box<dyn Tool>
     ]
 }
 
-/// Where the stock tools keep results: `given`, or the project's own.
-fn cache(given: Option<&Path>, project: &Path) -> PathBuf {
-    given.map_or_else(|| stock::cache_dir(project), Path::to_path_buf)
+/// Where the stock tools keep results: `given`, or the project's own, made
+/// from its root so a linked `cache/` is refused (#1718).
+fn cache(given: Option<&Path>, project: &Path) -> Result<PathBuf, String> {
+    match given {
+        Some(given) => Ok(given.to_path_buf()),
+        None => stock::project_cache(project)
+            .map_err(|error| format!("the project's stock cache: {error}")),
+    }
 }
 
 /// The library `medium` is searched in: the one `given` finds, when the

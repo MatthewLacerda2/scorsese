@@ -79,7 +79,7 @@ fn in_turn(
         .iter()
         .map(|&i| {
             let (request, frames) = &asked[i];
-            let follows = (how.project_root, &[][..]);
+            let follows = (how.project_root, page::Laid::default());
             let drawing = (browsers, how.drawn, how.cancel);
             let outcome = holding
                 .capture_frames(

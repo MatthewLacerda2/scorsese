@@ -142,7 +142,7 @@ impl Tool for Search {
 
     fn call(&self, arguments: &Value) -> Result<Reply, String> {
         let arguments: Arguments = args::parse(arguments)?;
-        let cache = super::cache(self.cache.as_deref(), arguments.project.dir());
+        let cache = super::cache(self.cache.as_deref(), arguments.project.dir())?;
         if let Some(id) = arguments.look {
             let medium = super::medium(arguments.kind.as_deref())?;
             let library = super::library(self.library.as_ref(), medium)?;

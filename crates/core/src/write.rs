@@ -25,8 +25,8 @@
 //! out with links into a member's storage, and a write through one would land
 //! outside the project. A writer not handed a project path — the page,
 //! stock, voices, quotes and proxy caches — makes its folders through
-//! [`folder_below`], which holds to the same line below a base the caller
-//! trusts.
+//! [`in_cache`], which holds to the same line from the project root down, or
+//! through [`folder_below`] below a base the caller laid out and trusts.
 //!
 //! Importing goes through neither, and needs not: `pool` copies a file in
 //! under a name no asset points at yet and records it only once the copy is
@@ -219,6 +219,24 @@ pub fn folder_below(base: &Path, relative: &Path) -> io::Result<PathBuf> {
         }
     }
     Ok(at)
+}
+
+/// The folder `relative` below the `cache/` of the project at `root`, made if
+/// it is not there — and neither `cache/` itself nor any folder below it a
+/// link (#1718): what every writer of a local project's cache asks before it
+/// writes, since a `.scor` received from someone else may carry `cache` as a
+/// link, and nothing kept there is written where it leads. The project root is
+/// the base ([`folder_below`]).
+///
+/// A caller that laid a project out with a linked `cache/` of its own (the
+/// web's capture worker) trusts that link: it asks [`folder_below`] with
+/// `cache/` as the base instead.
+///
+/// # Errors
+///
+/// As [`folder_below`]'s, with `cache/` on the way.
+pub fn in_cache(root: &Path, relative: &Path) -> io::Result<PathBuf> {
+    folder_below(root, &Path::new(crate::CACHE_DIR).join(relative))
 }
 
 /// How many taken scratch names [`fresh_beside`] passes over before it gives

@@ -52,6 +52,9 @@ struct Written {
 /// and its record's files, and the record.
 pub(crate) struct Place<'a> {
     pub(crate) project_root: &'a Path,
+    /// Whether the caller laid the project's `cache/` out as a link
+    /// ([`super::Laid::cache`]).
+    pub(crate) laid_cache: bool,
     pub(crate) slot: &'a Path,
     pub(crate) shelf: &'a Path,
     pub(crate) files: (&'a Path, &'a Path),
@@ -81,7 +84,7 @@ impl Held {
     ) -> std::io::Result<()> {
         let mut held = held();
         let (file, record) = place.files;
-        super::made(place.project_root, place.shelf)?;
+        super::made(place.project_root, place.laid_cache, place.shelf)?;
         std::fs::rename(partial, file)?;
         keep(record, place.record)?;
         *held.entry(file.to_owned()).or_default() += 1;
@@ -219,6 +222,7 @@ mod tests {
         };
         let place = Place {
             project_root: root,
+            laid_cache: false,
             slot,
             shelf: &shelf,
             files: (&file, &record),

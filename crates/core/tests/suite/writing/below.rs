@@ -6,7 +6,7 @@
 use std::os::unix::fs::symlink;
 use std::path::Path;
 
-use scorsese_core::write::folder_below;
+use scorsese_core::write::{folder_below, in_cache};
 
 use crate::common;
 
@@ -71,4 +71,25 @@ fn a_path_out_of_the_base_through_a_file_or_from_no_base_is_refused() {
         "{refused}"
     );
     assert!(folder_below(&base.join("missing"), Path::new("x")).is_err());
+}
+
+/// A project's cache folder is made from its root: `cache/` itself is refused
+/// when it is a link (#1718), as any folder below it is.
+#[test]
+fn a_cache_folder_is_made_from_the_project_root() {
+    let root = common::temp_project_dir("in-cache");
+    let outside = common::temp_project_dir("in-cache-outside");
+    let made = in_cache(&root, Path::new("voices")).expect("made");
+    assert_eq!(made, root.join("cache/voices"));
+    assert!(made.is_dir());
+    std::fs::remove_dir_all(root.join("cache")).unwrap();
+    symlink(&outside, root.join("cache")).unwrap();
+
+    let refused = in_cache(&root, Path::new("voices")).expect_err("a link");
+
+    assert!(
+        refused.to_string().contains("`cache` is a link"),
+        "{refused}"
+    );
+    assert_eq!(std::fs::read_dir(&outside).unwrap().count(), 0);
 }

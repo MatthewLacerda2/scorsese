@@ -64,8 +64,16 @@ fn captured_past_links(label: &str, request: &Request, browsers: usize) {
     std::fs::remove_dir_all(&shelf).expect("the shelf goes");
     let planted = plant(&slot, frames.clone(), &victim, &outside);
 
-    let again = page::capture_frames(&chrome, &tools, &dir, &[], request, frames, browsers)
-        .expect("captured past the links");
+    let again = page::capture_frames(
+        &chrome,
+        &tools,
+        &dir,
+        page::Laid::default(),
+        request,
+        frames,
+        browsers,
+    )
+    .expect("captured past the links");
 
     assert!(
         std::fs::read(&victim).expect("the victim") == b"the victim's own bytes",

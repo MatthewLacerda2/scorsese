@@ -67,9 +67,15 @@ pub fn run(args: &Args) -> Result<(), String> {
     } else {
         chrome.sandboxed()
     };
-    let follow = &args.follow;
+    // The server laid the project out, its `cache/` a link to the project's
+    // page cache in the worker's spool (`dispatch::share_cache`), and a mount
+    // in the launcher's container: either way its own (#1718).
+    let laid = page::Laid {
+        follow: &args.follow,
+        cache: true,
+    };
     let Some(part) = &args.frames else {
-        return page::capture_frames(&chrome, &tools, &args.project, follow, &request, frames, 1)
+        return page::capture_frames(&chrome, &tools, &args.project, laid, &request, frames, 1)
             .map(drop)
             .map_err(|error| error.to_string());
     };
@@ -82,7 +88,7 @@ pub fn run(args: &Args) -> Result<(), String> {
         &chrome,
         &tools,
         &args.project,
-        follow,
+        laid,
         &request,
         &parts,
         index,

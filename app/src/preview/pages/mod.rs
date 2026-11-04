@@ -261,7 +261,16 @@ fn capture_all(
             break;
         }
         let whole = 0..request.frames();
-        match page::capture_frames(&chrome, &tools, root, &[], request, whole, page::browsers()) {
+        let local = page::Laid::default();
+        match page::capture_frames(
+            &chrome,
+            &tools,
+            root,
+            local,
+            request,
+            whole,
+            page::browsers(),
+        ) {
             Ok(_) => update(&mut |progress| progress.made += 1),
             Err(error) => {
                 let why = error.to_string();

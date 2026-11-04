@@ -4,39 +4,65 @@
 //! or a record there may lead anywhere. Whatever reads the cache reads it as a
 //! miss rather than follow one out.
 //!
-//! `cache/pages/` itself is the caller's: whoever lays the project out may
-//! link it, or `cache/`, wherever the project's captures are kept, and keeps a
-//! capture from replacing it. Everything below it is the capture's.
+//! `cache/pages/` itself is the caller's to read through: whoever lays the
+//! project out may link it, or `cache/`, wherever the project's captures are
+//! kept, and keeps a capture from replacing it. Everything below it is the
+//! capture's.
 //!
-//! What writes the cache holds to the same line ([`made`], #1698): a folder
-//! below `cache/pages/` that is a link is refused, never written through.
+//! What writes the cache holds to a stricter line ([`made`], #1698, #1718):
+//! from the project root down, nothing is a link — `cache/` itself included —
+//! unless the caller laid `cache/` out as one itself and says so
+//! ([`Laid::cache`]).
 
-use std::path::{Component, Path};
+use std::path::{Component, Path, PathBuf};
 
 use scorsese_core::CACHE_DIR;
+use scorsese_core::write::{folder_below, in_cache};
 
 use super::PAGES;
 
+/// How the caller laid out the project a capture is made in: what outside it
+/// the capture may reach on the caller's word. Nothing, by default — a local
+/// project's links lead nowhere outside it, and its `cache/` is its own.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Laid<'a> {
+    /// Folders outside the project its links may really lead under: the
+    /// owner's library, which the web links each media file from (#857). A
+    /// link leading anywhere else is refused.
+    pub follow: &'a [PathBuf],
+    /// Whether the project's `cache/` is a link the caller made itself (the
+    /// web's capture worker links it to where the project's captures are
+    /// kept), and so is written through. Otherwise a linked `cache/` is
+    /// refused before anything is written where it leads (#1718): a `.scor`
+    /// received from someone else may carry one.
+    pub cache: bool,
+}
+
 /// Makes `folder` — a slot, a shelf, the fonts — below `project_root`'s
-/// `cache/pages/`, with every folder on the way, none of them below
-/// `cache/pages/` a link ([`scorsese_core::write::folder_below`]): what a
-/// capture asks before it writes there, so a link a `.scor` received from
-/// someone else carries never leads its frames out of the cache.
+/// `cache/pages/`, with every folder on the way, none of them a link from the
+/// project root down ([`in_cache`]): what a capture asks before it writes
+/// there, so a link a `.scor` received from someone else carries never leads
+/// its frames out of the project. When the caller laid `cache/` out as a link
+/// itself (`laid_cache`, [`Laid::cache`]), the line starts below it instead.
 ///
 /// # Errors
 ///
 /// If `folder` is not below `cache/pages/`, a folder on the way is a link or
 /// a file, or one cannot be made.
-pub(crate) fn made(project_root: &Path, folder: &Path) -> std::io::Result<()> {
-    let base = project_root.join(CACHE_DIR).join(PAGES);
-    let below = folder.strip_prefix(&base).map_err(|_| {
+pub(crate) fn made(project_root: &Path, laid_cache: bool, folder: &Path) -> std::io::Result<()> {
+    let cache = project_root.join(CACHE_DIR);
+    let below = folder.strip_prefix(cache.join(PAGES)).map_err(|_| {
         std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
             format!("{} is not in the page cache", folder.display()),
         )
     })?;
-    std::fs::create_dir_all(&base)?;
-    scorsese_core::write::folder_below(&base, below).map(drop)
+    let pages = Path::new(PAGES).join(below);
+    if laid_cache {
+        folder_below(&cache, &pages).map(drop)
+    } else {
+        in_cache(project_root, &pages).map(drop)
+    }
 }
 
 /// Whether `path` is a file itself, not a link to one.
@@ -206,35 +232,57 @@ mod tests {
         let slot = slot(&root, &request(), "154");
         std::fs::create_dir_all(&pages).unwrap();
         std::os::unix::fs::symlink(&outside, &slot).unwrap();
-        assert!(super::made(&root, &slot.join("told-none")).is_err());
+        assert!(super::made(&root, false, &slot.join("told-none")).is_err());
         std::fs::remove_file(&slot).unwrap();
         std::fs::create_dir(&slot).unwrap();
         std::os::unix::fs::symlink(&outside, slot.join("told-none")).unwrap();
-        assert!(super::made(&root, &slot.join("told-none")).is_err());
+        assert!(super::made(&root, false, &slot.join("told-none")).is_err());
         std::os::unix::fs::symlink(&outside, pages.join("fonts")).unwrap();
-        assert!(super::super::fonts(&root).is_err());
+        assert!(super::super::fonts(&root, false).is_err());
         std::fs::remove_file(pages.join("fonts")).unwrap();
         std::fs::create_dir(pages.join("fonts")).unwrap();
         std::os::unix::fs::symlink(&outside, pages.join("fonts/.cache")).unwrap();
         assert!(
-            super::super::fonts(&root).is_err(),
+            super::super::fonts(&root, false).is_err(),
             "fontconfig's own cache"
         );
         let landed: Vec<_> = std::fs::read_dir(&outside).unwrap().collect();
         assert_eq!(landed.len(), 1, "only the secret: {landed:?}");
-        assert!(super::made(&root, &root.join("elsewhere")).is_err());
+        assert!(super::made(&root, false, &root.join("elsewhere")).is_err());
         let _ = std::fs::remove_dir_all(root.parent().unwrap());
     }
 
+    /// Locally the line starts at the project root (#1718): `cache/` or
+    /// `cache/pages/` a link is refused before anything is made where it
+    /// leads.
     #[test]
-    fn the_page_cache_itself_may_be_a_link() {
+    fn a_linked_cache_or_page_cache_is_refused_locally() {
         let (root, outside) = beside("made-base-linked");
-        std::fs::create_dir_all(root.join(CACHE_DIR)).unwrap();
-        std::os::unix::fs::symlink(&outside, root.join(CACHE_DIR).join(PAGES)).unwrap();
         let slot = slot(&root, &request(), "154");
-        super::made(&root, &slot.join("told-none")).expect("the caller's link");
+        std::os::unix::fs::symlink(&outside, root.join(CACHE_DIR)).unwrap();
+        assert!(super::made(&root, false, &slot.join("told-none")).is_err());
+        std::fs::remove_file(root.join(CACHE_DIR)).unwrap();
+        std::fs::create_dir(root.join(CACHE_DIR)).unwrap();
+        std::os::unix::fs::symlink(&outside, root.join(CACHE_DIR).join(PAGES)).unwrap();
+        assert!(super::made(&root, false, &slot.join("told-none")).is_err());
+        let landed: Vec<_> = std::fs::read_dir(&outside).unwrap().collect();
+        assert_eq!(landed.len(), 1, "only the secret: {landed:?}");
+        let _ = std::fs::remove_dir_all(root.parent().unwrap());
+    }
+
+    /// A `cache/` the caller laid out as a link itself (the web's capture
+    /// worker) is written through, and the line starts below it.
+    #[test]
+    fn a_cache_the_caller_linked_is_written_through() {
+        let (root, outside) = beside("made-laid");
+        std::os::unix::fs::symlink(&outside, root.join(CACHE_DIR)).unwrap();
+        let slot = slot(&root, &request(), "154");
+        super::made(&root, true, &slot.join("told-none")).expect("the caller's link");
         let key = slot.file_name().unwrap();
-        assert!(outside.join(key).join("told-none").is_dir());
+        assert!(outside.join(PAGES).join(key).join("told-none").is_dir());
+        std::fs::remove_dir_all(outside.join(PAGES).join(key)).unwrap();
+        std::os::unix::fs::symlink(root.parent().unwrap(), outside.join(PAGES).join(key)).unwrap();
+        assert!(super::made(&root, true, &slot.join("told-none")).is_err());
         let _ = std::fs::remove_dir_all(root.parent().unwrap());
     }
 }

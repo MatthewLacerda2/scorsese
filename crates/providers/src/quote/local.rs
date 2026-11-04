@@ -22,26 +22,29 @@ pub const QUOTES_DIR: &str = "quotes";
 /// The tokens of one project.
 #[derive(Debug, Clone)]
 pub struct ProjectQuotes {
-    /// The project's `cache/`: the caller's, which may be a link.
-    cache: PathBuf,
+    /// The project's root, the base its `cache/quotes` is made from.
+    root: PathBuf,
     dir: PathBuf,
 }
 
 impl ProjectQuotes {
     /// The store for the project at `root`.
     pub fn new(root: &Path) -> Self {
-        let cache = root.join(CACHE_DIR);
         Self {
-            dir: cache.join(QUOTES_DIR),
-            cache,
+            dir: root.join(CACHE_DIR).join(QUOTES_DIR),
+            root: root.to_path_buf(),
         }
     }
 
-    /// Whether `cache/quotes` is a link: a `.scor` received from someone else
-    /// may carry one (#1715), and no token is kept, read or removed where it
-    /// leads.
+    /// Whether `cache/quotes`, or `cache/` itself, is a link: a `.scor`
+    /// received from someone else may carry one (#1715, #1718), and no token
+    /// is kept, read or removed where it leads.
     fn linked(&self) -> bool {
-        std::fs::symlink_metadata(&self.dir).is_ok_and(|meta| meta.file_type().is_symlink())
+        [self.root.join(CACHE_DIR), self.dir.clone()]
+            .iter()
+            .any(|folder| {
+                std::fs::symlink_metadata(folder).is_ok_and(|meta| meta.file_type().is_symlink())
+            })
     }
 
     /// Where one token's record lives. Only ever asked of a well-formed token,
@@ -78,7 +81,7 @@ impl Quotes for ProjectQuotes {
     type Error = io::Error;
 
     fn put(&self, issued: &Issued) -> io::Result<()> {
-        crate::diskcache::folder(&self.cache, QUOTES_DIR)?;
+        scorsese_core::write::in_cache(&self.root, Path::new(QUOTES_DIR))?;
         self.sweep(issued.issued_at);
         let json = serde_json::to_vec_pretty(issued).map_err(io::Error::other)?;
         scorsese_core::write::atomically(&self.file(&issued.token), json)

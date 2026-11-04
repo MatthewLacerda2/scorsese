@@ -9,6 +9,7 @@
 use crate::common;
 
 mod proxies;
+mod proxy_folder;
 
 use std::path::Path;
 

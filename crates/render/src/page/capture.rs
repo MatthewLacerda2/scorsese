@@ -65,7 +65,7 @@ pub(crate) struct Heard {
 }
 
 /// What a capture serves the page from: its project, the folders a link out
-/// of it may lead to (`super::capture_following`), and the shipped fonts'
+/// of it may lead to ([`super::Laid::follow`]), and the shipped fonts'
 /// fontconfig file.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Served<'a> {

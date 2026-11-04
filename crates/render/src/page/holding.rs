@@ -1,13 +1,15 @@
 //! A run's captures, held until it is over (#1085).
 
 use std::ops::Range;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::atomic::AtomicU64;
 
 use super::browser::Chrome;
 use super::budget::Browsers;
 use super::request::Request;
-use super::{Captured, PageError, cache, cached_frames, capture, piece, pieces, told, within};
+use super::{
+    Captured, Laid, PageError, cache, cached_frames, capture, piece, pieces, told, within,
+};
 use crate::cancel::Cancel;
 use crate::tools::Tools;
 
@@ -47,8 +49,8 @@ impl Holding {
     }
 
     /// [`super::capture_frames`], held for this run, and tidied after only
-    /// once it is over: the project's root and the folders its links may
-    /// lead under go together, and so do the browsers it may draw with —
+    /// once it is over: the project's root and how its caller laid it out
+    /// ([`Laid`]) go together, and so do the browsers it may draw with —
     /// leased from a budget the captures drawing beside it share (#1095) — the
     /// count each frame drawn is added to (#1055) and the cancel that stops it
     /// before its next frame (#1088).
@@ -60,7 +62,7 @@ impl Holding {
         &mut self,
         chrome: &Chrome,
         tools: &Tools,
-        (project_root, follow): (&Path, &[PathBuf]),
+        (project_root, laid): (&Path, Laid<'_>),
         request: &Request,
         frames: Range<u64>,
         (browsers, drawn, cancel): (&Browsers, &AtomicU64, &Cancel),
@@ -73,7 +75,7 @@ impl Holding {
         }
         let piece = (piece(request, wanted), 0);
         let to = (browsers, drawn, cancel);
-        self.capture_piece(chrome, tools, (project_root, follow), request, piece, to)
+        self.capture_piece(chrome, tools, (project_root, laid), request, piece, to)
     }
 
     /// [`super::capture_part`], held for this run: part `index` of `parts`
@@ -83,7 +85,7 @@ impl Holding {
         &mut self,
         chrome: &Chrome,
         tools: &Tools,
-        (project_root, follow): (&Path, &[PathBuf]),
+        (project_root, laid): (&Path, Laid<'_>),
         request: &Request,
         (parts, index): (&[Range<u64>], usize),
         (drawn, cancel): (&AtomicU64, &Cancel),
@@ -105,13 +107,13 @@ impl Holding {
             let one = Browsers::new(1);
             let to = (&one, drawn, cancel);
             let piece = (part.clone(), measured);
-            self.capture_piece(chrome, tools, (project_root, follow), request, piece, to)?;
+            self.capture_piece(chrome, tools, (project_root, laid), request, piece, to)?;
         }
         // A stretch of one part is that part's capture: nothing to join.
         if let Some(captured) = self.cached_frames(project_root, request, version, span) {
             return Ok(Some(captured));
         }
-        self.join(tools, project_root, request, version, parts)
+        self.join(tools, (project_root, laid.cache), request, version, parts)
     }
 
     /// The capture of every one of `parts` together, joined from a fresh
@@ -120,7 +122,7 @@ impl Holding {
     fn join(
         &mut self,
         tools: &Tools,
-        project_root: &Path,
+        (project_root, laid_cache): (&Path, bool),
         request: &Request,
         version: &str,
         parts: &[Range<u64>],
@@ -167,6 +169,7 @@ impl Holding {
             };
             let place = cache::Place {
                 project_root,
+                laid_cache,
                 slot: &slot,
                 shelf: &shelf,
                 files: (&file, &record_file),
@@ -190,7 +193,7 @@ impl Holding {
         &mut self,
         chrome: &Chrome,
         tools: &Tools,
-        (project_root, follow): (&Path, &[PathBuf]),
+        (project_root, laid): (&Path, Laid<'_>),
         request: &Request,
         (piece, measured): (Range<u64>, u64),
         (browsers, drawn, cancel): (&Browsers, &AtomicU64, &Cancel),
@@ -204,8 +207,8 @@ impl Holding {
             return Err(PageError::Cancelled);
         }
         let slot = cache::slot(project_root, request, chrome.version());
-        cache::made(project_root, &slot)?;
-        let fonts = cache::fonts(project_root)?;
+        cache::made(project_root, laid.cache, &slot)?;
+        let fonts = cache::fonts(project_root, laid.cache)?;
         // Written beside and moved into place, so an interrupted capture never
         // leaves frames that look finished — inside a folder this capture
         // made, so two renders of one project capturing the same page cannot
@@ -220,7 +223,7 @@ impl Holding {
         let partial = capturing.join("frames.mkv");
         let served = capture::Served {
             project_root,
-            follow,
+            follow: laid.follow,
             fonts: &fonts,
         };
         let pieces = pieces::split(request, piece.clone(), lease.count());
@@ -243,6 +246,7 @@ impl Holding {
             };
             let place = cache::Place {
                 project_root,
+                laid_cache: laid.cache,
                 slot: &slot,
                 shelf: &shelf,
                 files: (&file, &record_file),

@@ -61,6 +61,7 @@ use std::sync::atomic::AtomicU64;
 
 pub use browser::{CHROME_ENV, Chrome, ChromeError, NO_SANDBOX, NO_SANDBOX_ENV};
 pub use budget::Browsers;
+pub use cache::Laid;
 pub use cdp::CdpError;
 pub use holding::Holding;
 pub use missed::reasoned;
@@ -184,19 +185,21 @@ impl Wanted {
 /// fresh, and captured with `chrome` when they are not.
 ///
 /// The page is served its project's files and nothing else: a link inside the
-/// project that leads out of it is refused. [`capture_frames`] takes folders such
-/// a link may lead to.
+/// project that leads out of it is refused, and so is a `cache/` that is a link
+/// (#1718). [`capture_frames`] takes a project laid out otherwise ([`Laid`]).
 pub fn capture(
     chrome: &Chrome,
     tools: &Tools,
     project_root: &Path,
     request: &Request,
 ) -> Result<Captured, PageError> {
-    capture_following(chrome, tools, project_root, &[], request)
+    capture_laid(chrome, tools, project_root, Laid::default(), request)
 }
 
-/// [`capture`], serving the page a file its project links to when the link
-/// really leads under one of the folders `follow` names.
+/// [`capture`], of a project its caller laid out as `laid` says: serving the
+/// page a file its project links to when the link really leads under one of
+/// the folders [`Laid::follow`] names, and writing through a `cache/` the
+/// caller linked itself ([`Laid::cache`]).
 ///
 /// For a caller that lays a project out with links to files kept elsewhere:
 /// the web app links each media file into the owner's library, and names that
@@ -206,15 +209,15 @@ pub fn capture(
 /// One browser, drawing from the first frame: the web app captures in a
 /// container sized for exactly one (#773). [`capture_frames`] is the same with
 /// a stretch and a number of browsers to choose.
-fn capture_following(
+fn capture_laid(
     chrome: &Chrome,
     tools: &Tools,
     project_root: &Path,
-    follow: &[PathBuf],
+    laid: Laid<'_>,
     request: &Request,
 ) -> Result<Captured, PageError> {
     let whole = 0..request.frames();
-    capture_frames(chrome, tools, project_root, follow, request, whole, 1)
+    capture_frames(chrome, tools, project_root, laid, request, whole, 1)
 }
 
 /// How many browsers a capture on this machine is worth drawing with at once —
@@ -224,8 +227,8 @@ pub fn browsers() -> usize {
 }
 
 /// [`capture`], for only `frames` of the page — the frames a still or a clip
-/// shows, rather than every one from the first — with folders a link out of the
-/// project may lead to (`follow`) and a number of browsers to choose.
+/// shows, rather than every one from the first — of a project laid out as
+/// `laid` says, and with a number of browsers to choose.
 ///
 /// Reuses any fresh capture holding them all. Otherwise it captures from the
 /// first of them, back to a whole millisecond, to the last, and keeps that as a
@@ -241,7 +244,7 @@ pub fn capture_frames(
     chrome: &Chrome,
     tools: &Tools,
     project_root: &Path,
-    follow: &[PathBuf],
+    laid: Laid<'_>,
     request: &Request,
     frames: Range<u64>,
     browsers: usize,
@@ -250,7 +253,7 @@ pub fn capture_frames(
     Holding::default().capture_frames(
         chrome,
         tools,
-        (project_root, follow),
+        (project_root, laid),
         request,
         frames,
         (&Browsers::new(browsers), &drawn, &Cancel::new()),
@@ -273,7 +276,7 @@ pub fn capture_part(
     chrome: &Chrome,
     tools: &Tools,
     project_root: &Path,
-    follow: &[PathBuf],
+    laid: Laid<'_>,
     request: &Request,
     parts: &[Range<u64>],
     index: usize,
@@ -282,7 +285,7 @@ pub fn capture_part(
     Holding::default().capture_part(
         chrome,
         tools,
-        (project_root, follow),
+        (project_root, laid),
         request,
         (parts, index),
         (&drawn, &Cancel::new()),
