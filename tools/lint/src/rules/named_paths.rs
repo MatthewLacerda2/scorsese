@@ -172,8 +172,8 @@ fn resolve(token: &str, known: &Known) -> Option<String> {
     };
     let last = path.rsplit('/').next().unwrap_or_default();
     let extension = last.rsplit_once('.').map(|(_, ext)| ext);
-    let file_like =
-        extension.is_some_and(|ext| !ext.is_empty() && ext.chars().all(char::is_alphanumeric));
+    // Never empty: a token's closing `.` is trimmed before it gets here.
+    let file_like = extension.is_some_and(|ext| ext.chars().all(char::is_alphanumeric));
     (path.ends_with('/') || file_like).then_some(path)
 }
 

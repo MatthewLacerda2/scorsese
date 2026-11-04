@@ -71,6 +71,8 @@ fn an_allow_with_a_reason_excuses_the_line() {
     assert_eq!(flagged("a.rs", &rust), []);
     let markdown = format!("<!-- lint: allow({RULE}) created by setup -->\ndeploy/.env\n");
     assert_eq!(flagged("docs/a.md", &markdown), []);
+    let run = format!("<!-- lint: allow({RULE}) made by setup -->\n<!-- more -->\ndeploy/.env\n");
+    assert_eq!(flagged("docs/a.md", &run), []);
     assert_eq!(
         flagged("docs/a.md", "deploy/.env\n"),
         [(1, "deploy/.env".into())]
@@ -115,6 +117,8 @@ fn only_comments_are_read_in_code() {
 #[test]
 fn files_outside_the_scope_are_not_read() {
     assert_eq!(flagged("web/src/a.ts", "// docs/gone.md\n"), []);
+    assert_eq!(flagged("tools/a.py", "# docs/gone.md\n"), []);
+    assert_eq!(flagged("tools/ci-postgres", "# docs/gone.md\n"), []);
     assert_eq!(flagged("crates/core/notes.md", "docs/gone.md\n"), []);
     assert_eq!(flagged("crates/core/CLAUDE.md", "docs/gone.md\n").len(), 1);
 }
@@ -132,6 +136,8 @@ fn templates_globs_urls_and_bare_words_are_not_paths() {
         "scorsese/docs/gone.md",
         "the app/web split, tools/lint",
         "$ROOT/docs/gone.md",
+        "other/src/gone.rs and cli/docs/gone.md",
+        "docs/gone.md-x",
     ] {
         assert_eq!(named_in(line, &known()), Vec::<String>::new(), "{line}");
     }
