@@ -71,6 +71,10 @@ export default defineConfig({
         SCORSESE_STORAGE: join(run, "storage"),
         SCORSESE_CACHE: join(run, "cache"),
         SCORSESE_BIND: `127.0.0.1:${SERVER_PORT}`,
+        // No disk floor (#1759): the production 10 GB refused every upload on
+        // a runner with less free, failing the flows on the runner's disk, not
+        // the code. The refusal is tested in the server's own suite.
+        SCORSESE_DISK_FLOOR_GB: "0",
       },
       reuseExistingServer: false,
       stdout: "pipe",
