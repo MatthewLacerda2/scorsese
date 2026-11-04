@@ -172,3 +172,26 @@ fn a_cache_folder_that_is_a_link_is_never_written_through() {
         "a listing was written through the link"
     );
 }
+
+/// A `.scor` received from someone else may carry `cache/` itself as a link
+/// (#1718): the listing is still answered, and nothing is written where the
+/// link leads.
+#[cfg(unix)]
+#[test]
+fn a_linked_cache_folder_is_never_written_through() {
+    let dir = root("voices-linked-cache");
+    let outside = root("voices-linked-cache-outside");
+    let _ = std::fs::remove_dir_all(dir.join("cache"));
+    std::os::unix::fs::symlink(&outside, dir.join("cache")).expect("a link");
+    let before = std::fs::read_dir(&outside).expect("outside").count();
+    let fake = Fake::listing(vec![voice("v1", "Ana")]);
+
+    let listed = builtin(&dir, &fake, false).expect("the listing");
+
+    assert_eq!(listed.voices, vec![voice("v1", "Ana")]);
+    assert_eq!(
+        std::fs::read_dir(&outside).expect("outside").count(),
+        before,
+        "a listing was written through the link"
+    );
+}

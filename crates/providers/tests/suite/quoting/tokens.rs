@@ -7,10 +7,10 @@ use scorsese_providers::quote::{
 use super::sketched;
 
 /// An instant to issue at, so expiry is arithmetic rather than waiting.
-const NOW: i64 = 1_800_000_000;
+pub(super) const NOW: i64 = 1_800_000_000;
 
 /// The sketched project's quote, and a store for it.
-fn quoted(label: &str) -> (std::path::PathBuf, Quote, ProjectQuotes) {
+pub(super) fn quoted(label: &str) -> (std::path::PathBuf, Quote, ProjectQuotes) {
     let (dir, project) = sketched(label);
     let quote = generation(&project, &dir).expect("quote");
     let store = ProjectQuotes::new(&dir);
@@ -109,45 +109,4 @@ fn expired_records_are_swept_on_the_next_issue() {
         .count();
     assert_eq!(left, 1, "the expired record is gone");
     std::fs::remove_dir_all(dir).ok();
-}
-
-/// A `.scor` received from someone else may carry `cache/quotes` as a link
-/// (#1715): no token is issued through it, and where it leads is untouched.
-#[cfg(unix)]
-#[test]
-fn a_quotes_folder_that_is_a_link_is_never_written_through() {
-    let (dir, quote, store) = quoted("token-linked");
-    let (outside, _) = crate::common::project("token-linked-outside");
-    std::fs::create_dir_all(dir.join("cache")).expect("the cache folder");
-    std::os::unix::fs::symlink(&outside, dir.join("cache/quotes")).expect("a link");
-    let before = std::fs::read_dir(&outside).expect("outside").count();
-
-    assert!(issue(&store, &quote, NOW).is_err(), "issued through a link");
-    assert_eq!(
-        std::fs::read_dir(&outside).expect("outside").count(),
-        before
-    );
-    std::fs::remove_dir_all(dir).ok();
-    std::fs::remove_dir_all(outside).ok();
-}
-
-/// A token kept before `cache/quotes` became a link is not read or spent
-/// through it (#1715): redeeming it is refused as unknown, and the record
-/// where the link leads is left as it was.
-#[cfg(unix)]
-#[test]
-fn a_token_behind_a_linked_quotes_folder_is_never_spent_through_it() {
-    let (dir, quote, store) = quoted("token-relinked");
-    let issued = issue(&store, &quote, NOW).expect("issue");
-    let (outside, _) = crate::common::project("token-relinked-outside");
-    let moved = outside.join("quotes");
-    std::fs::rename(dir.join("cache/quotes"), &moved).expect("moved out");
-    std::os::unix::fs::symlink(&moved, dir.join("cache/quotes")).expect("a link");
-
-    let again = redeem(&store, &issued.token, &quote, NOW);
-
-    assert!(matches!(again, Err(Refused::Unknown { .. })), "{again:?}");
-    assert_eq!(std::fs::read_dir(&moved).expect("outside").count(), 1);
-    std::fs::remove_dir_all(dir).ok();
-    std::fs::remove_dir_all(outside).ok();
 }
