@@ -22,14 +22,14 @@ change on `main` is already in the head, so that merge was the head's tree too.
 
 **Caches keep their full run.** Each cache `ci.yml` saves from `main` is keyed
 on files: `Swatinem/rust-cache` on the toolchain, every `Cargo.toml` /
-`Cargo.lock` and `.cargo/`, the apt archives and the Chromium download on the
-scripts that fetch them, and every one of them on the job's env, which lives in
-the workflow. A push that changes any [`CACHE_KEYED`] path since the previous
-tip, or the workflow itself, runs everything, so the new key's cache is written
-by `main` and a dependency bump is proven on `main`. Any other push leaves the
-keys, and so the saved caches, as they were. What moves with no file (the runner
-image the apt key names) is the nightly's: `ci.yml`'s `schedule` builds `main`
-in full and saves.
+`Cargo.lock` and cargo's `.cargo/config.toml` (not `.cargo/mutants.toml`), the
+apt archives and the Chromium download on the scripts that fetch them, and every
+one of them on the job's env, which lives in the workflow. A push that changes
+any `CACHE_KEYED_*` path since the previous tip, or the workflow itself, runs
+everything, so the new key's cache is written by `main` and a dependency bump is
+proven on `main`. Any other push leaves the keys, and so the saved caches, as
+they were. What moves with no file (the runner image the apt key names) is the
+nightly's: `ci.yml`'s `schedule` builds `main` in full and saves.
 
 **A superseded push skips.** A merge train lands its members as one squash
 each, seconds apart (#1757), so every push but the last carries a tree no run
@@ -75,9 +75,9 @@ BUILT: dict[str, str] = {
     "cargo-deny": "Both workspaces",
 }
 
-#: What a cache key hashes: by file name anywhere, by directory, by exact path.
+#: What a cache key hashes: by file name anywhere, by exact path, by cargo config.
 CACHE_KEYED_NAMES = ("Cargo.toml", "Cargo.lock", "rust-toolchain", "rust-toolchain.toml")
-CACHE_KEYED_DIRS = (".cargo/",)
+CACHE_KEYED_CONFIGS = (".cargo/config", ".cargo/config.toml")
 CACHE_KEYED_PATHS = ("tools/ci-apt", "tools/ci-postgres", "tools/chromium/pin",
                      f".github/workflows/{WORKFLOW}")
 
@@ -106,7 +106,8 @@ def gh_get(path: str):
 def keyed(path: str) -> bool:
     """Whether a changed path moves a cache key `main` saves under."""
     name = path.rsplit("/", 1)[-1]
-    return name in CACHE_KEYED_NAMES or path.startswith(CACHE_KEYED_DIRS) or path in CACHE_KEYED_PATHS
+    return (name in CACHE_KEYED_NAMES or path in CACHE_KEYED_PATHS
+            or any(path == c or path.endswith("/" + c) for c in CACHE_KEYED_CONFIGS))
 
 
 def key_change(get: Get, repo: str, before: str, sha: str) -> str | None:

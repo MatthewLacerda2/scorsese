@@ -11,10 +11,10 @@ keep it.
 ## What a ready pull request claims
 
 **A ready pull request claims it passes; a draft makes no such claim.** CI runs
-on ready pull requests and on `main`, nowhere else, so a red run always means a
-claim was broken. A draft is **how work survives** a session that ends badly;
-the durable context is the **issue**, written to be read cold. Never rely on a
-hand-back comment existing.
+on ready pull requests and on `main` (nightly, and on a push no run proved),
+nowhere else, so a red run always means a claim was broken. A draft is **how
+work survives** a session that ends badly; the durable context is the
+**issue**, written to be read cold. Never rely on a hand-back comment existing.
 
 **Gates block on correctness; signals inform on quality.** Build, test,
 `clippy -D warnings`, the golden renders and the lint are hard gates: green to

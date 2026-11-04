@@ -22,8 +22,17 @@ name: CI
 # or when a listed page is gone. A page nothing reads stays off it, so editing
 # it is still the Markdown-only fast path.
 #
-# CI speaks in two situations and no others: a pull request **claims to be
-# finished**, and `main` moves. Every job below carries `if: ${{ !DRAFT }}` —
+# CI speaks in three situations and no others: a pull request **claims to be
+# finished**, `main` moves, and the nightly rebuilds `main`. A push to `main`
+# builds nothing when a run already built its tree (#1758): every change lands
+# through `make queue`, which squash-merges a head its own run judged, so the
+# squash has that tree. `changes` asks `.github/scripts/proved_tree.py`, which
+# proves the match mechanically (a hand push or a merge from GitHub's page of a
+# head no run built still builds), keeps the full run for a push that moves a
+# cache key or this file (so `main` saves the new key's caches), skips a push
+# `main` has already moved past (a merge train's members land seconds apart),
+# and fails toward building on any error. A proved push's run is `changes` and
+# `CI ok`, every other job skipped by design. Every job below carries `if: ${{ !DRAFT }}` —
 # spelled out each time, because Actions has no workflow-level `if`. `CI ok`
 # carries it too, so a draft's run skips everything; a draft cannot merge, and
 # `ready_for_review` brings the run that counts.
@@ -56,6 +65,15 @@ on:
     branches: [main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  # The nightly (#1758): `main` in full, every job. A push whose tree a pull
+  # request's run proved builds nothing, so this is what rebuilds `main`
+  # against what moves with nothing in any diff — the runner image, and with it
+  # ffmpeg under the golden gate and the apt cache's key — and re-saves `main`'s
+  # caches under the image of the day. It is a gating run on `main`, not a
+  # signal: `CI ok` goes red with any job. Off the hour, where GitHub's
+  # scheduler is least backed up; `schedule:` fires from the default branch only.
+  schedule:
+    - cron: '41 4 * * *'
 
 # `ubuntu-24.04` and not `ubuntu-latest`, everywhere below, and the reason is
 # ffmpeg. It comes from the image's apt archive — 6.1.1-3ubuntu5 there — and
@@ -116,8 +134,12 @@ jobs:
   # is exactly the change the merge brings; on `main` it is the push's
   # `before..after`. `--no-renames` lists both ends of a rename, because a `.rs`
   # renamed to `.md` changed a file CI builds. A diff that cannot be read — a
-  # `before` outside the shallow fetch, a new branch's all-zero one — runs
-  # everything rather than guessing.
+  # `before` outside the shallow fetch, a new branch's all-zero one, the
+  # nightly's empty one — runs everything rather than guessing.
+  #
+  # `code` answers "must this run build?", so it is also 'false' on a push to
+  # `main` whose tree a run already built, and `proved` then skips the jobs a
+  # Markdown-only change runs too (see the top of this file, #1758).
   changes:
     name: changes
     runs-on: ubuntu-24.04
@@ -125,8 +147,12 @@ jobs:
     # this file; `ready_for_review` in `types:` is what makes it fire at all.
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read  # the earlier runs and their jobs (proved_tree.py)
     outputs:
-      code: ${{ steps.diff.outputs.code }}
+      code: ${{ steps.proved.outputs.proved == 'true' && 'false' || steps.diff.outputs.code || 'true' }}
+      proved: ${{ steps.proved.outputs.proved == 'true' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -144,6 +170,21 @@ jobs:
             echo "could not diff against $BASE; running every job."
             echo "code=true" | tee -a "$GITHUB_OUTPUT"
           fi
+
+      # Only a push asks, and only when it changes code: a Markdown-only merge
+      # already skips the heavy jobs. The nightly always builds. A lookup that
+      # breaks (no `gh`, a hung call) must not fail `changes` and turn `main`
+      # red: the step may fail or time out, and its empty output means a full run.
+      - name: Was this tree already proved?
+        id: proved
+        if: github.event_name == 'push' && steps.diff.outputs.code != 'false'
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 .github/scripts/proved_tree.py
+          --sha "${{ github.sha }}" --before "${{ github.event.before }}"
 
   check:
     name: fmt + clippy + test
@@ -573,9 +614,10 @@ jobs:
     # Drafts assert nothing, so there is nothing to check. A Markdown-only
     # change runs it too: the lint holds every `CLAUDE.md` and skill to its
     # caps and frontmatter, and those are Markdown. It builds only the lint,
-    # which has no dependencies, so it costs about a minute.
+    # which has no dependencies, so it costs about a minute. A push to `main`
+    # whose tree a run already built skips it (`proved`, see the top).
     needs: changes
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.changes.outputs.proved != 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -619,9 +661,10 @@ jobs:
     # change runs it too, unlike the heavy jobs: its repo-consistency tests
     # read pages (the README's and docs' variables, `docs/live-check.md`'s
     # fixture table, the labels the skills name — #1226), and the job costs
-    # seconds, so the `changes` list need not grow a page for each.
+    # seconds, so the `changes` list need not grow a page for each. A push to
+    # `main` whose tree a run already built skips it (`proved`, see the top).
     needs: changes
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && needs.changes.outputs.proved != 'true'
     steps:
       - uses: actions/checkout@v7
 

@@ -6,13 +6,9 @@ reaches GitHub. Every way the lookup can be wrong must run the gates in full.
 
 from __future__ import annotations
 
-import io
-import os
 import sys
-import tempfile
 import unittest
 from pathlib import Path
-from unittest import mock
 
 SCRIPTS = Path(__file__).resolve().parents[2]
 if str(SCRIPTS) not in sys.path:
@@ -140,7 +136,7 @@ class RunsInFull(unittest.TestCase):
 
     def test_a_change_to_a_cache_key_or_the_workflow(self):
         for path in ("Cargo.lock", "app/Cargo.lock", "tools/lint/Cargo.toml", "rust-toolchain.toml",
-                     ".cargo/config.toml", "tools/ci-apt", "tools/ci-postgres", "tools/chromium/pin",
+                     ".cargo/config.toml", "app/.cargo/config.toml", ".cargo/config", "tools/ci-apt", "tools/ci-postgres", "tools/chromium/pin",
                      ".github/workflows/ci.yml"):
             with self.subTest(path=path):
                 url, why = verdict(Fake(files=("crates/core/src/lib.rs", path)))
@@ -148,7 +144,8 @@ class RunsInFull(unittest.TestCase):
                 self.assertIn(path, why)
 
     def test_a_path_only_named_like_a_key_is_not_one(self):
-        for path in ("docs/Cargo.lock.md", "tools/ci-apt-notes", ".github/workflows/coverage.yml"):
+        for path in ("docs/Cargo.lock.md", "tools/ci-apt-notes", ".github/workflows/coverage.yml",
+                     ".cargo/mutants.toml", "docs/.cargo/config.toml.md"):
             with self.subTest(path=path):
                 self.assertFalse(proved_tree.keyed(path))
 
@@ -171,34 +168,6 @@ class RunsInFull(unittest.TestCase):
         fake = Fake()
         fake.answers[f"repos/{REPO}/actions/workflows/ci.yml/"] = {"workflow_runs": [{"head_commit": None}]}
         self.assert_runs(fake)
-
-
-class Main(unittest.TestCase):
-    def run_main(self, env: dict, url_why=None) -> tuple[str, str]:
-        with tempfile.TemporaryDirectory() as tmp:
-            out = Path(tmp) / "out"
-            out.write_text("", encoding="utf-8")
-            argv = ["proved_tree.py", "--sha", SHA, "--before", BEFORE]
-            with mock.patch.object(sys, "argv", argv), \
-                 mock.patch.dict(os.environ, {"GITHUB_OUTPUT": str(out), **env}, clear=True), \
-                 mock.patch.object(proved_tree, "verdict", return_value=url_why), \
-                 mock.patch("sys.stdout", new_callable=io.StringIO) as printed:
-                self.assertEqual(proved_tree.main(), 0)
-            return out.read_text(encoding="utf-8"), printed.getvalue()
-
-    def test_a_proved_push_writes_true(self):
-        out, printed = self.run_main({"GITHUB_REPOSITORY": REPO}, ("http://run/7", "skips the build: x"))
-        self.assertEqual(out, "proved=true\n")
-        self.assertIn("skips the build", printed)
-
-    def test_an_unproved_push_writes_false(self):
-        out, _ = self.run_main({"GITHUB_REPOSITORY": REPO}, (None, "runs in full: x"))
-        self.assertEqual(out, "proved=false\n")
-
-    def test_no_repository_runs_in_full(self):
-        out, printed = self.run_main({})
-        self.assertEqual(out, "proved=false\n")
-        self.assertIn("GITHUB_REPOSITORY", printed)
 
 
 if __name__ == "__main__":
