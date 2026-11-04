@@ -9,7 +9,8 @@ from unittest import mock
 from .fakes import merge, queue, rails
 
 GREEN = {"id": 1, "name": "CI", "head_sha": "t", "status": "completed", "conclusion": "success"}
-JOBS = {1: [{"name": "fmt + clippy + test", "conclusion": "success", "steps": [{"status": "completed"}]}]}
+JOBS = {1: [{"name": "fmt + clippy + test", "status": "completed", "conclusion": "success", "steps": [{"status": "completed"}]},
+            {"name": "CI ok", "status": "completed", "conclusion": "success", "steps": [{"status": "completed"}]}]}
 
 
 def rule(strict):

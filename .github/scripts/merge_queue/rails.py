@@ -66,12 +66,16 @@ def tip_state(runs: list[dict], jobs: dict[int, list[dict]], waited: float, reru
             f"the train's {mergeable.WORKFLOW} run concluded {failed[0].get('conclusion')}.",
             f"See {failed[0].get('html_url', 'the run')}.",
         ]
-    if mergeable.unfinished(runs):
-        return WAIT, [f"the train's {mergeable.WORKFLOW} run is {mergeable.unfinished(runs)[0].get('status')}."]
+    live = mergeable.unfinished(runs, jobs)
+    if live:
+        return WAIT, [f"the train's {mergeable.WORKFLOW} run is {mergeable.pending(live[0], jobs)}."]
     if not [run for run in runs if mergeable.ran_something(run, jobs)]:
         if waited < verdict.RUN_APPEARS_SECONDS:
             return WAIT, ["nothing has built the train yet."]
         return STALLED, [f"no {mergeable.WORKFLOW} run built the train in {waited / 60:.0f} minutes."]
+    unsummed = mergeable.unsummarised(runs, jobs, "the train")
+    if unsummed:  # no member's own `CI ok` stands in for the train's (#1764)
+        return STALLED, unsummed
     return GO, [f"{mergeable.WORKFLOW} passed on the train."]
 
 
@@ -91,7 +95,7 @@ def wait(repo: str, sha: str, deadline: float, poll: float, tick=None) -> tuple[
         elif state != WAIT:
             return state, lines
         if waited > deadline:
-            for run in mergeable.unfinished(runs):  # its halves need the runners
+            for run in mergeable.unfinished(runs, jobs):  # its halves need the runners
                 subprocess.run(["gh", "api", "-X", "POST", f"repos/{repo}/actions/runs/{run['id']}/cancel"],
                                capture_output=True, check=False)
             return STALLED, [f"still waiting on the train {sha[:7]} after {deadline / 60:.0f} minutes.", *lines]

@@ -35,7 +35,7 @@ READY = {
 }
 GREEN = [{"id": 1, "name": "CI", "head_sha": READY["headRefOid"],
           "status": "completed", "conclusion": "success"}]
-JOBS = {1: [{"name": "test", "conclusion": "success"}]}
+JOBS = {1: [{"name": "test", "status": "completed", "conclusion": "success"}, {"name": "CI ok", "status": "completed", "conclusion": "success"}]}
 
 
 def issue(*labels: str, state: str = "open", **fields: object) -> dict:

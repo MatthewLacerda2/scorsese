@@ -149,11 +149,11 @@ def progress(
     if mergeable.failed_runs(runs):
         return STOP, mergeable.judge(pull, runs, jobs)[1]
 
-    live = mergeable.unfinished(runs)
+    live = mergeable.unfinished(runs, jobs)
     if live:
         return WAIT, [
             f"a {mergeable.WORKFLOW} run for {short} is"
-            f" {live[0].get('status')}."
+            f" {mergeable.pending(live[0], jobs)}."
         ]
 
     # Nothing has compiled this commit — either no run at all, or only runs

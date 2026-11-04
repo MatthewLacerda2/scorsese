@@ -26,10 +26,17 @@ commit mergeable while one of its runs was red. That is #153 again in a new
 costume, produced by the tool written to prevent it.
 
 So the rule is stated over the whole set rather than over a chosen member:
-**no run for this commit failed, and at least one succeeded having actually
-run its jobs.** A skipped run beside a real one then decides nothing, and a
+**no run for this commit failed, none has a job still out, and at least one
+succeeded having actually run its jobs, its own `CI ok` concluding
+`success`.** A skipped run beside a real one then decides nothing, and a
 failing run beside a green one refuses — which is the only safe reading of a
 commit whose evidence disagrees with itself.
+
+**The jobs are the evidence, not the run's own status** (#1764). During an
+Actions outage GitHub marked a run `completed` / `success` while a job was
+still `in_progress` and `CI ok` `queued`; read by the run alone, it passed. So
+a run with any job not `completed` is unfinished ([`unfinished`]), and one
+that built something passes only on its own `CI ok` ([`unsummarised`]).
 
 **A commit can also have no run because the branch conflicts with `main`**,
 and that is #429. GitHub cannot compute a merge commit for a conflicted
@@ -110,8 +117,9 @@ pulls = described.pulls
 WORKFLOW = "CI"
 
 # The job in it that stands for all the others (#1351): `ci.yml`'s last, which
-# the `main` ruleset requires. It fails whenever a job it needs did, so it is a
-# summary and never a verdict of its own — see `merge_queue.verdict`.
+# the `main` ruleset requires. It fails whenever a job it needs did, so its
+# failure is never a verdict of its own (see `merge_queue.verdict`); its
+# success is what a run that built something must show to pass (#1764).
 SUMMARY_JOB = "CI ok"
 
 # What GitHub calls a branch it cannot merge, in the two fields that say so:
@@ -284,9 +292,55 @@ def failed_runs(runs: list[dict]) -> list[dict]:
     ]
 
 
-def unfinished(runs: list[dict]) -> list[dict]:
-    """The runs in this set that have not concluded. See [`failed_runs`]."""
-    return [run for run in runs if run.get("status") != "completed"]
+def still_out(run: dict, jobs: dict[int, list[dict]]) -> list[dict]:
+    """This run's jobs that have not completed, whatever the run itself says.
+
+    GitHub can mark a run `completed` / `success` while a job is still
+    `in_progress` or `queued` (#1764: run 41861194585, the 2026-11-04 Actions
+    outage, with `CI ok` itself queued). The jobs are the evidence; the run's
+    status is a summary that can lag them.
+    """
+    return [job for job in jobs.get(run.get("id"), []) if job.get("status") != "completed"]
+
+
+def unfinished(runs: list[dict], jobs: dict[int, list[dict]]) -> list[dict]:
+    """The runs in this set that have not concluded: the run, or any of its
+    jobs ([`still_out`]), not `completed`. See [`failed_runs`]."""
+    return [
+        run for run in runs if run.get("status") != "completed" or still_out(run, jobs)
+    ]
+
+
+def pending(run: dict, jobs: dict[int, list[dict]]) -> str:
+    """What an [`unfinished`] run is waiting on, in words: its status, or a job's."""
+    if run.get("status") != "completed":
+        return str(run.get("status"))
+    job = still_out(run, jobs)[0]
+    return f"completed, but its job `{job.get('name')}` is {job.get('status')}"
+
+
+def unsummarised(runs: list[dict], jobs: dict[int, list[dict]], short: str) -> list[str]:
+    """Why these finished runs have not passed for want of their own [`SUMMARY_JOB`],
+    or nothing when every run that built something has it concluded `success`.
+
+    The one check the `main` ruleset requires stands for the run (#1764): a
+    run that built something without its `CI ok` succeeding has not passed,
+    whatever its own conclusion says. Asked of finished runs only.
+    """
+    for run in runs:
+        if not ran_something(run, jobs):
+            continue
+        summary = [j for j in jobs.get(run.get("id"), []) if j.get("name") == SUMMARY_JOB]
+        if summary and summary[0].get("conclusion") == "success":
+            continue
+        said = f"concluded {summary[0].get('conclusion')}" if summary else "is missing"
+        return [
+            f"the {WORKFLOW} run for {short} reads {run.get('conclusion')}, but its"
+            f" `{SUMMARY_JOB}` job {said}.",
+            f"See {run.get('html_url', 'the run')}. `{SUMMARY_JOB}` stands for the"
+            " run, and a run whose summary did not pass has not passed (#1764).",
+        ]
+    return []
 
 
 def no_run(pull: dict, short: str) -> list[str]:
@@ -398,10 +452,10 @@ def judge(
             ),
         ]
 
-    running = unfinished(runs)
+    running = unfinished(runs, jobs)
     if running:
         return False, [
-            f"a {WORKFLOW} run for {short} is {running[0].get('status')}.",
+            f"a {WORKFLOW} run for {short} is {pending(running[0], jobs)}.",
             "Wait for it. A run in flight has not passed yet.",
         ]
 
@@ -418,6 +472,10 @@ def judge(
             " the pull request was ready and never replaced. #153 exactly."
             " Nothing compiled this commit.",
         ]
+
+    unsummed = unsummarised(runs, jobs, short)
+    if unsummed:
+        return False, unsummed
 
     run = real[0]
     ran = jobs.get(run.get("id"), [])

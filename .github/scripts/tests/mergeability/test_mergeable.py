@@ -48,15 +48,16 @@ def run(**fields: object) -> dict:
 
 
 def job(name: str, conclusion: str) -> dict:
-    return {"name": name, "conclusion": conclusion}
+    return {"name": name, "status": "completed", "conclusion": conclusion}
 
 
 def verdict(*runs: dict, jobs: dict[int, list[dict]] | None = None):
     """[`mergeable.judge`] over these runs, with `jobs` defaulting to one
-    successful job per run — because "the run built something" is the ordinary
+    successful job and `CI ok` per run — because "the run built something" is the ordinary
     case and spelling it out in every test would bury the ones that matter."""
     jobs = jobs if jobs is not None else {
-        run["id"]: [job("fmt + clippy + test", "success")] for run in runs
+        run["id"]: [job("fmt + clippy + test", "success"), job("CI ok", "success")]
+        for run in runs
     }
     return mergeable.judge(READY, list(runs), jobs)
 
@@ -153,7 +154,7 @@ class Judgement(unittest.TestCase):
         )
 
     def test_a_genuine_pass_is_allowed(self):
-        ok, lines = verdict(run(), jobs={1: [job("test", "success")]})
+        ok, lines = verdict(run(), jobs={1: [job("test", "success"), job("CI ok", "success")]})
         self.assertTrue(ok, lines)
         self.assertIn("passed", lines[0])
 
@@ -161,7 +162,7 @@ class Judgement(unittest.TestCase):
         # The app gate skips when a branch touches nothing under `app/`. Saying
         # so is the difference between this and the report it distrusts.
         ok, lines = verdict(
-            run(), jobs={1: [job("test", "success"), job("app", "skipped")]}
+            run(), jobs={1: [job("test", "success"), job("app", "skipped"), job("CI ok", "success")]}
         )
         self.assertTrue(ok, lines)
         self.assertIn("app", " ".join(lines[1:]))
@@ -176,7 +177,7 @@ class Judgement(unittest.TestCase):
         ok, lines = verdict(
             run(id=1, conclusion="skipped"),
             run(id=2),
-            jobs={1: [], 2: [job("fmt + clippy + test", "success")]},
+            jobs={1: [], 2: [job("fmt + clippy + test", "success"), job("CI ok", "success")]},
         )
         self.assertTrue(ok, lines)
         self.assertIn("2 runs exist", " ".join(lines))
