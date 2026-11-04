@@ -22,8 +22,9 @@ name: CI
 # or when a listed page is gone. A page nothing reads stays off it, so editing
 # it is still the Markdown-only fast path.
 #
-# CI speaks in three situations and no others: a pull request **claims to be
-# finished**, `main` moves, and the nightly rebuilds `main`. A push to `main`
+# CI speaks in four situations and no others: a pull request **claims to be
+# finished**, `main` moves, the nightly rebuilds `main`, and the merge queue
+# dispatches a train's tree (`workflow_dispatch`, #1757). A push to `main`
 # builds nothing when a run already built its tree (#1758): every change lands
 # through `make queue`, which squash-merges a head its own run judged, so the
 # squash has that tree. `changes` asks `.github/scripts/proved_tree.py`, which
@@ -74,6 +75,11 @@ on:
   # scheduler is least backed up; `schedule:` fires from the default branch only.
   schedule:
     - cron: '41 4 * * *'
+  # The merge queue's trains (#1757, `.github/scripts/merge_queue/yard.py`):
+  # dispatched on a `merge-train/*` branch, a run gates the group's tree. A
+  # dispatch is no pull request, so every job runs (`changes` cannot diff it)
+  # and `regression test` owes nothing: each member's own run held that.
+  workflow_dispatch:
 
 # `ubuntu-24.04` and not `ubuntu-latest`, everywhere below, and the reason is
 # ffmpeg. It comes from the image's apt archive — 6.1.1-3ubuntu5 there — and

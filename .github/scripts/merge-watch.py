@@ -5,7 +5,7 @@ one difference: instead of a list typed in by whoever started it, it asks
 GitHub every poll which pull requests are cleared to merge, and takes the best
 one. Everything that happens *to* a pull request once taken — rebase, push,
 wait for a run to exist on the new head, `mergeable`, merge, hand back — is the
-queue's [`take`], unchanged. This module only decides *which one, and whether
+queue's [`take`], unchanged, or a merge train's ride (`merge_queue/yard.py`). This module only decides *which one, and whether
 at all*, and every function in it is pure except [`waiting`],
 [`issue_labels`] and [`everything`], which ask, over REST (#1724).
 

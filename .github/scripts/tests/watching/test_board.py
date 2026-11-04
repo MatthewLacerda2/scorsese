@@ -148,6 +148,7 @@ class Loop(unittest.TestCase):
         printed = []
         with mock.patch.object(queue.mergeable.pulls, "repository", return_value="o/r"), \
             mock.patch.object(queue.lock, "acquire"), \
+            mock.patch.object(queue.yard, "open_yard", return_value=None), \
             mock.patch.object(queue, "run_watch", return_value=[(4, queue.UNFINISHED, "still in line.")]), \
             mock.patch("builtins.print", side_effect=lambda *a, **k: printed.append(" ".join(map(str, a)))):
             status = queue.main(["--watch"])

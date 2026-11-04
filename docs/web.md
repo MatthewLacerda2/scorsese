@@ -466,7 +466,7 @@ lives*, below).
 | `google/state.tf` | the bucket every configuration's state lives in: `us-central1` (Always Free), private, versioned, impossible to destroy by accident (`prevent_destroy`, no `force_destroy`) |
 | `stripe/webhook.tf` | the webhook endpoint for credit purchases (*Buying credits*): `<SCORSESE_PUBLIC_ORIGIN>/api/payments/stripe/webhook` and the six events it acts on, and its signing secret as a sensitive output |
 | `github/repository.tf` | the `MatthewLacerda2/scorsese` repository's settings: squash merges only, a merged branch deleted, no wiki or projects, Dependabot alerts and security updates on, secret scanning and push protection on. Imported, never created, and impossible to destroy by accident (`prevent_destroy`, and `archive_on_destroy` behind it) |
-| `github/ruleset.tf` | `main`'s ruleset: a change arrives as a squashed pull request with `CI ok` green on `main`'s tip, no review required, no deletion or force-push, nobody bypasses it |
+| `github/ruleset.tf` | `main`'s ruleset: a change arrives as a squashed pull request with `CI ok` green on its head (the merge queue holds the tree that lands to the tree CI ran), no review required, no deletion or force-push, nobody bypasses it |
 | `tf` | runs one configuration with its credentials and its state: `tf cloudflare plan`, `tf google apply`, `tf stripe secret`, `tf github plan`; and, once, `tf google bootstrap` and `tf <name> migrate` (*Moving the state into the bucket*) |
 
     make infra-plan     # what would change, for all four; changes nothing

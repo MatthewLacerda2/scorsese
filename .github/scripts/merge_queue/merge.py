@@ -1,7 +1,8 @@
-"""Merge and verify: after a merge call failed in transit, asking whether it merged.
+"""Merge and verify: the squash call ([`squash`]), and after one failed in
+transit, asking whether it merged (#495).
 
-The merge call itself is `merge-queue.py`'s `take`. What is here is the one
-thing a 502 does not answer (#495).
+A turn alone (`merge-queue.py`'s `take`) and a train's landing (`landing`)
+both merge through [`squash`], so the two sort a failure alike.
 """
 
 from __future__ import annotations
@@ -11,7 +12,7 @@ import subprocess
 import time
 
 from . import mergeable, talk
-from .states import GO, STOP, WAIT
+from .states import GO, HANDED_BACK, MERGED, STOP, WAIT
 
 
 # How long a merge call that failed in transit is given to show up as merged.
@@ -20,6 +21,16 @@ from .states import GO, STOP, WAIT
 # generous for that and short beside the ten a run costs; past it the outcome
 # is *unknown*, which is handed back as unknown rather than as a refusal.
 MERGE_SETTLES_SECONDS = 60
+
+# What [`squash`] answers besides merged and handed back. `UNKNOWN`: it failed
+# in transit and never showed up merged. `BASE_MOVED`: GitHub kept answering
+# that `main` moved under the call, which a merge made seconds before it does
+# (rusty's #1785 review) and which is no fault of the pull request's.
+UNKNOWN, BASE_MOVED = "unknown", "base moved"
+
+# How often, and how far apart, a "Base branch was modified" is asked again.
+BASE_RETRIES, BASE_GAP_SECONDS = 3, 5.0
+BASE_MODIFIED = "Base branch was modified"
 
 
 def landed(pull: dict) -> bool:
@@ -86,3 +97,37 @@ def confirm(repo: str, number: int, poll: float) -> tuple[str, list[str]]:
             return state, lines
         talk.say(f"#{number}: {lines[0]}")
         time.sleep(min(poll, MERGE_SETTLES_SECONDS / 4))
+
+
+def squash(repo: str, number: int, sha: str, poll: float) -> tuple[str, str]:
+    """Squash-merge pull request `number`, pinned to `sha`: GitHub refuses a head
+    that moved since. [`MERGED`], [`HANDED_BACK`] (a refusal GitHub reasoned
+    about), [`UNKNOWN`] or [`BASE_MOVED`], with one line why.
+
+    A failure in transit is never repeated, only asked about ([`confirm`]):
+    repeating a merge that may already have happened is how one gets made twice.
+    """
+    for attempt in range(BASE_RETRIES + 1):
+        done = subprocess.run(
+            mergeable.pulls.merge_call(repo, number, sha),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        failure = done.stderr.strip()
+        if done.returncode == 0:
+            return MERGED, "merged."
+        if BASE_MODIFIED not in failure:
+            break
+        if attempt == BASE_RETRIES:
+            return BASE_MOVED, f"GitHub kept answering that `main` moved: {failure}"
+        talk.say(f"#{number}: {failure}; asking again in {BASE_GAP_SECONDS:g}s.")
+        time.sleep(BASE_GAP_SECONDS)
+    if not mergeable.transport(failure):
+        blocked = f"CI passed but the merge was refused: {failure}"
+        talk.say(f"#{number}: {blocked}")
+        return HANDED_BACK, blocked
+    talk.say(f"#{number}: the merge call failed in transit: {failure}")
+    state, after = confirm(repo, number, poll)
+    talk.say(f"#{number}: {after[0]}", *after[1:])
+    return (MERGED, after[0]) if state == GO else (UNKNOWN, after[0])

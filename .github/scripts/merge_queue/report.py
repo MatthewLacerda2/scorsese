@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from . import mergeable
-from .states import HANDED_BACK, MERGED, UNFINISHED, UNFINISHED_STATUS, UNREACHABLE
+from .states import HANDED_BACK, MERGED, MISMATCH_STATUS, STOPPED, UNFINISHED, UNFINISHED_STATUS, UNREACHABLE
 
 
 def summary(results: list[tuple[int, str, str]]) -> list[str]:
@@ -29,6 +29,11 @@ def summary(results: list[tuple[int, str, str]]) -> list[str]:
             + ". Their worktrees and branches are still here — remove the"
             " worktrees and delete the branches when nobody is standing in one."
         )
+    if any(state == STOPPED for _, state, _ in results):
+        lines.append(
+            "STOPPED: `main`'s tree is not the tree the merge train tested."
+            " Look at `main` before merging anything more."
+        )
     if any(state == UNREACHABLE for _, state, _ in results):
         lines.append(
             "GitHub stopped answering, so the queue stopped: nothing past that"
@@ -47,6 +52,8 @@ def summary(results: list[tuple[int, str, str]]) -> list[str]:
 def status(results: list[tuple[int, str, str]]) -> int:
     """The exit status: the most urgent thing a reader has to do about the run."""
     states = {state for _, state, _ in results}
+    if STOPPED in states:
+        return MISMATCH_STATUS
     if UNREACHABLE in states:
         return mergeable.UNREACHABLE_STATUS
     if HANDED_BACK in states:

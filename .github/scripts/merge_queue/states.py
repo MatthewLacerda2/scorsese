@@ -27,6 +27,15 @@ RERUN, UNJUDGED = "rerun", "unjudged"
 MERGED, GREEN, HANDED_BACK = "merged", "green", "handed back"
 UNREACHABLE, NOT_REACHED, UNFINISHED = "unreachable", "not reached", "unfinished"
 
+# A train's member that goes back in line, nothing decided about it (#1757):
+# its train went red or stale, or one ahead of it did not land. Said as it
+# happens, never a result: the watch takes it again on the same head.
+REQUEUED = "back in line"
+
+# How a train's landing ends the watch (#1757): `main`'s tree is not the tree
+# the train proved. Nothing more may merge until somebody has looked.
+STOPPED = "stopped"
+
 # The exit status when nothing was handed back and nothing was unreachable,
 # but something is unfinished: run the queue again. Not 1, which says read a
 # hand-back; not 3, which says GitHub stopped answering.
@@ -35,3 +44,6 @@ UNFINISHED_STATUS = 4
 # The exit status when another queue holds this repository's lock (#1346):
 # nothing was attempted, and the answer is to let that one finish.
 LOCKED_STATUS = 5
+
+# The exit status of a [`STOPPED`] watch: look at `main` before anything else.
+MISMATCH_STATUS = 6
