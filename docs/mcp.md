@@ -2381,7 +2381,7 @@ goes on either side) and stepped gain (a level moving in flat steps at a
 regular period, from 4 to 64 ms — a gain set once per game frame and held).
 Each is a count and its worst five by time, channel and size — *at 3.420 s
 the left channel steps 4.1 dB every 16.7 ms* — and each is marked in amber
-above the wave. One line says when there are none, and `against` compares
+above the wave. The levels line says when there are none, and `against` compares
 the counts, which is what "it sounds choppy" and "did the fix land?" measure
 as. Stepped gain is reported on steady sounds, chords and noise; on a sound
 that pulses on its own (a voice, a buzzy note) it is not judged, because its

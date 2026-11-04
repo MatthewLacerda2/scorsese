@@ -31,8 +31,9 @@
 //! call after it, and the picture is already most of its weight.
 //!
 //! **And the defects between samples** (#1620): clicks, dropouts and stepped
-//! gain, a line per kind found and one line when there are none, marked on
-//! the picture too, and counted against the other file under `against`.
+//! gain, a line per kind found and a clause on the levels line when there
+//! are none, marked on the picture too, and counted against the other file
+//! under `against`.
 
 use std::path::Path;
 
@@ -171,8 +172,15 @@ fn levels(
     let file = wave.file.as_path();
     let profile = measure(tools, file).map_err(|error| format!("{error}"))?;
     let mut text = format!("\nlevels  {}", say::summary(&profile));
-    for line in say::defects(&wave.defects) {
-        text.push_str(&format!("\n{line}"));
+    // A clean file says so on the levels line rather than on one of its own:
+    // the default reply is kept to two lines, and found defects are the
+    // findings worth a line each.
+    if wave.defects.is_clean() {
+        text.push_str(" — no clicks, dropouts or stepped gain");
+    } else {
+        for line in say::defects(&wave.defects) {
+            text.push_str(&format!("\n{line}"));
+        }
     }
     if sections {
         for row in say::sections(&profile) {
