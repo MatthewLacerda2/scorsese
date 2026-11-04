@@ -6,6 +6,11 @@
 //! the asset's hash, so a replaced file is read again and an unchanged one
 //! never is. One worker, one file at a time, as the files panel's pictures are.
 //! The slicing is `web/src/editor/timeline/peaks.ts`, bar for bar.
+//!
+//! Kept as the files panel's pictures are, never through a link (#1737): the
+//! folder is made through [`scorsese_core::write::in_cache`], a link at the
+//! file's name is read again rather than believed, and the levels are written
+//! through [`scorsese_core::write::atomically`], which replaces it.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -21,9 +26,14 @@ pub(super) const BAR_PX: f32 = 3.0;
 /// The most bars one clip is drawn with, however long or close up.
 const MOST_BARS: usize = 4096;
 
-/// One file to read: where from, and where to keep the levels.
+/// The folder below `cache/` the levels are kept in.
+pub(super) const FOLDER: &str = "peaks";
+
+/// One file to read: where from, the project the levels are kept in, and
+/// where in it.
 struct Job {
     source: PathBuf,
+    root: PathBuf,
     out: PathBuf,
 }
 
@@ -58,13 +68,21 @@ impl Sounds {
         }
     }
 
-    /// The levels kept at `out`, asking for them to be read if nobody has yet.
-    pub(super) fn get(&mut self, ctx: &Context, source: &Path, out: &Path) -> Option<Arc<Peaks>> {
+    /// The levels kept at `out` under the project at `root`, asking for them
+    /// to be read if nobody has yet.
+    pub(super) fn get(
+        &mut self,
+        ctx: &Context,
+        source: &Path,
+        root: &Path,
+        out: &Path,
+    ) -> Option<Arc<Peaks>> {
         if !self.slots.contains_key(out) {
             let (jobs, _) = self.worker.get_or_insert_with(|| spawn(ctx.clone()));
             let queued = jobs
                 .send(Job {
                     source: source.to_path_buf(),
+                    root: root.to_path_buf(),
                     out: out.to_path_buf(),
                 })
                 .is_ok();
@@ -85,18 +103,9 @@ fn spawn(ctx: Context) -> (Sender<Job>, Receiver<Done>) {
     let (done, results) = channel::<Done>();
     std::thread::spawn(move || {
         let tools = Tools::discover().ok();
-        for Job { source, out } in queue {
-            let found = std::fs::read(&out)
-                .ok()
-                .and_then(|bytes| Peaks::from_bytes(&bytes))
-                .or_else(|| {
-                    let read = peaks(tools.as_ref()?, &source).ok()?;
-                    if let Some(folder) = out.parent() {
-                        let _ = std::fs::create_dir_all(folder);
-                    }
-                    let _ = std::fs::write(&out, read.to_bytes());
-                    Some(read)
-                });
+        for job in queue {
+            let found = found(tools.as_ref(), &job);
+            let out = job.out;
             if done.send(Done { out, peaks: found }).is_err() {
                 return;
             }
@@ -104,6 +113,30 @@ fn spawn(ctx: Context) -> (Sender<Job>, Receiver<Done>) {
         }
     });
     (jobs, results)
+}
+
+/// `job`'s levels: kept from before, or read now and kept — the folder made,
+/// and the file written, never through a link (the module's doc). Levels that
+/// cannot be kept are still drawn; a folder that is refused keeps none.
+fn found(tools: Option<&Tools>, job: &Job) -> Option<Peaks> {
+    if let Err(error) = scorsese_core::write::in_cache(&job.root, Path::new(FOLDER)) {
+        eprintln!("no waveforms are kept for this project: {error}");
+        return None;
+    }
+    let kept = crate::files::thumbs::is_kept(&job.out)
+        .then(|| std::fs::read(&job.out).ok())
+        .flatten()
+        .and_then(|bytes| Peaks::from_bytes(&bytes));
+    kept.or_else(|| {
+        let read = peaks(tools?, &job.source).ok()?;
+        if let Err(error) = scorsese_core::write::atomically(&job.out, read.to_bytes()) {
+            eprintln!(
+                "the waveform of {} is not kept: {error}",
+                job.source.display()
+            );
+        }
+        Some(read)
+    })
 }
 
 /// How many bars `length` seconds of sound, drawn `width` pixels wide, get: one
@@ -144,6 +177,67 @@ mod tests {
             per_second: 10.0,
             levels: levels.to_vec(),
         }
+    }
+
+    /// A sound to read, drawn by ffmpeg, and the job that reads it into the
+    /// project at `root`.
+    fn job(tools: &Tools, root: &Path) -> Job {
+        let source = root.join("tone.wav");
+        let made = tools
+            .ffmpeg()
+            .args(["-nostdin", "-v", "error", "-y", "-f", "lavfi"])
+            .args(["-i", "sine=duration=0.5"])
+            .arg(&source)
+            .status()
+            .expect("ffmpeg runs");
+        assert!(made.success(), "the fixture sound");
+        Job {
+            source,
+            root: root.to_path_buf(),
+            out: root.join("cache").join(FOLDER).join("tone-aaaa.bin"),
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_linked_cache_folder_is_refused_and_nothing_lands_where_it_leads() {
+        let tools = Tools::discover().expect("ffmpeg");
+        for linked in ["cache", "cache/peaks"] {
+            let (root, outside) = crate::files::thumbs::tests::planted("peaks-linked-folder");
+            let job = job(&tools, &root);
+            let link = root.join(linked);
+            std::fs::create_dir_all(link.parent().expect("a parent")).expect("cache/");
+            std::os::unix::fs::symlink(&outside, &link).expect("a link");
+
+            assert!(found(Some(&tools), &job).is_none(), "{linked}");
+            let landed = std::fs::read_dir(&outside).expect("outside").count();
+            assert_eq!(landed, 0, "{linked}: written where the link leads");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_link_at_the_levels_name_is_replaced_never_believed_or_written_through() {
+        let tools = Tools::discover().expect("ffmpeg");
+        let (root, outside) = crate::files::thumbs::tests::planted("peaks-linked-file");
+        let job = job(&tools, &root);
+        let planted = Peaks {
+            per_second: 1.0,
+            levels: vec![7],
+        };
+        let victim = outside.join("victim.bin");
+        std::fs::write(&victim, planted.to_bytes()).expect("a victim");
+        std::fs::create_dir_all(job.out.parent().expect("a parent")).expect("cache/peaks");
+        std::os::unix::fs::symlink(&victim, &job.out).expect("a link");
+
+        let read = found(Some(&tools), &job).expect("the levels are read");
+        assert_ne!(read.levels, planted.levels, "the link was believed");
+        assert_eq!(
+            std::fs::read(&victim).expect("the victim"),
+            planted.to_bytes()
+        );
+        let landed = std::fs::symlink_metadata(&job.out).expect("the file");
+        assert!(!landed.is_symlink(), "the link was not replaced");
     }
 
     #[test]

@@ -14,7 +14,7 @@ use egui::{Context, TextureHandle};
 use scorsese_core::{Asset, AssetId, AssetKind};
 use scorsese_render::audio::Peaks;
 
-use super::sound::Sounds;
+use super::sound::{self, Sounds};
 use crate::files::thumbs::{self, Thumbs};
 use crate::project::Open;
 
@@ -71,13 +71,16 @@ impl Makers {
     fn of(&mut self, ctx: &Context, open: &Open, asset: &Asset) -> Option<Fill> {
         let source = open.root.join(asset.path.as_ref()?.as_str());
         if is_sound(asset.kind) {
-            let out = thumbs::kept(&open.root, asset, "peaks", "bin");
-            return self.sounds.get(ctx, &source, &out).map(Fill::Sound);
+            let out = thumbs::kept(&open.root, asset, sound::FOLDER, "bin");
+            return self
+                .sounds
+                .get(ctx, &source, &open.root, &out)
+                .map(Fill::Sound);
         }
         let how = thumbs::how(asset.kind)?;
         let out = thumbs::cached(&open.root, asset);
         self.thumbs
-            .get(ctx, &source, how, &out)
+            .get(ctx, &source, how, &open.root, &out)
             .cloned()
             .map(Fill::Picture)
     }
