@@ -55,9 +55,9 @@
 //! reports what a generation cost, so every figure is our own estimate and the
 //! naming says so throughout.
 //!
-//! [`video`], [`image`], [`speech`] and [`music`], the four prompted providers —
-//! Veo for a shot, Gemini for a still, ElevenLabs for a line of narration and
-//! for a track of music (#1264). They are a
+//! [`video`], [`image`], [`speech`], [`music`] and [`sound`], the five prompted
+//! providers — Veo for a shot, Gemini for a still, ElevenLabs for a line of
+//! narration, a track of music (#1264) and a sound effect (#1265). They are a
 //! module each rather than one
 //! `providers` entry point, and so is [`synth`] beside them, because a prompt
 //! and a recipe are not the same kind of brief and sharing an entry point is
@@ -176,6 +176,7 @@ pub mod payments;
 pub mod prices;
 pub mod quote;
 pub mod sign_in;
+pub mod sound;
 pub mod speech;
 pub mod spending;
 pub mod stock;

@@ -11,6 +11,7 @@ use scorsese_providers::image::{ImageProvider, Order};
 use scorsese_providers::music::MusicProvider;
 use scorsese_providers::passes::{self, Halt, Step, Vendors};
 use scorsese_providers::quote::generation;
+use scorsese_providers::sound::SoundProvider;
 use scorsese_providers::speech::{Brief, ProviderError, SpeechProvider, Spoken};
 use scorsese_providers::video::VideoProvider;
 
@@ -63,6 +64,10 @@ impl Vendors for Fakes {
     }
 
     fn music(&self) -> Result<Box<dyn MusicProvider>, CredentialError> {
+        Err(missing("ElevenLabs"))
+    }
+
+    fn sound(&self) -> Result<Box<dyn SoundProvider>, CredentialError> {
         Err(missing("ElevenLabs"))
     }
 

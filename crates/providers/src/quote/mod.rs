@@ -43,6 +43,7 @@
 //! **Not a bill.** Every figure is our arithmetic over a copied rate table —
 //! see [`prices`](crate::prices).
 
+mod effect;
 mod generation;
 mod local;
 mod token;

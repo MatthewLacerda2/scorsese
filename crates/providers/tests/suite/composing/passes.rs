@@ -8,6 +8,7 @@ use scorsese_providers::credentials::{Budget, CredentialError};
 use scorsese_providers::image::{ImageProvider, Order};
 use scorsese_providers::music::{self, MusicProvider};
 use scorsese_providers::passes::{self, Vendors};
+use scorsese_providers::sound::SoundProvider;
 use scorsese_providers::speech::{self, Brief, ProviderError, SpeechProvider, Spoken};
 use scorsese_providers::video::VideoProvider;
 
@@ -44,6 +45,10 @@ impl Vendors for Fakes {
 
     fn music(&self) -> Result<Box<dyn MusicProvider>, CredentialError> {
         Ok(Box::new(Composer::default()))
+    }
+
+    fn sound(&self) -> Result<Box<dyn SoundProvider>, CredentialError> {
+        unreachable!("no sound here")
     }
 
     fn rest(&self, _: Duration) {}

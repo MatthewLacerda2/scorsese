@@ -15,6 +15,7 @@ mod lottiefiles;
 mod planning;
 mod png;
 mod recording;
+mod sound;
 mod veo;
 
 use scorsese_providers::api::http::HttpError;

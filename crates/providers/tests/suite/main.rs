@@ -17,6 +17,7 @@ mod offline;
 mod pricing;
 mod quoting;
 mod rates;
+mod sounding;
 mod speaking;
 mod stock;
 mod synthesis;

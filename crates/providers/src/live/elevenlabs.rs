@@ -1,6 +1,7 @@
-//! ElevenLabs' part of the live check: a listing, a word, a design, a track.
+//! ElevenLabs' part of the live check: a listing, a word, a design, a track,
+//! a sound.
 //!
-//! Four calls, each the cheapest that exercises a path scorsese depends on:
+//! Five calls, each the cheapest that exercises a path scorsese depends on:
 //!
 //! - **`GET /v1/voices?category=premade`** — free. The key, the `voices_read`
 //!   scope, and the listing shape. It also supplies the voice for the next
@@ -21,6 +22,11 @@
 //!   accepted, and that the reply is the bare MP3. The vendor documents no
 //!   figure for how long a track takes, so the report says how long this one
 //!   did, against [`music::WAIT`]'s ten minutes.
+//! - **a half-second sound** through [`Sounds::make`] — a cent, the vendor's
+//!   shortest. It confirms what #1265 read off the API reference: that
+//!   [`OUTPUT_FORMAT`] is taken on the sound endpoint by a Starter key, that
+//!   `eleven_text_to_sound_v3`, `duration_seconds` and `loop` are accepted,
+//!   and that the reply is the bare MP3.
 
 use std::time::{Duration, Instant};
 
@@ -30,6 +36,7 @@ use scorsese_core::SpeechModel;
 use crate::api::elevenlabs::OUTPUT_FORMAT;
 use crate::api::elevenlabs::design::{CANDIDATES, Design, DesignReply, DesignRequest};
 use crate::api::elevenlabs::music::{self, Compose, Music};
+use crate::api::elevenlabs::sound::{self, Effect, Sounds};
 use crate::api::elevenlabs::speech::{Speak, Speech, Timed};
 use crate::api::elevenlabs::voices::{Listing, Voices};
 use crate::api::http::HttpError;
@@ -57,6 +64,13 @@ pub const TRACK_PROMPT: &str = "A short, calm piano phrase.";
 /// How long the track is: the vendor's minimum, since it is billed by length.
 pub const TRACK_SECONDS: u32 = 3;
 
+/// What the sound is asked to sound like.
+pub const SOUND_PROMPT: &str = "A single soft click.";
+
+/// How long the sound is, in milliseconds: the vendor's minimum, since it is
+/// billed by length.
+pub const SOUND_MILLIS: u32 = 500;
+
 /// The speech model the check speaks with: the cheapest.
 const MODEL: SpeechModel = SpeechModel::Fast;
 
@@ -79,9 +93,24 @@ pub fn music_cents() -> u64 {
     prices::music(TRACK_SECONDS).cents
 }
 
+/// What the sound costs, in cents.
+pub fn sound_cents() -> u64 {
+    prices::sound(SOUND_MILLIS).cents
+}
+
 /// What the ElevenLabs part of the check costs, in cents.
 pub fn cost() -> u64 {
-    speech_cents() + design_cents() + music_cents()
+    speech_cents() + design_cents() + music_cents() + sound_cents()
+}
+
+/// The sound the check makes: the product's model, played once.
+pub fn effect() -> Effect {
+    Effect {
+        text: SOUND_PROMPT.to_owned(),
+        duration_seconds: f64::from(SOUND_MILLIS) / 1000.0,
+        looping: false,
+        model_id: sound::MODEL_ID.to_owned(),
+    }
 }
 
 /// The track the check composes: the product's model, no singing.
@@ -112,6 +141,12 @@ pub(super) fn calls() -> Vec<String> {
             "compose a {TRACK_SECONDS}-second instrumental track ({}) — {}",
             music::MODEL_ID,
             dollars(from_cents(music_cents()), 2)
+        ),
+        format!(
+            "make a {}-second sound ({}) — {}",
+            f64::from(SOUND_MILLIS) / 1000.0,
+            sound::MODEL_ID,
+            dollars(from_cents(sound_cents()), 2)
         ),
     ]
 }
@@ -153,6 +188,11 @@ pub(super) fn check(key: &Secret, tap: &Tap) -> (Vec<Step>, u64) {
     let answer = Music::new(key).tapped(tap).compose(&track());
     let step = music_step(answer, started.elapsed());
     spent += paid(&step, music_cents());
+    steps.push(step);
+    let started = Instant::now();
+    let answer = Sounds::new(key).tapped(tap).make(&effect());
+    let step = sound_step(answer, started.elapsed());
+    spent += paid(&step, sound_cents());
     steps.push(step);
     (steps, spent)
 }
@@ -254,16 +294,22 @@ pub fn design_step(answer: Result<DesignReply, HttpError>) -> Step {
 
 /// What the music call gave back, `took` after it was sent: the bare MP3.
 pub fn music_step(answer: Result<Vec<u8>, HttpError>, took: Duration) -> Step {
-    let call = "POST music";
+    mp3_step("POST music", "the track", answer, took)
+}
+
+/// What the sound call gave back, `took` after it was sent: the bare MP3.
+pub fn sound_step(answer: Result<Vec<u8>, HttpError>, took: Duration) -> Step {
+    mp3_step("POST sound-generation", "the sound", answer, took)
+}
+
+/// What a call answered with audio alone gave back: an MP3, or a refusal.
+fn mp3_step(call: &str, what: &str, answer: Result<Vec<u8>, HttpError>, took: Duration) -> Step {
     let bytes = match answer {
         Err(error) => return Step::new(call, judge::elevenlabs(&error)),
         Ok(bytes) => bytes,
     };
     if !judge::is_mp3(&bytes) {
-        let field = format!(
-            "the track: expected an MP3, got {}",
-            judge::looks_like(&bytes)
-        );
+        let field = format!("{what}: expected an MP3, got {}", judge::looks_like(&bytes));
         return Step::new(call, Verdict::ShapeChanged { field });
     }
     Step::new(call, Verdict::Ok).noting(format!(

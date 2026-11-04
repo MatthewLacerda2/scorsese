@@ -1,6 +1,6 @@
 # What a generation costs, and why we can only estimate it
 
-Generating a shot, a still, a line of narration or a track of music costs money. This page is where the
+Generating a shot, a still, a line of narration, a track of music or a sound effect costs money. This page is where the
 numbers live, how they are kept honest, and the one thing worth knowing before
 trusting any total scorsese prints: **it is our arithmetic, not a bill.**
 
@@ -9,7 +9,7 @@ figure was last checked and how old that is.
 
 **Every table here is held to the code** (#1218). A test
 (`crates/providers/tests/suite/pricing/documented/`) reads each one — *Shots*, both
-of them, *Stills*, *Narration*, *Music*, *The assistant* — with the day each section
+of them, *Stills*, *Narration*, *Music*, *Sound effects*, *The assistant* — with the day each section
 says its figures were read, and compares every cell with `prices`, both ways:
 a wrong figure, a missing row or an extra one fails `make gates` and names the
 cell. So a repricing is one pull request that changes the code's table, this
@@ -276,6 +276,31 @@ Like a shot, a track is priced by its length, which the request fixes: the
 figure is known before anything is sent, rounded **up** to the cent. A
 `synth_audio` recipe costs nothing at all ([recipes.md](recipes.md),
 `guide recipes`), which is why it stays the first choice for a score.
+## Sound effects
+
+ElevenLabs Sound Effects, US cents per **minute of sound asked for** (a
+sound's `sound.seconds`), the same on every plan.
+
+| model | on the wire | per minute | a 5-second sound |
+| --- | --- | --- | --- |
+| `sound` | `eleven_text_to_sound_v3` | $0.12 | $0.01 |
+
+Last checked against
+[ElevenLabs' API pricing page](https://elevenlabs.io/pricing/api) on
+**2026-11-04**: one rate, $0.12 a minute, in every row of its Sound Effects
+table. As with music, the page's FAQ also says sound effects are "billed per
+generation"; the table is what is priced here. `eleven_text_to_sound_v3` is
+the newest model — the vendor's sound-effects page calls v2 "deprecated, and
+will be removed on March 1, 2027" (read 2026-11-04) — and the only one
+scorsese makes sounds with.
+
+A sound is priced by its length, which the request fixes, rounded **up** to
+the cent: anything of five seconds or less is a cent, and the longest the
+vendor makes, thirty seconds, is six. A `synth_audio` recipe costs nothing
+([recipes.md](recipes.md), `guide recipes`), which is why it stays the first
+choice for a click, a hit, a rise or a whoosh; a generated sound is for what a
+patch cannot make.
+
 ## The assistant
 
 The hosted web app's assistant (#540) runs on the model each project chooses
