@@ -116,9 +116,9 @@ fn a_twin_the_whole_reach_behind_is_a_twin() {
     assert_eq!(defects.clicks.count, 0, "{defects:?}");
 }
 
-/// The waveform a twin is matched on is three samples before the jump and two
-/// after, not one more or one fewer: here the second jump's waveform matches
-/// the first's there, and differs two before it.
+/// The waveform before a twin is matched three samples before the jump, not
+/// two: here the second jump's waveform matches the first's three before it,
+/// and differs two before it.
 #[test]
 fn a_twin_is_matched_three_before_and_two_after() {
     let mut signal = two_jumps(0.0, 20.0);

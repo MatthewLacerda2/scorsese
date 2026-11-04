@@ -13,7 +13,7 @@ fn staircase(samples: f64, steps: impl Fn(f64) -> f64) -> Vec<f32> {
     })
 }
 
-/// Fifty-four steps at 60 Hz, `size` dB each.
+/// Fifty-four steps of `size` dB each.
 fn even(size: f64) -> impl Fn(f64) -> f64 {
     move |n| -size * n.min(54.0)
 }
@@ -50,7 +50,7 @@ fn most_steps_go_the_staircases_way() {
 }
 
 /// A staircase's period is refined to a fraction of a block of half a
-/// millisecond, and its step is read to within a twentieth.
+/// millisecond, and its step is read to within 6%.
 #[test]
 fn a_staircase_is_measured_to_a_fraction_of_a_block() {
     for samples in [600.0, 800.0, 1_234.0] {

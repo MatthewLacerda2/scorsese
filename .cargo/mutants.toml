@@ -883,12 +883,8 @@ exclude_re = [
 
     # The same loop runs one block further with `at + around <= len`: a gap
     # starting there ends past `len - around`, so the `end + around` guard
-    # refuses it. And `before <= SOUNDING` differs from `<` only at a mean
-    # square of exactly the `f64` nearest 1e-4: no signal is built to land on
-    # it, only one searched for sample by sample, the shape of
-    # `Properties::is_identity`'s entries above.
+    # refuses it. Equivalent.
     'defects/envelope\.rs:94:27: replace < with <= in Envelope::dropouts',
-    'defects/envelope\.rs:96:23: replace < with <= in Envelope::dropouts',
 
     # `Clicks::finish` judges the jumps `feed` has not, from `newest + 1 -
     # reach`. Starting one earlier (`newest * 1`) re-judges the jump the last
