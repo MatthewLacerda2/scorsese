@@ -96,7 +96,7 @@ CACHE_KEYED_PATHS = ("tools/ci-apt", "tools/ci-postgres", "tools/chromium/pin",
                      f".github/workflows/{WORKFLOW}")
 
 #: How many pages of successful runs to search; the proving run of a merge is
-#: the pull request's last, minutes old.
+#: the pull request's last, or its train's, minutes old.
 PAGES = 2
 PER_PAGE = 100
 #: The compare API lists at most this many files; a longer list is unread.
