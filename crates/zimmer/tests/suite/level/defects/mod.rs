@@ -8,10 +8,16 @@
 
 use std::f64::consts::TAU;
 
-use scorsese_zimmer::level::{DefectFinder, Defects};
+use scorsese_zimmer::level::{DefectFinder, Defects, Tally};
 
+mod clicks;
+mod dropouts;
 mod found;
+mod joined;
+mod neighbours;
+mod reach;
 mod stepped;
+mod steps;
 mod trains;
 
 pub(super) const RATE: u32 = 48_000;
@@ -81,5 +87,42 @@ fn clean_signals_have_no_defects() {
     ] {
         let defects = found(1, &signal);
         assert!(defects.is_clean(), "{name}: {defects:?}");
+    }
+}
+
+/// Clean is nothing of *any* kind: one of a kind alone is not clean, and nor
+/// are two kinds whose counts would cancel or multiply away.
+#[test]
+fn a_defect_of_any_kind_is_not_clean() {
+    let one = || Tally {
+        count: 1,
+        worst: Vec::new(),
+    };
+    assert!(Defects::default().is_clean());
+    for defects in [
+        Defects {
+            clicks: one(),
+            ..Defects::default()
+        },
+        Defects {
+            dropouts: one(),
+            ..Defects::default()
+        },
+        Defects {
+            zipper: one(),
+            ..Defects::default()
+        },
+        Defects {
+            clicks: one(),
+            dropouts: one(),
+            ..Defects::default()
+        },
+        Defects {
+            dropouts: one(),
+            zipper: one(),
+            ..Defects::default()
+        },
+    ] {
+        assert!(!defects.is_clean(), "{defects:?}");
     }
 }
