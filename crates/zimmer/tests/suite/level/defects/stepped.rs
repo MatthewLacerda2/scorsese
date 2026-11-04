@@ -76,7 +76,7 @@ fn noise_faded_in_steps_is_a_staircase() {
     assert!((run.size_db - 1.0).abs() < 0.3, "{run:?}");
 }
 
-/// A fade in large steps, a few game frames apart each, is a staircase as
+/// A fade in large steps, one game frame apart, is a staircase as
 /// plainly as one in small steps: its steps stand far clear of the noise, and
 /// a segment's halves are as level as ever.
 #[test]

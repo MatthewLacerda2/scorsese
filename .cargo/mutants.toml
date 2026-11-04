@@ -934,7 +934,10 @@ exclude_re = [
     # sounding envelope a normaliser of the same order moves `repeat` very
     # little. `%` for `/` is no normaliser at all (`|a - b| <= a + b`, so the
     # remainder is the numerator), and `* SILENT` drops a floor far under any
-    # sounding block. Measured on #1751 over the corpus above: neither
+    # sounding block, except on two blocks of exact digital silence, where
+    # the change is 0/0: NaN, which turns `pulsed` off for that stretch.
+    # Measured on #1751 over the corpus above, its dropout signals and the
+    # dropout test's included: neither
     # changes a report on a note dying away, a beat, a fade or a plain tone
     # staircase; they move staircases built with a pulse inside every step,
     # sawtooth and square tremolo at 8 to 40 ms under a fade, and (`%`) how

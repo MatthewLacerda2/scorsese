@@ -1,6 +1,6 @@
 //! Sounds that pulse on their own, which a staircase detector must not take
-//! for stepped gain: notes rich in harmonics, beats, tremolo locked to a
-//! frame, and each of them with a fade under it.
+//! for stepped gain: notes rich in harmonics, beats and a level that climbs
+//! within every frame, each with a fade under it.
 
 use super::{RATE, found, steady, tone};
 
