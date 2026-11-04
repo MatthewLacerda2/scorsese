@@ -101,3 +101,21 @@ fn the_worst_are_kept_and_the_rest_counted() {
         "worst first"
     );
 }
+
+/// The same click in both channels, the right a few samples late and exactly
+/// as large: one click in every channel, placed where it was first heard. A
+/// tie keeps the earlier moment, so the answer does not depend on which
+/// channel is read last.
+#[test]
+fn a_click_in_both_channels_is_placed_at_the_first() {
+    let mut left = vec![0.0; RATE as usize];
+    let mut right = left.clone();
+    let at = RATE as usize / 2;
+    left[at] = 0.3;
+    right[at + 10] = 0.3;
+    let defects = found(2, &interleaved(&left, &right));
+    assert_eq!(defects.clicks.count, 1, "{defects:?}");
+    let click = &defects.clicks.worst[0];
+    assert_eq!(click.channel, None, "{click:?}");
+    assert_eq!(click.at_seconds, at as f64 / f64::from(RATE), "{click:?}");
+}
