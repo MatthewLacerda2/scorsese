@@ -27,7 +27,8 @@ _spec.loader.exec_module(ci_ok)
 
 # Jobs that run for a Markdown-only change too: `scripts` costs seconds, and
 # its consistency tests read pages (#1226); `size` holds `CLAUDE.md` and the
-# skills, which are Markdown.
+# skills, which are Markdown. A push to `main` whose tree a run already built
+# skips them with the rest (`proved`, #1758).
 EVERY_CHANGE = ("scripts", "size")
 
 DRAFT = "github.event_name != 'pull_request' || github.event.pull_request.draft == false"
@@ -96,7 +97,7 @@ class Workflow(unittest.TestCase):
             with self.subTest(job=name):
                 self.assertEqual(needs(block), {"changes"})
                 if name in EVERY_CHANGE:
-                    self.assertIn(f"if: {DRAFT}\n", block)
+                    self.assertIn(f"if: ({DRAFT}) && needs.changes.outputs.proved != 'true'\n", block)
                 else:
                     self.assertIn(f"if: ({DRAFT}) && needs.changes.outputs.code == 'true'", block)
 

@@ -17,7 +17,7 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parents[1]
 MERGE_PATH = [
     "merge-queue.py", "merge-watch.py", "mergeable.py", "described.py", "closing.py",
-    "reblessed.py", "reviewed.py", "protocol.py", "pulls.py",
+    "reblessed.py", "reviewed.py", "protocol.py", "pulls.py", "proved_tree.py",
     *sorted(str(p.relative_to(SCRIPTS)) for p in (SCRIPTS / "merge_queue").glob("*.py")),
 ]
 
