@@ -103,7 +103,7 @@
 #
 # One crate did outgrow it. #760 put `crates/mcp` on the surface, and each of
 # its mutants rebuilds a crate sitting on `render` and `providers`: 11 mutants
-# of `tools/confirm.rs` took 9m 20s at `--jobs 2` in a 4-core container, ~36s
+# of `crates/mcp/src/tools/confirm.rs` took 9m 20s at `--jobs 2` in a 4-core container, ~36s
 # of wall clock each. **Extrapolated, not measured:** 1006 × 36s ≈ 10 hours
 # against the five-hour step, so that week audited whichever shuffled half it
 # reached, and its history row was never over the same subject twice.

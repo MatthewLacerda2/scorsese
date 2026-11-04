@@ -2153,7 +2153,7 @@ never reaches the client. Each registry tool keeps the registry's own
 description, word for word; only `project` changes, to **the id** of one of the
 caller's projects. Every tool and argument is described, held by
 `tests/suite/mcp/described.rs` as `docs/mcp.md` holds the registry, and every
-registry tool is decided about in `tools/surface/` — one name a line, the
+registry tool is decided about in `crates/server/src/tools/surface/` — one name a line, the
 lists below generated from it by `make mcp-table` — so a new one cannot reach
 the web — or be left off it — without a reason written down.
 
@@ -2162,7 +2162,7 @@ the web — or be left off it — without a reason written down.
 | the *document tools*, listed below | as they are, on the stored project |
 | the *project-file tools*, listed below | as they are; the script, pages and recipes they read and write are the project's `project_files` (*Projects*). A script or recipe written under `assets/`, `generated/` or `cache/` is refused whole, since nothing there is kept |
 | `synth_bake` | without `out`; each new bake is **kept in the library** as a generation, its address (recipe and synthesiser) as its brief hash, before the document naming it is saved — so it renders, and is linked into every later layout by hash. A partial bake's file is gone with the folder; its report is in the reply |
-| `stock_search`, `stock_import` | as they are, keeping results in the user's own stock cache under `SCORSESE_CACHE/users/<id>/stock`, handed to the tools as a folder of their own and never linked into the project folder (where any tool's write could pose as a search's results), so Pixabay results stay cached 24 hours as Pixabay asks and an id a search returned is found again on the next call (#900). A download goes only over https to the library's own hosts, whatever a cached page names, and a failed one says the host and status, never the body. Each file `stock_import` downloads is **kept in the library** like an upload, before the document naming it is saved (`tools/fetched.rs`). A Lottie (`kind: lottie`, #903) is not media: its JSON lands in `pages/` and is kept with the project's files, up to their 1 MB cap, with nothing on the server knowing the difference. Free: the operator's `PIXABAY_API_KEY`, its 100 requests a minute shared by every user, each user's within their share (*Rate limit*); LottieFiles needs no key; no credits |
+| `stock_search`, `stock_import` | as they are, keeping results in the user's own stock cache under `SCORSESE_CACHE/users/<id>/stock`, handed to the tools as a folder of their own and never linked into the project folder (where any tool's write could pose as a search's results), so Pixabay results stay cached 24 hours as Pixabay asks and an id a search returned is found again on the next call (#900). A download goes only over https to the library's own hosts, whatever a cached page names, and a failed one says the host and status, never the body. Each file `stock_import` downloads is **kept in the library** like an upload, before the document naming it is saved (`crates/server/src/tools/fetched.rs`). A Lottie (`kind: lottie`, #903) is not media: its JSON lands in `pages/` and is kept with the project's files, up to their 1 MB cap, with nothing on the server knowing the difference. Free: the operator's `PIXABAY_API_KEY`, its 100 requests a minute shared by every user, each user's within their share (*Rate limit*); LottieFiles needs no key; no credits |
 | `look`, `hear` | their file arguments must be paths inside the project (`assets/…`, `generated/…`) — locally they may name anything on the machine, and here the machine is everybody's |
 | `still` | without `out`: nothing is kept on the server's disk; the picture is in the reply |
 | `project_list`, `project_new` | the server's own: a project is a row, named by an id the client asks for |
@@ -2418,7 +2418,7 @@ runaway loop from filling the queue on a shared machine.
 **Each user's share of stock.** Pixabay allows the operator's one key 100
 requests a minute, and LottieFiles sees the server's one address, so every
 user's `stock_search`, `stock_import` and picker import reaches each library
-within a share of its own (`tools/share.rs`, #1652): 30 searches and lookups by
+within a share of its own (`crates/server/src/tools/share.rs`, #1652): 30 searches and lookups by
 id a minute per user per library, counted before each goes out, the rest
 refused saying how many seconds until the next may go. Downloads from the
 libraries' file hosts and results already in the user's stock cache are not
