@@ -1437,6 +1437,13 @@ maintainer, 2026-10-13):
 | Veo shot | ×1.5 |
 | still (drawn now or batched), spoken line, music track, voice design, assistant call | ×1.8 |
 
+**The charging rule: the web charges for what a third party bills us, and for
+nothing we run ourselves.** Paid provider calls (Veo, Gemini, ElevenLabs, the
+assistant's model) are charged at cost times the multiplier. What runs on our
+own machine is free: rendering, page captures, local synthesis, transcription
+(#1549), storing files. A new capability falls on one side or the other by this
+rule, without a question.
+
 The principle: charge in line with what scorsese actually spends, which is
 third-party APIs, and make it profitable. Electricity, time, the machine and
 its disk are deliberately not priced, and the user sees each generation's price
