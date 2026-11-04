@@ -7,8 +7,11 @@ mutation shard once lacked it: its baseline failed on one `scorsese-mcp` test
 and the run measured nothing. So a job that runs the workspace's tests (nextest,
 `cargo test`, llvm-cov, a mutation run, the regression check) restores the
 browser's cache and exports it, both before the first test step, the way
-`ci.yml`'s `check` does. Another workspace's tests (`--manifest-path`) and
-`cargo mutants --list` run no test and need nothing.
+`ci.yml`'s `check` does, from a step that fails when the download does.
+Chrome cannot start under an address-space cap, so a test step that caps
+memory caps it softly and runs the browser through `tools/chromium/uncapped`,
+which lifts the cap for it alone. Another workspace's tests (`--manifest-path`)
+and `cargo mutants --list` run no test and need nothing.
 """
 
 from __future__ import annotations
@@ -21,7 +24,9 @@ from test_ci_ok import jobs
 
 CACHE = "path: ~/.cache/scorsese/chromium"
 KEY = "key: chromium-${{ hashFiles('tools/chromium/pin') }}"
-EXPORT = 'echo "SCORSESE_CHROME=$(tools/chromium/fetch)" >> "$GITHUB_ENV"'
+FETCH = "chrome=$(tools/chromium/fetch)"
+EXPORT = 'echo "SCORSESE_CHROME=$chrome" >> "$GITHUB_ENV"'
+UNCAPPED = 'export SCORSESE_CHROME="$PWD/tools/chromium/uncapped"'
 NO_SANDBOX = 'echo "SCORSESE_CHROME_NO_SANDBOX=1" >> "$GITHUB_ENV"'
 RUNS_TESTS = re.compile(
     r"cargo (?:nextest run|test|llvm-cov nextest)\b(?![^\n]*--manifest-path)"
@@ -43,7 +48,7 @@ def problems(block: str) -> list[str]:
     if first is None:
         return []
     cache = next((i for i, s in enumerate(every) if "actions/cache@" in s and CACHE in s and KEY in s), None)
-    export = next((i for i, s in enumerate(every) if EXPORT in s), None)
+    export = next((i for i, s in enumerate(every) if f"{FETCH}\n          {EXPORT}" in s), None)
     found = []
     if cache is None or cache > first:
         found.append("the Chromium cache is not restored before the first test step")
@@ -51,6 +56,11 @@ def problems(block: str) -> list[str]:
         found.append("`tools/chromium/fetch` is not exported as SCORSESE_CHROME before the first test step")
     elif NO_SANDBOX not in every[export]:
         found.append("SCORSESE_CHROME_NO_SANDBOX=1 is not exported with SCORSESE_CHROME")
+    for step in filter(tests, every):
+        if re.search(r"ulimit -v\b", step):
+            found.append("a hard `ulimit -v` stops Chrome starting: cap with `ulimit -Sv`")
+        elif "ulimit -Sv" in step and UNCAPPED not in step:
+            found.append("a capped test step does not run the browser through `tools/chromium/uncapped`")
     return found
 
 
@@ -62,6 +72,7 @@ CACHED = f"""      - name: Chromium cache
 """
 INSTALL = f"""      - name: Install Chromium
         run: |
+          {FETCH}
           {EXPORT}
           {NO_SANDBOX}
 """
@@ -95,6 +106,21 @@ class Shape(unittest.TestCase):
     def test_a_cache_keyed_on_anything_but_the_pin_is_flagged(self):
         got = problems(job(CACHED.replace("tools/chromium/pin", "Cargo.lock"), INSTALL, TEST))
         self.assertEqual(got, ["the Chromium cache is not restored before the first test step"])
+
+    def test_an_export_that_hides_a_failed_download_is_flagged(self):
+        hiding = INSTALL.replace(f"{FETCH}\n          {EXPORT}", 'echo "SCORSESE_CHROME=$(tools/chromium/fetch)" >> "$GITHUB_ENV"')
+        got = problems(job(CACHED, hiding, TEST))
+        self.assertEqual(got, ["`tools/chromium/fetch` is not exported as SCORSESE_CHROME before the first test step"])
+
+    def test_a_capped_test_step_must_lift_the_cap_for_the_browser(self):
+        mutate = "      - run: |\n          ulimit -{}v 6291456\n{}          cargo mutants $ARGS\n"
+        for flag, export, want in (
+            ("S", f"          {UNCAPPED}\n", []),
+            ("S", "", ["a capped test step does not run the browser through `tools/chromium/uncapped`"]),
+            ("", f"          {UNCAPPED}\n", ["a hard `ulimit -v` stops Chrome starting: cap with `ulimit -Sv`"]),
+        ):
+            with self.subTest(flag=flag, export=export):
+                self.assertEqual(problems(job(CACHED, INSTALL, mutate.format(flag, export))), want)
 
     def test_a_sandboxed_capture_is_flagged(self):
         got = problems(job(CACHED, INSTALL.replace(f"          {NO_SANDBOX}\n", ""), TEST))

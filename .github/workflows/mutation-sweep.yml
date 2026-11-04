@@ -358,7 +358,8 @@ jobs:
 
       - name: Install Chromium
         run: |
-          echo "SCORSESE_CHROME=$(tools/chromium/fetch)" >> "$GITHUB_ENV"
+          chrome=$(tools/chromium/fetch)
+          echo "SCORSESE_CHROME=$chrome" >> "$GITHUB_ENV"
           echo "SCORSESE_CHROME_NO_SANDBOX=1" >> "$GITHUB_ENV"
 
       # One cache for the rotation, not one per crate. A per-crate key would be
@@ -402,18 +403,20 @@ jobs:
       # `.cargo/mutants.toml` argues the number once, under "How wide a run
       # fans out" — memory rather than cores is what bounds it.
       #
-      # `ulimit -v`: at most 6 GiB of address space per process, so a mutant
+      # `ulimit -Sv`: at most 6 GiB of address space per process, so a mutant
       # that allocates without end aborts its own test binary — caught —
       # instead of taking the runner down with the shard's reading.
       # `mutants-on-request.yml`'s *Mutate* step has the number's arithmetic
-      # and the measurement behind it, once (#651).
+      # and the measurement behind it, once (#651), and why the cap is soft and
+      # the browser runs through `tools/chromium/uncapped` (#1744).
       - name: Sweep
         timeout-minutes: 300
         env:
           CRATE: ${{ needs.plan.outputs.crate }}
           SHARD: ${{ matrix.shard }}
         run: |
-          ulimit -v 6291456
+          ulimit -Sv 6291456
+          export SCORSESE_CHROME="$PWD/tools/chromium/uncapped"
           cargo mutants -p "$CRATE" --shard "$SHARD/$SHARDS" --jobs 2 --colors never \
             && status=0 || status=$?
           echo "MUTANTS_STATUS=$status" >> "$GITHUB_ENV"
