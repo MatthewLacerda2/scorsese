@@ -98,3 +98,31 @@ fn stocked_by_asks_for_the_medium_of_the_call() {
     assert_eq!(counting.asked.load(Ordering::SeqCst), 1);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// A `.scor` received from someone else may carry `cache/` itself as a link
+/// (#1718): a search keeps nothing where it leads.
+#[cfg(unix)]
+#[test]
+fn a_search_keeps_nothing_through_a_linked_cache_folder() {
+    let base = std::env::temp_dir().join(format!("scorsese-stock-linked-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    let (dir, outside) = (base.join("project"), base.join("outside"));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::create_dir_all(&outside).unwrap();
+    Project::new("stock-linked", Fps::THIRTY)
+        .save(&dir)
+        .unwrap();
+    std::os::unix::fs::symlink(&outside, dir.join("cache")).unwrap();
+    let library: Stock = Arc::new(Counting::default());
+    let search = stocked_from(&library).remove(0);
+
+    let asked = json!({ "project": dir.to_string_lossy(), "query": "wave", "kind": "lottie" });
+    let Err(refused) = search.call(&asked) else {
+        panic!("kept through a link");
+    };
+
+    assert!(refused.contains("link"), "{refused}");
+    let landed: Vec<_> = std::fs::read_dir(&outside).unwrap().collect();
+    assert!(landed.is_empty(), "written through the link: {landed:?}");
+    std::fs::remove_dir_all(&base).unwrap();
+}

@@ -128,6 +128,18 @@ pub fn folder(project_root: &Path) -> PathBuf {
     project_root.join(CACHE_DIR).join(FOLDER)
 }
 
+/// [`folder`], made from the project root, and neither `cache/` nor
+/// `cache/proxies` a link (#1718): what a local caller asks before it hands
+/// [`make`] a proxy there, since [`make`] trusts what is above `out`'s folder
+/// and a `.scor` received from someone else may carry `cache` as a link.
+///
+/// # Errors
+///
+/// If `cache/` or `cache/proxies` is a link or a file, or cannot be made.
+pub fn made_folder(project_root: &Path) -> std::io::Result<PathBuf> {
+    scorsese_core::write::in_cache(project_root, Path::new(FOLDER))
+}
+
 /// Why a proxy could not be made.
 #[derive(Debug, thiserror::Error)]
 pub enum ProxyError {
@@ -226,8 +238,9 @@ pub fn make_unless(
 /// Makes `folder`, the one a proxy is written in, with every folder above it —
 /// and refuses it if it is a link (#1715): a `.scor` received from someone
 /// else may carry `cache/proxies` as one, and a proxy made there would remove
-/// and overwrite files where it leads. What is above it is the caller's: on
-/// the web a project's `cache/` is a link to where its captures are kept.
+/// and overwrite files where it leads. What is above it is the caller's: a
+/// local project's is made from its root first ([`made_folder`], #1718), the
+/// web's is the server's own storage.
 fn unlinked(folder: &Path) -> std::io::Result<()> {
     let (Some(above), Some(name)) = (folder.parent(), folder.file_name()) else {
         return std::fs::create_dir_all(folder);

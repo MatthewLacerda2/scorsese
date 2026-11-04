@@ -16,7 +16,7 @@
 //! One at a time, because a transcode is as heavy as a render and the machine
 //! this runs on is also serving other people's renders.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
@@ -72,7 +72,8 @@ impl Maker {
         }));
         let stop = Arc::new(AtomicBool::new(false));
         let (shared, stopping) = (Arc::clone(&progress), Arc::clone(&stop));
-        std::thread::spawn(move || make_all(&wanted, &shared, &stopping));
+        let root = open.root.clone();
+        std::thread::spawn(move || make_all(&root, &wanted, &shared, &stopping));
         self.job = Some(Job { progress, stop });
         self.seen = 0;
     }
@@ -133,7 +134,7 @@ impl Drop for Maker {
 
 /// Every video in `project` worth a proxy that does not have one yet: its
 /// file, and where its proxy goes.
-fn missing(project: &Project, root: &std::path::Path) -> Vec<(PathBuf, PathBuf)> {
+fn missing(project: &Project, root: &Path) -> Vec<(PathBuf, PathBuf)> {
     let folder = preview::folder(root);
     project
         .assets
@@ -149,11 +150,25 @@ fn missing(project: &Project, root: &std::path::Path) -> Vec<(PathBuf, PathBuf)>
         .collect()
 }
 
-/// The thread: each proxy in turn, until done or told to stop.
-fn make_all(wanted: &[(PathBuf, PathBuf)], progress: &Mutex<Progress>, stop: &AtomicBool) {
+/// The thread: each proxy in turn, until done or told to stop, into the
+/// proxies folder of the project at `root` — made from the root, so a `.scor`
+/// whose `cache` is a link has none made where it leads (#1718).
+fn make_all(
+    root: &Path,
+    wanted: &[(PathBuf, PathBuf)],
+    progress: &Mutex<Progress>,
+    stop: &AtomicBool,
+) {
     let update = |change: &dyn Fn(&mut Progress)| {
         change(&mut progress.lock().unwrap_or_else(PoisonError::into_inner));
     };
+    if let Err(error) = preview::made_folder(root) {
+        let why = error.to_string();
+        return update(&|progress| {
+            progress.failed = Some(why.clone());
+            progress.finished = true;
+        });
+    }
     let tools = match Tools::discover() {
         Ok(tools) => tools,
         Err(error) => {

@@ -15,7 +15,7 @@
 //! `PIXABAY_API_KEY`.
 //!
 //! **Results are cached 24 hours, as Pixabay requires** — under a cache
-//! folder the caller names ([`cache_dir`] for a project), one file per page of
+//! folder the caller names ([`project_cache`] for a project), one file per page of
 //! one query. That is also what makes an id from a search **addressable
 //! afterwards** without asking again: [`find_cached`] reads a result back out
 //! by id, which is how an import, and a picker on the web (#901), hold an id
@@ -66,7 +66,7 @@ mod pixabay;
 mod report;
 mod search;
 
-pub use cache::{FRESH_FOR, cache_dir, find_cached};
+pub use cache::{FRESH_FOR, cache_dir, find_cached, project_cache};
 pub use candidate::{Candidate, Medium, Orientation, Rendition, named_in};
 pub use fetch::{
     Choice, Fetched, LICENCE_NAME, footage, import, labelled_previews, previews, source_of,

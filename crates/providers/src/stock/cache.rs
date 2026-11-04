@@ -23,17 +23,35 @@ use super::library::{Page, StockError};
 /// How long a cached page is served before the vendor is asked again.
 pub const FRESH_FOR: Duration = Duration::from_secs(24 * 60 * 60);
 
+/// The folder under a project's `cache/` its stock cache is kept in.
+const STOCK: &str = "stock";
+
 /// Where a project's stock cache lives inside it.
 pub fn cache_dir(root: &Path) -> PathBuf {
-    root.join(CACHE_DIR).join("stock")
+    root.join(CACHE_DIR).join(STOCK)
+}
+
+/// [`cache_dir`], made from the project root, and neither `cache/` nor
+/// `cache/stock` a link (#1718): what a surface searching for a local project
+/// hands every call here as its cache, so a `.scor` received from someone else
+/// with a linked `cache/` never has a search or a download kept where it
+/// leads. The folders below it are refused as links on each write
+/// (`unlinked`).
+///
+/// # Errors
+///
+/// If `cache/` or `cache/stock` is a link or a file, or cannot be made.
+pub fn project_cache(root: &Path) -> std::io::Result<PathBuf> {
+    scorsese_core::write::in_cache(root, Path::new(STOCK))
 }
 
 /// The folder `folder` of the stock cache `cache`, made, and neither it nor
 /// the cache folder itself a link (#1698): a `.scor` received from someone
 /// else may carry one at `cache/stock` or below, and nothing a search or a
 /// download keeps is written where it leads. What is above the cache folder
-/// is the caller's — nothing hands the stock tools a linked one (the web's is
-/// a folder of its own per user, never linked into a project).
+/// is the caller's: a project's own is made from its root
+/// ([`project_cache`], #1718), and the web's is a folder of its own per user,
+/// never linked into a project.
 ///
 /// # Errors
 ///
@@ -104,9 +122,8 @@ pub(crate) fn write(cache: &Path, key: &str, page: &Page) -> Result<(), StockErr
         candidates: page.candidates.clone(),
         total: page.total,
     };
-    unlinked(cache, PAGES)?;
-    diskcache::write(cache, PAGES, key, &cached)
-        .map_err(|(path, source)| StockError::Io { path, source })
+    let pages = unlinked(cache, PAGES)?;
+    diskcache::write(&pages, key, &cached).map_err(|(path, source)| StockError::Io { path, source })
 }
 
 /// The candidate `medium` `id` names on any fresh cached page — what a call

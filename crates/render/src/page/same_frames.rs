@@ -142,7 +142,7 @@ impl Bench {
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("pages")).expect("pages/");
         std::fs::write(root.join("pages/proof.html"), page).expect("the page");
-        let fonts = cache::fonts(&root).expect("fonts");
+        let fonts = cache::fonts(&root, false).expect("fonts");
         Self {
             chrome: crate::testing::chrome(),
             tools: Tools::discover().expect("ffmpeg"),
@@ -265,7 +265,7 @@ fn a_capture_made_a_part_a_turn_is_the_capture_one_turn_makes() {
             &bench.chrome,
             &bench.tools,
             &bench.root,
-            &[],
+            super::Laid::default(),
             &bench.request,
             &parts,
             index,

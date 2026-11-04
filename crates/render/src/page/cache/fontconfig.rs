@@ -30,17 +30,18 @@ const GENERICS: [(&str, &str); 4] = [
 /// fontconfig file listing **only** them — so a page that names a font it was
 /// not given falls back to the same face on every machine, never to whatever
 /// the host has installed (#606) — and with the [`GENERICS`] bound to the faces
-/// they mean. Returns that file.
+/// they mean. Returns that file. Its folder is made as [`super::made`] makes
+/// one, `laid_cache` saying whether the caller laid `cache/` out as a link.
 ///
 /// Written once per project, and whole or not at all ([`scorsese_core::write::atomically`]):
 /// a face whose file is already there at the right length, and a fontconfig
 /// file that already says what it would, are left alone — a browser starting
 /// on another thread never reads one cut short (#1085).
-pub(crate) fn fonts(project_root: &Path) -> std::io::Result<PathBuf> {
+pub(crate) fn fonts(project_root: &Path, laid_cache: bool) -> std::io::Result<PathBuf> {
     let folder = project_root.join(CACHE_DIR).join(PAGES).join("fonts");
     // Fontconfig's own cache goes in `.cache` below it, which the browser
     // writes: made here, so a link there is refused before it is followed.
-    super::made(project_root, &folder.join(".cache"))?;
+    super::made(project_root, laid_cache, &folder.join(".cache"))?;
     for face in super::super::fonts::faces() {
         let file = folder.join(&face.file);
         let current = std::fs::metadata(&file).map(|m| m.len()).ok();
@@ -105,7 +106,8 @@ mod tests {
     #[test]
     fn the_browser_gets_every_shipped_face_and_a_fontconfig_naming_only_them() {
         let root = crate::scratch::fresh("scorsese-fonts", "");
-        let conf = fonts(&root).unwrap();
+        std::fs::create_dir_all(&root).unwrap();
+        let conf = fonts(&root, false).unwrap();
         let folder = conf.parent().unwrap().to_path_buf();
         assert_eq!(folder, root.join("cache/pages/fonts"));
         let text = std::fs::read_to_string(&conf).unwrap();
@@ -115,7 +117,7 @@ mod tests {
         );
         let written = std::fs::metadata(&conf).unwrap().modified().unwrap();
         std::thread::sleep(std::time::Duration::from_millis(20));
-        fonts(&root).unwrap();
+        fonts(&root, false).unwrap();
         assert_eq!(
             std::fs::metadata(&conf).unwrap().modified().unwrap(),
             written,
@@ -128,7 +130,7 @@ mod tests {
         );
         // A face cut short — an interrupted write — is written again.
         std::fs::write(&inter, b"short").unwrap();
-        fonts(&root).unwrap();
+        fonts(&root, false).unwrap();
         assert_eq!(
             std::fs::metadata(&inter).unwrap().len(),
             super::super::super::fonts::bytes("inter.ttf")
@@ -143,9 +145,13 @@ mod tests {
     #[test]
     fn a_fontconfig_file_that_cannot_be_written_leaves_nothing_beside_it() {
         let root = crate::scratch::fresh("scorsese-fonts-refused", "");
+        std::fs::create_dir_all(&root).unwrap();
         let folder = root.join("cache/pages/fonts");
         std::fs::create_dir_all(folder.join("fonts.conf/occupied")).unwrap();
-        assert!(fonts(&root).is_err(), "a file cannot replace a folder");
+        assert!(
+            fonts(&root, false).is_err(),
+            "a file cannot replace a folder"
+        );
         let stray: Vec<_> = std::fs::read_dir(&folder)
             .unwrap()
             .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
@@ -158,7 +164,8 @@ mod tests {
     #[test]
     fn each_generic_is_bound_to_a_name_a_shipped_file_gives_itself() {
         let root = crate::scratch::fresh("scorsese-fonts-generic", "");
-        let text = std::fs::read_to_string(fonts(&root).unwrap()).unwrap();
+        std::fs::create_dir_all(&root).unwrap();
+        let text = std::fs::read_to_string(fonts(&root, false).unwrap()).unwrap();
         for (generic, face) in GENERICS {
             assert!(
                 text.contains(&format!(
@@ -187,7 +194,8 @@ mod tests {
             "/p/Tom &amp; Jerry&apos;s &lt;&quot;best&quot;&gt;.scor"
         );
         let root = crate::scratch::fresh("scorsese-fonts & ", "");
-        let text = std::fs::read_to_string(fonts(&root).unwrap()).unwrap();
+        std::fs::create_dir_all(&root).unwrap();
+        let text = std::fs::read_to_string(fonts(&root, false).unwrap()).unwrap();
         assert!(text.contains("scorsese-fonts &amp; "), "{text}");
         assert!(!text.contains("scorsese-fonts & "), "{text}");
         let _ = std::fs::remove_dir_all(&root);

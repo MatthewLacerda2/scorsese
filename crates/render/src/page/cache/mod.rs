@@ -58,6 +58,7 @@ pub(crate) use fontconfig::fonts;
 pub(crate) use held::{Held, Place, tidy};
 pub(crate) use pieces::files;
 pub(crate) use shelves::shelf;
+pub use trust::Laid;
 pub(crate) use trust::made;
 
 /// The folder under `cache/` captures are kept in.

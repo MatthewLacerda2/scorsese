@@ -10,6 +10,7 @@ use crate::common;
 
 mod batch;
 mod briefs;
+mod linked;
 mod tokens;
 
 use scorsese_core::{Asset, AssetId, AssetKind, Project, SpeechRequest};

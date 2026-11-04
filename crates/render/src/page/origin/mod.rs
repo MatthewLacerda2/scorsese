@@ -14,7 +14,7 @@
 //! becomes a warning on the render, never a silent miss.
 //!
 //! **A link out of the project is outside it**, unless it lands under a folder
-//! the caller named ([`super::capture_following`]). Locally nobody names one,
+//! the caller named ([`super::Laid::follow`]). Locally nobody names one,
 //! so a `.scor` folder's link to `/etc/passwd` is refused; the web app names
 //! the owner's library, because it lays every media file out as a link into
 //! it (#857) — and a link from there to `/etc/passwd` is refused all the same,

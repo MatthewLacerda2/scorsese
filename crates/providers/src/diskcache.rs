@@ -33,37 +33,21 @@ pub(crate) fn read<T: DeserializeOwned>(dir: &Path, key: &str) -> Option<T> {
     serde_json::from_str(&text).ok()
 }
 
-/// The folder `folder` below `base`, made with `base` if they are not there,
-/// and `folder` never a link (#1715): a `.scor` received from someone else may
-/// carry one in its `cache/`, and nothing kept there is written where it
-/// leads. `base` itself is the caller's — on the web a project's `cache/` is
-/// a link to where its captures are kept.
-///
-/// # Errors
-///
-/// If `base` or `folder` cannot be made, or `folder` is a link or a file.
-pub(crate) fn folder(base: &Path, folder: &str) -> std::io::Result<PathBuf> {
-    std::fs::create_dir_all(base)?;
-    scorsese_core::write::folder_below(base, Path::new(folder))
-}
-
-/// Keeps `entry` as `key`'s answer in the folder `folder` below `base`,
-/// making it through [`folder`] if it is the first, and atomically.
+/// Keeps `entry` as `key`'s answer in `dir`, atomically. `dir` is made by the
+/// caller, which knows what base it trusts: a project's own `cache/` from its
+/// root ([`scorsese_core::write::in_cache`], #1718), a folder of the caller's
+/// below that ([`scorsese_core::write::folder_below`]).
 ///
 /// The error is the file's path and what went wrong there, so a caller with
 /// its own error type wraps both without working the path out again.
 pub(crate) fn write<T: Serialize>(
-    base: &Path,
-    folder: &str,
+    dir: &Path,
     key: &str,
     entry: &T,
 ) -> Result<(), (PathBuf, std::io::Error)> {
-    let path = file(&base.join(folder), key);
-    let kept = self::folder(base, folder)
-        .and_then(|_| {
-            serde_json::to_string_pretty(entry)
-                .map_err(|error| std::io::Error::other(error.to_string()))
-        })
+    let path = file(dir, key);
+    let kept = serde_json::to_string_pretty(entry)
+        .map_err(|error| std::io::Error::other(error.to_string()))
         .and_then(|text| scorsese_core::write::atomically(&path, text.as_bytes()));
     kept.map_err(|error| (path, error))
 }
@@ -99,11 +83,17 @@ mod tests {
         }
     }
 
+    /// A folder for [`write`], made, as its caller makes one.
+    fn made(label: &str) -> PathBuf {
+        let dir = crate::scratch::fresh(label, "").join("pages");
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
     #[test]
     fn an_entry_is_named_for_its_key_and_written_as_pretty_json() {
-        let base = crate::scratch::fresh("scorsese-diskcache-named", "").join("deep");
-        let dir = base.join("pages");
-        write(&base, "pages", "cats p=1", &entry("cats p=1", 3)).unwrap();
+        let dir = made("scorsese-diskcache-named");
+        write(&dir, "cats p=1", &entry("cats p=1", 3)).unwrap();
         let path = dir.join(format!("{}.json", hash_bytes(b"cats p=1")));
         let text = std::fs::read_to_string(path).unwrap();
         assert_eq!(text, "{\n  \"listing\": \"cats p=1\",\n  \"count\": 3\n}");
@@ -112,11 +102,10 @@ mod tests {
 
     #[test]
     fn two_keys_keep_two_entries_and_a_rewrite_replaces_one() {
-        let base = crate::scratch::fresh("scorsese-diskcache-keys", "");
-        let dir = base.join("pages");
-        write(&base, "pages", "a", &entry("a", 1)).unwrap();
-        write(&base, "pages", "b", &entry("b", 2)).unwrap();
-        write(&base, "pages", "a", &entry("a", 5)).unwrap();
+        let dir = made("scorsese-diskcache-keys");
+        write(&dir, "a", &entry("a", 1)).unwrap();
+        write(&dir, "b", &entry("b", 2)).unwrap();
+        write(&dir, "a", &entry("a", 5)).unwrap();
         assert_eq!(read(&dir, "a"), Some(entry("a", 5)));
         let mut every: Vec<Entry> = all(&dir);
         every.sort_by_key(|one| one.count);
@@ -125,11 +114,11 @@ mod tests {
 
     #[test]
     fn missing_and_unreadable_entries_are_misses() {
-        let base = crate::scratch::fresh("scorsese-diskcache-misses", "");
-        let dir = base.join("pages");
+        let dir = crate::scratch::fresh("scorsese-diskcache-misses", "").join("pages");
         assert_eq!(read::<Entry>(&dir, "a"), None);
         assert!(all::<Entry>(&dir).is_empty());
-        write(&base, "pages", "a", &entry("a", 1)).unwrap();
+        std::fs::create_dir_all(&dir).unwrap();
+        write(&dir, "a", &entry("a", 1)).unwrap();
         std::fs::write(file(&dir, "b"), "{ half").unwrap();
         assert_eq!(read::<Entry>(&dir, "b"), None);
         assert_eq!(all::<Entry>(&dir), vec![entry("a", 1)]);
@@ -140,20 +129,7 @@ mod tests {
         let base = crate::scratch::fresh("scorsese-diskcache-blocked", "");
         std::fs::create_dir_all(&base).unwrap();
         std::fs::write(base.join("pages"), "a file where the folder should be").unwrap();
-        let (path, _) = write(&base, "pages", "a", &entry("a", 1)).unwrap_err();
+        let (path, _) = write(&base.join("pages"), "a", &entry("a", 1)).unwrap_err();
         assert_eq!(path, file(&base.join("pages"), "a"));
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn a_folder_that_is_a_link_is_never_written_through() {
-        let base = crate::scratch::fresh("scorsese-diskcache-linked", "");
-        let outside = crate::scratch::fresh("scorsese-diskcache-outside", "");
-        std::fs::create_dir_all(&base).unwrap();
-        std::fs::create_dir_all(&outside).unwrap();
-        std::os::unix::fs::symlink(&outside, base.join("pages")).unwrap();
-        let (path, _) = write(&base, "pages", "a", &entry("a", 1)).unwrap_err();
-        assert_eq!(path, file(&base.join("pages"), "a"));
-        assert_eq!(std::fs::read_dir(&outside).unwrap().count(), 0);
     }
 }

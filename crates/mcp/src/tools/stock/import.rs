@@ -126,7 +126,7 @@ impl Tool for Import {
         let mut project = load(dir)?;
         let frame = Sizing::resolve(asked, &project, Budget::Delivery);
         let library = super::library(self.library.as_ref(), medium)?;
-        let cache = super::cache(self.cache.as_deref(), dir);
+        let cache = super::cache(self.cache.as_deref(), dir)?;
         if medium == Medium::Lottie {
             let kept = stock::keep(dir, &cache, &*library, &ids);
             return kept_said(&Animations::new(&ids, kept));

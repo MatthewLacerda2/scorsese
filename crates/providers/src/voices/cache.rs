@@ -137,7 +137,8 @@ pub(crate) fn all(root: &Path) -> Vec<Cached> {
 }
 
 /// Writes a listing into the cache, creating `cache/voices/` if it is the
-/// project's first — and never through a link there (#1715).
+/// project's first — and never through a link there, or at `cache/` itself
+/// (#1715, #1718).
 ///
 /// Atomically, for the reason every other write in this crate is: a truncated
 /// file here is not a crash but something worse — a short list that looks like
@@ -151,5 +152,6 @@ pub(crate) fn write(root: &Path, key: &str, page: &Page) -> Result<(), std::io::
         voices: page.voices.clone(),
         more: page.more,
     };
-    diskcache::write(&root.join(CACHE_DIR), VOICES_DIR, key, &cached).map_err(|(_, error)| error)
+    let dir = scorsese_core::write::in_cache(root, Path::new(VOICES_DIR))?;
+    diskcache::write(&dir, key, &cached).map_err(|(_, error)| error)
 }

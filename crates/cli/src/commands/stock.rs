@@ -11,7 +11,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result, bail};
 use scorsese_providers::stock::{
-    self, Animations, Choice, Imports, Library, Medium, Orientation, Query, cache_dir, footage,
+    self, Animations, Choice, Imports, Library, Medium, Orientation, Query, footage,
     labelled_previews, licence,
 };
 use scorsese_render::contact::{self, Look};
@@ -23,7 +23,7 @@ use crate::cli::StockAction;
 pub(crate) fn run(dir: &Path, action: StockAction) -> Result<()> {
     // Opened first because the cache and the assets live inside it.
     let mut project = super::open(dir)?;
-    let cache = cache_dir(dir);
+    let cache = stock::project_cache(dir)?;
     if let StockAction::Import { ids, .. } = &action {
         stock::within_one_import(ids.len()).map_err(anyhow::Error::msg)?;
     }
