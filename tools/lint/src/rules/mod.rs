@@ -24,6 +24,8 @@
 //! - [`binaries`] — each crate links one integration-test binary (#1128).
 //! - [`reachable`] — every file under a crate's test suite is a module its
 //!   `main.rs` reaches (#1615).
+//! - [`named_paths`] — a repository path a comment or a doc names exists
+//!   (#1617).
 //! - [`agent_docs`] — every `CLAUDE.md` and skill within its line cap, a
 //!   skill's frontmatter loadable, and no history cited in either.
 //!
@@ -39,6 +41,7 @@ pub mod crate_docs;
 pub mod ffmpeg_input;
 pub mod ignored;
 pub mod markers;
+pub mod named_paths;
 pub mod prefix;
 pub mod printing;
 pub mod reachable;
@@ -90,6 +93,7 @@ pub fn check_tree(root: &Path) -> io::Result<Vec<Finding>> {
     findings.extend(shebang::check(root));
     findings.extend(boundary::check_root(root)?);
     findings.extend(agent_docs::check(root));
+    findings.extend(named_paths::check_root(root));
     let sources: Vec<(&Path, &str)> = texts
         .iter()
         .map(|(file, text)| (file.path.as_path(), text.as_str()))

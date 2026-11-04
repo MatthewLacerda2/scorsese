@@ -44,7 +44,7 @@ def bar(percent: float, width: int = 10) -> str:
 
 
 def crate_of(path: str) -> str:
-    """`crates/render/src/run.rs` -> `crates/render`. The unit people think in."""
+    """`crates/render/src/run/mod.rs` -> `crates/render`. The unit people think in."""
     parts = path.split("/")
     return "/".join(parts[:2]) if len(parts) > 2 else path
 

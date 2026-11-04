@@ -2536,7 +2536,7 @@ rest of the paragraph standing behind it.
 **An argument is described where it is declared** (#745). Each tool's arguments
 are one Rust struct deriving `Deserialize` and `JsonSchema`; the schema a client
 sees and the parsing the call does both come from it, so they cannot drift, and
-a field's doc comment *is* its `description`. `tools/args.rs` holds the rest:
+a field's doc comment *is* its `description`. `crates/mcp/src/tools/args.rs` holds the rest:
 the schema is tidied into the plain shape published here (no Rust `format`, no
 nullable `Option`), and every refusal of an argument reads one of two ways —
 `` `clip` is required: a clip id `` or `` `start` has to be a number, not "soon" ``.

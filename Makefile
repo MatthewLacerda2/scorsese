@@ -389,7 +389,7 @@ format: ## [gate] cargo fmt --check, workspace and tools/lint
 # `pre-commit`, so putting it through nextest would mean a clone that has not
 # installed the runner yet cannot commit at all — and there is nothing to win:
 # six small test files, nothing for a scheduler to overlap.
-size: ## [gate] Source <= 300 lines of code, tests <= 150; and the conventions tools/lint holds (prefix groups, markers, skips, crate docs, schema literals, script modes, crate boundaries, no prints in the server, ffmpeg inputs through the helper, one test binary per crate, CLAUDE.md and skill caps)
+size: ## [gate] Source <= 300 lines of code, tests <= 150; and the conventions tools/lint holds (prefix groups, markers, skips, crate docs, schema literals, script modes, crate boundaries, no prints in the server, ffmpeg inputs through the helper, one test binary per crate, reachable tests, repository paths named in comments and docs exist, CLAUDE.md and skill caps)
 	@out=$$(cargo test $(LINT) --locked --quiet 2>&1) \
 		|| { printf '%s\n' "$$out" >&2; exit 1; }
 	cargo run $(LINT) --locked --quiet
@@ -476,6 +476,7 @@ scripts: ## [gate] The scripts under .github/scripts and deploy/update: signal r
 # cargo workspace with its own lockfile, so the first run does not see a single
 # crate of it — 385 of them went unchecked for exactly that reason, `eframe`,
 # `wgpu` and `winit` among them. `--config` aims the second run at the root
+# lint: allow(named-path) it names a file that must never exist.
 # policy rather than letting it look for an `app/deny.toml`, which must never
 # exist: one policy, checked twice.
 #
@@ -484,6 +485,7 @@ scripts: ## [gate] The scripts under .github/scripts and deploy/update: signal r
 # other's spelling outright, and both have been on a machine running this gate:
 # #630 moved it after `check` for a cloud container's 0.19, which broke the Mac's
 # 0.20 (#635). Leaving the flag out is no answer either: 0.20 then looks for an
+# lint: allow(named-path) it names the file cargo-deny looks for, which must never exist.
 # `app/deny.toml`, finds none, and passes on cargo-deny's permissive defaults —
 # measured, with a policy that refuses MIT going green — which is the false
 # green this gate exists to refuse. `check --help` naming the flag is the test.
