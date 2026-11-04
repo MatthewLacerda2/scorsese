@@ -232,9 +232,9 @@ the desktop app keep none of them. Each refusal says the limit and what to do.
 - **An uploaded video or sound** plays at most 3 hours by its probe; one that
   gives no length, or whose stream runs far past its container, is refused
   too, and its bytes removed. Stock and bakes are held the same way.
-- **The page-capture slot** is shared a page a turn: the next goes to the
-  account whose last turn was longest ago, its oldest job first (*Page
-  captures*).
+- **The page-capture slot** is shared a page a turn, and a turn draws at
+  most 1,800 frames (a minute at 30 fps): the next goes to the account whose
+  last turn was longest ago, its oldest job first (*Page captures*).
 
 **Schema migrations** are embedded in the binary and run at startup, before the
 first request. Files in `crates/server/migrations/` are numbered
@@ -2032,8 +2032,13 @@ time, which is the captures' concurrency limit: one capture keeps ~3.6 cores
 busy. **A turn is one page** (#1634): after each the launcher picks again,
 the account whose last turn was longest ago first and its oldest job first
 within it, a still competing the same way, so one render with many pages
-never holds everybody else's behind all of them. A job is answered once its
-last page is captured; one withdrawn part way is dropped. The frames land in `captures/pages/<user>/<project>/`, the project's own
+never holds everybody else's behind all of them. **A long page is a part a
+turn** (#1708): no turn draws more than `captures::TURN` frames, so a longer
+stretch is captured in parts, each run ahead to its first frame (so a late
+part's turn still runs through the page before it, #1722), with other
+accounts' turns between them; its last part joins them into the one capture
+a render reads (`scorsese_render::page::capture_part`). A job is answered once
+its last page is captured; one withdrawn part way is dropped. The frames land in `captures/pages/<user>/<project>/`, the project's own
 page cache, so a second render of an unchanged page reuses them and one user's
 captures are never another's. The render then draws pages only from there and
 never starts a browser itself.

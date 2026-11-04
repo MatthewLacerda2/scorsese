@@ -99,14 +99,19 @@ impl Told {
     /// back from JSON can be a rounding away from what was written, and a clip
     /// that really moved has moved by a frame at least.
     pub(crate) fn holds_for(&self, request: &Request) -> bool {
-        let read = Read {
+        let now = Self::of(request, &self.read());
+        alike(&now.clips, &self.clips) && alike(&now.words, &self.words)
+    }
+
+    /// What a page told this had read: the names it looked up, every one it
+    /// was told of when it listed them.
+    pub(crate) fn read(&self) -> Read {
+        Read {
             names: self.clips.keys().cloned().collect(),
             listed: self.listed,
             words: self.words.keys().cloned().collect(),
             listed_words: self.listed_words,
-        };
-        let now = Self::of(request, &read);
-        alike(&now.clips, &self.clips) && alike(&now.words, &self.words)
+        }
     }
 
     /// A name for the folder its captures are kept in: the same for every

@@ -63,7 +63,9 @@
 //!
 //! Nothing here edits anything: the job lays the project out and renders it,
 //! and each capture calls [`scorsese_render::page::capture_frames`] on what it is asked:
-//! only the frames a render or a still shows, in one browser (#890).
+//! only the frames a render or a still shows, in one browser (#890) — or, for
+//! a stretch longer than a turn, [`scorsese_render::page::capture_part`] a
+//! part a turn ([`TURN`], #1708).
 
 pub mod dispatch;
 pub mod launch;
@@ -97,13 +99,24 @@ pub fn deadline(frames: u64) -> Duration {
     BASE + PER_FRAME * u32::try_from(frames).unwrap_or(u32::MAX)
 }
 
-/// How long the launcher may take over all of `wanted`, each capture held to
-/// its own [`deadline`]: what a render waiting on them is granted on top of
-/// its own (#1634).
+/// The most frames one turn of the launcher draws (#1708): a minute at 30 fps.
+/// A longer stretch is captured a part a turn ([`Asked::parts`]), with other
+/// accounts' turns between, so one account's long page no longer holds the
+/// one capture slot from its first frame to its last. A later part still runs
+/// the page from its first frame to its own without drawing, and is held to
+/// [`deadline`] of its last frame, so its turn is longer than its drawing
+/// (#1722).
+pub const TURN: u64 = 1_800;
+
+/// How long the launcher may take over all of `wanted`, each turn held to
+/// its own [`deadline`] — every frame up to its part's last, the ones run
+/// through included: what a render waiting on them is granted on top of its
+/// own (#1634).
 pub fn bound(wanted: &[Wanted]) -> Duration {
     wanted
         .iter()
-        .map(|one| deadline(one.frames.end))
+        .flat_map(|one| scorsese_render::page::parts(&one.request, one.frames.clone(), TURN))
+        .map(|part| deadline(part.end))
         .fold(Duration::ZERO, Duration::saturating_add)
 }
 
@@ -220,6 +233,13 @@ impl Asked {
     pub fn frames(&self) -> Result<Range<u64>, String> {
         let whole = 0..self.request()?.frames();
         Ok(self.frames.clone().unwrap_or(whole))
+    }
+
+    /// The parts its frames are captured in, a turn each (#1708): at most
+    /// [`TURN`] frames drawn a turn.
+    pub fn parts(&self) -> Result<Vec<Range<u64>>, String> {
+        let frames = self.frames()?;
+        Ok(scorsese_render::page::parts(&self.request()?, frames, TURN))
     }
 
     /// Whether this capture is within the ceilings (#1634), whoever asked
@@ -349,10 +369,13 @@ mod tests {
         };
         let wanted = [
             Wanted::new(request.clone(), 0..10),
-            Wanted::new(request, 50..60),
+            Wanted::new(request.clone(), 50..60),
         ];
         assert_eq!(bound(&wanted), Duration::from_secs(60 + 10 + 60 + 60));
         assert_eq!(bound(&[]), Duration::ZERO);
+        // A turn of [`TURN`] frames each (#1708), each its own deadline.
+        let long = [Wanted::new(request, 0..2501)];
+        assert_eq!(bound(&long), Duration::from_secs(60 + 1800 + 60 + 2501));
     }
 
     #[test]

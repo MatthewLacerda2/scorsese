@@ -209,7 +209,7 @@ fn a_capture_made_in_pieces_is_the_file_one_capture_makes() {
         &bench.tools,
         bench.served(),
         &bench.request,
-        pieced,
+        (pieced, 0),
         (&joined, &drawn, &Cancel::new()),
     )
     .expect("captured in pieces");
@@ -248,5 +248,46 @@ fn an_animated_blur_is_drawn_the_same_every_capture() {
     for (at, capture) in captures.iter().enumerate().skip(1) {
         same(capture, &captures[0], &format!("capture {at}"));
     }
+    let _ = std::fs::remove_dir_all(&bench.root);
+}
+
+#[test]
+fn a_capture_made_a_part_a_turn_is_the_capture_one_turn_makes() {
+    // #1708: the web's capture launcher draws a long stretch a part a turn,
+    // other pages between, and the render reads the parts as one capture.
+    let bench = Bench::new("parts");
+    let frames = 0..bench.request.frames();
+    let whole = bench.sequential(frames.clone(), "whole.mkv");
+    let parts = super::parts(&bench.request, frames.clone(), 150);
+    assert_eq!(parts, [0..150, 150..frames.end]);
+    let part = |index: usize| {
+        super::capture_part(
+            &bench.chrome,
+            &bench.tools,
+            &bench.root,
+            &[],
+            &bench.request,
+            &parts,
+            index,
+        )
+        .expect("a part captured")
+    };
+    assert_eq!(part(0), None, "one part is not the capture");
+    assert_eq!(
+        super::cached_frames(
+            &bench.root,
+            &bench.request,
+            bench.chrome.version(),
+            frames.clone()
+        ),
+        None
+    );
+    let joined = part(1).expect("the last part joins them");
+    let read = super::cached_frames(&bench.root, &bench.request, bench.chrome.version(), frames)
+        .expect("the render reads one capture");
+    assert_eq!(read, joined);
+    assert_eq!(read.first, 0);
+    // Timestamps and all, as a joined file of pieces drawn at once is.
+    same(&hashes(&bench.tools, &read.file), &whole, "a part a turn");
     let _ = std::fs::remove_dir_all(&bench.root);
 }

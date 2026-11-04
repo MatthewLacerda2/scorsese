@@ -71,7 +71,130 @@ impl Holding {
         {
             return Ok(captured);
         }
-        let piece = piece(request, wanted.clone());
+        let piece = (piece(request, wanted), 0);
+        let to = (browsers, drawn, cancel);
+        self.capture_piece(chrome, tools, (project_root, follow), request, piece, to)
+    }
+
+    /// [`super::capture_part`], held for this run: part `index` of `parts`
+    /// captured unless a fresh capture of it is already there, then every
+    /// part joined, once each is, into the capture of them all.
+    pub fn capture_part(
+        &mut self,
+        chrome: &Chrome,
+        tools: &Tools,
+        (project_root, follow): (&Path, &[PathBuf]),
+        request: &Request,
+        (parts, index): (&[Range<u64>], usize),
+        (drawn, cancel): (&AtomicU64, &Cancel),
+    ) -> Result<Option<Captured>, PageError> {
+        let (Some(first), Some(last), Some(part)) = (parts.first(), parts.last(), parts.get(index))
+        else {
+            return Ok(None);
+        };
+        let span = first.start..last.end;
+        let version = chrome.version();
+        if let Some(captured) = self.cached_frames(project_root, request, version, span.clone()) {
+            return Ok(Some(captured));
+        }
+        let slot = cache::slot(project_root, request, version);
+        if cache::exactly(&slot, project_root, request, part).is_none() {
+            // The first part measures its layout from the page's first frame,
+            // as one capture of them all would; a later one from its own.
+            let measured = if index == 0 { 0 } else { part.start };
+            let one = Browsers::new(1);
+            let to = (&one, drawn, cancel);
+            let piece = (part.clone(), measured);
+            self.capture_piece(chrome, tools, (project_root, follow), request, piece, to)?;
+        }
+        // A stretch of one part is that part's capture: nothing to join.
+        if let Some(captured) = self.cached_frames(project_root, request, version, span) {
+            return Ok(Some(captured));
+        }
+        self.join(tools, project_root, request, version, parts)
+    }
+
+    /// The capture of every one of `parts` together, joined from a fresh
+    /// capture of each and kept as the capture of them all — or `None` while
+    /// one is missing or gone stale.
+    fn join(
+        &mut self,
+        tools: &Tools,
+        project_root: &Path,
+        request: &Request,
+        version: &str,
+        parts: &[Range<u64>],
+    ) -> Result<Option<Captured>, PageError> {
+        let slot = cache::slot(project_root, request, version);
+        let mut held = Vec::new();
+        for part in parts {
+            let Some((file, record)) = cache::exactly(&slot, project_root, request, part) else {
+                return Ok(None);
+            };
+            // Held, so no tidy drops it while it is joined.
+            if !self.held.hold(&file) {
+                return Ok(None);
+            }
+            held.push((file, record));
+        }
+        let (Some(first), Some(last)) = (parts.first(), parts.last()) else {
+            return Ok(None);
+        };
+        let span = first.start..last.end;
+        let heard = pieces::merge(
+            held.iter()
+                .map(|(_, record)| capture::Heard {
+                    loaded: record.loaded.clone(),
+                    warnings: record.warnings.clone(),
+                    read: record.told.read(),
+                })
+                .collect(),
+        );
+        let told = told::Told::of(request, &heard.read);
+        let shelf = cache::shelf(&slot, &told);
+        let joining = scorsese_core::write::fresh_dir_beside(
+            &slot.join(format!("part-{}-{}", span.start, span.end)),
+            "joining",
+        )?;
+        let partial = joining.join("frames.mkv");
+        let files: Vec<&Path> = held.iter().map(|(file, _)| file.as_path()).collect();
+        let placed = pieces::join(tools, request, parts, &files, &partial).and_then(|()| {
+            let (file, record_file) = cache::files(&shelf, &span, request);
+            let record = cache::Record {
+                loaded: heard.loaded,
+                warnings: heard.warnings,
+                told,
+            };
+            let place = cache::Place {
+                project_root,
+                slot: &slot,
+                shelf: &shelf,
+                files: (&file, &record_file),
+                record: &record,
+            };
+            self.held.place(&partial, place, request)?;
+            Ok(Captured {
+                file,
+                first: span.start,
+                warnings: record.warnings,
+            })
+        });
+        let _ = std::fs::remove_dir_all(&joining);
+        placed.map(Some)
+    }
+
+    /// Captures `piece` of `request`, its layout measured from frame
+    /// `measured` on, and keeps it in the cache: the capture
+    /// [`Self::capture_frames`] and [`Self::capture_part`] make.
+    fn capture_piece(
+        &mut self,
+        chrome: &Chrome,
+        tools: &Tools,
+        (project_root, follow): (&Path, &[PathBuf]),
+        request: &Request,
+        (piece, measured): (Range<u64>, u64),
+        (browsers, drawn, cancel): (&Browsers, &AtomicU64, &Cancel),
+    ) -> Result<Captured, PageError> {
         // Only a capture that draws waits for browsers: as many as its length
         // is worth, or fewer when the others drawing beside it hold the rest.
         let lease = browsers.take(pieces::split(request, piece.clone(), browsers.most()).len());
@@ -106,7 +229,7 @@ impl Holding {
             tools,
             served,
             request,
-            pieces,
+            (pieces, measured),
             (&partial, drawn, cancel),
         )
         .and_then(|heard| {
