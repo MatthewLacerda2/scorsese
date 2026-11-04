@@ -172,6 +172,12 @@ rates.
 
 ## Running it
 
+If you use an AI agent CLI, run the `/install-guide` skill (Claude Code), or
+ask any other agent to follow
+[`.claude/skills/install-guide/SKILL.md`](.claude/skills/install-guide/SKILL.md):
+it installs scorsese, the desktop app with a launcher, and a few free extras on
+Linux, macOS or Windows. To do it by hand:
+
 You need [Rust](https://rustup.rs) and `ffmpeg` on your PATH. An ffmpeg kept
 elsewhere is found through `SCORSESE_FFMPEG` and `SCORSESE_FFPROBE`, each the
 path to that binary; they are set separately because the two need not come
