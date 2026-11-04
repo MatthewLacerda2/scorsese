@@ -11,6 +11,7 @@ use std::f64::consts::TAU;
 use scorsese_zimmer::level::{DefectFinder, Defects, Tally};
 
 mod clicks;
+mod dropouts;
 mod found;
 mod joined;
 mod stepped;
