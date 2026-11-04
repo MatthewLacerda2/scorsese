@@ -12,7 +12,13 @@ if str(SCRIPTS) not in sys.path:
 
 import proved_tree  # noqa: E402
 
-REPO, SHA, BEFORE, TREE = "o/r", "s" * 40, "b" * 40, "t" * 40
+REPO, SHA, BEFORE, TREE, HEAD = "o/r", "s" * 40, "b" * 40, "t" * 40, "h" * 40
+
+
+def pull(base: str = "main", head: str = HEAD, merged: bool = True, merge_commit: str = SHA) -> dict:
+    """A pull request as `commits/{sha}/pulls` lists it."""
+    return {"number": 9, "base": {"ref": base}, "head": {"sha": head},
+            "merged_at": "2026-11-04T18:00:00Z" if merged else None, "merge_commit_sha": merge_commit}
 
 
 def job(name: str, step: str | None, conclusion: str = "success", step_concl: str = "success") -> dict:
@@ -33,14 +39,15 @@ class Fake:
     """`gh api`: the answer for the first prefix a path starts with, else `None`."""
 
     def __init__(self, jobs=None, tree=TREE, files=("crates/core/src/lib.rs",), status="ahead", fail=(), tip=SHA,
-                 later=None, base="main"):
-        run = {"id": 7, "html_url": "http://run/7", "head_commit": {"tree_id": tree},
+                 later=None, base="main", pulls=None):
+        run = {"id": 7, "html_url": "http://run/7", "head_commit": {"tree_id": tree}, "head_sha": HEAD,
                "event": "pull_request", "pull_requests": [{"base": {"ref": base}}]}
         self.answers = {
             f"repos/{REPO}/compare/{SHA}...": {"status": "ahead", "files": [{"filename": f} for f in
                                                                            (files if later is None else later)]},
             f"repos/{REPO}/compare/": {"status": status, "files": [{"filename": f} for f in files]},
             f"repos/{REPO}/commits/main": {"sha": tip},
+            f"repos/{REPO}/commits/{SHA}/pulls": [pull()] if pulls is None else pulls,
             f"repos/{REPO}/commits/{SHA}": {"commit": {"tree": {"sha": TREE}}},
             f"repos/{REPO}/actions/workflows/ci.yml/": {"workflow_runs": [run]},
             f"repos/{REPO}/actions/runs/7/jobs": {"jobs": built_jobs() if jobs is None else jobs},
