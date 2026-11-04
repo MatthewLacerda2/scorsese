@@ -864,6 +864,22 @@ exclude_re = [
     # function has returned `wanted` before the range. The same answer for every caller that
     # keeps the contract: genuinely equivalent.
     'asset/id\.rs:152:16: replace \+ with \* in unique',
+
+    # `level::defects::Clicks::feed` judges the jump `reach` back once
+    # `newest > reach`. At `newest == reach` that jump is the one onto sample
+    # 0, before the first jump there is: `judge` asks `at.checked_sub(first)`
+    # with `first` at 1, gets `None` and returns. Equivalent.
+    'defects/clicks\.rs:104:19: replace > with >= in Clicks::feed',
+
+    # `level::defects::Envelope::dropouts` skips a block at once when it is
+    # not under the sound before it (`energy[at] >= before * deep`). Turning
+    # the skip off for such a block (`before / deep`) only runs the search for
+    # the gap's end, which stops at that very block: a gap of no length, never
+    # in range, and `at` moves on by one either way. And once a block is under
+    # it, the gap's end is past it, so `end.max(at + 1)` is `end` whatever is
+    # added to `at`. Both equivalent.
+    'defects/envelope\.rs:96:63: replace \* with / in Envelope::dropouts',
+    'defects/envelope\.rs:118:29: replace \+ with - in Envelope::dropouts',
 ]
 
 # ---------------------------------------------------------------------------

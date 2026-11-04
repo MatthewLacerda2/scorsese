@@ -14,6 +14,7 @@ mod clicks;
 mod dropouts;
 mod found;
 mod joined;
+mod reach;
 mod stepped;
 mod trains;
 
