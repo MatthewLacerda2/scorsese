@@ -68,6 +68,7 @@ class Wiring(unittest.TestCase):
                       "steps.diff.outputs.code || 'true' }}", changes)
         self.assertIn("proved: ${{ steps.proved.outputs.proved == 'true' }}", changes)
         self.assertIn("actions: read", changes)
+        self.assertIn("pull-requests: read", changes, "`merged_heads` reads `commits/{sha}/pulls` (#1769)")
 
     def test_a_broken_lookup_fails_the_step_not_the_job(self):
         asks = step(self.jobs["changes"], "Was this tree already proved?")
