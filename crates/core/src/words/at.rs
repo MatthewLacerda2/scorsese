@@ -3,7 +3,7 @@
 
 use std::path::Path;
 
-use crate::{AssetKind, ClipId, Project};
+use crate::{AudioBlock, ClipId, Project};
 
 use super::{Placed, Words};
 
@@ -21,7 +21,8 @@ pub enum Saying {
 }
 
 /// Every generated narration clip on the project's timeline playing at
-/// `seconds`, and every transcribed recording's, with what it is saying then.
+/// `seconds` — a line, never a generated track — and every transcribed
+/// recording's, with what it is saying then.
 pub fn saying(project: &Project, project_root: &Path, seconds: f64) -> Vec<(ClipId, Saying)> {
     let fps = project.timeline_fps;
     project
@@ -34,7 +35,7 @@ pub fn saying(project: &Project, project_root: &Path, seconds: f64) -> Vec<(Clip
         .filter_map(|clip| {
             let asset = project.asset(&clip.asset)?;
             let said = Words::of(asset, project_root);
-            if asset.kind != AssetKind::GeneratedAudio && said.is_none() {
+            if asset.audio_block() != Some(AudioBlock::Speech) && said.is_none() {
                 return None;
             }
             let saying = match said {

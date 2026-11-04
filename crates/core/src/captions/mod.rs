@@ -81,7 +81,8 @@ pub struct Captioning {
     /// generated line, a video, a sound. Empty means generated narration on
     /// any audio track and transcribed recordings on any track not silenced
     /// throughout ([`Captioning::volume`]) — so music, or footage nobody
-    /// transcribed, is not reported as a line without timings.
+    /// transcribed, or a generated track, is not reported as a line without
+    /// timings.
     pub narration: Vec<TrackId>,
     /// How lines are cut and timed.
     pub chunking: Chunking,

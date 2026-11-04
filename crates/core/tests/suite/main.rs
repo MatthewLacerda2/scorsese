@@ -7,6 +7,7 @@ mod animation;
 mod annotating;
 mod arrows;
 mod briefing;
+mod captioning;
 mod common;
 mod cropping;
 mod ducking;
