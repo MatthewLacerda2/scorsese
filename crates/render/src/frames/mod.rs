@@ -130,7 +130,9 @@ fn in_place(
     let folder = scorsese_core::write::fresh_dir_beside(out, "drawing").map_err(io)?;
     // `fresh_dir_beside` refuses a path that names no file.
     let drawing = folder.join(out.file_name().unwrap_or_default());
-    let drawn = draw(&drawing).and_then(|()| std::fs::rename(&drawing, out).map_err(io));
+    let drawn = draw(&drawing)
+        .map_err(|error| error.naming(&drawing, out))
+        .and_then(|()| std::fs::rename(&drawing, out).map_err(io));
     let _ = std::fs::remove_dir_all(&folder);
     drawn
 }
@@ -227,4 +229,23 @@ pub enum FrameError {
         /// written with.
         resolution: Resolution,
     },
+}
+
+impl FrameError {
+    /// The same error, naming `to` wherever it named `from`, ffmpeg's own
+    /// words included: what [`in_place`] says of a file it drew under a
+    /// scratch name, which is gone by the time anyone reads the error.
+    fn naming(mut self, from: &Path, to: &Path) -> Self {
+        if let Self::Ffmpeg { message, .. } = &mut self {
+            *message = message.replace(&*from.to_string_lossy(), &to.to_string_lossy());
+        }
+        let (Self::Io { file, .. }
+        | Self::Stopped { file }
+        | Self::Ffmpeg { file, .. }
+        | Self::WrongSize { file, .. }) = &mut self;
+        if file == from {
+            *file = to.to_path_buf();
+        }
+        self
+    }
 }

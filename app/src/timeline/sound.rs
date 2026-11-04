@@ -117,23 +117,27 @@ fn spawn(ctx: Context) -> (Sender<Job>, Receiver<Done>) {
 
 /// `job`'s levels: kept from before, or read now and kept — the folder made,
 /// and the file written, never through a link (the module's doc). Levels that
-/// cannot be kept are still drawn; a folder that is refused keeps none.
+/// cannot be kept are still drawn: a refused folder is neither read from nor
+/// written to, and the sound is read afresh.
 fn found(tools: Option<&Tools>, job: &Job) -> Option<Peaks> {
-    if let Err(error) = scorsese_core::write::in_cache(&job.root, Path::new(FOLDER)) {
+    let folder = scorsese_core::write::in_cache(&job.root, Path::new(FOLDER));
+    if let Err(error) = &folder {
         eprintln!("no waveforms are kept for this project: {error}");
-        return None;
     }
-    let kept = crate::files::thumbs::is_kept(&job.out)
+    let kept = folder.is_ok() && crate::files::thumbs::is_kept(&job.out);
+    let read_back = kept
         .then(|| std::fs::read(&job.out).ok())
         .flatten()
         .and_then(|bytes| Peaks::from_bytes(&bytes));
-    kept.or_else(|| {
+    read_back.or_else(|| {
         let read = peaks(tools?, &job.source).ok()?;
-        if let Err(error) = scorsese_core::write::atomically(&job.out, read.to_bytes()) {
-            eprintln!(
-                "the waveform of {} is not kept: {error}",
-                job.source.display()
-            );
+        if folder.is_ok() {
+            if let Err(error) = scorsese_core::write::atomically(&job.out, read.to_bytes()) {
+                eprintln!(
+                    "the waveform of {} is not kept: {error}",
+                    job.source.display()
+                );
+            }
         }
         Some(read)
     })
@@ -200,7 +204,7 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn a_linked_cache_folder_is_refused_and_nothing_lands_where_it_leads() {
+    fn a_linked_cache_folder_is_drawn_from_but_nothing_lands_where_it_leads() {
         let tools = Tools::discover().expect("ffmpeg");
         for linked in ["cache", "cache/peaks"] {
             let (root, outside) = crate::files::thumbs::tests::planted("peaks-linked-folder");
@@ -209,7 +213,7 @@ mod tests {
             std::fs::create_dir_all(link.parent().expect("a parent")).expect("cache/");
             std::os::unix::fs::symlink(&outside, &link).expect("a link");
 
-            assert!(found(Some(&tools), &job).is_none(), "{linked}");
+            assert!(found(Some(&tools), &job).is_some(), "{linked}: still drawn");
             let landed = std::fs::read_dir(&outside).expect("outside").count();
             assert_eq!(landed, 0, "{linked}: written where the link leads");
         }

@@ -41,3 +41,20 @@ fn a_link_at_a_pngs_name_is_replaced_never_written_through() {
     std::fs::remove_dir_all(&dir).ok();
     std::fs::remove_dir_all(&outside).ok();
 }
+
+/// A PNG that cannot be written is said of the name asked for, never the
+/// scratch name it was drawn under, which is gone by then.
+#[test]
+fn a_failed_png_names_the_file_asked_for() {
+    let tools = tools();
+    let dir = scratch::dir("png-refused");
+    // ffmpeg picks no encoder for this extension.
+    let out = dir.join("sheet.nothing");
+
+    let refused = frames::write_png(&tools, &out, &Frame::black(raster()));
+
+    let said = refused.expect_err("no encoder").to_string();
+    assert!(said.contains(&out.display().to_string()), "{said}");
+    assert!(!said.contains(".drawing"), "{said}");
+    std::fs::remove_dir_all(&dir).ok();
+}
