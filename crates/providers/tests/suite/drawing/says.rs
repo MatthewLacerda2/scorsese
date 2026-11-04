@@ -29,8 +29,16 @@ fn every_still_outcome_reads_as_its_sentence() {
         (
             Outcome::Failed {
                 message: String::from("no"),
+                estimated_cost_cents: 0,
             },
             "refused — no",
+        ),
+        (
+            Outcome::Failed {
+                message: String::from("not a picture"),
+                estimated_cost_cents: 6,
+            },
+            "refused, and billed as quoted ($0.06) — not a picture",
         ),
     ];
     for (outcome, sentence) in cases {

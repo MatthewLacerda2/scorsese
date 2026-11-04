@@ -138,7 +138,11 @@ fn order(
             Err(error) => {
                 for brief in job {
                     let message = error.message.clone();
-                    done.push((brief.id.clone(), Outcome::Failed { message }));
+                    let failed = Outcome::Failed {
+                        message,
+                        estimated_cost_cents: 0,
+                    };
+                    done.push((brief.id.clone(), failed));
                 }
             }
         }

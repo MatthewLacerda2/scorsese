@@ -387,7 +387,9 @@ the brief's hash, the estimate and the date. The `budget_cents` ceiling and ever
 printed project total read that file, and the takes no asset shows any more are
 named on a line of their own ("1 superseded take, $0.40"), so a retry reads as a
 retry. A shot Veo turns down after it was sent is marked `refused` there and not
-counted: Google does not charge for it. A voice design writes its own line
+counted: Google does not charge for it. A call the vendor completed and bills
+but that brought back nothing to keep (Gemini answering in words, a reply that
+does not decode) is counted at its quote, and reads as a superseded take. A voice design writes its own line
 there too, naming the design's hash instead of an asset, the moment its three
 candidates come back — kept or not, and again if the same design is paid for a
 second time after its samples were deleted.

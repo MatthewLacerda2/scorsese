@@ -11,7 +11,7 @@ use scorsese_core::{AssetId, Project};
 
 use super::run::Stills;
 use super::{ImageError, Outcome};
-use crate::generated::{self, Counted, tell};
+use crate::generated::{self, Counted, tell_billed};
 
 /// Why a run of stills stopped, with every still it reached before it did.
 pub type Stopped = crate::Stopped<Vec<(AssetId, Outcome)>, ImageError>;
@@ -26,14 +26,22 @@ const STILLS: Counted = Counted {
 
 impl Stopped {
     /// The run in one sentence: what stopped it, how many stills were paid
-    /// for — drawn now or ordered in a batch — and which were not.
+    /// for — drawn now or ordered in a batch — and which were not, and any
+    /// refused that the vendor billed anyway.
     pub fn says(&self) -> String {
+        let refused = |outcome: &Outcome| matches!(outcome, Outcome::Failed { .. });
         let paid = self
             .run
             .iter()
-            .filter(|(_, outcome)| outcome.spent_cents() > 0)
+            .filter(|(_, outcome)| outcome.spent_cents() > 0 && !refused(outcome))
             .count();
-        tell(&self.error, paid, &self.unsent, &STILLS)
+        let billed: Vec<&AssetId> = self
+            .run
+            .iter()
+            .filter(|(_, outcome)| outcome.spent_cents() > 0 && refused(outcome))
+            .map(|(id, _)| id)
+            .collect();
+        tell_billed(&self.error, paid, &self.unsent, &billed, &STILLS)
     }
 }
 

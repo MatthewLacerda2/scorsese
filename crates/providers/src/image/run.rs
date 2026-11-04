@@ -181,8 +181,13 @@ fn one(
     let bytes = match provider.draw(&brief) {
         Ok(bytes) => bytes,
         Err(error) => {
+            let estimated_cost_cents = if error.billed { cents } else { 0 };
+            if error.billed {
+                spending::sent(project, root, id, &brief.digest(), cents)?;
+            }
             return Ok(Outcome::Failed {
                 message: error.message,
+                estimated_cost_cents,
             });
         }
     };

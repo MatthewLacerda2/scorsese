@@ -65,7 +65,8 @@ fn a_refusal_leaves_the_sketch_to_be_edited() {
     assert_eq!(
         run[0].1,
         Outcome::Failed {
-            message: String::from("I can't draw that.")
+            message: String::from("I can't draw that."),
+            estimated_cost_cents: 0,
         }
     );
     let asset = project.asset(&id).expect("the asset");

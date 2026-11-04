@@ -221,8 +221,13 @@ fn one(
     } = match provider.speak(&brief) {
         Ok(spoken) => spoken,
         Err(error) => {
+            let estimated_cost_cents = if error.billed { estimate.cents } else { 0 };
+            if error.billed {
+                spending::sent(project, root, id, &brief.digest(), estimate.cents)?;
+            }
             return Ok(Outcome::Failed {
                 message: error.message,
+                estimated_cost_cents,
             });
         }
     };

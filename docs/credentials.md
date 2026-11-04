@@ -159,7 +159,8 @@ nobody is.
 `budget_cents` is the most a **project** may have spent — not one run: a run
 goes ahead only while everything the project has spent so far, plus what this
 run is quoted at, stays at or under it. Everything means every take sent (a shot
-still in flight, a superseded or expired take, a still that waited in a batch)
+still in flight, a superseded or expired take, a still that waited in a batch,
+a call the vendor billed that brought back nothing usable)
 and every voice designed, kept or not. A run that would cross it is refused
 **even under `--yes`**. That is the point rather than an oversight: `--yes` says nobody is
 there to be asked, which is exactly the situation a ceiling exists for. An agent

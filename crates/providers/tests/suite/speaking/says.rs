@@ -29,8 +29,16 @@ fn every_line_outcome_reads_as_its_sentence() {
         (
             Outcome::Failed {
                 message: String::from("no"),
+                estimated_cost_cents: 0,
             },
             "refused — no",
+        ),
+        (
+            Outcome::Failed {
+                message: String::from("not a picture"),
+                estimated_cost_cents: 6,
+            },
+            "refused, and billed as quoted ($0.06) — not a picture",
         ),
     ];
     for (outcome, sentence) in cases {
@@ -56,4 +64,36 @@ fn a_spoken_line_names_where_its_word_timings_were_saved() {
         "already spoken — generated/vo-abc.mp3; word timings in generated/vo-abc.words.json"
     );
     std::fs::remove_dir_all(root).ok();
+}
+
+/// Only a line spoken is counted as spoken; a billed refusal is named apart,
+/// and neither a cached line nor an unbilled refusal is either (#1695).
+#[test]
+fn a_stopped_run_names_only_its_billed_refusals_apart() {
+    use scorsese_core::AssetId;
+    use scorsese_providers::speech::{SpeechError, Stopped};
+
+    let failed = |cents| Outcome::Failed {
+        message: String::from("no"),
+        estimated_cost_cents: cents,
+    };
+    let path = ProjectPath::new("generated/vo-abc.mp3");
+    let stopped = Stopped {
+        run: vec![
+            (AssetId::new("cached"), Outcome::Cached { path }),
+            (AssetId::new("free"), failed(0)),
+            (AssetId::new("billed"), failed(4)),
+        ],
+        unsent: Vec::new(),
+        error: SpeechError::NoSuchAsset {
+            id: AssetId::new("gone"),
+        },
+    };
+
+    let says = stopped.says();
+    assert!(says.contains("0 lines were spoken"), "{says}");
+    assert!(
+        says.contains("1 line was refused and billed anyway (billed);"),
+        "{says}"
+    );
 }

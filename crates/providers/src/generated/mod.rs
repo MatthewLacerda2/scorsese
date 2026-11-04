@@ -25,7 +25,7 @@ use scorsese_core::{AssetId, GenerationState, Project, ProjectPath, hash_bytes};
 pub use prompted::Plan;
 pub(crate) use prompted::{Prompted, adopt, found, ids, pending, plan};
 pub use stopped::Stopped;
-pub(crate) use stopped::{Counted, tell, unsent};
+pub(crate) use stopped::{Counted, tell, tell_billed, unsent};
 
 /// Points the asset at what is now on disk, clears any ticket, and says what
 /// it was calculated to cost.
@@ -62,6 +62,17 @@ pub(crate) fn record(
     if !bytes.is_empty() {
         asset.sha256 = Some(hash_bytes(bytes));
     }
+}
+
+/// How a refusal reads after an asset's id, `cents` being what it was
+/// charged: a call the vendor completed and bills says so, with the figure,
+/// so nobody reads a paid refusal as a free one (#1695).
+pub(crate) fn refused(message: &str, cents: u64) -> String {
+    if cents == 0 {
+        return format!("refused — {message}");
+    }
+    let cost = crate::prices::dollars(crate::prices::from_cents(cents), 2);
+    format!("refused, and billed as quoted ({cost}) — {message}")
 }
 
 /// Writes a generation, atomically, creating `generated/` if it is the first.
