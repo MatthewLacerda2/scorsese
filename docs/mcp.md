@@ -2375,6 +2375,19 @@ client ever recorded called `hear` and never it (#779, #782) — so they are
 now the text above the picture: one line of levels by default, a row per
 section with `sections`, and a comparison with `against`.
 
+**Defects between samples come with the levels**: clicks (one jump far above
+every jump around it), dropouts (sound gone for 1 to 40 ms inside sound that
+goes on either side) and stepped gain (a level moving in flat steps at a
+regular period, from 4 to 64 ms — a gain set once per game frame and held).
+Each is a count and its worst five by time, channel and size — *at 3.420 s
+the left channel steps 4.1 dB every 16.7 ms* — and each is marked in amber
+above the wave. One line says when there are none, and `against` compares
+the counts, which is what "it sounds choppy" and "did the fix land?" measure
+as. Stepped gain is reported on steady sounds, chords and noise; on a sound
+that pulses on its own (a voice, a buzzy note) it is not judged, because its
+pulse and a staircase cannot be told apart there, so a fix is checked with a
+steady sound played through it.
+
 ## Listening, for a client that cannot hear
 
 `synth_bake` reports how what it just made came out, and `hear` reports the
