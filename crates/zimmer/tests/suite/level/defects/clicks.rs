@@ -151,12 +151,11 @@ fn a_click_at_the_very_end_is_found() {
     );
 }
 
-/// A reset whose only twin is ahead of it: a ramp long enough to fill the
-/// click search's window, then sawtooth periods of `period` samples,
-/// stopping at the top of a ramp.
-fn opening_reset(period: usize) -> Vec<f32> {
+/// A reset whose only twin is ahead of it: a ramp of `opening` samples, then
+/// sawtooth periods of `period` samples, stopping at the top of a ramp.
+fn opening_reset(opening: usize, period: usize) -> Vec<f32> {
     let ramp = |len: usize| (0..len).map(move |i| i as f32 / len as f32 * 0.8 - 0.4);
-    let mut signal: Vec<f32> = ramp(4_000)
+    let mut signal: Vec<f32> = ramp(opening)
         .chain(ramp(period))
         .chain(ramp(period))
         .collect();
@@ -170,12 +169,25 @@ fn opening_reset(period: usize) -> Vec<f32> {
 
 /// A twin ahead is seen once it is whole, the sample two after it included,
 /// so the reach ahead is two samples short of the reach behind: a reset with
-/// its only twin 1678 samples ahead is not a click, one 1679 ahead is.
+/// its only twin 1678 samples ahead is not a click, one 1679 ahead is. The
+/// opening ramp is long enough to fill the click search's window first.
 #[test]
 fn a_twin_ahead_is_seen_two_samples_short_of_the_reach() {
-    let twinned = found(1, &opening_reset(1_678));
+    let twinned = found(1, &opening_reset(4_000, 1_678));
     assert_eq!(twinned.clicks.count, 0, "{twinned:?}");
-    let alone = found(1, &opening_reset(1_679));
+    let alone = found(1, &opening_reset(4_000, 1_679));
     assert_eq!(alone.clicks.count, 1, "{alone:?}");
     assert_eq!(alone.clicks.worst[0].at_seconds, 4_000.0 / f64::from(RATE));
+}
+
+/// A twin is matched on the same samples in a signal's first 70 ms, before
+/// the click search's window is full, as anywhere after: a reset judged that
+/// early has the same edge as one judged later.
+#[test]
+fn a_twin_is_matched_the_same_before_the_window_fills() {
+    let twinned = found(1, &opening_reset(1_000, 1_678));
+    assert_eq!(twinned.clicks.count, 0, "{twinned:?}");
+    let alone = found(1, &opening_reset(1_000, 1_679));
+    assert_eq!(alone.clicks.count, 1, "{alone:?}");
+    assert_eq!(alone.clicks.worst[0].at_seconds, 1_000.0 / f64::from(RATE));
 }
