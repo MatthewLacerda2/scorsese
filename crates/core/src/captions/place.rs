@@ -7,7 +7,7 @@ use crate::keyframe::{Easing, Keyframe, KeyframeTrack, PropertyPath};
 use crate::text::Reveal;
 use crate::timeline::{Anchor, AnchorY, Clip, ClipId, Track, TrackId, TrackKind};
 use crate::words::Words;
-use crate::{Asset, AssetId, AssetKind, Frames, Project, write_page};
+use crate::{Asset, AssetId, AssetKind, AudioBlock, Frames, Project, write_page};
 
 use super::{Captioning, Chunk, Look, PREFIX, PageHtml, TOOL, chunks, time};
 
@@ -97,16 +97,17 @@ pub fn caption(
 }
 
 /// The clips whose words `asked` captions, in document order: every clip that
-/// can carry speech on the tracks it names — a line, a video, a sound; or,
-/// when it names none, each generated narration line on an audio track and
-/// each transcribed recording on any track (#1549) that is not silenced
+/// can carry speech on the tracks it names — a line (never a generated track),
+/// a video, a sound; or, when it names none, each generated narration line on
+/// an audio track and each transcribed recording on any track (#1549) that is not silenced
 /// throughout. Second, the recordings left out for their silence.
 fn narration<'a>(
     project: &'a Project,
     root: &Path,
     asked: &Captioning,
 ) -> (Vec<&'a Clip>, Vec<ClipId>) {
-    let speaks = |kind: AssetKind| kind == AssetKind::GeneratedAudio || Words::transcribable(kind);
+    let line = |asset: &Asset| asset.audio_block() == Some(AudioBlock::Speech);
+    let speaks = |asset: &Asset| line(asset) || Words::transcribable(asset.kind);
     if !asked.narration.is_empty() {
         let named = project
             .tracks
@@ -116,7 +117,7 @@ fn narration<'a>(
             .filter(|clip| {
                 project
                     .asset(&clip.asset)
-                    .is_some_and(|asset| speaks(asset.kind))
+                    .is_some_and(|asset| speaks(asset))
             })
             .collect();
         return (named, Vec::new());
@@ -127,7 +128,7 @@ fn narration<'a>(
             let Some(asset) = project.asset(&clip.asset) else {
                 continue;
             };
-            if track.kind == TrackKind::Audio && asset.kind == AssetKind::GeneratedAudio {
+            if track.kind == TrackKind::Audio && line(asset) {
                 spoken.push(clip);
             } else if Words::transcribable(asset.kind) && Words::of(asset, root).is_some() {
                 if silenced(clip, asked.volume.as_ref()) {
