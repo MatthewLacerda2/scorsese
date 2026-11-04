@@ -9,7 +9,7 @@
 //! a branch on how many are selected.
 
 use egui::{Grid, RichText, Ui};
-use scorsese_core::{AssetKind, GenerationState};
+use scorsese_core::{AssetKind, AudioBlock, GenerationState};
 
 use super::Inspector;
 use super::controls::{fit_row, frames_row, speed_row};
@@ -157,10 +157,24 @@ fn identity(ui: &mut Ui, selected: &Selected) {
 /// The lifecycle belongs here because it answers the question a slug card in
 /// the preview raises: this clip is a brief, and nothing has made it yet.
 fn describe(selected: &Selected) -> String {
-    let kind = selected.kind.map_or("not in the assets table", kind_name);
+    let kind = selected
+        .kind
+        .map_or("not in the assets table", |kind| name(kind, selected.block));
     match selected.state {
         Some(state) => format!("{kind} · {}", state_name(state)),
         None => kind.to_owned(),
+    }
+}
+
+/// What an asset is called on screen: its kind, unless its block says more.
+///
+/// A `generated_audio` asset is a line or a track by the block it carries, so
+/// the block is asked first. A new block (#1265) is a new arm here.
+pub(super) fn name(kind: AssetKind, block: Option<AudioBlock>) -> &'static str {
+    match block {
+        Some(AudioBlock::Speech) => "generated speech",
+        Some(AudioBlock::Music) => "generated music",
+        None => kind_name(kind),
     }
 }
 
@@ -170,7 +184,7 @@ fn describe(selected: &Selected) -> String {
 /// is a field value and "synthesised audio" is what it is. Exhaustive on
 /// purpose: a kind added to the format fails to compile here, which is the
 /// cheapest possible reminder that the window has to name it too.
-pub(super) fn kind_name(kind: AssetKind) -> &'static str {
+fn kind_name(kind: AssetKind) -> &'static str {
     match kind {
         AssetKind::Video => "video",
         AssetKind::Image => "image",
@@ -181,7 +195,8 @@ pub(super) fn kind_name(kind: AssetKind) -> &'static str {
         AssetKind::Icon => "icon",
         AssetKind::GeneratedVideo => "generated video",
         AssetKind::GeneratedImage => "generated still",
-        AssetKind::GeneratedAudio => "generated speech",
+        // Named by its block in [`name`]; this is only the kind's own word.
+        AssetKind::GeneratedAudio => "generated audio",
         AssetKind::SynthAudio => "synthesised audio",
         AssetKind::Group => "group",
         AssetKind::ImageSequence => "image sequence",
@@ -223,5 +238,14 @@ mod tests {
     fn a_kind_and_a_lifecycle_state_are_both_said() {
         assert_eq!(kind_name(AssetKind::SynthAudio), "synthesised audio");
         assert!(state_name(GenerationState::Sketch).starts_with("sketch"));
+    }
+
+    /// A track is music and a line is speech, though both are `generated_audio`.
+    #[test]
+    fn a_generated_track_is_named_music_and_a_line_speech() {
+        let audio = AssetKind::GeneratedAudio;
+        assert_eq!(name(audio, Some(AudioBlock::Music)), "generated music");
+        assert_eq!(name(audio, Some(AudioBlock::Speech)), "generated speech");
+        assert_eq!(name(AssetKind::Video, None), "video");
     }
 }

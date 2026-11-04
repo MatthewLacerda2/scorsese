@@ -7,8 +7,8 @@
 //! the borrow short and the drawing code free of the question.
 
 use scorsese_core::{
-    AssetId, AssetKind, ClipId, Fit, Frames, GenerationState, KeyframeTrack, Project, PropertyPath,
-    Speed, TrackId, TrackKind,
+    AssetId, AssetKind, AudioBlock, ClipId, Fit, Frames, GenerationState, KeyframeTrack, Project,
+    PropertyPath, Speed, TrackId, TrackKind,
 };
 
 use super::transform::{Transform, shown_as_value};
@@ -24,6 +24,9 @@ pub(super) struct Selected {
     /// validated, so `None` is not a state a person can normally reach — it
     /// still gets said rather than guessed at.
     pub(super) kind: Option<AssetKind>,
+    /// Which block a `generated_audio` asset is realised from — a line or a
+    /// track, which the kind alone cannot tell apart.
+    pub(super) block: Option<AudioBlock>,
     /// Where a generated asset is in the sketch lifecycle, which is the answer
     /// to "why is this a slug card?" for anyone who has not asked yet.
     pub(super) state: Option<GenerationState>,
@@ -82,6 +85,7 @@ impl Selected {
             clip: found.id.clone(),
             asset: found.asset.clone(),
             kind: asset.map(|asset| asset.kind),
+            block: asset.and_then(scorsese_core::Asset::audio_block),
             state: asset.and_then(|asset| asset.state),
             source: asset
                 .and_then(|asset| asset.source.as_ref())
