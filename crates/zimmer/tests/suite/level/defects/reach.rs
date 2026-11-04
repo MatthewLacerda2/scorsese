@@ -29,8 +29,8 @@ fn a_staircase_past_the_last_whole_stretch_is_found() {
     assert_eq!(defects.zipper.count, 1, "{defects:?}");
 }
 
-/// A mean square under −70 dB is silence and has no level: a staircase that
-/// starts at −77 dB is not judged, and one from −53 dB down to −68 is.
+/// A mean square under −70 dB is silence and has no level: a staircase from
+/// −53 dB down to −68 is judged, and one from −63 down to −78 is not.
 #[test]
 fn a_staircase_in_near_silence_is_not_judged() {
     let period = 800.0 / f64::from(RATE);
@@ -41,6 +41,6 @@ fn a_staircase_in_near_silence_is_not_judged() {
     };
     let heard = found(1, &staircase(3e-3));
     assert_eq!(heard.zipper.count, 1, "{heard:?}");
-    let silent = found(1, &staircase(2e-4));
+    let silent = found(1, &staircase(1e-3));
     assert_eq!(silent.zipper.count, 0, "{silent:?}");
 }

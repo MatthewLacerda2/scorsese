@@ -25,12 +25,28 @@ fn a_dropout_reads_as_deep_as_it_falls() {
     assert!((gap.size_db - 50.0).abs() < 0.5, "{gap:?}");
 }
 
-/// The sound before a gap must be −40 dBFS or louder, however loud what
-/// follows it: a gap in a whisper is not a dropout anybody hears.
+/// The 20 ms before a gap must be −40 dBFS or louder, however loud what
+/// came before them or what follows: a gap in a whisper is not a dropout
+/// anybody hears.
 #[test]
 fn a_gap_after_quiet_sound_is_not_a_dropout() {
-    let mut signal = tone(440.0, 0.4, 1.0, |t| if t < 0.5 { -45.0 } else { 0.0 });
+    let mut signal = tone(440.0, 0.4, 1.0, |t| {
+        if (0.4..0.5).contains(&t) { -40.0 } else { 0.0 }
+    });
     signal[RATE as usize / 2..RATE as usize / 2 + 480].fill(0.0);
+    let defects = found(1, &signal);
+    assert_eq!(defects.dropouts.count, 0, "{defects:?}");
+}
+
+/// A gap falls 40 dB under the sound on *both* sides: one 45 dB under the
+/// sound before it and 20 under the quieter sound after is not a dropout.
+#[test]
+fn a_gap_falls_far_under_the_sound_on_both_sides() {
+    let signal = tone(440.0, 0.4, 1.0, |t| match t {
+        t if t < 0.5 => 0.0,
+        t if t < 0.51 => -45.0,
+        _ => -25.0,
+    });
     let defects = found(1, &signal);
     assert_eq!(defects.dropouts.count, 0, "{defects:?}");
 }

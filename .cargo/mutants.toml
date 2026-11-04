@@ -878,8 +878,23 @@ exclude_re = [
     # in range, and `at` moves on by one either way. And once a block is under
     # it, the gap's end is past it, so `end.max(at + 1)` is `end` whatever is
     # added to `at`. Both equivalent.
-    'defects/envelope\.rs:96:63: replace \* with / in Envelope::dropouts',
-    'defects/envelope\.rs:118:29: replace \+ with - in Envelope::dropouts',
+    'defects/envelope\.rs:96:63: replace \* with [/+] in Envelope::dropouts',
+    'defects/envelope\.rs:118:29: replace \+ with [-*] in Envelope::dropouts',
+
+    # The same loop runs one block further with `at + around <= len`: a gap
+    # starting there ends past `len - around`, so the `end + around` guard
+    # refuses it. And `before <= SOUNDING` differs from `<` only at a mean
+    # square of exactly the `f64` nearest 1e-4: no signal is built to land on
+    # it, only one searched for sample by sample, the shape of
+    # `Properties::is_identity`'s entries above.
+    'defects/envelope\.rs:94:27: replace < with <= in Envelope::dropouts',
+    'defects/envelope\.rs:96:23: replace < with <= in Envelope::dropouts',
+
+    # `Clicks::finish` judges the jumps `feed` has not, from `newest + 1 -
+    # reach`. Starting one earlier (`newest * 1`) re-judges the jump the last
+    # `feed` judged, against the very window it was judged in: it is found
+    # again or not, as before, and a click found again joins itself.
+    'defects/clicks\.rs:114:28: replace \+ with \* in Clicks::finish',
 
     # `level::defects::zipper`'s `Cut::of` counts a boundary as going the
     # staircase's way when `steps[i] * across > 0.0`. A quotient has the sign
