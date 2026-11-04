@@ -26,10 +26,17 @@ commit mergeable while one of its runs was red. That is #153 again in a new
 costume, produced by the tool written to prevent it.
 
 So the rule is stated over the whole set rather than over a chosen member:
-**no run for this commit failed, and at least one succeeded having actually
-run its jobs.** A skipped run beside a real one then decides nothing, and a
+**no run for this commit failed, none has a job still out, and at least one
+succeeded having actually run its jobs, its own `CI ok` concluding
+`success`.** A skipped run beside a real one then decides nothing, and a
 failing run beside a green one refuses — which is the only safe reading of a
 commit whose evidence disagrees with itself.
+
+**The jobs are the evidence, not the run's own status** (#1764). During an
+Actions outage GitHub marked a run `completed` / `success` while a job was
+still `in_progress` and `CI ok` `queued`; read by the run alone, it passed. So
+a run with any job not `completed` is unfinished ([`unfinished`]), and one
+that built something passes only on its own `CI ok` ([`unsummarised`]).
 
 **A commit can also have no run because the branch conflicts with `main`**,
 and that is #429. GitHub cannot compute a merge commit for a conflicted
@@ -110,8 +117,9 @@ pulls = described.pulls
 WORKFLOW = "CI"
 
 # The job in it that stands for all the others (#1351): `ci.yml`'s last, which
-# the `main` ruleset requires. It fails whenever a job it needs did, so it is a
-# summary and never a verdict of its own — see `merge_queue.verdict`.
+# the `main` ruleset requires. It fails whenever a job it needs did, so its
+# failure is never a verdict of its own (see `merge_queue.verdict`); its
+# success is what a run that built something must show to pass (#1764).
 SUMMARY_JOB = "CI ok"
 
 # What GitHub calls a branch it cannot merge, in the two fields that say so:
