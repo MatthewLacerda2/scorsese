@@ -4,8 +4,9 @@
 //! Everything it prints is written on that assumption: what each brief did,
 //! what the run is estimated to have cost, and what is still in flight.
 //!
-//! **Three passes, one ceiling, one total.** Shots, stills and narration are
-//! separate passes because they are separate models and vendors, but the budget
+//! **Five passes, one ceiling, one total.** Shots, stills, narration, music
+//! and sound effects are separate passes because they are separate models and
+//! vendors, but the budget
 //! is threaded from each into the next and the totals are added — a ceiling that each
 //! pass checked independently would be a ceiling worth twice what somebody set.
 //!
@@ -30,7 +31,7 @@ use scorsese_providers::credentials::Budget;
 use scorsese_providers::image::Order;
 use scorsese_providers::passes::{self, Halt, Keyed};
 use scorsese_providers::prices::{dollars, from_cents};
-use scorsese_providers::{image, music, speech, video};
+use scorsese_providers::{image, music, sound, speech, video};
 
 use super::confirm;
 
@@ -151,6 +152,7 @@ fn pending(project: &Project, root: &Path) -> bool {
         || image::pending(project, root)
         || speech::pending(project, root)
         || music::pending(project, root)
+        || sound::pending(project, root)
 }
 
 /// Picks up whatever finished while nobody was watching. Submits nothing.
@@ -226,4 +228,28 @@ fn quote(project: &Project, root: &Path, order: Order) -> Result<()> {
         );
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use scorsese_core::{Asset, AssetId, AssetKind, Fps, Project, Ratio, SoundRequest};
+
+    /// A project whose one brief is a sound effect has work to do: the
+    /// fifth pass is asked like the other four (#1265).
+    #[test]
+    fn a_sound_alone_is_something_to_generate() {
+        let dir = crate::scratch::fresh("scorsese-pending-sound", "");
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut project =
+            Project::create(&dir, Some("sound"), Fps::THIRTY, Ratio::WIDE).expect("a project");
+        assert!(!super::pending(&project, &dir), "nothing yet");
+        let mut door = Asset::sketch(AssetId::new("door"), AssetKind::GeneratedAudio, "a door");
+        door.sound = Some(SoundRequest {
+            seconds: Some(2.0),
+            ..SoundRequest::default()
+        });
+        project.assets.push(door);
+        assert!(super::pending(&project, &dir));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
