@@ -1118,7 +1118,7 @@ together, so every ElevenLabs kind draws on one shared budget,
 `jobs::kinds::ELEVENLABS`, sized by `SCORSESE_ELEVENLABS_CONCURRENCY` (3,
 Starter's), and a kind runs only while both its own limit and its budget have
 room. Cloning a voice (#1263) runs as a `voice_keep` job and draws on it
-too; music and sound join it when they arrive. **A kind may also be capped
+too, as music tracks (`music_track`) and sound effects (`sound_effect`) do. **A kind may also be capped
 per user** (`Registry::per_user`): the claim passes over the jobs of a user
 who already runs that many of it, and takes other users' instead.
 
@@ -1130,6 +1130,8 @@ who already runs that many of it, and takes other users' instead.
 | `thumbnail` | 2 | one decoded frame |
 | `veo_shot` | 4 | minutes of waiting on Google, almost no machine |
 | `spoken_line` | the ElevenLabs budget | seconds, mostly network |
+| `music_track` | the ElevenLabs budget | an ElevenLabs Music track (#1264): up to minutes of composing, all network |
+| `sound_effect` | the ElevenLabs budget | an ElevenLabs sound effect (#1265): seconds, all network |
 | `still_image` | 4 | a Gemini still (#461): seconds, mostly network |
 | `batch_still` | 64, at most 16 of one user's | a Gemini still in a half-price batch (#947): one order, then asking once a minute for up to a day — many at once, so a slot held for a day never makes the next person's still wait a day to be ordered, and a quarter of them per user (`SCORSESE_USER_BATCH_STILLS`), so one account's storyboard never holds the whole pool; the rest of theirs wait in line |
 | `voice_design` | the ElevenLabs budget | an ElevenLabs voice design (#572): seconds, mostly network |
@@ -1139,7 +1141,8 @@ who already runs that many of it, and takes other users' instead.
 
 **Every kind has a handler** — `thumbnail` and `proxy` (#535, #542, *Library*),
 `render` and `preview` (#541, #542, *Renders*), `veo_shot`, `still_image`,
-`batch_still` and `spoken_line` (#539, #461, #947, *Web MCP*, below), `voice_design`, `voice_keep`
+`batch_still`, `spoken_line`, `music_track` and `sound_effect` (#539, #461, #947,
+#1264, #1265, *Web MCP*, below), `voice_design`, `voice_keep`
 and `voice_forget` (#572, #1381, *Designing a voice*, below), and `transcribe`
 (#1549, *Transcribing a recording*, below). A paid generation pays through credits (*Credits*,
 below: a failed one is free) and keeps what it made in the library. Each

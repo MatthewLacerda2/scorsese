@@ -87,7 +87,13 @@ export interface ProjectRef {
  * asked, and what it cost.
  */
 export interface GenerationRecord {
-  kind: "veo_shot" | "still_image" | "spoken_line" | "music_track" | "voice_design";
+  kind:
+    | "veo_shot"
+    | "still_image"
+    | "spoken_line"
+    | "music_track"
+    | "sound_effect"
+    | "voice_design";
   id: number;
   model: string;
   created_at: number;
@@ -226,6 +232,7 @@ export const HISTORY_KINDS = [
   "veo_shot",
   "spoken_line",
   "music_track",
+  "sound_effect",
   "still_image",
   "voice_design",
   "assistant",

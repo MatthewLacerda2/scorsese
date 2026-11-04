@@ -43,6 +43,7 @@ export const pages: Messages["pages"] = {
       veo_shot: "Geração de vídeo",
       spoken_line: "Geração de fala",
       music_track: "Geração de música",
+      sound_effect: "Geração de efeito sonoro",
       still_image: "Geração de imagem",
       voice_design: "Criação de voz",
       assistant: "Assistente",
