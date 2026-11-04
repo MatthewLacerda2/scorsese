@@ -214,6 +214,22 @@ jobs:
         timeout-minutes: 5
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
 
+      # The pinned chrome-headless-shell, cached and exported as `ci.yml`'s
+      # `check` does, which has why (#775, #853): the tests that capture an
+      # `html` clip fail without it, and a baseline that fails measures
+      # nothing (#1744).
+      - name: Chromium cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/scorsese/chromium
+          key: chromium-${{ hashFiles('tools/chromium/pin') }}
+
+      - name: Install Chromium
+        run: |
+          chrome=$(tools/chromium/fetch)
+          echo "SCORSESE_CHROME=$chrome" >> "$GITHUB_ENV"
+          echo "SCORSESE_CHROME_NO_SANDBOX=1" >> "$GITHUB_ENV"
+
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -242,7 +258,7 @@ jobs:
       # No warm-up build: the copy each mutant is built in has no `target/`, so
       # it would compile into a directory no mutant reads (#394 measured it).
       #
-      # `ulimit -v`: every process here — cargo-mutants, rustc, the linker,
+      # `ulimit -Sv`: every process here — cargo-mutants, rustc, the linker,
       # each test binary — gets at most 6 GiB of address space. A mutant that
       # turns a loop infinite *and* allocating fills RAM in seconds, long
       # before the per-mutant timeout, and takes the runner down with it:
@@ -260,6 +276,13 @@ jobs:
       # `scorsese-compositor`, the heaviest, links under 3 GiB — so 6 GiB is
       # twice what a legitimate build needs and never the reason one fails.
       #
+      # A soft limit (`-S`), which a process may raise, so the browser can:
+      # chrome-headless-shell reserves tens of GiB of address space it never
+      # touches and cannot start under the cap, which failed the baseline of
+      # every scope with a test that captures a page (#1744). It runs through
+      # `tools/chromium/uncapped`, which lifts the cap for it alone; nothing
+      # else here raises it, so a runaway test binary still stops at 6 GiB.
+      #
       # Exit codes: 0 clean, 2 survivors, 3 timeouts — all ordinary results;
       # 124/137 is `timeout` ending the shard at its budget, which the report
       # names; anything else is the tool broken, and turns this shard red.
@@ -275,7 +298,8 @@ jobs:
             echo "::notice::shard $SHARD: setup left ${left}s of the job; not mutating"
             exit 0
           fi
-          ulimit -v 6291456
+          ulimit -Sv 6291456
+          export SCORSESE_CHROME="$PWD/tools/chromium/uncapped"
           set +e
           # shellcheck disable=SC2086 # ARGS is a word list on purpose.
           timeout --kill-after=60s "${budget}s" \

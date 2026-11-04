@@ -155,7 +155,7 @@ whatever the clock allowed, reported as that and counted.
 ## The memory cap
 
 Every mutation process on a runner — cargo-mutants, rustc, the linker, each
-test binary — runs under `ulimit -v 6291456`: at most 6 GiB of address space.
+test binary — runs under `ulimit -Sv 6291456`: at most 6 GiB of address space.
 A mutant that turns a loop infinite *and* allocating fills RAM in seconds, long
 before the per-mutant timeout, and takes the runner down with it — *"The runner
 has received a shutdown signal"* — losing the shard's report. rusty lost a
@@ -170,6 +170,11 @@ rebuilding `scorsese-compositor`, the heaviest, links under 3 GiB — the cap is
 twice what a legitimate build needs. Both workflows that mutate carry it, each
 pointing at the *Mutate* step of `mutants-on-request.yml` for the arithmetic.
 `make mutants` does not: on your own machine the trade is yours.
+
+The browser is the one exception. chrome-headless-shell reserves tens of GiB of
+address space it never touches and cannot start under the cap, so the cap is a
+soft limit and the shards launch the browser through `tools/chromium/uncapped`,
+which raises it for that process alone (#1744).
 
 ## The scheduled sweep
 

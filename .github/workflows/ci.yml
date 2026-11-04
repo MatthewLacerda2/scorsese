@@ -237,7 +237,8 @@ jobs:
       # this run compares are the ones a sandboxed capture draws.
       - name: Install Chromium
         run: |
-          echo "SCORSESE_CHROME=$(tools/chromium/fetch)" >> "$GITHUB_ENV"
+          chrome=$(tools/chromium/fetch)
+          echo "SCORSESE_CHROME=$chrome" >> "$GITHUB_ENV"
           echo "SCORSESE_CHROME_NO_SANDBOX=1" >> "$GITHUB_ENV"
 
       # Saved by `main` only, here and in every rust-cache step below (#1130).
@@ -834,7 +835,8 @@ jobs:
       - name: Install Chromium
         if: steps.plan.outputs.run == 'true'
         run: |
-          echo "SCORSESE_CHROME=$(tools/chromium/fetch)" >> "$GITHUB_ENV"
+          chrome=$(tools/chromium/fetch)
+          echo "SCORSESE_CHROME=$chrome" >> "$GITHUB_ENV"
           echo "SCORSESE_CHROME_NO_SANDBOX=1" >> "$GITHUB_ENV"
 
       # `check`'s cache by name, which `main` saves: this job never does.
