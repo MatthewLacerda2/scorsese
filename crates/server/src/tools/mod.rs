@@ -81,6 +81,7 @@ mod design;
 mod fetched;
 mod folder;
 mod generate;
+mod handles;
 mod log;
 mod own;
 mod picked;
@@ -94,14 +95,14 @@ mod voiced;
 pub use bound::{AT_ONCE, DEADLINE};
 pub use fetched::keep as keep_fetched;
 pub use folder::{Folder, lay_out};
+pub use handles::Voices;
 pub use log::Client;
 pub use quotes::{BriefKind, Pending, QuoteItem};
 
 use std::path::Path;
 use std::sync::Arc;
 
-use scorsese_mcp::{Ahead, Libraries, PagesAhead, Reply, Stock, Tool};
-use scorsese_providers::voices::Catalogue;
+use scorsese_mcp::{Ahead, Libraries, PagesAhead, Reply, Tool};
 use scorsese_render::{Cancel, Tools};
 use serde_json::Value;
 use sqlx::postgres::PgPool;
@@ -111,6 +112,8 @@ use crate::jobs::Queue;
 use crate::library::Library;
 use crate::renders::RenderCache;
 use crate::storage::Storage;
+
+use handles::Handles;
 
 /// Everything a tool call may reach, for whichever user makes it. Cheap to
 /// clone — every field is a handle.
@@ -122,21 +125,10 @@ pub struct Toolbox {
     tools: Tools,
     queue: Queue,
     renders: RenderCache,
-    /// The one library every stock search and import answers from, when not
-    /// each medium's own — the module doc's *Stock*.
-    stock: Option<Stock>,
-    /// How much of each stock library each member has used this minute.
-    shares: share::Shares,
-    /// Where a voice's origin is asked (`voiced`), when not ElevenLabs keyed
-    /// from the one resolver — a test's.
-    voices: Option<Voices>,
-    /// How many of a member's registry tool calls run at once, and for how
-    /// long (`bound`).
-    bounds: bound::Bounds,
+    /// The shared vendor handles and limits, each with its test seam beside
+    /// it (`handles`).
+    handles: Handles,
 }
-
-/// A voice catalogue a call can move to a blocking thread.
-pub type Voices = Arc<dyn Catalogue + Send + Sync>;
 
 impl Toolbox {
     /// Tools answering from `pool` (the member pool), with users' files in
@@ -156,10 +148,7 @@ impl Toolbox {
             tools,
             queue,
             renders,
-            stock: None,
-            shares: share::Shares::default(),
-            voices: None,
-            bounds: bound::Bounds::new(AT_ONCE, DEADLINE),
+            handles: Handles::default(),
         }
     }
 
@@ -167,14 +156,6 @@ impl Toolbox {
     /// its limits as set.
     pub fn with_library(mut self, library: Library) -> Self {
         self.library = library;
-        self
-    }
-
-    /// The same tools searching and importing stock media of every kind from
-    /// `library` instead of Pixabay and LottieFiles — a test's, which needs no
-    /// key and no network.
-    pub fn stocked_from(mut self, library: Stock) -> Self {
-        self.stock = Some(library);
         self
     }
 
@@ -310,7 +291,7 @@ impl Toolbox {
             surface::Entry::Shared(tool, serve) => {
                 // Before anything is opened: a call waiting for a permit holds
                 // nothing else.
-                match self.bounds.permit(user, &caller.cancel).await {
+                match self.handles.bounds.permit(user, &caller.cancel).await {
                     Some(permit) => {
                         stored::run(&caller, tool.as_ref(), serve, arguments, permit).await
                     }

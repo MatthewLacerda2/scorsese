@@ -16,11 +16,9 @@
 //! toolbox's, the same one `stock_import` answers from — which is how a test
 //! imports with no network.
 
-use std::sync::Arc;
-
 use scorsese_mcp::{Reply, Stock};
-use scorsese_providers::credentials::{Provider, resolve};
-use scorsese_providers::stock::{self, Choice, Imports, Medium, PixabayLibrary};
+
+use scorsese_providers::stock::{self, Choice, Imports, Medium};
 use scorsese_render::Ffprobe;
 use serde_json::json;
 
@@ -174,30 +172,6 @@ impl Toolbox {
             }
         }
         Err("the project kept changing while this ran, so nothing was imported".to_owned())
-    }
-}
-
-impl Toolbox {
-    /// The library `user`'s pick of footage or a photo is imported from,
-    /// within their share of it (`share`): the toolbox's own when it was
-    /// given one, and otherwise Pixabay, keyed from the one resolver. Why
-    /// there is none, in words for the model, which tells the person.
-    fn footage(&self, user: UserId) -> Result<Stock, String> {
-        if let Some(library) = &self.stock {
-            return Ok(self.shares.of(user, library.clone()));
-        }
-        match resolve(Provider::Pixabay) {
-            Ok(key) => Ok(self
-                .shares
-                .of(user, Arc::new(PixabayLibrary::new(&key.secret)))),
-            Err(error) => {
-                tracing::error!("stock import: {error}");
-                Err(format!(
-                    "{} is not set on this server, so stock media cannot be brought in",
-                    Provider::Pixabay.variable()
-                ))
-            }
-        }
     }
 }
 

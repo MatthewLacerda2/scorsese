@@ -30,7 +30,6 @@ use scorsese_render::Cancel;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio::time::Instant;
 
-use super::Toolbox;
 use crate::db::UserId;
 
 /// How many in-request tool calls one member may have running at once.
@@ -45,16 +44,6 @@ pub(super) struct Bounds {
     at_once: usize,
     deadline: Duration,
     held: Arc<Mutex<HashMap<UserId, Arc<Semaphore>>>>,
-}
-
-impl Toolbox {
-    /// The same tools, with at most `at_once` of a member's registry tool
-    /// calls running at a time and each stopped past `deadline` — a test's,
-    /// which cannot wait [`DEADLINE`].
-    pub fn bounded(mut self, at_once: usize, deadline: Duration) -> Self {
-        self.bounds = Bounds::new(at_once, deadline);
-        self
-    }
 }
 
 impl Bounds {

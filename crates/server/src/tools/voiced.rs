@@ -15,32 +15,12 @@
 //! told so by `voices` or to fail its job unpaid, as it always has.
 
 use std::collections::BTreeSet;
-use std::sync::Arc;
 
-use scorsese_providers::credentials::{Provider, resolve};
-use scorsese_providers::voices::{ElevenLabsVoices, Origin};
+use scorsese_providers::voices::Origin;
 use serde_json::Value;
 
-use super::{Caller, Toolbox, Voices, database};
+use super::{Caller, database};
 use crate::designs::owners;
-
-impl Toolbox {
-    /// The same tools asking `voices` where a voice comes from instead of
-    /// ElevenLabs — a test's, which needs no key and no network.
-    pub fn voiced_from(mut self, voices: Voices) -> Self {
-        self.voices = Some(voices);
-        self
-    }
-
-    /// Where a voice's origin is asked, or why it cannot be.
-    fn catalogue(&self) -> Result<Voices, String> {
-        if let Some(voices) = &self.voices {
-            return Ok(voices.clone());
-        }
-        let key = resolve(Provider::ElevenLabs).map_err(|error| error.to_string())?;
-        Ok(Arc::new(ElevenLabsVoices::new(&key.secret)))
-    }
-}
 
 /// Refuse a `voices` call whose `check` names a voice the caller may not use.
 pub(super) async fn checked(caller: &Caller<'_>, arguments: &Value) -> Result<(), String> {

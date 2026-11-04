@@ -62,7 +62,7 @@ pub(super) async fn run(
 ) -> Result<Reply, Refusal> {
     // No bigger a picture than the shared machine draws (#1634).
     super::surface::ceilinged::within(tool.name(), arguments).map_err(Refusal::Said)?;
-    let deadline = caller.toolbox.bounds.deadline();
+    let deadline = caller.toolbox.handles.bounds.deadline();
     let until = Instant::now() + deadline;
     let id = project_id(arguments)?;
     held(serve, arguments)?;
