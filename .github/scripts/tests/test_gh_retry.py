@@ -107,6 +107,7 @@ class Retrying(unittest.TestCase):
             "HTTP 404: Not Found",
             "HTTP 422: Validation Failed",
             "HTTP 422: body ends at EOF (https://api.github.com/repos/o/r/issues)",
+            'HTTP 422: field "x": EOF reached',
         ):
             with self.subTest(failure=failure):
                 self.assertFalse(mergeable.transport(failure))
