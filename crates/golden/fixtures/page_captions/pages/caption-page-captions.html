@@ -1,0 +1,72 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- Written by caption_narration: running it again rewrites this page. -->
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  
+  #caption {
+    position: absolute; left: 6%; right: 6%; bottom: 20%;
+    text-align: center; line-height: 1.15;
+    font-family: "montserrat", sans-serif; font-weight: 900;
+    font-size: 3.8vh; text-transform: uppercase;
+    color: #ffffff;
+    -webkit-text-stroke: 0.72vh #000000;
+    paint-order: stroke fill;
+    transform-origin: 50% 100%;
+  }
+  #caption span { display: inline-block; margin: 0 0.12em; }
+  #caption span.said { color: #ffd400; }
+</style>
+</head>
+<body>
+<div id="caption"></div>
+<script src="https://lib.scorsese/kit.js"></script>
+<script>
+  // Each caption's words: the name scorsese.words knows it by, and its text.
+  const CAPTIONS = [[["vo/ontem","Ontem,"]],[["vo/o","o"],["vo/presidente","presidente"],["vo/lula","Lula"]],[["vo/visitou","visitou"]]];
+  const LEAD = 0.07, HOLD = 0.35, BRIDGE = 1;
+  // A word the timeline no longer plays is left out, and a caption with none.
+  const timed = CAPTIONS
+    .map((words) => words
+      .map(([name, text]) => ({ text, at: scorsese.words[name] }))
+      .filter((word) => word.at))
+    .filter((words) => words.length)
+    .map((words) => ({
+      words,
+      start: Math.max(0, words[0].at.start - LEAD),
+      said: words[words.length - 1].at.end,
+    }))
+    .sort((a, b) => a.start - b.start);
+  // A caption stays until the next one when it follows closely, else a hold.
+  timed.forEach((caption, i) => {
+    const next = timed[i + 1];
+    const held = caption.said + HOLD;
+    caption.end = !next ? held
+      : next.start - caption.said <= BRIDGE ? next.start
+      : Math.min(held, next.start);
+  });
+  const box = document.getElementById("caption");
+  let shown = null;
+  kit.frame((t) => {
+    const now = timed.find((c) => t >= c.start && t < c.end) ?? null;
+    if (now !== shown) {
+      box.replaceChildren(...(now ? now.words : []).map((word) => {
+        const span = document.createElement("span");
+        span.textContent = word.text;
+        return span;
+      }));
+      shown = now;
+    }
+    if (!now) return;
+    // The word being said is the last one begun, lit until the next begins.
+    let lit = 0;
+    now.words.forEach((word, i) => { if (t >= word.at.start) lit = i; });
+    [...box.children].forEach((span, i) => span.classList.toggle("said", i === lit));
+    const pop = kit.enter(t, now.start, 0.12);
+    box.style.transform = `scale(${kit.lerp(0.9, 1, pop)})`;
+  });
+</script>
+</body>
+</html>

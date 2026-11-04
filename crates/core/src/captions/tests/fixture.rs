@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use crate::captions::{Captioning, Chunking};
+use crate::captions::{Captioning, Chunking, Look};
 use crate::words::{Word, Words};
 use crate::{
     Asset, AssetId, AssetKind, Clip, ClipId, Fps, Frames, GenerationState, Project, ProjectPath,
@@ -82,6 +82,7 @@ pub(super) fn asked() -> Captioning {
         track: TrackId::new("captions"),
         narration: Vec::new(),
         chunking: Chunking::DEFAULT,
+        look: Look::Text,
         style: TextStyle::default(),
         lift: 0.2,
         arrive: 8,

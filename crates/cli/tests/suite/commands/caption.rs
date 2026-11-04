@@ -50,17 +50,49 @@ fn strokes(dir: &std::path::Path) -> Vec<Option<Rgba>> {
 fn the_rim_is_a_colour_or_none_and_no_stroke_is_none() {
     let dir = spoken("caption-stroke");
     let red = Rgba::opaque(255, 0, 0);
-    let run = run_in(&dir, &["caption", "--stroke", "#ff0000"]);
+    let run = run_in(&dir, &["caption", "--text", "--stroke", "#ff0000"]);
     assert!(!run.failed, "{}", run.output);
     assert_eq!(strokes(&dir), vec![Some(red), Some(red)]);
 
     for off in [&["--stroke", "none"][..], &["--no-stroke"]] {
-        let run = run_in(&dir, &[&["caption"][..], off].concat());
+        let run = run_in(&dir, &[&["caption", "--text"][..], off].concat());
         assert!(!run.failed, "{}", run.output);
         assert_eq!(strokes(&dir), vec![None, None], "{off:?}");
     }
 
     let run = run_in(&dir, &["caption", "--stroke", "red"]);
     assert!(run.failed, "a word that is not a colour is refused");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// Without `--text`, the captions are one page lighting the word being said.
+#[test]
+fn the_default_is_one_page_and_text_is_one_flag_away() {
+    let dir = spoken("caption-page");
+    let run = run_in(&dir, &["caption", "--stroke", "#ff0000"]);
+    assert!(!run.failed, "{}", run.output);
+    assert!(
+        run.output.contains("one page, `caption-page-captions`"),
+        "{}",
+        run.output
+    );
+    let page = std::fs::read_to_string(dir.join("pages/caption-page-captions.html")).unwrap();
+    assert!(page.contains("#ff0000"), "the rim asked for");
+    assert!(page.contains(r#"["v1/stop","Stop."]"#), "{page}");
+
+    let run = run_in(&dir, &["caption", "--text"]);
+    assert!(!run.failed, "{}", run.output);
+    let clips: Vec<String> = reload(&dir)
+        .tracks
+        .iter()
+        .filter(|track| track.id.as_str() == "captions")
+        .flat_map(|track| &track.clips)
+        .map(|clip| clip.id.to_string())
+        .collect();
+    assert_eq!(
+        clips,
+        ["caption-v1-1", "caption-v1-2"],
+        "the page clip went"
+    );
     std::fs::remove_dir_all(&dir).ok();
 }

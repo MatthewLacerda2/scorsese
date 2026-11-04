@@ -129,6 +129,7 @@ goldens!(
     overlay,
     page_alpha,
     page_anime,
+    page_captions,
     page_css,
     page_font,
     page_raf,

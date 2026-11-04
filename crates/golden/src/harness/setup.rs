@@ -49,9 +49,9 @@ pub(super) fn materialise(
 ///
 /// **Media is still generated, not committed** — that rule is why the
 /// repository carries no sample footage and it has not moved. This is for the
-/// files ffmpeg cannot conjure, and there is exactly one kind of them today: a
-/// **font**. A face is not footage. It is a few glyph outlines, it is the same
-/// bytes on every machine, and no `lavfi` source will ever produce one — so a
+/// files ffmpeg cannot conjure: a **font**, or a **transcript** of the words a
+/// generated voice is said to say. A face is not footage. It is a few glyph
+/// outlines, it is the same bytes on every machine, and no `lavfi` source will ever produce one — so a
 /// fixture that needs a project to bring its own font has no other way to say
 /// so. The other is a **web page** (`pages/`), which is a document somebody
 /// wrote rather than media anybody generates. Most fixtures have neither and

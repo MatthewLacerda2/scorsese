@@ -4,9 +4,10 @@ use std::fmt::Display;
 use std::str::FromStr;
 
 use schemars::JsonSchema;
-use scorsese_core::captions::{Captioned, Captioning, Chunking, caption};
+use scorsese_core::captions::{Captioned, Captioning, Chunking, Look, caption};
 use scorsese_core::{FontChoice, PropertyPath, TrackId};
 use scorsese_render::audio::path;
+use scorsese_render::face_problems;
 use scorsese_render::picture::caption as look;
 use serde::Deserialize;
 use serde_json::Value;
@@ -31,25 +32,39 @@ struct Arguments {
     /// throughout.
     narration: Option<Vec<String>>,
     #[schemars(description = format!(
-        "The most characters one caption holds, about two lines at the default \
-         size in 9:16. Default {}.",
+        "The most characters one caption holds, about two lines in the text look \
+         in 9:16; the page look also stops at three words. Default {}.",
         Chunking::DEFAULT.max_chars
     ))]
     max_chars: Option<u32>,
     /// The face: a name this build ships or a font file inside the project.
     /// Default `montserrat`.
     font: Option<String>,
-    /// How heavy, 1 to 1000. Default 800.
+    /// How heavy, 1 to 1000. Default 900 (800 for `look: text`).
     weight: Option<u16>,
-    /// How big, as a fraction of the frame's height. Default 0.031.
+    /// How big, as a fraction of the frame's height. Default 0.038 (0.031
+    /// for `look: text`).
     size: Option<f64>,
-    /// The words' colour, `#rrggbb` or `#rrggbbaa`. Default white.
+    /// The words' colour, `#rrggbb` or `#rrggbbaa`. Default white; the word
+    /// being said is yellow in the page look.
     color: Option<String>,
     /// The rim outside each letter, `#rrggbb`, or `none`. Default black.
     stroke: Option<String>,
     /// How far up from the frame's bottom edge, as a fraction of its height.
     /// Default 0.2, the lower third.
     lift: Option<f64>,
+    /// `page` (default): one page lighting the word being said in yellow,
+    /// up to three upper-case words at a time. `text`: one ordinary text clip
+    /// per caption, whole in one colour.
+    look: Option<CaptionLook>,
+}
+
+/// The two looks `look` names.
+#[derive(Deserialize, JsonSchema, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+enum CaptionLook {
+    Page,
+    Text,
 }
 
 impl args::Arguments for Arguments {
@@ -65,12 +80,16 @@ impl Tool for CaptionNarration {
         "Put the narration's own words on screen as captions, timed from the \
          word timings saved when each line was generated, and from footage's \
          speech once transcribe has heard it. For viewers watching muted: each \
-         line is cut into short pieces at its sentences, commas and pauses, and \
-         each piece arrives whole on its first spoken word. Writes ordinary text \
-         assets and clips on one video track. Safe to re-run after a line is \
-         regenerated or moved, or a transcript corrected: it replaces only the \
-         captions it wrote. A clip without word timings on a track named in \
-         `narration` is named and skipped."
+         line is cut into short pieces at its sentences, commas and pauses. By \
+         default the look of captions on social video: white heavy upper-case \
+         type rimmed in black, up to three words at a time with a name kept \
+         whole, the word being said lit in yellow — one page, \
+         pages/caption-page-<track>.html, played by one clip on one video \
+         track. `look: text` writes one ordinary text clip per caption \
+         instead, arriving whole on its first word. Safe to re-run after a \
+         line is regenerated or moved, or a transcript corrected: it replaces \
+         only the captions it wrote. A clip without word timings on a track \
+         named in `narration` is named and skipped."
     }
 
     fn costs(&self) -> Costs {
@@ -86,9 +105,18 @@ impl Tool for CaptionNarration {
         let dir = arguments.project.dir();
         let mut project = load(dir)?;
         let asked = asked(&arguments, project.timeline_fps.as_f64())?;
+        if matches!(asked.look, Look::Page(_)) {
+            let problems = face_problems(&project, dir, &asked.style);
+            if !problems.is_empty() {
+                return Err(format!(
+                    "refused, nothing written — {}",
+                    problems.join("; ")
+                ));
+            }
+        }
         let report = caption(&mut project, dir, &asked).map_err(|error| error.to_string())?;
         save(&project, dir)?;
-        Ok(said(&report, &asked.track).into())
+        Ok(said(&report, &asked).into())
     }
 }
 
@@ -96,6 +124,7 @@ impl Tool for CaptionNarration {
 fn asked(arguments: &Arguments, fps: f64) -> Result<Captioning, String> {
     let track = args::given(arguments.track.as_deref()).unwrap_or("captions");
     let choices = look::Choices {
+        text: arguments.look == Some(CaptionLook::Text),
         narration: arguments
             .narration
             .iter()
@@ -127,15 +156,30 @@ where
 }
 
 /// What the run reads as.
-fn said(report: &Captioned, track: &TrackId) -> String {
+fn said(report: &Captioned, asked: &Captioning) -> String {
+    let track = &asked.track;
     let made: usize = report.lines.iter().map(|(_, n)| n).sum();
+    let what = match (&report.page, asked.look) {
+        (None, Look::Page(_)) => "no page written, with nothing to caption".to_owned(),
+        (Some(page), _) => format!(
+            "one page, `{page}`, lighting each word as it is said, played by one \
+             clip{}",
+            if cfg!(windows) {
+                " — pages are not drawn on Windows yet, so it shows as a card in a \
+                 still or render here; `look: text` captions that draw on this \
+                 machine"
+            } else {
+                ""
+            }
+        ),
+        (None, Look::Text) => "ordinary text clips, editable and deletable".to_owned(),
+    };
     let mut lines = vec![format!(
-        "{made} caption(s) from {} line(s) on track `{track}`{} — ordinary text \
-         clips, editable and deletable",
+        "{made} caption(s) from {} line(s) on track `{track}`{} — {what}",
         report.lines.len(),
         match report.replaced {
             0 => String::new(),
-            n => format!(", replacing the {n} written before"),
+            n => format!(", replacing the {n} clip(s) written before"),
         }
     )];
     for clip in &report.untimed {

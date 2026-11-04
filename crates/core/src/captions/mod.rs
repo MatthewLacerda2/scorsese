@@ -12,6 +12,12 @@
 //! caption kind and no caption stage in the compositor, and a person can edit
 //! or delete any caption afterwards like anything else.
 //!
+//! **Or one page for the whole track** ([`Look::Page`], #1550): the
+//! captions' words handed to a page the caller writes, which lights each word
+//! as it is said from `scorsese.words`. The page is an ordinary `html` asset
+//! under `pages/`, `caption-page-<track>`, played by one clip of that name
+//! from the first caption's arrival to the last one's leaving.
+//!
 //! **What it wrote, it recognises by name.** A caption's asset and clip are
 //! both called `caption-<narration clip>-<n>`, and a run first takes away
 //! every text clip so called and the caption assets left unused — then writes
@@ -44,6 +50,20 @@ use crate::timeline::TrackId;
 pub use chunk::{Chunk, Chunking, chunks, time};
 pub use place::{CaptionError, Captioned, caption};
 
+/// The page a caption track is played by: written from the run and its
+/// captions, in the order they arrive — each with its words named as
+/// `scorsese.words` names them under `<line clip id>/`.
+pub type PageHtml = fn(&Captioning, &[Chunk]) -> String;
+
+/// What a run writes the captions as.
+#[derive(Debug, Clone, Copy)]
+pub enum Look {
+    /// One `text` asset and clip per caption, in [`Captioning::style`].
+    Text,
+    /// One page for the whole track, written by the function given.
+    Page(PageHtml),
+}
+
 /// Who signs the keyframe tracks a caption carries.
 pub const TOOL: &str = "caption";
 
@@ -65,13 +85,15 @@ pub struct Captioning {
     pub narration: Vec<TrackId>,
     /// How lines are cut and timed.
     pub chunking: Chunking,
+    /// Text clips, or one page.
+    pub look: Look,
     /// What every caption is set in. Its `reveal` block is replaced: a caption
-    /// arrives whole, its words rising together.
+    /// arrives whole, its words rising together. A page reads it as it likes.
     pub style: TextStyle,
     /// How far up from the frame's bottom edge the captions sit, as a fraction
     /// of its height.
     pub lift: f64,
-    /// How many frames a caption takes to arrive.
+    /// How many frames a text caption takes to arrive.
     pub arrive: u64,
     /// The property that brings a text in a piece at a time.
     pub reveal: PropertyPath,

@@ -5,7 +5,7 @@
 use std::path::Path;
 
 use scorsese_compositor::text;
-use scorsese_core::{AssetKind, FontChoice, Project};
+use scorsese_core::{Asset, AssetId, AssetKind, FontChoice, Project, TextStyle};
 
 use super::Painter;
 use crate::error::RenderError;
@@ -217,4 +217,20 @@ fn face_named(choice: &FontChoice) -> String {
         FontChoice::Named(name) => name.clone(),
         FontChoice::File(path) => path.to_string(),
     }
+}
+
+/// What [`unknown_fonts`] and [`unusable_faces`] would say of a text asset set
+/// in `style` — for a caption page (#1550), which is set in a style but
+/// writes no text asset for `scorsese check` to find. Empty when the face is
+/// fine.
+pub fn face_problems(project: &Project, project_root: &Path, style: &TextStyle) -> Vec<String> {
+    let mut probe = project.clone();
+    let mut asset = Asset::text(AssetId::new("caption"), "caption");
+    asset.style = Some(style.clone());
+    probe.assets = vec![asset];
+    let unknown = unknown_fonts(&probe).into_iter().map(|f| f.to_string());
+    let unusable = unusable_faces(&probe, project_root)
+        .into_iter()
+        .map(|f| f.to_string());
+    unknown.chain(unusable).collect()
 }

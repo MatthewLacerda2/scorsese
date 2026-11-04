@@ -1,15 +1,19 @@
 //! How a caption looks when nobody chose: what `caption_narration` and
-//! `scorsese caption` set the narration's words in.
+//! `scorsese caption` set the narration's words in — by default a page that
+//! lights the word being said ([`page`], #1550), or ordinary text clips, one
+//! per caption, when asked for the text look.
 //!
 //! Here rather than in `scorsese-core` because it names a face, and which
 //! names are real faces is this crate's to say. The numbers are the ones the
-//! DataForce Reels ad landed on (#965): heavy Montserrat, white, rimmed in
+//! DataForce Reels ad landed on (#965) for the text look: heavy Montserrat, white, rimmed in
 //! black so it reads over any shot, small enough to leave the picture alone
 //! on a phone.
 
 use std::str::FromStr;
 
-use scorsese_core::captions::{Captioning, Chunking};
+pub mod page;
+
+use scorsese_core::captions::{Captioning, Chunking, Look};
 use scorsese_core::{ColorError, FontChoice, PropertyPath, Rgba, TextStyle, TrackId};
 
 use crate::path;
@@ -23,7 +27,7 @@ pub const LIFT: f64 = 0.2;
 /// 30 fps. Quick enough to keep up with speech, slow enough to read as motion.
 pub const ARRIVE: f64 = 0.27;
 
-/// The caption style: Montserrat 800, white, a black rim.
+/// The text look's style: Montserrat 800, white, a black rim.
 pub fn style() -> TextStyle {
     TextStyle {
         font: FontChoice::Named("montserrat".to_owned()),
@@ -36,7 +40,7 @@ pub fn style() -> TextStyle {
     }
 }
 
-/// A whole run at these defaults, onto `track`, captioning every generated
+/// A whole run in the text look, onto `track`, captioning every generated
 /// line, on a timeline of `fps` frames a second — what a caller starts from
 /// and overrides the parts it was asked about.
 pub fn captioning(track: TrackId, fps: f64) -> Captioning {
@@ -44,6 +48,7 @@ pub fn captioning(track: TrackId, fps: f64) -> Captioning {
         track,
         narration: Vec::new(),
         chunking: Chunking::DEFAULT,
+        look: Look::Text,
         style: style(),
         lift: LIFT,
         arrive: ((ARRIVE * fps).round() as u64).max(1),
@@ -77,6 +82,9 @@ impl FromStr for Stroke {
 /// `None` keeps the default [`captioning`] starts from.
 #[derive(Debug, Clone, Default)]
 pub struct Choices {
+    /// The text look: one text clip per caption, whole in one colour, rather
+    /// than the page that lights the word being said.
+    pub text: bool,
     /// The audio tracks whose lines are captioned; empty is every one.
     pub narration: Vec<TrackId>,
     /// The most characters one caption holds.
@@ -102,6 +110,11 @@ impl Choices {
     /// command line and the MCP server both build a caption run with.
     pub fn captioning(self, track: TrackId, fps: f64) -> Captioning {
         let mut asked = captioning(track, fps);
+        if !self.text {
+            asked.chunking = Chunking::WORDS;
+            asked.style = page::style();
+            asked.look = Look::Page(page::html);
+        }
         asked.narration = self.narration;
         asked.chunking.max_chars = self.max_chars.unwrap_or(asked.chunking.max_chars);
         asked.lift = self.lift.unwrap_or(asked.lift);

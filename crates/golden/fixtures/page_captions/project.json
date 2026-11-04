@@ -1,0 +1,68 @@
+{
+  "schema_version": 56,
+  "name": "page_captions",
+  "timeline_fps": {
+    "num": 30,
+    "den": 1
+  },
+  "aspect": "9:16",
+  "assets": [
+    {
+      "id": "bed",
+      "kind": "video",
+      "path": "assets/bed.mp4"
+    },
+    {
+      "id": "voice",
+      "kind": "audio",
+      "path": "assets/voice.wav"
+    },
+    {
+      "id": "caption-page-captions",
+      "kind": "html",
+      "path": "pages/caption-page-captions.html",
+      "note": "The captions on track `captions`, written by the captioning tool. Running it again rewrites this page; rename it to keep an edit."
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "c-bed",
+          "asset": "bed",
+          "start": 0,
+          "duration": 75,
+          "source_in": 0
+        }
+      ]
+    },
+    {
+      "id": "a1",
+      "kind": "audio",
+      "clips": [
+        {
+          "id": "vo",
+          "asset": "voice",
+          "start": 0,
+          "duration": 75,
+          "source_in": 0
+        }
+      ]
+    },
+    {
+      "id": "captions",
+      "kind": "video",
+      "clips": [
+        {
+          "id": "caption-page-captions",
+          "asset": "caption-page-captions",
+          "start": 1,
+          "duration": 70,
+          "source_in": 0
+        }
+      ]
+    }
+  ]
+}

@@ -91,12 +91,13 @@ and each scene's visuals run on a little under the next one's arrival, so an
 exit and an entrance play together instead of the cut landing on a hard edge.
 The scenes end up alternating between two video tracks; that is the layout.
 
-**Each chunk of text arrives on its first word, whole.** `caption_narration`
-does exactly this: it cuts each line at its sentences, commas and pauses into
-pieces of about two lines, and each piece arrives whole on its first spoken
-word and leaves when the next arrives. Its default look is the one this ad
-landed on: heavy Montserrat, white, rimmed in black, in the lower third, clear
-of the buttons a phone draws over the bottom of a reel. Run it **after** the
+**The word being said is lit.** `caption_narration` does exactly this: it
+cuts each line at its punctuation and pauses into captions of up to three
+words, a name never split, and lights each word in yellow as it is said, white
+heavy upper-case type rimmed in black in the lower third, clear of the buttons
+a phone draws over the bottom of a reel. It is the look of captions on 9:16
+social video, and the default. `look: "text"` is the plainer one this ad first
+landed on: pieces of about two lines, each arriving whole on its first word. Run it **after** the
 cut is final: it places captions where the words are now, and a line moved
 afterwards leaves its captions behind until it is run again. A page that has to land on a word reads the same timings
 (`guide pages`, section "Start on a spoken word"). Speech in imported footage
