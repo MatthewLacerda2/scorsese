@@ -13,25 +13,29 @@
 //!   invented fixture path is not a hit.
 //! - **What is a path** ([`named_in`]): a token that starts with a known root
 //!   ([`ROOTS`]), or with a crate's name followed by `src/` or `tests/`
-//!   (read under `crates/`), and ends in a file extension or `/`. A token
-//!   with a template or glob character in it (`<crate>`, `*`, `{a,b}`, `…`,
-//!   `$`), a `..`, or a leading `/` names no one file, and is skipped.
-//!
-//! A path git ignores (`deploy/.env`, `app/target/`) is named on purpose: it
-//! is made on the machine, never committed, so it counts as existing.
+//!   (read under `crates/`), and ends in a file extension or `/`. Markdown's
+//!   emphasis and brackets around it (`**docs/mcp.md**`, `<docs/mcp.md>`) are
+//!   trimmed; a token still holding a template or glob character
+//!   (`<crate>`, `*`, `{a,b}`, `…`, `$`), a `..`, or a leading `/` names no
+//!   one file, and is skipped.
+//! - **What exists** ([`Known`]): a file on disk that git tracks or would
+//!   track (so an unstaged new file counts, and a deleted one does not), a
+//!   directory holding one, or a path git ignores whose directory exists
+//!   (`deploy/.env`, `app/target/`): made on the machine, never committed, so
+//!   named on purpose.
 //!
 //! Symbol names (`audio::speech`) and prose claims are out of reach; a reader
 //! catches those. A path named on purpose though absent from the tree (a file
 //! a command creates, an example) is excused inline: `lint: allow(named-path)
-//! <why>` in a comment, or in Markdown an HTML comment, on the line or just
-//! above it.
+//! <why>` in a comment on the line or the one just above it, or in Markdown
+//! an HTML comment on the line or in the run of them just above it.
 
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::Finding;
-use super::ignored::ignored;
+use super::ignored::{git, ignored};
 use super::shebang::tracked;
 use super::{agent_docs, allow};
 
@@ -45,6 +49,9 @@ pub const ROOTS: [&str; 8] = [
 
 /// Characters that make a token a template or a glob rather than a path.
 const TEMPLATE: &[char] = &['*', '?', '{', '}', '<', '>', '$', '…', '~', '\\', '%'];
+
+/// What Markdown wraps a path in, trimmed from a token's ends.
+const WRAPPING: &[char] = &['*', '_', '?', '<', '>'];
 
 /// What exists: the tracked files, their directories, and the crates.
 #[derive(Debug, Clone, Default)]
@@ -78,14 +85,17 @@ impl Known {
         known
     }
 
-    /// Count these paths, which git ignores, as existing.
+    /// Count these paths, which git ignores, as existing where their
+    /// directory does.
     pub fn ignore<S: Into<String>>(&mut self, paths: impl IntoIterator<Item = S>) {
         self.ignored.extend(paths.into_iter().map(Into::into));
     }
 
     /// Whether `path` (a file, or a directory with a trailing `/`) exists.
     pub fn contains(&self, path: &str) -> bool {
-        if self.ignored.contains(path) {
+        let parent = Path::new(path.trim_end_matches('/')).parent();
+        let placed = parent.is_none_or(|dir| dir.as_os_str().is_empty() || self.dirs.contains(dir));
+        if self.ignored.contains(path) && placed {
             return true;
         }
         match path.strip_suffix('/') {
@@ -139,6 +149,7 @@ fn described(line: &str, syntax: Syntax) -> Option<&str> {
 pub fn named_in(text: &str, known: &Known) -> Vec<String> {
     let is_part = |c: char| c.is_alphanumeric() || "_-./".contains(c) || TEMPLATE.contains(&c);
     text.split(|c: char| !is_part(c))
+        .map(|token| token.trim_matches(WRAPPING))
         .filter(|token| {
             !token.contains(TEMPLATE) && !token.contains("..") && !token.starts_with('/')
         })
@@ -166,43 +177,71 @@ fn resolve(token: &str, known: &Known) -> Option<String> {
     (path.ends_with('/') || file_like).then_some(path)
 }
 
-/// A finding for every missing path `text`, the file at `path`, names.
-pub fn check(path: &Path, text: &str, known: &Known) -> Vec<Finding> {
+/// Each missing path `text`, the file at `path`, names, with its 0-based
+/// line, unless an allow excuses it.
+fn missing(path: &Path, text: &str, known: &Known) -> Vec<(usize, String)> {
     let Some(syntax) = syntax(path) else {
         return Vec::new();
     };
     let lines: Vec<&str> = text.lines().collect();
-    let excused = |index| match syntax {
+    let excused = |index: usize| match syntax {
         Syntax::Markdown => agent_docs::allowed(&lines, index, RULE),
-        _ => allow::allowed(&lines, index, RULE),
+        _ => (index.saturating_sub(1)..=index).any(|at| allow::grants(lines[at], RULE)),
     };
-    let mut findings = Vec::new();
+    let mut found = Vec::new();
     for (index, line) in lines.iter().enumerate() {
         let Some(description) = described(line, syntax) else {
             continue;
         };
         for named in named_in(description, known) {
-            if known.contains(&named) || excused(index) {
-                continue;
+            if !known.contains(&named) && !excused(index) {
+                found.push((index, named));
             }
-            findings.push(Finding {
-                path: path.to_path_buf(),
-                line: Some(index + 1),
-                rule: RULE,
-                message: format!(
-                    "names `{named}`, which does not exist: repoint it to where that file is \
-                     now, or remove it (or excuse it inline if it is named on purpose, such \
-                     as a file a command creates)"
-                ),
-            });
         }
     }
-    findings
+    found
 }
 
-/// Every finding for every tracked file under `root` the rule reads.
+/// A finding for every missing path `text`, the file at `path`, names.
+pub fn check(path: &Path, text: &str, known: &Known) -> Vec<Finding> {
+    missing(path, text, known)
+        .into_iter()
+        .map(|(index, named)| Finding {
+            path: path.to_path_buf(),
+            line: Some(index + 1),
+            rule: RULE,
+            message: format!(
+                "names `{named}`, which does not exist: repoint it to where that file is \
+                 now, or remove it (or excuse it inline if it is named on purpose, such \
+                 as a file a command creates)"
+            ),
+        })
+        .collect()
+}
+
+/// The files git tracks or would track under `root` that are on disk.
+fn present(root: &Path) -> Vec<PathBuf> {
+    let mut files: Vec<PathBuf> = tracked(root).into_iter().map(|(path, _)| path).collect();
+    let untracked = git()
+        .args(["ls-files", "--others", "--exclude-standard", "-z"])
+        .current_dir(root)
+        .output();
+    if let Some(output) = untracked.ok().filter(|output| output.status.success()) {
+        let listed = String::from_utf8_lossy(&output.stdout).into_owned();
+        files.extend(
+            listed
+                .split('\0')
+                .filter(|p| !p.is_empty())
+                .map(PathBuf::from),
+        );
+    }
+    files.retain(|path| root.join(path).is_file());
+    files
+}
+
+/// Every finding for every file under `root` the rule reads.
 pub fn check_root(root: &Path) -> Vec<Finding> {
-    let files: Vec<PathBuf> = tracked(root).into_iter().map(|(path, _)| path).collect();
+    let files = present(root);
     let mut known = Known::new(&files);
     let texts: Vec<(&PathBuf, String)> = files
         .iter()
@@ -210,14 +249,14 @@ pub fn check_root(root: &Path) -> Vec<Finding> {
         .filter_map(|path| Some((path, fs::read(root.join(path)).ok()?)))
         .map(|(path, bytes)| (path, String::from_utf8_lossy(&bytes).into_owned()))
         .collect();
-    let missing: BTreeSet<PathBuf> = texts
+    let absent: BTreeSet<PathBuf> = texts
         .iter()
-        .flat_map(|(path, text)| check(path, text, &known))
-        .filter_map(|finding| finding.message.split('`').nth(1).map(PathBuf::from))
+        .flat_map(|(path, text)| missing(path, text, &known))
+        .map(|(_, named)| PathBuf::from(named))
         .collect();
-    let missing: Vec<&Path> = missing.iter().map(PathBuf::as_path).collect();
+    let absent: Vec<&Path> = absent.iter().map(PathBuf::as_path).collect();
     known.ignore(
-        ignored(root, &missing)
+        ignored(root, &absent)
             .iter()
             .map(|path| path.to_string_lossy().into_owned()),
     );

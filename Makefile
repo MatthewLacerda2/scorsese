@@ -472,11 +472,11 @@ scripts: ## [gate] The scripts under .github/scripts and deploy/update: signal r
 	@$(PYTHON_CHECK)
 	$(PYTHON) -m unittest discover --start-directory .github/scripts/tests --quiet
 
-# lint: allow(named-path) `app/deny.toml` is named because it must never exist.
 # Both workspaces, and the second line is the whole point. `app/` is its own
 # cargo workspace with its own lockfile, so the first run does not see a single
 # crate of it — 385 of them went unchecked for exactly that reason, `eframe`,
 # `wgpu` and `winit` among them. `--config` aims the second run at the root
+# lint: allow(named-path) it names a file that must never exist.
 # policy rather than letting it look for an `app/deny.toml`, which must never
 # exist: one policy, checked twice.
 #
@@ -485,6 +485,7 @@ scripts: ## [gate] The scripts under .github/scripts and deploy/update: signal r
 # other's spelling outright, and both have been on a machine running this gate:
 # #630 moved it after `check` for a cloud container's 0.19, which broke the Mac's
 # 0.20 (#635). Leaving the flag out is no answer either: 0.20 then looks for an
+# lint: allow(named-path) it names the file cargo-deny looks for, which must never exist.
 # `app/deny.toml`, finds none, and passes on cargo-deny's permissive defaults —
 # measured, with a policy that refuses MIT going green — which is the false
 # green this gate exists to refuse. `check --help` naming the flag is the test.

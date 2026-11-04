@@ -2,6 +2,8 @@
 //! flagged with its line, an existing one and an allowed one pass, and string
 //! literals, templates and URLs are never read as paths.
 
+mod tree;
+
 use std::path::Path;
 
 use scorsese_lint::rules::named_paths::{Known, RULE, check, named_in};
@@ -14,6 +16,8 @@ fn known() -> Known {
             "crates/render/src/run/mod.rs",
             "docs/mcp.md",
             ".github/scripts/ci-ok.py",
+            "deploy/compose.yaml",
+            "app/Cargo.toml",
         ]
         .map(Path::new),
     )
@@ -74,13 +78,20 @@ fn an_allow_with_a_reason_excuses_the_line() {
 }
 
 #[test]
+fn an_allow_reaches_only_the_line_below_it() {
+    let rust = format!("// lint: allow({RULE}) an example\n// prose\n// docs/invented.md\n");
+    assert_eq!(flagged("a.rs", &rust), [(3, "docs/invented.md".into())]);
+}
+
+#[test]
 fn a_path_git_ignores_counts_as_existing() {
     let mut known = known();
     known.ignore(["deploy/.env", "app/target/"]);
-    let text = "deploy/.env, app/target/ and deploy/.envrc\n";
+    known.ignore([".claude/skill/x.md"]);
+    let text = "deploy/.env, app/target/, deploy/.envrc and .claude/skill/x.md\n";
     let found = check(Path::new("docs/a.md"), text, &known);
-    assert_eq!(found.len(), 1);
-    assert!(found[0].message.contains("`deploy/.envrc`"));
+    let named: Vec<_> = found.iter().map(|f| f.message.split('`').nth(1)).collect();
+    assert_eq!(named, [Some("deploy/.envrc"), Some(".claude/skill/x.md")]);
 }
 
 #[test]
@@ -124,5 +135,13 @@ fn templates_globs_urls_and_bare_words_are_not_paths() {
     ] {
         assert_eq!(named_in(line, &known()), Vec::<String>::new(), "{line}");
     }
-    assert_eq!(named_in("(docs/gone.md).", &known()), ["docs/gone.md"]);
+    for line in [
+        "(docs/gone.md).",
+        "**docs/gone.md**:",
+        "<docs/gone.md>",
+        "docs/gone.md?",
+        "_docs/gone.md_",
+    ] {
+        assert_eq!(named_in(line, &known()), ["docs/gone.md"], "{line}");
+    }
 }
