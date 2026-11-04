@@ -36,7 +36,7 @@ pub fn cache_dir(root: &Path) -> PathBuf {
 /// hands every call here as its cache, so a `.scor` received from someone else
 /// with a linked `cache/` never has a search or a download kept where it
 /// leads. The folders below it are refused as links on each write
-/// ([`unlinked`]).
+/// (`unlinked`).
 ///
 /// # Errors
 ///
