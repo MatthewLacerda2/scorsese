@@ -3,10 +3,10 @@
 //! Two calls take one: ElevenLabs' Instant Voice Cloning
 //! (`POST /v1/voices/add`) wants its recordings as files in a form, not as
 //! JSON, and so does the local Whisper server ([`whisper`](crate::api::whisper)).
-//! `ureq` 3 has a multipart feature behind no flag scorsese turns on, and
-//! turning one on for a single call buys a dependency `cargo deny` has to
-//! keep clearing for what is fifty lines against a fixed specification — the
-//! reason [`encoded`](super::encoded) is written here too.
+//! `ureq` 3's `multipart` feature is not used: its API lives in
+//! `ureq::unversioned::multipart`, outside semver, it pulls `mime_guess` and
+//! `unicase`, and it draws a random boundary, which would break the
+//! content-derived boundary below and the test pinning the exact bytes.
 //!
 //! **A file's bytes are sent from where they are**, never copied into a
 //! body: [`Form::body`] reads the parts in turn, with the length said up

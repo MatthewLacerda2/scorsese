@@ -7,10 +7,10 @@ const UNRESERVED: &[u8] = b"-._~";
 ///
 /// Here, beside the transport, because every vendor module builds a query
 /// string and none of them should own the escaping the others use. Written
-/// rather than taken as a dependency, for the reason the MCP
-/// server gives for its own base64: a dozen lines against a fixed
-/// specification, and every dependency is one `cargo deny` has to keep
-/// clearing. Deliberately strict — everything outside the unreserved set is
+/// by hand because it is a dozen lines against a fixed specification, and
+/// because `Caller` takes a URL string (so an error can name it) while path
+/// segments need escaping too: `ureq`'s `query` builder covers neither.
+/// Deliberately strict — everything outside the unreserved set is
 /// escaped, including characters a query would tolerate, because being
 /// over-cautious in a URL costs nothing and being wrong costs a failed call.
 pub(crate) fn encoded(value: &str) -> String {
