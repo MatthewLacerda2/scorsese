@@ -11,7 +11,8 @@ from rusty's (its #1784/#1785).
 
 **Mechanical, not assumed.** The pushed commit's tree is compared with the head
 tree of `ci.yml`'s recent successful runs on `main`, of pull requests into
-`main` (a stacked pull request's run tested another base), or dispatched by the
+`main` (a stacked pull request's run tested another base; once merged, a pull
+request is found from the pushed commit, #1769), or dispatched by the
 merge queue on a train's branch ([`TRAIN_PREFIX`], #1765): a train's run built
 the tree its last member's squash leaves. A squash merge of an up-to-date head
 has exactly the head's tree, so a match proves the case rather than trusting
@@ -159,23 +160,43 @@ def built(jobs: list[dict]) -> bool:
     return True
 
 
-def against_main(run: dict) -> bool:
+def merged_heads(get: Get, repo: str, sha: str) -> frozenset[str]:
+    """The head of each pull request into `main` that GitHub merged as `sha`.
+    A lookup that fails or reads oddly names none, so only this proof is lost."""
+    pulls = get(f"repos/{repo}/commits/{sha}/pulls")
+    if not isinstance(pulls, list):
+        return frozenset()
+    return frozenset(
+        head for pr in pulls if isinstance(pr, dict)
+        if pr.get("merged_at") and pr.get("merge_commit_sha") == sha
+        and (pr.get("base") or {}).get("ref") == "main"
+        and isinstance(head := (pr.get("head") or {}).get("sha"), str))
+
+
+def against_main(run: dict, heads: frozenset[str] = frozenset()) -> bool:
     """Whether the run tested its tree as `main` holds it: a run on `main`
     itself, a pull request's whose base is `main`, or the merge queue's
     dispatch of a train, whose tip is `main` with the members squashed on. A
     stacked pull request's run tested its head merged into another branch, and
-    no other dispatch is the queue's."""
+    no other dispatch is the queue's. GitHub empties a run's `pull_requests`
+    once its pull request merges (#1769), so a run that lists none counts when
+    its head is one of `heads`, the pull requests into `main` merged as the
+    pushed commit."""
     if run.get("event") in ("push", "schedule"):
         return run.get("head_branch") == "main"
     if run.get("event") == "workflow_dispatch":
         return str(run.get("head_branch") or "").startswith(TRAIN_PREFIX)
     if run.get("event") != "pull_request":
         return False
-    return any(((pr.get("base") or {}).get("ref")) == "main" for pr in run.get("pull_requests") or [])
+    listed = run.get("pull_requests") or []
+    if not listed:
+        return run.get("head_sha") in heads
+    return any(((pr.get("base") or {}).get("ref")) == "main" for pr in listed)
 
 
-def proving_run(get: Get, repo: str, tree: str) -> str | None:
-    """The url of a successful run that built `tree`, if one is recent."""
+def proving_run(get: Get, repo: str, tree: str, heads: frozenset[str] = frozenset()) -> str | None:
+    """The url of a successful run that built `tree`, if one is recent;
+    `heads` as [`against_main`] takes them."""
     for page in range(1, PAGES + 1):
         answer = get(f"repos/{repo}/actions/workflows/{WORKFLOW}/runs?status=success"
                      f"&per_page={PER_PAGE}&page={page}")
@@ -183,7 +204,7 @@ def proving_run(get: Get, repo: str, tree: str) -> str | None:
             raise LookupError("the runs list did not come")
         runs = answer["workflow_runs"]
         for run in runs:
-            if (run.get("head_commit") or {}).get("tree_id") != tree or not against_main(run):
+            if (run.get("head_commit") or {}).get("tree_id") != tree or not against_main(run, heads):
                 continue
             jobs = get(f"repos/{repo}/actions/runs/{run['id']}/jobs?filter=latest&per_page=100")
             if not isinstance(jobs, dict):
@@ -221,7 +242,7 @@ def verdict(get: Get, repo: str, sha: str, before: str) -> tuple[str | None, str
         if not isinstance(commit, dict):
             return None, "runs in full: the pushed commit could not be read"
         tree = commit["commit"]["tree"]["sha"]
-        url = proving_run(get, repo, tree)
+        url = proving_run(get, repo, tree, merged_heads(get, repo, sha))
     except (KeyError, TypeError, LookupError) as error:
         return None, f"runs in full: the lookup failed ({error!r})"
     if url is None:
