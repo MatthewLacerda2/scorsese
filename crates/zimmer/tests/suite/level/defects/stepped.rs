@@ -41,6 +41,21 @@ fn a_short_staircase_is_found_where_it_is() {
     assert!((1.15..1.27).contains(&run.to_seconds), "{run:?}");
 }
 
+/// A fade-out at the very end of a file is judged like one anywhere else,
+/// whatever the file's length.
+#[test]
+fn a_staircase_at_the_end_of_a_file_is_found() {
+    let period = 800.0 / f64::from(RATE);
+    for seconds in [1.0, 2.0, 2.5] {
+        let from = seconds - 0.35;
+        let signal = tone(440.0, 0.5, seconds, |t| {
+            -((t - from).max(0.0) / period).floor().min(20.0)
+        });
+        let defects = found(1, &signal);
+        assert_eq!(defects.zipper.count, 1, "a {seconds} s file: {defects:?}");
+    }
+}
+
 /// A note rich in harmonics pulses once a cycle, at a period in the same
 /// range a game's control rate is, and as it dies away the pulse can read as
 /// a staircase. Stepped gain is not reported on a sound that pulses on its

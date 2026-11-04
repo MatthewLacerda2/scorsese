@@ -1,7 +1,8 @@
 //! Clicks, dropouts and stepped gain, said so a client can act on a moment.
 //!
 //! One line per kind that was found, each naming its worst instances by time
-//! and channel — "at 3.420 s the left channel steps 4.1 dB every 16.7 ms" —
+//! and channel — "3.420 s to 3.940 s left steps 4.1 dB every 16.7 ms (60 Hz)"
+//! —
 //! and one line in all when nothing was, because a clean capture is the
 //! answer to "did the fix land?" and must not read as a report that forgot.
 

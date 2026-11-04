@@ -62,29 +62,29 @@ const SILENT: f64 = 1e-7;
 pub(super) fn staircases(energy: &[f64], block: usize) -> Vec<Found> {
     let level = Levels::of(energy);
     let steps = steps(energy);
-    let starts: Vec<usize> = if energy.len() <= STRETCH {
-        vec![0]
-    } else {
-        (0..=energy.len() - STRETCH).step_by(HOP).collect()
-    };
+    let len = energy.len();
+    // Stretches every HOP blocks, and one more ending exactly at the end of
+    // the signal, so the last half-second is read like any other.
+    let mut starts: Vec<usize> = (0..=len.saturating_sub(STRETCH)).step_by(HOP).collect();
+    if starts.last() != Some(&len.saturating_sub(STRETCH)) {
+        starts.push(len.saturating_sub(STRETCH));
+    }
     let mut fits: Vec<Fit> = Vec::new();
-    for start in starts {
-        let end = (start + STRETCH).min(energy.len());
+    for (n, &start) in starts.iter().enumerate() {
+        let end = (start + STRETCH).min(len);
         // Judged over windows a dozen steps long, so a staircase much shorter
         // than the stretch it was noticed in is still the whole of a window.
-        // Each stretch judges the windows that start in its first half, which
-        // the next stretch does not.
-        let own = if end == energy.len() {
-            end
-        } else {
-            start + HOP
-        };
+        // Each stretch judges the windows that start before the next stretch
+        // does; the last judges the rest, and one window ending at the end.
+        let own = starts.get(n + 1).copied().unwrap_or(len);
         for lag in candidates(&steps[start..end]) {
             let long = WINDOW_STEPS * lag;
-            let mut from = start;
-            while from < own && from + STEPS * lag <= energy.len() {
-                fits.extend(refined(&level, from, (from + long).min(energy.len()), lag));
-                from += long / 2;
+            let mut froms: Vec<usize> = (start..own).step_by((long / 2).max(1)).collect();
+            if own == len {
+                froms.push(len.saturating_sub(long));
+            }
+            for from in froms.into_iter().filter(|from| from + STEPS * lag <= len) {
+                fits.extend(refined(&level, from, (from + long).min(len), lag));
             }
         }
     }

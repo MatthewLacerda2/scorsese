@@ -12,6 +12,7 @@ use scorsese_zimmer::level::{DefectFinder, Defects};
 
 mod found;
 mod stepped;
+mod trains;
 
 pub(super) const RATE: u32 = 48_000;
 
@@ -67,6 +68,12 @@ fn clean_signals_have_no_defects() {
             "a 110 Hz sawtooth",
             (0..2 * RATE as usize)
                 .map(|i| ((i as f64 * 110.0 / f64::from(RATE)).fract() * 0.8 - 0.4) as f32)
+                .collect(),
+        ),
+        (
+            "a 32.7 Hz sawtooth, zimmer's lowest bass note",
+            (0..2 * RATE as usize)
+                .map(|i| ((i as f64 * 32.7 / f64::from(RATE)).fract() * 0.8 - 0.4) as f32)
                 .collect(),
         ),
         ("white noise", noise(0.3, 2 * RATE as usize)),

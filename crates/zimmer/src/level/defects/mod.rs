@@ -53,7 +53,8 @@ pub const WORST: usize = 5;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Defect {
     /// The channel it is in, from zero; `None` when it is in every channel at
-    /// once, which is also how a mono file's defects read.
+    /// once, which is also how a mono file's defects read. In some channels
+    /// of a file of more than two, the lowest of them.
     pub channel: Option<usize>,
     /// The moment to look at, in seconds: the click itself, the start of a
     /// gap, the first step of a staircase.
@@ -180,7 +181,7 @@ impl DefectFinder {
         for one in found {
             let channel = one.channel.unwrap_or(0);
             match joined.last_mut() {
-                Some((last, channels)) if one.from_seconds <= last.to_seconds => {
+                Some((last, channels)) if one.from_seconds < last.to_seconds => {
                     last.to_seconds = last.to_seconds.max(one.to_seconds);
                     if one.size_db > last.size_db {
                         last.at_seconds = one.at_seconds;

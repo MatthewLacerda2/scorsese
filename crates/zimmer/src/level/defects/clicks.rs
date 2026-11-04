@@ -9,15 +9,26 @@
 //! [`REACH`] either side of it, which a regular waveform always has a twin of
 //! and a click never does. Two samples either side are left out, so an
 //! impulse (up then straight back down) is not its own twin.
+//!
+//! **Another click is not a twin.** A jump that itself stands out from the
+//! jumps beside it counts as a neighbour only when the waveform either side
+//! of it matches this one's — a sawtooth's next reset does, sample for
+//! sample — so two clicks 10 ms apart, or a splice at every audio buffer,
+//! each landing at a different point of the waveform, are each a click.
 
 use std::collections::VecDeque;
 
 use super::Found;
 
-/// How far either side a jump is compared, in seconds. Twenty-five
-/// milliseconds holds a full period of anything down to 40 Hz, so a bass
-/// sawtooth always finds its next jump inside it.
-const REACH: f64 = 0.025;
+/// How far either side a jump is compared, in seconds. Thirty-five
+/// milliseconds holds a full period of anything down to 28.6 Hz, below
+/// zimmer's lowest bass note (C1, 32.7 Hz), so a bass sawtooth always finds
+/// its next reset inside it.
+const REACH: f64 = 0.035;
+
+/// How far apart, as a share of the jump, the waveform either side of two
+/// jumps may be and still be the same jump of a repeating waveform.
+const SAME: f32 = 0.05;
 
 /// How many samples either side of a jump are not its neighbours.
 const OWN: usize = 2;
@@ -46,6 +57,9 @@ pub(super) struct Clicks {
     /// The size of the most recent jumps, oldest first: never more than
     /// twice [`REACH`] and the jump being judged.
     recent: VecDeque<f32>,
+    /// The samples those jumps land on, and the three before the first:
+    /// `samples[k + 3]` is the sample `recent[k]` lands on.
+    samples: VecDeque<f32>,
     /// Which sample [`Clicks::recent`]'s first jump lands on.
     first: u64,
     /// How many samples were fed.
@@ -62,6 +76,7 @@ impl Clicks {
             one_click: (ONE_CLICK * f64::from(rate)) as u64,
             previous: None,
             recent: VecDeque::new(),
+            samples: VecDeque::new(),
             first: 1,
             fed: 0,
             pending: None,
@@ -71,6 +86,7 @@ impl Clicks {
 
     pub(super) fn feed(&mut self, sample: f32) {
         self.fed += 1;
+        self.samples.push_back(sample);
         let Some(previous) = self.previous.replace(sample) else {
             return;
         };
@@ -78,6 +94,10 @@ impl Clicks {
         if self.recent.len() > 2 * self.reach + 1 {
             self.recent.pop_front();
             self.first += 1;
+        }
+        // Three samples before the first jump's, as the window before it.
+        while self.samples.len() > self.recent.len() + 3 {
+            self.samples.pop_front();
         }
         // The jump `reach` back now has all of its right-hand neighbours.
         let newest = self.fed - 1;
@@ -114,13 +134,43 @@ impl Clicks {
             .chain(here + OWN + 1..(here + self.reach + 1).min(self.recent.len()));
         let mut loudest = QUIET;
         for pos in neighbours {
-            loudest = loudest.max(self.recent[pos]);
-            if jump < RATIO * loudest {
+            let other = self.recent[pos];
+            if jump < RATIO * other && (!self.stands_out(pos) || self.same_shape(here, pos)) {
                 return;
+            }
+            if jump >= RATIO * other {
+                loudest = loudest.max(other);
             }
         }
         let size_db = 20.0 * f64::from(jump / loudest).log10();
         self.found_at(at, size_db);
+    }
+
+    /// Whether the jump at `pos` is itself a standout: four times the jumps
+    /// three samples either side of it, which no stretch of noise or of a
+    /// drum's attack keeps up.
+    fn stands_out(&self, pos: usize) -> bool {
+        let jump = self.recent[pos];
+        let beside = [pos.checked_sub(3), Some(pos + 3)];
+        beside
+            .into_iter()
+            .flatten()
+            .filter_map(|at| self.recent.get(at))
+            .all(|other| jump >= RATIO * other)
+    }
+
+    /// Whether the waveform around the jumps at `here` and `there` is the
+    /// same, as it is at every reset of a sawtooth: the sample three before
+    /// each and the sample two after.
+    fn same_shape(&self, here: usize, there: usize) -> bool {
+        let tolerance = SAME * self.recent[here];
+        let around = |pos: usize| (self.samples.get(pos), self.samples.get(pos + 5));
+        match (around(here), around(there)) {
+            ((Some(a), Some(b)), (Some(c), Some(d))) => {
+                (a - c).abs() <= tolerance && (b - d).abs() <= tolerance
+            }
+            _ => true,
+        }
     }
 
     fn found_at(&mut self, at: u64, size_db: f64) {
@@ -134,10 +184,8 @@ impl Clicks {
         match &mut self.pending {
             Some(pending) if at - pending.at <= self.one_click => {
                 if size_db > pending.size_db {
-                    pending.at = at;
-                    pending.size_db = size_db;
+                    *pending = one;
                 }
-                pending.to = one.to;
             }
             _ => self.found.extend(self.pending.replace(one)),
         }
