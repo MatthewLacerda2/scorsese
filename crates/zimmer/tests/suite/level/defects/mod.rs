@@ -16,6 +16,7 @@ mod found;
 mod joined;
 mod reach;
 mod stepped;
+mod steps;
 mod trains;
 
 pub(super) const RATE: u32 = 48_000;
