@@ -52,7 +52,8 @@ pub(in crate::inspector) struct Line {
 
 impl Line {
     /// Reads the brief of `asset`, or `None` when it is not a generated line
-    /// — a track of music (#1264) is `generated_audio` too, and has no voice.
+    /// — a track of music (#1264) or a sound effect (#1265) is
+    /// `generated_audio` too, and has no voice.
     pub(super) fn of(project: &Project, asset: &AssetId) -> Option<Self> {
         let found = project.asset(asset)?;
         if found.audio_block() != Some(AudioBlock::Speech) {

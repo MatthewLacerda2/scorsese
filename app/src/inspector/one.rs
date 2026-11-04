@@ -168,12 +168,14 @@ fn describe(selected: &Selected) -> String {
 
 /// What an asset is called on screen: its kind, unless its block says more.
 ///
-/// A `generated_audio` asset is a line or a track by the block it carries, so
-/// the block is asked first. A new block (#1265) is a new arm here.
+/// A `generated_audio` asset is a line, a track or a sound effect by the
+/// block it carries, so the block is asked first. A new block is a new arm
+/// here.
 pub(super) fn name(kind: AssetKind, block: Option<AudioBlock>) -> &'static str {
     match block {
         Some(AudioBlock::Speech) => "generated speech",
         Some(AudioBlock::Music) => "generated music",
+        Some(AudioBlock::Sound) => "generated sound",
         None => kind_name(kind),
     }
 }
@@ -240,11 +242,13 @@ mod tests {
         assert!(state_name(GenerationState::Sketch).starts_with("sketch"));
     }
 
-    /// A track is music and a line is speech, though both are `generated_audio`.
+    /// A track is music, a sound effect a sound and a line speech, though all
+    /// three are `generated_audio`.
     #[test]
-    fn a_generated_track_is_named_music_and_a_line_speech() {
+    fn a_generated_track_is_named_music_a_sound_sound_and_a_line_speech() {
         let audio = AssetKind::GeneratedAudio;
         assert_eq!(name(audio, Some(AudioBlock::Music)), "generated music");
+        assert_eq!(name(audio, Some(AudioBlock::Sound)), "generated sound");
         assert_eq!(name(audio, Some(AudioBlock::Speech)), "generated speech");
         assert_eq!(name(AssetKind::Video, None), "video");
     }

@@ -14,10 +14,11 @@
 //! The pattern is [`Probing`](crate::project::probing::Probing)'s: a channel, a
 //! copy to the worker, and a poll from the repaint loop that never blocks.
 //!
-//! # Four passes, one ceiling, one total
+//! # Five passes, one ceiling, one total
 //!
-//! [`shots`] is Veo, [`stills`] Gemini, [`lines`] ElevenLabs and [`tracks`]
-//! ElevenLabs Music (#1264), run in that order with the ceiling threaded from each into the next — a limit each pass
+//! [`shots`] is Veo, [`stills`] Gemini, [`lines`] ElevenLabs, [`tracks`]
+//! ElevenLabs Music (#1264) and [`sounds`] ElevenLabs sound effects (#1265),
+//! run in that order with the ceiling threaded from each into the next — a limit each pass
 //! checked on its own would be a limit worth twice what somebody set. Each
 //! resolves its own key, and only when it has work: a project of nothing but
 //! narration must not be stopped for want of a Veo key, and the other way
@@ -26,6 +27,7 @@
 
 mod lines;
 mod shots;
+mod sounds;
 mod stills;
 mod tracks;
 
@@ -114,6 +116,7 @@ fn run(pass: Pass, mut project: Project, root: &Path) -> Report {
         stills: drawn,
         lines: spoken,
         tracks: composed,
+        sounds: made_sounds,
     } = done;
     // A pass that could not start, with nothing done before it, is the
     // reason alone. One that stopped after making something says what it
@@ -123,6 +126,7 @@ fn run(pass: Pass, mut project: Project, root: &Path) -> Report {
         && drawn.is_empty()
         && spoken.is_empty()
         && composed.is_empty()
+        && made_sounds.is_empty()
     {
         return stopped(&project, root, said.clone());
     }
@@ -133,6 +137,7 @@ fn run(pass: Pass, mut project: Project, root: &Path) -> Report {
     let landed: Vec<AssetId> = shots::arrived(&made.outcomes)
         .chain(lines::arrived(&spoken))
         .chain(tracks::arrived(&composed))
+        .chain(sounds::arrived(&made_sounds))
         .cloned()
         .collect();
     let shortened = if !landed.is_empty() || stills::arrived(&drawn) {
@@ -147,9 +152,11 @@ fn run(pass: Pass, mut project: Project, root: &Path) -> Report {
     parts.extend(stills::said(&drawn));
     parts.extend(lines::said(&spoken));
     parts.extend(tracks::said(&composed));
+    parts.extend(sounds::said(&made_sounds));
     parts.extend(shortened.iter().map(Shortened::says));
     let in_flight = made.in_flight();
-    let mut said = sentence(parts, committed + tracks::spent(&composed), pass);
+    let spent = committed + tracks::spent(&composed) + sounds::spent(&made_sounds);
+    let mut said = sentence(parts, spent, pass);
     if let Some(stop) = &stop {
         said = format!("{said} · {stop}");
     }
@@ -196,6 +203,14 @@ fn passes(
         pass,
         budget.spend(committed),
         &mut done.tracks,
+    )?;
+    let committed = committed + tracks::spent(&done.tracks);
+    sounds::pass(
+        project,
+        root,
+        pass,
+        budget.spend(committed),
+        &mut done.sounds,
     )
 }
 
@@ -250,9 +265,9 @@ fn failure(said: String) -> Report {
 fn sentence(mut parts: Vec<String>, spent: u64, pass: Pass) -> String {
     if parts.is_empty() {
         return match pass {
-            Pass::Submit => {
-                String::from("nothing to generate — every shot, line and track is already made")
-            }
+            Pass::Submit => String::from(
+                "nothing to generate — every shot, line, track and sound is already made",
+            ),
             Pass::Sweep => String::from("nothing in flight"),
         };
     }
