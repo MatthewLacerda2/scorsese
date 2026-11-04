@@ -20,7 +20,7 @@ const MISSING_SCOPE: &str = r#"{"detail":{"type":"authentication_error","code":"
     "status":"missing_permissions","request_id":"8533cd8d"}}"#;
 
 /// Captured: a free account asking for a library voice.
-const FREE_PLAN: &str = r#"{"detail":{"type":"payment_required","code":"paid_plan_required",
+pub(super) const FREE_PLAN: &str = r#"{"detail":{"type":"payment_required","code":"paid_plan_required",
     "message":"Free users cannot use library voices via the API. Please upgrade your subscription to use this voice.",
     "status":"payment_required","request_id":"2d54ad65"}}"#;
 
@@ -111,16 +111,16 @@ fn a_design_is_three_candidates_each_with_an_id_and_an_mp3() {
 
 /// What the check sends is inside the vendor's limits, and cheap: a cent to
 /// speak a word, a cent for the shortest passage a design accepts, a cent for
-/// the shortest track.
+/// the shortest track, a cent for the shortest sound.
 #[test]
-fn the_calls_stay_inside_the_vendors_limits_and_cost_three_cents() {
+fn the_calls_stay_inside_the_vendors_limits_and_cost_four_cents() {
     assert_eq!(
         PASSAGE.chars().count(),
         *PASSAGES.start(),
         "the minimum is the price"
     );
     assert!(PROMPT.contains(&DESCRIPTION.chars().count()));
-    assert_eq!(cost(), 3);
+    assert_eq!(cost(), 4);
 }
 
 /// The music probe (#1418): a three-second instrumental track.

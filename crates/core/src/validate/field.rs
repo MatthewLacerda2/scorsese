@@ -109,6 +109,12 @@ pub enum AssetField {
     /// The other block `generated_audio` takes, refused everywhere else on
     /// the request blocks' reasoning.
     Music,
+    /// The rest of a generated sound effect's brief: its length, and whether
+    /// it loops (#1265).
+    ///
+    /// The third block `generated_audio` takes, refused everywhere else on
+    /// the request blocks' reasoning.
+    Sound,
     /// The rest of a generated still's brief: model, size, aspect and the
     /// pictures it is drawn from.
     ///
@@ -157,6 +163,7 @@ impl AssetField {
             Self::Video => "video",
             Self::Speech => "speech",
             Self::Music => "music",
+            Self::Sound => "sound",
             Self::Image => "image",
             Self::Operation => "operation",
             Self::QueuedAt => "queued_at",

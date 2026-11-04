@@ -52,6 +52,11 @@ function Row({ name, value }: { name: string; value: string }) {
   );
 }
 
+/** How long a brief asked for, in seconds: a sound's is kept in milliseconds. */
+function lengthOf(record: Record): number | undefined {
+  return record.seconds ?? (record.millis === undefined ? undefined : record.millis / 1000);
+}
+
 /**
  * The settings a brief was made with, as label/value pairs. A spoken line's
  * own settings are named by the server (`stability`, `similarity boost`) and
@@ -67,9 +72,9 @@ function settings(
       [words.resolution, record.resolution],
       [
         words.length,
-        record.seconds === undefined
+        lengthOf(record) === undefined
           ? undefined
-          : words.seconds(formatNumber(record.seconds, {}, language)),
+          : words.seconds(formatNumber(lengthOf(record) ?? 0, {}, language)),
       ],
       [words.aspect, record.aspect],
       [words.references, record.references || undefined],

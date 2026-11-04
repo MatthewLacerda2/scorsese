@@ -30,6 +30,7 @@ mod prompt;
 mod report;
 mod sequence;
 mod shape;
+mod sound;
 mod source;
 mod speech;
 mod text;
@@ -38,8 +39,8 @@ mod video;
 
 pub use error::{
     AssetProblem, FillProblem, FollowProblem, GroupProblem, IconProblem, ImageProblem,
-    MatteProblem, MusicProblem, SequenceProblem, ShapeProblem, SpeechProblem, TextProblem,
-    TimelineProblem, ValidationError, VideoProblem,
+    MatteProblem, MusicProblem, SequenceProblem, ShapeProblem, SoundProblem, SpeechProblem,
+    TextProblem, TimelineProblem, ValidationError, VideoProblem,
 };
 pub use field::AssetField;
 pub use prompt::LongPrompt;

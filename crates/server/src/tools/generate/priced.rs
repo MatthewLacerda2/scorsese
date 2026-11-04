@@ -27,7 +27,7 @@ pub(super) fn covered(quote: &Quote, project: &Project) -> Vec<QuoteItem> {
             let micros = asset
                 .and_then(Product::of)
                 .map_or(0, |product| charge_for(product, charge.cents));
-            // A track's prompt describes music, as a shot's does a picture:
+            // A track's or a sound's prompt describes it, as a shot's does a picture:
             // only a line is spoken as written.
             let brief = match asset.and_then(Asset::audio_block) {
                 Some(AudioBlock::Speech) => BriefKind::Line,

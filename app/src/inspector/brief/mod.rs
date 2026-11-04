@@ -9,8 +9,8 @@
 //!
 //! A `generated_video` asset carries a sentence for a video model; a
 //! `generated_image` one a sentence for an image model ([`picture`]); a
-//! `generated_audio` asset carries a line for a voice ([`line`]) or a description
-//! of music ([`track`]), by the block it holds. `scorsese-core` keeps
+//! `generated_audio` asset carries a line for a voice ([`line`]), a description
+//! of music ([`track`]) or of a sound effect ([`sound`]), by the block it holds. `scorsese-core` keeps
 //! those apart on purpose — different fields, different rate table, different
 //! vendor — so this panel keeps them apart too, one module each, and
 //! shares only what is genuinely shared: the heading, and the one route an edit
@@ -44,6 +44,7 @@
 mod line;
 mod picture;
 mod shot;
+mod sound;
 mod track;
 
 use egui::Ui;
@@ -68,6 +69,8 @@ pub(super) enum Brief {
     Picture(picture::Picture),
     /// A generated track of music: a prompt, a length, and whether it is sung.
     Track(track::Track),
+    /// A generated sound effect: a prompt, a length, and whether it loops.
+    Sound(sound::Sound),
 }
 
 impl Brief {
@@ -79,6 +82,7 @@ impl Brief {
             .or_else(|| picture::Picture::of(project, asset).map(Self::Picture))
             .or_else(|| line::Line::of(project, asset).map(Self::Line))
             .or_else(|| track::Track::of(project, asset).map(Self::Track))
+            .or_else(|| sound::Sound::of(project, asset).map(Self::Sound))
     }
 }
 
@@ -98,6 +102,7 @@ impl Inspector {
             Brief::Line(line) => self.line(ui, open, selected, line),
             Brief::Picture(picture) => self.picture(ui, open, selected, picture),
             Brief::Track(track) => self.track(ui, open, selected, track),
+            Brief::Sound(sound) => self.sound(ui, open, selected, sound),
         }
     }
 

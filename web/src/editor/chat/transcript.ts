@@ -47,6 +47,7 @@ const GENERATIONS = new Set([
   "still_image",
   "spoken_line",
   "music_track",
+  "sound_effect",
   "voice_design",
 ]);
 

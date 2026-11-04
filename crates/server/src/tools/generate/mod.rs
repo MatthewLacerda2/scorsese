@@ -278,7 +278,8 @@ async fn on_its_way(caller: &Caller<'_>, quote: &mut Quote) -> Result<(), String
         .map_err(database)?;
     let running: Vec<(i64, String)> = sqlx::query_as(
         "SELECT id, payload->>'brief' FROM jobs
-         WHERE kind IN ('veo_shot', 'still_image', 'batch_still', 'spoken_line', 'music_track')
+         WHERE kind IN ('veo_shot', 'still_image', 'batch_still', 'spoken_line', 'music_track',
+                        'sound_effect')
            AND state IN ('waiting', 'running', 'stuck')
            AND payload->>'brief' = ANY($1)",
     )

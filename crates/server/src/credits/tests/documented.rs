@@ -17,18 +17,21 @@ fn row(product: Product) -> &'static str {
         Product::Still
         | Product::SpokenLine
         | Product::MusicTrack
+        | Product::SoundEffect
         | Product::VoiceDesign
         | Product::Assistant => {
-            "still (drawn now or batched), spoken line, music track, voice design, assistant call"
+            "still (drawn now or batched), spoken line, music track, sound effect, voice design, \
+             assistant call"
         }
     }
 }
 
-const ALL: [Product; 6] = [
+const ALL: [Product; 7] = [
     Product::VeoShot,
     Product::Still,
     Product::SpokenLine,
     Product::MusicTrack,
+    Product::SoundEffect,
     Product::VoiceDesign,
     Product::Assistant,
 ];

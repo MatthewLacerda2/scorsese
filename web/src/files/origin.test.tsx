@@ -50,3 +50,10 @@ test("a generated file's record names its provider from its kind", () => {
   expect(named({ ...shot, kind: "spoken_line", text: "hello" })).toContain("ElevenLabs");
   expect(named({ ...shot, kind: "voice_design" })).toContain("ElevenLabs");
 });
+
+test("a generated sound's record says its length, kept in milliseconds (#1265)", () => {
+  const sound: Record = { ...shot, kind: "sound_effect", millis: 2_500, loop: true };
+  const html = renderToStaticMarkup(<GenerationRecord record={sound} />);
+  expect(html).toContain("ElevenLabs");
+  expect(html).toContain("2.5 s");
+});

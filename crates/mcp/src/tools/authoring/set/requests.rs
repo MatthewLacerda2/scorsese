@@ -1,5 +1,6 @@
 //! The rest of a prompted brief — a shot's `video`, a still's `image`, a
-//! line's `speech`, a track's `music` — as `asset_set` takes it (#826).
+//! line's `speech`, a track's `music`, a sound's `sound` — as `asset_set`
+//! takes it (#826).
 //!
 //! Each block is read by the document's own deserialiser, so a misspelt field
 //! is refused in the words a hand-written `project.json` would get, and it is
@@ -27,11 +28,13 @@ pub(super) fn sketch(kind: AssetKind, arguments: &Arguments) -> Result<Inline, S
         .clone()
         .filter(|text| !text.trim().is_empty())
         .ok_or("`prompt` is required: the sentence a provider will be paid to read")?;
-    let (mut video, mut image, mut speech, mut music) = (None, None, None, None);
+    let (mut video, mut image, mut speech) = (None, None, None);
+    let (mut music, mut sound) = (None, None);
     merged(&mut video, arguments.video.as_ref(), "video")?;
     merged(&mut image, arguments.image.as_ref(), "image")?;
     merged(&mut speech, arguments.speech.as_ref(), "speech")?;
-    merged(&mut music, arguments.music.as_ref(), "music")?;
+    marked(&mut music, arguments.music.as_ref(), "music")?;
+    marked(&mut sound, arguments.sound.as_ref(), "sound")?;
     Ok(Inline::Sketch {
         kind,
         prompt,
@@ -39,6 +42,7 @@ pub(super) fn sketch(kind: AssetKind, arguments: &Arguments) -> Result<Inline, S
         image,
         speech,
         music,
+        sound,
     })
 }
 
@@ -51,12 +55,13 @@ pub(super) fn merge(
     match asset.kind {
         AssetKind::GeneratedVideo => merged(&mut asset.video, arguments.video.as_ref(), "video"),
         AssetKind::GeneratedImage => merged(&mut asset.image, arguments.image.as_ref(), "image"),
-        // A line or a track, by the block it carries: both are offered, and
-        // the format refuses the two together.
+        // A line, a track or a sound, by the block it carries: all three are
+        // offered, and the format refuses two together.
         AssetKind::GeneratedAudio => {
             let spoken = merged(&mut asset.speech, arguments.speech.as_ref(), "speech")?;
-            let composed = merged(&mut asset.music, arguments.music.as_ref(), "music")?;
-            Ok(composed.or(spoken))
+            let composed = marked(&mut asset.music, arguments.music.as_ref(), "music")?;
+            let made = marked(&mut asset.sound, arguments.sound.as_ref(), "sound")?;
+            Ok(made.or(composed).or(spoken))
         }
         _ => Ok(None),
     }
@@ -102,6 +107,23 @@ where
         *block = Some(read);
     }
     Ok(Some(key))
+}
+
+/// [`merged`], for a block whose presence is what the asset is — `music`
+/// makes a track and `sound` a sound effect — so one given is kept even when
+/// every field is its default.
+fn marked<T>(
+    block: &mut Option<T>,
+    given: Option<&Value>,
+    key: &'static str,
+) -> Result<Option<&'static str>, String>
+where
+    T: Serialize + DeserializeOwned + Default + PartialEq + Clone,
+{
+    if block.is_none() && given.is_some_and(Value::is_object) {
+        *block = Some(T::default());
+    }
+    merged(block, given, key)
 }
 
 /// A brief block's schema: what it is for, its fields, and the prompt
@@ -207,10 +229,26 @@ pub(super) fn music_schema(_: &mut SchemaGenerator) -> Schema {
     )
 }
 
+/// The `sound` argument's schema (#1265).
+pub(super) fn sound_schema(_: &mut SchemaGenerator) -> Schema {
+    block(
+        "sound",
+        "(generated_audio) Makes the asset a sound effect made from its prompt — what \
+         makes the sound, how near, the room — rather than a line read aloud; never \
+         beside `speech` or `music`. 12 cents a minute, so a cent for five seconds or \
+         less. A synth_audio recipe is free and comes first for a click, a hit, a rise \
+         or a whoosh; this is for what a recipe cannot make.",
+        serde_json::json!({
+            "seconds": { "type": "number", "minimum": scorsese_core::MIN_SOUND_SECONDS, "maximum": scorsese_core::MAX_SOUND_SECONDS, "description": "How long, in seconds; fractions allowed. Needed before it is generated: the price is per minute." },
+            "loop": { "type": "boolean", "description": "Default false. true for a bed made to loop seamlessly — rain, a room tone — laid under a scene." }
+        }),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scorsese_core::{ImageRequest, MusicRequest, SpeechRequest, VideoRequest};
+    use scorsese_core::{ImageRequest, MusicRequest, SoundRequest, SpeechRequest, VideoRequest};
 
     /// Every value a schema offers is one the document's type reads — the
     /// schema is hand-written, so this is what keeps it from drifting.
@@ -234,6 +272,20 @@ mod tests {
         every_value_reads::<ImageRequest>(&image_schema(generator));
         every_value_reads::<SpeechRequest>(&speech_schema(generator));
         every_value_reads::<MusicRequest>(&music_schema(generator));
+        every_value_reads::<SoundRequest>(&sound_schema(generator));
+    }
+
+    /// A `sound` or `music` block given with every default still makes the
+    /// asset what the block says, rather than leaving it a line.
+    #[test]
+    fn an_empty_identity_block_is_kept() {
+        let mut sound: Option<SoundRequest> = None;
+        let given = serde_json::json!({});
+        assert_eq!(marked(&mut sound, Some(&given), "sound"), Ok(Some("sound")));
+        assert_eq!(sound, Some(SoundRequest::default()));
+        let mut speech: Option<SpeechRequest> = None;
+        merged(&mut speech, Some(&given), "speech").expect("merged");
+        assert_eq!(speech, None, "a line's every-default block stays absent");
     }
 
     /// Each block's description closes with every lesson the guide holds for

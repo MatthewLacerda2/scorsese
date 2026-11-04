@@ -24,6 +24,7 @@ mod references;
 mod report;
 mod sequence;
 mod shape;
+mod sound;
 mod source;
 mod speech;
 mod stacking;

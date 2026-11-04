@@ -1,8 +1,8 @@
-//! The passes one `generate` makes on this machine — shots, stills, lines, tracks —
+//! The passes one `generate` makes on this machine — shots, stills, lines, tracks, sounds —
 //! for the CLI and the MCP tool alike (#1118).
 //!
-//! **Four passes, one ceiling, one total.** Shots, stills, narration and
-//! music are separate passes because they are separate models and vendors, but the
+//! **Five passes, one ceiling, one total.** Shots, stills, narration, music
+//! and sound effects are separate passes because they are separate models and vendors, but the
 //! budget is threaded from each into the next: a ceiling each pass checked on
 //! its own would be worth three times what somebody set. That threading, which
 //! pass runs, what a stopped one hands back and what landed to be measured
@@ -25,14 +25,16 @@
 use std::path::Path;
 use std::time::Duration;
 
-use scorsese_core::placing::{self, Shortened};
-use scorsese_core::{AssetId, AssetKind, ProbeMedia, Project, Reprobe, probe_assets};
+use scorsese_core::{AssetId, AssetKind, Project};
 
 use crate::credentials::{Budget, CredentialError, Provider, resolve};
 use crate::image::{self, GeminiProvider, ImageError, ImageProvider, Order};
 use crate::music::{self, ElevenLabsComposer, MusicProvider};
+use crate::sound::{self, ElevenLabsSounds, SoundProvider};
 use crate::speech::{self, ElevenLabsProvider, SpeechProvider};
-use crate::video::{self, GenerationError, Run, VeoProvider, VideoProvider};
+use crate::video::{self, GenerationError, VeoProvider, VideoProvider};
+
+pub use super::done::Done;
 
 /// What a run was asked for, beyond the project.
 #[derive(Debug, Clone, Copy)]
@@ -58,6 +60,8 @@ pub trait Vendors {
     fn speech(&self) -> Result<Box<dyn SpeechProvider>, CredentialError>;
     /// ElevenLabs Music, keyed (#1264).
     fn music(&self) -> Result<Box<dyn MusicProvider>, CredentialError>;
+    /// ElevenLabs Sound Effects, keyed (#1265).
+    fn sound(&self) -> Result<Box<dyn SoundProvider>, CredentialError>;
     /// Sleeps between polls of the shots in flight.
     fn rest(&self, wait: Duration);
 }
@@ -92,118 +96,14 @@ impl Vendors for Keyed {
         )))
     }
 
+    fn sound(&self) -> Result<Box<dyn SoundProvider>, CredentialError> {
+        Ok(Box::new(ElevenLabsSounds::new(
+            &resolve(Provider::ElevenLabs)?.secret,
+        )))
+    }
+
     fn rest(&self, wait: Duration) {
         std::thread::sleep(wait);
-    }
-}
-
-/// What every pass did, a stopped one's included.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Done {
-    /// The shots, and what they committed.
-    pub shots: Run,
-    /// The stills.
-    pub stills: Vec<(AssetId, image::Outcome)>,
-    /// The narration.
-    pub lines: Vec<(AssetId, speech::Outcome)>,
-    /// The music (#1264).
-    pub tracks: Vec<(AssetId, music::Outcome)>,
-}
-
-impl Default for Done {
-    /// A run that has done nothing yet.
-    fn default() -> Self {
-        Self {
-            shots: Run {
-                outcomes: Vec::new(),
-                spent_cents: 0,
-            },
-            stills: Vec::new(),
-            lines: Vec::new(),
-            tracks: Vec::new(),
-        }
-    }
-}
-
-impl Done {
-    /// Whether no pass did anything at all.
-    pub fn is_empty(&self) -> bool {
-        self.shots.outcomes.is_empty()
-            && self.stills.is_empty()
-            && self.lines.is_empty()
-            && self.tracks.is_empty()
-    }
-
-    /// What the stills committed.
-    fn stills_spent(&self) -> u64 {
-        self.stills.iter().map(|(_, o)| o.spent_cents()).sum()
-    }
-
-    /// What the whole run is estimated to have spent, in US cents — the one
-    /// total that spans every provider. Our arithmetic, never a bill.
-    pub fn spent_cents(&self) -> u64 {
-        self.shots.spent_cents + self.stills_spent() + self.voiced_spent()
-    }
-
-    /// What the lines and the tracks committed — the ElevenLabs passes.
-    fn voiced_spent(&self) -> u64 {
-        self.lines.iter().map(|(_, o)| o.spent_cents()).sum::<u64>()
-            + self
-                .tracks
-                .iter()
-                .map(|(_, o)| o.spent_cents())
-                .sum::<u64>()
-    }
-
-    /// The shots, lines and tracks that arrived on disk with a length nothing has
-    /// measured yet — the ones whose clips may now outlast them.
-    ///
-    /// A cache hit is not one of them: its file was already there, and
-    /// whatever ran when it first landed has had every chance to look at it.
-    pub fn landed(&self) -> Vec<AssetId> {
-        let shot = self
-            .shots
-            .outcomes
-            .iter()
-            .filter(|(_, outcome)| matches!(outcome, video::Outcome::Generated { .. }));
-        let line = self
-            .lines
-            .iter()
-            .filter(|(_, outcome)| matches!(outcome, speech::Outcome::Generated { .. }));
-        let track = self
-            .tracks
-            .iter()
-            .filter(|(_, outcome)| matches!(outcome, music::Outcome::Generated { .. }));
-        shot.map(|(id, _)| id)
-            .chain(line.map(|(id, _)| id))
-            .chain(track.map(|(id, _)| id))
-            .cloned()
-            .collect()
-    }
-
-    /// Whether anything landed that has to be measured before the project
-    /// is saved for good — a shot, a line or a still.
-    pub fn unmeasured(&self) -> bool {
-        !self.landed().is_empty() || self.stills.iter().any(|(_, o)| o.landed())
-    }
-
-    /// Probes everything unmeasured and shortens the clips of what
-    /// [`landed`](Self::landed) that now outlast it, answering with each.
-    ///
-    /// **A generation has no measured shape until something looks**, and this
-    /// crate has no decoder and must not grow one, so the prober is handed in.
-    /// Measuring is also what can make the document refuse to load — a clip
-    /// laid out over a sketch may outlast what came back — so the clips are
-    /// fitted here, before the caller saves ([`placing::fit_to_sources`],
-    /// #825, #1114).
-    pub fn measure(
-        &self,
-        project: &mut Project,
-        root: &Path,
-        probe: &dyn ProbeMedia,
-    ) -> Vec<Shortened> {
-        probe_assets(project, root, probe, Reprobe::Skip);
-        placing::fit_to_sources(project, &self.landed())
     }
 }
 
@@ -218,6 +118,8 @@ pub enum Step {
     Lines,
     /// The music pass.
     Tracks,
+    /// The sound-effects pass.
+    Sounds,
     /// The stills, ordered as a batch.
     Batch,
     /// Collecting what was in flight.
@@ -325,6 +227,20 @@ fn passes(
             Err(stopped) => {
                 let says = stopped.says();
                 done.tracks = stopped.run;
+                return Err(Halt::Stopped(says));
+            }
+        }
+    }
+    if sound::pending(project, root) {
+        let provider = vendors.sound().map_err(key(Step::Sounds))?;
+        let budget = asked
+            .budget
+            .spend(done.shots.spent_cents + done.stills_spent() + done.voiced_spent());
+        match sound::generate(project, root, &*provider, budget) {
+            Ok(run) => done.sounds = run,
+            Err(stopped) => {
+                let says = stopped.says();
+                done.sounds = stopped.run;
                 return Err(Halt::Stopped(says));
             }
         }

@@ -44,6 +44,7 @@ export const pages = {
       veo_shot: "Video generation",
       spoken_line: "Speech generation",
       music_track: "Music generation",
+      sound_effect: "Sound effect generation",
       still_image: "Still generation",
       voice_design: "Voice design",
       assistant: "Assistant",

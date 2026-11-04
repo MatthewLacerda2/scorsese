@@ -66,8 +66,8 @@ const VIDEO: &[&str] = &["prompt", "video"];
 /// A still's brief.
 const IMAGE: &[&str] = &["prompt", "image"];
 
-/// A spoken line's brief, or a track's (#1264).
-const AUDIO: &[&str] = &["prompt", "speech", "music"];
+/// A spoken line's brief, a track's (#1264) or a sound's (#1265).
+const AUDIO: &[&str] = &["prompt", "speech", "music", "sound"];
 
 /// A synthesised asset's brief: the recipe it is baked from.
 const SYNTH: &[&str] = &["recipe"];
@@ -119,7 +119,7 @@ pub(super) fn check(kind: AssetKind, making: bool, arguments: &Arguments) -> Res
 /// The arguments the call gave a value, in the order they are declared. A
 /// JSON `null` reads as absent, block arguments included, so it names nothing.
 fn named(arguments: &Arguments) -> Vec<&'static str> {
-    let asked: [(&'static str, bool); 30] = [
+    let asked: [(&'static str, bool); 31] = [
         ("text", arguments.text.is_some()),
         ("font", arguments.font.is_some()),
         ("weight", arguments.weight.is_some()),
@@ -150,6 +150,7 @@ fn named(arguments: &Arguments) -> Vec<&'static str> {
         ("image", arguments.image.is_some()),
         ("speech", arguments.speech.is_some()),
         ("music", arguments.music.is_some()),
+        ("sound", arguments.sound.is_some()),
     ];
     asked
         .into_iter()

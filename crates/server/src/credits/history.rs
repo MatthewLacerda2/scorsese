@@ -30,6 +30,7 @@ pub const KINDS: &[&str] = &[
     "veo_shot",
     "spoken_line",
     "music_track",
+    "sound_effect",
     "still_image",
     "voice_design",
     "assistant",

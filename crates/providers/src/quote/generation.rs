@@ -6,7 +6,7 @@
 //! output already sits in `generated/`, or whose shot is in flight, costs this
 //! run nothing, however much it cost the run that paid for it.
 //!
-//! Shots first, then stills, then lines and tracks, each in document order — the order every surface
+//! Shots first, then stills, then lines, tracks and sounds, each in document order — the order every surface
 //! has always printed them in, and the order a person reads a cut in.
 //!
 //! **A batch is quoted on its own** ([`batch`], #894): stills only, at half
@@ -65,6 +65,7 @@ pub fn generation(project: &Project, root: &Path) -> Result<Quote, Unquotable> {
     for asset in of_kind(project, AssetKind::GeneratedAudio) {
         items.push(match asset.audio_block() {
             Some(AudioBlock::Music) => track(root, asset),
+            Some(AudioBlock::Sound) => super::effect::effect(root, asset),
             _ => line(root, asset)?,
         });
     }

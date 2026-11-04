@@ -9,6 +9,7 @@
 
 use anyhow::Result;
 use scorsese_providers::api::elevenlabs::music::MODEL_ID as MUSIC_MODEL;
+use scorsese_providers::api::elevenlabs::sound::MODEL_ID as SOUND_MODEL;
 use scorsese_providers::prices::{
     self, Checked, STALE_AFTER_DAYS, chat, dollars, elevenlabs, from_cents, gemini, veo,
 };
@@ -109,6 +110,25 @@ pub(crate) fn run() -> Result<()> {
     );
 
     println!();
+    println!("ElevenLabs Sound Effects, per minute of sound asked for — one rate.");
+    println!();
+    println!("| model | on the wire | per minute | a 5-second sound | checked |");
+    println!("| --- | --- | --- | --- | --- |");
+    let sound = elevenlabs::SOUND;
+    println!(
+        "| sound | `{}` | {} | {} | {}{} |",
+        SOUND_MODEL,
+        dollars(from_cents(sound.cents_per_minute), 2),
+        dollars(from_cents(prices::sound(5_000).cents), 2),
+        sound.checked,
+        if sound.checked.is_stale_on(today) {
+            " ⚠️"
+        } else {
+            ""
+        },
+    );
+
+    println!();
     println!("The web assistant's models, per million tokens. Exact, not estimated —");
     println!("a reply counts the tokens it was billed for.");
     println!();
@@ -157,7 +177,7 @@ fn stale_note(today: Checked) {
         .map(|row| row.rate.checked)
         .chain(gemini::RATES.iter().map(|row| row.rate.checked))
         .chain(elevenlabs::RATES.iter().map(|row| row.rate.checked))
-        .chain([elevenlabs::MUSIC.checked])
+        .chain([elevenlabs::MUSIC.checked, elevenlabs::SOUND.checked])
         .chain(chat::RATES.iter().map(|row| row.rate.checked))
         .min();
     let Some(oldest) = oldest else {

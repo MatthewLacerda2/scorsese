@@ -1,5 +1,5 @@
 //! The inspector with a generated asset selected: the brief behind a shot, a
-//! line of narration and a track of music, each the panel's own.
+//! line of narration, a track of music and a sound effect, each the panel's own.
 
 use crate::drawing::{self, window};
 use crate::fixture;
@@ -83,4 +83,24 @@ fn a_music_track_selected() {
     harness.state_mut().select("c-vo");
     harness.run();
     harness.snapshot(Part::Inspector, "a_music_track_selected");
+}
+
+/// A generated sound effect selected: named as a sound, with its description,
+/// a length in fractions of a second, whether it loops, and what it costs.
+#[test]
+fn a_sound_effect_selected() {
+    // The narration swapped for a sound with a length already set.
+    let document = fixture::DOCUMENT
+        .replace(
+            r#""prompt": "In a city that never sleeps, one editor never blinks." }"#,
+            r#""prompt": "a heavy wooden door creaking open",
+      "sound": { "seconds": 2.5 } }"#,
+        )
+        .replace(r#"{ "id": "vo","#, r#"{ "id": "door","#)
+        .replace(r#""asset": "vo""#, r#""asset": "door""#);
+    let project = fixture::write("sounded", &document);
+    let mut harness = window(Some(project.path().to_path_buf()));
+    harness.state_mut().select("c-vo");
+    harness.run();
+    harness.snapshot(Part::Inspector, "a_sound_effect_selected");
 }

@@ -160,3 +160,14 @@ pub const MUSIC: MusicRate = MusicRate {
     cents_per_minute: 15,
     checked: Checked::on(2026, 10, 16),
 };
+
+/// What a generated sound effect costs: one rate, per minute of sound asked
+/// for (#1265).
+///
+/// The vendor prices Sound Effects by the minute and lists one rate on every
+/// plan — $0.12 a minute (the page, read 2026-11-04) — so this is a constant,
+/// in [`MusicRate`]'s shape.
+pub const SOUND: MusicRate = MusicRate {
+    cents_per_minute: 12,
+    checked: Checked::on(2026, 11, 4),
+};

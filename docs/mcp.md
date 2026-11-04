@@ -102,7 +102,7 @@ the tools relate to each other, which is knowledge no single tool has.
 | `project_write` | Replace a project's project.json with the document given. | ffprobe |
 | `track_new` | Add a track — a lane for clips, carrying either picture or sound. | nothing |
 | `track_move` | Move a video track up or down the stack of layers: directly under or directly over another video track, its clips going with it. | nothing |
-| `asset_set` | Make or change a caption, title, color card, shape or icon asset, or the free sketch and brief of a generated shot, still or spoken line. | nothing |
+| `asset_set` | Make or change a caption, title, color card, shape or icon asset, or the free sketch and brief of a generated shot, still, spoken line, track or sound effect. | nothing |
 | `sequence` | Make an image sequence from stills already in the pool, or change one: which stills it plays in what order, how many frames each is held, and whether it loops. | nothing |
 | `asset_remove` | Remove an asset from the project, and DESTROY every clip that shows it — on the timeline and inside groups. | nothing |
 | `track_remove` | Remove a track — a lane on the timeline or inside a group — and DESTROY every clip on it. | nothing |

@@ -1,0 +1,63 @@
+//! An ElevenLabs sound effect as a job (#1265): [`line`](super::line)'s
+//! shape — one call, the audio on the same connection, no ticket — so marked
+//! sent before the call and never sent again after a stop.
+
+use std::sync::Arc;
+
+use scorsese_providers::sound::Brief;
+use scorsese_render::Tools;
+
+use super::Vendors;
+use super::land::Work;
+use crate::jobs::{Context, Handler, Job, Outcome, blocking};
+use crate::library::Kind;
+use crate::storage::Storage;
+
+/// The handler for [`crate::jobs::kinds::SOUND_EFFECT`].
+pub fn handler(storage: Storage, tools: Tools, vendors: Arc<dyn Vendors>) -> impl Handler {
+    move |job: Job, context: Context| {
+        let (storage, tools, vendors) = (storage.clone(), tools.clone(), Arc::clone(&vendors));
+        async move {
+            match Work::new(job, context, storage, tools) {
+                Ok(work) => sound(&work, vendors.as_ref()).await,
+                Err(why) => Outcome::Failed(why),
+            }
+        }
+    }
+}
+
+async fn sound(work: &Work, vendors: &dyn Vendors) -> Outcome {
+    let paid = match work.begin().await {
+        Ok(paid) => paid,
+        Err(done) => return done,
+    };
+    let brief = match gather(work) {
+        Ok(brief) => brief,
+        Err(why) => return work.refused(paid, why).await,
+    };
+    let provider = match vendors.sound() {
+        Ok(provider) => provider,
+        Err(why) => return work.refused(paid, why).await,
+    };
+    if let Err(done) = work.sending(paid).await {
+        return done;
+    }
+    match blocking("making a sound crashed", move || provider.make(&brief)).await {
+        Ok(Ok(bytes)) => work.keep(paid, bytes, Kind::Audio).await,
+        Ok(Err(error)) => work.answered(paid, error, "a sound").await,
+        Err(why) => work.refused(paid, why).await,
+    }
+}
+
+/// The sound's brief, from the document the job carries — refused if it is
+/// not the one that was quoted.
+fn gather(work: &Work) -> Result<Brief, String> {
+    let project = work.document()?;
+    let id = work.asset();
+    let asset = project
+        .asset(&id)
+        .ok_or_else(|| format!("the project has no asset `{id}`"))?;
+    let brief = Brief::of(asset).map_err(|error| error.to_string())?;
+    work.quoted(&brief.digest(), "the sound")?;
+    Ok(brief)
+}

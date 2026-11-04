@@ -29,7 +29,7 @@
 
 use std::path::Path;
 
-use scorsese_core::{AssetKind, Project};
+use scorsese_core::{AssetKind, AudioBlock, Project};
 use scorsese_providers::credentials::{Budget, Settings};
 use scorsese_providers::prices::{dollars, from_cents};
 use scorsese_providers::quote::{self, Item, Unquotable};
@@ -90,6 +90,18 @@ impl Quote {
             .collect()
     }
 
+    /// The items about `generated_audio` assets realised from `block` — a
+    /// line, a track or a sound, each under its own heading.
+    pub(crate) fn of_audio<'a>(&'a self, project: &'a Project, block: AudioBlock) -> Vec<&'a Item> {
+        self.items()
+            .filter(|item| {
+                project.assets.iter().any(|asset| {
+                    asset.id.as_str() == item.subject && asset.audio_block() == Some(block)
+                })
+            })
+            .collect()
+    }
+
     /// Whether nothing here would be paid for — asked of the charges, as the
     /// library asks it, so a brief priced at nothing still counts as one.
     pub(crate) fn free(&self) -> bool {
@@ -142,5 +154,7 @@ impl Quote {
     }
 }
 
+#[cfg(test)]
+mod audio;
 #[cfg(test)]
 mod tests;

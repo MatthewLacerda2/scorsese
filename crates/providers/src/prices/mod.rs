@@ -176,6 +176,33 @@ pub fn music(seconds: u32) -> MusicEstimate {
     }
 }
 
+/// What making a sound effect is expected to cost, and what that was worked
+/// out from (#1265).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SoundEstimate {
+    /// The total, in US cents. **Our calculation, never a billed figure.**
+    pub cents: u64,
+    /// The rate it came from, date included.
+    pub rate: elevenlabs::MusicRate,
+    /// How many milliseconds of sound were priced.
+    pub millis: u32,
+}
+
+/// What making `millis` of sound is expected to cost.
+///
+/// **Rounds up**, for [`music`]'s reason: at 12¢ a minute every sound of five
+/// seconds or less is a cent, and a ceiling crossed a fraction at a time is
+/// not a ceiling.
+pub fn sound(millis: u32) -> SoundEstimate {
+    let rate = elevenlabs::SOUND;
+    let per_minute_millis = u64::from(millis).saturating_mul(rate.cents_per_minute);
+    SoundEstimate {
+        cents: per_minute_millis.div_ceil(60_000),
+        rate,
+        millis,
+    }
+}
+
 /// What drawing a still is expected to cost, and what that was worked out from.
 ///
 /// The third sibling. It carries what the input was counted as, because that

@@ -42,6 +42,25 @@ bakes. A recipe is timed to the beat and edited a number at a time for
 nothing; a generated track is a file, timed by its length alone and redone
 whole, for money, whenever its description changes.
 
+**The same holds for an effect: a recipe first, a generated sound after.** A
+`generated_audio` asset with a `sound` block ([project-format.md](project-format.md),
+`guide project-format`, *What a generated sound effect asks for*) has
+ElevenLabs Sound Effects make a sound from a description, at 12 cents a minute
+— a cent for anything of five seconds or less (`guide prices`, *Sound
+effects*). Reach for it only when a patch cannot make the sound:
+
+- **a real thing recorded** — a wooden door creaking, keys in a lock, glass
+  breaking, a dog barking: a synthesiser approximates these, and a listener
+  hears the approximation;
+- **a place or a crowd** — rain on a window, a café, applause, traffic: a
+  bed with too many voices and textures for a patch (`"loop": true` for one
+  laid under a whole scene).
+
+Everything a kit patch already is stays a recipe: a whoosh, a riser, a pop, a
+ding, a click, a hit, a UI blip ([Whooshes, pops and dings to start
+from](#whooshes-pops-and-dings-to-start-from)) — free, varied a number at a
+time, and the same file every bake.
+
 ```
 scorsese synth new zap                 # a patch recipe, and its asset
 scorsese synth new theme --kind song   # a song recipe, and its asset

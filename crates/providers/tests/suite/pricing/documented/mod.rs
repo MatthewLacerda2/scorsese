@@ -13,6 +13,7 @@ mod assistant;
 mod music;
 mod narration;
 mod shots;
+mod sound;
 mod stills;
 
 const PAGE: &str = include_str!("../../../../../../docs/prices.md");

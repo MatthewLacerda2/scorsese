@@ -67,6 +67,11 @@ impl Brief {
                 id: asset.id.clone(),
             });
         }
+        if asset.sound.is_some() {
+            return Err(Incomplete::Sound {
+                id: asset.id.clone(),
+            });
+        }
         let text = asset
             .prompt
             .clone()

@@ -14,6 +14,7 @@
 //! run writes its line in [`crate::spending`]'s ledger at the moment it sends a
 //! brief instead (#1059).
 
+mod done;
 pub mod passes;
 mod prompted;
 mod stopped;
@@ -137,6 +138,7 @@ macro_rules! write_error_into {
 write_error_into!(
     crate::image::ImageError,
     crate::music::MusicError,
+    crate::sound::SoundError,
     crate::speech::SpeechError,
     crate::video::GenerationError
 );

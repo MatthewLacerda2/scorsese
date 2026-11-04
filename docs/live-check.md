@@ -57,6 +57,7 @@ make live-check ARGS="--include-veo --record /tmp/live"
 | | text-to-speech of `Checking.` on the `fast` model, with its timestamps | $0.01 |
 | | Voice Design from a 100-character passage — three candidates, **none kept** | $0.01 |
 | | a 3-second instrumental track on `music_v2_5`, as `mp3_44100_128`, through the product's own `Music::compose` — a bare MP3, and how long it took | $0.01 |
+| | a half-second sound on `eleven_text_to_sound_v3`, as `mp3_44100_128`, through the product's own `Sounds::make` — a bare MP3, and how long it took | $0.01 |
 | Anthropic | two streamed calls to `claude-opus-5-5` at `low` effort: ask for a tool call; then send the reply back unchanged, with an effort change, the tool's result and a mid-conversation `system` message | at most $0.15 |
 | Pixabay | `GET /api/videos/?q=sunrise` — hits, each with a usable rendition | free |
 | LottieFiles | `searchPublicAnimations("rocket", first: 3)`, anonymously — each result with an id, a `jsonUrl` and an `imageUrl`; `metadata`'s width, height, frame rate and duration carried by at least one | free, no key |
@@ -79,7 +80,8 @@ The track settles what #1264 read off ElevenLabs' API reference: that
 `mp3_44100_128` is taken on the music endpoint by a Starter key, that the
 model and `force_instrumental` are taken as sent, and that the reply is the
 MP3 itself. Its note says how long the track took, which the vendor does not
-document.
+document. The sound settles the same for #1265 on the sound-effects endpoint:
+the format, the v3 model, `duration_seconds` and `loop`.
 
 The Anthropic calls confirm the three things #540 could not: the stream's real
 events (every `fixtures/anthropic/*.sse` is hand-written), the
@@ -148,6 +150,7 @@ Every response shape scorsese parses, and where its test body came from.
 | ElevenLabs refusals (401 scope, 402 plan) | `api::elevenlabs::refusal` | inline in `tests/suite/speaking/refusals.rs`, `src/api/elevenlabs/refusal.rs`, `tests/suite/live/elevenlabs.rs` | **captured** |
 | ElevenLabs speech | bytes, an MP3 | — | nothing to parse |
 | ElevenLabs music | bytes, an MP3 | — | nothing to parse |
+| ElevenLabs sound effects | bytes, an MP3 | — | nothing to parse |
 | ElevenLabs Voice Design | `api::elevenlabs::design::DesignReply` | `fixtures/elevenlabs/design.json` | hand-written |
 | ElevenLabs keep a candidate | `CreatedVoice` | — | not exercised: it leaves a voice in the account |
 | Veo model lookup | `api::veo::response::ModelInfo` | `fixtures/veo/model.json` | **captured** 2026-10-07 |

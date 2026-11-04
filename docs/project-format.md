@@ -1,4 +1,4 @@
-# `project.json` — schema v56
+# `project.json` — schema v57
 
 The contract between the CLI, the MCP server and the GUI — the contract *now*,
 not across time. It is meant to be hand-written: an agent should be able to
@@ -41,6 +41,7 @@ carries forward) up to this one.
 | v53 → v54 | a generated track: the `music` block on `generated_audio` (#1264) | nothing: one optional block was added, absent in every v53 document, and a `generated_audio` asset without it is a line of narration exactly as it was — it passes through and only its version moves |
 | v54 → v55 | one keyframe track per property, except `volume`, whose tracks multiply (#1099) | each clip keeps only the **last** track on a property other than `volume` — the one the compositor drew — so nothing changes on screen; every `volume` track stays, and its tracks now multiply: a fade with a duck plays both, and so do two hand-written volume tracks on one clip (possible only through `project_write`), where the mixer used to play only the first |
 | v55 → v56 | an asset id is a safe file name: ASCII letters, digits, `-`, `_` and `.`, not starting with `.`, at most 128 characters | every id that breaks the rule is renamed — each run of characters it may not hold becomes one `-` (none right after a `-` already there), leading dots and hyphens and trailing hyphens go, `asset` when nothing is left, a name over 128 is cut in its middle (its first 64 and last 63 characters, joined by `-`), and `-2`, `-3`… when another asset already has the result in any case (an id that keeps the rule is never renamed, nor the one suffixed) — and every reference follows: clips (the timeline's and each group's), a shot's `first_image`, `last_image` and `reference_images`, a still's `reference_images` and `character_images`, a sequence's `stills`. A renamed asset's `path` follows too when it is a paid output named for the old id (`generated/<old id>-<brief hash>.<ext>`) and a path the folder can resolve, since a run looks for a take under its id; every other path is left as written. `scorsese migrate` links each such file (and its sidecars, e.g. word timings) at the new name and moves the spending ledger's lines to the new ids, both before writing the document, so a folder where either fails stays at v55 to be migrated again; the file paid for stays where it was, and each rename is printed. A take already drawn is not bought again, a still drawn by a retired model included; on the web, outputs are linked by brief hash at the new name. The exception is a still **waiting in a batch** across the migration: its answer is filed under its old id's key, so it is released and quoted again — as a still whose id held a refused character already was before v56, when its answer was dropped |
+| v56 → v57 | a generated sound effect: the `sound` block on `generated_audio` (#1265) | nothing: one optional block was added, absent in every v56 document, and a `generated_audio` asset without it is a line or a track exactly as it was — it passes through and only its version moves |
 
 A complete worked example lives in
 `crates/core/tests/fixtures/narrated_teaser.json`.
@@ -49,7 +50,7 @@ A complete worked example lives in
 
 ```json project
 {
-  "schema_version": 56,
+  "schema_version": 57,
   "name": "Narrated teaser",
   "timeline_fps": { "num": 30, "den": 1 },
   "aspect": "16:9",
@@ -221,6 +222,7 @@ re-importing or regenerating a file is one edit in one place.
 | `image` | optional, `generated_image` only | The rest of the brief: `resolution`, `aspect`, `thinking`, `reference_images`, `character_images` — see below |
 | `speech` | optional, `generated_audio` only | The rest of the brief: `model`, `voice_id`, `language`, `seed` — see below |
 | `music` | optional, `generated_audio` only, never beside `speech` | Makes the asset a generated track rather than a line: `seconds`, `instrumental` — see below |
+| `sound` | optional, `generated_audio` only, never beside `speech` or `music` | Makes the asset a generated sound effect: `seconds`, `loop` — see below |
 | `created_at` | optional | When the asset joined the table, as UTC RFC 3339 (`2026-08-04T14:20:00Z`) |
 | `queued_at` | optional, generated kinds | When a provider took the request. Not the same fact as `created_at` |
 | `operation` | optional, `generated_video`, `generated_image` | The provider's name for work in flight, while `queued`: a shot's Veo operation, or the batch a still waits in |
@@ -681,6 +683,42 @@ a genre, real instruments, a song.
 | `music` beside `speech` | the asset is a line or a track, never both |
 | `seconds` under 3 or over 600 | the vendor composes between three seconds and ten minutes in one request |
 | `music` on any kind but `generated_audio` | nothing else would be composed from it |
+
+### What a generated sound effect asks for
+
+A `generated_audio` asset with a `sound` block is a **sound effect**: its
+`prompt` describes the sound — *a heavy wooden door creaking open*, *a fast
+whoosh* — and ElevenLabs Sound Effects makes it (`POST /v1/sound-generation`,
+`eleven_text_to_sound_v3`). It is one block of three, so `sound` is never
+beside `speech` or `music`: which block an asset carries is what it is.
+
+```json asset
+{ "id": "door", "kind": "generated_audio", "state": "sketch",
+  "prompt": "A heavy wooden door creaking slowly open, close up",
+  "sound": { "seconds": 2.5 } }
+```
+
+Like `music`, every field is hashed into the brief along with the prompt, so
+editing one makes the asset `stale` and the next `generate` makes a new sound
+beside the old one.
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `seconds` | *none* | How long the sound is, 0.5 to 30 seconds, fractions allowed. Needed before it is generated: the price is per minute |
+| `loop` | `false` | Made to loop seamlessly — a bed of rain or a room tone laid under a scene |
+
+A sound costs **12¢ a minute** of what is asked for, rounded up to the cent,
+so any sound of five seconds or less is a cent (`guide prices`, *Sound
+effects*). **A `synth_audio` recipe (below) comes first**: a click, a beep, a
+rise, a hit or a whoosh a patch can make costs nothing and is reproducible.
+A generated sound is for what a recipe cannot make — a real door, a crowd,
+rain on a window.
+
+| Refused | Because |
+| --- | --- |
+| `sound` beside `speech` or `music` | the asset is one thing |
+| `seconds` under 0.5 or over 30 | the vendor makes between half a second and thirty seconds in one request |
+| `sound` on any kind but `generated_audio` | nothing else would be made from it |
 
 ### Synthesised audio
 
@@ -2878,7 +2916,7 @@ compositing-suite line.
 
 ```json project
 {
-  "schema_version": 56,
+  "schema_version": 57,
   "name": "wipe",
   "timeline_fps": { "num": 30, "den": 1 },
   "assets": [

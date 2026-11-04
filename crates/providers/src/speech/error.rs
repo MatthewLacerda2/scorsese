@@ -47,6 +47,14 @@ pub enum Incomplete {
         id: AssetId,
     },
 
+    /// A sound effect, which is made from a description rather than spoken
+    /// ([`crate::sound`], #1265).
+    #[error("{id} is a sound effect, not a line — it is made, not spoken")]
+    Sound {
+        /// The asset asked about.
+        id: AssetId,
+    },
+
     /// A line with nothing in it.
     #[error("{id} has no prompt — there is nothing to speak")]
     NoPrompt {
