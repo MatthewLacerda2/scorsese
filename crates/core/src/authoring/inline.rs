@@ -2,7 +2,8 @@
 
 use super::AuthorError;
 use crate::asset::{
-    Asset, AssetId, AssetKind, ImageRequest, MusicRequest, SpeechRequest, VideoRequest,
+    Asset, AssetId, AssetKind, ImageRequest, MusicRequest, SoundRequest, SpeechRequest,
+    VideoRequest,
 };
 use crate::fill::Fill;
 use crate::icon::Icon;
@@ -65,6 +66,9 @@ pub enum Inline {
         /// The rest of a generated track's brief — which makes the
         /// `generated_audio` sketch a track rather than a line (#1264).
         music: Option<MusicRequest>,
+        /// The rest of a generated sound effect's brief — which makes the
+        /// `generated_audio` sketch a sound effect (#1265).
+        sound: Option<SoundRequest>,
     },
 }
 
@@ -107,11 +111,13 @@ impl Inline {
                 image,
                 speech,
                 music,
+                sound,
             } => Asset {
                 video,
                 image,
                 speech,
                 music,
+                sound,
                 ..Asset::sketch(id, kind, prompt)
             },
         }
@@ -284,6 +290,7 @@ mod tests {
                 image: None,
                 speech: Some(speech.clone()),
                 music: None,
+                sound: None,
             },
         )
         .expect("a narration sketch is a valid asset");
@@ -307,6 +314,7 @@ mod tests {
                 image: None,
                 speech: Some(SpeechRequest::default()),
                 music: None,
+                sound: None,
             },
         );
         assert!(matches!(refused, Err(AuthorError::Refused(_))));
@@ -337,6 +345,10 @@ mod tests {
             seconds: Some(30),
             ..MusicRequest::default()
         };
+        let effect = SoundRequest {
+            seconds: Some(1.5),
+            looping: false,
+        };
         let asset = Inline::Sketch {
             kind: AssetKind::GeneratedVideo,
             prompt: "a city at dawn".to_owned(),
@@ -344,11 +356,12 @@ mod tests {
             image: Some(still.clone()),
             speech: None,
             music: Some(track.clone()),
+            sound: Some(effect.clone()),
         }
         .asset(AssetId::new("dawn"));
         assert_eq!(
-            (asset.video, asset.image, asset.music),
-            (Some(shot), Some(still), Some(track))
+            (asset.video, asset.image, asset.music, asset.sound),
+            (Some(shot), Some(still), Some(track), Some(effect))
         );
     }
 }

@@ -15,6 +15,7 @@
 
 #[macro_use]
 mod variants;
+mod audio;
 mod clip;
 mod document;
 mod fields;

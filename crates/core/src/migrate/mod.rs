@@ -161,6 +161,10 @@ pub(crate) const STEPS: &[Step] = &[
         from: 55,
         apply: ids::rename_bad_ids,
     },
+    Step {
+        from: 56,
+        apply: sounds_arrive,
+    },
 ];
 
 /// v33 → v34: the `group` asset kind (#586).
@@ -333,6 +337,16 @@ fn shot_seeds_arrive(_: &mut Value) -> Result<(), String> {
 /// arrived, absent in every v53 document, and a `generated_audio` asset
 /// without it is a line of narration exactly as it was at v53.
 fn music_arrives(_: &mut Value) -> Result<(), String> {
+    Ok(())
+}
+
+/// v56 → v57: a generated sound effect, the `sound` block on
+/// `generated_audio` (#1265).
+///
+/// Nothing to rewrite, for [`groups_arrive`]'s reason: one optional block
+/// arrived, absent in every v56 document, and a `generated_audio` asset
+/// without it is a line or a track exactly as it was at v56.
+fn sounds_arrive(_: &mut Value) -> Result<(), String> {
     Ok(())
 }
 

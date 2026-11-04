@@ -70,8 +70,8 @@ impl Default for MusicRequest {
 ///
 /// One question with one answer, asked by everything that has to tell a
 /// track from a line — the passes, the quote, the jobs — so none of them
-/// decides it its own way. A new block (sound effects, #1265) is a new
-/// variant here, and every `match` over it says where it has to be handled.
+/// decides it its own way. A new block is a new variant here, and every
+/// `match` over it says where it has to be handled.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AudioBlock {
     /// A line of narration, read by a voice — the `speech` block, or no
@@ -79,4 +79,6 @@ pub enum AudioBlock {
     Speech,
     /// A track of music, composed from a description — the `music` block.
     Music,
+    /// A sound effect, made from a description — the `sound` block (#1265).
+    Sound,
 }

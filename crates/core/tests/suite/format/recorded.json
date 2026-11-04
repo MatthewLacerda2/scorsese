@@ -103,6 +103,10 @@
           "stroke": "#0b1020",
           "stroke_width": 3.5
         },
+        "sound": {
+          "loop": true,
+          "seconds": 2.5
+        },
         "source": {
           "author": "someone",
           "id": "39009",
@@ -156,7 +160,7 @@
       }
     ],
     "name": "Every field",
-    "schema_version": 56,
+    "schema_version": 57,
     "script": "script.md",
     "timeline_fps": {
       "den": 1,

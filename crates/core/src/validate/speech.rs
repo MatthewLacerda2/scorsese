@@ -23,9 +23,10 @@ pub(super) fn check(asset: &Asset, errors: &mut Vec<AssetProblem>) {
         });
         return;
     }
-    // A track's prompt is a description of music, never a line to be read:
-    // none of this is asked of it (`super::music` is).
-    if asset.kind != AssetKind::GeneratedAudio || asset.music.is_some() {
+    // A track's or a sound's prompt is a description, never a line to be
+    // read: none of this is asked of it (`super::music` and `super::sound`
+    // are).
+    if asset.kind != AssetKind::GeneratedAudio || asset.music.is_some() || asset.sound.is_some() {
         return;
     }
 

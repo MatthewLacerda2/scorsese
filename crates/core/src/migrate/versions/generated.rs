@@ -156,3 +156,33 @@ fn a_v53_document_s_lines_stay_lines() {
         Some(crate::AudioBlock::Speech)
     );
 }
+
+/// v56 → v57: a v56 document's lines and tracks stay what they were.
+#[test]
+fn a_v56_document_s_lines_and_tracks_stay_put() {
+    let document = json!({
+        "schema_version": 56,
+        "name": "Before sounds",
+        "timeline_fps": { "num": 30, "den": 1 },
+        "aspect": "16:9",
+        "assets": [
+            { "id": "vo", "kind": "generated_audio", "state": "sketch", "prompt": "Hello.",
+              "speech": { "model": "fast" } },
+            { "id": "bed", "kind": "generated_audio", "state": "sketch", "prompt": "Calm lo-fi.",
+              "music": { "seconds": 40 } }
+        ],
+        "tracks": []
+    });
+    let (project, from) = parse(&document.to_string()).expect("a v56 document migrates");
+    assert_eq!(from, Some(56));
+    project.validate().expect("and it validates");
+    let blocks: Vec<_> = project.assets.iter().map(|a| a.audio_block()).collect();
+    assert_eq!(
+        blocks,
+        [
+            Some(crate::AudioBlock::Speech),
+            Some(crate::AudioBlock::Music)
+        ]
+    );
+    assert!(project.assets.iter().all(|a| a.sound.is_none()));
+}

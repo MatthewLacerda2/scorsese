@@ -10,8 +10,8 @@
 use scorsese_core::{
     Aspect, Asset, AssetId, AssetKind, Baseline, ClipSeconds, Counter, Fill, FontChoice, Fps,
     Frames, GenerationState, Group, Icon, ImageAspect, ImageRequest, ImageResolution,
-    ImageSequence, ImageThinking, Locale, MediaMetadata, MusicRequest, Project, ProjectPath, Ratio,
-    Reveal, RevealUnit, Rgba, SCHEMA_VERSION, Shape, SpeechModel, SpeechRequest, TextAlign,
+    ImageSequence, ImageThinking, Locale, MediaMetadata, Project, ProjectPath, Ratio, Reveal,
+    RevealUnit, Rgba, SCHEMA_VERSION, Shape, SoundRequest, SpeechModel, SpeechRequest, TextAlign,
     TextStyle, Timestamp, Track, TrackId, TrackKind, VideoModel, VideoRequest, VideoResolution,
 };
 
@@ -92,16 +92,9 @@ fn asset() -> Asset {
         }),
         note: Some("Why this asset".to_owned()),
         video: Some(video()),
-        speech: Some(SpeechRequest {
-            model: SpeechModel::Expressive,
-            voice_id: Some("voice".to_owned()),
-            language: Some("pt".to_owned()),
-            seed: Some(7),
-        }),
-        music: Some(MusicRequest {
-            seconds: Some(40),
-            instrumental: false,
-        }),
+        speech: Some(super::audio::speech()),
+        music: Some(super::audio::music()),
+        sound: Some(super::audio::sound()),
         image: Some(ImageRequest {
             resolution: Some(ImageResolution::K2),
             aspect: ImageAspect::Tall,
