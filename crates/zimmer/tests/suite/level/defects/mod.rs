@@ -15,6 +15,7 @@ mod dropouts;
 mod found;
 mod joined;
 mod neighbours;
+mod pulses;
 mod reach;
 mod stepped;
 mod steps;

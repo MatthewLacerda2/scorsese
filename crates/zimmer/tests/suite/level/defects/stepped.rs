@@ -56,24 +56,6 @@ fn a_staircase_at_the_end_of_a_file_is_found() {
     }
 }
 
-/// A note rich in harmonics pulses once a cycle, at a period in the same
-/// range a game's control rate is, and as it dies away the pulse can read as
-/// a staircase. Stepped gain is not reported on a sound that pulses on its
-/// own: it misses there rather than invents.
-#[test]
-fn a_low_note_dying_away_is_not_a_staircase() {
-    for hz in [60.0, 120.0, 180.0, 250.0, 270.0, 339.0, 523.0] {
-        for decay in [3.0, 10.0, 30.0, 60.0] {
-            let signal = buzz(hz, 1.0, |t| -decay * t);
-            let defects = found(1, &signal);
-            assert_eq!(
-                defects.zipper.count, 0,
-                "{hz} Hz at -{decay} dB/s: {defects:?}"
-            );
-        }
-    }
-}
-
 /// Noise is nothing but random change, and a staircase under it is still
 /// found: the steps all go one way, and noise goes every way.
 #[test]
@@ -94,17 +76,19 @@ fn noise_faded_in_steps_is_a_staircase() {
     assert!((run.size_db - 1.0).abs() < 0.3, "{run:?}");
 }
 
-/// A note with a sharp pulse a cycle, as a voice or a reed has: the first
-/// eight harmonics of `hz`, gained by `gain(t)` in dB.
-fn buzz(hz: f64, seconds: f64, gain: impl Fn(f64) -> f64) -> Vec<f32> {
-    let samples = (seconds * f64::from(RATE)) as usize;
-    (0..samples)
-        .map(|i| {
-            let t = i as f64 / f64::from(RATE);
-            let wave: f64 = (1..=8)
-                .map(|n| (std::f64::consts::TAU * hz * f64::from(n) * t).cos() / 8.0)
-                .sum();
-            (0.6 * wave * 10f64.powf(gain(t) / 20.0)) as f32
-        })
-        .collect()
+/// A fade in large steps, one game frame apart, is a staircase as
+/// plainly as one in small steps: its steps stand far clear of the noise, and
+/// a segment's halves are as level as ever.
+#[test]
+fn a_fade_in_large_steps_is_a_staircase() {
+    let period = 800.0 / f64::from(RATE);
+    for hz in [220.0, 440.0] {
+        let signal = tone(hz, 0.5, 2.0, |t| {
+            -3.0 * ((t - 0.5).max(0.0) / period).floor().min(12.0)
+        });
+        let defects = found(1, &signal);
+        assert_eq!(defects.zipper.count, 1, "{hz} Hz: {defects:?}");
+        let run = &defects.zipper.worst[0];
+        assert!((run.size_db - 3.0).abs() < 0.5, "{hz} Hz: {run:?}");
+    }
 }
