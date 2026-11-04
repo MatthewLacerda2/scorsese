@@ -106,7 +106,8 @@ pub(crate) fn generated_talking_shot(
 /// A video asset whose recorded sound starts `offset` seconds **after** its
 /// picture: a second of tone at `hz` muxed with `-itsoffset`, so the audio
 /// stream's `start_time` is late while the picture's and the container's are
-/// zero — the shape of a phone recording or an edited export (#1601).
+/// zero — the shape of a phone recording or an edited export (#1601). The
+/// sound is ALAC in the `.mp4`, so no encoder version can colour it.
 pub(crate) fn late_talking_picture(
     tools: &Tools,
     root: &Path,
@@ -132,6 +133,10 @@ pub(crate) fn late_talking_picture(
             &graph,
             "-pix_fmt",
             "yuv420p",
+            // Lossless, so the tone does not depend on the AAC encoder's
+            // version (ffmpeg 9 overshoots it, #1612).
+            "-c:a",
+            "alac",
         ],
     );
     crate::common::file_asset(id, AssetKind::Video)
