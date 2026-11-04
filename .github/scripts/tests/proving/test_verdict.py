@@ -1,63 +1,13 @@
 """`proved_tree.verdict` skips only on a tree a run really built (#1758).
 
-A fake `gh api` answers from canned bodies keyed by path prefix, so nothing
-reaches GitHub. Every way the lookup can be wrong must run the gates in full.
+Every way the lookup can be wrong must run the gates in full.
 """
 
 from __future__ import annotations
 
-import sys
 import unittest
-from pathlib import Path
 
-SCRIPTS = Path(__file__).resolve().parents[2]
-if str(SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS))
-
-import proved_tree  # noqa: E402
-
-REPO, SHA, BEFORE, TREE = "o/r", "s" * 40, "b" * 40, "t" * 40
-
-
-def job(name: str, step: str | None, conclusion: str = "success", step_concl: str = "success") -> dict:
-    steps = [{"name": "Set up job", "conclusion": "success"}]
-    if step:
-        steps.append({"name": step, "conclusion": step_concl})
-    return {"name": name, "conclusion": conclusion, "steps": steps}
-
-
-def built_jobs(**over) -> list[dict]:
-    """Every job `BUILT` names, each with its step run; `over` replaces by name."""
-    jobs = {name: job(name, step) for name, step in proved_tree.BUILT.items()}
-    jobs.update(over)
-    return [j for j in jobs.values() if j is not None]
-
-
-class Fake:
-    """`gh api`: the answer for the first prefix a path starts with, else `None`."""
-
-    def __init__(self, jobs=None, tree=TREE, files=("crates/core/src/lib.rs",), status="ahead", fail=(), tip=SHA):
-        run = {"id": 7, "html_url": "http://run/7", "head_commit": {"tree_id": tree}}
-        self.answers = {
-            f"repos/{REPO}/compare/": {"status": status, "files": [{"filename": f} for f in files]},
-            f"repos/{REPO}/commits/main": {"sha": tip},
-            f"repos/{REPO}/commits/{SHA}": {"commit": {"tree": {"sha": TREE}}},
-            f"repos/{REPO}/actions/workflows/ci.yml/": {"workflow_runs": [run]},
-            f"repos/{REPO}/actions/runs/7/jobs": {"jobs": built_jobs() if jobs is None else jobs},
-        }
-        self.fail = fail
-        self.asked: list[str] = []
-
-    def __call__(self, path: str):
-        self.asked.append(path)
-        for prefix, answer in self.answers.items():
-            if path.startswith(prefix):
-                return None if any(prefix.startswith(f) for f in self.fail) else answer
-        return None
-
-
-def verdict(fake: Fake, before: str = BEFORE):
-    return proved_tree.verdict(fake, REPO, SHA, before)
+from proving.fake import REPO, SHA, BEFORE, TREE, Fake, built_jobs, job, proved_tree, verdict  # noqa: F401
 
 
 class Skips(unittest.TestCase):
@@ -71,7 +21,8 @@ class Skips(unittest.TestCase):
         fake = Fake()
         other = {"id": 1, "html_url": "http://run/1", "head_commit": {"tree_id": "x" * 40}}
         first = {"workflow_runs": [other] * proved_tree.PER_PAGE}
-        found = {"workflow_runs": [{"id": 7, "html_url": "http://run/7", "head_commit": {"tree_id": TREE}}]}
+        found = {"workflow_runs": [{"id": 7, "html_url": "http://run/7", "head_commit": {"tree_id": TREE},
+                                    "event": "push", "head_branch": "main"}]}
         real = fake.__call__
 
         def paged(path: str):
@@ -80,30 +31,6 @@ class Skips(unittest.TestCase):
             return real(path)
 
         self.assertEqual(proved_tree.verdict(paged, REPO, SHA, BEFORE)[0], "http://run/7")
-
-
-class Superseded(unittest.TestCase):
-    """A train's intermediate squash is no longer `main`'s tip by its push run."""
-
-    def test_a_push_main_already_left_skips_without_a_run(self):
-        fake = Fake(tree="x" * 40, tip="n" * 40)
-        url, why = verdict(fake)
-        self.assertEqual(url, "n" * 40)
-        self.assertIn("skips the build", why)
-        self.assertFalse(any("/actions/" in p for p in fake.asked), "no run is needed to skip it")
-
-    def test_a_push_still_the_tip_needs_its_own_proof(self):
-        self.assertIsNone(verdict(Fake(tree="x" * 40))[0])
-
-    def test_a_tip_lookup_failing_is_not_superseded(self):
-        for fake in (Fake(tree="x" * 40, fail=(f"repos/{REPO}/commits/main",)), Fake(tree="x" * 40, tip="short")):
-            with self.subTest():
-                url, why = verdict(fake)
-                self.assertIsNone(url)
-                self.assertTrue(why.startswith("runs in full"), why)
-
-    def test_a_superseded_push_that_moves_a_cache_key_still_runs(self):
-        self.assertIsNone(verdict(Fake(files=("Cargo.lock",), tip="n" * 40))[0])
 
 
 class RunsInFull(unittest.TestCase):
@@ -120,6 +47,16 @@ class RunsInFull(unittest.TestCase):
         skipped = {name: job(name, None, "skipped") for name in
                    ("fmt + clippy + test", "desktop app", "web front-end", "deploy config", "cargo-deny")}
         self.assert_runs(Fake(jobs=built_jobs(**skipped)))
+
+    def test_a_run_against_another_base(self):
+        """A stacked pull request's run tested its head merged into that base."""
+        self.assert_runs(Fake(base="feature-x"))
+
+    def test_a_push_run_off_main(self):
+        fake = Fake()
+        fake.answers[f"repos/{REPO}/actions/workflows/ci.yml/"]["workflow_runs"][0].update(
+            event="push", head_branch="feature-x", pull_requests=[])
+        self.assert_runs(fake)
 
     def test_a_draft_run_whose_jobs_skipped(self):
         self.assert_runs(Fake(jobs=[job("changes", None, "skipped"), job("CI ok", None, "skipped")]))
@@ -142,6 +79,14 @@ class RunsInFull(unittest.TestCase):
                 url, why = verdict(Fake(files=("crates/core/src/lib.rs", path)))
                 self.assertIsNone(url)
                 self.assertIn(path, why)
+
+    def test_a_key_renamed_away(self):
+        fake = Fake()
+        fake.answers[f"repos/{REPO}/compare/"]["files"] = [
+            {"filename": ".cargo/cargo-config.toml", "previous_filename": ".cargo/config.toml"}]
+        url, why = verdict(fake)
+        self.assertIsNone(url)
+        self.assertIn(".cargo/config.toml", why)
 
     def test_a_path_only_named_like_a_key_is_not_one(self):
         for path in ("docs/Cargo.lock.md", "tools/ci-apt-notes", ".github/workflows/coverage.yml",

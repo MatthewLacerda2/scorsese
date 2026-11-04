@@ -8,7 +8,8 @@ the environment and fails when any needed job's result is `failure` or
 `cancelled`.
 
 `skipped` passes, and that is deliberate: it is `changes` saying a
-Markdown-only diff touched nothing a job checks. A job that never ran because
+Markdown-only diff touched nothing a job checks, or that a push to `main` has
+a tree a run already built (`proved_tree.py`, #1758). A job that never ran because
 something it needs failed is `skipped` too, but the failure it waited on is in
 the same set and refuses on its own.
 

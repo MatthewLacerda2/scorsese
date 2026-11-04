@@ -1,11 +1,12 @@
 # The mutation sweep: everything nobody asked about.
 #
 # Its own file, and that is the first decision rather than a filing preference.
-# `ci.yml`'s header states what CI is for in as many words — *CI speaks in two
-# situations and no others: a pull request claims to be finished, and `main`
-# moves* — and that sentence is load-bearing, because it is the reason drafts
-# are silent. A cron is a third situation. Putting this job in that file would
-# make the header false, so it lives here instead.
+# `ci.yml`'s header states what CI is for in as many words — *CI speaks in three
+# situations and no others: a pull request claims to be finished, `main` moves,
+# and the nightly rebuilds `main`* — and that sentence is load-bearing, because
+# it is the reason drafts are silent. `ci.yml`'s nightly is a gate on `main`
+# (#1758); this is a signal, and a signal never holds or reddens `CI ok`, so it
+# lives here instead.
 #
 # What it is for. Pull requests carry no mutation job (#651): an agent asks for
 # one over exactly the code it wrote, with `make mutants-remote` and

@@ -10,7 +10,8 @@ to `main`, and every job that builds is skipped when the answer is yes. Ported
 from rusty's (its #1784/#1785).
 
 **Mechanical, not assumed.** The pushed commit's tree is compared with the head
-tree of `ci.yml`'s recent successful runs. A squash merge of an up-to-date head
+tree of `ci.yml`'s recent successful runs on `main`, or of pull requests into
+`main` (a stacked pull request's run tested another base). A squash merge of an up-to-date head
 has exactly the head's tree, so a match proves the case rather than trusting
 that the queue did it: a merge from GitHub's page whose head no run built, or a
 push nothing ran on, runs in full. A run counts only when it really built: each
@@ -34,8 +35,10 @@ nightly's: `ci.yml`'s `schedule` builds `main` in full and saves.
 **A superseded push skips.** A merge train lands its members as one squash
 each, seconds apart (#1757), so every push but the last carries a tree no run
 built and `main` leaves at once. When the pushed commit is no longer `main`'s
-tip (`repos/{repo}/commits/main`), its build is skipped: the newer tip's own
-push run covers it. That is sound: `main` is linear, each later tip holds every
+tip (`repos/{repo}/commits/main`) and code landed after it, its build is
+skipped: the newer tip's own push run covers it. Only after code: a push run
+whose diff is Markdown-only asks nothing and builds nothing, so it covers no
+earlier tree. That is sound: `main` is linear, each later tip holds every
 change of the one before, nothing ships the intermediate tree, and the train's
 own run proved the tree its last squash leaves. A run that starts before the
 next merge sees itself as the tip and simply builds. The cache-key check comes
@@ -54,11 +57,17 @@ REST only (`test_rest_only.py`). Env: `GH_TOKEN`, `GITHUB_REPOSITORY`.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 from typing import Callable
+
+_spec = importlib.util.spec_from_file_location("ci_paths", Path(__file__).with_name("ci-paths.py"))
+ci_paths = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(ci_paths)
 
 WORKFLOW = "ci.yml"
 
@@ -110,17 +119,26 @@ def keyed(path: str) -> bool:
             or any(path == c or path.endswith("/" + c) for c in CACHE_KEYED_CONFIGS))
 
 
+def changed(get: Get, repo: str, base: str, head: str) -> list[str] | None:
+    """Every path `base...head` touches, both ends of a rename, when `head` is
+    a plain fast-forward of `base` and the list is whole; `None` otherwise."""
+    compare = get(f"repos/{repo}/compare/{base}...{head}")
+    if not isinstance(compare, dict) or compare.get("status") != "ahead":
+        return None
+    files = compare.get("files")
+    if not isinstance(files, list) or len(files) >= COMPARE_CAP:
+        return None
+    return [name for f in files for name in (f["filename"], f.get("previous_filename")) if name]
+
+
 def key_change(get: Get, repo: str, before: str, sha: str) -> str | None:
     """Why this push must run in full for its caches; `None` when it need not."""
     if not before or before == NO_COMMIT:
         return "no previous tip to compare with"
-    compare = get(f"repos/{repo}/compare/{before}...{sha}")
-    if not isinstance(compare, dict) or compare.get("status") != "ahead":
-        return "the push is not a plain fast-forward of the previous tip"
-    files = compare.get("files")
-    if not isinstance(files, list) or len(files) >= COMPARE_CAP:
-        return "the changed files could not all be read"
-    hit = sorted(f["filename"] for f in files if keyed(f.get("filename", "")))
+    files = changed(get, repo, before, sha)
+    if files is None:
+        return "the push is not a plain fast-forward of the previous tip, or its files could not all be read"
+    hit = sorted({f for f in files if keyed(f)})
     return f"it changes {', '.join(hit)}" if hit else None
 
 
@@ -136,6 +154,17 @@ def built(jobs: list[dict]) -> bool:
     return True
 
 
+def against_main(run: dict) -> bool:
+    """Whether the run tested its tree as `main` holds it: a run on `main`
+    itself, or a pull request's whose base is `main`. A stacked pull request's
+    run tested its head merged into another branch."""
+    if run.get("event") in ("push", "schedule"):
+        return run.get("head_branch") == "main"
+    if run.get("event") != "pull_request":
+        return False
+    return any(((pr.get("base") or {}).get("ref")) == "main" for pr in run.get("pull_requests") or [])
+
+
 def proving_run(get: Get, repo: str, tree: str) -> str | None:
     """The url of a successful run that built `tree`, if one is recent."""
     for page in range(1, PAGES + 1):
@@ -145,7 +174,7 @@ def proving_run(get: Get, repo: str, tree: str) -> str | None:
             raise LookupError("the runs list did not come")
         runs = answer["workflow_runs"]
         for run in runs:
-            if (run.get("head_commit") or {}).get("tree_id") != tree:
+            if (run.get("head_commit") or {}).get("tree_id") != tree or not against_main(run):
                 continue
             jobs = get(f"repos/{repo}/actions/runs/{run['id']}/jobs?filter=latest&per_page=100")
             if not isinstance(jobs, dict):
@@ -158,10 +187,15 @@ def proving_run(get: Get, repo: str, tree: str) -> str | None:
 
 
 def superseded(get: Get, repo: str, sha: str) -> str | None:
-    """`main`'s tip when it is now a commit other than `sha`; any doubt is `None`."""
+    """`main`'s tip when it is now a commit other than `sha` whose push run is
+    asked too: something between them is code, so the tip's `changes` does not
+    stop at Markdown-only. Any doubt is `None`."""
     tip = get(f"repos/{repo}/commits/main")
     found = tip.get("sha") if isinstance(tip, dict) else None
-    return found if isinstance(found, str) and len(found) == 40 and found != sha else None
+    if not (isinstance(found, str) and len(found) == 40 and found != sha):
+        return None
+    files = changed(get, repo, sha, found)
+    return found if files and ci_paths.runs_for(ci_paths.PATTERNS, files) else None
 
 
 def verdict(get: Get, repo: str, sha: str, before: str) -> tuple[str | None, str]:

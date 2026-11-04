@@ -30,8 +30,8 @@ name: CI
 # proves the match mechanically (a hand push or a merge from GitHub's page of a
 # head no run built still builds), keeps the full run for a push that moves a
 # cache key or this file (so `main` saves the new key's caches), skips a push
-# `main` has already moved past (a merge train's members land seconds apart),
-# and fails toward building on any error. A proved push's run is `changes` and
+# `main` has already moved past with more code (a merge train's members land
+# seconds apart), and fails toward building on any error. A proved push's run is `changes` and
 # `CI ok`, every other job skipped by design. Every job below carries `if: ${{ !DRAFT }}` —
 # spelled out each time, because Actions has no workflow-level `if`. `CI ok`
 # carries it too, so a draft's run skips everything; a draft cannot merge, and
