@@ -154,9 +154,9 @@ pub fn draw(wave: &Wave<'_>, font: &Font) -> Result<Frame, ResolutionError> {
 /// The columns a mark covers, at least one, on the same time axis as the
 /// stamps under the picture: zero at the left edge, the file's end at the
 /// right.
-fn marked(mark: &Mark, seconds: f64) -> std::ops::RangeInclusive<u32> {
+fn marked(mark: &Mark, seconds: f64) -> std::ops::Range<u32> {
     if seconds <= 0.0 {
-        return 1..=0;
+        return 0..0;
     }
     let x = |at: f64| {
         (at / seconds * f64::from(WIDTH - 1))
@@ -164,7 +164,7 @@ fn marked(mark: &Mark, seconds: f64) -> std::ops::RangeInclusive<u32> {
             .clamp(0.0, f64::from(WIDTH - 1)) as u32
     };
     let from = x(mark.from_seconds);
-    from..=x(mark.to_seconds).max(from)
+    from..x(mark.to_seconds).max(from) + 1
 }
 
 /// The row a silent sample sits on.

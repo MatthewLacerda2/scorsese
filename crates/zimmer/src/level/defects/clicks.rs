@@ -81,7 +81,7 @@ impl Clicks {
         }
         // The jump `reach` back now has all of its right-hand neighbours.
         let newest = self.fed - 1;
-        if newest >= 1 + self.reach as u64 {
+        if newest > self.reach as u64 {
             self.judge(newest - self.reach as u64);
         }
     }

@@ -9,13 +9,16 @@ use scorsese_zimmer::level::{Defect, Defects, Tally};
 
 use super::moment;
 
+/// One kind of defect: its name, what it means, how many, and how one is said.
+type Kind<'a> = (&'static str, &'static str, &'a Tally, fn(&Defect) -> String);
+
 /// The defects found in one file, as lines to print under its levels.
 pub fn defects(found: &Defects) -> Vec<String> {
     if found.is_clean() {
         return vec!["defects  none — no clicks, dropouts or stepped gain".to_owned()];
     }
     let mut lines = Vec::new();
-    let kinds: [(&str, &str, &Tally, fn(&Defect) -> String); 3] = [
+    let kinds: [Kind<'_>; 3] = [
         (
             "clicks",
             "a jump far above every jump around it",
