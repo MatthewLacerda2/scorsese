@@ -91,6 +91,9 @@ def wait(repo: str, sha: str, deadline: float, poll: float, tick=None) -> tuple[
         elif state != WAIT:
             return state, lines
         if waited > deadline:
+            for run in mergeable.unfinished(runs):  # its halves need the runners
+                subprocess.run(["gh", "api", "-X", "POST", f"repos/{repo}/actions/runs/{run['id']}/cancel"],
+                               capture_output=True, check=False)
             return STALLED, [f"still waiting on the train {sha[:7]} after {deadline / 60:.0f} minutes.", *lines]
         talk.say(f"train {sha[:7]}: {lines[0]}")
         if tick is not None:
@@ -102,8 +105,13 @@ def push(train: trains.Train, repo: str, root: str) -> str | None:
     """Push the train's tip to its branch; why not, or `None`."""
     name = trains.branch(train)
     delete(name, repo, root)
-    done = talk.git("push", "--quiet", "origin", f"{train.tip}:refs/heads/{name}", cwd=root)
-    return None if done.returncode == 0 else f"could not push {name}: {done.stderr.strip()}"
+    for delay in (*mergeable.RETRY_DELAYS[:3], None):  # a blip must not turn trains off
+        done = talk.git("push", "--quiet", "origin", f"{train.tip}:refs/heads/{name}", cwd=root)
+        if done.returncode == 0:
+            return None
+        if delay is not None:
+            time.sleep(delay)
+    return f"could not push {name}: {done.stderr.strip()}"
 
 
 def dispatch(repo: str, name: str) -> str | None:

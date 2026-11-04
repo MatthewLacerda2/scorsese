@@ -35,7 +35,7 @@ class Forming(unittest.TestCase):
         self.assertEqual(formed(Fx(line, adds=adds), line)[:2], ([1], None))
 
     def test_what_must_go_alone_waits_behind_and_goes_alone_first(self):
-        for path in (".github/scripts/merge_queue/yard.py", ".github/workflows/ci.yml", "Cargo.lock", "Makefile", "docs/testing.md"):
+        for path in (".github/scripts/merge_queue/yard.py", ".github/scripts/ci-ok.py", ".github/workflows/ci.yml", "Cargo.lock", "Makefile", "docs/testing.md"):
             with self.subTest(path=path):
                 line = [pr(1), pr(2), pr(3)]
                 self.assertEqual(formed(Fx(line, files={1: [path]}), line)[:2], ([1], None))

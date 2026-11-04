@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from .fakes import Fx, landing, merge, pr, queue, rails
+from .fakes import Fx, git, landing, merge, pr, queue, rails
 
 LINE = [pr(1), pr(2), pr(3), pr(4)]
 
@@ -38,6 +38,26 @@ class Riding(unittest.TestCase):
         self.assertEqual(at.form(LINE[2:])[:2], ([LINE[2]], None))
         self.assertEqual(at.form(LINE[3:])[:2], ([LINE[3]], None))
         self.assertEqual(fx.merged, [1, 2])
+
+    def test_who_cannot_ride_a_half_leaves_the_rest_of_it_waiting(self):
+        fx = Fx(LINE, verdicts=(rails.RED,))
+        at, _ = go(fx)
+        fx.ns.git = git(clashing={"h1"})  # #1 now conflicts with `main`
+        self.assertEqual(at.form(LINE)[:2], ([LINE[0]], None))
+        self.assertEqual(at.waiting[0], [(2, "h2")])
+
+    def test_github_failing_mid_landing_keeps_what_landed_and_checks_it(self):
+        fx = Fx(LINE)
+        real = fx.ns.look
+
+        def look(n):
+            if n == 2 and fx.merged:
+                raise queue.mergeable.Answered("HTTP 404")
+            return real(n)
+
+        fx.ns.look = look
+        results = go(fx)[1]
+        self.assertEqual(results, [(1, queue.MERGED), (2, queue.UNREACHABLE), (3, queue.REQUEUED), (4, queue.REQUEUED)])
 
     def test_a_half_whose_head_moved_is_dropped(self):
         fx = Fx(LINE, verdicts=(rails.RED,))

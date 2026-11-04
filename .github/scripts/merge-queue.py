@@ -247,6 +247,7 @@ def take(
     opts: argparse.Namespace,
     heads: dict[int, str] | None = None,
     tick=None,
+    retaken: bool = False,
 ) -> tuple[int, str, str]:
     """One pull request, from where it is to merged or handed back.
 
@@ -310,6 +311,15 @@ def take(
     if opts.no_merge:
         return number, GREEN, lines[0]
 
+    # `main`'s ruleset is not strict (#1757), so GitHub would merge a head that
+    # no longer holds `main`'s tip: a merge that landed late, or one by hand,
+    # would put a tree no run tested on `main`. Rebased and waited for again,
+    # once; a second move is unfinished, nothing decided.
+    if not rebase.on_main(fresh, opts.root):
+        if retaken:
+            return number, UNFINISHED, "`main` moved again while its run ran; queue it again."
+        talk.say(f"#{number}: `main` moved while its run ran; rebasing onto it again.")
+        return take(repo, number, opts, heads, tick, retaken=True)
     # Pinned to the head CI was watched on: GitHub refuses a head that moved.
     state, why = merge.squash(repo, number, fresh, opts.poll)
     if state != MERGED:
@@ -458,7 +468,8 @@ def ride(trains, train, members, record, dropped, tick) -> bool:
     """One train through [`yard.Yard.ride`], each result recorded and its head
     dropped as a take's is; a member back in line is said and stays in line.
     Whether the watch must stop: GitHub unreachable, or `main` not the train's."""
-    talk.tell(f"{watch.EVENT} taking {', '.join(f'#{p['number']}' for p in members)} together.")
+    listed = ", ".join(f"#{p['number']}" for p in members)
+    talk.tell(f"{watch.EVENT} taking {listed} together.")
     heads = {p["number"]: p.get("headRefOid", "") for p in members}
     try:
         rode = trains.ride(train, tick)

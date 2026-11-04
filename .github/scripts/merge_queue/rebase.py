@@ -150,6 +150,14 @@ def on_tip(sha: str, root: str) -> bool:
     return talk.git("merge-base", "--is-ancestor", "origin/main", sha, cwd=root).returncode == 0
 
 
+def on_main(sha: str, root: str) -> bool:
+    """Whether `sha` holds `origin/main`'s tip as GitHub has it now: `main` is
+    fetched first. A fetch that failed reads as no, never as the old tip."""
+    if talk.git("fetch", "--quiet", "origin", "main", cwd=root).returncode != 0:
+        return False
+    return on_tip(sha, root)
+
+
 def bot_head(
     repo: str, number: int, head: str, root: str, opts: argparse.Namespace
 ) -> tuple[str | None, list[str]]:

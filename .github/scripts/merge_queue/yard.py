@@ -90,7 +90,11 @@ class Yard:
         while self.waiting:
             half = [by[n] for n, head in self.waiting.pop(0) if n in by and by[n].get("headRefOid") == head]
             if half:
-                return group.form(half, train, self.fx.git, self.fx.judged, cap=len(half))
+                members, formed, notes = group.form(half, train, self.fx.git, self.fx.judged, cap=len(half))
+                rest = [(p["number"], p["headRefOid"]) for p in half if p not in members]
+                if rest:  # who could not ride this half is still a half, tested next
+                    self.waiting.insert(0, rest)
+                return members, formed, notes
         return group.form(line, train, self.fx.git, self.refuse)
 
     def ride(self, train: trains.Train, tick=None) -> list[tuple[int, str, str]]:
@@ -180,7 +184,8 @@ def files(repo: str, number: int) -> list[str] | None:
     try:
         while True:
             batch = mergeable.gh("api", f"repos/{repo}/pulls/{number}/files?per_page=100&page={page}")
-            found += [f.get("filename", "") for f in batch]
+            # A rename's old path too: moving a file out of the merge path changes it.
+            found += [name for f in batch for name in (f.get("filename"), f.get("previous_filename")) if name]
             if len(batch) < 100:
                 return found
             page += 1

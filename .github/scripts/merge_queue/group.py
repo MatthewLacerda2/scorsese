@@ -24,7 +24,8 @@ from . import train as trains
 # many back through the halves.
 CAP = 4
 
-# What a member may not touch. The merge path and CI, because a train would
+# What a member may not touch. The merge path and CI (the scripts that give
+# `CI ok` its verdict included), because a train would
 # prove the queue or a workflow by running the other one; the lockfiles,
 # because two members resolving dependencies apart is a merge git calls clean
 # and cargo `--locked` refuses (`issue-batch`: one lockfile owner per wave).
@@ -34,6 +35,7 @@ ALONE_FILES = (
     ".github/scripts/merge-queue.py", ".github/scripts/merge-watch.py",
     ".github/scripts/mergeable.py", ".github/scripts/pulls.py",
     ".github/scripts/described.py", ".github/scripts/ci-paths.py",
+    ".github/scripts/ci-ok.py", ".github/scripts/regression.py",
 )
 
 _spec = importlib.util.spec_from_file_location("ci_paths", Path(__file__).resolve().parent.parent / "ci-paths.py")

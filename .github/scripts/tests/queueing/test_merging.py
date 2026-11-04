@@ -116,12 +116,13 @@ class Taking(unittest.TestCase):
         quiet.start()
         self.addCleanup(quiet.stop)
 
-    def take(self, merge_stderr: str, record: dict | None, fresh: str = SHA, sent=None):
+    def take(self, merge_stderr: str, record: dict | None, fresh: str = SHA, sent=None, on_main=(True,)):
         opts = queue.parse(["490", "--poll", "0"])
         failed = subprocess.CompletedProcess([], 1 if merge_stderr else 0, "", merge_stderr)
         with mock.patch.object(queue.talk, "look", return_value=READY), \
             mock.patch.object(queue.talk, "git"), \
-            mock.patch.object(queue.rebase, "advance", return_value=(fresh, [])), \
+            mock.patch.object(queue.rebase, "advance", return_value=(fresh, [])) as self.advanced, \
+            mock.patch.object(queue.rebase, "on_main", side_effect=list(on_main)), \
             mock.patch.object(queue.ci, "wait_for", return_value=(queue.GO, ["CI passed"])), \
             mock.patch.object(queue.subprocess, "run", return_value=failed) as run, \
             mock.patch.object(queue.merge, "merge_record", return_value=record) as asked, \
@@ -149,6 +150,18 @@ class Taking(unittest.TestCase):
         self.assertEqual(state, queue.HANDED_BACK)
         self.assertIn("refused", why)
         asked.assert_not_called()
+
+
+    def test_main_moving_under_the_run_retakes_it_never_merges_it(self):
+        # `main`'s ruleset is not strict (#1757), so GitHub would merge a head
+        # that no longer holds `main`'s tip: the queue asks itself.
+        sent = []
+        (_, state, _), _ = self.take("", None, sent=sent, on_main=(False, True))
+        self.assertEqual((state, self.advanced.call_count, len(sent)), (queue.MERGED, 2, 1))
+        sent = []
+        (_, state, why), _ = self.take("", None, sent=sent, on_main=(False, False))
+        self.assertEqual((state, self.advanced.call_count, sent), (queue.UNFINISHED, 2, []))
+        self.assertIn("`main` moved", why)
 
 
 class Contract(unittest.TestCase):

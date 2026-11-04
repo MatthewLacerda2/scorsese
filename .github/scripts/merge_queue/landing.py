@@ -49,7 +49,7 @@ def departed(train: trains.Train, look, why_moved) -> list[tuple[int, str]]:
     for car in train.cars:
         try:
             why = why_moved(look(car.number), car)
-        except mergeable.Unreachable as down:
+        except (mergeable.Unreachable, SystemExit) as down:  # SystemExit: `mergeable.Answered`
             why = f"GitHub did not show it: {down}"
         if why:
             gone.append((car.number, why))
@@ -79,10 +79,10 @@ def land(train: trains.Train, look, why_moved, squash) -> tuple[list[tuple[int, 
 def step(car: trains.Car, look, why_moved, squash) -> tuple[str, str, bool]:
     """One member's landing: its state, why, and whether its fate is unknown."""
     try:
-        pull = look(car.number)
-    except mergeable.Unreachable as down:
-        return UNREACHABLE, str(down), False
-    why = why_moved(pull, car)
+        why = why_moved(look(car.number), car)
+    except (mergeable.Unreachable, SystemExit) as down:  # SystemExit: `mergeable.Answered`
+        # Those before it landed and are kept; `check` still runs on them.
+        return UNREACHABLE, f"GitHub did not show it before its squash: {down}", False
     if why:
         return REQUEUED, f"not landed with its train: {why}.", False
     state, why = squash(car.number, car.head)
