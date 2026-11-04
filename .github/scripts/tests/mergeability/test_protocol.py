@@ -20,7 +20,7 @@ protocol = mergeable.protocol
 SHA = "c23b7c4f0000000000000000000000000000000a"
 GREEN = [{"name": "CI", "head_sha": SHA, "id": 1, "status": "completed",
           "conclusion": "success", "html_url": "https://example.invalid/1"}]
-JOBS = {1: [{"name": "fmt + clippy + test", "conclusion": "success"}]}
+JOBS = {1: [{"name": "fmt + clippy + test", "status": "completed", "conclusion": "success"}, {"name": "CI ok", "status": "completed", "conclusion": "success"}]}
 GOOD = "Closes #1229\n\nThe change.\n\n**Gates**: `make gates` green on abc1234.\n"
 
 

@@ -36,7 +36,7 @@ def run(**fields: object) -> dict:
 
 
 def job(name: str, conclusion: str) -> dict:
-    return {"name": name, "conclusion": conclusion}
+    return {"name": name, "status": "completed", "conclusion": conclusion}
 
 
 
@@ -68,7 +68,7 @@ class Picking(unittest.TestCase):
         live = run(id=2, status="in_progress", conclusion=None)
         skipped = run(id=3, conclusion="skipped")
         self.assertEqual(mergeable.failed_runs([red, live, skipped]), [red])
-        self.assertEqual(mergeable.unfinished([red, live, skipped]), [live])
+        self.assertEqual(mergeable.unfinished([red, live, skipped], {}), [live])
 
     def test_a_skipped_run_is_not_a_failed_one(self):
         # It is what CI does to a draft; reading it as a failure would refuse

@@ -43,7 +43,7 @@ HEAVY = ("fmt + clippy + test", "desktop app", "web front-end", "size gate")
 
 
 def job(name: str, conclusion: str) -> dict:
-    return {"name": name, "conclusion": conclusion}
+    return {"name": name, "status": "completed", "conclusion": conclusion}
 
 
 # What a Markdown-only run reports: two jobs that ran, every other one skipped.

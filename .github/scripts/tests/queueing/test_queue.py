@@ -50,13 +50,14 @@ def run(**fields: object) -> dict:
 
 
 def job(name: str, conclusion: str) -> dict:
-    return {"name": name, "conclusion": conclusion}
+    return {"name": name, "status": "completed", "conclusion": conclusion}
 
 
 def asked(*runs: dict, waited: float = 0.0, jobs=None, pull=None):
     """[`queue.progress`] over these runs, one passing job each by default."""
     jobs = jobs if jobs is not None else {
-        r["id"]: [job("fmt + clippy + test", "success")] for r in runs
+        r["id"]: [job("fmt + clippy + test", "success"), job("CI ok", "success")]
+        for r in runs
     }
     return queue.progress(pull or READY, list(runs), jobs, waited)
 
@@ -145,7 +146,7 @@ class Polling(unittest.TestCase):
         self.assertIn("draft", " ".join(lines).lower())
 
     def test_a_genuine_pass_goes(self):
-        state, lines = asked(run(), jobs={1: [job("test", "success")]})
+        state, lines = asked(run(), jobs={1: [job("test", "success"), job("CI ok", "success")]})
         self.assertEqual(state, queue.GO)
         self.assertIn("passed", lines[0])
 

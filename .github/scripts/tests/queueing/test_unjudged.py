@@ -121,6 +121,8 @@ class WaitFor(unittest.TestCase):
         live = ([RUN | {"status": "in_progress", "run_attempt": 2}], {run["id"]: []})
         green_jobs = [job | {"conclusion": "success"} for job in jobs]
         green_jobs[0]["steps"] = [{"status": "completed"}]
+        # Recorded before `CI ok` existed (#1351); a run passes only with it (#1764).
+        green_jobs.append({"name": "CI ok", "status": "completed", "conclusion": "success"})
         green = ([RUN | {"conclusion": "success", "run_attempt": 2}], {run["id"]: green_jobs})
         (state, _), gh = self.polled([stale, stale, live, green])
         self.assertEqual(state, queue.GO)
