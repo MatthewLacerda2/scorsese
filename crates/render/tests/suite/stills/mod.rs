@@ -12,6 +12,7 @@ use crate::common;
 
 mod boundaries;
 mod cues;
+mod png;
 mod shrunk;
 mod thumbnails;
 

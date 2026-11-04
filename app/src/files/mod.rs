@@ -196,7 +196,7 @@ fn tile(
     };
     let sequence = listed.is_some_and(|line| !line.stills.is_empty());
     let picture = picture_of(open, listed, status)
-        .and_then(|(source, how, out)| thumbs.get(ui.ctx(), &source, how, &out));
+        .and_then(|(source, how, out)| thumbs.get(ui.ctx(), &source, how, &open.root, &out));
     let mut note = note(status, listed);
     if sequence && note.is_none() {
         let count = listed.map_or(0, |line| line.stills.len());

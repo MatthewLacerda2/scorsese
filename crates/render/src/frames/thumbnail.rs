@@ -48,8 +48,8 @@ impl Thumbnail {
     }
 }
 
-/// Writes a thumbnail of `source` to `out`, replacing whatever is there, in the
-/// format `out`'s extension names.
+/// Writes a thumbnail of `source` to `out`, replacing whatever is there — a
+/// link too, never written through — in the format `out`'s extension names.
 pub fn thumbnail(
     tools: &Tools,
     source: &Path,
@@ -69,13 +69,21 @@ pub fn thumbnail_unless(
     out: &Path,
     cancel: &Cancel,
 ) -> Result<(), FrameError> {
+    super::in_place(out, |drawing| draw(tools, source, what, drawing, cancel))
+}
+
+/// ffmpeg drawing the thumbnail as `out`, over whatever is there.
+fn draw(
+    tools: &Tools,
+    source: &Path,
+    what: Thumbnail,
+    out: &Path,
+    cancel: &Cancel,
+) -> Result<(), FrameError> {
     let io = |source| FrameError::Io {
         file: out.to_path_buf(),
         source,
     };
-    if let Some(parent) = out.parent() {
-        std::fs::create_dir_all(parent).map_err(io)?;
-    }
     let side = THUMBNAIL_SIZE;
     // Fits inside a square of `side`, keeping the shape, never enlarging, and
     // even on both sides — which every encoder accepts.

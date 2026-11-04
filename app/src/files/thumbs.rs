@@ -10,6 +10,13 @@
 //! ffmpeg work on a machine that may be serving someone's render. The file's
 //! name carries the asset's hash, so a replaced file gets a new picture
 //! instead of a stale one, and a picture already on disk is not made again.
+//!
+//! A `.scor` received from someone else may carry `cache/` (or anything below
+//! it) as a link (#1737): the folder is made from the project root through
+//! [`scorsese_core::write::in_cache`], which refuses one, and a link at a
+//! picture's own name is never read as the picture — it is drawn again, and
+//! the drawing replaces the link. A refusal is a tile without a picture, said
+//! on stderr.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -20,10 +27,15 @@ use scorsese_core::{Asset, AssetKind};
 use scorsese_render::Tools;
 use scorsese_render::frames::{Thumbnail, thumbnail};
 
-/// One picture to make: where from, how, and where to keep it.
+/// The folder below `cache/` the pictures are kept in.
+const FOLDER: &str = "thumbs";
+
+/// One picture to make: where from, how, the project it is kept in, and where
+/// in it.
 struct Job {
     source: PathBuf,
     how: Thumbnail,
+    root: PathBuf,
     out: PathBuf,
 }
 
@@ -74,12 +86,14 @@ impl Thumbs {
         }
     }
 
-    /// The picture at `out`, asking for it to be made if nobody has yet.
+    /// The picture at `out` ([`cached`] under the project at `root`), asking
+    /// for it to be made if nobody has yet.
     pub(crate) fn get(
         &mut self,
         ctx: &Context,
         source: &Path,
         how: Thumbnail,
+        root: &Path,
         out: &Path,
     ) -> Option<&TextureHandle> {
         if !self.slots.contains_key(out) {
@@ -87,6 +101,7 @@ impl Thumbs {
             let job = Job {
                 source: source.to_path_buf(),
                 how,
+                root: root.to_path_buf(),
                 out: out.to_path_buf(),
             };
             let queued = jobs.send(job).is_ok();
@@ -115,7 +130,7 @@ pub(crate) fn how(kind: AssetKind) -> Option<Thumbnail> {
 /// Where the picture of `asset` is kept: named for the asset and the hash of
 /// the file, so a replaced file is a new picture.
 pub(crate) fn cached(root: &Path, asset: &Asset) -> PathBuf {
-    kept(root, asset, "thumbs", "png")
+    kept(root, asset, FOLDER, "png")
 }
 
 /// Where something derived from `asset`'s file is kept under `cache/<folder>/`,
@@ -142,12 +157,9 @@ fn spawn(ctx: Context) -> (Sender<Job>, Receiver<Done>) {
     let (done, results) = channel::<Done>();
     std::thread::spawn(move || {
         let tools = Tools::discover().ok();
-        for Job { source, how, out } in queue {
-            let made = out.is_file()
-                || tools
-                    .as_ref()
-                    .is_some_and(|tools| thumbnail(tools, &source, how, &out).is_ok());
-            let image = made.then(|| read(&out)).flatten();
+        for job in queue {
+            let image = made(tools.as_ref(), &job).then(|| read(&job.out)).flatten();
+            let out = job.out;
             if done.send(Done { out, image }).is_err() {
                 return;
             }
@@ -157,6 +169,25 @@ fn spawn(ctx: Context) -> (Sender<Job>, Receiver<Done>) {
     (jobs, results)
 }
 
+/// Whether `job`'s picture is on disk once this returns: kept from before, or
+/// drawn now — never through a link (the module's doc).
+fn made(tools: Option<&Tools>, job: &Job) -> bool {
+    if let Err(error) = scorsese_core::write::in_cache(&job.root, Path::new(FOLDER)) {
+        eprintln!("no thumbnails are kept for this project: {error}");
+        return false;
+    }
+    if is_kept(&job.out) {
+        return true;
+    }
+    tools.is_some_and(|tools| thumbnail(tools, &job.source, job.how, &job.out).is_ok())
+}
+
+/// Whether a file of our own is kept at `path`: a link there, whatever it
+/// leads to, is not one, and is made again over.
+pub(crate) fn is_kept(path: &Path) -> bool {
+    std::fs::symlink_metadata(path).is_ok_and(|meta| meta.is_file())
+}
+
 fn read(path: &Path) -> Option<ColorImage> {
     let rgba = image::open(path).ok()?.to_rgba8();
     let size = [rgba.width() as usize, rgba.height() as usize];
@@ -164,7 +195,7 @@ fn read(path: &Path) -> Option<ColorImage> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use scorsese_core::{Asset, AssetId};
 
@@ -188,6 +219,75 @@ mod tests {
     fn an_id_cannot_leave_the_cache_folder() {
         let path = cached(Path::new("/p"), &asset("../x/y", None));
         assert_eq!(path.parent(), Some(Path::new("/p/cache/thumbs")));
+    }
+
+    /// A project folder of its own, and a folder outside it to plant links to.
+    pub(crate) fn planted(name: &str) -> (PathBuf, PathBuf) {
+        let base = std::env::temp_dir().join(format!("scorsese-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let (root, outside) = (base.join("project"), base.join("outside"));
+        std::fs::create_dir_all(&root).expect("a project folder");
+        std::fs::create_dir_all(&outside).expect("a folder outside");
+        (root, outside)
+    }
+
+    /// A picture to take a thumbnail of, drawn by ffmpeg.
+    fn picture(tools: &Tools, root: &Path) -> PathBuf {
+        let source = root.join("still.png");
+        let made = tools
+            .ffmpeg()
+            .args(["-nostdin", "-v", "error", "-y", "-f", "lavfi"])
+            .args(["-i", "testsrc=s=64x36", "-frames:v", "1"])
+            .arg(&source)
+            .status()
+            .expect("ffmpeg runs");
+        assert!(made.success(), "the fixture picture");
+        source
+    }
+
+    fn job(root: &Path, source: PathBuf) -> Job {
+        Job {
+            source,
+            how: Thumbnail::Picture,
+            root: root.to_path_buf(),
+            out: cached(root, &asset("plate", Some("aaaaaaaaaaaaaaaaaaaa"))),
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_linked_cache_folder_is_refused_and_nothing_lands_where_it_leads() {
+        let tools = Tools::discover().expect("ffmpeg");
+        for linked in ["cache", "cache/thumbs"] {
+            let (root, outside) = planted("thumbs-linked-folder");
+            let source = picture(&tools, &root);
+            let link = root.join(linked);
+            std::fs::create_dir_all(link.parent().expect("a parent")).expect("cache/");
+            std::os::unix::fs::symlink(&outside, &link).expect("a link");
+
+            assert!(!made(Some(&tools), &job(&root, source)), "{linked}");
+            let landed = std::fs::read_dir(&outside).expect("outside").count();
+            assert_eq!(landed, 0, "{linked}: written where the link leads");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_link_at_a_pictures_name_is_drawn_over_never_shown_or_written_through() {
+        let tools = Tools::discover().expect("ffmpeg");
+        let (root, outside) = planted("thumbs-linked-file");
+        let source = picture(&tools, &root);
+        let victim = outside.join("victim.png");
+        std::fs::copy(&source, &victim).expect("a victim");
+        let before = std::fs::read(&victim).expect("the victim");
+        let job = job(&root, source);
+        std::fs::create_dir_all(job.out.parent().expect("a parent")).expect("cache/thumbs");
+        std::os::unix::fs::symlink(&victim, &job.out).expect("a link");
+
+        assert!(made(Some(&tools), &job));
+        assert_eq!(std::fs::read(&victim).expect("the victim"), before);
+        let landed = std::fs::symlink_metadata(&job.out).expect("the file");
+        assert!(!landed.is_symlink(), "the link was not replaced");
     }
 
     #[test]
