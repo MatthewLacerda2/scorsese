@@ -10,8 +10,10 @@ to `main`, and every job that builds is skipped when the answer is yes. Ported
 from rusty's (its #1784/#1785).
 
 **Mechanical, not assumed.** The pushed commit's tree is compared with the head
-tree of `ci.yml`'s recent successful runs on `main`, or of pull requests into
-`main` (a stacked pull request's run tested another base). A squash merge of an up-to-date head
+tree of `ci.yml`'s recent successful runs on `main`, of pull requests into
+`main` (a stacked pull request's run tested another base), or dispatched by the
+merge queue on a train's branch ([`TRAIN_PREFIX`], #1765): a train's run built
+the tree its last member's squash leaves. A squash merge of an up-to-date head
 has exactly the head's tree, so a match proves the case rather than trusting
 that the queue did it: a merge from GitHub's page whose head no run built, or a
 push nothing ran on, runs in full. A run counts only when it really built: each
@@ -69,6 +71,9 @@ _spec = importlib.util.spec_from_file_location("ci_paths", Path(__file__).with_n
 ci_paths = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ci_paths)
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from merge_queue.train import PREFIX as TRAIN_PREFIX  # noqa: E402  (the queue's own name for a train's branch)
+
 WORKFLOW = "ci.yml"
 
 #: The jobs a run must have built in, by the `name:` the jobs API reports, each
@@ -91,7 +96,7 @@ CACHE_KEYED_PATHS = ("tools/ci-apt", "tools/ci-postgres", "tools/chromium/pin",
                      f".github/workflows/{WORKFLOW}")
 
 #: How many pages of successful runs to search; the proving run of a merge is
-#: the pull request's last, minutes old.
+#: the pull request's last, or its train's, minutes old.
 PAGES = 2
 PER_PAGE = 100
 #: The compare API lists at most this many files; a longer list is unread.
@@ -156,10 +161,14 @@ def built(jobs: list[dict]) -> bool:
 
 def against_main(run: dict) -> bool:
     """Whether the run tested its tree as `main` holds it: a run on `main`
-    itself, or a pull request's whose base is `main`. A stacked pull request's
-    run tested its head merged into another branch."""
+    itself, a pull request's whose base is `main`, or the merge queue's
+    dispatch of a train, whose tip is `main` with the members squashed on. A
+    stacked pull request's run tested its head merged into another branch, and
+    no other dispatch is the queue's."""
     if run.get("event") in ("push", "schedule"):
         return run.get("head_branch") == "main"
+    if run.get("event") == "workflow_dispatch":
+        return str(run.get("head_branch") or "").startswith(TRAIN_PREFIX)
     if run.get("event") != "pull_request":
         return False
     return any(((pr.get("base") or {}).get("ref")) == "main" for pr in run.get("pull_requests") or [])

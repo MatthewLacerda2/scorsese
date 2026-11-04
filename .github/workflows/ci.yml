@@ -67,7 +67,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   # The nightly (#1758): `main` in full, every job. A push whose tree a pull
-  # request's run proved builds nothing, so this is what rebuilds `main`
+  # request's or a merge train's run proved builds nothing, so this rebuilds `main`
   # against what moves with nothing in any diff — the runner image, and with it
   # ffmpeg under the golden gate and the apt cache's key — and re-saves `main`'s
   # caches under the image of the day. It is a gating run on `main`, not a
