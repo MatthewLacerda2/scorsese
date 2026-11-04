@@ -880,6 +880,19 @@ exclude_re = [
     # added to `at`. Both equivalent.
     'defects/envelope\.rs:96:63: replace \* with / in Envelope::dropouts',
     'defects/envelope\.rs:118:29: replace \+ with - in Envelope::dropouts',
+
+    # `level::defects::zipper`'s `Cut::of` counts a boundary as going the
+    # staircase's way when `steps[i] * across > 0.0`. A quotient has the sign
+    # of the product for every `across` but zero, and `>=` differs from `>`
+    # only at a product of zero: a step of zero, which the clause after it
+    # (`abs() >= across.abs() / 2.0`) refuses unless `across` is zero too. An
+    # `across` of zero is a step under `STEP_DB`, refused before `way` is read.
+    # Both equivalent. So is `of_blocks`' `to > from` widened to `>=`: at
+    # `to == from` the mean is 0, under `SILENT`, and the answer is `None`
+    # either way.
+    'defects/zipper\.rs:336:35: replace \* with / in Cut::of',
+    'defects/zipper\.rs:336:44: replace > with >= in Cut::of',
+    'defects/zipper\.rs:153:13: replace > with >= in Levels::of_blocks',
 ]
 
 # ---------------------------------------------------------------------------
