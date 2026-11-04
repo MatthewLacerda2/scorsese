@@ -76,3 +76,52 @@ fn a_caption_keeps_its_words_named_as_a_page_looks_them_up() {
     let names: Vec<&str> = cut[0].words.iter().map(|word| word.name.as_str()).collect();
     assert_eq!(names, ["hello", "there"]);
 }
+
+#[test]
+fn a_particle_keeps_a_surname_with_its_name() {
+    assert_eq!(
+        texts("o presidente Lula da Silva falou", Chunking::WORDS),
+        ["o", "presidente Lula da Silva", "falou"]
+    );
+}
+
+#[test]
+fn i_in_any_contraction_is_not_a_name() {
+    for i in ["I", "I'm", "I’ll"] {
+        let line = format!("we all know {i} right");
+        assert_eq!(
+            texts(&line, Chunking::WORDS),
+            ["we all know", &format!("{i} right")]
+        );
+    }
+}
+
+#[test]
+fn a_pause_inside_a_name_still_breaks_it() {
+    let word = |text: &str, start, end| crate::words::Placed {
+        name: text.to_lowercase(),
+        text: text.to_owned(),
+        start,
+        end,
+    };
+    let words = [word("presidente", 0.5, 1.0), word("Lula", 1.5, 1.8)];
+    let cut: Vec<String> = chunks(&ClipId::new("vo"), &words, Chunking::WORDS)
+        .into_iter()
+        .map(|chunk| chunk.text)
+        .collect();
+    assert_eq!(cut, ["presidente", "Lula"], "a pause of exactly the bound");
+}
+
+/// A particle joins only between two capitalised words, and nothing between
+/// them breaks.
+#[test]
+fn a_particle_outside_a_name_is_an_ordinary_word() {
+    assert_eq!(
+        texts("o presidente Lula da casa falou", Chunking::WORDS),
+        ["o presidente Lula", "da casa falou"]
+    );
+    assert_eq!(
+        texts("ele falou da Bahia hoje", Chunking::WORDS),
+        ["ele falou", "da Bahia hoje"]
+    );
+}

@@ -42,12 +42,25 @@ fn every_part_of_the_template_is_filled() {
         page.contains("const LEAD = 0.07, HOLD = 0.35, BRIDGE = 1;"),
         "{page}"
     );
+    for part in [
+        "font-size: 3.8vh",
+        "bottom: 20%",
+        "font-weight: 900",
+        "color: #ffffff",
+    ] {
+        assert!(page.contains(part), "{part} in {page}");
+    }
 }
 
 #[test]
 fn a_word_cannot_close_the_script() {
     assert_eq!(quoted("a</script>\"\\"), r#""a\u003c/script>\"\\""#);
     assert_eq!(quoted("line\nbreak"), r#""line\u000abreak""#);
+    assert_eq!(
+        quoted("a b\u{2028}"),
+        r#""a b\u2028""#,
+        "a space is a space"
+    );
 }
 
 #[test]
