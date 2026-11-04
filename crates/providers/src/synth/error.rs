@@ -219,3 +219,20 @@ pub(super) fn place(project_root: &Path, path: &ProjectPath) -> Result<PathBuf, 
             source: refused.into(),
         })
 }
+
+/// [`place`], with every folder above it made from the project root and none
+/// of them a link ([`scorsese_core::write::parent_in_project`]): where a file
+/// this crate keeps in the project's `cache/` goes (a partial bake, a MIDI
+/// export), so a `.scor` received from someone else whose `cache` is a link
+/// has nothing written where it leads (#1718).
+pub(super) fn kept_in_project(
+    project_root: &Path,
+    path: &ProjectPath,
+) -> Result<PathBuf, SynthesisError> {
+    scorsese_core::write::parent_in_project(project_root, path).map_err(|source| {
+        SynthesisError::Write {
+            path: PathBuf::from(path.as_str()),
+            source,
+        }
+    })
+}

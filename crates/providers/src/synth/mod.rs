@@ -46,7 +46,7 @@ use scorsese_zimmer::level::{Cut, Layer, Profile};
 use scorsese_zimmer::song::PatchRef;
 use scorsese_zimmer::{Bake, Patch, SAMPLE_RATE, bake_excerpt_unless, bake_note, wav};
 
-use error::place;
+use error::{kept_in_project, place};
 
 /// The vocabulary of an excerpt, re-exported.
 ///

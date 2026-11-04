@@ -7,6 +7,7 @@ mod caching;
 mod fitting;
 mod instruments;
 mod lengthening;
+mod linked_cache;
 mod midi;
 mod safety;
 mod stopping;
