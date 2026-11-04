@@ -904,6 +904,44 @@ exclude_re = [
     'defects/zipper\.rs:336:35: replace \* with / in Cut::of',
     'defects/zipper\.rs:336:44: replace > with >= in Cut::of',
     'defects/zipper\.rs:153:13: replace > with >= in Levels::of_blocks',
+
+    # `zipper`'s `quarters` keeps only the largest change by its absolute
+    # value, so accumulating every change negated (`-=`) answers the same.
+    # Its `> FLAT * step` widened to `>=` differs only when two floats from
+    # different sums are exactly equal. Both equivalent (#1751).
+    'defects/zipper\.rs:287:21: replace \+= with -= in quarters',
+    'defects/zipper\.rs:258:63: replace > with >= in fit',
+
+    # `fit`'s second read, cut half a step late, sees the same boundaries:
+    # its `late.across` is `cut.halves` without the first and last segment,
+    # and its `late.halves` is `cut.across`, each up to a block of rounding.
+    # So `clear`'s `cut.halves.abs() <= FLAT * step` loosened to `FLAT +
+    # step` is asked again, at the old bound, by `swapped`'s first clause;
+    # and `(late.halves - cut.across).abs()` is near zero on any cut that
+    # reaches it, so its bound moved either way decides little. Measured on
+    # #1751 over a probe corpus of ~1000 signals (staircases from 5 to 63 ms
+    # and 0.25 to 3 dB on tones and noise, notes dying away, beats, fades,
+    # tremolo): `FLAT + step` on line 256 changes nothing; `FLAT / step`
+    # there, and `FLAT + step` on line 248, change no report on a clean
+    # signal, only staircases built with a pulse inside every step and how
+    # many fits two noise staircases split into. Near equivalent. `FLAT /
+    # step` on line 248 is held by `a_fade_in_large_steps_is_a_staircase`.
+    'defects/zipper\.rs:248:37: replace \* with \+ in fit',
+    'defects/zipper\.rs:256:86: replace \* with [+/] in fit',
+
+    # `Levels::pulsed` normalises each block-to-block change by the energy
+    # either side, and `repeat` divides by the series' own power, so on a
+    # sounding envelope a normaliser of the same order moves `repeat` very
+    # little. `%` for `/` is no normaliser at all (`|a - b| <= a + b`, so the
+    # remainder is the numerator), and `* SILENT` drops a floor far under any
+    # sounding block. Measured on #1751 over the corpus above: neither
+    # changes a report on a note dying away, a beat, a fade or a plain tone
+    # staircase; they move staircases built with a pulse inside every step,
+    # sawtooth and square tremolo at 8 to 40 ms under a fade, and (`%`) how
+    # many fits one noise staircase splits into. The other mutants of this
+    # line are held by `a_note_with_a_dropout_dying_away_is_not_a_staircase`.
+    'defects/zipper\.rs:135:50: replace / with % in Levels::pulsed',
+    'defects/zipper\.rs:135:79: replace \+ with \* in Levels::pulsed',
 ]
 
 # ---------------------------------------------------------------------------

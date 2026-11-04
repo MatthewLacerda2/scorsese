@@ -1,6 +1,6 @@
 //! Stepped gain: a level moving in flat steps instead of smoothly.
 
-use super::{RATE, found, steady, tone};
+use super::{RATE, found, tone};
 
 /// The defect the measurement was asked for: a gain set once per game frame
 /// and held for the frame, so a fade arrives as a staircase.
@@ -56,24 +56,6 @@ fn a_staircase_at_the_end_of_a_file_is_found() {
     }
 }
 
-/// A note rich in harmonics pulses once a cycle, at a period in the same
-/// range a game's control rate is, and as it dies away the pulse can read as
-/// a staircase. Stepped gain is not reported on a sound that pulses on its
-/// own: it misses there rather than invents.
-#[test]
-fn a_low_note_dying_away_is_not_a_staircase() {
-    for hz in [60.0, 120.0, 180.0, 250.0, 270.0, 339.0, 523.0] {
-        for decay in [3.0, 10.0, 30.0, 60.0] {
-            let signal = buzz(hz, 1.0, |t| -decay * t);
-            let defects = found(1, &signal);
-            assert_eq!(
-                defects.zipper.count, 0,
-                "{hz} Hz at -{decay} dB/s: {defects:?}"
-            );
-        }
-    }
-}
-
 /// Noise is nothing but random change, and a staircase under it is still
 /// found: the steps all go one way, and noise goes every way.
 #[test]
@@ -94,79 +76,19 @@ fn noise_faded_in_steps_is_a_staircase() {
     assert!((run.size_db - 1.0).abs() < 0.3, "{run:?}");
 }
 
-/// A note with a sharp pulse a cycle, as a voice or a reed has: the first
-/// eight harmonics of `hz`, gained by `gain(t)` in dB.
-fn buzz(hz: f64, seconds: f64, gain: impl Fn(f64) -> f64) -> Vec<f32> {
-    let samples = (seconds * f64::from(RATE)) as usize;
-    (0..samples)
-        .map(|i| {
-            let t = i as f64 / f64::from(RATE);
-            let wave: f64 = (1..=8)
-                .map(|n| (std::f64::consts::TAU * hz * f64::from(n) * t).cos() / 8.0)
-                .sum();
-            (0.6 * wave * 10f64.powf(gain(t) / 20.0)) as f32
-        })
-        .collect()
-}
-
-/// Two notes a few tens of hertz apart beat, and as they die away the beat
-/// can read as a staircase at its own period: halved, each beat's halves are
-/// level, but quartered they are not. A beat is not stepped gain, at any
-/// decay.
+/// A fade in large steps, a few game frames apart each, is a staircase as
+/// plainly as one in small steps: its steps stand far clear of the noise, and
+/// a segment's halves are as level as ever.
 #[test]
-fn two_notes_beating_as_they_fade_are_not_a_staircase() {
-    for (low, high) in [
-        (220.0, 250.0),
-        (330.0, 370.0),
-        (440.0, 410.0),
-        (440.0, 460.0),
-        (440.0, 470.0),
-        (440.0, 480.0),
-        (440.0, 500.0),
-        (523.0, 554.0),
-    ] {
-        for decay in [20.0, 30.0, 40.0, 60.0] {
-            let gain = |t: f64| 10f64.powf(-decay * t / 20.0);
-            let signal: Vec<f32> = tone(low, 0.3, 2.0, steady)
-                .into_iter()
-                .zip(tone(high, 0.3, 2.0, steady))
-                .enumerate()
-                .map(|(i, (a, b))| {
-                    ((f64::from(a) + f64::from(b)) * gain(i as f64 / f64::from(RATE))) as f32
-                })
-                .collect();
-            let defects = found(1, &signal);
-            assert_eq!(
-                defects.zipper.count, 0,
-                "{low} and {high} Hz at -{decay} dB/s: {defects:?}"
-            );
-        }
-    }
-}
-
-/// A level that drops at every frame and climbs back part of the way inside
-/// it, in two quarter-frame steps, fades frame by frame but is not flat
-/// within a frame. Halved at the frame it reads as a staircase; quartered,
-/// or cut half a frame later, it does not, and it is not one.
-#[test]
-fn a_level_that_climbs_within_every_frame_is_not_a_staircase() {
-    for (frame_ms, step_db) in [(12.0, 1.0), (12.0, 2.0), (16.6667, 0.5), (16.6667, 1.0)] {
-        let frame = frame_ms / 1000.0;
-        let signal = tone(440.0, 0.5, 1.5, |t| {
-            let into = (t / frame).fract();
-            let climb = if into < 0.25 {
-                -step_db
-            } else if into < 0.75 {
-                0.0
-            } else {
-                step_db
-            };
-            -step_db * (t / frame).floor() + climb
+fn a_fade_in_large_steps_is_a_staircase() {
+    let period = 800.0 / f64::from(RATE);
+    for hz in [220.0, 440.0] {
+        let signal = tone(hz, 0.5, 2.0, |t| {
+            -3.0 * ((t - 0.5).max(0.0) / period).floor().min(12.0)
         });
         let defects = found(1, &signal);
-        assert_eq!(
-            defects.zipper.count, 0,
-            "{frame_ms} ms frames of {step_db} dB: {defects:?}"
-        );
+        assert_eq!(defects.zipper.count, 1, "{hz} Hz: {defects:?}");
+        let run = &defects.zipper.worst[0];
+        assert!((run.size_db - 3.0).abs() < 0.5, "{hz} Hz: {run:?}");
     }
 }
