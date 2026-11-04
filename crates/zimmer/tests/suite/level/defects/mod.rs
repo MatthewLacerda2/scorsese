@@ -12,6 +12,7 @@ use scorsese_zimmer::level::{DefectFinder, Defects, Tally};
 
 mod clicks;
 mod found;
+mod joined;
 mod stepped;
 mod trains;
 

@@ -135,3 +135,46 @@ fn a_twin_is_matched_three_before_and_two_after() {
         "{defects:?}"
     );
 }
+
+/// A jump in the last few milliseconds, short of a whole reach after it, is
+/// judged as if the signal ended there.
+#[test]
+fn a_click_at_the_very_end_is_found() {
+    let mut signal = vec![0.0; RATE as usize / 2];
+    let at = signal.len() - 100;
+    signal[at..].fill(0.3);
+    let defects = found(1, &signal);
+    assert_eq!(defects.clicks.count, 1, "{defects:?}");
+    assert_eq!(
+        defects.clicks.worst[0].at_seconds,
+        at as f64 / f64::from(RATE)
+    );
+}
+
+/// A reset whose only twin is ahead of it: a ramp, then sawtooth periods of
+/// `period` samples, stopping at the top of a ramp.
+fn opening_reset(period: usize) -> Vec<f32> {
+    let ramp = |len: usize| (0..len).map(move |i| i as f32 / len as f32 * 0.8 - 0.4);
+    let mut signal: Vec<f32> = ramp(1_000)
+        .chain(ramp(period))
+        .chain(ramp(period))
+        .collect();
+    signal.extend(ramp(period).take(800));
+    signal.extend(std::iter::repeat_n(
+        signal[signal.len() - 1],
+        RATE as usize / 10,
+    ));
+    signal
+}
+
+/// A twin ahead is seen once it is whole, the sample two after it included,
+/// so the reach ahead is four samples short of the reach behind: a first
+/// reset with its twin 1676 samples ahead is not a click, one 1677 ahead is.
+#[test]
+fn a_twin_ahead_is_seen_four_samples_short_of_the_reach() {
+    let twinned = found(1, &opening_reset(1_676));
+    assert_eq!(twinned.clicks.count, 0, "{twinned:?}");
+    let alone = found(1, &opening_reset(1_677));
+    assert_eq!(alone.clicks.count, 1, "{alone:?}");
+    assert_eq!(alone.clicks.worst[0].at_seconds, 1_000.0 / f64::from(RATE));
+}
