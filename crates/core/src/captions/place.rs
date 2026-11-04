@@ -114,11 +114,7 @@ fn narration<'a>(
             .iter()
             .filter(|track| asked.narration.contains(&track.id))
             .flat_map(|track| &track.clips)
-            .filter(|clip| {
-                project
-                    .asset(&clip.asset)
-                    .is_some_and(|asset| speaks(asset))
-            })
+            .filter(|clip| project.asset(&clip.asset).is_some_and(&speaks))
             .collect();
         return (named, Vec::new());
     }
