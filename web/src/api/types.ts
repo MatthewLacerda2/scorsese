@@ -118,6 +118,10 @@ export interface GenerationRecord {
   seed?: number | null;
   /** Whether a music track was asked to have no singing (#1264). */
   instrumental?: boolean;
+  /** How long a sound effect was asked to be, in milliseconds (#1265). */
+  millis?: number;
+  /** Whether a sound effect was made to loop (#1265). */
+  loop?: boolean;
 }
 
 /** The stock libraries a file can come from — `scorsese_core::StockLibrary`. */

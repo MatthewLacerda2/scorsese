@@ -34,7 +34,7 @@ mod worker;
 use std::time::{Duration, Instant};
 
 use egui::{Context, RichText, Ui};
-use scorsese_core::{AssetKind, Project};
+use scorsese_core::{AssetKind, AudioBlock, Project};
 use scorsese_providers::credentials::Settings;
 use scorsese_providers::prices::{dollars, from_cents};
 use scorsese_providers::quote::Item;
@@ -168,8 +168,10 @@ impl Generating {
                 group(
                     ui,
                     "NARRATION",
-                    &quote.of_kind(project, AssetKind::GeneratedAudio),
+                    &quote.of_audio(project, AudioBlock::Speech),
                 );
+                group(ui, "MUSIC", &quote.of_audio(project, AudioBlock::Music));
+                group(ui, "SOUNDS", &quote.of_audio(project, AudioBlock::Sound));
                 if let Some(made) = quote.made_line() {
                     ui.add_space(4.0);
                     ui.label(RichText::new(made).weak().small());
