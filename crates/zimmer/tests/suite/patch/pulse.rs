@@ -86,9 +86,13 @@ fn a_width_past_the_range_is_clamped_to_its_edge() {
 #[test]
 fn a_pulse_width_on_another_wave_is_refused() {
     for wave in [Wave::Sine, Wave::Triangle, Wave::Saw] {
-        assert_eq!(
-            refusal(&pulse(wave, 0.25), 57.0, &opts(0.5)),
-            SynthError::PulseWidthOffSquare { wave }
+        let refused = refusal(&pulse(wave, 0.25), 57.0, &opts(0.5));
+        assert_eq!(refused, SynthError::PulseWidthOffSquare { wave });
+        let said = refused.to_string();
+        let name = format!("`{}`", format!("{wave:?}").to_lowercase());
+        assert!(
+            said.contains("`pulse_width`") && said.contains(&name),
+            "{said}"
         );
     }
 }
@@ -98,10 +102,9 @@ fn a_pulse_width_on_another_wave_is_refused() {
 #[test]
 fn a_pulse_width_lfo_with_no_square_to_move_is_refused() {
     let saws = modulated(pulse(Wave::Saw, 0.5), 0.3);
-    assert_eq!(
-        refusal(&saws, 57.0, &opts(0.5)),
-        SynthError::NoPulseToModulate
-    );
+    let refused = refusal(&saws, 57.0, &opts(0.5));
+    assert_eq!(refused, SynthError::NoPulseToModulate);
+    assert!(refused.to_string().contains("no `square`"), "{refused}");
     let pluck = modulated(
         minimal(Source::Karplus {
             damping: 0.996,
