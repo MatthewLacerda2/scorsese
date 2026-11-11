@@ -1,5 +1,29 @@
 {
-  "source": { "kind": "noise" },
+  "source": { "kind": "additive", "partials": [
+    { "ratio": 25.9, "gain": 0.6 },
+    { "ratio": 26.84, "gain": 1.0 },
+    { "ratio": 27.52, "gain": 0.8 },
+    { "ratio": 29.09, "gain": 0.9 },
+    { "ratio": 29.97, "gain": 0.7 },
+    { "ratio": 30.96, "gain": 1.0 },
+    { "ratio": 32.49, "gain": 0.8 },
+    { "ratio": 33.64, "gain": 0.9 },
+    { "ratio": 35.09, "gain": 0.7 },
+    { "ratio": 36.07, "gain": 0.8 },
+    { "ratio": 37.96, "gain": 0.6 },
+    { "ratio": 39.75, "gain": 0.7 },
+    { "ratio": 41.59, "gain": 0.5 },
+    { "ratio": 43.34, "gain": 0.6 },
+    { "ratio": 45.87, "gain": 0.4 },
+    { "ratio": 47.7, "gain": 0.5 }
+  ] },
   "amp": { "a": 0.0005, "d": 0.05, "s": 0.0, "r": 0.03, "curve": 4.0 },
-  "filter": { "kind": "highpass", "cutoff": 7500, "slope": "24db", "resonance": 0.15 }
+  "layers": [
+    {
+      "source": { "kind": "noise" },
+      "amp": { "a": 0.0005, "d": 0.035, "s": 0.0, "r": 0.02, "curve": 4.0 },
+      "filter": { "kind": "highpass", "cutoff": 8000, "slope": "24db" },
+      "gain": 0.4
+    }
+  ]
 }

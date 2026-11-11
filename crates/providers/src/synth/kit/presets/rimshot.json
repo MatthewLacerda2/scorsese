@@ -1,0 +1,16 @@
+{
+  "source": { "kind": "additive", "partials": [
+    { "ratio": 1.74, "gain": 0.5 },
+    { "ratio": 6.37, "gain": 1.0 }
+  ] },
+  "amp": { "a": 0.0005, "d": 0.03, "s": 0.0, "r": 0.01, "curve": 5.0 },
+  "layers": [
+    {
+      "source": { "kind": "noise" },
+      "amp": { "a": 0.0005, "d": 0.008, "s": 0.0, "r": 0.004, "curve": 4.0 },
+      "filter": { "kind": "bandpass", "cutoff": 2500, "resonance": 0.3 },
+      "gain": 0.5
+    }
+  ],
+  "fx": [{ "fx": "saturate", "drive": 1.6, "mix": 1.0 }]
+}

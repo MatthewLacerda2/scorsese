@@ -2,6 +2,7 @@ use super::*;
 use scorsese_zimmer::{NoteOpts, bake_named_note};
 
 mod effects;
+mod percussion;
 mod staples;
 
 pub(super) fn bands_of(instrument: &Instrument) -> (u32, u32, u32) {
@@ -119,10 +120,10 @@ fn a_recipe_with_no_kit_name_is_left_byte_for_byte() {
 
 #[test]
 fn an_unknown_name_is_refused_with_the_list() {
-    let problem = expand(&SONG.replace("kit:kick", "kit:cowbell"))
-        .expect_err("no cowbell")
+    let problem = expand(&SONG.replace("kit:kick", "kit:kazoo"))
+        .expect_err("no kazoo")
         .to_string();
-    assert!(problem.contains("kit:cowbell"), "{problem}");
+    assert!(problem.contains("kit:kazoo"), "{problem}");
     assert!(problem.contains("kick, snare"), "{problem}");
 }
 

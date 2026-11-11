@@ -2541,10 +2541,15 @@ So there is a library of them — and of the everyday
 | `kit:kick` | a drum machine's kick: a sine falling onto its pitch, with a little drive | almost all low |
 | `kit:snare` | a drum machine's snare: a crack of pink noise over a short body | mostly mid |
 | `kit:clap` | a hand clap: a burst of mid noise that flams, three hands at once | almost all mid |
-| `kit:hat` | a closed hi-hat: a short tick of bright noise | almost all high |
-| `kit:open_hat` | an open hi-hat: the same noise left to ring, for the off-beat | almost all high |
+| `kit:hat` | a closed hi-hat: a short tick of clashing metal tones over a breath of noise | almost all high |
+| `kit:open_hat` | an open hi-hat: the same metal left to ring and shimmer, for the off-beat | almost all high |
 | `kit:tom` | a tom: a round drum dropping onto its pitch — `A2` a floor tom, `E3` a rack tom | almost all low |
-| `kit:crash` | a crash cymbal: a long wash of bright noise that darkens as it fades | mostly high |
+| `kit:crash` | a crash cymbal: a long wash of metal tones and noise, its top dying first | mostly high |
+| `kit:ride` | a ride cymbal: a ringing ping over a quiet wash, to keep time on instead of the hat | mid and high, about even |
+| `kit:rimshot` | a rimshot: a dry, woody crack, the stick on the snare's rim | almost all mid |
+| `kit:shaker` | a shaker: a soft rattle of bright noise, the beads of a sixteenth-note groove | almost all high |
+| `kit:tambourine` | a tambourine: a jingle of bright metal and hiss over the slap of its skin | almost all high |
+| `kit:cowbell` | a cowbell: two narrow pulses clanging together, the drum machine's hollow bell | all mid |
 | `kit:bass` | a synth bass: saw and square sub through a plucky lowpass, warm and round | mostly low |
 | `kit:sub` | a sub bass: a held sine with a little thump and drive, the 808 under a beat | all low |
 | `kit:clav` | a clavinet: bright, funky and percussive, and it barks when played hard | mid |
@@ -2559,6 +2564,33 @@ So there is a library of them — and of the everyday
 The "sits" column is what the [bake report](#how-a-bake-came-out) prints for
 each on its own, and it is checked: a kick that stopped being mostly low would
 fail a test before it reached this table.
+
+The cymbals and the bell are struck metal — clusters of tones off the harmonic
+grid, with a little noise on top — and the shaker is noise, so a groove's top
+can be more than one hat. Here the ride keeps time, the shaker fills the
+sixteenths between, and the rimshot and cowbell answer on the off-beats:
+
+```json recipe
+{
+  "recipe": "song",
+  "bpm": 100,
+  "tracks": [
+    { "name": "kick",    "patch": "kit:kick",    "gain": 0.9 },
+    { "name": "rim",     "patch": "kit:rimshot", "gain": 0.5 },
+    { "name": "ride",    "patch": "kit:ride",    "gain": 0.35, "pan": -0.25 },
+    { "name": "shaker",  "patch": "kit:shaker",  "gain": 0.25, "pan": 0.35 },
+    { "name": "cowbell", "patch": "kit:cowbell", "gain": 0.3 }
+  ],
+  "patterns": { "a": { "beats": 4, "notes": [
+    { "track": "kick",    "steps": "x-----x-x-------", "div": 0.25 },
+    { "track": "rim",     "steps": "----x-------x---", "div": 0.25 },
+    { "track": "ride",    "steps": "x-x-x-x-",         "div": 0.5 },
+    { "track": "shaker",  "steps": "-xxx-xxx-xxx-xxx", "div": 0.25 },
+    { "track": "cowbell", "steps": "------x-------x-", "div": 0.25 }
+  ] } },
+  "arrangement": ["a", "a"]
+}
+```
 
 **The name is copied in, never kept.** `synth_write` — or, from the command
 line, `scorsese synth kit --copy-into recipes/<song>.json` — replaces each

@@ -1,0 +1,27 @@
+{
+  "source": { "kind": "additive", "partials": [
+    { "ratio": 22.1, "gain": 0.8, "decay": 0.25 },
+    { "ratio": 25.7, "gain": 1.0, "decay": 0.22 },
+    { "ratio": 28.4, "gain": 0.7, "decay": 0.2 },
+    { "ratio": 31.9, "gain": 0.9, "decay": 0.18 },
+    { "ratio": 35.6, "gain": 0.8, "decay": 0.16 },
+    { "ratio": 38.2, "gain": 0.6, "decay": 0.14 },
+    { "ratio": 42.7, "gain": 0.7, "decay": 0.12 },
+    { "ratio": 46.3, "gain": 0.5, "decay": 0.1 }
+  ] },
+  "amp": { "a": 0.002, "d": 0.3, "s": 0.0, "r": 0.1, "curve": 3.0 },
+  "layers": [
+    {
+      "source": { "kind": "noise" },
+      "amp": { "a": 0.002, "d": 0.25, "s": 0.0, "r": 0.1, "curve": 3.0 },
+      "filter": { "kind": "highpass", "cutoff": 7000, "slope": "24db" },
+      "gain": 0.6
+    },
+    {
+      "source": { "kind": "noise", "color": "pink" },
+      "amp": { "a": 0.0005, "d": 0.02, "s": 0.0, "r": 0.01, "curve": 4.0 },
+      "filter": { "kind": "bandpass", "cutoff": 1800, "resonance": 0.2 },
+      "gain": 0.4
+    }
+  ]
+}

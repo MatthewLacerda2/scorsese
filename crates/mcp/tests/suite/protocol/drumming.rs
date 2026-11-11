@@ -32,7 +32,7 @@ fn the_kit_lists_itself_and_shows_one_patch() {
     );
     let (text, failed) = said(&call(
         "synth_kit",
-        json!({ "project": dir, "instrument": "cowbell" }),
+        json!({ "project": dir, "instrument": "kazoo" }),
     ));
     assert!(failed && text.contains("synth_kit"), "got {text}");
     std::fs::remove_dir_all(dir).ok();
