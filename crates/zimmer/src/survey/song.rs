@@ -9,12 +9,12 @@
 use std::collections::{BTreeSet, HashMap};
 
 use super::duty::Sounding;
+use super::walk::walk;
 use super::{PitchClasses, Register, SongSurvey, TrackSurvey};
 use crate::patch::Patch;
-use crate::song::chord::Led;
 use crate::song::clock::Clock;
 use crate::song::shape::plan;
-use crate::song::{Context, PatchRef, PatchResolver, Song};
+use crate::song::{PatchRef, PatchResolver, Song};
 
 impl SongSurvey {
     /// Surveys one song, resolving any track that names its instrument rather
@@ -41,7 +41,7 @@ impl SongSurvey {
                     let notes = by_track.remove(track.name.as_str()).unwrap_or_default();
                     TrackSurvey {
                         name: track.name.clone(),
-                        source: patch.as_ref().map(|patch| patch.source.kind()),
+                        source: patch.as_ref().map(source),
                         gain: track.gain,
                         cutoff: patch
                             .as_ref()
@@ -73,29 +73,31 @@ impl SongSurvey {
 }
 
 /// The patch behind a track, or nothing when its reference does not resolve.
-fn instrument(reference: &PatchRef, resolve: &dyn PatchResolver) -> Option<Patch> {
+pub(super) fn instrument(reference: &PatchRef, resolve: &dyn PatchResolver) -> Option<Patch> {
     match reference {
         PatchRef::Inline(patch) => Some((**patch).clone()),
         PatchRef::Named(name) => resolve.resolve(name).ok(),
     }
 }
 
+/// Which generator makes a patch's tone, in the word the recipe spells it
+/// with — the one place a survey reads it, for the per-track column and for
+/// the harmony report's skipping of unpitched sources alike.
+pub(super) fn source(patch: &Patch) -> &'static str {
+    patch.source.kind()
+}
+
 /// The register and pitch classes of every note that actually sounds.
 ///
-/// The arrangement's own transforms are applied, and clamped into the MIDI
-/// range exactly as the renderer clamps them — so a pattern transposed past the
-/// top of the keyboard is reported at the pitch it will be played at rather
-/// than the one the arithmetic asked for. A note whose name does not parse is
-/// skipped: refusing the document is [`Song::validate`]'s job, not a report's.
+/// Read off [`walk`], so the arrangement's own transforms are applied and
+/// clamped into the MIDI range exactly as the renderer clamps them — a pattern
+/// transposed past the top of the keyboard is reported at the pitch it will be
+/// played at rather than the one the arithmetic asked for. A note whose name
+/// does not parse is skipped: refusing the document is [`Song::validate`]'s
+/// job, not a report's.
 /// The last two returns are those same notes kept per track — their pitches,
 /// and when each one sounds — which is what turns a report about a song into a
 /// report about each instrument in it.
-///
-/// The **when** is why patterns are walked with a running offset. Every other
-/// number here is indifferent to where in the piece a note falls; a duty cycle
-/// is the one that is not, because two patterns can put the same track's notes
-/// over the same beats of their own slot and mean two different stretches of
-/// the arrangement.
 type Played = (
     Option<Register>,
     PitchClasses,
@@ -108,63 +110,21 @@ fn played(song: &Song) -> Played {
     let mut pitches = PitchClasses::default();
     let mut by_track: HashMap<String, Vec<f32>> = HashMap::new();
     let mut sounding: HashMap<String, Sounding> = HashMap::new();
-    let mut at = 0.0;
-    // A key this survey cannot read is no key: a report is not the place a
-    // document gets refused, so a degree under an unreadable key goes unread
-    // the way an unspellable chord does, and every absolute note is unaffected.
-    let key = song.key().ok().flatten();
-    for entry in &song.arrangement {
-        let Some(slot) = song.slot_beats(entry) else {
-            continue;
+    walk(song, |note| {
+        // Before the pitch is read: a note whose name does not parse is still
+        // a note this track holds the arrangement for, and the renderer is
+        // what refuses the document.
+        sounding
+            .entry(note.track.clone())
+            .or_default()
+            .add(note.start, note.dur);
+        let Some(midi) = note.midi else {
+            return;
         };
-        for layer in entry.layers() {
-            let Some(pattern) = song.patterns.get(layer.pattern()) else {
-                continue;
-            };
-            let around = Context {
-                beats: pattern.beats,
-                key: key.as_ref(),
-            };
-            let mut voiced = Vec::new();
-            let mut led = Led::default();
-            for written in &pattern.notes {
-                // Entry by entry, so an entry this survey cannot expand — a chord
-                // off the table, a step string that does not fill its slot, a
-                // degree of a key the song does not declare — costs the survey that
-                // entry and not the pattern around it: a report reads documents the
-                // renderer would refuse, and reporting on the rest of one is more
-                // use than reporting on none of it.
-                //
-                // What comes out is ordinary notes whichever form wrote them, so
-                // every one of the four is measured the same way below. There is no
-                // fall-through here that would report a kind of entry as nothing.
-                let _ = written.voice_into(around, &mut led, &mut voiced);
-            }
-            for note in &voiced {
-                if !layer.plays(&note.track) {
-                    continue;
-                }
-                // Before the pitch is parsed: a note whose name does not parse is
-                // still a note this track holds the arrangement for, and the
-                // renderer is what refuses the document.
-                sounding
-                    .entry(note.track.clone())
-                    .or_default()
-                    .add(at + note.start, note.dur);
-                let Ok(written) = note.note.to_midi() else {
-                    continue;
-                };
-                let midi = layer.played_pitch(written, key.as_ref());
-                register =
-                    Some(register.map_or_else(|| Register::at(midi), |so_far| so_far.with(midi)));
-                pitches.add(midi);
-                by_track.entry(note.track.clone()).or_default().push(midi);
-            }
-        }
-        // Where the *slot* ends, not where its sound does — the next pattern
-        // starts on time however long the last note rings.
-        at += slot;
-    }
+        register = Some(register.map_or_else(|| Register::at(midi), |so_far| so_far.with(midi)));
+        pitches.add(midi);
+        by_track.entry(note.track).or_default().push(midi);
+    });
     (register, pitches, by_track, sounding)
 }
 

@@ -220,6 +220,13 @@ impl Key {
         let moved = self.step_semitones(step + octaves * STEPS + steps) + alteration;
         (self.tonic + moved) as f32 + fraction
     }
+
+    /// Whether `midi`, rounded to the nearest semitone, is a note of this
+    /// key's scale in any octave.
+    pub fn contains(&self, midi: f32) -> bool {
+        let inside = (midi.round() as i32 - self.tonic).rem_euclid(12);
+        (0..STEPS).any(|step| self.step_semitones(step) == inside)
+    }
 }
 
 #[cfg(test)]
@@ -307,6 +314,17 @@ mod tests {
     /// decomposition here ever stopped being reversible — snapping an
     /// accidental into the key, say — every note of every keyed song would
     /// move and no other test would be looking.
+    #[test]
+    fn a_key_holds_its_seven_classes_in_every_octave() {
+        let key = Key::parse("E major").expect("a key");
+        let held: Vec<i32> = (0..12)
+            .filter(|class| key.contains(*class as f32))
+            .collect();
+        assert_eq!(held, vec![1, 3, 4, 6, 8, 9, 11], "C# D# E F# G# A B");
+        assert!(key.contains(40.0 + 24.0), "E an octave up");
+        assert!(!key.contains(41.0), "F is not in E major");
+    }
+
     #[test]
     fn a_shift_of_no_steps_is_the_identity() {
         for text in ["C major", "D minor", "F# lydian", "B locrian"] {

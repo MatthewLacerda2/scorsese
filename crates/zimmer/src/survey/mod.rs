@@ -25,13 +25,21 @@
 //! What that leaves is worth having on its own: an assistant that cannot hear
 //! *can* count, and "karplus is the loudest track in all six" is a sentence it
 //! can produce from the files without anyone listening first.
+//!
+//! [`Harmony`] is the one report here about **one** song, and it holds the
+//! same line: it reads which written notes sound together and how far apart
+//! they are, against the key the song declares, and infers no key, chord or
+//! progression of its own.
 
 mod duty;
+mod harmony;
 pub(crate) mod pitch;
 mod song;
+mod walk;
 
 use std::collections::BTreeMap;
 
+pub use harmony::{Clash, Harmony, OutOfKey, PASSING, Place, Stray, Voice};
 pub use pitch::{PitchClasses, Register};
 
 /// One instrument of one song, as its documents state it.
