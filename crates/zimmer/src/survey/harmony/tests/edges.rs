@@ -23,6 +23,16 @@ fn different_beats_of_one_section_are_different_findings() {
     );
     assert_eq!(found.longest.len(), 2);
     assert_eq!(found.out_of_key[0].longest.len(), 2);
+    // A quarter of a beat apart is apart too.
+    let close = harmony(
+        r#"
+  "patterns": { "a": { "beats": 4, "notes": [
+    { "track": "pad", "note": "E3", "start": 0, "dur": 4 },
+    { "track": "bass", "note": "F2", "start": 1, "dur": 0.25 },
+    { "track": "bass", "note": "F2", "start": 1.25, "dur": 0.25 } ] } },
+  "arrangement": ["a"]"#,
+    );
+    assert_eq!(close.longest.len(), 2);
 }
 
 /// The same accidental in every chorus is one row, counted each time.

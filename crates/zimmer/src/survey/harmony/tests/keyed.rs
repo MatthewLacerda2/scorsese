@@ -21,6 +21,7 @@ fn a_note_held_over_a_loop_point_clashes_with_the_top_of_the_piece() {
     );
     let bass = &found.out_of_key[0];
     assert_eq!(bass.longest[0].at.times, 1, "the copy is not a second note");
+    assert_eq!(bass.longest.len(), 1, "nor a second row");
     let once = harmony(&looped.replace(r#""fit": { "mode": "loop", "seconds": 8 },"#, ""));
     assert_eq!(once.clashes, 0, "played once, nothing follows the last bar");
 }
