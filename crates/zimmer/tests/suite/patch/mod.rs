@@ -9,6 +9,7 @@ mod eq;
 mod filter;
 mod fm4;
 mod noise;
+mod pulse;
 mod strict;
 mod unison;
 mod validation;

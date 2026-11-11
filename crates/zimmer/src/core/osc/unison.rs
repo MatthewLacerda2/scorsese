@@ -102,6 +102,7 @@ mod tests {
             voices,
             spread,
             width: 0.0,
+            pulse_width: 0.5,
         }
     }
 

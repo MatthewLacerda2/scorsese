@@ -9,7 +9,8 @@
 //! safe: a variant added next door and left without words here does not
 //! compile, and the error names it.
 //!
-//! **Two small groups are worded apart**: where notes and echoes land against
+//! **Three small groups are worded apart**: a square's pulse width in
+//! [`pulse`], where notes and echoes land against
 //! the beat in [`timing`], and **one more in [`length`]**: the refusals of `fit`,
 //! `fade`, `tail` and `anchors`, split off when this file reached the size
 //! gate, and the two about how long a single note lasts, which joined them
@@ -21,6 +22,7 @@
 //! right beside it, rather than a whole group of thirty being moved.
 
 mod length;
+mod pulse;
 mod timing;
 
 use std::fmt;
@@ -98,6 +100,7 @@ impl SynthError {
             Self::NegativeLfoRate { rate, .. } => {
                 write!(f, "patch: lfo `rate` must not be negative, got {rate}")
             }
+            Self::PulseWidthOffSquare { .. } | Self::NoPulseToModulate => self.say_pulse(f),
 
             // ────────────────────────────────────────────────────────────────────
             // A note as it is written: how long it lasts, and what it is called.

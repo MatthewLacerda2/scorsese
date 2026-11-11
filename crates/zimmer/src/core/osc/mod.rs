@@ -56,6 +56,7 @@
 //! oscillator rather than a boolean, and it should arrive with that patch
 //! rather than ahead of it.
 
+pub(crate) mod pulse;
 mod unison;
 
 use std::f32::consts::TAU;
@@ -78,7 +79,18 @@ use unison::{start_phase, voice_detune, voice_gain, voice_pan, voices};
 /// two sides can differ. A centred voice is scaled by an exact `1.0` on both
 /// sides, so a stack nobody widened writes the same samples into each channel
 /// that a mono render would have, bit for bit.
-pub(crate) fn render(oscs: &[Osc], freqs: &[f32], seed: u64, out: &mut Stereo, sample_rate: f32) {
+///
+/// `pulse`, when an LFO is aimed at the width, is how far every square's
+/// [`Osc::pulse_width`] swings at each sample; every unison voice of an entry
+/// shares the entry's width.
+pub(crate) fn render(
+    oscs: &[Osc],
+    freqs: &[f32],
+    pulse: Option<&[f32]>,
+    seed: u64,
+    out: &mut Stereo,
+    sample_rate: f32,
+) {
     let total_gain: f32 = oscs.iter().map(|o| o.gain.max(0.0)).sum();
     let norm = if total_gain > 0.0 {
         1.0 / total_gain
@@ -93,9 +105,10 @@ pub(crate) fn render(oscs: &[Osc], freqs: &[f32], seed: u64, out: &mut Stereo, s
             let (left, right) = pan_gains(voice_pan(osc, voice));
             let mut phase = start_phase(index, voice, seed);
             let sides = out.l.iter_mut().zip(out.r.iter_mut());
-            for ((l, r), base) in sides.zip(freqs) {
+            for (i, ((l, r), base)) in sides.zip(freqs).enumerate() {
                 let dt = (base * ratio / sample_rate).clamp(0.0, 0.5);
-                let s = gain * sample(osc.wave, phase, dt);
+                let swing = pulse.and_then(|p| p.get(i)).copied().unwrap_or(0.0);
+                let s = gain * sample(osc.wave, phase, dt, pulse::width(osc, swing));
                 *l += s * left;
                 *r += s * right;
                 phase = (phase + dt).fract();
@@ -111,17 +124,15 @@ fn pitch_ratio(osc: &Osc, offset: f32) -> f32 {
 }
 
 /// One sample of `wave` at normalized `phase` (`0..1`), where `dt` is the phase
-/// increment per sample (the polyBLEP correction needs it to size its window).
-fn sample(wave: Wave, phase: f32, dt: f32) -> f32 {
+/// increment per sample (the polyBLEP correction needs it to size its window)
+/// and `width` is the square's duty cycle, which no other wave reads.
+fn sample(wave: Wave, phase: f32, dt: f32, width: f32) -> f32 {
     match wave {
         Wave::Sine => (TAU * phase).sin(),
         // A phase-shifted triangle: peaks at 0, troughs at half a cycle.
         Wave::Triangle => 4.0 * (phase - 0.5).abs() - 1.0,
         Wave::Saw => 2.0 * phase - 1.0 - poly_blep(phase, dt),
-        Wave::Square => {
-            let naive = if phase < 0.5 { 1.0 } else { -1.0 };
-            naive + poly_blep(phase, dt) - poly_blep((phase + 0.5).fract(), dt)
-        }
+        Wave::Square => pulse::sample(phase, dt, width),
     }
 }
 
@@ -156,6 +167,7 @@ mod tests {
             voices: 1,
             spread: 12.0,
             width: 0.0,
+            pulse_width: 0.5,
         }
     }
 
@@ -170,7 +182,7 @@ mod tests {
 
     fn render_pair(oscs: &[Osc], hz: f32, n: usize, seed: u64) -> Stereo {
         let mut out = Stereo::silence(n);
-        render(oscs, &vec![hz; n], seed, &mut out, 44_100.0);
+        render(oscs, &vec![hz; n], None, seed, &mut out, 44_100.0);
         out
     }
 
@@ -366,7 +378,7 @@ mod tests {
         let start = start_phase(0, 0, seed);
         let mut loudest = 0.0f32;
         for (n, got) in out.iter().enumerate() {
-            let want = sample(Wave::Sine, (start + dt * n as f32).fract(), dt);
+            let want = sample(Wave::Sine, (start + dt * n as f32).fract(), dt, 0.5);
             assert!((got - want).abs() < 1e-5, "sample {n} is {got}, not {want}");
             loudest = loudest.max(want.abs());
         }

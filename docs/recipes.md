@@ -138,14 +138,14 @@ they connect:
 source ─► filter ─► amp envelope ─► fx
    ▲         ▲            ▲
    ├──── envelopes ───────┘        amp always; pitch and cutoff optional
-   └─────── lfo ──────────┘        one target: pitch | cutoff | amp
+   └─────── lfo ──────────┘        one target: pitch | cutoff | amp | pulse_width
 ```
 
 **`source`** — one of six, tagged by `kind`:
 
 | `kind` | Fields | Good for |
 | --- | --- | --- |
-| `osc_stack` | `oscs`: up to 4 of `{ wave, detune_cents, gain, octave, voices, spread, width }` | leads, basses, pads |
+| `osc_stack` | `oscs`: up to 4 of `{ wave, detune_cents, gain, octave, voices, spread, width, pulse_width }` | leads, basses, pads, chiptune |
 | `karplus` | `damping` 0..1, `brightness` 0..1 | plucked strings, marimbas |
 | `noise` | `color`: `white`, `pink` or `brown` | gunshots, impacts, wind, thunder. A `bandpass` over one narrows it to a pitched whistle, a telephone hiss or a hi-hat |
 | `fm2` | `ratio`, `index`, `vel_index`, `mod_decay` | bells, electric pianos, metal |
@@ -245,6 +245,50 @@ free. The copies are normalised by their own count, so `voices` is a thickness
 control and never a level one: widening an entry does not make it louder, and
 no gain anywhere else has to move.
 
+**A `square` has a `pulse_width`**: how much of each cycle it spends high,
+`0.05` to `0.95`, default `0.5` (the plain square). The 8-bit sound is three
+of them, each its own instrument: `0.5`, `0.25` and `0.125`. Narrow static
+pulses are also the nasal reed and clav tones. A narrower pulse is quieter and
+thinner, and that is the sound, so nothing makes the level up; past the range
+it is clamped. It is refused on any other wave, and every unison voice of the
+entry shares it. An NES-style lead is a 25% pulse with almost no envelope:
+
+```json fields
+"tracks": [{ "name": "lead", "gain": 0.5, "patch": {
+  "source": { "kind": "osc_stack", "oscs": [
+    { "wave": "square", "pulse_width": 0.25 }
+  ] },
+  "amp": { "a": 0.002, "d": 0.08, "s": 0.8, "r": 0.05 } } }],
+"patterns": { "a": { "beats": 4, "notes": [
+  { "track": "lead", "note": "E5", "start": 0, "dur": 0.5 },
+  { "track": "lead", "note": "G5", "start": 0.5, "dur": 0.5 },
+  { "track": "lead", "note": "C6", "start": 1, "dur": 1 }
+] } },
+"arrangement": ["a"]
+```
+
+**An `lfo` aimed at `pulse_width` keeps the width moving**: pulse-width
+modulation, the classic warm pad, string machine and bass, thick from one
+oscillator with no detune beating. `depth` is a width offset, so `0.3` swings
+±0.3 around the written width, clamped to the range; a slow `rate` (0.2 to 1
+Hz) is the pad. It moves every square in the stack, and is refused on a patch
+with none:
+
+```json fields
+"tracks": [{ "name": "pad", "gain": 0.5, "patch": {
+  "source": { "kind": "osc_stack", "oscs": [
+    { "wave": "square" },
+    { "wave": "square", "octave": -1, "gain": 0.5 }
+  ] },
+  "amp": { "a": 0.6, "d": 0.4, "s": 0.8, "r": 1.2, "curve": 3.0 },
+  "filter": { "kind": "lowpass", "cutoff": 2400 },
+  "lfo": { "rate": 0.4, "depth": 0.35, "target": "pulse_width" } } }],
+"patterns": { "a": { "beats": 8, "notes": [
+  { "track": "pad", "chord": "Cmaj7", "start": 0, "dur": 8 }
+] } },
+"arrangement": ["a"]
+```
+
 **`amp`** — an ADSR: `{ "a": 0.005, "d": 0.15, "s": 0.4, "r": 0.2 }`. Attack,
 decay and release are seconds; sustain is a level in `0..=1`. **Required.**
 
@@ -305,7 +349,8 @@ the note's own pitch that happens once and settles — see
 
 **`lfo`** *(optional)* — `{ "rate": 5.0, "depth": 0.5, "target": "pitch" }`.
 `pitch` is vibrato in semitones, `cutoff` is wobble in octaves, `amp` is tremolo
-where 1.0 dips to silence.
+where 1.0 dips to silence, and `pulse_width` swings every square's width by
+`depth` either way (pulse-width modulation, above).
 
 **`fx`** *(optional)* — a list, applied in order. Each entry is tagged by `fx`:
 
@@ -3041,7 +3086,9 @@ a `ratio` that is not a positive number on any partial or on any of an `fm4`
 source's four operators. The last two name the entry they are complaining about
 — a partial by its index, an operator by its number.
 
-**Everywhere else**: a cutoff at or below 0 Hz, a negative LFO rate, a note of
+**Everywhere else**: a `pulse_width` on a wave other than `square`, an LFO
+aimed at `pulse_width` on a patch with no square, a cutoff at or below 0 Hz, a
+negative LFO rate, a note of
 no length, a note that would sound for more than 60 s counting the
 release and the effect tail (a 58 s drone through a long reverb is one; a song
 names it by track, pattern and beat), an arrangement naming a pattern that does not exist (in a layer as

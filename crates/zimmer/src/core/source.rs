@@ -24,8 +24,11 @@ use super::{additive, fm, karplus, noise, osc};
 use crate::patch::{Algorithm, FM_OPERATORS, Operator, Source};
 use crate::stereo::Stereo;
 
-/// Render `frames` samples of `source`, following the per-sample frequency
-/// track `freqs`.
+/// Render `source` following the per-sample frequency track `freqs`, one
+/// sample-frame for each entry of it.
+///
+/// `pulse` is an LFO's per-sample swing of every square's pulse width, which
+/// only an oscillator stack reads.
 ///
 /// `velocity` is how hard the note was struck, already clamped to `0..=1` by
 /// the caller — the *brightness* velocity, which a performance may scatter a
@@ -56,12 +59,13 @@ use crate::stereo::Stereo;
 pub(crate) fn render(
     source: &Source,
     freqs: &[f32],
+    pulse: Option<&[f32]>,
     seed: u64,
     velocity: f32,
     gate: f32,
-    frames: usize,
     rate: f32,
 ) -> Stereo {
+    let frames = freqs.len();
     match source {
         Source::Noise { color } => {
             let mut out = Stereo::silence(frames);
@@ -70,7 +74,7 @@ pub(crate) fn render(
         }
         Source::OscStack { oscs } => {
             let mut out = Stereo::silence(frames);
-            osc::render(oscs, freqs, seed, &mut out, rate);
+            osc::render(oscs, freqs, pulse, seed, &mut out, rate);
             return out;
         }
         _ => {}
@@ -159,7 +163,7 @@ mod tests {
     use crate::patch::{NoiseColor, Osc, Partial, Wave};
 
     fn render_kind(source: &Source) -> Stereo {
-        render(source, &vec![220.0; 8192], 5, 1.0, 1.0, 8192, 44_100.0)
+        render(source, &vec![220.0; 8192], None, 5, 1.0, 1.0, 44_100.0)
     }
 
     fn every_kind() -> [Source; 8] {
@@ -173,6 +177,7 @@ mod tests {
                     voices: 5,
                     spread: 20.0,
                     width: 0.0,
+                    pulse_width: 0.5,
                 }],
             },
             Source::Karplus {
@@ -285,7 +290,7 @@ mod tests {
                 brightness: 0.5,
             },
         ] {
-            assert!(render(&source, &[], 1, 1.0, 1.0, 0, 44_100.0).is_empty());
+            assert!(render(&source, &[], None, 1, 1.0, 1.0, 44_100.0).is_empty());
         }
     }
 
@@ -306,10 +311,10 @@ mod tests {
             render(
                 &source,
                 &vec![220.0; 4096],
+                None,
                 5,
                 velocity,
                 1.0,
-                4096,
                 44_100.0,
             )
             .l

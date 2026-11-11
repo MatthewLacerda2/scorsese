@@ -26,8 +26,8 @@ use crate::error::SynthError;
 pub use fm::{Algorithm, FM_OPERATORS, Operator};
 pub use fx::{EqBand, EqKind, Fx, MAX_EQ_BANDS};
 pub use stages::{
-    Adsr, Filter, FilterKind, Lfo, LfoTarget, MAX_OSCS, MAX_PARTIALS, MAX_VOICES, NoiseColor, Osc,
-    Partial, PitchEnv, Slope, Source, Wave,
+    Adsr, Filter, FilterKind, Lfo, LfoTarget, MAX_OSCS, MAX_PARTIALS, MAX_PULSE_WIDTH, MAX_VOICES,
+    MIN_PULSE_WIDTH, NoiseColor, Osc, Partial, PitchEnv, Slope, Source, Wave,
 };
 
 /// Rejects an fx chain the renderer cannot honour.
@@ -166,9 +166,34 @@ impl Patch {
         {
             return Err(SynthError::NegativeLfoRate { rate: lfo.rate });
         }
+        self.check_pulse()?;
         check_chain(&self.fx)?;
         check_no_beats(&self.fx)?;
         check_no_sidechain(&self.fx, "patch")
+    }
+
+    /// A pulse width nothing can hear: one written on a wave other than a
+    /// square, or an LFO aimed at the width of a patch with no square in it.
+    fn check_pulse(&self) -> Result<(), SynthError> {
+        let oscs = match &self.source {
+            Source::OscStack { oscs } => oscs.as_slice(),
+            _ => &[],
+        };
+        if let Some(osc) = oscs
+            .iter()
+            .find(|osc| osc.wave != Wave::Square && osc.pulse_width != 0.5)
+        {
+            return Err(SynthError::PulseWidthOffSquare { wave: osc.wave });
+        }
+        match &self.lfo {
+            Some(lfo)
+                if lfo.target == LfoTarget::PulseWidth
+                    && !oscs.iter().any(|osc| osc.wave == Wave::Square) =>
+            {
+                Err(SynthError::NoPulseToModulate)
+            }
+            _ => Ok(()),
+        }
     }
 
     /// The head of the signal path, which is where every unrenderable patch so
