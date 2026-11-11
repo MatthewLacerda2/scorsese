@@ -365,15 +365,17 @@ lowpass at 15 kHz, so neither was taken.
 
 Every recipe with a filter moves, by a quarter-sample shift at least (the
 hold ran every filter's output early by about that much), so there was no
-defaults argument to have. **156 probes against `73db590`** — every kit
+defaults argument to have. **186 probes against `ce563b0`** — every kit
 preset at C3, C4 and C5, seeds 0 and 7, one second at velocity 0.9 —
 measured by level and by energy share under 500 Hz, 500 Hz–4 kHz and above:
 the six presets with no filter came back byte-identical; the lowpass-only
 ones (bass, brass, epiano, pad, pluck, strings) within 0.01 dB and 0.1
-points of every share; the bandpasses and highpasses over noise lost the
-false brightness the image had added, 0.5 to 2.8 points of energy moving
-from above 4 kHz into 500 Hz–4 kHz (scribble, page, riser, snare, key the
-most), within ±0.45 dB of level except `hat` (−1.1 dB at one seed); a
-riser's length, cut where its sound falls under the floor, moved ±24 ms.
-The PR for #1788 has the per-preset table. **rusty re-bakes** everything with
-a filter the next time it moves its pin past this version.
+points of every share. The highpasses over tones moved most, as the fix
+means them to: ride, tambourine, open hat, crash and hat keep up to 12
+points less of their energy between 500 Hz and 4 kHz, within 2 dB of
+level. The bandpasses and highpasses over noise lost the false brightness
+the image had added, 0.5 to 2.8 points moving from above 4 kHz into 500 Hz–4
+kHz, within 0.4 dB; a riser's length, cut where its sound falls under the
+floor, moved ±24 ms. The PR for #1788 has the per-preset table. **rusty
+re-bakes** everything with a filter the next time it moves its pin past
+this version.
