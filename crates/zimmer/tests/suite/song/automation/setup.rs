@@ -74,6 +74,7 @@ pub(crate) fn filtered(cutoff: f32) -> Patch {
             resonance: 0.0,
             env_octaves: 0.0,
             vel_octaves: 0.0,
+            key_track: 0.0,
             adsr: Adsr::default(),
         }),
         ..saw_patch()

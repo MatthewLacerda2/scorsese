@@ -13,6 +13,7 @@ fn lowpass(cutoff: f32, resonance: f32) -> Filter {
         resonance,
         env_octaves: 0.0,
         vel_octaves: 0.0,
+        key_track: 0.0,
         adsr: Adsr::default(),
     }
 }

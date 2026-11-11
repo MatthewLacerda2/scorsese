@@ -21,6 +21,7 @@ fn full_patch() -> Patch {
             resonance: 0.4,
             env_octaves: 1.5,
             vel_octaves: 1.75,
+            key_track: 0.0,
             adsr: adsr(0.01, 0.2, 0.3, 0.2),
         }),
         pitch_env: Some(PitchEnv {

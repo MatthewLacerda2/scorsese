@@ -82,6 +82,7 @@ fn a_zero_cutoff_is_not_a_filter() {
         resonance: 0.0,
         env_octaves: 0.0,
         vel_octaves: 0.0,
+        key_track: 0.0,
         adsr: Adsr::default(),
     });
     assert_eq!(patch.validate(), Err(SynthError::BadCutoff { cutoff: 0.0 }));
@@ -127,6 +128,7 @@ fn a_refusal_names_the_value_that_caused_it() {
         resonance: 0.0,
         env_octaves: 0.0,
         vel_octaves: 0.0,
+        key_track: 0.0,
         adsr: Adsr::default(),
     });
     let message = patch.validate().expect_err("refused").to_string();

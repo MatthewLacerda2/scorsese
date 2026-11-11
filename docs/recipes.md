@@ -260,7 +260,7 @@ value is clamped to it (±8) rather than refused. Negative
 mirrors it into a slow start and a sudden arrival — a swell, not a decay.
 
 **`filter`** *(optional)* — `kind`, plus `cutoff` in Hz, `slope`,
-`resonance` 0..1, `env_octaves`, `vel_octaves`, and its own `adsr`. Four kinds
+`resonance` 0..1, `env_octaves`, `vel_octaves`, `key_track`, and its own `adsr`. Four kinds
 come out of the one filter:
 
 | `kind` | Keeps | Reach for it when |
@@ -282,14 +282,22 @@ rather than keeping it.
 cutoff on the attack and closes it as the note decays. A pluck is a lowpass
 with a big positive `env_octaves` and a fast filter decay.
 
-**The two depths are in octaves, and the cutoff is in Hz.** That looks
+`key_track` (0..1, default `0`) moves the cutoff with the note: at `1.0` an
+octave up the melody is an octave up the cutoff, at `0.5` half that, pivoting
+on middle C, so the written `cutoff` is what `C4` gets. Without it a fixed
+cutoff leaves a low note buzzing with harmonics and a high one nearly a sine;
+`0.5` keeps an instrument the same instrument across a two-octave melody. It
+follows the written note, not a glide, pitch envelope or vibrato.
+
+**The depths are in octaves, and the cutoff is in Hz.** That looks
 inconsistent and is not: a cutoff is a place and a depth is a distance, and the
 ear measures distance in ratios. `2.0` opens the filter two octaves wherever it
 is written — the same gesture at 200 Hz and at 6.8 kHz — so a value can be
 carried from one instrument to another and a patch can be transposed without
 the character of its sweep changing. `3.0` to `4.0` is a wide, obvious sweep,
 `1.0` is a clear move, `0.3` is a nudge. An LFO on `cutoff` was always written
-this way; all three now add into one exponent.
+this way, and `key_track` is octaves per octave of the note; all four add
+into one exponent.
 
 **`pitch_env`** *(optional)* — `{ "semitones": 10, "adsr": { … } }`. A sweep of
 the note's own pitch that happens once and settles — see
@@ -2438,7 +2446,9 @@ Four things worth knowing:
   fill is a run of them walking down.
 - **Pitched instruments play the notes you write.** The bass and the sub are at
   home around `E1`–`E2`, the pad, strings and keys around octaves 3 and 4, the
-  lead and the bell an octave above.
+  lead and the bell an octave above. The bass, pluck, lead, clav and epiano
+  filters follow the note (`key_track` 0.5), so they keep their character
+  away from home.
 - **None of the instruments brings a room.** The reverb is the song's, as
   [Where an effect goes](#where-an-effect-goes) says: put one on the song's
   `fx` and give each track its `send` — the kick, the sub and the bass near

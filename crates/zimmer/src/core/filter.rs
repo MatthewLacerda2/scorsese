@@ -128,6 +128,7 @@ mod tests {
             resonance: 0.0,
             env_octaves: 0.0,
             vel_octaves: 0.0,
+            key_track: 0.0,
             adsr: Adsr::default(),
         }
     }

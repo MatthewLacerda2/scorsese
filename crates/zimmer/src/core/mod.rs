@@ -148,7 +148,7 @@ pub(crate) fn render_swept(
         // One cutoff track, both channels: the filter's *state* belongs to a
         // channel, and the curve it is following belongs to the note.
         let base = sweep.map(|sweep| sweep::swept(sweep, n));
-        let cutoffs = cutoff_track(&f, patch.lfo, gate, n, brightness, base.as_deref());
+        let cutoffs = cutoff_track(&f, patch.lfo, gate, n, brightness, midi, base.as_deref());
         buf.each(|channel| filter::apply(channel, &f, &cutoffs, RATE));
     }
     apply_amp(&mut buf, patch, gate, velocity);

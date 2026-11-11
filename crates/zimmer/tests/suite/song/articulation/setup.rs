@@ -32,6 +32,7 @@ pub(crate) fn instrument() -> Patch {
             resonance: 0.0,
             env_octaves: 0.0,
             vel_octaves: 4.0,
+            key_track: 0.0,
             adsr: Adsr::default(),
         }),
         ..saw_patch()

@@ -104,12 +104,13 @@ pub(super) fn pitch_track(
         .collect()
 }
 
-/// The per-sample cutoff track: the base cutoff, opened by how hard the note
-/// was struck (`vel_octaves` at full velocity), swept by the filter envelope
+/// The per-sample cutoff track: the base cutoff, moved with the written note
+/// `midi` (`key_track` octaves per octave from middle C), opened by how hard
+/// the note was struck (`vel_octaves` at full velocity), swept by the filter envelope
 /// (`env_octaves` at full level) and wobbled by an LFO aimed at `cutoff`
 /// (`depth` octaves either way).
 ///
-/// **All three depths are octaves, so all three are summed into one exponent**
+/// **All four depths are octaves, so all four are summed into one exponent**
 /// and the base cutoff is multiplied by it once. That is the whole of the unit
 /// change: the terms are still *added* to each other, so each source of
 /// movement stays independent and a zero stays harmless, but the sum scales
@@ -120,6 +121,11 @@ pub(super) fn pitch_track(
 /// The LFO used to be the one term already written this way and was applied as
 /// a separate multiply outside the sum; folding it in changes nothing about
 /// what it does and removes the one place the two conventions met.
+///
+/// The key term reads `midi`, the written note, rather than the frequency
+/// track: that track already carries the vibrato, which a cutoff should not
+/// wobble with, so following a glide or a pitch envelope would cost a second
+/// track.
 ///
 /// `base` is where the filter sits at each sample when something outside the
 /// note moves it — a song's `cutoff` curve, read across the whole note rather
@@ -136,10 +142,12 @@ pub(super) fn cutoff_track(
     gate: f32,
     n: usize,
     velocity: f32,
+    midi: f32,
     base: Option<&[f32]>,
 ) -> Vec<f32> {
     let envelope = env::track(&f.adsr, gate, n, RATE);
-    let struck = f.vel_octaves * velocity;
+    let followed = f.key_track.clamp(0.0, 1.0) * (midi - 60.0) / 12.0;
+    let struck = f.vel_octaves * velocity + followed;
     (0..n)
         .map(|i| {
             let octaves = struck + f.env_octaves * envelope[i];
@@ -152,6 +160,9 @@ pub(super) fn cutoff_track(
         })
         .collect()
 }
+
+#[cfg(test)]
+mod key;
 
 /// The tremolo gain at sample `i`: an LFO aimed at `amp` dips the level by `depth`
 /// (so `depth = 1` dips all the way to silence).
