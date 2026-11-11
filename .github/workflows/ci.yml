@@ -602,7 +602,8 @@ jobs:
       - name: Build
         run: bun run build
 
-  # The size gate: source files ≤ 300 lines of code, test files ≤ 150 — blank
+  # The size gate: source files ≤ 300 lines of code (a file listed in
+  # tools/lint/src/raised.rs has a raised cap), test files ≤ 150 — blank
   # and comment lines do not count, for the reasons in `scan::code_lines`.
   # It is a hard gate, and before this job nothing
   # checked it — a limit that held by habit for as long as someone was
