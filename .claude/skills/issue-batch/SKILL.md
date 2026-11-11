@@ -187,6 +187,8 @@ A restart of the machine or container stops the watch silently: check its log
 tail and start the same watch again. Give the background command the longest
 timeout it takes (the default stops it at thirty minutes), and start it from a
 checkout of the latest `main`: the queue runs the scripts the checkout holds.
+A watch says `turned ready` only for what turns ready while it runs: after
+starting one again, list the ready pull requests without `queue` and read them.
 A hand-back GitHub caused with the head unchanged (an Actions incident) is not
 retaken by the watch: once the cause clears, `make queue PRS="N"`.
 
