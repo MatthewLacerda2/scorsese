@@ -350,3 +350,32 @@ at a default that renders what was always rendered, but `lfo_wave` became a
 per-note curve shared by every layer, so it was measured: **157 probes
 against `3b424e7` — every kit preset at three pitches, two seeds and
 velocities, and the landing page's song — came back byte-identical**.
+
+**Version 10 is the filter's oversampling interpolating its half-steps**
+(#1788). The SVF runs two half-steps per output sample; the first used to
+take the same input as the second (a zero-order hold), which images every
+tone `f` at `sr − f`. A highpass passes that image and keeping every other
+output folds it back onto `f`, so a highpass's stopband floor was ~6 dB per
+octave whatever its slope: 560 Hz under a 24 dB highpass at 9 kHz came out
+at −24.7 dB where the slope gives −96. The half-step now takes the cubic
+halfway point of four samples (`[-1, 9, 9, -1] / 16`), which puts it at −95.
+A straight line between two samples reached only −59, and averaging the
+two half-step outputs, which also clears it, took 3.7 dB off every open
+lowpass at 15 kHz, so neither was taken.
+
+Every recipe with a filter moves, by a quarter-sample shift at least (the
+hold ran every filter's output early by about that much), so there was no
+defaults argument to have. **186 probes against `ce563b0`** — every kit
+preset at C3, C4 and C5, seeds 0 and 7, one second at velocity 0.9 —
+measured by level and by energy share under 500 Hz, 500 Hz–4 kHz and above:
+the six presets with no filter came back byte-identical; the lowpass-only
+ones (bass, brass, epiano, pad, pluck, strings) within 0.01 dB and 0.1
+points of every share. The highpasses over tones moved most, as the fix
+means them to: ride, tambourine, open hat, crash and hat keep up to 12
+points less of their energy between 500 Hz and 4 kHz, within 2 dB of
+level. The bandpasses and highpasses over noise lost the false brightness
+the image had added, 0.5 to 2.8 points moving from above 4 kHz into 500 Hz–4
+kHz, within 0.4 dB; a riser's length, cut where its sound falls under the
+floor, moved ±24 ms. The PR for #1788 has the per-preset table. **rusty
+re-bakes** everything with a filter the next time it moves its pin past
+this version.

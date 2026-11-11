@@ -164,8 +164,13 @@ mod tests {
         address
     }
 
+    /// A redirect that closes its connection: the server answers each request
+    /// on a connection of its own, so a client that kept this one for the next
+    /// request would write it into a socket the server has dropped.
     fn moved(to: &str) -> String {
-        format!("HTTP/1.1 302 Found\r\nLocation: {to}\r\nContent-Length: 0\r\n\r\n")
+        format!(
+            "HTTP/1.1 302 Found\r\nLocation: {to}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        )
     }
 
     const FILE: &str = "HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\nfile";

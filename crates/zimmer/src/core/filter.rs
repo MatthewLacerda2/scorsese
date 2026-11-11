@@ -21,6 +21,8 @@
 //! a quarter of the sample rate. We run it **2× oversampled** (two half-steps per
 //! output sample), which pushes the stable ceiling up to ~`sr/3`, and clamp the
 //! cutoff there — so a "fully open" filter really is open across the audible band.
+//! The half-step between two samples is interpolated, never held: [`halfway`] has
+//! why a highpass needs that.
 //!
 //! **That ceiling still holds for two pairs in series, and it was checked rather
 //! than assumed.** Stability is a property of one integrator loop — the pole
@@ -98,14 +100,48 @@ pub(crate) fn apply(buf: &mut [f32], filter: &Filter, cutoffs: &[f32], sample_ra
     let pairs = &mut svf[..filter.slope.pole_pairs()];
     let q = (1.0 - filter.resonance.clamp(0.0, 0.99)).clamp(0.05, 1.0);
     let ceiling = sample_rate * MAX_CUTOFF_RATIO;
-    for (i, s) in buf.iter_mut().enumerate() {
+    // The two input samples before this one, as they were before filtering.
+    let (mut before, mut last) = (0.0, 0.0);
+    for i in 0..buf.len() {
+        let current = buf[i];
+        // Past the end, the parabola through the last three samples carries on:
+        // a zero there would be a step, and a step is broadband.
+        let next = buf
+            .get(i + 1)
+            .copied()
+            .unwrap_or(3.0 * (current - last) + before);
         let cutoff = cutoffs.get(i).copied().unwrap_or(filter.cutoff);
         let f = tuning(cutoff.clamp(MIN_CUTOFF, ceiling), sample_rate);
-        // Two half-rate steps per output sample (the 2× oversampling); the second
-        // one's output is the sample we keep.
-        cascade(pairs, *s, f, q, filter.kind);
-        *s = cascade(pairs, *s, f, q, filter.kind);
+        // Two half-rate steps per output sample (the 2× oversampling): the first
+        // takes the point halfway from the last sample to this one, the second
+        // this one, and its output is the sample we keep.
+        cascade(
+            pairs,
+            halfway(before, last, current, next),
+            f,
+            q,
+            filter.kind,
+        );
+        buf[i] = cascade(pairs, current, f, q, filter.kind);
+        (before, last) = (last, current);
     }
+}
+
+/// The point halfway between `b` and `c`, by the cubic through all four samples
+/// — the half-band interpolator `[-1, 9, 9, -1] / 16`.
+///
+/// This is what keeps a highpass's stopband the filter's own. Running at 2× puts
+/// an image of every tone `f` at `sr − f`; a highpass passes that image, and
+/// keeping every other output folds it straight back onto `f`. Holding the
+/// sample (feeding it twice) leaves the image ~`f / sr` down, a 6 dB-per-octave
+/// floor under any slope; a straight line between `b` and `c` gets it to
+/// ~`(f / sr)²`, still −59 dB for 560 Hz under a 24 dB highpass at 9 kHz; the
+/// cubic to ~`(f / sr)⁴`, under the slope itself (−95 dB there, the slope −96).
+/// Averaging the two half-step outputs would also clear the image, but darkens
+/// every open lowpass (−3.7 dB at 15 kHz); this leaves the kept samples alone.
+#[inline]
+fn halfway(a: f32, b: f32, c: f32, d: f32) -> f32 {
+    (9.0 * (b + c) - (a + d)) / 16.0
 }
 
 /// The SVF tuning coefficient for a cutoff, at 2× oversampling: `2·sin(π·fc/2·sr)`.
@@ -115,234 +151,4 @@ fn tuning(cutoff: f32, sample_rate: f32) -> f32 {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::patch::{Adsr, Slope};
-    use std::f32::consts::TAU;
-
-    fn filter(kind: FilterKind, cutoff: f32) -> Filter {
-        Filter {
-            kind,
-            cutoff,
-            slope: Slope::Db12,
-            resonance: 0.0,
-            env_octaves: 0.0,
-            vel_octaves: 0.0,
-            key_track: 0.0,
-            adsr: Adsr::default(),
-        }
-    }
-
-    /// A sine at `hz`, one second long at 44.1 kHz.
-    fn sine(hz: f32) -> Vec<f32> {
-        (0..44_100)
-            .map(|i| (TAU * hz * i as f32 / 44_100.0).sin())
-            .collect()
-    }
-
-    /// Peak amplitude over the settled second half of a buffer.
-    fn settled_peak(buf: &[f32]) -> f32 {
-        buf[buf.len() / 2..]
-            .iter()
-            .fold(0.0f32, |m, s| m.max(s.abs()))
-    }
-
-    #[test]
-    fn lowpass_passes_below_and_stops_above_the_cutoff() {
-        let cutoffs = vec![1000.0; 44_100];
-        let mut low = sine(100.0);
-        let mut high = sine(8000.0);
-        apply(
-            &mut low,
-            &filter(FilterKind::Lowpass, 1000.0),
-            &cutoffs,
-            44_100.0,
-        );
-        apply(
-            &mut high,
-            &filter(FilterKind::Lowpass, 1000.0),
-            &cutoffs,
-            44_100.0,
-        );
-        assert!(settled_peak(&low) > 0.7, "100 Hz survives a 1 kHz lowpass");
-        assert!(settled_peak(&high) < 0.1, "8 kHz does not");
-    }
-
-    #[test]
-    fn highpass_is_the_mirror_image() {
-        let cutoffs = vec![2000.0; 44_100];
-        let mut low = sine(100.0);
-        let mut high = sine(8000.0);
-        apply(
-            &mut low,
-            &filter(FilterKind::Highpass, 2000.0),
-            &cutoffs,
-            44_100.0,
-        );
-        apply(
-            &mut high,
-            &filter(FilterKind::Highpass, 2000.0),
-            &cutoffs,
-            44_100.0,
-        );
-        assert!(settled_peak(&low) < 0.1, "100 Hz is cut");
-        assert!(settled_peak(&high) > 0.7, "8 kHz passes");
-    }
-
-    #[test]
-    fn bandpass_keeps_the_middle_and_drops_both_ends() {
-        let cutoffs = vec![1000.0; 44_100];
-        let band = filter(FilterKind::Bandpass, 1000.0);
-        let mut low = sine(60.0);
-        let mut mid = sine(1000.0);
-        let mut high = sine(9000.0);
-        for buf in [&mut low, &mut mid, &mut high] {
-            apply(buf, &band, &cutoffs, 44_100.0);
-        }
-        let centre = settled_peak(&mid);
-        assert!(centre > settled_peak(&low) * 4.0, "60 Hz is off the bottom");
-        assert!(centre > settled_peak(&high) * 4.0, "9 kHz is off the top");
-    }
-
-    /// A notch is the mirror: the ends survive and the middle is what goes. It is
-    /// tested against the bandpass rather than on its own because the two are one
-    /// sum apart, and a sign error would pass a test that only looked at one.
-    #[test]
-    fn notch_is_the_bandpass_turned_inside_out() {
-        let cutoffs = vec![1000.0; 44_100];
-        let notch = filter(FilterKind::Notch, 1000.0);
-        let mut low = sine(60.0);
-        let mut mid = sine(1000.0);
-        for buf in [&mut low, &mut mid] {
-            apply(buf, &notch, &cutoffs, 44_100.0);
-        }
-        assert!(settled_peak(&low) > 0.7, "60 Hz passes a 1 kHz notch");
-        assert!(
-            settled_peak(&mid) < settled_peak(&low) * 0.5,
-            "1 kHz does not"
-        );
-    }
-
-    /// The whole point of the steeper slope: the same cutoff rejects harder.
-    #[test]
-    fn two_pole_pairs_reject_further_past_the_cutoff_than_one() {
-        let cutoffs = vec![1000.0; 44_100];
-        let mut gentle = sine(4000.0);
-        let mut steep = sine(4000.0);
-        apply(
-            &mut gentle,
-            &filter(FilterKind::Lowpass, 1000.0),
-            &cutoffs,
-            44_100.0,
-        );
-        apply(
-            &mut steep,
-            &Filter {
-                slope: Slope::Db24,
-                ..filter(FilterKind::Lowpass, 1000.0)
-            },
-            &cutoffs,
-            44_100.0,
-        );
-        assert!(
-            settled_peak(&steep) < settled_peak(&gentle) * 0.5,
-            "24 dB rejects harder than 12: {} vs {}",
-            settled_peak(&gentle),
-            settled_peak(&steep)
-        );
-    }
-
-    /// The interaction a reader has to be warned about: at 24 dB the emphasis is
-    /// applied once per pair, so the same `resonance` rings considerably harder.
-    #[test]
-    fn resonance_is_a_stronger_control_at_the_steeper_slope() {
-        let cutoffs = vec![1000.0; 44_100];
-        let mut gentle = sine(1000.0);
-        let mut steep = sine(1000.0);
-        let mut f = filter(FilterKind::Lowpass, 1000.0);
-        f.resonance = 0.9;
-        apply(&mut gentle, &f, &cutoffs, 44_100.0);
-        f.slope = Slope::Db24;
-        apply(&mut steep, &f, &cutoffs, 44_100.0);
-        assert!(
-            settled_peak(&steep) > settled_peak(&gentle),
-            "the peak is applied twice"
-        );
-    }
-
-    /// The stability claim the module doc makes for the cascade, pinned: two pairs
-    /// at the top of the band with the resonance knob at its maximum stay finite,
-    /// which is the half that matters, and stay bounded, which is the half a
-    /// cascade of resonant peaks could plausibly have lost.
-    #[test]
-    fn cascading_at_the_ceiling_stays_finite() {
-        for cutoff in [20.0, 14_700.0, 1e9] {
-            let mut buf = sine(440.0);
-            let cutoffs = vec![cutoff; buf.len()];
-            let mut f = filter(FilterKind::Lowpass, cutoff);
-            f.slope = Slope::Db24;
-            f.resonance = 0.99;
-            apply(&mut buf, &f, &cutoffs, 44_100.0);
-            assert!(
-                buf.iter().all(|s| s.is_finite()),
-                "cutoff {cutoff} produced non-finite samples at 24 dB"
-            );
-            assert!(
-                buf.iter().all(|s| s.abs() < 100.0),
-                "cutoff {cutoff} rang away rather than settling"
-            );
-        }
-    }
-
-    #[test]
-    fn resonance_lifts_the_response_at_the_cutoff() {
-        let cutoffs = vec![1000.0; 44_100];
-        let mut flat = sine(1000.0);
-        let mut resonant = sine(1000.0);
-        let mut f = filter(FilterKind::Lowpass, 1000.0);
-        apply(&mut flat, &f, &cutoffs, 44_100.0);
-        f.resonance = 0.9;
-        apply(&mut resonant, &f, &cutoffs, 44_100.0);
-        assert!(settled_peak(&resonant) > settled_peak(&flat));
-    }
-
-    #[test]
-    fn extreme_cutoffs_stay_finite_and_bounded() {
-        for cutoff in [0.0, -500.0, 1e9, f32::INFINITY] {
-            let mut buf = sine(440.0);
-            let cutoffs = vec![cutoff; buf.len()];
-            let mut f = filter(FilterKind::Lowpass, 1000.0);
-            f.resonance = 0.99;
-            apply(&mut buf, &f, &cutoffs, 44_100.0);
-            assert!(
-                buf.iter().all(|s| s.is_finite()),
-                "cutoff {cutoff} produced non-finite samples"
-            );
-        }
-    }
-
-    #[test]
-    fn a_poisoned_sample_resets_the_filter_instead_of_spreading() {
-        // One non-finite input would otherwise infect the integrators forever, so
-        // every later sample would come out NaN. The guard flushes the state.
-        let mut buf = sine(440.0);
-        buf[100] = f32::INFINITY;
-        buf[200] = f32::NAN;
-        let cutoffs = vec![1000.0; buf.len()];
-        apply(
-            &mut buf,
-            &filter(FilterKind::Lowpass, 1000.0),
-            &cutoffs,
-            44_100.0,
-        );
-        assert!(
-            buf.iter().all(|s| s.is_finite()),
-            "the poison was contained"
-        );
-        // And the filter is still a filter afterwards, not a stuck zero.
-        assert!(
-            settled_peak(&buf) > 0.5,
-            "it recovered and kept passing signal"
-        );
-    }
-}
+mod tests;

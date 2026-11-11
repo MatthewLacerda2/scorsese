@@ -233,10 +233,11 @@ pub use song::{Excerpt, PatchResolver, Song, Span, Window, render_excerpt, rende
 /// | 7 | `fm4`'s operators start at seeded phases; a ping-pong `delay`. |
 /// | 8 | A one-shot's file ends where its sound does (#970). |
 /// | 9 | A `cutoff` curve moves inside a note; the compressor and limiter release in dB from a held detector; ring-outs run to −60 dB and are faded (#1123). |
+/// | 10 | The filter's half-steps are interpolated, not held: a highpass's stopband is its slope's (#1788). |
 ///
 /// What each branch checked, and why — the probe corpora, the cases that left
 /// the number alone — is `crates/zimmer/SYNTH_VERSION.md`.
-pub const SYNTH_VERSION: u32 = 9;
+pub const SYNTH_VERSION: u32 = 10;
 
 /// Render one note of `patch` and encode it as a stereo 16-bit PCM WAV.
 ///
