@@ -965,6 +965,14 @@ exclude_re = [
     # least one block, so `at *= 1` stands still where `at += 1` moves on.
     'defects/zipper\.rs:84:68: replace / with % in staircases',
     'defects/envelope\.rs:97:20: replace \+= with \*= in Envelope::dropouts',
+
+    # `core::lfo::shape`'s triangle switches lines at `p < 0.25` and
+    # `p < 0.75`, and the lines meet there — `4p = 2 − 4p = 1` at a quarter,
+    # `2 − 4p = 4p − 4 = −1` at three quarters — so `<=` gives the same value
+    # for every phase, at either comparison. A guard of `true` is not
+    # equivalent and is caught by `a_triangle_climbs_back_in_its_last_quarter`.
+    'core/lfo\.rs:150:33: replace < with <= in shape',
+    'core/lfo\.rs:151:33: replace < with <= in shape',
 ]
 
 # ---------------------------------------------------------------------------

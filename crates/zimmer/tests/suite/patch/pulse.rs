@@ -21,11 +21,7 @@ fn pulse(wave: Wave, pulse_width: f32) -> Patch {
 /// The same patch with an LFO moving the width by `depth`.
 fn modulated(patch: Patch, depth: f32) -> Patch {
     Patch {
-        lfo: Some(Lfo {
-            rate: 2.0,
-            depth,
-            target: LfoTarget::PulseWidth,
-        }),
+        lfo: Some(Lfo::new(2.0, depth, LfoTarget::PulseWidth)),
         ..patch
     }
 }

@@ -10,6 +10,8 @@ mod filter;
 mod fm4;
 mod layered_pulse;
 mod layers;
+mod lfo;
+mod lfo_played;
 mod noise;
 mod pulse;
 mod strict;

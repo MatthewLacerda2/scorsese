@@ -23,6 +23,7 @@ pub(crate) fn blip() -> Patch {
         filter: None,
         pitch_env: None,
         lfo: None,
+        lfo2: None,
         fx: vec![],
     }
 }

@@ -4,6 +4,7 @@
 //! assertion is exact, for the reason the parent module's tests give.
 
 use super::cutoff_track;
+use crate::core::lfo::Lfos;
 use crate::patch::{Adsr, Filter, FilterKind, Slope};
 
 /// A cutoff with no movement of its own, so the note is all that moves it.
@@ -22,7 +23,15 @@ fn lowpass(key_track: f32) -> Filter {
 
 /// Where the cutoff sits for a note at `midi`.
 fn at(key_track: f32, midi: f32) -> f32 {
-    cutoff_track(&lowpass(key_track), None, 0.5, 4, 1.0, midi, None)[3]
+    cutoff_track(
+        &lowpass(key_track),
+        &Lfos::of([], 0, None, 4),
+        0.5,
+        4,
+        1.0,
+        midi,
+        None,
+    )[3]
 }
 
 #[test]
@@ -60,6 +69,14 @@ fn an_amount_out_of_range_is_clamped() {
 #[test]
 fn it_follows_a_moved_base_cutoff() {
     let base = [400.0; 4];
-    let track = cutoff_track(&lowpass(1.0), None, 0.5, 4, 1.0, 72.0, Some(&base));
+    let track = cutoff_track(
+        &lowpass(1.0),
+        &Lfos::of([], 0, None, 4),
+        0.5,
+        4,
+        1.0,
+        72.0,
+        Some(&base),
+    );
     assert_eq!(track[3], 800.0);
 }

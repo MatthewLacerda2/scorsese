@@ -2,7 +2,7 @@
 //!
 //! A [`Patch`] is a "Minimoog-lite" description of a single sound. It is
 //! **structured, not a free graph**: the signal path is fixed —
-//! `source → filter → amp envelope → fx`, with an LFO tapping one target, and
+//! `source → filter → amp envelope → fx`, with up to two LFOs tapping one target each ([`Lfo`]), and
 //! up to [`MAX_LAYERS`] more `source → filter → amp` paths summed in parallel
 //! before the fx ([`Layer`]) — because a patch has to honour a contract, *playable as a note*. The recipe
 //! chooses what goes in each stage, never how the stages connect.
@@ -18,6 +18,7 @@
 pub(crate) mod fm;
 pub(crate) mod fx;
 mod layer;
+mod lfo;
 pub(crate) mod stages;
 mod vary;
 
@@ -28,9 +29,10 @@ use crate::error::SynthError;
 pub use fm::{Algorithm, FM_OPERATORS, Operator};
 pub use fx::{EqBand, EqKind, Fx, MAX_EQ_BANDS};
 pub use layer::{Layer, MAX_LAYERS};
+pub use lfo::{Lfo, LfoShape, LfoTarget, MAX_LFOS};
 pub use stages::{
-    Adsr, Filter, FilterKind, Lfo, LfoTarget, MAX_OSCS, MAX_PARTIALS, MAX_PULSE_WIDTH, MAX_VOICES,
-    MIN_PULSE_WIDTH, NoiseColor, Osc, Partial, PitchEnv, Slope, Source, Wave,
+    Adsr, Filter, FilterKind, MAX_OSCS, MAX_PARTIALS, MAX_PULSE_WIDTH, MAX_VOICES, MIN_PULSE_WIDTH,
+    NoiseColor, Osc, Partial, PitchEnv, Slope, Source, Wave,
 };
 
 /// Rejects an fx chain the renderer cannot honour.
@@ -139,6 +141,10 @@ pub struct Patch {
     /// layer.
     #[serde(default)]
     pub lfo: Option<Lfo>,
+    /// A second LFO, for a patch that moves two ways at once — a pad that
+    /// breathes and shimmers. Aimed at the same target as `lfo`, the two add.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lfo2: Option<Lfo>,
     /// The post-chain, applied in list order.
     #[serde(default)]
     pub fx: Vec<Fx>,
@@ -161,13 +167,30 @@ impl Patch {
     /// Only the bounds that would produce silence, a divide-by-zero or an
     /// unstable filter are checked. Musical taste is the recipe's business: an
     /// ugly patch renders.
+    ///
+    /// This is the patch played on its own, as a one-shot, which has no tempo:
+    /// an LFO timed in `beats` is refused here and accepted by
+    /// [`Patch::validate_in_song`].
     pub fn validate(&self) -> Result<(), SynthError> {
+        self.check(false)
+    }
+
+    /// [`Patch::validate`] for a patch a song plays, where an LFO may be timed
+    /// in `beats` of the song.
+    pub fn validate_in_song(&self) -> Result<(), SynthError> {
+        self.check(true)
+    }
+
+    /// The LFOs the patch carries, `lfo` first.
+    pub(crate) fn lfos(&self) -> impl Iterator<Item = &Lfo> {
+        self.lfo.iter().chain(&self.lfo2)
+    }
+
+    fn check(&self, timed: bool) -> Result<(), SynthError> {
         check_stages(&self.source, self.filter.as_ref())?;
         layer::check_layers(&self.layers)?;
-        if let Some(lfo) = &self.lfo
-            && lfo.rate < 0.0
-        {
-            return Err(SynthError::NegativeLfoRate { rate: lfo.rate });
+        for lfo in self.lfos() {
+            lfo.check(timed)?;
         }
         self.check_pulse()?;
         check_chain(&self.fx)?;
@@ -184,12 +207,10 @@ impl Patch {
             .chain(self.layers.iter().map(|layer| &layer.source))
             .flat_map(oscillators)
             .any(|osc| osc.wave == Wave::Square);
-        match &self.lfo {
-            Some(lfo) if lfo.target == LfoTarget::PulseWidth && !squared => {
-                Err(SynthError::NoPulseToModulate)
-            }
-            _ => Ok(()),
+        if !squared && self.lfos().any(|lfo| lfo.target == LfoTarget::PulseWidth) {
+            return Err(SynthError::NoPulseToModulate);
         }
+        Ok(())
     }
 }
 

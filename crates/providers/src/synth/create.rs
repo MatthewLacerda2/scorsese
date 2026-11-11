@@ -93,7 +93,7 @@ pub fn is_patch_file(json: &str) -> bool {
 /// as the resolver parses it, then held to the bounds every note is.
 pub fn check_patch(json: &str) -> Result<(), String> {
     let patch = Patch::from_json(json).map_err(|error| error.to_string())?;
-    patch.validate().map_err(|error| error.to_string())
+    patch.validate_in_song().map_err(|error| error.to_string())
 }
 
 #[cfg(test)]
@@ -121,5 +121,10 @@ mod tests {
             "amp": { "a": 0.0, "d": 0.1, "s": 0.0, "r": 0.0 } }"#;
         assert!(check_patch(silent).is_err(), "an empty stack cannot sound");
         assert!(check_patch(r#"{ "bpm": 120 }"#).is_err());
+        // A song has a tempo, so an LFO timed in beats is one it can play.
+        let on_the_beat = r#"{ "source": { "kind": "noise" },
+            "amp": { "a": 0.0, "d": 0.1, "s": 0.0, "r": 0.0 },
+            "lfo": { "beats": 0.5, "depth": 0.5, "target": "amp" } }"#;
+        assert_eq!(check_patch(on_the_beat), Ok(()));
     }
 }

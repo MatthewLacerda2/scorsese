@@ -18,18 +18,25 @@
 //! the samples it always did, bit for bit.
 
 use super::poly_blep;
-use crate::core::tracks::lfo_wave;
-use crate::patch::{Lfo, LfoTarget, MAX_PULSE_WIDTH, MIN_PULSE_WIDTH, Osc};
+use crate::core::lfo::Lfos;
+use crate::patch::{LfoTarget, MAX_PULSE_WIDTH, MIN_PULSE_WIDTH, Osc};
 
-/// How far an LFO aimed at `pulse_width` swings every square's width at each
-/// of `n` samples, `depth` either way — or nothing, which leaves each width
-/// as written. Clamping the sum to the range is [`width`]'s.
+/// How far the LFOs aimed at `pulse_width` swing every square's width at
+/// each of `n` samples, `depth` either way and two of them added — or
+/// nothing, which leaves each width as written. Clamping the sum to the range
+/// is [`width`]'s.
 ///
 /// Beside the pulse rather than with the other LFO readers in
 /// [`crate::core::tracks`], because that file is at the size gate.
-pub(crate) fn track(lfo: Option<Lfo>, n: usize) -> Option<Vec<f32>> {
-    let l = lfo.filter(|l| l.target == LfoTarget::PulseWidth)?;
-    Some((0..n).map(|i| l.depth * lfo_wave(&l, i)).collect())
+pub(crate) fn track(lfos: &Lfos, n: usize) -> Option<Vec<f32>> {
+    if !lfos.aims_at(LfoTarget::PulseWidth) {
+        return None;
+    }
+    Some(
+        (0..n)
+            .map(|i| lfos.offset(LfoTarget::PulseWidth, i))
+            .collect(),
+    )
 }
 
 /// The width oscillator `osc` is drawn at, `offset` (an LFO's swing) added to
@@ -58,7 +65,7 @@ pub(super) fn sample(phase: f32, dt: f32, width: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::patch::Wave;
+    use crate::patch::{Lfo, Wave};
 
     /// 441 Hz at 44.1 kHz: exactly a hundred samples a cycle, so a cycle's
     /// mean and its time high are read off whole samples.
@@ -137,21 +144,15 @@ mod tests {
     /// is a quarter cycle in, sample 2205 — and nothing else moves a width.
     #[test]
     fn a_pulse_width_lfo_swings_by_its_depth() {
-        let lfo = |target| {
-            Some(Lfo {
-                rate: 5.0,
-                depth: 0.3,
-                target,
-            })
-        };
-        let swing = track(lfo(LfoTarget::PulseWidth), 8820).unwrap();
+        let lfo = |target| Lfos::of([&Lfo::new(5.0, 0.3, target)], 0, None, 8820);
+        let swing = track(&lfo(LfoTarget::PulseWidth), 8820).unwrap();
         assert_eq!((swing.len(), swing[0]), (8820, 0.0));
         assert!((swing[2205] - 0.3).abs() < 1e-6, "peak {}", swing[2205]);
         assert!((swing[6615] + 0.3).abs() < 1e-6, "trough {}", swing[6615]);
         for target in [LfoTarget::Pitch, LfoTarget::Cutoff, LfoTarget::Amp] {
-            assert_eq!(track(lfo(target), 8820), None);
+            assert_eq!(track(&lfo(target), 8820), None);
         }
-        assert_eq!(track(None, 8820), None);
+        assert_eq!(track(&Lfos::of([], 0, None, 8820), 8820), None);
     }
 
     /// Clamped at both ends, an LFO's swing included, and nonsense is the

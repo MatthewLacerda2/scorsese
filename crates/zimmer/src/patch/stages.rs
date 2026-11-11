@@ -156,7 +156,7 @@ pub struct Osc {
     /// `0.5`, the default, is the square every patch written before this
     /// field rendered. `0.25` and `0.125` are the other two chiptune duties,
     /// each a distinct instrument; a narrow pulse is the nasal reed and clav
-    /// tone, and one an [`LfoTarget::PulseWidth`] keeps moving is the warm
+    /// tone, and one an [`LfoTarget::PulseWidth`](super::LfoTarget::PulseWidth) keeps moving is the warm
     /// analogue pad. A narrower pulse is quieter and thinner: that is the
     /// sound, so no level is made up for it. Past the range it is clamped,
     /// since a pulse of zero or full width is silence. On any other wave it
@@ -452,7 +452,7 @@ impl Default for Adsr {
 /// An envelope aimed at the note's own pitch: a sweep that happens once and
 /// settles.
 ///
-/// This is the primitive an [`Lfo`] aimed at [`LfoTarget::Pitch`] is not. A
+/// This is the primitive an [`Lfo`](super::Lfo) aimed at [`LfoTarget::Pitch`](super::LfoTarget::Pitch) is not. A
 /// vibrato is cyclic — it wobbles around the played note for as long as the
 /// note lasts. A great many instruments instead start *off* their pitch and
 /// arrive on it exactly once: a kick drum starts near 90 Hz and is at 50 in
@@ -652,8 +652,8 @@ pub struct Filter {
     /// Same octave unit and same sign convention as [`Filter::env_octaves`],
     /// because it is the same quantity arriving from a different source — one
     /// mental model, and the two are directly comparable when both are set.
-    /// The terms are **added**, and so is an [`Lfo`] aimed at
-    /// [`LfoTarget::Cutoff`], which was already written in octaves:
+    /// The terms are **added**, and so is an [`Lfo`](super::Lfo) aimed at
+    /// [`LfoTarget::Cutoff`](super::LfoTarget::Cutoff), which was already written in octaves:
     /// `cutoff × 2^(env_octaves × env + vel_octaves × vel + lfo)`. Adding the
     /// depths rather than multiplying the results is what keeps each source of
     /// movement independent of the others and a zero harmless; multiplying
@@ -683,37 +683,6 @@ pub struct Filter {
     /// [`Adsr::default`].
     #[serde(default)]
     pub adsr: Adsr,
-}
-
-/// What the LFO modulates.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum LfoTarget {
-    /// Vibrato: `depth` semitones of pitch bend either way.
-    Pitch,
-    /// Filter wobble: `depth` octaves of cutoff sweep either way.
-    Cutoff,
-    /// Tremolo: amplitude dips by `depth` (1.0 dips to silence).
-    Amp,
-    /// Pulse-width modulation: every `square` in the stack swings `depth`
-    /// either way around its written [`Osc::pulse_width`], clamped to the
-    /// range. Refused on a patch with no square to move.
-    PulseWidth,
-}
-
-/// A single sine low-frequency oscillator tapping one target.
-///
-/// One is enough for vibrato, wobble or tremolo. A modulation matrix would be
-/// a free graph, which is exactly the shape a patch deliberately is not.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Lfo {
-    /// Rate in Hz, typically 0.1–10.
-    pub rate: f32,
-    /// Modulation depth; its unit depends on [`LfoTarget`].
-    pub depth: f32,
-    /// Which stage of the signal path it bends.
-    pub target: LfoTarget,
 }
 
 pub(super) fn one() -> f32 {

@@ -160,6 +160,14 @@ impl Clock {
     }
 }
 
+/// An LFO timed in beats reads its phase off the clock the song is rendered
+/// at, for the reason a delay below does.
+impl crate::core::lfo::Grid for Clock {
+    fn beat_at(&self, frame: usize) -> f32 {
+        Clock::beat_at(self, frame)
+    }
+}
+
 /// A delay timed in beats reads them off the clock the song is rendered at —
 /// so after a `stretch` fit or the anchors have moved the tempo, and following
 /// a tempo map as it goes.

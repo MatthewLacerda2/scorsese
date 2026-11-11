@@ -104,6 +104,7 @@ fn the_report_s_own_rows_show_the_treated_track_moving_and_the_others_still() {
         filter: None,
         pitch_env: None,
         lfo: None,
+        lfo2: None,
         fx: vec![],
     };
     let mut muddy = song();

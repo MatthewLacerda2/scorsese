@@ -8,11 +8,12 @@
 //! of its own ([`Voice`]) is a source, an amp envelope, an optional filter and
 //! pitch envelope, and a gain.
 
-use super::tracks::{cutoff_track, pitch_track, tremolo};
+use super::lfo::Lfos;
+use super::tracks::{cutoff_track, pitch_track};
 use super::{RATE, env, filter, source};
 use crate::hash::hash3;
 use crate::note::{NoteOpts, midi_to_freq};
-use crate::patch::{Adsr, Filter, Layer, Lfo, Patch, PitchEnv, Source};
+use crate::patch::{Adsr, Filter, Layer, Patch, PitchEnv, Source};
 use crate::stereo::Stereo;
 
 /// Hash channel a layer's seed is drawn on, apart from every draw the seed
@@ -28,11 +29,13 @@ pub(super) fn layer_seed(seed: u64, index: usize) -> u64 {
 }
 
 /// What every layer of one note shares: the pitch it is played at, how it is
-/// played, the patch's LFO, and how long it is held and rings.
+/// played, the patch's LFOs, and how long it is held and rings.
 pub(super) struct Struck<'a> {
     pub(super) midi: f32,
     pub(super) opts: &'a NoteOpts,
-    pub(super) lfo: Option<Lfo>,
+    /// The patch's LFOs over this note, worked out once so every layer moves
+    /// together.
+    pub(super) lfos: Lfos,
     pub(super) gate: f32,
     pub(super) n: usize,
     /// How far an LFO aimed at `pulse_width` swings every square's width at
@@ -81,16 +84,16 @@ impl Struck<'_> {
         let brightness = (self.opts.velocity + self.opts.timbre).clamp(0.0, 1.0);
         let glide = self.opts.glide;
         let freq = midi_to_freq(self.midi);
-        let freqs = pitch_track(self.lfo, voice.pitch_env, glide, freq, gate, n);
+        let freqs = pitch_track(&self.lfos, voice.pitch_env, glide, freq, gate, n);
         let pulse = self.pulse.as_deref();
         let mut buf = source::render(voice.source, &freqs, pulse, seed, brightness, gate, RATE);
         if let Some(f) = voice.filter {
             // One cutoff track, both channels: the filter's *state* belongs to a
             // channel, and the curve it is following belongs to the note.
-            let cutoffs = cutoff_track(&f, self.lfo, gate, n, brightness, self.midi, base);
+            let cutoffs = cutoff_track(&f, &self.lfos, gate, n, brightness, self.midi, base);
             buf.each(|channel| filter::apply(channel, &f, &cutoffs, RATE));
         }
-        apply_amp(&mut buf, voice.amp, self.lfo, gate, velocity * voice.gain);
+        apply_amp(&mut buf, voice.amp, &self.lfos, gate, velocity * voice.gain);
         buf
     }
 }
@@ -98,14 +101,14 @@ impl Struck<'_> {
 /// Apply velocity, the amp envelope and any tremolo — the stage that turns a
 /// continuous tone into a note. `velocity` arrives already clamped from
 /// [`Struck::voice`], times the layer's gain.
-fn apply_amp(buf: &mut Stereo, amp: &Adsr, lfo: Option<Lfo>, gate: f32, velocity: f32) {
+fn apply_amp(buf: &mut Stereo, amp: &Adsr, lfos: &Lfos, gate: f32, velocity: f32) {
     let envelope = env::track(amp, gate, buf.frames(), RATE);
     // The gain curve is worked out once and both channels are walked with it:
     // an envelope is a property of the note, and a tremolo that ran at a
     // slightly different phase on each side would be a stereo effect nobody
     // asked for.
     let gains: Vec<f32> = (0..buf.frames())
-        .map(|i| velocity * envelope[i] * tremolo(lfo, i))
+        .map(|i| velocity * envelope[i] * lfos.tremolo(i))
         .collect();
     buf.each(|channel| {
         for (s, gain) in channel.iter_mut().zip(&gains) {
@@ -171,6 +174,7 @@ mod tests {
             pitch_env: None,
             layers: vec![crack],
             lfo: None,
+            lfo2: None,
             fx: Vec::new(),
         }
     }

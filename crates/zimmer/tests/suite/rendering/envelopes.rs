@@ -131,11 +131,7 @@ fn a_negative_sweep_starts_the_note_low_instead() {
 fn a_sweep_and_a_vibrato_are_both_audible_on_one_note() {
     let mut patch = saw_patch();
     patch.pitch_env = Some(sweep(12.0, 0.5));
-    patch.lfo = Some(Lfo {
-        rate: 6.0,
-        depth: 7.0,
-        target: LfoTarget::Pitch,
-    });
+    patch.lfo = Some(Lfo::new(6.0, 7.0, LfoTarget::Pitch));
     let both = render(&patch, 45.0, &opts(1.0));
 
     let mut swept_only = saw_patch();

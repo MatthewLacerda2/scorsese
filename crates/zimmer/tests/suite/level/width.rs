@@ -147,6 +147,7 @@ fn a_fully_wet_ensemble_on_a_held_tone_comes_out_cancelling() {
         filter: None,
         pitch_env: None,
         lfo: None,
+        lfo2: None,
         fx: vec![Fx::Chorus {
             rate: 0.3,
             depth: 0.3,

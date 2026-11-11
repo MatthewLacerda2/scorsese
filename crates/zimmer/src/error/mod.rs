@@ -201,6 +201,38 @@ pub enum SynthError {
         rate: f32,
     },
 
+    /// An LFO that writes both `rate` and `beats`: two speeds for one wave.
+    LfoTwoRates {
+        /// The Hz it asked for.
+        rate: f32,
+        /// The beats it also asked for.
+        beats: f32,
+    },
+
+    /// An LFO with no speed: neither a `rate` nor `beats`.
+    LfoNoRate,
+
+    /// An LFO cycle of `beats` that is not a positive length.
+    BadLfoBeats {
+        /// The beats as written.
+        beats: f32,
+    },
+
+    /// An LFO timed in `beats` on a patch played on its own, which has no
+    /// tempo to count them by.
+    LfoBeatsWithoutTempo {
+        /// The beats it asked for.
+        beats: f32,
+    },
+
+    /// An LFO `delay` or `fade` that is negative or not a number.
+    BadLfoOnset {
+        /// Which of the two.
+        field: &'static str,
+        /// The seconds as written.
+        seconds: f32,
+    },
+
     /// A `pulse_width` written on a wave other than `square`: a field nothing
     /// can hear. The fix is the wave or the field, so the wave is what it
     /// carries.

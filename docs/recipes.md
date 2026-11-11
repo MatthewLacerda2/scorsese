@@ -138,7 +138,7 @@ they connect:
 source ─► filter ─► amp envelope ─┬─► + ─► fx
    ▲         ▲            ▲        │
    ├──── envelopes ───────┘        │   amp always; pitch and cutoff optional
-   └─────── lfo ──────────┘        │   one target: pitch | cutoff | amp | pulse_width
+   └─────── lfo ──────────┘        │   up to two, one target each: pitch | cutoff | amp | pulse_width
 layers: up to 3 more, each its own │
 source ─► filter ─► amp ───────────┘
 ```
@@ -354,7 +354,11 @@ the note's own pitch that happens once and settles — see
 **`lfo`** *(optional)* — `{ "rate": 5.0, "depth": 0.5, "target": "pitch" }`.
 `pitch` is vibrato in semitones, `cutoff` is wobble in octaves, `amp` is tremolo
 where 1.0 dips to silence, and `pulse_width` swings every square's width by
-`depth` either way (pulse-width modulation, above).
+`depth` either way (pulse-width modulation, above). **`lfo2`** *(optional)* is
+a second one, written the same way, for a patch that moves two ways at once (a
+pad that breathes on `cutoff` and shimmers on `pitch`); two aimed at one target
+add, and two on `amp` multiply their dips. See
+[Movement on a held note](#movement-on-a-held-note) for the rest of its fields.
 
 **`fx`** *(optional)* — a list, applied in order. Each entry is tagged by `fx`:
 
@@ -911,6 +915,62 @@ Three things worth knowing:
   which is most of the difference between a section that reads as a dynamic and
   one that reads as a volume knob.
 
+### Movement on a held note
+
+A short sound gets its movement from envelopes; a held note gets it from the
+LFO. Besides `depth` and `target`, an `lfo` (or `lfo2`) takes:
+
+| Field | Default | What it does |
+| --- | --- | --- |
+| `rate` | — | speed in Hz, typically 0.1–10 |
+| `beats` | — | **instead of** `rate`: one cycle per that many beats of the song (`1` once a beat, `0.5` twice, `4` once a bar of 4/4) |
+| `shape` | `sine` | `sine`, `triangle` (a siren), `saw_up` / `saw_down` (a rhythmic sweep), `square` (a trill, a gated tremolo), `random` (sample-and-hold: a new value each cycle, the random filter burble and a robot's chatter) |
+| `delay` | 0 | seconds into the note before it moves anything |
+| `fade` | 0 | seconds after `delay` to grow from nothing to the full `depth` |
+
+**Write exactly one of `rate` and `beats`.** A `rate` LFO starts its cycle on
+every note, when its `delay` ends. A **`beats` LFO takes its phase from the
+song position**, so a wobble stays on the grid whichever note retriggers it,
+and follows `bpm`, `tempo` changes and a `fit` as they move the tempo. A patch
+baked on its own has no tempo, so `beats` is for a patch a song plays.
+
+**A delayed vibrato** is the plainest difference between a played line and a
+synth's: a held string or a singer comes in straight and lets the vibrato
+grow, and a short note never gets any.
+
+```json recipe
+{
+  "recipe": "patch",
+  "note": "A4",
+  "duration": 2.0,
+  "patch": {
+    "source": { "kind": "osc_stack", "oscs": [{ "wave": "saw", "voices": 5, "spread": 10 }] },
+    "amp": { "a": 0.2, "d": 0.4, "s": 0.85, "r": 0.5 },
+    "filter": { "kind": "lowpass", "cutoff": 2400 },
+    "lfo": { "rate": 5.5, "depth": 0.2, "target": "pitch", "delay": 0.35, "fade": 0.6 }
+  }
+}
+```
+
+**A beat-locked wobble** on a bass, with a slow breath on top from `lfo2`:
+
+```json fields
+"bpm": 140,
+"tracks": [{ "name": "wobble", "gain": 0.6, "patch": {
+  "source": { "kind": "osc_stack", "oscs": [{ "wave": "saw" }, { "wave": "square", "octave": -1 }] },
+  "amp": { "a": 0.005, "d": 0.2, "s": 0.9, "r": 0.1 },
+  "filter": { "kind": "lowpass", "cutoff": 300, "resonance": 0.5 },
+  "lfo": { "beats": 0.5, "depth": 2.5, "target": "cutoff", "shape": "triangle" },
+  "lfo2": { "rate": 0.25, "depth": 0.15, "target": "amp" } } }],
+"patterns": { "a": { "beats": 4, "notes": [
+  { "track": "wobble", "note": "E1", "start": 0, "dur": 4 }
+] } },
+"arrangement": ["a"]
+```
+
+Still one target each: no LFO moves another LFO, an envelope's time or an
+effect's setting.
+
 ### Sweeping the pitch, not just wobbling it
 
 An `lfo` aimed at `pitch` is a vibrato: it wobbles around the played note for
@@ -1006,7 +1066,7 @@ one source with one envelope cannot have.
   or `lfo` of its own, and a layer holds no layers. Up to 3 layers: four
   sounds in one note.
 - **What they share is the note**: its pitch, velocity, `timbre`, glide and
-  how long it is held, and the patch's `lfo`, which reaches every layer. Each
+  how long it is held, and the patch's `lfo` and `lfo2`, which reach every layer. Each
   draws its own randomness from the seed, so two noise layers are two noises.
 - **The note rings as long as its longest layer.** A song's
   [`cutoff` curve](#making-something-build) moves the top-level `filter` only.
@@ -3283,7 +3343,10 @@ counted from zero.
 
 **Everywhere else**: a `pulse_width` on a wave other than `square`, an LFO
 aimed at `pulse_width` on a patch with no square in any of its sounds, a
-cutoff at or below 0 Hz, a negative LFO rate, a note of
+cutoff at or below 0 Hz, a negative LFO rate, an LFO that writes both `rate`
+and `beats` or neither (a `rate` of 0 is neither), a `beats` that is not a
+positive number, a `delay` or `fade` below zero, an LFO timed in `beats` on a
+patch baked on its own, a note of
 no length, a note that would sound for more than 60 s counting the
 release and the effect tail (a 58 s drone through a long reverb is one; a song
 names it by track, pattern and beat), an arrangement naming a pattern that does not exist (in a layer as

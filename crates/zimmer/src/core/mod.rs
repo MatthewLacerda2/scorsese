@@ -16,7 +16,7 @@
 //! **Layers** are that `source → filter → amp` path again, up to
 //! [`MAX_LAYERS`](crate::patch::MAX_LAYERS) more times, summed before the one
 //! fx chain ([`voice`]). They share the note — pitch, velocity, timbre, glide,
-//! gate and the LFO — and each draws on its own seed. A song's `cutoff` curve
+//! gate and the LFOs — and each draws on its own seed. A song's `cutoff` curve
 //! moves the top-level filter only.
 //!
 //! An envelope has three possible destinations — the amplifier always, and
@@ -60,7 +60,8 @@
 //! harmonic series), [`noise`] (the one seeded RNG), [`nyquist`] (what any of
 //! them may place above the played pitch), [`source`] (which of those runs),
 //! [`mod@env`] (ADSR), [`filter`] (state-variable filter), [`tracks`] (the
-//! per-sample curves the stages walk: pitch, cutoff, tremolo), [`sweep`] (a
+//! per-sample curves the stages walk: pitch and cutoff), [`lfo`] (the patch's
+//! LFOs over one note, and the tremolo), [`sweep`] (a
 //! cutoff moved from outside the note), [`voice`] (one path of a note, and
 //! what its layers share), [`trim`] (where
 //! a baked one-shot's file ends).
@@ -70,6 +71,7 @@ pub(crate) mod env;
 pub(crate) mod filter;
 pub(crate) mod fm;
 pub(crate) mod karplus;
+pub(crate) mod lfo;
 pub(crate) mod noise;
 pub(crate) mod nyquist;
 pub(crate) mod osc;
@@ -84,6 +86,7 @@ use super::fx;
 use super::note::NoteOpts;
 use super::patch::Patch;
 use super::stereo::Stereo;
+use lfo::{Lfos, Onset};
 use voice::{Struck, Voice, layer_seed};
 
 /// The one rate everything here renders at. 44.1 kHz is CD rate: the full
@@ -122,7 +125,7 @@ const MAX_SECONDS: f32 = 60.0;
 /// the same band, for the reason above; `timbre` of zero collapses them back
 /// into the single number every note was struck at before.
 pub(crate) fn render_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<Stereo, SynthError> {
-    render_swept(patch, midi, opts, None)
+    render_swept(patch, midi, opts, None, None)
 }
 
 /// [`render_note`] with the filter's base cutoff moved from outside the note:
@@ -130,13 +133,21 @@ pub(crate) fn render_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<S
 /// and takes the place of the patch's own `cutoff` for the whole note, its
 /// release and its ring-out included. A song's `cutoff` curve is the one
 /// caller, so a sweep across one held chord is a sweep (#1123).
+///
+/// `onset` is where the note sounds in a song, which is what lets an LFO be
+/// timed in `beats`; a note rendered on its own has none, and its patch is
+/// held to [`Patch::validate`], which refuses one.
 pub(crate) fn render_swept(
     patch: &Patch,
     midi: f32,
     opts: &NoteOpts,
     sweep: Option<&dyn Fn(usize) -> f32>,
+    onset: Option<&Onset<'_>>,
 ) -> Result<Stereo, SynthError> {
-    patch.validate()?;
+    match onset {
+        Some(_) => patch.validate_in_song()?,
+        None => patch.validate()?,
+    }
     let gate = gate_length(opts.duration)?;
     // The note lasts as long as its longest-ringing layer does.
     let release = patch
@@ -144,13 +155,14 @@ pub(crate) fn render_swept(
         .iter()
         .fold(patch.amp.r.max(0.0), |most, layer| most.max(layer.amp.r));
     let n = sample_count(gate, release + fx::tail_seconds(&patch.fx, &fx::NoTempo))?;
+    let lfos = Lfos::of(patch.lfos(), opts.seed, onset, n);
     let note = Struck {
         midi,
         opts,
-        lfo: patch.lfo,
+        pulse: osc::pulse::track(&lfos, n),
+        lfos,
         gate,
         n,
-        pulse: osc::pulse::track(patch.lfo, n),
     };
     // A song's sweep moves the top-level filter, and only that one.
     let base = sweep.map(|sweep| sweep::swept(sweep, n));

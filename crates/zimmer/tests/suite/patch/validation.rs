@@ -91,11 +91,7 @@ fn a_zero_cutoff_is_not_a_filter() {
 #[test]
 fn a_negative_lfo_rate_is_not_a_rate() {
     let mut patch = minimal(noise());
-    patch.lfo = Some(Lfo {
-        rate: -1.0,
-        depth: 0.5,
-        target: LfoTarget::Amp,
-    });
+    patch.lfo = Some(Lfo::new(-1.0, 0.5, LfoTarget::Amp));
     assert_eq!(
         patch.validate(),
         Err(SynthError::NegativeLfoRate { rate: -1.0 })

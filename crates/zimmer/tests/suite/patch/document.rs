@@ -32,11 +32,8 @@ fn full_patch() -> Patch {
                 ..adsr(0.0, 0.04, 0.0, 0.0)
             },
         }),
-        lfo: Some(Lfo {
-            rate: 5.0,
-            depth: 0.5,
-            target: LfoTarget::Pitch,
-        }),
+        lfo: Some(Lfo::new(5.0, 0.5, LfoTarget::Pitch)),
+        lfo2: None,
         fx: vec![
             Fx::Delay {
                 time: 0.25,
