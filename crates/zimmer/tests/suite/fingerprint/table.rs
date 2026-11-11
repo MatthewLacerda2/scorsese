@@ -18,16 +18,16 @@ pub(crate) struct Row {
     pub(crate) high: f64,
 }
 
-pub(crate) const RECORDED_AT: u32 = 9;
+pub(crate) const RECORDED_AT: u32 = 10;
 
 // One row per line, the form the failure message prints, so a re-record is a
 // paste and a diff reads probe by probe.
 #[rustfmt::skip]
 pub(crate) const TABLE: &[Row] = &[
-    Row { probe: "saw_filtered", frames: 17614, rms_db: -13.434, low: 0.8469, mid: 0.1524, high: 0.0007 },
-    Row { probe: "noise_snare", frames: 25617, rms_db: -19.922, low: 0.002, mid: 0.7322, high: 0.2658 },
+    Row { probe: "saw_filtered", frames: 17614, rms_db: -13.433, low: 0.8468, mid: 0.1525, high: 0.0007 },
+    Row { probe: "noise_snare", frames: 26794, rms_db: -19.782, low: 0.002, mid: 0.7316, high: 0.2664 },
     Row { probe: "sine_kick", frames: 5970, rms_db: -10.922, low: 0.9874, mid: 0.0126, high: 0.0 },
-    Row { probe: "fm2_bell", frames: 19784, rms_db: -12.05, low: 0.0036, mid: 0.9352, high: 0.0613 },
+    Row { probe: "fm2_bell", frames: 19784, rms_db: -12.024, low: 0.0036, mid: 0.9351, high: 0.0613 },
     Row { probe: "fm4_growl", frames: 30948, rms_db: -14.908, low: 0.794, mid: 0.2056, high: 0.0004 },
     Row { probe: "additive_organ", frames: 18379, rms_db: -13.712, low: 0.2844, mid: 0.7154, high: 0.0002 },
     Row { probe: "karplus_pluck", frames: 15273, rms_db: -20.325, low: 0.0131, mid: 0.7973, high: 0.1896 },

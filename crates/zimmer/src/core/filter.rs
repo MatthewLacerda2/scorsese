@@ -21,6 +21,8 @@
 //! a quarter of the sample rate. We run it **2× oversampled** (two half-steps per
 //! output sample), which pushes the stable ceiling up to ~`sr/3`, and clamp the
 //! cutoff there — so a "fully open" filter really is open across the audible band.
+//! The half-step between two samples is interpolated, never held: [`halfway`] has
+//! why a highpass needs that.
 //!
 //! **That ceiling still holds for two pairs in series, and it was checked rather
 //! than assumed.** Stability is a property of one integrator loop — the pole
@@ -98,14 +100,48 @@ pub(crate) fn apply(buf: &mut [f32], filter: &Filter, cutoffs: &[f32], sample_ra
     let pairs = &mut svf[..filter.slope.pole_pairs()];
     let q = (1.0 - filter.resonance.clamp(0.0, 0.99)).clamp(0.05, 1.0);
     let ceiling = sample_rate * MAX_CUTOFF_RATIO;
-    for (i, s) in buf.iter_mut().enumerate() {
+    // The two input samples before this one, as they were before filtering.
+    let (mut before, mut last) = (0.0, 0.0);
+    for i in 0..buf.len() {
+        let current = buf[i];
+        // Past the end, the parabola through the last three samples carries on:
+        // a zero there would be a step, and a step is broadband.
+        let next = buf
+            .get(i + 1)
+            .copied()
+            .unwrap_or(3.0 * (current - last) + before);
         let cutoff = cutoffs.get(i).copied().unwrap_or(filter.cutoff);
         let f = tuning(cutoff.clamp(MIN_CUTOFF, ceiling), sample_rate);
-        // Two half-rate steps per output sample (the 2× oversampling); the second
-        // one's output is the sample we keep.
-        cascade(pairs, *s, f, q, filter.kind);
-        *s = cascade(pairs, *s, f, q, filter.kind);
+        // Two half-rate steps per output sample (the 2× oversampling): the first
+        // takes the point halfway from the last sample to this one, the second
+        // this one, and its output is the sample we keep.
+        cascade(
+            pairs,
+            halfway(before, last, current, next),
+            f,
+            q,
+            filter.kind,
+        );
+        buf[i] = cascade(pairs, current, f, q, filter.kind);
+        (before, last) = (last, current);
     }
+}
+
+/// The point halfway between `b` and `c`, by the cubic through all four samples
+/// — the half-band interpolator `[-1, 9, 9, -1] / 16`.
+///
+/// This is what keeps a highpass's stopband the filter's own. Running at 2× puts
+/// an image of every tone `f` at `sr − f`; a highpass passes that image, and
+/// keeping every other output folds it straight back onto `f`. Holding the
+/// sample (feeding it twice) leaves the image ~`f / sr` down, a 6 dB-per-octave
+/// floor under any slope; a straight line between `b` and `c` gets it to
+/// ~`(f / sr)²`, still −59 dB for 560 Hz under a 24 dB highpass at 9 kHz; the
+/// cubic to ~`(f / sr)⁴`, under the slope itself (−95 dB there, the slope −96).
+/// Averaging the two half-step outputs would also clear the image, but darkens
+/// every open lowpass (−3.7 dB at 15 kHz); this leaves the kept samples alone.
+#[inline]
+fn halfway(a: f32, b: f32, c: f32, d: f32) -> f32 {
+    (9.0 * (b + c) - (a + d)) / 16.0
 }
 
 /// The SVF tuning coefficient for a cutoff, at 2× oversampling: `2·sin(π·fc/2·sr)`.
@@ -118,7 +154,7 @@ fn tuning(cutoff: f32, sample_rate: f32) -> f32 {
 mod tests {
     use super::*;
     use crate::patch::{Adsr, Slope};
-    use std::f32::consts::TAU;
+    use std::f64::consts::TAU;
 
     fn filter(kind: FilterKind, cutoff: f32) -> Filter {
         Filter {
@@ -133,10 +169,12 @@ mod tests {
         }
     }
 
-    /// A sine at `hz`, one second long at 44.1 kHz.
+    /// A sine at `hz`, one second long at 44.1 kHz. The phase is worked in `f64`:
+    /// in `f32` it rounds by ~2·10⁻⁴ a second in, a noise floor near −72 dB that
+    /// would hide the filter's own.
     fn sine(hz: f32) -> Vec<f32> {
         (0..44_100)
-            .map(|i| (TAU * hz * i as f32 / 44_100.0).sin())
+            .map(|i| (TAU * f64::from(hz) * f64::from(i) / 44_100.0).sin() as f32)
             .collect()
     }
 
