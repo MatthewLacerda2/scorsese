@@ -2,7 +2,7 @@
 //!
 //! A [`Patch`] is a "Minimoog-lite" description of a single sound. It is
 //! **structured, not a free graph**: the signal path is fixed —
-//! `source → filter → amp envelope → fx`, with an LFO tapping one target, and
+//! `source → filter → amp envelope → fx`, with up to two LFOs tapping one target each ([`Lfo`]), and
 //! up to [`MAX_LAYERS`] more `source → filter → amp` paths summed in parallel
 //! before the fx ([`Layer`]) — because a patch has to honour a contract, *playable as a note*. The recipe
 //! chooses what goes in each stage, never how the stages connect.

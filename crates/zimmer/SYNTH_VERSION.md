@@ -343,3 +343,10 @@ the note loop that sums them renders the top-level path with the same
 arithmetic in the same order, so **78 probes against `33625e9` — every kit
 preset at three pitches, seeds and velocities, under `vary` — came back
 byte-identical**.
+
+**The LFO's shapes, onset, beats and second slot left it alone** (#1772):
+`Lfo::shape`, `delay`, `fade` and `beats` and `Patch::lfo2` are each skipped
+at a default that renders what was always rendered, but `lfo_wave` became a
+per-note curve shared by every layer, so it was measured: **157 probes
+against `3b424e7` — every kit preset at three pitches, two seeds and
+velocities, and the landing page's song — came back byte-identical**.

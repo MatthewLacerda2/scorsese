@@ -9,7 +9,7 @@
 //! Still not a free graph: the sum is fixed and parallel. No layer feeds
 //! another, a layer has no chain of its own, and a layer holds no layers.
 //! What the layers share is the note — its pitch, velocity, timbre, glide,
-//! gate and the patch's LFO — and each draws its own randomness, so two noise
+//! gate and the patch's LFOs — and each draws its own randomness, so two noise
 //! layers are two noises rather than one played twice.
 
 use serde::{Deserialize, Serialize};
