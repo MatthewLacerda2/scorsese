@@ -201,7 +201,17 @@ impl Tool for Bake {
         let lines: Vec<String> = baked
             .baked
             .iter()
-            .map(|(id, it)| said(id, it, like))
+            .map(|(id, it)| {
+                let mut line = said(id, it, like);
+                // One line, and only when there is something to say, so a
+                // clean song's report does not grow.
+                if let Some(harmony) =
+                    synth::asset_harmony(&project, dir, id).and_then(|it| it.headline())
+                {
+                    line.push_str(&format!("\n  {harmony}"));
+                }
+                line
+            })
             .collect();
         Ok(format!("{}\n{}", lines.join("\n"), baked.tally()).into())
     }

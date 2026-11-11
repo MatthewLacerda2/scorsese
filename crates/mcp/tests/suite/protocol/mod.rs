@@ -28,6 +28,7 @@ mod gradients;
 mod grouping;
 mod guarding;
 mod handshake;
+mod harmonising;
 mod hearing;
 mod importing;
 mod inspecting;

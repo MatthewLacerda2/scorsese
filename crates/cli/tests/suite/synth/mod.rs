@@ -6,6 +6,7 @@
 mod authoring;
 mod baking;
 mod drumming;
+mod harmonising;
 mod measuring;
 mod metadata;
 mod partial;

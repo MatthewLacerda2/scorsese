@@ -1,6 +1,10 @@
 //! Reading every recipe a project carries, and saying what the set is made of.
 //!
-//! The one library call behind `scorsese synth survey`, so the CLI stays thin.
+//! The one library call behind `scorsese synth survey`, so the CLI stays thin,
+//! and the harmony of one song behind `synth_check`'s report and
+//! `synth_bake`'s one line, so neither surface resolves an instrument its own
+//! way. What a clash is, and why it is never a refusal, is
+//! `scorsese_zimmer::survey`'s.
 //! It used to be an MCP tool too (`synth_survey`) and left the tool list in
 //! #785: it tunes the synthesiser's variety across songs, which is developing
 //! `zimmer` rather than making a video.
@@ -13,7 +17,9 @@
 
 use std::path::Path;
 
-use scorsese_core::Project;
+use scorsese_core::{AssetId, Project};
+use scorsese_zimmer::song::InlineOnly;
+pub use scorsese_zimmer::survey::Harmony;
 use scorsese_zimmer::survey::{SongSurvey, Survey};
 
 use super::error::SynthesisError;
@@ -42,4 +48,29 @@ pub fn survey(project: &Project, project_root: &Path) -> Result<Survey, Synthesi
         }
     }
     Ok(Survey { songs })
+}
+
+/// The harmony of `recipe`, or nothing for a one-shot.
+///
+/// `project_root` is where a song's named instruments are read from; without
+/// one, a named instrument is read as pitched, since nothing says it is noise.
+pub fn harmony(recipe: &Recipe, project_root: Option<&Path>) -> Option<Harmony> {
+    let Recipe::Song(song) = recipe else {
+        return None;
+    };
+    Some(match project_root {
+        Some(root) => Harmony::of(song, &instruments(root)),
+        None => Harmony::of(song, &InlineOnly),
+    })
+}
+
+/// The harmony of the song asset `id`, read the way a bake reads it — a fit
+/// to its clip included, which decides whether the piece loops.
+///
+/// Nothing for a one-shot, and for a recipe that cannot be read: a bake that
+/// got this far has read it, and a report is not where it gets refused.
+pub fn asset_harmony(project: &Project, project_root: &Path, id: &AssetId) -> Option<Harmony> {
+    let asset = project.asset(id)?;
+    let read = read_recipe(project, asset, project_root).ok()?;
+    harmony(&read.recipe, Some(project_root))
 }

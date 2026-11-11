@@ -5,6 +5,7 @@
 mod anchoring;
 mod caching;
 mod fitting;
+mod harmony;
 mod instruments;
 mod lengthening;
 mod linked_cache;

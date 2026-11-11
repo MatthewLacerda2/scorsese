@@ -68,7 +68,7 @@ pub use midi::{FromMidi, MIDI_EXPORT_DIR, ToMidi, export_midi, import_midi};
 pub use partial::{Partial, bake_partial, bake_partial_unless};
 pub use recipe::{OneShot, Recipe};
 pub use starter::Starter;
-pub use survey::survey;
+pub use survey::{Harmony, asset_harmony, harmony, survey};
 pub use tune::{Change, FIELDS, Setting, set};
 
 /// What happened to one asset.
