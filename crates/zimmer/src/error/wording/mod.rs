@@ -9,9 +9,10 @@
 //! safe: a variant added next door and left without words here does not
 //! compile, and the error names it.
 //!
-//! **Three small groups are worded apart**: a square's pulse width in
+//! **Four small groups are worded apart**: a square's pulse width in
 //! [`pulse`], where notes and echoes land against
-//! the beat in [`timing`], and **one more in [`length`]**: the refusals of `fit`,
+//! the beat in [`timing`], the curves that move a value across a piece in
+//! [`automation`], and **one more in [`length`]**: the refusals of `fit`,
 //! `fade`, `tail` and `anchors`, split off when this file reached the size
 //! gate, and the two about how long a single note lasts, which joined them
 //! for the same reason. The
@@ -21,6 +22,7 @@
 //! in that list — which is why the list is ten names long and the words sit
 //! right beside it, rather than a whole group of thirty being moved.
 
+mod automation;
 mod length;
 mod pulse;
 mod timing;
@@ -293,35 +295,14 @@ impl SynthError {
             | Self::BadTrackFeel { .. }
             | Self::MisplacedBeats { .. }
             | Self::DelayTwoTimes { .. } => self.say_timing(f),
-            Self::UnknownAutomationTrack { track, param, .. } => write!(
-                f,
-                "song: automation of `{param}` names `{track}`, which is not a track here"
-            ),
-            Self::DuplicateAutomation { track, param, .. } => write!(
-                f,
-                "song: track `{track}` has two curves for `{param}` — one parameter moves one way"
-            ),
-            Self::BadAutomationCurve {
-                track, param, why, ..
-            } => write!(f, "song: automation of `{param}` on track `{track}`: {why}"),
-            Self::BadAutomationPoint {
-                track,
-                param,
-                field,
-                value,
-                ..
-            } => write!(
-                f,
-                "song: automation of `{param}` on `{track}`: bad `{field}`, got {value}"
-            ),
-            Self::BadAutomationCutoff { track, cutoff, .. } => write!(
-                f,
-                "song: automation of `cutoff` on `{track}`: must be positive Hz, got {cutoff}"
-            ),
-            Self::AutomationWithoutFilter { track, .. } => write!(
-                f,
-                "song: automation of `cutoff` on track `{track}`, whose patch has no filter"
-            ),
+            // The curves that move a value across the piece, in `automation`.
+            Self::UnknownAutomationTrack { .. }
+            | Self::DuplicateAutomation { .. }
+            | Self::BadAutomationCurve { .. }
+            | Self::BadAutomationPoint { .. }
+            | Self::BadAutomationCutoff { .. }
+            | Self::AutomationWithoutFilter { .. }
+            | Self::AutomationWithoutRoom { .. } => self.say_automation(f),
             // The length and level fields — `fit`, `fade` and `tail` — and a
             // note's own length have their words in `length`, the one group
             // spelled out of this match.

@@ -64,8 +64,13 @@
 //! A send is applied where the fader is, after the track's own chain, for the
 //! reason `pan` is: the chain is the instrument and the send is where it sits.
 //!
+//! **A send can move** ([`super::automate::Param::Send`]): the track is then
+//! bussed like one whose fader moves, and its part is added into the second
+//! sum sample by sample at the curve's value, after its fader.
+//!
 //! **The second sum is only built when it changes something**: a song whose
-//! tracks all send everything, or whose chain has no room in it, takes the
+//! tracks all send everything and move no send, or whose chain has no room in
+//! it, takes the
 //! plain path and renders the samples it always did — which is the promise
 //! that let the field arrive with no [`crate::SYNTH_VERSION`] bump.
 //!
@@ -124,7 +129,7 @@
 //! for.
 
 use super::Song;
-use super::automate::{self, Riding};
+use super::automate::{self, Param, Riding};
 use super::clock::Clock;
 use super::excerpt::Scope;
 use crate::core::{RATE, SAMPLE_RATE};
@@ -240,7 +245,7 @@ impl<'a> Mix<'a> {
             return;
         }
         let played = &self.song.tracks[track];
-        if !played.fx.is_empty() || self.riding[track].moves_the_fader() {
+        if !played.fx.is_empty() || self.riding[track].needs_a_bus() {
             mix_into(self.parts[track].get_or_insert_default(), src, at, UNITY);
             return;
         }
@@ -272,34 +277,40 @@ impl<'a> Mix<'a> {
             parts: std::mem::take(&mut self.keys),
         };
         for (index, (track, part)) in song.tracks.iter().zip(&mut parts).enumerate() {
-            let rides = self.riding[index].moves_the_fader();
-            let Some(bus) = part.as_mut().filter(|_| !track.fx.is_empty() || rides) else {
+            let riding = self.riding[index];
+            let rides = riding.moves_the_fader();
+            let bussed = !track.fx.is_empty() || riding.needs_a_bus();
+            let Some(bus) = part.as_mut().filter(|_| bussed) else {
                 continue;
             };
             ring_out(bus, &track.fx, self.clock);
             fx::apply_chain_keyed(bus, &track.fx, RATE, &keys, self.clock);
             fx::close_tail(bus, &track.fx, RATE, self.clock);
-            if rides {
-                // The fader is written onto the part itself and the part then
-                // arrives at unity, because there is no single number to add
-                // it at. After the chain, for the reason a static fader is:
-                // the chain is the instrument, and the fader is where it sits.
-                automate::ride(bus, track, self.riding[index], self.clock);
-                mix_into(&mut self.master, bus, 0, UNITY);
-                if let Some(sent) = self.sent.as_mut() {
-                    mix_into(sent, bus, 0, sending(UNITY, track.send));
-                }
-                continue;
-            }
-            let placed = placement(track.gain, track.pan);
+            // The fader is written onto the part itself when it moves, and the
+            // part then arrives at unity, because there is no single number to
+            // add it at. After the chain, for the reason a static fader is:
+            // the chain is the instrument, and the fader is where it sits.
+            let placed = if rides {
+                automate::ride(bus, track, riding, self.clock);
+                UNITY
+            } else {
+                placement(track.gain, track.pan)
+            };
             mix_into(&mut self.master, bus, 0, placed);
             if let Some(sent) = self.sent.as_mut() {
-                mix_into(sent, bus, 0, sending(placed, track.send));
+                match riding.send {
+                    Some(curve) => {
+                        automate::send_into(sent, bus, placed, curve, track.send, self.clock);
+                    }
+                    None => mix_into(sent, bus, 0, sending(placed, track.send)),
+                }
             }
-            // Scaled after the fold-down rather than before it, so the master
-            // is summed from exactly the samples it always was and only the
-            // copy being measured moves.
-            scale(bus, placed);
+            if !rides {
+                // Scaled after the fold-down rather than before it, so the
+                // master is summed from exactly the samples it always was and
+                // only the copy being measured moves.
+                scale(bus, placed);
+            }
         }
         ring_out(&mut self.master, &song.fx, self.clock);
         match self.sent.as_mut() {
@@ -321,18 +332,25 @@ impl<'a> Mix<'a> {
 
 /// Whether this render needs a sent mix beside the master: the song's chain
 /// has a room in it, and some track that is heard sends less than all of
-/// itself into it. Anything else is the master, and is not worth a buffer.
+/// itself into it, or moves its send — a curve that opens to `1.0` is still
+/// less than all of it until it gets there. Anything else is the master, and
+/// is not worth a buffer.
 fn sends(song: &Song, scope: &Scope) -> bool {
-    let room = song
-        .fx
+    let held_back = song.tracks.iter().enumerate().any(|(index, track)| {
+        let moving = song
+            .automation
+            .iter()
+            .any(|curve| curve.param == Param::Send && curve.track == track.name);
+        scope.heard(index) && (track.send < 1.0 || moving)
+    });
+    has_a_room(&song.fx) && held_back
+}
+
+/// Whether a chain has a stage a send reaches: a `reverb` or a `delay`.
+pub(super) fn has_a_room(chain: &[Fx]) -> bool {
+    chain
         .iter()
-        .any(|fx| matches!(fx, Fx::Reverb { .. } | Fx::Delay { .. }));
-    let held_back = song
-        .tracks
-        .iter()
-        .enumerate()
-        .any(|(index, track)| scope.heard(index) && track.send < 1.0);
-    room && held_back
+        .any(|fx| matches!(fx, Fx::Reverb { .. } | Fx::Delay { .. }))
 }
 
 /// A placement scaled by how much of the part is sent, clamped to `0..=1` —
@@ -501,6 +519,39 @@ mod tests {
             l: vec![value; frames],
             r: vec![-value; frames],
         }
+    }
+
+    /// Whether a second sum is built changes the cost of a render and, in a
+    /// room, almost nothing audible — so it is asked here, by the number: a
+    /// room and a track holding something back, where a moving send counts as
+    /// holding back and a moving fader does not.
+    #[test]
+    fn a_sent_sum_is_built_for_a_partial_or_moving_send_into_a_room() {
+        let song = |send: f32, room: bool, param: &str| -> Song {
+            let fx = if room {
+                r#"{ "fx": "reverb", "size": 0.5, "damp": 0.5, "mix": 0.2 }"#
+            } else {
+                ""
+            };
+            serde_json::from_str(&format!(
+                r#"{{ "bpm": 120, "tracks": [{{ "name": "pad", "patch": "p", "send": {send} }}],
+                     "patterns": {{}}, "arrangement": [], "fx": [{fx}],
+                     "automation": [{{ "track": "pad", "param": "{param}",
+                                      "points": [{{ "beat": 0, "value": 0.5 }}] }}] }}"#
+            ))
+            .expect("the fixture reads")
+        };
+        let whole = |song: &Song| {
+            let scope = Scope::of(song, &Default::default(), &Clock::at(120.0)).expect("whole");
+            sends(song, &scope)
+        };
+        assert!(
+            !whole(&song(1.0, true, "gain")),
+            "everything sent, a fader moving"
+        );
+        assert!(whole(&song(1.0, true, "send")), "a moving send");
+        assert!(whole(&song(0.5, true, "gain")), "a written partial send");
+        assert!(!whole(&song(0.5, false, "send")), "no room to send into");
     }
 
     /// The sum is a sum: the source arrives on top of what was there, the same

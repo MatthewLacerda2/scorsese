@@ -10,6 +10,7 @@
 use crate::common;
 
 mod bands;
+mod bussed;
 mod defects;
 mod diff;
 mod integrated;

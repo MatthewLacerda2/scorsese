@@ -704,6 +704,13 @@ pub enum SynthError {
         track: String,
     },
 
+    /// A `send` curve on a song whose chain has no `reverb` or `delay`: a
+    /// send reaches only those, so there is nothing for it to move.
+    AutomationWithoutRoom {
+        /// The track the curve rides.
+        track: String,
+    },
+
     /// A target length that is not a length.
     BadFitSeconds {
         /// The target as written.

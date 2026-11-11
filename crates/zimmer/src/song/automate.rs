@@ -39,36 +39,39 @@
 //!
 //! ## Where the list closes, which is the mixing desk
 //!
-//! Closure is one decision and *where* it closes is another, so: all three
-//! params are properties of a [`Track`] — level, position, and brightness at
-//! the fader — and that is the boundary, chosen rather than merely inherited
-//! from what a track happens to hold. **Automation moves the mix;
-//! what an instrument *is* belongs to its envelope and its LFO**, which are per
-//! note because a note is where an instrument's identity lives.
+//! Closure is one decision and *where* it closes is another, so: all four
+//! params are properties of a [`Track`] — level, position, brightness and how
+//! much of it reaches the room, all at the fader — and that is the boundary,
+//! chosen rather than merely inherited from what a track happens to hold.
+//! **Automation moves the mix; what an instrument *is* belongs to its envelope
+//! and its LFO**, which are per note because a note is where an instrument's
+//! identity lives.
 //!
 //! The two gestures that fall on the far side of that line are an effect's
 //! `mix` opening through a closing bar and a source's own depth — an
-//! [`fm2`](crate::patch::Source) index brightening through a build. Both were
-//! wanted once, in one piece, and the fader move that replaced them was good
-//! enough. Neither is out because it is hard to render; they are out because
-//! reaching them means addressing a thing *inside* a track, and a curve names a
-//! track precisely because a track has exactly one gain, one pan and one
-//! filter. A chain is an ordered list with no names in it and a source's fields
-//! are per kind, so the alternative is a naming scheme with a long tail, bought
-//! for a want that a fader has so far always covered. If it comes back with a
-//! concrete piece that the fader cannot serve, it reopens with that case in
-//! hand — which is a stronger argument than this paragraph is.
+//! [`fm2`](crate::patch::Source) index brightening through a build. The first
+//! is mostly served from the fader side now: a [`Param::Send`] curve washes a
+//! part out into the song's room without reaching inside a chain. Neither is
+//! out because it is hard to render; they are out because reaching them
+//! means addressing a thing *inside* a track, and a curve names a track
+//! precisely because a track has exactly one gain, one pan, one send and one
+//! filter. A chain is an ordered list with no names in it and a source's
+//! fields are per kind, so the alternative is a naming scheme with a long
+//! tail, bought for a want that a fader has so far always covered. If it comes
+//! back with a concrete piece that the fader cannot serve, it reopens with that
+//! case in hand — which is a stronger argument than this paragraph is.
 //!
 //! ## Where it is sampled, which is not one answer
 //!
-//! A curve is sampled **where the thing it moves is decided**, and the two
+//! A curve is sampled **where the thing it moves is decided**, and the
 //! parameters this touches decide at different rates:
 //!
-//! - [`Param::Gain`] and [`Param::Pan`] are faders. A fader is a property of
-//!   the mix at every instant, so they are applied **per sample**, on the
+//! - [`Param::Gain`], [`Param::Pan`] and [`Param::Send`] are faders. A fader
+//!   is a property of the mix at every instant, so they are applied **per sample**, on the
 //!   track's own bus, after its chain. That costs one multiply per sample per
 //!   automated track and it is *correct*: a pad holding one chord through the
-//!   whole build actually swells, which a per-note answer could not do.
+//!   whole build actually swells, which a per-note answer could not do. A
+//!   send is read the same way, on the part's way into the room's sum.
 //! - [`Param::Cutoff`] is a voice parameter, so it is read **inside each
 //!   note**: the note's frames are turned back into beats and the curve is
 //!   read across all of them, its release and ring-out included (#1123). It
@@ -123,6 +126,12 @@ pub enum Param {
     /// The cutoff of the instrument's filter, in Hz — the build. Refused on a
     /// track whose patch has no filter, since there would be nothing to move.
     Cutoff,
+    /// The track's [`send`](Track::send) — how much of it reaches the song's
+    /// room. A part washing out into the reverb before a drop, a throw into
+    /// the delay on one hit. Clamped to `0.0..=1.0` at every instant, as a
+    /// written `send` is, and refused on a song whose chain has no `reverb` or
+    /// `delay` for it to reach.
+    Send,
 }
 
 impl Param {
@@ -132,6 +141,7 @@ impl Param {
             Self::Gain => "gain",
             Self::Pan => "pan",
             Self::Cutoff => "cutoff",
+            Self::Send => "send",
         }
     }
 }
@@ -187,7 +197,8 @@ pub struct Point {
     /// pattern and not from the start of a `loop` pass — see the module doc.
     pub beat: f32,
     /// What the parameter reads at this instant, in the parameter's own units:
-    /// linear for `gain`, `-1.0..=1.0` for `pan`, Hz for `cutoff`.
+    /// linear for `gain`, `-1.0..=1.0` for `pan`, Hz for `cutoff`, `0.0..=1.0`
+    /// for `send`.
     pub value: f32,
     /// How the value travels from here to the next point.
     #[serde(default, skip_serializing_if = "is_linear")]
@@ -267,6 +278,8 @@ pub(super) struct Riding<'a> {
     pub(super) pan: Option<&'a Automation>,
     /// The instrument's filter cutoff, if it moves.
     pub(super) cutoff: Option<&'a Automation>,
+    /// How much of the part reaches the room, if it moves.
+    pub(super) send: Option<&'a Automation>,
 }
 
 impl Riding<'_> {
@@ -274,6 +287,13 @@ impl Riding<'_> {
     /// is what decides whether it needs a bus of its own to ride.
     pub(super) fn moves_the_fader(&self) -> bool {
         self.gain.is_some() || self.pan.is_some()
+    }
+
+    /// Whether this track needs a bus of its own to ride: a moving fader, or
+    /// a moving send, which has to be read off the part sample by sample on
+    /// its way into the room.
+    pub(super) fn needs_a_bus(&self) -> bool {
+        self.moves_the_fader() || self.send.is_some()
     }
 }
 
@@ -292,6 +312,7 @@ pub(super) fn riding(song: &Song) -> Vec<Riding<'_>> {
                     Param::Gain => &mut riding.gain,
                     Param::Pan => &mut riding.pan,
                     Param::Cutoff => &mut riding.cutoff,
+                    Param::Send => &mut riding.send,
                 };
                 *slot = Some(curve);
             }
@@ -327,6 +348,30 @@ pub(super) fn ride(bus: &mut Stereo, track: &Track, riding: Riding<'_>, clock: &
     }
 }
 
+/// Adds a track's part into the room's sum at a moving send, sample by sample.
+///
+/// `placed` is what the part still needs on the way in: its static fader and
+/// pan, or unity when [`ride`] has already written a moving one onto it. The
+/// curve is clamped at every instant, as the written `send` is.
+pub(super) fn send_into(
+    sent: &mut Stereo,
+    part: &Stereo,
+    (left, right): (f32, f32),
+    curve: &Automation,
+    written: f32,
+    clock: &Clock,
+) {
+    sent.grow_to(part.frames());
+    for frame in 0..part.frames() {
+        let send = curve
+            .value_at(clock.beat_at(frame))
+            .unwrap_or(written)
+            .clamp(0.0, 1.0);
+        sent.l[frame] += part.l[frame] * (left * send);
+        sent.r[frame] += part.r[frame] * (right * send);
+    }
+}
+
 /// Which curve puts a track on a bus of its own.
 ///
 /// A mix asserts what it sounds like, and that is exactly the wrong instrument
@@ -357,11 +402,18 @@ mod tests {
     /// on.
     #[test]
     fn a_fader_puts_a_track_on_a_bus_and_a_sweep_does_not() {
-        let (gain, pan, cutoff) = (
+        let (gain, pan, cutoff, send) = (
             parked(Param::Gain),
             parked(Param::Pan),
             parked(Param::Cutoff),
+            parked(Param::Send),
         );
+        let sending = Riding {
+            send: Some(&send),
+            ..Riding::default()
+        };
+        assert!(sending.needs_a_bus(), "a moving send is read off the part");
+        assert!(!sending.moves_the_fader(), "but it leaves the level alone");
         for (moves, riding) in [
             (false, Riding::default()),
             (
@@ -387,6 +439,7 @@ mod tests {
             ),
         ] {
             assert_eq!(riding.moves_the_fader(), moves, "{riding:?}");
+            assert_eq!(riding.needs_a_bus(), moves, "{riding:?}");
         }
     }
 }

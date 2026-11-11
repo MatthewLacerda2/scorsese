@@ -30,7 +30,7 @@ fn tone() -> Patch {
 }
 
 /// A song of two tones held for a beat each: a bass note under a bell.
-fn duet() -> Song {
+pub(super) fn duet() -> Song {
     let track = |name: &str, gain: f32| Track {
         name: name.to_owned(),
         patch: PatchRef::Inline(Box::new(tone())),
@@ -72,7 +72,7 @@ fn duet() -> Song {
     }
 }
 
-fn bake(song: &Song) -> Bake {
+pub(super) fn bake(song: &Song) -> Bake {
     bake_song(song, &InlineOnly).expect("the fixture song renders")
 }
 
@@ -85,7 +85,7 @@ fn row<'a>(tracks: &'a [Layer], name: &str) -> &'a Layer {
 }
 
 /// The mean of a row, in dBFS.
-fn mean(tracks: &[Layer], name: &str) -> f64 {
+pub(super) fn mean(tracks: &[Layer], name: &str) -> f64 {
     row(tracks, name)
         .level
         .loudness

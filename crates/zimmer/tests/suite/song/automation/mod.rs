@@ -13,5 +13,6 @@ mod document;
 mod faders;
 mod fitting;
 mod refusals;
+mod sending;
 mod setup;
 mod sweeps;
