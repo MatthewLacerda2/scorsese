@@ -38,15 +38,14 @@ const CUTOFF_REACH: f32 = 1.0;
 /// eighteen.
 const BOUNCE_REACH: f32 = 0.585;
 
-/// The first slot of each stage's draws: three for the amp envelope, one
-/// cutoff and three timings for the filter, one depth and three timings for
-/// the pitch envelope.
+/// The first slot of each stage's draws: the amp envelope's three open the
+/// path (slots 0–2), then one cutoff and three timings for the filter, one
+/// depth and three timings for the pitch envelope.
 ///
 /// Each is counted from the first slot of the path it scatters: the patch's
 /// own path starts at zero, and layer `i` at `(i + 1) × PATH_SLOTS`, after
 /// every slot the patch's own path takes, so a patch that gains a layer keeps
 /// every draw a seed gave it before.
-const AMP_SLOTS: i64 = 0;
 const CUTOFF_SLOT: i64 = 3;
 const FILTER_SLOTS: i64 = 4;
 const BOUNCE_SLOT: i64 = 7;
@@ -111,7 +110,8 @@ impl Draw {
         pitch_env: &mut Option<PitchEnv>,
         first: i64,
     ) {
-        self.times(amp, first + AMP_SLOTS);
+        // The amp envelope's three draws open the path, on its first slots.
+        self.times(amp, first);
         if let Some(filter) = filter {
             filter.cutoff = self.scale(filter.cutoff, first + CUTOFF_SLOT, CUTOFF_REACH);
             self.times(&mut filter.adsr, first + FILTER_SLOTS);
