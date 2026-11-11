@@ -945,6 +945,26 @@ exclude_re = [
     # line are held by `a_note_with_a_dropout_dying_away_is_not_a_staircase`.
     'defects/zipper\.rs:135:50: replace / with % in Levels::pulsed',
     'defects/zipper\.rs:135:79: replace \+ with \* in Levels::pulsed',
+
+    # `zipper`'s `staircases` drops a window with fewer than `STEPS` lags of
+    # blocks left before the end. `Cut::of` refuses a cut of fewer than
+    # `STEPS` segments, so at the lag's own period, or longer, it refuses the
+    # same windows; only a period refined under the lag
+    # could cut six there, and such a window ends at the end of the file, a
+    # suffix of the one the last stretch already judges. Measured (#1738)
+    # over 2400 uneven staircases on hand-built block energies, periods of
+    # 12.4 to 33.3 blocks ending 0 to 90 blocks short of files 700 to 2600
+    # blocks long: neither `STEPS + lag` nor `STEPS / lag` changes a report.
+    # Near equivalent.
+    'defects/zipper\.rs:88:70: replace \* with [+/] in staircases',
+
+    # Hangs only under the mutation, never reachable for real: `staircases`
+    # steps its windows by half a window, which is at least `SHORTEST * 6`
+    # blocks, so `(long % 2).max(1)` only judges every window a block apart,
+    # far past the timeout; and `Envelope::dropouts` starts at `around`, at
+    # least one block, so `at *= 1` stands still where `at += 1` moves on.
+    'defects/zipper\.rs:84:68: replace / with % in staircases',
+    'defects/envelope\.rs:97:20: replace \+= with \*= in Envelope::dropouts',
 ]
 
 # ---------------------------------------------------------------------------

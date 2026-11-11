@@ -124,3 +124,27 @@ impl Envelope {
         super::zipper::staircases(&self.envelope, self.block)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Envelope, SOUNDING};
+
+    /// Sound whose 20 ms before a gap average exactly −40 dBFS is loud enough
+    /// for a dropout. The forty blocks are at that energy but the last, which
+    /// takes up the rounding, so their sum is exactly forty times the floor
+    /// and their mean exactly [`SOUNDING`].
+    #[test]
+    fn a_gap_after_sound_at_exactly_the_floor_is_a_dropout() {
+        let mut envelope = Envelope::new(48_000);
+        let around = envelope.blocks(super::AROUND);
+        let most = vec![SOUNDING; around - 1];
+        let last = SOUNDING * around as f64 - most.iter().sum::<f64>();
+        let sound = [most, vec![last]].concat();
+        envelope.energy.clone_from(&sound);
+        assert_eq!(envelope.mean(0..around), SOUNDING);
+        envelope.energy = [sound, vec![0.0; 10], vec![1e-2; around]].concat();
+        let found = envelope.dropouts();
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].at, (around * envelope.block) as u64);
+    }
+}

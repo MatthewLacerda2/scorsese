@@ -399,3 +399,6 @@ fn steps(energy: &[f64]) -> Vec<f64> {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests;
