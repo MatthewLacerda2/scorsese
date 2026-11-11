@@ -19,7 +19,8 @@
 //! comments and docstrings are shaped differently and are just as free.
 //!
 //! There is no baseline file and nothing is grandfathered. If a file is over,
-//! it gets split.
+//! it gets split. The one exception is [`raised`]: exact paths, each with its
+//! own higher cap and the reason a split cannot reach it.
 //!
 //! **The conventions** ([`rules`], #1229): written rules a check can hold, so
 //! they are held by one — group by subfolder, nothing temporary, tests never
@@ -30,6 +31,7 @@
 
 pub mod classify;
 pub mod python;
+pub mod raised;
 pub mod rules;
 pub mod scan;
 pub mod tree;
