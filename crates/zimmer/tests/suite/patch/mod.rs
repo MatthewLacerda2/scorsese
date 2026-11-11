@@ -8,6 +8,8 @@ mod document;
 mod eq;
 mod filter;
 mod fm4;
+mod layered_pulse;
+mod layers;
 mod noise;
 mod pulse;
 mod strict;

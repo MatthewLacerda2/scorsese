@@ -9,6 +9,7 @@ use scorsese_zimmer::song::{Note, PatchRef, Pattern, PatternEntry, Pitch, Song, 
 /// per-note seeding path rather than a purely deterministic oscillator.
 pub(crate) fn blip() -> Patch {
     Patch {
+        layers: Vec::new(),
         source: Source::Noise {
             color: NoiseColor::White,
         },

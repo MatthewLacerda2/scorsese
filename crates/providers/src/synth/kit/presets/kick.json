@@ -5,5 +5,14 @@
     "semitones": 20,
     "adsr": { "a": 0.0, "d": 0.05, "s": 0.0, "r": 0.0, "curve": 5.0 }
   },
+  "layers": [{
+    "source": { "kind": "noise" },
+    "amp": { "a": 0.0005, "d": 0.012, "s": 0.0, "r": 0.005, "curve": 4.0 },
+    "filter": {
+      "kind": "bandpass", "cutoff": 3500, "resonance": 0.3,
+      "adsr": { "a": 0.0, "d": 0.0, "s": 1.0, "r": 0.0 }
+    },
+    "gain": 0.35
+  }],
   "fx": [{ "fx": "saturate", "drive": 1.5, "mix": 1.0 }]
 }

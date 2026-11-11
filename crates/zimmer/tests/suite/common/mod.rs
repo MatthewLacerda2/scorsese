@@ -10,6 +10,7 @@ use scorsese_zimmer::{NoteOpts, SynthError};
 /// anything asking what a stage did to the signal.
 pub(crate) fn saw_patch() -> Patch {
     Patch {
+        layers: Vec::new(),
         source: Source::OscStack {
             oscs: vec![osc(Wave::Saw, 0.0, 0)],
         },
@@ -30,6 +31,7 @@ pub(crate) fn saw_patch() -> Patch {
 /// The smallest legal patch around `source` — every optional stage absent.
 pub(crate) fn minimal(source: Source) -> Patch {
     Patch {
+        layers: Vec::new(),
         source,
         amp: Adsr::default(),
         filter: None,

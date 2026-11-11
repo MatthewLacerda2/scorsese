@@ -139,6 +139,7 @@ fn a_row_carries_its_width_beside_its_level() {
 #[test]
 fn a_fully_wet_ensemble_on_a_held_tone_comes_out_cancelling() {
     let patch = Patch {
+        layers: Vec::new(),
         source: Source::OscStack {
             oscs: vec![osc(Wave::Sine, 0.0, 0)],
         },

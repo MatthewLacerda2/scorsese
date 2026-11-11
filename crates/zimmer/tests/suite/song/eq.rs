@@ -81,6 +81,7 @@ fn the_report_s_own_rows_show_the_treated_track_moving_and_the_others_still() {
     // A saw held low: the layer a report calls muddy, and the one thing the
     // noise fixture cannot be, since noise has no pitch to sit too far down.
     let pad = Patch {
+        layers: Vec::new(),
         source: Source::OscStack {
             oscs: vec![Osc {
                 wave: Wave::Saw,

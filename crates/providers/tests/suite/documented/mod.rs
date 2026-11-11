@@ -94,6 +94,7 @@ fn the_page_names_every_kit_instrument() {
 /// Something audible to stand in for a patch the page names but does not carry.
 fn stub() -> scorsese_zimmer::Patch {
     scorsese_zimmer::Patch {
+        layers: Vec::new(),
         source: scorsese_zimmer::patch::Source::Noise {
             color: scorsese_zimmer::patch::NoiseColor::White,
         },

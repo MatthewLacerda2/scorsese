@@ -212,6 +212,30 @@ pub enum SynthError {
     /// An LFO aimed at `pulse_width` on a patch with no square to move.
     NoPulseToModulate,
 
+    /// More layers than a patch may sum — the same argument
+    /// [`SynthError::TooManyOscs`] makes about a stack, one level up.
+    TooManyLayers {
+        /// How many the patch asked for.
+        found: usize,
+        /// The most it may have.
+        limit: usize,
+    },
+
+    /// A layer at zero gain, or at one that is not a number: a sound written
+    /// into the note and then silenced, which is never what was meant. Always
+    /// arrives inside [`SynthError::InLayer`], which says which layer.
+    SilentLayer,
+
+    /// A layer refused: `error` is why — [`SynthError::SilentLayer`], or what
+    /// the same source or filter on the patch itself would have been refused
+    /// for — and `layer` says which layer to look in.
+    InLayer {
+        /// Which layer, counted from zero in `layers`.
+        layer: usize,
+        /// The refusal its stage earned.
+        error: Box<SynthError>,
+    },
+
     // ────────────────────────────────────────────────────────────────────
     // A note as it is written: how long it lasts, and what it is called.
     // ────────────────────────────────────────────────────────────────────
@@ -804,12 +828,4 @@ pub enum SynthError {
         /// What the resolver said about it.
         reason: String,
     },
-}
-
-impl std::error::Error for SynthError {}
-
-impl std::fmt::Display for SynthError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.say(f)
-    }
 }

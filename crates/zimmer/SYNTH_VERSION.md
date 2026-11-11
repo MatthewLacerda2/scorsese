@@ -337,3 +337,9 @@ three track chains (none, a delay, a ping-pong into a full-size room), each
 with and without a track `send`, in five songs: plain, swung and humanised,
 a song chain of delay and reverb, the same with a ping-pong under a
 `stretch` fit, and a ramped tempo map under a long room.
+
+**Layers left it alone** (#1771): `Patch::layers` is skipped when empty, and
+the note loop that sums them renders the top-level path with the same
+arithmetic in the same order, so **78 probes against `33625e9` — every kit
+preset at three pitches, seeds and velocities, under `vary` — came back
+byte-identical**.

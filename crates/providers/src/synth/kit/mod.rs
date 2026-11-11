@@ -87,7 +87,7 @@ impl Instrument {
 pub const KIT: &[Instrument] = &[
     Instrument {
         name: "kick",
-        describes: "drum-machine kick: a sine falling onto its pitch, with a little drive",
+        describes: "drum-machine kick: a sine falling onto its pitch under a short click, with a little drive",
         home: "C4",
         json: include_str!("presets/kick.json"),
     },

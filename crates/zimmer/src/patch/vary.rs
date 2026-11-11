@@ -13,14 +13,15 @@
 //! A draw is a multiplication by `2^(amount × reach × u)`, `u` in `-1..1`,
 //! so a time of zero stays an instant and a falling bounce never turns into
 //! a rising one. Each number has a **fixed slot** in the draw, so a patch
-//! that gains a filter keeps the amp envelope every seed gave it before.
+//! that gains a filter keeps the amp envelope every seed gave it before, and
+//! a [layer](super::Layer) is scattered the same way on slots of its own.
 //!
 //! Free and deterministic like everything here: the same patch, amount and
 //! seed give the same copy on every machine, and an amount of zero gives the
 //! patch back untouched, which is what every recipe written before the field
 //! still means.
 
-use super::{Adsr, Patch};
+use super::{Adsr, Filter, Patch, PitchEnv};
 use crate::hash::unit2;
 
 /// Hash channel the scatter draws on, apart from the noise and the start
@@ -40,11 +41,18 @@ const BOUNCE_REACH: f32 = 0.585;
 /// The first slot of each stage's draws: three for the amp envelope, one
 /// cutoff and three timings for the filter, one depth and three timings for
 /// the pitch envelope.
+///
+/// Each is counted from the first slot of the path it scatters: the patch's
+/// own path starts at zero, and layer `i` at `(i + 1) × PATH_SLOTS`, after
+/// every slot the patch's own path takes, so a patch that gains a layer keeps
+/// every draw a seed gave it before.
 const AMP_SLOTS: i64 = 0;
 const CUTOFF_SLOT: i64 = 3;
 const FILTER_SLOTS: i64 = 4;
 const BOUNCE_SLOT: i64 = 7;
 const PITCH_SLOTS: i64 = 8;
+/// How many slots one path takes.
+const PATH_SLOTS: i64 = 11;
 
 impl Patch {
     /// This patch as another take of itself: its envelope timings, its
@@ -67,14 +75,15 @@ impl Patch {
             return patch;
         }
         let draw = Draw { amount, seed };
-        draw.times(&mut patch.amp, AMP_SLOTS);
-        if let Some(filter) = &mut patch.filter {
-            filter.cutoff = draw.scale(filter.cutoff, CUTOFF_SLOT, CUTOFF_REACH);
-            draw.times(&mut filter.adsr, FILTER_SLOTS);
-        }
-        if let Some(env) = &mut patch.pitch_env {
-            env.semitones = draw.scale(env.semitones, BOUNCE_SLOT, BOUNCE_REACH);
-            draw.times(&mut env.adsr, PITCH_SLOTS);
+        draw.path(&mut patch.amp, &mut patch.filter, &mut patch.pitch_env, 0);
+        for (index, layer) in (1..).zip(&mut patch.layers) {
+            let first = index * PATH_SLOTS;
+            draw.path(
+                &mut layer.amp,
+                &mut layer.filter,
+                &mut layer.pitch_env,
+                first,
+            );
         }
         patch
     }
@@ -92,6 +101,25 @@ impl Draw {
     fn scale(&self, value: f32, slot: i64, reach: f32) -> f32 {
         let u = 2.0 * unit2(slot, 0, VARY_CHANNEL, self.seed) - 1.0;
         value * (self.amount * reach * u).exp2()
+    }
+
+    /// One path's envelopes, cutoff and bounce, on the slots from `first`.
+    fn path(
+        &self,
+        amp: &mut Adsr,
+        filter: &mut Option<Filter>,
+        pitch_env: &mut Option<PitchEnv>,
+        first: i64,
+    ) {
+        self.times(amp, first + AMP_SLOTS);
+        if let Some(filter) = filter {
+            filter.cutoff = self.scale(filter.cutoff, first + CUTOFF_SLOT, CUTOFF_REACH);
+            self.times(&mut filter.adsr, first + FILTER_SLOTS);
+        }
+        if let Some(env) = pitch_env {
+            env.semitones = self.scale(env.semitones, first + BOUNCE_SLOT, BOUNCE_REACH);
+            self.times(&mut env.adsr, first + PITCH_SLOTS);
+        }
     }
 
     /// An envelope's three timings, each on its own draw. The sustain is a
@@ -119,6 +147,7 @@ mod tests {
             curve: 4.0,
         };
         Patch {
+            layers: Vec::new(),
             source: Source::OscStack {
                 oscs: vec![Osc {
                     wave: Wave::Sine,
@@ -207,5 +236,37 @@ mod tests {
             ..pop()
         };
         assert_eq!(bare.varied(0.7, 21).amp, pop().varied(0.7, 21).amp);
+    }
+
+    /// A layer is scattered too, on draws of its own, and gaining one moves
+    /// nothing a seed already gave the patch's own path.
+    #[test]
+    fn a_layer_takes_its_own_draws_after_the_patch_s() {
+        let layer = crate::patch::Layer {
+            source: pop().source,
+            amp: pop().amp,
+            filter: pop().filter,
+            pitch_env: pop().pitch_env,
+            gain: 1.0,
+        };
+        let layered = Patch {
+            layers: vec![layer],
+            ..pop()
+        };
+        let take = layered.varied(1.0, 4);
+        let Patch { layers, .. } = take.clone();
+        assert_eq!(
+            Patch {
+                layers: Vec::new(),
+                ..take
+            },
+            pop().varied(1.0, 4)
+        );
+        assert_ne!(
+            layers[0].amp,
+            pop().varied(1.0, 4).amp,
+            "the layer drew its own"
+        );
+        assert_ne!(layers[0].amp, pop().amp, "and was scattered");
     }
 }
