@@ -201,3 +201,19 @@ fn an_lfo_aimed_elsewhere_moves_nothing_here() {
     assert_eq!(lfos.tremolo(TROUGH), 1.0);
     assert_eq!(lfos.offset(LfoTarget::Cutoff, PEAK), 0.0);
 }
+
+/// A full-depth dip is half way down where the wave is zero, untouched at its
+/// peak and silent at its trough — the whole of `1 − depth × (1 − wave) / 2`,
+/// in exact numbers.
+#[test]
+fn a_full_depth_tremolo_swings_from_silence_to_the_note() {
+    let amp = |depth| Lfos::of([&Lfo::new(RATE_HZ, depth, LfoTarget::Amp)], 0, None, CYCLE);
+    assert_eq!(amp(1.0).tremolo(0), 0.5, "the wave starts halfway");
+    assert_eq!(amp(1.0).tremolo(PEAK), 1.0, "and reaches the level written");
+    assert_eq!(amp(1.0).tremolo(TROUGH), 0.0, "and dips to nothing");
+    assert_eq!(
+        amp(0.5).tremolo(TROUGH),
+        0.5,
+        "half the depth, half the dip"
+    );
+}

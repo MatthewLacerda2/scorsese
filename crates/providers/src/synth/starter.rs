@@ -115,6 +115,7 @@ fn pluck() -> Patch {
         }),
         pitch_env: None,
         lfo: None,
+        lfo2: None,
         fx: vec![Fx::Reverb {
             size: 0.45,
             damp: 0.5,

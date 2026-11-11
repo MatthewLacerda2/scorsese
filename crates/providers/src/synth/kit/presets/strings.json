@@ -8,7 +8,7 @@
     "kind": "lowpass", "cutoff": 2200, "resonance": 0.1, "vel_octaves": 0.7,
     "adsr": { "a": 0.3, "d": 0.6, "s": 0.8, "r": 0.5 }
   },
-  "lfo": { "rate": 5.0, "depth": 0.06, "target": "pitch" },
+  "lfo": { "rate": 5.0, "depth": 0.06, "target": "pitch", "delay": 0.4, "fade": 0.8 },
   "fx": [
     { "fx": "eq", "bands": [
       { "kind": "highpass", "freq": 120 },
