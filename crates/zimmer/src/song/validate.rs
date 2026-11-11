@@ -106,7 +106,9 @@ impl Song {
     /// So: a track that does not exist, no points at all, two curves on one
     /// track and parameter, beats that do not ascend, and a beat or a value
     /// that is not a number. A `cutoff` point at or below zero is refused for
-    /// the reason a written cutoff is — there is no filter at 0 Hz.
+    /// the reason a written cutoff is — there is no filter at 0 Hz. A `send`
+    /// curve is refused on a song whose chain has no `reverb` or `delay`,
+    /// since a send reaches nothing else.
     ///
     /// What is **not** here is the other half of the same idea: a `cutoff`
     /// curve on a track whose instrument has no filter. That one needs the
@@ -125,6 +127,9 @@ impl Song {
                 return Err(SynthError::DuplicateAutomation { track, param });
             }
             check_curve(curve)?;
+            if curve.param == Param::Send && !super::mix::has_a_room(&self.fx) {
+                return Err(SynthError::AutomationWithoutRoom { track });
+            }
         }
         Ok(())
     }

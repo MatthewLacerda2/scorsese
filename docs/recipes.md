@@ -1920,6 +1920,10 @@ number per track, into the one chain the song already has. A `send` changes
 nothing on a song whose chain has no `reverb` or `delay`, and on a track's own
 chain there is nothing to send — its `mix` already belongs to that one part.
 
+**A send can move**, like a fader: a [`send` curve](#making-something-build)
+washes a part out into the room through the bar before a drop, or throws one
+hit into the delay and leaves the rest dry.
+
 **Drive belongs in all three, for three different reasons.** It is the one
 effect with a real use in each place, because it is not describing a space — it
 is changing the thing itself, and there are three different things. On a patch
@@ -2055,6 +2059,33 @@ the tempo of a piece with a build in it is still one number.
 | `gain` | linear, like the track's own `gain` | a part rising into a chorus, a riser, a fade-in on one instrument |
 | `pan` | `-1.0` to `1.0`, like the track's own `pan` | a part drifting across the image |
 | `cutoff` | Hz | the build, and anything getting brighter as the piece intensifies |
+| `send` | `0.0` to `1.0`, like the track's own `send` | a part washing out into the room, a throw into the delay, an intro that starts distant and walks forward |
+
+A **wash-out** is a `send` curve: the lead stays dry for three bars, opens into
+the room across the fourth, and snaps back dry on the downbeat after it. A
+`send` curve is refused on a song whose `fx` has no `reverb` or `delay`, since
+a send reaches nothing else.
+
+```json fields
+  "bpm": 120,
+  "tracks": [
+    { "name": "lead", "gain": 0.6, "send": 0.0,
+      "patch": {
+        "source": { "kind": "osc_stack", "oscs": [ { "wave": "saw" } ] },
+        "amp": { "a": 0.005, "d": 0.1, "s": 0.4, "r": 0.1 } } }
+  ],
+  "patterns": { "a": { "beats": 4, "notes": [
+    { "track": "lead", "steps": "x-x-x-x-", "div": 0.5, "note": "E4" }
+  ] } },
+  "arrangement": ["a", "a", "a", "a", "a"],
+  "fx": [{ "fx": "reverb", "size": 0.85, "damp": 0.3, "mix": 0.35 }],
+  "automation": [
+    { "track": "lead", "param": "send", "points": [
+      { "beat": 12.0, "value": 0.0, "easing": "ease_in" },
+      { "beat": 15.75, "value": 1.0, "easing": "hold" },
+      { "beat": 16.0, "value": 0.0 } ] }
+  ]
+```
 
 **A curve replaces the value the track wrote; it does not scale it.** A `gain`
 curve reaching `0.72` puts that track at `0.72`, whatever its own `gain` says —
@@ -2074,20 +2105,21 @@ into a two-step edit and would make an unfinished recipe unrenderable.
 one-point `gain` curve *is* a written gain, said in the automation list.)
 
 The list is closed on purpose. A misspelled `param` is **refused**, against the
-three words that work, rather than parsed into a curve that moves nothing — and
+four words that work, rather than parsed into a curve that moves nothing — and
 a curve that moves nothing is worse than no curve at all, because the recipe
 still says the build is there.
 
-**And it is closed at the mixing desk, which is the rule.** All three params are
-properties of a *track* — level, position, and brightness at the fader — and
+**And it is closed at the mixing desk, which is the rule.** All four params are
+properties of a *track* — level, position, brightness and send at the fader — and
 that boundary is chosen rather than inherited: **automation moves the mix; what
 an instrument *is* belongs to its envelope and its LFO**, which are per note
 because a note is where an instrument's identity lives. So a reverb's `mix`
 cannot open across the last ten seconds, an `fm2`'s `index` cannot brighten
 through a build, and there is deliberately no way to name a thing *inside* a
-track — a curve names a track, and a track has exactly one gain, one pan and
-one filter. When a piece wants one of those gestures, the move is at the fader:
-bring the part up, or bring what sits over it down.
+track — a curve names a track, and a track has exactly one gain, one pan, one
+send and one filter. When a piece wants one of those gestures, the move is at
+the fader: bring the part up, bring what sits over it down, or open its `send`
+for a reverb that swells.
 
 **`easing`** is `linear` (the default), `ease_in`, `ease_out`, `ease_in_out` or
 `hold`, and it belongs to the point the value is travelling *from*. That is
@@ -3139,8 +3171,9 @@ exactly what nothing downstream can notice.
 - **[Automation](#making-something-build)** — a curve naming a track the song
   does not have, two curves on one track and parameter, a list with no points
   in it, `beat`s that do not ascend, a `beat` or a `value` that is not a
-  number, a `cutoff` point at or below 0 Hz, and a `cutoff` curve on an
-  instrument that has no filter to move. Every one of them is the same defect:
+  number, a `cutoff` point at or below 0 Hz, a `cutoff` curve on an
+  instrument that has no filter to move, and a `send` curve on a song whose
+  `fx` has no `reverb` or `delay` to reach. Every one of them is the same defect:
   a curve the recipe wrote and nothing can hear.
 
 An entry that carries the fields of two of the four kinds is refused too, by
