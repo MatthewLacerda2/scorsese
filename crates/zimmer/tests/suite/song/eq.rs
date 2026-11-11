@@ -90,6 +90,7 @@ fn the_report_s_own_rows_show_the_treated_track_moving_and_the_others_still() {
                 voices: 1,
                 spread: 12.0,
                 width: 0.0,
+                pulse_width: 0.5,
             }],
         },
         amp: Adsr {

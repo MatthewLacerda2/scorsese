@@ -143,7 +143,16 @@ pub(crate) fn render_swept(
         gate,
         n,
     );
-    let mut buf = source::render(&patch.source, &freqs, opts.seed, brightness, gate, n, RATE);
+    let pulse = osc::pulse::track(patch.lfo, n);
+    let mut buf = source::render(
+        &patch.source,
+        &freqs,
+        pulse.as_deref(),
+        opts.seed,
+        brightness,
+        gate,
+        RATE,
+    );
     if let Some(f) = patch.filter {
         // One cutoff track, both channels: the filter's *state* belongs to a
         // channel, and the curve it is following belongs to the note.

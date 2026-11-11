@@ -201,6 +201,17 @@ pub enum SynthError {
         rate: f32,
     },
 
+    /// A `pulse_width` written on a wave other than `square`: a field nothing
+    /// can hear. The fix is the wave or the field, so the wave is what it
+    /// carries.
+    PulseWidthOffSquare {
+        /// The wave it was written on.
+        wave: crate::patch::Wave,
+    },
+
+    /// An LFO aimed at `pulse_width` on a patch with no square to move.
+    NoPulseToModulate,
+
     // ────────────────────────────────────────────────────────────────────
     // A note as it is written: how long it lasts, and what it is called.
     // ────────────────────────────────────────────────────────────────────

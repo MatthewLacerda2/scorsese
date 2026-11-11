@@ -150,7 +150,27 @@ pub struct Osc {
     /// a value past the edge is a taste, not a fault.
     #[serde(default, skip_serializing_if = "is_centred")]
     pub width: f32,
+    /// How much of each cycle a `square` spends high, `0.05..=0.95` — its
+    /// duty cycle.
+    ///
+    /// `0.5`, the default, is the square every patch written before this
+    /// field rendered. `0.25` and `0.125` are the other two chiptune duties,
+    /// each a distinct instrument; a narrow pulse is the nasal reed and clav
+    /// tone, and one an [`LfoTarget::PulseWidth`] keeps moving is the warm
+    /// analogue pad. A narrower pulse is quieter and thinner: that is the
+    /// sound, so no level is made up for it. Past the range it is clamped,
+    /// since a pulse of zero or full width is silence. On any other wave it
+    /// is refused, a field nothing could hear; every unison voice shares it.
+    #[serde(default = "half", skip_serializing_if = "is_half")]
+    pub pulse_width: f32,
 }
+
+/// The narrowest pulse a square is drawn at; [`Osc::pulse_width`] below it
+/// is clamped up to it.
+pub const MIN_PULSE_WIDTH: f32 = 0.05;
+
+/// The widest pulse a square is drawn at, the mirror of [`MIN_PULSE_WIDTH`].
+pub const MAX_PULSE_WIDTH: f32 = 0.95;
 
 /// One partial of an additive series: where it sits, how much of it there is,
 /// how far off the harmonic grid it is bent, and how fast it dies on its own.
@@ -675,6 +695,10 @@ pub enum LfoTarget {
     Cutoff,
     /// Tremolo: amplitude dips by `depth` (1.0 dips to silence).
     Amp,
+    /// Pulse-width modulation: every `square` in the stack swings `depth`
+    /// either way around its written [`Osc::pulse_width`], clamped to the
+    /// range. Refused on a patch with no square to move.
+    PulseWidth,
 }
 
 /// A single sine low-frequency oscillator tapping one target.
@@ -735,6 +759,11 @@ fn is_centred(width: &f32) -> bool {
 
 fn half() -> f32 {
     0.5
+}
+
+/// Whether a pulse is the square it always was, so it is not saved either.
+fn is_half(pulse_width: &f32) -> bool {
+    *pulse_width == half()
 }
 
 fn damping_default() -> f32 {

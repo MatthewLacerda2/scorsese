@@ -34,6 +34,7 @@ fn sine() -> Patch {
                 voices: 1,
                 spread: 12.0,
                 width: 0.0,
+                pulse_width: 0.5,
             }],
         })
     }

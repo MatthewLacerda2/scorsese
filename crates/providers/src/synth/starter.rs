@@ -72,6 +72,7 @@ fn pluck() -> Patch {
                     voices: 1,
                     spread: 12.0,
                     width: 0.0,
+                    pulse_width: 0.5,
                 },
                 Osc {
                     wave: Wave::Triangle,
@@ -81,6 +82,7 @@ fn pluck() -> Patch {
                     voices: 1,
                     spread: 12.0,
                     width: 0.0,
+                    pulse_width: 0.5,
                 },
             ],
         },
