@@ -7,6 +7,7 @@
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use scorsese_lint::raised::RAISED;
 use scorsese_lint::{SOURCE_LIMIT, TEST_LIMIT, check_dir, check_tree};
 
 fn main() -> ExitCode {
@@ -34,8 +35,9 @@ fn size(root: &Path) -> bool {
 
     if report.is_clean() {
         println!(
-            "size gate: {} files, all within {SOURCE_LIMIT} lines of code (source) / {TEST_LIMIT} (test)",
-            report.checked
+            "size gate: {} files, all within {SOURCE_LIMIT} lines of code (source) / {TEST_LIMIT} (test), or a raised cap ({} listed)",
+            report.checked,
+            RAISED.len()
         );
         return true;
     }
@@ -48,7 +50,9 @@ fn size(root: &Path) -> bool {
     for violation in &report.violations {
         eprintln!("  {violation}");
     }
-    eprintln!("Split them by concern — nothing is grandfathered.");
+    eprintln!(
+        "Split them by concern — nothing is grandfathered. A listed file (`tools/lint/src/raised.rs`) has a raised cap, never no cap: it still has to shrink."
+    );
     false
 }
 

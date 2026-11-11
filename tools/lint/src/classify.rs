@@ -57,6 +57,10 @@
 //! - **Hidden directories and build output are not walked at all**: see
 //!   [`is_skipped_dir`].
 //!
+//! **A raised cap is by exact path, never by kind**: [`crate::raised`] lists
+//! the files a split cannot reach, each with its number and reason, and
+//! [`Kind::limit`] stays the cap for everything else.
+//!
 //! There is no generated-code exception, because there is no generated Rust in
 //! this repo. If some ever lands it belongs under a directory this module
 //! skips, so the exception stays a location rather than a marker comment that

@@ -16,8 +16,10 @@ pub struct Violation {
     pub path: PathBuf,
     /// What the file actually measures.
     pub lines: usize,
-    /// The cap it broke.
+    /// The kind of file it was measured as.
     pub kind: Kind,
+    /// The cap it broke: its kind's, or a [raised](crate::raised) one.
+    pub limit: usize,
 }
 
 impl fmt::Display for Violation {
@@ -26,14 +28,19 @@ impl fmt::Display for Violation {
     /// because the number will not match `wc -l`, and a reader comparing the
     /// two should be told why rather than left to discover it.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let raised = if crate::raised::raised(&self.path).is_some() {
+            "raised "
+        } else {
+            ""
+        };
         write!(
             f,
-            "{}: {} lines of code, over the {}-line limit for {} files (by {})",
+            "{}: {} lines of code, over the {raised}{}-line limit for {} files (by {})",
             self.path.display(),
             self.lines,
-            self.kind.limit(),
+            self.limit,
             self.kind.label(),
-            self.lines - self.kind.limit(),
+            self.lines - self.limit,
         )
     }
 }
@@ -119,8 +126,14 @@ pub fn check_dir(root: &Path) -> io::Result<Report> {
         } else {
             code_lines(&bytes)
         };
-        if lines > kind.limit() {
-            report.violations.push(Violation { path, lines, kind });
+        let limit = crate::raised::limit_for(&path, kind);
+        if lines > limit {
+            report.violations.push(Violation {
+                path,
+                lines,
+                kind,
+                limit,
+            });
         }
     }
     Ok(report)
