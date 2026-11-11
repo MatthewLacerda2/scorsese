@@ -1,0 +1,5 @@
+{
+  "source": { "kind": "noise" },
+  "amp": { "a": 0.012, "d": 0.06, "s": 0.0, "r": 0.03, "curve": 3.0 },
+  "filter": { "kind": "bandpass", "cutoff": 7500, "resonance": 0.2 }
+}

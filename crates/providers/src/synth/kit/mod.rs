@@ -4,9 +4,10 @@
 //! five to ten lines of envelopes and curves that have to be right before the
 //! sound reads as a kick at all, retyped or copied out of the last song's JSON.
 //! This is the set those songs kept rebuilding: a drum machine's kick, snare,
-//! clap, closed and open hats, tom and crash; a synth bass and a sub; a clav, a
-//! pluck, a supersaw lead, a brass section, strings, a pad, an electric piano
-//! and a bell. A recipe asks for one as `"patch": "kit:kick"`.
+//! clap, closed and open hats, tom and crash, and the ride, rimshot, shaker,
+//! tambourine and cowbell a groove reaches for next; a synth bass and a sub; a
+//! clav, a pluck, a supersaw lead, a brass section, strings, a pad, an electric
+//! piano and a bell. A recipe asks for one as `"patch": "kit:kick"`.
 //!
 //! **No instrument carries a reverb.** A `reverb` in a patch runs once per
 //! note, so every chord voice and every arpeggio step got a room of its own,
@@ -105,13 +106,13 @@ pub const KIT: &[Instrument] = &[
     },
     Instrument {
         name: "hat",
-        describes: "closed hi-hat: a short tick of bright noise",
+        describes: "closed hi-hat: a short tick of bright, clashing metal tones over a breath of noise",
         home: "C4",
         json: include_str!("presets/hat.json"),
     },
     Instrument {
         name: "open_hat",
-        describes: "open hi-hat: bright noise left to ring, the off-beat `hat` lets go of",
+        describes: "open hi-hat: the closed hat's metal left to ring and shimmer, the off-beat `hat` lets go of",
         home: "C4",
         json: include_str!("presets/open_hat.json"),
     },
@@ -124,9 +125,39 @@ pub const KIT: &[Instrument] = &[
     },
     Instrument {
         name: "crash",
-        describes: "crash cymbal: a long wash of bright noise that darkens as it fades",
+        describes: "crash cymbal: a long wash of metal tones and noise whose top dies first, darkening as it fades",
         home: "C4",
         json: include_str!("presets/crash.json"),
+    },
+    Instrument {
+        name: "ride",
+        describes: "ride cymbal: a ringing metal ping over a quiet wash, to keep time on instead of the hat",
+        home: "C4",
+        json: include_str!("presets/ride.json"),
+    },
+    Instrument {
+        name: "rimshot",
+        describes: "rimshot: a dry, woody crack of two short tones, the stick on the snare's rim",
+        home: "C4",
+        json: include_str!("presets/rimshot.json"),
+    },
+    Instrument {
+        name: "shaker",
+        describes: "shaker: a soft rattle of bright noise, the beads of a sixteenth-note groove",
+        home: "C4",
+        json: include_str!("presets/shaker.json"),
+    },
+    Instrument {
+        name: "tambourine",
+        describes: "tambourine: a jingle of bright metal tones and hiss over the slap of its skin",
+        home: "C4",
+        json: include_str!("presets/tambourine.json"),
+    },
+    Instrument {
+        name: "cowbell",
+        describes: "cowbell: two narrow pulses clanging together, the drum machine's hollow bell",
+        home: "C4",
+        json: include_str!("presets/cowbell.json"),
     },
     Instrument {
         name: "bass",

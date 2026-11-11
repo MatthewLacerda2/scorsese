@@ -1,0 +1,8 @@
+{
+  "source": { "kind": "osc_stack", "oscs": [
+    { "wave": "square", "detune_cents": 1254, "pulse_width": 0.3 },
+    { "wave": "square", "detune_cents": 1935, "pulse_width": 0.3 }
+  ] },
+  "amp": { "a": 0.0005, "d": 0.35, "s": 0.0, "r": 0.08, "curve": 6.0 },
+  "filter": { "kind": "bandpass", "cutoff": 1200, "resonance": 0.35 }
+}
