@@ -189,6 +189,29 @@ mod tests {
         assert!(settled_peak(&high) > 0.7, "8 kHz passes");
     }
 
+    /// The stopband of a highpass is the filter's, not the oversampler's: a tone
+    /// four octaves under a 24 dB cutoff is ~96 dB down in theory, and the 2× run
+    /// must not fold an image of it back on top of itself at a higher level.
+    #[test]
+    fn a_steep_highpass_holds_a_low_tone_far_down() {
+        let cutoffs = vec![9000.0; 44_100];
+        let mut low = sine(560.0);
+        apply(
+            &mut low,
+            &Filter {
+                slope: Slope::Db24,
+                ..filter(FilterKind::Highpass, 9000.0)
+            },
+            &cutoffs,
+            44_100.0,
+        );
+        let db = 20.0 * settled_peak(&low).log10();
+        assert!(
+            db < -80.0,
+            "560 Hz leaks through a 9 kHz highpass at {db:.1} dB"
+        );
+    }
+
     #[test]
     fn bandpass_keeps_the_middle_and_drops_both_ends() {
         let cutoffs = vec![1000.0; 44_100];
