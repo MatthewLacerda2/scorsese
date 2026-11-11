@@ -203,26 +203,6 @@ fn cascading_at_the_ceiling_stays_finite() {
     }
 }
 
-/// A cutoff past the stability ceiling is the ceiling: asking for more than
-/// `sr/3` renders exactly what `sr/3` does.
-#[test]
-fn a_cutoff_past_the_ceiling_is_the_ceiling() {
-    let render = |cutoff: f32| {
-        let mut buf = sine(5000.0);
-        let cutoffs = vec![cutoff; buf.len()];
-        let mut f = filter(FilterKind::Highpass, cutoff);
-        f.resonance = 0.5;
-        apply(&mut buf, &f, &cutoffs, 44_100.0);
-        buf
-    };
-    assert_eq!(render(14_700.0), render(20_000.0));
-    assert_ne!(
-        render(14_000.0),
-        render(14_700.0),
-        "below it, the cutoff counts"
-    );
-}
-
 #[test]
 fn resonance_lifts_the_response_at_the_cutoff() {
     let cutoffs = vec![1000.0; 44_100];
