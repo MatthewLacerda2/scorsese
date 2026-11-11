@@ -65,6 +65,7 @@ pub(super) fn drums() -> Patch {
 
 fn plain(source: Source, amp: Adsr) -> Patch {
     Patch {
+        layers: Vec::new(),
         source,
         amp,
         filter: None,

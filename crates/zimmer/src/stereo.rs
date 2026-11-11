@@ -95,6 +95,17 @@ impl Stereo {
         self.resize(frames.max(self.frames()));
     }
 
+    /// Adds `other` to this signal sample for sample, from the first frame,
+    /// growing to the longer of the two.
+    pub(crate) fn add(&mut self, other: &Stereo) {
+        self.grow_to(other.frames());
+        for (mine, theirs) in [(&mut self.l, &other.l), (&mut self.r, &other.r)] {
+            for (sample, added) in mine.iter_mut().zip(theirs) {
+                *sample += added;
+            }
+        }
+    }
+
     /// Keeps only the frames `from..to`, clamped to what is there.
     ///
     /// The one operation that moves a signal's start: everything else here

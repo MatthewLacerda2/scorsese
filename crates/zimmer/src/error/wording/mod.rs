@@ -9,22 +9,24 @@
 //! safe: a variant added next door and left without words here does not
 //! compile, and the error names it.
 //!
-//! **Four small groups are worded apart**: a square's pulse width in
-//! [`pulse`], where notes and echoes land against
-//! the beat in [`timing`], the curves that move a value across a piece in
-//! [`automation`], and **one more in [`length`]**: the refusals of `fit`,
-//! `fade`, `tail` and `anchors`, split off when this file reached the size
-//! gate, and the two about how long a single note lasts, which joined them
-//! for the same reason. The
+//! **Five small groups are worded apart**: a square's pulse width in
+//! [`pulse`], where notes and echoes land against the beat in [`timing`], the
+//! curves that move a value across a piece in [`automation`], and **two more
+//! in [`length`] and [`source`]**: the refusals of `fit`, `fade`, `tail` and
+//! `anchors`, split off when this file reached the size gate, and the two
+//! about how long a single note lasts, which joined them for the same reason;
+//! and a patch's sources and layers, split off when it reached the gate
+//! again. The
 //! match here still names each of them, in the one arm that hands them over,
 //! so a new variant still does not compile until it has a home. What the
-//! compiler cannot check is that `length`'s match has an arm for every name
-//! in that list — which is why the list is ten names long and the words sit
-//! right beside it, rather than a whole group of thirty being moved.
+//! compiler cannot check is that `length`'s and `source`'s matches have an arm
+//! for every name in their lists — which is why each list is short and the
+//! words sit right beside it, rather than a whole group of thirty being moved.
 
 mod automation;
 mod length;
 mod pulse;
+mod source;
 mod timing;
 
 use std::fmt;
@@ -41,45 +43,22 @@ impl SynthError {
             // LFO or an effect is refused for. An fx chain is a patch's own stage, so
             // the three refusals a `sidechain` earns sit here too.
             // ────────────────────────────────────────────────────────────────────
-            Self::EmptyOscStack => write!(f, "patch: `osc_stack` needs at least one oscillator"),
-            Self::TooManyOscs { found, limit, .. } => write!(
-                f,
-                "patch: `osc_stack` takes at most {limit} oscillators, got {found}"
-            ),
-            Self::SilentOscStack => write!(
-                f,
-                "patch: every oscillator gain is zero — the stack is silent"
-            ),
-            Self::BadVoiceCount { found, limit, .. } => write!(
-                f,
-                "patch: an oscillator sounds 1 to {limit} voices, got {found}"
-            ),
-            Self::BadFmRatio { ratio, .. } => {
-                write!(f, "patch: `fm2` needs a positive `ratio`, got {ratio}")
-            }
-            Self::EmptyPartials => write!(f, "patch: `additive` needs at least one partial"),
-            Self::TooManyPartials { found, limit, .. } => write!(
-                f,
-                "patch: `additive` takes at most {limit} partials, got {found}"
-            ),
-            Self::SilentPartials => write!(
-                f,
-                "patch: every partial gain is zero — the series is silent"
-            ),
-            Self::BadPartialRatio { index, ratio, .. } => write!(
-                f,
-                "patch: `additive` partial {index} needs a positive `ratio`, got {ratio}"
-            ),
-            Self::BadOperatorRatio {
-                operator, ratio, ..
-            } => write!(
-                f,
-                "patch: `fm4` operator {operator} needs a positive `ratio`, got {ratio}"
-            ),
-            Self::SilentCarriers { algorithm, .. } => write!(
-                f,
-                "patch: `fm4` algorithm `{algorithm}` is heard through its carriers, and every one of them is at level zero"
-            ),
+            // A source and the layers that carry their own have their words
+            // in `source`, spelled out of this match like `length`'s.
+            Self::EmptyOscStack
+            | Self::TooManyOscs { .. }
+            | Self::SilentOscStack
+            | Self::BadVoiceCount { .. }
+            | Self::BadFmRatio { .. }
+            | Self::EmptyPartials
+            | Self::TooManyPartials { .. }
+            | Self::SilentPartials
+            | Self::BadPartialRatio { .. }
+            | Self::BadOperatorRatio { .. }
+            | Self::SilentCarriers { .. }
+            | Self::TooManyLayers { .. }
+            | Self::SilentLayer
+            | Self::InLayer { .. } => self.say_source(f),
             Self::BadCutoff { cutoff, .. } => write!(
                 f,
                 "patch: filter `cutoff` must be positive Hz, got {cutoff}"
@@ -330,5 +309,13 @@ impl SynthError {
                 "song: track `{track}`: cannot resolve patch `{reference}`: {reason}"
             ),
         }
+    }
+}
+
+impl std::error::Error for SynthError {}
+
+impl fmt::Display for SynthError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.say(f)
     }
 }

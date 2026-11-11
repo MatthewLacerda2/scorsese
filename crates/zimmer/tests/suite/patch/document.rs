@@ -10,6 +10,7 @@ use scorsese_zimmer::patch::{
 /// them, so the fixture has all of them.
 fn full_patch() -> Patch {
     Patch {
+        layers: Vec::new(),
         source: Source::OscStack {
             oscs: vec![osc(Wave::Saw, -7.0, 0), osc(Wave::Square, 7.0, -1)],
         },

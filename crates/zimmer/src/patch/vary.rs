@@ -13,14 +13,15 @@
 //! A draw is a multiplication by `2^(amount × reach × u)`, `u` in `-1..1`,
 //! so a time of zero stays an instant and a falling bounce never turns into
 //! a rising one. Each number has a **fixed slot** in the draw, so a patch
-//! that gains a filter keeps the amp envelope every seed gave it before.
+//! that gains a filter keeps the amp envelope every seed gave it before, and
+//! a [layer](super::Layer) is scattered the same way on slots of its own.
 //!
 //! Free and deterministic like everything here: the same patch, amount and
 //! seed give the same copy on every machine, and an amount of zero gives the
 //! patch back untouched, which is what every recipe written before the field
 //! still means.
 
-use super::{Adsr, Patch};
+use super::{Adsr, Filter, Patch, PitchEnv};
 use crate::hash::unit2;
 
 /// Hash channel the scatter draws on, apart from the noise and the start
@@ -37,14 +38,20 @@ const CUTOFF_REACH: f32 = 1.0;
 /// eighteen.
 const BOUNCE_REACH: f32 = 0.585;
 
-/// The first slot of each stage's draws: three for the amp envelope, one
-/// cutoff and three timings for the filter, one depth and three timings for
-/// the pitch envelope.
-const AMP_SLOTS: i64 = 0;
+/// The first slot of each stage's draws: the amp envelope's three open the
+/// path (slots 0–2), then one cutoff and three timings for the filter, one
+/// depth and three timings for the pitch envelope.
+///
+/// Each is counted from the first slot of the path it scatters: the patch's
+/// own path starts at zero, and layer `i` at `(i + 1) × PATH_SLOTS`, after
+/// every slot the patch's own path takes, so a patch that gains a layer keeps
+/// every draw a seed gave it before.
 const CUTOFF_SLOT: i64 = 3;
 const FILTER_SLOTS: i64 = 4;
 const BOUNCE_SLOT: i64 = 7;
 const PITCH_SLOTS: i64 = 8;
+/// How many slots one path takes.
+const PATH_SLOTS: i64 = 11;
 
 impl Patch {
     /// This patch as another take of itself: its envelope timings, its
@@ -67,14 +74,15 @@ impl Patch {
             return patch;
         }
         let draw = Draw { amount, seed };
-        draw.times(&mut patch.amp, AMP_SLOTS);
-        if let Some(filter) = &mut patch.filter {
-            filter.cutoff = draw.scale(filter.cutoff, CUTOFF_SLOT, CUTOFF_REACH);
-            draw.times(&mut filter.adsr, FILTER_SLOTS);
-        }
-        if let Some(env) = &mut patch.pitch_env {
-            env.semitones = draw.scale(env.semitones, BOUNCE_SLOT, BOUNCE_REACH);
-            draw.times(&mut env.adsr, PITCH_SLOTS);
+        draw.path(&mut patch.amp, &mut patch.filter, &mut patch.pitch_env, 0);
+        for (index, layer) in (1..).zip(&mut patch.layers) {
+            let first = index * PATH_SLOTS;
+            draw.path(
+                &mut layer.amp,
+                &mut layer.filter,
+                &mut layer.pitch_env,
+                first,
+            );
         }
         patch
     }
@@ -92,6 +100,26 @@ impl Draw {
     fn scale(&self, value: f32, slot: i64, reach: f32) -> f32 {
         let u = 2.0 * unit2(slot, 0, VARY_CHANNEL, self.seed) - 1.0;
         value * (self.amount * reach * u).exp2()
+    }
+
+    /// One path's envelopes, cutoff and bounce, on the slots from `first`.
+    fn path(
+        &self,
+        amp: &mut Adsr,
+        filter: &mut Option<Filter>,
+        pitch_env: &mut Option<PitchEnv>,
+        first: i64,
+    ) {
+        // The amp envelope's three draws open the path, on its first slots.
+        self.times(amp, first);
+        if let Some(filter) = filter {
+            filter.cutoff = self.scale(filter.cutoff, first + CUTOFF_SLOT, CUTOFF_REACH);
+            self.times(&mut filter.adsr, first + FILTER_SLOTS);
+        }
+        if let Some(env) = pitch_env {
+            env.semitones = self.scale(env.semitones, first + BOUNCE_SLOT, BOUNCE_REACH);
+            self.times(&mut env.adsr, first + PITCH_SLOTS);
+        }
     }
 
     /// An envelope's three timings, each on its own draw. The sustain is a
@@ -119,6 +147,7 @@ mod tests {
             curve: 4.0,
         };
         Patch {
+            layers: Vec::new(),
             source: Source::OscStack {
                 oscs: vec![Osc {
                     wave: Wave::Sine,
@@ -207,5 +236,110 @@ mod tests {
             ..pop()
         };
         assert_eq!(bare.varied(0.7, 21).amp, pop().varied(0.7, 21).amp);
+    }
+
+    /// A layer is scattered too, on draws of its own, and gaining one moves
+    /// nothing a seed already gave the patch's own path.
+    #[test]
+    fn a_layer_takes_its_own_draws_after_the_patch_s() {
+        let layer = crate::patch::Layer {
+            source: pop().source,
+            amp: pop().amp,
+            filter: pop().filter,
+            pitch_env: pop().pitch_env,
+            gain: 1.0,
+        };
+        let layered = Patch {
+            layers: vec![layer],
+            ..pop()
+        };
+        let take = layered.varied(1.0, 4);
+        let Patch { layers, .. } = take.clone();
+        assert_eq!(
+            Patch {
+                layers: Vec::new(),
+                ..take
+            },
+            pop().varied(1.0, 4)
+        );
+        assert_ne!(
+            layers[0].amp,
+            pop().varied(1.0, 4).amp,
+            "the layer drew its own"
+        );
+        assert_ne!(layers[0].amp, pop().amp, "and was scattered");
+    }
+
+    /// One take, pinned to the number: the patch's own path draws what it drew
+    /// before layers existed, and each layer's slots sit after it. A slot that
+    /// moves re-rolls every existing seed's take, and only exact numbers see it.
+    #[test]
+    fn one_take_lands_on_the_numbers_its_slots_give() {
+        let layer = crate::patch::Layer {
+            source: pop().source,
+            amp: pop().amp,
+            filter: pop().filter,
+            pitch_env: pop().pitch_env,
+            gain: 1.0,
+        };
+        let take = Patch {
+            layers: vec![layer],
+            ..pop()
+        }
+        .varied(1.0, 4);
+        let numbers = |amp: Adsr, filter: Option<crate::patch::Filter>, env: Option<PitchEnv>| {
+            let (filter, env) = (filter.expect("filtered"), env.expect("bouncing"));
+            [
+                amp.a,
+                amp.d,
+                amp.r,
+                filter.cutoff,
+                filter.adsr.a,
+                filter.adsr.d,
+                filter.adsr.r,
+                env.semitones,
+                env.adsr.a,
+                env.adsr.d,
+                env.adsr.r,
+            ]
+        };
+        let own = [
+            0.000_528_609_8,
+            0.133_729_93,
+            0.019_052_863,
+            1580.8652,
+            0.001_739_532_3,
+            0.107_752_03,
+            0.035_319_33,
+            -8.031_763,
+            0.000_803_819_5,
+            0.105_488_114,
+            0.031_174_842,
+        ];
+        let layered = [
+            0.001_143_434_9,
+            0.135_319_35,
+            0.028_778_698,
+            1674.0792,
+            0.001_649_295_7,
+            0.125_252_7,
+            0.017_573_703,
+            -12.432_24,
+            0.000_506_302_4,
+            0.041_075_647,
+            0.011_167_941,
+        ];
+        let l = &take.layers[0];
+        for (got, want) in numbers(take.amp, take.filter, take.pitch_env)
+            .into_iter()
+            .zip(own)
+            .chain(
+                numbers(l.amp, l.filter, l.pitch_env)
+                    .into_iter()
+                    .zip(layered),
+            )
+        {
+            assert!((got / want - 1.0).abs() < 1e-5, "{got} against {want}");
+        }
     }
 }

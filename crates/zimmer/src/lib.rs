@@ -92,10 +92,15 @@
 //! recipe chooses what fills them — never how they connect:
 //!
 //! ```text
-//!   source ─► filter ─► amp envelope ─► fx chain
-//!      ▲         ▲            ▲
-//!      └─────── LFO ──────────┘   (one target: pitch | cutoff | amp)
+//!   source ─► filter ─► amp envelope ─┬─► + ─► fx chain
+//!      ▲         ▲            ▲        │
+//!      └─────── LFO ──────────┘        │  (one target: pitch | cutoff | amp)
+//!   up to three layers, each its own   │
+//!   source ─► filter ─► amp ───────────┘
 //! ```
+//!
+//! The layers are a fixed parallel sum, not a graph: no layer feeds another,
+//! none has an fx chain of its own, and none holds layers.
 //!
 //! A [`Song`] layers that: tracks name patches, patterns name notes, and the
 //! arrangement names patterns. Every time in a song is in **beats**, so

@@ -166,7 +166,9 @@ mod tests {
             "filter": { "kind": "lowpass", "cutoff": 4600 } } },
         { "name": "pad", "gain": 0.4, "patch": {
             "source": { "kind": "osc_stack", "oscs": [{ "wave": "saw" }] },
-            "amp": { "a": 0.2, "d": 0.1, "s": 0.8, "r": 0.5 } } }
+            "amp": { "a": 0.2, "d": 0.1, "s": 0.8, "r": 0.5 },
+            "layers": [{ "source": { "kind": "noise" },
+                "amp": { "a": 0.2, "d": 0.1, "s": 0.8, "r": 0.5 } }] } }
       ],
       "patterns": { "a": { "beats": 4, "notes": [
         { "track": "lead", "note": "C4", "start": 0, "dur": 1 },
@@ -189,6 +191,7 @@ mod tests {
         assert_eq!(survey.tracks[0].source, Some("karplus"));
         assert_eq!(survey.tracks[0].gain, 0.9);
         assert_eq!(survey.tracks[0].cutoff, Some(4600.0));
+        // The pad is layered over noise, and is named for its top-level source.
         assert_eq!(survey.tracks[1].source, Some("osc_stack"));
         assert_eq!(survey.tracks[1].cutoff, None, "no filter, no cutoff");
         assert_eq!(

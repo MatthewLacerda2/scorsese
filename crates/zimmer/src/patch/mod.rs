@@ -2,8 +2,9 @@
 //!
 //! A [`Patch`] is a "Minimoog-lite" description of a single sound. It is
 //! **structured, not a free graph**: the signal path is fixed —
-//! `source → filter → amp envelope → fx`, with an LFO tapping one target —
-//! because a patch has to honour a contract, *playable as a note*. The recipe
+//! `source → filter → amp envelope → fx`, with an LFO tapping one target, and
+//! up to [`MAX_LAYERS`] more `source → filter → amp` paths summed in parallel
+//! before the fx ([`Layer`]) — because a patch has to honour a contract, *playable as a note*. The recipe
 //! chooses what goes in each stage, never how the stages connect.
 //!
 //! That is not a simplification for its own sake. A free graph would let a
@@ -16,6 +17,7 @@
 
 pub(crate) mod fm;
 pub(crate) mod fx;
+mod layer;
 pub(crate) mod stages;
 mod vary;
 
@@ -25,6 +27,7 @@ use crate::error::SynthError;
 
 pub use fm::{Algorithm, FM_OPERATORS, Operator};
 pub use fx::{EqBand, EqKind, Fx, MAX_EQ_BANDS};
+pub use layer::{Layer, MAX_LAYERS};
 pub use stages::{
     Adsr, Filter, FilterKind, Lfo, LfoTarget, MAX_OSCS, MAX_PARTIALS, MAX_PULSE_WIDTH, MAX_VOICES,
     MIN_PULSE_WIDTH, NoiseColor, Osc, Partial, PitchEnv, Slope, Source, Wave,
@@ -127,7 +130,13 @@ pub struct Patch {
     /// written before this stage existed already meant.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pitch_env: Option<PitchEnv>,
-    /// The optional low-frequency oscillator, bending one stage.
+    /// More sounds in the same note, each its own `source → filter → amp`,
+    /// added to the one above before `fx`. Empty means the patch is the one
+    /// sound written above, which is what every patch before layers meant.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub layers: Vec<Layer>,
+    /// The optional low-frequency oscillator, bending one stage of every
+    /// layer.
     #[serde(default)]
     pub lfo: Option<Lfo>,
     /// The post-chain, applied in list order.
@@ -153,14 +162,8 @@ impl Patch {
     /// unstable filter are checked. Musical taste is the recipe's business: an
     /// ugly patch renders.
     pub fn validate(&self) -> Result<(), SynthError> {
-        self.check_source()?;
-        if let Some(filter) = &self.filter
-            && filter.cutoff <= 0.0
-        {
-            return Err(SynthError::BadCutoff {
-                cutoff: filter.cutoff,
-            });
-        }
+        check_stages(&self.source, self.filter.as_ref())?;
+        layer::check_layers(&self.layers)?;
         if let Some(lfo) = &self.lfo
             && lfo.rate < 0.0
         {
@@ -172,66 +175,83 @@ impl Patch {
         check_no_sidechain(&self.fx, "patch")
     }
 
-    /// A pulse width nothing can hear: one written on a wave other than a
-    /// square, or an LFO aimed at the width of a patch with no square in it.
+    /// An LFO aimed at the pulse width of a patch with no square in any of
+    /// its sounds, top level or layer, to move. A width written on a wave
+    /// other than a square is [`check_source`]'s, so a layer's is named by
+    /// its index.
     fn check_pulse(&self) -> Result<(), SynthError> {
-        let oscs = match &self.source {
-            Source::OscStack { oscs } => oscs.as_slice(),
-            _ => &[],
-        };
-        if let Some(osc) = oscs
-            .iter()
-            .find(|osc| osc.wave != Wave::Square && osc.pulse_width != 0.5)
-        {
-            return Err(SynthError::PulseWidthOffSquare { wave: osc.wave });
-        }
+        let squared = std::iter::once(&self.source)
+            .chain(self.layers.iter().map(|layer| &layer.source))
+            .flat_map(oscillators)
+            .any(|osc| osc.wave == Wave::Square);
         match &self.lfo {
-            Some(lfo)
-                if lfo.target == LfoTarget::PulseWidth
-                    && !oscs.iter().any(|osc| osc.wave == Wave::Square) =>
-            {
+            Some(lfo) if lfo.target == LfoTarget::PulseWidth && !squared => {
                 Err(SynthError::NoPulseToModulate)
             }
             _ => Ok(()),
         }
     }
+}
 
-    /// The head of the signal path, which is where every unrenderable patch so
-    /// far has gone wrong.
-    fn check_source(&self) -> Result<(), SynthError> {
-        match &self.source {
-            Source::OscStack { oscs } if oscs.is_empty() => Err(SynthError::EmptyOscStack),
-            Source::OscStack { oscs } if oscs.len() > MAX_OSCS => Err(SynthError::TooManyOscs {
-                found: oscs.len(),
-                limit: MAX_OSCS,
-            }),
-            Source::OscStack { oscs } if oscs.iter().all(|osc| osc.gain <= 0.0) => {
-                Err(SynthError::SilentOscStack)
-            }
-            // Both ends of the unison range, in one pass: no voices at all is
-            // an oscillator the recipe asked to be silent without saying so,
-            // and too many is [`MAX_VOICES`]'s argument.
-            Source::OscStack { oscs } => match oscs
-                .iter()
-                .find(|osc| !(1..=MAX_VOICES).contains(&osc.voices))
-            {
-                Some(osc) => Err(SynthError::BadVoiceCount {
-                    found: osc.voices,
-                    limit: MAX_VOICES,
-                }),
-                None => Ok(()),
-            },
-            Source::Fm2 { ratio, .. } if *ratio <= 0.0 => {
-                Err(SynthError::BadFmRatio { ratio: *ratio })
-            }
-            Source::Fm4 {
-                algorithm,
-                operators,
-                ..
-            } => check_operators(*algorithm, operators),
-            Source::Additive { partials } => check_partials(partials),
-            _ => Ok(()),
+/// The oscillators of a source: a stack's, and none for any other kind.
+fn oscillators(source: &Source) -> &[Osc] {
+    match source {
+        Source::OscStack { oscs } => oscs,
+        _ => &[],
+    }
+}
+
+/// The two stages a patch and each of its layers carry and can get wrong: the
+/// source and the filter's cutoff.
+fn check_stages(source: &Source, filter: Option<&Filter>) -> Result<(), SynthError> {
+    check_source(source)?;
+    match filter {
+        Some(filter) if filter.cutoff <= 0.0 => Err(SynthError::BadCutoff {
+            cutoff: filter.cutoff,
+        }),
+        _ => Ok(()),
+    }
+}
+
+/// The head of the signal path, which is where every unrenderable patch so
+/// far has gone wrong.
+fn check_source(source: &Source) -> Result<(), SynthError> {
+    if let Some(osc) = oscillators(source)
+        .iter()
+        .find(|osc| osc.wave != Wave::Square && osc.pulse_width != 0.5)
+    {
+        return Err(SynthError::PulseWidthOffSquare { wave: osc.wave });
+    }
+    match source {
+        Source::OscStack { oscs } if oscs.is_empty() => Err(SynthError::EmptyOscStack),
+        Source::OscStack { oscs } if oscs.len() > MAX_OSCS => Err(SynthError::TooManyOscs {
+            found: oscs.len(),
+            limit: MAX_OSCS,
+        }),
+        Source::OscStack { oscs } if oscs.iter().all(|osc| osc.gain <= 0.0) => {
+            Err(SynthError::SilentOscStack)
         }
+        // Both ends of the unison range, in one pass: no voices at all is
+        // an oscillator the recipe asked to be silent without saying so,
+        // and too many is [`MAX_VOICES`]'s argument.
+        Source::OscStack { oscs } => match oscs
+            .iter()
+            .find(|osc| !(1..=MAX_VOICES).contains(&osc.voices))
+        {
+            Some(osc) => Err(SynthError::BadVoiceCount {
+                found: osc.voices,
+                limit: MAX_VOICES,
+            }),
+            None => Ok(()),
+        },
+        Source::Fm2 { ratio, .. } if *ratio <= 0.0 => Err(SynthError::BadFmRatio { ratio: *ratio }),
+        Source::Fm4 {
+            algorithm,
+            operators,
+            ..
+        } => check_operators(*algorithm, operators),
+        Source::Additive { partials } => check_partials(partials),
+        _ => Ok(()),
     }
 }
 

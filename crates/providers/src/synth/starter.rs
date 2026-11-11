@@ -62,6 +62,7 @@ impl Starter {
 /// is what makes the first bake worth listening to.
 fn pluck() -> Patch {
     Patch {
+        layers: Vec::new(),
         source: Source::OscStack {
             oscs: vec![
                 Osc {

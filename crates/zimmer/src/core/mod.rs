@@ -5,11 +5,19 @@
 //! patch — the recipe picks what fills each stage, never how they connect:
 //!
 //! ```text
-//!   source ─► filter ─► amp envelope ─► fx chain
-//!      ▲         ▲            ▲
-//!      ├──── envelopes ───────┘   (amp always; pitch and cutoff optional)
-//!      └─────── LFO ──────────┘   (one target: pitch | cutoff | amp)
+//!   source ─► filter ─► amp envelope ─┐
+//!      ▲         ▲            ▲          │
+//!      ├──── envelopes ───────┘          ├─► + ─► fx chain
+//!      └─────── LFO ──────────┘          │
+//!   (up to three layers: the same path, │
+//!    each its own source and shapes) ───┘
 //! ```
+//!
+//! **Layers** are that `source → filter → amp` path again, up to
+//! [`MAX_LAYERS`](crate::patch::MAX_LAYERS) more times, summed before the one
+//! fx chain ([`voice`]). They share the note — pitch, velocity, timbre, glide,
+//! gate and the LFO — and each draws on its own seed. A song's `cutoff` curve
+//! moves the top-level filter only.
 //!
 //! An envelope has three possible destinations — the amplifier always, and
 //! optionally the filter cutoff and the note's own pitch. The pitch envelope is
@@ -53,7 +61,8 @@
 //! them may place above the played pitch), [`source`] (which of those runs),
 //! [`mod@env`] (ADSR), [`filter`] (state-variable filter), [`tracks`] (the
 //! per-sample curves the stages walk: pitch, cutoff, tremolo), [`sweep`] (a
-//! cutoff moved from outside the note), [`trim`] (where
+//! cutoff moved from outside the note), [`voice`] (one path of a note, and
+//! what its layers share), [`trim`] (where
 //! a baked one-shot's file ends).
 
 pub(crate) mod additive;
@@ -68,13 +77,14 @@ pub(crate) mod source;
 pub(crate) mod sweep;
 pub(crate) mod tracks;
 pub(crate) mod trim;
+mod voice;
 
 use super::error::SynthError;
 use super::fx;
-use super::note::{NoteOpts, midi_to_freq};
+use super::note::NoteOpts;
 use super::patch::Patch;
 use super::stereo::Stereo;
-use tracks::{cutoff_track, pitch_track, tremolo};
+use voice::{Struck, Voice, layer_seed};
 
 /// The one rate everything here renders at. 44.1 kHz is CD rate: the full
 /// audible band.
@@ -99,7 +109,7 @@ const MAX_SECONDS: f32 = 60.0;
 /// the raw stereo pair — **pre-limiter**, so a caller summing several notes
 /// can limit the sum instead of each part of it.
 ///
-/// Velocity is clamped once, here, and then handed to every stage that reads
+/// Velocity is clamped once per path, in one place, and then handed to every stage that reads
 /// it. Three stages now do — the FM source, the filter and the amp envelope —
 /// and if each clamped for itself, one of them eventually would not, and a
 /// note would be struck at three subtly different strengths at once.
@@ -128,39 +138,27 @@ pub(crate) fn render_swept(
 ) -> Result<Stereo, SynthError> {
     patch.validate()?;
     let gate = gate_length(opts.duration)?;
-    let n = sample_count(
-        gate,
-        patch.amp.r.max(0.0) + fx::tail_seconds(&patch.fx, &fx::NoTempo),
-    )?;
-    let velocity = opts.velocity.clamp(0.0, 1.0);
-    let brightness = (opts.velocity + opts.timbre).clamp(0.0, 1.0);
-
-    let freqs = pitch_track(
-        patch.lfo,
-        patch.pitch_env,
-        opts.glide,
-        midi_to_freq(midi),
+    // The note lasts as long as its longest-ringing layer does.
+    let release = patch
+        .layers
+        .iter()
+        .fold(patch.amp.r.max(0.0), |most, layer| most.max(layer.amp.r));
+    let n = sample_count(gate, release + fx::tail_seconds(&patch.fx, &fx::NoTempo))?;
+    let note = Struck {
+        midi,
+        opts,
+        lfo: patch.lfo,
         gate,
         n,
-    );
-    let pulse = osc::pulse::track(patch.lfo, n);
-    let mut buf = source::render(
-        &patch.source,
-        &freqs,
-        pulse.as_deref(),
-        opts.seed,
-        brightness,
-        gate,
-        RATE,
-    );
-    if let Some(f) = patch.filter {
-        // One cutoff track, both channels: the filter's *state* belongs to a
-        // channel, and the curve it is following belongs to the note.
-        let base = sweep.map(|sweep| sweep::swept(sweep, n));
-        let cutoffs = cutoff_track(&f, patch.lfo, gate, n, brightness, midi, base.as_deref());
-        buf.each(|channel| filter::apply(channel, &f, &cutoffs, RATE));
+        pulse: osc::pulse::track(patch.lfo, n),
+    };
+    // A song's sweep moves the top-level filter, and only that one.
+    let base = sweep.map(|sweep| sweep::swept(sweep, n));
+    let mut buf = note.voice(&Voice::top(patch), opts.seed, base.as_deref());
+    for (index, layer) in patch.layers.iter().enumerate() {
+        let part = note.voice(&Voice::layer(layer), layer_seed(opts.seed, index), None);
+        buf.add(&part);
     }
-    apply_amp(&mut buf, patch, gate, velocity);
     fx::apply_chain(&mut buf, &patch.fx, RATE);
     fx::close_tail(&mut buf, &patch.fx, RATE, &fx::NoTempo);
     Ok(buf)
@@ -211,23 +209,4 @@ fn sample_count(held: f32, tail: f32) -> Result<usize, SynthError> {
         });
     }
     Ok(((seconds * RATE).ceil() as usize).max(1))
-}
-
-/// Apply velocity, the amp envelope and any tremolo — the stage that turns a
-/// continuous tone into a note. `velocity` arrives already clamped from
-/// [`render_note`].
-fn apply_amp(buf: &mut Stereo, patch: &Patch, gate: f32, velocity: f32) {
-    let envelope = env::track(&patch.amp, gate, buf.frames(), RATE);
-    // The gain curve is worked out once and both channels are walked with it:
-    // an envelope is a property of the note, and a tremolo that ran at a
-    // slightly different phase on each side would be a stereo effect nobody
-    // asked for.
-    let gains: Vec<f32> = (0..buf.frames())
-        .map(|i| velocity * envelope[i] * tremolo(patch.lfo, i))
-        .collect();
-    buf.each(|channel| {
-        for (s, gain) in channel.iter_mut().zip(&gains) {
-            *s *= gain;
-        }
-    });
 }

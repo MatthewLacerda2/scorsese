@@ -18,6 +18,7 @@ use scorsese_zimmer::{Bake, bake_song};
 /// pitch it is played at, and nowhere else.
 fn tone() -> Patch {
     Patch {
+        layers: Vec::new(),
         source: Source::OscStack {
             oscs: vec![osc(Wave::Sine, 0.0, 0)],
         },

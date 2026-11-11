@@ -135,11 +135,15 @@ Fixed, always, in this order. A recipe chooses what fills each stage, never how
 they connect:
 
 ```
-source ─► filter ─► amp envelope ─► fx
-   ▲         ▲            ▲
-   ├──── envelopes ───────┘        amp always; pitch and cutoff optional
-   └─────── lfo ──────────┘        one target: pitch | cutoff | amp | pulse_width
+source ─► filter ─► amp envelope ─┬─► + ─► fx
+   ▲         ▲            ▲        │
+   ├──── envelopes ───────┘        │   amp always; pitch and cutoff optional
+   └─────── lfo ──────────┘        │   one target: pitch | cutoff | amp | pulse_width
+layers: up to 3 more, each its own │
+source ─► filter ─► amp ───────────┘
 ```
+
+The `layers` row is [More than one sound in a note](#more-than-one-sound-in-a-note).
 
 **`source`** — one of six, tagged by `kind`:
 
@@ -953,6 +957,59 @@ Three things worth knowing:
   wobble around it. `karplus` is the exception and always was: its delay line
   is sized once when the string is plucked, so neither an LFO nor a pitch
   envelope reaches it.
+
+### More than one sound in a note
+
+Most struck sounds are two things at once, each with its own shape: a snare
+is a noise crack over a pitched body, a kick a click over a falling sine, a
+piano a hammer over a string. `layers` writes the second (and third, and
+fourth) thing into the same patch, so one note plays all of them and nothing
+has to be kept in step by hand.
+
+```json recipe
+{
+  "recipe": "patch",
+  "note": "D3",
+  "duration": 0.05,
+  "patch": {
+    "source": { "kind": "noise", "color": "pink" },
+    "amp": { "a": 0.0005, "d": 0.12, "s": 0.0, "r": 0.03, "curve": 4.0 },
+    "filter": {
+      "kind": "highpass", "cutoff": 1800, "resonance": 0.1,
+      "adsr": { "a": 0.0, "d": 0.0, "s": 1.0, "r": 0.0 }
+    },
+    "layers": [{
+      "source": { "kind": "osc_stack", "oscs": [{ "wave": "triangle" }] },
+      "amp": { "a": 0.0005, "d": 0.09, "s": 0.0, "r": 0.03, "curve": 5.0 },
+      "pitch_env": {
+        "semitones": 7,
+        "adsr": { "a": 0.0, "d": 0.03, "s": 0.0, "r": 0.0, "curve": 4.0 }
+      },
+      "gain": 0.7
+    }],
+    "fx": [{ "fx": "reverb", "size": 0.2, "damp": 0.6, "mix": 0.1 }]
+  }
+}
+```
+
+That is a snare: the top-level sound is the crack, highpassed noise that
+sheds itself fast; the layer is the body, a triangle dropping a fifth onto D3
+and gone in 90 ms. Each has the envelope its half of the drum needs, which
+one source with one envelope cannot have.
+
+- **A layer is `source`, `amp` and optionally `filter` and `pitch_env`**, run
+  exactly as the patch's own are, plus a `gain` (linear, default 1) for how it
+  sits against them. The top-level fields are the first sound, so a patch
+  without `layers` is what it always was.
+- **A fixed parallel sum, not a graph.** The sounds are added and the patch's
+  one `fx` chain runs on the sum. No layer feeds another, a layer has no `fx`
+  or `lfo` of its own, and a layer holds no layers. Up to 3 layers: four
+  sounds in one note.
+- **What they share is the note**: its pitch, velocity, `timbre`, glide and
+  how long it is held, and the patch's `lfo`, which reaches every layer. Each
+  draws its own randomness from the seed, so two noise layers are two noises.
+- **The note rings as long as its longest layer.** A song's
+  [`cutoff` curve](#making-something-build) moves the top-level `filter` only.
 
 ## Music: `"recipe": "song"`
 
@@ -2146,7 +2203,9 @@ curve is read across every note it rides, its release included, so one chord
 held through an eight-bar build opens with it: write a riser as the one held
 note it would be played as, not as a part re-struck every 32nd to fake a
 sweep. `gain` and `pan` are faders, so they are read every sample on the
-track's bus and a held chord swells.
+track's bus and a held chord swells. On a [layered](#more-than-one-sound-in-a-note)
+patch a `cutoff` curve moves the top-level `filter` only; one whose only
+filters are in its layers has no filter to move and is refused.
 
 **Under `fit`, beats keep counting from the start of the rendered piece.** A
 `stretch` moves the tempo and leaves the beats alone, so the build stretches
@@ -3185,9 +3244,14 @@ a `ratio` that is not a positive number on any partial or on any of an `fm4`
 source's four operators. The last two name the entry they are complaining about
 — a partial by its index, an operator by its number.
 
+**[Layers](#more-than-one-sound-in-a-note)** — more than 3, one at a `gain`
+that is not a positive number, and a layer whose own source or filter is
+refused for any reason above. Each names the layer by its index in `layers`,
+counted from zero.
+
 **Everywhere else**: a `pulse_width` on a wave other than `square`, an LFO
-aimed at `pulse_width` on a patch with no square, a cutoff at or below 0 Hz, a
-negative LFO rate, a note of
+aimed at `pulse_width` on a patch with no square in any of its sounds, a
+cutoff at or below 0 Hz, a negative LFO rate, a note of
 no length, a note that would sound for more than 60 s counting the
 release and the effect tail (a 58 s drone through a long reverb is one; a song
 names it by track, pattern and beat), an arrangement naming a pattern that does not exist (in a layer as
