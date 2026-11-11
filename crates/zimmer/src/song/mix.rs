@@ -521,6 +521,39 @@ mod tests {
         }
     }
 
+    /// Whether a second sum is built changes the cost of a render and, in a
+    /// room, almost nothing audible — so it is asked here, by the number: a
+    /// room and a track holding something back, where a moving send counts as
+    /// holding back and a moving fader does not.
+    #[test]
+    fn a_sent_sum_is_built_for_a_partial_or_moving_send_into_a_room() {
+        let song = |send: f32, room: bool, param: &str| -> Song {
+            let fx = if room {
+                r#"{ "fx": "reverb", "size": 0.5, "damp": 0.5, "mix": 0.2 }"#
+            } else {
+                ""
+            };
+            serde_json::from_str(&format!(
+                r#"{{ "bpm": 120, "tracks": [{{ "name": "pad", "patch": "p", "send": {send} }}],
+                     "patterns": {{}}, "arrangement": [], "fx": [{fx}],
+                     "automation": [{{ "track": "pad", "param": "{param}",
+                                      "points": [{{ "beat": 0, "value": 0.5 }}] }}] }}"#
+            ))
+            .expect("the fixture reads")
+        };
+        let whole = |song: &Song| {
+            let scope = Scope::of(song, &Default::default(), &Clock::at(120.0)).expect("whole");
+            sends(song, &scope)
+        };
+        assert!(
+            !whole(&song(1.0, true, "gain")),
+            "everything sent, a fader moving"
+        );
+        assert!(whole(&song(1.0, true, "send")), "a moving send");
+        assert!(whole(&song(0.5, true, "gain")), "a written partial send");
+        assert!(!whole(&song(0.5, false, "send")), "no room to send into");
+    }
+
     /// The sum is a sum: the source arrives on top of what was there, the same
     /// way up, at the frame it was given.
     #[test]
