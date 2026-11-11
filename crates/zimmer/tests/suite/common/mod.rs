@@ -24,6 +24,7 @@ pub(crate) fn saw_patch() -> Patch {
         filter: None,
         pitch_env: None,
         lfo: None,
+        lfo2: None,
         fx: vec![],
     }
 }
@@ -37,6 +38,7 @@ pub(crate) fn minimal(source: Source) -> Patch {
         filter: None,
         pitch_env: None,
         lfo: None,
+        lfo2: None,
         fx: vec![],
     }
 }

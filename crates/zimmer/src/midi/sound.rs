@@ -71,6 +71,7 @@ fn plain(source: Source, amp: Adsr) -> Patch {
         filter: None,
         pitch_env: None,
         lfo: None,
+        lfo2: None,
         fx: vec![],
     }
 }

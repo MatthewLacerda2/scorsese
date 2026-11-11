@@ -47,11 +47,7 @@ fn the_filter_envelope_sweeps_the_cutoff_over_the_note() {
 #[test]
 fn a_pitch_lfo_bends_the_note() {
     let mut vibrato = saw_patch();
-    vibrato.lfo = Some(Lfo {
-        rate: 6.0,
-        depth: 2.0,
-        target: LfoTarget::Pitch,
-    });
+    vibrato.lfo = Some(Lfo::new(6.0, 2.0, LfoTarget::Pitch));
     let plain = render(&saw_patch(), 69.0, &opts(1.0));
     let bent = render(&vibrato, 69.0, &opts(1.0));
     assert_ne!(
@@ -75,11 +71,7 @@ const AROUND: usize = 60;
 #[test]
 fn a_tremolo_lfo_touches_level_and_not_pitch() {
     let mut patch = saw_patch();
-    patch.lfo = Some(Lfo {
-        rate: 6.0,
-        depth: 1.0,
-        target: LfoTarget::Amp,
-    });
+    patch.lfo = Some(Lfo::new(6.0, 1.0, LfoTarget::Amp));
     let plain = render(&saw_patch(), 69.0, &opts(1.0));
     let tremolo = render(&patch, 69.0, &opts(1.0));
     assert_eq!(
@@ -104,11 +96,7 @@ fn a_cutoff_lfo_wobbles_the_filter() {
     let mut patch = saw_patch();
     patch.filter = Some(lowpass(800.0, 0.5));
     let steady = render(&patch, 45.0, &opts(1.0));
-    patch.lfo = Some(Lfo {
-        rate: 3.0,
-        depth: 2.0,
-        target: LfoTarget::Cutoff,
-    });
+    patch.lfo = Some(Lfo::new(3.0, 2.0, LfoTarget::Cutoff));
     let wobbled = render(&patch, 45.0, &opts(1.0));
     assert_ne!(steady, wobbled);
     assert!(

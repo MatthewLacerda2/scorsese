@@ -86,6 +86,7 @@ use super::glide::{Slides, Trail};
 use super::mix::Mix;
 use super::shape::{limit, plan, shape};
 use super::{Articulation, Note, PatchRef, Song, sections};
+use crate::core::lfo::Onset;
 use crate::core::{self, RATE};
 use crate::error::{NoteAt, SynthError};
 use crate::hash::hash3;
@@ -411,11 +412,18 @@ pub(crate) fn mix_song(
                 // A note too long to render is only found here, where its
                 // gate is known in seconds; the refusal is told where the song
                 // writes it, since "a note" is no help in a piece of hundreds.
+                // Where the note sounds, so an LFO timed in beats keeps its
+                // phase on the song's grid rather than the note's.
+                let onset = Onset {
+                    grid: &clock,
+                    frame: at,
+                };
                 let rendered = core::render_swept(
                     instrument,
                     pitch,
                     &opts,
                     swept.as_ref().map(|sweep| sweep as &dyn Fn(usize) -> f32),
+                    Some(&onset),
                 )
                 .map_err(|error| {
                     error.at(NoteAt {

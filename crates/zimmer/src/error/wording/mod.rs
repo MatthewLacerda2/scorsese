@@ -9,8 +9,8 @@
 //! safe: a variant added next door and left without words here does not
 //! compile, and the error names it.
 //!
-//! **Five small groups are worded apart**: a square's pulse width in
-//! [`pulse`], where notes and echoes land against the beat in [`timing`], the
+//! **Six small groups are worded apart**: a square's pulse width in
+//! [`pulse`], an LFO's speed and onset in [`lfo`], where notes and echoes land against the beat in [`timing`], the
 //! curves that move a value across a piece in [`automation`], and **two more
 //! in [`length`] and [`source`]**: the refusals of `fit`, `fade`, `tail` and
 //! `anchors`, split off when this file reached the size gate, and the two
@@ -25,6 +25,7 @@
 
 mod automation;
 mod length;
+mod lfo;
 mod pulse;
 mod source;
 mod timing;
@@ -81,6 +82,11 @@ impl SynthError {
             Self::NegativeLfoRate { rate, .. } => {
                 write!(f, "patch: lfo `rate` must not be negative, got {rate}")
             }
+            Self::LfoTwoRates { .. }
+            | Self::LfoNoRate
+            | Self::BadLfoBeats { .. }
+            | Self::LfoBeatsWithoutTempo { .. }
+            | Self::BadLfoOnset { .. } => self.say_lfo(f),
             Self::PulseWidthOffSquare { .. } | Self::NoPulseToModulate => self.say_pulse(f),
 
             // ────────────────────────────────────────────────────────────────────

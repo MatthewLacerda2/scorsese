@@ -176,6 +176,7 @@ mod tests {
                 adsr,
             }),
             lfo: None,
+            lfo2: None,
             fx: Vec::new(),
         }
     }

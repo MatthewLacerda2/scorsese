@@ -34,11 +34,7 @@ fn wobbling(depth: f32, target: LfoTarget) -> Patch {
             key_track: 0.0,
             adsr: Adsr::default(),
         }),
-        lfo: Some(Lfo {
-            rate: RATE,
-            depth,
-            target,
-        }),
+        lfo: Some(Lfo::new(RATE, depth, target)),
         ..saw_patch()
     }
 }
