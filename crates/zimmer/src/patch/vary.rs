@@ -269,4 +269,77 @@ mod tests {
         );
         assert_ne!(layers[0].amp, pop().amp, "and was scattered");
     }
+
+    /// One take, pinned to the number: the patch's own path draws what it drew
+    /// before layers existed, and each layer's slots sit after it. A slot that
+    /// moves re-rolls every existing seed's take, and only exact numbers see it.
+    #[test]
+    fn one_take_lands_on_the_numbers_its_slots_give() {
+        let layer = crate::patch::Layer {
+            source: pop().source,
+            amp: pop().amp,
+            filter: pop().filter,
+            pitch_env: pop().pitch_env,
+            gain: 1.0,
+        };
+        let take = Patch {
+            layers: vec![layer],
+            ..pop()
+        }
+        .varied(1.0, 4);
+        let numbers = |amp: Adsr, filter: Option<crate::patch::Filter>, env: Option<PitchEnv>| {
+            let (filter, env) = (filter.expect("filtered"), env.expect("bouncing"));
+            [
+                amp.a,
+                amp.d,
+                amp.r,
+                filter.cutoff,
+                filter.adsr.a,
+                filter.adsr.d,
+                filter.adsr.r,
+                env.semitones,
+                env.adsr.a,
+                env.adsr.d,
+                env.adsr.r,
+            ]
+        };
+        let own = [
+            0.000_528_609_8,
+            0.133_729_93,
+            0.019_052_863,
+            1580.8652,
+            0.001_739_532_3,
+            0.107_752_03,
+            0.035_319_33,
+            -8.031_763,
+            0.000_803_819_5,
+            0.105_488_114,
+            0.031_174_842,
+        ];
+        let layered = [
+            0.001_143_434_9,
+            0.135_319_35,
+            0.028_778_698,
+            1674.0792,
+            0.001_649_295_7,
+            0.125_252_7,
+            0.017_573_703,
+            -12.432_24,
+            0.000_506_302_4,
+            0.041_075_647,
+            0.011_167_941,
+        ];
+        let l = &take.layers[0];
+        for (got, want) in numbers(take.amp, take.filter, take.pitch_env)
+            .into_iter()
+            .zip(own)
+            .chain(
+                numbers(l.amp, l.filter, l.pitch_env)
+                    .into_iter()
+                    .zip(layered),
+            )
+        {
+            assert!((got / want - 1.0).abs() < 1e-5, "{got} against {want}");
+        }
+    }
 }

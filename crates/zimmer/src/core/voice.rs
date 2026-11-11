@@ -24,8 +24,7 @@ const LAYER_CHANNEL: u64 = 0x4c59; // "LY"
 /// The top-level sound keeps the note's own seed, which is what every patch
 /// before layers was struck with.
 pub(super) fn layer_seed(seed: u64, index: usize) -> u64 {
-    let draw = |half| u64::from(hash3(index as i64, half, LAYER_CHANNEL, seed));
-    draw(0) << 32 | draw(1)
+    u64::from(hash3(index as i64, 0, LAYER_CHANNEL, seed))
 }
 
 /// What every layer of one note shares: the pitch it is played at, how it is
@@ -211,9 +210,12 @@ mod tests {
             seed: layer_seed(opts.seed, 0),
             ..opts
         };
-        let mut part = render_note(&alone(&patch, layer), 60.0, &seeded).expect("renders");
-        part.each(|channel| channel.iter_mut().for_each(|s| *s *= layer.gain));
-        expected.add(&part);
+        let part = render_note(&alone(&patch, layer), 60.0, &seeded).expect("renders");
+        // Summed by hand rather than with `Stereo::add`, which is under test.
+        expected.resize(part.frames().max(expected.frames()));
+        for (sample, added) in expected.l.iter_mut().zip(&part.l) {
+            *sample += added * layer.gain;
+        }
         assert_eq!(sum.frames(), expected.frames());
         for (i, (a, b)) in sum.l.iter().zip(&expected.l).enumerate() {
             assert!((a - b).abs() < 1e-6, "frame {i}: {a} against {b}");

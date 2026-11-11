@@ -47,6 +47,8 @@ fn a_layered_patch_round_trips_without_writing_a_default() {
         layer.get("gain").is_none(),
         "unity gain was written: {layer}"
     );
+    let unwritten = SNARE.replace(",\n        \"gain\": 0.8", "");
+    assert_eq!(Patch::from_json(&unwritten).unwrap().layers[0].gain, 1.0);
     let bare = Patch {
         layers: Vec::new(),
         ..patch
