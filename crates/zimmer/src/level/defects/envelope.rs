@@ -142,7 +142,7 @@ mod tests {
         let sound = [most, vec![last]].concat();
         envelope.energy.clone_from(&sound);
         assert_eq!(envelope.mean(0..around), SOUNDING);
-        envelope.energy = [sound, vec![0.0; 10], vec![1e-2; 2 * around]].concat();
+        envelope.energy = [sound, vec![0.0; 10], vec![1e-2; around]].concat();
         let found = envelope.dropouts();
         assert_eq!(found.len(), 1, "{found:?}");
         assert_eq!(found[0].at, (around * envelope.block) as u64);
