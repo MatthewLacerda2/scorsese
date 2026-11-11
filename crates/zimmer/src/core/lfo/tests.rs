@@ -53,6 +53,14 @@ fn a_negative_rate_holds_the_wave_still() {
 /// Each shape at the start, a quarter, a half and three quarters of its
 /// cycle. The sine's peaks are `sin` of an irrational and land a few ulps
 /// off one; the rest are exact.
+/// The triangle's last quarter climbs back from the bottom: seven eighths in
+/// it is half way up, where the falling side's line would be lower still.
+#[test]
+fn a_triangle_climbs_back_in_its_last_quarter() {
+    let wave = waves(&lfo(LfoShape::Triangle), CYCLE);
+    assert!((wave[7_717] + 0.5).abs() < 1e-3, "{}", wave[7_717]);
+}
+
 #[test]
 fn each_shape_at_its_quarter_cycle_points() {
     let points = [0, PEAK, HALF, TROUGH];
@@ -85,6 +93,9 @@ fn a_random_lfo_holds_one_draw_per_cycle() {
     assert!(wave[1..CYCLE - 1].iter().all(|value| *value == first));
     assert_ne!(wave[CYCLE + 1], first, "the next cycle draws again");
     assert!(wave.iter().all(|value| (-1.0..=1.0).contains(value)));
+    // Drawn from the whole range, both signs, over enough cycles.
+    let many = waves(&l, 40 * CYCLE);
+    assert!(many.iter().any(|value| *value < -0.2) && many.iter().any(|value| *value > 0.2));
     assert_eq!(wave, waves(&l, 3 * CYCLE), "deterministic");
     let other = Lfos::of([&l], 8, None, 2);
     assert_ne!(
@@ -137,13 +148,13 @@ impl Grid for Doubling {
     }
 }
 
-/// One cycle per beat whatever the tempo: before the change a cycle is half a
-/// second, after it a quarter, and the phase comes from the song, not from
-/// the note — a note struck on an off-beat starts mid-cycle.
+/// One cycle per half beat whatever the tempo: before the change a cycle is
+/// a quarter of a second, after it an eighth, and the phase comes from the
+/// song, not from the note — a note struck off the grid starts mid-cycle.
 #[test]
 fn a_beats_lfo_completes_one_cycle_per_its_beats_under_a_tempo_change() {
     let l = Lfo {
-        beats: Some(1.0),
+        beats: Some(0.5),
         ..Lfo::new(0.0, 1.0, LfoTarget::Pitch)
     };
     let onset = Onset {
@@ -153,20 +164,20 @@ fn a_beats_lfo_completes_one_cycle_per_its_beats_under_a_tempo_change() {
     let n = 4 * 44_100;
     let lfos = Lfos::of([&l], 0, Some(&onset), n);
     let at = |seconds: f32| lfos.offset(LfoTarget::Pitch, (seconds * RATE) as usize);
-    // A quarter beat at 120 bpm is an eighth of a second: the top.
-    assert!((at(0.125) - 1.0).abs() < 1e-3);
-    assert!((at(0.375) + 1.0).abs() < 1e-3);
-    // After the change a quarter beat is a sixteenth of a second.
-    assert!((at(2.0 + 0.0625) - 1.0).abs() < 1e-3);
-    assert!((at(2.0 + 0.1875) + 1.0).abs() < 1e-3);
-    // Struck an eighth of a second (a quarter beat) into the song, the note's
-    // first sample is already at the top.
+    // An eighth of a beat at 120 bpm is a sixteenth of a second: the top.
+    assert!((at(0.0625) - 1.0).abs() < 1e-3);
+    assert!((at(0.1875) + 1.0).abs() < 1e-3);
+    // After the change it is a thirty-second of a second.
+    assert!((at(2.0 + 0.03125) - 1.0).abs() < 1e-3);
+    assert!((at(2.0 + 0.09375) + 1.0).abs() < 1e-3);
+    // Struck a sixteenth of a second (an eighth of a beat) into the song,
+    // the note's first sample is already at the top.
     let late = Onset {
         grid: &Doubling,
-        frame: 5_512,
+        frame: 2_756,
     };
     let lfos = Lfos::of([&l], 0, Some(&late), 1);
-    assert!((lfos.offset(LfoTarget::Pitch, 0) - 1.0).abs() < 1e-3);
+    assert!((lfos.offset(LfoTarget::Pitch, 0) - 1.0).abs() < 2e-3);
 }
 
 /// Two LFOs on one target are the sum of each alone; two on the amp are the

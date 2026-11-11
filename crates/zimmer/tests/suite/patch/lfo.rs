@@ -1,12 +1,11 @@
 //! The LFO as a document: its shapes, its onset, a rate in beats and a second
-//! one (#1772) — what is written, what is refused, and what a note does with
-//! them. `core::lfo` pins the curves by the number.
+//! one (#1772) — what is written and what is refused. `lfo_played` has what a
+//! note does with them, and `core::lfo` pins the curves by the number.
 
-use crate::common::songs::song;
-use crate::common::{minimal, opts, osc, refusal, render, saw_patch};
+use crate::common::{minimal, opts, osc, refusal, saw_patch};
 use scorsese_zimmer::patch::{Lfo, LfoShape, LfoTarget, Source, Wave};
-use scorsese_zimmer::song::{InlineOnly, PatchRef};
-use scorsese_zimmer::{Patch, SynthError, render_song};
+
+use scorsese_zimmer::{Patch, SynthError};
 
 fn vibrato() -> Lfo {
     Lfo::new(5.0, 0.5, LfoTarget::Pitch)
@@ -38,6 +37,13 @@ fn an_lfo_at_its_defaults_writes_only_what_it_always_did() {
     assert!(!json.contains("rate"), "a beats LFO writes no rate: {json}");
     let back = Patch::from_json(&json).expect("parse");
     assert_eq!(back.lfo, Some(on_the_beat()));
+    let shaped = Lfo {
+        shape: LfoShape::SawDown,
+        ..vibrato()
+    };
+    let json = with(shaped).to_json().expect("serialise");
+    assert!(json.contains("saw_down"), "the shape is lost from {json}");
+    assert_eq!(Patch::from_json(&json).expect("parse").lfo, Some(shaped));
 }
 
 #[test]
@@ -123,50 +129,4 @@ fn the_second_lfo_is_checked_like_the_first() {
         })
     };
     assert_eq!(squared.validate(), Ok(()));
-}
-
-/// Through its delay a vibrato moves nothing: the note is sample for sample
-/// the note with no LFO, and after it the two part.
-#[test]
-fn a_delayed_vibrato_leaves_the_start_of_the_note_alone() {
-    let late = with(Lfo {
-        delay: 0.2,
-        fade: 0.3,
-        depth: 1.0,
-        ..vibrato()
-    });
-    let plain = render(&saw_patch(), 60.0, &opts(0.8));
-    let moved = render(&late, 60.0, &opts(0.8));
-    let start = (0.2 * 44_100.0) as usize;
-    assert_eq!(moved[..start], plain[..start]);
-    assert_ne!(moved[start + 10_000..], plain[start + 10_000..]);
-}
-
-/// `lfo2` is an LFO like `lfo`: one written there renders what it renders in
-/// the first slot.
-#[test]
-fn the_second_slot_moves_the_note_as_the_first_does() {
-    let first = render(&with(vibrato()), 60.0, &opts(0.4));
-    let second = Patch {
-        lfo2: Some(vibrato()),
-        ..saw_patch()
-    };
-    assert_eq!(render(&second, 60.0, &opts(0.4)), first);
-}
-
-/// A song plays a patch whose LFO is timed in beats, and the same song plays
-/// it the same way twice.
-#[test]
-fn a_song_plays_an_lfo_timed_in_beats() {
-    let mut song = song();
-    let patch = Patch {
-        lfo: Some(Lfo {
-            shape: LfoShape::Square,
-            ..on_the_beat()
-        }),
-        ..saw_patch()
-    };
-    song.tracks[0].patch = PatchRef::Inline(Box::new(patch));
-    let once = render_song(&song, &InlineOnly).expect("the song renders");
-    assert_eq!(once, render_song(&song, &InlineOnly).expect("again"));
 }
