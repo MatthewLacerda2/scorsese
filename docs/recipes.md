@@ -3103,6 +3103,73 @@ a set, and one row under a summary of that row is the same sentence twice.
 One-shot patches are left out for the same kind of reason — an effect has no
 tempo, no arrangement and no mix to be the loudest thing in.
 
+## Which notes rub
+
+A wrong note is the fault a listener hears in the first second, and the one
+an author who cannot hear writes most easily here: pitch reaches a note through
+names, degrees, chords and their voicings, arpeggios, both transposes and
+layered entries, and the document never says which of its notes sound
+*together*. `synth_check` (and `scorsese synth check`) works that out and
+prints it under the parse line, for a song:
+
+```text
+recipes/theme.json: a song recipe, and it parses
+clashes: 3, 6 beats in all
+  2 beats: bass F2 against pad E3, chorus beat 2, 3 times
+out of E major:
+  bass 50% of its held notes
+    F2 for 2 beats, chorus beat 2, 3 times
+```
+
+A **clash** is two notes on **different tracks** a semitone apart — a minor
+second, a major seventh or a minor ninth, in any octave — held at the same
+time, measured in beats of overlap. Within one track nothing is flagged: a
+chord's own voicing is the author's. Tritones and whole tones are ordinary
+harmony and are not listed. The five longest are listed, each with the
+section it starts in (the entry's pattern, or its layers joined with ` + `),
+the beat into that section counted from `0` the way `start` is, and how many
+times the arrangement plays it there; the first line totals all of them,
+every repeat counted. Under a looping `fit`, a note still ringing at the end
+is heard over the top of the next pass and is read there.
+
+**Out of key** appears only when the song declares a [`key`](#saying-what-key-it-is-in):
+per track, the share of its notes' held time outside that scale, and its three
+longest offenders. A song with no `key` gets no such section, and none is
+guessed for it.
+
+**Time, not counts.** Anything held for less than an eighth of a beat is a
+passing note and is not counted at all, so a chromatic run over a chord stays
+out of the report and a bar-long rub leads it.
+
+**Which tracks are read.** A track whose source is `noise` is skipped, and so
+is one that never states a pitch — every entry a step string playing its
+default note, which is how percussion is written. A tuned drum that writes its
+notes (a tom fill) is read and named, so you can discount it.
+
+`synth_bake` adds **one line** when there is something to say, and stays silent
+otherwise, so a clean song's report does not grow:
+
+```text
+harmony: 3 clashes, longest 2 beats: bass F2 against pad E3, chorus beat 2, 3 times; out of E major: bass 50%
+```
+
+### Worked: a bass a semitone off
+
+The chorus above holds an E chord on the pad for its whole four beats, and the
+bass walks E2 to F2 halfway through:
+
+```jsonc
+{ "track": "pad", "chord": "E", "oct": 3, "start": 0, "dur": 4 },
+{ "track": "bass", "note": "E2", "start": 0, "dur": 2 },
+{ "track": "bass", "note": "F2", "start": 2, "dur": 2 }
+```
+
+Two beats of F against E is a mistake, not a colour: move the bass to a note
+of the chord (`"G#2"`, or back to `"E2"`), or change the pad under it for those
+two beats. A rub that is meant — a suspension that resolves, a cluster for
+unease — is left exactly as it is: **this is a signal, never a refusal**, and
+nothing here fails a bake.
+
 ## What is refused
 
 Only what would produce silence, a divide-by-zero, an unstable filter or an

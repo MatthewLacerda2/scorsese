@@ -205,7 +205,9 @@ pub(crate) fn bake(
         return Ok(());
     }
     super::save(&project, project_dir)?;
-    report(&baked, like);
+    report(&baked, like, |id| {
+        synth::asset_harmony(&project, project_dir, id).and_then(|it| it.headline())
+    });
     Ok(())
 }
 
@@ -230,6 +232,16 @@ pub(crate) fn check(recipe: &Path) -> Result<()> {
                 recipe.display(),
                 parsed.kind()
             );
+            // A song's harmony is read off the same parse, its named
+            // instruments from the project the recipe sits in, when it sits in
+            // one.
+            let root = recipe
+                .ancestors()
+                .skip(1)
+                .find(|dir| dir.join("project.json").is_file());
+            if let Some(harmony) = synth::harmony(&parsed, root) {
+                println!("{harmony}");
+            }
             Ok(())
         }
         // Reported as a plain failure rather than an `anyhow` chain, because
@@ -255,7 +267,10 @@ pub(crate) fn survey(project_dir: &Path) -> Result<()> {
 }
 
 /// What each bake did, and one line saying how much of it was free.
-fn report(baked: &Bakes, like: Option<&Reference>) {
+///
+/// `harmony` is the one line a song's harmony adds, or nothing for a clean
+/// one — so a clean song's report does not grow.
+fn report(baked: &Bakes, like: Option<&Reference>, harmony: impl Fn(&AssetId) -> Option<String>) {
     for (id, outcome) in &baked.baked {
         match outcome {
             Baked::Rendered {
@@ -298,6 +313,9 @@ fn report(baked: &Bakes, like: Option<&Reference>) {
                     println!("    {row}");
                 }
             }
+        }
+        if let Some(line) = harmony(id) {
+            println!("  {line}");
         }
     }
     println!("{}", baked.tally());

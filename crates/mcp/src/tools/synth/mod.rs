@@ -154,7 +154,10 @@ impl Tool for Check {
          your own file tools, or copied in — and say what it is, without \
          rendering it. Not needed before synth_write or after synth_new or \
          synth_set: those parse what they write and refuse what is not a \
-         recipe. Milliseconds rather than the seconds a bake takes."
+         recipe. For a song it also reports its harmony: where two parts hold \
+         notes a semitone apart, and which notes fall outside the key it \
+         declares — a signal, never a refusal. Milliseconds rather than the \
+         seconds a bake takes."
     }
 
     fn writes(&self) -> bool {
@@ -180,7 +183,13 @@ impl Tool for Check {
         }
         match synth::check(&json) {
             Ok(parsed) => {
-                Ok(format!("{relative}: a {} recipe, and it parses", parsed.kind()).into())
+                let mut said = format!("{relative}: a {} recipe, and it parses", parsed.kind());
+                // A song's harmony is read off the same parse: which parts
+                // rub, and which notes leave the key it declares.
+                if let Some(harmony) = synth::harmony(&parsed, Some(arguments.project.dir())) {
+                    said.push_str(&format!("\n{harmony}"));
+                }
+                Ok(said.into())
             }
             Err(problem) => Err(format!("{relative}: {problem}")),
         }

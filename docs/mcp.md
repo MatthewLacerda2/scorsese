@@ -2266,6 +2266,13 @@ as it writes it, so the song owns its instruments from then on and an upgrade
 never changes how it sounds. `synth_new` with an `instrument` starts a one-shot
 of one.
 
+Wrong notes are the one fault listening is not needed to find. `synth_check`
+on a song prints its **harmony**: where two parts hold notes a semitone apart,
+for how long and in which section, and which notes fall outside the `key` it
+declares; `synth_bake` adds one `harmony:` line when there is any, and nothing
+for a clean song. It is a signal and never a refusal — a rub that is meant
+stays ([`recipes.md`](recipes.md#which-notes-rub)).
+
 What to write in a recipe is [`recipes.md`](recipes.md).
 
 ### Not on the list: MIDI and the survey
