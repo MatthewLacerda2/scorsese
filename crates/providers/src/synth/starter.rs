@@ -101,6 +101,7 @@ fn pluck() -> Patch {
             // half octaves takes 700 Hz to just under 4 kHz.
             env_octaves: 2.5,
             vel_octaves: 0.0,
+            key_track: 0.0,
             adsr: Adsr {
                 a: 0.001,
                 d: 0.18,

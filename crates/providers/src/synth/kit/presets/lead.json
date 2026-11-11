@@ -5,8 +5,8 @@
   ] },
   "amp": { "a": 0.005, "d": 0.3, "s": 0.85, "r": 0.2, "curve": 2.0 },
   "filter": {
-    "kind": "lowpass", "cutoff": 5500, "resonance": 0.15,
-    "env_octaves": 0.8, "vel_octaves": 0.6,
+    "kind": "lowpass", "cutoff": 3900, "resonance": 0.15,
+    "env_octaves": 0.8, "vel_octaves": 0.6, "key_track": 0.5,
     "adsr": { "a": 0.002, "d": 0.3, "s": 0.4, "r": 0.2, "curve": 2.0 }
   },
   "lfo": { "rate": 5.5, "depth": 0.08, "target": "pitch" },

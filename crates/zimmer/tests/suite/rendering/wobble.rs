@@ -31,6 +31,7 @@ fn wobbling(depth: f32, target: LfoTarget) -> Patch {
             resonance: 0.0,
             env_octaves: 0.0,
             vel_octaves: 0.0,
+            key_track: 0.0,
             adsr: Adsr::default(),
         }),
         lfo: Some(Lfo {

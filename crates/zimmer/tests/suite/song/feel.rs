@@ -137,6 +137,7 @@ fn expressive() -> Song {
         resonance: 0.0,
         env_octaves: 0.0,
         vel_octaves: 3.5,
+        key_track: 0.0,
         adsr: Adsr::default(),
     });
     let mut expressive = steady();

@@ -564,6 +564,13 @@ fn gentle(slope: &Slope) -> bool {
     matches!(slope, Slope::Db12)
 }
 
+/// Whether a filter's cutoff ignores the note — the test that keeps
+/// `"key_track": 0.0` out of every saved document, for the reason
+/// [`is_white`] gives.
+fn untracked(key_track: &f32) -> bool {
+    *key_track == 0.0
+}
+
 /// The optional filter stage: a Chamberlin state-variable filter whose cutoff
 /// is swept by its own envelope — the move that makes a subtractive patch
 /// expressive rather than static.
@@ -641,6 +648,17 @@ pub struct Filter {
     /// produce an unstable filter.
     #[serde(default)]
     pub vel_octaves: f32,
+    /// How far the cutoff follows the note being played, in `0..=1`; clamped.
+    /// Defaults to `0.0`: a cutoff fixed in Hz whatever the pitch.
+    ///
+    /// The cutoff moves by `key_track × (midi − 60) / 12` octaves, a term of
+    /// the same sum as [`Filter::env_octaves`] and [`Filter::vel_octaves`]: at
+    /// `1.0` it moves an octave per octave, so a melody keeps its harmonics
+    /// up high and a bass keeps from buzzing down low. It pivots on middle C,
+    /// so the written `cutoff` is what C4 gets. It reads the written note
+    /// only, never a glide, pitch envelope or vibrato.
+    #[serde(default, skip_serializing_if = "untracked")]
+    pub key_track: f32,
     /// The cutoff envelope. Defaults to the same fast shape as
     /// [`Adsr::default`].
     #[serde(default)]
