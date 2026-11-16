@@ -8,7 +8,8 @@
 //! - **The count follows the length** ([`glance_count`]): between
 //!   [`GLANCE_FEWEST`] and [`GLANCE_MOST`].
 //! - **Candidates are sampled evenly**, twice as many as are kept, each in the
-//!   middle of its slice of the file.
+//!   middle of its slice of the file, a few decoded at once; one that decodes
+//!   nothing is skipped.
 //! - **A frame that shows nothing is dropped**: black, a flat colour, the
 //!   bottom of a fade.
 //! - **A frame nearly identical to the last one kept is dropped**, so a video
@@ -29,6 +30,12 @@ use scorsese_compositor::sheet::{self, Cell, MAX_CELLS};
 use scorsese_compositor::text::Font;
 use scorsese_core::words::Words;
 
+mod signature;
+mod transcript;
+
+use signature::Signature;
+use transcript::transcript;
+
 use super::sample::{self, label};
 use super::{ContactError, Sheet, decode};
 use crate::probe::Ffprobe;
@@ -48,12 +55,9 @@ const SECONDS_PER_FRAME: f64 = 15.0;
 /// How many candidates are sampled for each frame kept.
 const CANDIDATES_PER_FRAME: usize = 2;
 
-/// Cells across and down a [`Signature`].
-const SIGNATURE_SIDE: usize = 16;
-
-/// A frame whose cells' brightness spreads less than this (a standard
-/// deviation, on 0–255) shows nothing: black, a flat colour, a fade's bottom.
-const BLANK_SPREAD: f64 = 6.0;
+/// How many candidates are decoded at once: each is its own ffmpeg seek, and
+/// one after another a long file's two dozen take seconds.
+const DECODES_AT_ONCE: usize = 4;
 
 /// A frame whose cells differ from the last kept one's by less than this on
 /// average (on 0–255) is a near-repeat of it.
@@ -108,10 +112,12 @@ pub fn glance(
             }
         })?;
 
-    let mut frames = Vec::new();
-    for at in candidates(duration_seconds, count) {
-        frames.push((at, decode(tools, file, at, resolution)?));
-    }
+    let frames = decoded(
+        tools,
+        file,
+        &candidates(duration_seconds, count),
+        resolution,
+    )?;
     let signatures: Vec<Signature> = frames
         .iter()
         .map(|(_, frame)| Signature::of(frame))
@@ -138,6 +144,44 @@ pub fn glance(
         },
         transcript: words.and_then(transcript),
     })
+}
+
+/// Each of `moments` decoded at `resolution`, [`DECODES_AT_ONCE`] at a time,
+/// in order. A moment that decodes nothing — past where the picture ends in
+/// a file whose sound runs on — is left out; only when none decode is the
+/// first one's error the answer.
+fn decoded(
+    tools: &Tools,
+    file: &Path,
+    moments: &[f64],
+    resolution: scorsese_compositor::Resolution,
+) -> Result<Vec<(f64, Frame)>, ContactError> {
+    let mut results = Vec::with_capacity(moments.len());
+    for batch in moments.chunks(DECODES_AT_ONCE) {
+        std::thread::scope(|scope| {
+            let running: Vec<_> = batch
+                .iter()
+                .map(|&at| scope.spawn(move || (at, decode(tools, file, at, resolution))))
+                .collect();
+            for one in running {
+                results.push(one.join().expect("decoding a frame does not panic"));
+            }
+        });
+    }
+    let mut first_error = None;
+    let mut frames = Vec::with_capacity(results.len());
+    for (at, result) in results {
+        match result {
+            Ok(frame) => frames.push((at, frame)),
+            Err(error) => {
+                first_error.get_or_insert(error);
+            }
+        }
+    }
+    match first_error {
+        Some(error) if frames.is_empty() => Err(error),
+        _ => Ok(frames),
+    }
 }
 
 /// The moments sampled from something `seconds` long for a glance of
@@ -204,116 +248,10 @@ fn evenly(from: &[usize], count: usize) -> Vec<usize> {
     }
 }
 
-/// A frame's brightness averaged over a [`SIGNATURE_SIDE`]-square grid of
-/// cells: what two frames are compared by, and a blank one is told by.
-#[derive(Debug, Clone, PartialEq)]
-struct Signature([f64; SIGNATURE_SIDE * SIGNATURE_SIDE]);
-
-impl Signature {
-    fn of(frame: &Frame) -> Self {
-        let width = frame.resolution().width() as usize;
-        let height = frame.resolution().height() as usize;
-        let mut sums = [0.0; SIGNATURE_SIDE * SIGNATURE_SIDE];
-        let mut counts = [0_u32; SIGNATURE_SIDE * SIGNATURE_SIDE];
-        for (pixel, rgba) in frame.bytes().chunks_exact(4).enumerate() {
-            let (x, y) = (pixel % width, pixel / width);
-            let cell = (y * SIGNATURE_SIDE / height) * SIGNATURE_SIDE + x * SIGNATURE_SIDE / width;
-            sums[cell] += 0.299 * f64::from(rgba[0])
-                + 0.587 * f64::from(rgba[1])
-                + 0.114 * f64::from(rgba[2]);
-            counts[cell] += 1;
-        }
-        for (sum, count) in sums.iter_mut().zip(counts) {
-            *sum /= f64::from(count.max(1));
-        }
-        Self(sums)
-    }
-
-    /// Whether it shows nothing: its cells' brightness hardly spreads.
-    fn blank(&self) -> bool {
-        let mean = self.0.iter().sum::<f64>() / self.0.len() as f64;
-        let variance =
-            self.0.iter().map(|cell| (cell - mean).powi(2)).sum::<f64>() / self.0.len() as f64;
-        variance.sqrt() < BLANK_SPREAD
-    }
-
-    /// How far apart two frames are: their cells' mean absolute difference.
-    fn difference(&self, other: &Self) -> f64 {
-        self.0
-            .iter()
-            .zip(other.0.iter())
-            .map(|(a, b)| (a - b).abs())
-            .sum::<f64>()
-            / self.0.len() as f64
-    }
-}
-
-/// The most words one line of a transcript holds before it is broken.
-const WORDS_PER_LINE: usize = 16;
-
-/// A pause this long, in seconds, between two words starts a new line.
-const LINE_PAUSE: f64 = 1.0;
-
-/// `words` as lines, each led by when its first word starts: broken after a
-/// sentence ends, at a pause of [`LINE_PAUSE`], or at [`WORDS_PER_LINE`].
-/// `None` when there are no words.
-fn transcript(words: &Words) -> Option<String> {
-    let mut lines: Vec<String> = Vec::new();
-    let mut line: Vec<&str> = Vec::new();
-    let mut started = 0.0;
-    let mut previous_end: Option<f64> = None;
-    for word in &words.words {
-        let paused = previous_end.is_some_and(|end| word.start - end >= LINE_PAUSE);
-        if paused && !line.is_empty() {
-            lines.push(said_at(started, &line));
-            line.clear();
-        }
-        if line.is_empty() {
-            started = word.start;
-        }
-        line.push(&word.text);
-        previous_end = Some(word.end);
-        let ended = word.text.ends_with(['.', '?', '!', '…']);
-        if ended || line.len() >= WORDS_PER_LINE {
-            lines.push(said_at(started, &line));
-            line.clear();
-        }
-    }
-    if !line.is_empty() {
-        lines.push(said_at(started, &line));
-    }
-    (!lines.is_empty()).then(|| lines.join("\n"))
-}
-
-/// One line of a transcript: when it starts, as a cell's label reads, then
-/// its words.
-fn said_at(seconds: f64, words: &[&str]) -> String {
-    format!("{} {}", label(sample::tenths(seconds)), words.join(" "))
-}
-
 #[cfg(test)]
 mod tests {
+    use super::signature::tests::{busy, flat};
     use super::*;
-
-    fn flat(level: f64) -> Signature {
-        Signature([level; SIGNATURE_SIDE * SIGNATURE_SIDE])
-    }
-
-    /// A busy signature, one of its own for each `which`.
-    fn busy(which: usize) -> Signature {
-        let mut cells = [0.0; SIGNATURE_SIDE * SIGNATURE_SIDE];
-        for (index, cell) in cells.iter_mut().enumerate() {
-            *cell = 30.0 + ((index * 7 + which * 37) % 190) as f64;
-        }
-        Signature(cells)
-    }
-
-    #[test]
-    fn a_flat_frame_is_blank_and_a_busy_one_is_not() {
-        assert!(flat(0.0).blank());
-        assert!(flat(200.0).blank());
-        assert!(!busy(0).blank());
-    }
 
     #[test]
     fn blanks_and_repeats_are_dropped_and_the_rest_kept_in_order() {
@@ -353,27 +291,5 @@ mod tests {
         assert_eq!(evenly(&[1, 2, 3, 4, 5], 3), [1, 3, 5]);
         assert_eq!(evenly(&[4, 9], 1), [9]);
         assert_eq!(evenly(&[4, 9], 0), Vec::<usize>::new());
-    }
-
-    #[test]
-    fn a_transcript_breaks_at_sentences_and_pauses() {
-        let word = |text: &str, start: f64| scorsese_core::words::Word {
-            text: text.to_owned(),
-            start,
-            end: start + 0.3,
-        };
-        let words = Words {
-            words: vec![
-                word("So", 0.0),
-                word("then", 0.4),
-                word("later", 5.0),
-                word("on.", 5.4),
-                word("Done", 6.0),
-            ],
-        };
-        assert_eq!(
-            transcript(&words).as_deref(),
-            Some("0:00 So then\n0:05 later on.\n0:06 Done")
-        );
     }
 }

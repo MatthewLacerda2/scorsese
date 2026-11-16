@@ -14,6 +14,7 @@ use scorsese_render::contact::{self, ContactError, GLANCE_FEWEST, glance_count};
 use crate::common::ffmpeg::{generate, tools};
 use crate::common::scratch;
 
+mod decoding;
 mod words;
 
 /// `seconds` of a picture that changes all the time and never repeats —
@@ -126,29 +127,6 @@ fn a_video_that_never_changes_gets_the_floor() {
         "{:?}",
         glance.sheet.at_seconds
     );
-}
-
-/// All of it black still answers with a sheet: blank frames are what there
-/// is, and none at all would read as a broken file.
-#[test]
-fn a_video_of_nothing_but_black_still_shows_the_floor() {
-    let dir = scratch::dir("glance-all-black");
-    let tools = tools();
-    let file = dir.join("black.mp4");
-    generate(
-        &tools,
-        &file,
-        &[
-            "-f",
-            "lavfi",
-            "-i",
-            "color=c=black:s=96x54:r=5:d=30",
-            "-pix_fmt",
-            "yuv420p",
-        ],
-    );
-    let glance = contact::glance(&tools, &file, None, false).expect("a glance");
-    assert_eq!(glance.sheet.at_seconds.len(), GLANCE_FEWEST);
 }
 
 #[test]

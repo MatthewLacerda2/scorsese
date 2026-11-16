@@ -93,8 +93,8 @@ impl Tool for Look {
          `to` to look closely at one stretch — the frames then spread evenly \
          across it. Pass grid: true to have \
          every frame ruled in fractions of the source, which is what a clip's \
-         crop is measured in. Needs ffmpeg; decodes a handful of frames and \
-         encodes nothing."
+         crop is measured in. Needs ffmpeg; decodes at most two dozen frames \
+         (a glance) or five, and encodes nothing."
     }
 
     fn writes(&self) -> bool {
@@ -210,8 +210,9 @@ fn range(arguments: &Arguments) -> Result<Range, String> {
         None => MAX_FRAMES,
         Some(asked) if asked as usize > MAX_FRAMES => {
             return Err(format!(
-                "frames: {asked} is more than the {MAX_FRAMES} one sheet holds. \
-                 Ask for {MAX_FRAMES}, then call again from where the reply says."
+                "frames: {asked} is more than the {MAX_FRAMES} a sheet of chosen moments \
+                 holds. Ask for {MAX_FRAMES}, then call again from where the reply says — \
+                 or leave out from, to and frames for a glance across the whole file."
             ));
         }
         Some(asked) => asked as usize,
