@@ -1179,6 +1179,11 @@ that `moves_with` it, which keep their offset from the scene's start. A clip
 named nowhere stays exactly where it is, and the reply lists any whose scene
 changed under it.
 
+A narration clip is a chunk of a paragraph or a theme, not a sentence
+(`guide styles`, *Narrated captions*). A picture change inside a chunk goes on
+a video track above the scene's visuals, starting on its word, and under that
+scene's `moves_with`, so it keeps its place in the chunk when the scene moves.
+
 - **The end is the last word**, from the word timings kept beside a generated
   line. A line without them (imported speech, or one generated before timings
   were kept) is measured to the end of its clip, and the reply says which.

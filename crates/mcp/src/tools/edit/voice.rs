@@ -49,14 +49,15 @@ struct Arguments {
 /// One scene of `cut_to_voice`.
 #[derive(Deserialize, JsonSchema)]
 struct SceneArgument {
-    /// Id of the narration clip: the line this scene is cut to.
+    /// Id of the narration clip this scene is cut to: a chunk of a paragraph
+    /// or a theme, not a single sentence.
     line: String,
     /// Ids of the visual clips — a page, a shot, a title. Each one runs the
     /// whole scene; footage that would run past the end of its file is
     /// refused.
     visuals: Vec<String>,
     /// Ids of clips that keep their offset from the scene's start — its sound
-    /// effects, an overlay arriving part-way. Clips not named anywhere stay
+    /// effects, an overlay or a picture change arriving part-way on a word. Clips not named anywhere stay
     /// where they are.
     moves_with: Option<Vec<String>>,
     /// This scene's lead-in, in place of `lead_in_seconds`.
@@ -75,7 +76,10 @@ impl Tool for CutToVoice {
     fn description(&self) -> &'static str {
         "Cut a narrated video to its voice: each scene ends a gap after its \
          line's last word, and the next begins there. Name the scenes in order, \
-         each a narration clip and the visual clips that illustrate it. The \
+         each a narration clip and the visual clips that illustrate it; a line \
+         is a chunk of narration (a paragraph or a theme), and a picture change \
+         inside it, placed on its word on a track above, goes under \
+         `moves_with`. The \
          end is measured from the word timings kept with a generated line, or \
          from the end of the audio without them, and the reply says which. \
          Writes clip starts, durations and tracks only — re-run it after a line \
