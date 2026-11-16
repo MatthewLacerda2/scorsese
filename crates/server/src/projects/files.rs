@@ -50,6 +50,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
+use scorsese_core::bytes::format_bytes;
 use scorsese_core::{
     ASSETS_DIR, CACHE_DIR, GENERATED_DIR, PAGES_DIR, PROJECT_FILE_NAME, Project, ProjectPath,
     RECIPES_DIR,
@@ -59,8 +60,11 @@ use super::ProjectError;
 use super::media::MaterialiseError;
 use crate::db::Tx;
 
-/// The most one kept file may hold, in bytes — the table holds it to the same.
-pub const MAX_FILE_BYTES: usize = 1 << 20;
+/// The most one kept file may hold, in bytes. The table's own `CHECK` is
+/// looser on purpose (1 MiB; an applied migration is never edited), so a file
+/// kept under the old cap may exceed this and stays readable: only a new or
+/// changed file is held to it ([`gather`]).
+pub const MAX_FILE_BYTES: usize = 1_000_000;
 
 /// The most files one project may keep.
 pub const MAX_FILES: usize = 500;
@@ -79,9 +83,10 @@ impl ProjectFiles {
         let path = normal(path).ok_or_else(|| format!("{path} is not a file a project keeps"))?;
         if text.len() > MAX_FILE_BYTES {
             return Err(format!(
-                "{path} is {} bytes; the server keeps a project's recipes, pages and script up to \
-                 {MAX_FILE_BYTES} bytes each",
-                text.len()
+                "{path} is {}; the server keeps a project's recipes, pages and script up to \
+                 {} each",
+                format_bytes(text.len() as u64),
+                format_bytes(MAX_FILE_BYTES as u64)
             ));
         }
         self.0.insert(path, text);
@@ -197,7 +202,13 @@ pub fn gather(root: &Path, project: &Project, laid: &ProjectFiles) -> Result<Pro
         let Ok(text) = std::fs::read_to_string(&file) else {
             continue; // Not text: nothing a recipe or a script can be.
         };
-        files.insert(&key, text)?;
+        // A file already kept and untouched stays, even over a cap that
+        // has since come down; only a new or changed one is held to it.
+        if laid.get(&key) == Some(text.as_str()) {
+            files.0.insert(key, text);
+        } else {
+            files.insert(&key, text)?;
+        }
     }
     let total: usize = files.iter().map(|(_, text)| text.len()).sum();
     if files.len() > MAX_FILES || total > MAX_TOTAL_BYTES {
@@ -336,6 +347,42 @@ mod tests {
         ] {
             assert!(!kept(&project, path), "{path}");
         }
+    }
+
+    #[test]
+    fn a_file_is_held_to_a_decimal_megabyte_and_says_so_in_sizes() {
+        assert_eq!(MAX_FILE_BYTES, 1_000_000);
+        let mut files = ProjectFiles::default();
+        files
+            .insert("pages/a.js", "x".repeat(MAX_FILE_BYTES))
+            .unwrap();
+        let refused = files
+            .insert("pages/b.js", "x".repeat(1_200_000))
+            .unwrap_err();
+        assert_eq!(
+            refused,
+            "pages/b.js is 1.2 MB; the server keeps a project's recipes, pages and script up to \
+             1.0 MB each"
+        );
+    }
+
+    #[test]
+    fn a_file_kept_over_the_cap_stays_until_it_changes() {
+        let root = std::env::temp_dir().join(format!("gather-cap-{}", std::process::id()));
+        std::fs::create_dir_all(root.join("pages")).unwrap();
+        let big = "x".repeat(MAX_FILE_BYTES + 30_000);
+        std::fs::write(root.join("pages/big.js"), &big).unwrap();
+        let mut laid = ProjectFiles::default();
+        laid.0.insert("pages/big.js".to_owned(), big.clone());
+        let project = Project::new("p", Fps::default());
+        let kept = gather(&root, &project, &laid).expect("untouched, so kept");
+        assert_eq!(kept.get("pages/big.js").map(str::len), Some(big.len()));
+        std::fs::write(root.join("pages/big.js"), format!("{big}y")).unwrap();
+        assert!(
+            gather(&root, &project, &laid).is_err(),
+            "a changed one is held"
+        );
+        std::fs::remove_dir_all(&root).ok();
     }
 
     #[test]

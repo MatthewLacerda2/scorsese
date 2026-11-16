@@ -28,7 +28,7 @@ const HEAVY_MARKS: usize = 1_500;
 
 /// A file larger than this is one the web cannot keep beside the pages
 /// (`MAX_FILE_BYTES` in the server's project files).
-const HEAVY_BYTES: usize = 1 << 20;
+const HEAVY_BYTES: usize = 1_000_000;
 
 /// Why a picture could not be traced. Nothing is written by a refusal.
 #[derive(Debug, thiserror::Error)]

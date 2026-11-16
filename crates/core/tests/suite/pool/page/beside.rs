@@ -94,6 +94,11 @@ fn an_empty_or_oversized_file_is_refused() {
     let over = format!("{at_limit}x");
     let error = write_page_file(&dir, "big.json", &over).expect_err("over");
     assert!(matches!(error, PageFileError::TooLarge { bytes, .. } if bytes == over.len()));
+    assert_eq!(
+        error.to_string(),
+        "pages/big.json would be 1.0 MB; a file beside the pages holds at most 1.0 MB"
+    );
+    assert_eq!(MAX_PAGE_FILE_BYTES, 1_000_000);
     let kept = std::fs::read_to_string(dir.join("pages/big.json")).expect("kept");
     assert_eq!(
         kept.len(),

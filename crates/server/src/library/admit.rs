@@ -251,15 +251,13 @@ fn text(file: &Path, kind: Kind) -> Result<MediaMetadata, LibraryError> {
 }
 
 /// Why a page or a document over `cap` bytes is refused, in the same words
-/// whether its announcement or its bytes showed it. A page's cap is binary
-/// (a project file's), so it is said in MiB, exactly.
+/// whether its announcement or its bytes showed it.
 pub(super) fn too_large(kind: Kind, cap: usize) -> LibraryError {
-    let said = if cap.is_multiple_of(1 << 20) {
-        format!("{} MiB", cap >> 20)
-    } else {
+    LibraryError::Rejected(format!(
+        "{} can be at most {}",
+        article(kind),
         format_bytes(cap as u64)
-    };
-    LibraryError::Rejected(format!("{} can be at most {said}", article(kind)))
+    ))
 }
 
 /// "a video", "an image", "a sound", "a web page", "a document".
@@ -287,5 +285,18 @@ fn move_file(from: &Path, to: &Path) -> io::Result<()> {
             std::fs::remove_file(from)
         }
         other => other,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_page_over_its_cap_is_refused_in_decimal_sizes() {
+        let LibraryError::Rejected(said) = too_large(Kind::Html, 1_000_000) else {
+            panic!("a refusal");
+        };
+        assert_eq!(said, "a web page can be at most 1.0 MB");
     }
 }
