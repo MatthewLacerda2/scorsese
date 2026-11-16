@@ -133,6 +133,7 @@ fn silenced() -> ArrangementEntry {
         transpose: None,
         transpose_degrees: None,
         vel_scale: None,
+        repeat: false,
         tracks: Some(vec![]),
     })
 }

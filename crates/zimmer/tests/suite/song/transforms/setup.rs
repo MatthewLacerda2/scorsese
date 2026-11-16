@@ -23,6 +23,7 @@ pub(crate) fn play(pattern: &str) -> Play {
         transpose_degrees: None,
         vel_scale: None,
         tracks: None,
+        repeat: false,
     }
 }
 

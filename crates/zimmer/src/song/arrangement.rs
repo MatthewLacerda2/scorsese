@@ -172,6 +172,27 @@ pub struct Play {
     /// then a pattern is no longer a block of music.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tracks: Option<Vec<String>>,
+    /// Play again from the top each time the pattern runs out, until the
+    /// entry ends — a layer of a [`Layers`] entry only, the way a two-bar beat
+    /// sits under an eight-bar melody with each written once (#1793).
+    ///
+    /// **A repeating layer does not set the slot**: the slot is as long as the
+    /// longest layer that does not repeat, so an entry whose every layer
+    /// repeats is refused (nothing says how long it is), and so is `repeat` on
+    /// a single entry (nothing to repeat against). Each pass is played with
+    /// the layer's transforms, and is **played, not photocopied**: its notes
+    /// take their own places in the walk, so humanise scatters each pass
+    /// afresh, a `near` voicing leads from nothing at the top of each, and a
+    /// glide slides across the seam from the pass before.
+    ///
+    /// **The last pass is cut where the slot ends, not refused**: a note that
+    /// starts before the end plays, ringing past it as any note may, and one
+    /// that would start at or after it does not — the rule an
+    /// [`Arp`](super::Arp) follows when its figure does not divide its chord,
+    /// since a two-bar beat under a seven-bar phrase is an ordinary thing to
+    /// want.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub repeat: bool,
 }
 
 impl ArrangementEntry {
@@ -259,6 +280,12 @@ impl Layer {
             Self::Name(_) => 1.0,
             Self::Transformed(play) => play.vel_scale.unwrap_or(1.0),
         }
+    }
+
+    /// Whether this layer plays again until its entry ends — `false` for a
+    /// bare name.
+    pub fn repeats(&self) -> bool {
+        matches!(self, Self::Transformed(play) if play.repeat)
     }
 
     /// Whether a note on `track` sounds in this playing.

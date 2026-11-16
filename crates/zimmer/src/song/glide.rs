@@ -269,6 +269,7 @@ mod tests {
             transpose_degrees: None,
             vel_scale: None,
             tracks: None,
+            repeat: false,
         }
     }
 }

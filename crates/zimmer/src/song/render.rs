@@ -85,7 +85,7 @@ use super::feel::{Played, swung};
 use super::glide::{Slides, Trail};
 use super::mix::Mix;
 use super::shape::{limit, plan, shape};
-use super::{Articulation, Note, PatchRef, Song, sections};
+use super::{Articulation, Note, PatchRef, Song, sections, tile};
 use crate::core::lfo::Onset;
 use crate::core::{self, RATE};
 use crate::error::{NoteAt, SynthError};
@@ -298,19 +298,43 @@ pub(crate) fn mix_song(
         // Every layer starts on the slot's first beat, in the order written — an
         // entry that is not layered is one layer, walked exactly as it always
         // was, which is what keeps every song from before layers byte-identical.
+        let slot = song.slot_beats(entry).unwrap_or_default();
+        // A repeating layer's passes, laid end to end once per slot: its
+        // notes are new notes as far as the walk is concerned, each with its
+        // own ordinal, and who each slides from is worked out across the
+        // seams. Kept until the slot is walked, since that is where the hands
+        // move to where the last pass left them.
+        let mut tiles: Vec<Option<Tile>> = Vec::new();
         for layer in entry.layers() {
-            if !song.patterns.contains_key(layer.pattern()) {
+            let Some(pattern) = song.patterns.get(layer.pattern()) else {
                 return Err(SynthError::UnknownPattern {
                     pattern: layer.pattern().to_owned(),
                 });
-            }
-            let sliding = slides.get(layer.pattern());
-            for (index, note) in voiced
-                .get(layer.pattern())
-                .into_iter()
-                .flatten()
-                .enumerate()
-            {
+            };
+            let written = voiced.get(layer.pattern()).map_or(&[][..], Vec::as_slice);
+            let tile = if layer.repeats() {
+                let (notes, sources) = tile::tiled(layer, written, pattern.beats, slot);
+                let sliding = if slides.is_empty() {
+                    None
+                } else {
+                    Some(Slides::of(&notes, &track_index, song.tracks.len())?)
+                };
+                Some((notes, sources, sliding))
+            } else {
+                None
+            };
+            let (notes, sliding) = match &tile {
+                Some((notes, _, sliding)) => (notes.as_slice(), sliding.as_ref()),
+                None => (written, slides.get(layer.pattern())),
+            };
+            // Where the pattern writes note `index` of this playing: a pass of
+            // a repeat is told where its written note is, which is the only
+            // place a reader can find it.
+            let written_at = |index: usize| match &tile {
+                Some((_, sources, _)) => written[sources[index]].start,
+                None => written[index].start,
+            };
+            for (index, note) in notes.iter().enumerate() {
                 // A silenced track still consumes its ordinal, so muting one for
                 // eight bars does not re-roll the noise of every note after it.
                 let track = track_index[note.track.as_str()];
@@ -437,7 +461,7 @@ pub(crate) fn mix_song(
                     error.at(NoteAt {
                         pattern: layer.pattern().to_owned(),
                         track: note.track.clone(),
-                        start: note.start,
+                        start: written_at(index),
                     })
                 })?;
                 // Added to the track's own bus rather than straight to the master:
@@ -445,18 +469,23 @@ pub(crate) fn mix_song(
                 // and the two answer to different fields.
                 mix.add(track, &rendered, at);
             }
+            tiles.push(tile);
         }
         // Every hand moves to where this playing left it, whether or not the
         // notes that moved it were allowed to sound — see the module doc. Only
         // once the whole slot is walked, so a layer slides from where the
         // previous slot left a hand and never from a layer sounding beside it.
-        for layer in entry.layers() {
-            if let Some(slides) = slides.get(layer.pattern()) {
-                trail.advance(slides, layer, key.as_ref());
+        for (layer, tile) in entry.layers().iter().zip(&tiles) {
+            let moved = match tile {
+                Some((_, _, sliding)) => sliding.as_ref(),
+                None => slides.get(layer.pattern()),
+            };
+            if let Some(moved) = moved {
+                trail.advance(moved, layer, key.as_ref());
             }
         }
         // Every layer's pattern was found above, so the slot is known.
-        cursor_beats += song.slot_beats(entry).unwrap_or_default();
+        cursor_beats += slot;
     }
 
     // Track buses folded down and the song's own chain applied — everything
@@ -494,6 +523,11 @@ pub(crate) fn mix_song(
         gain,
     }))
 }
+
+/// A repeating layer's passes in one slot: the notes as walked, the index of
+/// the written note each is a pass of, and who each slides from when the song
+/// glides at all.
+type Tile = (Vec<Note>, Vec<usize>, Option<Slides>);
 
 /// Where a `cutoff` curve puts the filter at each sample-frame of a note
 /// struck on `beat`, counted from its onset — or `fallback`, the patch's own

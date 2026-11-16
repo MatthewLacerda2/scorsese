@@ -2,12 +2,14 @@
 //! reports are all read from.
 //!
 //! The renderer's own expansion, step for step: each entry voiced through
-//! [`PatternEntry::voice_into`], each layer's `tracks` filter applied, each
-//! pitch moved by [`Layer::played_pitch`]. What it leaves out is everything
+//! [`PatternEntry::voice_into`], a repeating layer laid out pass by pass,
+//! each layer's `tracks` filter applied, each pitch moved by
+//! [`Layer::played_pitch`]. What it leaves out is everything
 //! that only decides *how* a note is played (swing, humanise, articulation),
 //! since no report here reads a performance.
 
 use crate::song::chord::Led;
+use crate::song::tile::passes;
 use crate::song::{Context, PatternEntry, Song, Steps};
 
 /// One note as the arrangement plays it.
@@ -61,22 +63,24 @@ pub(super) fn walk(song: &Song, mut each: impl FnMut(Sounded)) {
                 let says = !matches!(written, PatternEntry::Steps(Steps { note: None, .. }));
                 stated.resize(voiced.len(), says);
             }
-            for (note, stated) in voiced.into_iter().zip(stated) {
+            let starts = |index: usize| voiced[index].start;
+            for (which, offset) in passes(layer, starts, voiced.len(), pattern.beats, slot) {
+                let note = &voiced[which];
                 if !layer.plays(&note.track) {
                     continue;
                 }
                 each(Sounded {
-                    track: note.track,
+                    track: note.track.clone(),
                     midi: note
                         .note
                         .to_midi()
                         .ok()
                         .map(|written| layer.played_pitch(written, key.as_ref())),
-                    start: at + note.start,
+                    start: at + offset + note.start,
                     dur: note.dur,
                     entry: index,
                     slot: at,
-                    stated,
+                    stated: stated[which],
                 });
             }
         }

@@ -1601,10 +1601,8 @@ groove had to be made three times.
 
 - **Every layer starts on the entry's first beat**, and **the entry is as long
   as its longest layer**: the next entry waits until everything in this one has
-  had its say. A shorter layer **rests** for the remainder rather than
-  repeating — the same rule a pattern's own `beats` states. A four-beat groove
-  under an eight-beat solo is two entries, or a solo written as two four-beat
-  patterns.
+  had its say. A shorter layer **rests** for the remainder — the same rule a
+  pattern's own `beats` states — unless it repeats (below).
 - **Each layer carries its own transforms, and only its own.** The solo above
   went up an octave and the groove under it did not. The same pattern twice is
   legal, so an octave double is one line:
@@ -1617,6 +1615,49 @@ groove had to be made three times.
   no other key (a `pattern` or `vel_scale` beside it is refused by name — put
   it on the layer it belongs to), and an empty `layers` is refused: a rest is a
   pattern with no notes and the `beats` it should last.
+
+#### A short part under a long one
+
+`"repeat": true` on a layer plays it again from its first beat each time it
+runs out, until the entry ends. A one-bar beat under a four-bar phrase is then
+one entry, each part written once at its own length — not the beat copied out
+four times, and not the phrase cut into four one-bar patterns:
+
+```json fields
+"tracks": [
+  { "name": "drums", "patch": "recipes/kit.json" },
+  { "name": "lead", "patch": "recipes/guitar.json" }
+],
+"patterns": {
+  "beat": { "beats": 4, "notes": [
+    { "track": "drums", "steps": "X---x---X---x---", "div": 0.25, "note": "C1", "vel": 0.6 }
+  ] },
+  "phrase": { "beats": 16, "notes": [
+    { "track": "lead", "note": "B4", "start": 0, "dur": 3 },
+    { "track": "lead", "note": "D5", "start": 4, "dur": 3 },
+    { "track": "lead", "note": "E5", "start": 8, "dur": 2 },
+    { "track": "lead", "note": "D5", "start": 10, "dur": 6 }
+  ] }
+},
+"arrangement": [
+  { "layers": ["phrase", { "pattern": "beat", "repeat": true }] },
+  { "layers": [{ "pattern": "phrase", "transpose": 12 }, { "pattern": "beat", "repeat": true, "vel_scale": 0.8 }] }
+]
+```
+
+- **A repeating layer does not set the entry's length**: the entry is as long
+  as its longest layer that does not repeat. So an entry whose every layer
+  repeats is refused (nothing says how long it is), and so is `repeat` on an
+  entry that is one pattern (nothing to repeat against). A slot holds at most
+  1024 passes: past that, one of the two `beats` is a typo, and it is refused.
+- **The last pass is cut where the entry ends, not refused.** A note that
+  starts before the end plays and rings on as any note may; one that would
+  start at or after it does not. A one-bar beat under a seven-bar phrase plays
+  seven times.
+- **Each pass is played, not photocopied.** The layer's transforms apply to
+  every pass; humanise scatters each one afresh; a `"near"` voicing leads from
+  nothing at the top of each pass; and a `glide` at the top of a pass slides
+  from the last note of the pass before, as it does from one entry to the next.
 
 ### Naming the sections
 
@@ -3512,7 +3553,10 @@ patch baked on its own, a note of
 no length, a note that would sound for more than 60 s counting the
 release and the effect tail (a 58 s drone through a long reverb is one; a song
 names it by track, pattern and beat), an arrangement naming a pattern that does not exist (in a layer as
-anywhere else), a layered entry with no layers, a note on a
+anywhere else), a layered entry with no layers, a layered entry whose every
+layer [repeats](#a-short-part-under-a-long-one), `repeat` on an entry that is
+one pattern, a repeat that would take more than 1024 passes to fill its entry,
+a note on a
 track that does not exist, a `tracks` filter naming one that does not either, a
 `vel_scale` below zero, a `swing` outside `0..1` (at 1 the off-beat lands on
 the next beat, which reorders the music), and a negative `humanize` amount —

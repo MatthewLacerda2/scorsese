@@ -119,6 +119,23 @@ impl SynthError {
                 f,
                 "song: arrangement entry has an empty `layers` — name at least one pattern, or write a rest as a pattern with no notes"
             ),
+            Self::EveryLayerRepeats { index } => write!(
+                f,
+                "song: every layer of `arrangement[{index}]` repeats, so nothing says how long it is — leave `repeat` off the layer that sets the length"
+            ),
+            Self::RepeatAlone { index, pattern } => write!(
+                f,
+                "song: `arrangement[{index}]` repeats `{pattern}` with nothing beside it to repeat against — put it in `layers` with the part that sets the length, or drop `repeat`"
+            ),
+            Self::TooManyPasses {
+                index,
+                pattern,
+                passes,
+                limit,
+            } => write!(
+                f,
+                "song: `arrangement[{index}]` repeats `{pattern}` {passes} times to fill its slot, more than the {limit} a slot may hold — check both patterns' `beats`"
+            ),
             Self::BadSectionName { name, taken: true } => write!(
                 f,
                 "song: two markers name the section `{name}` — a name says which section, so give the second its own (`\"{name} 2\"`)"

@@ -973,6 +973,13 @@ exclude_re = [
     # equivalent and is caught by `a_triangle_climbs_back_in_its_last_quarter`.
     'core/lfo\.rs:150:33: replace < with <= in shape',
     'core/lfo\.rs:151:33: replace < with <= in shape',
+
+    # `tile::passes` stops laying passes at `offset < slot`; `<=` adds one
+    # more pass starting exactly where the slot ends, and every note of it is
+    # dropped by the per-note `offset + start < slot` (a start is never
+    # negative), so the notes returned are the same for every input. `<` → `>`
+    # and `==` are not equivalent and are caught by the module's own tests.
+    'song/tile\.rs:43:42: replace < with <= in passes',
 ]
 
 # ---------------------------------------------------------------------------

@@ -67,6 +67,7 @@ pub(crate) mod sections;
 pub(crate) mod shape;
 pub(crate) mod steps;
 pub(crate) mod tempo;
+pub(crate) mod tile;
 pub(crate) mod timing;
 mod validate;
 
@@ -566,16 +567,19 @@ impl Song {
     }
 
     /// How many beats `entry` occupies: its longest layer's pattern, so the
-    /// next entry starts when everything in this one has had its say.
+    /// next entry starts when everything in this one has had its say. A layer
+    /// that [repeats](Play::repeat) plays until the slot ends and so has no
+    /// say in where that is.
     ///
-    /// `None` when it names no pattern this song defines — validation refuses
-    /// that, and every walk that tolerates an unvalidated document skips it.
-    /// A layered entry naming one real pattern and one typo is the length of
-    /// the real one, for the same reason.
+    /// `None` when it names no pattern this song defines, or when every layer
+    /// repeats — validation refuses both, and every walk that tolerates an
+    /// unvalidated document skips it. A layered entry naming one real pattern
+    /// and one typo is the length of the real one, for the same reason.
     pub(crate) fn slot_beats(&self, entry: &ArrangementEntry) -> Option<f32> {
         entry
             .layers()
             .iter()
+            .filter(|layer| !layer.repeats())
             .filter_map(|layer| self.patterns.get(layer.pattern()))
             .map(|pattern| pattern.beats)
             .reduce(f32::max)

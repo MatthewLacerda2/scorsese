@@ -43,6 +43,7 @@ impl Song {
                 self.check_layer(layer, key.as_ref())?;
             }
         }
+        super::tile::check(self)?;
         self.check_markers()?;
         for (name, pattern) in &self.patterns {
             pattern.validate(name, &self.tracks, key.as_ref())?;

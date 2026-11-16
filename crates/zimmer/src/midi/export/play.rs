@@ -13,6 +13,7 @@ use super::drums::Voice;
 use crate::SynthError;
 use crate::song::articulation::Stroke;
 use crate::song::feel::swung;
+use crate::song::tile::passes;
 use crate::song::{Articulation, Note, Song};
 
 /// The percussion channel as the wire counts it — channel 10 to a musician.
@@ -110,12 +111,16 @@ pub(super) fn parts<'s>(song: &'s Song, voices: &[Voice]) -> Result<Played<'s>, 
         let Some(slot) = song.slot_beats(entry) else {
             continue;
         };
-        for (layer, note) in entry.layers().iter().flat_map(|layer| {
-            voiced
+        for (layer, note, offset) in entry.layers().iter().flat_map(|layer| {
+            let written = voiced.get(layer.pattern()).map_or(&[][..], Vec::as_slice);
+            let beats = song
+                .patterns
                 .get(layer.pattern())
+                .map_or(0.0, |it| it.beats);
+            let starts = |index: usize| written[index].start;
+            passes(layer, starts, written.len(), beats, slot)
                 .into_iter()
-                .flatten()
-                .map(move |note| (layer, note))
+                .map(move |(index, offset)| (layer, &written[index], offset))
         }) {
             if !layer.plays(&note.track) {
                 continue;
@@ -134,7 +139,7 @@ pub(super) fn parts<'s>(song: &'s Song, voices: &[Voice]) -> Result<Played<'s>, 
                 continue;
             };
             let swing = song.tracks[track].swing.unwrap_or(song.swing);
-            let onset = cursor + f64::from(swung(note.start, swing));
+            let onset = cursor + f64::from(swung(offset + note.start, swing));
             let held = f64::from(note.dur * stroke.gate);
             let start = ticks(onset);
             parts[track].notes.push(Struck {
