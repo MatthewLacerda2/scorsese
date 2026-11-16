@@ -129,3 +129,22 @@ fn a_one_shot_says_how_much_it_was_limited() {
     assert!(bake.profile.sections.is_empty());
     assert!(bake.profile.whole.limited_db.is_some());
 }
+
+/// A gain track is averaged in decibels, so a factor of zero would be an
+/// infinity and a `NaN` would poison the row: both count as untouched, and a
+/// gain the run does not reach counts as 1.0.
+#[test]
+fn a_gain_that_is_not_a_positive_number_counts_as_untouched() {
+    let mut profiler = scorsese_zimmer::level::Profiler::new(1, 1_000);
+    let half = 10f32.powf(-6.0 / 20.0);
+    profiler.feed_limited(&[0.5; 4], &[half, 0.0, f32::NAN]);
+    let taken = profiler
+        .finish()
+        .whole
+        .limited_db
+        .expect("a gain track was fed");
+    assert!(
+        (taken - 1.5).abs() < 1e-6,
+        "6 dB over one frame of four: {taken}"
+    );
+}

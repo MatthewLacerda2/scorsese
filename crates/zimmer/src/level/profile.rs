@@ -299,12 +299,12 @@ impl Section {
     }
 
     /// Counts `frames` frames of gain, of which `gain` holds the first; the
-    /// rest were left alone. A factor that is not a positive number counts as
-    /// untouched rather than as an infinity.
+    /// rest were left alone. A factor that is not a positive number (a zero,
+    /// a `NaN`) counts as untouched rather than as an infinity.
     fn limited(&mut self, gain: &[f32], frames: usize) {
         let taken: f64 = gain
             .iter()
-            .filter(|g| **g > 0.0 && **g < 1.0)
+            .filter(|g| **g > 0.0)
             .map(|g| -20.0 * f64::from(*g).log10())
             .sum();
         let (sum, counted) = self.reduced.get_or_insert((0.0, 0));
