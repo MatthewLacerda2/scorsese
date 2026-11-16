@@ -57,7 +57,8 @@ async fn visitors_stored_before_input_are_judged_by_where_and_how_far(pool: PgPo
         &view,
     )
     .await;
-    // People: one from Virginia who scrolled, and anyone from elsewhere.
+    // People: one from Virginia who scrolled, one from Iowa who sent a prompt
+    // from the first screen, and anyone from elsewhere.
     before_input(
         &pool,
         "4b7f6a3e-9c1d-4e2f-8a5b-000000000003",
@@ -79,6 +80,14 @@ async fn visitors_stored_before_input_are_judged_by_where_and_how_far(pool: PgPo
         &view,
     )
     .await;
+    let prompted = [("view", 0), ("prompt", 0)];
+    before_input(
+        &pool,
+        "4b7f6a3e-9c1d-4e2f-8a5b-000000000007",
+        ("US", "IA"),
+        &prompted,
+    )
+    .await;
     scorsese_server::db::migrate(&pool).await.unwrap();
     // A browser first seen since is judged by its input alone, wherever it is.
     ab::record(
@@ -94,8 +103,8 @@ async fn visitors_stored_before_input_are_judged_by_where_and_how_far(pool: PgPo
     .unwrap();
 
     let report = report(&pool).await;
-    assert!(report.contains("  left out: 3 loads"), "{report}");
+    assert!(report.contains("  left out: 3 visitors"), "{report}");
     assert!(report.contains("US-VA        a 1 visitors"), "{report}");
-    assert!(!report.contains("US-IA"), "{report}");
+    assert!(report.contains("US-IA        a 1 visitors"), "{report}");
     assert!(report.contains("BR-SP        a 1 visitors"), "{report}");
 }

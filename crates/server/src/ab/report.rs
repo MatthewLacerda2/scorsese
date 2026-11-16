@@ -12,7 +12,7 @@
 //! Only what happened from a visitor's exposure on counts towards a test, and
 //! only a visitor the page saw a person use (#1797): one with an `input`
 //! event, or one migration `0054` judged a person before `input` existed
-//! (`ab_visitors.person_before_input`). The rest are counted apart, as loads
+//! (`ab_visitors.person_before_input`). The rest are counted apart, as visitors
 //! left out, so the operator sees how many there were.
 
 use std::collections::BTreeMap;
@@ -112,7 +112,7 @@ fn render(seen: &[Seen]) -> String {
         if test.left_out > 0 {
             let _ = writeln!(
                 out,
-                "  left out: {} load{} the page never saw a person use",
+                "  left out: {} visitor{} the page never saw a person use",
                 test.left_out,
                 if test.left_out == 1 { "" } else { "s" }
             );
@@ -126,7 +126,7 @@ fn render(seen: &[Seen]) -> String {
     out
 }
 
-/// One test's visitors, by version, and how many loads were left out.
+/// One test's visitors, by version, and how many were left out.
 #[derive(Default)]
 struct Test<'a> {
     versions: BTreeMap<&'a str, Vec<&'a Seen>>,

@@ -43,19 +43,20 @@ fn the_report_names_each_version_its_shares_and_the_verdict() {
 }
 
 #[test]
-fn a_load_no_person_used_is_left_out_and_counted_apart() {
+fn a_visitor_no_person_used_is_left_out_and_counted_apart() {
     let mut bot = seen("a", 9, true, None);
     bot.person = false;
     let report = render(&[bot.clone(), bot.clone(), seen("b", 9, false, None)]);
     assert!(
-        report.starts_with("test heading\n  left out: 2 loads the page never saw a person use\n"),
+        report
+            .starts_with("test heading\n  left out: 2 visitors the page never saw a person use\n"),
         "{report}"
     );
     assert!(!report.contains("\n  a "), "{report}");
     assert!(report.contains("needs 49 more visitors"), "{report}");
     assert_eq!(
         render(&[bot]),
-        "test heading\n  left out: 1 load the page never saw a person use\n  no visitor counted yet\n"
+        "test heading\n  left out: 1 visitor the page never saw a person use\n  no visitor counted yet\n"
     );
 }
 

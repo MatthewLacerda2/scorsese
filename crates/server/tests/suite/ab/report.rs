@@ -89,7 +89,7 @@ async fn the_report_counts_each_version_from_its_exposure_on(pool: PgPool) {
 
     let report = report(&pool).await;
     assert!(
-        report.contains("  left out: 30 loads the page never saw a person use\n"),
+        report.contains("  left out: 30 visitors the page never saw a person use\n"),
         "{report}"
     );
     let row = |version: &str| -> Vec<String> {

@@ -3029,8 +3029,9 @@ to it on. Nothing is sent from a browser driven by a script
 visitor with an `input` is counted**: datacenter browsers pass both checks
 (#1797), and the report prints how many loads it left out. Visitors stored
 before `input` existed were judged once by migration `0054`: left out if
-Cloudflare placed them in Virginia or Iowa and they reached no section, which
-is what the automated loads had in common. The visitor's country and region
+Cloudflare placed them in Virginia or Iowa and they reached no section, no end,
+sent no prompt and never signed in, which is what the automated loads had in
+common. The visitor's country and region
 (`ab_visitors`) are Cloudflare's, from the tunnel's door only, as
 `deploy/nginx.conf` passes them (`X-Scorsese-Country`, `X-Scorsese-Region`);
 no city, no address. **A Google sign-in links the visitor to the account**
