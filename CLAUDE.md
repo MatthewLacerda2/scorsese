@@ -4,9 +4,9 @@
 human or a Claude agent assembles a video from a JSON project file and renders
 it headlessly, and a GUI lets humans scrub, tweak and review.
 
-**Scorsese is in wind-down and will be archived: no new features.** Work is
-taken up only for good use of Rust, the AI workflow or security; an issue for
-anything else is closed as not planned, whatever a rule below says.
+**Scorsese is in wind-down: the web app closes, the repository stays open.**
+A new issue is filed only for good use of Rust, the AI workflow or security,
+whatever a rule below says; an open issue without a stage label is wanted.
 
 Use plain language with the user and explain things at a high level; go into
 Rust, ffmpeg or the compositor only when it is needed. The user does not read
