@@ -20,8 +20,9 @@ use std::path::Path;
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
+use scorsese_core::words::Words;
 use scorsese_providers::chat::ResultPart;
-use scorsese_render::{Tools, frames};
+use scorsese_render::{Tools, contact, frames};
 
 /// The longest edge of a picture the person attached to a message (#1562):
 /// enough to read what it shows, at most 1,369 tokens (⌈w/28⌉ × ⌈h/28⌉,
@@ -37,6 +38,24 @@ pub(super) fn attached(ffmpeg: &Tools, file: &Path) -> Result<ResultPart, String
         media_type: frames::JPEG.to_owned(),
         data: STANDARD.encode(jpeg),
     })
+}
+
+/// A glance at the video the person attached in `file` (#1563), with
+/// `words` as its transcript: the sheet as the JPEG the model is sent, at
+/// [`ATTACHED_EDGE`] like an attached picture, and the glance it came from.
+pub(super) fn glanced(
+    ffmpeg: &Tools,
+    file: &Path,
+    words: Option<&Words>,
+) -> Result<(ResultPart, contact::Glance), String> {
+    let glance = contact::glance(ffmpeg, file, words, false).map_err(|error| error.to_string())?;
+    let jpeg = frames::frame_for_a_model(ffmpeg, &glance.sheet.image, ATTACHED_EDGE)
+        .map_err(|error| error.to_string())?;
+    let sheet = ResultPart::Image {
+        media_type: frames::JPEG.to_owned(),
+        data: STANDARD.encode(jpeg),
+    };
+    Ok((sheet, glance))
 }
 
 /// A base64 picture as the JPEG the model is sent, or a line saying it is

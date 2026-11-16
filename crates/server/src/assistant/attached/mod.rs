@@ -15,10 +15,18 @@
 //!   picture, are named in the note only.
 //! - **Documents**: the text of each, up to [`MAX_INLINE_CHARS`]; a longer one
 //!   is named, to read with `library_read` a page at a time.
-//! - **Video and sound**: named only. Showing a video to a model is #1563's.
+//! - **Videos**: a glance at each (#1563), one sheet of frames chosen across
+//!   it ([`scorsese_render::contact::glance`]), counted as one of the
+//!   [`MAX_PICTURES`]; past them, named only. A video the library has heard
+//!   brings its transcript too, as text, cut at [`MAX_INLINE_CHARS`]; one it
+//!   has not is said to have none, and is never sent to be heard.
+//! - **Sounds**: named only. A transcript without a picture would be the
+//!   only thing shown of one, which nothing here decides yet.
 //!
 //! The note is the server's, which vouches for it; what a file holds is the
 //! person's, so it is never put in the note.
+
+mod video;
 
 use std::collections::HashSet;
 
@@ -32,6 +40,7 @@ use crate::http::AppState;
 use crate::library::{Item, Kind, LibraryError};
 use crate::projects::{self, ProjectError};
 use crate::tools::Refusal;
+use video::video;
 
 /// The most files one message carries: more than a tray shows, far fewer
 /// than would crowd the model's note.
@@ -148,29 +157,31 @@ pub(super) async fn attach(
         let (line, shown) = match item.kind {
             Kind::Text => document(state, user, item).await,
             Kind::Image if images.len() < MAX_PICTURES => picture(state, user, item).await,
-            Kind::Image => (
+            Kind::Video if images.len() < MAX_PICTURES => video(state, user, item).await,
+            Kind::Image | Kind::Video => (
                 format!(
                     "{} “{}” — not shown to you: a message shows at most {MAX_PICTURES} pictures",
                     item.id, item.name
                 ),
-                None,
+                Vec::new(),
             ),
-            Kind::Video | Kind::Audio => (
+            Kind::Audio => (
                 format!(
                     "{} “{}” — a {}: not shown to you, only named",
                     item.id,
                     item.name,
                     item.kind.label()
                 ),
-                None,
+                Vec::new(),
             ),
             Kind::Html => continue,
         };
         lines.push(line);
-        match shown {
-            Some(text @ ResultPart::Text { .. }) => texts.push(text),
-            Some(image) => images.push(image),
-            None => {}
+        for part in shown {
+            match part {
+                text @ ResultPart::Text { .. } => texts.push(text),
+                image => images.push(image),
+            }
         }
     }
     texts.append(&mut images);
@@ -182,7 +193,7 @@ pub(super) async fn attach(
 
 /// A document's line in the note, and its text when it is short enough to
 /// show whole.
-async fn document(state: &AppState, user: UserId, item: &Item) -> (String, Option<ResultPart>) {
+async fn document(state: &AppState, user: UserId, item: &Item) -> (String, Vec<ResultPart>) {
     let file = state
         .library
         .storage()
@@ -193,16 +204,16 @@ async fn document(state: &AppState, user: UserId, item: &Item) -> (String, Optio
                 "{} “{}” — a document: its text is in the message",
                 item.id, item.name
             ),
-            Some(ResultPart::Text {
+            vec![ResultPart::Text {
                 text: inline(item, &text),
-            }),
+            }],
         ),
         Ok(_) => (
             format!(
                 "{} “{}” — a document too long to show whole: read it with library_read",
                 item.id, item.name
             ),
-            None,
+            Vec::new(),
         ),
         Err(error) => {
             tracing::error!("assistant: reading document {}: {error}", item.id);
@@ -211,7 +222,7 @@ async fn document(state: &AppState, user: UserId, item: &Item) -> (String, Optio
                     "{} “{}” — a document that could not be read to show you",
                     item.id, item.name
                 ),
-                None,
+                Vec::new(),
             )
         }
     }
@@ -224,7 +235,7 @@ fn inline(item: &Item, text: &str) -> String {
 
 /// A picture's line in the note, and the picture, shrunk — or a line saying
 /// it could not be shown.
-async fn picture(state: &AppState, user: UserId, item: &Item) -> (String, Option<ResultPart>) {
+async fn picture(state: &AppState, user: UserId, item: &Item) -> (String, Vec<ResultPart>) {
     let file = state
         .library
         .storage()
@@ -239,7 +250,7 @@ async fn picture(state: &AppState, user: UserId, item: &Item) -> (String, Option
                 "{} “{}” — a picture: shown in the message",
                 item.id, item.name
             ),
-            Some(image),
+            vec![image],
         ),
         Err(why) => {
             tracing::warn!("assistant: showing picture {}: {why}", item.id);
@@ -248,7 +259,7 @@ async fn picture(state: &AppState, user: UserId, item: &Item) -> (String, Option
                     "{} “{}” — a picture that could not be prepared to show you",
                     item.id, item.name
                 ),
-                None,
+                Vec::new(),
             )
         }
     }

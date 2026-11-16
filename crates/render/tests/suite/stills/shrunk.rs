@@ -3,7 +3,7 @@
 
 use scorsese_core::ProbeMedia;
 use scorsese_render::Ffprobe;
-use scorsese_render::frames::{MODEL_EDGE, for_a_model};
+use scorsese_render::frames::{MODEL_EDGE, for_a_model, frame_for_a_model};
 
 use crate::common::ffmpeg::{generate, tools};
 use crate::common::scratch;
@@ -112,5 +112,22 @@ fn transparency_is_laid_over_white_and_what_is_opaque_keeps_its_colour() {
     );
     let middle = pixel(32, 32);
     assert!(middle[2] > 200 && middle[0] < 60, "still blue: {middle:?}");
+    std::fs::remove_dir_all(dir).ok();
+}
+
+/// A frame in memory — a glance's sheet (#1563) — goes the same way, at the
+/// edge asked for, with no PNG written first.
+#[test]
+fn a_frame_in_memory_comes_back_a_jpeg_at_the_edge_asked_for() {
+    let tools = tools();
+    let dir = scratch::dir("shrunk-frame");
+    let frame = scorsese_compositor::Frame::black(
+        scorsese_compositor::Resolution::new(2000, 1000).expect("a legal raster"),
+    );
+    let jpeg = frame_for_a_model(&tools, &frame, 1024).expect("the frame is shrunk");
+    let out = dir.join("sheet.jpg");
+    std::fs::write(&out, &jpeg).expect("the jpeg is written");
+    let media = Ffprobe::new(tools).probe(&out).expect("the jpeg probes");
+    assert_eq!((media.width, media.height), (Some(1024), Some(512)));
     std::fs::remove_dir_all(dir).ok();
 }

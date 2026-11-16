@@ -15,6 +15,8 @@ use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
 
+use scorsese_compositor::{Frame, PIXEL_FORMAT, Resolution};
+
 use super::{FrameError, stderr_of};
 use crate::tools::{Tools, input};
 
@@ -36,12 +38,26 @@ pub const JPEG: &str = "image/jpeg";
 /// whose long edge is at most [`MODEL_EDGE`], transparency flattened onto
 /// white. Never enlarged; the aspect is kept.
 pub fn for_a_model(tools: &Tools, picture: &[u8]) -> Result<Vec<u8>, FrameError> {
+    fed(shrinking(tools, Source::Piped, MODEL_EDGE), picture)
+}
+
+/// `frame` as [`for_a_model`] makes a picture, with a long edge of at most
+/// `edge`: a sheet composited in memory (#1563), sent without a PNG between.
+pub fn frame_for_a_model(tools: &Tools, frame: &Frame, edge: u32) -> Result<Vec<u8>, FrameError> {
+    fed(
+        shrinking(tools, Source::Raw(frame.resolution()), edge),
+        frame.bytes(),
+    )
+}
+
+/// The JPEG `command` writes, fed `input` on its stdin.
+fn fed(mut command: Command, input: &[u8]) -> Result<Vec<u8>, FrameError> {
     let file = Path::new(IN_MEMORY);
     let io = |source| FrameError::Io {
         file: file.to_path_buf(),
         source,
     };
-    let mut child = shrinking(tools, None, MODEL_EDGE)
+    let mut child = command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -54,7 +70,7 @@ pub fn for_a_model(tools: &Tools, picture: &[u8]) -> Result<Vec<u8>, FrameError>
     // Fed from its own thread: ffmpeg may write before it has read it all,
     // and a full stdout pipe would then wait on a stdin nobody drains.
     let (output, fed) = std::thread::scope(|scope| {
-        let fed = scope.spawn(move || stdin.write_all(picture));
+        let fed = scope.spawn(move || stdin.write_all(input));
         let output = child.wait_with_output();
         let fed = fed.join().expect("writing to ffmpeg does not panic");
         (output, fed)
@@ -69,7 +85,7 @@ pub fn for_a_model(tools: &Tools, picture: &[u8]) -> Result<Vec<u8>, FrameError>
 /// most `edge`. Read by its path, never piped: a piped uncompressed TIFF past
 /// a few megabytes is found to hold no picture at all.
 pub fn file_for_a_model(tools: &Tools, file: &Path, edge: u32) -> Result<Vec<u8>, FrameError> {
-    let output = shrinking(tools, Some(file), edge)
+    let output = shrinking(tools, Source::File(file), edge)
         .stdin(Stdio::null())
         .output()
         .map_err(|source| FrameError::Io {
@@ -79,9 +95,19 @@ pub fn file_for_a_model(tools: &Tools, file: &Path, edge: u32) -> Result<Vec<u8>
     shrunk(file, output)
 }
 
-/// ffmpeg reading the picture in `file`, or on stdin when there is none, and writing it to stdout as a JPEG no
-/// longer than `edge`.
-fn shrinking(tools: &Tools, file: Option<&Path>, edge: u32) -> Command {
+/// Where [`shrinking`] reads its picture.
+enum Source<'a> {
+    /// A file, by its path.
+    File(&'a Path),
+    /// A picture file's bytes, on stdin.
+    Piped,
+    /// One raw frame of this size, in the compositor's pixel format, on stdin.
+    Raw(Resolution),
+}
+
+/// ffmpeg reading the picture from `source` and writing it to stdout as a
+/// JPEG no longer than `edge`.
+fn shrinking(tools: &Tools, source: Source<'_>, edge: u32) -> Command {
     // JPEG has no alpha, and dropping it shows whatever colour a transparent
     // pixel happens to hold, black as often as not: a transparent Lottie
     // preview went dark. So the picture is laid over white first, where a
@@ -93,9 +119,14 @@ fn shrinking(tools: &Tools, file: Option<&Path>, edge: u32) -> Command {
     );
     let mut command = tools.ffmpeg();
     command.args(["-nostdin", "-v", "error"]);
-    match file {
-        Some(file) => input::media(&mut command, file),
-        None => input::piped_media(&mut command),
+    match source {
+        Source::File(file) => input::media(&mut command, file),
+        Source::Piped => input::piped_media(&mut command),
+        Source::Raw(resolution) => command
+            .args(["-f", "rawvideo", "-pix_fmt", PIXEL_FORMAT])
+            .args(["-s", &resolution.to_string()])
+            // lint: allow(ffmpeg-input) one raw frame this program writes, in the format it names
+            .args(["-i", "pipe:0"]),
     }
     .args([
         "-frames:v",

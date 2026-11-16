@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+use scorsese_core::words::Words;
 use scorsese_render::testing::generate;
 use scorsese_server::db::UserId;
 use scorsese_server::http::AppState;
@@ -49,18 +50,44 @@ pub(crate) async fn kept(state: &AppState, user: UserId, name: &str, kind: Kind)
         ),
         _ => return written(state, user, name, "Scene one: a door opens.").await,
     }
-    admitted(state, user, file, name, kind).await
+    admitted(state, user, file, name, kind, None).await
+}
+
+/// A second of video called `name` in `user`'s library, already heard:
+/// `words` on its row, as a finished transcription leaves them.
+pub(crate) async fn heard_video(state: &AppState, user: UserId, name: &str, words: Words) -> i64 {
+    let file = common::scratch::dir("attached").join(name);
+    generate(
+        &common::tools(),
+        &file,
+        &[
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=s=64x36:d=1:r=30",
+            "-pix_fmt",
+            "yuv420p",
+        ],
+    );
+    admitted(state, user, file, name, Kind::Video, Some(words)).await
 }
 
 /// A document called `name` holding `text` in `user`'s library.
 pub(crate) async fn written(state: &AppState, user: UserId, name: &str, text: &str) -> i64 {
     let file = common::scratch::dir("attached").join(name);
     std::fs::write(&file, text).expect("the test setup holds");
-    admitted(state, user, file, name, Kind::Text).await
+    admitted(state, user, file, name, Kind::Text, None).await
 }
 
 /// `file` admitted to `user`'s library as `name`, of `kind`.
-async fn admitted(state: &AppState, user: UserId, file: PathBuf, name: &str, kind: Kind) -> i64 {
+async fn admitted(
+    state: &AppState,
+    user: UserId,
+    file: PathBuf,
+    name: &str,
+    kind: Kind,
+    words: Option<Words>,
+) -> i64 {
     let extension = name.rsplit_once('.').map(|(_, e)| e).expect("an extension");
     let arrival = Arrival {
         file,
@@ -69,7 +96,7 @@ async fn admitted(state: &AppState, user: UserId, file: PathBuf, name: &str, kin
         extension: extension.to_owned(),
         announced: None,
         brief_hash: None,
-        words: None,
+        words,
     };
     state
         .library
