@@ -7,7 +7,7 @@ use sqlx::postgres::PgPool;
 
 use super::ANA;
 
-fn batch(visitor: &str, version: Option<&str>, kinds: &[Kind]) -> Batch {
+pub(super) fn batch(visitor: &str, version: Option<&str>, kinds: &[Kind]) -> Batch {
     Batch {
         visitor: visitor.into(),
         exposures: version
@@ -27,7 +27,7 @@ fn batch(visitor: &str, version: Option<&str>, kinds: &[Kind]) -> Batch {
     }
 }
 
-async fn report(pool: &PgPool) -> String {
+pub(super) async fn report(pool: &PgPool) -> String {
     run(pool, AbCommand::Report { test: None })
         .await
         .expect("the report runs")
@@ -46,7 +46,7 @@ async fn the_report_counts_each_version_from_its_exposure_on(pool: PgPool) {
     ab::record(&pool, &batch(ANA, None, &[Kind::Prompt]), &place)
         .await
         .unwrap();
-    let ana_saw = [Kind::View, Kind::End, Kind::Time];
+    let ana_saw = [Kind::View, Kind::Input, Kind::End, Kind::Time];
     ab::record(&pool, &batch(ANA, Some("a"), &ana_saw), &place)
         .await
         .unwrap();
@@ -56,7 +56,7 @@ async fn the_report_counts_each_version_from_its_exposure_on(pool: PgPool) {
         let visitor = format!("1b7f6a3e-9c1d-4e2f-8a5b-{at:012x}");
         ab::record(
             &pool,
-            &batch(&visitor, Some("a"), &[Kind::View]),
+            &batch(&visitor, Some("a"), &[Kind::View, Kind::Input]),
             &Place::default(),
         )
         .await
@@ -65,16 +65,33 @@ async fn the_report_counts_each_version_from_its_exposure_on(pool: PgPool) {
     for at in 0..50 {
         let visitor = format!("2b7f6a3e-9c1d-4e2f-8a5b-{at:012x}");
         let kinds: &[Kind] = if at < 8 {
-            &[Kind::View, Kind::Prompt]
+            &[Kind::View, Kind::Input, Kind::Prompt]
         } else {
-            &[Kind::View]
+            &[Kind::View, Kind::Input]
         };
         ab::record(&pool, &batch(&visitor, Some("b"), kinds), &Place::default())
             .await
             .unwrap();
     }
+    // A load the page never saw a person use is not a visitor (#1797), even
+    // one that reached the end and sent a prompt.
+    for at in 0..30 {
+        let visitor = format!("3b7f6a3e-9c1d-4e2f-8a5b-{at:012x}");
+        let kinds = [Kind::View, Kind::End, Kind::Prompt];
+        ab::record(
+            &pool,
+            &batch(&visitor, Some("a"), &kinds),
+            &Place::default(),
+        )
+        .await
+        .unwrap();
+    }
 
     let report = report(&pool).await;
+    assert!(
+        report.contains("  left out: 30 visitors the page never saw a person use\n"),
+        "{report}"
+    );
     let row = |version: &str| -> Vec<String> {
         report
             .lines()

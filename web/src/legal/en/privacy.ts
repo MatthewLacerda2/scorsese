@@ -8,7 +8,7 @@ import { SELLER } from "@/legal/seller";
 export const PRIVACY_EN: LegalDocument = {
   title: "Privacy policy",
   updatedLabel: "Last updated",
-  updated: "2026-10-25",
+  updated: "2026-11-16",
   summary: {
     heading: "In short",
     points: [
@@ -35,7 +35,7 @@ export const PRIVACY_EN: LegalDocument = {
           "Conversations with the assistant: the messages and the record of each action the assistant takes on your project. We use this record to find errors and improve the assistant.",
           "Credits and payments: your balance, your spending history and, for each purchase, the amount, the exchange rate used and the payment identifier at Stripe. Your card details go straight to Stripe and never pass through our server.",
           "Access logs: the IP address, date and time of each time you sign in with Google and of your first visit each day, kept for at least 6 months, as Brazil's Marco Civil da Internet (Internet Civil Framework, Law 12.965/2014) requires.",
-          "Home page visits: before you sign in, a random code in a cookie identifies your browser, not you, and we record which version of the home page it was shown, how far down the page was scrolled, how long the page was visible, whether a prompt was sent, and the country and region Cloudflare works out from the IP address (the address itself is not kept with them). When you sign in with Google, the code is linked to your account, so we can tell which version led to what; deleting the account removes the link.",
+          "Home page visits: before you sign in, a random code in a cookie identifies your browser, not you, and we record which version of the home page it was shown, how far down the page was scrolled, whether it was used at all (a touch, a click, a key), how long the page was visible, whether a prompt was sent, and the country and region Cloudflare works out from the IP address (the address itself is not kept with them). When you sign in with Google, the code is linked to your account, so we can tell which version led to what; deleting the account removes the link.",
           "Server logs: for each request to the site, the IP address, the approximate location Cloudflare works out from it (city, region and country), the browser (user agent), the address requested and the date and time, used to keep the service secure and to find errors. They never record your name or email. They are kept in a rotation limited by size, in which the oldest are deleted as new ones arrive.",
         ],
       ],

@@ -3020,10 +3020,18 @@ showed (`ab_exposures`, the first one kept), and events (`ab_events`): `view`;
 `data-ab-section`, counted from 1, `ScrollIn` does; reached once it comes up
 into the window's top half); `end`, the last of them reached; `time`, seconds
 the page was visible, sent each time it is hidden or left, at most 30 minutes a
-visit; `prompt`, a prompt box sent. An event belongs to the
-visitor, and counts in a test from the visitor's exposure to it on. Nothing is
-sent from a browser driven by a script (`navigator.webdriver`) or one whose
-user agent says it is a bot. The visitor's country and region
+visit; `input`, once a page load, the first trusted pointer, touch, wheel or
+key event (a script cannot make one, and `scroll` is left out because the
+browser fires it for a scroll it made itself); `prompt`, a prompt box sent. An
+event belongs to the visitor, and counts in a test from the visitor's exposure
+to it on. Nothing is sent from a browser driven by a script
+(`navigator.webdriver`) or one whose user agent says it is a bot. **Only a
+visitor with an `input` is counted**: datacenter browsers pass both checks
+(#1797), and the report prints how many loads it left out. Visitors stored
+before `input` existed were judged once by migration `0054`: left out if
+Cloudflare placed them in Virginia or Iowa and they reached no section, no end,
+sent no prompt and never signed in, which is what the automated loads had in
+common. The visitor's country and region
 (`ab_visitors`) are Cloudflare's, from the tunnel's door only, as
 `deploy/nginx.conf` passes them (`X-Scorsese-Country`, `X-Scorsese-Region`);
 no city, no address. **A Google sign-in links the visitor to the account**

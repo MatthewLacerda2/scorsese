@@ -9,7 +9,11 @@
 //! [`super::decide`], and the same split by hour band in Brasília time and by
 //! region, a cell under [`THIN`] visitors marked thin.
 //!
-//! Only what happened from a visitor's exposure on counts towards a test.
+//! Only what happened from a visitor's exposure on counts towards a test, and
+//! only a visitor the page saw a person use (#1797): one with an `input`
+//! event, or one migration `0054` judged a person before `input` existed
+//! (`ab_visitors.person_before_input`). The rest are counted apart, as visitors
+//! left out, so the operator sees how many there were.
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -45,6 +49,8 @@ struct Seen {
     /// The exposure's hour in Brasília.
     hour: i32,
     place: Option<String>,
+    /// Whether the page saw a person use it.
+    person: bool,
     ended: bool,
     prompted: bool,
     seconds: i64,
@@ -60,6 +66,9 @@ pub async fn run(pool: &PgPool, command: AbCommand) -> Result<String, ServerErro
         "SELECT x.test, x.version,
                 extract(hour FROM x.at AT TIME ZONE 'America/Sao_Paulo')::int AS hour,
                 v.country || coalesce('-' || v.region, '') AS place,
+                EXISTS (SELECT 1 FROM ab_events e WHERE e.visitor = x.visitor
+                        AND e.kind = 'input')
+                    OR coalesce(v.person_before_input, false) AS person,
                 EXISTS (SELECT 1 FROM ab_events e WHERE e.visitor = x.visitor
                         AND e.kind = 'end' AND e.at >= x.at) AS ended,
                 EXISTS (SELECT 1 FROM ab_events e WHERE e.visitor = x.visitor
@@ -85,27 +94,46 @@ pub async fn run(pool: &PgPool, command: AbCommand) -> Result<String, ServerErro
 
 /// The report of `seen`, every test in it.
 fn render(seen: &[Seen]) -> String {
-    let mut tests: BTreeMap<&str, BTreeMap<&str, Vec<&Seen>>> = BTreeMap::new();
+    let mut tests: BTreeMap<&str, Test> = BTreeMap::new();
     for one in seen {
-        tests
-            .entry(&one.test)
-            .or_default()
-            .entry(&one.version)
-            .or_default()
-            .push(one);
+        let test = tests.entry(&one.test).or_default();
+        if one.person {
+            test.versions.entry(&one.version).or_default().push(one);
+        } else {
+            test.left_out += 1;
+        }
     }
     if tests.is_empty() {
         return "no landing test has had a visitor yet\n".into();
     }
     let mut out = String::new();
-    for (test, versions) in &tests {
-        test_section(&mut out, test, versions);
+    for (name, test) in &tests {
+        let _ = writeln!(out, "test {name}");
+        if test.left_out > 0 {
+            let _ = writeln!(
+                out,
+                "  left out: {} visitor{} the page never saw a person use",
+                test.left_out,
+                if test.left_out == 1 { "" } else { "s" }
+            );
+        }
+        if test.versions.is_empty() {
+            let _ = writeln!(out, "  no visitor counted yet");
+        } else {
+            test_section(&mut out, &test.versions);
+        }
     }
     out
 }
 
-fn test_section(out: &mut String, test: &str, versions: &BTreeMap<&str, Vec<&Seen>>) {
-    let _ = writeln!(out, "test {test}");
+/// One test's visitors, by version, and how many were left out.
+#[derive(Default)]
+struct Test<'a> {
+    versions: BTreeMap<&'a str, Vec<&'a Seen>>,
+    left_out: usize,
+}
+
+fn test_section(out: &mut String, versions: &BTreeMap<&str, Vec<&Seen>>) {
     let _ = writeln!(
         out,
         "  {:<12} {:>8} {:>12} {:>8} {:>7} {:>9} {:>6} {:>8}",
@@ -261,57 +289,4 @@ fn median(mut values: Vec<i64>) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn seen(version: &str, hour: i32, prompted: bool, email: Option<&str>) -> Seen {
-        Seen {
-            test: "heading".into(),
-            version: version.into(),
-            hour,
-            place: Some("BR-SP".into()),
-            ended: true,
-            prompted,
-            seconds: 30,
-            email: email.map(Into::into),
-            paid: false,
-        }
-    }
-
-    #[test]
-    fn the_report_names_each_version_its_shares_and_the_verdict() {
-        let mut all = vec![
-            seen("a", 9, true, Some("ana@padaria.com.br")),
-            seen("a", 20, false, Some("bia@gmail.com")),
-        ];
-        all.extend((0..48).map(|_| seen("a", 9, false, None)));
-        all.extend((0..50).map(|_| seen("b", 9, false, None)));
-        let report = render(&all);
-        assert!(report.starts_with("test heading\n"), "{report}");
-        let a = report
-            .lines()
-            .find(|line| line.trim_start().starts_with("a "))
-            .unwrap();
-        let words: Vec<&str> = a.split_whitespace().collect();
-        assert_eq!(
-            words,
-            ["a", "50", "100%", "30", "2%", "4%", "0%", "50%"],
-            "{a}"
-        );
-        assert!(report.contains("verdict: not ready: every version needs 50 more visitors"));
-        assert!(report.contains("07:00-18:00  a 49 visitors"), "{report}");
-        assert!(report.contains("18:00-07:00  a 1 visitors, prompt 0%, last section 100% (thin)"));
-    }
-
-    #[test]
-    fn nothing_seen_says_so() {
-        assert_eq!(render(&[]), "no landing test has had a visitor yet\n");
-    }
-
-    #[test]
-    fn a_median_takes_the_lower_middle() {
-        assert_eq!(median(vec![5, 1, 3]), "3");
-        assert_eq!(median(vec![4, 1]), "1");
-        assert_eq!(median(vec![]), "-");
-    }
-}
+mod tests;

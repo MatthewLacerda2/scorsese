@@ -8,7 +8,7 @@ import { SELLER } from "@/legal/seller";
 export const PRIVACY_ES: LegalDocument = {
   title: "Política de privacidad",
   updatedLabel: "Última actualización",
-  updated: "2026-10-25",
+  updated: "2026-11-16",
   summary: {
     heading: "En resumen",
     points: [
@@ -35,7 +35,7 @@ export const PRIVACY_ES: LegalDocument = {
           "Conversaciones con el asistente: los mensajes y el registro de cada acción que el asistente hace en tu proyecto. Usamos ese registro para encontrar errores y mejorar el asistente.",
           "Créditos y pagos: tu saldo, el historial de gastos y, de cada compra, el monto, la cotización usada y el identificador del pago en Stripe. Los datos de tu tarjeta van directo a Stripe y nunca pasan por nuestro servidor.",
           "Registros de acceso: la dirección IP, la fecha y la hora de cada vez que entras con Google y del primer ingreso de cada día, guardados por al menos 6 meses, como exige el Marco Civil de Internet de Brasil (Ley 12.965/2014).",
-          "Visitas a la página de inicio: antes de que inicies sesión, un código aleatorio en una cookie identifica tu navegador, no a ti, y registramos qué versión de la página de inicio vio, hasta dónde se desplazó la página, cuánto tiempo estuvo visible, si se envió un pedido y el país y la región que Cloudflare deduce de la dirección IP (la dirección en sí no se guarda con ellos). Cuando inicias sesión con Google, el código se vincula a tu cuenta, para saber qué versión llevó a qué; eliminar la cuenta deshace ese vínculo.",
+          "Visitas a la página de inicio: antes de que inicies sesión, un código aleatorio en una cookie identifica tu navegador, no a ti, y registramos qué versión de la página de inicio vio, hasta dónde se desplazó la página, si se usó (un toque, un clic, una tecla), cuánto tiempo estuvo visible, si se envió un pedido y el país y la región que Cloudflare deduce de la dirección IP (la dirección en sí no se guarda con ellos). Cuando inicias sesión con Google, el código se vincula a tu cuenta, para saber qué versión llevó a qué; eliminar la cuenta deshace ese vínculo.",
           "Registros del servidor: por cada solicitud al sitio, la dirección IP, la ubicación aproximada que Cloudflare deduce de ella (ciudad, región y país), el navegador (user agent), la dirección solicitada y la fecha y la hora, usados para mantener el servicio seguro y encontrar errores. Nunca registran tu nombre ni tu correo electrónico. Se guardan en una rotación limitada por tamaño, en la que los más antiguos se borran a medida que llegan nuevos.",
         ],
       ],
