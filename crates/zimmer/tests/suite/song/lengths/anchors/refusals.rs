@@ -1,7 +1,7 @@
 //! What the clock cannot honour, refused before anything is rendered.
 
 use scorsese_zimmer::SynthError;
-use scorsese_zimmer::song::{Anchor, Fit, FitMode};
+use scorsese_zimmer::song::{Anchor, Fit, FitMode, SectionRef};
 
 use super::four_sections;
 
@@ -10,7 +10,12 @@ fn refused(anchors: Vec<Anchor>, fit: Option<Fit>) -> (usize, String) {
     let mut song = four_sections(anchors);
     song.fit = fit;
     match song.validate() {
-        Err(error @ SynthError::BadAnchor { section, .. }) => (section, error.to_string()),
+        Err(
+            ref error @ SynthError::BadAnchor {
+                section: SectionRef::Entry(section),
+                ..
+            },
+        ) => (section, error.to_string()),
         other => panic!("expected an anchor refusal, got {other:?}"),
     }
 }
@@ -18,7 +23,7 @@ fn refused(anchors: Vec<Anchor>, fit: Option<Fit>) -> (usize, String) {
 #[test]
 fn a_clip_nobody_resolved_is_refused_by_name() {
     let unresolved = Anchor {
-        section: 2,
+        section: 2.into(),
         seconds: None,
         clip: Some("logo".into()),
     };

@@ -348,6 +348,23 @@ pub enum SynthError {
     /// is a pattern with no notes and the `beats` it should last.
     NoLayers,
 
+    /// A section marker that is wrong as a name: empty, or a name an earlier
+    /// marker in the same song already took — a name has to say which
+    /// section without an occurrence index.
+    BadSectionName {
+        /// The name as written.
+        name: String,
+        /// Whether an earlier marker took it, rather than it being empty.
+        taken: bool,
+    },
+
+    /// A section marker with nothing after it before the next marker or the
+    /// end of the arrangement: a section of no length, which is a typo.
+    EmptySection {
+        /// The section's name.
+        name: String,
+    },
+
     /// The arrangement names a pattern the song does not define — a typo that
     /// would otherwise be silence in the middle of a piece.
     UnknownPattern {
@@ -784,11 +801,12 @@ pub enum SynthError {
     /// An anchor the clock cannot honour: a section that does not exist, a
     /// time that is not one, a `clip` nobody resolved into seconds, anchors out
     /// of order, one beside a `loop` fit, or a stretch whose tempo would move
-    /// further than a `stretch` fit may. A `section` equal to the
-    /// arrangement's length is its end, which a `stretch` fit lands.
+    /// further than a `stretch` fit may. A `section` equal to the number of
+    /// entries that play is the arrangement's end, which a `stretch` fit
+    /// lands.
     BadAnchor {
-        /// The section the anchor pins.
-        section: usize,
+        /// The section the anchor pins, as it was written.
+        section: crate::song::SectionRef,
         /// What is wrong with it, with the numbers, and what to do instead.
         why: String,
     },

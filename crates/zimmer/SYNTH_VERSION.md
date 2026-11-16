@@ -379,3 +379,10 @@ kHz, within 0.4 dB; a riser's length, cut where its sound falls under the
 floor, moved ±24 ms. The PR for #1788 has the per-preset table. **rusty
 re-bakes** everything with a filter the next time it moves its pin past
 this version.
+
+**Section markers left it alone** (#1792): an `{ "section": … }` arrangement
+entry has no layers, so the note walk visits nothing for it and spends no
+ordinal, and `slot_beats` gives it no slot; a song without one is the same
+document. `tests/suite/song/marked.rs` renders one song with and without three
+markers, noise track and a by-index anchor included, and holds the samples
+equal.

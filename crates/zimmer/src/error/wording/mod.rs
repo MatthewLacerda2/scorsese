@@ -119,6 +119,18 @@ impl SynthError {
                 f,
                 "song: arrangement entry has an empty `layers` — name at least one pattern, or write a rest as a pattern with no notes"
             ),
+            Self::BadSectionName { name, taken: true } => write!(
+                f,
+                "song: two markers name the section `{name}` — a name says which section, so give the second its own (`\"{name} 2\"`)"
+            ),
+            Self::BadSectionName { taken: false, .. } => write!(
+                f,
+                "song: a `section` marker has an empty name — call it what the reports should, `\"verse\"` or `\"chorus\"`"
+            ),
+            Self::EmptySection { name } => write!(
+                f,
+                "song: the section `{name}` has no entries before the next marker or the end — put what it plays after its marker, or remove the marker"
+            ),
             Self::UnknownPattern { pattern, .. } => write!(
                 f,
                 "song: arrangement names pattern `{pattern}`, which is not defined"

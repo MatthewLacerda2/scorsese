@@ -1,9 +1,10 @@
 //! How a song's written forms are told apart when they are read — by hand,
 //! rather than by `#[serde(untagged)]`, so a refusal still names what is wrong.
 //!
-//! Three places in a song accept more than one shape: a track's
+//! Four places in a song accept more than one shape: a track's
 //! [`PatchRef`] (a name, or the patch itself), an [`ArrangementEntry`] (a
-//! name, a [`Play`] or a [`Layers`]) and a [`PatternEntry`] (a note, a
+//! name, a [`Play`], a [`Layers`] or a [`Marker`]), an anchor's [`SectionRef`]
+//! and a [`PatternEntry`] (a note, a
 //! degree, a chord or a step string). They are still *written* untagged — the derive serialises
 //! them, and the documents on disk do not change — but serde's untagged
 //! **reader** tries each variant in turn and, when none fits, reports only
@@ -20,9 +21,12 @@
 //!   name, an object is the long form — which is the same rule the untagged
 //!   derive relied on, now stated rather than discovered;
 //! - an arrangement entry written as an object is decided by **whether it
-//!   carries `layers`**: with it, the whole object is a [`Layers`], so a
-//!   `pattern` beside it is refused by name rather than one of the two being
-//!   quietly dropped; without it, a [`Play`];
+//!   carries `section`, then `layers`**: with `section`, the whole object is a
+//!   [`Marker`], so anything beside it is refused by name; with `layers`, a
+//!   [`Layers`], so a `pattern` beside it is refused by name rather than one
+//!   of the two being quietly dropped; with neither, a [`Play`];
+//! - an anchor's `section` is decided by the **JSON type**: a number is an
+//!   entry's index, a string a section's name ([`SectionRef`]);
 //! - a pattern entry is decided by **which of its four keys is present**,
 //!   looked for in the order `steps`, `chord`, `degree`, `note`. `steps` comes
 //!   first because a [`Steps`] may also carry a `note`, and `note` last for
@@ -39,7 +43,8 @@ use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 
 use super::{
-    ArrangementEntry, Chord, DegreeNote, Layer, Layers, Note, PatchRef, PatternEntry, Play, Steps,
+    ArrangementEntry, Chord, DegreeNote, Layer, Layers, Marker, Note, PatchRef, PatternEntry, Play,
+    SectionRef, Steps,
 };
 use crate::patch::Patch;
 
@@ -129,9 +134,11 @@ impl<'de> Visitor<'de> for Fields {
 
 /// The long form of an [`ArrangementEntry`], before it is known which one.
 enum EntryBody {
+    /// It carried `section`.
+    Marked(Marker),
     /// It carried `layers`.
     Layered(Layers),
-    /// It did not.
+    /// It carried neither.
     Played(Play),
 }
 
@@ -140,9 +147,12 @@ impl<'de> Deserialize<'de> for EntryBody {
         // Buffered for the reason a pattern entry is: the form is decided by a
         // key, and the form's own reader then sees exactly what was written.
         let fields = deserializer.deserialize_map(Fields)?;
-        let layered = fields.iter().any(|(name, _)| name == "layers");
+        let carries = |key: &str| fields.iter().any(|(name, _)| name == key);
+        let (marked, layered) = (carries("section"), carries("layers"));
         let body = MapDeserializer::<_, serde_json::Error>::new(fields.into_iter());
-        if layered {
+        if marked {
+            Marker::deserialize(body).map(Self::Marked)
+        } else if layered {
             Layers::deserialize(body).map(Self::Layered)
         } else {
             Play::deserialize(body).map(Self::Played)
@@ -156,13 +166,41 @@ impl<'de> Deserialize<'de> for ArrangementEntry {
         Ok(
             match name_or::<D, EntryBody>(
                 deserializer,
-                "a pattern's name, a `play` object, or a `layers` object",
+                "a pattern's name, a `play` object, a `layers` object, or a `section` marker",
             )? {
+                NameOr::Body(EntryBody::Marked(marker)) => Self::Marker(marker),
                 NameOr::Name(name) => Self::Single(Layer::Name(name)),
                 NameOr::Body(EntryBody::Played(play)) => Self::Single(Layer::Transformed(play)),
                 NameOr::Body(EntryBody::Layered(layered)) => Self::Layered(layered),
             },
         )
+    }
+}
+
+/// Reads a [`SectionRef`] by its JSON type.
+struct SectionRefVisitor;
+
+impl Visitor<'_> for SectionRefVisitor {
+    type Value = SectionRef;
+
+    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("a section: an entry's index counted from 0, or a section's name")
+    }
+
+    fn visit_u64<E: Error>(self, index: u64) -> Result<SectionRef, E> {
+        usize::try_from(index)
+            .map(SectionRef::Entry)
+            .map_err(|_| E::custom(format!("section {index} is past any arrangement")))
+    }
+
+    fn visit_str<E: Error>(self, name: &str) -> Result<SectionRef, E> {
+        Ok(SectionRef::Named(name.to_owned()))
+    }
+}
+
+impl<'de> Deserialize<'de> for SectionRef {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_any(SectionRefVisitor)
     }
 }
 

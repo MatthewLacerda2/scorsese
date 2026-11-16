@@ -1,7 +1,7 @@
 //! Where a song's sections fall in the piece it renders to.
 //!
-//! The arrangement already says this — it is a list of patterns, and every
-//! pattern knows how many beats its slot is. All that is left is to turn beats
+//! The arrangement already says this — it is a list of patterns, marked into
+//! named sections, and every pattern knows how many beats its slot is. All that is left is to turn beats
 //! into seconds, which is the one conversion a song defers to render time.
 //!
 //! It matters that the rows of a report are *these* boundaries rather than an
@@ -11,20 +11,27 @@
 //! not say — see [`crate::level::profile`].
 
 use super::Song;
+use super::clock::Clock;
 use super::shape::plan;
 use crate::level::Cut;
 
-/// Every arrangement entry's end, in seconds of the rendered piece.
+/// Every section's end, in seconds of the rendered piece: one per named
+/// section ([`Marker`](super::Marker)), and one per entry outside any.
 ///
-/// One per entry, a layered one included: a row is a stretch of the piece, and
-/// a solo over a groove is one stretch, labelled with both.
+/// A named section is a run of entries, ending where its last one ends and
+/// labelled with its name: a song written as many short layered entries is
+/// reported in its verse and chorus, not in bars. An entry before the first
+/// marker — or in a song with none — is a section of its own, labelled with
+/// its patterns; a layered one included, because a solo over a groove is one
+/// stretch, labelled with both.
 ///
 /// Taken from the *planned* tempo and pass count rather than from the written
 /// ones, because `fit` can change both: a song stretched to land on a cut plays
 /// at a tempo the document never states, and one looped to fill a bed plays its
 /// arrangement several times over. Reporting the written positions would put
 /// every row in the wrong place for exactly the songs whose length someone
-/// cared about.
+/// cared about. Each pass closes the section it ends in, so a loop repeats
+/// the rows.
 ///
 /// The last boundary is where the arrangement ends, not where the audio does —
 /// a piece rings out past its final beat, and that ring-out is left to the
@@ -41,27 +48,49 @@ fn whole(song: &Song) -> Vec<Cut> {
     // all, since the clock carries it.
     let mut beats = 0.0f32;
     let mut cuts = Vec::new();
-    for entry in song
-        .arrangement
-        .iter()
-        .cycle()
-        .take(song.arrangement.len() * passes as usize)
-    {
-        let Some(slot) = song.slot_beats(entry) else {
-            continue;
-        };
-        beats += slot;
-        cuts.push(Cut {
-            label: entry.label(),
-            end_seconds: f64::from(clock.seconds(beats)),
-        });
+    for _ in 0..passes {
+        // The named section open at this point of the pass, and whether any
+        // entry of it has played yet — a marker with nothing after it reports
+        // nothing, as a stretch of no length would.
+        let mut open: Option<(&str, bool)> = None;
+        for entry in &song.arrangement {
+            if let Some(name) = entry.marker() {
+                close(&mut cuts, open.take(), &clock, beats);
+                open = Some((name, false));
+                continue;
+            }
+            let Some(slot) = song.slot_beats(entry) else {
+                continue;
+            };
+            beats += slot;
+            match &mut open {
+                Some((_, played)) => *played = true,
+                None => cuts.push(Cut {
+                    label: entry.label(),
+                    end_seconds: f64::from(clock.seconds(beats)),
+                }),
+            }
+        }
+        close(&mut cuts, open, &clock, beats);
     }
     cuts
 }
 
+/// Ends the named section `open` at `beats`, if any of it played.
+fn close(cuts: &mut Vec<Cut>, open: Option<(&str, bool)>, clock: &Clock, beats: f32) {
+    if let Some((name, true)) = open {
+        cuts.push(Cut {
+            label: name.to_owned(),
+            end_seconds: f64::from(clock.seconds(beats)),
+        });
+    }
+}
+
 impl Song {
-    /// Where each entry of the arrangement ends, in seconds of the piece this
-    /// song renders to — worked out from the document, without rendering it.
+    /// Where each section of the arrangement ends, in seconds of the piece
+    /// this song renders to — worked out from the document, without rendering
+    /// it. A section is a run of entries a marker names, or one entry outside
+    /// any.
     ///
     /// The same boundaries a bake's section rows are cut at, and through the
     /// same conversion the notes are placed with, so a clip put on one of
@@ -70,11 +99,26 @@ impl Song {
     /// arithmetic on the document rather than a measurement, so answering
     /// costs nothing and needs no render.
     ///
-    /// One per arrangement entry per pass, in order; each section starts where
+    /// One per section per pass, in order; each section starts where
     /// the one before it ends, and the first at zero. The ring-out past the
     /// last one is not a section — nothing in the arrangement played it.
     pub fn sections(&self) -> Vec<Cut> {
         whole(self)
+    }
+
+    /// The named section arrangement entry `entry` is in: the last marker
+    /// before it. `None` before the first marker, and for a marker itself.
+    pub fn section_of(&self, entry: usize) -> Option<&str> {
+        self.arrangement
+            .get(..entry)?
+            .iter()
+            .rev()
+            .find_map(|it| it.marker())
+            .filter(|_| {
+                self.arrangement
+                    .get(entry)
+                    .is_some_and(|it| it.marker().is_none())
+            })
     }
 }
 
