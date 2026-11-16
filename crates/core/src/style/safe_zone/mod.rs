@@ -85,16 +85,6 @@ pub struct Area {
     pub height: f32,
 }
 
-impl Area {
-    /// Whether the two share any part of the frame, edges aside.
-    pub fn overlaps(&self, other: &Self) -> bool {
-        self.x < other.x + other.width
-            && other.x < self.x + self.width
-            && self.y < other.y + other.height
-            && other.y < self.y + self.height
-    }
-}
-
 impl Margins {
     /// The part of the frame left clear for text.
     pub fn clear(&self) -> Area {

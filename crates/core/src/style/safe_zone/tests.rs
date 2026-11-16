@@ -1,4 +1,4 @@
-use super::{Edge, SafeZone};
+use super::{Area, Edge, Margins, SafeZone};
 use crate::style::Platform;
 
 /// What each vendor's own page said on the day it was read: Meta publishes
@@ -21,23 +21,49 @@ fn only_metas_ads_have_published_margins() {
     }
 }
 
+/// Top and bottom across the whole width, the sides between them, so the
+/// four bands and the clear area tile the frame. Uneven margins, so a band
+/// measured from the wrong edge shows.
 #[test]
 fn the_covered_bands_and_the_clear_area_tile_the_frame() {
-    let margins = Platform::InstagramReelsAd
-        .safe_zone()
-        .margins
-        .expect("published");
-    let clear = margins.clear();
-    let mut total = clear.width * clear.height;
-    for band in margins.covered() {
-        assert!(band.area.width > 0.0 && band.area.height > 0.0, "{band:?}");
-        assert!(!band.area.overlaps(&clear), "{band:?}");
-        total += band.area.width * band.area.height;
+    let margins = Margins {
+        top: 0.1,
+        bottom: 0.3,
+        left: 0.05,
+        right: 0.2,
+        covered_by: "",
+    };
+    let area = |x, y, width, height| Area {
+        x,
+        y,
+        width,
+        height,
+    };
+    let expected = [
+        (Edge::Top, area(0.0, 0.0, 1.0, 0.1)),
+        (Edge::Bottom, area(0.0, 0.7, 1.0, 0.3)),
+        (Edge::Left, area(0.0, 0.1, 0.05, 0.6)),
+        (Edge::Right, area(0.8, 0.1, 0.2, 0.6)),
+    ];
+    for (band, (edge, want)) in margins.covered().into_iter().zip(expected) {
+        assert_eq!(band.edge, edge);
+        assert_near(band.area, want);
     }
-    assert!((total - 1.0).abs() < 1e-6, "{total}");
-    let edges = margins.covered().map(|band| band.edge);
-    assert_eq!(edges, [Edge::Top, Edge::Bottom, Edge::Left, Edge::Right]);
-    assert!((clear.x - 0.06).abs() < 1e-6 && (clear.y - 0.14).abs() < 1e-6);
+    assert_near(margins.clear(), area(0.05, 0.1, 0.75, 0.6));
+}
+
+fn assert_near(got: Area, want: Area) {
+    let near = |a: f32, b: f32| (a - b).abs() < 1e-6;
+    let pairs = [
+        (got.x, want.x),
+        (got.y, want.y),
+        (got.width, want.width),
+        (got.height, want.height),
+    ];
+    assert!(
+        pairs.iter().all(|&(a, b)| near(a, b)),
+        "{got:?}, not {want:?}"
+    );
 }
 
 /// Rounded inward, so a box inside the pixels is inside the zone.
