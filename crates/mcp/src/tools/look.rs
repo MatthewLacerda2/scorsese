@@ -14,8 +14,15 @@
 //! **One picture, not five.** Five separate image blocks cost five times as
 //! much and say less, because what tells you what a shot *does* is the change
 //! between frames, and a change is only visible when they are side by side.
+//!
+//! **Asked for nothing in particular, it glances** ([`contact::glance`],
+//! #1563): frames chosen across the whole file, with blank ones and
+//! near-repeats left out, and the transcript beside the file in the reply's
+//! words when there is one. Named instants — `from`, `to` or `frames` — walk
+//! or spread as they always have.
 
 use schemars::JsonSchema;
+use scorsese_core::words::Words;
 use scorsese_render::Tools;
 use scorsese_render::contact::{self, Look as Range, MAX_FRAMES, label};
 use serde::Deserialize;
@@ -37,15 +44,16 @@ struct Arguments {
     /// been imported. Not an asset id: this reads a file, and the file need not
     /// be in the assets table at all.
     file: String,
-    /// Where to start, in seconds. Default 0. To walk a long file, pass the
-    /// `from` the previous reply named.
+    /// Where to start, in seconds. To walk a long file, pass the `from` the
+    /// previous reply named. Without `from`, `to` and `frames` the whole file
+    /// is glanced at instead.
     from: Option<f64>,
     /// Where to stop, in seconds. Without it the frames are 5 seconds apart,
     /// which is how a file gets covered; with it they spread evenly across the
     /// span you named, which is how one stretch gets looked at closely.
     to: Option<f64>,
-    /// How many frames to take. Default 5, which is also the most: more than
-    /// that in one sheet is unreadable at any size worth sending.
+    /// How many frames to take, at most 5: more than that in one sheet a
+    /// caller walks is unreadable at any size worth sending.
     frames: Option<u64>,
     /// Rule every frame of the sheet with coordinates: a line every 0.1,
     /// heavier at 0.5, labelled along the top and left edges, origin at the
@@ -75,10 +83,15 @@ impl Tool for Look {
          in the project yet — and answers what no amount of metadata can: what \
          is actually in the shot. Use it before cutting unfamiliar footage, and \
          after generating a shot, to see whether what came back is what the \
-         brief asked for. At most 5 frames, one every 5 seconds by default; a \
-         longer file is walked with successive calls, and each reply says where \
-         the next one starts. Give `to` to look closely at one stretch instead \
-         — the frames then spread evenly across it. Pass grid: true to have \
+         brief asked for. With only `file`, a glance at the whole video: 3 to \
+         12 frames, more for a longer file, chosen evenly with blank frames and \
+         near-repeats left out, and the file's transcript in the reply when it \
+         has one (this never starts a transcription; `transcribe` does). Give \
+         `from`, `frames` or `to` to choose the moments instead: at most 5 \
+         frames, one every 5 seconds from `from`; a longer file is walked with \
+         successive calls, and each reply says where the next one starts. Give \
+         `to` to look closely at one stretch — the frames then spread evenly \
+         across it. Pass grid: true to have \
          every frame ruled in fractions of the source, which is what a clip's \
          crop is measured in. Needs ffmpeg; decodes a handful of frames and \
          encodes nothing."
@@ -102,12 +115,21 @@ impl Tool for Look {
         // absolute when the footage is somewhere else entirely, which is the
         // case for material nobody has imported yet.
         let file = arguments.project.dir().join(&arguments.file);
+        let glancing =
+            arguments.from.is_none() && arguments.to.is_none() && arguments.frames.is_none();
         let range = range(&arguments)?;
 
         // Discovered per call rather than held, as the other ffmpeg tools do: a
         // server that found ffmpeg at startup would keep insisting it was there
         // after somebody uninstalled it.
         let tools = Tools::discover().map_err(|error| format!("{error}"))?;
+        if glancing {
+            let words = Words::heard_in(&file);
+            let glance = contact::glance(&tools, &file, words.as_ref(), range.grid)
+                .map_err(|error| format!("{error}"))?;
+            let bytes = Scratch::png(&tools, &glance.sheet.image, None, "the sheet")?;
+            return Ok(vec![Part::picture(glanced(&glance, range.grid), &bytes)].into());
+        }
         let sheet = contact::sheet(&tools, &file, &range).map_err(|error| format!("{error}"))?;
 
         // Through a file, because PNG encoding is ffmpeg's and ffmpeg writes
@@ -146,6 +168,33 @@ fn said(sheet: &contact::Sheet, ruled: bool) -> String {
             sheet.duration_seconds
         )),
         None => text.push_str(" — that is the whole file"),
+    }
+    text
+}
+
+/// What a glance's reply says in words: the moments, as [`said`] names
+/// them, and the transcript or that there is none.
+fn glanced(glance: &contact::Glance, ruled: bool) -> String {
+    let sheet = &glance.sheet;
+    let moments: Vec<String> = sheet.at_seconds.iter().map(|at| label(*at)).collect();
+    let mut text = format!(
+        "{} across the whole of {} ({:.1}s long), at {}, blank frames and near-repeats \
+         left out{}",
+        contact::counted(moments.len()),
+        sheet.file.display(),
+        sheet.duration_seconds,
+        moments.join(", "),
+        if ruled {
+            " — each ruled 0.0 to 1.0 of the source"
+        } else {
+            ""
+        }
+    );
+    match &glance.transcript {
+        Some(lines) => text.push_str(&format!(
+            ". What is said, by when it starts, in the frames' times:\n{lines}"
+        )),
+        None => text.push_str(". It has no transcript."),
     }
     text
 }

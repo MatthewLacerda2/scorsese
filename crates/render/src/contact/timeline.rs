@@ -16,7 +16,7 @@
 
 use std::path::Path;
 
-use scorsese_compositor::sheet::{self, Cell, MAX_CELLS, SheetError};
+use scorsese_compositor::sheet::{self, Cell, SheetError};
 use scorsese_compositor::text::Font;
 use scorsese_core::{Frames, Project};
 
@@ -24,7 +24,7 @@ use crate::report::{Note, Told};
 use crate::run::Renderer;
 use crate::{Frame, RenderError};
 
-use super::sample::label;
+use super::sample::{MAX_FRAMES, label};
 
 /// A finished sheet of the timeline, and what drawing each cell noticed.
 #[derive(Debug, Clone, PartialEq)]
@@ -59,7 +59,7 @@ pub fn timeline_sheet(
     at: &[Frames],
     ruled: bool,
 ) -> Result<TimelineSheet, TimelineSheetError> {
-    if at.len() > MAX_CELLS {
+    if at.len() > MAX_FRAMES {
         return Err(TimelineSheetError::TooMany { found: at.len() });
     }
     let fps = project.timeline_fps;
@@ -100,8 +100,8 @@ pub fn cell_label(seconds: f64, frame: Frames) -> String {
 pub enum TimelineSheetError {
     /// More instants than one sheet holds.
     #[error(
-        "a sheet holds at most {MAX_CELLS} instants and {found} were asked for — \
-         ask for {MAX_CELLS} or fewer, and call again for the rest"
+        "a sheet holds at most {MAX_FRAMES} instants and {found} were asked for — \
+         ask for {MAX_FRAMES} or fewer, and call again for the rest"
     )]
     TooMany {
         /// How many were asked for.

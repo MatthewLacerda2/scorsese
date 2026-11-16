@@ -103,6 +103,7 @@ fn words_land_where_the_clip_plays_them() {
 
 mod disk;
 mod fix;
+mod heard;
 mod tags;
 mod transcribed;
 

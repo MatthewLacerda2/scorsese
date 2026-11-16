@@ -104,6 +104,16 @@ impl Words {
         ProjectPath::new(format!("{recording}.words.json"))
     }
 
+    /// The transcript kept beside the recording at `recording`, a path on
+    /// disk rather than in a project ([`Words::transcript`]'s name for it):
+    /// `None` when there is none, or it will not read.
+    pub fn heard_in(recording: &Path) -> Option<Self> {
+        let mut name = recording.as_os_str().to_owned();
+        name.push(".words.json");
+        let text = std::fs::read_to_string(std::path::PathBuf::from(name)).ok()?;
+        serde_json::from_str(&text).ok()
+    }
+
     /// Where `asset`'s words are kept, when it is one that has them: a
     /// recording's [`Words::transcript`], or a generated line's timings
     /// [`Words::beside`] it. `None` for any other asset, or one with no file.

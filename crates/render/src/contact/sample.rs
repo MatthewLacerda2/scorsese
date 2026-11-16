@@ -8,11 +8,11 @@
 use scorsese_core::frame::even;
 use scorsese_core::{Precision, clock};
 
-/// The most frames one sheet may hold.
-///
-/// The compositor's cap, taken rather than restated: two numbers meaning "how
-/// many cells" is one of them eventually being wrong.
-pub const MAX_FRAMES: usize = scorsese_compositor::sheet::MAX_CELLS;
+/// The most frames a sheet whose moments a caller chose may hold: more than
+/// five in one sheet a caller walks is unreadable at any size worth sending.
+/// A [`glance`](super::glance), whose frames are chosen for it, may hold up to
+/// the compositor's [`MAX_CELLS`](scorsese_compositor::sheet::MAX_CELLS).
+pub const MAX_FRAMES: usize = 5;
 
 /// Seconds between frames when no end of the range is given.
 pub const STEP_SECONDS: f64 = 5.0;
@@ -112,7 +112,7 @@ fn spread(from: f64, to: f64, count: usize, last: f64) -> Vec<f64> {
 ///
 /// Seeking to exactly the duration lands past the final frame, and ffmpeg then
 /// decodes nothing at all — a blank cell for a file that is perfectly fine.
-const LAST_FRAME_MARGIN: f64 = 0.05;
+pub(super) const LAST_FRAME_MARGIN: f64 = 0.05;
 
 /// Frames at a fixed cadence, stopping where the file does.
 ///
@@ -133,7 +133,7 @@ fn walk(from: f64, last: f64, count: usize) -> Vec<f64> {
 
 /// A moment rounded to a tenth of a second, which is as fine as a label reads
 /// and finer than a seek is worth asking for.
-fn tenths(seconds: f64) -> f64 {
+pub(super) fn tenths(seconds: f64) -> f64 {
     (seconds * 10.0).round() / 10.0
 }
 
@@ -144,7 +144,7 @@ fn tenths(seconds: f64) -> f64 {
 /// that to the nearest tenth is 12.0 — a seek past the final frame, which
 /// decodes nothing at all. When rounding would overshoot, the tenth below the
 /// limit is taken instead.
-fn tenths_within(seconds: f64, last: f64) -> f64 {
+pub(super) fn tenths_within(seconds: f64, last: f64) -> f64 {
     let rounded = tenths(seconds);
     if rounded <= last {
         rounded
