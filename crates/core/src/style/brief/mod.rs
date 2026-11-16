@@ -138,10 +138,7 @@ fn platform_section(text: &mut String, platform: Platform) {
         id = platform.id(),
     );
     if upright {
-        text.push_str(
-            "Upright feeds lay their own buttons and captions over the frame's edges \
-             and bottom: keep text and faces in the middle of the frame.\n\n",
-        );
+        safe_zone_paragraph(text, platform);
     }
     if platform.is_ad() {
         text.push_str(
@@ -150,6 +147,33 @@ fn platform_section(text: &mut String, platform: Platform) {
              drops to silence.\n\n",
         );
     }
+}
+
+/// Where the placement's own interface covers the frame: the vendor's
+/// margins as pixels of this render when it publishes them, its words when not.
+fn safe_zone_paragraph(text: &mut String, platform: Platform) {
+    let (width, height) = platform.size();
+    let zone = platform.safe_zone();
+    text.push_str(
+        "Upright feeds lay their own buttons and captions over the frame's edges \
+         and bottom: keep text and faces in the middle of the frame. ",
+    );
+    if let Some(margins) = zone.margins {
+        let (left, top, right, bottom) = margins.clear_pixels(width, height);
+        let _ = write!(
+            text,
+            "Keep text, logos and faces inside x {left}-{right}, y {top}-{bottom} of \
+             the {width}x{height} frame; outside it they are {covered}. ",
+            covered = margins.covered_by,
+        );
+    }
+    let _ = write!(
+        text,
+        "{says} ({page}, read {read}; `guide styles`, section \"Safe zones\".)\n\n",
+        says = zone.source.says,
+        page = zone.source.page,
+        read = zone.source.read,
+    );
 }
 
 /// Which style, and its prompt whole: how this kind of video is made.
