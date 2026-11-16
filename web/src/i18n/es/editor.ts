@@ -87,6 +87,8 @@ export const editor: Messages["editor"] = {
   preview: {
     queued: "Vista previa en cola…",
     rendering: "Renderizando la vista previa…",
+    generating: "Generando la vista previa…",
+    changing: "Todavía no se puede previsualizar: se están haciendo cambios",
     ready: "Vista previa lista",
     failed: "No se pudo hacer la vista previa; inténtalo de nuevo.",
     empty: "Todavía no hay nada en la línea de tiempo.",

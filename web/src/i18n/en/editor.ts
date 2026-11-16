@@ -90,6 +90,8 @@ export const editor = {
   preview: {
     queued: "Preview queued…",
     rendering: "Rendering the preview…",
+    generating: "Generating preview…",
+    changing: "Can't preview yet — changes are being made",
     ready: "Preview ready",
     failed: "The preview could not be made; try again.",
     empty: "Nothing on the timeline yet.",

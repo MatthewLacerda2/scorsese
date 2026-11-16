@@ -19,14 +19,22 @@
 //! - **Proxies.** A reduced quality reads each heavy video's proxy where one is
 //!   made, and queues the making of any that are missing
 //!   ([`crate::library::proxy`]).
+//! - **Pieces.** A preview played in pieces (#1448) is a render over a
+//!   range, remuxed for the browser. Every piece of a cut with anything to
+//!   hear carries sound, silence where its stretch has none ([`sound`]),
+//!   because the browser's buffer takes the same tracks in every piece; and
+//!   whether it has any is said before the first is made ([`silent`]).
 //! - **One kept per shape.** A new preview replaces the project's earlier ones
 //!   at the same settings: they are of documents the project has moved past.
+//!   A new piece replaces the pieces at its shape, whatever their range, of
+//!   any other document, and keeps this document's, so seeking back is free.
 //!   A file somebody has open is spared, exactly as eviction spares it.
 
 use std::path::Path;
 
-use scorsese_core::Project;
-use scorsese_render::{Preview, Proxies, Quality};
+use scorsese_core::{Fps, Project};
+use scorsese_render::preview::Sound;
+use scorsese_render::{FrameRange, Plan, Preview, Proxies, Quality, RenderReport, SampleRate};
 
 use super::job::Payload;
 use super::{RenderCache, Settings, key};
@@ -65,6 +73,29 @@ pub(super) async fn outrun(job: &Job, context: &Context) -> bool {
         && matches!(moved_on(context, job.user, &payload).await, Ok(true))
 }
 
+/// Whether `project` has nothing to hear: no clip on it puts sound into the
+/// mix, read from what its assets table recorded, exactly as a render plans
+/// its mix.
+pub(crate) fn silent(project: &Project) -> bool {
+    Plan::build_sound(project, project.timeline_fps, FrameRange::ALL)
+        .map_or(true, |plan| plan.audio().is_empty())
+}
+
+/// The sound a piece carries, given whether its cut has any (`audible`) and
+/// what its render reported: the render's mix, or silence as long as its
+/// picture at the render's `rate` and `fps`.
+pub(super) fn sound(audible: bool, report: &RenderReport, (rate, fps): (SampleRate, Fps)) -> Sound {
+    match (audible, report.seconds_of_audio) {
+        (false, _) => Sound::Absent,
+        (true, Some(_)) => Sound::Mixed,
+        (true, None) => {
+            let samples = u128::from(report.frames) * u128::from(rate.hz()) * u128::from(fps.den())
+                / u128::from(fps.num()).max(1);
+            Sound::Silent(rate, u64::try_from(samples).unwrap_or(u64::MAX))
+        }
+    }
+}
+
 /// The preview to render `project` as at `quality`: its proxies, where the
 /// quality reads them, with any that are missing queued and announced.
 pub(super) async fn preview(
@@ -93,11 +124,13 @@ pub(super) async fn preview(
 
 /// Forget `project`'s other previews at `settings` — the same shape at the
 /// same quality, so of other documents — except any file somebody has open.
-/// Hands back their files, to remove once the transaction commits.
+/// A piece (#1448) forgets the pieces at its shape over any range, except
+/// those `document` still hashes to. Hands back their files, to remove once
+/// the transaction commits.
 pub(super) async fn replaced(
     tx: &mut Tx,
     cache: &RenderCache,
-    project: i64,
+    (project, document): (i64, &Project),
     settings: &Settings,
     kept: &str,
 ) -> Result<Vec<std::path::PathBuf>, sqlx::Error> {
@@ -106,15 +139,29 @@ pub(super) async fn replaced(
         .iter()
         .map(|path| path.to_string_lossy().into_owned())
         .collect();
-    let gone: Vec<String> = sqlx::query_scalar(
-        "DELETE FROM renders
-         WHERE project_id = $1 AND settings = $2 AND key <> $3 AND NOT (path = ANY($4))
-         RETURNING path",
+    let candidates: Vec<(String, sqlx::types::Json<Settings>)> = sqlx::query_as(
+        "SELECT key, settings FROM renders
+         WHERE project_id = $1 AND key <> $3 AND NOT (path = ANY($4))
+           AND (settings = $2 OR ($2 ? 'range' AND settings ? 'range'
+                AND settings - 'range' = $2::jsonb - 'range'))",
     )
     .bind(project)
     .bind(sqlx::types::Json(settings))
     .bind(kept)
     .bind(&pinned)
+    .fetch_all(&mut **tx)
+    .await?;
+    // A row of this document at its own settings is one still wanted.
+    let gone: Vec<String> = candidates
+        .into_iter()
+        .filter(|(row, at)| key(document, at).is_ok_and(|now| now != *row))
+        .map(|(row, _)| row)
+        .collect();
+    let gone: Vec<String> = sqlx::query_scalar(
+        "DELETE FROM renders WHERE project_id = $1 AND key = ANY($2) RETURNING path",
+    )
+    .bind(project)
+    .bind(&gone)
     .fetch_all(&mut **tx)
     .await?;
     Ok(gone

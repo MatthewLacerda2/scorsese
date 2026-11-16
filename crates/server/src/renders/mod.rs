@@ -82,6 +82,7 @@ mod refused;
 pub mod request;
 mod room;
 mod said;
+mod scratch;
 pub mod settings;
 pub mod store;
 
@@ -94,6 +95,7 @@ use std::time::Duration;
 
 use serde::Serialize;
 
+pub(crate) use preview::silent;
 pub use settings::{Ask, PreviewAsk, Settings, key};
 
 use crate::db::UserId;

@@ -72,8 +72,10 @@ pub async fn ask(
     asks: Option<&Limits>,
     (user, id): (UserId, i64),
     settings: Settings,
-) -> Result<Asked, AskError> {
+) -> Result<(Asked, bool), AskError> {
     let stored = projects::open(pool, user, id).await?;
+    // Of the very document asked about, not of a later read (#1448).
+    let audible = !super::silent(&stored.document);
     // Asked of the document before a job is queued for it, so a project that
     // does not validate is told so at once; the job asks again.
     stored
@@ -86,7 +88,7 @@ pub async fn ask(
     if let Some((view, path)) = store::take(&mut tx, id, &key).await? {
         if cache.absolute(std::path::Path::new(&path)).is_file() {
             tx.commit().await?;
-            return Ok(Asked::Kept(view));
+            return Ok((Asked::Kept(view), audible));
         }
         // The file went — a cache cleared by hand — so the row promises
         // nothing, and the render is made again.
@@ -102,7 +104,7 @@ pub async fn ask(
     if let Some(job) = store::pending(&mut tx, kind, id, &key).await? {
         tx.commit().await?;
         // Asked again while it runs — the preview's poll: say how far it is.
-        return Ok(Asked::Queued(queue.progressed(job)));
+        return Ok((Asked::Queued(queue.progressed(job)), audible));
     }
     // Before anything is queued — and after a kept or running one is found,
     // which costs the machine nothing more: it takes renders only so big and
@@ -124,10 +126,12 @@ pub async fn ask(
     // Counted under the user's lock, so asks at once cannot each see room
     // for one more.
     ledger::lock(&mut tx).await?;
+    let document =
+        serde_json::to_value(&stored.document).map_err(|e| AskError::Invalid(e.to_string()))?;
     let (retired, outrun) = if settings.preview.is_some() {
         (
-            store::retire_waiting(&mut tx, id, &settings, &key).await?,
-            store::outrun(&mut tx, id, &settings, &key).await?,
+            store::retire_waiting(&mut tx, id, &document).await?,
+            store::outrun(&mut tx, id, &document).await?,
         )
     } else {
         (Vec::new(), Vec::new())
@@ -149,8 +153,7 @@ pub async fn ask(
         project: id,
         key,
         settings,
-        document: serde_json::to_value(&stored.document)
-            .map_err(|e| AskError::Invalid(e.to_string()))?,
+        document,
     };
     let payload = serde_json::to_value(&payload).map_err(|e| AskError::Invalid(e.to_string()))?;
     let job = jobs::enqueue(&mut tx, kind, &payload).await?;
@@ -166,5 +169,5 @@ pub async fn ask(
             tracing::error!("could not stop preview {running}: {error}");
         }
     }
-    Ok(Asked::Queued(job))
+    Ok((Asked::Queued(job), audible))
 }

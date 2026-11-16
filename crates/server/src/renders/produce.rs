@@ -4,6 +4,7 @@
 use std::path::{Path, PathBuf};
 
 use scorsese_core::Project;
+use scorsese_render::preview::fragment;
 use scorsese_render::{
     Cancel, FrameRange, Preview, Progress, RenderError, RenderSettings, Renderer, Tools,
 };
@@ -24,6 +25,10 @@ pub(super) struct Drawn {
     /// The frames asked for: the whole timeline unless a range was (#1070).
     pub(super) range: FrameRange,
     pub(super) preview: Option<Preview>,
+    /// For a piece of a preview played in pieces (#1448), whether the cut has
+    /// anything to hear — then every piece carries sound — and the render is
+    /// remuxed into the file kept; `None` keeps the render as it is.
+    pub(super) piece: Option<bool>,
     pub(super) cancel: Cancel,
     pub(super) progress: Progress,
     /// What the job's deadline reads (#1634): the captures it waits on are
@@ -106,8 +111,17 @@ pub(super) fn produce(
             None => renderer,
         }
     };
+    let rendered = match drawn.piece {
+        Some(_) => out.with_file_name("whole.avi"),
+        None => out.to_owned(),
+    };
+    let audio = (drawn.settings.sample_rate, drawn.settings.fps);
     let report = renderer
-        .render(project, laid.root(), drawn.range, out)
+        .render(project, laid.root(), drawn.range, &rendered)
         .map_err(rendering)?;
+    if let Some(audible) = drawn.piece {
+        let sound = super::preview::sound(audible, &report, audio);
+        fragment(tools, &rendered, sound, out, &drawn.cancel).map_err(rendering)?;
+    }
     Ok(super::said::said(report, project, laid.root(), &failed))
 }

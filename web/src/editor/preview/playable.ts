@@ -3,12 +3,14 @@
 // from proxies of heavy videos, and the browser plays it in an ordinary video
 // element, where scrubbing is seeking. The browser does no compositing.
 //
-// **Re-rendered after every edit, without a press.** Once the revision has
-// been still for a moment the preview of it is asked for; a preview is keyed
-// by the document and its settings, so an unchanged cut answers at once with
-// the file already made. Edits faster than renders are the server's to
-// absorb: a queued preview of a revision the project has moved past retires
-// when its turn comes, and the newest one replaces the older ones.
+// **Made only when play is pressed** (#1448). Nothing is rendered after an
+// edit by itself: a shared machine's CPU is not spent on cuts nobody watches.
+// A preview is keyed by the document and its settings, so pressing play on an
+// unchanged cut answers at once with the file already made. A queued preview
+// of a revision the project has moved past retires when its turn comes.
+//
+// This is the cut played **whole**, for one of thirty seconds or less; a
+// longer one plays in pieces from the playhead (`pieces/`).
 //
 // Tied to a revision: a render of revision 7 says nothing about revision 8,
 // so the moment the project moves the video is dropped and the preview falls
@@ -35,11 +37,10 @@ type Playable =
 /** How often a render on its way is asked about, in case no event arrives. */
 const POLL_MS = 4000;
 
-/** How long the revision rests before its preview is asked for. */
-const SETTLE_MS = 1000;
-
 interface Held {
   revision: number;
+  /** The quality it was asked at: another one is another file. */
+  quality: Quality;
   playable: Playable;
 }
 
@@ -52,18 +53,12 @@ export function waiting(job: JobView, t: Messages["editor"]["preview"]): string 
 
 /**
  * The preview video of project `id` at `revision`, delivered at `deliver` and
- * drawn at `quality`. Asked for by itself once the revision rests, when
- * `wanted` (there is something on the timeline); `ask` asks now.
+ * drawn at `quality`: asked for by `ask`, when play is pressed.
  */
-export function usePlayable(
-  id: number,
-  revision: number,
-  deliver: string,
-  quality: Quality,
-  wanted: boolean,
-) {
-  const [held, setHeld] = useState<Held>({ revision, playable: { state: "none" } });
-  const playable: Playable = held.revision === revision ? held.playable : { state: "none" };
+export function usePlayable(id: number, revision: number, deliver: string, quality: Quality) {
+  const [held, setHeld] = useState<Held>({ revision, quality, playable: { state: "none" } });
+  const playable: Playable =
+    held.revision === revision && held.quality === quality ? held.playable : { state: "none" };
 
   const ask = useCallback(async () => {
     const at = revision;
@@ -75,24 +70,21 @@ export function usePlayable(
           ? { state: "preparing", job: asked.job }
           : // Neither a render nor a job: nothing more to say than that it failed.
             { state: "failed" };
-      setHeld({ revision: at, playable: next });
+      setHeld({ revision: at, quality, playable: next });
     } catch (error) {
       console.error("preview: asking failed", error);
-      setHeld({ revision: at, playable: { state: "failed" } });
+      setHeld({ revision: at, quality, playable: { state: "failed" } });
     }
   }, [id, revision, deliver, quality]);
-
-  // A new revision, shape or quality: once it has rested, its preview.
-  useEffect(() => {
-    if (!wanted) return;
-    const timer = setTimeout(() => void ask(), SETTLE_MS);
-    return () => clearTimeout(timer);
-  }, [wanted, ask]);
 
   useServerEvents((event) => {
     if (playable.state !== "preparing" || !("id" in event) || event.id !== playable.job.id) return;
     if (event.type === "job_progress") {
-      setHeld({ revision, playable: { state: "preparing", job: folded(playable.job, event) } });
+      setHeld({
+        revision,
+        quality,
+        playable: { state: "preparing", job: folded(playable.job, event) },
+      });
       return;
     }
     if (event.type !== "job") return;
@@ -101,9 +93,13 @@ export function usePlayable(
     if (event.state === "done" || event.state === "cancelled") void ask();
     else if (event.state === "failed" || event.state === "stuck") {
       console.error(`preview: job ${event.id} ${event.state}`, event.error);
-      setHeld({ revision, playable: { state: "failed" } });
+      setHeld({ revision, quality, playable: { state: "failed" } });
     } else
-      setHeld({ revision, playable: { state: "preparing", job: folded(playable.job, event) } });
+      setHeld({
+        revision,
+        quality,
+        playable: { state: "preparing", job: folded(playable.job, event) },
+      });
   });
 
   // Asked again now and then as well: the event stream does not pass every

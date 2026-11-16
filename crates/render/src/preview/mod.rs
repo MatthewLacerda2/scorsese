@@ -26,6 +26,7 @@
 //! Full quality reads originals always. It is the picture a render delivers,
 //! pixel for pixel, which is what makes it worth having next to the fast ones.
 
+mod piece;
 mod proxy;
 
 use std::fmt;
@@ -37,6 +38,7 @@ use scorsese_core::frame::even;
 
 use crate::settings::Resolution;
 
+pub use piece::{Sound, fragment};
 pub use proxy::{
     PROXY_SHORT_SIDE, Proxies, ProxyError, file_name, folder, made_folder, make, make_unless,
     worth_making,

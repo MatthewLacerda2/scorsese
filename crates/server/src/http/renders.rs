@@ -51,7 +51,8 @@ pub async fn request(
         ask.resolution = frame_size(&state, &member, id).await?;
         settings = Settings::from_ask(&ask).map_err(ApiError::BadRequest)?;
     }
-    answer(&state, &member, id, settings).await
+    let (status, answered, _) = answer(&state, &member, id, settings).await?;
+    Ok((status, answered))
 }
 
 /// Project `id`'s own frame at delivery size, as `WIDTHxHEIGHT`.
@@ -69,6 +70,11 @@ async fn frame_size(
 /// project as it is now (#542) — a render at a preview quality, answered in
 /// the same shape as a render — at the project's own frame, like a render,
 /// when no size is asked for.
+///
+/// Or one piece of it played in pieces (#1448), when a range is asked for —
+/// answered with `audible` beside, whether the cut has anything to hear and
+/// so whether every piece of it carries sound, which the player must know
+/// before the first piece lands.
 pub async fn preview(
     State(state): State<AppState>,
     member: Member,
@@ -79,17 +85,23 @@ pub async fn preview(
         ask.resolution = frame_size(&state, &member, id).await?;
     }
     let settings = Settings::from_preview(&ask).map_err(ApiError::BadRequest)?;
-    answer(&state, &member, id, settings).await
+    let piece = settings.piece();
+    let (status, Json(mut answered), audible) = answer(&state, &member, id, settings).await?;
+    if piece {
+        answered["audible"] = json!(audible);
+    }
+    Ok((status, Json(answered)))
 }
 
-/// Kept (`200`) or on its way (`202`): one answer for both routes.
+/// Kept (`200`) or on its way (`202`): one answer for both routes, and
+/// whether the document asked about has anything to hear.
 async fn answer(
     state: &AppState,
     member: &Member,
     id: i64,
     settings: Settings,
-) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let asked = request::ask(
+) -> Result<(StatusCode, Json<Value>, bool), ApiError> {
+    let (asked, audible) = request::ask(
         &state.pool,
         &state.jobs,
         &state.renders,
@@ -117,10 +129,12 @@ async fn answer(
         Asked::Kept(view) => (
             StatusCode::OK,
             Json(json!({ "render": shown(&view), "job": null })),
+            audible,
         ),
         Asked::Queued(job) => (
             StatusCode::ACCEPTED,
             Json(json!({ "render": null, "job": job })),
+            audible,
         ),
     })
 }

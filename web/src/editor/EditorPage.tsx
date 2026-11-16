@@ -86,6 +86,8 @@ function Editor({ project }: { project: EditorProject }) {
   const [video, setVideo] = useState(false);
   // A phone's chat is always full; the mode stored for a wider window is kept.
   const whole = phone || full;
+  // A turn running may be changing the project: the preview says it can't play yet.
+  const [assistantBusy, setAssistantBusy] = useState(false);
   const panels = usePanels();
   const drop = useDrop(id, edit, playhead, (clip) => setPicked([clip]));
   const deselect = useCallback(() => setPicked([]), []);
@@ -169,6 +171,7 @@ function Editor({ project }: { project: EditorProject }) {
                 attachments={attachments}
                 draft={draft}
                 full={whole}
+                onBusy={setAssistantBusy}
                 onFull={
                   phone
                     ? undefined
@@ -190,6 +193,7 @@ function Editor({ project }: { project: EditorProject }) {
               playhead={playhead}
               onSeek={setPlayhead}
               deliver={deliveries(aspect)[0]}
+              changing={edit.pending || assistantBusy}
             />
           </section>
         )}
@@ -212,6 +216,7 @@ function Editor({ project }: { project: EditorProject }) {
                   playhead={playhead}
                   onSeek={setPlayhead}
                   deliver={deliveries(aspect)[0]}
+                  changing={edit.pending || assistantBusy}
                 />
               </ErrorBoundary>
             </section>

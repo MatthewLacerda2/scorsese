@@ -151,7 +151,7 @@ pub(in super::super) async fn render(
         AskError::Project(ProjectError::NotFound) => "there is no such project of yours".into(),
         other => database(other),
     })?;
-    Ok(match asked {
+    Ok(match asked.0 {
         Asked::Kept(view) => format!(
             "Already rendered, {} bytes: GET {} to download it.",
             view.size,
