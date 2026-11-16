@@ -80,7 +80,11 @@ export function usePlayable(id: number, revision: number, deliver: string, quali
   useServerEvents((event) => {
     if (playable.state !== "preparing" || !("id" in event) || event.id !== playable.job.id) return;
     if (event.type === "job_progress") {
-      setHeld({ revision, quality, playable: { state: "preparing", job: folded(playable.job, event) } });
+      setHeld({
+        revision,
+        quality,
+        playable: { state: "preparing", job: folded(playable.job, event) },
+      });
       return;
     }
     if (event.type !== "job") return;
@@ -91,7 +95,11 @@ export function usePlayable(id: number, revision: number, deliver: string, quali
       console.error(`preview: job ${event.id} ${event.state}`, event.error);
       setHeld({ revision, quality, playable: { state: "failed" } });
     } else
-      setHeld({ revision, quality, playable: { state: "preparing", job: folded(playable.job, event) } });
+      setHeld({
+        revision,
+        quality,
+        playable: { state: "preparing", job: folded(playable.job, event) },
+      });
   });
 
   // Asked again now and then as well: the event stream does not pass every
