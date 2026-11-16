@@ -125,3 +125,44 @@ fn a_rerun_on_the_cut_it_made_changes_nothing() {
     cut_to_voice(&mut project, &dir, &voicing()).unwrap();
     assert_eq!(project, once);
 }
+
+/// A chunk of narration with a picture change inside it (#1111): the second
+/// picture sits on a track above the scene's visual, starts on a word's time,
+/// runs to the scene's end and rides the scene.
+fn a_picture_changed_mid_chunk(label: &str, overlap: u64) -> crate::Project {
+    let (dir, mut project) = project(label);
+    // `nar-2` starts at frame 100 and says "line." 0.4 s in: frame 112. Its
+    // scene ends 2.2 s after the line starts, frame 166, plus any overlap.
+    let up = Track::with_clips(
+        "v2",
+        TrackKind::Video,
+        vec![crate::Clip::at("page-2b", "still", 112, 54 + overlap)],
+    );
+    project.tracks.insert(1, up);
+    let mut voicing = voicing();
+    voicing.overlap = overlap as f64 / 30.0;
+    voicing.scenes[1].riders.push(ClipId::new("page-2b"));
+    let voiced = cut_to_voice(&mut project, &dir, &voicing).unwrap();
+    assert!(voiced.crossed.is_empty());
+    project
+}
+
+#[test]
+fn a_picture_change_inside_a_chunk_rides_its_scene_to_the_word() {
+    let project = a_picture_changed_mid_chunk("mid-chunk", 0);
+    // Scene 2 now runs 51–117: the picture still arrives on "line.", twelve
+    // frames in, and still ends with the scene.
+    assert_eq!(at(&project, "page-2"), ("v1".into(), 51, 117));
+    assert_eq!(at(&project, "page-2b"), ("v2".into(), 63, 117));
+}
+
+#[test]
+fn with_an_overlap_the_change_inside_a_chunk_stays_above_its_scene() {
+    let project = a_picture_changed_mid_chunk("mid-chunk-overlap", 6);
+    // `page-2` runs on under scene 3 and so moves up to `v2`; the change
+    // inside its chunk, laid after it, goes up again and stays on top.
+    assert_eq!(at(&project, "page-2"), ("v2".into(), 51, 123));
+    assert_eq!(at(&project, "page-2b"), ("v3".into(), 63, 123));
+    let order: Vec<String> = project.tracks.iter().map(|t| t.id.to_string()).collect();
+    assert_eq!(order[..3], ["v1", "v2", "v3"]);
+}

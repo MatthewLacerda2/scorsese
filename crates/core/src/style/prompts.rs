@@ -8,17 +8,20 @@
 
 /// [`narrated_captions`](super::STYLES).
 pub(super) const NARRATED_CAPTIONS: &str = "\
-Narrated captions: the narration is the on-screen text. Each chunk of a few words arrives \
-on its first spoken word and leaves when the next arrives, over b-roll; the voice drives \
+Narrated captions: the narration is the on-screen text. Each caption of a few words \
+arrives on its first spoken word and leaves when the next arrives, over b-roll; the voice drives \
 the cut, so every picture change lands on a word.\n\
 Needs from the person: the message, or a script to read. B-roll is theirs if they bring \
 it, stock otherwise; the voice is theirs recorded, or generated.\n\
 Shape: a hook in the first two seconds that states the payoff, then the argument in short \
 spoken sentences, then one clear close (a call to action on an ad). Write the script \
 first and agree it before building anything.\n\
-Make: the narration one line per scene, so every word has a timing; cut the scenes to \
-the voice, each ending shortly after its line's last word; then the captions from those \
-words, once the cut is final. Each chunk (about two lines, cut at sentences, commas and \
+Make: the narration a chunk per paragraph or theme, a new chunk wherever the script \
+pauses for more than about a second, so the voice reads on inside each; every word keeps \
+its timing. Each chunk is a scene: cut the scenes to the voice, each ending shortly after \
+its chunk's last word, and place a picture change inside a chunk on its word, riding \
+that scene; then the captions from those words, once the cut is final. Each caption \
+(about two lines, cut at sentences, commas and \
 pauses) arrives whole on its first spoken word, heavy white type rimmed in black, in the \
 lower third, clear of the buttons a phone draws over the bottom. Music sits low and ducks \
 under the voice, laid last.\n\
@@ -80,8 +83,8 @@ shown on its own screen, then where to get it.\n\
 Make: the script follows the screens, a sentence or two each. Show every screen large, \
 framed inside a device or a soft panel, and push in slowly to the part being named; a \
 short label or highlight marks it. Write the narration to inform, not as ad copy: what \
-each screen is, what you do on it, what you get. The next screen arrives shortly after the \
-sentence about the last one ends. Neutral music, ducked under the voice. Close on where \
+each screen is, what you do on it, what you get, a narration chunk per feature. The next \
+screen arrives shortly after the chunk about the last one ends. Neutral music, ducked under the voice. Close on where \
 to get it.\n\
 Read `guide styles`, section \"Product tour\" first: the tools and timings a made video \
 of this kind used.";

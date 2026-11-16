@@ -73,18 +73,33 @@ person asks for it as "a Reels ad", "one of those videos with the text", or
 by bringing a script and nothing to film.
 
 **Write the script first, and agree it.** Everything else is cut to the
-voice, so a changed line later is a re-cut. Short spoken sentences, a hook in
+voice, so a changed sentence later is a re-cut. Short spoken sentences, a hook in
 the first two seconds that states the payoff, one clear close.
 
-**The voice drives the cut.** Generate the narration as one line per scene
-(`asset_set` with a spoken brief, then `generate`), because a generated line
-keeps the timing of every word it says, and those timings are what the rest of
-the cut is placed on. Each scene ends **0.2 s after its line's last word**, and
-the next scene starts there. Not at the end of the clip: a generated line has
-a silent tail, and cutting on the clip's end leaves a pause after every
-sentence. `cut_to_voice` does this arithmetic: name the scenes in order, each
-its line and the visuals seen while it is said, with `gap_seconds: 0.2`. Re-run
-it whenever a line is regenerated or re-worded.
+**The voice drives the cut.** Generate the narration a chunk at a time, one
+chunk per paragraph or theme of the script, with a new chunk wherever the
+script pauses for more than about a second (`asset_set` with a spoken brief,
+then `generate`). Inside a chunk the voice reads on, so its intonation carries
+from one sentence to the next. A shorter pause inside a chunk is written into
+its text (ellipses, break tags: `guide prompts`), never made with a clip
+boundary. A generated chunk keeps the timing of every word it says, and those
+timings are what the rest of the cut is placed on. Each chunk is a scene: it
+ends **0.2 s after the chunk's last word**, and the next scene starts there.
+Not at the end of the clip: a generated chunk has a silent tail, and cutting on
+the clip's end leaves a pause after every chunk. `cut_to_voice` does this
+arithmetic: name the scenes in order, each its chunk and the visuals seen
+while it is said, with `gap_seconds: 0.2`. Re-run it whenever a chunk is
+regenerated or re-worded.
+
+**A picture change inside a chunk is placed on a word.** A scene's visuals run
+the whole scene; a picture that arrives part-way through goes on a video track
+above them, starting at its word's time (the chunk's `.words.json`) and ending
+where the scene's visuals end, and is named under that scene's `moves_with`,
+so it keeps its place in the chunk when an earlier chunk changes and the scene
+moves. Cut first, then place these. Re-wording one sentence regenerates its
+whole chunk and moves every word after it, so the changes inside that chunk
+are placed again from its new timings; `cut_to_voice` only re-times between
+chunks.
 
 **Two overlapping scene tracks.** Give `cut_to_voice` an `overlap_seconds`
 and each scene's visuals run on a little under the next one's arrival, so an
@@ -92,13 +107,13 @@ exit and an entrance play together instead of the cut landing on a hard edge.
 The scenes end up alternating between two video tracks; that is the layout.
 
 **The word being said is lit.** `caption_narration` does exactly this: it
-cuts each line at its punctuation and pauses into captions of up to three
+cuts each chunk at its punctuation and pauses into captions of up to three
 words, a name never split, and lights each word in yellow as it is said, white
 heavy upper-case type rimmed in black in the lower third, clear of the buttons
 a phone draws over the bottom of a reel. It is the look of captions on 9:16
 social video, and the default. `look: "text"` is the plainer one this ad first
 landed on: pieces of about two lines, each arriving whole on its first word. Run it **after** the
-cut is final: it places captions where the words are now, and a line moved
+cut is final: it places captions where the words are now, and a chunk moved
 afterwards leaves its captions behind until it is run again. A page that has to land on a word reads the same timings
 (`guide pages`, section "Start on a spoken word"). Speech in imported footage
 — a sketch, an interview — is captioned the same way once `transcribe` has
@@ -223,12 +238,13 @@ on it, what you get. The first draft of the Truss Cockpit narration was written
 as a TV ad — slogans, urgency, superlatives — and the person rejected it; the
 one that was kept *explained*. Agree the script before generating any of it.
 
-**One screen a scene, cut on the sentences.** Each screen is shown large, in
+**One screen a scene, cut on the voice.** Each screen is shown large, in
 a soft panel or a device frame, with a slow push-in toward the part being
 named, and a short label or highlight marking it. The voice decides when a
-screen changes, the same way as in a narrated ad (the section above): the next
-screen arrives shortly after the sentence about the last one ends, not on a
-fixed beat, and `cut_to_voice` lays that out.
+screen changes, the same way as in a narrated ad (the section above): the
+narration is a chunk per feature, the next screen arrives shortly after the
+chunk about the last one ends, not on a fixed beat, and `cut_to_voice` lays
+that out.
 
 **Neutral music under it, ducked.** A recipe (`guide recipes`) fitted to the
 cut, held against the reference `guide references` gives for a groove under an
