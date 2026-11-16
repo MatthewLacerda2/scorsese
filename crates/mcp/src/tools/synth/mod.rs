@@ -155,7 +155,8 @@ impl Tool for Check {
          rendering it. Not needed before synth_write or after synth_new or \
          synth_set: those parse what they write and refuse what is not a \
          recipe. For a song it also reports its harmony: where two parts hold \
-         notes a semitone apart, and which notes fall outside the key it \
+         notes a semitone apart (named by the entry, and the section it is in \
+         when a marker names one), and which notes fall outside the key it \
          declares — a signal, never a refusal. Milliseconds rather than the \
          seconds a bake takes."
     }
@@ -264,7 +265,7 @@ impl Tool for Write {
          own version is in that name too, so a bake never outlives the code \
          that made it — and so are the clip length a song's `fit` of \
          `{\"to\": \"clip\"}` was fitted to and the clip starts its \
-         `anchors` land sections on (`{\"section\": 3, \"clip\": \"logo\"}`), \
+         `anchors` land sections on (`{\"section\": \"chorus\", \"clip\": \"logo\"}`), \
          so re-cutting and baking again refits the music. A track whose patch is a library name — \
          \"kit:kick\", see synth_kit — gets a copy of that instrument written \
          in its place, so the recipe on disk carries the patch itself."

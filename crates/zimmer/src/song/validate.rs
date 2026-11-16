@@ -45,6 +45,7 @@ impl Song {
                 self.check_layer(layer, key.as_ref())?;
             }
         }
+        self.check_markers()?;
         for (name, pattern) in &self.patterns {
             pattern.validate(name, &self.tracks, key.as_ref())?;
         }
@@ -61,6 +62,34 @@ impl Song {
         super::timing::check(self)?;
         super::anchor::check(self)?;
         super::cap::check(self, key.as_ref())
+    }
+
+    /// Every section marker names a section of its own that has something
+    /// in it.
+    fn check_markers(&self) -> Result<(), SynthError> {
+        let mut names: Vec<&str> = Vec::new();
+        let mut open: Option<&str> = None;
+        for entry in &self.arrangement {
+            let Some(name) = entry.marker() else {
+                open = None;
+                continue;
+            };
+            if let Some(empty) = open {
+                return Err(SynthError::EmptySection { name: empty.into() });
+            }
+            if name.trim().is_empty() || names.contains(&name) {
+                return Err(SynthError::BadSectionName {
+                    name: name.into(),
+                    taken: !name.trim().is_empty(),
+                });
+            }
+            names.push(name);
+            open = Some(name);
+        }
+        match open {
+            Some(empty) => Err(SynthError::EmptySection { name: empty.into() }),
+            None => Ok(()),
+        }
     }
 
     /// Who is keyed from whom.

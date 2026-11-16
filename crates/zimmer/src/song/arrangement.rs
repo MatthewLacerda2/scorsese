@@ -35,11 +35,14 @@ use crate::note::MIDI_RANGE;
 /// existed, every section that put a new part over the rhythm section had to
 /// carry a full copy of the rhythm section's notes (#506).
 ///
-/// Untagged when written, so every song from before either form parses and
-/// re-serialises unchanged, short form still short. It is read by hand, by the
-/// one key that cannot be misspelled into the other form — `layers` — so a
-/// misspelled key in a [`Play`] or a [`Layers`] is refused by name; the
-/// `song::forms` module has why.
+/// The third form plays nothing: a [`Marker`] names the section the entries
+/// after it belong to.
+///
+/// Untagged when written, so every song from before any of the forms parses
+/// and re-serialises unchanged, short form still short. It is read by hand, by
+/// the one key that cannot be misspelled into another form — `layers`, or
+/// `section` — so a misspelled key in a [`Play`], a [`Layers`] or a [`Marker`]
+/// is refused by name; the `song::forms` module has why.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum ArrangementEntry {
@@ -47,6 +50,31 @@ pub enum ArrangementEntry {
     Single(Layer),
     /// Several patterns at the same time.
     Layered(Layers),
+    /// Where a named section starts. Takes no slot and plays nothing.
+    Marker(Marker),
+}
+
+/// The start of a named section: `{ "section": "chorus" }`.
+///
+/// **A section is a run of entries**, from its marker to the next marker or
+/// the end of the arrangement. Once a piece is written as many short layered
+/// entries, one entry is a bar or two and the verse is eight of them; the
+/// marker is how a report — and an anchor — speaks in the verse.
+///
+/// It **takes no slot and is no part of the seed walk**: adding or removing
+/// one moves no sample, and an anchor counting entries by index skips it, so
+/// marking up a finished song changes how it is reported and nothing else.
+///
+/// Names are unique within a song, so a name says which section without an
+/// occurrence index: the second chorus is `"chorus 2"`. A marker followed by
+/// another marker, or by the end of the arrangement, is refused: a section
+/// with nothing in it is a typo, not a stretch of the piece. Entries before
+/// the first marker are reported one row each, as in a song with none.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Marker {
+    /// What the section is called, in every report that names it.
+    pub section: String,
 }
 
 /// Several patterns sounding in one slot: `{ "layers": ["groove", "solo"] }`.
@@ -63,9 +91,9 @@ pub enum ArrangementEntry {
 /// lane in a DAW is, and a tree of them is a second arrangement inside the
 /// first with nothing to show for it.
 ///
-/// The bake report still prints **one row per entry**, named after every
-/// pattern in it, because a row is a stretch of the piece and a layered entry
-/// is one stretch.
+/// Outside a named section ([`Marker`]) the bake report prints **one row per
+/// entry**, named after every pattern in it, because a row is a stretch of the
+/// piece and a layered entry is one stretch.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Layers {
@@ -148,18 +176,31 @@ pub struct Play {
 
 impl ArrangementEntry {
     /// Everything that plays in this entry's slot, in walking order — one
-    /// layer for every entry but a layered one.
+    /// layer for a single entry, none for a marker.
     pub fn layers(&self) -> &[Layer] {
         match self {
             Self::Single(layer) => std::slice::from_ref(layer),
             Self::Layered(layered) => &layered.layers,
+            Self::Marker(_) => &[],
+        }
+    }
+
+    /// The section this entry starts, if it is a [`Marker`].
+    pub fn marker(&self) -> Option<&str> {
+        match self {
+            Self::Marker(marker) => Some(&marker.section),
+            Self::Single(_) | Self::Layered(_) => None,
         }
     }
 
     /// What a report calls this entry: its pattern's name, or every layer's
-    /// joined with ` + ` — `groove + solo` is the section a reader is looking
+    /// joined with ` + ` — `groove + solo` is the stretch a reader is looking
     /// for, where the first layer's name alone would say the solo is not there.
+    /// A marker is called by its section's name.
     pub fn label(&self) -> String {
+        if let Some(name) = self.marker() {
+            return name.to_owned();
+        }
         let names: Vec<&str> = self.layers().iter().map(Layer::pattern).collect();
         names.join(" + ")
     }
@@ -280,5 +321,11 @@ impl From<Layer> for ArrangementEntry {
 impl From<Layers> for ArrangementEntry {
     fn from(layered: Layers) -> Self {
         Self::Layered(layered)
+    }
+}
+
+impl From<Marker> for ArrangementEntry {
+    fn from(marker: Marker) -> Self {
+        Self::Marker(marker)
     }
 }

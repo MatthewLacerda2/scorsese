@@ -123,7 +123,9 @@ impl Tool for Bake {
          an upgrade that changes how a recipe sounds is redone here too. Says how \
          each one came out: level, spectral balance and stereo width for the \
          whole file, then \
-         a row per section of the arrangement, then a row per track of a song \
+         a row per section of the arrangement (the run of entries a \
+         `{\"section\": \"verse\"}` marker names, or one entry outside any), \
+         then a row per track of a song \
          saying which instrument is taking up the room, then a grid of each \
          track's mean in each section saying which instrument is quiet where. Give `like` and it ends with \
          rows holding the bake against a reference record. \

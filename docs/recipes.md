@@ -1609,13 +1609,51 @@ groove had to be made three times.
   went up an octave and the groove under it did not. The same pattern twice is
   legal, so an octave double is one line:
   `{ "layers": ["lead", { "pattern": "lead", "transpose": 12 }] }`.
-- **A layered entry is one section.** The [bake report](#how-a-bake-came-out)
-  prints one row for it, named after every layer — `groove + solo` — because it
-  is one stretch of the piece.
+- **A layered entry is one entry.** Outside a [named
+  section](#naming-the-sections) the [bake report](#how-a-bake-came-out) prints
+  one row for it, named after every layer — `groove + solo` — because it is one
+  stretch of the piece.
 - **One level only.** A layer cannot itself be layered, a `layers` object takes
   no other key (a `pattern` or `vel_scale` beside it is refused by name — put
   it on the layer it belongs to), and an empty `layers` is refused: a rest is a
   pattern with no notes and the `beats` it should last.
+
+### Naming the sections
+
+Once a piece is written as many short layered entries, one entry is a bar or
+two and a verse is eight of them. A **marker** names the run of entries after
+it — `{ "section": "verse" }` — until the next marker or the end:
+
+```json fields
+"tracks": [{ "name": "bass", "patch": { "source": { "kind": "osc_stack", "oscs": [{ "wave": "saw" }] } } }],
+"patterns": {
+  "riff": { "beats": 4, "notes": [{ "track": "bass", "note": "E2", "start": 0, "dur": 2 }] },
+  "fill": { "beats": 4, "notes": [{ "track": "bass", "note": "G2", "start": 0, "dur": 2 }] }
+},
+"arrangement": [
+  { "section": "intro" },
+  "riff",
+  { "section": "verse" },
+  "riff", "fill", "riff", "fill",
+  { "section": "chorus" },
+  { "layers": ["riff", "fill"] }, "fill"
+]
+```
+
+- **The report speaks in sections.** Each named section is one row of the
+  [bake report](#how-a-bake-came-out), labelled with its name and ending where
+  its last entry ends; the grid has one column per section, and `like` reads
+  sections. A `loop` fit repeats the rows per pass.
+- **A marker plays nothing and takes no time.** Adding or removing markers moves
+  no sample: a finished song can be marked up without re-baking what it sounds
+  like, and a `section` [anchor](#fitting-a-song-to-the-cut) written as a number
+  keeps counting the entries that play, markers skipped.
+- **Names are unique**: the second chorus is `"chorus 2"`, which is what lets
+  an anchor name a section without saying which occurrence. A second marker of
+  the same name, an empty name, and a marker with nothing after it before the
+  next marker or the end are refused by name. A marker takes no other key.
+- **Entries before the first marker** keep a row each, the way a song with no
+  markers is reported, so a song can be given markers a section at a time.
 
 ### Saying what key it is in
 
@@ -2400,8 +2438,10 @@ or, the usual way, to where a clip starts on the timeline:
 ]
 ```
 
-A `section` is an arrangement entry, counted from 0 — the rows a [bake
-report](#how-a-bake-came-out) lists. The bake gives **each stretch between
+A `section` is a [named section](#naming-the-sections) — `{ "section":
+"chorus", "clip": "logo-scene" }` pins the chorus's first downbeat — or a
+number: an arrangement entry that plays, counted from 0 with markers skipped.
+The bake gives **each stretch between
 two anchors one tempo**, the one that lands the second on its time: the
 written tempo moved by a single factor, with a step on each anchored
 downbeat, where a crash or a change of groove covers it. In the example the
@@ -2419,7 +2459,7 @@ render's `note:` says the bake is out of date.
 
 Write anchors in the order the song plays them, each with `seconds` or `clip`
 and never both. **Refused**, each naming the section — or the clips — at fault:
-an anchor past the arrangement; one on the first section anywhere but 0 s;
+an anchor past the arrangement, or naming a section no marker carries; one on the first section anywhere but 0 s;
 sections or times that do not ascend (two clips the wrong way round on the
 timeline are both named); a clip the project does not have, one on a timeline
 no clip playing the song is on, or one starting before the song does; and,
@@ -2913,8 +2953,9 @@ trilha — baked, 3.8 MB
 
 The rows with times on them are the **arrangement's own sections** when there
 is an arrangement, which is what lets a finding be "the second chorus is the
-quiet one" rather than "seconds 24 to 32 are quiet". A layered entry is one
-section, named after all of its layers — `groove + solo`. A one-shot, an imported
+quiet one" rather than "seconds 24 to 32 are quiet": one row per [named
+section](#naming-the-sections), and one per entry outside any — a layered
+entry named after all of its layers, `groove + solo`. A one-shot, an imported
 file and a rendered mixdown have no arrangement, so those are cut on a fixed
 interval instead. A piece with only one stretch gets no rows at all — one row
 under a one-line summary is the same sentence twice.
@@ -3277,8 +3318,10 @@ second, a major seventh or a minor ninth, in any octave — held at the same
 time, measured in beats of overlap. Within one track nothing is flagged: a
 chord's own voicing is the author's. Tritones and whole tones are ordinary
 harmony and are not listed. The five longest are listed, each with the
-section it starts in (the entry's pattern, or its layers joined with ` + `),
-the beat into that section counted from `0` the way `start` is, and how many
+entry it starts in (the entry's pattern, or its layers joined with ` + `, then
+the [named section](#naming-the-sections) in brackets when it is in one:
+`ch_AF + ch_dr (chorus)`), the beat into that entry counted from `0` the way
+`start` is, and how many
 times the arrangement plays it there; the first line totals all of them,
 every repeat counted. Under a looping `fit`, a note still ringing at the end
 is heard over the top of the next pass and is read there.
@@ -3389,8 +3432,12 @@ exactly what nothing downstream can notice.
 - **[Tempo](#a-tempo-that-moves)** — a change on or before beat 0, a `bpm`
   that is not a positive number, and changes whose beats do not ascend.
 
-- **[Anchors](#fitting-a-song-to-the-cut)** — a section past the arrangement,
-  the first section anywhere but 0 s, sections or times that do not ascend, a
+- **[Section markers](#naming-the-sections)** — a name used twice, an empty
+  name, a marker with nothing after it before the next one or the end, and any
+  key but `section`.
+
+- **[Anchors](#fitting-a-song-to-the-cut)** — a section past the arrangement or
+  named by no marker, the first section anywhere but 0 s, sections or times that do not ascend, a
   `clip` nothing resolved, both `seconds` and `clip` or neither, anchors beside
   a `loop` fit, and a stretch between two of them moving the tempo past 25%.
 

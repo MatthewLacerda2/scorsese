@@ -151,3 +151,18 @@ fn a_repeated_clash_is_listed_once_and_counted_every_time() {
             .ends_with("chorus beat 2, 3 times")
     );
 }
+
+/// A clash inside a named section still names the entry it is in — that is
+/// where it is fixed — and adds the section, so a reader can find it.
+#[test]
+fn a_clash_in_a_named_section_names_the_entry_and_the_section() {
+    let marked = RUB.replace(
+        r#""arrangement": ["chorus"]"#,
+        r#""arrangement": [{ "section": "first chorus" }, "chorus"]"#,
+    );
+    let found = harmony(&marked);
+    assert_eq!(
+        found.longest[0].to_string(),
+        "2 beats: bass F2 against pad E3, chorus (first chorus) beat 2"
+    );
+}

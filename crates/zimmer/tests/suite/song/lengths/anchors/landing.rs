@@ -80,7 +80,7 @@ fn a_written_tempo_map_is_scaled_between_anchors() {
 #[test]
 fn anchors_read_and_write_back_as_written() {
     let song = four_sections(vec![Anchor {
-        section: 2,
+        section: 2.into(),
         seconds: None,
         clip: Some("logo".into()),
     }]);

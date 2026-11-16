@@ -61,7 +61,9 @@ impl fmt::Display for Voice {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Place {
     /// The arrangement entry's label — its pattern, or its layers' joined with
-    /// ` + ` — which is how every other report names a section.
+    /// ` + ` — then, in brackets, the named section it is in when it is in
+    /// one: `ch_AF + ch_dr (chorus)`. The entry, not only the section, because
+    /// a clash is fixed in a pattern.
     pub section: String,
     /// Beats from the top of that section, counted the way a pattern's
     /// `start` is: the first beat is `0`.

@@ -222,7 +222,10 @@ fn place(song: &Song, note: &Held) -> Place {
         section: song
             .arrangement
             .get(note.entry)
-            .map(|entry| entry.label())
+            .map(|entry| match song.section_of(note.entry) {
+                Some(name) => format!("{} ({name})", entry.label()),
+                None => entry.label(),
+            })
             .unwrap_or_default(),
         beat: note.start - note.slot,
         times: 1,

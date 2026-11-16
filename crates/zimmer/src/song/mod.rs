@@ -77,8 +77,8 @@ use serde::{Deserialize, Serialize};
 use crate::error::SynthError;
 use crate::patch::{Fx, Patch};
 
-pub use anchor::Anchor;
-pub use arrangement::{ArrangementEntry, Layer, Layers, Play};
+pub use anchor::{Anchor, SectionRef};
+pub use arrangement::{ArrangementEntry, Layer, Layers, Marker, Play};
 pub use articulation::Articulation;
 pub use automate::{Automation, Easing, Param, Point};
 pub use cap::MAX_SONG_SECONDS;
