@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use super::Song;
 use super::key::Key;
 use super::shape::{fitted, plan};
+use super::tile::passes;
 use crate::error::SynthError;
 
 /// The longest a song may be rendered, in seconds: ten minutes, longer than
@@ -46,23 +47,28 @@ pub(super) fn check(song: &Song, key: Option<&Key>) -> Result<(), SynthError> {
 /// The beat the last thing in one pass ends on: each slot as far as its
 /// furthest-reaching layer reaches.
 fn last_beat(song: &Song, key: Option<&Key>) -> Result<f32, SynthError> {
-    let mut reach = HashMap::with_capacity(song.patterns.len());
+    let mut voiced = HashMap::with_capacity(song.patterns.len());
     for (name, pattern) in &song.patterns {
-        let notes = pattern.voices(key)?;
-        let end = notes
-            .iter()
-            .map(|note| note.start + note.dur)
-            .fold(pattern.beats, f32::max);
-        reach.insert(name.as_str(), end);
+        voiced.insert(name.as_str(), (pattern.beats, pattern.voices(key)?));
     }
     let (mut cursor, mut end) = (0.0f32, 0.0f32);
     for entry in &song.arrangement {
+        let slot = song.slot_beats(entry).unwrap_or(0.0);
         for layer in entry.layers() {
-            if let Some(reaches) = reach.get(layer.pattern()) {
-                end = end.max(cursor + reaches);
-            }
+            let Some((beats, notes)) = voiced.get(layer.pattern()) else {
+                continue;
+            };
+            // A layer that repeats reaches as far as its last kept note rings;
+            // one that does not, at least to its own last beat.
+            let floor = if layer.repeats() { slot } else { *beats };
+            let starts = |index: usize| notes[index].start;
+            let reaches = passes(layer, starts, notes.len(), *beats, slot)
+                .into_iter()
+                .map(|(index, offset)| offset + notes[index].start + notes[index].dur)
+                .fold(floor, f32::max);
+            end = end.max(cursor + reaches);
         }
-        cursor += song.slot_beats(entry).unwrap_or(0.0);
+        cursor += slot;
     }
     Ok(end)
 }

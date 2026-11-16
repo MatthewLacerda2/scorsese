@@ -348,6 +348,23 @@ pub enum SynthError {
     /// is a pattern with no notes and the `beats` it should last.
     NoLayers,
 
+    /// Every layer of a layered entry repeats, so nothing says how long its
+    /// slot is: a repeating layer plays until the entry ends, and the entry
+    /// ends where its longest layer that does not repeat does.
+    EveryLayerRepeats {
+        /// The entry's position in `arrangement`, counted from zero.
+        index: usize,
+    },
+
+    /// `repeat` on an entry that is one pattern: a repeat plays until the
+    /// layers beside it end, and a single entry has none.
+    RepeatAlone {
+        /// The entry's position in `arrangement`, counted from zero.
+        index: usize,
+        /// The pattern it plays.
+        pattern: String,
+    },
+
     /// A section marker that is wrong as a name: empty, or a name an earlier
     /// marker in the same song already took — a name has to say which
     /// section without an occurrence index.

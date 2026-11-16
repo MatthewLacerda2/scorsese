@@ -386,3 +386,7 @@ ordinal, and `slot_beats` gives it no slot; a song without one is the same
 document. `tests/suite/song/marked.rs` renders one song with and without three
 markers, noise track and a by-index anchor included, and holds the samples
 equal.
+
+**Repeating layers left it alone** (#1793): `repeat` is skipped at its
+default, and a layer without it is walked exactly as before — one pass, offset
+zero, no note dropped — so no existing recipe's bytes or samples move.

@@ -37,6 +37,7 @@ fn a_mark_multiplies_what_the_section_and_the_page_already_decided() {
                 transpose: None,
                 transpose_degrees: None,
                 tracks: None,
+                repeat: false,
             }
             .into(),
         ];

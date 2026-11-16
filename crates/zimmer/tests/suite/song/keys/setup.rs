@@ -55,6 +55,7 @@ pub(crate) fn lifted(song: &mut Song, transpose: Option<f32>, degrees: Option<i3
         transpose_degrees: degrees,
         vel_scale: None,
         tracks: None,
+        repeat: false,
     })];
 }
 

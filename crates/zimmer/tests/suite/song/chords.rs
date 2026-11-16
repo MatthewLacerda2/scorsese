@@ -121,6 +121,7 @@ fn an_arrangement_transposes_every_voice_of_a_chord_together() {
         transpose_degrees: None,
         vel_scale: None,
         tracks: None,
+        repeat: false,
     })];
     assert_eq!(render(&up), render(&alone("Em7")));
 }

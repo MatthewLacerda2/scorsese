@@ -8,6 +8,7 @@
 mod document;
 mod layers;
 mod pitch;
+mod repeat;
 mod setup;
 mod voices;
 mod written;
