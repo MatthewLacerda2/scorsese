@@ -39,3 +39,12 @@ fn an_anchor_naming_no_section_is_refused() {
     let said = song.validate().expect_err("refused").to_string();
     assert!(said.contains("section bridge names no section"), "{said}");
 }
+
+/// A `section` that is neither a number nor a name says what it takes.
+#[test]
+fn an_anchor_section_of_the_wrong_type_says_what_it_takes() {
+    let error = serde_json::from_str::<Anchor>(r#"{ "section": true, "seconds": 1 }"#)
+        .expect_err("refused")
+        .to_string();
+    assert!(error.contains("or a section's name"), "{error}");
+}
