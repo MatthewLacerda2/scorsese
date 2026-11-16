@@ -19,7 +19,7 @@ use crate::error::SynthError;
 /// repeats starts again every `beats` and keeps a note only if it starts
 /// before the slot ends.
 ///
-/// A pattern of no length, or a slot of none to fill, is one pass: a walk that
+/// A pattern of no length, or a slot with no end, is one pass: a walk that
 /// tolerates an unvalidated document must still end.
 pub(crate) fn passes(
     layer: &Layer,
@@ -31,16 +31,17 @@ pub(crate) fn passes(
     if !layer.repeats() {
         return (0..len).map(|index| (index, 0.0)).collect();
     }
-    let count = if beats > 0.0 && (slot / beats).is_finite() {
-        (slot / beats).ceil().max(1.0) as usize
+    let offsets: Vec<f32> = if beats > 0.0 && slot.is_finite() {
+        (0..)
+            .map(|pass| pass as f32 * beats)
+            .take_while(|&offset| offset < slot)
+            .collect()
     } else {
-        1
+        vec![0.0]
     };
-    (0..count)
-        .flat_map(|pass| {
-            let offset = pass as f32 * beats;
-            (0..len).map(move |index| (index, offset))
-        })
+    offsets
+        .into_iter()
+        .flat_map(|offset| (0..len).map(move |index| (index, offset)))
         .filter(|&(index, offset)| offset + starts(index) < slot)
         .collect()
 }
@@ -131,6 +132,14 @@ mod tests {
     #[test]
     fn a_repeating_layer_longer_than_its_slot_is_cut_in_its_first_pass() {
         assert_eq!(passes(&layer(true), starts, 2, 2.0, 1.0), [(0, 0.0)]);
+    }
+
+    #[test]
+    fn a_slot_with_no_end_is_one_pass() {
+        assert_eq!(
+            passes(&layer(true), starts, 2, 2.0, f32::INFINITY),
+            [(0, 0.0), (1, 0.0)]
+        );
     }
 
     #[test]
