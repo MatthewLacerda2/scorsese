@@ -62,6 +62,29 @@ and three ads: `instagram_reels_ad`, `instagram_stories_ad` and `tiktok_ad`. A p
 style has a section below, the section is what a video in it has actually
 taught; read both.
 
+### Safe zones
+
+An upright feed lays its caption, profile row, buttons and, in an ad, a call
+to action over the picture; text placed under them is unreadable. Keep text,
+logos and faces out of these margins, each a share of the frame's height (top,
+bottom) or width (sides). Figures are copied from each vendor's own page, read
+2026-11-16; where a vendor publishes none the row has none, and a placement's
+section (`guide styles`, section `tiktok_ad`) says what the vendor does say,
+and gives the clear area in pixels when there are figures.
+
+| placement | top | bottom | left | right | from |
+| --- | --- | --- | --- | --- | --- |
+| `youtube` | — | — | — | — | nothing published for a landscape video |
+| `youtube_shorts` | — | — | — | — | nothing for a posted Short; Google's upright ad template keeps 288, 672, 48 and 192 px of 1080x1920 clear ([Google Ads Help](https://support.google.com/google-ads/answer/13547298)) |
+| `instagram_reels` | — | — | — | — | nothing for a posted Reel; the Reels ad's figures are the nearest guide |
+| `instagram_reels_ad` | 14% | 35% | 6% | 6% | [Meta Ads Guide, Reels](https://www.facebook.com/business/ads-guide/update/video/instagram-reels) |
+| `instagram_stories_ad` | 14% | 35% | 6% | 6% | [Meta Ads Guide, Stories](https://www.facebook.com/business/ads-guide/update/video/instagram-story) |
+| `tiktok` | — | — | — | — | nothing for a post |
+| `tiktok_ad` | — | — | — | — | only downloadable files, sized by the caption's length ([TikTok Ads Help](https://ads.tiktok.com/help/article/tiktok-auction-in-feed-ads)) |
+
+In a 1080x1920 frame Meta's margins leave x 65–1015, y 269–1248 clear: a
+caption's block sits with its bottom at or above y 1248.
+
 ## Narrated captions: a vertical ad with the narration as the text
 
 *From the DataForce Reels ad (`dataforce-reels.scor`, 2026-10).*

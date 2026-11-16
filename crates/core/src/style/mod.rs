@@ -19,12 +19,14 @@ mod brief;
 mod library;
 mod platform;
 mod prompts;
+mod safe_zone;
 #[cfg(test)]
 mod tests;
 
 pub use brief::{SCRIPT_FILE, Start, StartError, read_guide, recipe};
 pub use library::STYLES;
 pub use platform::{Platform, UnknownPlatform};
+pub use safe_zone::{Area, Covered, Edge, Margins, SafeZone, Source};
 
 /// One kind of video a person can start from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
