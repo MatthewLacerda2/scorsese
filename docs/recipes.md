@@ -1625,7 +1625,7 @@ two and a verse is eight of them. A **marker** names the run of entries after
 it — `{ "section": "verse" }` — until the next marker or the end:
 
 ```json fields
-"tracks": [{ "name": "bass", "patch": { "source": { "kind": "osc_stack", "oscs": [{ "wave": "saw" }] } } }],
+"tracks": [{ "name": "bass", "patch": "kit:bass" }],
 "patterns": {
   "riff": { "beats": 4, "notes": [{ "track": "bass", "note": "E2", "start": 0, "dur": 2 }] },
   "fill": { "beats": 4, "notes": [{ "track": "bass", "note": "G2", "start": 0, "dur": 2 }] }
