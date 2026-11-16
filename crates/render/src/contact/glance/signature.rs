@@ -94,4 +94,43 @@ pub(super) mod tests {
         noise.0[7] = 3.0;
         assert!(noise.blank(), "codec noise on black is still black");
     }
+
+    /// A frame's cells are its brightness averaged over each, by the usual
+    /// luma weights: a pure red, green and blue each read as their weight,
+    /// whatever the frame's size, and a frame half white is white in the
+    /// cells on that half alone.
+    #[test]
+    fn a_signature_is_each_cells_mean_brightness() {
+        let raster = scorsese_compositor::Resolution::new(32, 16).expect("a legal raster");
+        let level = |r: u8, g: u8, b: u8| {
+            let mut frame = Frame::black(raster);
+            frame.fill(scorsese_core::Rgba::new(r, g, b, 0xff));
+            Signature::of(&frame).0[0]
+        };
+        assert!((level(255, 0, 0) - 0.299 * 255.0).abs() < 1e-9);
+        assert!((level(0, 255, 0) - 0.587 * 255.0).abs() < 1e-9);
+        assert!((level(0, 0, 255) - 0.114 * 255.0).abs() < 1e-9);
+
+        let mut half = Frame::black(raster);
+        for (pixel, rgba) in half.bytes_mut().chunks_exact_mut(4).enumerate() {
+            if pixel % 32 < 16 {
+                rgba.copy_from_slice(&[255, 255, 255, 255]);
+            }
+        }
+        let cells = Signature::of(&half).0;
+        assert!((cells[0] - 255.0).abs() < 1e-6, "{}", cells[0]);
+        assert!((cells[SIGNATURE_SIDE - 1]).abs() < 1e-9);
+        assert!((cells[SIGNATURE_SIDE * SIGNATURE_SIDE - 1]).abs() < 1e-9);
+        assert!((Signature::of(&half).difference(&flat(0.0)) - 127.5).abs() < 1e-6);
+    }
+
+    /// Two frames' difference is the mean of their cells' distances, and the
+    /// range that makes a frame blank is open at its top.
+    #[test]
+    fn a_difference_is_a_mean_and_blank_stops_short_of_its_range() {
+        assert!((flat(10.0).difference(&flat(4.0)) - 6.0).abs() < 1e-9);
+        let mut edge = flat(0.0);
+        edge.0[0] = BLANK_RANGE;
+        assert!(!edge.blank(), "a range of exactly BLANK_RANGE is a frame");
+    }
 }

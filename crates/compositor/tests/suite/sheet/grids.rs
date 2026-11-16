@@ -27,15 +27,15 @@ fn twelve_cells_tile_four_by_three_and_a_thirteenth_is_refused() {
     );
 }
 
-/// Between five and twelve the grid stays at most three across until it is
-/// three rows deep: six is three by two, nine three by three.
+/// Up to nine the grid stays at most three across: two and three are one
+/// row, six is three by two, nine three by three.
 #[test]
-fn six_and_nine_cells_are_three_across() {
-    for (count, rows) in [(6, 2), (9, 3)] {
+fn up_to_nine_cells_are_at_most_three_across() {
+    for (count, columns, rows) in [(2, 2, 1), (3, 3, 1), (6, 3, 2), (9, 3, 3)] {
         let labels: Vec<String> = (0..count).map(|n| format!("0:{n:02}")).collect();
         let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
         let frame = tiled(&labels);
-        assert_eq!(frame.resolution().width(), 3 * WIDTH, "{count}");
+        assert_eq!(frame.resolution().width(), columns * WIDTH, "{count}");
         assert_eq!(
             frame.resolution().height(),
             rows * (HEIGHT + STRIP),

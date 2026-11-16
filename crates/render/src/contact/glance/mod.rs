@@ -287,6 +287,15 @@ mod tests {
     }
 
     #[test]
+    fn a_length_not_known_is_the_floor_and_the_first_moment() {
+        assert_eq!(glance_count(f64::NAN), GLANCE_FEWEST);
+        assert_eq!(glance_count(-5.0), GLANCE_FEWEST);
+        assert_eq!(glance_count(f64::INFINITY), GLANCE_FEWEST);
+        assert_eq!(candidates(f64::NAN, 3), [0.0]);
+        assert_eq!(candidates(-1.0, 3), [0.0]);
+    }
+
+    #[test]
     fn evenly_keeps_both_ends() {
         assert_eq!(evenly(&[1, 2, 3, 4, 5], 3), [1, 3, 5]);
         assert_eq!(evenly(&[4, 9], 1), [9]);
