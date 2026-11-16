@@ -112,8 +112,8 @@ pub enum SheetError {
 /// Every cell keeps all of its pixels: the strip is added below the frame, so
 /// the sheet is `columns × width` across and `rows × (height + strip)` down.
 ///
-/// The arrangement is at most three across until three rows are full (see
-/// [`grid`]): a single row while that fits, then more rows. Wider would make a
+/// The arrangement is at most three across until three rows are full, then
+/// four across three rows: a single row while that fits, then more rows. Wider would make a
 /// sheet a letterbox strip whose cells are unreadable at any sensible width,
 /// and taller would put the last frame so far from the first that the eye
 /// stops comparing them.

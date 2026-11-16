@@ -75,7 +75,7 @@ pub struct Glance {
 }
 
 /// How many frames a glance at something `seconds` long shows: one more
-/// than [`GLANCE_FEWEST`] for every [`SECONDS_PER_FRAME`], up to
+/// than [`GLANCE_FEWEST`] for every 15 seconds, up to
 /// [`GLANCE_MOST`]. A length that is not known is the floor.
 pub fn glance_count(seconds: f64) -> usize {
     if !seconds.is_finite() || seconds <= 0.0 {
