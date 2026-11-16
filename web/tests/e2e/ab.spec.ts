@@ -1,6 +1,7 @@
 // The landing's A/B tests (#1553), on the build's stand-in test: visitors are
 // drawn into both versions, a reload keeps one's version, and a visit's view,
-// sections, visible time and prompt reach the operator's report.
+// a person's input, sections, visible time and prompt reach the operator's
+// report, which counts only a visitor with an input (#1797).
 
 import { execFileSync } from "node:child_process";
 import { join, resolve } from "node:path";
@@ -58,7 +59,7 @@ test("visitors are drawn into both versions, and a reload keeps each one's", asy
   for (const count of seen.values()) expect(count).toBeGreaterThanOrEqual(3);
 });
 
-test("a visit's view, depth, time and prompt reach the report", async ({ browser }) => {
+test("a visit's view, input, depth, time and prompt reach the report", async ({ browser }) => {
   const context = await browser.newContext();
   await visitor(context, "5c1e0000-0000-4000-8000-0000000000ff");
   const page = await context.newPage();
@@ -69,6 +70,9 @@ test("a visit's view, depth, time and prompt reach the report", async ({ browser
   });
   await fakeGoogle(page);
   const version = await drawn(page);
+  // A person's mouse, as the browser reports it: trusted, unlike a script's.
+  await page.mouse.move(40, 40);
+  await expect.poll(() => kinds).toContain("input");
   await page.locator("footer").scrollIntoViewIfNeeded();
   await expect.poll(() => kinds).toContain("end");
   await page.waitForTimeout(1200);
@@ -81,7 +85,7 @@ test("a visit's view, depth, time and prompt reach the report", async ({ browser
   await box.fill("a paper boat on a pond");
   await box.press("Enter");
   await expect(page).toHaveURL(/\/projects\/\d+\/edit$/);
-  expect(new Set(kinds)).toEqual(new Set(["view", "section", "end", "time", "prompt"]));
+  expect(new Set(kinds)).toEqual(new Set(["view", "input", "section", "end", "time", "prompt"]));
   await context.close();
 
   // What reached the server: this version's prompt and last-section shares are no longer nil.
