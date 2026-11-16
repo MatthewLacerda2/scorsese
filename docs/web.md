@@ -1959,7 +1959,9 @@ things differ, all in `renders::preview`:
   against 26.8 s for the whole preview.
 - **One kept per shape.** A finished preview replaces the project's earlier
   previews at the same settings, which are of documents it has moved past —
-  except a file somebody has open. They are left out of the project's list of
+  except a file somebody has open. A finished piece replaces the pieces at its
+  shape over any range whose document is not its own, and keeps its own
+  document's, so seeking back stays free. They are left out of the project's list of
   renders, since nobody downloads one, and otherwise live by the render cache's
   quota and 48-hour rule like any render.
 
