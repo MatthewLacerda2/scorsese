@@ -50,6 +50,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
+use scorsese_core::bytes::format_bytes;
 use scorsese_core::{
     ASSETS_DIR, CACHE_DIR, GENERATED_DIR, PAGES_DIR, PROJECT_FILE_NAME, Project, ProjectPath,
     RECIPES_DIR,
@@ -60,7 +61,7 @@ use super::media::MaterialiseError;
 use crate::db::Tx;
 
 /// The most one kept file may hold, in bytes — the table holds it to the same.
-pub const MAX_FILE_BYTES: usize = 1 << 20;
+pub const MAX_FILE_BYTES: usize = 1_000_000;
 
 /// The most files one project may keep.
 pub const MAX_FILES: usize = 500;
@@ -79,9 +80,10 @@ impl ProjectFiles {
         let path = normal(path).ok_or_else(|| format!("{path} is not a file a project keeps"))?;
         if text.len() > MAX_FILE_BYTES {
             return Err(format!(
-                "{path} is {} bytes; the server keeps a project's recipes, pages and script up to \
-                 {MAX_FILE_BYTES} bytes each",
-                text.len()
+                "{path} is {}; the server keeps a project's recipes, pages and script up to \
+                 {} each",
+                format_bytes(text.len() as u64),
+                format_bytes(MAX_FILE_BYTES as u64)
             ));
         }
         self.0.insert(path, text);
@@ -336,6 +338,23 @@ mod tests {
         ] {
             assert!(!kept(&project, path), "{path}");
         }
+    }
+
+    #[test]
+    fn a_file_is_held_to_a_decimal_megabyte_and_says_so_in_sizes() {
+        assert_eq!(MAX_FILE_BYTES, 1_000_000);
+        let mut files = ProjectFiles::default();
+        files
+            .insert("pages/a.js", "x".repeat(MAX_FILE_BYTES))
+            .unwrap();
+        let refused = files
+            .insert("pages/b.js", "x".repeat(1_200_000))
+            .unwrap_err();
+        assert_eq!(
+            refused,
+            "pages/b.js is 1.2 MB; the server keeps a project's recipes, pages and script up to \
+             1.0 MB each"
+        );
     }
 
     #[test]

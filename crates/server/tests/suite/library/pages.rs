@@ -41,9 +41,14 @@ async fn a_page_is_kept_as_text(pool: PgPool) {
 async fn a_page_that_is_not_text_or_too_large_is_refused(pool: PgPool) {
     let (address, _) = common::serve_with(pool.clone(), common::files("refuse-page")).await;
     let (_, ana) = member(&pool, "ana@example.com").await;
-    let large = vec![b'a'; (1 << 20) + 1];
+    let large = vec![b'a'; 1_000_001];
     let refused = announce(address, &ana, "huge.html", &large).await;
     assert_eq!(refused.status, 422, "{}", refused.body);
+    assert!(
+        refused.body.contains("a web page can be at most 1.0 MB"),
+        "{}",
+        refused.body
+    );
 
     let binary: &[u8] = &[0xff, 0xfe, 0x00, 0x80];
     let created = announce(address, &ana, "odd.html", binary).await;

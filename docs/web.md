@@ -1258,7 +1258,7 @@ edited in place, not media addressed by content) or fields in the document (a
 format change, and a 30 KB script in the file an agent opens to learn the
 edit). They are **written with the document under its revision**
 (`projects::save_with_files`), so a recipe edit conflicts exactly as a timeline
-edit does; at most 1 MiB each, 500 files and 16 MiB to a project. Per-user like every table.
+edit does; at most 1 MB each, 500 files and 16 MiB to a project. Per-user like every table.
 
 **Rendering a stored project** lays it out as a temporary `.scor` folder
 (`projects::media::materialise`): the document written, its kept files written
@@ -1721,7 +1721,7 @@ before a byte is sent. The browser holds every pick and drop, the library
 page's and a prompt's tray alike, to the same list, asked of `GET
 /api/library/formats` rather than copied, and names a file it refuses before
 hashing it. **A page (#1144) is text, not media**: never probed,
-held to UTF-8 and to the size a project keeps a page at (1 MiB, refused at
+held to UTF-8 and to the size a project keeps a page at (1 MB, refused at
 announcement when the length says so), given no thumbnail (`404` with
 `pending: false`), and served as `text/plain`, never run from the app's
 origin. `import` **copies** it into the project's `pages/` as an `html`

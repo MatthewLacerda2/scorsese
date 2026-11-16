@@ -3473,7 +3473,7 @@ A project directory holds five of its own:
 | `assets/` | imported media, copied in on import, and a transcribed recording's words beside it, as `<its whole name>.words.json` (see *When each word is said*) | **no** — the media's originals are elsewhere, but a transcript's corrections are kept here and nowhere else |
 | `generated/` | provider and synthesis output, named for the hash of its brief — a narration's word timings beside its audio, as `<same name>.words.json` (see *When each word is said*), and under `generated/tickets/` which brief each shot in flight was bought for | yes — it can be made again |
 | `recipes/` | authored synthesis documents | **no** — deleting one loses work |
-| `pages/` | authored web pages, played by `html` assets, and the `.js`, `.css`, `.json` and `.svg` files they share (at most 1 MiB each) | **no** — deleting one loses work |
+| `pages/` | authored web pages, played by `html` assets, and the `.js`, `.css`, `.json` and `.svg` files they share (at most 1 MB each) | **no** — deleting one loses work |
 | `cache/` | rebuildable scratch, gitignored | yes |
 
 ## Validation
