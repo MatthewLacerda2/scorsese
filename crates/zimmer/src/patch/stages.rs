@@ -93,13 +93,13 @@ pub struct Osc {
     pub wave: Wave,
     /// Detune in cents (100 cents = a semitone). Small opposing detunes across
     /// a stack are what make a "fat" lead.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_zero")]
     pub detune_cents: f32,
     /// Weight in the stack mix; the stack is normalised by the sum of gains.
-    #[serde(default = "one")]
+    #[serde(default = "one", skip_serializing_if = "is_one")]
     pub gain: f32,
     /// Whole-octave transpose, e.g. `-1` for a sub-oscillator.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_zero_octave")]
     pub octave: i32,
     /// How many detuned copies of this oscillator sound at once — unison.
     ///
@@ -211,7 +211,7 @@ pub struct Partial {
     /// Cents rather than Hz for the reason [`PitchEnv::semitones`] gives:
     /// pitch is logarithmic, so a detune in Hz would mean a different interval
     /// at every pitch the patch is played at.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_zero")]
     pub detune_cents: f32,
     /// Seconds for this partial's **own** exponential decay, underneath the
     /// patch's amp envelope. `0` — the default — is a partial that does not
@@ -228,7 +228,7 @@ pub struct Partial {
     /// renderer's own module doc states that relationship in full; the short
     /// version is that a patch letting the partials do the shaping wants an
     /// amp envelope that sustains, or the note dies twice.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_zero")]
     pub decay: f32,
 }
 
@@ -618,7 +618,7 @@ pub struct Filter {
     /// Resonance in `0..1`: emphasis at the cutoff. Near 1 the filter
     /// self-rings — sooner at [`Slope::Db24`], where the emphasis is applied
     /// once per pole pair.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_zero")]
     pub resonance: f32,
     /// How many **octaves** the filter envelope opens the cutoff by at full
     /// level. Negative sweeps downward.
@@ -636,7 +636,7 @@ pub struct Filter {
     /// The field was **renamed** along with its unit rather than quietly
     /// reinterpreted: an old recipe naming `env_amount` now fails to parse,
     /// which is a refusal rather than a wrong sound.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_zero")]
     pub env_octaves: f32,
     /// How many **octaves** a full-velocity strike opens the cutoff by.
     /// Defaults to `0.0`, which is velocity doing nothing here — exactly what
@@ -666,7 +666,7 @@ pub struct Filter {
     /// resulting cutoff is clamped into the filter's stable band per sample,
     /// exactly as a negative `env_octaves`'s already is, so no value here can
     /// produce an unstable filter.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_zero")]
     pub vel_octaves: f32,
     /// How far the cutoff follows the note being played, in `0..=1`; clamped.
     /// Defaults to `0.0`: a cutoff fixed in Hz whatever the pitch.
@@ -681,12 +681,35 @@ pub struct Filter {
     pub key_track: f32,
     /// The cutoff envelope. Defaults to the same fast shape as
     /// [`Adsr::default`].
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_default_envelope")]
     pub adsr: Adsr,
 }
 
 pub(super) fn one() -> f32 {
     1.0
+}
+
+/// Whether a value is the `0.0` that serde fills in when a field is absent —
+/// the test that keeps it out of every saved document, for the reason
+/// [`Adsr::curve`] gives about defaults and cached bakes.
+fn is_zero(value: &f32) -> bool {
+    *value == 0.0
+}
+
+/// Whether an oscillator sits at its own octave: `"octave": 0`, the default.
+fn is_zero_octave(octave: &i32) -> bool {
+    *octave == 0
+}
+
+/// Whether a gain is the unity that serde fills in when it is absent.
+fn is_one(gain: &f32) -> bool {
+    *gain == 1.0
+}
+
+/// Whether a filter's envelope is [`Adsr::default`], which is what serde fills
+/// in when it is absent.
+fn is_default_envelope(adsr: &Adsr) -> bool {
+    *adsr == Adsr::default()
 }
 
 /// Whether a noise source is the plain hiss — the test that keeps

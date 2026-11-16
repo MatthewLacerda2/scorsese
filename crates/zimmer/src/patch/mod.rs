@@ -125,7 +125,7 @@ pub struct Patch {
     /// The amplitude envelope: what turns a continuous tone into a note.
     pub amp: Adsr,
     /// The optional filter stage, with its own envelope.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub filter: Option<Filter>,
     /// An optional one-shot sweep of the note's own pitch. Absent means the
     /// note holds the pitch it was played at, which is what every patch
@@ -139,14 +139,14 @@ pub struct Patch {
     pub layers: Vec<Layer>,
     /// The optional low-frequency oscillator, bending one stage of every
     /// layer.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lfo: Option<Lfo>,
     /// A second LFO, for a patch that moves two ways at once — a pad that
     /// breathes and shimmers. Aimed at the same target as `lfo`, the two add.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lfo2: Option<Lfo>,
     /// The post-chain, applied in list order.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fx: Vec<Fx>,
 }
 

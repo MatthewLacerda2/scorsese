@@ -91,7 +91,7 @@ pub struct Operator {
     /// only moves where a sine is read — so the operator's output is a sine's
     /// output whatever this says, and the loop is one sample deep rather than
     /// a recursion.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "no_feedback")]
     pub feedback: f32,
     /// Its own envelope over the note, or absent for an operator held at full
     /// level throughout.
@@ -115,6 +115,13 @@ pub struct Operator {
 
 fn one() -> f32 {
     1.0
+}
+
+/// Whether an operator feeds back at all — the test that keeps
+/// `"feedback": 0.0` out of every saved document, for the reason
+/// [`Adsr::curve`](super::Adsr::curve) gives about defaults and cached bakes.
+fn no_feedback(feedback: &f32) -> bool {
+    *feedback == 0.0
 }
 
 /// How the four operators are wired: which of them modulate which, and which

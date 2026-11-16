@@ -42,12 +42,15 @@ pub struct OneShot {
     #[serde(default = "default_duration")]
     pub duration: f32,
     /// Striking force in `0..=1`.
-    #[serde(default = "default_velocity")]
+    #[serde(
+        default = "default_velocity",
+        skip_serializing_if = "is_default_velocity"
+    )]
     pub velocity: f32,
     /// Seed for the stochastic sources. Changing it re-rolls the noise while
     /// keeping the bake reproducible — and, with [`OneShot::vary`] above zero,
     /// draws a different take of the sound as well.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_unseeded")]
     pub seed: u64,
     /// How far each `seed` makes a different take, in `0..=1` (#1038).
     ///
@@ -117,6 +120,17 @@ fn default_duration() -> f32 {
 
 fn default_velocity() -> f32 {
     1.0
+}
+
+/// Whether the seed is the `0` serde fills in when it is absent.
+fn is_unseeded(seed: &u64) -> bool {
+    *seed == 0
+}
+
+/// Whether the velocity is [`default_velocity`] — the test that keeps it out of
+/// every rewritten recipe, so the bake's address does not move for it.
+fn is_default_velocity(velocity: &f32) -> bool {
+    *velocity == default_velocity()
 }
 
 /// Whether a one-shot is played as written — the `vary` default, kept out of

@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use super::Key;
 use crate::error::SynthError;
 use crate::note::MIDI_RANGE;
-use crate::song::{Articulation, Note, Pitch, one};
+use crate::song::{Articulation, Note, Pitch, one, unity};
 
 /// Where the tonic sits when the document does not say.
 ///
@@ -48,7 +48,7 @@ pub struct DegreeNote {
     /// Gate length in beats. The patch's release rings out after it.
     pub dur: f32,
     /// Velocity in `0..=1`, scaling this note's peak amplitude.
-    #[serde(default = "one")]
+    #[serde(default = "one", skip_serializing_if = "unity")]
     pub vel: f32,
     /// How it is played — see [`Note::articulation`]. A degree is one note
     /// written a different way, so it carries the field for the same reason a
