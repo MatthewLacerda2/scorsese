@@ -69,6 +69,7 @@ mod tests {
                     high: 0.0,
                 }),
                 correlation: Some(0.42),
+                limited_db: None,
             },
             sections: Vec::new(),
         }

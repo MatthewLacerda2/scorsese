@@ -253,11 +253,8 @@ pub const SYNTH_VERSION: u32 = 10;
 pub fn bake_note(patch: &Patch, midi: f32, opts: &NoteOpts) -> Result<Bake, SynthError> {
     // Neither sections nor tracks: a one-shot is one gesture played by one
     // voice, so both tables would be the summary printed a second time.
-    Ok(Bake::of(
-        &core::render_limited(patch, midi, opts)?,
-        Vec::new(),
-        Vec::new(),
-    ))
+    let (samples, gain) = core::render_limited(patch, midi, opts)?;
+    Ok(Bake::of(&samples, &gain, Vec::new(), Vec::new()))
 }
 
 /// Render one note of `patch`, naming the note the way a score does (`"C#4"`,
@@ -336,7 +333,7 @@ pub fn bake_excerpt_unless(
     stop: &dyn Fn() -> bool,
 ) -> Result<Option<Bake>, SynthError> {
     let mixed = song::render::mix_song(song, resolve, excerpt, stop)?;
-    Ok(mixed.map(|mixed| Bake::of(&mixed.master, mixed.sections, mixed.tracks)))
+    Ok(mixed.map(|mixed| Bake::of(&mixed.master, &mixed.gain, mixed.sections, mixed.tracks)))
 }
 
 /// A finished bake: the file, and how it came out.
@@ -365,16 +362,23 @@ impl Bake {
     }
 
     /// Encodes and measures one signal, cutting it where `sections` says and
-    /// carrying the rows its layers were already measured into.
+    /// carrying the rows its layers were already measured into. `gain` is what
+    /// the master limiter applied to it, frame by frame, so every span also
+    /// says how much was taken off ([`level::Span::limited_db`]).
     ///
     /// The channels are woven together once and the file and the measurement
     /// are both taken from that one buffer, because they must agree: a report
     /// that measured the samples and a file that carried different ones would
     /// be two answers to one question.
-    fn of(samples: &stereo::Stereo, sections: Vec<level::Cut>, tracks: Vec<level::Layer>) -> Self {
+    fn of(
+        samples: &stereo::Stereo,
+        gain: &[f32],
+        sections: Vec<level::Cut>,
+        tracks: Vec<level::Layer>,
+    ) -> Self {
         let interleaved = samples.interleaved();
         let mut profiler = level::Profiler::sectioned(stereo::CHANNELS, SAMPLE_RATE, sections);
-        profiler.feed(&interleaved);
+        profiler.feed_limited(&interleaved, gain);
         Self {
             wav: wav::encode(&interleaved),
             profile: profiler.finish(),

@@ -23,6 +23,7 @@ fn span(from: f64, to: f64, mean: f64, crest: f64, bands: [f64; 3], corr: f64) -
             high: bands[2] / 100.0,
         }),
         correlation: Some(corr),
+        limited_db: None,
     }
 }
 

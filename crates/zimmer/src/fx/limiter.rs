@@ -66,13 +66,20 @@ const RELEASE: f32 = 0.06;
 
 /// Limit `buf` in place so no sample exceeds the ceiling. Non-finite samples (from
 /// a pathological patch) are flushed to silence rather than written to the file.
-pub(crate) fn apply(buf: &mut Stereo, rate: f32) {
+///
+/// Hands back the gain it applied, one linear factor per sample-frame and 1.0
+/// wherever it left the signal alone, so a bake can say **how much it took
+/// off** (#1795). It is the one compressor nobody chose: a mix written too hot
+/// comes back not clipping and flattened, and without this number the only
+/// trace of that is a column of peaks all reading the ceiling.
+pub(crate) fn apply(buf: &mut Stereo, rate: f32) -> Vec<f32> {
     let gain = Ballistics::new(LOOKAHEAD, RELEASE, rate).smooth(&required_gain(buf));
     buf.each(|channel| {
         for (s, g) in channel.iter_mut().zip(&gain) {
             *s = (*s * g).clamp(-1.0, 1.0);
         }
     });
+    gain
 }
 
 /// [`apply`], to a buffer that is going to be played **round and round** — a
@@ -92,11 +99,12 @@ pub(crate) fn apply(buf: &mut Stereo, rate: f32) {
 /// the lookahead backwards), and the reconstruction's taps under both. That is **exactly** the result of
 /// limiting the loop played three times and keeping the middle pass, which
 /// is what the test below holds it to — and it costs a few thousand frames
-/// rather than two whole passes.
-pub(crate) fn apply_looped(buf: &mut Stereo, rate: f32) {
+/// rather than two whole passes. The gain it hands back is [`apply`]'s, cut to
+/// the same middle.
+pub(crate) fn apply_looped(buf: &mut Stereo, rate: f32) -> Vec<f32> {
     let frames = buf.frames();
     if frames == 0 {
-        return;
+        return Vec::new();
     }
     let reach = Ballistics::new(LOOKAHEAD, RELEASE, rate).reach_frames() + 2 * TAPS + 2;
     // Index `reach` of the circle is frame 0 of the loop; `frames * reach`
@@ -110,9 +118,10 @@ pub(crate) fn apply_looped(buf: &mut Stereo, rate: f32) {
         l: circle(&buf.l),
         r: circle(&buf.r),
     };
-    apply(&mut around, rate);
+    let gain = apply(&mut around, rate);
     around.cut(reach, reach + frames);
     *buf = around;
+    gain[reach..reach + frames].to_vec()
 }
 
 /// The instantaneous gain each sample-frame needs to sit under the ceiling —
@@ -182,8 +191,35 @@ mod tests {
 
     fn limited(buf: Stereo) -> Stereo {
         let mut buf = buf;
-        apply(&mut buf, 44_100.0);
+        let _ = apply(&mut buf, 44_100.0);
         buf
+    }
+
+    /// The gain handed back is the gain applied: one factor per frame, and
+    /// what the samples were multiplied by. A sine at twice full scale is
+    /// taken down by its 6 dB of overshoot and the ceiling's 1 dB of headroom.
+    #[test]
+    fn the_gain_handed_back_is_the_gain_applied() {
+        let tone = sine(44_100, 220.0, 2.0);
+        let mut buf = Stereo::centred(tone.clone());
+        let gain = apply(&mut buf, 44_100.0);
+        assert_eq!(gain.len(), buf.frames());
+        for ((out, tone), g) in buf.l.iter().zip(&tone).zip(&gain).skip(1_000).step_by(97) {
+            assert!((out - tone * g).abs() < 1e-6, "{out} ≠ {tone} × {g}");
+        }
+        let mean = gain[4_410..].iter().map(|g| -20.0 * g.log10()).sum::<f32>()
+            / (gain.len() - 4_410) as f32;
+        assert!((mean - 7.0).abs() < 0.3, "took off {mean} dB");
+    }
+
+    /// The loop's gain is the middle pass's, exactly as its samples are.
+    #[test]
+    fn a_loops_gain_is_the_middle_passes() {
+        let tone = sine(22_050, 237.0, 2.5);
+        let looped = apply_looped(&mut Stereo::centred(tone.clone()), 44_100.0);
+        let thrice = apply(&mut Stereo::centred(tone.repeat(3)), 44_100.0);
+        assert_eq!(looped[..], thrice[22_050..44_100]);
+        assert!(apply_looped(&mut Stereo::silence(0), 44_100.0).is_empty());
     }
 
     /// A tone at a quarter of the sample rate, offset so every sample lands
@@ -236,7 +272,7 @@ mod tests {
     fn a_loop_is_limited_as_the_circle_it_is() {
         let tone = sine(22_050, 237.0, 2.5);
         let mut looped = Stereo::centred(tone.clone());
-        apply_looped(&mut looped, 44_100.0);
+        let _ = apply_looped(&mut looped, 44_100.0);
         let thrice = limited(Stereo::centred(tone.repeat(3)));
         assert_eq!(looped.l[..], thrice.l[22_050..44_100]);
         assert_eq!(looped.r[..], thrice.r[22_050..44_100]);
@@ -259,7 +295,7 @@ mod tests {
             r: sine(4410, 220.0, 0.4),
         };
         let before = peak(&buf.r);
-        apply(&mut buf, 44_100.0);
+        let _ = apply(&mut buf, 44_100.0);
         assert!(peak(&buf.l) < CEILING, "the loud side never reached it");
         let after = peak(&buf.r);
         assert!(
@@ -290,7 +326,7 @@ mod tests {
             r: sine(4410, 220.0, 0.5),
         };
         let before = peak(&buf.r);
-        apply(&mut buf, 44_100.0);
+        let _ = apply(&mut buf, 44_100.0);
         assert!(peak(&buf.l) <= CEILING + 1e-6, "the loud side is held");
         let after = peak(&buf.r);
         assert!(

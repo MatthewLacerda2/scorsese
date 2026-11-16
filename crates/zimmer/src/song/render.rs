@@ -160,6 +160,11 @@ pub(crate) struct Mixdown {
     /// because the tempo and pass count they are measured against are decided
     /// here — and under a `fit` they are not the ones written down.
     pub(crate) sections: Vec<Cut>,
+    /// The gain the master limiter applied, one linear factor per frame of
+    /// [`Mixdown::master`] — what the report averages into "limited" (#1795).
+    /// Cut and padded exactly as the samples were, so it lines up with them
+    /// under a `fit`, a `tail` and an excerpt alike.
+    pub(crate) gain: Vec<f32>,
 }
 
 /// Renders `song` to an interleaved stereo sample buffer at
@@ -470,18 +475,23 @@ pub(crate) fn mix_song(
     // that overshoots full scale, so the sum is never handed out unlimited.
     // A `wrap` tail folds the ring-out onto the start first, because that
     // fold is one more addition.
-    limit(song, &mut master, arrangement_end)?;
-    // Then length and level, in that order, on the limited signal.
+    let mut gain = limit(song, &mut master, arrangement_end)?;
+    // Then length and level, in that order, on the limited signal. `shape`
+    // only cuts or pads the end, so the gain follows it by length alone: what
+    // it padded with silence the limiter never touched.
     shape(song, &mut master, arrangement_end);
+    gain.resize(master.frames(), 1.0);
     // And only now is the window taken, which is what makes it exactly the
     // stretch a whole render would have had there: every stage above ran on
     // the piece, not on the excerpt.
     let (from, to) = scope.keep(master.frames());
     master.cut(from, to);
+    let gain = gain[from.min(gain.len())..to.min(gain.len())].to_vec();
     Ok(Some(Mixdown {
         master,
         tracks,
         sections,
+        gain,
     }))
 }
 

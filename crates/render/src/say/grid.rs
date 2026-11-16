@@ -131,6 +131,7 @@ mod tests {
             },
             bands: None,
             correlation: None,
+            limited_db: None,
         }
     }
 

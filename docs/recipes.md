@@ -3057,6 +3057,32 @@ number a lossy encoder has to reproduce. **`— clipping`** ends the line when
 that true peak reaches full scale. A bake never says it, because the limiter
 holds it to −1 dBTP; a render or a `level` of something imported can.
 
+**`limited`** is what a bake says instead. It joins the summary line and any
+section row where the master limiter took off **0.5 dB or more on average**
+over that stretch — the mean, so one snare caught for two milliseconds never
+earns it and a section held down by a few decibels always does. It is the one
+compressor nobody chose, and every other figure is measured after it: a mix
+written too hot comes back not clipping and *flattened*, its sections levelled
+against each other and its transients gone, with nothing else saying why.
+
+```
+  64.0 s  mean -11.2 dBFS, peak -1.0 dBFS, limited 4.6 dB, low  55%  mid  38%  high   7%, corr +0.41
+       0.000-16.000   riff    mean  -11.1   peak   -1.0   crest  10.1   …   corr +0.40   limited 5.0 dB
+      16.000-24.000   break   mean  -11.7   peak   -1.0   crest  10.7   …   corr +0.52   limited 4.2 dB
+```
+
+Every row at `peak -1.0` with `limited` on it means the **faders are too
+high**, not that the writing is flat: bring the loudest track rows down — the
+track rows are measured before the limiter, so a track peaking over `0.0`
+there is the culprit — until the word goes away, then read the crest. **A song
+of many tracks starts with every `gain` low** (0.3 or under for a dozen or
+more): the sum of seventeen parts at the examples' gains is several decibels
+over full scale before a note of it is loud. A short sting can be hot on
+purpose, so nothing is refused for it; like everything here, it is a signal.
+A one-shot gets the summary figure only, an excerpt says over its window what
+the whole bake says there, and a bake already on disk measured nothing and
+says nothing.
+
 **The times are seconds, to the millisecond**, and they are exact: they come
 from the same conversion the notes were placed with, so a section that starts
 at `24.000` starts on the sample the chorus's first downbeat was put on —
@@ -3182,7 +3208,9 @@ There is nothing to switch on: the rows are always printed, in
 `scorsese synth bake` and over MCP in `synth_bake`. `scorsese level` and
 `hear` do not have them, and cannot — they measure a finished file,
 which has no tracks in it any more, and re-rendering the piece to find them
-would cost what measuring it while it was made costs nothing.
+would cost what measuring it while it was made costs nothing. Nor do they say
+`limited`, for the same reason: a finished file keeps no record of what a
+limiter took off it.
 
 `scorsese level <file>` says the same about any finished file, and
 `--against <other>` compares the two field by field:
