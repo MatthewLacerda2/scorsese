@@ -4,11 +4,9 @@
 //! a piece*, which is the failure mode that costs an agent a whole iteration to
 //! even notice. So every name is resolved and every number is checked up front.
 
-use super::automate::{Automation, Param};
 use super::chord::Led;
 use super::{ArrangementEntry, Context, Humanize, Key, Layer, Pattern, PatternEntry, Song, Track};
 use crate::error::SynthError;
-use crate::patch::Patch;
 
 impl Song {
     /// Rejects a song the renderer cannot honour, *before* any samples are
@@ -57,7 +55,7 @@ impl Song {
             crate::patch::check_chain(&track.fx)?;
         }
         self.check_sidechains()?;
-        self.check_automation()?;
+        super::automate::check(self)?;
         self.check_feel()?;
         super::timing::check(self)?;
         super::anchor::check(self)?;
@@ -120,44 +118,6 @@ impl Song {
                         key: key.to_owned(),
                     });
                 }
-            }
-        }
-        Ok(())
-    }
-
-    /// Every curve that moves a value across the piece.
-    ///
-    /// A curve is refused for everything that would leave it moving *nothing*,
-    /// which is the same failure as a typo'd track name and gets the same
-    /// treatment: an automation nobody can hear is worse than one that is
-    /// refused, because the recipe still says the build is there.
-    ///
-    /// So: a track that does not exist, no points at all, two curves on one
-    /// track and parameter, beats that do not ascend, and a beat or a value
-    /// that is not a number. A `cutoff` point at or below zero is refused for
-    /// the reason a written cutoff is — there is no filter at 0 Hz. A `send`
-    /// curve is refused on a song whose chain has no `reverb` or `delay`,
-    /// since a send reaches nothing else.
-    ///
-    /// What is **not** here is the other half of the same idea: a `cutoff`
-    /// curve on a track whose instrument has no filter. That one needs the
-    /// patch, which a named reference does not carry, so it is checked in
-    /// [`check_resolved`] the moment the resolver has answered.
-    fn check_automation(&self) -> Result<(), SynthError> {
-        for (index, curve) in self.automation.iter().enumerate() {
-            let (track, param) = (curve.track.clone(), curve.param.as_str());
-            if !self.tracks.iter().any(|it| it.name == curve.track) {
-                return Err(SynthError::UnknownAutomationTrack { track, param });
-            }
-            if self.automation[..index]
-                .iter()
-                .any(|earlier| earlier.track == curve.track && earlier.param == curve.param)
-            {
-                return Err(SynthError::DuplicateAutomation { track, param });
-            }
-            check_curve(curve)?;
-            if curve.param == Param::Send && !super::mix::has_a_room(&self.fx) {
-                return Err(SynthError::AutomationWithoutRoom { track });
             }
         }
         Ok(())
@@ -340,68 +300,4 @@ fn unscattered(feel: Humanize) -> Option<(usize, f32)> {
         .into_iter()
         .enumerate()
         .find(|(_, amount)| !(amount.is_finite() && *amount >= 0.0))
-}
-
-fn check_curve(curve: &Automation) -> Result<(), SynthError> {
-    let (track, param) = (curve.track.clone(), curve.param.as_str());
-    let bad_curve = |why| SynthError::BadAutomationCurve {
-        track: curve.track.clone(),
-        param,
-        why,
-    };
-    if curve.points.is_empty() {
-        return Err(bad_curve("it has no points, so it moves nothing"));
-    }
-    for point in &curve.points {
-        let bad_point = |field, value| SynthError::BadAutomationPoint {
-            track: curve.track.clone(),
-            param,
-            field,
-            value,
-        };
-        if !(point.beat.is_finite() && point.beat >= 0.0) {
-            return Err(bad_point("beat", point.beat));
-        }
-        if !point.value.is_finite() {
-            return Err(bad_point("value", point.value));
-        }
-        if curve.param == Param::Cutoff && point.value <= 0.0 {
-            return Err(SynthError::BadAutomationCutoff {
-                track,
-                cutoff: point.value,
-            });
-        }
-    }
-    // Last, so a NaN beat is reported as the number it is not rather than as
-    // an ordering it happens to break.
-    if !curve.is_sorted() {
-        return Err(bad_curve("`beat` must ascend, and no two may be equal"));
-    }
-    Ok(())
-}
-
-/// What can only be checked once every track's patch is in hand.
-///
-/// A `cutoff` curve on an instrument with no filter has nothing to move, and a
-/// curve that moves nothing is the failure this whole check exists to prevent.
-/// It cannot be caught in [`Song::validate`] because a track may name its patch
-/// rather than carry it, and this crate does not resolve names.
-pub(super) fn check_resolved(song: &Song, patches: &[Patch]) -> Result<(), SynthError> {
-    for curve in &song.automation {
-        if curve.param != Param::Cutoff {
-            continue;
-        }
-        let filtered = song
-            .tracks
-            .iter()
-            .zip(patches)
-            .find(|(track, _)| track.name == curve.track)
-            .is_some_and(|(_, patch)| patch.filter.is_some());
-        if !filtered {
-            return Err(SynthError::AutomationWithoutFilter {
-                track: curve.track.clone(),
-            });
-        }
-    }
-    Ok(())
 }

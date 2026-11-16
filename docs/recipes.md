@@ -2296,6 +2296,42 @@ Two more things a curve does, and both are what anyone would guess:
 - **One point is a constant**, which is a legitimate thing to write: a value
   for the whole piece, said once.
 
+**A point can count from a section instead.** A build is "the two bars before
+the chorus", not "beat 188", and a beat counted from the start goes stale,
+silently, the moment an entry is added in front of it. So a point may name a
+[section](#naming-the-sections), and its `beat` then counts from that
+section's first downbeat — negative for the build *into* it, and free to run
+past its end:
+
+```json fields
+  "bpm": 120,
+  "tracks": [
+    { "name": "t", "gain": 0.7,
+      "patch": {
+        "source": { "kind": "osc_stack", "oscs": [ { "wave": "saw" } ] },
+        "amp": { "a": 0.002, "d": 0.06, "s": 0.5, "r": 0.08 },
+        "filter": { "kind": "lowpass", "cutoff": 300.0, "resonance": 0.5 } } }
+  ],
+  "patterns": { "a": { "beats": 4, "notes": [
+    { "track": "t", "steps": "xxxxxxxxxxxxxxxx", "div": 0.25, "note": "A2" }
+  ] } },
+  "arrangement": [
+    { "section": "verse" }, "a", "a",
+    { "section": "chorus" }, "a", "a"
+  ],
+  "automation": [
+    { "track": "t", "param": "cutoff", "points": [
+      { "section": "chorus", "beat": -8.0, "value": 300.0, "easing": "ease_in" },
+      { "section": "chorus", "beat": 0.0, "value": 7000.0 } ] }
+  ]
+```
+
+Insert a third `a` into the verse and the sweep still opens across the two
+bars before the chorus. Points with and without a `section` mix freely in one
+curve; once placed they must still ascend, and a refusal names the two that do
+not as they were written. A section is a name only, never a count of entries,
+and the name is kept on save — a tool never rewrites it to the beat it came to.
+
 **A cutoff moves inside the note, a fader moves on the bus.** A `cutoff`
 curve is read across every note it rides, its release included, so one chord
 held through an eight-bar build opens with it: write a riser as the one held
@@ -2310,7 +2346,8 @@ filters are in its layers has no filter to move and is refused.
 with the music. A `loop` repeats the *arrangement* and the curve does not go
 back with it — a build that restarted every pass would be a saw — so a bed
 looping to 45 seconds carries one curve across all of it, written over as many
-beats as the whole thing takes.
+beats as the whole thing takes. A point against a section is placed in the first
+pass and the curve keeps counting from there.
 
 ### A tempo that moves
 
@@ -3497,8 +3534,9 @@ exactly what nothing downstream can notice.
 
 - **[Automation](#making-something-build)** — a curve naming a track the song
   does not have, two curves on one track and parameter, a list with no points
-  in it, `beat`s that do not ascend, a `beat` or a `value` that is not a
-  number, a `cutoff` point at or below 0 Hz, a `cutoff` curve on an
+  in it, `beat`s that do not ascend once placed, a `beat` or a `value` that is
+  not a number, a negative `beat` with no `section`, a point naming a section
+  the song does not have or placed before the piece starts, a `cutoff` point at or below 0 Hz, a `cutoff` curve on an
   instrument that has no filter to move, and a `send` curve on a song whose
   `fx` has no `reverb` or `delay` to reach. Every one of them is the same defect:
   a curve the recipe wrote and nothing can hear.

@@ -59,6 +59,7 @@ fn a_mark_still_opens_a_filter_a_curve_has_already_moved() {
     let under_a_build = |mark| {
         let mut song = playing(vec![note("E2", 1.0, 1.0, 0.5, mark).into()]);
         let point = |beat, value| Point {
+            section: None,
             beat,
             value,
             easing: Easing::Linear,

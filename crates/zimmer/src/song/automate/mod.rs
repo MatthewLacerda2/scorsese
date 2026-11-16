@@ -81,6 +81,22 @@
 //!   had to be written as noise re-struck every 32nd note to sound like one,
 //!   which stuttered.
 //!
+//! ## Against a section
+//!
+//! A build is not a fact about the start of the piece: it is "the four bars
+//! before the drop". So a point may name a section a
+//! [`Marker`](super::Marker) starts, and its `beat` then counts from that
+//! section's first downbeat — negative for the build *into* it, and free to
+//! run past its end. An entry added in front moves the curve with the
+//! section, where a counted beat would go stale with nothing to say so.
+//!
+//! Points are placed before anything else reads them ([`placed`]): the
+//! ascending-order check, [`Automation::value_at`] and the renderer only ever
+//! see beats from the start of the piece. A section is found in the first
+//! pass of a `loop`, and the curve keeps counting from there. What is written
+//! stays written: a tool that saves the song saves the section, not the beat
+//! it came to.
+//!
 //! ## Under `fit`
 //!
 //! Beats are counted from the start of the **rendered piece**, once, and a
@@ -96,11 +112,17 @@
 //! - `once` plays through and pads with silence; the curve simply ends with
 //!   the music.
 
+mod check;
+
+use std::borrow::Cow;
+
 use serde::{Deserialize, Serialize};
 
 use super::clock::Clock;
 use super::{Song, Track};
 use crate::stereo::{self, Stereo};
+
+pub(super) use check::{check, check_resolved};
 
 /// What a curve moves.
 ///
@@ -190,11 +212,19 @@ impl Easing {
 
 /// One control point: a beat, what the value reads there, and how it travels
 /// from there to the next.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Point {
-    /// Beats from the start of the rendered piece. Not from the start of a
-    /// pattern and not from the start of a `loop` pass — see the module doc.
+    /// The named section ([`Marker`](super::Marker)) `beat` counts from, if
+    /// any: `{ "section": "chorus 2", "beat": -16 }` is sixteen beats before
+    /// that section's first downbeat, wherever the arrangement puts it — see
+    /// the module doc's *Against a section*.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub section: Option<String>,
+    /// Beats from the start of the rendered piece, or from the first downbeat
+    /// of `section` when there is one — and only then may it be negative. Not
+    /// from the start of a pattern and not from the start of a `loop` pass —
+    /// see the module doc.
     pub beat: f32,
     /// What the parameter reads at this instant, in the parameter's own units:
     /// linear for `gain`, `-1.0..=1.0` for `pan`, Hz for `cutoff`, `0.0..=1.0`
@@ -259,14 +289,40 @@ impl Automation {
         let progress = from.easing.apply((beat - from.beat) / span);
         Some(from.value + (to.value - from.value) * progress)
     }
+}
 
-    /// True when the beats ascend strictly. Checked by validation; everything
-    /// that evaluates a curve is entitled to assume it.
-    pub(super) fn is_sorted(&self) -> bool {
-        self.points
-            .windows(2)
-            .all(|pair| pair[0].beat < pair[1].beat)
+/// The beat of the piece `point` falls on: its own `beat`, plus where its
+/// `section` starts when it names one. `None` for a section the song does not
+/// have, which validation refuses.
+pub(super) fn placed_beat(song: &Song, point: &Point) -> Option<f32> {
+    match &point.section {
+        None => Some(point.beat),
+        Some(name) => Some(super::anchor::section_start(song, name)? + point.beat),
     }
+}
+
+/// `song` with every point placed in beats from the start of the piece, which
+/// is all the renderer reads: a point against a section becomes the point at
+/// the beat it comes to. Borrowed, at no cost, when no point names a section.
+///
+/// Asked of a song that has been validated, so every section is found.
+pub(super) fn placed(song: &Song) -> Cow<'_, Song> {
+    let named = song
+        .automation
+        .iter()
+        .flat_map(|curve| &curve.points)
+        .any(|point| point.section.is_some());
+    if !named {
+        return Cow::Borrowed(song);
+    }
+    let mut placed = song.clone();
+    for point in placed.automation.iter_mut().flat_map(|it| &mut it.points) {
+        if let Some(beat) = placed_beat(song, point) {
+            point.beat = beat;
+            point.section = None;
+        }
+    }
+    Cow::Owned(placed)
 }
 
 /// The curves riding one track, looked up once instead of per note.
@@ -388,6 +444,7 @@ mod tests {
             track: "pad".to_owned(),
             param,
             points: vec![Point {
+                section: None,
                 beat: 0.0,
                 value: 1.0,
                 easing: Easing::Linear,

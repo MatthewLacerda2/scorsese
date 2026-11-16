@@ -30,6 +30,7 @@ fn a_bussed_track_is_measured_after_its_gain_too() {
         track: "sub".to_owned(),
         param: Param::Gain,
         points: vec![Point {
+            section: None,
             beat: 0.0,
             value: 0.5,
             easing: Easing::Linear,

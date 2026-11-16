@@ -13,7 +13,7 @@ use crate::error::SynthError;
 
 impl SynthError {
     /// The words for an automation refusal. Only ever called from
-    /// [`SynthError::say`] with one of the seven variants it names.
+    /// [`SynthError::say`] with one of the eight variants it names.
     pub(super) fn say_automation(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::UnknownAutomationTrack { track, param, .. } => write!(
@@ -50,7 +50,16 @@ impl SynthError {
                 "song: automation of `send` on track `{track}`, but the song's `fx` has no \
                  `reverb` or `delay` for a send to reach"
             ),
-            // `say` hands over only the seven above; see `length`'s catch-all.
+            Self::BadAutomationSection {
+                track,
+                param,
+                point,
+                why,
+            } => write!(
+                f,
+                "song: automation of `{param}` on track `{track}`: the point at {point} {why}"
+            ),
+            // `say` hands over only the eight above; see `length`'s catch-all.
             other => write!(f, "{other:?}"),
         }
     }
