@@ -11,6 +11,7 @@
 mod assets;
 mod caption;
 mod import;
+mod look;
 mod migrate;
 mod new;
 mod page;

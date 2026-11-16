@@ -20,6 +20,8 @@ use scorsese_compositor::text::Font;
 use scorsese_compositor::{BYTES_PER_PIXEL, Frame, Resolution};
 use scorsese_core::Rgba;
 
+mod grids;
+
 /// A cell size whose label strip lands on whole rows.
 const WIDTH: u32 = 240;
 const HEIGHT: u32 = 200;

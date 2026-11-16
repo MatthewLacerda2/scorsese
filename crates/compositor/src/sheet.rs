@@ -31,10 +31,12 @@ use crate::text::{Band, Font, Style};
 
 /// The most cells a sheet may hold.
 ///
-/// Five, and enforced here rather than trusted from a caller — the cap is what
-/// bounds the cost of looking, and a limit that lives only in an argument's
-/// documentation is a limit somebody eventually passes six to.
-pub const MAX_CELLS: usize = 5;
+/// Twelve — a glance across a whole video (#1563) — and enforced here rather
+/// than trusted from a caller: the cap is what bounds the cost of looking,
+/// and a limit that lives only in an argument's documentation is a limit
+/// somebody eventually passes one more to. Callers that hold a sheet to fewer
+/// (`look` with a count, a sheet of the edit) keep caps of their own.
+pub const MAX_CELLS: usize = 12;
 
 /// How tall a cell's label strip is, as a fraction of the cell's **shorter**
 /// side.
@@ -110,10 +112,11 @@ pub enum SheetError {
 /// Every cell keeps all of its pixels: the strip is added below the frame, so
 /// the sheet is `columns × width` across and `rows × (height + strip)` down.
 ///
-/// The arrangement is at most three across: a single row while that fits, two
-/// rows beyond it. Wider would make a sheet a letterbox strip whose cells are
-/// unreadable at any sensible width, and taller would put the last frame so
-/// far from the first that the eye stops comparing them.
+/// The arrangement is at most three across until three rows are full, then
+/// four across three rows: a single row while that fits, then more rows. Wider would make a
+/// sheet a letterbox strip whose cells are unreadable at any sensible width,
+/// and taller would put the last frame so far from the first that the eye
+/// stops comparing them.
 ///
 /// `ruled` draws [`crate::grid`]'s coordinates over **each cell**, which is the
 /// only place they can go: a cell is one whole source frame, so its fractions
@@ -196,15 +199,19 @@ fn layout_size(cells: &[Cell]) -> Result<Resolution, SheetError> {
 
 /// Columns and rows for this many cells.
 ///
-/// One row up to three, then two. Five — the cap, and the default — is three
-/// over two, which reads left to right and then down, the way the frames run.
+/// One row up to three, then two: five — `look`'s default — is three over
+/// two, which reads left to right and then down, the way the frames run. Up
+/// to nine is three across, and ten to twelve four across three rows, so the
+/// sheet never grows a fourth row.
 const fn grid(count: usize) -> (u32, u32) {
     match count {
         0 | 1 => (1, 1),
         2 => (2, 1),
         3 => (3, 1),
         4 => (2, 2),
-        _ => (3, 2),
+        5 | 6 => (3, 2),
+        7..=9 => (3, 3),
+        _ => (4, 3),
     }
 }
 

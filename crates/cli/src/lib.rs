@@ -54,7 +54,6 @@ pub use cli::Cli;
 
 use cli::{AssetsAction, Command, SequenceAction, SynthAction};
 use scorsese_providers::voices::Filters;
-use scorsese_render::contact::Look;
 
 /// Parses the command line and runs it.
 pub fn run() -> Result<()> {
@@ -239,16 +238,7 @@ fn dispatch(cli: Cli) -> Result<()> {
             to,
             frames,
             grid,
-        } => commands::look::run(
-            &file,
-            out,
-            &Look {
-                from_seconds: from,
-                to_seconds: to,
-                count: frames,
-                grid,
-            },
-        ),
+        } => commands::look::asked(&file, out, from, to, frames, grid),
         Command::Describe {
             fps,
             range,

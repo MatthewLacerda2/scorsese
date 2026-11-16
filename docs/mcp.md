@@ -1428,9 +1428,20 @@ to import it.
 
 **One picture, not five.** Five separate image blocks cost five times as much
 and say less: what tells you what a shot does is the change *between* frames,
-and a change is only visible when the frames are side by side. At most five
-frames, ever, and the cap is enforced in the library rather than trusted from
-the caller; `frames` asks for fewer (default 5).
+and a change is only visible when the frames are side by side.
+
+**With only `file`, it glances at the whole video**: 3 to 12 frames,
+one more for every 15 seconds of it, sampled evenly from twice as many, with
+black or blank frames and near-repeats of the last one kept left out — so a
+video that barely changes comes back as three. When the file has a transcript
+beside it (`transcribe` writes one), its lines come in the reply's words, each
+led by the time it is said, in the times the frames are labelled with; looking
+never starts a transcription. The web app shows an attached video to its
+assistant the same way, with the same function.
+
+**`from`, `frames` or `to` choose the moments instead.** At most five frames,
+and the cap is enforced in the library rather than trusted from the caller;
+`frames` asks for fewer (default 5).
 
 **A long file is walked.** Without `to`, the frames are five seconds apart and
 the reply says where the next call starts — 0–20s, then 25–45s. That is the

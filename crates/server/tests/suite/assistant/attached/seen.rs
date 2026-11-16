@@ -1,6 +1,7 @@
 //! What the model sees of a message's attachments (#1562): the first eight
 //! pictures in the message itself, shrunk; a document's text when it is
-//! short; a video, a sound and whatever is past the budget only named.
+//! short; a sound and whatever is past the budget only named. A video is a
+//! picture of its own (`videos`, #1563).
 
 use scorsese_server::assistant::{MAX_INLINE_CHARS, MAX_PICTURES};
 use scorsese_server::library::Kind;
@@ -12,7 +13,7 @@ use super::{heard, kept, send_with, written};
 
 /// The blocks of the person's message in request `n`: its first user
 /// message's content.
-fn opened(script: &Script, n: usize) -> Vec<Value> {
+pub(super) fn opened(script: &Script, n: usize) -> Vec<Value> {
     script
         .parsed(n)
         .into_iter()
@@ -22,7 +23,7 @@ fn opened(script: &Script, n: usize) -> Vec<Value> {
 }
 
 /// How many pictures `blocks` carry, a tool result's included.
-fn pictures(blocks: &[Value]) -> usize {
+pub(super) fn pictures(blocks: &[Value]) -> usize {
     blocks
         .iter()
         .map(|block| match block["type"].as_str() {
@@ -34,7 +35,7 @@ fn pictures(blocks: &[Value]) -> usize {
 }
 
 #[sqlx::test]
-async fn pictures_are_shown_a_document_inline_and_video_and_sound_named(pool: PgPool) {
+async fn pictures_and_a_video_are_shown_a_document_inline_and_a_sound_named(pool: PgPool) {
     let script = Script::new(vec![answers("Got them.")]);
     let (address, state) = scripted(&pool, &script).await;
     let (ana, who) = member(&pool, "ana@example.com", 10).await;
@@ -58,7 +59,11 @@ async fn pictures_are_shown_a_document_inline_and_video_and_sound_named(pool: Pg
 
     let blocks = opened(&script, 0);
     assert_eq!(blocks[0]["text"], "make it", "the words come first");
-    assert_eq!(pictures(&blocks), 2, "{blocks:?}");
+    assert_eq!(
+        pictures(&blocks),
+        3,
+        "two pictures and a video's sheet: {blocks:?}"
+    );
     for picture in blocks.iter().filter(|block| block["type"] == "image") {
         assert_eq!(picture["source"]["media_type"], "image/jpeg", "shrunk");
     }
@@ -70,13 +75,11 @@ async fn pictures_are_shown_a_document_inline_and_video_and_sound_named(pool: Pg
         "the markdown is in the message: {inline:?}"
     );
     let said = heard(&script, 0);
-    for named in ["clip.mp4", "song.mp3"] {
-        let line = said
-            .split("\\n")
-            .find(|line| line.contains(named) && line.contains("not shown"))
-            .unwrap_or_else(|| panic!("{named} is named, not shown: {said}"));
-        assert!(!line.contains("library_read"), "{line}");
-    }
+    let line = said
+        .split("\\n")
+        .find(|line| line.contains("song.mp3") && line.contains("not shown"))
+        .unwrap_or_else(|| panic!("the sound is named, not shown: {said}"));
+    assert!(!line.contains("library_read"), "{line}");
 }
 
 #[sqlx::test]

@@ -24,6 +24,7 @@
 //! frames, through [`Tools`] like every other invocation; the compositor tiles
 //! them and draws the timestamps, because compositing is ours.
 
+mod glance;
 mod pictures;
 mod sample;
 mod timeline;
@@ -39,6 +40,7 @@ use crate::probe::Ffprobe;
 use crate::tools::{Tools, input};
 use scorsese_compositor::Frame;
 
+pub use glance::{GLANCE_FEWEST, GLANCE_MOST, Glance, glance, glance_count};
 pub use pictures::pictures;
 pub use sample::{CELL_LONGEST_SIDE, Look, MAX_FRAMES, STEP_SECONDS, label};
 pub use timeline::{TimelineSheet, TimelineSheetError, cell_label, timeline_sheet};

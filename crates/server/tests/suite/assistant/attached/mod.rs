@@ -17,8 +17,9 @@ mod fixtures;
 mod paused;
 mod refused;
 mod seen;
+mod videos;
 
-pub(super) use fixtures::{kept, written};
+pub(super) use fixtures::{heard_video, kept, written};
 
 /// `prompt` sent about `project` with `attachments`: the response.
 pub(super) async fn send_with(

@@ -50,7 +50,7 @@ fn pictured(reply: &Value) -> &Value {
 #[test]
 fn a_sheet_comes_back_as_a_png_with_the_moments_named_in_words() {
     let file = footage("wire", 12);
-    let reply = call("look", json!({ "project": ".", "file": file }));
+    let reply = call("look", json!({ "project": ".", "file": file, "from": 0 }));
     let (text, failed) = said(&reply);
     assert!(!failed, "{text}");
     assert!(
@@ -75,7 +75,10 @@ fn a_sheet_comes_back_as_a_png_with_the_moments_named_in_words() {
 #[test]
 fn a_file_longer_than_one_sheet_says_where_to_carry_on() {
     let file = footage("walk", 40);
-    let (text, failed) = said(&call("look", json!({ "project": ".", "file": file })));
+    let (text, failed) = said(&call(
+        "look",
+        json!({ "project": ".", "file": file, "from": 0 }),
+    ));
     assert!(!failed, "{text}");
     assert!(text.contains("from: 25"), "no next step named: {text}");
 
@@ -130,5 +133,32 @@ fn a_missing_file_and_a_backwards_range_are_refused_in_words() {
         1,
         "a refusal must not carry a picture"
     );
+    std::fs::remove_dir_all(file.parent().expect("a parent")).ok();
+}
+
+/// Asked for nothing in particular, `look` glances across the whole file
+/// (#1563): frames chosen for it, and the transcript beside the file in the
+/// words — or that it has none, never a transcription started.
+#[test]
+fn a_bare_look_glances_at_the_whole_file_with_its_transcript() {
+    let file = footage("glance", 40);
+    let (text, failed) = said(&call("look", json!({ "project": ".", "file": file })));
+    assert!(!failed, "{text}");
+    assert!(text.contains("across the whole of"), "{text}");
+    assert!(text.contains("It has no transcript."), "{text}");
+    assert!(!text.contains("from:"), "a glance is not walked: {text}");
+
+    let mut beside = file.clone().into_os_string();
+    beside.push(".words.json");
+    std::fs::write(
+        &beside,
+        r#"{"words":[{"text":"Hello","start":12.0,"end":12.4},{"text":"there.","start":12.5,"end":12.9}]}"#,
+    )
+    .expect("the test setup holds");
+    let reply = call("look", json!({ "project": ".", "file": file }));
+    let (text, failed) = said(&reply);
+    assert!(!failed, "{text}");
+    assert!(text.contains("0:12 Hello there."), "{text}");
+    assert_eq!(pictured(&reply)["type"], "image");
     std::fs::remove_dir_all(file.parent().expect("a parent")).ok();
 }

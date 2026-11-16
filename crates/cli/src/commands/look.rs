@@ -15,11 +15,34 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
+use scorsese_core::words::Words;
 use scorsese_render::contact::{self, Look};
 use scorsese_render::{Tools, frames};
 
+/// What `scorsese look` was asked: a [`glance`] when no moment is named,
+/// otherwise the [`run`] they name, from 0 and five frames unless told.
+pub(crate) fn asked(
+    file: &Path,
+    out: Option<PathBuf>,
+    from: Option<f64>,
+    to: Option<f64>,
+    frames: Option<usize>,
+    grid: bool,
+) -> Result<()> {
+    if from.is_none() && to.is_none() && frames.is_none() {
+        return glance(file, out, grid);
+    }
+    let look = Look {
+        from_seconds: from.unwrap_or(0.0),
+        to_seconds: to,
+        count: frames.unwrap_or(contact::MAX_FRAMES),
+        grid,
+    };
+    run(file, out, &look)
+}
+
 /// Takes a sheet of `file` and writes it to `out`.
-pub(crate) fn run(file: &Path, out: Option<PathBuf>, look: &Look) -> Result<()> {
+fn run(file: &Path, out: Option<PathBuf>, look: &Look) -> Result<()> {
     let tools = Tools::discover()?;
     let sheet = contact::sheet(&tools, file, look)
         .with_context(|| format!("looking at {}", file.display()))?;
@@ -51,6 +74,45 @@ pub(crate) fn run(file: &Path, out: Option<PathBuf>, look: &Look) -> Result<()> 
     // somebody has to compute is a step somebody gets wrong.
     if let Some(next) = sheet.next_from() {
         println!("More to see: --from {next}");
+    }
+    Ok(())
+}
+
+/// Glances at the whole of `file` ([`contact::glance`]) and writes the
+/// sheet to `out`, printing the transcript beside the file when it has one.
+fn glance(file: &Path, out: Option<PathBuf>, grid: bool) -> Result<()> {
+    let tools = Tools::discover()?;
+    let words = Words::heard_in(file);
+    let glance = contact::glance(&tools, file, words.as_ref(), grid)
+        .with_context(|| format!("looking at {}", file.display()))?;
+    let sheet = &glance.sheet;
+
+    let path = out.unwrap_or_else(|| default_out(file));
+    frames::write_png(&tools, &path, &sheet.image)
+        .with_context(|| format!("writing {}", path.display()))?;
+
+    let moments: Vec<String> = sheet
+        .at_seconds
+        .iter()
+        .map(|at| contact::label(*at))
+        .collect();
+    println!(
+        "Wrote {} — {} across the whole of {} ({:.1}s), at {}, blank frames and near-repeats \
+         left out{}",
+        path.display(),
+        contact::counted(sheet.at_seconds.len()),
+        file.display(),
+        sheet.duration_seconds,
+        moments.join(", "),
+        if grid {
+            ", each ruled in fractions of the source"
+        } else {
+            ""
+        }
+    );
+    match &glance.transcript {
+        Some(lines) => println!("What is said, by when it starts:\n{lines}"),
+        None => println!("It has no transcript."),
     }
     Ok(())
 }
