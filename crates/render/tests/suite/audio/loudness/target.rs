@@ -23,6 +23,13 @@ use crate::common::{audio_track, project};
 /// meter through a codec and a resample.
 const SLACK: f64 = 0.5;
 
+/// LU an MP3 delivery may sit from its target. At the default bitrate the
+/// encode itself costs a level-independent ~0.4 LU of a 440 Hz tone, which a
+/// WAV of the same gain does not (#1148): ffmpeg 6.1 reads −30.44 for a −30
+/// target, Homebrew's 8.1.2 −30.5. The gain is still checked to be aimed
+/// exactly; this is room for the encoder, not for the aim.
+const MP3_SLACK: f64 = 1.0;
+
 /// Renders three seconds of the sound `expr` makes, sound only, into
 /// `container`, at `target` LUFS. Hands back the report, ffmpeg's reading of
 /// the file's integrated loudness, and its true peak.
@@ -112,7 +119,12 @@ fn a_loud_mix_is_brought_down_without_limiting() {
     let lift = report.lift.expect("a target was asked for");
     assert!(lift.gain_db < -20.0, "lowered: {lift}");
     assert!(lift.limited_db < 0.05, "nothing to hold: {lift}");
-    assert!((read + 30.0).abs() < SLACK, "ffmpeg reads {read} LUFS");
+    let mixed = lift.mixed_lufs.expect("measured");
+    assert!(
+        (mixed + lift.gain_db + 30.0).abs() < 1e-6,
+        "aimed at the target: {lift:?}"
+    );
+    assert!((read + 30.0).abs() < MP3_SLACK, "ffmpeg reads {read} LUFS");
 }
 
 #[test]
