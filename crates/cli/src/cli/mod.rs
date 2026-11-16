@@ -16,7 +16,6 @@ use clap::{Parser, Subcommand};
 use scorsese_core::style::Platform;
 use scorsese_core::{Fps, Ratio};
 use scorsese_render::audio::reference::{self, Reference};
-use scorsese_render::contact;
 use scorsese_render::{
     AudioCodec, Bitrate, Container, Cue, FrameRange, LoudnessTarget, SampleRate, Sizing, VideoCodec,
 };
@@ -582,6 +581,11 @@ pub(crate) enum Command {
     /// Look at a video file: frames sampled from it, tiled into one PNG with
     /// each frame's timestamp on it.
     ///
+    /// With only the file, a glance at the whole of it: 3 to 12 frames, more
+    /// for a longer file, with blank frames and near-repeats left out, and
+    /// the transcript beside the file (`<file>.words.json`) printed when there
+    /// is one. `--from`, `--to` or `--frames` choose the moments instead.
+    ///
     /// A file, not a project — an imported asset or footage nobody has
     /// imported yet — so this answers "what is in this?" where `still`
     /// answers "what does my cut look like?".
@@ -594,15 +598,16 @@ pub(crate) enum Command {
         out: Option<PathBuf>,
         /// Where to start, in seconds. A file longer than one sheet is walked
         /// in successive calls, and each one says where the next starts.
-        #[arg(long, default_value_t = 0.0)]
-        from: f64,
+        #[arg(long)]
+        from: Option<f64>,
         /// Where to stop, in seconds. Without it the frames are five seconds
         /// apart; with it they spread evenly across the span you named.
         #[arg(long)]
         to: Option<f64>,
-        /// How many frames to take, at most five.
-        #[arg(long, default_value_t = contact::MAX_FRAMES)]
-        frames: usize,
+        /// How many frames to take, at most five; five when `--from` or
+        /// `--to` is given without it.
+        #[arg(long)]
+        frames: Option<usize>,
         /// Rule each frame with coordinates: a line every 0.1, heavier at 0.5,
         /// labelled along the top and left edges. The fractions are the
         /// **source's** own — its whole width and height, not the render
