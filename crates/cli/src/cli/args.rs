@@ -119,8 +119,9 @@ pub(crate) enum SynthAction {
     },
     /// List the library of ready-made instruments — a drum machine's kick,
     /// snare, clap, hats, tom and crash, a ride, rimshot, shaker, tambourine
-    /// and cowbell, two basses, a clav, a pluck, a lead, brass, strings, a
-    /// pad, an electric piano and a bell — or print one's patch.
+    /// and cowbell, a synth bass, a sub and a driven bass, a distorted
+    /// guitar, a clav, a pluck, a lead, brass, strings, a pad, an electric
+    /// piano and a bell — or print one's patch.
     ///
     /// A song track uses one as `"patch": "kit:kick"`, and `--copy-into`
     /// replaces each such name in a recipe with the patch itself: the song

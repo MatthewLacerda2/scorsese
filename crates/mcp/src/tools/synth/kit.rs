@@ -35,7 +35,9 @@ impl Tool for Kit {
         "List the ready-made instruments a recipe can start from, or show one \
          instrument's patch. There is a drum machine's kick, snare, clap, \
          closed and open hats, tom and crash, and a ride, rimshot, shaker, \
-         tambourine and cowbell; a synth bass and a sub; a clav, \
+         tambourine and cowbell; a synth bass and a sub; a driven bass \
+         (growl) and a distorted rhythm guitar whose one note is a power chord \
+         (guitar), for metal and heavy cues; a clav, \
          a pluck, a supersaw lead, a brass section, strings, a pad, an \
          electric piano and a bell; and sound effects to vary rather than use as they are \
          (whoosh, riser, pop, click, ding, key, scribble, page, thud), each \
