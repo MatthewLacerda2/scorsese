@@ -22,7 +22,7 @@ use super::error::ApiError;
 use super::ranges;
 use crate::projects;
 use crate::renders::request::{self, AskError, Asked};
-use crate::renders::{self, Ask, PreviewAsk, RenderView, Settings, store};
+use crate::renders::{Ask, PreviewAsk, RenderView, Settings, store};
 
 /// How many renders and previews one member may have queued a minute, both
 /// routes and every project together (#1648). Asking about one kept or on its
@@ -51,7 +51,8 @@ pub async fn request(
         ask.resolution = frame_size(&state, &member, id).await?;
         settings = Settings::from_ask(&ask).map_err(ApiError::BadRequest)?;
     }
-    answer(&state, &member, id, settings).await
+    let (status, answered, _) = answer(&state, &member, id, settings).await?;
+    Ok((status, answered))
 }
 
 /// Project `id`'s own frame at delivery size, as `WIDTHxHEIGHT`.
@@ -85,22 +86,22 @@ pub async fn preview(
     }
     let settings = Settings::from_preview(&ask).map_err(ApiError::BadRequest)?;
     let piece = settings.piece();
-    let (status, Json(mut answered)) = answer(&state, &member, id, settings).await?;
+    let (status, Json(mut answered), audible) = answer(&state, &member, id, settings).await?;
     if piece {
-        let stored = projects::open(&state.pool, member.user, id).await?;
-        answered["audible"] = json!(!renders::silent(&stored.document));
+        answered["audible"] = json!(audible);
     }
     Ok((status, Json(answered)))
 }
 
-/// Kept (`200`) or on its way (`202`): one answer for both routes.
+/// Kept (`200`) or on its way (`202`): one answer for both routes, and
+/// whether the document asked about has anything to hear.
 async fn answer(
     state: &AppState,
     member: &Member,
     id: i64,
     settings: Settings,
-) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let asked = request::ask(
+) -> Result<(StatusCode, Json<Value>, bool), ApiError> {
+    let (asked, audible) = request::ask(
         &state.pool,
         &state.jobs,
         &state.renders,
@@ -128,10 +129,12 @@ async fn answer(
         Asked::Kept(view) => (
             StatusCode::OK,
             Json(json!({ "render": shown(&view), "job": null })),
+            audible,
         ),
         Asked::Queued(job) => (
             StatusCode::ACCEPTED,
             Json(json!({ "render": null, "job": job })),
+            audible,
         ),
     })
 }

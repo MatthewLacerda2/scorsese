@@ -208,7 +208,11 @@ export class PiecePlayer {
     const jobs = new Set<number>();
     for (;;) {
       const asked = await ask();
-      if (dropped()) throw new Dropped();
+      if (dropped()) {
+        // Dropped while the ask was on its way: the job it queued is nobody's.
+        if (asked.job && !asked.render) this.server.cancel(asked.job.id);
+        throw new Dropped();
+      }
       if (asked.audible !== undefined) this.audible ??= asked.audible;
       if (asked.render) return this.server.bytes(asked.render);
       if (!asked.job) throw new Error("preview piece: no render and no job");
@@ -256,10 +260,17 @@ export class PiecePlayer {
     return next;
   }
 
-  /** Every piece is in: say so, so the element ends where the cut does. */
+  /**
+   * Every piece from the playhead to the cut's end is in: say so, or the
+   * element waits at the end for more and never ends. Pieces behind the
+   * playhead need not be — played from the middle, or evicted. A later
+   * append reopens the source by itself.
+   */
   private finishIfWhole() {
     const pieces = Math.ceil(this.total / pieceLength(this.fps));
-    if (this.had.size < pieces || this.source.readyState !== "open") return;
+    const from = Math.floor(Math.min(Math.max(0, this.at), this.total - 1) / pieceLength(this.fps));
+    for (let index = from; index < pieces; index++) if (!this.had.has(index)) return;
+    if (this.source.readyState !== "open") return;
     void this.appending.then(() => {
       if (this.source.readyState === "open" && !this.gone) this.source.endOfStream();
     });

@@ -81,7 +81,7 @@ async fn with_tone(pool: &PgPool, files: &Files, user: UserId) -> Project {
 
 /// Ask for the piece of project `id` over `range` and wait for it: whether
 /// the answer said the cut is audible, and the piece's codecs.
-async fn piece(
+pub(super) async fn piece(
     pool: &PgPool,
     files: &Files,
     (address, cookie, user): (std::net::SocketAddr, &str, UserId),

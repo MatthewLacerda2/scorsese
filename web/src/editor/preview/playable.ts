@@ -39,6 +39,8 @@ const POLL_MS = 4000;
 
 interface Held {
   revision: number;
+  /** The quality it was asked at: another one is another file. */
+  quality: Quality;
   playable: Playable;
 }
 
@@ -54,8 +56,9 @@ export function waiting(job: JobView, t: Messages["editor"]["preview"]): string 
  * drawn at `quality`: asked for by `ask`, when play is pressed.
  */
 export function usePlayable(id: number, revision: number, deliver: string, quality: Quality) {
-  const [held, setHeld] = useState<Held>({ revision, playable: { state: "none" } });
-  const playable: Playable = held.revision === revision ? held.playable : { state: "none" };
+  const [held, setHeld] = useState<Held>({ revision, quality, playable: { state: "none" } });
+  const playable: Playable =
+    held.revision === revision && held.quality === quality ? held.playable : { state: "none" };
 
   const ask = useCallback(async () => {
     const at = revision;
@@ -67,17 +70,17 @@ export function usePlayable(id: number, revision: number, deliver: string, quali
           ? { state: "preparing", job: asked.job }
           : // Neither a render nor a job: nothing more to say than that it failed.
             { state: "failed" };
-      setHeld({ revision: at, playable: next });
+      setHeld({ revision: at, quality, playable: next });
     } catch (error) {
       console.error("preview: asking failed", error);
-      setHeld({ revision: at, playable: { state: "failed" } });
+      setHeld({ revision: at, quality, playable: { state: "failed" } });
     }
   }, [id, revision, deliver, quality]);
 
   useServerEvents((event) => {
     if (playable.state !== "preparing" || !("id" in event) || event.id !== playable.job.id) return;
     if (event.type === "job_progress") {
-      setHeld({ revision, playable: { state: "preparing", job: folded(playable.job, event) } });
+      setHeld({ revision, quality, playable: { state: "preparing", job: folded(playable.job, event) } });
       return;
     }
     if (event.type !== "job") return;
@@ -86,9 +89,9 @@ export function usePlayable(id: number, revision: number, deliver: string, quali
     if (event.state === "done" || event.state === "cancelled") void ask();
     else if (event.state === "failed" || event.state === "stuck") {
       console.error(`preview: job ${event.id} ${event.state}`, event.error);
-      setHeld({ revision, playable: { state: "failed" } });
+      setHeld({ revision, quality, playable: { state: "failed" } });
     } else
-      setHeld({ revision, playable: { state: "preparing", job: folded(playable.job, event) } });
+      setHeld({ revision, quality, playable: { state: "preparing", job: folded(playable.job, event) } });
   });
 
   // Asked again now and then as well: the event stream does not pass every

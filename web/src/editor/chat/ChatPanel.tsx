@@ -94,7 +94,11 @@ export function ChatPanel({
 
   const current = running(transcript);
   const busy = current !== null;
-  useEffect(() => onBusy?.(busy), [busy, onBusy]);
+  useEffect(() => {
+    onBusy?.(busy);
+    // Gone mid-turn (a crash, a remount): it is changing nothing any more.
+    return () => onBusy?.(false);
+  }, [busy, onBusy]);
   const paused = asking(transcript);
   const scroller = useRef<HTMLDivElement>(null);
   // Follow new text only while the reader is at the bottom; scrolled up, leave them be (#1437).

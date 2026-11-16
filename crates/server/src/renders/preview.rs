@@ -26,6 +26,8 @@
 //!   whether it has any is said before the first is made ([`silent`]).
 //! - **One kept per shape.** A new preview replaces the project's earlier ones
 //!   at the same settings: they are of documents the project has moved past.
+//!   A new piece replaces the pieces at its shape, whatever their range, of
+//!   any other document, and keeps this document's, so seeking back is free.
 //!   A file somebody has open is spared, exactly as eviction spares it.
 
 use std::path::Path;
@@ -122,11 +124,13 @@ pub(super) async fn preview(
 
 /// Forget `project`'s other previews at `settings` — the same shape at the
 /// same quality, so of other documents — except any file somebody has open.
-/// Hands back their files, to remove once the transaction commits.
+/// A piece (#1448) forgets the pieces at its shape over any range, except
+/// those `document` still hashes to. Hands back their files, to remove once
+/// the transaction commits.
 pub(super) async fn replaced(
     tx: &mut Tx,
     cache: &RenderCache,
-    project: i64,
+    (project, document): (i64, &Project),
     settings: &Settings,
     kept: &str,
 ) -> Result<Vec<std::path::PathBuf>, sqlx::Error> {
@@ -135,15 +139,29 @@ pub(super) async fn replaced(
         .iter()
         .map(|path| path.to_string_lossy().into_owned())
         .collect();
-    let gone: Vec<String> = sqlx::query_scalar(
-        "DELETE FROM renders
-         WHERE project_id = $1 AND settings = $2 AND key <> $3 AND NOT (path = ANY($4))
-         RETURNING path",
+    let candidates: Vec<(String, sqlx::types::Json<Settings>)> = sqlx::query_as(
+        "SELECT key, settings FROM renders
+         WHERE project_id = $1 AND key <> $3 AND NOT (path = ANY($4))
+           AND (settings = $2 OR ($2 ? 'range' AND settings ? 'range'
+                AND settings - 'range' = $2::jsonb - 'range'))",
     )
     .bind(project)
     .bind(sqlx::types::Json(settings))
     .bind(kept)
     .bind(&pinned)
+    .fetch_all(&mut **tx)
+    .await?;
+    // A row of this document at its own settings is one still wanted.
+    let gone: Vec<String> = candidates
+        .into_iter()
+        .filter(|(row, at)| key(document, at).is_ok_and(|now| now != *row))
+        .map(|(row, _)| row)
+        .collect();
+    let gone: Vec<String> = sqlx::query_scalar(
+        "DELETE FROM renders WHERE project_id = $1 AND key = ANY($2) RETURNING path",
+    )
+    .bind(project)
+    .bind(&gone)
     .fetch_all(&mut **tx)
     .await?;
     Ok(gone

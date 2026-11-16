@@ -73,6 +73,18 @@ export function Preview(props: Props) {
   const [width, height] = raster.split("x").map(Number);
   const ready = whole && playable.state === "ready";
 
+  // The whole file went (an edit, a new quality): React only drops the `src`
+  // attribute, which leaves the old media playing, so the element is reset.
+  // An element the pieces player gave a source of its own is left alone.
+  const file = ready ? playable.render.file : undefined;
+  const shown = useRef(file);
+  useEffect(() => {
+    const element = video.current;
+    const was = shown.current;
+    shown.current = file;
+    if (!element || !was || file || element.getAttribute("src") !== null) return;
+    element.load();
+  }, [file]);
   // The edit landed: play may be pressed again.
   useEffect(() => {
     if (!changing) setRefused(false);
@@ -139,7 +151,7 @@ export function Preview(props: Props) {
           {/* biome-ignore lint/a11y/useMediaCaption: a preview of the user's own cut has no captions to offer */}
           <video
             ref={video}
-            src={ready ? playable.render.file : undefined}
+            src={file}
             className={showing ? "size-full object-contain" : "hidden"}
             preload="auto"
             onPlay={() => setPlaying(true)}

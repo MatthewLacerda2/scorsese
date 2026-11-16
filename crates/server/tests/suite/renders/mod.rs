@@ -23,6 +23,7 @@ mod pages;
 mod pieces;
 mod previews;
 mod progress;
+mod replaced;
 mod request;
 mod settings;
 mod streams;

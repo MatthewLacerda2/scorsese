@@ -172,6 +172,8 @@ async fn render(
         ),
         None => None,
     };
+    // What a kept preview's earlier ones are told apart by ([`preview::replaced`]).
+    let document = project.clone();
     let (tools, written) = (tools.clone(), out.clone());
     let drawn = Drawn {
         settings,
@@ -229,7 +231,7 @@ async fn render(
                     preview::replaced(
                         &mut tx,
                         cache,
-                        payload.project,
+                        (payload.project, &document),
                         &payload.settings,
                         &payload.key,
                     )
