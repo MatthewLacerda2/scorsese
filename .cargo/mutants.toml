@@ -979,7 +979,7 @@ exclude_re = [
     # dropped by the per-note `offset + start < slot` (a start is never
     # negative), so the notes returned are the same for every input. `<` → `>`
     # and `==` are not equivalent and are caught by the module's own tests.
-    'song/tile\.rs:37:42: replace < with <= in passes',
+    'song/tile\.rs:43:42: replace < with <= in passes',
 ]
 
 # ---------------------------------------------------------------------------

@@ -1648,7 +1648,8 @@ four times, and not the phrase cut into four one-bar patterns:
 - **A repeating layer does not set the entry's length**: the entry is as long
   as its longest layer that does not repeat. So an entry whose every layer
   repeats is refused (nothing says how long it is), and so is `repeat` on an
-  entry that is one pattern (nothing to repeat against).
+  entry that is one pattern (nothing to repeat against). A slot holds at most
+  1024 passes: past that, one of the two `beats` is a typo, and it is refused.
 - **The last pass is cut where the entry ends, not refused.** A note that
   starts before the end plays and rings on as any note may; one that would
   start at or after it does not. A one-bar beat under a seven-bar phrase plays
@@ -3554,7 +3555,8 @@ release and the effect tail (a 58 s drone through a long reverb is one; a song
 names it by track, pattern and beat), an arrangement naming a pattern that does not exist (in a layer as
 anywhere else), a layered entry with no layers, a layered entry whose every
 layer [repeats](#a-short-part-under-a-long-one), `repeat` on an entry that is
-one pattern, a note on a
+one pattern, a repeat that would take more than 1024 passes to fill its entry,
+a note on a
 track that does not exist, a `tracks` filter naming one that does not either, a
 `vel_scale` below zero, a `swing` outside `0..1` (at 1 the off-beat lands on
 the next beat, which reorders the music), and a negative `humanize` amount —

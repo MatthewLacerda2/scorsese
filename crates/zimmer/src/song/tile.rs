@@ -10,6 +10,12 @@
 use super::{ArrangementEntry, Layer, Note, Song};
 use crate::error::SynthError;
 
+/// The most passes one slot may lay a repeating layer out in: a one-step
+/// pattern of a sixteenth repeated through sixty-four bars of four. Past it a
+/// length is a typo, and laying it out is work a small document must not ask
+/// for, so [`check`] refuses it and every tolerant walk stops there.
+pub(crate) const MAX_PASSES: usize = 1024;
+
 /// Every note `layer` plays in a slot of `slot` beats, as `(index, offset)`:
 /// note `index` of the pattern's `starts`, played `offset` beats after the
 /// slot's first beat.
@@ -35,6 +41,7 @@ pub(crate) fn passes(
         (0..)
             .map(|pass| pass as f32 * beats)
             .take_while(|&offset| offset < slot)
+            .take(MAX_PASSES)
             .collect()
     } else {
         vec![0.0]
@@ -47,15 +54,24 @@ pub(crate) fn passes(
 }
 
 /// The notes `layer` plays in a slot of `slot` beats: `notes` as written, or
-/// every pass of them moved to where it falls — the form the renderer walks.
-pub(crate) fn tiled(layer: &Layer, notes: &[Note], beats: f32, slot: f32) -> Vec<Note> {
+/// every pass of them moved to where it falls — the form the renderer walks —
+/// each beside the index of the written note it is a pass of.
+pub(crate) fn tiled(
+    layer: &Layer,
+    notes: &[Note],
+    beats: f32,
+    slot: f32,
+) -> (Vec<Note>, Vec<usize>) {
     passes(layer, |index| notes[index].start, notes.len(), beats, slot)
         .into_iter()
-        .map(|(index, offset)| Note {
-            start: notes[index].start + offset,
-            ..notes[index].clone()
+        .map(|(index, offset)| {
+            let note = Note {
+                start: notes[index].start + offset,
+                ..notes[index].clone()
+            };
+            (note, index)
         })
-        .collect()
+        .unzip()
 }
 
 /// Every entry that repeats a layer has something beside it that sets how
@@ -74,7 +90,26 @@ pub(crate) fn check(song: &Song) -> Result<(), SynthError> {
             {
                 return Err(SynthError::EveryLayerRepeats { index });
             }
-            _ => {}
+            ArrangementEntry::Layered(layered) => {
+                let slot = song.slot_beats(entry).unwrap_or(0.0);
+                for layer in layered.layers.iter().filter(|layer| layer.repeats()) {
+                    // A length that is not one is refused by the pattern's own
+                    // check, after this one.
+                    let Some(beats) = song.patterns.get(layer.pattern()).map(|it| it.beats) else {
+                        continue;
+                    };
+                    let passes = (slot / beats).ceil();
+                    if beats > 0.0 && passes > MAX_PASSES as f32 {
+                        return Err(SynthError::TooManyPasses {
+                            index,
+                            pattern: layer.pattern().to_owned(),
+                            passes,
+                            limit: MAX_PASSES,
+                        });
+                    }
+                }
+            }
+            ArrangementEntry::Single(_) | ArrangementEntry::Marker(_) => {}
         }
     }
     Ok(())
@@ -140,6 +175,14 @@ mod tests {
             passes(&layer(true), starts, 2, 2.0, f32::INFINITY),
             [(0, 0.0), (1, 0.0)]
         );
+    }
+
+    /// However short the pattern, a tolerant walk lays out no more than a
+    /// slot may hold.
+    #[test]
+    fn no_slot_holds_more_than_the_most_passes() {
+        let laid = passes(&layer(true), |_| 0.0, 1, 1.0e-6, 1.0);
+        assert_eq!(laid.len(), MAX_PASSES);
     }
 
     #[test]

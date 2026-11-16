@@ -365,6 +365,21 @@ pub enum SynthError {
         pattern: String,
     },
 
+    /// A repeating layer so short against its slot that laying it out would
+    /// be more passes than a slot may hold (`song::tile::MAX_PASSES`) — a
+    /// typo in a length rather than a groove, and work a document this small
+    /// must not ask for.
+    TooManyPasses {
+        /// The entry's position in `arrangement`, counted from zero.
+        index: usize,
+        /// The pattern that repeats.
+        pattern: String,
+        /// How many passes it would take.
+        passes: f32,
+        /// The most a slot may hold.
+        limit: usize,
+    },
+
     /// A section marker that is wrong as a name: empty, or a name an earlier
     /// marker in the same song already took — a name has to say which
     /// section without an occurrence index.

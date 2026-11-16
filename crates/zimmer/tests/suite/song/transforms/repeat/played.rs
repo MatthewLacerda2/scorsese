@@ -3,7 +3,8 @@
 
 use crate::common::saw_patch;
 use crate::common::songs::{note, played};
-use scorsese_zimmer::song::{Articulation, Note, PatchRef, Pattern};
+use scorsese_zimmer::song::{Articulation, InlineOnly, Note, PatchRef, Pattern, TempoChange};
+use scorsese_zimmer::{NoteAt, SynthError, render_song};
 
 use super::super::setup::render;
 use super::{band, layered, repeating, written_once};
@@ -92,4 +93,38 @@ fn a_glide_slides_across_the_seam_between_passes() {
     by_hand.arrangement = vec!["both".into()];
 
     assert_eq!(render(&once), render(&by_hand));
+}
+
+/// A note refused in a later pass is named where its pattern writes it, not
+/// where the pass put it — the pattern is the only place to find it.
+#[test]
+fn a_refusal_in_a_later_pass_names_the_beat_its_pattern_writes() {
+    let mut slowing = band();
+    // Four beats is two seconds here, and eighty from beat 8 on.
+    slowing.tempo = vec![TempoChange {
+        beat: 8.0,
+        bpm: 3.0,
+        ramp: false,
+    }];
+    slowing
+        .patterns
+        .get_mut("solo")
+        .expect("defined above")
+        .beats = 16.0;
+    let verse = slowing.patterns.get_mut("verse").expect("the fixture's");
+    verse.notes = played(vec![note("bass", "E2", 0.5, 4.0)]);
+    slowing.arrangement = vec![layered(vec!["solo".into(), repeating("verse")])];
+
+    let refused = render_song(&slowing, &InlineOnly).expect_err("refused");
+    let SynthError::NoteTooLong { at, .. } = &refused else {
+        panic!("refused for the wrong reason: {refused:?}")
+    };
+    assert_eq!(
+        at.as_ref(),
+        Some(&NoteAt {
+            pattern: "verse".to_owned(),
+            track: "bass".to_owned(),
+            start: 0.5,
+        })
+    );
 }
