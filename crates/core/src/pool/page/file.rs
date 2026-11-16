@@ -22,7 +22,12 @@ use crate::project::PAGES_DIR;
 pub const PAGE_FILE_KINDS: [&str; 4] = ["js", "css", "json", "svg"];
 
 /// The most one file beside the pages may hold, in bytes.
-pub const MAX_PAGE_FILE_BYTES: usize = 1 << 20;
+pub const MAX_PAGE_FILE_BYTES: usize = 1_000_000;
+
+/// A size said the one way every surface says it.
+fn said(bytes: usize) -> String {
+    crate::bytes::format_bytes(bytes as u64)
+}
 
 /// What [`write_page_file`] did.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -66,7 +71,9 @@ pub enum PageFileError {
     },
     /// Over [`MAX_PAGE_FILE_BYTES`].
     #[error(
-        "{path} would be {bytes} bytes; a file beside the pages holds at most {MAX_PAGE_FILE_BYTES}"
+        "{path} would be {}; a file beside the pages holds at most {}",
+        said(*.bytes),
+        said(MAX_PAGE_FILE_BYTES)
     )]
     TooLarge {
         /// Where it would have gone.
