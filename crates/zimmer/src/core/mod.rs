@@ -192,15 +192,18 @@ fn gate_length(duration: f32) -> Result<f32, SynthError> {
 /// Kept apart from [`render_note`] because the song mixer wants the unlimited
 /// form: limiting every note before summing them would squash each one's
 /// dynamics and then squash the sum again.
+///
+/// With the limiter's gain, one factor per frame of what comes back.
 pub(crate) fn render_limited(
     patch: &Patch,
     midi: f32,
     opts: &NoteOpts,
-) -> Result<Stereo, SynthError> {
+) -> Result<(Stereo, Vec<f32>), SynthError> {
     let mut buf = render_note(patch, midi, opts)?;
-    fx::limiter::apply(&mut buf, RATE);
+    let mut gain = fx::limiter::apply(&mut buf, RATE);
     trim::to_floor(&mut buf);
-    Ok(buf)
+    gain.truncate(buf.frames());
+    Ok((buf, gain))
 }
 
 /// Samples needed for a note held `held` seconds that rings `tail` more, at

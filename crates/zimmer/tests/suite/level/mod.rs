@@ -14,6 +14,7 @@ mod bussed;
 mod defects;
 mod diff;
 mod integrated;
+mod limited;
 mod meter;
 mod peaks;
 mod sections;

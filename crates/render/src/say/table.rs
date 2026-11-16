@@ -18,6 +18,9 @@ pub fn summary(profile: &Profile) -> String {
         profile.seconds(),
         loudness(&profile.whole.loudness)
     );
+    if let Some(taken) = limited(&profile.whole) {
+        said.push_str(&format!(", limited {taken:.1} dB"));
+    }
     if let Some(bands) = profile.whole.bands {
         said.push_str(&format!(", {}", balance(&bands)));
     }
@@ -118,8 +121,28 @@ pub(super) fn columns(span: &Span) -> String {
     if let Some(correlation) = span.correlation {
         said.push_str(&format!("   {}", width(correlation)));
     }
+    if let Some(taken) = limited(span) {
+        said.push_str(&format!("   limited {taken:.1} dB"));
+    }
     said
 }
+
+/// How much the master limiter took off a span, when it is enough to say.
+///
+/// Said only from [`LIMITED_WORTH_SAYING`] up, the way a true peak joins the
+/// summary only when it differs from the sample peak: a clean bake's report
+/// does not grow, and a mix written too hot announces it on the rows it
+/// flattened. Last on a row, so every column already being scanned stays
+/// where it was.
+fn limited(span: &Span) -> Option<f64> {
+    span.limited_db
+        .filter(|taken| *taken >= LIMITED_WORTH_SAYING)
+}
+
+/// The mean gain reduction, in decibels, past which the limiter is doing more
+/// than catching a transient. A snare ducked for two milliseconds averages to
+/// hundredths of a decibel over a section; half a decibel held is the mix.
+const LIMITED_WORTH_SAYING: f64 = 0.5;
 
 /// Three band shares, as whole percentages.
 ///
@@ -149,7 +172,7 @@ fn width(correlation: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scorsese_zimmer::level::{Cut, Profiler};
+    use scorsese_zimmer::level::{Cut, Profile, Profiler};
 
     /// A signal whose two halves differ by a known amount has to say so on the
     /// right rows — which is the entire claim this table makes.
@@ -237,5 +260,72 @@ mod tests {
             vec!["  0.000-8.000    intro", "  8.000-43.479   verse"]
         );
         assert!(arrangement(&[]).is_empty());
+    }
+
+    /// Two sections of the same square, one fed with a gain track that took
+    /// 4 dB off and one that took nothing.
+    fn limited_profile(gain_of_verse: f32) -> Profile {
+        let rate = 1_000;
+        let mut profiler = Profiler::sectioned(
+            1,
+            rate,
+            vec![
+                Cut {
+                    label: "verse".to_owned(),
+                    end_seconds: 1.0,
+                },
+                Cut {
+                    label: "chorus".to_owned(),
+                    end_seconds: 2.0,
+                },
+            ],
+        );
+        let square: Vec<f32> = (0..2 * rate)
+            .map(|i| if i % 2 == 0 { 0.5 } else { -0.5 })
+            .collect();
+        let mut gain = vec![gain_of_verse; rate as usize];
+        gain.extend(vec![1.0; rate as usize]);
+        profiler.feed_limited(&square, &gain);
+        profiler.finish()
+    }
+
+    /// The limiter's figure lands on the row it flattened and on the summary,
+    /// and the row beside it, which it never touched, says nothing (#1795).
+    #[test]
+    fn a_limited_section_says_so_on_its_own_row() {
+        let profile = limited_profile(10f32.powf(-4.0 / 20.0));
+        let rows = sections(&profile);
+        assert!(rows[0].ends_with("limited 4.0 dB"), "{}", rows[0]);
+        assert!(!rows[1].contains("limited"), "{}", rows[1]);
+        // The whole is the mean over both halves.
+        assert!(
+            summary(&profile).contains(", limited 2.0 dB"),
+            "{}",
+            summary(&profile)
+        );
+    }
+
+    /// A bake the limiter barely touched prints exactly what a profile with
+    /// no gain track at all prints: a clean report does not grow by a byte.
+    #[test]
+    fn a_clean_bake_reads_exactly_as_it_did() {
+        let unlimited = limited_profile(1.0);
+        let mut plain = unlimited.clone();
+        plain.whole.limited_db = None;
+        for span in &mut plain.sections {
+            span.limited_db = None;
+        }
+        assert_eq!(summary(&unlimited), summary(&plain));
+        assert_eq!(sections(&unlimited), sections(&plain));
+        // Under half a decibel held is a transient caught, not a mix.
+        let barely = limited_profile(10f32.powf(-0.4 / 20.0));
+        assert!(!summary(&barely).contains("limited"));
+        assert!(sections(&barely).iter().all(|row| !row.contains("limited")));
+        let just = limited_profile(10f32.powf(-0.5 / 20.0) - 1e-6);
+        assert!(
+            sections(&just)[0].contains("limited 0.5 dB"),
+            "{:?}",
+            sections(&just)
+        );
     }
 }

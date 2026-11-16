@@ -64,7 +64,10 @@ holds the true peak at −1 dBTP ([recipes.md](recipes.md#effects-recipe-patch),
 and crest is peak minus mean, so a bake with Billie Jean's crest of 15.5 lands
 near −16.5, not −14. Chase the **crest** and the **bands**; the mean follows
 from the crest, and how loud the music sits in the video is the clip's volume
-and `duck_music`, not the bake. That makes the reachable body means:
+and `duck_music`, not the bake. A bake whose rows all read `peak -1.0` with
+`limited` on them has not reached that mean by writing: the limiter flattened
+it, and the crest it reports is the faders', so bring the gains down before
+reading it against a record ([recipes.md](recipes.md#how-a-bake-came-out)). That makes the reachable body means:
 
 | reference | crest to aim for | mean that comes with it |
 | --- | --- | --- |

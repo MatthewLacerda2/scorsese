@@ -70,6 +70,17 @@ pub struct Span {
     /// `1.0` is mono in a stereo container; **negative is the defect**, and
     /// [`super::Meter::correlation`] carries the whole of what it means.
     pub correlation: Option<f64>,
+    /// How much the master limiter took off over this stretch: the mean of
+    /// its gain reduction, in decibels, over every frame — 0.0 where it never
+    /// acted.
+    ///
+    /// The mean rather than the deepest dip, because the two defects it tells
+    /// apart are one snare ducked for two milliseconds, which is the limiter
+    /// doing its job, and a whole section held a few decibels down, which is
+    /// a mix written too hot. `None` wherever no gain track was handed over —
+    /// a finished file, a track row (measured before the limiter), anything
+    /// [`Profiler::feed`] alone measured.
+    pub limited_db: Option<f64>,
 }
 
 impl Span {
@@ -159,6 +170,18 @@ impl Profiler {
     /// Takes another run of interleaved samples, splitting it wherever a
     /// section boundary falls inside it.
     pub fn feed(&mut self, samples: &[f32]) {
+        self.feed_with(samples, None);
+    }
+
+    /// [`Profiler::feed`], with the linear gain the limiter applied to each
+    /// sample-frame of the run, so every span also says how much it was
+    /// limited ([`Span::limited_db`]). `gain` holds one factor per frame; a
+    /// frame it does not reach counts as untouched.
+    pub fn feed_limited(&mut self, samples: &[f32], gain: &[f32]) {
+        self.feed_with(samples, Some(gain));
+    }
+
+    fn feed_with(&mut self, samples: &[f32], mut gain: Option<&[f32]>) {
         let mut rest = samples;
         while !rest.is_empty() {
             let room = self.until_boundary();
@@ -167,9 +190,16 @@ impl Profiler {
                 continue;
             }
             let take = rest.len().min(room);
+            let frames = take / self.channels;
+            if let Some(track) = gain {
+                let (here, after) = track.split_at(frames.min(track.len()));
+                self.whole.limited(here, frames);
+                self.current.limited(here, frames);
+                gain = Some(after);
+            }
             self.whole.feed(&rest[..take]);
             self.current.feed(&rest[..take]);
-            self.fed += (take / self.channels) as u64;
+            self.fed += frames as u64;
             rest = &rest[take..];
         }
     }
@@ -246,6 +276,9 @@ struct Section {
     rate: u32,
     level: Meter,
     bands: BandMeter,
+    /// The limiter's gain reduction summed in decibels, and over how many
+    /// frames — `None` until a gain track is fed.
+    reduced: Option<(f64, u64)>,
 }
 
 impl Section {
@@ -256,12 +289,27 @@ impl Section {
             rate,
             level: Meter::new(channels),
             bands: BandMeter::new(channels, rate),
+            reduced: None,
         }
     }
 
     fn feed(&mut self, samples: &[f32]) {
         self.level.feed(samples);
         self.bands.feed(samples);
+    }
+
+    /// Counts `frames` frames of gain, of which `gain` holds the first; the
+    /// rest were left alone. A factor that is not a positive number (a zero,
+    /// a `NaN`) counts as untouched rather than as an infinity.
+    fn limited(&mut self, gain: &[f32], frames: usize) {
+        let taken: f64 = gain
+            .iter()
+            .filter(|g| **g > 0.0)
+            .map(|g| -20.0 * f64::from(*g).log10())
+            .sum();
+        let (sum, counted) = self.reduced.get_or_insert((0.0, 0));
+        *sum += taken;
+        *counted += frames as u64;
     }
 
     fn close(&self, until: u64) -> Span {
@@ -272,6 +320,13 @@ impl Section {
             loudness: self.level.finish(),
             bands: self.bands.finish(),
             correlation: self.level.correlation(),
+            limited_db: self.reduced.map(|(sum, frames)| {
+                if frames == 0 {
+                    0.0
+                } else {
+                    sum / frames as f64
+                }
+            }),
         }
     }
 

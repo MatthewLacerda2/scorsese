@@ -37,15 +37,15 @@ pub(super) const SEAM: f32 = 0.02;
 ///
 /// Under `wrap` the song is folded at its loop point and then limited as the
 /// loop it now is, so neither step leaves a seam; every other song is limited
-/// as it stands, exactly as it always was.
+/// as it stands, exactly as it always was. Hands back the limiter's gain, one
+/// factor per frame of `buf` as it now stands.
 pub(crate) fn limit(
     song: &Song,
     buf: &mut Stereo,
     arrangement_end: usize,
-) -> Result<(), SynthError> {
+) -> Result<Vec<f32>, SynthError> {
     if song.tail() != Tail::Wrap {
-        limiter::apply(buf, RATE);
-        return Ok(());
+        return Ok(limiter::apply(buf, RATE));
     }
     // Under a `stretch` fit the loop point is the target itself: the tempo
     // was moved so the passes land there, and rounding the two separately can
@@ -53,8 +53,7 @@ pub(crate) fn limit(
     // very end of a file that was meant to come round without a seam.
     let at = fitted(song).map_or(arrangement_end, |(_, seconds)| samples(seconds));
     wrap(buf, at)?;
-    limiter::apply_looped(buf, RATE);
-    Ok(())
+    Ok(limiter::apply_looped(buf, RATE))
 }
 
 /// Cuts `buf` at `at` and sums everything past the cut back onto the start,

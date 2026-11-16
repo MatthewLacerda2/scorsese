@@ -127,7 +127,11 @@ impl Tool for Bake {
          `{\"section\": \"verse\"}` marker names, or one entry outside any), \
          then a row per track of a song \
          saying which instrument is taking up the room, then a grid of each \
-         track's mean in each section saying which instrument is quiet where. Give `like` and it ends with \
+         track's mean in each section saying which instrument is quiet where. \
+         `limited 4.1 dB` on the summary or a section row is how much the \
+         master limiter took off on average there (said from 0.5 dB up): the \
+         mix is written too hot, so bring the loudest track gains down until \
+         it goes. Give `like` and it ends with \
          rows holding the bake against a reference record. \
          Each section row starts with its bounds in seconds to the millisecond \
          (`8.000-24.000`): that start is place_clip's start_seconds and the end \
