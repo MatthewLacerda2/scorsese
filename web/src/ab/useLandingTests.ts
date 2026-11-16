@@ -2,7 +2,12 @@
 // running test, say so with a `view`, and keep count of what the visit does —
 // the deepest section reached (`section`, and `end` for the last), and the
 // seconds the page was visible (`time`, sent each time it is hidden or left,
-// at most half an hour a visit). `prompt` is the landing's to send, when a
+// at most half an hour a visit) and `input`, once, the first time the page
+// sees a person use it (#1797): a trusted pointer, touch, wheel or key event,
+// which a script on the page cannot make. The report counts only visitors
+// with one, since a browser a datacenter drives passes the checks in
+// `record.ts`. `scroll` is not among them: the browser fires it for a scroll
+// the page or its anchor made too. `prompt` is the landing's to send, when a
 // prompt box is sent (`sendPrompt`). With no test running nothing is drawn,
 // recorded or kept, the cookie included.
 //
@@ -17,6 +22,9 @@ import { type AbTest, runningTests } from "./tests";
 import { visitorCode } from "./visitor";
 
 const MOST_SECONDS = 30 * 60;
+
+/** What a person does to a page, and a browser left alone does not. */
+const INPUTS = ["pointermove", "pointerdown", "touchstart", "wheel", "keydown"] as const;
 
 /**
  * Draws the visit and returns the version of each running test; records it
@@ -52,6 +60,18 @@ export function useLandingTests(
     );
     for (const section of sections) observer.observe(section);
 
+    const onInput = (event: Event) => {
+      if (!event.isTrusted) return;
+      stopInput();
+      send([{ kind: "input" }]);
+    };
+    const stopInput = () => {
+      for (const kind of INPUTS) window.removeEventListener(kind, onInput, true);
+    };
+    for (const kind of INPUTS) {
+      window.addEventListener(kind, onInput, { capture: true, passive: true });
+    }
+
     let since = document.visibilityState === "visible" ? performance.now() : null;
     let visible = 0;
     const sendTime = () => {
@@ -70,6 +90,7 @@ export function useLandingTests(
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       observer.disconnect();
+      stopInput();
       document.removeEventListener("visibilitychange", onVisibility);
       // Left for another page of the app: the time so far still counts.
       sendTime();

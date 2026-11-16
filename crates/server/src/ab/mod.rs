@@ -22,7 +22,7 @@
 //! What goes over is dropped without a word. A failed write is logged and
 //! never answered as an error: nothing a visitor does depends on it.
 //!
-//! The tables are migration `0048`'s; [`report`] reads them, and [`decide`]
+//! The tables are migration `0048`'s, with `0054`'s `input`; [`report`] reads them, and [`decide`]
 //! is the rule a test is decided by.
 
 pub mod decide;
@@ -93,6 +93,9 @@ pub struct Event {
 pub enum Kind {
     /// The landing was shown.
     View,
+    /// The page saw a person use it: the first trusted pointer, touch, wheel
+    /// or key event of a page load. Only a visitor with one is counted.
+    Input,
     /// A section was reached: the deepest so far, counted from 1.
     Section,
     /// The last section was reached.
@@ -107,6 +110,7 @@ impl Kind {
     fn column(self) -> &'static str {
         match self {
             Self::View => "view",
+            Self::Input => "input",
             Self::Section => "section",
             Self::End => "end",
             Self::Time => "time",
@@ -118,7 +122,7 @@ impl Kind {
         match self {
             Self::Section => (1..=64).contains(&value),
             Self::Time => (0..=MOST_SECONDS).contains(&value),
-            Self::View | Self::End | Self::Prompt => value == 0,
+            Self::View | Self::Input | Self::End | Self::Prompt => value == 0,
         }
     }
 }

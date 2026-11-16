@@ -4,6 +4,7 @@
 
 use crate::common;
 
+mod before_input;
 mod caps;
 mod events;
 mod report;

@@ -362,7 +362,7 @@ export interface ClientError {
 
 /** `ab::Event`: one thing a landing visitor did (#1553). */
 export type AbEvent =
-  | { kind: "view" | "end" | "prompt" }
+  | { kind: "view" | "input" | "end" | "prompt" }
   | { kind: "section"; value: number }
   | { kind: "time"; value: number };
 
