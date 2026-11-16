@@ -24,6 +24,11 @@
 //! `cancelled` too: nobody is waiting for it, so it is never shown as failed
 //! (#1439) — though why it ended is still logged, as every failure is.
 //!
+//! **Pieces** (#1448). A preview played in pieces asks for a few seconds at
+//! a time. Each piece is rendered exactly as any other render over a range,
+//! then remuxed into the fragmented MP4 a browser appends
+//! ([`scorsese_render::preview::fragment`]), which is the file kept.
+//!
 //! **Progress.** Its [`Context::progress`] goes to the renderer beside the
 //! cancel, and the worker tells the owner how far it has got (#698).
 //!
@@ -38,7 +43,7 @@
 //! `scorsese render` prints after its file, a synth bake played out of date
 //! among them (`renders::said`, #1289).
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use scorsese_core::{Project, migrate};
 use scorsese_render::Tools;
@@ -46,6 +51,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use super::produce::{Drawn, Places, produce};
+use super::scratch::Scratch;
 use super::{RenderCache, RenderView, Settings, evict, preview, room, store};
 use crate::captures::dispatch::Pages;
 use crate::db::{self, Says, UserId};
@@ -171,6 +177,7 @@ async fn render(
         settings,
         range,
         preview: previewing,
+        piece: payload.settings.piece().then(|| !super::silent(&project)),
         cancel: context.cancel().clone(),
         progress: context.progress().clone(),
         work: context.work(),
@@ -306,22 +313,5 @@ fn gone_or(error: sqlx::Error) -> String {
         "the project was deleted before its render finished".to_owned()
     } else {
         database(error)
-    }
-}
-
-/// A job's scratch folder: emptied when the job starts — a recovered job
-/// begins again from nothing — and removed when it ends, however it ends.
-struct Scratch(PathBuf);
-
-impl Scratch {
-    fn new(path: PathBuf) -> Self {
-        let _ = std::fs::remove_dir_all(&path);
-        Self(path)
-    }
-}
-
-impl Drop for Scratch {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
     }
 }

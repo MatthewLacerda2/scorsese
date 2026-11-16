@@ -53,6 +53,7 @@ export function ChatPanel({
   onFull,
   attachments,
   draft,
+  onBusy,
 }: {
   projectId: number;
   /** A first message the project was opened with but could not send (#1535). */
@@ -63,6 +64,8 @@ export function ChatPanel({
   full: boolean;
   /** Leaves or enters full mode; absent, the chat stays as it is (a phone's, #1570). */
   onFull?: (full: boolean) => void;
+  /** Told whether a turn is running — the assistant may be changing the project (#1448). */
+  onBusy?: (busy: boolean) => void;
 }) {
   const t = useT();
   const queryClient = useQueryClient();
@@ -90,6 +93,8 @@ export function ChatPanel({
   });
 
   const current = running(transcript);
+  const busy = current !== null;
+  useEffect(() => onBusy?.(busy), [busy, onBusy]);
   const paused = asking(transcript);
   const scroller = useRef<HTMLDivElement>(null);
   // Follow new text only while the reader is at the bottom; scrolled up, leave them be (#1437).

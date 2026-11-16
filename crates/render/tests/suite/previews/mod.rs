@@ -8,6 +8,7 @@
 
 use crate::common;
 
+mod pieces;
 mod proxies;
 mod proxy_folder;
 

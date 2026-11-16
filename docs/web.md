@@ -1929,7 +1929,7 @@ and anything the render could not draw.
 said — as an mp4, answered exactly as a render is (`200 {render}` / `202
 {job}`). The settings carry the quality (`preview`), so a preview is keyed
 apart from a finished render of the same size; a finished render's settings
-have no such field, so its key is what it was before previews existed. Four
+have no such field, so its key is what it was before previews existed. Five
 things differ, all in `renders::preview`:
 
 - **Its own kind**, `preview`, one at a time, so previews never hold a slot a
@@ -1940,12 +1940,23 @@ things differ, all in `renders::preview`:
 - **Superseded, then stopped.** When a preview's turn comes it checks the
   project still hashes to its key; if the project has moved on it finishes at
   once, `{"superseded": true}`, having rendered nothing. When the next preview
-  of the project at the same settings is queued, those still waiting are
-  cancelled in the same transaction (#1648) — one the worker claimed meanwhile
-  is running, not waiting — and one already *running* is stopped (#660); both
-  end `cancelled`.
+  of a newer revision is queued, whatever its shape or range, those of older
+  revisions still waiting are cancelled in the same transaction (#1648) — one
+  the worker claimed meanwhile is running, not waiting — and one already
+  *running* is stopped (#660); both end `cancelled`. A piece of the same
+  revision waits its turn instead (#1448).
   So edits faster than renders cost a frame of an old render at most, and the
   editor asks again for the revision it is on.
+- **Pieces** (#1448). With a `range`, the ask is for one piece of a cut played
+  in pieces, and the answer carries `audible`: whether the cut has anything
+  to hear, said before the first piece is made because the player's buffer is
+  declared with or without sound. A piece renders as H.264 with PCM sound
+  (avi) and is remuxed (`scorsese_render::preview::fragment`) into a
+  fragmented MP4 — the picture copied with its first frame at zero, the sound
+  made FLAC, which has no encoder priming, so joins are seamless; a stretch
+  with nothing to hear carries silence when the cut has sound elsewhere. On a
+  60-second 1080p cut the first frame came 2.6 s after play,
+  against 26.8 s for the whole preview.
 - **One kept per shape.** A finished preview replaces the project's earlier
   previews at the same settings, which are of documents it has moved past —
   except a file somebody has open. They are left out of the project's list of
@@ -1954,7 +1965,7 @@ things differ, all in `renders::preview`:
 
 | route | who | what |
 | --- | --- | --- |
-| `POST /api/projects/{id}/previews` | a member | `{resolution?, quality?}` → as `POST …/renders`; `400` for a quality or size that is not one |
+| `POST /api/projects/{id}/previews` | a member | `{resolution?, quality?, range?}` → as `POST …/renders`, with `audible` beside for a piece (a `range`); `400` for a quality, size or range that is not one |
 
 ## Page captures
 
@@ -3155,17 +3166,35 @@ in the browser is not attempted.
   chosen quality (*Renders*, previews), from proxies of heavy videos, and the
   browser plays it in an ordinary `<video>`. **Scrubbing is seeking** in that
   video.
-- **After an edit, the preview is re-rendered** — by itself, once the revision
-  has rested for a second, with no press. Sketch and stale generated assets
-  render as slug cards, which is free and keeps it fast. An unchanged cut
-  answers at once from the cache; a preview of a revision the project has
-  already moved past retires when its turn comes (*Renders*), so a burst of
-  edits costs one render, not one per edit. The moment the revision moves the
-  old video is dropped, and until the new one is ready the frame under the
+- **The preview is made only when play is pressed** (#1448, the maintainer,
+  2026-10-17) — never after an edit by itself, so a shared machine's CPU is not
+  spent on cuts nobody watches. Sketch and stale generated assets render as
+  slug cards, which is free and keeps it fast. An unchanged cut answers at
+  once from the cache; a preview of a revision the project has already moved
+  past retires when its turn comes, and a running one is stopped by any
+  preview of a newer revision (*Renders*). The moment the revision moves the
+  loaded video is dropped, and until play is pressed again the frame under the
   playhead is the `still` tool's — the render's own compositor, asked for once
   the playhead rests for a fifth of a second, at the same raster, cached per
-  (revision, frame). The page follows the job on the event stream and asks
+  (revision, frame). The page follows each job on the event stream and asks
   again every few seconds too, because the quick tunnel carries no events.
+- **A cut of thirty seconds or less is played whole**: one mp4, as a render
+  is. **A longer one plays in pieces, the way a video site plays a video**:
+  five-second pieces on a fixed frame grid from the playhead forward
+  (`range: "150:300"`), one at a time, keeping about ten seconds loaded ahead
+  — further when pieces are slow to make, up to thirty. Each piece carries its
+  own sound, FLAC in a fragmented MP4 (*Renders*, previews), so nothing waits
+  on mixing the whole cut and no join clicks; the page appends them to Media
+  Source Extensions, playback starts as soon as the first piece lands, and
+  *Generating preview* shows while less than ten seconds is loaded. A piece is
+  keyed by revision, quality and range like any render, so seeking back is
+  free. A piece nobody wants any more — the playhead moved, the player sat
+  paused half a minute — is cancelled, and
+  never shown as a failure (#1439). A browser without MSE gets the cut whole.
+- **Play pressed while an edit is in flight** — the assistant's turn running,
+  or a hand-edit on its way — plays nothing and says *Can't preview yet —
+  changes are being made* in the destructive colour. The page knows by itself;
+  the server is not asked.
 - **Preview quality** — Full, 1/2, 1/4 — is a fraction of the delivery size of
   the project's shape (1920x1080 for 16:9, 1080x1920 for 9:16), chosen beside the transport and said
   under it, and it means the same as the desktop app's control: one
@@ -3176,10 +3205,10 @@ in the browser is not attempted.
   device and the person's patience, not about the edit. Half is the default.
 - **This is the v1 default, chosen to be simple**, and it will be tuned from how
   real users behave: how often they edit between looks, how long a preview
-  takes on the shared machine, whether a quarter is ever chosen. The settle
-  time, the default quality and the rule that re-renders without a press are
-  the three knobs, and none of them is a decision worth defending against
-  evidence.
+  takes on the shared machine, whether a quarter is ever chosen. The piece
+  length, the seconds kept ahead, the thirty-second line and the default
+  quality are the knobs, and none of them is a decision worth defending
+  against evidence.
 
 The frame's **shape** is the project's own, the document's `aspect` (#1278):
 a project started for a platform opens in its shape, and nobody chooses

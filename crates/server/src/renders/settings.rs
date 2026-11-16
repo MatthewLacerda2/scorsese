@@ -118,6 +118,11 @@ pub struct PreviewAsk {
     /// `full`, `half` or `quarter`; defaults to half.
     #[serde(default)]
     pub quality: Option<String>,
+    /// The frames of one **piece** of a preview played in pieces (#1448), as
+    /// a render's range is written: `150:300`, or `300:` to the end. Left
+    /// out, the cut is one ordinary file played whole.
+    #[serde(default)]
+    pub range: Option<String>,
 }
 
 impl Ask {
@@ -155,6 +160,12 @@ impl Settings {
     /// What a preview request means: an mp4 at the quality's fraction of the
     /// delivery size, marked as a preview so it is keyed, queued and listed
     /// apart from finished renders.
+    ///
+    /// A **piece** (a range asked for, #1448) is rendered as H.264 with plain
+    /// PCM sound — avi, the one allowed container that carries both — and
+    /// remuxed by the job into the fragmented MP4 with FLAC sound a browser
+    /// appends ([`scorsese_render::preview::fragment`]): PCM so the sound
+    /// reaches FLAC with nothing lost and no encoder priming at its head.
     pub fn from_preview(ask: &PreviewAsk) -> Result<Self, String> {
         let quality = match &ask.quality {
             Some(name) => name.parse::<Quality>().map_err(|e| e.to_string())?,
@@ -166,13 +177,23 @@ impl Settings {
                 .map_err(|e| format!("resolution: {e}"))?,
             None => Resolution::HD,
         };
+        let piece = ask.range.is_some();
         Ok(Self {
             preview: Some(quality.name().to_owned()),
             ..Self::from_ask(&Ask {
+                container: piece.then(|| "avi".to_owned()),
+                video_codec: piece.then(|| "h264".to_owned()),
                 resolution: Some(quality.raster(full).to_string()),
+                range: ask.range.clone(),
                 ..Ask::default()
             })?
         })
+    }
+
+    /// Whether this is one piece of a preview played in pieces: a preview
+    /// over a range, kept as a fragmented MP4 rather than as rendered.
+    pub fn piece(&self) -> bool {
+        self.preview.is_some() && self.range.is_some()
     }
 
     /// The quality this preview is drawn at, or `None` for a finished render.
@@ -209,14 +230,15 @@ impl Settings {
         self.range.as_deref().map_or(Ok(FrameRange::ALL), frames)
     }
 
-    /// The delivered file's extension: the container's name (`docs/output-formats.md`).
+    /// The delivered file's extension: the container's name
+    /// (`docs/output-formats.md`), or `mp4` for a piece, which is remuxed.
     pub fn extension(&self) -> &str {
-        &self.container
+        if self.piece() { "mp4" } else { &self.container }
     }
 
     /// The delivered file's `Content-Type`.
     pub fn content_type(&self) -> &'static str {
-        match self.container.as_str() {
+        match self.extension() {
             "mp4" => "video/mp4",
             "mkv" => "video/x-matroska",
             "avi" => "video/x-msvideo",

@@ -22,7 +22,7 @@ use super::error::ApiError;
 use super::ranges;
 use crate::projects;
 use crate::renders::request::{self, AskError, Asked};
-use crate::renders::{Ask, PreviewAsk, RenderView, Settings, store};
+use crate::renders::{self, Ask, PreviewAsk, RenderView, Settings, store};
 
 /// How many renders and previews one member may have queued a minute, both
 /// routes and every project together (#1648). Asking about one kept or on its
@@ -69,6 +69,11 @@ async fn frame_size(
 /// project as it is now (#542) — a render at a preview quality, answered in
 /// the same shape as a render — at the project's own frame, like a render,
 /// when no size is asked for.
+///
+/// Or one piece of it played in pieces (#1448), when a range is asked for —
+/// answered with `audible` beside, whether the cut has anything to hear and
+/// so whether every piece of it carries sound, which the player must know
+/// before the first piece lands.
 pub async fn preview(
     State(state): State<AppState>,
     member: Member,
@@ -79,7 +84,13 @@ pub async fn preview(
         ask.resolution = frame_size(&state, &member, id).await?;
     }
     let settings = Settings::from_preview(&ask).map_err(ApiError::BadRequest)?;
-    answer(&state, &member, id, settings).await
+    let piece = settings.piece();
+    let (status, Json(mut answered)) = answer(&state, &member, id, settings).await?;
+    if piece {
+        let stored = projects::open(&state.pool, member.user, id).await?;
+        answered["audible"] = json!(!renders::silent(&stored.document));
+    }
+    Ok((status, Json(answered)))
 }
 
 /// Kept (`200`) or on its way (`202`): one answer for both routes.

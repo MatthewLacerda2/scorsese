@@ -20,6 +20,8 @@ interface Props {
   onSeek: (frame: number) => void;
   /** The size the preview is drawn at, `WIDTHxHEIGHT`. */
   deliver: string;
+  /** Whether an edit is in flight, so play says it can't preview yet (#1448). */
+  changing: boolean;
 }
 
 const nothing = () => {};
@@ -29,7 +31,15 @@ function untouched(event: PointerEvent) {
   if (event.target instanceof Element && event.target.closest("button")) event.stopPropagation();
 }
 
-export function PhoneVideo({ projectId, revision, document, playhead, onSeek, deliver }: Props) {
+export function PhoneVideo({
+  projectId,
+  revision,
+  document,
+  playhead,
+  onSeek,
+  deliver,
+  changing,
+}: Props) {
   const [width = 16, height = 9] = deliver.split("x").map(Number);
   // The picture at the screen's width under its padding, plus the transport
   // (two rows under `sm`, one from it up); a tall frame stops short of the
@@ -49,6 +59,7 @@ export function PhoneVideo({ projectId, revision, document, playhead, onSeek, de
             playhead={playhead}
             onSeek={onSeek}
             deliver={deliver}
+            changing={changing}
           />
         </ErrorBoundary>
       </section>

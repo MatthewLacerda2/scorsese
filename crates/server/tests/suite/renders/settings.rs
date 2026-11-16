@@ -69,6 +69,7 @@ fn a_preview_is_its_quality_of_the_delivery_size_and_a_render_is_unmarked() {
         Settings::from_preview(&PreviewAsk {
             resolution: resolution.map(str::to_owned),
             quality: quality.map(str::to_owned),
+            ..PreviewAsk::default()
         })
     };
     let half = preview(None, None).unwrap();

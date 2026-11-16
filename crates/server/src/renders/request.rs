@@ -124,10 +124,12 @@ pub async fn ask(
     // Counted under the user's lock, so asks at once cannot each see room
     // for one more.
     ledger::lock(&mut tx).await?;
+    let document =
+        serde_json::to_value(&stored.document).map_err(|e| AskError::Invalid(e.to_string()))?;
     let (retired, outrun) = if settings.preview.is_some() {
         (
-            store::retire_waiting(&mut tx, id, &settings, &key).await?,
-            store::outrun(&mut tx, id, &settings, &key).await?,
+            store::retire_waiting(&mut tx, id, &document).await?,
+            store::outrun(&mut tx, id, &document).await?,
         )
     } else {
         (Vec::new(), Vec::new())
@@ -149,8 +151,7 @@ pub async fn ask(
         project: id,
         key,
         settings,
-        document: serde_json::to_value(&stored.document)
-            .map_err(|e| AskError::Invalid(e.to_string()))?,
+        document,
     };
     let payload = serde_json::to_value(&payload).map_err(|e| AskError::Invalid(e.to_string()))?;
     let job = jobs::enqueue(&mut tx, kind, &payload).await?;
