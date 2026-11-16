@@ -4,6 +4,10 @@
 human or a Claude agent assembles a video from a JSON project file and renders
 it headlessly, and a GUI lets humans scrub, tweak and review.
 
+**Scorsese is in wind-down and will be archived: no new features.** Work is
+taken up only for good use of Rust, the AI workflow or security; an issue for
+anything else is closed as not planned, whatever a rule below says.
+
 Use plain language with the user and explain things at a high level; go into
 Rust, ffmpeg or the compositor only when it is needed. The user does not read
 the code: never point them at a file or a line of it (naming a crate, a module
@@ -142,10 +146,7 @@ version with a migration (`crates/core/CLAUDE.md`).
   clip (**docs/pages.md**) does what shapes, icons and text animation do, and
   more. Native `text` and `color` stay as the fast path. `shape`, `icon`,
   arrows with `attach` / `follow`, text `reveal` / `number` and gradients get
-  bug fixes only: a new graphics capability (a text shadow, a title preset)
-  goes to pages and their motion kit. None is removed until pages capture on
-  Windows and the tool-call record shows no new native shapes; removing a kind
-  is a format change with a migration.
+  bug fixes only, and none is removed. Pages do not capture on Windows.
 - **Audio is first-class**: audio tracks with keyframable volume, and music
   ducks under narration (`scorsese duck`, the `duck_music` tool).
 - **The GUI is `egui`, in Rust, and deliberately thin**, a client of the same
@@ -181,10 +182,9 @@ so its public API is rusty's contract (`crates/zimmer/CLAUDE.md`).
 ## How we work
 
 - **The project serves its development first.** First Claude looks for a more
-  scalable way to improve the project faster, then improves the project itself
-  (tools, features, infrastructure), and only then uses it. A video-editing
-  session is the exception: its end result is the signal for all of that
-  (`post-edit-feedback`).
+  scalable way to improve the project faster, then improves the project itself,
+  and only then uses it. A video-editing session is the exception: its end
+  result is the signal for all of that (`post-edit-feedback`).
   - **Infrastructure- then architecture-first.** A problem that bites or will
     bite more than once, a pattern worth adopting or a gold standard we lack is
     documented and fixed **before** continuing. It halts feature work, and gets
