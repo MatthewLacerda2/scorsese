@@ -284,6 +284,10 @@ mod tests {
         assert_eq!(candidates(0.0, 3), [0.0]);
         let short = candidates(0.2, 3);
         assert!(short.windows(2).all(|pair| pair[0] < pair[1]), "{short:?}");
+        assert!(
+            short.iter().all(|at| *at <= 0.15),
+            "none past the last frame of a fifth of a second: {short:?}"
+        );
     }
 
     #[test]
