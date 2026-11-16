@@ -75,13 +75,11 @@ async fn pictures_and_a_video_are_shown_a_document_inline_and_a_sound_named(pool
         "the markdown is in the message: {inline:?}"
     );
     let said = heard(&script, 0);
-    for named in ["song.mp3"] {
-        let line = said
-            .split("\\n")
-            .find(|line| line.contains(named) && line.contains("not shown"))
-            .unwrap_or_else(|| panic!("{named} is named, not shown: {said}"));
-        assert!(!line.contains("library_read"), "{line}");
-    }
+    let line = said
+        .split("\\n")
+        .find(|line| line.contains("song.mp3") && line.contains("not shown"))
+        .unwrap_or_else(|| panic!("the sound is named, not shown: {said}"));
+    assert!(!line.contains("library_read"), "{line}");
 }
 
 #[sqlx::test]
