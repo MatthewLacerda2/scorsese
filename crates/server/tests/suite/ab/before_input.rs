@@ -14,14 +14,14 @@ async fn before_input(pool: &PgPool, code: &str, place: (&str, &str), kinds: &[(
         .bind(place.1)
         .execute(pool)
         .await
-        .unwrap();
+        .expect("the visitor is stored");
     sqlx::query(
         "INSERT INTO ab_exposures (visitor, test, version) VALUES ($1::uuid, 'heading', 'a')",
     )
     .bind(code)
     .execute(pool)
     .await
-    .unwrap();
+    .expect("the exposure is stored");
     for (kind, value) in kinds {
         sqlx::query("INSERT INTO ab_events (visitor, kind, value) VALUES ($1::uuid, $2, $3)")
             .bind(code)
@@ -29,7 +29,7 @@ async fn before_input(pool: &PgPool, code: &str, place: (&str, &str), kinds: &[(
             .bind(value)
             .execute(pool)
             .await
-            .unwrap();
+            .expect("the event is stored");
     }
 }
 
