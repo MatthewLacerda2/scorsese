@@ -93,6 +93,7 @@ pub(crate) fn curve(param: Param, points: Vec<Point>) -> Automation {
 /// One control point, travelling linearly to the next.
 pub(crate) fn at(beat: f32, value: f32) -> Point {
     Point {
+        section: None,
         beat,
         value,
         easing: Easing::Linear,
@@ -102,6 +103,7 @@ pub(crate) fn at(beat: f32, value: f32) -> Point {
 /// One control point with an easing of its own.
 pub(crate) fn eased(beat: f32, value: f32, easing: Easing) -> Point {
     Point {
+        section: None,
         beat,
         value,
         easing,

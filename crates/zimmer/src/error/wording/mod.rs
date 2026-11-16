@@ -299,7 +299,8 @@ impl SynthError {
             | Self::BadAutomationPoint { .. }
             | Self::BadAutomationCutoff { .. }
             | Self::AutomationWithoutFilter { .. }
-            | Self::AutomationWithoutRoom { .. } => self.say_automation(f),
+            | Self::AutomationWithoutRoom { .. }
+            | Self::BadAutomationSection { .. } => self.say_automation(f),
             // The length and level fields — `fit`, `fade` and `tail` — and a
             // note's own length have their words in `length`, the one group
             // spelled out of this match.

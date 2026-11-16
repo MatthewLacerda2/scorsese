@@ -878,4 +878,20 @@ pub enum SynthError {
         /// What the resolver said about it.
         reason: String,
     },
+
+    /// A point placed against a section ([`crate::song::Point::section`])
+    /// that cannot be placed: a section the song does not have, a beat before
+    /// the piece starts once placed, or points that no longer ascend once
+    /// they are. Named as written, since the beat it comes to is not on the
+    /// page.
+    BadAutomationSection {
+        /// The track the curve rides.
+        track: String,
+        /// The parameter it moves.
+        param: &'static str,
+        /// The point at fault as written: `beat -8 of `chorus``, or `beat 10`.
+        point: String,
+        /// What is wrong with it, in the words the message carries.
+        why: String,
+    },
 }

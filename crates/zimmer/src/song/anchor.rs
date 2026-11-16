@@ -197,6 +197,13 @@ fn entry(song: &Song, section: &SectionRef) -> Option<usize> {
     }
 }
 
+/// The beat of one pass the section named `name` starts on, or `None` for a
+/// name no marker carries — the same downbeat an anchor on it pins.
+pub(super) fn section_start(song: &Song, name: &str) -> Option<f32> {
+    let index = entry(song, &SectionRef::Named(name.to_owned()))?;
+    starts(song).get(index).copied()
+}
+
 /// The beat each arrangement entry that plays starts on, in one pass —
 /// markers skipped, so an index means what it meant before they were written.
 fn starts(song: &Song) -> Vec<f32> {

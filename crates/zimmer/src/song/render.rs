@@ -208,11 +208,14 @@ pub(crate) fn mix_song(
     stop: &dyn Fn() -> bool,
 ) -> Result<Option<Mixdown>, SynthError> {
     song.validate()?;
+    // Every point placed in beats from the start of the piece, so nothing
+    // below has to know a curve can name a section.
+    let song = &*automate::placed(song);
     let patches = resolve_patches(song, resolve)?;
     // The one check that needs an instrument rather than a document: a cutoff
     // curve on a patch with no filter moves nothing, and a curve that moves
     // nothing is the failure automation is validated against.
-    super::validate::check_resolved(song, &patches)?;
+    automate::check_resolved(song, &patches)?;
     // Which curves ride which track, looked up once rather than per note.
     let riding = automate::riding(song);
     // How fast to play it and how many times through, worked out before a

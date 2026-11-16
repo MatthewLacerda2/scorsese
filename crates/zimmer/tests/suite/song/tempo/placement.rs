@@ -78,6 +78,7 @@ fn a_fader_reads_its_curve_at_the_beat_the_map_says_it_is() {
     // in; a fader reading the written 120 bpm would think that beat 4, and
     // silence it.
     let point = |beat, value| Point {
+        section: None,
         beat,
         value,
         easing: Easing::Hold,

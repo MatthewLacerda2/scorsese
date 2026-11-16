@@ -14,6 +14,7 @@ mod faders;
 mod fitting;
 mod layers;
 mod refusals;
+mod sections;
 mod sending;
 mod setup;
 mod sweeps;
