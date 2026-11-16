@@ -138,6 +138,10 @@ and how much it moves, is half of what each reference is for.
   and −13 with a crest of 12–13 and 75–85% low for three minutes. If a cue
   needs the same pressure all the way through, this is its shape.
 
+Both metal records are played on the kit's `kit:guitar`, a distorted rhythm
+guitar whose one note is a power chord, over `kit:growl`, a driven bass
+(`guide recipes`, section "Instruments to start from").
+
 ## The anti-reference: scorsese's own Billie Jean
 
 The bake of an earlier attempt at Billie Jean, measured 2026-08-27 and described

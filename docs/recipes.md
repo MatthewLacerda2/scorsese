@@ -2612,6 +2612,8 @@ So there is a library of them — and of the everyday
 | `kit:cowbell` | a cowbell: two narrow pulses clanging together, the drum machine's hollow bell | all mid |
 | `kit:bass` | a synth bass: saw and square sub through a plucky lowpass, warm and round | mostly low |
 | `kit:sub` | a sub bass: a held sine with a little thump and drive, the 808 under a beat | all low |
+| `kit:growl` | a driven bass: detuned saws, a square and a sine through a dark lowpass and drive, the metal bass | almost all low |
+| `kit:guitar` | a distorted rhythm guitar, double-tracked: one note is a power chord, and quiet notes chug palm-muted | low and mid, about even |
 | `kit:clav` | a clavinet: bright, funky and percussive, and it barks when played hard | mid |
 | `kit:pluck` | a pluck: a short, bright, detuned saw snapping shut, for arpeggios and stabs | low-mid |
 | `kit:lead` | a lead: a seven-voice supersaw with a touch of vibrato, to carry a melody | mid |
@@ -2652,6 +2654,53 @@ sixteenths between, and the rimshot and cowbell answer on the off-beats:
 }
 ```
 
+The heavy end is two instruments, `kit:growl` under `kit:guitar`, both
+galloping `X-xx` on the sixteenths with the drums under them. Each chord is a
+pattern of its own, because a step string plays one note: four beats of E, two
+of G, two of A. Baked six times round with `like: "bfg-division"`, this sits
+inside the record's crest and bands:
+
+```json recipe
+{
+  "recipe": "song",
+  "bpm": 160,
+  "tracks": [
+    { "name": "kick",   "patch": "kit:kick",   "gain": 0.55 },
+    { "name": "snare",  "patch": "kit:snare" },
+    { "name": "crash",  "patch": "kit:crash",  "gain": 0.25 },
+    { "name": "bass",   "patch": "kit:growl",  "gain": 0.5 },
+    { "name": "guitar", "patch": "kit:guitar" }
+  ],
+  "patterns": {
+    "e": { "beats": 4, "notes": [
+      { "track": "kick",   "steps": "x-x-x-x-x-x-x-x-", "div": 0.25 },
+      { "track": "snare",  "steps": "----x-------x---", "div": 0.25 },
+      { "track": "crash",  "steps": "x-x-x-x-x-x-x-x-", "div": 0.25 },
+      { "track": "bass",   "steps": "X-xxX-xxX-xxX-xx", "div": 0.25, "note": "E1", "vel": 0.6 },
+      { "track": "guitar", "steps": "X-xxX-xxX-xxX-xx", "div": 0.25, "note": "E2", "vel": 0.45 }
+    ] },
+    "g": { "beats": 2, "notes": [
+      { "track": "kick",   "steps": "x-x-x-x-", "div": 0.25 },
+      { "track": "snare",  "steps": "----x---", "div": 0.25 },
+      { "track": "crash",  "steps": "x-x-x-x-", "div": 0.25 },
+      { "track": "bass",   "steps": "X-xxX-xx", "div": 0.25, "note": "G1", "vel": 0.6 },
+      { "track": "guitar", "steps": "X-xxX-xx", "div": 0.25, "note": "G2", "vel": 0.45 }
+    ] },
+    "a": { "beats": 2, "notes": [
+      { "track": "kick",   "steps": "x-x-x-x-", "div": 0.25 },
+      { "track": "snare",  "steps": "----x---", "div": 0.25 },
+      { "track": "crash",  "steps": "x-x-x-x-", "div": 0.25 },
+      { "track": "bass",   "steps": "X-xxX-xx", "div": 0.25, "note": "A1", "vel": 0.6 },
+      { "track": "guitar", "steps": "X-xxX-xx", "div": 0.25, "note": "A2", "vel": 0.45 }
+    ] }
+  },
+  "arrangement": ["e", "g", "a", "e", "g", "a"]
+}
+```
+
+For Brutal Doom's heavier wall, raise the bass: at these gains it measures
+67% low against that record's 73–85.
+
 **The name is copied in, never kept.** `synth_write` — or, from the command
 line, `scorsese synth kit --copy-into recipes/<song>.json` — replaces each
 `kit:` name with the patch itself, and that is what lands on disk. From then on
@@ -2665,18 +2714,23 @@ in, rather than reading it from the library, for the reason the copy exists:
 - **The project still carries everything it needs.** A `.scor` folder copied
   to another machine sounds the same there, whatever version reads it.
 
-Four things worth knowing:
+Five things worth knowing:
 
 - **The drums are written for middle C**, the note a run of `steps` plays when
   it names none, so a drum part never has to say a pitch. A `note` still moves
   them: the kick played at `"note": "G4"` is a higher drum. The **tom** is the
   one drum that wants its note — `A2` is a floor tom, `E3` a rack tom, and a
   fill is a run of them walking down.
-- **Pitched instruments play the notes you write.** The bass and the sub are at
+- **Pitched instruments play the notes you write.** The basses are at
   home around `E1`–`E2`, the pad, strings and keys around octaves 3 and 4, the
   lead and the bell an octave above. The bass, pluck, lead, clav and epiano
   filters follow the note (`key_track` 0.5), so they keep their character
   away from home.
+- **A guitar note is already a power chord**: root, fifth and octave, driven
+  as one sound, so a part on `kit:guitar` writes the roots only, and a melody
+  on it comes out doubled in fifths. Its home is `E2`, the low string, and
+  `growl` sits an octave under it at `E1`. Velocity is the palm mute: a plain
+  `x` under a `vel` near 0.45 is a dark, short chug, and an `X` opens up.
 - **None of the instruments brings a room.** The reverb is the song's, as
   [Where an effect goes](#where-an-effect-goes) says: put one on the song's
   `fx` and give each track its `send` — the kick, the sub and the bass near

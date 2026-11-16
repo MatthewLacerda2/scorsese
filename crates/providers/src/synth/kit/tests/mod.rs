@@ -2,6 +2,7 @@ use super::*;
 use scorsese_zimmer::{NoteOpts, bake_named_note};
 
 mod effects;
+mod heavy;
 mod percussion;
 mod staples;
 

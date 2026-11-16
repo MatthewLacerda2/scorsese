@@ -6,8 +6,9 @@
 //! This is the set those songs kept rebuilding: a drum machine's kick, snare,
 //! clap, closed and open hats, tom and crash, and the ride, rimshot, shaker,
 //! tambourine and cowbell a groove reaches for next; a synth bass and a sub; a
-//! clav, a pluck, a supersaw lead, a brass section, strings, a pad, an electric
-//! piano and a bell. A recipe asks for one as `"patch": "kit:kick"`.
+//! driven bass and a distorted guitar for the heavy end; a clav, a pluck, a
+//! supersaw lead, a brass section, strings, a pad, an electric piano and a
+//! bell. A recipe asks for one as `"patch": "kit:kick"`.
 //!
 //! **No instrument carries a reverb.** A `reverb` in a patch runs once per
 //! note, so every chord voice and every arpeggio step got a room of its own,
@@ -170,6 +171,20 @@ pub const KIT: &[Instrument] = &[
         describes: "sub bass: a held sine with a little thump and drive, the 808 under a beat",
         home: "E1",
         json: include_str!("presets/sub.json"),
+    },
+    Instrument {
+        name: "growl",
+        describes: "driven bass: detuned saws, a square and a sine through a dark lowpass and drive, \
+            the metal bass under a distorted guitar",
+        home: "E1",
+        json: include_str!("presets/growl.json"),
+    },
+    Instrument {
+        name: "guitar",
+        describes: "distorted rhythm guitar, double-tracked: one note is a power chord (root, fifth \
+            and octave) through drive and a cabinet; quiet notes chug palm-muted, loud ones open up",
+        home: "E2",
+        json: include_str!("presets/guitar.json"),
     },
     Instrument {
         name: "clav",
