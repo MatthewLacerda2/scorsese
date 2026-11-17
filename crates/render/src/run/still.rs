@@ -66,6 +66,9 @@ pub(super) fn compose(
     let unwatched = (tools, &Progress::new(), &Cancel::new());
     let (pages, notes) = Pages::capture(unwatched, browser, &settings, &plan, project_root);
     let mut stage = Stage::new();
+    let interface = settings
+        .overlay
+        .map(|overlay| overlay.draw(settings.resolution));
     let pass = Pass {
         tools,
         settings,
@@ -79,6 +82,7 @@ pub(super) fn compose(
         // never asks the machine how many threads it has.
         workers: Workers::new(1),
         preview,
+        interface: interface.as_ref(),
     };
 
     // A one-frame range has one segment by construction: the cuts a plan splits

@@ -36,6 +36,7 @@ use scorsese_compositor::text::Font;
 use scorsese_core::probe::{ProbeError, ProbeMedia};
 
 use crate::frames::FrameError;
+use crate::overlay::{Overlay, OverlayError};
 use crate::probe::Ffprobe;
 use crate::tools::{Tools, input};
 use scorsese_compositor::Frame;
@@ -111,10 +112,27 @@ pub fn sheet(tools: &Tools, file: &Path, look: &Look) -> Result<Sheet, ContactEr
             }
         })?;
 
+    // Drawn once at the cell's size and laid over each frame before it is
+    // tiled, so the labels and the grid stay on top of the interface.
+    let interface = match look.overlay {
+        Some(overlay) => {
+            // The source's own shape, which the refusal names: the cell is
+            // scaled from it.
+            if let Ok(source) = scorsese_compositor::Resolution::new(width, height) {
+                overlay.fits(source)?;
+            }
+            Some(overlay.draw(resolution))
+        }
+        None => None,
+    };
     let mut cells = Vec::with_capacity(at_seconds.len());
     for at in &at_seconds {
+        let mut frame = decode(tools, file, *at, resolution)?;
+        if let Some(interface) = &interface {
+            Overlay::lay(interface, &mut frame);
+        }
         cells.push(Cell {
-            frame: decode(tools, file, *at, resolution)?,
+            frame,
             label: sample::label(*at),
         });
     }
@@ -192,6 +210,9 @@ pub enum ContactError {
     /// The cells would not tile.
     #[error(transparent)]
     Tile(#[from] SheetError),
+    /// An overlay asked of a file it cannot be drawn over.
+    #[error(transparent)]
+    Overlay(#[from] OverlayError),
 }
 
 #[cfg(test)]

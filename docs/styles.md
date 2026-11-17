@@ -85,6 +85,12 @@ and gives the clear area in pixels when there are figures.
 In a 1080x1920 frame Meta's margins leave x 65–1015, y 269–1248 clear: a
 caption's block sits with its bottom at or above y 1248.
 
+To see it rather than work it out, render (or `look` at a 9:16 file) with
+`--overlay <placement>`: the feed's interface is drawn over every frame, a
+generic approximation with no logos, and `--safe-zones` tints the margins
+above where the table has figures. The overlay is never in the project, so the
+delivery render is the same command without it.
+
 ## Narrated captions: a vertical ad with the narration as the text
 
 *From the DataForce Reels ad (`dataforce-reels.scor`, 2026-10).*

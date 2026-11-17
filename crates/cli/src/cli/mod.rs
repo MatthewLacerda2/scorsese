@@ -10,7 +10,9 @@ use std::path::PathBuf;
 
 mod args;
 
-pub(crate) use args::{AssetsAction, KindArg, NewArgs, SequenceAction, StockAction, SynthAction};
+pub(crate) use args::{
+    AssetsAction, KindArg, LookArgs, NewArgs, OverlayArgs, SequenceAction, StockAction, SynthAction,
+};
 
 use clap::{Parser, Subcommand};
 use scorsese_core::style::Platform;
@@ -519,6 +521,9 @@ pub(crate) enum Command {
         /// loudness before and after, and what it took.
         #[arg(long, allow_hyphen_values = true)]
         loudness: Option<LoudnessTarget>,
+        /// A feed's interface over every frame, a preview of the cut there.
+        #[command(flatten)]
+        overlay: OverlayArgs,
     },
     /// Write one frame as a PNG, composited exactly as a render would compose
     /// it — no encode, no video file, no sound. What `render --stills` costs a
@@ -596,25 +601,9 @@ pub(crate) enum Command {
         /// source.
         #[arg(long)]
         out: Option<PathBuf>,
-        /// Where to start, in seconds. A file longer than one sheet is walked
-        /// in successive calls, and each one says where the next starts.
-        #[arg(long)]
-        from: Option<f64>,
-        /// Where to stop, in seconds. Without it the frames are five seconds
-        /// apart; with it they spread evenly across the span you named.
-        #[arg(long)]
-        to: Option<f64>,
-        /// How many frames to take, at most five; five when `--from` or
-        /// `--to` is given without it.
-        #[arg(long)]
-        frames: Option<usize>,
-        /// Rule each frame with coordinates: a line every 0.1, heavier at 0.5,
-        /// labelled along the top and left edges. The fractions are the
-        /// **source's** own — its whole width and height, not the render
-        /// raster — which is exactly what `crop` is measured in, so a rectangle
-        /// can be read off the footage. Drawn onto the PNG itself.
-        #[arg(long)]
-        grid: bool,
+        /// Which frames to take, and what to draw over them.
+        #[command(flatten)]
+        look: LookArgs,
     },
     /// Say what the timeline contains — what is on screen when, on which
     /// track, at what fit, with what animated, and what is audible under it.

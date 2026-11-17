@@ -164,6 +164,7 @@ pub(crate) mod format;
 pub mod frames;
 pub(crate) mod held;
 pub(crate) mod layout;
+pub(crate) mod overlay;
 pub mod page;
 pub(crate) mod pipe;
 pub mod plan;
@@ -257,6 +258,7 @@ pub use describe::{
 pub use error::{RenderError, Stage};
 pub use format::{AudioCodec, Container, FormatError, OutputFormat, VideoCodec};
 pub use layout::{Absence, Layout, Overhang, Placement, Region, Unplaced};
+pub use overlay::{Overlay, OverlayError};
 pub use plan::{FrameRange, FrameRangeError, Plan, PlanError, Showing};
 pub use preview::{Preview, Proxies, Quality};
 pub use probe::{Ffprobe, Lengths, fill_media};

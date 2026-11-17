@@ -87,3 +87,22 @@ fn a_sound_only_file_refuses_fps_and_bitrate_but_takes_the_sound_settings() {
     assert_eq!(settings.sample_rate.hz(), 44_100);
     assert_eq!(settings.audio_bitrate, "320k".parse().ok());
 }
+
+/// An overlay is named by platform and carried to the render, and refused as
+/// the CLI refuses it: on a landscape frame, and safe zones without one.
+#[test]
+fn an_overlay_reaches_the_render_and_is_refused_where_it_cannot_be_drawn() {
+    let upright =
+        built(json!({ "resolution": "9:16", "overlay": "tiktok_ad", "safe_zones": true }));
+    let overlay = upright.overlay.expect("an overlay");
+    assert_eq!(overlay.to_string(), "tiktok_ad");
+    assert!(overlay.safe_zones());
+    let refused = |extra| asked("cut.mp4", extra).expect_err("refused");
+    assert!(refused(json!({ "overlay": "tiktok" })).contains("9:16"));
+    assert!(
+        refused(json!({ "resolution": "9:16", "safe_zones": true })).starts_with("safe_zones: ")
+    );
+    assert!(
+        refused(json!({ "resolution": "9:16", "overlay": "youtube" })).starts_with("overlay: ")
+    );
+}

@@ -1,5 +1,6 @@
 //! What a render did, and what it wants you to know about it.
 
+use crate::overlay::Overlay;
 use std::fmt;
 
 use scorsese_core::{Fps, Frames};
@@ -121,6 +122,10 @@ pub enum Note {
         /// The audio clips whose bands were left out, in project order.
         clips: Vec<String>,
     },
+    /// A platform's interface was drawn over every frame, as the render was
+    /// asked (#1010): said on every surface so the file is never taken for a
+    /// delivery.
+    Overlaid(Overlay),
     /// An icon asset names a symbol this build does not ship, so its layer came
     /// out empty.
     ///
@@ -295,6 +300,7 @@ impl fmt::Display for Note {
                 "clip `{clip}` shows asset `{asset}`, which the project says was \
                  generated but has no file on disk — {stood_in} stood in for it"
             ),
+            Self::Overlaid(overlay) => f.write_str(&overlay.said()),
             Self::BandsLeftOut { clips } => write!(
                 f,
                 "narration bands left out, as asked: {} not made yet, so silent \

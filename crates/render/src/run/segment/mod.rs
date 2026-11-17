@@ -66,12 +66,37 @@ pub(super) struct Pass<'a> {
     pub(super) workers: Workers,
     /// What makes this a preview rather than a delivery, when it is one.
     pub(super) preview: Option<&'a Preview>,
+    /// A platform's interface, drawn once for the render, laid over every
+    /// finished frame before it is written (#1010).
+    pub(super) interface: Option<&'a Frame>,
 }
 
 impl Pass<'_> {
     /// Decodes one stretch of timeline, composites each of its frames, and
     /// hands them to `write`. What comes back is what the stretch noticed.
     pub(super) fn render(
+        &self,
+        segment: &Segment<'_>,
+        frames: u64,
+        stage: &mut Stage,
+        write: Write<'_>,
+    ) -> Result<Vec<Note>, RenderError> {
+        let Some(interface) = self.interface else {
+            return self.composite(segment, frames, stage, write);
+        };
+        // Over the finished frame, after every layer and group: the interface
+        // is never part of the picture, so nothing in the edit can draw on it.
+        let mut overlaid: Option<Frame> = None;
+        self.composite(segment, frames, stage, &mut |frame| {
+            let into = overlaid.get_or_insert_with(|| frame.clone());
+            into.bytes_mut().copy_from_slice(frame.bytes());
+            crate::overlay::Overlay::lay(interface, into);
+            write(into)
+        })
+    }
+
+    /// [`Pass::render`] without the overlay: every frame as the edit draws it.
+    fn composite(
         &self,
         segment: &Segment<'_>,
         frames: u64,

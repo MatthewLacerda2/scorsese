@@ -2223,6 +2223,24 @@ that band is in the way. The line keeps its place on the timeline, stays silent
 until generated and still ducks the music, and the reply names every line left
 out. Default `true`; a sound-only format refuses it.
 
+**`overlay` previews the cut in its feed.** Named by a platform id (any but
+`youtube`), it draws that feed's interface over every frame: the status bar,
+the profile row, the action rail, the caption, an ad's call to action and the
+app's navigation, as a generic approximation scorsese draws, with no logos. It
+is a per-render choice, never written to the project, and the file it makes is a
+preview, not a delivery. `safe_zones: true` tints the margins the vendor itself
+says the interface covers (`docs/styles.md`, *Safe zones*); a placement whose
+vendor publishes no figures gets no tint, and the reply says so. It needs a
+9:16 frame. `look` takes the same two arguments, to see a 9:16 file, a
+render say, under the feed; its frames are then a walk, never a glance.
+
+```
+render  { "project": "trilhas.scor", "out": "feed.mp4", "platform": "instagram_reels_ad",
+          "overlay": "instagram_reels_ad", "safe_zones": true }
+        → "…
+           note: the instagram_reels_ad interface is drawn over every frame — a preview, …"
+```
+
 `project_describe` takes `scorsese describe`'s `fps` and `range` too: the cut
 as a render at that rate, of that stretch, would sequence it. `range` is in
 timeline frames, as `render`'s is, and `at` stays on the timeline's grid.

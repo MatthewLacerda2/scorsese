@@ -128,7 +128,7 @@ pub(crate) fn bounds(boxed: Boxed, resolution: Resolution) -> Option<Rect> {
 ///
 /// Written out rather than reached for in tiny-skia, which has `push_rect` and
 /// `push_oval` and nothing between them.
-fn rounded(builder: &mut PathBuilder, bounds: Rect, radius: f32) {
+pub(crate) fn rounded(builder: &mut PathBuilder, bounds: Rect, radius: f32) {
     let (left, top) = (bounds.left(), bounds.top());
     let (right, bottom) = (bounds.right(), bounds.bottom());
     // How far back along each edge a corner's control point sits.

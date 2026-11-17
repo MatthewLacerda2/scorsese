@@ -26,6 +26,8 @@ pub(super) fn ask(arguments: &Arguments) -> Result<RenderAsk, String> {
         audio_bitrate: arguments.audio_bitrate.as_deref(),
         narration_bands: arguments.narration_bands,
         loudness: arguments.loudness,
+        overlay: arguments.overlay.as_deref(),
+        safe_zones: arguments.safe_zones,
     })
     .map_err(|problem| problem.to_string())
 }

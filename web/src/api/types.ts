@@ -324,6 +324,10 @@ export interface RenderAsk {
   narration_bands?: boolean;
   /** Integrated loudness in LUFS; the mix as balanced by default. */
   loudness?: number;
+  /** A platform whose feed interface is drawn over the picture (#1010). */
+  overlay?: string;
+  /** Tints the overlay's covered margins, from the vendor's figures. */
+  safe_zones?: boolean;
 }
 
 /** `renders::Settings` — the shape of a render, as docs/output-formats.md allows. */

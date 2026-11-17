@@ -98,6 +98,17 @@ struct Arguments {
     /// turned down only as far as a lossy codec needs. The reply gives the
     /// loudness before and after, and the gain and limiting it took.
     loudness: Option<f64>,
+    /// A platform id (youtube_shorts, instagram_reels, instagram_reels_ad,
+    /// instagram_stories_ad, tiktok, tiktok_ad) whose feed interface is drawn
+    /// over every frame, to preview the cut as the platform shows it. The
+    /// controls are an approximation scorsese draws, never part of the
+    /// project, and the file is a preview, not a delivery. Needs a 9:16
+    /// render. Refused for a sound-only container.
+    overlay: Option<String>,
+    /// true tints what the overlay's interface covers, from the vendor's own
+    /// published figures; a placement whose vendor publishes none gets no
+    /// tint, and the reply says so. Needs overlay.
+    safe_zones: Option<bool>,
 }
 
 impl args::Arguments for Arguments {
@@ -119,7 +130,10 @@ impl Tool for Render {
          narration_bands: false leaves the narration lines' bands off the picture. \
          platform: tiktok (or youtube, instagram_reels…) sizes it for that \
          placement. loudness: -14 (any LUFS) brings the soundtrack to that loudness, with a \
-         limiter holding its peaks. fps (60), bitrate (8M, for a smaller file), \
+         limiter holding its peaks. overlay: instagram_reels_ad (any upright \
+         platform) draws that feed's interface over the picture, a preview to judge \
+         captions against, with safe_zones: true tinting the vendor's covered \
+         margins. fps (60), bitrate (8M, for a smaller file), \
          sample_rate and audio_bitrate are scorsese render's flags of those names. \
          The reply says how loud the delivered file came out, and when the \
          soundtrack had to be turned down to keep a lossy codec from clipping, \

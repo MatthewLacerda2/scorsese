@@ -193,6 +193,7 @@ fn dispatch(cli: Cli) -> Result<()> {
             at,
             no_narration_bands,
             loudness,
+            overlay,
         } => commands::render::run(
             &directory,
             &out,
@@ -212,6 +213,7 @@ fn dispatch(cli: Cli) -> Result<()> {
                 at,
                 bands: commands::render::bands(no_narration_bands),
                 loudness,
+                overlay: overlay.overlay()?,
             },
         ),
         Command::Still {
@@ -231,14 +233,7 @@ fn dispatch(cli: Cli) -> Result<()> {
             },
         ),
         Command::Hear { file, out } => commands::hear::run(&file, out),
-        Command::Look {
-            file,
-            out,
-            from,
-            to,
-            frames,
-            grid,
-        } => commands::look::asked(&file, out, from, to, frames, grid),
+        Command::Look { file, out, look } => commands::look::asked(&file, out, &look),
         Command::Describe {
             fps,
             range,
