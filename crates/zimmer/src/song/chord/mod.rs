@@ -75,7 +75,7 @@ pub use arp::Arp;
 pub use lead::Leading;
 pub(crate) use lead::Led;
 
-use super::{Articulation, Note, Pitch, one};
+use super::{Articulation, Note, Pitch, one, unity};
 use crate::error::SynthError;
 use crate::note::MIDI_RANGE;
 
@@ -115,7 +115,7 @@ pub struct Chord {
     pub dur: f32,
     /// Velocity in `0..=1` for every voice, before the performance scatters
     /// them apart.
-    #[serde(default = "one")]
+    #[serde(default = "one", skip_serializing_if = "unity")]
     pub vel: f32,
     /// How every voice is played — see [`Note::articulation`]. A chord is one
     /// gesture of a hand, so an articulation belongs to the whole of it rather

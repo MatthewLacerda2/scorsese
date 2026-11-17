@@ -120,7 +120,7 @@ fn a_seed_is_a_whole_number_in_range_and_nothing_else() {
         );
     }
     let zero = tune(SONG, "seed", None, 0.0).expect("zero is a seed");
-    assert!(zero.document.contains("\"seed\": 0"), "{}", zero.document);
+    assert!(!zero.document.contains("\"seed\""), "{}", zero.document);
     let top = tune(SONG, "seed", None, CEILING).expect("the ceiling is a seed");
     assert!(
         top.document.contains("9007199254740992"),

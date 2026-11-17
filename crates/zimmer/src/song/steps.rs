@@ -111,7 +111,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{Articulation, Note, Pitch, one};
+use super::{Articulation, Note, Pitch, one, unity};
 use crate::error::SynthError;
 
 /// A step that sounds at the entry's own velocity.
@@ -192,7 +192,7 @@ pub struct Steps {
     /// Velocity of a plain `x`, in `0..=1`. An `X` plays at 1 regardless, so
     /// this is the *distance* between an ordinary hit and an accented one; an
     /// `o` is this hit with the ghost mark on it.
-    #[serde(default = "one")]
+    #[serde(default = "one", skip_serializing_if = "unity")]
     pub vel: f32,
     /// How **every** hit is played — see [`Note::articulation`]. A run is one
     /// gesture repeated, so this says how the hand plays the whole of it: a

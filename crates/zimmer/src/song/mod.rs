@@ -110,6 +110,18 @@ fn no_swing(swing: &f32) -> bool {
     *swing == 0.0
 }
 
+/// Whether a song's seed is the `0` serde fills in when it is absent.
+fn unseeded(seed: &u64) -> bool {
+    *seed == 0
+}
+
+/// Whether a gain or velocity is the `1.0` serde fills in when it is absent —
+/// the test that keeps it out of every saved document, for the reason
+/// [`no_swing`] gives.
+pub(crate) fn unity(value: &f32) -> bool {
+    *value == 1.0
+}
+
 /// Whether a track sits dead centre — the test that keeps `"pan": 0.0` out of
 /// every saved document, for the reason [`no_swing`] gives.
 fn centred(pan: &f32) -> bool {
@@ -144,7 +156,7 @@ pub struct Song {
     pub tempo: Vec<TempoChange>,
     /// Folded into every note's render seed, so one number re-rolls every
     /// stochastic source in the piece while keeping it reproducible.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "unseeded")]
     pub seed: u64,
     /// What key the piece is in — `"D minor"`, `"F# lydian"` — which is what
     /// lets a note be written as a **degree** and an arrangement entry lift a
@@ -232,7 +244,7 @@ pub struct Track {
     /// Linear gain applied to every note this track plays. The master limiter
     /// guarantees the sum never clips, so this is a balance control, not a
     /// safety one.
-    #[serde(default = "one")]
+    #[serde(default = "one", skip_serializing_if = "unity")]
     pub gain: f32,
     /// Where this instrument sits across the stereo image: `-1.0` hard left,
     /// `0.0` centre, `1.0` hard right. Out-of-range values are clamped rather
@@ -505,7 +517,7 @@ pub struct Note {
     /// Gate length in beats. The patch's release rings out after it.
     pub dur: f32,
     /// Velocity in `0..=1`, scaling this note's peak amplitude.
-    #[serde(default = "one")]
+    #[serde(default = "one", skip_serializing_if = "unity")]
     pub vel: f32,
     /// How it is played, as opposed to which note it is — an [`Articulation`],
     /// or nothing, which is the note exactly as written.

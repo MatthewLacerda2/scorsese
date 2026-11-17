@@ -110,7 +110,7 @@ pub struct EqBand {
     /// It means the same thing for all five kinds: the pass filters and the
     /// shelves take it as the steepness of their corner, where much past `1`
     /// starts to put a resonant bump at the corner itself.
-    #[serde(default = "gentle_q")]
+    #[serde(default = "gentle_q", skip_serializing_if = "is_gentle_q")]
     pub q: f32,
 }
 
@@ -226,13 +226,13 @@ pub enum Fx {
         release: f32,
         /// Decibels handed back to the compressed copy, to replace what the
         /// reduction took. Clamped to ±24.
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "no_makeup")]
         makeup: f32,
         /// Wet/dry blend, `0..=1`. Below 1 this is **parallel** ("New York")
         /// compression: a squashed copy under an untouched one, which adds
         /// density without flattening the transients. `0.0` is an exact
         /// bypass.
-        #[serde(default = "one")]
+        #[serde(default = "one", skip_serializing_if = "fully_wet")]
         mix: f32,
         /// Another track, by name, whose part the detector listens to instead
         /// of this one's — the kick pressing the bass down on every beat.
@@ -312,6 +312,23 @@ fn no_predelay(predelay: &f32) -> bool {
 
 fn gentle_q() -> f32 {
     0.707
+}
+
+/// Whether a band's Q is [`gentle_q`], which is what serde fills in when it is
+/// absent — the test that keeps it out of every saved document, for the reason
+/// [`Adsr::curve`](super::Adsr::curve) gives about defaults and cached bakes.
+fn is_gentle_q(q: &f32) -> bool {
+    *q == gentle_q()
+}
+
+/// Whether a compressor hands back no makeup gain: the `0.0` default.
+fn no_makeup(makeup: &f32) -> bool {
+    *makeup == 0.0
+}
+
+/// Whether a compressor is all wet: the `1.0` default.
+fn fully_wet(mix: &f32) -> bool {
+    *mix == 1.0
 }
 
 /// A compressor's attack when the recipe does not say: 10 ms, fast enough to

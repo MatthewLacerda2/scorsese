@@ -71,5 +71,4 @@ field that writes its default into every document invalidates every cached
 bake without changing a sample. Give it `skip_serializing_if`, the way
 `fx.rs`'s `not_ping_pong` and `song`'s `no_swing` do. A round trip that adds a
 key fails `tests/suite/defaults.rs` (and the docs' worked recipes, in `providers`);
-the fields that predate the rule are named in `tests/suite/common/written.rs`. A new
-field never joins that list.
+the check lives in `tests/suite/common/written.rs`, and it has no exceptions.

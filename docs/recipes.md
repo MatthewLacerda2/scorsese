@@ -89,8 +89,6 @@ arrangement that already exists as a `.mid` starts
   "recipe": "patch",
   "note": "C4",
   "duration": 0.4,
-  "velocity": 1.0,
-  "seed": 0,
   "patch": {
     "source": { "kind": "noise" },
     "amp": { "a": 0.001, "d": 0.12, "s": 0.0, "r": 0.05 },
