@@ -24,6 +24,7 @@ use scorsese_core::{Fps, Project, Ratio};
 
 use crate::audio::LoudnessTarget;
 use crate::format::{AudioCodec, Container, FormatError, OutputFormat, VideoCodec};
+use crate::overlay::{Overlay, OverlayError};
 use crate::settings::{Bands, Bitrate, Budget, RenderSettings, Resolution, SampleRate, Sizing};
 
 /// Every choice a render offers about the file it delivers, each `None` (or
@@ -53,6 +54,8 @@ pub struct RenderAsk {
     pub bands: Bands,
     /// The loudness to deliver the soundtrack at; `None` delivers it as mixed.
     pub loudness: Option<LoudnessTarget>,
+    /// A platform's interface to lay over the picture; `None` draws none.
+    pub overlay: Option<Overlay>,
 }
 
 /// A [`RenderAsk`] as a surface receives it, spelled out — the names the MCP
@@ -81,6 +84,11 @@ pub struct Spelled<'a> {
     pub narration_bands: Option<bool>,
     /// LUFS, e.g. `-14`.
     pub loudness: Option<f64>,
+    /// A platform's id, e.g. `instagram_reels_ad`, whose interface is laid
+    /// over the picture.
+    pub overlay: Option<&'a str>,
+    /// `true` tints the overlay's safe zones, where its vendor publishes them.
+    pub safe_zones: Option<bool>,
 }
 
 /// Why a render is not made as asked — said before anything is opened.
@@ -95,6 +103,9 @@ pub enum AskError {
     /// A value that does not read as its setting, already worded.
     #[error("{0}")]
     Unread(String),
+    /// An overlay that cannot be drawn as asked.
+    #[error(transparent)]
+    Overlay(#[from] OverlayError),
 }
 
 impl RenderAsk {
@@ -119,6 +130,7 @@ impl RenderAsk {
                 Some(true) | None => Bands::Drawn,
             },
             loudness: loudness.map_err(|problem| AskError::Unread(problem.to_string()))?,
+            overlay: overlay(spelled)?,
         })
     }
 
@@ -162,6 +174,7 @@ impl RenderAsk {
             (self.fps.is_some(), "a frame rate"),
             (self.bitrate.is_some(), "a video bitrate"),
             (self.bands == Bands::Omitted, "leaving narration bands out"),
+            (self.overlay.is_some(), "an overlay"),
         ] {
             if given {
                 format.picture_setting(setting)?;
@@ -182,12 +195,28 @@ impl RenderAsk {
         self.check(format)?;
         let sample_rate = self.sample_rate.unwrap_or(SampleRate::DEFAULT);
         let fps = self.fps.unwrap_or(project.timeline_fps);
-        Ok(RenderSettings::new(self.resolution(project.aspect), fps)
+        let resolution = self.resolution(project.aspect);
+        if let Some(overlay) = self.overlay {
+            overlay.fits(resolution)?;
+        }
+        Ok(RenderSettings::new(resolution, fps)
             .with_bitrate(self.bitrate)
             .with_audio(sample_rate, self.audio_bitrate)
             .with_format(format)
             .with_bands(self.bands)
-            .with_loudness(self.loudness))
+            .with_loudness(self.loudness)
+            .with_overlay(self.overlay))
+    }
+}
+
+/// The overlay `spelled` names, or none; safe zones asked for without one are
+/// refused rather than ignored.
+fn overlay(spelled: &Spelled<'_>) -> Result<Option<Overlay>, AskError> {
+    let zones = spelled.safe_zones.unwrap_or(false);
+    match named::<Platform>(spelled.overlay, "overlay")? {
+        Some(platform) => Ok(Some(Overlay::new(platform, zones)?)),
+        None if zones => Err(OverlayError::ZonesWithoutOverlay.into()),
+        None => Ok(None),
     }
 }
 

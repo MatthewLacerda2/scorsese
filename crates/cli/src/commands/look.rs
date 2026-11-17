@@ -19,26 +19,15 @@ use scorsese_core::words::Words;
 use scorsese_render::contact::{self, Look};
 use scorsese_render::{Tools, frames};
 
-/// What `scorsese look` was asked: a [`glance`] when no moment is named,
-/// otherwise the [`run`] they name, from 0 and five frames unless told.
-pub(crate) fn asked(
-    file: &Path,
-    out: Option<PathBuf>,
-    from: Option<f64>,
-    to: Option<f64>,
-    frames: Option<usize>,
-    grid: bool,
-) -> Result<()> {
-    if from.is_none() && to.is_none() && frames.is_none() {
-        return glance(file, out, grid);
+use crate::cli::LookArgs;
+
+/// What `scorsese look` was asked: a [`glance`] when no moment is named and
+/// nothing is drawn over it, otherwise the [`run`] they name.
+pub(crate) fn asked(file: &Path, out: Option<PathBuf>, args: &LookArgs) -> Result<()> {
+    match args.look()? {
+        Some(look) => run(file, out, &look),
+        None => glance(file, out, args.grid),
     }
-    let look = Look {
-        from_seconds: from.unwrap_or(0.0),
-        to_seconds: to,
-        count: frames.unwrap_or(contact::MAX_FRAMES),
-        grid,
-    };
-    run(file, out, &look)
 }
 
 /// Takes a sheet of `file` and writes it to `out`.
@@ -72,6 +61,9 @@ fn run(file: &Path, out: Option<PathBuf>, look: &Look) -> Result<()> {
     // The number a following call starts from, rather than left to be worked
     // out — walking a long file is the expected way to use this, and a step
     // somebody has to compute is a step somebody gets wrong.
+    if let Some(overlay) = look.overlay {
+        println!("Over each frame: {}", overlay.said());
+    }
     if let Some(next) = sheet.next_from() {
         println!("More to see: --from {next}");
     }

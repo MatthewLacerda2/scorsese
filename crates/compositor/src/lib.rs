@@ -77,6 +77,10 @@
 //! over: amplitude over time, drawn so a client with no ears can read a sound
 //! file.
 //!
+//! [`interface`] is the handful of marks a feed's interface is drawn from —
+//! boxes, rings, symbols placed by their corner, a fade — for the preview that
+//! lays one over a render's finished frames, never over a layer.
+//!
 //! [`card`] is that same text over a panel of colour, which is all a slug card
 //! is. It is a dozen lines that call the other two modules, and it is not a
 //! rendering path of its own — that is the point of it.
@@ -195,6 +199,7 @@ pub mod gradient;
 mod grain;
 pub mod grid;
 pub mod icon;
+pub mod interface;
 mod light;
 mod matte;
 mod paint;

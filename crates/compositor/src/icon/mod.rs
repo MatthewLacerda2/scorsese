@@ -44,7 +44,7 @@
 //! name per icon and it is the one a document writes.
 
 pub(crate) mod catalogue;
-mod draw;
+pub(crate) mod draw;
 mod nearest;
 mod search;
 mod svg;

@@ -359,7 +359,8 @@ impl<'a> Renderer<'a> {
         (out, of): (&Path, u64),
     ) -> Result<(u64, Vec<Note>), RenderError> {
         let mut encoder = Encoder::start(self.tools, &self.settings, mix, out)?;
-        let mut stage = Stage::new();
+        let (mut stage, settings) = (Stage::new(), self.settings);
+        let interface = settings.overlay.map(|o| o.draw(settings.resolution));
         let pass = Pass {
             tools: self.tools,
             settings: self.settings,
@@ -370,9 +371,11 @@ impl<'a> Renderer<'a> {
             project_root,
             workers: self.workers,
             preview: self.preview.as_ref(),
+            interface: interface.as_ref(),
         };
         let mut written = 0;
-        let mut notes = Vec::new();
+        // Said first, of every file it is drawn over: a preview, never a delivery.
+        let mut notes: Vec<Note> = settings.overlay.map(Note::Overlaid).into_iter().collect();
         let mut drawn = || -> Result<(), RenderError> {
             for segment in plan.segments() {
                 notes.extend(pass.render(

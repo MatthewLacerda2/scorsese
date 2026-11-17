@@ -5,6 +5,7 @@
 //! is taller than it is wide) are decided somewhere they can be checked without
 //! decoding anything.
 
+use crate::overlay::Overlay;
 use scorsese_core::frame::even;
 use scorsese_core::{Precision, clock};
 
@@ -42,6 +43,10 @@ pub struct Look {
     /// somebody keeping the sheet does. A cell is one whole source frame, so
     /// the fractions it marks are the source's own — the units `crop` takes.
     pub grid: bool,
+    /// A platform's interface laid over each frame before it is tiled, to
+    /// judge footage or a render as the feed will show it (#1010). Refused
+    /// for a file that is not upright.
+    pub overlay: Option<Overlay>,
 }
 
 impl Default for Look {
@@ -53,6 +58,7 @@ impl Default for Look {
             to_seconds: None,
             count: MAX_FRAMES,
             grid: false,
+            overlay: None,
         }
     }
 }

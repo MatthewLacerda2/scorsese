@@ -23,8 +23,8 @@
 
 use schemars::JsonSchema;
 use scorsese_core::words::Words;
-use scorsese_render::Tools;
 use scorsese_render::contact::{self, Look as Range, MAX_FRAMES, label};
+use scorsese_render::{Overlay, RenderAsk, Spelled, Tools};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -64,6 +64,15 @@ struct Arguments {
     /// lines are drawn onto the picture itself.
     #[serde(default)]
     grid: bool,
+    /// A platform id (youtube_shorts, instagram_reels, instagram_reels_ad,
+    /// instagram_stories_ad, tiktok, tiktok_ad) whose feed interface is drawn
+    /// over every frame, to judge a 9:16 file — a render, say — as the
+    /// platform shows it. The controls are an approximation scorsese draws.
+    overlay: Option<String>,
+    /// true tints what the overlay's interface covers, from the vendor's own
+    /// published figures where there are any. Needs overlay.
+    #[serde(default)]
+    safe_zones: bool,
 }
 
 impl args::Arguments for Arguments {
@@ -93,8 +102,11 @@ impl Tool for Look {
          `to` to look closely at one stretch — the frames then spread evenly \
          across it. Pass grid: true to have \
          every frame ruled in fractions of the source, which is what a clip's \
-         crop is measured in. Needs ffmpeg; decodes at most two dozen frames \
-         (a glance) or five, and encodes nothing."
+         crop is measured in. Pass overlay: tiktok (any 9:16 platform) to see \
+         each frame under that feed's interface, and safe_zones: true to tint the \
+         vendor's covered margins; the frames are then a walk, never a glance. \
+         Needs ffmpeg; decodes at most two dozen frames (a glance) or five, and \
+         encodes nothing."
     }
 
     fn writes(&self) -> bool {
@@ -115,9 +127,12 @@ impl Tool for Look {
         // absolute when the footage is somewhere else entirely, which is the
         // case for material nobody has imported yet.
         let file = arguments.project.dir().join(&arguments.file);
-        let glancing =
-            arguments.from.is_none() && arguments.to.is_none() && arguments.frames.is_none();
         let range = range(&arguments)?;
+        // An overlay is drawn over a walk's frames, never a glance's.
+        let glancing = arguments.from.is_none()
+            && arguments.to.is_none()
+            && arguments.frames.is_none()
+            && range.overlay.is_none();
 
         // Discovered per call rather than held, as the other ffmpeg tools do: a
         // server that found ffmpeg at startup would keep insisting it was there
@@ -137,7 +152,11 @@ impl Tool for Look {
         // artifact of the project, and `scorsese look` is how one gets kept.
         let bytes = Scratch::png(&tools, &sheet.image, None, "the sheet")?;
 
-        Ok(vec![Part::picture(said(&sheet, range.grid), &bytes)].into())
+        let mut words = said(&sheet, range.grid);
+        if let Some(overlay) = range.overlay {
+            words.push_str(&format!(" — over each frame: {}", overlay.said()));
+        }
+        Ok(vec![Part::picture(words, &bytes)].into())
     }
 }
 
@@ -227,5 +246,17 @@ fn range(arguments: &Arguments) -> Result<Range, String> {
         to_seconds: to,
         count: frames,
         grid: arguments.grid,
+        overlay: overlay(arguments)?,
     })
+}
+
+/// The overlay the arguments name, read by the rules a render reads it by.
+fn overlay(arguments: &Arguments) -> Result<Option<Overlay>, String> {
+    let ask = RenderAsk::read(&Spelled {
+        overlay: arguments.overlay.as_deref(),
+        safe_zones: Some(arguments.safe_zones),
+        ..Spelled::default()
+    });
+    ask.map(|ask| ask.overlay)
+        .map_err(|problem| problem.to_string())
 }

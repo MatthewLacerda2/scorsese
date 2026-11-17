@@ -9,6 +9,7 @@
 use crate::common;
 
 mod glance;
+mod overlaid;
 mod pictures;
 mod sampling;
 mod sheets;

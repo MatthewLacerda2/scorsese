@@ -1,8 +1,9 @@
 //! `render`: a render of the project asked for, exactly as `POST
 //! /api/projects/{id}/renders` asks for one ([`crate::renders::request`]).
 
+use scorsese_core::style::Platform;
 use scorsese_mcp::Reply;
-use scorsese_render::{Budget, Resolution};
+use scorsese_render::{Budget, Overlay, Resolution};
 use serde_json::{Value, json};
 
 use super::super::super::surface::project_property;
@@ -26,7 +27,9 @@ address, or the job making it; `jobs` says when that job is done and what it mad
 with an HTTP GET on this server, with the same token. Sketch and stale generated assets render \
 as slug cards rather than failing; narration_bands: false leaves the narration lines' bands \
 off the picture. loudness: -14 (any LUFS) brings the soundtrack to that loudness, with a \
-limiter holding its peaks; the finished job's notes say how loud the file came out.";
+limiter holding its peaks; the finished job's notes say how loud the file came out. overlay: \
+instagram_reels_ad (any upright platform) draws that feed's interface over the picture, a preview \
+to judge captions against, with safe_zones: true tinting the vendor's covered margins.";
 
 /// `render`'s arguments: the shape of the file, as the stdio tool spells it.
 pub(in super::super) fn render_schema() -> Value {
@@ -101,6 +104,22 @@ pub(in super::super) fn render_schema() -> Value {
                                 Without it the mix is delivered as balanced. The finished \
                                 job's notes give the loudness before and after, and the gain \
                                 and limiting it took."
+            },
+            "overlay": {
+                "type": "string",
+                "description": "A platform whose feed interface is drawn over every frame, \
+                                to preview the cut as that feed shows it: youtube_shorts, \
+                                instagram_reels, instagram_reels_ad, instagram_stories_ad, \
+                                tiktok or tiktok_ad. The controls are an approximation \
+                                scorsese draws, never part of the project; the file is a \
+                                preview, not a delivery. Needs a 9:16 frame, and refused \
+                                for a sound-only container."
+            },
+            "safe_zones": {
+                "type": "boolean",
+                "description": "true tints what the overlay's interface covers, from the \
+                                vendor's own published figures; a placement whose vendor \
+                                publishes none gets no tint. Needs overlay."
             }
         },
         "required": ["project"]
@@ -131,6 +150,15 @@ pub(in super::super) async fn render(
         asked.resolution = Some(frame.to_string());
         settings = Settings::from_ask(&asked)?;
     }
+    // Said with the answer, before any job's notes exist: a cached file is
+    // handed over at once, and it is a preview, never a delivery.
+    let overlaid = asked
+        .overlay
+        .as_deref()
+        .and_then(|id| id.parse::<Platform>().ok())
+        .and_then(|platform| Overlay::new(platform, settings.safe_zones).ok())
+        .map(|overlay| format!(" Note: {}.", overlay.said()))
+        .unwrap_or_default();
     let asked = ask(
         &toolbox.pool,
         &toolbox.queue,
@@ -151,7 +179,7 @@ pub(in super::super) async fn render(
         AskError::Project(ProjectError::NotFound) => "there is no such project of yours".into(),
         other => database(other),
     })?;
-    Ok(match asked.0 {
+    let answer = match asked.0 {
         Asked::Kept(view) => format!(
             "Already rendered, {} bytes: GET {} to download it.",
             view.size,
@@ -164,6 +192,6 @@ pub(in super::super) async fn render(
             state(&job),
             job.id
         ),
-    }
-    .into())
+    };
+    Ok(format!("{answer}{overlaid}").into())
 }

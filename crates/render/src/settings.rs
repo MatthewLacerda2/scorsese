@@ -23,6 +23,7 @@ use scorsese_core::Fps;
 
 use crate::audio::LoudnessTarget;
 use crate::format::OutputFormat;
+use crate::overlay::Overlay;
 
 pub use scorsese_compositor::{Budget, Resolution, ResolutionError, Sizing, SizingError};
 
@@ -209,6 +210,10 @@ pub struct RenderSettings {
     /// asked for. `None`, the default, delivers the mix as its author
     /// balanced it, turned down only as far as a lossy codec needs.
     pub loudness: Option<LoudnessTarget>,
+    /// A platform's interface to lay over every finished frame, for a
+    /// preview of the cut in its feed (#1010). `None`, the default, draws
+    /// nothing over the picture.
+    pub overlay: Option<Overlay>,
 }
 
 impl RenderSettings {
@@ -225,6 +230,7 @@ impl RenderSettings {
             format: OutputFormat::default(),
             bands: Bands::default(),
             loudness: None,
+            overlay: None,
         }
     }
 
@@ -251,6 +257,11 @@ impl RenderSettings {
     /// Brings the soundtrack to `loudness`, or leaves it as mixed for `None`.
     pub fn with_loudness(self, loudness: Option<LoudnessTarget>) -> Self {
         Self { loudness, ..self }
+    }
+
+    /// Lays `overlay`'s interface over every frame, or nothing for `None`.
+    pub fn with_overlay(self, overlay: Option<Overlay>) -> Self {
+        Self { overlay, ..self }
     }
 
     /// Sets both audio settings together, because a rate and a bitrate are

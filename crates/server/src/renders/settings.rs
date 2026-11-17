@@ -6,7 +6,7 @@
 
 use scorsese_core::{Project, Ratio, hash_bytes};
 use scorsese_render::{
-    Bands, FrameRange, LoudnessTarget, OutputFormat, Quality, RenderAsk, RenderSettings,
+    Bands, FrameRange, LoudnessTarget, OutputFormat, Overlay, Quality, RenderAsk, RenderSettings,
     Resolution, Spelled,
 };
 use serde::{Deserialize, Serialize};
@@ -54,6 +54,15 @@ pub struct Ask {
     /// -40 and -5 (#968, #990); without it the mix is delivered as balanced.
     #[serde(default)]
     pub loudness: Option<f64>,
+    /// A platform id whose feed interface is drawn over every frame, a
+    /// preview of the cut in that feed (#1010). Refused for sound only, and
+    /// for a frame that is not 9:16.
+    #[serde(default)]
+    pub overlay: Option<String>,
+    /// `true` tints what the overlay's interface covers, from the vendor's
+    /// own figures. Needs `overlay`.
+    #[serde(default)]
+    pub safe_zones: Option<bool>,
 }
 
 /// A render's settings with every default filled in.
@@ -93,6 +102,21 @@ pub struct Settings {
     /// before the choice existed keeps its key.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub loudness: Option<f64>,
+    /// The platform whose interface is drawn over the picture, or `None`.
+    /// Left out of the stored form when absent, so every render asked for
+    /// before the choice existed keeps its key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub overlay: Option<String>,
+    /// Whether the overlay's safe zones are tinted: asked for, and published
+    /// by the vendor, so a request that draws the same frames keeps one key.
+    /// Left out of the stored form when they are not, likewise.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub safe_zones: bool,
+}
+
+/// Whether `safe_zones` is the default, and so left out of the key.
+fn is_false(safe_zones: &bool) -> bool {
+    !*safe_zones
 }
 
 /// [`Settings::narration_bands`]' default: every band drawn.
@@ -139,7 +163,15 @@ impl Settings {
     /// in the words the CLI refuses it in, since it is the same constructor.
     pub fn from_ask(ask: &Ask) -> Result<Self, String> {
         let range = ask.range.as_deref().map(frames).transpose()?;
+        let sized = ask.resolution.is_some() || ask.platform.is_some();
         let (ask, format) = checked(ask)?;
+        // Refused here once the size is known, rather than by the job: a size
+        // left out is filled with the project's frame and asked again.
+        if let Some(overlay) = ask.overlay.filter(|_| sized) {
+            overlay
+                .fits(ask.resolution(Ratio::WIDE))
+                .map_err(|e| e.to_string())?;
+        }
         Ok(Self {
             container: format.container().name().to_owned(),
             video_codec: format.video().map(|codec| codec.name().to_owned()),
@@ -154,6 +186,8 @@ impl Settings {
             preview: None,
             narration_bands: ask.bands == Bands::Drawn,
             loudness: ask.loudness.map(LoudnessTarget::lufs),
+            overlay: ask.overlay.map(|overlay| overlay.to_string()),
+            safe_zones: ask.overlay.is_some_and(Overlay::tinted),
         })
     }
 
@@ -220,6 +254,8 @@ impl Settings {
             range: None,
             narration_bands: Some(self.narration_bands),
             loudness: self.loudness,
+            overlay: self.overlay.clone(),
+            safe_zones: Some(self.safe_zones),
         })?;
         ask.settings(format, project).map_err(|e| e.to_string())
     }
@@ -266,6 +302,8 @@ fn checked(ask: &Ask) -> Result<(RenderAsk, OutputFormat), String> {
         fps: ask.fps.as_deref(),
         narration_bands: ask.narration_bands,
         loudness: ask.loudness,
+        overlay: ask.overlay.as_deref(),
+        safe_zones: ask.safe_zones,
         ..Spelled::default()
     })
     .map_err(|e| e.to_string())?;

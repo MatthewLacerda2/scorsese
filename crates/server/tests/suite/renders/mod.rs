@@ -19,6 +19,7 @@ mod full;
 mod job;
 mod loudness;
 mod outrun;
+mod overlaid;
 mod pages;
 mod pieces;
 mod previews;

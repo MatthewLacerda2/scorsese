@@ -15,6 +15,8 @@ use scorsese_core::style::Platform;
 use scorsese_core::{AssetKind, Fps, Ratio};
 use scorsese_providers::synth::{Drum, Span, Starter};
 use scorsese_render::audio::reference::{self, Reference};
+use scorsese_render::contact::{self, Look};
+use scorsese_render::{Overlay, OverlayError};
 
 /// What `new` takes.
 #[derive(Debug, Args)]
@@ -47,6 +49,81 @@ pub(crate) struct NewArgs {
     /// Its prompt is written into the brief.
     #[arg(long)]
     pub(crate) style: Option<String>,
+}
+
+/// What `look` samples, and what it draws over the frames it takes.
+#[derive(Debug, Args)]
+pub(crate) struct LookArgs {
+    /// Where to start, in seconds. A file longer than one sheet is walked
+    /// in successive calls, and each one says where the next starts.
+    #[arg(long)]
+    pub(crate) from: Option<f64>,
+    /// Where to stop, in seconds. Without it the frames are five seconds
+    /// apart; with it they spread evenly across the span you named.
+    #[arg(long)]
+    pub(crate) to: Option<f64>,
+    /// How many frames to take, at most five; five when `--from`, `--to` or
+    /// `--overlay` is given without it.
+    #[arg(long)]
+    pub(crate) frames: Option<usize>,
+    /// Rule each frame with coordinates: a line every 0.1, heavier at 0.5,
+    /// labelled along the top and left edges. The fractions are the
+    /// **source's** own — its whole width and height, not the render
+    /// raster — which is exactly what `crop` is measured in, so a rectangle
+    /// can be read off the footage. Drawn onto the PNG itself.
+    #[arg(long)]
+    pub(crate) grid: bool,
+    /// A feed's interface over each frame, as `render --overlay` draws
+    /// it, to judge a 9:16 file as the platform will show it. The frames
+    /// are then a walk from `--from`, never a glance.
+    #[command(flatten)]
+    pub(crate) overlay: OverlayArgs,
+}
+
+impl LookArgs {
+    /// The walk these flags ask for, or `None` for a glance at the whole
+    /// file: no moment named and nothing to draw over it.
+    pub(crate) fn look(&self) -> anyhow::Result<Option<Look>> {
+        let overlay = self.overlay.overlay()?;
+        let named = self.from.is_some() || self.to.is_some() || self.frames.is_some();
+        Ok((named || overlay.is_some()).then(|| Look {
+            from_seconds: self.from.unwrap_or(0.0),
+            to_seconds: self.to,
+            count: self.frames.unwrap_or(contact::MAX_FRAMES),
+            grid: self.grid,
+            overlay,
+        }))
+    }
+}
+
+/// `--overlay` and `--safe-zones`, which `render` and `look` both take.
+#[derive(Debug, Args)]
+pub(crate) struct OverlayArgs {
+    /// Draw a feed's interface over every frame, to preview the cut as the
+    /// platform will show it: `youtube_shorts`, `instagram_reels`,
+    /// `instagram_reels_ad`, `instagram_stories_ad`, `tiktok` or `tiktok_ad`.
+    /// The controls are an approximation scorsese draws, never the app's own,
+    /// and never part of the project: a file rendered with it is a preview,
+    /// not a delivery. Needs a 9:16 frame.
+    #[arg(long)]
+    pub(crate) overlay: Option<Platform>,
+    /// Tint the parts of the frame `--overlay`'s interface covers, from the
+    /// vendor's own published figures. A placement whose vendor publishes
+    /// none gets no tint, and the command says so.
+    #[arg(long)]
+    pub(crate) safe_zones: bool,
+}
+
+impl OverlayArgs {
+    /// The overlay asked for, refused for a placement with no feed interface
+    /// and for safe zones with none, in the words MCP and the web use.
+    pub(crate) fn overlay(&self) -> anyhow::Result<Option<Overlay>> {
+        match self.overlay {
+            Some(platform) => Ok(Some(Overlay::new(platform, self.safe_zones)?)),
+            None if self.safe_zones => Err(OverlayError::ZonesWithoutOverlay.into()),
+            None => Ok(None),
+        }
+    }
 }
 
 /// The things `sequence` does: bring a folder of frames in as one, or make

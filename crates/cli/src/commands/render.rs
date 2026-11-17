@@ -7,7 +7,7 @@ use scorsese_core::Fps;
 use scorsese_core::style::Platform;
 use scorsese_render::say;
 use scorsese_render::{
-    AudioCodec, Bands, Bitrate, Container, Cue, FrameRange, LoudnessTarget, RenderAsk,
+    AudioCodec, Bands, Bitrate, Container, Cue, FrameRange, LoudnessTarget, Overlay, RenderAsk,
     RenderSettings, Renderer, SampleRate, Sizing, Tools, VideoCodec, Workers, frames,
 };
 
@@ -55,6 +55,8 @@ pub(crate) struct Options {
     pub(crate) bands: Bands,
     /// `None` delivers the mix as balanced; a target brings it there.
     pub(crate) loudness: Option<LoudnessTarget>,
+    /// A feed's interface to draw over every frame. `None` draws none.
+    pub(crate) overlay: Option<Overlay>,
 }
 
 /// What `--no-narration-bands` asks of a narration line not yet generated.
@@ -87,6 +89,7 @@ pub(crate) fn run(project_dir: &Path, out: &Path, options: Options) -> Result<()
         audio_bitrate: options.audio_bitrate,
         bands: options.bands,
         loudness: options.loudness,
+        overlay: options.overlay,
     };
     let format = ask.format_for(out)?;
     ask.check(format)?;

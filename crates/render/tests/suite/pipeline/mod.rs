@@ -25,6 +25,7 @@ mod layout_notes;
 mod lottie;
 mod narration_bands;
 mod output;
+mod overlay;
 mod pages;
 mod partial;
 mod planted;

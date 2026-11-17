@@ -39,6 +39,27 @@ pub(super) fn draw(frame: &mut Frame, symbol: &Symbol) {
     }
 }
 
+/// Draws `icon` in a square of `size` pixels whose top-left corner is `at`,
+/// for a drawing that places its symbols itself rather than by an anchor.
+pub(crate) fn draw_at(
+    frame: &mut Frame,
+    icon: &super::Icon,
+    at: (f32, f32),
+    size: f32,
+    (color, width): (scorsese_core::Rgba, f32),
+) {
+    if !size.is_finite() || size <= 0.0 {
+        return;
+    }
+    let scale = size / VIEWBOX;
+    if let Some(path) = path(icon.stroked, scale, at) {
+        paint::stroke_round(frame, &path, color, width);
+    }
+    if let Some(path) = path(icon.filled, scale, at) {
+        paint::fill(frame, &path, color);
+    }
+}
+
 /// One contour list as a path, scaled out of the 24-unit space and placed.
 ///
 /// `None` for an empty list — most icons fill nothing — and for bytes that do
